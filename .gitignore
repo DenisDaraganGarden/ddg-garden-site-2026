@@ -1,0 +1,7 @@
+node_modules
+.DS_Store
+dist/
+output/
+.playwright-cli/
+progress.md
+CleanShot*.mp4

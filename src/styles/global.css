@@ -1,0 +1,144 @@
+@import url('https://fonts.googleapis.com/css2?family=Caveat:wght@400;600&family=Inter:wght@300;400;500;600&family=Outfit:wght@300;400;500;700&display=swap');
+
+:root {
+  --bg-color: #050505;
+  --text-primary: #ffffff;
+  --text-secondary: #888888;
+  --accent: #d4af37;
+  --mobile-header-height: 132px;
+  --editor-sheet-height: 260px;
+  /* Very subtle gold/premium accent, optional */
+
+  --font-primary: 'Outfit', sans-serif;
+  --font-secondary: 'Inter', sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--bg-color);
+  color: var(--text-primary);
+  font-family: var(--font-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+  overflow-y: scroll;
+  /* Force track to prevent layout jumping */
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+  transition: opacity 0.3s ease;
+}
+
+a:hover {
+  opacity: 0.7;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+main {
+  min-height: 100vh;
+}
+
+.route-loading-fallback {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 0.75rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
+.home-page {
+  position: relative;
+  min-height: 100vh;
+}
+
+.snake-home-page {
+  background:
+    radial-gradient(circle at top, rgba(255, 255, 255, 0.05), transparent 28%),
+    #020202;
+  overflow: clip;
+}
+
+.snake-home-canvas {
+  position: relative;
+  width: 100%;
+  min-height: 100vh;
+}
+
+.snake-home-canvas canvas {
+  display: block;
+  width: 100% !important;
+  height: 100vh !important;
+}
+
+.stub-page {
+  min-height: 100vh;
+  padding: 7.5rem 2rem 2rem;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+}
+
+.stub-page h2 {
+  font-size: clamp(2rem, 4vw, 3rem);
+  font-weight: 300;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* Scrollbar styling for a premium look */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-color);
+}
+
+::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+@media (max-width: 768px) {
+  :root {
+    --mobile-header-height: 118px;
+    --editor-sheet-height: 280px;
+  }
+
+  body {
+    overflow-y: auto;
+  }
+
+  .stub-page {
+    padding: calc(var(--mobile-header-height) + 1rem) 1rem 2rem;
+  }
+
+  .snake-home-canvas {
+    min-height: 100dvh;
+  }
+
+  .snake-home-canvas canvas {
+    height: 100dvh !important;
+  }
+}
