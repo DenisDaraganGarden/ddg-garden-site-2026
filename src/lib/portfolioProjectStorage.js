@@ -33,7 +33,9 @@ function cloneProject(project, index) {
     title: normalizeLocalizedText(project.title, getLocalizedText(fallbackTitle, 'ru')),
     subtitle: normalizeLocalizedText(project.subtitle, ''),
     location: normalizeLocalizedText(project.location, ''),
+    coordinates: project.coordinates ?? { lat: 55.7558, lng: 37.6173 }, // Default to Moscow
     statement: normalizeLocalizedText(project.statement, ''),
+    description: normalizeLocalizedText(project.description, ''),
     coverImage: project.coverImage ?? fallbackCover,
     coverPosition: project.coverPosition ?? '50% 50%',
     coverAlt: normalizeLocalizedText(project.coverAlt, getLocalizedText(fallbackTitle, 'en')),
@@ -95,6 +97,7 @@ export function getLocalizedPortfolioProject(project, language) {
     subtitle: getLocalizedText(project.subtitle, language),
     location: getLocalizedText(project.location, language),
     statement: getLocalizedText(project.statement, language),
+    description: getLocalizedText(project.description, language),
     coverAlt: getLocalizedText(project.coverAlt, language),
     plates: project.plates.map((plate) => ({
       ...plate,

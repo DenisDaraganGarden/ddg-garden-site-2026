@@ -8,9 +8,25 @@ export const PlaneTab = ({ settings, handleSettingChange }) => {
     return (
         <>
             <ColorControl
-                label={t('snakeEditor.controls.planeColor')}
-                value={settings.planeColor}
-                onChange={(e) => handleSettingChange(e, 'planeColor', true)}
+                label={t('snakeEditor.controls.planeAlbedo')}
+                value={settings.planeAlbedo}
+                onChange={(e) => handleSettingChange(e, 'planeAlbedo', true)}
+            />
+            <RangeControl
+                label={t('snakeEditor.controls.planeRoughness')}
+                value={settings.planeRoughness}
+                min={0}
+                max={100}
+                unit="%"
+                onChange={(e) => handleSettingChange(e, 'planeRoughness')}
+            />
+            <RangeControl
+                label={t('snakeEditor.controls.planeMetalness')}
+                value={settings.planeMetalness}
+                min={0}
+                max={100}
+                unit="%"
+                onChange={(e) => handleSettingChange(e, 'planeMetalness')}
             />
             <RangeControl
                 label={t('snakeEditor.controls.planeHeight')}

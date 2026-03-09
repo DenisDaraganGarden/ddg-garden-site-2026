@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { TransformControls } from '@react-three/drei';
+import { TransformControls } from '@react-three/drei/core/TransformControls.js';
 
 const DraggableTransformControls = ({ orbitRef, object, onPositionChange, setIsDragging, ...props }) => {
     const tcRef = useRef();

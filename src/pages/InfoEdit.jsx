@@ -209,11 +209,11 @@ const InfoEdit = () => {
   };
 
   if (!loaded) {
-    return <div className="editor-loading">{t('common.loadingEditor')}</div>;
+    return <div className="editor-loading" data-testid="info-editor-loading">{t('common.loadingEditor')}</div>;
   }
 
   return (
-    <div className="cia-editor-container info-editor-page fade-in">
+    <div className="cia-editor-container info-editor-page fade-in" data-testid="info-editor-page">
       <input
         ref={fileInputRef}
         type="file"
@@ -248,6 +248,7 @@ const InfoEdit = () => {
           <div
             ref={editorRef}
             className="a4-paper info-editor-surface"
+            data-testid="info-editor-surface"
             contentEditable
             suppressContentEditableWarning
             spellCheck={false}

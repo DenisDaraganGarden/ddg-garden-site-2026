@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "node ./node_modules/vite/bin/vite.js",
     "build": "node ./node_modules/vite/bin/vite.js build",
-    "lint": "eslint .",
+    "check:bundle": "node scripts/check-bundle.mjs",
+    "lint": "node ./node_modules/eslint/bin/eslint.js .",
     "preview": "node ./node_modules/vite/bin/vite.js preview",
     "smoke": "node scripts/smoke-test.mjs"
   },
@@ -15,15 +16,23 @@
     "@react-three/drei": "^9.122.0",
     "@react-three/fiber": "^8.18.0",
     "@use-gesture/react": "^10.3.1",
+    "leaflet": "^1.9.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-leaflet": "^4.2.1",
     "react-router-dom": "^6.30.3",
     "react-spring": "^10.0.3",
     "three": "^0.164.1",
     "three-custom-shader-material": "^6.4.0"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.4",
     "@vitejs/plugin-react": "^4.2.1",
+    "eslint": "^9.39.4",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "eslint-plugin-react-refresh": "^0.4.26",
+    "globals": "^15.15.0",
     "playwright": "^1.58.2",
     "vite": "^5.2.0"
   }

@@ -28,6 +28,7 @@ const EditorPanel = ({
                         key={tab.id}
                         className={`cia-tab ${activeTab === tab.id ? 'active' : ''}`}
                         onClick={() => setActiveTab(tab.id)}
+                        data-testid={`snake-tab-${tab.id}`}
                     >
                         {tab.label}
                     </button>
@@ -38,6 +39,7 @@ const EditorPanel = ({
                         className="cia-tab"
                         onClick={onPublish}
                         disabled={publishState?.busy}
+                        data-testid="snake-publish"
                         style={{ marginLeft: 'auto' }}
                     >
                         {publishState?.busy ? t('snakeEditor.publish.publishing') : t('snakeEditor.publish.publish')}

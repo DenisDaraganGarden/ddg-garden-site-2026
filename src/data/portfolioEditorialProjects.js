@@ -8,6 +8,7 @@ export const portfolioEditorialProjects = [
     title: createLocalizedText('Тихая точка фокуса', 'Quiet Point of Focus'),
     subtitle: createLocalizedText('Деловая зона', 'Business garden'),
     location: createLocalizedText('Частный сад', 'Private garden'),
+    coordinates: { lat: 55.7558, lng: 37.6173 },
     statement: createLocalizedText(
       'Чёткая геометрия, вода и тишина как инструмент концентрации.',
       'Clear geometry, water and silence used as instruments of concentration.',
@@ -39,6 +40,7 @@ export const portfolioEditorialProjects = [
     title: createLocalizedText('Южная тишина', 'Southern Silence'),
     subtitle: createLocalizedText('Пространство для отдыха', 'Retreat landscape'),
     location: createLocalizedText('Южный частный сад', 'Southern private garden'),
+    coordinates: { lat: 44.5937, lng: 33.5221 },
     statement: createLocalizedText(
       'Покой воды, тяжёлый воздух и мягкая архитектура отдыха.',
       'Still water, heavy air and a soft architecture of rest.',
@@ -77,6 +79,7 @@ export const portfolioEditorialProjects = [
     title: createLocalizedText('Отражения земли', 'Reflections of Earth'),
     subtitle: createLocalizedText('Коллаборация с KET BURO', 'Collaboration with KET BURO'),
     location: createLocalizedText('Дилижан', 'Dilijan'),
+    coordinates: { lat: 40.7418, lng: 44.8608 },
     statement: createLocalizedText(
       'Камень, рельеф и архитектура сходятся в одном плотном жесте.',
       'Stone, terrain and architecture converge into a single dense gesture.',
@@ -108,6 +111,7 @@ export const portfolioEditorialProjects = [
     title: createLocalizedText('Внутри времени', 'Inside Time'),
     subtitle: createLocalizedText('Коллаборация с Петром Лари', 'Collaboration with Petr Lari'),
     location: createLocalizedText('Авторский объект', 'Authorial object'),
+    coordinates: { lat: 55.8000, lng: 37.5000 },
     statement: createLocalizedText(
       'Историческая форма превращается в тихое место встречи и памяти.',
       'Historic form is turned into a quiet space of meeting and memory.',
@@ -139,6 +143,7 @@ export const portfolioEditorialProjects = [
     title: createLocalizedText('Эхо', 'Echo'),
     subtitle: createLocalizedText('Концепция русского садового парка', 'Russian garden park concept'),
     location: createLocalizedText('Концепт', 'Concept'),
+    coordinates: { lat: 55.7500, lng: 37.6000 },
     statement: createLocalizedText(
       'Память места, яблони и мягкий туман собраны в новую классику.',
       'Memory of place, apple trees and soft fog assembled into a new classic.',

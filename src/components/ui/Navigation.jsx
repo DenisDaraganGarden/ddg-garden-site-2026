@@ -17,9 +17,9 @@ const Navigation = () => {
     const { language, setLanguage, t } = useLanguage();
 
     return (
-        <nav className="main-nav">
+        <nav className="main-nav" data-testid="site-nav">
             <div className="nav-brand">
-                <NavLink to="/">
+                <NavLink to="/" data-testid="brand-link">
                     Denis Daragan
                     <span className="brand-subtitle">{t('navigation.brandSubtitle')}</span>
                 </NavLink>
@@ -31,6 +31,7 @@ const Navigation = () => {
                         <li key={item.key}>
                             <NavLink
                                 to={item.path}
+                                data-testid={`nav-${item.key}`}
                                 className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}
                             >
                                 {t(`navigation.${item.key}`)}
@@ -46,6 +47,7 @@ const Navigation = () => {
                             type="button"
                             className={`language-switch__button ${language === code ? 'is-active' : ''}`}
                             onClick={() => setLanguage(code)}
+                            data-testid={`language-${code}`}
                             aria-label={t('navigation.switchTo', { language: code.toUpperCase() })}
                             aria-pressed={language === code}
                         >

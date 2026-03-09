@@ -1,0 +1,122 @@
+.map-page {
+    position: relative;
+    width: 100%;
+    height: 100vh;
+    background: #fbf9f6;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.map-page__header {
+    position: absolute;
+    top: 6rem;
+    left: 5%;
+    z-index: 1000;
+    pointer-events: none;
+}
+
+.map-page__header h1 {
+    font-size: clamp(2rem, 4vw, 4rem);
+    text-transform: uppercase;
+    letter-spacing: -0.04em;
+    line-height: 0.9;
+    color: #111;
+    margin-top: 0.5rem;
+}
+
+.map-container-wrap {
+    flex-grow: 1;
+    width: 100%;
+    height: 100%;
+    position: relative;
+}
+
+.ddg-leaflet-container {
+    width: 100%;
+    height: 100%;
+    background: #fbf9f6;
+    filter: grayscale(1) contrast(1.1) brightness(1.05);
+    /* Ensure black and white */
+}
+
+/* Custom Marker Styling */
+.ddg-map-marker {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.ddg-map-marker-inner {
+    width: 12px;
+    height: 12px;
+    background: #000;
+    border-radius: 50%;
+    border: 2px solid #fff;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    transition: transform 0.2s ease;
+}
+
+.ddg-map-marker:hover .ddg-map-marker-inner {
+    transform: scale(1.3);
+    background: #333;
+}
+
+/* Popup Styling */
+.ddg-map-popup .leaflet-popup-content-wrapper {
+    background: #fbf9f6;
+    border-radius: 0;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+    padding: 1rem;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.ddg-map-popup .leaflet-popup-tip {
+    background: #fbf9f6;
+}
+
+.ddg-popup-content {
+    min-width: 200px;
+}
+
+.ddg-popup-year {
+    display: block;
+    font-size: 0.75rem;
+    color: rgba(0, 0, 0, 0.5);
+    margin-bottom: 0.25rem;
+}
+
+.ddg-popup-title {
+    font-size: 1.1rem;
+    text-transform: uppercase;
+    letter-spacing: -0.02em;
+    margin: 0 0 0.5rem 0;
+    line-height: 1.1;
+}
+
+.ddg-popup-location {
+    font-size: 0.85rem;
+    color: rgba(0, 0, 0, 0.7);
+    margin-bottom: 1rem;
+}
+
+.ddg-popup-image {
+    width: 100%;
+    height: 120px;
+    object-fit: cover;
+    filter: grayscale(0.5);
+    transition: filter 0.3s ease;
+}
+
+.ddg-popup-image:hover {
+    filter: grayscale(0);
+}
+
+/* Navigation back to Portfolio kicker style */
+.portfolio-kicker {
+    display: block;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: rgba(0, 0, 0, 0.4);
+}

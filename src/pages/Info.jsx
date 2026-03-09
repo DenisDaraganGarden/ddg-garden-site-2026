@@ -40,9 +40,9 @@ const Info = () => {
     };
   }, [language]);
 
-  return (
-    <div className="info-page">
-      <h1 className="info-title">{t('info.title')}</h1>
+    return (
+    <div className="info-page" data-testid="info-page">
+      <h1 className="info-title" data-testid="info-title">{t('info.title')}</h1>
 
       <div className="paper-wrapper info-paper-wrapper">
         <div className="paper-container info-paper-container" style={paperStyleVars(documentState.paperSettings)}>

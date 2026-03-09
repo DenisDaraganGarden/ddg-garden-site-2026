@@ -1,18 +1,20 @@
 import React, { useRef, useEffect } from 'react';
-import { useThree, useFrame } from '@react-three/fiber';
+import { useThree } from '@react-three/fiber';
 
 const CameraController = ({ settings, orbitRef }) => {
     const { camera } = useThree();
     const wasFreeCamera = useRef(settings.freeCamera);
 
-    useFrame(() => {
-        // Update FOV reactively
-        if (camera.fov !== settings.cameraFov) {
-            camera.fov = settings.cameraFov;
-            camera.updateProjectionMatrix();
+    useEffect(() => {
+        if (camera.fov === settings.cameraFov) {
+            return;
         }
 
-        // When freeCamera was just turned OFF, snap back to top-down
+        camera.fov = settings.cameraFov;
+        camera.updateProjectionMatrix();
+    }, [camera, settings.cameraFov]);
+
+    useEffect(() => {
         if (wasFreeCamera.current && !settings.freeCamera) {
             camera.position.set(0, 50, 0.01);
             camera.up.set(0, 1, 0);
@@ -23,8 +25,9 @@ const CameraController = ({ settings, orbitRef }) => {
                 orbitRef.current.update();
             }
         }
+
         wasFreeCamera.current = settings.freeCamera;
-    });
+    }, [camera, orbitRef, settings.freeCamera]);
 
     return null;
 };

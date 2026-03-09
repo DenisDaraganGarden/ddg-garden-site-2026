@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { createDefaultInfoEditorDocument } from '../lib/infoEditorHtml';
 import { loadInfoEditorDocument, saveInfoEditorDocument } from '../lib/infoEditorStorage';
 
 const MAX_HISTORY = 50;
 
 function comparableDocument(documentState) {
-  const { updatedAt, ...rest } = documentState ?? {};
+  const { updatedAt: _updatedAt, ...rest } = documentState ?? {};
   return JSON.stringify(rest);
 }
 

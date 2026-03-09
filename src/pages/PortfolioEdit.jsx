@@ -14,9 +14,13 @@ import {
   updateProjectLocalizedField,
   updateProjectInCollection,
 } from '../lib/portfolioProjectStorage';
+import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import {
   getPortfolioImportStatus,
   importPortfolioFiles,
+  publishPortfolioProjects,
 } from '../lib/portfolioImportClient';
 import '../styles/Portfolio.css';
 
@@ -29,7 +33,27 @@ const PortfolioEdit = () => {
   const [targetDir, setTargetDir] = useState('public/portfolio/imported');
   const [isImportAvailable, setIsImportAvailable] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [publishStatus, setPublishStatus] = useState({ type: 'idle' });
   const fileInputRef = useRef(null);
+  const didInitSaveRef = useRef(false);
+
+  // Custom marker icon for editor
+  const EditorMarkerIcon = useMemo(() => L.divIcon({
+    className: 'ddg-map-marker is-editor',
+    html: '<div class="ddg-map-marker-inner"></div>',
+    iconSize: [20, 20],
+    iconAnchor: [10, 10],
+  }), []);
+
+  const LocationPickerEvents = ({ onLocationSelect }) => {
+    useMapEvents({
+      click(e) {
+        onLocationSelect(e.latlng);
+      },
+    });
+    return null;
+  };
 
   const selectedProject = useMemo(
     () => projects.find((project) => project.id === selectedProjectId) ?? projects[0] ?? null,
@@ -60,7 +84,8 @@ const PortfolioEdit = () => {
   }, []);
 
   useEffect(() => {
-    if (saveStatus === 'loading') {
+    if (!didInitSaveRef.current) {
+      didInitSaveRef.current = true;
       return undefined;
     }
 
@@ -128,6 +153,28 @@ const PortfolioEdit = () => {
     await handleImportedFiles(event.target.files);
   };
 
+  const handlePublish = async () => {
+    if (!window.confirm(t('portfolio.editor.publishConfirm'))) {
+      return;
+    }
+
+    setIsPublishing(true);
+    setPublishStatus({ type: 'publishing' });
+
+    try {
+      await publishPortfolioProjects(projects);
+      setPublishStatus({ type: 'success' });
+      setTimeout(() => setPublishStatus({ type: 'idle' }), 5000);
+    } catch (error) {
+      setPublishStatus({
+        type: 'error',
+        message: error instanceof Error ? error.message : 'Publish failed',
+      });
+    } finally {
+      setIsPublishing(false);
+    }
+  };
+
   const handleDrop = async (event) => {
     event.preventDefault();
 
@@ -168,7 +215,7 @@ const PortfolioEdit = () => {
   })();
 
   return (
-    <div className="portfolio-edit-page">
+    <div className="portfolio-edit-page" data-testid="portfolio-edit-page">
       <div className="portfolio-page__noise" />
 
       <section className="portfolio-edit-shell">
@@ -188,6 +235,7 @@ const PortfolioEdit = () => {
                 key={project.id}
                 type="button"
                 className={`portfolio-project-tab ${project.id === selectedProject?.id ? 'is-active' : ''}`}
+                data-testid={`portfolio-edit-tab-${project.id}`}
                 onClick={() => setSelectedProjectId(project.id)}
               >
                 {getLocalizedPortfolioProject(project, language).title}
@@ -236,11 +284,67 @@ const PortfolioEdit = () => {
               <label className="portfolio-field">
                 <span>{t('common.statement')}</span>
                 <textarea
-                  rows="4"
+                  rows="2"
                   value={localizedSelectedProject.statement}
                   onChange={(event) => updateLocalizedField('statement', event.target.value)}
                 />
               </label>
+
+              <label className="portfolio-field">
+                <span>{t('common.description')}</span>
+                <textarea
+                  rows="8"
+                  value={localizedSelectedProject.description}
+                  onChange={(event) => updateLocalizedField('description', event.target.value)}
+                />
+              </label>
+
+              <div className="portfolio-field">
+                <span>{t('portfolio.editor.locationPickerTitle')}</span>
+                <div className="portfolio-location-editor">
+                  <div className="portfolio-location-map">
+                    <MapContainer
+                      center={[selectedProject.coordinates.lat, selectedProject.coordinates.lng]}
+                      zoom={13}
+                      scrollWheelZoom={false}
+                      style={{ height: '200px', width: '100%' }}
+                      className="ddg-leaflet-container is-picker"
+                    >
+                      <TileLayer
+                        url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+                      />
+                      <Marker
+                        position={[selectedProject.coordinates.lat, selectedProject.coordinates.lng]}
+                        icon={EditorMarkerIcon}
+                      />
+                      <LocationPickerEvents
+                        onLocationSelect={(latlng) => updateField('coordinates', { lat: latlng.lat, lng: latlng.lng })}
+                      />
+                    </MapContainer>
+                    <p className="portfolio-location-hint">{t('portfolio.editor.locationPickerHint')}</p>
+                  </div>
+                  <div className="portfolio-location-inputs">
+                    <label className="portfolio-coordinate-field">
+                      <span>{t('portfolio.editor.lat')}</span>
+                      <input
+                        type="number"
+                        step="0.0001"
+                        value={selectedProject.coordinates.lat}
+                        onChange={(e) => updateField('coordinates', { ...selectedProject.coordinates, lat: parseFloat(e.target.value) })}
+                      />
+                    </label>
+                    <label className="portfolio-coordinate-field">
+                      <span>{t('portfolio.editor.lng')}</span>
+                      <input
+                        type="number"
+                        step="0.0001"
+                        value={selectedProject.coordinates.lng}
+                        onChange={(e) => updateField('coordinates', { ...selectedProject.coordinates, lng: parseFloat(e.target.value) })}
+                      />
+                    </label>
+                  </div>
+                </div>
+              </div>
 
               <div className="portfolio-field">
                 <span>{t('portfolio.editor.importTitle')}</span>
@@ -325,6 +429,14 @@ const PortfolioEdit = () => {
           ) : null}
 
           <div className="portfolio-edit-actions">
+            <button
+              type="button"
+              className="portfolio-publish-button"
+              onClick={handlePublish}
+              disabled={isPublishing}
+            >
+              {isPublishing ? t('portfolio.editor.publishing') : t('portfolio.editor.publishAction')}
+            </button>
             <button type="button" onClick={() => setProjects(getDefaultPortfolioProjects())}>
               {t('portfolio.editor.resetDraft')}
             </button>
@@ -332,6 +444,13 @@ const PortfolioEdit = () => {
               {t('portfolio.editor.openPublic')}
             </Link>
           </div>
+
+          {publishStatus.type !== 'idle' && (
+            <div className={`portfolio-publish-feedback is-${publishStatus.type}`}>
+              {publishStatus.type === 'success' ? t('portfolio.editor.publishSuccess') : null}
+              {publishStatus.type === 'error' ? t('portfolio.editor.publishError', { message: publishStatus.message }) : null}
+            </div>
+          )}
         </aside>
 
         <section className="portfolio-edit-preview">

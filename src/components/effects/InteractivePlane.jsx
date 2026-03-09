@@ -1,4 +1,4 @@
-import React, { useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import CustomShaderMaterial from 'three-custom-shader-material';
@@ -45,7 +45,10 @@ export default function InteractivePlane({
 }) {
     const materialRef = useRef();
     const { camera, size, viewport } = useThree();
-    const trailUniforms = useMemo(() => buildTrailFieldUniforms(TRAIL_FIELD_MAX_POINTS), []);
+    const materialUniforms = useMemo(() => ({
+        ...buildTrailFieldUniforms(TRAIL_FIELD_MAX_POINTS),
+        uPlaneAlbedo: { value: new THREE.Color('#dddddd') },
+    }), []);
 
     const trailConfig = getTrailFieldConfig(settings);
     const planeTarget = useMemo(
@@ -133,9 +136,33 @@ export default function InteractivePlane({
             csm_Normal = normalize(vec3(-dx, -dz, e));
         }
     `, []);
+    const fragmentShader = useMemo(() => `
+        uniform vec3 uPlaneAlbedo;
 
-    useFrame(() => {
-        if (!materialRef.current?.uniforms) {
+        void main() {
+            csm_DiffuseColor = vec4(uPlaneAlbedo, 1.0);
+        }
+    `, []);
+
+    useEffect(() => {
+        if (!materialRef.current?.uniforms?.uPlaneAlbedo) {
+            return;
+        }
+
+        materialRef.current.uniforms.uPlaneAlbedo.value.set(
+            settings?.planeAlbedo ?? settings?.planeColor ?? '#dddddd'
+        );
+        materialRef.current.roughness = clamp((settings?.planeRoughness ?? 96) / 100, 0, 1);
+        materialRef.current.metalness = clamp((settings?.planeMetalness ?? 4) / 100, 0, 1);
+    }, [
+        settings?.planeAlbedo,
+        settings?.planeColor,
+        settings?.planeMetalness,
+        settings?.planeRoughness,
+    ]);
+
+    useEffect(() => {
+        if (!materialRef.current) {
             return;
         }
 
@@ -144,17 +171,6 @@ export default function InteractivePlane({
             x: meshDensityX,
             y: meshDensityY,
         };
-
-        syncTrailFieldUniforms(
-            materialRef.current.uniforms,
-            trailConfig,
-            trailBufferRef?.current,
-            performance.now() / 1000
-        );
-
-        if (materialRef.current.color) {
-            materialRef.current.color.set(settings?.planeColor || '#dddddd');
-        }
 
         writePlaneDebugState(materialRef, {
             planeMeshDensityX: meshDensityX,
@@ -165,6 +181,28 @@ export default function InteractivePlane({
             planeViewportWidth: viewportAtPlane.width,
             planeViewportHeight: viewportAtPlane.height,
         });
+    }, [
+        densityBase,
+        densityControl,
+        meshDensityX,
+        meshDensityY,
+        planeWorldDepth,
+        planeWorldWidth,
+        viewportAtPlane.height,
+        viewportAtPlane.width,
+    ]);
+
+    useFrame(() => {
+        if (!materialRef.current?.uniforms) {
+            return;
+        }
+
+        syncTrailFieldUniforms(
+            materialRef.current.uniforms,
+            trailConfig,
+            trailBufferRef?.current,
+            performance.now() / 1000
+        );
     });
 
     return (
@@ -182,16 +220,22 @@ export default function InteractivePlane({
             >
                 <planeGeometry args={[planeWorldWidth, planeWorldDepth, 1, 1]} />
             </mesh>
-            <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow onClick={() => onSelect && onSelect()}>
+            <mesh
+                name="plane"
+                rotation={[-Math.PI / 2, 0, 0]}
+                receiveShadow
+                onClick={() => onSelect && onSelect()}
+            >
                 <planeGeometry args={[planeWorldWidth, planeWorldDepth, meshDensityX, meshDensityY]} />
                 <CustomShaderMaterial
                     ref={materialRef}
                     baseMaterial={THREE.MeshStandardMaterial}
-                    color={new THREE.Color('#dddddd')}
-                    roughness={1.0}
-                    metalness={0.0}
+                    color={new THREE.Color('#ffffff')}
+                    roughness={0.96}
+                    metalness={0.04}
                     vertexShader={vertexShader}
-                    uniforms={trailUniforms}
+                    fragmentShader={fragmentShader}
+                    uniforms={materialUniforms}
                 />
             </mesh>
         </group>

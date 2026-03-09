@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { useSnakeSettings } from './useSnakeSettings';
+import { useSnakeDraftSettings } from './useSnakeSettings';
 
 export const useSnakeEditor = () => {
-    const { settings, setSettings } = useSnakeSettings();
+    const { settings, setSettings } = useSnakeDraftSettings();
 
     const [selectedId, setSelectedId] = useState(null);
     const [activeTab, setActiveTab] = useState('plane');

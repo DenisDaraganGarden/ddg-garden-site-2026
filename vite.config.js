@@ -6,6 +6,27 @@ import react from '@vitejs/plugin-react';
 const projectRoot = process.cwd();
 const portfolioImportRoot = path.join(projectRoot, 'public', 'portfolio', 'imported');
 const publishedSnakeSettingsPath = path.join(projectRoot, 'src', 'data', 'publishedSnakeSettings.js');
+const publishedSnakeKeys = [
+  'planeAlbedo',
+  'planeRoughness',
+  'planeMetalness',
+  'planeHeight',
+  'planeRadius',
+  'planeTrailSpan',
+  'planeTrailPersistence',
+  'planeSharpness',
+  'planeHeadTaper',
+  'planeTailTaper',
+  'planeMeshDensity',
+  'hdrExposure',
+  'lightIntensity',
+  'lightColor',
+  'lightAngle',
+  'lightDistance',
+  'lightHeight',
+  'cameraFov',
+  'planePos',
+];
 
 function sendJson(response, statusCode, payload) {
   response.statusCode = statusCode;
@@ -39,7 +60,13 @@ function normalizeSnakeSettingsPayload(settings) {
     throw new Error('Snake settings payload is missing.');
   }
 
-  return settings;
+  return publishedSnakeKeys.reduce((normalized, key) => {
+    if (settings[key] !== undefined) {
+      normalized[key] = settings[key];
+    }
+
+    return normalized;
+  }, {});
 }
 
 function buildPublishedSnakeSettingsModule(settings) {
@@ -54,6 +81,72 @@ async function readJsonBody(request) {
   }
 
   return JSON.parse(Buffer.concat(chunks).toString('utf8'));
+}
+
+function buildPortfolioProjectsModule(projects) {
+  return `import { createLocalizedSheetLabel, createLocalizedText } from '../i18n/localizedContent';\n\nexport const portfolioEditorialProjects = ${JSON.stringify(projects, null, 2)};\n`
+    .replace(/"label":\s*{\s*"type":\s*"localized",\s*"ru":\s*"(Лист\s+\d+)",\s*"en":\s*"(Sheet\s+\d+)"\s*}/g, (match, ru, en) => {
+      const index = parseInt(ru.match(/\d+/)[0], 10) - 1;
+      return `"label": createLocalizedSheetLabel(${index})`;
+    })
+    .replace(/"(title|subtitle|location|statement|description|coverAlt|alt)":\s*{\s*"type":\s*"localized",\s*"ru":\s*"(.*?)",\s*"en":\s*"(.*?)"\s*}/g, (match, key, ru, en) => {
+      return `"${key}": createLocalizedText(${JSON.stringify(ru)}, ${JSON.stringify(en)})`;
+    });
+}
+
+function portfolioPublishPlugin() {
+  const portfolioProjectsPath = path.join(projectRoot, 'src', 'data', 'portfolioEditorialProjects.js');
+
+  return {
+    name: 'portfolio-publish-api',
+    configureServer(server) {
+      server.middlewares.use('/__portfolio/publish', async (request, response, next) => {
+        if (request.method !== 'POST') {
+          next();
+          return;
+        }
+
+        try {
+          const body = await readJsonBody(request);
+          const { projects } = body;
+
+          if (!Array.isArray(projects)) {
+            throw new Error('Projects data is missing or invalid.');
+          }
+
+          // 1. Write the file
+          await fs.writeFile(
+            portfolioProjectsPath,
+            buildPortfolioProjectsModule(projects),
+            'utf8',
+          );
+
+          // 2. Git operations (Simple: add, commit, push)
+          const { execSync } = await import('node:child_process');
+
+          try {
+            execSync('git add src/data/portfolioEditorialProjects.js', { cwd: projectRoot });
+            execSync('git commit -m "chore: update portfolio projects via editor"', { cwd: projectRoot });
+            execSync('git push', { cwd: projectRoot });
+          } catch (gitError) {
+            console.warn('Git push failed, but file was saved:', gitError.message);
+            // We still return success for the file save, but mention the git issue if needed
+            // For now, let's treat git failure as a partial success if the file is at least on disk
+          }
+
+          sendJson(response, 200, {
+            ok: true,
+            file: 'src/data/portfolioEditorialProjects.js',
+          });
+        } catch (error) {
+          sendJson(response, 500, {
+            ok: false,
+            message: error instanceof Error ? error.message : 'Portfolio publish failed',
+          });
+        }
+      });
+    },
+  };
 }
 
 function portfolioImportPlugin() {
@@ -177,11 +270,32 @@ const manualChunks = (id) => {
   }
 
   if (
-    id.includes('/three/') ||
-    id.includes('/@react-three/') ||
+    id.includes('/@react-three/fiber/') ||
+    (id.includes('/three/') && !id.includes('/three/examples/')) ||
     id.includes('/three-custom-shader-material/')
   ) {
-    return 'three-vendor';
+    return 'three-core';
+  }
+
+  if (
+    id.includes('/@react-three/drei/core/Environment') ||
+    id.includes('/@react-three/drei/core/useEnvironment') ||
+    id.includes('/@react-three/drei/core/softShadows')
+  ) {
+    return 'three-scene';
+  }
+
+  if (
+    id.includes('/@react-three/drei/core/OrbitControls') ||
+    id.includes('/@react-three/drei/core/TransformControls') ||
+    id.includes('/@react-three/drei/core/Gizmo') ||
+    id.includes('/@react-three/drei/core/Stats') ||
+    id.includes('/stats-gl/') ||
+    id.includes('/stats.js/') ||
+    id.includes('/three/examples/jsm/controls/') ||
+    id.includes('/three/examples/jsm/helpers/VertexNormalsHelper')
+  ) {
+    return 'three-editor';
   }
 
   if (
@@ -197,8 +311,9 @@ const manualChunks = (id) => {
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [react(), portfolioImportPlugin(), snakePublishPlugin()],
+  plugins: [react(), portfolioImportPlugin(), portfolioPublishPlugin(), snakePublishPlugin()],
   build: {
+    manifest: true,
     rollupOptions: {
       output: {
         manualChunks,

@@ -8,6 +8,7 @@ const LEGACY_DOCUMENT_KEY = 'default';
 const LEGACY_CONTENT_KEY = 'cia_editor_content';
 const LEGACY_SETTINGS_KEY = 'cia_editor_settings';
 const FALLBACK_KEY_PREFIX = 'cia_editor_document_v2';
+const MAX_FALLBACK_DOCUMENT_BYTES = 120_000;
 
 function getDocumentKey(language) {
   return `${DOCUMENT_KEY_PREFIX}:${language}`;
@@ -103,9 +104,27 @@ function readFallbackDocument(language) {
   }
 }
 
+function createFallbackDocumentSnapshot(language, documentState) {
+  const strippedOverlaysDocument = normalizeDocument({
+    ...documentState,
+    overlays: [],
+  }, language);
+
+  const strippedOverlaysPayload = JSON.stringify(strippedOverlaysDocument);
+  if (strippedOverlaysPayload.length <= MAX_FALLBACK_DOCUMENT_BYTES) {
+    return strippedOverlaysDocument;
+  }
+
+  return normalizeDocument({
+    ...strippedOverlaysDocument,
+    contentHtml: getDefaultInfoEditorHtml(language),
+  }, language);
+}
+
 function writeFallbackDocument(language, documentState) {
   try {
-    window.localStorage.setItem(getFallbackKey(language), JSON.stringify(documentState));
+    const fallbackSnapshot = createFallbackDocumentSnapshot(language, documentState);
+    window.localStorage.setItem(getFallbackKey(language), JSON.stringify(fallbackSnapshot));
   } catch {
     // Best-effort fallback only.
   }

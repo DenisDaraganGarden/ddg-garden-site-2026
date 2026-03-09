@@ -58,3 +58,20 @@ export async function importPortfolioFiles(projectId, fileList) {
   const data = await response.json();
   return Array.isArray(data.files) ? data.files : [];
 }
+
+export async function publishPortfolioProjects(projects) {
+  const response = await fetch('/__portfolio/publish', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ projects }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || `Publish failed with status ${response.status}`);
+  }
+
+  return await response.json();
+}

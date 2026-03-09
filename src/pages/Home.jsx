@@ -1,18 +1,24 @@
 import React from 'react';
-import { Canvas } from '@react-three/fiber';
+import SceneCanvas from '../components/effects/SceneCanvas';
 import SnakeScene from '../components/effects/SnakeScene';
-import { useSnakeSettings } from '../hooks/useSnakeSettings';
+import { usePublishedSnakeSettings } from '../hooks/useSnakeSettings';
 
 const Home = () => {
-    const { settings } = useSnakeSettings();
+    const { settings } = usePublishedSnakeSettings();
 
     return (
         <div className="home-page snake-home-page">
-            <div className="snake-home-canvas">
-                <Canvas shadows camera={{ fov: settings.cameraFov, position: [0, 50, 0.01], up: [0, 1, 0] }}>
+            <SceneCanvas
+                sceneId="home"
+                mode="public"
+                className="snake-home-canvas"
+                testId="home-scene"
+                fallbackTestId="home-scene-fallback"
+                settings={settings}
+                camera={{ fov: settings.cameraFov, position: [0, 50, 0.01], up: [0, 1, 0] }}
+            >
                     <SnakeScene settings={{ ...settings, freeCamera: false }} />
-                </Canvas>
-            </div>
+            </SceneCanvas>
         </div>
     );
 };

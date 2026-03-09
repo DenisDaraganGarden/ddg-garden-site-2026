@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
@@ -39,7 +39,7 @@ const DraggablePngOverlay = ({ overlay, editable, selected = false, onSelect, on
     aspectRatio,
   }), [aspectRatio, overlay.opacity, overlay.widthPct, overlay.xPct, overlay.yPct]);
 
-  const startPointerSession = (event, mode) => {
+  const startPointerSession = useCallback((event, mode) => {
     if (!editable || !overlayRef.current?.parentElement) {
       return;
     }
@@ -98,7 +98,7 @@ const DraggablePngOverlay = ({ overlay, editable, selected = false, onSelect, on
     window.addEventListener('mouseup', handlePointerUp);
     window.addEventListener('touchmove', handlePointerMove, { passive: false });
     window.addEventListener('touchend', handlePointerUp);
-  };
+  }, [aspectRatio, editable, onUpdate, overlay.widthPct, overlay.xPct, overlay.yPct]);
 
   useEffect(() => {
     if (!editable || !dragHandleRef.current || !resizeHandleRef.current) {
@@ -121,7 +121,7 @@ const DraggablePngOverlay = ({ overlay, editable, selected = false, onSelect, on
       resizeHandle.removeEventListener('mousedown', startResize);
       resizeHandle.removeEventListener('touchstart', startResize);
     };
-  }, [aspectRatio, editable, onUpdate, overlay.widthPct, overlay.xPct, overlay.yPct]);
+  }, [editable, startPointerSession]);
 
   return (
     <div
