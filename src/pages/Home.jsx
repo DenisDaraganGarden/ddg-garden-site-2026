@@ -1,10 +1,10 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Canvas } from '@react-three/fiber';
 import SnakeScene from '../components/effects/SnakeScene';
-import { useSnakeSettings } from '../hooks/useSnakeSettings';
+import { getDefaultSnakeSettings } from '../hooks/useSnakeSettings';
 
 const Home = () => {
-    const { settings } = useSnakeSettings();
+    const settings = useMemo(() => getDefaultSnakeSettings(), []);
 
     return (
         <div className="home-page snake-home-page">
