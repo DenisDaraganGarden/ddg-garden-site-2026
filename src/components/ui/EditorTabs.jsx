@@ -80,43 +80,6 @@ export const PlaneTab = ({ settings, handleSettingChange }) => {
     );
 };
 
-export const GeometryTab = ({ settings, handleSettingChange }) => {
-    const { t } = useLanguage();
-
-    return (
-        <>
-            <RangeControl label={t('snakeEditor.controls.length')} value={settings.length} min={10} max={200} unit="м" onChange={(e) => handleSettingChange(e, 'length')} />
-            <RangeControl label={t('snakeEditor.controls.curl')} value={settings.curl} min={0} max={100} unit="%" onChange={(e) => handleSettingChange(e, 'curl')} />
-            <RangeControl label={t('snakeEditor.controls.tailFactor')} value={settings.tailFactor} min={0} max={200} unit="%" onChange={(e) => handleSettingChange(e, 'tailFactor')} />
-            <RangeControl label={t('snakeEditor.controls.bodyFactor')} value={settings.bodyFactor} min={0} max={200} unit="%" onChange={(e) => handleSettingChange(e, 'bodyFactor')} />
-            <RangeControl label={t('snakeEditor.controls.neckFactor')} value={settings.neckFactor} min={0} max={200} unit="%" onChange={(e) => handleSettingChange(e, 'neckFactor')} />
-            <RangeControl label={t('snakeEditor.controls.headFactor')} value={settings.headFactor} min={0} max={200} unit="%" onChange={(e) => handleSettingChange(e, 'headFactor')} />
-            <RangeControl label={t('snakeEditor.controls.noseFactor')} value={settings.noseFactor} min={0} max={200} unit="%" onChange={(e) => handleSettingChange(e, 'noseFactor')} />
-            <RangeControl label={t('snakeEditor.controls.eyeDimple')} value={settings.eyeDimple} min={0} max={100} unit="%" onChange={(e) => handleSettingChange(e, 'eyeDimple')} />
-            <RangeControl label={t('snakeEditor.controls.cheekbone')} value={settings.cheekbone} min={0} max={100} unit="%" onChange={(e) => handleSettingChange(e, 'cheekbone')} />
-            <RangeControl label={t('snakeEditor.controls.jaw')} value={settings.jaw} min={0} max={100} unit="%" onChange={(e) => handleSettingChange(e, 'jaw')} />
-            <RangeControl label={t('snakeEditor.controls.crown')} value={settings.crown} min={0} max={100} unit="%" onChange={(e) => handleSettingChange(e, 'crown')} />
-            <RangeControl label={t('snakeEditor.controls.tongueSpeed')} value={settings.tongueSpeed} min={10} max={200} unit="%" onChange={(e) => handleSettingChange(e, 'tongueSpeed')} />
-            <RangeControl label={t('snakeEditor.controls.tongueAmplitude')} value={settings.tongueAmplitude} min={10} max={200} unit="%" onChange={(e) => handleSettingChange(e, 'tongueAmplitude')} />
-            <RangeControl label={t('snakeEditor.controls.tongueLength')} value={settings.tongueLength} min={10} max={200} unit="%" onChange={(e) => handleSettingChange(e, 'tongueLength')} />
-        </>
-    );
-};
-
-export const ShaderTab = ({ settings, handleSettingChange }) => {
-    const { t } = useLanguage();
-
-    return (
-        <>
-            <ColorControl label={t('snakeEditor.controls.baseColor')} value={settings.baseColor} onChange={(e) => handleSettingChange(e, 'baseColor', true)} />
-            <ColorControl label={t('snakeEditor.controls.bellyColor')} value={settings.bellyColor} onChange={(e) => handleSettingChange(e, 'bellyColor', true)} />
-            <RangeControl label={t('snakeEditor.controls.scaleDensity')} value={settings.scaleDensity} min={10} max={200} onChange={(e) => handleSettingChange(e, 'scaleDensity')} />
-            <RangeControl label={t('snakeEditor.controls.roughness')} value={settings.roughness} min={0} max={100} unit="%" onChange={(e) => handleSettingChange(e, 'roughness')} />
-            <RangeControl label={t('snakeEditor.controls.metalness')} value={settings.metalness} min={0} max={100} unit="%" onChange={(e) => handleSettingChange(e, 'metalness')} />
-        </>
-    );
-};
-
 export const LightingTab = ({ settings, handleSettingChange }) => {
     const { t } = useLanguage();
 

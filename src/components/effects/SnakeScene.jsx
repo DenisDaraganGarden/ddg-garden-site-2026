@@ -3,7 +3,6 @@ import { OrbitControls, Environment, GizmoHelper, GizmoViewport, SoftShadows, St
 import CameraController from './CameraController';
 import NormalsHelper from './NormalsHelper';
 import InteractivePlane from './InteractivePlane';
-import ProceduralSnake from './ProceduralSnake';
 import DraggableTransformControls from './DraggableTransformControls';
 import { usePointerTrail } from '../../hooks/usePointerTrail';
 import { getTrailFieldConfig } from './shaders/trailFieldShader';
@@ -18,10 +17,8 @@ const SnakeScene = ({
     handleTransformUpdate,
 }) => {
     const orbitRef = useRef();
-    const snakeWrapperRef = useRef();
     const planeWrapperRef = useRef();
 
-    const snakeInitialized = useRef(false);
     const planeInitialized = useRef(false);
     const trailConfig = getTrailFieldConfig(settings);
     const { handlePointerMove, trailBufferRef } = usePointerTrail({
@@ -33,11 +30,6 @@ const SnakeScene = ({
 
     useEffect(() => {
         const tryInit = () => {
-            if (!snakeInitialized.current && snakeWrapperRef.current && settings.snakePos) {
-                snakeWrapperRef.current.position.set(settings.snakePos.x, settings.snakePos.y, settings.snakePos.z);
-                snakeInitialized.current = true;
-            }
-
             if (!planeInitialized.current && planeWrapperRef.current && settings.planePos) {
                 planeWrapperRef.current.position.set(settings.planePos.x, settings.planePos.y, settings.planePos.z);
                 planeInitialized.current = true;
@@ -47,7 +39,7 @@ const SnakeScene = ({
         tryInit();
         const timer = setTimeout(tryInit, 100);
         return () => clearTimeout(timer);
-    }, [settings.planePos, settings.snakePos]);
+    }, [settings.planePos]);
 
     const lAngleRad = (settings.lightAngle * Math.PI) / 180;
     const lRadius = settings.lightDistance / 10.0;
@@ -129,23 +121,6 @@ const SnakeScene = ({
                     trailBufferRef={trailBufferRef}
                 />
             </group>
-
-            <group ref={snakeWrapperRef} name="snake-wrapper">
-                <ProceduralSnake
-                    settings={settings}
-                    onSelect={editable ? () => setSelectedId?.('snake') : undefined}
-                    trailBufferRef={trailBufferRef}
-                />
-            </group>
-
-            {editable && selectedId === 'snake' && snakeWrapperRef.current ? (
-                <DraggableTransformControls
-                    orbitRef={orbitRef}
-                    object={snakeWrapperRef.current}
-                    onPositionChange={(pos) => handleTransformUpdate?.('snake', pos)}
-                    setIsDragging={setIsDragging}
-                />
-            ) : null}
 
             {editable && selectedId === 'plane' && planeWrapperRef.current ? (
                 <DraggableTransformControls
