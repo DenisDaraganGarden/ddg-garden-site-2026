@@ -54,7 +54,7 @@ const SnakeTongue = ({ curve, settings }) => {
         <group position={tipPos.toArray()} quaternion={quaternion}>
             <group ref={tongueGroupRef} position={[0, mouthOffset, 0]}>
                 <mesh material={tongueMaterial} position={[0, baseLen * 0.5, 0]}>
-                    <cylinderGeometry args={[0.012, 0.018, baseLen, 8]} />
+                    <cylinderGeometry args={[0.008, 0.014, baseLen, 8]} />
                 </mesh>
                 <group
                     ref={leftForkRef}
@@ -65,7 +65,7 @@ const SnakeTongue = ({ curve, settings }) => {
                         material={tongueMaterial}
                         position={[0, forkLen * 0.5, 0]}
                     >
-                        <cylinderGeometry args={[0.006, 0.0012, forkLen, 6]} />
+                        <cylinderGeometry args={[0.001, 0.006, forkLen, 6]} />
                     </mesh>
                 </group>
                 <group
@@ -77,7 +77,7 @@ const SnakeTongue = ({ curve, settings }) => {
                         material={tongueMaterial}
                         position={[0, forkLen * 0.5, 0]}
                     >
-                        <cylinderGeometry args={[0.006, 0.0012, forkLen, 6]} />
+                        <cylinderGeometry args={[0.001, 0.006, forkLen, 6]} />
                     </mesh>
                 </group>
             </group>

@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Redirecting...</title>
+    <script>
+      (function redirectGitHubPagesRoute(location) {
+        const path = location.pathname.replace(/^\/+/, '');
+        const query = location.search ? `&${location.search.slice(1).replace(/&/g, '~and~')}` : '';
+        const hash = location.hash || '';
+        const encodedPath = path.replace(/&/g, '~and~');
+        const target = `${location.origin}/?/${encodedPath}${query}${hash}`;
+
+        location.replace(target);
+      }(window.location));
+    </script>
+  </head>
+  <body></body>
+</html>

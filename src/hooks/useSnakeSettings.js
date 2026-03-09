@@ -1,24 +1,25 @@
 import { useEffect, useState } from 'react';
 
-export const SNAKE_SETTINGS_STORAGE_KEY = 'ddg_snake_settings_v3';
+export const SNAKE_SETTINGS_STORAGE_KEY = 'ddg_snake_settings_v4';
+const LEGACY_SNAKE_SETTINGS_STORAGE_KEY = 'ddg_snake_settings_v3';
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 
 export const getDefaultSnakeSettings = () => ({
-    length: 48,
-    curl: 18,
+    length: 40,
+    curl: 100, // 100% curl makes a perfect circle
     scaleDensity: 70,
     roughness: 85,
     metalness: 10,
-    tailFactor: 16,
-    bodyFactor: 92,
-    neckFactor: 26,
-    headFactor: 58,
-    noseFactor: 38,
-    eyeDimple: 18,
-    cheekbone: 22,
-    jaw: 32,
-    crown: 18,
+    tailFactor: 50,
+    bodyFactor: 50,
+    neckFactor: 50,
+    headFactor: 60,
+    noseFactor: 40,
+    eyeDimple: 30,
+    cheekbone: 50,
+    jaw: 40,
+    crown: 30,
     planeColor: '#dddddd',
     planeHeight: 200,
     planeRadius: 350,
@@ -79,7 +80,8 @@ const normalizeSnakeSettings = (savedSettings = {}) => {
 
 export const useSnakeSettings = () => {
     const [settings, setSettings] = useState(() => {
-        const saved = localStorage.getItem(SNAKE_SETTINGS_STORAGE_KEY);
+        const saved = localStorage.getItem(SNAKE_SETTINGS_STORAGE_KEY)
+            ?? localStorage.getItem(LEGACY_SNAKE_SETTINGS_STORAGE_KEY);
 
         if (saved) {
             try {
@@ -95,6 +97,7 @@ export const useSnakeSettings = () => {
 
     useEffect(() => {
         localStorage.setItem(SNAKE_SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+        localStorage.removeItem(LEGACY_SNAKE_SETTINGS_STORAGE_KEY);
     }, [settings]);
 
     return {

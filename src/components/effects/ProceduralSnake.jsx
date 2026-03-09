@@ -124,70 +124,101 @@ const ProceduralSnake = ({ settings, onSelect, trailBufferRef }) => {
         }
 
         float getBodyRadius(float t) {
-            float tailSeed = mix(0.005, 0.018, clamp(uTail * 0.45, 0.0, 1.0));
-            float tailBuild = mix(tailSeed, 0.032 + (uTail * 0.08), smoothstep(0.0, 0.12, t));
-            float trunk = mix(tailBuild, 0.055 + (uBody * 0.18), smoothstep(0.12, 0.34, t));
-            float trunkTaper = mix(1.0, 0.86, smoothstep(0.56, 0.76, t));
-            float neckPinch = 1.0 - (smoothstep(0.72, 0.88, t) * mix(0.14, 0.5, clamp(uNeck, 0.0, 1.0)));
-            float headMass = gaussian(t, 0.905, 0.075) * (0.028 + (uHead * 0.12));
-            float snoutMass = smoothstep(0.88, 0.965, t) * (0.01 + (uNose * 0.05));
-            float bluntFront = 1.0 - (smoothstep(0.985, 1.0, t) * 0.1);
-            float tipFloor = mix(0.0, 0.014 + (uNose * 0.028), smoothstep(0.93, 0.998, t));
-            float radius = (trunk * trunkTaper * neckPinch) + headMass + snoutMass;
+            // Constant base thickness based on uBody parameter
+            float baseThickness = 0.04 + (uBody * 0.15);
 
-            radius *= bluntFront;
-            return max(radius, tipFloor);
+            // Taper the tail incredibly fast ONLY at the very tip (where it enters the mouth)
+            // It stays thick right up to the mouth
+            float tipTaper = smoothstep(0.0, 0.04, t);
+            
+            // The tail tip should not drop to exactly 0 to prevent geometry inversion
+            float tailRadius = mix(baseThickness * 0.2, baseThickness, tipTaper);
+            
+            // Neck pinch - very subtle, mainly to define where the head starts
+            float neckStart = smoothstep(0.86, 0.90, t);
+            float neckPinch = mix(1.0, 0.85 - (uNeck * 0.15), neckStart);
+            
+            // Head expansion
+            float headMass = gaussian(t, 0.94, 0.06) * (uHead * 0.05);
+
+            float radius = (tailRadius * neckPinch) + headMass;
+
+            return max(radius, 0.005);
         }
 
         float getCrossSectionScale(float t, float angle) {
             float side = pow(abs(cos(angle)), 1.1);
             float dorsal = max(sin(angle), 0.0);
             float ventral = max(-sin(angle), 0.0);
-            float bodyRegion = smoothstep(0.08, 0.35, t) * (1.0 - smoothstep(0.7, 0.9, t));
-            float headRegion = smoothstep(0.82, 0.9, t);
-
+            
+            // Make the body overall slightly flattened
+            float bodyRegion = smoothstep(0.05, 0.4, t) * (1.0 - smoothstep(0.8, 0.9, t));
+            
+            // Head Region
+            float headRegion = smoothstep(0.88, 1.0, t);
+            float headCore = gaussian(t, 0.93, 0.06);
+            float snoutRegion = smoothstep(0.96, 1.0, t);
+            
             float scale = 1.0;
-            scale += side * mix(0.08, 0.26, headRegion);
-            scale -= ventral * mix(0.16, 0.28, bodyRegion);
-            scale += dorsal * mix(0.015, 0.06, headRegion);
-            scale += ventral * headRegion * (0.015 + (uJaw * 0.05));
+            
+            // Hexagonal jaw widening
+            float jawWidth = mix(0.0, 0.6 + (uCheekbone * 0.8), headCore);
+            float snoutWidth = mix(0.0, 0.2 + (uNose * 0.4), snoutRegion);
+            
+            scale += side * (jawWidth + snoutWidth);
+            
+            // Flatter top and bottom overall for a more geometric look
+            scale -= dorsal * mix(0.05, 0.35, headRegion);
+            scale -= ventral * mix(0.1, 0.25, headRegion);
+            scale -= ventral * mix(0.1, 0.2, bodyRegion);
 
-            return max(scale, 0.5);
+            // Open mouth at the very end to swallow the tail
+            float mouthOpen = smoothstep(0.975, 1.0, t);
+            scale += dorsal * mix(0.0, 0.4, mouthOpen);
+            scale += ventral * mix(0.0, 0.4 + (uJaw * 0.3), mouthOpen);
+
+            return max(scale, 0.2);
         }
 
         float getHeadSurfaceDeform(float t, float angle) {
-            float headRegion = smoothstep(0.82, 0.88, t);
-            float skullRegion = gaussian(t, 0.9, 0.06);
-            float snoutRegion = smoothstep(0.89, 0.975, t) * (1.0 - smoothstep(0.992, 1.0, t));
-
-            float eyeSockets = (
-                angleGaussian(angle, 0.95, 0.22) +
-                angleGaussian(angle, 3.14159265359 - 0.95, 0.22)
-            ) * gaussian(t, 0.905, 0.03) * (0.008 + (uEyeDimple * 0.04));
-
+            float headRegion = smoothstep(0.88, 1.0, t);
+            
+            // Sharp geometric brow ridges (supraorbital)
+            float browRidge = (
+                angleGaussian(angle, 1.15, 0.3) +
+                angleGaussian(angle, 3.14159265359 - 1.15, 0.3)
+            ) * gaussian(t, 0.94, 0.03) * (0.01 + (uCrown * 0.03));
+            
+            // Sharp cheekbones / rear jaw corners
             float cheeks = (
-                angleGaussian(angle, 0.34, 0.44) +
-                angleGaussian(angle, 3.14159265359 - 0.34, 0.44)
-            ) * gaussian(t, 0.89, 0.055) * (0.008 + (uCheekbone * 0.05));
+                angleGaussian(angle, 0.2, 0.3) +
+                angleGaussian(angle, 3.14159265359 - 0.2, 0.3)
+            ) * gaussian(t, 0.91, 0.04) * (0.015 + (uCheekbone * 0.06));
 
-            float jawline = angleGaussian(angle, 4.71238898038, 0.55)
-                * gaussian(t, 0.91, 0.055)
-                * (0.006 + (uJaw * 0.05));
+            // Structured jawline
+            float jawline = angleGaussian(angle, 4.71238898038, 0.7)
+                * gaussian(t, 0.93, 0.05)
+                * (0.01 + (uJaw * 0.04));
 
-            float crown = angleGaussian(angle, 1.57079632679, 0.4)
-                * gaussian(t, 0.9, 0.06)
-                * (0.004 + (uCrown * 0.05));
+            // Flattened geometric crown
+            float crown = angleGaussian(angle, 1.57079632679, 0.6)
+                * gaussian(t, 0.94, 0.06)
+                * (0.005 + (uCrown * 0.03));
 
-            float snoutBridge = angleGaussian(angle, 1.57079632679, 0.68)
-                * snoutRegion
-                * (0.004 + (uNose * 0.028));
+            // Broad, blunt snout bridge
+            float snoutBridge = angleGaussian(angle, 1.57079632679, 0.7)
+                * gaussian(t, 0.98, 0.02)
+                * (0.005 + (uNose * 0.02));
+            
+            // Slight indent for the eyes (kept minimal for geometric look)
+            float eyeSockets = (
+                angleGaussian(angle, 0.85, 0.2) +
+                angleGaussian(angle, 3.14159265359 - 0.85, 0.2)
+            ) * gaussian(t, 0.95, 0.02) * (0.01 + (uEyeDimple * 0.05));
 
-            float snoutSides = (
-                angleGaussian(angle, 0.26, 0.36) +
-                angleGaussian(angle, 3.14159265359 - 0.26, 0.36)
-            ) * snoutRegion * (0.002 + (uNose * 0.014));
+            float deform = (cheeks + jawline + crown + browRidge + snoutBridge - eyeSockets);
 
-            return ((cheeks + jawline + crown + snoutBridge + snoutSides) - eyeSockets) * headRegion * skullRegion;
+            return deform * headRegion;
         }
 
         vec3 getDeformedPos(vec3 center, vec3 norm, float t, float angle) {

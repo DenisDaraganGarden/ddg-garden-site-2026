@@ -17,6 +17,16 @@ const Monographs = () => <PlaceholderPage title="Monographs" />;
 const Press = () => <PlaceholderPage title="Press" />;
 const MapView = () => <PlaceholderPage title="Map" />;
 const Archive = () => <PlaceholderPage title="Archive" />;
+const NotFound = () => (
+    <section className="stub-page">
+        <div>
+            <h2>404</h2>
+            <p style={{ marginTop: '1rem', color: 'rgba(255, 255, 255, 0.62)' }}>
+                Page not found.
+            </p>
+        </div>
+    </section>
+);
 
 const routeDefinitions = [
     { path: '/', element: <Home /> },
@@ -31,6 +41,7 @@ const routeDefinitions = [
     { path: '/press', element: <Press /> },
     { path: '/map', element: <MapView /> },
     { path: '/archive', element: <Archive /> },
+    { path: '*', element: <NotFound /> },
 ];
 
 const routeFallback = (
