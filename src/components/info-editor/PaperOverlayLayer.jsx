@@ -1,7 +1,7 @@
 import React from 'react';
 import DraggablePngOverlay from './DraggablePngOverlay';
 
-const PaperOverlayLayer = ({ overlays, editable = false, onUpdateOverlay }) => {
+const PaperOverlayLayer = ({ overlays, editable = false, activeOverlayId, onSelectOverlay, onUpdateOverlay }) => {
   if (!overlays?.length) {
     return null;
   }
@@ -13,7 +13,9 @@ const PaperOverlayLayer = ({ overlays, editable = false, onUpdateOverlay }) => {
           key={overlay.id}
           overlay={overlay}
           editable={editable}
-          onUpdate={(patch) => onUpdateOverlay?.({ id: overlay.id, ...patch })}
+          selected={overlay.id === activeOverlayId}
+          onSelect={() => onSelectOverlay?.(overlay.id)}
+          onUpdate={(patch) => onUpdateOverlay?.(overlay.id, patch)}
         />
       ))}
     </div>

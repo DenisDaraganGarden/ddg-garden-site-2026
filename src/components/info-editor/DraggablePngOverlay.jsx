@@ -25,7 +25,7 @@ function getClientPoint(event) {
   };
 }
 
-const DraggablePngOverlay = ({ overlay, editable, onUpdate }) => {
+const DraggablePngOverlay = ({ overlay, editable, selected = false, onSelect, onUpdate }) => {
   const overlayRef = useRef(null);
   const dragHandleRef = useRef(null);
   const resizeHandleRef = useRef(null);
@@ -126,8 +126,9 @@ const DraggablePngOverlay = ({ overlay, editable, onUpdate }) => {
   return (
     <div
       ref={overlayRef}
-      className={`png-overlay ${editable ? 'is-editable' : ''}`}
+      className={`png-overlay ${editable ? 'is-editable' : ''} ${selected ? 'is-selected' : ''}`}
       style={overlayStyle}
+      onPointerDown={() => onSelect?.()}
     >
       <img
         src={overlay.src}

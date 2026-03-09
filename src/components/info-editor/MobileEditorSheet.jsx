@@ -1,14 +1,16 @@
 import React, { useMemo, useRef } from 'react';
+import { useLanguage } from '../../i18n/LanguageProvider';
 
-const tabs = ['Text', 'Style', 'Paper', 'Insert'];
+const tabs = ['text', 'style', 'paper', 'insert'];
 const paperControls = [
-  { key: 'brightness', label: 'Brightness', min: 70, max: 100, step: 1 },
-  { key: 'grain', label: 'Grain', min: 0, max: 25, step: 1 },
-  { key: 'dirt', label: 'Dirt', min: 0, max: 50, step: 1 },
-  { key: 'creases', label: 'Creases', min: 0, max: 50, step: 1 },
-  { key: 'vignette', label: 'Vignette', min: 0, max: 50, step: 1 },
-  { key: 'tone', label: 'Tone', min: -20, max: 20, step: 1 },
-  { key: 'textScale', label: 'Text Scale', min: 0.85, max: 1.25, step: 0.01 },
+  { key: 'brightness', labelKey: 'brightness', min: 82, max: 100, step: 1 },
+  { key: 'grain', labelKey: 'grain', min: 0, max: 30, step: 1 },
+  { key: 'dirt', labelKey: 'dirt', min: 0, max: 28, step: 1 },
+  { key: 'creases', labelKey: 'creases', min: 0, max: 40, step: 1 },
+  { key: 'vignette', labelKey: 'vignette', min: 0, max: 24, step: 1 },
+  { key: 'inkFade', labelKey: 'inkFade', min: 0, max: 45, step: 1 },
+  { key: 'inkBleed', labelKey: 'inkBleed', min: 0, max: 35, step: 1 },
+  { key: 'textScale', labelKey: 'textScale', min: 0.85, max: 1.25, step: 0.01 },
 ];
 
 const MobileEditorSheet = ({
@@ -18,7 +20,9 @@ const MobileEditorSheet = ({
   saveStatusLabel,
   selectionState,
   paperSettings,
-  overlay,
+  overlays,
+  activeOverlayId,
+  activeOverlay,
   onTabChange,
   onUndo,
   onRedo,
@@ -27,10 +31,12 @@ const MobileEditorSheet = ({
   onPaperSettingChange,
   onOpenUpload,
   onRemoveOverlay,
+  onSelectOverlay,
   onOverlayChange,
 }) => {
+  const { t } = useLanguage();
   const touchStartRef = useRef(null);
-  const activeTabIndex = useMemo(() => Math.max(0, tabs.findIndex((tab) => tab.toLowerCase() === activeTab)), [activeTab]);
+  const activeTabIndex = useMemo(() => Math.max(0, tabs.findIndex((tab) => tab === activeTab)), [activeTab]);
   const preserveEditorSelection = (event) => {
     event.preventDefault();
   };
@@ -55,7 +61,7 @@ const MobileEditorSheet = ({
       ? Math.min(tabs.length - 1, activeTabIndex + 1)
       : Math.max(0, activeTabIndex - 1);
 
-    onTabChange(tabs[nextIndex].toLowerCase());
+    onTabChange(tabs[nextIndex]);
   };
 
   return (
@@ -67,10 +73,10 @@ const MobileEditorSheet = ({
             <button
               key={tab}
               type="button"
-              className={activeTab === tab.toLowerCase() ? 'active' : ''}
-              onClick={() => onTabChange(tab.toLowerCase())}
+              className={activeTab === tab ? 'active' : ''}
+              onClick={() => onTabChange(tab)}
             >
-              {tab}
+              {t(`info.editor.tabs.${tab}`)}
             </button>
           ))}
         </div>
@@ -87,16 +93,24 @@ const MobileEditorSheet = ({
         >
           <section className="mobile-editor-sheet__panel">
             <div className="editor-action-stack">
-              <button type="button" onMouseDown={preserveEditorSelection} onClick={onUndo} disabled={!canUndo}>Undo</button>
-              <button type="button" onMouseDown={preserveEditorSelection} onClick={onRedo} disabled={!canRedo}>Redo</button>
-              <button type="button" onMouseDown={preserveEditorSelection} onClick={onClearMarks}>Plain</button>
+              <button type="button" onMouseDown={preserveEditorSelection} onClick={onUndo} disabled={!canUndo}>{t('info.editor.actions.undo')}</button>
+              <button type="button" onMouseDown={preserveEditorSelection} onClick={onRedo} disabled={!canRedo}>{t('info.editor.actions.redo')}</button>
+              <button type="button" onMouseDown={preserveEditorSelection} onClick={onClearMarks}>{t('info.editor.actions.plain')}</button>
+              <button
+                type="button"
+                onMouseDown={preserveEditorSelection}
+                onClick={() => onToggleMark('faded')}
+                className={selectionState.faded ? 'active' : ''}
+              >
+                {t('info.editor.actions.burnt')}
+              </button>
               <button
                 type="button"
                 onMouseDown={preserveEditorSelection}
                 onClick={() => onToggleMark('handwriting')}
                 className={selectionState.handwriting ? 'active handwriting-btn' : 'handwriting-btn'}
               >
-                Handwriting
+                {t('info.editor.actions.scribble')}
               </button>
               <button
                 type="button"
@@ -104,15 +118,23 @@ const MobileEditorSheet = ({
                 onClick={() => onToggleMark('marker')}
                 className={selectionState.marker ? 'active redact-btn' : 'redact-btn'}
               >
-                Black Marker
+                {t('info.editor.actions.marker')}
               </button>
             </div>
           </section>
 
           <section className="mobile-editor-sheet__panel">
             <div className="selection-summary mobile">
-              <span>{selectionState.hasSelection ? 'Text selected' : 'Place cursor or select text'}</span>
-              <span>{selectionState.handwriting ? 'Handwriting active' : selectionState.marker ? 'Black marker active' : 'Plain text active'}</span>
+              <span>{selectionState.hasSelection ? t('info.editor.selection.selected') : t('info.editor.selection.idle')}</span>
+              <span>
+                {selectionState.marker
+                  ? t('info.editor.selection.marker')
+                  : selectionState.faded
+                    ? t('info.editor.selection.faded')
+                    : selectionState.handwriting
+                      ? t('info.editor.selection.handwriting')
+                      : t('info.editor.selection.plain')}
+              </span>
             </div>
           </section>
 
@@ -120,7 +142,7 @@ const MobileEditorSheet = ({
             <div className="editor-control-grid mobile">
               {paperControls.map((control) => (
                 <label key={control.key} className="editor-range">
-                  <span>{control.label}</span>
+                  <span>{t(`info.editor.controls.${control.labelKey}`)}</span>
                   <input
                     type="range"
                     min={control.min}
@@ -136,31 +158,43 @@ const MobileEditorSheet = ({
 
           <section className="mobile-editor-sheet__panel">
             <div className="editor-action-stack">
-              <button type="button" onClick={onOpenUpload}>{overlay ? 'Replace PNG' : 'Upload PNG'}</button>
-              <button type="button" onClick={onRemoveOverlay} disabled={!overlay}>Remove PNG</button>
+              <button type="button" onClick={onOpenUpload}>{t('info.editor.actions.addPng')}</button>
+              <button type="button" onClick={onRemoveOverlay} disabled={!activeOverlay}>{t('info.editor.actions.removeSelected')}</button>
+            </div>
+            <div className="editor-overlay-list mobile">
+              {overlays.length ? overlays.map((overlay, index) => (
+                <button
+                  key={overlay.id}
+                  type="button"
+                  className={overlay.id === activeOverlayId ? 'active' : ''}
+                  onClick={() => onSelectOverlay(overlay.id)}
+                >
+                  {t('info.editor.overlays.note', { index: index + 1 })}
+                </button>
+              )) : <span className="editor-empty-note">{t('info.editor.overlays.empty')}</span>}
             </div>
             <div className="editor-control-grid mobile">
               <label className="editor-range">
-                <span>Opacity</span>
+                <span>{t('info.editor.controls.opacity')}</span>
                 <input
                   type="range"
                   min="0.1"
                   max="1"
                   step="0.01"
-                  value={overlay?.opacity ?? 0.92}
-                  disabled={!overlay}
+                  value={activeOverlay?.opacity ?? 0.92}
+                  disabled={!activeOverlay}
                   onChange={(event) => onOverlayChange({ opacity: Number(event.target.value) })}
                 />
               </label>
               <label className="editor-range">
-                <span>Size</span>
+                <span>{t('info.editor.controls.size')}</span>
                 <input
                   type="range"
                   min="12"
                   max="42"
                   step="1"
-                  value={overlay?.widthPct ?? 24}
-                  disabled={!overlay}
+                  value={activeOverlay?.widthPct ?? 24}
+                  disabled={!activeOverlay}
                   onChange={(event) => onOverlayChange({ widthPct: Number(event.target.value) })}
                 />
               </label>

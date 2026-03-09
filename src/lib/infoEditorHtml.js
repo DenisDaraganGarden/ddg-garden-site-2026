@@ -1,33 +1,61 @@
 export const MARK_ATTR = 'data-mark';
-export const MARKS = ['handwriting', 'marker'];
+export const MARKS = ['handwriting', 'marker', 'faded'];
 
-export const DEFAULT_INFO_EDITOR_HTML = `
+export const DEFAULT_INFO_EDITOR_HTML_BY_LANGUAGE = {
+  ru: `
+<div>
+  СОВЕРШЕННО СЕКРЕТНО<br><br>
+  МЕМОРАНДУМ ДЛЯ: ФАЙЛА КЛИЕНТА<br>
+  ДАТА: 23 НОЯБРЯ 2026<br>
+  ТЕМА: ОПИСАНИЕ ПОРТФОЛИО-ПРОДУКТА<br><br>
+  Этот документ фиксирует авторскую позицию бюро и задаёт способ, которым должна
+  быть показана каждая ландшафтная работа. Интерфейс должен читаться как найденный
+  архивный лист, а не как отполированная презентация.<br><br>
+  Страница должна сохранять напряжение между ясностью и сокрытием. Отдельные
+  фрагменты могут быть <span data-mark="marker">изъяты из прямого чтения</span>, а ключевые
+  формулировки могут оставаться <span data-mark="faded">как будто выжженными в бумаге</span>
+  и нести ощущение возраста, трения и многократного прикосновения.<br><br>
+  <span data-mark="handwriting">оставить место для заметок / штампов / помех</span>
+</div>
+`.trim(),
+  en: `
 <div>
   TOP SECRET<br><br>
-  MEMORANDUM FOR: The Director<br>
-  SUBJECT: Project Assessment<br><br>
-  As discussed previously, this document serves as a template for the new interface.
-  <br><br>
-  Please review the <span data-mark="marker">classified details</span> and approve.
-  <br><br>
-  <span data-mark="handwriting">Approved by: D.D.</span>
+  MEMORANDUM FOR: CLIENT FILE<br>
+  DATE: NOVEMBER 23, 2026<br>
+  SUBJECT: PORTFOLIO PRODUCT BRIEF<br><br>
+  This memorandum records the core authorial position of the bureau and outlines the
+  way each landscape work should be presented. The interface is intended to read as a
+  recovered document, not a polished brochure.<br><br>
+  The page must preserve the tension between clarity and concealment. Portions may be
+  <span data-mark="marker">withheld from the casual reader</span>, while key phrases can remain
+  <span data-mark="faded">partially burned into the page</span> and carry the feeling of age,
+  friction and repeated handling.<br><br>
+  <span data-mark="handwriting">leave room for notes / stamps / interference</span>
 </div>
-`.trim();
-
-export const DEFAULT_PAPER_SETTINGS = {
-  brightness: 92,
-  grain: 5,
-  vignette: 15,
-  creases: 15,
-  dirt: 10,
-  textScale: 1,
-  tone: 0,
+`.trim(),
 };
 
-export function createDefaultInfoEditorDocument() {
+export function getDefaultInfoEditorHtml(language = 'ru') {
+  return DEFAULT_INFO_EDITOR_HTML_BY_LANGUAGE[language] ?? DEFAULT_INFO_EDITOR_HTML_BY_LANGUAGE.ru;
+}
+
+export const DEFAULT_PAPER_SETTINGS = {
+  brightness: 96,
+  grain: 14,
+  vignette: 8,
+  creases: 12,
+  dirt: 8,
+  textScale: 0.98,
+  tone: 0,
+  inkFade: 18,
+  inkBleed: 10,
+};
+
+export function createDefaultInfoEditorDocument(language = 'ru') {
   return {
     version: 2,
-    contentHtml: DEFAULT_INFO_EDITOR_HTML,
+    contentHtml: getDefaultInfoEditorHtml(language),
     paperSettings: { ...DEFAULT_PAPER_SETTINGS },
     overlays: [],
     updatedAt: new Date().toISOString(),
@@ -82,6 +110,8 @@ function sanitizeMarkElement(span) {
     ? 'handwriting'
     : span.classList.contains('redacted')
       ? 'marker'
+      : span.classList.contains('faded-copy')
+        ? 'faded'
       : span.getAttribute(MARK_ATTR);
 
   if (!MARKS.includes(mark)) {
@@ -226,15 +256,15 @@ export function normalizeEditorRoot(root) {
   return root.innerHTML;
 }
 
-export function normalizeHtmlString(html) {
+export function normalizeHtmlString(html, fallbackHtml = getDefaultInfoEditorHtml()) {
   const container = document.createElement('div');
-  container.innerHTML = html || DEFAULT_INFO_EDITOR_HTML;
+  container.innerHTML = html || fallbackHtml;
   return normalizeEditorRoot(container);
 }
 
 export function getMarkState(root, range) {
   if (!root || !range) {
-    return { handwriting: false, marker: false, hasSelection: false, isCollapsed: true };
+    return { handwriting: false, marker: false, faded: false, hasSelection: false, isCollapsed: true };
   }
 
   const hasSelection = !range.collapsed;
@@ -243,6 +273,7 @@ export function getMarkState(root, range) {
     return {
       handwriting: Boolean(findClosestMark(range.startContainer, 'handwriting')),
       marker: Boolean(findClosestMark(range.startContainer, 'marker')),
+      faded: Boolean(findClosestMark(range.startContainer, 'faded')),
       hasSelection,
       isCollapsed: true,
     };
@@ -260,6 +291,7 @@ export function getMarkState(root, range) {
   return {
     handwriting: textNodes.length > 0 && textNodes.every((node) => Boolean(findClosestMark(node, 'handwriting'))),
     marker: textNodes.length > 0 && textNodes.every((node) => Boolean(findClosestMark(node, 'marker'))),
+    faded: textNodes.length > 0 && textNodes.every((node) => Boolean(findClosestMark(node, 'faded'))),
     hasSelection,
     isCollapsed: false,
   };

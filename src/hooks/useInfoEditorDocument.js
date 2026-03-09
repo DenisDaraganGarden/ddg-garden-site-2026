@@ -32,10 +32,25 @@ function fileToDataUrl(file) {
   });
 }
 
-export function useInfoEditorDocument() {
+function normalizeOverlayForInsert(existingOverlays, file, dataUrl, offset = 0) {
+  const index = existingOverlays.length + offset;
+
+  return {
+    id: crypto.randomUUID(),
+    kind: 'png',
+    name: file.name,
+    src: dataUrl,
+    xPct: 12 + Math.min(index * 6, 40),
+    yPct: 8 + Math.min(index * 7, 56),
+    widthPct: Math.max(12, 22 - Math.min(index * 1.5, 8)),
+    opacity: 0.92,
+  };
+}
+
+export function useInfoEditorDocument(language) {
   const [state, setState] = useState({
     loaded: false,
-    documentState: createDefaultInfoEditorDocument(),
+    documentState: createDefaultInfoEditorDocument(language),
     history: [],
     historyIndex: -1,
     saveStatus: 'loading',
@@ -46,7 +61,15 @@ export function useInfoEditorDocument() {
   useEffect(() => {
     let cancelled = false;
 
-    loadInfoEditorDocument().then((documentState) => {
+    setState({
+      loaded: false,
+      documentState: createDefaultInfoEditorDocument(language),
+      history: [],
+      historyIndex: -1,
+      saveStatus: 'loading',
+    });
+
+    loadInfoEditorDocument(language).then((documentState) => {
       if (cancelled) {
         return;
       }
@@ -63,7 +86,7 @@ export function useInfoEditorDocument() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [language]);
 
   const updateDocument = useCallback((updater, options = {}) => {
     const { pushToHistory = options.pushHistory ?? true } = options;
@@ -104,7 +127,7 @@ export function useInfoEditorDocument() {
       const documentSnapshot = state.documentState;
 
       setState((previous) => ({ ...previous, saveStatus: 'saving' }));
-      const savedDocument = await saveInfoEditorDocument(documentSnapshot);
+      const savedDocument = await saveInfoEditorDocument(documentSnapshot, language);
       setState((previous) => {
         if (saveSequenceRef.current !== saveSequence || comparableDocument(previous.documentState) !== comparableDocument(documentSnapshot)) {
           return previous;
@@ -122,7 +145,7 @@ export function useInfoEditorDocument() {
     return () => {
       clearTimeout(saveTimeoutRef.current);
     };
-  }, [state.documentState, state.loaded, state.saveStatus]);
+  }, [language, state.documentState, state.loaded, state.saveStatus]);
 
   const setContentHtml = useCallback((contentHtml, options) => {
     updateDocument((previous) => ({ ...previous, contentHtml }), options);
@@ -138,27 +161,29 @@ export function useInfoEditorDocument() {
     }));
   }, [updateDocument]);
 
-  const setOverlayAsset = useCallback(async (file) => {
-    const dataUrl = await fileToDataUrl(file);
+  const addOverlayAssets = useCallback(async (files) => {
+    const nextFiles = Array.from(files ?? []).filter(Boolean);
+    if (!nextFiles.length) {
+      return;
+    }
+
+    const assets = await Promise.all(
+      nextFiles.map(async (file) => ({
+        file,
+        dataUrl: await fileToDataUrl(file),
+      })),
+    );
 
     updateDocument((previous) => ({
-      ...previous,
-      overlays: [
-        {
-          id: previous.overlays[0]?.id ?? crypto.randomUUID(),
-          kind: 'png',
-          name: file.name,
-          src: dataUrl,
-          xPct: previous.overlays[0]?.xPct ?? 18,
-          yPct: previous.overlays[0]?.yPct ?? 72,
-          widthPct: previous.overlays[0]?.widthPct ?? 24,
-          opacity: previous.overlays[0]?.opacity ?? 0.92,
-        },
-      ],
-    }));
+        ...previous,
+        overlays: [
+          ...previous.overlays,
+          ...assets.map(({ file, dataUrl }, index) => normalizeOverlayForInsert(previous.overlays, file, dataUrl, index)),
+        ],
+      }));
   }, [updateDocument]);
 
-  const updateOverlayAsset = useCallback((patch) => {
+  const updateOverlayAsset = useCallback((overlayId, patch) => {
     updateDocument((previous) => {
       if (!previous.overlays.length) {
         return previous;
@@ -166,20 +191,22 @@ export function useInfoEditorDocument() {
 
       return {
         ...previous,
-        overlays: [
-          {
-            ...previous.overlays[0],
-            ...patch,
-          },
-        ],
+        overlays: previous.overlays.map((overlay) => (
+          overlay.id === overlayId
+            ? {
+                ...overlay,
+                ...patch,
+              }
+            : overlay
+        )),
       };
     });
   }, [updateDocument]);
 
-  const removeOverlayAsset = useCallback(() => {
+  const removeOverlayAsset = useCallback((overlayId) => {
     updateDocument((previous) => ({
       ...previous,
-      overlays: [],
+      overlays: previous.overlays.filter((overlay) => overlay.id !== overlayId),
     }));
   }, [updateDocument]);
 
@@ -213,32 +240,15 @@ export function useInfoEditorDocument() {
     });
   }, []);
 
-  const statusLabel = useMemo(() => {
-    if (state.saveStatus === 'saving') {
-      return 'Saving...';
-    }
-
-    if (state.saveStatus === 'saved') {
-      return 'Saved';
-    }
-
-    if (state.saveStatus === 'dirty') {
-      return 'Unsaved changes';
-    }
-
-    return 'Loading...';
-  }, [state.saveStatus]);
-
   return {
     loaded: state.loaded,
     documentState: state.documentState,
     saveStatus: state.saveStatus,
-    saveStatusLabel: statusLabel,
     canUndo: state.historyIndex > 0,
     canRedo: state.historyIndex < state.history.length - 1,
     setContentHtml,
     updatePaperSetting,
-    setOverlayAsset,
+    addOverlayAssets,
     updateOverlayAsset,
     removeOverlayAsset,
     undo,

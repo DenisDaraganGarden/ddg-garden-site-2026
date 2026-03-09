@@ -3,8 +3,8 @@
     width: 100%;
     min-height: 100dvh;
     background:
-        radial-gradient(circle at top, rgba(255, 255, 255, 0.04), transparent 38%),
-        #111214;
+        radial-gradient(circle at top, rgba(255, 255, 255, 0.03), transparent 38%),
+        #0a0a0a;
     color: #f2f2f2;
     overflow: hidden;
 }
@@ -47,7 +47,7 @@
 .editor-panel,
 .cia-snake-panel,
 .cia-toolbar {
-    background: rgba(18, 18, 18, 0.8);
+    background: rgba(14, 14, 14, 0.86);
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 18px;
     box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
@@ -211,7 +211,7 @@
     position: relative;
     width: min(100%, 820px);
     min-height: clamp(700px, 90vw, 1120px);
-    background-color: hsl(calc(38 + var(--paper-tone, 0)), 27%, var(--paper-brightness, 92%));
+    background-color: hsl(0 0% var(--paper-brightness, 96%));
     box-shadow:
         0 30px 70px rgba(0, 0, 0, 0.35),
         inset 0 0 120px rgba(0, 0, 0, var(--paper-vignette, 0.15));
@@ -219,9 +219,9 @@
     overflow: hidden;
     isolation: isolate;
     background-image:
-        radial-gradient(circle at 15% 12%, rgba(255, 255, 255, 0.28), transparent 24%),
-        radial-gradient(circle at 88% 10%, rgba(0, 0, 0, 0.05), transparent 18%),
-        linear-gradient(180deg, rgba(255, 255, 255, 0.15), transparent 30%);
+        radial-gradient(circle at 15% 12%, rgba(255, 255, 255, 0.24), transparent 24%),
+        radial-gradient(circle at 88% 10%, rgba(0, 0, 0, 0.07), transparent 18%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.1), transparent 30%);
 }
 
 .a4-paper {
@@ -230,12 +230,16 @@
     width: 100%;
     min-height: inherit;
     padding: clamp(1.75rem, 5vw, 3.25rem);
-    color: #27231f;
+    color: rgba(16, 16, 16, calc(0.92 - var(--ink-fade, 0.18)));
     font-size: calc(clamp(0.95rem, 1.25vw, 1.1rem) * var(--text-scale, 1));
     line-height: 1.68;
     outline: none;
     font-family: 'Courier New', Courier, monospace;
+    letter-spacing: 0.02em;
     white-space: normal;
+    text-shadow:
+        calc(var(--ink-bleed, 0.1) * 0.08em) 0 rgba(0, 0, 0, 0.22),
+        calc(var(--ink-bleed, 0.1) * -0.03em) 0 rgba(0, 0, 0, 0.08);
 }
 
 .a4-paper:focus {
@@ -285,6 +289,23 @@
     mix-blend-mode: multiply;
 }
 
+.editor-overlay-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+    margin-top: 0.75rem;
+}
+
+.editor-overlay-list.mobile {
+    margin: 0.85rem 0;
+}
+
+.editor-empty-note {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 0.76rem;
+    line-height: 1.4;
+}
+
 .paper-overlay-layer {
     position: absolute;
     inset: 0;
@@ -308,12 +329,16 @@
     width: 100%;
     height: auto;
     pointer-events: none;
-    filter: drop-shadow(0 10px 16px rgba(0, 0, 0, 0.18));
+    filter: grayscale(1) contrast(1.08) drop-shadow(0 10px 16px rgba(0, 0, 0, 0.18));
 }
 
 .png-overlay.is-editable {
     outline: 1px dashed rgba(0, 0, 0, 0.18);
     outline-offset: 0.3rem;
+}
+
+.png-overlay.is-selected {
+    outline: 2px dashed rgba(0, 0, 0, 0.42);
 }
 
 .png-overlay__drag-handle,
@@ -356,10 +381,12 @@
 .a4-paper [data-mark="handwriting"],
 .handwriting {
     font-family: 'Caveat', cursive;
-    color: #153cf2;
+    color: rgba(24, 24, 24, 0.92);
     font-size: 1.5em;
     line-height: 1.05;
     display: inline;
+    text-shadow: none;
+    transform: rotate(-2deg);
 }
 
 .a4-paper [data-mark="marker"],
@@ -368,13 +395,24 @@
     -webkit-text-fill-color: transparent;
     background:
         linear-gradient(180deg, rgba(10, 10, 10, 0.94), rgba(2, 2, 2, 0.98)),
-        linear-gradient(90deg, rgba(255, 255, 255, 0.14), transparent 34%, rgba(255, 255, 255, 0.08) 62%, transparent);
+        linear-gradient(90deg, rgba(255, 255, 255, 0.1), transparent 28%, rgba(255, 255, 255, 0.06) 58%, transparent);
     box-decoration-break: clone;
     -webkit-box-decoration-break: clone;
     border-radius: 0.14em;
     padding: 0.08em 0.22em;
     margin: 0 0.04em;
     text-shadow: none;
+}
+
+.a4-paper [data-mark="faded"],
+.faded-copy {
+    color: rgba(18, 18, 18, 0.36);
+    opacity: 0.88;
+    letter-spacing: 0.05em;
+    filter: blur(0.16px);
+    text-shadow:
+        0.02em 0 rgba(0, 0, 0, 0.1),
+        -0.03em 0 rgba(0, 0, 0, 0.04);
 }
 
 .mobile-editor-sheet {

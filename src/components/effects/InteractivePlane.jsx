@@ -12,8 +12,10 @@ import {
 } from './shaders/trailFieldShader';
 
 const TRAIL_FIELD_SHADER = buildTrailFieldGLSL(TRAIL_FIELD_MAX_POINTS);
+const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+const snapToStep = (value, step = 8) => Math.max(step, Math.round(value / step) * step);
 
-const writePlaneDebugState = (materialRef) => {
+const writePlaneDebugState = (materialRef, debugState) => {
     if (!import.meta.env.DEV || typeof window === 'undefined') {
         return;
     }
@@ -23,6 +25,13 @@ const writePlaneDebugState = (materialRef) => {
         planeTrailArrayLength: materialRef.current?.uniforms?.uTrailData?.value?.length ?? 0,
         planeTrailStride: TRAIL_FIELD_STRIDE,
         planeMeshDensity: materialRef.current?.userData?.meshDensity ?? 0,
+        planeMeshDensityX: debugState?.planeMeshDensityX ?? 0,
+        planeMeshDensityY: debugState?.planeMeshDensityY ?? 0,
+        planeDensityBase: debugState?.planeDensityBase ?? 0,
+        planeWorldWidth: debugState?.planeWorldWidth ?? 0,
+        planeWorldDepth: debugState?.planeWorldDepth ?? 0,
+        planeViewportWidth: debugState?.planeViewportWidth ?? 0,
+        planeViewportHeight: debugState?.planeViewportHeight ?? 0,
     };
 };
 
@@ -32,12 +41,47 @@ export default function InteractivePlane({
     isDragging,
     onPointerWorldMove,
     trailBufferRef,
+    editable = false,
 }) {
     const materialRef = useRef();
-    const { viewport } = useThree();
+    const { camera, size, viewport } = useThree();
     const trailUniforms = useMemo(() => buildTrailFieldUniforms(TRAIL_FIELD_MAX_POINTS), []);
 
     const trailConfig = getTrailFieldConfig(settings);
+    const planeTarget = useMemo(
+        () => new THREE.Vector3(
+            settings?.planePos?.x ?? 0,
+            settings?.planePos?.y ?? -1,
+            settings?.planePos?.z ?? 0,
+        ),
+        [settings?.planePos?.x, settings?.planePos?.y, settings?.planePos?.z],
+    );
+    const viewportAtPlane = viewport.getCurrentViewport(camera, planeTarget);
+    const isMobileViewport = size.width < 768;
+    const coverageScale = editable
+        ? (settings?.freeCamera ? 2.2 : 1.7)
+        : (isMobileViewport ? 1.18 : 1.08);
+    const planeWorldWidth = Math.max(viewportAtPlane.width * coverageScale, 8);
+    const planeWorldDepth = Math.max(viewportAtPlane.height * coverageScale, 8);
+    const planeLongSide = Math.max(planeWorldWidth, planeWorldDepth);
+    const planeShortSide = Math.max(Math.min(planeWorldWidth, planeWorldDepth), 0.001);
+    const planeAspectRatio = planeShortSide / planeLongSide;
+    const densityControl = clamp(settings?.planeMeshDensity ?? 128, 16, 2048);
+    const densityBase = isMobileViewport ? 256 : 512;
+    const densityMultiplier = densityControl / 128;
+    const maxLongSideSegments = isMobileViewport ? 640 : 1024;
+    const longSideSegments = clamp(
+        snapToStep(densityBase * densityMultiplier, 8),
+        64,
+        maxLongSideSegments,
+    );
+    const shortSideSegments = clamp(
+        snapToStep(longSideSegments * planeAspectRatio, 8),
+        48,
+        longSideSegments,
+    );
+    const meshDensityX = planeWorldWidth >= planeWorldDepth ? longSideSegments : shortSideSegments;
+    const meshDensityY = planeWorldDepth > planeWorldWidth ? longSideSegments : shortSideSegments;
 
     const vertexShader = useMemo(() => `
         ${TRAIL_FIELD_SHADER}
@@ -90,15 +134,16 @@ export default function InteractivePlane({
         }
     `, []);
 
-    const densityControl = Math.min(2048, Math.max(16, settings?.planeMeshDensity || 64));
-    const meshDensity = Math.min(220, Math.max(48, Math.round(22 + (Math.sqrt(densityControl) * 6.2))));
-
     useFrame(() => {
         if (!materialRef.current?.uniforms) {
             return;
         }
 
-        materialRef.current.userData.meshDensity = meshDensity;
+        materialRef.current.userData.meshDensity = {
+            control: densityControl,
+            x: meshDensityX,
+            y: meshDensityY,
+        };
 
         syncTrailFieldUniforms(
             materialRef.current.uniforms,
@@ -111,8 +156,17 @@ export default function InteractivePlane({
             materialRef.current.color.set(settings?.planeColor || '#dddddd');
         }
 
-        writePlaneDebugState(materialRef);
+        writePlaneDebugState(materialRef, {
+            planeMeshDensityX: meshDensityX,
+            planeMeshDensityY: meshDensityY,
+            planeDensityBase: densityBase,
+            planeWorldWidth,
+            planeWorldDepth,
+            planeViewportWidth: viewportAtPlane.width,
+            planeViewportHeight: viewportAtPlane.height,
+        });
     });
+
     return (
         <group>
             <mesh
@@ -126,10 +180,10 @@ export default function InteractivePlane({
                     onPointerWorldMove?.({ x: event.point.x, z: event.point.z });
                 }}
             >
-                <planeGeometry args={[viewport.width * 4, viewport.height * 4, 1, 1]} />
+                <planeGeometry args={[planeWorldWidth, planeWorldDepth, 1, 1]} />
             </mesh>
             <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow onClick={() => onSelect && onSelect()}>
-                <planeGeometry args={[viewport.width * 4, viewport.height * 4, meshDensity, meshDensity]} />
+                <planeGeometry args={[planeWorldWidth, planeWorldDepth, meshDensityX, meshDensityY]} />
                 <CustomShaderMaterial
                     ref={materialRef}
                     baseMaterial={THREE.MeshStandardMaterial}

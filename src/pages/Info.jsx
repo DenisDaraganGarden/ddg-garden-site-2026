@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import PaperOverlayLayer from '../components/info-editor/PaperOverlayLayer';
 import { createDefaultInfoEditorDocument } from '../lib/infoEditorHtml';
 import { loadInfoEditorDocument } from '../lib/infoEditorStorage';
+import { useLanguage } from '../i18n/LanguageProvider';
 import '../styles/Info.css';
 import '../styles/CIAEditor.css';
 
@@ -14,16 +15,21 @@ function paperStyleVars(settings) {
     '--paper-dirt': `${settings.dirt / 100}`,
     '--paper-tone': `${settings.tone}`,
     '--text-scale': `${settings.textScale}`,
+    '--ink-fade': `${settings.inkFade / 100}`,
+    '--ink-bleed': `${settings.inkBleed / 100}`,
   };
 }
 
 const Info = () => {
-  const [documentState, setDocumentState] = useState(createDefaultInfoEditorDocument());
+  const { language, t } = useLanguage();
+  const [documentState, setDocumentState] = useState(createDefaultInfoEditorDocument(language));
 
   useEffect(() => {
     let cancelled = false;
 
-    loadInfoEditorDocument().then((nextDocument) => {
+    setDocumentState(createDefaultInfoEditorDocument(language));
+
+    loadInfoEditorDocument(language).then((nextDocument) => {
       if (!cancelled) {
         setDocumentState(nextDocument);
       }
@@ -32,11 +38,11 @@ const Info = () => {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [language]);
 
   return (
     <div className="info-page">
-      <h1 className="info-title">Info</h1>
+      <h1 className="info-title">{t('info.title')}</h1>
 
       <div className="paper-wrapper info-paper-wrapper">
         <div className="paper-container info-paper-container" style={paperStyleVars(documentState.paperSettings)}>

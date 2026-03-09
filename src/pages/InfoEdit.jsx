@@ -3,6 +3,7 @@ import EditorToolbar from '../components/info-editor/EditorToolbar';
 import MobileEditorSheet from '../components/info-editor/MobileEditorSheet';
 import PaperOverlayLayer from '../components/info-editor/PaperOverlayLayer';
 import { useInfoEditorDocument } from '../hooks/useInfoEditorDocument';
+import { useLanguage } from '../i18n/LanguageProvider';
 import { normalizeEditorRoot } from '../lib/infoEditorHtml';
 import { clearMarks, getEditorSelectionState, insertPlainText, normalizeEditorWithSelection, toggleMark } from '../lib/infoEditorSelection';
 import '../styles/CIAEditor.css';
@@ -10,6 +11,7 @@ import '../styles/CIAEditor.css';
 const EMPTY_SELECTION_STATE = {
   handwriting: false,
   marker: false,
+  faded: false,
   hasSelection: false,
   isCollapsed: true,
 };
@@ -23,29 +25,35 @@ function paperStyleVars(settings) {
     '--paper-dirt': `${settings.dirt / 100}`,
     '--paper-tone': `${settings.tone}`,
     '--text-scale': `${settings.textScale}`,
+    '--ink-fade': `${settings.inkFade / 100}`,
+    '--ink-bleed': `${settings.inkBleed / 100}`,
   };
 }
 
 const InfoEdit = () => {
+  const { language, t } = useLanguage();
   const editorRef = useRef(null);
   const fileInputRef = useRef(null);
   const lastRenderedHtmlRef = useRef('');
   const [selectionState, setSelectionState] = useState(EMPTY_SELECTION_STATE);
   const [activeTab, setActiveTab] = useState('text');
+  const [activeOverlayId, setActiveOverlayId] = useState(null);
   const {
     loaded,
     documentState,
-    saveStatusLabel,
+    saveStatus,
     canUndo,
     canRedo,
     setContentHtml,
     updatePaperSetting,
-    setOverlayAsset,
+    addOverlayAssets,
     updateOverlayAsset,
     removeOverlayAsset,
     undo,
     redo,
-  } = useInfoEditorDocument();
+  } = useInfoEditorDocument(language);
+  const activeOverlay = documentState.overlays.find((overlay) => overlay.id === activeOverlayId) ?? documentState.overlays[0] ?? null;
+  const saveStatusLabel = t(`common.${saveStatus === 'dirty' ? 'unsaved' : saveStatus}`);
 
   const refreshSelectionState = () => {
     if (!editorRef.current) {
@@ -100,6 +108,17 @@ const InfoEdit = () => {
     return () => document.removeEventListener('selectionchange', handleSelectionChange);
   }, []);
 
+  useEffect(() => {
+    if (!documentState.overlays.length) {
+      setActiveOverlayId(null);
+      return;
+    }
+
+    if (!activeOverlayId || !documentState.overlays.some((overlay) => overlay.id === activeOverlayId)) {
+      setActiveOverlayId(documentState.overlays[0].id);
+    }
+  }, [activeOverlayId, documentState.overlays]);
+
   const handleToggleMark = (mark) => {
     if (!editorRef.current) {
       return;
@@ -146,17 +165,36 @@ const InfoEdit = () => {
   };
 
   const handleUploadChange = async (event) => {
-    const [file] = event.target.files ?? [];
-    if (!file) {
+    const files = Array.from(event.target.files ?? []);
+    if (!files.length) {
       return;
     }
 
-    await setOverlayAsset(file);
+    await addOverlayAssets(files);
     event.target.value = '';
   };
 
-  const handleOverlayChange = (patch) => {
-    updateOverlayAsset(patch);
+  const handleOverlayChange = (overlayIdOrPatch, maybePatch) => {
+    const overlayId = typeof overlayIdOrPatch === 'string'
+      ? overlayIdOrPatch
+      : activeOverlay?.id;
+    const patch = typeof overlayIdOrPatch === 'string'
+      ? maybePatch
+      : overlayIdOrPatch;
+
+    if (!overlayId || !patch) {
+      return;
+    }
+
+    updateOverlayAsset(overlayId, patch);
+  };
+
+  const handleRemoveOverlay = () => {
+    if (!activeOverlay) {
+      return;
+    }
+
+    removeOverlayAsset(activeOverlay.id);
   };
 
   const handleKeyDown = (event) => {
@@ -171,7 +209,7 @@ const InfoEdit = () => {
   };
 
   if (!loaded) {
-    return <div className="editor-loading">Loading editor...</div>;
+    return <div className="editor-loading">{t('common.loadingEditor')}</div>;
   }
 
   return (
@@ -179,7 +217,8 @@ const InfoEdit = () => {
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/png"
+        accept="image/png,image/webp,image/jpeg,image/svg+xml"
+        multiple
         hidden
         onChange={handleUploadChange}
       />
@@ -190,14 +229,17 @@ const InfoEdit = () => {
         saveStatusLabel={saveStatusLabel}
         selectionState={selectionState}
         paperSettings={documentState.paperSettings}
-        overlay={documentState.overlays[0]}
+        overlays={documentState.overlays}
+        activeOverlayId={activeOverlay?.id ?? null}
+        activeOverlay={activeOverlay}
         onUndo={undo}
         onRedo={redo}
         onClearMarks={handleClearMarks}
         onToggleMark={handleToggleMark}
         onPaperSettingChange={updatePaperSetting}
         onOpenUpload={() => fileInputRef.current?.click()}
-        onRemoveOverlay={removeOverlayAsset}
+        onRemoveOverlay={handleRemoveOverlay}
+        onSelectOverlay={setActiveOverlayId}
         onOverlayChange={handleOverlayChange}
       />
 
@@ -222,6 +264,8 @@ const InfoEdit = () => {
           <PaperOverlayLayer
             overlays={documentState.overlays}
             editable
+            activeOverlayId={activeOverlay?.id ?? null}
+            onSelectOverlay={setActiveOverlayId}
             onUpdateOverlay={handleOverlayChange}
           />
         </div>
@@ -234,7 +278,9 @@ const InfoEdit = () => {
         saveStatusLabel={saveStatusLabel}
         selectionState={selectionState}
         paperSettings={documentState.paperSettings}
-        overlay={documentState.overlays[0]}
+        overlays={documentState.overlays}
+        activeOverlayId={activeOverlay?.id ?? null}
+        activeOverlay={activeOverlay}
         onTabChange={setActiveTab}
         onUndo={undo}
         onRedo={redo}
@@ -242,7 +288,8 @@ const InfoEdit = () => {
         onToggleMark={handleToggleMark}
         onPaperSettingChange={updatePaperSetting}
         onOpenUpload={() => fileInputRef.current?.click()}
-        onRemoveOverlay={removeOverlayAsset}
+        onRemoveOverlay={handleRemoveOverlay}
+        onSelectOverlay={setActiveOverlayId}
         onOverlayChange={handleOverlayChange}
       />
     </div>

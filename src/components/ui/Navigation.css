@@ -13,6 +13,12 @@
     /* Gives a premium feel over 3D content */
 }
 
+.nav-menu {
+    display: flex;
+    align-items: center;
+    gap: 1.4rem;
+}
+
 .nav-brand a {
     display: flex;
     flex-direction: column;
@@ -35,6 +41,36 @@
     list-style: none;
     gap: 2.5rem;
     align-items: center;
+}
+
+.language-switch {
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.language-switch__button {
+    min-width: 3rem;
+    padding: 0.45rem 0.7rem;
+    border: 0;
+    background: transparent;
+    color: var(--text-primary);
+    opacity: 0.55;
+    font-family: var(--font-secondary);
+    font-size: 0.72rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: opacity 0.24s ease, background-color 0.24s ease;
+}
+
+.language-switch__button.is-active {
+    opacity: 1;
+    background: rgba(255, 255, 255, 0.12);
+}
+
+.language-switch__button:not(:last-child) {
+    border-right: 1px solid rgba(255, 255, 255, 0.14);
 }
 
 .nav-link {
@@ -78,6 +114,13 @@
         backdrop-filter: blur(16px);
     }
 
+    .nav-menu {
+        width: 100%;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.7rem;
+    }
+
     .nav-brand a {
         font-size: 1.05rem;
         letter-spacing: 0.08em;
@@ -96,6 +139,10 @@
         padding-bottom: 0.1rem;
         scroll-snap-type: x proximity;
         scrollbar-width: none;
+    }
+
+    .language-switch {
+        align-self: flex-start;
     }
 
     .nav-links::-webkit-scrollbar {

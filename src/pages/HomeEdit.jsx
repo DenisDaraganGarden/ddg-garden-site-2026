@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Canvas } from '@react-three/fiber';
 import ButterflyVortex from '../components/effects/ButterflyVortex';
+import { useLanguage } from '../i18n/LanguageProvider';
 import '../styles/CIAEditor.css'; // Reusing our established CIA admin UI style
 
 const HomeEdit = () => {
+    const { t } = useLanguage();
     // Load from localStorage or set defaults
     const [settings, setSettings] = useState(() => {
         const saved = localStorage.getItem('ddg_home_bg_settings');
@@ -50,7 +52,7 @@ const HomeEdit = () => {
                     <div className="cia-controls-grid" style={{ gap: '0.5rem 1.5rem', gridTemplateColumns: '1fr 1fr 1fr', alignItems: 'center' }}>
                         <div className="cia-control-group" style={{ margin: 0 }}>
                             <label>
-                                FLOW SPEED
+                                {t('homeEditor.flowSpeed')}
                                 <span className="cia-value-readout">{settings.speed}%</span>
                             </label>
                             <input
@@ -64,7 +66,7 @@ const HomeEdit = () => {
                         </div>
                         <div className="cia-control-group">
                             <label>
-                                FLUID DENSITY
+                                {t('homeEditor.fluidDensity')}
                                 <span className="cia-value-readout">{settings.density}%</span>
                             </label>
                             <input
@@ -78,7 +80,7 @@ const HomeEdit = () => {
                         </div>
                         <div className="cia-control-group">
                             <label>
-                                MOUSE ATTRACTION
+                                {t('homeEditor.mouseAttraction')}
                                 <span className="cia-value-readout">{settings.strength}%</span>
                             </label>
                             <input
@@ -92,7 +94,7 @@ const HomeEdit = () => {
                         </div>
                         <div className="cia-control-group">
                             <label>
-                                NOISE COMPLEXITY
+                                {t('homeEditor.noiseComplexity')}
                                 <span className="cia-value-readout">{settings.complexity}%</span>
                             </label>
                             <input
@@ -106,7 +108,7 @@ const HomeEdit = () => {
                         </div>
                         <div className="cia-control-group">
                             <label>
-                                BLACK LEVEL
+                                {t('homeEditor.blackLevel')}
                                 <span className="cia-value-readout">{settings.blackLevel}%</span>
                             </label>
                             <input
@@ -120,7 +122,7 @@ const HomeEdit = () => {
                         </div>
                         <div className="cia-control-group">
                             <label>
-                                HIGHLIGHT INTENSITY
+                                {t('homeEditor.highlightIntensity')}
                                 <span className="cia-value-readout">{settings.highlight}%</span>
                             </label>
                             <input

@@ -122,6 +122,7 @@ const SnakeScene = ({
             <group ref={planeWrapperRef} name="plane-wrapper">
                 <InteractivePlane
                     settings={settings}
+                    editable={editable}
                     onSelect={editable ? () => setSelectedId?.('plane') : undefined}
                     isDragging={editable ? isDragging : false}
                     onPointerWorldMove={handlePointerMove}
