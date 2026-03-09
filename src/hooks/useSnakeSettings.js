@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
+import { publishedSnakeSettings } from '../data/publishedSnakeSettings';
 
 export const SNAKE_SETTINGS_STORAGE_KEY = 'ddg_snake_settings_v4';
 const LEGACY_SNAKE_SETTINGS_STORAGE_KEY = 'ddg_snake_settings_v3';
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 
-export const getDefaultSnakeSettings = () => ({
+const getBaseSnakeSettings = () => ({
     length: 40,
     curl: 100, // 100% curl makes a perfect circle
     scaleDensity: 70,
@@ -50,6 +51,24 @@ export const getDefaultSnakeSettings = () => ({
     tongueLength: 60,
 });
 
+const mergeSnakeSettings = (baseSettings, overrideSettings = {}) => ({
+    ...baseSettings,
+    ...overrideSettings,
+    snakePos: {
+        ...baseSettings.snakePos,
+        ...(overrideSettings.snakePos ?? {}),
+    },
+    planePos: {
+        ...baseSettings.planePos,
+        ...(overrideSettings.planePos ?? {}),
+    },
+});
+
+export const getDefaultSnakeSettings = () => mergeSnakeSettings(
+    getBaseSnakeSettings(),
+    publishedSnakeSettings,
+);
+
 const normalizeSnakeSettings = (savedSettings = {}) => {
     const defaultSettings = getDefaultSnakeSettings();
     const {
@@ -71,8 +90,7 @@ const normalizeSnakeSettings = (savedSettings = {}) => {
     );
 
     return {
-        ...defaultSettings,
-        ...rest,
+        ...mergeSnakeSettings(defaultSettings, rest),
         planeTrailSpan: migratedTrailSpan,
         planeTrailPersistence: migratedTrailPersistence,
     };

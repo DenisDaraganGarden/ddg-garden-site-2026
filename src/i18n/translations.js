@@ -198,6 +198,13 @@ export const translations = {
         devAxes: 'Оси',
         devStats: 'Статистика',
       },
+      publish: {
+        publish: 'Опубликовать на главную',
+        publishing: 'Публикация...',
+        progress: 'Сохранение текущего preset в проект...',
+        success: 'Preset главной обновлён. Теперь можно деплоить сайт.',
+        error: 'Не удалось опубликовать preset: {message}',
+      },
     },
   },
   en: {
@@ -396,6 +403,13 @@ export const translations = {
         devNormals: 'Normals',
         devAxes: 'Axes',
         devStats: 'Stats',
+      },
+      publish: {
+        publish: 'Publish to Home',
+        publishing: 'Publishing...',
+        progress: 'Writing the current preset into the project...',
+        success: 'Home preset updated. You can deploy the site now.',
+        error: 'Failed to publish preset: {message}',
       },
     },
   },

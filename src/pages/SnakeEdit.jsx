@@ -1,11 +1,14 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { useSnakeEditor } from '../hooks/useSnakeEditor';
 import EditorScene from '../components/effects/EditorScene';
 import EditorPanel from '../components/ui/EditorPanel';
+import { publishSnakeSettings } from '../lib/snakePublishClient';
+import { useLanguage } from '../i18n/LanguageProvider';
 import '../styles/CIAEditor.css';
 
 const SnakeEdit = () => {
+    const { t } = useLanguage();
     const {
         settings,
         setSettings,
@@ -18,6 +21,29 @@ const SnakeEdit = () => {
         handleSettingChange,
         handleTransformUpdate
     } = useSnakeEditor();
+    const [publishState, setPublishState] = useState({ busy: false, message: '' });
+
+    const handlePublish = async () => {
+        setPublishState({
+            busy: true,
+            message: t('snakeEditor.publish.progress'),
+        });
+
+        try {
+            await publishSnakeSettings(settings);
+            setPublishState({
+                busy: false,
+                message: t('snakeEditor.publish.success'),
+            });
+        } catch (error) {
+            setPublishState({
+                busy: false,
+                message: t('snakeEditor.publish.error', {
+                    message: error instanceof Error ? error.message : 'Unknown error',
+                }),
+            });
+        }
+    };
 
     return (
         <div className="cia-editor-container" style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
@@ -42,6 +68,8 @@ const SnakeEdit = () => {
                 settings={settings}
                 setSettings={setSettings}
                 handleSettingChange={handleSettingChange}
+                onPublish={handlePublish}
+                publishState={publishState}
             />
         </div>
     );

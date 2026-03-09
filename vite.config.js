@@ -5,6 +5,7 @@ import react from '@vitejs/plugin-react';
 
 const projectRoot = process.cwd();
 const portfolioImportRoot = path.join(projectRoot, 'public', 'portfolio', 'imported');
+const publishedSnakeSettingsPath = path.join(projectRoot, 'src', 'data', 'publishedSnakeSettings.js');
 
 function sendJson(response, statusCode, payload) {
   response.statusCode = statusCode;
@@ -31,6 +32,18 @@ function sanitizeFilename(filename) {
     .replace(/^-|-$/g, '') || 'image';
 
   return `${safeName}${ext || '.jpg'}`;
+}
+
+function normalizeSnakeSettingsPayload(settings) {
+  if (!settings || typeof settings !== 'object') {
+    throw new Error('Snake settings payload is missing.');
+  }
+
+  return settings;
+}
+
+function buildPublishedSnakeSettingsModule(settings) {
+  return `export const publishedSnakeSettings = ${JSON.stringify(settings, null, 2)};\n`;
 }
 
 async function readJsonBody(request) {
@@ -113,6 +126,41 @@ function portfolioImportPlugin() {
   };
 }
 
+function snakePublishPlugin() {
+  return {
+    name: 'snake-publish-api',
+    configureServer(server) {
+      server.middlewares.use('/__snake/publish', async (request, response, next) => {
+        if (request.method !== 'POST') {
+          next();
+          return;
+        }
+
+        try {
+          const body = await readJsonBody(request);
+          const normalizedSettings = normalizeSnakeSettingsPayload(body.settings);
+
+          await fs.writeFile(
+            publishedSnakeSettingsPath,
+            buildPublishedSnakeSettingsModule(normalizedSettings),
+            'utf8',
+          );
+
+          sendJson(response, 200, {
+            ok: true,
+            file: 'src/data/publishedSnakeSettings.js',
+          });
+        } catch (error) {
+          sendJson(response, 500, {
+            ok: false,
+            message: error instanceof Error ? error.message : 'Snake publish failed',
+          });
+        }
+      });
+    },
+  };
+}
+
 const manualChunks = (id) => {
   if (!id.includes('node_modules')) {
     return undefined;
@@ -149,7 +197,7 @@ const manualChunks = (id) => {
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [react(), portfolioImportPlugin()],
+  plugins: [react(), portfolioImportPlugin(), snakePublishPlugin()],
   build: {
     rollupOptions: {
       output: {

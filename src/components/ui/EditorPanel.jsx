@@ -2,7 +2,15 @@ import React from 'react';
 import { useLanguage } from '../../i18n/LanguageProvider';
 import { PlaneTab, GeometryTab, ShaderTab, LightingTab, CameraTab, DevTab } from './EditorTabs';
 
-const EditorPanel = ({ activeTab, setActiveTab, settings, setSettings, handleSettingChange }) => {
+const EditorPanel = ({
+    activeTab,
+    setActiveTab,
+    settings,
+    setSettings,
+    handleSettingChange,
+    onPublish,
+    publishState,
+}) => {
     const { t } = useLanguage();
     const tabs = [
         { id: 'plane', label: t('snakeEditor.tabs.plane') },
@@ -25,7 +33,22 @@ const EditorPanel = ({ activeTab, setActiveTab, settings, setSettings, handleSet
                         {tab.label}
                     </button>
                 ))}
+                <button
+                    type="button"
+                    className="cia-tab"
+                    onClick={onPublish}
+                    disabled={publishState?.busy}
+                    style={{ marginLeft: 'auto' }}
+                >
+                    {publishState?.busy ? t('snakeEditor.publish.publishing') : t('snakeEditor.publish.publish')}
+                </button>
             </div>
+
+            {publishState?.message ? (
+                <div className="cia-value-readout" style={{ padding: '0.2rem 0.15rem 0.75rem', opacity: 0.85 }}>
+                    {publishState.message}
+                </div>
+            ) : null}
 
             <div className="cia-toolbar-section">
                 <div className="cia-controls-grid">
