@@ -20,6 +20,7 @@ const EditorPanel = ({
         { id: 'camera', label: t('snakeEditor.tabs.camera') },
         { id: 'dev', label: t('snakeEditor.tabs.dev') },
     ];
+    const canPublish = typeof onPublish === 'function';
 
     return (
         <div className="cia-snake-panel">
@@ -33,18 +34,20 @@ const EditorPanel = ({
                         {tab.label}
                     </button>
                 ))}
-                <button
-                    type="button"
-                    className="cia-tab"
-                    onClick={onPublish}
-                    disabled={publishState?.busy}
-                    style={{ marginLeft: 'auto' }}
-                >
-                    {publishState?.busy ? t('snakeEditor.publish.publishing') : t('snakeEditor.publish.publish')}
-                </button>
+                {canPublish ? (
+                    <button
+                        type="button"
+                        className="cia-tab"
+                        onClick={onPublish}
+                        disabled={publishState?.busy}
+                        style={{ marginLeft: 'auto' }}
+                    >
+                        {publishState?.busy ? t('snakeEditor.publish.publishing') : t('snakeEditor.publish.publish')}
+                    </button>
+                ) : null}
             </div>
 
-            {publishState?.message ? (
+            {canPublish && publishState?.message ? (
                 <div className="cia-value-readout" style={{ padding: '0.2rem 0.15rem 0.75rem', opacity: 0.85 }}>
                     {publishState.message}
                 </div>

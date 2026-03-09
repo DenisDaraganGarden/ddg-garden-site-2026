@@ -21,6 +21,7 @@ const SnakeEdit = () => {
         handleSettingChange,
         handleTransformUpdate
     } = useSnakeEditor();
+    const isLocalPublishAvailable = import.meta.env.DEV;
     const [publishState, setPublishState] = useState({ busy: false, message: '' });
 
     const handlePublish = async () => {
@@ -68,7 +69,7 @@ const SnakeEdit = () => {
                 settings={settings}
                 setSettings={setSettings}
                 handleSettingChange={handleSettingChange}
-                onPublish={handlePublish}
+                onPublish={isLocalPublishAvailable ? handlePublish : undefined}
                 publishState={publishState}
             />
         </div>
