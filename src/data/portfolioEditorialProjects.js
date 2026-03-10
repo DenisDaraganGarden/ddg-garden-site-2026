@@ -29,40 +29,13 @@ export const portfolioEditorialProjects = [
       "ru": "",
       "en": ""
     },
-    "coverImage": "/portfolio/editorial/focus-point/plate-2.webp",
+    "coverImage": "",
     "coverPosition": "88% 56%",
     "coverAlt": {
       "ru": "Тихая точка фокуса, превью кейса",
       "en": "Quiet Point of Focus, case preview"
     },
-    "plates": [
-      {
-        "id": "focus-point-1",
-        "label": {
-          "ru": "Лист 01",
-          "en": "Sheet 01"
-        },
-        "image": "/portfolio/editorial/focus-point/plate-1.webp",
-        "previewPosition": "84% 54%",
-        "alt": {
-          "ru": "Тихая точка фокуса, разворот с описанием",
-          "en": "Quiet Point of Focus, descriptive spread"
-        }
-      },
-      {
-        "id": "focus-point-2",
-        "label": {
-          "ru": "Лист 02",
-          "en": "Sheet 02"
-        },
-        "image": "/portfolio/editorial/focus-point/plate-2.webp",
-        "previewPosition": "86% 54%",
-        "alt": {
-          "ru": "Тихая точка фокуса, разворот с визуализацией",
-          "en": "Quiet Point of Focus, visualization spread"
-        }
-      }
-    ]
+    "plates": []
   },
   {
     "id": "southern-silence",
@@ -81,8 +54,8 @@ export const portfolioEditorialProjects = [
       "en": "Southern private garden"
     },
     "coordinates": {
-      "lat": 44.5937,
-      "lng": 33.5221
+      "lat": 55.7558,
+      "lng": 37.6173
     },
     "statement": {
       "ru": "Покой воды, тяжёлый воздух и мягкая архитектура отдыха.",
@@ -92,53 +65,13 @@ export const portfolioEditorialProjects = [
       "ru": "",
       "en": ""
     },
-    "coverImage": "/portfolio/editorial/southern-silence/plate-2.webp",
+    "coverImage": "",
     "coverPosition": "84% 56%",
     "coverAlt": {
       "ru": "Южная тишина, превью кейса",
       "en": "Southern Silence, case preview"
     },
-    "plates": [
-      {
-        "id": "southern-silence-1",
-        "label": {
-          "ru": "Лист 01",
-          "en": "Sheet 01"
-        },
-        "image": "/portfolio/editorial/southern-silence/plate-1.webp",
-        "previewPosition": "84% 56%",
-        "alt": {
-          "ru": "Южная тишина, разворот с описанием",
-          "en": "Southern Silence, descriptive spread"
-        }
-      },
-      {
-        "id": "southern-silence-2",
-        "label": {
-          "ru": "Лист 02",
-          "en": "Sheet 02"
-        },
-        "image": "/portfolio/editorial/southern-silence/plate-2.webp",
-        "previewPosition": "83% 55%",
-        "alt": {
-          "ru": "Южная тишина, разворот с визуализацией фасада",
-          "en": "Southern Silence, facade visualization spread"
-        }
-      },
-      {
-        "id": "southern-silence-3",
-        "label": {
-          "ru": "Лист 03",
-          "en": "Sheet 03"
-        },
-        "image": "/portfolio/editorial/southern-silence/plate-3.webp",
-        "previewPosition": "52% 54%",
-        "alt": {
-          "ru": "Южная тишина, разворот с видом сверху",
-          "en": "Southern Silence, top view spread"
-        }
-      }
-    ]
+    "plates": []
   },
   {
     "id": "earth-reflections",
@@ -157,8 +90,8 @@ export const portfolioEditorialProjects = [
       "en": "Dilijan"
     },
     "coordinates": {
-      "lat": 40.7418,
-      "lng": 44.8608
+      "lat": 55.7558,
+      "lng": 37.6173
     },
     "statement": {
       "ru": "Камень, рельеф и архитектура сходятся в одном плотном жесте.",
@@ -168,40 +101,13 @@ export const portfolioEditorialProjects = [
       "ru": "",
       "en": ""
     },
-    "coverImage": "/portfolio/editorial/earth-reflections/plate-2.webp",
+    "coverImage": "",
     "coverPosition": "54% 52%",
     "coverAlt": {
       "ru": "Отражения земли, превью кейса",
       "en": "Reflections of Earth, case preview"
     },
-    "plates": [
-      {
-        "id": "earth-reflections-1",
-        "label": {
-          "ru": "Лист 01",
-          "en": "Sheet 01"
-        },
-        "image": "/portfolio/editorial/earth-reflections/plate-1.webp",
-        "previewPosition": "58% 52%",
-        "alt": {
-          "ru": "Отражения земли, разворот с описанием",
-          "en": "Reflections of Earth, descriptive spread"
-        }
-      },
-      {
-        "id": "earth-reflections-2",
-        "label": {
-          "ru": "Лист 02",
-          "en": "Sheet 02"
-        },
-        "image": "/portfolio/editorial/earth-reflections/plate-2.webp",
-        "previewPosition": "56% 52%",
-        "alt": {
-          "ru": "Отражения земли, разворот с визуализацией",
-          "en": "Reflections of Earth, visualization spread"
-        }
-      }
-    ]
+    "plates": []
   },
   {
     "id": "inside-time",
@@ -212,7 +118,7 @@ export const portfolioEditorialProjects = [
       "en": "Inside Time"
     },
     "subtitle": {
-      "ru": "Коллаборация с Петром Лари",
+      "ru": "Collaboration with Petr La",
       "en": "Collaboration with Petr Lari"
     },
     "location": {
@@ -220,8 +126,8 @@ export const portfolioEditorialProjects = [
       "en": "Authorial object"
     },
     "coordinates": {
-      "lat": 55.8,
-      "lng": 37.5
+      "lat": 55.7558,
+      "lng": 37.6173
     },
     "statement": {
       "ru": "Историческая форма превращается в тихое место встречи и памяти.",
@@ -231,40 +137,13 @@ export const portfolioEditorialProjects = [
       "ru": "",
       "en": ""
     },
-    "coverImage": "/portfolio/editorial/inside-time/plate-2.webp",
+    "coverImage": "",
     "coverPosition": "50% 52%",
     "coverAlt": {
       "ru": "Внутри времени, превью кейса",
       "en": "Inside Time, case preview"
     },
-    "plates": [
-      {
-        "id": "inside-time-1",
-        "label": {
-          "ru": "Лист 01",
-          "en": "Sheet 01"
-        },
-        "image": "/portfolio/editorial/inside-time/plate-1.webp",
-        "previewPosition": "51% 50%",
-        "alt": {
-          "ru": "Внутри времени, разворот с описанием",
-          "en": "Inside Time, descriptive spread"
-        }
-      },
-      {
-        "id": "inside-time-2",
-        "label": {
-          "ru": "Лист 02",
-          "en": "Sheet 02"
-        },
-        "image": "/portfolio/editorial/inside-time/plate-2.webp",
-        "previewPosition": "50% 48%",
-        "alt": {
-          "ru": "Внутри времени, разворот с внутренним двором",
-          "en": "Inside Time, inner courtyard spread"
-        }
-      }
-    ]
+    "plates": []
   },
   {
     "id": "echo",
@@ -283,8 +162,8 @@ export const portfolioEditorialProjects = [
       "en": "Concept"
     },
     "coordinates": {
-      "lat": 55.75,
-      "lng": 37.6
+      "lat": 55.7558,
+      "lng": 37.6173
     },
     "statement": {
       "ru": "Память места, яблони и мягкий туман собраны в новую классику.",
@@ -294,39 +173,12 @@ export const portfolioEditorialProjects = [
       "ru": "",
       "en": ""
     },
-    "coverImage": "/portfolio/editorial/echo/plate-1.webp",
+    "coverImage": "",
     "coverPosition": "82% 52%",
     "coverAlt": {
       "ru": "Эхо, превью кейса",
       "en": "Echo, case preview"
     },
-    "plates": [
-      {
-        "id": "echo-1",
-        "label": {
-          "ru": "Лист 01",
-          "en": "Sheet 01"
-        },
-        "image": "/portfolio/editorial/echo/plate-1.webp",
-        "previewPosition": "81% 51%",
-        "alt": {
-          "ru": "Эхо, разворот с описанием",
-          "en": "Echo, descriptive spread"
-        }
-      },
-      {
-        "id": "echo-2",
-        "label": {
-          "ru": "Лист 02",
-          "en": "Sheet 02"
-        },
-        "image": "/portfolio/editorial/echo/plate-2.webp",
-        "previewPosition": "48% 52%",
-        "alt": {
-          "ru": "Эхо, разворот с серией визуализаций",
-          "en": "Echo, visualization series spread"
-        }
-      }
-    ]
+    "plates": []
   }
 ];
