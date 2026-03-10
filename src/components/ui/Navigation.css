@@ -16,6 +16,12 @@
     display: flex;
     align-items: center;
     gap: 1.4rem;
+    min-width: 0;
+}
+
+.nav-links-rail {
+    min-width: 0;
+    position: relative;
 }
 
 .nav-brand a {
@@ -40,6 +46,7 @@
     list-style: none;
     gap: 2.5rem;
     align-items: center;
+    min-width: 0;
 }
 
 .language-switch {
@@ -101,56 +108,137 @@
 
 @media (max-width: 768px) {
     .main-nav {
-        padding:
-            calc(env(safe-area-inset-top, 0px) + 0.9rem) 1rem 0.85rem;
-        flex-direction: column;
-        align-items: flex-start;
+        padding: calc(env(safe-area-inset-top, 0px) + 0.72rem) 0.9rem 0.8rem;
+        display: grid;
+        grid-template-columns: minmax(6.8rem, 7.8rem) minmax(0, 1fr);
+        align-items: center;
         gap: 0.85rem;
-        background: transparent;
-        mix-blend-mode: difference;
-        backdrop-filter: none;
+        background: linear-gradient(180deg, rgba(5, 5, 5, 0.96) 0%, rgba(5, 5, 5, 0.88) 74%, rgba(5, 5, 5, 0) 100%);
+        mix-blend-mode: normal;
+        backdrop-filter: blur(18px);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
     }
 
     .nav-menu {
         width: 100%;
-        flex-direction: column;
-        align-items: flex-start;
+        min-width: 0;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: center;
         gap: 0.7rem;
     }
 
     .nav-brand a {
-        font-size: 1.05rem;
+        font-size: 0.96rem;
         letter-spacing: 0.08em;
+        line-height: 0.94;
     }
 
     .brand-subtitle {
-        font-size: 0.65rem;
+        margin-top: 0.18rem;
+        font-size: 0.54rem;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+    }
+
+    .nav-links-rail {
+        width: 100%;
+        min-width: 0;
+    }
+
+    .nav-links-rail::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(
+            90deg,
+            rgba(5, 5, 5, 0.94) 0%,
+            rgba(5, 5, 5, 0) 18px,
+            rgba(5, 5, 5, 0) calc(100% - 18px),
+            rgba(5, 5, 5, 0.94) 100%
+        );
+        pointer-events: none;
     }
 
     .nav-links {
         width: 100%;
+        min-width: 0;
         overflow-x: auto;
+        overflow-y: hidden;
         flex-wrap: nowrap;
-        gap: 1.25rem;
+        gap: 1rem;
         white-space: nowrap;
-        padding: 0.5rem 0;
+        padding: 0.2rem 0.55rem 0.35rem 0.2rem;
         scroll-snap-type: x proximity;
         scrollbar-width: none;
         -webkit-overflow-scrolling: touch;
     }
 
     .language-switch {
-        align-self: flex-start;
+        align-self: center;
+        justify-self: end;
+        border: 0;
+        padding-left: 0.7rem;
+        border-left: 1px solid rgba(255, 255, 255, 0.12);
+        gap: 0;
     }
 
     .nav-links::-webkit-scrollbar {
         display: none;
     }
 
+    .nav-links li {
+        flex: 0 0 auto;
+    }
+
     .nav-link {
         scroll-snap-align: start;
-        font-size: 0.78rem;
-        letter-spacing: 0.12em;
-        padding-bottom: 0.25rem;
+        display: inline-flex;
+        align-items: center;
+        min-height: 1.8rem;
+        font-size: 0.7rem;
+        letter-spacing: 0.17em;
+        opacity: 0.7;
+        padding-bottom: 0.35rem;
+    }
+
+    .nav-link.active::after {
+        bottom: 1px;
+        height: 1px;
+    }
+
+    .language-switch__button {
+        min-width: auto;
+        padding: 0;
+        font-size: 0.64rem;
+        letter-spacing: 0.2em;
+        opacity: 0.46;
+        background: transparent;
+    }
+
+    .language-switch__button.is-active {
+        color: var(--accent);
+        background: transparent;
+    }
+
+    .language-switch__button:not(:last-child) {
+        border-right: 0;
+    }
+
+    .language-switch__button + .language-switch__button {
+        position: relative;
+        margin-left: 0.52rem;
+        padding-left: 0.58rem;
+    }
+
+    .language-switch__button + .language-switch__button::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 50%;
+        width: 1px;
+        height: 0.72rem;
+        transform: translateY(-50%);
+        background: rgba(255, 255, 255, 0.14);
     }
 }

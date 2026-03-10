@@ -26,19 +26,21 @@ const Navigation = () => {
             </div>
 
             <div className="nav-menu">
-                <ul className="nav-links">
-                    {navItems.map((item) => (
-                        <li key={item.key}>
-                            <NavLink
-                                to={item.path}
-                                data-testid={`nav-${item.key}`}
-                                className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}
-                            >
-                                {t(`navigation.${item.key}`)}
-                            </NavLink>
-                        </li>
-                    ))}
-                </ul>
+                <div className="nav-links-rail">
+                    <ul className="nav-links">
+                        {navItems.map((item) => (
+                            <li key={item.key}>
+                                <NavLink
+                                    to={item.path}
+                                    data-testid={`nav-${item.key}`}
+                                    className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}
+                                >
+                                    {t(`navigation.${item.key}`)}
+                                </NavLink>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
 
                 <div className="language-switch" role="group" aria-label={t('navigation.language')}>
                     {['ru', 'en'].map((code) => (

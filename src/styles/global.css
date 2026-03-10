@@ -144,7 +144,7 @@ main {
 
 @media (max-width: 768px) {
   :root {
-    --mobile-header-height: 118px;
+    --mobile-header-height: 92px;
     --editor-sheet-height: 280px;
   }
 
