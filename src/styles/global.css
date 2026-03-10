@@ -65,6 +65,7 @@ main {
 .home-page {
   position: relative;
   min-height: 100vh;
+  height: 100vh;
 }
 
 .snake-home-page {
@@ -72,12 +73,15 @@ main {
     radial-gradient(circle at top, rgba(255, 255, 255, 0.05), transparent 28%),
     #020202;
   overflow: clip;
+  overscroll-behavior: none;
 }
 
 .snake-home-canvas {
   position: relative;
   width: 100%;
   min-height: 100vh;
+  height: 100vh;
+  touch-action: none;
 }
 
 .scene-fallback {
@@ -106,6 +110,7 @@ main {
   display: block;
   width: 100% !important;
   height: 100vh !important;
+  touch-action: none;
 }
 
 .stub-page {
@@ -158,6 +163,7 @@ main {
 
   .snake-home-canvas {
     min-height: 100dvh;
+    height: 100dvh;
   }
 
   .snake-home-canvas canvas {
