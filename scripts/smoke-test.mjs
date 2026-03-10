@@ -299,6 +299,95 @@ async function runPublishAndDraftChecks(browser) {
   return issues;
 }
 
+async function seedLocalPublicDrafts(page) {
+  await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
+  await page.evaluate(async () => {
+    localStorage.setItem('ddg_portfolio_projects_v1', JSON.stringify([
+      {
+        id: 'focus-point',
+        year: '2099',
+        fileCode: 'LOCAL',
+        title: { ru: 'LOCAL PORTFOLIO DRAFT', en: 'LOCAL PORTFOLIO DRAFT' },
+        subtitle: { ru: 'LOCAL', en: 'LOCAL' },
+        location: { ru: 'LOCAL', en: 'LOCAL' },
+        coordinates: null,
+        statement: { ru: 'LOCAL', en: 'LOCAL' },
+        description: { ru: 'LOCAL', en: 'LOCAL' },
+        coverImage: '',
+        coverPosition: '50% 50%',
+        coverAlt: { ru: 'LOCAL', en: 'LOCAL' },
+        plates: [],
+      },
+    ]));
+
+    const openDatabase = () => new Promise((resolve, reject) => {
+      const request = indexedDB.open('ddg-info-editor', 1);
+      request.onupgradeneeded = () => {
+        const database = request.result;
+        if (!database.objectStoreNames.contains('documents')) {
+          database.createObjectStore('documents');
+        }
+      };
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+
+    const db = await openDatabase();
+    await new Promise((resolve, reject) => {
+      const transaction = db.transaction('documents', 'readwrite');
+      const store = transaction.objectStore('documents');
+      store.put({
+        version: 2,
+        contentHtml: '<div>LOCAL INFO DRAFT</div>',
+        paperSettings: {
+          brightness: 10,
+          grain: 90,
+          vignette: 90,
+          creases: 90,
+          dirt: 90,
+          textScale: 1,
+          tone: 0,
+          inkFade: 90,
+          inkBleed: 90,
+        },
+        overlays: [],
+        updatedAt: new Date().toISOString(),
+      }, 'default:ru');
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+    });
+    db.close();
+  });
+}
+
+async function runPublicSourceChecks(browser) {
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  const page = await context.newPage();
+  const issues = [];
+  collectPageIssues(page, issues);
+
+  await seedLocalPublicDrafts(page);
+
+  await page.goto(`${baseUrl}/portfolio`, { waitUntil: 'domcontentloaded' });
+  await expectVisible(page, page.getByTestId('portfolio-project-focus-point'), 'published portfolio card');
+  const firstProjectName = (await page.locator('.portfolio-title-item__name').first().textContent())?.trim();
+  assert(firstProjectName === 'Тихая точка фокуса', 'Public portfolio should ignore local draft storage');
+
+  await page.goto(`${baseUrl}/map`, { waitUntil: 'domcontentloaded' });
+  await expectVisible(page, page.getByTestId('map-page'), 'published map page');
+  const markerCount = await page.locator('.ddg-map-marker').count();
+  assert(markerCount >= 5, 'Public map should ignore local draft storage');
+
+  await page.goto(`${baseUrl}/info`, { waitUntil: 'domcontentloaded' });
+  await expectVisible(page, page.getByTestId('info-page'), 'published info page');
+  const infoHtml = await page.locator('.info-view-surface').innerHTML();
+  assert(!infoHtml.includes('LOCAL INFO DRAFT'), 'Public info should ignore local editor draft');
+  log('OK public pages ignore local drafts');
+
+  await context.close();
+  return issues;
+}
+
 async function runResourceAudit(browser) {
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   const page = await context.newPage();
@@ -388,6 +477,7 @@ async function main() {
       ...(await runRouteChecks(browser)),
       ...(await runWebglFallbackChecks(browser)),
       ...(await runPublishAndDraftChecks(browser)),
+      ...(await runPublicSourceChecks(browser)),
       ...(await runResourceAudit(browser)),
       ...(await runMobileChecks(browser)),
     ];

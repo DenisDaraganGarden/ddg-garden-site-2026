@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import PaperOverlayLayer from '../components/info-editor/PaperOverlayLayer';
 import { createDefaultInfoEditorDocument } from '../lib/infoEditorHtml';
-import { loadInfoEditorDocument } from '../lib/infoEditorStorage';
 import { useLanguage } from '../i18n/LanguageProvider';
 import '../styles/Info.css';
 import '../styles/CIAEditor.css';
@@ -25,19 +24,7 @@ const Info = () => {
   const [documentState, setDocumentState] = useState(createDefaultInfoEditorDocument(language));
 
   useEffect(() => {
-    let cancelled = false;
-
     setDocumentState(createDefaultInfoEditorDocument(language));
-
-    loadInfoEditorDocument(language).then((nextDocument) => {
-      if (!cancelled) {
-        setDocumentState(nextDocument);
-      }
-    });
-
-    return () => {
-      cancelled = true;
-    };
   }, [language]);
 
     return (

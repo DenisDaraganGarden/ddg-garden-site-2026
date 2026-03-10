@@ -4,13 +4,13 @@ import { useLanguage } from '../i18n/LanguageProvider';
 import {
   getDefaultPortfolioProjects,
   getLocalizedPortfolioProject,
-  loadPortfolioProjects,
 } from '../lib/portfolioProjectStorage';
+import ProjectBooklet from '../components/portfolio/ProjectBooklet';
 import '../styles/Portfolio.css';
 
 const Portfolio = () => {
   const { language, t } = useLanguage();
-  const [projects, setProjects] = useState(getDefaultPortfolioProjects());
+  const projects = getDefaultPortfolioProjects();
   const [activeProjectId, setActiveProjectId] = useState(null);
   const [activePlateIndex, setActivePlateIndex] = useState(null);
   const localizedProjects = projects.map((project) => getLocalizedPortfolioProject(project, language));
@@ -18,10 +18,6 @@ const Portfolio = () => {
   const activePlate = activeProject && activePlateIndex !== null
     ? activeProject.plates[activePlateIndex]
     : null;
-
-  useEffect(() => {
-    setProjects(loadPortfolioProjects());
-  }, []);
 
   useEffect(() => {
     if (!activeProject && !activePlate) {
@@ -147,82 +143,11 @@ const Portfolio = () => {
       </section>
 
       {activeProject ? (
-        <div
-          className="portfolio-sheet-backdrop"
-          role="presentation"
-          onClick={closeProject}
-        >
-          <section
-            className="portfolio-booklet"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby={`portfolio-project-${activeProject.id}`}
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="portfolio-booklet__inner">
-              <header className="portfolio-booklet__header">
-                <div className="portfolio-booklet__title-cell">
-                  <span className="portfolio-kicker">{activeProject.fileCode}</span>
-                  <h2 id={`portfolio-project-${activeProject.id}`}>{activeProject.title}</h2>
-                  <div className="portfolio-booklet__meta-line">
-                    <span className="portfolio-booklet__year">{activeProject.year}</span>
-                    <span className="portfolio-booklet__dot">•</span>
-                    <Link to={`/map?project=${activeProject.id}`} className="portfolio-location-link">
-                      {activeProject.location}
-                    </Link>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  className="portfolio-booklet__close"
-                  data-testid="portfolio-project-close"
-                  onClick={closeProject}
-                  aria-label={t('portfolio.closeProject')}
-                >
-                  {t('common.close')}
-                </button>
-              </header>
-
-              <div className="portfolio-booklet__content">
-                <div className="portfolio-booklet__description-cell">
-                  {activeProject.description ? (
-                    <div className="portfolio-booklet__description">
-                      {activeProject.description.split('\n').map((paragraph, i) => (
-                        <p key={i}>{paragraph}</p>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="portfolio-booklet__statement">{activeProject.statement}</p>
-                  )}
-                </div>
-
-                <div className="portfolio-booklet__plates-cell">
-                  <div className="portfolio-booklet__plate-grid">
-                    {activeProject.plates.map((plate, index) => (
-                      <button
-                        key={plate.id}
-                        type="button"
-                        className="portfolio-booklet__plate"
-                        data-testid={`portfolio-plate-${plate.id}`}
-                        onClick={() => openPlate(index)}
-                        aria-label={t('portfolio.openPlate', { label: plate.label })}
-                      >
-                        <img
-                          src={plate.image}
-                          alt={plate.alt}
-                          style={{ objectPosition: plate.previewPosition }}
-                          loading="lazy"
-                        />
-                        <span className="portfolio-booklet__plate-label">{plate.label}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </section>
-        </div>
+        <ProjectBooklet
+          project={activeProject}
+          onClose={closeProject}
+          onPlateClick={openPlate}
+        />
       ) : null}
 
       {activeProject && activePlate ? (
@@ -239,14 +164,14 @@ const Portfolio = () => {
             onClick={(event) => event.stopPropagation()}
           >
             <div className="portfolio-lightbox__toolbar">
-              <div>
+              <div className="portfolio-lightbox__info">
                 <span className="portfolio-kicker">{t('portfolio.fullscreenPlate')}</span>
                 <h2 id={`portfolio-plate-${activePlate.id}`}>{activeProject.title}</h2>
               </div>
 
               <button
                 type="button"
-                className="portfolio-sheet__close"
+                className="portfolio-booklet__close"
                 data-testid="portfolio-lightbox-close"
                 onClick={() => setActivePlateIndex(null)}
                 aria-label={t('portfolio.closeFullscreenPlate')}

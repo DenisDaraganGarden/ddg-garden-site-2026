@@ -22,6 +22,7 @@ import {
   importPortfolioFiles,
   publishPortfolioProjects,
 } from '../lib/portfolioImportClient';
+import ProjectBooklet from '../components/portfolio/ProjectBooklet';
 import '../styles/Portfolio.css';
 
 const PortfolioEdit = () => {
@@ -454,34 +455,17 @@ const PortfolioEdit = () => {
         </aside>
 
         <section className="portfolio-edit-preview">
-          <div className="portfolio-edit-preview__frame portfolio-edit-preview__frame--portfolio">
-            {localizedSelectedProject ? (
-              <>
-                <div className="portfolio-edit-preview__hero">
-                  <span className="portfolio-kicker">{t('portfolio.editor.preview')}</span>
-                  <h2>{localizedSelectedProject.title}</h2>
-                  <p>{localizedSelectedProject.statement}</p>
-                </div>
-
-                <div className="portfolio-edit-preview__cover">
-                  <img
-                    src={selectedProject.coverImage}
-                    alt={localizedSelectedProject.coverAlt}
-                    style={{ objectPosition: selectedProject.coverPosition }}
-                  />
-                </div>
-
-                <div className="portfolio-edit-preview__plates">
-                  {localizedSelectedProject.plates.map((plate) => (
-                    <div key={plate.id} className="portfolio-edit-preview__plate">
-                      <img src={plate.image} alt={plate.alt} style={{ objectPosition: plate.previewPosition }} />
-                      <span>{plate.label}</span>
-                    </div>
-                  ))}
-                </div>
-              </>
-            ) : null}
-          </div>
+          {localizedSelectedProject ? (
+            <ProjectBooklet
+              project={localizedSelectedProject}
+              variant="inline"
+            />
+          ) : (
+            <div className="portfolio-edit-preview__empty">
+              <span className="portfolio-kicker">{t('portfolio.editor.preview')}</span>
+              <p>{t('portfolio.editor.selectProjectToPreview')}</p>
+            </div>
+          )}
         </section>
       </section>
     </div>

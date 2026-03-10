@@ -3,7 +3,7 @@ import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import { useLocation } from 'react-router-dom';
 import L from 'leaflet';
 import { useLanguage } from '../i18n/LanguageProvider';
-import { loadPortfolioProjects, getLocalizedPortfolioProject } from '../lib/portfolioProjectStorage';
+import { getDefaultPortfolioProjects, getLocalizedPortfolioProject } from '../lib/portfolioProjectStorage';
 import 'leaflet/dist/leaflet.css';
 import '../styles/Map.css';
 
@@ -44,7 +44,7 @@ const Map = () => {
     const queryParams = new URLSearchParams(routerLocation.search);
     const focusProjectId = queryParams.get('project');
 
-    const projects = useMemo(() => loadPortfolioProjects(), []);
+    const projects = useMemo(() => getDefaultPortfolioProjects(), []);
 
     const localizedProjects = useMemo(() =>
         projects.map(p => getLocalizedPortfolioProject(p, language)),
