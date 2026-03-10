@@ -15,6 +15,7 @@ const AUTO_PUBLISH_DELAY_MS = 250;
 const INITIAL_PUBLISHED_SNAPSHOT = JSON.stringify(
     sanitizeSnakeSettingsForPublish(getPublishedSnakeSettings()),
 );
+const LOCAL_EDIT_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
 
 const SnakeEdit = () => {
     const { t } = useLanguage();
@@ -30,7 +31,8 @@ const SnakeEdit = () => {
         handleSettingChange,
         handleTransformUpdate
     } = useSnakeEditor();
-    const isLocalPublishAvailable = import.meta.env.DEV;
+    const isLocalPublishAvailable = typeof window !== 'undefined'
+        && LOCAL_EDIT_HOSTS.has(window.location.hostname);
     const [publishState, setPublishState] = useState({ busy: false, message: '' });
     const publishRequestRef = useRef(0);
     const lastPublishedSnapshotRef = useRef(INITIAL_PUBLISHED_SNAPSHOT);

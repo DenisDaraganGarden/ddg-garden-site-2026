@@ -220,36 +220,43 @@ function portfolioImportPlugin() {
 }
 
 function snakePublishPlugin() {
+  const attachSnakePublishMiddleware = (middlewares) => {
+    middlewares.use('/__snake/publish', async (request, response, next) => {
+      if (request.method !== 'POST') {
+        next();
+        return;
+      }
+
+      try {
+        const body = await readJsonBody(request);
+        const normalizedSettings = normalizeSnakeSettingsPayload(body.settings);
+
+        await fs.writeFile(
+          publishedSnakeSettingsPath,
+          buildPublishedSnakeSettingsModule(normalizedSettings),
+          'utf8',
+        );
+
+        sendJson(response, 200, {
+          ok: true,
+          file: 'src/data/publishedSnakeSettings.js',
+        });
+      } catch (error) {
+        sendJson(response, 500, {
+          ok: false,
+          message: error instanceof Error ? error.message : 'Snake publish failed',
+        });
+      }
+    });
+  };
+
   return {
     name: 'snake-publish-api',
     configureServer(server) {
-      server.middlewares.use('/__snake/publish', async (request, response, next) => {
-        if (request.method !== 'POST') {
-          next();
-          return;
-        }
-
-        try {
-          const body = await readJsonBody(request);
-          const normalizedSettings = normalizeSnakeSettingsPayload(body.settings);
-
-          await fs.writeFile(
-            publishedSnakeSettingsPath,
-            buildPublishedSnakeSettingsModule(normalizedSettings),
-            'utf8',
-          );
-
-          sendJson(response, 200, {
-            ok: true,
-            file: 'src/data/publishedSnakeSettings.js',
-          });
-        } catch (error) {
-          sendJson(response, 500, {
-            ok: false,
-            message: error instanceof Error ? error.message : 'Snake publish failed',
-          });
-        }
-      });
+      attachSnakePublishMiddleware(server.middlewares);
+    },
+    configurePreviewServer(server) {
+      attachSnakePublishMiddleware(server.middlewares);
     },
   };
 }

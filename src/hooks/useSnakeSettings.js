@@ -7,6 +7,7 @@ export const PUBLISHED_SNAKE_SETTINGS_STORAGE_KEY = 'ddg_published_snake_setting
 export const SNAKE_SETTINGS_SYNC_EVENT = 'ddg:snake-settings-sync';
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+const LOCAL_SNAKE_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
 
 const PUBLISHED_SNAKE_KEYS = [
   'planeAlbedo',
@@ -150,6 +151,24 @@ export const normalizeSnakeDraftSettings = (savedSettings = {}) => {
   };
 };
 
+function isLocalSnakeRuntime() {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+
+  return LOCAL_SNAKE_HOSTS.has(window.location.hostname);
+}
+
+function clearSnakeRuntimeStorage() {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  window.localStorage.removeItem(SNAKE_SETTINGS_STORAGE_KEY);
+  window.localStorage.removeItem(LEGACY_SNAKE_SETTINGS_STORAGE_KEY);
+  window.localStorage.removeItem(PUBLISHED_SNAKE_SETTINGS_STORAGE_KEY);
+}
+
 export function readSnakeDraftSettings() {
   if (typeof window === 'undefined') {
     return null;
@@ -171,7 +190,7 @@ export function readSnakeDraftSettings() {
 }
 
 function readStoredPublishedSnakeSettings() {
-  if (typeof window === 'undefined' || !import.meta.env.DEV) {
+  if (!isLocalSnakeRuntime()) {
     return null;
   }
 
@@ -190,6 +209,10 @@ function readStoredPublishedSnakeSettings() {
 }
 
 export function readLivePublishedSnakeSettings() {
+  if (!isLocalSnakeRuntime()) {
+    return null;
+  }
+
   const storedPublishedSettings = readStoredPublishedSnakeSettings();
 
   if (storedPublishedSettings) {
@@ -219,6 +242,10 @@ export const usePublishedSnakeSettings = () => {
   useEffect(() => {
     if (typeof window === 'undefined') {
       return undefined;
+    }
+
+    if (!isLocalSnakeRuntime()) {
+      clearSnakeRuntimeStorage();
     }
 
     const syncSettings = () => {
@@ -263,7 +290,7 @@ export const useSnakeDraftSettings = () => {
     window.localStorage.setItem(SNAKE_SETTINGS_STORAGE_KEY, JSON.stringify(settings));
     window.localStorage.removeItem(LEGACY_SNAKE_SETTINGS_STORAGE_KEY);
 
-    if (import.meta.env.DEV) {
+    if (isLocalSnakeRuntime()) {
       window.localStorage.setItem(
         PUBLISHED_SNAKE_SETTINGS_STORAGE_KEY,
         JSON.stringify(sanitizeSnakeSettingsForPublish(settings)),
