@@ -1,0 +1,40 @@
+.home-page {
+  position: relative;
+  min-height: 100vh;
+  height: 100vh;
+}
+
+.home-page--blank {
+  background:
+    radial-gradient(circle at top, rgba(255, 255, 255, 0.05), transparent 28%),
+    #020202;
+  overflow: clip;
+  overscroll-behavior: none;
+}
+
+.home-cinematic-frame {
+  position: fixed;
+  left: 0;
+  right: 0;
+  height: 12vh;
+  background: #000000;
+  z-index: 100;
+  pointer-events: none;
+  transition: opacity 0.4s ease;
+}
+
+.home-cinematic-frame--top {
+  top: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.home-cinematic-frame--bottom {
+  bottom: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+@media (max-width: 768px) {
+  .home-cinematic-frame {
+    height: 8vh;
+  }
+}

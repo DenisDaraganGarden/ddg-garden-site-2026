@@ -2,7 +2,8 @@
     position: relative;
     width: 100%;
     height: 100vh;
-    background: #fbf9f6;
+    background: #000;
+    /* Black for globe */
     overflow: hidden;
     display: flex;
     flex-direction: column;
@@ -21,7 +22,8 @@
     text-transform: uppercase;
     letter-spacing: -0.04em;
     line-height: 0.9;
-    color: #111;
+    color: #fff;
+    /* White for dark theme */
     margin-top: 0.5rem;
 }
 
@@ -30,6 +32,29 @@
     width: 100%;
     height: 100%;
     position: relative;
+}
+
+.map-empty-state {
+    display: grid;
+    gap: 0.8rem;
+    width: min(34rem, calc(100% - 3rem));
+    margin: auto;
+    padding: 2rem;
+    text-align: left;
+    background: rgba(255, 255, 255, 0.7);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.map-empty-state h2 {
+    font-size: clamp(1.2rem, 2vw, 1.6rem);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #111;
+}
+
+.map-empty-state p {
+    color: rgba(0, 0, 0, 0.7);
+    line-height: 1.7;
 }
 
 .ddg-leaflet-container {
@@ -100,23 +125,273 @@
     margin-bottom: 1rem;
 }
 
-.ddg-popup-image {
-    width: 100%;
-    height: 120px;
-    object-fit: cover;
-    filter: grayscale(0.5);
-    transition: filter 0.3s ease;
-}
-
-.ddg-popup-image:hover {
-    filter: grayscale(0);
-}
-
-/* Navigation back to Portfolio kicker style */
 .portfolio-kicker {
     display: block;
     font-size: 0.75rem;
     text-transform: uppercase;
     letter-spacing: 0.12em;
-    color: rgba(0, 0, 0, 0.4);
+    color: rgba(255, 255, 255, 0.4);
+    /* Subtle white */
+}
+
+.globe-container {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    background: #000;
+}
+
+/* Hide default ThreeGlobe tooltips to use our custom React overlay */
+.scene-container .scene-tooltip {
+    display: none !important;
+}
+
+/* Tooltip for Globe */
+.globe-tooltip {
+    position: absolute;
+    bottom: 4rem;
+    right: 5%;
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 1.5rem 2rem;
+    min-width: 320px;
+    z-index: 2000;
+    color: #fff;
+    pointer-events: none;
+    animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.globe-tooltip__year {
+    display: block;
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.5);
+    margin-bottom: 0.25rem;
+}
+
+.globe-tooltip__title {
+    font-size: 1.4rem;
+    text-transform: uppercase;
+    letter-spacing: -0.02em;
+    margin: 0 0 0.5rem 0;
+    line-height: 1.1;
+}
+
+.globe-tooltip__location {
+    font-size: 0.9rem;
+    color: rgba(255, 255, 255, 0.7);
+    margin: 0;
+}
+
+/* Override for 2D map elements (cleanup) */
+.map-container-wrap,
+.map-empty-state {
+    display: none;
+}
+
+/* HTML Labels */
+.globe-html-label {
+    --label-translate-x: 0;
+    --label-translate-y: -50%;
+    position: absolute;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    pointer-events: auto;
+    transition: opacity 0.18s ease, transform 0.18s ease;
+    transform: translate(var(--label-translate-x), var(--label-translate-y));
+}
+
+.globe-html-label[data-visible="false"] {
+    opacity: 0;
+    transform: translate(var(--label-translate-x), var(--label-translate-y)) scale(0.96);
+}
+
+.globe-html-label--placement-east {
+    --label-translate-x: 0.7rem;
+    --label-translate-y: -50%;
+}
+
+.globe-html-label--placement-north-east {
+    --label-translate-x: 0.7rem;
+    --label-translate-y: -100%;
+}
+
+.globe-html-label--placement-north {
+    --label-translate-x: -50%;
+    --label-translate-y: -100%;
+}
+
+.globe-html-label--placement-north-west {
+    --label-translate-x: calc(-100% - 0.7rem);
+    --label-translate-y: -100%;
+}
+
+.globe-html-label--placement-west {
+    --label-translate-x: calc(-100% - 0.7rem);
+    --label-translate-y: -50%;
+}
+
+.globe-html-label--placement-south-west {
+    --label-translate-x: calc(-100% - 0.7rem);
+    --label-translate-y: 0;
+}
+
+.globe-html-label--placement-south {
+    --label-translate-x: -50%;
+    --label-translate-y: 0;
+}
+
+.globe-html-label--placement-south-east {
+    --label-translate-x: 0.7rem;
+    --label-translate-y: 0;
+}
+
+.globe-html-label--placement-west,
+.globe-html-label--placement-north-west,
+.globe-html-label--placement-south-west {
+    flex-direction: row-reverse;
+}
+
+.globe-html-label__anchor {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+}
+
+.globe-html-label__dot {
+    width: 0.42rem;
+    height: 0.42rem;
+    background: #fff;
+    border-radius: 50%;
+    box-shadow: 0 0 12px rgba(255, 255, 255, 0.8), 0 0 24px rgba(255, 255, 255, 0.35);
+}
+
+.globe-html-label__cluster-count {
+    position: absolute;
+    top: 50%;
+    left: calc(100% + 0.4rem);
+    min-width: 1.25rem;
+    padding: 0.1rem 0.32rem;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.82);
+    color: rgba(255, 255, 255, 0.86);
+    font-size: 0.66rem;
+    font-weight: 600;
+    line-height: 1;
+    text-align: center;
+    transform: translateY(-50%);
+    box-shadow: 0 0 18px rgba(0, 0, 0, 0.45);
+}
+
+.globe-html-label__body {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.32rem;
+}
+
+.globe-html-label__project-link {
+    appearance: none;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.68);
+    color: rgba(255, 255, 255, 0.92);
+    padding: 0.32rem 0.7rem;
+    font: inherit;
+    font-size: 0.76rem;
+    font-weight: 500;
+    line-height: 1.2;
+    letter-spacing: 0.01em;
+    max-width: 11rem;
+    white-space: normal;
+    text-align: left;
+    cursor: pointer;
+    text-shadow: 0 0 8px rgba(0, 0, 0, 0.7);
+    box-shadow: 0 0 18px rgba(0, 0, 0, 0.35);
+    transition: border-color 0.18s ease, background-color 0.18s ease, transform 0.18s ease;
+}
+
+.globe-html-label__project-link:hover {
+    border-color: rgba(255, 255, 255, 0.28);
+    background: rgba(14, 14, 14, 0.88);
+    transform: translateX(2px);
+}
+
+.globe-html-label__project-link--summary {
+    max-width: 9rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.globe-html-label--project-cluster .globe-html-label__body {
+    gap: 0.38rem;
+}
+
+.globe-html-label--project-cluster .globe-html-label__project-link--detail {
+    display: none;
+}
+
+.globe-html-label--project-cluster:hover .globe-html-label__project-link--detail,
+.globe-html-label--project-cluster:focus-within .globe-html-label__project-link--detail {
+    display: block;
+}
+
+.globe-html-label--country {
+    --label-translate-x: -50%;
+    --label-translate-y: -50%;
+}
+
+.globe-html-label--country[data-visible="false"] {
+    transform: translate(var(--label-translate-x), var(--label-translate-y)) scale(0.96);
+}
+
+.globe-html-label__country-text {
+    font-size: 0.74rem;
+    color: rgba(255, 255, 255, 0.46);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    text-shadow: 0 0 10px rgba(0, 0, 0, 0.9);
+}
+
+@media (max-width: 900px) {
+    .map-page__header {
+        top: 5rem;
+        left: 1.5rem;
+    }
+
+    .globe-tooltip {
+        right: 1.5rem;
+        bottom: 1.5rem;
+        min-width: min(18rem, calc(100% - 3rem));
+        padding: 1rem 1.2rem;
+    }
+
+    .globe-html-label {
+        gap: 0.55rem;
+    }
+
+    .globe-html-label__project-link {
+        max-width: min(14rem, 45vw);
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
 }

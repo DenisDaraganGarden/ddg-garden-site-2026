@@ -1,212 +1,74 @@
-import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { useLanguage } from '../i18n/LanguageProvider';
-import {
-  getDefaultPortfolioProjects,
-  getLocalizedPortfolioProject,
-} from '../lib/portfolioProjectStorage';
-import ProjectBooklet from '../components/portfolio/ProjectBooklet';
+import React from 'react';
+import { useLanguage } from '../i18n/useLanguage';
+import { projectRegistry } from '../data/projectRegistry';
+import { localizeField } from '../lib/localizeField';
+import { useTrail, animated, config } from 'react-spring';
 import '../styles/Portfolio.css';
 
-const Portfolio = () => {
+import { Link, useSearchParams } from 'react-router-dom';
+
+const ProjectRow = ({ project, style }) => {
   const { language, t } = useLanguage();
-  const projects = getDefaultPortfolioProjects();
-  const [activeProjectId, setActiveProjectId] = useState(null);
-  const [activePlateIndex, setActivePlateIndex] = useState(null);
-  const localizedProjects = projects.map((project) => getLocalizedPortfolioProject(project, language));
-  const activeProject = localizedProjects.find((project) => project.id === activeProjectId) ?? null;
-  const activePlate = activeProject && activePlateIndex !== null
-    ? activeProject.plates[activePlateIndex]
-    : null;
-
-  useEffect(() => {
-    if (!activeProject && !activePlate) {
-      return undefined;
-    }
-
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-
-    return () => {
-      document.body.style.overflow = previousOverflow;
-    };
-  }, [activeProject, activePlate]);
-
-  useEffect(() => {
-    const handleKeyDown = (event) => {
-      if (event.key === 'Escape') {
-        if (activePlate) {
-          setActivePlateIndex(null);
-          return;
-        }
-
-        if (activeProject) {
-          setActiveProjectId(null);
-        }
-
-        return;
-      }
-
-      if (!activeProject || activePlateIndex === null) {
-        return;
-      }
-
-      if (event.key === 'ArrowRight') {
-        setActivePlateIndex((previous) => (
-          previous + 1 >= activeProject.plates.length ? 0 : previous + 1
-        ));
-      }
-
-      if (event.key === 'ArrowLeft') {
-        setActivePlateIndex((previous) => (
-          previous - 1 < 0 ? activeProject.plates.length - 1 : previous - 1
-        ));
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeProject, activePlate, activePlateIndex]);
-
-  const openProject = (projectId) => {
-    setActiveProjectId(projectId);
-    setActivePlateIndex(null);
-
-    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
-      navigator.vibrate(10);
-    }
-  };
-
-  const closeProject = () => {
-    setActiveProjectId(null);
-    setActivePlateIndex(null);
-  };
-
-  const openPlate = (index) => {
-    setActivePlateIndex(index);
-
-    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
-      navigator.vibrate(8);
-    }
-  };
-
-  const goToPreviousPlate = () => {
-    if (!activeProject) {
-      return;
-    }
-
-    setActivePlateIndex((previous) => (
-      previous - 1 < 0 ? activeProject.plates.length - 1 : previous - 1
-    ));
-  };
-
-  const goToNextPlate = () => {
-    if (!activeProject) {
-      return;
-    }
-
-    setActivePlateIndex((previous) => (
-      previous + 1 >= activeProject.plates.length ? 0 : previous + 1
-    ));
-  };
 
   return (
-    <div className="portfolio-page" data-testid="portfolio-page">
-      <div className="portfolio-page__noise" />
+    <animated.div
+      className={`project-row project-row--${project.status}`}
+      style={style}
+      data-testid={`project-row-${project.id}`}
+    >
+      <Link to={`/portfolio/${project.slug}`} className="project-row__link">
+        <div className="project-row__meta">
+          <span className="project-row__year">{project.year}</span>
+          <span className="project-row__code">{project.fileCode}</span>
+        </div>
+        <div className="project-row__content">
+          <h2 className="project-row__title">{localizeField(project.title, language)}</h2>
+          <div className="project-row__discovery">
+            <span className="project-row__location">{localizeField(project.location, language)}</span>
+            <span className="project-row__discover-label">{t('portfolio.discover')}</span>
+          </div>
+        </div>
+      </Link>
+    </animated.div>
+  );
+};
 
-      <section className="portfolio-shell portfolio-shell--editorial">
+const Portfolio = () => {
+  const { t } = useLanguage();
+  const [searchParams] = useSearchParams();
+  const categoryFilter = searchParams.get('category');
+
+  const filteredProjects = React.useMemo(() => {
+    if (!categoryFilter || categoryFilter === 'all') return projectRegistry;
+    return projectRegistry.filter(p => p.category === categoryFilter);
+  }, [categoryFilter]);
+
+  const trail = useTrail(filteredProjects.length, {
+    config: { ...config.gentle, tension: 280, friction: 60 },
+    from: { opacity: 0, transform: 'translateY(40px)' },
+    to: { opacity: 1, transform: 'translateY(0)' },
+    delay: 300,
+    reset: true,
+  });
+
+  return (
+    <main className="portfolio-page">
+      <div className="portfolio-container">
         <header className="portfolio-hero">
-          <h1>{t('portfolio.title')}</h1>
+          <animated.h1 className="portfolio-title">
+            {t('portfolio.title')}
+          </animated.h1>
         </header>
 
-        <section className="portfolio-title-list" aria-label={t('navigation.portfolio')}>
-          {localizedProjects.map((project) => (
-            <button
-              key={project.id}
-              type="button"
-              className="portfolio-title-item"
-              onClick={() => openProject(project.id)}
-              data-testid={`portfolio-project-${project.id}`}
-            >
-              <span className="portfolio-title-item__year">{project.year}</span>
-              <span className="portfolio-title-item__name">{project.title}</span>
-              <span className="portfolio-title-item__code">{project.fileCode}</span>
-            </button>
-          ))}
+        <section className="portfolio-section">
+          <div className="portfolio-list">
+            {trail.map((style, index) => (
+              <ProjectRow key={filteredProjects[index].id} project={filteredProjects[index]} style={style} />
+            ))}
+          </div>
         </section>
-
-        <footer className="portfolio-footnote">
-          <Link to="/portfolio/edit" className="portfolio-inline-link">
-            {t('portfolio.openDraftEditor')}
-          </Link>
-        </footer>
-      </section>
-
-      {activeProject ? (
-        <ProjectBooklet
-          project={activeProject}
-          onClose={closeProject}
-          onPlateClick={openPlate}
-        />
-      ) : null}
-
-      {activeProject && activePlate ? (
-        <div
-          className="portfolio-lightbox"
-          role="presentation"
-          onClick={() => setActivePlateIndex(null)}
-        >
-          <section
-            className="portfolio-lightbox__frame"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby={`portfolio-plate-${activePlate.id}`}
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="portfolio-lightbox__toolbar">
-              <div className="portfolio-lightbox__info">
-                <span className="portfolio-kicker">{t('portfolio.fullscreenPlate')}</span>
-                <h2 id={`portfolio-plate-${activePlate.id}`}>{activeProject.title}</h2>
-              </div>
-
-              <button
-                type="button"
-                className="portfolio-booklet__close"
-                data-testid="portfolio-lightbox-close"
-                onClick={() => setActivePlateIndex(null)}
-                aria-label={t('portfolio.closeFullscreenPlate')}
-              >
-                {t('common.close')}
-              </button>
-            </div>
-
-            <div className="portfolio-lightbox__image-wrap">
-              <img
-                className="portfolio-lightbox__image"
-                src={activePlate.image}
-                alt={activePlate.alt}
-              />
-            </div>
-
-            <footer className="portfolio-lightbox__footer">
-              <span>{activePlate.label}</span>
-              <span>{activePlateIndex + 1} / {activeProject.plates.length}</span>
-            </footer>
-
-            {activeProject.plates.length > 1 ? (
-              <div className="portfolio-lightbox__nav">
-                <button type="button" onClick={goToPreviousPlate} data-testid="portfolio-lightbox-prev">
-                  {t('common.prev')}
-                </button>
-                <button type="button" onClick={goToNextPlate} data-testid="portfolio-lightbox-next">
-                  {t('common.next')}
-                </button>
-              </div>
-            ) : null}
-          </section>
-        </div>
-      ) : null}
-    </div>
+      </div>
+    </main>
   );
 };
 

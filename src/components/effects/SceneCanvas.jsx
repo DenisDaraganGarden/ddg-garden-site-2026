@@ -1,6 +1,7 @@
 import React, { Component, useEffect, useMemo, useRef, useState } from 'react';
+import * as THREE from 'three';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { useLanguage } from '../../i18n/LanguageProvider';
+import { useLanguage } from '../../i18n/useLanguage';
 
 let webglSupportCache;
 
@@ -78,7 +79,7 @@ const SceneFallback = ({ title, body, testId }) => (
 );
 
 const RuntimeDiagnostics = ({ sceneId, mode, settings }) => {
-  const { gl, scene } = useThree();
+  const { camera, gl, scene } = useThree();
   const lastWriteRef = useRef(0);
 
   useFrame(() => {
@@ -95,11 +96,13 @@ const RuntimeDiagnostics = ({ sceneId, mode, settings }) => {
     const runtimeRoot = window.__DDG_RUNTIME_METRICS__ ?? {};
     const nextSettings = settings
       ? {
-          planeMeshDensity: settings.planeMeshDensity,
+          simulationResolution: settings.simulationResolution,
+          waterMeshDensity: settings.waterMeshDensity,
           cameraFov: settings.cameraFov,
-          planeTrailSpan: settings.planeTrailSpan,
-          planeTrailPersistence: settings.planeTrailPersistence,
-          planeAlbedo: settings.planeAlbedo,
+          waveAmplitude: settings.waveAmplitude,
+          waveLength: settings.waveLength,
+          waterDepthMeters: settings.waterDepthMeters,
+          debugView: settings.debugView,
         }
       : null;
 
@@ -118,6 +121,23 @@ const RuntimeDiagnostics = ({ sceneId, mode, settings }) => {
           lines: gl.info.render.lines,
         },
         sceneChildren: scene.children.length,
+        camera: {
+          position: {
+            x: camera.position.x,
+            y: camera.position.y,
+            z: camera.position.z,
+          },
+          rotation: {
+            x: camera.rotation.x,
+            y: camera.rotation.y,
+            z: camera.rotation.z,
+          },
+        },
+        childTypes: scene.children.map((child) => ({
+          name: child.name || child.type,
+          type: child.type,
+          visible: child.visible,
+        })),
         settings: nextSettings,
       },
     };
@@ -186,7 +206,7 @@ const SceneCanvas = ({
         style={{ width: '100%', height: '100%', ...style }}
       >
         <Canvas
-          shadows
+          shadows={{ type: THREE.PCFShadowMap }}
           dpr={[1, profile.maxDpr]}
           camera={camera}
           gl={{

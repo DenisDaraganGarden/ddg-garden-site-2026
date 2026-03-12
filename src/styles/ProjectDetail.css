@@ -1,0 +1,589 @@
+.project-detail {
+    min-height: 100vh;
+    background: var(--color-bg);
+    color: var(--color-text-primary);
+    position: relative;
+    overflow-x: hidden;
+}
+
+.project-detail__noise {
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3%3Ffilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    opacity: 0.04;
+    pointer-events: none;
+    z-index: 10;
+}
+
+.project-detail__hero {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    background: #000;
+}
+
+.project-detail__hero-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0.8;
+    filter: contrast(1.1) brightness(0.9);
+}
+
+.project-detail__hero-content {
+    position: absolute;
+    inset: 0;
+    padding: 3.5rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    z-index: 2;
+    background: linear-gradient(to bottom, rgba(0, 0, 0, 0.5) 0%, transparent 30%, transparent 60%, rgba(0, 0, 0, 0.5) 100%);
+}
+
+.project-detail__container {
+    max-width: 1600px;
+    margin: 0 auto;
+    padding: 10rem var(--space-page-x);
+    position: relative;
+    z-index: 2;
+}
+
+.project-detail__nav {
+    margin-bottom: 2rem;
+}
+
+.project-detail__back {
+    background: none;
+    border: none;
+    color: #fff;
+    font-family: var(--font-primary);
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: opacity 0.3s ease;
+    padding: 0;
+}
+
+.project-detail__back:hover {
+    opacity: 0.7;
+}
+
+.project-detail__header {
+    max-width: 1000px;
+}
+
+.project-detail__meta {
+    display: flex;
+    gap: 3rem;
+    font-size: 0.7rem;
+    font-weight: 500;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.6);
+    margin-bottom: 1.5rem;
+}
+
+.project-detail__title {
+    font-size: clamp(3rem, 10vw, 7.5rem);
+    line-height: 0.85;
+    font-weight: 300;
+    letter-spacing: -0.04em;
+    text-transform: uppercase;
+    margin-bottom: 2rem;
+    color: #fff;
+}
+
+.project-detail__location {
+    font-size: 1rem;
+    color: rgba(255, 255, 255, 0.7);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    font-weight: 300;
+}
+
+.project-detail__collaboration {
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.5);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-top: 0.5rem;
+}
+
+.project-detail__content {
+    display: flex;
+    flex-direction: column;
+    gap: 8rem;
+}
+
+.project-detail__image-wrapper {
+    width: 100%;
+    overflow: hidden;
+    background: #080808;
+    transition: transform 1s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.project-detail__image-wrapper img {
+    width: 100%;
+    height: auto;
+    display: block;
+    filter: contrast(1.05) brightness(0.95);
+    transition: filter 0.8s ease;
+}
+
+/* Editorial variations for secondary images */
+.project-detail__image-wrapper--1,
+.project-detail__image-wrapper--3 {
+    max-width: 85%;
+    align-self: flex-start;
+}
+
+.project-detail__image-wrapper--2 {
+    max-width: 85%;
+    align-self: flex-end;
+}
+
+.project-detail__footer {
+    margin-top: 10rem;
+    padding-top: 2rem;
+    border-top: 1px solid rgba(243, 239, 230, 0.05);
+    text-align: center;
+}
+
+@media (max-width: 1024px) {
+    .project-detail__hero-content {
+        padding: 2.5rem;
+}
+}
+
+@media (max-width: 768px) {
+    .project-detail__hero-content {
+        padding: 1.5rem;
+    }
+
+    .project-detail__title {
+        font-size: clamp(2.5rem, 15vw, 4.5rem);
+    }
+
+    .project-detail__image-wrapper--1,
+    .project-detail__image-wrapper--2,
+    .project-detail__image-wrapper--3 {
+        max-width: 100%;
+    }
+
+    .project-detail__container {
+        padding: 6rem 1.5rem;
+    }
+}
+
+/* Magazine Theme (Rick Owens / Luxury Editorial Style) */
+.project-detail--magazine {
+    background: #fdfdfc;
+    color: #000;
+    --font-heading: var(--font-editorial);
+}
+
+.project-detail--magazine .project-detail__noise {
+    opacity: 0.03;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3%3Ffilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='5' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+.project-detail--magazine .project-detail__hero {
+    background: #fdfdfc;
+    height: 110vh; /* Slightly taller for more drama */
+}
+
+.project-detail--magazine .project-detail__hero-image {
+    opacity: 1;
+    filter: sepia(0.1) contrast(1.02);
+    transform: scale(1.05); /* Slightly zoom for intensity */
+}
+
+.project-detail--magazine .project-detail__hero-content {
+    background: linear-gradient(to bottom, rgba(253, 253, 252, 0.6) 0%, transparent 40%, transparent 60%, rgba(253, 253, 252, 0.6) 100%);
+    padding: 6rem;
+}
+
+.project-detail--magazine .project-detail__back {
+    color: #000;
+    font-weight: 400;
+    letter-spacing: 0.3em;
+    mix-blend-mode: color-burn;
+}
+
+.project-detail--magazine .project-detail__meta {
+    color: #000;
+    font-family: var(--font-secondary);
+    font-size: 0.65rem;
+    letter-spacing: 0.4em;
+    margin-bottom: 2rem;
+    opacity: 0.8;
+}
+
+.project-detail--magazine .project-detail__title {
+    color: #000;
+    font-family: var(--font-editorial);
+    font-weight: 500;
+    font-size: clamp(4rem, 15vw, 12rem);
+    line-height: 0.78;
+    letter-spacing: -0.06em;
+    text-transform: uppercase;
+    margin-bottom: 4rem;
+    max-width: 800px;
+}
+
+.project-detail--magazine .project-detail__location {
+    color: #000;
+    font-family: var(--font-editorial);
+    font-style: italic;
+    font-size: 1.5rem;
+    text-transform: none;
+    letter-spacing: 0;
+    opacity: 0.6;
+}
+
+.project-detail--magazine .project-detail__container {
+    max-width: 1400px; /* Tighter container for magazine feel */
+    padding-top: 20rem; /* Large whitespace gap */
+}
+
+.project-detail--magazine .project-detail__content {
+    gap: 15rem; /* Increased rhythm gap */
+}
+
+.project-detail--magazine .project-detail__image-wrapper {
+    background: #fdfdfc;
+    position: relative;
+    box-shadow: none; /* Rick Owens is raw, no soft shadows */
+}
+
+.project-detail--magazine .project-detail__image-wrapper img {
+    filter: grayscale(0.2) contrast(1.05);
+}
+
+/* Asymmetrical Overlapping Layouts */
+.project-detail--magazine .project-detail__image-wrapper--1 {
+    max-width: 45%;
+    align-self: flex-end;
+    margin-right: -5%;
+    z-index: 2;
+}
+
+.project-detail--magazine .project-detail__image-wrapper--2 {
+    max-width: 75%;
+    align-self: flex-start;
+    margin-top: -10rem; /* Overlap with previous */
+    margin-left: -5%;
+}
+
+.project-detail--magazine .project-detail__image-wrapper--3 {
+    max-width: 60%;
+    align-self: center;
+    transform: rotate(-1deg); /* Slight tension */
+}
+
+.project-detail--magazine .project-detail__image-wrapper--4 {
+    max-width: 90%;
+    align-self: flex-end;
+    margin-top: -5rem;
+}
+
+/* Add an editorial quote / text look to some wraps if possible */
+.project-detail--magazine .project-detail__image-wrapper::after {
+    content: "ARCH. SER. 2026";
+    position: absolute;
+    bottom: -2rem;
+    right: 0;
+    font-family: var(--font-secondary);
+    font-size: 0.6rem;
+    letter-spacing: 0.5em;
+    opacity: 0.3;
+}
+
+@media (max-width: 1024px) {
+    .project-detail--magazine .project-detail__hero-content {
+        padding: 3rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .project-detail--magazine .project-detail__hero-content {
+        padding: 2rem;
+    }
+    
+    .project-detail--magazine .project-detail__content {
+        gap: 6rem;
+    }
+
+    .project-detail--magazine .project-detail__image-wrapper--1,
+    .project-detail--magazine .project-detail__image-wrapper--2,
+    .project-detail--magazine .project-detail__image-wrapper--3,
+    .project-detail--magazine .project-detail__image-wrapper--4 {
+        max-width: 100%;
+        margin: 0;
+        transform: none;
+    }
+    
+    .project-detail--magazine .project-detail__container {
+        padding-top: 10rem;
+    }
+}
+
+/* Noir Editorial Theme (Noir LUX / Southern France Style) */
+.project-detail--noir {
+    background: #000 !important;
+    color: #fff;
+    --font-heading: var(--font-editorial);
+}
+
+.project-detail--noir .project-detail__noise {
+    opacity: 0.1;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3%3Ffilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='5' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    mix-blend-mode: screen;
+}
+
+.project-detail--noir .project-detail__hero-image {
+    opacity: 0.7;
+    filter: brightness(0.7) contrast(1.1) grayscale(0.2);
+}
+
+.project-detail--noir .project-detail__hero-content {
+    background: linear-gradient(to bottom, rgba(0, 0, 0, 0.9) 0%, transparent 30%, transparent 70%, rgba(0, 0, 0, 0.9) 100%);
+    padding: 6rem;
+}
+
+.project-detail--noir .project-detail__title {
+    font-family: var(--font-editorial);
+    font-weight: 500;
+    font-size: clamp(3.5rem, 12vw, 10rem);
+    line-height: 0.82;
+    letter-spacing: -0.05em;
+    text-transform: uppercase;
+}
+
+.project-detail--noir .project-detail__location {
+    font-family: var(--font-editorial);
+    font-style: italic;
+    opacity: 0.6;
+}
+
+/* Panorama Theme (Immersive / Papushevo Park Style) */
+.project-detail--panorama {
+    background: #fff;
+    color: #1a1a1a;
+    --font-heading: var(--font-primary);
+}
+
+.project-detail--panorama .project-detail__noise {
+    opacity: 0.02;
+    mix-blend-mode: multiply;
+}
+
+.project-detail--panorama .project-detail__hero {
+    height: 90vh;
+}
+
+.project-detail--panorama .project-detail__hero-image {
+    opacity: 1;
+    filter: contrast(1.05) saturate(1.1);
+}
+
+.project-detail--panorama .project-detail__hero-content {
+    background: linear-gradient(to top, rgba(255, 255, 255, 0.9) 0%, transparent 40%);
+    justify-content: flex-end;
+    padding: 8rem;
+}
+
+.project-detail--panorama .project-detail__back {
+    color: #000;
+    mix-blend-mode: normal;
+    position: absolute;
+    top: 4rem;
+    left: 4rem;
+}
+
+.project-detail--panorama .project-detail__meta {
+    color: #000;
+    opacity: 0.4;
+}
+
+.project-detail--panorama .project-detail__title {
+    color: #000;
+    font-size: clamp(3rem, 10vw, 8rem);
+    font-weight: 200;
+    letter-spacing: -0.02em;
+}
+
+.project-detail--panorama .project-detail__location {
+    color: #000;
+    opacity: 0.5;
+}
+
+.project-detail--panorama .project-detail__container {
+    max-width: 100%;
+    padding: 0;
+}
+
+.project-detail--panorama .project-detail__content {
+    gap: 0;
+}
+
+.project-detail--panorama .project-detail__image-wrapper {
+    background: #fff;
+    margin: 0;
+    max-width: 100%;
+    padding: 5vh 10vw;
+}
+
+.project-detail--panorama .project-detail__image-wrapper--1 {
+    padding: 0;
+}
+
+.project-detail--panorama .project-detail__image-wrapper--2 {
+    padding: 10vh 20vw;
+}
+
+.project-detail--panorama .project-detail__image-wrapper--3 {
+    padding: 0;
+    background: #f8f8f8;
+}
+
+.project-detail--panorama .project-detail__image-wrapper--4 {
+    padding: 10vh 15vw;
+}
+
+.project-detail--panorama .project-detail__image-wrapper img {
+    box-shadow: 0 30px 60px rgba(0,0,0,0.1);
+}
+
+@media (max-width: 768px) {
+    .project-detail--panorama .project-detail__hero-content {
+        padding: 2rem;
+    }
+    .project-detail--panorama .project-detail__image-wrapper {
+        padding: 2rem;
+    }
+}
+
+/* Elite Theme (Luxury Golf Club / Raevo Style) */
+.project-detail--elite {
+    background: #fdfdfb;
+    color: #1a1a1a;
+    --font-heading: var(--font-editorial);
+}
+
+.project-detail--elite .project-detail__hero {
+    height: 100vh;
+    background: #fdfdfb;
+}
+
+.project-detail--elite .project-detail__hero-image {
+    opacity: 0.95;
+    filter: contrast(1.02) saturate(1.05);
+}
+
+.project-detail--elite .project-detail__hero-content {
+    background: linear-gradient(to bottom, rgba(253, 253, 251, 0.4) 0%, transparent 40%, transparent 70%, rgba(253, 253, 251, 0.8) 100%);
+    padding: 5rem;
+}
+
+.project-detail--elite .project-detail__back {
+    color: #1a1a1a;
+    font-weight: 300;
+}
+
+.project-detail--elite .project-detail__meta {
+    color: #2d4a22; /* Deep golf green */
+    opacity: 0.6;
+}
+
+.project-detail--elite .project-detail__title {
+    color: #1a1a1a;
+    font-family: var(--font-editorial);
+    font-weight: 300;
+    font-size: clamp(3rem, 12vw, 9rem);
+    letter-spacing: -0.03em;
+    text-transform: none;
+    line-height: 0.9;
+    margin-bottom: 2rem;
+}
+
+.project-detail--elite .project-detail__location {
+    color: #2d4a22;
+    font-family: var(--font-editorial);
+    font-style: italic;
+    font-size: 1.2rem;
+    text-transform: none;
+    opacity: 0.5;
+}
+
+.project-detail--elite .project-detail__collaboration {
+    margin-top: 1rem;
+    font-size: 0.75rem;
+    font-weight: 400;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #2d4a22;
+    opacity: 0.4;
+}
+
+.project-detail--elite .project-detail__container {
+    max-width: 1400px;
+    padding-top: 15rem;
+}
+
+.project-detail--elite .project-detail__content {
+    gap: 12rem;
+}
+
+.project-detail--elite .project-detail__image-wrapper {
+    background: transparent;
+    padding: 0;
+}
+
+.project-detail--elite .project-detail__image-wrapper img {
+    box-shadow: 0 40px 100px rgba(45, 74, 34, 0.08); /* Sophisticated green-tinted shadow */
+}
+
+.project-detail--elite .project-detail__image-wrapper--1 {
+    max-width: 90%;
+    margin: 0 auto;
+}
+
+.project-detail--elite .project-detail__image-wrapper--2 {
+    max-width: 50%;
+    align-self: flex-start;
+    margin-left: -5%;
+}
+
+.project-detail--elite .project-detail__image-wrapper--3 {
+    max-width: 80%;
+    align-self: flex-end;
+    margin-right: -5%;
+    margin-top: -10rem;
+}
+
+.project-detail--elite .project-detail__image-wrapper--4 {
+    max-width: 60%;
+    align-self: center;
+}
+
+@media (max-width: 768px) {
+    .project-detail--elite .project-detail__hero-content {
+        padding: 2rem;
+    }
+    
+    .project-detail--elite .project-detail__image-wrapper--1,
+    .project-detail--elite .project-detail__image-wrapper--2,
+    .project-detail--elite .project-detail__image-wrapper--3,
+    .project-detail--elite .project-detail__image-wrapper--4 {
+        max-width: 100%;
+        margin: 0;
+    }
+}

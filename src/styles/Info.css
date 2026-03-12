@@ -1,46 +1,319 @@
 .info-page {
-    position: relative;
-    width: 100%;
     min-height: 100vh;
-    padding: calc(var(--mobile-header-height) + 1.8rem) clamp(1rem, 4vw, 4rem) 2rem;
-    color: var(--text-primary);
-    background-color: var(--bg-color);
-    box-sizing: border-box;
+    padding: var(--space-page-y) var(--space-page-x) 2.4rem;
+    padding-left: clamp(12rem, 15vw, 22rem); /* Dynamic space for vertical navigation */
+    background: #040404;
+    color: #f3efe6;
+    overflow-x: hidden;
+    display: flex;
+    align-items: flex-start; /* Align to top instead of center */
+    padding-top: 12rem;
+}
+
+.info-shell {
+    width: 100%;
+    max-width: 1600px;
+}
+
+.info-main-grid {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr;
+    gap: 8rem;
+    align-items: start;
+}
+
+/* Header */
+.info-header {
+    margin-bottom: 6rem; /* More generous space to content */
+    grid-column: 1 / -1; /* Ensure header spans full width of its container if needed */
+}
+
+.info-title-wrap {
     display: flex;
     flex-direction: column;
+    gap: 1.5rem;
 }
 
 .info-title {
-    font-size: clamp(2.4rem, 5vw, 3.4rem);
+    font-family: var(--font-editorial);
+    font-size: clamp(4rem, 10vw, 9rem); /* Slightly smaller scale for better control */
+    line-height: 0.8;
     font-weight: 300;
+    letter-spacing: -0.05em;
     text-transform: uppercase;
-    letter-spacing: 0.1em;
-    margin-bottom: 1.4rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    padding-bottom: 0.8rem;
+    margin: 0;
+    color: #fff;
 }
 
-.info-page .paper-wrapper,
-.info-paper-wrapper {
-    padding: 1rem 0 2rem;
+.info-kicker {
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: rgba(243, 239, 230, 0.3);
 }
 
-.info-view-surface {
+.info-header__copy {
+    width: 100%;
+    padding-top: 1rem; /* Add some space above the personal photo if it's there */
+    padding-bottom: 0.5rem;
+    position: relative;
+    z-index: 2;
+}
+
+/* Personal Photo */
+.info-personal-photo {
+    position: relative;
+    width: 240px; /* Refined width */
+    aspect-ratio: 3 / 4;
+    margin-bottom: 3rem; /* Solid margin to content */
+    margin-left: 0; /* Align with right column content */
+    z-index: 10;
+    overflow: hidden;
+    box-shadow: 0 40px 80px rgba(0, 0, 0, 0.6);
+    transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.info-personal-photo:hover {
+    transform: translateY(-10px) rotate(-1deg);
+}
+
+.info-personal-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.info-personal-label {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 1.5rem;
+    background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
+    font-family: var(--font-editorial);
+    font-size: 1.2rem;
+    color: #fff;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: all 0.5s ease;
+}
+
+.info-personal-photo:hover .info-personal-label {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.info-heading {
+    font-family: var(--font-editorial);
+    font-size: clamp(1.8rem, 3.5vw, 3rem);
+    font-style: italic;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    margin-bottom: 2rem;
+    color: #fff;
+}
+
+.info-note {
+    color: rgba(243, 239, 230, 0.5);
+    font-size: 1.1rem;
+    line-height: 1.6;
+    max-width: 480px;
+}
+
+/* Office Hero Photo */
+.info-office-hero {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 4 / 5;
+    overflow: hidden;
+    box-shadow: 0 40px 100px rgba(0, 0, 0, 0.5);
+}
+
+.info-office-hero__image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    filter: brightness(0.85) contrast(1.1) grayscale(10%);
+    transition: transform 1.2s cubic-bezier(0.16, 1, 0.3, 1), filter 1.2s ease;
+}
+
+.info-office-hero:hover .info-office-hero__image {
+    transform: scale(1.03);
+    filter: brightness(0.95) contrast(1.1) grayscale(0%);
+}
+
+.info-office-hero__overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to bottom, transparent 70%, rgba(4, 4, 4, 0.8));
     pointer-events: none;
+}
+
+/* Contact Sheet */
+.info-contact-sheet {
+    display: flex;
+    flex-direction: column;
+    gap: 5rem;
+    margin-top: 5rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    padding-top: 4rem;
+}
+
+.info-contact-sheet__main {
+    display: grid;
+    gap: 4rem;
+}
+
+.info-phone-block {
+    display: grid;
+    gap: 1rem;
+}
+
+.info-field-label {
+    color: rgba(243, 239, 230, 0.3);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+}
+
+.info-phone-link {
+    width: fit-content;
+    color: #fff;
+    text-decoration: none;
+    font-size: clamp(2rem, 4vw, 3.5rem);
+    line-height: 1;
+    letter-spacing: -0.02em;
+    font-weight: 300;
+    transition: opacity 0.3s ease;
+}
+
+.info-phone-link:hover {
+    opacity: 0.6;
+}
+
+.info-office-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 3rem;
+}
+
+.info-office-card {
+    display: grid;
+    gap: 0.8rem;
+    color: inherit;
+    text-decoration: none;
+    transition: opacity 0.3s ease;
+}
+
+.info-office-card:hover {
+    opacity: 0.7;
+}
+
+.info-office-card__address {
+    font-size: clamp(1.1rem, 1.5vw, 1.35rem);
+    line-height: 1.5;
+    font-weight: 400;
+    color: #f3efe6;
+}
+
+.info-office-card__coords,
+.info-map-meta {
+    color: rgba(243, 239, 230, 0.4);
+    font-size: 0.72rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    margin-top: 0.5rem;
+}
+
+/* Map Panel */
+.info-map-panel {
+    display: grid;
+    gap: 1.5rem;
+    align-content: start;
+}
+
+.info-map-frame {
+    position: relative;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.03);
+    aspect-ratio: 4 / 3;
+    filter: grayscale(80%) invert(100%) hue-rotate(180deg) brightness(90%) contrast(120%);
+    transition: filter 0.5s ease;
+}
+
+.info-map-frame:hover {
+    filter: grayscale(20%) invert(100%) hue-rotate(180deg) brightness(95%) contrast(110%);
+}
+
+.info-map-frame iframe {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border: 0;
+}
+
+.info-map-link {
+    width: fit-content;
+    color: #f3efe6;
+    text-decoration: none;
+    font-size: 0.78rem;
+    font-weight: 500;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    padding-bottom: 2px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+    transition: border-color 0.3s ease, opacity 0.3s ease;
+}
+
+.info-map-link:hover {
+    opacity: 0.7;
+    border-color: transparent;
+}
+
+/* Responsive */
+@media (max-width: 1200px) {
+    .info-page {
+        padding-left: var(--space-page-x);
+        display: block;
+    }
+    
+    .info-main-grid {
+        grid-template-columns: 1fr;
+        gap: 4rem;
+    }
+    
+    .info-office-hero {
+        aspect-ratio: 16 / 9;
+    }
+
+    .info-personal-photo {
+        width: 220px;
+        margin-left: 0;
+        margin-top: -3rem;
+        margin-bottom: 2rem;
+        float: right;
+    }
 }
 
 @media (max-width: 768px) {
     .info-page {
-        padding: calc(var(--mobile-header-height) + 0.8rem) 1rem 1.2rem;
+        padding-top: calc(var(--mobile-header-height) + 1.5rem);
     }
 
-    .info-title {
-        font-size: clamp(1.8rem, 10vw, 2.5rem);
-        margin-bottom: 0.75rem;
-        letter-spacing: 0.08em;
+    .info-office-hero {
+        aspect-ratio: 4 / 3;
     }
 
-    .info-paper-wrapper {
-        padding-top: 0.4rem;
+    .info-office-list {
+        grid-template-columns: 1fr;
+        gap: 3rem;
+    }
+
+    .info-phone-link {
+        font-size: clamp(2rem, 8vw, 3rem);
     }
 }

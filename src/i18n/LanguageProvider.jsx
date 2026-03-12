@@ -1,10 +1,9 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES } from './localizedContent';
 import { translate } from './translations';
+import { LanguageContext } from './LanguageContext';
 
 const LANGUAGE_STORAGE_KEY = 'ddg_site_language_v1';
-
-const LanguageContext = createContext(null);
 
 function getInitialLanguage() {
   if (typeof window === 'undefined') {
@@ -48,13 +47,3 @@ export const LanguageProvider = ({ children }) => {
     </LanguageContext.Provider>
   );
 };
-
-export function useLanguage() {
-  const value = useContext(LanguageContext);
-
-  if (!value) {
-    throw new Error('useLanguage must be used inside LanguageProvider');
-  }
-
-  return value;
-}

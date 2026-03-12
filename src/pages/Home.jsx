@@ -1,10 +1,10 @@
 import React, { useEffect } from 'react';
-import SceneCanvas from '../components/effects/SceneCanvas';
-import SnakeScene from '../components/effects/SnakeScene';
-import { usePublishedSnakeSettings } from '../hooks/useSnakeSettings';
+import WaterScene from '../components/effects/WaterScene';
+import { usePublishedHomeSceneSettings } from '../features/home-scene/hooks/useHomeSceneSettings';
+import '../styles/Home.css';
 
 const Home = () => {
-    const { settings } = usePublishedSnakeSettings();
+    const { settings } = usePublishedHomeSceneSettings();
 
     useEffect(() => {
         if (typeof window === 'undefined') {
@@ -32,18 +32,17 @@ const Home = () => {
     }, []);
 
     return (
-        <div className="home-page snake-home-page">
-            <SceneCanvas
-                sceneId="home"
-                mode="public"
-                className="snake-home-canvas"
-                testId="home-scene"
-                fallbackTestId="home-scene-fallback"
-                settings={settings}
-                camera={{ fov: settings.cameraFov, position: [0, 50, 0.01], up: [0, 1, 0] }}
-            >
-                    <SnakeScene settings={{ ...settings, freeCamera: false }} />
-            </SceneCanvas>
+        <div className="home-page" data-testid="home-page">
+            <div className="home-cinematic-frame home-cinematic-frame--top" />
+            <div className="home-cinematic-frame home-cinematic-frame--bottom" />
+            
+            <div className="home-water-container" style={{ position: 'fixed', inset: 0, zIndex: 0 }}>
+                <WaterScene settings={settings} sceneId="water-scene" />
+            </div>
+            
+            <div className="home-content" style={{ position: 'relative', zIndex: 1, pointerEvents: 'none' }}>
+                {/* Content can go here, pointerEvents: none allows interaction with water */}
+            </div>
         </div>
     );
 };

@@ -1,16 +1,20 @@
 import React, { Suspense, lazy } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import {
+    BrowserRouter as Router,
+    Routes,
+    Route,
+} from 'react-router-dom';
 import Navigation from './components/ui/Navigation';
-import { useLanguage } from './i18n/LanguageProvider';
+import { archiveNavigationItems } from './config/siteNavigation';
+import { useLanguage } from './i18n/useLanguage';
 const Home = lazy(() => import('./pages/Home'));
 const Info = lazy(() => import('./pages/Info'));
-const InfoEdit = lazy(() => import('./pages/InfoEdit'));
 const Portfolio = lazy(() => import('./pages/Portfolio'));
-const PortfolioEdit = lazy(() => import('./pages/PortfolioEdit'));
+const ProjectDetail = lazy(() => import('./pages/ProjectDetail'));
 const Map = lazy(() => import('./pages/Map'));
-const SnakeEdit = lazy(() => import('./pages/SnakeEdit'));
+const HomeEdit = lazy(() => import('./pages/HomeEdit'));
 
-function App() {
+function AppShell() {
     const { t } = useLanguage();
 
     const PlaceholderPage = ({ sectionKey }) => (
@@ -24,10 +28,6 @@ function App() {
         </section>
     );
 
-    const News = () => <PlaceholderPage sectionKey="news" />;
-    const Monographs = () => <PlaceholderPage sectionKey="monographs" />;
-    const Press = () => <PlaceholderPage sectionKey="press" />;
-    const Archive = () => <PlaceholderPage sectionKey="archive" />;
     const NotFound = () => (
         <section className="stub-page" data-testid="not-found-page">
             <div>
@@ -39,21 +39,27 @@ function App() {
         </section>
     );
 
-    const routeDefinitions = [
+    const archiveRouteDefinitions = archiveNavigationItems.map((item) => ({
+        path: item.path,
+        element: <PlaceholderPage sectionKey={item.key} />,
+    }));
+
+    const publicRouteDefinitions = [
         { path: '/', element: <Home /> },
-        { path: '/home/edit', element: <Navigate replace to="/snake/edit" /> },
-        { path: '/home-edit', element: <Navigate replace to="/snake/edit" /> },
-        { path: '/snake/edit', element: <SnakeEdit /> },
-        { path: '/snake-edit', element: <SnakeEdit /> },
-        { path: '/news', element: <News /> },
         { path: '/info', element: <Info /> },
-        { path: '/info/edit', element: <InfoEdit /> },
         { path: '/portfolio', element: <Portfolio /> },
-        { path: '/portfolio/edit', element: <PortfolioEdit /> },
-        { path: '/monographs', element: <Monographs /> },
-        { path: '/press', element: <Press /> },
+        { path: '/portfolio/:projectId', element: <ProjectDetail /> },
         { path: '/map', element: <Map /> },
-        { path: '/archive', element: <Archive /> },
+        ...archiveRouteDefinitions,
+    ];
+
+    const internalToolRoutes = [
+        { path: '/home/edit', element: <HomeEdit /> },
+    ];
+
+    const routeDefinitions = [
+        ...publicRouteDefinitions,
+        ...internalToolRoutes,
         { path: '*', element: <NotFound /> },
     ];
 
@@ -64,7 +70,7 @@ function App() {
     );
 
     return (
-        <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+        <>
             <Navigation />
 
             <main style={{ position: 'relative', width: '100%', height: '100%' }}>
@@ -76,6 +82,14 @@ function App() {
                     </Routes>
                 </Suspense>
             </main>
+        </>
+    );
+}
+
+function App() {
+    return (
+        <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+            <AppShell />
         </Router>
     );
 }
