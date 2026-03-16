@@ -330,19 +330,52 @@ export const DepthTab = ({ settings, handleSettingChange }) => {
     );
 };
 
-export const CameraTab = ({ settings, handleSettingChange }) => {
+export const CameraTab = ({
+    settings,
+    handleSettingChange,
+    onCaptureCameraPose,
+    onResetCameraPose,
+}) => {
     const { t } = useLanguage();
 
     return (
-        <RangeControl
-            label={t('homeEditor.controls.cameraFov')}
-            value={settings.cameraFov}
-            min={24}
-            max={75}
-            step={1}
-            unit="°"
-            onChange={(event) => handleSettingChange(event, 'cameraFov', 'integer')}
-        />
+        <>
+            <RangeControl
+                label={t('homeEditor.controls.cameraFov')}
+                value={settings.cameraFov}
+                min={24}
+                max={75}
+                step={1}
+                unit="°"
+                onChange={(event) => handleSettingChange(event, 'cameraFov', 'integer')}
+            />
+            <div className="home-editor-control-group">
+                <label>{t('homeEditor.controls.cameraPoseTools')}</label>
+                <div className="home-editor-camera-actions">
+                    <button
+                        type="button"
+                        className="home-editor-action-button"
+                        onClick={onCaptureCameraPose}
+                        disabled={typeof onCaptureCameraPose !== 'function'}
+                    >
+                        {t('homeEditor.controls.cameraSavePose')}
+                    </button>
+                    <button
+                        type="button"
+                        className="home-editor-action-button"
+                        onClick={onResetCameraPose}
+                        disabled={typeof onResetCameraPose !== 'function'}
+                    >
+                        {t('homeEditor.controls.cameraResetPose')}
+                    </button>
+                </div>
+                <span className="home-editor-camera-pose-status">
+                    {settings.cameraCustomPose
+                        ? t('homeEditor.controls.cameraPoseSaved')
+                        : t('homeEditor.controls.cameraPoseAuto')}
+                </span>
+            </div>
+        </>
     );
 };
 
@@ -351,6 +384,9 @@ export const BoatTab = ({ settings, handleSettingChange }) => {
 
     return (
         <>
+            <p className="home-editor-inline-hint">
+                {t('homeEditor.controls.boatMoveHint')}
+            </p>
             <ColorControl
                 label={t('homeEditor.controls.boatColor')}
                 value={settings.boatColor}
@@ -391,6 +427,24 @@ export const BoatTab = ({ settings, handleSettingChange }) => {
                 step={0.01}
                 formatValue={(value) => formatFloat(value)}
                 onChange={(event) => handleSettingChange(event, 'boatClearcoatRoughness')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.boatReflectionIntensity')}
+                value={settings.boatReflectionIntensity}
+                min={0}
+                max={2}
+                step={0.01}
+                formatValue={(value) => formatFloat(value)}
+                onChange={(event) => handleSettingChange(event, 'boatReflectionIntensity')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.boatYaw')}
+                value={settings.boatYaw}
+                min={-180}
+                max={180}
+                step={1}
+                unit="°"
+                onChange={(event) => handleSettingChange(event, 'boatYaw')}
             />
             <RangeControl
                 label={t('homeEditor.controls.boatScale')}

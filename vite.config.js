@@ -42,7 +42,13 @@ const publishedHomeSceneKeys = [
   'causticsScale',
   'causticsSharpness',
   'cameraFov',
+  'cameraCustomPose',
+  'cameraPosition',
+  'cameraTarget',
   'debugView',
+  'boatReflectionIntensity',
+  'boatPosition',
+  'boatYaw',
 ];
 
 function sendJson(response, statusCode, payload) {

@@ -217,15 +217,20 @@ export const waterFragmentShader = `
   uniform vec3 uMoonColor;
   uniform float uMoonSpecularStrength;
   uniform float uMoonSpecularPower;
+  uniform float uBoatReflectionIntensity;
+  uniform float uReflectionActive;
   uniform float uWaterDepth;
   uniform float uWaterTurbidity;
+  uniform sampler2D uReflectionTexture;
+  uniform mat4 uReflectionMatrix;
   uniform int uDebugView;
 
   void main() {
     vec3 surfaceNormal = normalize(vWaterNormal);
     vec3 viewDir = normalize(cameraPosition - vSurfaceWorldPosition);
     vec3 lightDir = normalize(uMoonDirection);
-    float fresnel = pow(1.0 - max(dot(surfaceNormal, viewDir), 0.0), 5.0);
+    float ndv = max(dot(surfaceNormal, viewDir), 0.0);
+    float fresnel = pow(1.0 - ndv, 4.0);
     float slope = 1.0 - clamp(surfaceNormal.y, 0.0, 1.0);
     float depthFactor = clamp(uWaterDepth / 8.0, 0.0, 1.0);
     float moonHighlight = pow(max(dot(surfaceNormal, normalize(viewDir + lightDir)), 0.0), uMoonSpecularPower)
@@ -266,12 +271,35 @@ export const waterFragmentShader = `
     vec3 deepWater = mix(vec3(0.008, 0.011, 0.017), uEnvTint * 0.1, fresnel * 0.38);
     vec3 emissive = uEnvTint * (0.022 + fresnel * 0.03) + uMoonColor * moonHighlight * 0.45;
 
+    // Planar Reflections
+    vec4 reflectPos = uReflectionMatrix * vec4(vSurfaceWorldPosition, 1.0);
+    vec2 reflectUv = (reflectPos.xy / max(reflectPos.w, 0.0001)) * 0.5 + 0.5;
+    float distortion = mix(0.012, 0.038, slope) * (0.65 + abs(vHeightSample) * 0.95);
+    reflectUv += surfaceNormal.xz * distortion;
+    vec2 clampedReflectUv = clamp(reflectUv, vec2(0.001), vec2(0.999));
+    vec4 reflectedColor = texture2D(uReflectionTexture, clampedReflectUv);
+    float inBounds = step(0.0, reflectUv.x) * step(reflectUv.x, 1.0)
+      * step(0.0, reflectUv.y) * step(reflectUv.y, 1.0);
+
+    float baseReflection = mix(0.06, 0.22, 1.0 - uWaterTurbidity);
+    float boatBoost = clamp(uBoatReflectionIntensity, 0.0, 2.0) * 0.45;
+    float reflectionMix = clamp(
+      baseReflection + fresnel * (0.55 + boatBoost) + slope * 0.12,
+      0.0,
+      1.0
+    );
+    deepWater = mix(
+      deepWater,
+      reflectedColor.rgb,
+      reflectedColor.a * reflectionMix * inBounds * uReflectionActive
+    );
+
     float transparency = (1.0 - uWaterTurbidity);
     float opacity = mix(0.75, 0.99, fresnel * 0.4 + uWaterTurbidity * 0.5);
     
     csm_DiffuseColor = vec4(deepWater, opacity);
     csm_Emissive = emissive;
-    csm_Roughness = clamp(mix(0.18, 0.04, fresnel) + slope * 0.05 + (1.0 - vNormalHeight) * 0.05, 0.03, 0.36);
+    csm_Roughness = clamp(mix(0.15, 0.03, fresnel) + slope * 0.04 + (1.0 - vNormalHeight) * 0.04, 0.02, 0.32);
     csm_Metalness = 0.06;
     csm_Clearcoat = 1.0;
     csm_ClearcoatRoughness = clamp(mix(0.2, 0.035, fresnel), 0.03, 0.26);

@@ -1,6 +1,7 @@
-import React, { useRef, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import WaterScene from '../components/effects/WaterScene';
 import {
+    getBaseHomeSceneSettings,
     getPublishedHomeSceneSettings,
     sanitizeHomeSceneSettingsForPublish,
 } from '../features/home-scene/hooks/useHomeSceneSettings';
@@ -19,6 +20,7 @@ const HomeEdit = () => {
     const { t } = useLanguage();
     const {
         settings,
+        setSettings,
         activeTab,
         setActiveTab,
         handleSettingChange,
@@ -28,6 +30,51 @@ const HomeEdit = () => {
     const [publishState, setPublishState] = useState({ busy: false, message: '' });
     const publishRequestRef = useRef(0);
     const lastPublishedSnapshotRef = useRef(INITIAL_PUBLISHED_SNAPSHOT);
+    const cameraRigApiRef = useRef(null);
+
+    const handleCameraRigApi = useCallback((api) => {
+        cameraRigApiRef.current = api;
+    }, []);
+
+    const handleCaptureCameraPose = useCallback(() => {
+        const cameraPose = cameraRigApiRef.current?.capturePose?.();
+
+        if (!cameraPose) {
+            return;
+        }
+
+        setSettings((previous) => ({
+            ...previous,
+            cameraCustomPose: true,
+            cameraPosition: cameraPose.cameraPosition,
+            cameraTarget: cameraPose.cameraTarget,
+        }));
+    }, [setSettings]);
+
+    const handleResetCameraPose = useCallback(() => {
+        const defaults = getBaseHomeSceneSettings();
+
+        setSettings((previous) => ({
+            ...previous,
+            cameraCustomPose: false,
+            cameraPosition: defaults.cameraPosition,
+            cameraTarget: defaults.cameraTarget,
+        }));
+    }, [setSettings]);
+
+    const handleBoatPositionChange = useCallback((position) => {
+        if (!position) {
+            return;
+        }
+
+        setSettings((previous) => ({
+            ...previous,
+            boatPosition: {
+                x: Number(position.x.toFixed(4)),
+                z: Number(position.z.toFixed(4)),
+            },
+        }));
+    }, [setSettings]);
 
     const handlePublish = async () => {
         const publishableSettings = sanitizeHomeSceneSettingsForPublish(settings);
@@ -75,6 +122,8 @@ const HomeEdit = () => {
                     testId="home-editor-scene"
                     fallbackTestId="home-editor-fallback"
                     settings={settings}
+                    onCameraRigApi={handleCameraRigApi}
+                    onBoatPositionChange={handleBoatPositionChange}
                 />
             </div>
 
@@ -83,6 +132,8 @@ const HomeEdit = () => {
                 setActiveTab={setActiveTab}
                 settings={settings}
                 handleSettingChange={handleSettingChange}
+                onCaptureCameraPose={handleCaptureCameraPose}
+                onResetCameraPose={handleResetCameraPose}
                 onPublish={isLocalPublishAvailable ? handlePublish : undefined}
                 publishState={publishState}
             />

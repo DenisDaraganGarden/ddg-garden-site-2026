@@ -23,8 +23,7 @@ const PUBLIC_CAMERA_POSITION = [0, 5.8, 8.9];
 const MOBILE_CAMERA_POSITION = [0, 5.1, 7.3];
 const DEFAULT_CLEAR_COLOR = '#000000';
 const DRAWING_BUFFER_SIZE = new THREE.Vector2();
-const BOAT_ANCHOR = new THREE.Vector3(2.1, 0, -1.4);
-const BOAT_ANCHOR_ARRAY = BOAT_ANCHOR.toArray();
+const DEFAULT_BOAT_ANCHOR = Object.freeze({ x: 2.1, z: -1.4 });
 const BOAT_PROBE_OFFSETS = [
   new THREE.Vector3(0, 0, 0),
   new THREE.Vector3(0, 0, 0.95),
@@ -39,8 +38,17 @@ const DEBUG_VIEW_IDS = {
   caustics: 3,
   'seabed-depth': 4,
 };
+const SIMULATION_TARGET_FPS_DESKTOP = 48;
+const SIMULATION_TARGET_FPS_MOBILE = 32;
+const REFLECTION_ACTIVE_FPS = 30;
+const REFLECTION_IDLE_FPS = 12;
+const REFLECTION_CAMERA_POSITION_EPSILON_SQ = 0.00006;
+const REFLECTION_CAMERA_ROTATION_EPSILON = 0.00008;
+const REFLECTION_BOAT_POSITION_EPSILON_SQ = 0.00004;
+const REFLECTION_BOAT_ROTATION_EPSILON = 0.00008;
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+const quaternionDelta = (a, b) => 1 - Math.abs(a.dot(b));
 
 function createTarget(width, height, options) {
   const target = new THREE.WebGLRenderTarget(width, height, {
@@ -97,28 +105,122 @@ function restoreDefaultFramebuffer(gl) {
   gl.setScissorTest(false);
 }
 
-function WaterCameraRig({ mode, settings }) {
-  const { camera, size } = useThree();
-  const controlsRef = useRef();
+const CAMERA_POSE_TARGET = new THREE.Vector3();
+
+function WaterCameraRig({ mode, settings, onCameraRigApi, orbitRef }) {
+  const { camera, gl, size } = useThree();
+  const internalControlsRef = useRef();
+  const controlsRef = orbitRef ?? internalControlsRef;
+  const formatAxis = useCallback((value) => Number(value.toFixed(4)), []);
+
+  useEffect(() => {
+    if (camera.fov === settings.cameraFov) {
+      return;
+    }
+
+    camera.fov = settings.cameraFov;
+    camera.updateProjectionMatrix();
+  }, [camera, settings.cameraFov]);
 
   useLayoutEffect(() => {
-    const cameraPosition = size.width < 768 ? MOBILE_CAMERA_POSITION : PUBLIC_CAMERA_POSITION;
+    const defaultCameraPosition = size.width < 768 ? MOBILE_CAMERA_POSITION : PUBLIC_CAMERA_POSITION;
+    const useSavedPose = Boolean(settings.cameraCustomPose);
+    const cameraPosition = useSavedPose
+      ? settings.cameraPosition
+      : {
+          x: defaultCameraPosition[0],
+          y: defaultCameraPosition[1],
+          z: defaultCameraPosition[2],
+        };
+    const cameraTarget = useSavedPose
+      ? settings.cameraTarget
+      : { x: 0, y: 0, z: 0 };
 
-    camera.position.set(...cameraPosition);
-    camera.fov = settings.cameraFov;
+    camera.position.set(cameraPosition.x, cameraPosition.y, cameraPosition.z);
     camera.near = 0.1;
     camera.far = 80;
-    camera.lookAt(0, 0, 0);
+    CAMERA_POSE_TARGET.set(cameraTarget.x, cameraTarget.y, cameraTarget.z);
+    camera.lookAt(CAMERA_POSE_TARGET);
     camera.updateMatrixWorld();
     camera.updateProjectionMatrix();
-  }, [camera, settings.cameraFov, size.width]);
 
-  useFrame(() => {
-    if (mode === 'editor' && controlsRef.current) {
-      controlsRef.current.target.set(0, 0, 0);
+    if (controlsRef.current) {
+      controlsRef.current.target.copy(CAMERA_POSE_TARGET);
       controlsRef.current.update();
     }
-  }, -20);
+  }, [
+    camera,
+    controlsRef,
+    mode,
+    settings.cameraCustomPose,
+    settings.cameraPosition,
+    settings.cameraTarget,
+    size.width,
+  ]);
+
+  useEffect(() => {
+    if (mode !== 'editor') {
+      return undefined;
+    }
+
+    const controls = controlsRef.current;
+    const domElement = gl.domElement;
+
+    if (!controls || !domElement) {
+      return undefined;
+    }
+
+    const handleStart = () => {
+      domElement.style.cursor = 'grabbing';
+    };
+    const handleEnd = () => {
+      domElement.style.cursor = 'grab';
+    };
+    const preventContextMenu = (event) => {
+      event.preventDefault();
+    };
+
+    domElement.style.cursor = 'grab';
+    domElement.addEventListener('contextmenu', preventContextMenu);
+    controls.addEventListener('start', handleStart);
+    controls.addEventListener('end', handleEnd);
+
+    return () => {
+      domElement.style.cursor = '';
+      domElement.removeEventListener('contextmenu', preventContextMenu);
+      controls.removeEventListener('start', handleStart);
+      controls.removeEventListener('end', handleEnd);
+    };
+  }, [controlsRef, gl, mode]);
+
+  useEffect(() => {
+    if (typeof onCameraRigApi !== 'function') {
+      return undefined;
+    }
+
+    const capturePose = () => {
+      const target = controlsRef.current?.target ?? CAMERA_POSE_TARGET.set(0, 0, 0);
+
+      return {
+        cameraPosition: {
+          x: formatAxis(camera.position.x),
+          y: formatAxis(camera.position.y),
+          z: formatAxis(camera.position.z),
+        },
+        cameraTarget: {
+          x: formatAxis(target.x),
+          y: formatAxis(target.y),
+          z: formatAxis(target.z),
+        },
+      };
+    };
+
+    onCameraRigApi({ capturePose });
+
+    return () => {
+      onCameraRigApi(null);
+    };
+  }, [camera, controlsRef, formatAxis, onCameraRigApi]);
 
   if (mode !== 'editor') {
     return null;
@@ -127,14 +229,25 @@ function WaterCameraRig({ mode, settings }) {
   return (
     <OrbitControls
       ref={controlsRef}
-      enablePan={false}
+      makeDefault
+      mouseButtons={{
+        LEFT: THREE.MOUSE.ROTATE,
+        MIDDLE: THREE.MOUSE.DOLLY,
+        RIGHT: THREE.MOUSE.PAN,
+      }}
+      enablePan
+      screenSpacePanning={false}
       enableDamping
       dampingFactor={0.08}
       minDistance={4}
       maxDistance={18}
       minPolarAngle={0.45}
       maxPolarAngle={1.35}
-      target={[0, 0, 0]}
+      target={[
+        settings?.cameraTarget?.x ?? 0,
+        settings?.cameraTarget?.y ?? 0,
+        settings?.cameraTarget?.z ?? 0,
+      ]}
     />
   );
 }
@@ -150,6 +263,7 @@ function useWaterRuntime(settings) {
     hasImpulse: false,
     isInside: false,
   });
+  const simulationAccumulatorRef = useRef(0);
   const probeBufferRef = useRef(new Uint8Array(5 * 4));
   const probeResultsRef = useRef(Array.from(
     { length: 5 },
@@ -275,6 +389,15 @@ function useWaterRuntime(settings) {
   }, [gl, renderState]);
 
   useFrame((_, delta) => {
+    const targetStep = 1 / (isMobile ? SIMULATION_TARGET_FPS_MOBILE : SIMULATION_TARGET_FPS_DESKTOP);
+    simulationAccumulatorRef.current += delta;
+
+    if (simulationAccumulatorRef.current < targetStep) {
+      return;
+    }
+
+    const simulationDelta = Math.min(simulationAccumulatorRef.current, 1 / 20);
+    simulationAccumulatorRef.current = 0;
     const pointerState = pointerStateRef.current;
     const rippleRadiusUv = clamp(settings.rippleRadius / settings.waterExtent, 0.0025, 0.12);
 
@@ -286,7 +409,7 @@ function useWaterRuntime(settings) {
     renderState.simulationPass.material.uniforms.uRippleRadius.value = rippleRadiusUv;
     renderState.simulationPass.material.uniforms.uRippleImpulse.value = settings.rippleImpulse;
     renderState.simulationPass.material.uniforms.uDamping.value = settings.rippleDamping;
-    renderState.simulationPass.material.uniforms.uDelta.value = Math.min(delta, 1 / 20);
+    renderState.simulationPass.material.uniforms.uDelta.value = simulationDelta;
     renderState.simulationPass.material.uniforms.uTime.value = _.clock.elapsedTime;
     renderState.simulationPass.material.uniforms.uAmbientWaveIntensity.value = settings.ambientWaveIntensity;
     renderState.simulationPass.material.uniforms.uAmbientWaveSpeed.value = settings.ambientWaveSpeed;
@@ -426,9 +549,178 @@ function WaterInteractionPlane({ settings, pointerStateRef }) {
   );
 }
 
+const reflectionCameraPosition = new THREE.Vector3();
+const mainCameraTargetPosition = new THREE.Vector3();
+const reflectionTargetPosition = new THREE.Vector3();
+const waterSurfaceWorldPosition = new THREE.Vector3();
+const reflectionBoatPosition = new THREE.Vector3();
+const reflectionBoatQuaternion = new THREE.Quaternion();
+
+function WaterReflections({ children, textureSize = 512, enabled = true }) {
+  const { gl, scene, camera } = useThree();
+  const reflectionTarget = useMemo(() => new THREE.WebGLRenderTarget(textureSize, textureSize, {
+    format: THREE.RGBAFormat,
+    depthBuffer: true,
+    stencilBuffer: false,
+    generateMipmaps: false,
+    minFilter: THREE.LinearFilter,
+    magFilter: THREE.LinearFilter,
+  }), [textureSize]);
+
+  const reflectionCamera = useMemo(() => new THREE.PerspectiveCamera(), []);
+  const reflectionData = useRef({ texture: null, matrix: new THREE.Matrix4() });
+  const sceneObjectsRef = useRef({
+    waterSurface: null,
+    seabed: null,
+    interactionPlane: null,
+    boatAnchor: null,
+  });
+  const reflectionTimingRef = useRef({
+    initialized: false,
+    lastRenderTime: -Infinity,
+    cameraPosition: new THREE.Vector3(),
+    cameraQuaternion: new THREE.Quaternion(),
+    boatPosition: new THREE.Vector3(),
+    boatQuaternion: new THREE.Quaternion(),
+  });
+
+  useEffect(() => () => {
+    reflectionTarget.dispose();
+  }, [reflectionTarget]);
+
+  useEffect(() => {
+    if (enabled) {
+      return;
+    }
+
+    reflectionData.current.texture = null;
+    reflectionTimingRef.current.initialized = false;
+    reflectionTimingRef.current.lastRenderTime = -Infinity;
+  }, [enabled]);
+
+  useFrame(({ clock }) => {
+    if (!enabled || !reflectionCamera || !reflectionTarget) {
+      return;
+    }
+
+    const sceneObjects = sceneObjectsRef.current;
+    const reflectionTiming = reflectionTimingRef.current;
+
+    if (!sceneObjects.waterSurface) {
+      sceneObjects.waterSurface = scene.getObjectByName('water-surface');
+    }
+    if (!sceneObjects.seabed) {
+      sceneObjects.seabed = scene.getObjectByName('seabed');
+    }
+    if (!sceneObjects.interactionPlane) {
+      sceneObjects.interactionPlane = scene.getObjectByName('water-interaction-plane');
+    }
+    if (!sceneObjects.boatAnchor) {
+      sceneObjects.boatAnchor = scene.getObjectByName('boat-anchor');
+    }
+
+    const waterSurface = sceneObjects.waterSurface;
+    const seabed = sceneObjects.seabed;
+    const interactionPlane = sceneObjects.interactionPlane;
+    const boatAnchor = sceneObjects.boatAnchor;
+
+    if (!waterSurface) {
+      return;
+    }
+
+    const now = clock.elapsedTime;
+    let isMoving = true;
+
+    if (boatAnchor) {
+      boatAnchor.getWorldPosition(reflectionBoatPosition);
+      boatAnchor.getWorldQuaternion(reflectionBoatQuaternion);
+    }
+
+    if (reflectionTiming.initialized) {
+      const cameraMoved = camera.position.distanceToSquared(reflectionTiming.cameraPosition) > REFLECTION_CAMERA_POSITION_EPSILON_SQ
+        || quaternionDelta(camera.quaternion, reflectionTiming.cameraQuaternion) > REFLECTION_CAMERA_ROTATION_EPSILON;
+      const boatMoved = boatAnchor
+        ? (
+          reflectionBoatPosition.distanceToSquared(reflectionTiming.boatPosition) > REFLECTION_BOAT_POSITION_EPSILON_SQ
+          || quaternionDelta(reflectionBoatQuaternion, reflectionTiming.boatQuaternion) > REFLECTION_BOAT_ROTATION_EPSILON
+        )
+        : false;
+
+      isMoving = cameraMoved || boatMoved;
+    }
+
+    const minInterval = 1 / (isMoving ? REFLECTION_ACTIVE_FPS : REFLECTION_IDLE_FPS);
+    if ((now - reflectionTiming.lastRenderTime) < minInterval) {
+      return;
+    }
+
+    reflectionTiming.initialized = true;
+    reflectionTiming.lastRenderTime = now;
+    reflectionTiming.cameraPosition.copy(camera.position);
+    reflectionTiming.cameraQuaternion.copy(camera.quaternion);
+    if (boatAnchor) {
+      reflectionTiming.boatPosition.copy(reflectionBoatPosition);
+      reflectionTiming.boatQuaternion.copy(reflectionBoatQuaternion);
+    }
+
+    waterSurface.getWorldPosition(waterSurfaceWorldPosition);
+    const mirrorY = waterSurfaceWorldPosition.y;
+
+    // 1. Sync mirror camera with main camera
+    reflectionCamera.fov = camera.fov;
+    reflectionCamera.aspect = camera.aspect;
+    reflectionCamera.near = camera.near;
+    reflectionCamera.far = camera.far;
+    reflectionCamera.updateProjectionMatrix();
+
+    // 2. Mirror camera across water plane.
+    reflectionCameraPosition.copy(camera.position);
+    reflectionCameraPosition.y = (mirrorY * 2) - reflectionCameraPosition.y;
+
+    camera.getWorldDirection(mainCameraTargetPosition);
+    mainCameraTargetPosition.add(camera.position);
+    reflectionTargetPosition.copy(mainCameraTargetPosition);
+    reflectionTargetPosition.y = (mirrorY * 2) - reflectionTargetPosition.y;
+
+    reflectionCamera.position.copy(reflectionCameraPosition);
+    reflectionCamera.up.copy(camera.up);
+    reflectionCamera.up.y *= -1;
+    reflectionCamera.lookAt(reflectionTargetPosition);
+    reflectionCamera.updateMatrixWorld(true);
+    reflectionCamera.matrixWorldInverse.copy(reflectionCamera.matrixWorld).invert();
+
+    // 3. Update reflection data for surface
+    reflectionData.current.texture = reflectionTarget.texture;
+    reflectionData.current.matrix.copy(reflectionCamera.projectionMatrix).multiply(reflectionCamera.matrixWorldInverse);
+
+    // 4. Render
+    if (waterSurface) waterSurface.visible = false;
+    if (seabed) seabed.visible = false;
+    if (interactionPlane) interactionPlane.visible = false;
+
+    gl.setRenderTarget(reflectionTarget);
+    gl.clear();
+    gl.render(scene, reflectionCamera);
+    gl.setRenderTarget(null);
+
+    if (waterSurface) waterSurface.visible = true;
+    if (seabed) seabed.visible = true;
+    if (interactionPlane) interactionPlane.visible = true;
+  }, -1);
+
+  return (
+    <reflectionContext.Provider value={reflectionData}>
+      {children}
+    </reflectionContext.Provider>
+  );
+}
+
+const reflectionContext = React.createContext({ current: { texture: null, matrix: new THREE.Matrix4() } });
+
 function WaterLights({ settings, mode }) {
   const moonDirection = useMemo(() => buildMoonDirection(settings), [settings]);
-  const shadowMapSize = mode === 'editor' ? 2048 : 1024;
+  const shadowsEnabled = settings.debugView === 'beauty';
+  const shadowMapSize = mode === 'editor' ? 1024 : 768;
 
   return (
     <>
@@ -438,7 +730,7 @@ function WaterLights({ settings, mode }) {
         position={moonDirection.clone().multiplyScalar(18).toArray()}
         intensity={settings.moonIntensity}
         color={settings.moonColor}
-        castShadow
+        castShadow={shadowsEnabled}
         shadow-mapSize-width={shadowMapSize}
         shadow-mapSize-height={shadowMapSize}
         shadow-camera-near={1}
@@ -461,6 +753,7 @@ function WaterLights({ settings, mode }) {
 
 function WaterSurface({ settings, runtime }) {
   const materialRef = useRef();
+  const reflectionDataRef = React.useContext(reflectionContext);
   const { size } = useThree();
   const debugView = DEBUG_VIEW_IDS[settings.debugView] ?? 0;
   const meshDensity = size.width < 768
@@ -470,6 +763,9 @@ function WaterSurface({ settings, runtime }) {
   const uniforms = useMemo(() => ({
     uState: { value: null },
     uNormalMap: { value: null },
+    uReflectionTexture: { value: null },
+    uReflectionActive: { value: 0 },
+    uReflectionMatrix: { value: new THREE.Matrix4() },
     uWaveAmplitude: { value: settings.waveAmplitude },
     uWaveChoppiness: { value: settings.waveChoppiness },
     uWaveLength: { value: settings.waveLength },
@@ -478,6 +774,7 @@ function WaterSurface({ settings, runtime }) {
     uMoonColor: { value: new THREE.Color(settings.moonColor) },
     uMoonSpecularStrength: { value: settings.moonSpecularStrength },
     uMoonSpecularPower: { value: settings.moonSpecularPower },
+    uBoatReflectionIntensity: { value: settings.boatReflectionIntensity },
     uWaterDepth: { value: settings.waterDepthMeters },
     uWaterTurbidity: { value: settings.waterTurbidity },
     uDebugView: { value: debugView },
@@ -488,6 +785,7 @@ function WaterSurface({ settings, runtime }) {
     settings.moonColor,
     settings.moonSpecularPower,
     settings.moonSpecularStrength,
+    settings.boatReflectionIntensity,
     settings.waterDepthMeters,
     settings.waterTurbidity,
     settings.waveAmplitude,
@@ -504,6 +802,7 @@ function WaterSurface({ settings, runtime }) {
     uniforms.uMoonColor.value.set(settings.moonColor);
     uniforms.uMoonSpecularStrength.value = settings.moonSpecularStrength;
     uniforms.uMoonSpecularPower.value = settings.moonSpecularPower;
+    uniforms.uBoatReflectionIntensity.value = settings.boatReflectionIntensity;
     uniforms.uWaterDepth.value = settings.waterDepthMeters;
     uniforms.uWaterTurbidity.value = settings.waterTurbidity;
     uniforms.uDebugView.value = DEBUG_VIEW_IDS[settings.debugView] ?? 0;
@@ -519,6 +818,7 @@ function WaterSurface({ settings, runtime }) {
     settings.moonColor,
     settings.moonSpecularPower,
     settings.moonSpecularStrength,
+    settings.boatReflectionIntensity,
     settings.waterDepthMeters,
     settings.waterTurbidity,
     settings.waveAmplitude,
@@ -534,6 +834,10 @@ function WaterSurface({ settings, runtime }) {
 
     uniforms.uState.value = runtime.currentStateTargetRef.current?.texture ?? null;
     uniforms.uNormalMap.value = runtime.normalTargetRef.current?.texture ?? null;
+    const reflectionTexture = reflectionDataRef.current.texture;
+    uniforms.uReflectionActive.value = reflectionTexture ? 1 : 0;
+    uniforms.uReflectionTexture.value = reflectionTexture;
+    uniforms.uReflectionMatrix.value.copy(reflectionDataRef.current.matrix);
   });
 
   return (
@@ -681,13 +985,48 @@ function Seabed({ settings, runtime }) {
   );
 }
 
-function FloatingBoat({ settings, runtime }) {
-  const groupRef = useRef();
-  const yawRef = useRef(THREE.MathUtils.degToRad(18));
+function FloatingBoat({ settings, runtime, mode, orbitRef, onBoatPositionChange }) {
+  const anchorRef = useRef();
+  const boatRef = useRef();
+  const isDraggingRef = useRef(false);
+  const dragPointerIdRef = useRef(null);
+  const dragPlaneRef = useRef(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0));
+  const dragHitPointRef = useRef(new THREE.Vector3());
+  const dragOffsetRef = useRef(new THREE.Vector3());
+  const boatAnchorRef = useRef(new THREE.Vector3(
+    settings?.boatPosition?.x ?? DEFAULT_BOAT_ANCHOR.x,
+    0,
+    settings?.boatPosition?.z ?? DEFAULT_BOAT_ANCHOR.z,
+  ));
   const targetVector = useRef(new THREE.Vector3());
   const boatMatrixRef = useRef(new THREE.Matrix4());
   const averageNormalRef = useRef(new THREE.Vector3());
   const probeWorldPointsRef = useRef(BOAT_PROBE_OFFSETS.map(() => new THREE.Vector3()));
+  const commitBoatPosition = useCallback((position) => {
+    if (typeof onBoatPositionChange !== 'function' || !position) {
+      return;
+    }
+
+    onBoatPositionChange({
+      x: Number(position.x.toFixed(4)),
+      z: Number(position.z.toFixed(4)),
+    });
+  }, [onBoatPositionChange]);
+  const applyBoatAnchor = useCallback((x, z) => {
+    const halfExtent = settings.waterExtent * 0.5;
+    const nextX = clamp(x, -halfExtent, halfExtent);
+    const nextZ = clamp(z, -halfExtent, halfExtent);
+    boatAnchorRef.current.set(nextX, 0, nextZ);
+
+    if (anchorRef.current) {
+      anchorRef.current.position.set(nextX, 0, nextZ);
+    }
+  }, [settings.waterExtent]);
+  const setOrbitEnabled = useCallback((enabled) => {
+    if (orbitRef?.current) {
+      orbitRef.current.enabled = enabled;
+    }
+  }, [orbitRef]);
 
   const boatMaterial = useMemo(() => new THREE.MeshPhysicalMaterial({
     color: settings.boatColor,
@@ -709,17 +1048,97 @@ function FloatingBoat({ settings, runtime }) {
     boatMaterial.dispose();
   }, [boatMaterial]);
 
-  useFrame((_, delta) => {
-    if (!groupRef.current || settings.debugView !== 'beauty') {
+  useEffect(() => {
+    const anchorX = settings?.boatPosition?.x ?? DEFAULT_BOAT_ANCHOR.x;
+    const anchorZ = settings?.boatPosition?.z ?? DEFAULT_BOAT_ANCHOR.z;
+
+    if (isDraggingRef.current) {
       return;
     }
 
-    boatMatrixRef.current.makeRotationY(yawRef.current);
+    applyBoatAnchor(anchorX, anchorZ);
+  }, [applyBoatAnchor, settings?.boatPosition?.x, settings?.boatPosition?.z]);
+  const handleBoatPointerDown = useCallback((event) => {
+    if (mode !== 'editor' || event.button !== 0 || !event.shiftKey) {
+      return;
+    }
+
+    const dragHitPoint = dragHitPointRef.current;
+
+    if (!event.ray?.intersectPlane(dragPlaneRef.current, dragHitPoint)) {
+      return;
+    }
+
+    event.stopPropagation();
+    event.target.setPointerCapture?.(event.pointerId);
+
+    isDraggingRef.current = true;
+    dragPointerIdRef.current = event.pointerId;
+    setOrbitEnabled(false);
+
+    const currentAnchor = anchorRef.current?.position ?? boatAnchorRef.current;
+    dragOffsetRef.current.set(
+      currentAnchor.x - dragHitPoint.x,
+      0,
+      currentAnchor.z - dragHitPoint.z,
+    );
+  }, [mode, setOrbitEnabled]);
+  const handleBoatPointerMove = useCallback((event) => {
+    if (!isDraggingRef.current) {
+      return;
+    }
+
+    if (dragPointerIdRef.current !== null && event.pointerId !== dragPointerIdRef.current) {
+      return;
+    }
+
+    const dragHitPoint = dragHitPointRef.current;
+
+    if (!event.ray?.intersectPlane(dragPlaneRef.current, dragHitPoint)) {
+      return;
+    }
+
+    event.stopPropagation();
+    applyBoatAnchor(
+      dragHitPoint.x + dragOffsetRef.current.x,
+      dragHitPoint.z + dragOffsetRef.current.z,
+    );
+  }, [applyBoatAnchor]);
+  const finishBoatDrag = useCallback((event) => {
+    if (!isDraggingRef.current) {
+      return;
+    }
+
+    event?.stopPropagation?.();
+    setOrbitEnabled(true);
+
+    if (dragPointerIdRef.current !== null && event?.target?.releasePointerCapture) {
+      event.target.releasePointerCapture(dragPointerIdRef.current);
+    }
+
+    isDraggingRef.current = false;
+    dragPointerIdRef.current = null;
+    commitBoatPosition(anchorRef.current?.position ?? boatAnchorRef.current);
+  }, [commitBoatPosition, setOrbitEnabled]);
+
+  useEffect(() => () => {
+    setOrbitEnabled(true);
+  }, [setOrbitEnabled]);
+
+  useFrame((_, delta) => {
+    if (!boatRef.current || settings.debugView !== 'beauty') {
+      return;
+    }
+
+    const boatAnchor = anchorRef.current?.position ?? boatAnchorRef.current;
+    boatAnchorRef.current.copy(boatAnchor);
+    const boatYawRadians = THREE.MathUtils.degToRad(settings.boatYaw ?? 18);
+    boatMatrixRef.current.makeRotationY(boatYawRadians);
     for (let index = 0; index < BOAT_PROBE_OFFSETS.length; index += 1) {
       probeWorldPointsRef.current[index]
         .copy(BOAT_PROBE_OFFSETS[index])
         .applyMatrix4(boatMatrixRef.current)
-        .add(BOAT_ANCHOR);
+        .add(boatAnchor);
     }
 
     const probes = runtime.sampleBoatProbes(probeWorldPointsRef.current);
@@ -755,11 +1174,11 @@ function FloatingBoat({ settings, runtime }) {
       0.34,
     );
 
-    targetVector.current.set(BOAT_ANCHOR.x, targetY, BOAT_ANCHOR.z);
-    groupRef.current.position.lerp(targetVector.current, 1 - Math.exp(-delta * 4.5));
-    groupRef.current.rotation.y = yawRef.current;
-    groupRef.current.rotation.x = THREE.MathUtils.damp(groupRef.current.rotation.x, targetPitch, 4.5, delta);
-    groupRef.current.rotation.z = THREE.MathUtils.damp(groupRef.current.rotation.z, targetRoll, 4.5, delta);
+    targetVector.current.set(0, targetY, 0);
+    boatRef.current.position.lerp(targetVector.current, 1 - Math.exp(-delta * 4.5));
+    boatRef.current.rotation.y = boatYawRadians;
+    boatRef.current.rotation.x = THREE.MathUtils.damp(boatRef.current.rotation.x, targetPitch, 4.5, delta);
+    boatRef.current.rotation.z = THREE.MathUtils.damp(boatRef.current.rotation.z, targetRoll, 4.5, delta);
   });
 
   const obj = useLoader(OBJLoader, '/models/boat/OBJ.obj');
@@ -785,25 +1204,55 @@ function FloatingBoat({ settings, runtime }) {
   }
 
   return (
-    <group ref={groupRef} name="boat" position={BOAT_ANCHOR_ARRAY}>
-      <primitive object={clonedObj} />
-    </group>
+    <>
+      <group
+        ref={anchorRef}
+        name="boat-anchor"
+        onPointerDown={handleBoatPointerDown}
+        onPointerMove={handleBoatPointerMove}
+        onPointerUp={finishBoatDrag}
+        onPointerCancel={finishBoatDrag}
+        onLostPointerCapture={finishBoatDrag}
+      >
+        <group ref={boatRef} name="boat">
+          <primitive object={clonedObj} />
+        </group>
+      </group>
+    </>
   );
 }
 
-function WaterRuntimeScene({ settings, mode }) {
+function WaterRuntimeScene({ settings, mode, onCameraRigApi, onBoatPositionChange }) {
   const runtime = useWaterRuntime(settings);
+  const orbitRef = useRef();
   const showDebugHelpers = mode === 'editor' && settings.debugView !== 'beauty';
+  const reflectionsEnabled = settings.debugView === 'beauty' && settings.boatReflectionIntensity > 0.01;
 
   return (
     <>
       <color attach="background" args={['#040507']} />
-      <WaterCameraRig mode={mode} settings={settings} />
-      <WaterLights settings={settings} mode={mode} />
-      <Seabed settings={settings} runtime={runtime} />
-      <WaterSurface settings={settings} runtime={runtime} />
-      <FloatingBoat settings={settings} runtime={runtime} />
-      <WaterInteractionPlane settings={settings} pointerStateRef={runtime.pointerStateRef} />
+      <WaterCameraRig
+        mode={mode}
+        settings={settings}
+        onCameraRigApi={onCameraRigApi}
+        orbitRef={orbitRef}
+      />
+      <WaterReflections
+        enabled={reflectionsEnabled}
+        textureSize={mode === 'editor' ? 768 : 512}
+      >
+        <WaterLights settings={settings} mode={mode} />
+        <Seabed settings={settings} runtime={runtime} />
+        <WaterSurface settings={settings} runtime={runtime} />
+        <FloatingBoat
+          settings={settings}
+          runtime={runtime}
+          mode={mode}
+          orbitRef={orbitRef}
+          onBoatPositionChange={onBoatPositionChange}
+        />
+        <WaterInteractionPlane settings={settings} pointerStateRef={runtime.pointerStateRef} />
+      </WaterReflections>
       {showDebugHelpers ? <axesHelper args={[2]} /> : null}
       {showDebugHelpers ? (
         <gridHelper
@@ -821,6 +1270,8 @@ const WaterScene = ({
   sceneId = 'water-scene',
   testId,
   fallbackTestId,
+  onCameraRigApi,
+  onBoatPositionChange,
 }) => {
   const settings = settingsProp ?? getBaseHomeSceneSettings();
 
@@ -834,7 +1285,12 @@ const WaterScene = ({
       camera={{ position: PUBLIC_CAMERA_POSITION, fov: settings.cameraFov }}
       style={{ background: '#040507' }}
     >
-      <WaterRuntimeScene settings={settings} mode={mode} />
+      <WaterRuntimeScene
+        settings={settings}
+        mode={mode}
+        onCameraRigApi={onCameraRigApi}
+        onBoatPositionChange={onBoatPositionChange}
+      />
     </SceneCanvas>
   );
 };

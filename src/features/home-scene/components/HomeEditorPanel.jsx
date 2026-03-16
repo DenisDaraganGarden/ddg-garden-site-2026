@@ -14,6 +14,8 @@ const HomeEditorPanel = ({
     setActiveTab,
     settings,
     handleSettingChange,
+    onCaptureCameraPose,
+    onResetCameraPose,
     onPublish,
     publishState,
 }) => {
@@ -66,7 +68,14 @@ const HomeEditorPanel = ({
                     {activeTab === 'water' && <WaterTab settings={settings} handleSettingChange={handleSettingChange} />}
                     {activeTab === 'lighting' && <LightingTab settings={settings} handleSettingChange={handleSettingChange} />}
                     {activeTab === 'depth' && <DepthTab settings={settings} handleSettingChange={handleSettingChange} />}
-                    {activeTab === 'camera' && <CameraTab settings={settings} handleSettingChange={handleSettingChange} />}
+                    {activeTab === 'camera' && (
+                        <CameraTab
+                            settings={settings}
+                            handleSettingChange={handleSettingChange}
+                            onCaptureCameraPose={onCaptureCameraPose}
+                            onResetCameraPose={onResetCameraPose}
+                        />
+                    )}
                     {activeTab === 'boat' && <BoatTab settings={settings} handleSettingChange={handleSettingChange} />}
                     {activeTab === 'debug' && <DebugTab settings={settings} handleSettingChange={handleSettingChange} />}
                 </div>

@@ -1,7 +1,14 @@
 import React, { useRef, useEffect } from 'react';
 import { TransformControls } from '@react-three/drei/core/TransformControls.js';
 
-const DraggableTransformControls = ({ orbitRef, object, onPositionChange, setIsDragging, ...props }) => {
+const DraggableTransformControls = ({
+    orbitRef: _orbitRef,
+    object,
+    onPositionChange,
+    onDragStateChange,
+    setIsDragging,
+    ...props
+}) => {
     const tcRef = useRef();
 
     useEffect(() => {
@@ -9,26 +16,23 @@ const DraggableTransformControls = ({ orbitRef, object, onPositionChange, setIsD
         if (!tc) return;
 
         const handleDraggingChanged = (event) => {
-            if (orbitRef.current) {
-                orbitRef.current.enabled = !event.value;
-            }
             if (setIsDragging) setIsDragging(event.value);
-        };
+            if (onDragStateChange) {
+                const pos = object?.position;
+                onDragStateChange(event.value, pos ? { x: pos.x, y: pos.y, z: pos.z } : null);
+            }
 
-        const handleChange = () => {
-            if (object) {
+            if (!event.value && onPositionChange && object) {
                 const pos = object.position;
                 onPositionChange({ x: pos.x, y: pos.y, z: pos.z });
             }
         };
 
         tc.addEventListener('dragging-changed', handleDraggingChanged);
-        tc.addEventListener('change', handleChange);
         return () => {
             tc.removeEventListener('dragging-changed', handleDraggingChanged);
-            tc.removeEventListener('change', handleChange);
         };
-    }, [orbitRef, object, onPositionChange, setIsDragging]);
+    }, [object, onDragStateChange, onPositionChange, setIsDragging]);
 
     return (
         <TransformControls

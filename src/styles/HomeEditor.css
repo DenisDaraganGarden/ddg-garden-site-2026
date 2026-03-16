@@ -138,6 +138,49 @@
   cursor: pointer;
 }
 
+.home-editor-camera-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.home-editor-action-button {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+  color: #f5f5f5;
+  padding: 0.56rem 0.75rem;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+  font-family: var(--font-secondary);
+  font-size: 0.75rem;
+}
+
+.home-editor-action-button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.24);
+}
+
+.home-editor-action-button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.home-editor-camera-pose-status {
+  color: rgba(255, 255, 255, 0.74);
+  font-family: var(--font-secondary);
+  font-size: 0.72rem;
+  line-height: 1.35;
+}
+
+.home-editor-inline-hint {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.68);
+  font-family: var(--font-secondary);
+  font-size: 0.72rem;
+  line-height: 1.4;
+}
+
 @media (max-width: 900px) {
   .home-editor-controls {
     grid-template-columns: 1fr;

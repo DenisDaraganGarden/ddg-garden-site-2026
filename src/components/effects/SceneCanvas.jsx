@@ -30,9 +30,9 @@ function detectWebGLSupport() {
 function getCanvasProfile(mode) {
   if (typeof window === 'undefined') {
     return {
-      maxDpr: 1.5,
+      maxDpr: 1.4,
       antialias: true,
-      powerPreference: 'high-performance',
+      powerPreference: 'default',
     };
   }
 
@@ -41,10 +41,10 @@ function getCanvasProfile(mode) {
 
   return {
     maxDpr: isEditor
-      ? (isMobileViewport ? 1.5 : 2)
-      : (isMobileViewport ? 1.25 : 1.75),
+      ? (isMobileViewport ? 1.25 : 1.45)
+      : (isMobileViewport ? 1.1 : 1.35),
     antialias: !isMobileViewport,
-    powerPreference: isEditor ? 'high-performance' : 'default',
+    powerPreference: 'default',
   };
 }
 

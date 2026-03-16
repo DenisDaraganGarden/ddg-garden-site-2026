@@ -59,12 +59,18 @@ const PUBLISHED_HOME_SCENE_KEYS = [
   'causticsScale',
   'causticsSharpness',
   'cameraFov',
+  'cameraCustomPose',
+  'cameraPosition',
+  'cameraTarget',
   'debugView',
   'boatColor',
   'boatMetalness',
   'boatRoughness',
   'boatClearcoat',
   'boatClearcoatRoughness',
+  'boatReflectionIntensity',
+  'boatPosition',
+  'boatYaw',
   'boatScale',
   'seabedTextureScale',
   'seabedSaturation',
@@ -102,6 +108,30 @@ const clampFloat = (value, min, max, fallback) => {
 const clampInt = (value, min, max, fallback) => Math.round(
   clampFloat(value, min, max, fallback),
 );
+const pickBoolean = (value, fallback) => (
+  typeof value === 'boolean' ? value : fallback
+);
+const pickVector2 = (value, fallback) => {
+  if (!value || typeof value !== 'object') {
+    return { ...fallback };
+  }
+
+  return {
+    x: clampFloat(value.x, -80, 80, fallback.x),
+    z: clampFloat(value.z, -80, 80, fallback.z),
+  };
+};
+const pickVector3 = (value, fallback) => {
+  if (!value || typeof value !== 'object') {
+    return { ...fallback };
+  }
+
+  return {
+    x: clampFloat(value.x, -120, 120, fallback.x),
+    y: clampFloat(value.y, -120, 120, fallback.y),
+    z: clampFloat(value.z, -120, 120, fallback.z),
+  };
+};
 const pickColor = (value, fallback) => (
   typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value)
     ? value
@@ -138,12 +168,18 @@ export const getBaseHomeSceneSettings = () => ({
   causticsScale: 1.2,
   causticsSharpness: 0.45,
   cameraFov: 36,
+  cameraCustomPose: false,
+  cameraPosition: { x: 0, y: 5.8, z: 8.9 },
+  cameraTarget: { x: 0, y: 0, z: 0 },
   debugView: DEFAULT_DEBUG_VIEW,
   boatColor: '#ffffff',
   boatMetalness: 0.15,
   boatRoughness: 0.20,
   boatClearcoat: 0.8,
   boatClearcoatRoughness: 0.1,
+  boatReflectionIntensity: 1.15,
+  boatPosition: { x: 2.1, z: -1.4 },
+  boatYaw: 18,
   boatScale: 0.001,
   seabedTextureScale: 1.0,
   seabedSaturation: 1.0,
@@ -247,12 +283,23 @@ const normalizeHomeSceneSettings = (savedSettings = {}) => {
     causticsScale: clampFloat(merged.causticsScale, 0.5, 6, defaults.causticsScale),
     causticsSharpness: clampFloat(merged.causticsSharpness, 0.1, 1.5, defaults.causticsSharpness),
     cameraFov: clampInt(merged.cameraFov, 24, 75, defaults.cameraFov),
+    cameraCustomPose: pickBoolean(merged.cameraCustomPose, defaults.cameraCustomPose),
+    cameraPosition: pickVector3(merged.cameraPosition, defaults.cameraPosition),
+    cameraTarget: pickVector3(merged.cameraTarget, defaults.cameraTarget),
     debugView: VALID_DEBUG_VIEWS.has(merged.debugView) ? merged.debugView : defaults.debugView,
     boatColor: pickColor(merged.boatColor, defaults.boatColor),
     boatMetalness: clampFloat(merged.boatMetalness, 0, 1, defaults.boatMetalness),
     boatRoughness: clampFloat(merged.boatRoughness, 0, 1, defaults.boatRoughness),
     boatClearcoat: clampFloat(merged.boatClearcoat, 0, 1, defaults.boatClearcoat),
     boatClearcoatRoughness: clampFloat(merged.boatClearcoatRoughness, 0, 1, defaults.boatClearcoatRoughness),
+    boatReflectionIntensity: clampFloat(
+      merged.boatReflectionIntensity,
+      0,
+      2,
+      defaults.boatReflectionIntensity,
+    ),
+    boatPosition: pickVector2(merged.boatPosition, defaults.boatPosition),
+    boatYaw: clampFloat(merged.boatYaw, -180, 180, defaults.boatYaw),
     boatScale: clampFloat(merged.boatScale, 0.001, 0.1, defaults.boatScale),
     seabedTextureScale: clampFloat(merged.seabedTextureScale, 0.1, 10.0, defaults.seabedTextureScale),
     seabedSaturation: clampFloat(merged.seabedSaturation, 0, 2, defaults.seabedSaturation),
