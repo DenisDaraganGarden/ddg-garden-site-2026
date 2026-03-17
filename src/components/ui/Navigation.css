@@ -37,12 +37,16 @@
 
 .main-nav--home .nav-brand {
     top: 43%;
-    transform: translateY(-50%);
-    padding: 0 0 0 clamp(1.4rem, 3.8vw, 3.4rem);
+    left: 50%;
+    width: min(94vw, 980px);
+    transform: translate(-50%, -50%);
+    padding: 0;
     pointer-events: none;
+    text-align: center;
 }
 
 .main-nav--home .nav-brand a {
+    align-items: center;
     font-size: clamp(3rem, 5.6vw, 5.4rem);
     line-height: 0.84;
     letter-spacing: -0.02em;
@@ -396,22 +400,26 @@
 
 @media (max-width: 900px) {
     .main-nav--home .nav-brand {
-        top: 0;
-        transform: none;
-        padding: calc(1.9rem + env(safe-area-inset-top)) 2.2rem 1.6rem;
+        top: 38%;
+        left: 50%;
+        width: min(94vw, 680px);
+        transform: translate(-50%, -50%);
+        padding: 0;
+        text-align: center;
     }
 
     .main-nav--home .nav-brand a {
-        font-size: 2.6rem;
-        line-height: 0.9;
+        align-items: center;
+        font-size: clamp(2rem, 8vw, 3.2rem);
+        line-height: 0.86;
         letter-spacing: -0.01em;
     }
 
     .main-nav--home .brand-subtitle {
-        margin-top: 0.2rem;
-        font-size: 0.86rem;
-        letter-spacing: normal;
-        text-transform: none;
+        margin-top: 0.22rem;
+        font-size: clamp(0.62rem, 2.4vw, 0.9rem);
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
     }
 }
 
@@ -427,6 +435,28 @@
     .brand-subtitle {
         margin-top: 0.08rem;
         font-size: 0.58rem;
+    }
+
+    .main-nav--home .nav-brand {
+        top: 34%;
+        left: 50%;
+        width: min(94vw, 420px);
+        transform: translate(-50%, -50%);
+        padding: 0;
+    }
+
+    .main-nav--home .nav-brand a {
+        align-items: center;
+        font-size: clamp(2rem, 9vw, 2.7rem);
+        line-height: 0.85;
+        letter-spacing: -0.01em;
+    }
+
+    .main-nav--home .brand-subtitle {
+        margin-top: 0.12rem;
+        font-size: clamp(0.58rem, 2.6vw, 0.72rem);
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
     }
 
     .language-switch {

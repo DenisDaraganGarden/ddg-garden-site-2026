@@ -205,9 +205,17 @@ function WaterCameraRig({ mode, settings, onCameraRigApi, orbitRef }) {
   const isPortraitViewport = size.height > size.width;
   const hasLandscapePose = Boolean(settings.cameraCustomPoseLandscape ?? settings.cameraCustomPose);
   const hasPortraitPose = Boolean(settings.cameraCustomPosePortrait);
+  const landscapeCameraTarget = useMemo(
+    () => settings.cameraTargetLandscape ?? settings.cameraTarget ?? { x: 0, y: 0, z: 0 },
+    [settings.cameraTargetLandscape, settings.cameraTarget],
+  );
+  const portraitCameraTarget = useMemo(
+    () => settings.cameraTargetPortrait ?? landscapeCameraTarget,
+    [settings.cameraTargetPortrait, landscapeCameraTarget],
+  );
   const activeCameraTarget = isPortraitViewport
-    ? (hasPortraitPose ? settings.cameraTargetPortrait : { x: 0, y: 0, z: 0 })
-    : (hasLandscapePose ? (settings.cameraTargetLandscape ?? settings.cameraTarget) : { x: 0, y: 0, z: 0 });
+    ? (hasPortraitPose ? portraitCameraTarget : (hasLandscapePose ? landscapeCameraTarget : { x: 0, y: 0, z: 0 }))
+    : (hasLandscapePose ? landscapeCameraTarget : { x: 0, y: 0, z: 0 });
 
   useEffect(() => {
     if (camera.fov === settings.cameraFov) {
@@ -220,15 +228,17 @@ function WaterCameraRig({ mode, settings, onCameraRigApi, orbitRef }) {
 
   useLayoutEffect(() => {
     const defaultCameraPosition = isPortraitViewport ? MOBILE_CAMERA_POSITION : PUBLIC_CAMERA_POSITION;
+    const landscapeCameraPosition = settings.cameraPositionLandscape ?? settings.cameraPosition;
+    const portraitCameraPosition = settings.cameraPositionPortrait ?? landscapeCameraPosition;
     const useSavedPose = isPortraitViewport
-      ? hasPortraitPose
+      ? (hasPortraitPose || hasLandscapePose)
       : hasLandscapePose;
     const savedCameraPosition = isPortraitViewport
-      ? settings.cameraPositionPortrait
-      : (settings.cameraPositionLandscape ?? settings.cameraPosition);
+      ? (hasPortraitPose ? portraitCameraPosition : landscapeCameraPosition)
+      : landscapeCameraPosition;
     const savedCameraTarget = isPortraitViewport
-      ? settings.cameraTargetPortrait
-      : (settings.cameraTargetLandscape ?? settings.cameraTarget);
+      ? (hasPortraitPose ? portraitCameraTarget : landscapeCameraTarget)
+      : landscapeCameraTarget;
     const cameraPosition = useSavedPose
       ? savedCameraPosition
       : {
@@ -258,6 +268,8 @@ function WaterCameraRig({ mode, settings, onCameraRigApi, orbitRef }) {
     hasLandscapePose,
     hasPortraitPose,
     isPortraitViewport,
+    landscapeCameraTarget,
+    portraitCameraTarget,
     settings.cameraPosition,
     settings.cameraPositionLandscape,
     settings.cameraPositionPortrait,

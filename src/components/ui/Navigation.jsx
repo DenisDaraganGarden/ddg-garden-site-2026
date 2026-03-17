@@ -1,10 +1,8 @@
 import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useLanguage } from '../../i18n/useLanguage';
-import { projectRegistry } from '../../data/projectRegistry';
 import { archiveNavigationItems, primaryNavigationItems } from '../../config/siteNavigation';
 import ouroborosDark from '../../../portfolio/DDG_logo.png';
-import ouroborosWhite from '../../../portfolio/Denis Daragan Garden Logo White.png';
 import './Navigation.css';
 
 const Navigation = () => {
@@ -24,18 +22,7 @@ const Navigation = () => {
         return window.matchMedia('(hover: hover) and (pointer: fine)').matches;
     }, []);
 
-    const activeProjectTheme = React.useMemo(() => {
-        const match = location.pathname.match(/^\/portfolio\/([^/]+)/);
-        if (!match) {
-            return null;
-        }
-
-        const projectId = decodeURIComponent(match[1]);
-        const project = projectRegistry.find((item) => item.id === projectId || item.slug === projectId);
-        return project?.theme ?? null;
-    }, [location.pathname]);
-
-    const logoSrc = activeProjectTheme === 'magazine' ? ouroborosDark : ouroborosWhite;
+    const logoSrc = ouroborosDark;
 
     const closeMenu = React.useCallback(() => {
         setIsMenuOpen(false);

@@ -5,7 +5,6 @@ import {
     Route,
 } from 'react-router-dom';
 import Navigation from './components/ui/Navigation';
-import SiteMusicController from './components/ui/SiteMusicController';
 import { archiveNavigationItems } from './config/siteNavigation';
 import { useLanguage } from './i18n/useLanguage';
 import ddgLogo from '../portfolio/DDG_logo.png';
@@ -86,7 +85,6 @@ function AppShell() {
     return (
         <>
             <Navigation />
-            <SiteMusicController />
 
             <main style={{ position: 'relative', width: '100%', height: '100%' }}>
                 <Suspense fallback={routeFallback}>

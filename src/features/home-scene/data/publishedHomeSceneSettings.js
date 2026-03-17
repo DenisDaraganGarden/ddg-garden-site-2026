@@ -50,16 +50,16 @@ export const publishedHomeSceneSettings = {
     "y": 0,
     "z": -1.461
   },
-  "cameraCustomPosePortrait": false,
+  "cameraCustomPosePortrait": true,
   "cameraPositionPortrait": {
-    "x": 0,
-    "y": 5.1,
-    "z": 7.3
+    "x": -12.9263,
+    "y": 6.117,
+    "z": 3.9813
   },
   "cameraTargetPortrait": {
-    "x": 0,
+    "x": 3.1038,
     "y": 0,
-    "z": 0
+    "z": -1.461
   },
   "debugView": "beauty",
   "boatColor": "#ffffff",
