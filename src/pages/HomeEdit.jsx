@@ -36,7 +36,7 @@ const HomeEdit = () => {
         cameraRigApiRef.current = api;
     }, []);
 
-    const handleCaptureCameraPose = useCallback(() => {
+    const handleCaptureCameraPose = useCallback((variant = 'landscape') => {
         const cameraPose = cameraRigApiRef.current?.capturePose?.();
 
         if (!cameraPose) {
@@ -45,20 +45,42 @@ const HomeEdit = () => {
 
         setSettings((previous) => ({
             ...previous,
-            cameraCustomPose: true,
-            cameraPosition: cameraPose.cameraPosition,
-            cameraTarget: cameraPose.cameraTarget,
+            ...(variant === 'portrait'
+                ? {
+                    cameraCustomPosePortrait: true,
+                    cameraPositionPortrait: cameraPose.cameraPosition,
+                    cameraTargetPortrait: cameraPose.cameraTarget,
+                }
+                : {
+                    cameraCustomPose: true,
+                    cameraPosition: cameraPose.cameraPosition,
+                    cameraTarget: cameraPose.cameraTarget,
+                    cameraCustomPoseLandscape: true,
+                    cameraPositionLandscape: cameraPose.cameraPosition,
+                    cameraTargetLandscape: cameraPose.cameraTarget,
+                }),
         }));
     }, [setSettings]);
 
-    const handleResetCameraPose = useCallback(() => {
+    const handleResetCameraPose = useCallback((variant = 'landscape') => {
         const defaults = getBaseHomeSceneSettings();
 
         setSettings((previous) => ({
             ...previous,
-            cameraCustomPose: false,
-            cameraPosition: defaults.cameraPosition,
-            cameraTarget: defaults.cameraTarget,
+            ...(variant === 'portrait'
+                ? {
+                    cameraCustomPosePortrait: false,
+                    cameraPositionPortrait: defaults.cameraPositionPortrait,
+                    cameraTargetPortrait: defaults.cameraTargetPortrait,
+                }
+                : {
+                    cameraCustomPose: false,
+                    cameraPosition: defaults.cameraPosition,
+                    cameraTarget: defaults.cameraTarget,
+                    cameraCustomPoseLandscape: false,
+                    cameraPositionLandscape: defaults.cameraPositionLandscape,
+                    cameraTargetLandscape: defaults.cameraTargetLandscape,
+                }),
         }));
     }, [setSettings]);
 
@@ -132,8 +154,10 @@ const HomeEdit = () => {
                 setActiveTab={setActiveTab}
                 settings={settings}
                 handleSettingChange={handleSettingChange}
-                onCaptureCameraPose={handleCaptureCameraPose}
-                onResetCameraPose={handleResetCameraPose}
+                onCaptureCameraPosePortrait={() => handleCaptureCameraPose('portrait')}
+                onResetCameraPosePortrait={() => handleResetCameraPose('portrait')}
+                onCaptureCameraPoseLandscape={() => handleCaptureCameraPose('landscape')}
+                onResetCameraPoseLandscape={() => handleResetCameraPose('landscape')}
                 onPublish={isLocalPublishAvailable ? handlePublish : undefined}
                 publishState={publishState}
             />

@@ -14,8 +14,10 @@ const HomeEditorPanel = ({
     setActiveTab,
     settings,
     handleSettingChange,
-    onCaptureCameraPose,
-    onResetCameraPose,
+    onCaptureCameraPosePortrait,
+    onResetCameraPosePortrait,
+    onCaptureCameraPoseLandscape,
+    onResetCameraPoseLandscape,
     onPublish,
     publishState,
 }) => {
@@ -72,8 +74,10 @@ const HomeEditorPanel = ({
                         <CameraTab
                             settings={settings}
                             handleSettingChange={handleSettingChange}
-                            onCaptureCameraPose={onCaptureCameraPose}
-                            onResetCameraPose={onResetCameraPose}
+                            onCaptureCameraPosePortrait={onCaptureCameraPosePortrait}
+                            onResetCameraPosePortrait={onResetCameraPosePortrait}
+                            onCaptureCameraPoseLandscape={onCaptureCameraPoseLandscape}
+                            onResetCameraPoseLandscape={onResetCameraPoseLandscape}
                         />
                     )}
                     {activeTab === 'boat' && <BoatTab settings={settings} handleSettingChange={handleSettingChange} />}

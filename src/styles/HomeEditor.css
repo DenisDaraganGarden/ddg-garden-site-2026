@@ -144,6 +144,30 @@
   gap: 0.55rem;
 }
 
+.home-editor-camera-pose-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.7rem;
+}
+
+.home-editor-camera-pose-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 0.55rem;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.home-editor-camera-pose-heading {
+  font-family: var(--font-secondary);
+  font-size: 0.68rem;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.7);
+}
+
 .home-editor-action-button {
   border: 1px solid rgba(255, 255, 255, 0.14);
   background: rgba(255, 255, 255, 0.04);
@@ -183,6 +207,10 @@
 
 @media (max-width: 900px) {
   .home-editor-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .home-editor-camera-pose-grid {
     grid-template-columns: 1fr;
   }
 }

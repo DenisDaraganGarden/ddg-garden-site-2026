@@ -333,8 +333,10 @@ export const DepthTab = ({ settings, handleSettingChange }) => {
 export const CameraTab = ({
     settings,
     handleSettingChange,
-    onCaptureCameraPose,
-    onResetCameraPose,
+    onCaptureCameraPosePortrait,
+    onResetCameraPosePortrait,
+    onCaptureCameraPoseLandscape,
+    onResetCameraPoseLandscape,
 }) => {
     const { t } = useLanguage();
 
@@ -351,29 +353,64 @@ export const CameraTab = ({
             />
             <div className="home-editor-control-group">
                 <label>{t('homeEditor.controls.cameraPoseTools')}</label>
-                <div className="home-editor-camera-actions">
-                    <button
-                        type="button"
-                        className="home-editor-action-button"
-                        onClick={onCaptureCameraPose}
-                        disabled={typeof onCaptureCameraPose !== 'function'}
-                    >
-                        {t('homeEditor.controls.cameraSavePose')}
-                    </button>
-                    <button
-                        type="button"
-                        className="home-editor-action-button"
-                        onClick={onResetCameraPose}
-                        disabled={typeof onResetCameraPose !== 'function'}
-                    >
-                        {t('homeEditor.controls.cameraResetPose')}
-                    </button>
+                <div className="home-editor-camera-pose-grid">
+                    <div className="home-editor-camera-pose-block">
+                        <span className="home-editor-camera-pose-heading">
+                            {t('homeEditor.controls.cameraPosePortraitTitle')}
+                        </span>
+                        <div className="home-editor-camera-actions">
+                            <button
+                                type="button"
+                                className="home-editor-action-button"
+                                onClick={onCaptureCameraPosePortrait}
+                                disabled={typeof onCaptureCameraPosePortrait !== 'function'}
+                            >
+                                {t('homeEditor.controls.cameraSavePortraitPose')}
+                            </button>
+                            <button
+                                type="button"
+                                className="home-editor-action-button"
+                                onClick={onResetCameraPosePortrait}
+                                disabled={typeof onResetCameraPosePortrait !== 'function'}
+                            >
+                                {t('homeEditor.controls.cameraResetPortraitPose')}
+                            </button>
+                        </div>
+                        <span className="home-editor-camera-pose-status">
+                            {settings.cameraCustomPosePortrait
+                                ? t('homeEditor.controls.cameraPosePortraitSaved')
+                                : t('homeEditor.controls.cameraPosePortraitAuto')}
+                        </span>
+                    </div>
+                    <div className="home-editor-camera-pose-block">
+                        <span className="home-editor-camera-pose-heading">
+                            {t('homeEditor.controls.cameraPoseLandscapeTitle')}
+                        </span>
+                        <div className="home-editor-camera-actions">
+                            <button
+                                type="button"
+                                className="home-editor-action-button"
+                                onClick={onCaptureCameraPoseLandscape}
+                                disabled={typeof onCaptureCameraPoseLandscape !== 'function'}
+                            >
+                                {t('homeEditor.controls.cameraSaveLandscapePose')}
+                            </button>
+                            <button
+                                type="button"
+                                className="home-editor-action-button"
+                                onClick={onResetCameraPoseLandscape}
+                                disabled={typeof onResetCameraPoseLandscape !== 'function'}
+                            >
+                                {t('homeEditor.controls.cameraResetLandscapePose')}
+                            </button>
+                        </div>
+                        <span className="home-editor-camera-pose-status">
+                            {settings.cameraCustomPoseLandscape
+                                ? t('homeEditor.controls.cameraPoseLandscapeSaved')
+                                : t('homeEditor.controls.cameraPoseLandscapeAuto')}
+                        </span>
+                    </div>
                 </div>
-                <span className="home-editor-camera-pose-status">
-                    {settings.cameraCustomPose
-                        ? t('homeEditor.controls.cameraPoseSaved')
-                        : t('homeEditor.controls.cameraPoseAuto')}
-                </span>
             </div>
         </>
     );

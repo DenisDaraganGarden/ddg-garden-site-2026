@@ -202,6 +202,12 @@ function WaterCameraRig({ mode, settings, onCameraRigApi, orbitRef }) {
   const internalControlsRef = useRef();
   const controlsRef = orbitRef ?? internalControlsRef;
   const formatAxis = useCallback((value) => Number(value.toFixed(4)), []);
+  const isPortraitViewport = size.height > size.width;
+  const hasLandscapePose = Boolean(settings.cameraCustomPoseLandscape ?? settings.cameraCustomPose);
+  const hasPortraitPose = Boolean(settings.cameraCustomPosePortrait);
+  const activeCameraTarget = isPortraitViewport
+    ? (hasPortraitPose ? settings.cameraTargetPortrait : { x: 0, y: 0, z: 0 })
+    : (hasLandscapePose ? (settings.cameraTargetLandscape ?? settings.cameraTarget) : { x: 0, y: 0, z: 0 });
 
   useEffect(() => {
     if (camera.fov === settings.cameraFov) {
@@ -213,17 +219,25 @@ function WaterCameraRig({ mode, settings, onCameraRigApi, orbitRef }) {
   }, [camera, settings.cameraFov]);
 
   useLayoutEffect(() => {
-    const defaultCameraPosition = size.width < 768 ? MOBILE_CAMERA_POSITION : PUBLIC_CAMERA_POSITION;
-    const useSavedPose = Boolean(settings.cameraCustomPose);
+    const defaultCameraPosition = isPortraitViewport ? MOBILE_CAMERA_POSITION : PUBLIC_CAMERA_POSITION;
+    const useSavedPose = isPortraitViewport
+      ? hasPortraitPose
+      : hasLandscapePose;
+    const savedCameraPosition = isPortraitViewport
+      ? settings.cameraPositionPortrait
+      : (settings.cameraPositionLandscape ?? settings.cameraPosition);
+    const savedCameraTarget = isPortraitViewport
+      ? settings.cameraTargetPortrait
+      : (settings.cameraTargetLandscape ?? settings.cameraTarget);
     const cameraPosition = useSavedPose
-      ? settings.cameraPosition
+      ? savedCameraPosition
       : {
           x: defaultCameraPosition[0],
           y: defaultCameraPosition[1],
           z: defaultCameraPosition[2],
         };
     const cameraTarget = useSavedPose
-      ? settings.cameraTarget
+      ? savedCameraTarget
       : { x: 0, y: 0, z: 0 };
 
     camera.position.set(cameraPosition.x, cameraPosition.y, cameraPosition.z);
@@ -241,11 +255,17 @@ function WaterCameraRig({ mode, settings, onCameraRigApi, orbitRef }) {
   }, [
     camera,
     controlsRef,
-    mode,
-    settings.cameraCustomPose,
+    hasLandscapePose,
+    hasPortraitPose,
+    isPortraitViewport,
     settings.cameraPosition,
+    settings.cameraPositionLandscape,
+    settings.cameraPositionPortrait,
     settings.cameraTarget,
+    settings.cameraTargetLandscape,
+    settings.cameraTargetPortrait,
     size.width,
+    size.height,
   ]);
 
   useEffect(() => {
@@ -335,9 +355,9 @@ function WaterCameraRig({ mode, settings, onCameraRigApi, orbitRef }) {
         minPolarAngle={0.45}
         maxPolarAngle={1.35}
         target={[
-          settings?.cameraTarget?.x ?? 0,
-          settings?.cameraTarget?.y ?? 0,
-          settings?.cameraTarget?.z ?? 0,
+          activeCameraTarget.x,
+          activeCameraTarget.y,
+          activeCameraTarget.z,
         ]}
       />
     </React.Suspense>

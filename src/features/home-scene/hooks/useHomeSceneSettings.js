@@ -27,6 +27,9 @@ export const HOME_SCENE_DEBUG_VIEWS = [
 
 const DEFAULT_HDRI_PRESET = HOME_SCENE_HDRI_PRESETS[0].value;
 const DEFAULT_DEBUG_VIEW = HOME_SCENE_DEBUG_VIEWS[0].value;
+const DEFAULT_LANDSCAPE_CAMERA_POSITION = { x: 0, y: 5.8, z: 8.9 };
+const DEFAULT_PORTRAIT_CAMERA_POSITION = { x: 0, y: 5.1, z: 7.3 };
+const DEFAULT_CAMERA_TARGET = { x: 0, y: 0, z: 0 };
 const LOCAL_HOME_SCENE_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
 const VALID_HDRI_PRESETS = new Set(HOME_SCENE_HDRI_PRESETS.map((option) => option.value));
 const VALID_DEBUG_VIEWS = new Set(HOME_SCENE_DEBUG_VIEWS.map((option) => option.value));
@@ -119,8 +122,14 @@ export const getBaseHomeSceneSettings = () => ({
   causticsSharpness: 0.45,
   cameraFov: 36,
   cameraCustomPose: false,
-  cameraPosition: { x: 0, y: 5.8, z: 8.9 },
-  cameraTarget: { x: 0, y: 0, z: 0 },
+  cameraPosition: { ...DEFAULT_LANDSCAPE_CAMERA_POSITION },
+  cameraTarget: { ...DEFAULT_CAMERA_TARGET },
+  cameraCustomPoseLandscape: false,
+  cameraPositionLandscape: { ...DEFAULT_LANDSCAPE_CAMERA_POSITION },
+  cameraTargetLandscape: { ...DEFAULT_CAMERA_TARGET },
+  cameraCustomPosePortrait: false,
+  cameraPositionPortrait: { ...DEFAULT_PORTRAIT_CAMERA_POSITION },
+  cameraTargetPortrait: { ...DEFAULT_CAMERA_TARGET },
   debugView: DEFAULT_DEBUG_VIEW,
   boatColor: '#ffffff',
   boatMetalness: 0.15,
@@ -202,6 +211,42 @@ const normalizeHomeSceneSettings = (savedSettings = {}) => {
     ...legacy,
     ...savedSettings,
   };
+  const legacyLandscapeCustomPose = pickBoolean(
+    merged.cameraCustomPose,
+    defaults.cameraCustomPoseLandscape,
+  );
+  const legacyLandscapePosition = pickVector3(
+    merged.cameraPosition,
+    defaults.cameraPositionLandscape,
+  );
+  const legacyLandscapeTarget = pickVector3(
+    merged.cameraTarget,
+    defaults.cameraTargetLandscape,
+  );
+  const cameraCustomPoseLandscape = pickBoolean(
+    merged.cameraCustomPoseLandscape,
+    legacyLandscapeCustomPose,
+  );
+  const cameraPositionLandscape = pickVector3(
+    merged.cameraPositionLandscape,
+    legacyLandscapePosition,
+  );
+  const cameraTargetLandscape = pickVector3(
+    merged.cameraTargetLandscape,
+    legacyLandscapeTarget,
+  );
+  const cameraCustomPosePortrait = pickBoolean(
+    merged.cameraCustomPosePortrait,
+    defaults.cameraCustomPosePortrait,
+  );
+  const cameraPositionPortrait = pickVector3(
+    merged.cameraPositionPortrait,
+    defaults.cameraPositionPortrait,
+  );
+  const cameraTargetPortrait = pickVector3(
+    merged.cameraTargetPortrait,
+    defaults.cameraTargetPortrait,
+  );
 
   return {
     waterExtent: clampFloat(merged.waterExtent, 12, 40, defaults.waterExtent),
@@ -233,9 +278,15 @@ const normalizeHomeSceneSettings = (savedSettings = {}) => {
     causticsScale: clampFloat(merged.causticsScale, 0.5, 6, defaults.causticsScale),
     causticsSharpness: clampFloat(merged.causticsSharpness, 0.1, 1.5, defaults.causticsSharpness),
     cameraFov: clampInt(merged.cameraFov, 24, 75, defaults.cameraFov),
-    cameraCustomPose: pickBoolean(merged.cameraCustomPose, defaults.cameraCustomPose),
-    cameraPosition: pickVector3(merged.cameraPosition, defaults.cameraPosition),
-    cameraTarget: pickVector3(merged.cameraTarget, defaults.cameraTarget),
+    cameraCustomPose: cameraCustomPoseLandscape,
+    cameraPosition: cameraPositionLandscape,
+    cameraTarget: cameraTargetLandscape,
+    cameraCustomPoseLandscape,
+    cameraPositionLandscape,
+    cameraTargetLandscape,
+    cameraCustomPosePortrait,
+    cameraPositionPortrait,
+    cameraTargetPortrait,
     debugView: VALID_DEBUG_VIEWS.has(merged.debugView) ? merged.debugView : defaults.debugView,
     boatColor: pickColor(merged.boatColor, defaults.boatColor),
     boatMetalness: clampFloat(merged.boatMetalness, 0, 1, defaults.boatMetalness),
