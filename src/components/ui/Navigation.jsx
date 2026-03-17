@@ -7,6 +7,13 @@ import './Navigation.css';
 const Navigation = () => {
     const { language, setLanguage, t } = useLanguage();
     const [isArchiveOpen, setIsArchiveOpen] = React.useState(false);
+    const canUseHover = React.useMemo(() => {
+        if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+            return true;
+        }
+
+        return window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+    }, []);
 
     return (
         <nav className="main-nav" data-testid="site-nav">
@@ -65,9 +72,9 @@ const Navigation = () => {
                         })}
                         <li
                             className={`nav-group ${isArchiveOpen ? 'is-open' : ''}`}
-                            onMouseEnter={() => setIsArchiveOpen(true)}
-                            onMouseLeave={() => setIsArchiveOpen(false)}
-                            onClick={() => setIsArchiveOpen(!isArchiveOpen)}
+                            onMouseEnter={canUseHover ? () => setIsArchiveOpen(true) : undefined}
+                            onMouseLeave={canUseHover ? () => setIsArchiveOpen(false) : undefined}
+                            onClick={() => setIsArchiveOpen((previous) => !previous)}
                         >
                             <span className="nav-link group-label">
                                 {t('navigation.archive')}
