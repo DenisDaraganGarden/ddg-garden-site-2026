@@ -62,12 +62,12 @@ export const publishedHomeSceneSettings = {
     "z": -1.461
   },
   "debugView": "beauty",
-  "boatColor": "#ffffff",
-  "boatMetalness": 0.15,
-  "boatRoughness": 0.2,
-  "boatClearcoat": 0.8,
-  "boatClearcoatRoughness": 0.1,
-  "boatReflectionIntensity": 1.05,
+  "boatColor": "#1a1c21",
+  "boatMetalness": 0.08,
+  "boatRoughness": 0.82,
+  "boatClearcoat": 0.12,
+  "boatClearcoatRoughness": 0.76,
+  "boatReflectionIntensity": 0.9,
   "boatPosition": {
     "x": 2.1,
     "z": -1.4
