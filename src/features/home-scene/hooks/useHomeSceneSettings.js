@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { publishedHomeSceneSettings } from '../data/publishedHomeSceneSettings';
+import { publishedHomeSceneKeys } from '../data/publishedHomeSceneKeys';
 
 export const HOME_SCENE_SETTINGS_STORAGE_KEY = 'ddg_home_scene_settings_v1';
 export const LEGACY_HOME_SCENE_SETTINGS_STORAGE_KEYS = ['ddg_snake_settings_v4', 'ddg_snake_settings_v3'];
@@ -29,57 +30,6 @@ const DEFAULT_DEBUG_VIEW = HOME_SCENE_DEBUG_VIEWS[0].value;
 const LOCAL_HOME_SCENE_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
 const VALID_HDRI_PRESETS = new Set(HOME_SCENE_HDRI_PRESETS.map((option) => option.value));
 const VALID_DEBUG_VIEWS = new Set(HOME_SCENE_DEBUG_VIEWS.map((option) => option.value));
-const PUBLISHED_HOME_SCENE_KEYS = [
-  'waterExtent',
-  'simulationResolution',
-  'waterMeshDensity',
-  'waveAmplitude',
-  'waveLength',
-  'waveChoppiness',
-  'rippleDamping',
-  'rippleRadius',
-  'rippleImpulse',
-  'normalStrength',
-  'normalBlur',
-  'hdrPreset',
-  'hdrRotation',
-  'hdrExposure',
-  'envReflectionIntensity',
-  'envTint',
-  'moonIntensity',
-  'moonColor',
-  'moonAzimuth',
-  'moonElevation',
-  'moonSpecularStrength',
-  'moonSpecularPower',
-  'waterDepthMeters',
-  'seabedReliefStrength',
-  'seabedReliefScale',
-  'causticsIntensity',
-  'causticsScale',
-  'causticsSharpness',
-  'cameraFov',
-  'cameraCustomPose',
-  'cameraPosition',
-  'cameraTarget',
-  'debugView',
-  'boatColor',
-  'boatMetalness',
-  'boatRoughness',
-  'boatClearcoat',
-  'boatClearcoatRoughness',
-  'boatReflectionIntensity',
-  'boatPosition',
-  'boatYaw',
-  'boatScale',
-  'seabedTextureScale',
-  'seabedSaturation',
-  'seabedBrightness',
-  'waterTurbidity',
-  'ambientWaveIntensity',
-  'ambientWaveSpeed',
-];
-
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 const clampResolution = (value) => {
   const requested = Number(value);
@@ -310,7 +260,7 @@ const normalizeHomeSceneSettings = (savedSettings = {}) => {
   };
 };
 
-export const sanitizeHomeSceneSettingsForPublish = (settings = {}) => PUBLISHED_HOME_SCENE_KEYS.reduce((accumulator, key) => {
+export const sanitizeHomeSceneSettingsForPublish = (settings = {}) => publishedHomeSceneKeys.reduce((accumulator, key) => {
   if (settings[key] !== undefined) {
     accumulator[key] = settings[key];
   }

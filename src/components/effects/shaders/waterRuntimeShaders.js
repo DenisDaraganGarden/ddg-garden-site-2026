@@ -72,7 +72,7 @@ export const simulationFragmentShader = `
       float dist = distance(vUv, uPointerUv);
       float radius = max(uRippleRadius, 0.0005);
       float impulse = exp(-(dist * dist) / (radius * radius));
-      velocity += impulse * uRippleImpulse * uImpulseStrength * 0.12;
+      velocity -= impulse * uRippleImpulse * uImpulseStrength * 0.36;
     }
 
     if (uAmbientWaveIntensity > 0.0) {
@@ -274,12 +274,23 @@ export const waterFragmentShader = `
     // Planar Reflections
     vec4 reflectPos = uReflectionMatrix * vec4(vSurfaceWorldPosition, 1.0);
     vec2 reflectUv = (reflectPos.xy / max(reflectPos.w, 0.0001)) * 0.5 + 0.5;
-    float distortion = mix(0.012, 0.038, slope) * (0.65 + abs(vHeightSample) * 0.95);
+    float distortion = mix(0.006, 0.018, slope) * (0.52 + abs(vHeightSample) * 0.58);
     reflectUv += surfaceNormal.xz * distortion;
     vec2 clampedReflectUv = clamp(reflectUv, vec2(0.001), vec2(0.999));
-    vec4 reflectedColor = texture2D(uReflectionTexture, clampedReflectUv);
-    float inBounds = step(0.0, reflectUv.x) * step(reflectUv.x, 1.0)
-      * step(0.0, reflectUv.y) * step(reflectUv.y, 1.0);
+    vec2 aaOffset = max(fwidth(clampedReflectUv), vec2(0.00045)) * mix(0.9, 1.6, slope);
+    vec4 reflectedCenter = texture2D(uReflectionTexture, clampedReflectUv);
+    vec2 aaOffsetX = vec2(aaOffset.x, 0.0);
+    vec2 aaOffsetY = vec2(0.0, aaOffset.y);
+    vec3 reflectedRgb = reflectedCenter.rgb * 0.45;
+    reflectedRgb += texture2D(uReflectionTexture, clamp(clampedReflectUv + aaOffsetX, vec2(0.001), vec2(0.999))).rgb * 0.1375;
+    reflectedRgb += texture2D(uReflectionTexture, clamp(clampedReflectUv - aaOffsetX, vec2(0.001), vec2(0.999))).rgb * 0.1375;
+    reflectedRgb += texture2D(uReflectionTexture, clamp(clampedReflectUv + aaOffsetY, vec2(0.001), vec2(0.999))).rgb * 0.1375;
+    reflectedRgb += texture2D(uReflectionTexture, clamp(clampedReflectUv - aaOffsetY, vec2(0.001), vec2(0.999))).rgb * 0.1375;
+
+    vec2 edgeSoftness = vec2(0.08);
+    vec2 lowerMask = smoothstep(vec2(0.0), edgeSoftness, reflectUv);
+    vec2 upperMask = 1.0 - smoothstep(vec2(1.0) - edgeSoftness, vec2(1.0), reflectUv);
+    float inBounds = clamp(lowerMask.x * lowerMask.y * upperMask.x * upperMask.y, 0.0, 1.0);
 
     float baseReflection = mix(0.06, 0.22, 1.0 - uWaterTurbidity);
     float boatBoost = clamp(uBoatReflectionIntensity, 0.0, 2.0) * 0.45;
@@ -290,20 +301,30 @@ export const waterFragmentShader = `
     );
     deepWater = mix(
       deepWater,
-      reflectedColor.rgb,
-      reflectedColor.a * reflectionMix * inBounds * uReflectionActive
+      reflectedRgb,
+      reflectedCenter.a * reflectionMix * inBounds * uReflectionActive
     );
 
-    float transparency = (1.0 - uWaterTurbidity);
-    float opacity = mix(0.75, 0.99, fresnel * 0.4 + uWaterTurbidity * 0.5);
-    
+    float transmissionBase = (1.0 - uWaterTurbidity) * (1.0 - fresnel * 0.55);
+    float depthAbsorption = exp(-uWaterDepth * 0.38);
+    float transparency = clamp(
+      transmissionBase * mix(0.48, 0.22, depthFactor) * depthAbsorption + 0.02,
+      0.06,
+      0.34
+    );
+    float opacity = clamp(
+      mix(0.84, 0.985, fresnel * 0.46 + uWaterTurbidity * 0.35 + depthFactor * 0.24),
+      0.83,
+      0.99
+    );
+
     csm_DiffuseColor = vec4(deepWater, opacity);
     csm_Emissive = emissive;
     csm_Roughness = clamp(mix(0.15, 0.03, fresnel) + slope * 0.04 + (1.0 - vNormalHeight) * 0.04, 0.02, 0.32);
     csm_Metalness = 0.06;
     csm_Clearcoat = 1.0;
     csm_ClearcoatRoughness = clamp(mix(0.2, 0.035, fresnel), 0.03, 0.26);
-    csm_Transmission = mix(0.1, 0.85, transparency * (1.0 - fresnel * 0.6));
+    csm_Transmission = transparency;
     csm_Thickness = 1.45 + depthFactor * 1.9;
   }
 `;
@@ -371,11 +392,11 @@ export const seabedFragmentShader = `
   varying vec3 vSeabedWorldPosition;
   varying float vRelief;
 
-  uniform sampler2D uState;
   uniform sampler2D uNormalMap;
   uniform vec2 uStateResolution;
   uniform vec3 uMoonDirection;
   uniform vec3 uMoonColor;
+  uniform float uTime;
   uniform float uWaterDepth;
   uniform float uCausticsIntensity;
   uniform float uCausticsScale;
@@ -395,13 +416,17 @@ export const seabedFragmentShader = `
     return mix(vec3(gray), color, saturation);
   }
 
+  float sampleSmoothHeight(vec2 uv) {
+    return texture2D(uNormalMap, uv).a * 2.0 - 1.0;
+  }
+
   void main() {
     vec2 texel = 1.0 / uStateResolution;
-    float h = texture2D(uState, vUv).r;
-    float hL = texture2D(uState, vUv - vec2(texel.x, 0.0)).r;
-    float hR = texture2D(uState, vUv + vec2(texel.x, 0.0)).r;
-    float hD = texture2D(uState, vUv - vec2(0.0, texel.y)).r;
-    float hU = texture2D(uState, vUv + vec2(0.0, texel.y)).r;
+    float h = sampleSmoothHeight(vUv);
+    float hL = sampleSmoothHeight(vUv - vec2(texel.x, 0.0));
+    float hR = sampleSmoothHeight(vUv + vec2(texel.x, 0.0));
+    float hD = sampleSmoothHeight(vUv - vec2(0.0, texel.y));
+    float hU = sampleSmoothHeight(vUv + vec2(0.0, texel.y));
 
     vec3 waterNormal = decodeNormal(texture2D(uNormalMap, vUv).rgb);
     vec3 waterNormalL = decodeNormal(texture2D(uNormalMap, vUv - vec2(texel.x, 0.0)).rgb);
@@ -432,13 +457,21 @@ export const seabedFragmentShader = `
     vec2 dProjectedX = (projectedR - projectedL) * 0.5;
     vec2 dProjectedY = (projectedU - projectedD) * 0.5;
     float area = abs(dProjectedX.x * dProjectedY.y - dProjectedX.y * dProjectedY.x);
-    float focus = clamp(1.0 - area * 140.0, 0.0, 1.0);
-    focus = pow(focus, mix(1.0, 4.2, clamp(uCausticsSharpness, 0.0, 1.0)));
+    float sharpness = clamp(uCausticsSharpness, 0.0, 1.0);
+    float focus = 1.0 / (1.0 + area * mix(160.0, 520.0, sharpness));
+    focus = pow(focus, mix(0.9, 2.8, sharpness));
+    float flow = 0.84 + 0.16 * sin((projected.x * 21.0 + projected.y * 19.0) + uTime * 1.15);
 
     float slope = clamp(1.0 - waterNormal.y, 0.0, 1.0);
-    float caustics = focus * (0.22 + slope * 1.4 + curvature * 10.0) * uCausticsIntensity;
-    caustics *= clamp(dot(waterNormal, vec3(0.0, 1.0, 0.0)), 0.0, 1.0);
+    float waveEnergy = clamp(curvature * 6.5 + abs(h) * 0.9, 0.0, 1.6);
+    float depthAbsorption = exp(-uWaterDepth * 0.16);
+    float substrateLuma = dot(texture2D(uSeabedTexture, projected * uSeabedTextureScale).rgb, vec3(0.299, 0.587, 0.114));
+    float substrateMask = mix(0.82, 1.18, clamp(substrateLuma, 0.0, 1.0));
+    float caustics = focus * flow * (0.24 + slope * 1.05 + waveEnergy * 0.62) * uCausticsIntensity;
+    caustics *= clamp(dot(waterNormal, vec3(0.0, 1.0, 0.0)), 0.25, 1.0);
     caustics *= clamp(-refracted.y * 1.2, 0.0, 1.0);
+    caustics *= mix(0.65, 1.0, depthAbsorption);
+    caustics *= substrateMask;
 
     float depthValue = clamp((-vSeabedWorldPosition.y) / max(uWaterDepth + 1.5, 0.01), 0.0, 1.0);
 
@@ -459,13 +492,13 @@ export const seabedFragmentShader = `
     seabedTexture *= uSeabedBrightness;
 
     vec3 baseColor = mix(vec3(0.06, 0.08, 0.1), vec3(0.1, 0.12, 0.15), clamp(vRelief + 0.5, 0.0, 1.0));
-    baseColor = mix(baseColor, seabedTexture, 0.85); // Blend with texture
-    baseColor *= exp(-uWaterDepth * 0.035); // Slightly less aggressive depth darkening
-    vec3 causticColor = uMoonColor * caustics * 1.5; // Boost caustics intensity significantly
+    baseColor = mix(baseColor, seabedTexture, 0.68);
+    baseColor *= exp(-uWaterDepth * 0.11);
+    vec3 causticColor = uMoonColor * caustics * 1.12;
 
-    csm_DiffuseColor = vec4(baseColor + causticColor * 0.5, 1.0);
-    csm_Emissive = causticColor * 0.6; // Use emissive for caustics to glow through murky water
-    csm_Roughness = clamp(0.75 - caustics * 0.25, 0.4, 0.95);
+    csm_DiffuseColor = vec4(baseColor + causticColor * 0.26, 1.0);
+    csm_Emissive = causticColor * 0.1;
+    csm_Roughness = clamp(0.78 - caustics * 0.18, 0.45, 0.95);
     csm_Metalness = 0.02;
   }
 `;

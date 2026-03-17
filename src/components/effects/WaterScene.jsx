@@ -47,6 +47,13 @@ const REFLECTION_CAMERA_POSITION_EPSILON_SQ = 0.00006;
 const REFLECTION_CAMERA_ROTATION_EPSILON = 0.00008;
 const REFLECTION_BOAT_POSITION_EPSILON_SQ = 0.00004;
 const REFLECTION_BOAT_ROTATION_EPSILON = 0.00008;
+const CURSOR_BOAT_IMPACT_DURATION = 1.35;
+const CURSOR_BOAT_IMPACT_RADIUS_FACTOR = 5.2;
+const BOAT_NEUTRAL_Y = 0.18;
+const BOAT_TARGET_Y_MIN = -0.04;
+const BOAT_TARGET_Y_MAX = 0.36;
+const BOAT_MAX_PITCH = 0.24;
+const BOAT_MAX_ROLL = 0.28;
 let qualityTierCache = null;
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
@@ -347,6 +354,9 @@ function useWaterRuntime(settings, qualityProfile) {
     impulseStrength: 0,
     hasImpulse: false,
     isInside: false,
+    recentWorldPoint: new THREE.Vector3(0, 0, 0),
+    recentImpulseStrength: 0,
+    recentImpulseTime: -Infinity,
   });
   const simulationAccumulatorRef = useRef(0);
   const probeBufferRef = useRef(new Uint8Array(5 * 4));
@@ -497,7 +507,7 @@ function useWaterRuntime(settings, qualityProfile) {
     renderState.simulationPass.material.uniforms.uImpulseActive.value = pointerState.hasImpulse ? 1 : 0;
     renderState.simulationPass.material.uniforms.uImpulseStrength.value = pointerState.impulseStrength;
     renderState.simulationPass.material.uniforms.uRippleRadius.value = rippleRadiusUv;
-    renderState.simulationPass.material.uniforms.uRippleImpulse.value = settings.rippleImpulse;
+    renderState.simulationPass.material.uniforms.uRippleImpulse.value = settings.rippleImpulse * 1.9;
     renderState.simulationPass.material.uniforms.uDamping.value = settings.rippleDamping;
     renderState.simulationPass.material.uniforms.uDelta.value = simulationDelta;
     renderState.simulationPass.material.uniforms.uTime.value = _.clock.elapsedTime;
@@ -533,7 +543,7 @@ function useWaterRuntime(settings, qualityProfile) {
 
     return new THREE.Vector2(
       clamp((x + halfExtent) / settings.waterExtent, 0.001, 0.999),
-      clamp((z + halfExtent) / settings.waterExtent, 0.001, 0.999),
+      clamp((halfExtent - z) / settings.waterExtent, 0.001, 0.999),
     );
   }, [settings.waterExtent]);
 
@@ -578,60 +588,159 @@ function useWaterRuntime(settings, qualityProfile) {
 }
 
 function WaterInteractionPlane({ settings, pointerStateRef }) {
+  const { camera, gl } = useThree();
+  const raycasterRef = useRef(new THREE.Raycaster());
+  const ndcPointerRef = useRef(new THREE.Vector2());
+  const rayHitPointRef = useRef(new THREE.Vector3());
+  const projectedUvRef = useRef(new THREE.Vector2(0.5, 0.5));
+  const deltaUvRef = useRef(new THREE.Vector2());
+  const waterPlaneRef = useRef(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0));
+
   const resetPointerState = useCallback(() => {
     pointerStateRef.current.hasImpulse = false;
     pointerStateRef.current.impulseStrength = 0;
     pointerStateRef.current.isInside = false;
   }, [pointerStateRef]);
 
-  const registerPointerImpulse = useCallback((uv, strength = 0.22) => {
+  const worldPointToUv = useCallback((point) => {
+    if (!point) {
+      return null;
+    }
+
+    const halfExtent = settings.waterExtent * 0.5;
+    if (Math.abs(point.x) > halfExtent || Math.abs(point.z) > halfExtent) {
+      return null;
+    }
+
+    projectedUvRef.current.set(
+      clamp((point.x + halfExtent) / settings.waterExtent, 0.001, 0.999),
+      clamp((halfExtent - point.z) / settings.waterExtent, 0.001, 0.999),
+    );
+
+    return projectedUvRef.current;
+  }, [settings.waterExtent]);
+
+  const screenPointToHit = useCallback((clientX, clientY) => {
+    const domElement = gl.domElement;
+    const rect = domElement.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) {
+      return null;
+    }
+
+    ndcPointerRef.current.set(
+      ((clientX - rect.left) / rect.width) * 2 - 1,
+      -(((clientY - rect.top) / rect.height) * 2 - 1),
+    );
+
+    raycasterRef.current.setFromCamera(ndcPointerRef.current, camera);
+    const hit = raycasterRef.current.ray.intersectPlane(waterPlaneRef.current, rayHitPointRef.current);
+    if (!hit) {
+      return null;
+    }
+
+    const uv = worldPointToUv(hit);
+    if (!uv) {
+      return null;
+    }
+
+    return hit;
+  }, [camera, gl, worldPointToUv]);
+
+  const registerPointerImpulse = useCallback((uv, worldPoint, baseStrength = 0.22) => {
     if (!uv) {
       return;
     }
 
     const pointerState = pointerStateRef.current;
-    const delta = uv.clone().sub(pointerState.uv);
-    const deltaStrength = clamp(delta.length() * 28, 0, 1);
+    const wasInside = pointerState.isInside;
+    const deltaStrength = wasInside
+      ? clamp(deltaUvRef.current.copy(uv).sub(pointerState.uv).length() * 28, 0, 1)
+      : 0;
 
     pointerState.uv.copy(uv);
 
-    if (!pointerState.isInside) {
+    if (!wasInside) {
       pointerState.impulseUv.copy(uv);
       pointerState.isInside = true;
-      return;
+
+      if (baseStrength <= 0.01) {
+        return;
+      }
     }
 
-    const impulseStrength = Math.max(strength, deltaStrength);
+    const impulseStrength = Math.max(baseStrength, deltaStrength);
 
     if (impulseStrength <= 0.01) {
       return;
     }
 
     pointerState.impulseUv.copy(uv);
-    pointerState.impulseStrength = clamp(impulseStrength, 0.08, 1);
+    pointerState.impulseStrength = clamp(impulseStrength, 0.18, 1);
     pointerState.hasImpulse = true;
+    pointerState.isInside = true;
+
+    if (worldPoint) {
+      pointerState.recentWorldPoint.copy(worldPoint);
+    }
+    pointerState.recentImpulseStrength = pointerState.impulseStrength;
+    pointerState.recentImpulseTime = performance.now() * 0.001;
   }, [pointerStateRef]);
+
+  useEffect(() => {
+    const domElement = gl.domElement;
+    if (!domElement) {
+      return undefined;
+    }
+
+    const handlePointerMove = (event) => {
+      const hitPoint = screenPointToHit(event.clientX, event.clientY);
+      if (!hitPoint) {
+        resetPointerState();
+        return;
+      }
+
+      const isLeftPressed = (event.buttons & 1) === 1;
+      const interactionStrength = isLeftPressed ? 0.68 : 0.32;
+      registerPointerImpulse(projectedUvRef.current, hitPoint, interactionStrength);
+    };
+
+    const handlePointerDown = (event) => {
+      if (event.button !== 0) {
+        return;
+      }
+
+      const hitPoint = screenPointToHit(event.clientX, event.clientY);
+      if (!hitPoint) {
+        return;
+      }
+      registerPointerImpulse(projectedUvRef.current, hitPoint, 0.92);
+    };
+
+    const handlePointerLeave = () => {
+      resetPointerState();
+    };
+
+    domElement.addEventListener('pointermove', handlePointerMove, { passive: true });
+    domElement.addEventListener('pointerdown', handlePointerDown, { passive: true });
+    domElement.addEventListener('pointerup', handlePointerLeave, { passive: true });
+    domElement.addEventListener('pointercancel', handlePointerLeave, { passive: true });
+    domElement.addEventListener('pointerleave', handlePointerLeave, { passive: true });
+
+    return () => {
+      domElement.removeEventListener('pointermove', handlePointerMove);
+      domElement.removeEventListener('pointerdown', handlePointerDown);
+      domElement.removeEventListener('pointerup', handlePointerLeave);
+      domElement.removeEventListener('pointercancel', handlePointerLeave);
+      domElement.removeEventListener('pointerleave', handlePointerLeave);
+    };
+  }, [gl, registerPointerImpulse, resetPointerState, screenPointToHit]);
 
   return (
     <mesh
       name="water-interaction-plane"
       rotation={[-Math.PI / 2, 0, 0]}
       position={[0, 0.05, 0]}
-      onPointerEnter={(event) => {
-        if (event.uv) {
-          pointerStateRef.current.uv.copy(event.uv);
-          pointerStateRef.current.impulseUv.copy(event.uv);
-          pointerStateRef.current.isInside = true;
-        }
-      }}
-      onPointerMove={(event) => {
-        registerPointerImpulse(event.uv, 0);
-      }}
-      onPointerDown={(event) => {
-        registerPointerImpulse(event.uv, 0.24);
-      }}
-      onPointerLeave={resetPointerState}
-      onPointerOut={resetPointerState}
+      visible={false}
     >
       <planeGeometry args={[settings.waterExtent, settings.waterExtent, 1, 1]} />
       <meshBasicMaterial transparent opacity={0} depthWrite={false} side={THREE.DoubleSide} />
@@ -645,6 +754,7 @@ const reflectionTargetPosition = new THREE.Vector3();
 const waterSurfaceWorldPosition = new THREE.Vector3();
 const reflectionBoatPosition = new THREE.Vector3();
 const reflectionBoatQuaternion = new THREE.Quaternion();
+const reflectionPreviousClearColor = new THREE.Color();
 
 function WaterReflections({
   children,
@@ -794,10 +904,14 @@ function WaterReflections({
     if (seabed) seabed.visible = false;
     if (interactionPlane) interactionPlane.visible = false;
 
+    const previousClearAlpha = gl.getClearAlpha();
+    gl.getClearColor(reflectionPreviousClearColor);
+    gl.setClearColor(DEFAULT_CLEAR_COLOR, 0);
     gl.setRenderTarget(reflectionTarget);
-    gl.clear();
+    gl.clear(true, true, true);
     gl.render(scene, reflectionCamera);
     gl.setRenderTarget(null);
+    gl.setClearColor(reflectionPreviousClearColor, previousClearAlpha);
 
     if (waterSurface) waterSurface.visible = true;
     if (seabed) seabed.visible = true;
@@ -981,11 +1095,11 @@ function Seabed({ settings, runtime }) {
   }, [gl, texture]);
 
   const uniforms = useMemo(() => ({
-    uState: { value: null },
     uNormalMap: { value: null },
     uStateResolution: { value: new THREE.Vector2(settings.simulationResolution, settings.simulationResolution) },
     uMoonDirection: { value: moonDirection.clone() },
     uMoonColor: { value: new THREE.Color(settings.moonColor) },
+    uTime: { value: 0 },
     uWaterDepth: { value: settings.waterDepthMeters },
     uCausticsIntensity: { value: settings.causticsIntensity },
     uCausticsScale: { value: settings.causticsScale },
@@ -1049,9 +1163,9 @@ function Seabed({ settings, runtime }) {
     uniforms,
   ]);
 
-  useFrame(() => {
-    uniforms.uState.value = runtime.currentStateTargetRef.current?.texture ?? null;
+  useFrame((state) => {
     uniforms.uNormalMap.value = runtime.normalTargetRef.current?.texture ?? null;
+    uniforms.uTime.value = state.clock.elapsedTime;
     uniforms.uStateResolution.value.set(
       runtime.currentStateTargetRef.current?.width ?? settings.simulationResolution,
       runtime.currentStateTargetRef.current?.height ?? settings.simulationResolution,
@@ -1097,6 +1211,7 @@ function FloatingBoat({ settings, runtime, mode, orbitRef, onBoatPositionChange 
   const targetVector = useRef(new THREE.Vector3());
   const boatMatrixRef = useRef(new THREE.Matrix4());
   const averageNormalRef = useRef(new THREE.Vector3());
+  const cursorToBoatRef = useRef(new THREE.Vector2());
   const probeWorldPointsRef = useRef(BOAT_PROBE_OFFSETS.map(() => new THREE.Vector3()));
   const commitBoatPosition = useCallback((position) => {
     if (typeof onBoatPositionChange !== 'function' || !position) {
@@ -1240,6 +1355,15 @@ function FloatingBoat({ settings, runtime, mode, orbitRef, onBoatPositionChange 
     const probes = runtime.sampleBoatProbes(probeWorldPointsRef.current);
 
     if (!probes) {
+      boatRef.current.position.y = THREE.MathUtils.damp(
+        boatRef.current.position.y,
+        BOAT_NEUTRAL_Y,
+        4.2,
+        delta,
+      );
+      boatRef.current.rotation.x = THREE.MathUtils.damp(boatRef.current.rotation.x, 0, 4.2, delta);
+      boatRef.current.rotation.z = THREE.MathUtils.damp(boatRef.current.rotation.z, 0, 4.2, delta);
+      boatRef.current.rotation.y = boatYawRadians;
       return;
     }
 
@@ -1258,17 +1382,49 @@ function FloatingBoat({ settings, runtime, mode, orbitRef, onBoatPositionChange 
     const normalPitch = Math.atan2(-averageNormal.z, Math.max(averageNormal.y, 0.25));
     const normalRoll = Math.atan2(averageNormal.x, Math.max(averageNormal.y, 0.25));
 
-    const targetY = centerHeight + 0.18;
-    const targetPitch = clamp(
+    let targetY = centerHeight + BOAT_NEUTRAL_Y;
+    let targetPitch = clamp(
       (Math.atan2(sternHeight - bowHeight, 1.9) * 0.7) + (normalPitch * 0.55),
       -0.28,
       0.28,
     );
-    const targetRoll = clamp(
+    let targetRoll = clamp(
       (Math.atan2(rightHeight - leftHeight, 0.84) * 0.7) + (normalRoll * 0.55),
       -0.34,
       0.34,
     );
+
+    const pointerState = runtime.pointerStateRef.current;
+    if (pointerState && Number.isFinite(pointerState.recentImpulseTime)) {
+      const impactAge = (performance.now() * 0.001) - pointerState.recentImpulseTime;
+      if (impactAge >= 0 && impactAge <= CURSOR_BOAT_IMPACT_DURATION) {
+        cursorToBoatRef.current.set(
+          boatAnchor.x - pointerState.recentWorldPoint.x,
+          boatAnchor.z - pointerState.recentWorldPoint.z,
+        );
+
+        const cursorDistance = cursorToBoatRef.current.length();
+        const influenceRadius = Math.max(settings.rippleRadius * CURSOR_BOAT_IMPACT_RADIUS_FACTOR, 1.25);
+        const proximity = clamp(1 - (cursorDistance / influenceRadius), 0, 1);
+        const timeFade = Math.exp(-impactAge * 3.0);
+        const cursorImpact = proximity * timeFade * pointerState.recentImpulseStrength;
+
+        if (cursorImpact > 0.001) {
+          const invLength = cursorDistance > 0.0001 ? 1 / cursorDistance : 0;
+          const directionX = cursorToBoatRef.current.x * invLength;
+          const directionZ = cursorToBoatRef.current.y * invLength;
+          const oscillation = Math.sin(impactAge * 17.5) * cursorImpact * 0.1;
+
+          targetY += cursorImpact * 0.2;
+          targetPitch = clamp(targetPitch + (directionZ * cursorImpact * 0.2) + (oscillation * 0.8), -0.32, 0.32);
+          targetRoll = clamp(targetRoll + (-directionX * cursorImpact * 0.24) + (oscillation * 0.8), -0.36, 0.36);
+        }
+      }
+    }
+
+    targetY = clamp(targetY, BOAT_TARGET_Y_MIN, BOAT_TARGET_Y_MAX);
+    targetPitch = clamp(targetPitch, -BOAT_MAX_PITCH, BOAT_MAX_PITCH);
+    targetRoll = clamp(targetRoll, -BOAT_MAX_ROLL, BOAT_MAX_ROLL);
 
     targetVector.current.set(0, targetY, 0);
     boatRef.current.position.lerp(targetVector.current, 1 - Math.exp(-delta * 4.5));

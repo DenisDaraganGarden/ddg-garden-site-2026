@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import { publishedHomeSceneKeys } from './src/features/home-scene/data/publishedHomeSceneKeys.js';
 
 const projectRoot = process.cwd();
 const publishedHomeSceneSettingsPath = path.join(
@@ -12,45 +13,6 @@ const publishedHomeSceneSettingsPath = path.join(
   'data',
   'publishedHomeSceneSettings.js',
 );
-const publishedHomeSceneKeys = [
-  'waterExtent',
-  'simulationResolution',
-  'waterMeshDensity',
-  'waveAmplitude',
-  'waveLength',
-  'waveChoppiness',
-  'rippleDamping',
-  'rippleRadius',
-  'rippleImpulse',
-  'normalStrength',
-  'normalBlur',
-  'hdrPreset',
-  'hdrRotation',
-  'hdrExposure',
-  'envReflectionIntensity',
-  'envTint',
-  'moonIntensity',
-  'moonColor',
-  'moonAzimuth',
-  'moonElevation',
-  'moonSpecularStrength',
-  'moonSpecularPower',
-  'waterDepthMeters',
-  'seabedReliefStrength',
-  'seabedReliefScale',
-  'causticsIntensity',
-  'causticsScale',
-  'causticsSharpness',
-  'cameraFov',
-  'cameraCustomPose',
-  'cameraPosition',
-  'cameraTarget',
-  'debugView',
-  'boatReflectionIntensity',
-  'boatPosition',
-  'boatYaw',
-];
-
 function sendJson(response, statusCode, payload) {
   response.statusCode = statusCode;
   response.setHeader('Content-Type', 'application/json');
