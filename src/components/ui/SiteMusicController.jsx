@@ -1,48 +1,13 @@
 import React from 'react';
 import { useLocation } from 'react-router-dom';
-import { useLanguage } from '../../i18n/useLanguage';
 import ambientTrack from '../../../portfolio/VOCES8 & Samuel Barber - Barber Agnus Dei.mp3';
-import './SiteMusicController.css';
-
-const MUSIC_STORAGE_KEY = 'ddg-site-music-enabled';
-
-const getInitialMusicState = () => {
-    if (typeof window === 'undefined') {
-        return true;
-    }
-
-    try {
-        const savedValue = window.localStorage.getItem(MUSIC_STORAGE_KEY);
-        return savedValue === null ? true : savedValue === 'true';
-    } catch {
-        return true;
-    }
-};
 
 const SiteMusicController = () => {
-    const { language } = useLanguage();
     const location = useLocation();
     const isEditorRoute = location.pathname.startsWith('/home/edit');
-    const [isMusicEnabled, setIsMusicEnabled] = React.useState(getInitialMusicState);
     const [isMusicPlaying, setIsMusicPlaying] = React.useState(false);
     const audioRef = React.useRef(null);
-    const autoplayRetryRef = React.useRef(false);
-
-    const labels = React.useMemo(() => (
-        language === 'ru'
-            ? {
-                on: 'Музыка вкл',
-                off: 'Музыка выкл',
-                enable: 'Включить музыку',
-                disable: 'Выключить музыку',
-            }
-            : {
-                on: 'Music on',
-                off: 'Music off',
-                enable: 'Enable music',
-                disable: 'Disable music',
-            }
-    ), [language]);
+    const waitingForGestureRef = React.useRef(false);
 
     const syncPlayback = React.useCallback(async () => {
         const audio = audioRef.current;
@@ -50,8 +15,8 @@ const SiteMusicController = () => {
             return;
         }
 
-        if (isEditorRoute || !isMusicEnabled) {
-            autoplayRetryRef.current = false;
+        if (isEditorRoute) {
+            waitingForGestureRef.current = false;
             audio.pause();
             setIsMusicPlaying(false);
             return;
@@ -59,18 +24,18 @@ const SiteMusicController = () => {
 
         try {
             await audio.play();
-            autoplayRetryRef.current = false;
+            waitingForGestureRef.current = false;
             setIsMusicPlaying(true);
         } catch {
-            autoplayRetryRef.current = true;
+            waitingForGestureRef.current = true;
             setIsMusicPlaying(false);
         }
-    }, [isEditorRoute, isMusicEnabled]);
+    }, [isEditorRoute]);
 
     React.useEffect(() => {
         const audio = new Audio(ambientTrack);
         audio.loop = true;
-        audio.preload = 'none';
+        audio.preload = 'auto';
         audio.volume = 0.36;
 
         const handlePlay = () => setIsMusicPlaying(true);
@@ -93,24 +58,12 @@ const SiteMusicController = () => {
     }, [syncPlayback]);
 
     React.useEffect(() => {
-        if (typeof window === 'undefined') {
-            return;
-        }
-
-        try {
-            window.localStorage.setItem(MUSIC_STORAGE_KEY, String(isMusicEnabled));
-        } catch {
-            // Ignore storage errors in private mode.
-        }
-    }, [isMusicEnabled]);
-
-    React.useEffect(() => {
-        if (typeof window === 'undefined' || isEditorRoute || !isMusicEnabled) {
+        if (typeof window === 'undefined' || isEditorRoute) {
             return undefined;
         }
 
         const resumePlayback = () => {
-            if (!autoplayRetryRef.current) {
+            if (!waitingForGestureRef.current) {
                 return;
             }
 
@@ -126,23 +79,19 @@ const SiteMusicController = () => {
             window.removeEventListener('touchstart', resumePlayback);
             window.removeEventListener('keydown', resumePlayback);
         };
-    }, [isEditorRoute, isMusicEnabled, syncPlayback]);
+    }, [isEditorRoute, syncPlayback]);
 
     if (isEditorRoute) {
         return null;
     }
 
     return (
-        <button
-            type="button"
-            className={`site-music-toggle ${isMusicPlaying ? 'is-active' : ''}`}
-            onClick={() => setIsMusicEnabled((previous) => !previous)}
-            aria-pressed={isMusicEnabled}
-            aria-label={isMusicEnabled ? labels.disable : labels.enable}
-            data-testid="site-music-toggle"
-        >
-            {isMusicEnabled ? labels.on : labels.off}
-        </button>
+        <div
+            aria-hidden="true"
+            data-testid="site-music-controller"
+            style={{ display: 'none' }}
+            data-playing={isMusicPlaying ? 'true' : 'false'}
+        />
     );
 };
 

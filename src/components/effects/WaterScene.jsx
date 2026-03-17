@@ -1271,14 +1271,23 @@ function FloatingBoat({ settings, runtime, mode, orbitRef, onBoatPositionChange 
     }
   }, [orbitRef]);
 
-  const boatMaterial = useMemo(() => new THREE.MeshPhysicalMaterial({
-    color: settings.boatColor,
-    metalness: settings.boatMetalness,
-    roughness: settings.boatRoughness,
-    clearcoat: settings.boatClearcoat,
-    clearcoatRoughness: settings.boatClearcoatRoughness,
-    envMapIntensity: settings.envReflectionIntensity / 100,
-  }), [
+  const boatMaterial = useMemo(() => {
+    const boatColor = new THREE.Color(settings.boatColor);
+    const luminance = (boatColor.r * 0.2126) + (boatColor.g * 0.7152) + (boatColor.b * 0.0722);
+    const darkBoost = THREE.MathUtils.clamp((0.12 - luminance) / 0.12, 0, 1);
+    const emissiveColor = boatColor.clone().lerp(new THREE.Color('#5a6678'), 0.35);
+
+    return new THREE.MeshPhysicalMaterial({
+      color: boatColor,
+      metalness: settings.boatMetalness,
+      roughness: settings.boatRoughness,
+      clearcoat: settings.boatClearcoat,
+      clearcoatRoughness: settings.boatClearcoatRoughness,
+      envMapIntensity: Math.max(settings.envReflectionIntensity / 100, 1.3),
+      emissive: emissiveColor,
+      emissiveIntensity: darkBoost * 0.38,
+    });
+  }, [
     settings.boatColor,
     settings.boatMetalness,
     settings.boatRoughness,
