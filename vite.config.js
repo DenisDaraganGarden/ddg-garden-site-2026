@@ -152,6 +152,7 @@ const manualChunks = (id) => {
 
   if (
     id.includes('/@react-three/drei/core/Environment') ||
+    id.includes('/@react-three/drei/core/OrbitControls') ||
     id.includes('/@react-three/drei/core/useEnvironment') ||
     id.includes('/@react-three/drei/core/softShadows')
   ) {
@@ -159,7 +160,6 @@ const manualChunks = (id) => {
   }
 
   if (
-    id.includes('/@react-three/drei/core/OrbitControls') ||
     id.includes('/@react-three/drei/core/TransformControls') ||
     id.includes('/@react-three/drei/core/Gizmo') ||
     id.includes('/@react-three/drei/core/Stats') ||

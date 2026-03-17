@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
-import { Environment, OrbitControls } from '@react-three/drei';
+import { Environment } from '@react-three/drei';
 import { useFrame, useLoader, useThree } from '@react-three/fiber';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader';
 import * as THREE from 'three';
@@ -38,17 +38,97 @@ const DEBUG_VIEW_IDS = {
   caustics: 3,
   'seabed-depth': 4,
 };
-const SIMULATION_TARGET_FPS_DESKTOP = 48;
-const SIMULATION_TARGET_FPS_MOBILE = 32;
-const REFLECTION_ACTIVE_FPS = 30;
-const REFLECTION_IDLE_FPS = 12;
+const QUALITY_TIER = Object.freeze({
+  low: 'low',
+  medium: 'medium',
+  high: 'high',
+});
 const REFLECTION_CAMERA_POSITION_EPSILON_SQ = 0.00006;
 const REFLECTION_CAMERA_ROTATION_EPSILON = 0.00008;
 const REFLECTION_BOAT_POSITION_EPSILON_SQ = 0.00004;
 const REFLECTION_BOAT_ROTATION_EPSILON = 0.00008;
+let qualityTierCache = null;
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 const quaternionDelta = (a, b) => 1 - Math.abs(a.dot(b));
+
+function detectQualityTier() {
+  if (qualityTierCache) {
+    return qualityTierCache;
+  }
+
+  if (typeof navigator === 'undefined') {
+    qualityTierCache = QUALITY_TIER.high;
+    return qualityTierCache;
+  }
+
+  const deviceMemory = typeof navigator.deviceMemory === 'number'
+    ? navigator.deviceMemory
+    : null;
+  const hardwareConcurrency = typeof navigator.hardwareConcurrency === 'number'
+    ? navigator.hardwareConcurrency
+    : null;
+  const isLowTier = (deviceMemory !== null && deviceMemory <= 4)
+    || (hardwareConcurrency !== null && hardwareConcurrency <= 4);
+  const isMediumTier = (deviceMemory !== null && deviceMemory <= 8)
+    || (hardwareConcurrency !== null && hardwareConcurrency <= 8);
+
+  if (isLowTier) {
+    qualityTierCache = QUALITY_TIER.low;
+    return qualityTierCache;
+  }
+
+  qualityTierCache = isMediumTier ? QUALITY_TIER.medium : QUALITY_TIER.high;
+  return qualityTierCache;
+}
+
+function buildRuntimeQualityProfile(mode, viewportWidth) {
+  const tier = detectQualityTier();
+  const isEditor = mode === 'editor';
+  const isMobileViewport = viewportWidth < 768;
+
+  if (isMobileViewport || tier === QUALITY_TIER.low) {
+    return {
+      simulationTargetFps: isEditor ? 34 : 30,
+      simulationMaxResolution: 256,
+      reflectionActiveFps: 16,
+      reflectionIdleFps: 6,
+      reflectionTextureSize: 320,
+      waterMeshDensityCap: 176,
+      shadowMapSize: 512,
+    };
+  }
+
+  if (tier === QUALITY_TIER.medium) {
+    return {
+      simulationTargetFps: isEditor ? 42 : 38,
+      simulationMaxResolution: 384,
+      reflectionActiveFps: 22,
+      reflectionIdleFps: 8,
+      reflectionTextureSize: isEditor ? 512 : 384,
+      waterMeshDensityCap: 224,
+      shadowMapSize: 640,
+    };
+  }
+
+  return {
+    simulationTargetFps: 48,
+    simulationMaxResolution: 512,
+    reflectionActiveFps: 30,
+    reflectionIdleFps: 12,
+    reflectionTextureSize: isEditor ? 768 : 512,
+    waterMeshDensityCap: 288,
+    shadowMapSize: isEditor ? 1024 : 768,
+  };
+}
+
+function isDocumentCurrentlyVisible() {
+  if (typeof document === 'undefined') {
+    return true;
+  }
+
+  return document.visibilityState === 'visible';
+}
 
 function createTarget(width, height, options) {
   const target = new THREE.WebGLRenderTarget(width, height, {
@@ -106,6 +186,9 @@ function restoreDefaultFramebuffer(gl) {
 }
 
 const CAMERA_POSE_TARGET = new THREE.Vector3();
+const LazyOrbitControls = React.lazy(() => import('@react-three/drei/core/OrbitControls.js').then((module) => ({
+  default: module.OrbitControls,
+})));
 
 function WaterCameraRig({ mode, settings, onCameraRigApi, orbitRef }) {
   const { camera, gl, size } = useThree();
@@ -227,33 +310,35 @@ function WaterCameraRig({ mode, settings, onCameraRigApi, orbitRef }) {
   }
 
   return (
-    <OrbitControls
-      ref={controlsRef}
-      makeDefault
-      mouseButtons={{
-        LEFT: THREE.MOUSE.ROTATE,
-        MIDDLE: THREE.MOUSE.DOLLY,
-        RIGHT: THREE.MOUSE.PAN,
-      }}
-      enablePan
-      screenSpacePanning={false}
-      enableDamping
-      dampingFactor={0.08}
-      minDistance={4}
-      maxDistance={18}
-      minPolarAngle={0.45}
-      maxPolarAngle={1.35}
-      target={[
-        settings?.cameraTarget?.x ?? 0,
-        settings?.cameraTarget?.y ?? 0,
-        settings?.cameraTarget?.z ?? 0,
-      ]}
-    />
+    <React.Suspense fallback={null}>
+      <LazyOrbitControls
+        ref={controlsRef}
+        makeDefault
+        mouseButtons={{
+          LEFT: THREE.MOUSE.ROTATE,
+          MIDDLE: THREE.MOUSE.DOLLY,
+          RIGHT: THREE.MOUSE.PAN,
+        }}
+        enablePan
+        screenSpacePanning={false}
+        enableDamping
+        dampingFactor={0.08}
+        minDistance={4}
+        maxDistance={18}
+        minPolarAngle={0.45}
+        maxPolarAngle={1.35}
+        target={[
+          settings?.cameraTarget?.x ?? 0,
+          settings?.cameraTarget?.y ?? 0,
+          settings?.cameraTarget?.z ?? 0,
+        ]}
+      />
+    </React.Suspense>
   );
 }
 
-function useWaterRuntime(settings) {
-  const { gl, size } = useThree();
+function useWaterRuntime(settings, qualityProfile) {
+  const { gl } = useThree();
   const stateRef = useRef(null);
   const normalTargetRef = useRef(null);
   const pointerStateRef = useRef({
@@ -269,10 +354,10 @@ function useWaterRuntime(settings) {
     { length: 5 },
     () => ({ height: 0, normal: new THREE.Vector3(0, 1, 0) }),
   ));
-  const isMobile = size.width < 768;
-  const effectiveResolution = isMobile
-    ? Math.min(settings.simulationResolution, 256)
-    : settings.simulationResolution;
+  const effectiveResolution = Math.min(
+    settings.simulationResolution,
+    qualityProfile.simulationMaxResolution,
+  );
 
   const renderState = useMemo(() => {
     const read = createTarget(effectiveResolution, effectiveResolution, {
@@ -389,7 +474,12 @@ function useWaterRuntime(settings) {
   }, [gl, renderState]);
 
   useFrame((_, delta) => {
-    const targetStep = 1 / (isMobile ? SIMULATION_TARGET_FPS_MOBILE : SIMULATION_TARGET_FPS_DESKTOP);
+    if (!isDocumentCurrentlyVisible()) {
+      simulationAccumulatorRef.current = 0;
+      return;
+    }
+
+    const targetStep = 1 / Math.max(qualityProfile.simulationTargetFps, 1);
     simulationAccumulatorRef.current += delta;
 
     if (simulationAccumulatorRef.current < targetStep) {
@@ -556,7 +646,13 @@ const waterSurfaceWorldPosition = new THREE.Vector3();
 const reflectionBoatPosition = new THREE.Vector3();
 const reflectionBoatQuaternion = new THREE.Quaternion();
 
-function WaterReflections({ children, textureSize = 512, enabled = true }) {
+function WaterReflections({
+  children,
+  textureSize = 512,
+  enabled = true,
+  activeFps = 30,
+  idleFps = 12,
+}) {
   const { gl, scene, camera } = useThree();
   const reflectionTarget = useMemo(() => new THREE.WebGLRenderTarget(textureSize, textureSize, {
     format: THREE.RGBAFormat,
@@ -599,7 +695,7 @@ function WaterReflections({ children, textureSize = 512, enabled = true }) {
   }, [enabled]);
 
   useFrame(({ clock }) => {
-    if (!enabled || !reflectionCamera || !reflectionTarget) {
+    if (!enabled || !reflectionCamera || !reflectionTarget || !isDocumentCurrentlyVisible()) {
       return;
     }
 
@@ -649,7 +745,7 @@ function WaterReflections({ children, textureSize = 512, enabled = true }) {
       isMoving = cameraMoved || boatMoved;
     }
 
-    const minInterval = 1 / (isMoving ? REFLECTION_ACTIVE_FPS : REFLECTION_IDLE_FPS);
+    const minInterval = 1 / Math.max(isMoving ? activeFps : idleFps, 1);
     if ((now - reflectionTiming.lastRenderTime) < minInterval) {
       return;
     }
@@ -717,10 +813,10 @@ function WaterReflections({ children, textureSize = 512, enabled = true }) {
 
 const reflectionContext = React.createContext({ current: { texture: null, matrix: new THREE.Matrix4() } });
 
-function WaterLights({ settings, mode }) {
+function WaterLights({ settings, mode, qualityProfile }) {
   const moonDirection = useMemo(() => buildMoonDirection(settings), [settings]);
   const shadowsEnabled = settings.debugView === 'beauty';
-  const shadowMapSize = mode === 'editor' ? 1024 : 768;
+  const shadowMapSize = qualityProfile?.shadowMapSize ?? (mode === 'editor' ? 1024 : 768);
 
   return (
     <>
@@ -751,14 +847,14 @@ function WaterLights({ settings, mode }) {
   );
 }
 
-function WaterSurface({ settings, runtime }) {
+function WaterSurface({ settings, runtime, qualityProfile }) {
   const materialRef = useRef();
   const reflectionDataRef = React.useContext(reflectionContext);
-  const { size } = useThree();
   const debugView = DEBUG_VIEW_IDS[settings.debugView] ?? 0;
-  const meshDensity = size.width < 768
-    ? Math.min(settings.waterMeshDensity, 192)
-    : settings.waterMeshDensity;
+  const meshDensity = Math.min(
+    settings.waterMeshDensity,
+    qualityProfile?.waterMeshDensityCap ?? settings.waterMeshDensity,
+  );
   const moonDirection = useMemo(() => buildMoonDirection(settings), [settings]);
   const uniforms = useMemo(() => ({
     uState: { value: null },
@@ -1126,7 +1222,7 @@ function FloatingBoat({ settings, runtime, mode, orbitRef, onBoatPositionChange 
   }, [setOrbitEnabled]);
 
   useFrame((_, delta) => {
-    if (!boatRef.current || settings.debugView !== 'beauty') {
+    if (!boatRef.current || settings.debugView !== 'beauty' || !isDocumentCurrentlyVisible()) {
       return;
     }
 
@@ -1223,7 +1319,12 @@ function FloatingBoat({ settings, runtime, mode, orbitRef, onBoatPositionChange 
 }
 
 function WaterRuntimeScene({ settings, mode, onCameraRigApi, onBoatPositionChange }) {
-  const runtime = useWaterRuntime(settings);
+  const { size } = useThree();
+  const qualityProfile = useMemo(
+    () => buildRuntimeQualityProfile(mode, size.width),
+    [mode, size.width],
+  );
+  const runtime = useWaterRuntime(settings, qualityProfile);
   const orbitRef = useRef();
   const showDebugHelpers = mode === 'editor' && settings.debugView !== 'beauty';
   const reflectionsEnabled = settings.debugView === 'beauty' && settings.boatReflectionIntensity > 0.01;
@@ -1239,11 +1340,13 @@ function WaterRuntimeScene({ settings, mode, onCameraRigApi, onBoatPositionChang
       />
       <WaterReflections
         enabled={reflectionsEnabled}
-        textureSize={mode === 'editor' ? 768 : 512}
+        textureSize={qualityProfile.reflectionTextureSize}
+        activeFps={qualityProfile.reflectionActiveFps}
+        idleFps={qualityProfile.reflectionIdleFps}
       >
-        <WaterLights settings={settings} mode={mode} />
+        <WaterLights settings={settings} mode={mode} qualityProfile={qualityProfile} />
         <Seabed settings={settings} runtime={runtime} />
-        <WaterSurface settings={settings} runtime={runtime} />
+        <WaterSurface settings={settings} runtime={runtime} qualityProfile={qualityProfile} />
         <FloatingBoat
           settings={settings}
           runtime={runtime}

@@ -28,19 +28,19 @@ export const publishedHomeSceneSettings = {
   "causticsScale": 1.2,
   "causticsSharpness": 0.45,
   "cameraFov": 36,
-  "cameraCustomPose": false,
+  "cameraCustomPose": true,
   "cameraPosition": {
-    "x": 0,
-    "y": 5.8,
-    "z": 8.9
+    "x": -4.4562,
+    "y": 5.7293,
+    "z": 6.3241
   },
   "cameraTarget": {
-    "x": 0,
+    "x": 4.6687,
     "y": 0,
-    "z": 0
+    "z": -1.3562
   },
   "debugView": "beauty",
-  "boatReflectionIntensity": 1.15,
+  "boatReflectionIntensity": 1.05,
   "boatPosition": {
     "x": 2.1,
     "z": -1.4

@@ -30,7 +30,7 @@ function detectWebGLSupport() {
 function getCanvasProfile(mode) {
   if (typeof window === 'undefined') {
     return {
-      maxDpr: 1.4,
+      maxDpr: 1.3,
       antialias: true,
       powerPreference: 'default',
     };
@@ -38,14 +38,32 @@ function getCanvasProfile(mode) {
 
   const isEditor = mode === 'editor';
   const isMobileViewport = window.innerWidth < 768;
+  const hasNavigator = typeof navigator !== 'undefined';
+  const deviceMemory = hasNavigator && typeof navigator.deviceMemory === 'number'
+    ? navigator.deviceMemory
+    : null;
+  const hardwareConcurrency = hasNavigator && typeof navigator.hardwareConcurrency === 'number'
+    ? navigator.hardwareConcurrency
+    : null;
+  const isLowPowerDevice = isMobileViewport
+    || (deviceMemory !== null && deviceMemory <= 4)
+    || (hardwareConcurrency !== null && hardwareConcurrency <= 4);
 
   return {
     maxDpr: isEditor
-      ? (isMobileViewport ? 1.25 : 1.45)
-      : (isMobileViewport ? 1.1 : 1.35),
-    antialias: !isMobileViewport,
-    powerPreference: 'default',
+      ? (isLowPowerDevice ? 1.2 : 1.4)
+      : (isLowPowerDevice ? 1.05 : 1.3),
+    antialias: !isLowPowerDevice,
+    powerPreference: isLowPowerDevice ? 'low-power' : 'default',
   };
+}
+
+function isDocumentVisible() {
+  if (typeof document === 'undefined') {
+    return true;
+  }
+
+  return document.visibilityState === 'visible';
 }
 
 class SceneCanvasErrorBoundary extends Component {
@@ -154,6 +172,20 @@ const RuntimeDiagnostics = ({ sceneId, mode, settings }) => {
   return null;
 };
 
+const VisibilityResume = ({ isActive }) => {
+  const invalidate = useThree((state) => state.invalidate);
+
+  useEffect(() => {
+    if (!isActive) {
+      return;
+    }
+
+    invalidate();
+  }, [invalidate, isActive]);
+
+  return null;
+};
+
 const SceneCanvas = ({
   sceneId,
   mode = 'public',
@@ -169,6 +201,7 @@ const SceneCanvas = ({
   const [runtimeError, setRuntimeError] = useState(false);
   const supportsWebgl = useMemo(() => detectWebGLSupport(), []);
   const [profile, setProfile] = useState(() => getCanvasProfile(mode));
+  const [isTabVisible, setIsTabVisible] = useState(() => isDocumentVisible());
   const fallback = (
     <SceneFallback
       title={t('app.webglTitle')}
@@ -191,6 +224,27 @@ const SceneCanvas = ({
     return () => window.removeEventListener('resize', syncProfile);
   }, [mode]);
 
+  useEffect(() => {
+    if (typeof document === 'undefined') {
+      return undefined;
+    }
+
+    const syncVisibility = () => {
+      setIsTabVisible(isDocumentVisible());
+    };
+
+    syncVisibility();
+    document.addEventListener('visibilitychange', syncVisibility);
+    window.addEventListener('pageshow', syncVisibility);
+    window.addEventListener('pagehide', syncVisibility);
+
+    return () => {
+      document.removeEventListener('visibilitychange', syncVisibility);
+      window.removeEventListener('pageshow', syncVisibility);
+      window.removeEventListener('pagehide', syncVisibility);
+    };
+  }, []);
+
   if (!supportsWebgl || runtimeError) {
     return fallback;
   }
@@ -207,14 +261,17 @@ const SceneCanvas = ({
       >
         <Canvas
           shadows={{ type: THREE.PCFShadowMap }}
+          frameloop={isTabVisible ? 'always' : 'never'}
           dpr={[1, profile.maxDpr]}
           camera={camera}
           gl={{
             alpha: true,
             antialias: profile.antialias,
             powerPreference: profile.powerPreference,
+            stencil: false,
           }}
         >
+          <VisibilityResume isActive={isTabVisible} />
           {children}
           {import.meta.env.DEV ? (
             <RuntimeDiagnostics
