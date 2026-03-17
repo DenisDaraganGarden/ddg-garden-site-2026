@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
-import { Environment } from '@react-three/drei';
+import { Environment, useProgress } from '@react-three/drei';
 import { useFrame, useLoader, useThree } from '@react-three/fiber';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader';
 import * as THREE from 'three';
@@ -1494,7 +1494,40 @@ function FloatingBoat({ settings, runtime, mode, orbitRef, onBoatPositionChange 
   );
 }
 
-function WaterRuntimeScene({ settings, mode, onCameraRigApi, onBoatPositionChange }) {
+function SceneReadyBeacon({ onSceneReady }) {
+  const { active } = useProgress();
+  const didNotifyRef = useRef(false);
+  const stableFramesRef = useRef(0);
+
+  useFrame(() => {
+    if (typeof onSceneReady !== 'function' || didNotifyRef.current) {
+      return;
+    }
+
+    if (active) {
+      stableFramesRef.current = 0;
+      return;
+    }
+
+    stableFramesRef.current += 1;
+    if (stableFramesRef.current < 3) {
+      return;
+    }
+
+    didNotifyRef.current = true;
+    onSceneReady();
+  });
+
+  return null;
+}
+
+function WaterRuntimeScene({
+  settings,
+  mode,
+  onCameraRigApi,
+  onBoatPositionChange,
+  onSceneReady,
+}) {
   const { size } = useThree();
   const qualityProfile = useMemo(
     () => buildRuntimeQualityProfile(mode, size.width),
@@ -1532,6 +1565,7 @@ function WaterRuntimeScene({ settings, mode, onCameraRigApi, onBoatPositionChang
         />
         <WaterInteractionPlane settings={settings} pointerStateRef={runtime.pointerStateRef} />
       </WaterReflections>
+      <SceneReadyBeacon onSceneReady={onSceneReady} />
       {showDebugHelpers ? <axesHelper args={[2]} /> : null}
       {showDebugHelpers ? (
         <gridHelper
@@ -1551,6 +1585,7 @@ const WaterScene = ({
   fallbackTestId,
   onCameraRigApi,
   onBoatPositionChange,
+  onSceneReady,
 }) => {
   const settings = settingsProp ?? getBaseHomeSceneSettings();
 
@@ -1569,6 +1604,7 @@ const WaterScene = ({
         mode={mode}
         onCameraRigApi={onCameraRigApi}
         onBoatPositionChange={onBoatPositionChange}
+        onSceneReady={onSceneReady}
       />
     </SceneCanvas>
   );

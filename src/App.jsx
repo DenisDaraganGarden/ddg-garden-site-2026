@@ -7,6 +7,7 @@ import {
 import Navigation from './components/ui/Navigation';
 import { archiveNavigationItems } from './config/siteNavigation';
 import { useLanguage } from './i18n/useLanguage';
+import ddgLogo from '../portfolio/DDG_logo.png';
 const Home = lazy(() => import('./pages/Home'));
 const Info = lazy(() => import('./pages/Info'));
 const Portfolio = lazy(() => import('./pages/Portfolio'));
@@ -64,8 +65,20 @@ function AppShell() {
     ];
 
     const routeFallback = (
-        <div className="route-loading-fallback" aria-live="polite">
-            {t('app.routeLoading')}
+        <div className="route-loading-fallback" aria-live="polite" aria-label={t('app.routeLoading')}>
+            <img
+                src={ddgLogo}
+                alt=""
+                aria-hidden="true"
+                style={{
+                    width: 'clamp(3.8rem, 8vw, 6.2rem)',
+                    height: 'clamp(3.8rem, 8vw, 6.2rem)',
+                    objectFit: 'contain',
+                    opacity: 0.9,
+                    filter: 'drop-shadow(0 0 14px rgba(255, 255, 255, 0.2))',
+                    animation: 'ouroboros-spin 4.3s linear infinite',
+                }}
+            />
         </div>
     );
 
