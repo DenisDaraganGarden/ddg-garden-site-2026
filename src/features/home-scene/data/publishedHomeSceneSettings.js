@@ -1,14 +1,14 @@
 export const publishedHomeSceneSettings = {
-  "waterExtent": 28,
+  "waterExtent": 40,
   "simulationResolution": 512,
-  "waterMeshDensity": 288,
-  "waveAmplitude": 0.055,
-  "waveLength": 1.55,
+  "waterMeshDensity": 320,
+  "waveAmplitude": 0.125,
+  "waveLength": 1.4,
   "waveChoppiness": 0.18,
   "rippleDamping": 0.965,
   "rippleRadius": 0.45,
   "rippleImpulse": 0.22,
-  "normalStrength": 1.2,
+  "normalStrength": 1.8,
   "normalBlur": 0.85,
   "hdrPreset": "night",
   "hdrRotation": 0,
@@ -21,8 +21,8 @@ export const publishedHomeSceneSettings = {
   "moonElevation": 27,
   "moonSpecularStrength": 0.18,
   "moonSpecularPower": 38,
-  "waterDepthMeters": 1.5,
-  "seabedReliefStrength": 0.42,
+  "waterDepthMeters": 1,
+  "seabedReliefStrength": 0.86,
   "seabedReliefScale": 1.8,
   "causticsIntensity": 0.55,
   "causticsScale": 1.2,
@@ -30,20 +30,54 @@ export const publishedHomeSceneSettings = {
   "cameraFov": 36,
   "cameraCustomPose": true,
   "cameraPosition": {
-    "x": -4.4562,
-    "y": 5.7293,
-    "z": 6.3241
+    "x": -12.9263,
+    "y": 6.117,
+    "z": 3.9813
   },
   "cameraTarget": {
-    "x": 4.6687,
+    "x": 3.1038,
     "y": 0,
-    "z": -1.3562
+    "z": -1.461
+  },
+  "cameraCustomPoseLandscape": true,
+  "cameraPositionLandscape": {
+    "x": -12.9263,
+    "y": 6.117,
+    "z": 3.9813
+  },
+  "cameraTargetLandscape": {
+    "x": 3.1038,
+    "y": 0,
+    "z": -1.461
+  },
+  "cameraCustomPosePortrait": false,
+  "cameraPositionPortrait": {
+    "x": 0,
+    "y": 5.1,
+    "z": 7.3
+  },
+  "cameraTargetPortrait": {
+    "x": 0,
+    "y": 0,
+    "z": 0
   },
   "debugView": "beauty",
+  "boatColor": "#ffffff",
+  "boatMetalness": 0.15,
+  "boatRoughness": 0.2,
+  "boatClearcoat": 0.8,
+  "boatClearcoatRoughness": 0.1,
   "boatReflectionIntensity": 1.05,
   "boatPosition": {
     "x": 2.1,
     "z": -1.4
   },
-  "boatYaw": 18
+  "boatYaw": 18,
+  "boatScale": 0.001,
+  "seabedTextureScale": 1,
+  "seabedSaturation": 1,
+  "seabedBrightness": 1,
+  "waterTurbidity": 0.3,
+  "ambientWaveIntensity": 0.12,
+  "ambientWaveSpeed": 0.85
 };

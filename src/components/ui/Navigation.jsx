@@ -1,12 +1,21 @@
 import React from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import { useLanguage } from '../../i18n/useLanguage';
+import { projectRegistry } from '../../data/projectRegistry';
 import { archiveNavigationItems, primaryNavigationItems } from '../../config/siteNavigation';
+import ouroborosDark from '../../../portfolio/DDG_logo.png';
+import ouroborosWhite from '../../../portfolio/Denis Daragan Garden Logo White.png';
 import './Navigation.css';
 
 const Navigation = () => {
+    const location = useLocation();
+    const isHomeRoute = location.pathname === '/';
     const { language, setLanguage, t } = useLanguage();
     const [isArchiveOpen, setIsArchiveOpen] = React.useState(false);
+    const [isMenuOpen, setIsMenuOpen] = React.useState(false);
+    const navMenuRef = React.useRef(null);
+    const toggleButtonRef = React.useRef(null);
+    const touchStartRef = React.useRef(null);
     const canUseHover = React.useMemo(() => {
         if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
             return true;
@@ -15,8 +24,117 @@ const Navigation = () => {
         return window.matchMedia('(hover: hover) and (pointer: fine)').matches;
     }, []);
 
+    const activeProjectTheme = React.useMemo(() => {
+        const match = location.pathname.match(/^\/portfolio\/([^/]+)/);
+        if (!match) {
+            return null;
+        }
+
+        const projectId = decodeURIComponent(match[1]);
+        const project = projectRegistry.find((item) => item.id === projectId || item.slug === projectId);
+        return project?.theme ?? null;
+    }, [location.pathname]);
+
+    const logoSrc = activeProjectTheme === 'magazine' ? ouroborosDark : ouroborosWhite;
+
+    const closeMenu = React.useCallback(() => {
+        setIsMenuOpen(false);
+        setIsArchiveOpen(false);
+    }, []);
+
+    React.useEffect(() => {
+        closeMenu();
+    }, [location.pathname, location.search, location.hash, closeMenu]);
+
+    React.useEffect(() => {
+        if (typeof document === 'undefined') {
+            return undefined;
+        }
+
+        const handleVisibilityChange = () => {
+            if (document.hidden) {
+                closeMenu();
+            }
+        };
+
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        return () => {
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
+    }, [closeMenu]);
+
+    React.useEffect(() => {
+        if (!isMenuOpen) {
+            return undefined;
+        }
+
+        const handlePointerDown = (event) => {
+            const target = event.target;
+            if (navMenuRef.current?.contains(target) || toggleButtonRef.current?.contains(target)) {
+                return;
+            }
+
+            closeMenu();
+        };
+
+        const handleTouchStart = (event) => {
+            const touch = event.touches?.[0];
+            if (!touch) {
+                return;
+            }
+
+            touchStartRef.current = { x: touch.clientX, y: touch.clientY };
+        };
+
+        const handleTouchMove = (event) => {
+            const touch = event.touches?.[0];
+            const start = touchStartRef.current;
+
+            if (!touch || !start) {
+                return;
+            }
+
+            const deltaX = Math.abs(touch.clientX - start.x);
+            const deltaY = Math.abs(touch.clientY - start.y);
+
+            if (deltaX > 12 || deltaY > 12) {
+                closeMenu();
+                touchStartRef.current = null;
+            }
+        };
+
+        const handleWheel = () => closeMenu();
+        const handleBlur = () => closeMenu();
+        const handleEscape = (event) => {
+            if (event.key === 'Escape') {
+                closeMenu();
+            }
+        };
+
+        document.addEventListener('pointerdown', handlePointerDown);
+        window.addEventListener('touchstart', handleTouchStart, { passive: true });
+        window.addEventListener('touchmove', handleTouchMove, { passive: true });
+        window.addEventListener('wheel', handleWheel, { passive: true });
+        window.addEventListener('blur', handleBlur);
+        window.addEventListener('keydown', handleEscape);
+
+        return () => {
+            document.removeEventListener('pointerdown', handlePointerDown);
+            window.removeEventListener('touchstart', handleTouchStart);
+            window.removeEventListener('touchmove', handleTouchMove);
+            window.removeEventListener('wheel', handleWheel);
+            window.removeEventListener('blur', handleBlur);
+            window.removeEventListener('keydown', handleEscape);
+        };
+    }, [closeMenu, isMenuOpen]);
+
+    const handleArchiveToggle = (event) => {
+        event.stopPropagation();
+        setIsArchiveOpen((previous) => !previous);
+    };
+
     return (
-        <nav className="main-nav" data-testid="site-nav">
+        <nav className={`main-nav ${isHomeRoute ? 'main-nav--home' : ''}`} data-testid="site-nav">
             <div className="nav-brand">
                 <NavLink to="/" data-testid="brand-link">
                     Denis Daragan
@@ -24,75 +142,94 @@ const Navigation = () => {
                 </NavLink>
             </div>
 
-            <div className="nav-menu">
-                <div className="nav-links-wrapper">
-                    <ul className="nav-links">
-                        {primaryNavigationItems.map((item) => {
-                            if (item.key === 'portfolio') {
-                                return (
-                                    <li key="portfolio-group" className="nav-group nav-group--portfolio">
-                                        <NavLink
-                                            to="/portfolio"
-                                            className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}
-                                            data-testid="nav-portfolio"
-                                        >
-                                            {t('navigation.portfolio')}
-                                        </NavLink>
-                                        <div className="nav-portfolio-sub">
-                                            {['city', 'parks', 'residences'].map((cat) => (
-                                                <NavLink
-                                                    key={cat}
-                                                    to={`/portfolio?category=${cat}`}
-                                                    className="nav-portfolio-sub__link"
-                                                >
-                                                    {t(`navigation.portfolio_${cat}`)}
-                                                </NavLink>
-                                            ))}
+            <div ref={navMenuRef} className={`nav-menu ${isMenuOpen ? 'is-open' : ''}`}>
+                <button
+                    ref={toggleButtonRef}
+                    type="button"
+                    className={`ouroboros-toggle ${isMenuOpen ? 'is-open' : ''}`}
+                    aria-label={isMenuOpen ? t('navigation.closeMenu') : t('navigation.openMenu')}
+                    aria-expanded={isMenuOpen}
+                    aria-controls="site-nav-drawer"
+                    onClick={() => setIsMenuOpen((previous) => !previous)}
+                >
+                    <img className="ouroboros-toggle__icon" src={logoSrc} alt="" aria-hidden="true" />
+                </button>
+
+                <div id="site-nav-drawer" className="nav-drawer" aria-hidden={!isMenuOpen}>
+                    <div className="nav-links-wrapper">
+                        <ul className="nav-links">
+                            {primaryNavigationItems.map((item) => {
+                                if (item.key === 'portfolio') {
+                                    return (
+                                        <li key="portfolio-group" className="nav-group nav-group--portfolio">
                                             <NavLink
                                                 to="/portfolio"
-                                                className="nav-portfolio-sub__link nav-portfolio-sub__link--all"
+                                                className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}
+                                                data-testid="nav-portfolio"
+                                                onClick={closeMenu}
                                             >
-                                                {t('navigation.portfolio_all')}
+                                                {t('navigation.portfolio')}
                                             </NavLink>
-                                        </div>
+                                            <div className="nav-portfolio-sub">
+                                                {['city', 'parks', 'residences'].map((cat) => (
+                                                    <NavLink
+                                                        key={cat}
+                                                        to={`/portfolio?category=${cat}`}
+                                                        className="nav-portfolio-sub__link"
+                                                        onClick={closeMenu}
+                                                    >
+                                                        {t(`navigation.portfolio_${cat}`)}
+                                                    </NavLink>
+                                                ))}
+                                                <NavLink
+                                                    to="/portfolio"
+                                                    className="nav-portfolio-sub__link nav-portfolio-sub__link--all"
+                                                    onClick={closeMenu}
+                                                >
+                                                    {t('navigation.portfolio_all')}
+                                                </NavLink>
+                                            </div>
+                                        </li>
+                                    );
+                                }
+                                return (
+                                    <li key={item.key}>
+                                        <NavLink
+                                            to={item.path}
+                                            data-testid={`nav-${item.key}`}
+                                            className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}
+                                            onClick={closeMenu}
+                                        >
+                                            {t(`navigation.${item.key}`)}
+                                        </NavLink>
                                     </li>
                                 );
-                            }
-                            return (
-                                <li key={item.key}>
-                                    <NavLink
-                                        to={item.path}
-                                        data-testid={`nav-${item.key}`}
-                                        className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}
-                                    >
-                                        {t(`navigation.${item.key}`)}
-                                    </NavLink>
-                                </li>
-                            );
-                        })}
-                        <li
-                            className={`nav-group ${isArchiveOpen ? 'is-open' : ''}`}
-                            onMouseEnter={canUseHover ? () => setIsArchiveOpen(true) : undefined}
-                            onMouseLeave={canUseHover ? () => setIsArchiveOpen(false) : undefined}
-                            onClick={() => setIsArchiveOpen((previous) => !previous)}
-                        >
-                            <span className="nav-link group-label">
-                                {t('navigation.archive')}
-                            </span>
-                            <div className="nav-group-scroll">
-                                {archiveNavigationItems.map((item) => (
-                                    <NavLink
-                                        key={item.key}
-                                        to={item.path}
-                                        data-testid={`nav-${item.key}`}
-                                        className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}
-                                    >
-                                        {t(`navigation.${item.key}`)}
-                                    </NavLink>
-                                ))}
-                            </div>
-                        </li>
-                    </ul>
+                            })}
+                            <li
+                                className={`nav-group ${isArchiveOpen ? 'is-open' : ''}`}
+                                onMouseEnter={canUseHover ? () => setIsArchiveOpen(true) : undefined}
+                                onMouseLeave={canUseHover ? () => setIsArchiveOpen(false) : undefined}
+                                onClick={handleArchiveToggle}
+                            >
+                                <span className="nav-link group-label">
+                                    {t('navigation.archive')}
+                                </span>
+                                <div className="nav-group-scroll">
+                                    {archiveNavigationItems.map((item) => (
+                                        <NavLink
+                                            key={item.key}
+                                            to={item.path}
+                                            data-testid={`nav-${item.key}`}
+                                            className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}
+                                            onClick={closeMenu}
+                                        >
+                                            {t(`navigation.${item.key}`)}
+                                        </NavLink>
+                                    ))}
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
                 </div>
             </div>
 
