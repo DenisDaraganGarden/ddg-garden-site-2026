@@ -3,6 +3,7 @@ import { NavLink, useLocation } from 'react-router-dom';
 import { useLanguage } from '../../i18n/useLanguage';
 import { archiveNavigationItems, primaryNavigationItems } from '../../config/siteNavigation';
 import ouroborosDark from '../../../portfolio/DDG_logo.png';
+import ouroborosWhite from '../../../portfolio/Denis Daragan Garden Logo White.png';
 import './Navigation.css';
 
 const Navigation = () => {
@@ -22,7 +23,7 @@ const Navigation = () => {
         return window.matchMedia('(hover: hover) and (pointer: fine)').matches;
     }, []);
 
-    const logoSrc = ouroborosDark;
+    const logoSrc = ouroborosWhite || ouroborosDark;
 
     const closeMenu = React.useCallback(() => {
         setIsMenuOpen(false);

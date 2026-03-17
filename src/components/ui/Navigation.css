@@ -37,16 +37,16 @@
 
 .main-nav--home .nav-brand {
     top: 43%;
-    left: 50%;
-    width: min(94vw, 980px);
-    transform: translate(-50%, -50%);
+    left: clamp(1.2rem, 3.8vw, 3.4rem);
+    width: auto;
+    transform: translateY(-50%);
     padding: 0;
     pointer-events: none;
-    text-align: center;
+    text-align: left;
 }
 
 .main-nav--home .nav-brand a {
-    align-items: center;
+    align-items: flex-start;
     font-size: clamp(3rem, 5.6vw, 5.4rem);
     line-height: 0.84;
     letter-spacing: -0.02em;
@@ -401,15 +401,15 @@
 @media (max-width: 900px) {
     .main-nav--home .nav-brand {
         top: 38%;
-        left: 50%;
-        width: min(94vw, 680px);
-        transform: translate(-50%, -50%);
+        left: clamp(1rem, 3.5vw, 2.2rem);
+        width: auto;
+        transform: translateY(-50%);
         padding: 0;
-        text-align: center;
+        text-align: left;
     }
 
     .main-nav--home .nav-brand a {
-        align-items: center;
+        align-items: flex-start;
         font-size: clamp(2rem, 8vw, 3.2rem);
         line-height: 0.86;
         letter-spacing: -0.01em;
@@ -439,14 +439,14 @@
 
     .main-nav--home .nav-brand {
         top: 34%;
-        left: 50%;
-        width: min(94vw, 420px);
-        transform: translate(-50%, -50%);
+        left: 1rem;
+        width: auto;
+        transform: translateY(-50%);
         padding: 0;
     }
 
     .main-nav--home .nav-brand a {
-        align-items: center;
+        align-items: flex-start;
         font-size: clamp(2rem, 9vw, 2.7rem);
         line-height: 0.85;
         letter-spacing: -0.01em;
