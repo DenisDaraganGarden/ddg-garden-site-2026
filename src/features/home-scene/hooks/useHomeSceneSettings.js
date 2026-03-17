@@ -4,9 +4,10 @@ import { publishedHomeSceneKeys } from '../data/publishedHomeSceneKeys';
 
 export const HOME_SCENE_SETTINGS_STORAGE_KEY = 'ddg_home_scene_settings_v1';
 export const LEGACY_HOME_SCENE_SETTINGS_STORAGE_KEYS = ['ddg_snake_settings_v4', 'ddg_snake_settings_v3'];
-export const PUBLISHED_HOME_SCENE_SETTINGS_STORAGE_KEY = 'ddg_published_home_scene_settings_v1';
-export const LEGACY_PUBLISHED_HOME_SCENE_SETTINGS_STORAGE_KEYS = ['ddg_published_snake_settings_v1'];
-export const HOME_SCENE_SETTINGS_SYNC_EVENT = 'ddg:home-scene-settings-sync';
+const OBSOLETE_PUBLISHED_HOME_SCENE_STORAGE_KEYS = [
+  'ddg_published_home_scene_settings_v1',
+  'ddg_published_snake_settings_v1',
+];
 
 export const HOME_SCENE_HDRI_PRESETS = [
   { value: 'night', label: 'Night' },
@@ -30,7 +31,6 @@ const DEFAULT_DEBUG_VIEW = HOME_SCENE_DEBUG_VIEWS[0].value;
 const DEFAULT_LANDSCAPE_CAMERA_POSITION = { x: 0, y: 5.8, z: 8.9 };
 const DEFAULT_PORTRAIT_CAMERA_POSITION = { x: 0, y: 5.1, z: 7.3 };
 const DEFAULT_CAMERA_TARGET = { x: 0, y: 0, z: 0 };
-const LOCAL_HOME_SCENE_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
 const VALID_HDRI_PRESETS = new Set(HOME_SCENE_HDRI_PRESETS.map((option) => option.value));
 const VALID_DEBUG_VIEWS = new Set(HOME_SCENE_DEBUG_VIEWS.map((option) => option.value));
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
@@ -311,31 +311,20 @@ const normalizeHomeSceneSettings = (savedSettings = {}) => {
   };
 };
 
-export const sanitizeHomeSceneSettingsForPublish = (settings = {}) => publishedHomeSceneKeys.reduce((accumulator, key) => {
-  if (settings[key] !== undefined) {
-    accumulator[key] = settings[key];
-  }
+export const sanitizeHomeSceneSettingsForPublish = (settings = {}) => {
+  const normalizedSettings = normalizeHomeSceneSettings(settings);
 
-  return accumulator;
-}, {});
+  return publishedHomeSceneKeys.reduce((accumulator, key) => {
+    accumulator[key] = normalizedSettings[key];
+    return accumulator;
+  }, {});
+};
 
-export const getPublishedHomeSceneSettings = () => normalizeHomeSceneSettings(
-  sanitizeHomeSceneSettingsForPublish(publishedHomeSceneSettings),
-);
+export const getPublishedHomeSceneSettings = () => normalizeHomeSceneSettings(publishedHomeSceneSettings);
 
-export const normalizePublishedHomeSceneSettings = (settings = {}) => normalizeHomeSceneSettings(
-  sanitizeHomeSceneSettingsForPublish(settings),
-);
+export const normalizePublishedHomeSceneSettings = (settings = {}) => normalizeHomeSceneSettings(settings);
 
 export const normalizeHomeSceneDraftSettings = (savedSettings = {}) => normalizeHomeSceneSettings(savedSettings);
-
-function isLocalHomeSceneRuntime() {
-  if (typeof window === 'undefined') {
-    return false;
-  }
-
-  return LOCAL_HOME_SCENE_HOSTS.has(window.location.hostname);
-}
 
 function removeLegacyHomeSceneKeys() {
   if (typeof window === 'undefined') {
@@ -343,17 +332,7 @@ function removeLegacyHomeSceneKeys() {
   }
 
   LEGACY_HOME_SCENE_SETTINGS_STORAGE_KEYS.forEach((key) => window.localStorage.removeItem(key));
-  LEGACY_PUBLISHED_HOME_SCENE_SETTINGS_STORAGE_KEYS.forEach((key) => window.localStorage.removeItem(key));
-}
-
-function clearHomeSceneRuntimeStorage() {
-  if (typeof window === 'undefined') {
-    return;
-  }
-
-  window.localStorage.removeItem(HOME_SCENE_SETTINGS_STORAGE_KEY);
-  window.localStorage.removeItem(PUBLISHED_HOME_SCENE_SETTINGS_STORAGE_KEY);
-  removeLegacyHomeSceneKeys();
+  OBSOLETE_PUBLISHED_HOME_SCENE_STORAGE_KEYS.forEach((key) => window.localStorage.removeItem(key));
 }
 
 export function readHomeSceneDraftSettings() {
@@ -378,103 +357,9 @@ export function readHomeSceneDraftSettings() {
   }
 }
 
-function readStoredPublishedHomeSceneSettings() {
-  if (!isLocalHomeSceneRuntime()) {
-    return null;
-  }
-
-  const saved = window.localStorage.getItem(PUBLISHED_HOME_SCENE_SETTINGS_STORAGE_KEY)
-    ?? LEGACY_PUBLISHED_HOME_SCENE_SETTINGS_STORAGE_KEYS
-      .map((key) => window.localStorage.getItem(key))
-      .find(Boolean);
-
-  if (!saved) {
-    return null;
-  }
-
-  try {
-    const parsed = normalizePublishedHomeSceneSettings(JSON.parse(saved));
-    window.localStorage.setItem(
-      PUBLISHED_HOME_SCENE_SETTINGS_STORAGE_KEY,
-      JSON.stringify(sanitizeHomeSceneSettingsForPublish(parsed)),
-    );
-    LEGACY_PUBLISHED_HOME_SCENE_SETTINGS_STORAGE_KEYS.forEach((key) => window.localStorage.removeItem(key));
-    return parsed;
-  } catch (error) {
-    console.error('Failed to parse published home scene settings override', error);
-    return null;
-  }
-}
-
-export function readLivePublishedHomeSceneSettings() {
-  if (!isLocalHomeSceneRuntime()) {
-    return null;
-  }
-
-  const storedPublishedSettings = readStoredPublishedHomeSceneSettings();
-
-  if (storedPublishedSettings) {
-    return storedPublishedSettings;
-  }
-
-  const draftSettings = readHomeSceneDraftSettings();
-
-  if (!draftSettings) {
-    return null;
-  }
-
-  return normalizePublishedHomeSceneSettings(sanitizeHomeSceneSettingsForPublish(draftSettings));
-}
-
-function dispatchHomeSceneSettingsSync() {
-  if (typeof window === 'undefined' || !import.meta.env.DEV) {
-    return;
-  }
-
-  window.dispatchEvent(new CustomEvent(HOME_SCENE_SETTINGS_SYNC_EVENT));
-}
-
 export const usePublishedHomeSceneSettings = () => {
-  const [settings, setSettings] = useState(() => readLivePublishedHomeSceneSettings() ?? getPublishedHomeSceneSettings());
-
-  useEffect(() => {
-    if (typeof window === 'undefined') {
-      return undefined;
-    }
-
-    if (!isLocalHomeSceneRuntime()) {
-      clearHomeSceneRuntimeStorage();
-    }
-
-    const syncSettings = () => {
-      setSettings(readLivePublishedHomeSceneSettings() ?? getPublishedHomeSceneSettings());
-    };
-
-    const handleStorage = (event) => {
-      if (
-        event.key
-        && event.key !== HOME_SCENE_SETTINGS_STORAGE_KEY
-        && event.key !== PUBLISHED_HOME_SCENE_SETTINGS_STORAGE_KEY
-        && !LEGACY_HOME_SCENE_SETTINGS_STORAGE_KEYS.includes(event.key)
-        && !LEGACY_PUBLISHED_HOME_SCENE_SETTINGS_STORAGE_KEYS.includes(event.key)
-      ) {
-        return;
-      }
-
-      syncSettings();
-    };
-
-    window.addEventListener('storage', handleStorage);
-    window.addEventListener(HOME_SCENE_SETTINGS_SYNC_EVENT, syncSettings);
-
-    return () => {
-      window.removeEventListener('storage', handleStorage);
-      window.removeEventListener(HOME_SCENE_SETTINGS_SYNC_EVENT, syncSettings);
-    };
-  }, []);
-
   return {
-    settings,
+    settings: getPublishedHomeSceneSettings(),
   };
 };
 
@@ -488,14 +373,6 @@ export const useHomeSceneDraftSettings = () => {
 
     window.localStorage.setItem(HOME_SCENE_SETTINGS_STORAGE_KEY, JSON.stringify(settings));
     removeLegacyHomeSceneKeys();
-
-    if (isLocalHomeSceneRuntime()) {
-      window.localStorage.setItem(
-        PUBLISHED_HOME_SCENE_SETTINGS_STORAGE_KEY,
-        JSON.stringify(sanitizeHomeSceneSettingsForPublish(settings)),
-      );
-      dispatchHomeSceneSettingsSync();
-    }
   }, [settings]);
 
   return {

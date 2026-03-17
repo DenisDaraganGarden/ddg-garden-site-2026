@@ -1,4 +1,4 @@
-export const publishedHomeSceneKeys = [
+const keys = [
   'waterExtent',
   'simulationResolution',
   'waterMeshDensity',
@@ -54,3 +54,11 @@ export const publishedHomeSceneKeys = [
   'ambientWaveIntensity',
   'ambientWaveSpeed',
 ];
+
+const duplicatePublishedKeys = keys.filter((key, index) => keys.indexOf(key) !== index);
+
+if (duplicatePublishedKeys.length > 0) {
+  throw new Error(`Duplicate published home scene keys: ${duplicatePublishedKeys.join(', ')}`);
+}
+
+export const publishedHomeSceneKeys = Object.freeze(keys);

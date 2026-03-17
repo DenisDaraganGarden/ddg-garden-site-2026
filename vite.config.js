@@ -20,15 +20,18 @@ function sendJson(response, statusCode, payload) {
 }
 
 function normalizeHomeSceneSettingsPayload(settings) {
-  if (!settings || typeof settings !== 'object') {
+  if (!settings || typeof settings !== 'object' || Array.isArray(settings)) {
     throw new Error('Home scene settings payload is missing.');
   }
 
-  return publishedHomeSceneKeys.reduce((normalized, key) => {
-    if (settings[key] !== undefined) {
-      normalized[key] = settings[key];
-    }
+  const missingKeys = publishedHomeSceneKeys.filter((key) => settings[key] === undefined);
 
+  if (missingKeys.length > 0) {
+    throw new Error(`Home scene settings payload is missing keys: ${missingKeys.join(', ')}`);
+  }
+
+  return publishedHomeSceneKeys.reduce((normalized, key) => {
+    normalized[key] = settings[key];
     return normalized;
   }, {});
 }
