@@ -323,7 +323,12 @@ function WaterCameraRig({ mode, settings, onCameraRigApi, orbitRef }) {
     }
 
     const capturePose = () => {
-      const target = controlsRef.current?.target ?? CAMERA_POSE_TARGET.set(0, 0, 0);
+      const target = controlsRef.current?.target
+        ?? CAMERA_POSE_TARGET.set(
+          activeCameraTarget.x,
+          activeCameraTarget.y,
+          activeCameraTarget.z,
+        );
 
       return {
         cameraPosition: {
@@ -344,7 +349,7 @@ function WaterCameraRig({ mode, settings, onCameraRigApi, orbitRef }) {
     return () => {
       onCameraRigApi(null);
     };
-  }, [camera, controlsRef, formatAxis, onCameraRigApi]);
+  }, [activeCameraTarget.x, activeCameraTarget.y, activeCameraTarget.z, camera, controlsRef, formatAxis, onCameraRigApi]);
 
   if (mode !== 'editor') {
     return null;
