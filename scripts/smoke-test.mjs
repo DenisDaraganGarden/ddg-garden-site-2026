@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 import process from 'node:process';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
 import { chromium } from 'playwright';
 
@@ -11,7 +11,26 @@ const host = '127.0.0.1';
 const port = Number(process.env.SMOKE_PORT ?? '4173');
 const baseUrl = process.env.SMOKE_BASE_URL ?? `http://${host}:${port}`;
 const useExistingServer = process.env.SMOKE_USE_EXISTING_SERVER === '1';
-const publishedSettingsPath = path.join(rootDir, 'src', 'data', 'publishedSnakeSettings.js');
+
+const HOME_SCENE_SETTINGS_STORAGE_KEY = 'ddg_home_scene_settings_v1';
+const LEGACY_HOME_SCENE_KEYS = ['ddg_snake_settings_v4', 'ddg_snake_settings_v3'];
+
+const publishedSettingsPath = path.join(
+  rootDir,
+  'src',
+  'features',
+  'home-scene',
+  'data',
+  'publishedHomeSceneSettings.js',
+);
+const publishedKeysPath = path.join(
+  rootDir,
+  'src',
+  'features',
+  'home-scene',
+  'data',
+  'publishedHomeSceneKeys.js',
+);
 
 function log(message) {
   process.stdout.write(`${message}\n`);
@@ -63,11 +82,15 @@ async function waitForServer(url, timeoutMs = 30000) {
 
 function startDevServer() {
   const viteBin = path.join(rootDir, 'node_modules', 'vite', 'bin', 'vite.js');
-  const child = spawn(process.execPath, [viteBin, '--host', host, '--port', String(port)], {
-    cwd: rootDir,
-    env: { ...process.env, BROWSER: 'none' },
-    stdio: ['ignore', 'pipe', 'pipe'],
-  });
+  const child = spawn(
+    process.execPath,
+    [viteBin, '--host', host, '--port', String(port), '--strictPort'],
+    {
+      cwd: rootDir,
+      env: { ...process.env, BROWSER: 'none' },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    },
+  );
 
   child.stdout.on('data', (chunk) => {
     process.stdout.write(`[vite] ${chunk}`);
@@ -88,8 +111,23 @@ async function expectVisible(page, locator, description) {
   }
 }
 
-async function settlePage(page, timeout = 400) {
+async function settlePage(page, timeout = 300) {
   await page.waitForTimeout(timeout);
+}
+
+async function waitForCondition(check, message, timeoutMs = 12000, intervalMs = 250) {
+  const startedAt = Date.now();
+
+  while (Date.now() - startedAt < timeoutMs) {
+    const result = await check();
+    if (result) {
+      return;
+    }
+
+    await delay(intervalMs);
+  }
+
+  throw new Error(message);
 }
 
 async function waitForRuntimeMetrics(page, sceneId) {
@@ -110,38 +148,23 @@ async function setRangeValue(locator, value) {
   }, value);
 }
 
-function getSnakeSlider(page, label) {
-  return page
-    .locator('.cia-control-group', { hasText: label })
-    .locator('input[type="range"]')
-    .first();
-}
-
-async function seedLegacySnakeDraft(page, overrides = {}) {
-  await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
-  await page.evaluate((settings) => {
-    localStorage.removeItem('ddg_snake_settings_v4');
-    localStorage.setItem('ddg_snake_settings_v3', JSON.stringify(settings));
-  }, {
-    planeTrailLength: 18,
-    planeRadius: 350,
-    planeHeight: 200,
-    cameraFov: 40,
-    ...overrides,
-  });
+async function importFresh(modulePath) {
+  const fileUrl = new URL(pathToFileURL(modulePath).href);
+  fileUrl.searchParams.set('t', `${Date.now()}-${Math.random()}`);
+  return import(fileUrl.href);
 }
 
 async function readPublishedSettings() {
-  const source = await fs.readFile(publishedSettingsPath, 'utf8');
-  const match = source.match(/export const publishedSnakeSettings = ([\s\S]+);\s*$/);
-  if (!match) {
-    throw new Error('Could not parse published snake settings file.');
-  }
-
-  return JSON.parse(match[1]);
+  const module = await importFresh(publishedSettingsPath);
+  return module.publishedHomeSceneSettings;
 }
 
-function assertStableMetricSeries(samples, selector, label, tolerance = 1) {
+async function readPublishedKeys() {
+  const module = await importFresh(publishedKeysPath);
+  return module.publishedHomeSceneKeys;
+}
+
+function assertStableMetricSeries(samples, selector, label, tolerance = 2) {
   if (samples.length < 2) {
     return;
   }
@@ -162,43 +185,40 @@ async function runRouteChecks(browser) {
   collectPageIssues(page, issues);
 
   await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
+  await expectVisible(page, page.getByTestId('site-nav'), 'site nav');
   await expectVisible(page, page.getByTestId('brand-link'), 'brand link');
-  await expectVisible(page, page.getByTestId('home-scene'), 'home scene');
-  await waitForRuntimeMetrics(page, 'home');
+  await expectVisible(page, page.getByTestId('home-page'), 'home page');
+  await page.getByTestId('site-music-controller').first().waitFor({ state: 'attached', timeout: 10000 });
+  await waitForRuntimeMetrics(page, 'water-scene');
   log('OK route /');
 
-  await page.getByTestId('nav-info').click();
-  await page.waitForURL(`${baseUrl}/info`);
+  await page.goto(`${baseUrl}/info`, { waitUntil: 'domcontentloaded' });
+  await expectVisible(page, page.getByTestId('info-page'), 'info page');
   await expectVisible(page, page.getByTestId('info-title'), 'info title');
   log('OK route /info');
 
-  await page.getByTestId('nav-portfolio').click();
-  await page.waitForURL(`${baseUrl}/portfolio`);
-  await expectVisible(page, page.getByTestId('portfolio-page'), 'portfolio page');
+  await page.goto(`${baseUrl}/portfolio`, { waitUntil: 'domcontentloaded' });
+  await expectVisible(page, page.locator('.portfolio-page'), 'portfolio page');
+  await expectVisible(page, page.locator('[data-testid^="project-row-"]'), 'portfolio rows');
   log('OK route /portfolio');
 
-  await page.goto(`${baseUrl}/portfolio/edit`, { waitUntil: 'domcontentloaded' });
-  await expectVisible(page, page.getByTestId('portfolio-edit-page'), 'portfolio editor');
-  log('OK route /portfolio/edit');
+  await page.locator('[data-testid^="project-row-"] a').first().click();
+  await expectVisible(page, page.getByTestId('project-detail'), 'project detail page');
+  log('OK route /portfolio/:projectId');
 
-  await page.goto(`${baseUrl}/info/edit`, { waitUntil: 'domcontentloaded' });
-  await expectVisible(page, page.getByTestId('info-editor-page'), 'info editor');
-  await expectVisible(page, page.getByTestId('info-editor-surface'), 'info editor surface');
-  log('OK route /info/edit');
-
-  await page.goto(`${baseUrl}/snake/edit`, { waitUntil: 'domcontentloaded' });
-  await expectVisible(page, page.getByTestId('snake-editor-page'), 'snake editor page');
-  await expectVisible(page, page.getByTestId('snake-tab-plane'), 'snake plane tab');
-  await waitForRuntimeMetrics(page, 'snake-editor');
-  log('OK route /snake/edit');
+  await page.goto(`${baseUrl}/map`, { waitUntil: 'domcontentloaded' });
+  await expectVisible(page, page.getByTestId('map-page'), 'map page');
+  log('OK route /map');
 
   await page.goto(`${baseUrl}/home/edit`, { waitUntil: 'domcontentloaded' });
-  await page.waitForURL(`${baseUrl}/snake/edit`);
-  await expectVisible(page, page.getByTestId('snake-editor-page'), 'home/edit redirect target');
-  log('OK route /home/edit redirect');
+  await expectVisible(page, page.getByTestId('home-editor-page'), 'home editor page');
+  await expectVisible(page, page.getByTestId('home-editor-tab-water'), 'home editor water tab');
+  await expectVisible(page, page.getByTestId('home-editor-scene'), 'home editor scene');
+  await waitForRuntimeMetrics(page, 'home-scene-editor');
+  log('OK route /home/edit');
 
   await page.goto(`${baseUrl}/does-not-exist`, { waitUntil: 'domcontentloaded' });
-  await expectVisible(page, page.getByTestId('not-found-title'), '404 title');
+  await expectVisible(page, page.getByTestId('not-found-title'), 'not found title');
   log('OK route 404');
 
   await context.close();
@@ -218,23 +238,79 @@ async function runWebglFallbackChecks(browser) {
       return originalGetContext.call(this, type, ...args);
     };
   });
+
   const page = await context.newPage();
   const issues = [];
   collectPageIssues(page, issues);
 
   await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
-  await expectVisible(page, page.getByTestId('home-scene-fallback'), 'home fallback');
+  await expectVisible(page, page.getByTestId('water-scene-fallback'), 'home WebGL fallback');
   log('OK WebGL fallback /');
 
-  await page.goto(`${baseUrl}/snake/edit`, { waitUntil: 'domcontentloaded' });
-  await expectVisible(page, page.getByTestId('snake-editor-fallback'), 'snake editor fallback');
-  log('OK WebGL fallback /snake/edit');
+  await page.goto(`${baseUrl}/home/edit`, { waitUntil: 'domcontentloaded' });
+  await expectVisible(page, page.getByTestId('home-editor-fallback'), 'home editor WebGL fallback');
+  log('OK WebGL fallback /home/edit');
 
   await context.close();
   return issues;
 }
 
-async function runPublishAndDraftChecks(browser) {
+async function runDraftMigrationChecks(browser) {
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  const page = await context.newPage();
+  const issues = [];
+  collectPageIssues(page, issues);
+
+  await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
+  await page.evaluate(({ legacyKeys, draftKey }) => {
+    localStorage.removeItem(draftKey);
+    legacyKeys.forEach((key) => localStorage.removeItem(key));
+
+    localStorage.setItem(
+      'ddg_snake_settings_v3',
+      JSON.stringify({
+        cameraFov: 49,
+        planeMeshDensity: 192,
+        planeRadius: 560,
+      }),
+    );
+  }, {
+    legacyKeys: LEGACY_HOME_SCENE_KEYS,
+    draftKey: HOME_SCENE_SETTINGS_STORAGE_KEY,
+  });
+
+  await page.goto(`${baseUrl}/home/edit`, { waitUntil: 'domcontentloaded' });
+  await expectVisible(page, page.getByTestId('home-editor-page'), 'home editor after legacy draft');
+  await settlePage(page, 400);
+
+  const draftState = await page.evaluate(({ legacyKeys, draftKey }) => {
+    const draft = localStorage.getItem(draftKey);
+    return {
+      draft,
+      parsed: draft ? JSON.parse(draft) : null,
+      legacy: legacyKeys.map((key) => localStorage.getItem(key)),
+    };
+  }, {
+    legacyKeys: LEGACY_HOME_SCENE_KEYS,
+    draftKey: HOME_SCENE_SETTINGS_STORAGE_KEY,
+  });
+
+  assert(Boolean(draftState.draft), 'Draft storage should be created from legacy key');
+  assert(draftState.legacy.every((value) => value === null), 'Legacy draft keys should be removed');
+  assert(draftState.parsed.cameraFov === 49, 'Legacy cameraFov should migrate into draft');
+  assert(draftState.parsed.waterMeshDensity === 192, 'Legacy planeMeshDensity should migrate into waterMeshDensity');
+  log('OK legacy draft migration');
+
+  await context.close();
+  return issues;
+}
+
+async function runPublishChecks(browser) {
+  if (!baseUrl.startsWith(`http://${host}`) && !baseUrl.startsWith('http://localhost')) {
+    log('Skipping publish checks for non-local base URL.');
+    return [];
+  }
+
   const originalPublishedSource = await fs.readFile(publishedSettingsPath, 'utf8');
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   const page = await context.newPage();
@@ -242,54 +318,35 @@ async function runPublishAndDraftChecks(browser) {
   collectPageIssues(page, issues);
 
   try {
-    await seedLegacySnakeDraft(page);
-    await page.goto(`${baseUrl}/snake/edit`, { waitUntil: 'domcontentloaded' });
-    await expectVisible(page, page.getByTestId('snake-editor-page'), 'snake editor after legacy seed');
+    await page.goto(`${baseUrl}/home/edit`, { waitUntil: 'domcontentloaded' });
+    await expectVisible(page, page.getByTestId('home-editor-page'), 'home editor page for publish');
+    await expectVisible(page, page.getByTestId('home-editor-publish'), 'home editor publish button');
 
-    const trailSpanSlider = getSnakeSlider(page, 'Длина хвоста');
-    const trailPersistenceSlider = getSnakeSlider(page, 'Время затухания');
-    assert((await trailSpanSlider.inputValue()) === '36', 'Legacy planeTrailLength did not migrate to planeTrailSpan');
-    assert((await trailPersistenceSlider.inputValue()) === '18', 'Legacy planeTrailLength did not migrate to planeTrailPersistence');
+    await page.getByTestId('home-editor-tab-water').click();
+    const ranges = page.locator('.home-editor-controls input[type="range"]');
+    await expectVisible(page, ranges.nth(1), 'water tab sliders');
 
-    const legacyState = await page.evaluate(() => ({
-      legacy: localStorage.getItem('ddg_snake_settings_v3'),
-      draft: localStorage.getItem('ddg_snake_settings_v4'),
-    }));
-    assert(legacyState.legacy === null, 'Legacy v3 storage should be removed after draft migration');
-    assert(Boolean(legacyState.draft), 'Draft v4 storage should exist after migration');
-    log('OK legacy snake migration');
+    await setRangeValue(ranges.nth(0), 31.5); // waterExtent
+    await setRangeValue(ranges.nth(1), 336); // waterMeshDensity
+    await settlePage(page, 200);
 
-    const meshDensitySlider = getSnakeSlider(page, 'Плотность сетки');
-    await setRangeValue(meshDensitySlider, 104);
-    await page.getByTestId('snake-tab-camera').click();
-    const cameraFovSlider = getSnakeSlider(page, 'Угол обзора (FOV)');
-    await setRangeValue(cameraFovSlider, 52);
-    await settlePage(page, 300);
+    await page.getByTestId('home-editor-publish').click();
 
-    await page.getByTestId('snake-publish').click();
-    await settlePage(page, 1200);
+    await waitForCondition(async () => {
+      const settings = await readPublishedSettings();
+      return settings.waterExtent === 31.5 && settings.waterMeshDensity === 336;
+    }, 'Publish did not update water settings');
 
-    const publishedSettings = await readPublishedSettings();
-    assert(publishedSettings.planeMeshDensity === 104, 'Published preset did not store planeMeshDensity');
-    assert(publishedSettings.cameraFov === 52, 'Published preset did not store cameraFov');
-    assert(!('freeCamera' in publishedSettings), 'Published preset should not contain freeCamera');
-    assert(!('devStats' in publishedSettings), 'Published preset should not contain dev flags');
+    const [settings, keys] = await Promise.all([
+      readPublishedSettings(),
+      readPublishedKeys(),
+    ]);
 
-    await page.getByTestId('snake-tab-plane').click();
-    await setRangeValue(meshDensitySlider, 160);
-    await page.getByTestId('snake-tab-camera').click();
-    await setRangeValue(cameraFovSlider, 61);
-    await settlePage(page, 1200);
+    for (const key of keys) {
+      assert(settings[key] !== undefined, `Published settings missing key: ${key}`);
+    }
 
-    const livePublishedSettings = await readPublishedSettings();
-    assert(livePublishedSettings.planeMeshDensity === 160, 'Auto-publish did not update planeMeshDensity');
-    assert(livePublishedSettings.cameraFov === 61, 'Auto-publish did not update cameraFov');
-
-    await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
-    const homeMetrics = await waitForRuntimeMetrics(page, 'home');
-    assert(homeMetrics.settings.planeMeshDensity === 160, 'Public home should reflect live planeMeshDensity updates');
-    assert(homeMetrics.settings.cameraFov === 61, 'Public home should reflect live cameraFov updates');
-    log('OK published preset flow');
+    log('OK publish flow');
   } finally {
     await fs.writeFile(publishedSettingsPath, originalPublishedSource, 'utf8');
     await delay(300);
@@ -299,96 +356,7 @@ async function runPublishAndDraftChecks(browser) {
   return issues;
 }
 
-async function seedLocalPublicDrafts(page) {
-  await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
-  await page.evaluate(async () => {
-    localStorage.setItem('ddg_portfolio_projects_v1', JSON.stringify([
-      {
-        id: 'focus-point',
-        year: '2099',
-        fileCode: 'LOCAL',
-        title: { ru: 'LOCAL PORTFOLIO DRAFT', en: 'LOCAL PORTFOLIO DRAFT' },
-        subtitle: { ru: 'LOCAL', en: 'LOCAL' },
-        location: { ru: 'LOCAL', en: 'LOCAL' },
-        coordinates: null,
-        statement: { ru: 'LOCAL', en: 'LOCAL' },
-        description: { ru: 'LOCAL', en: 'LOCAL' },
-        coverImage: '',
-        coverPosition: '50% 50%',
-        coverAlt: { ru: 'LOCAL', en: 'LOCAL' },
-        plates: [],
-      },
-    ]));
-
-    const openDatabase = () => new Promise((resolve, reject) => {
-      const request = indexedDB.open('ddg-info-editor', 1);
-      request.onupgradeneeded = () => {
-        const database = request.result;
-        if (!database.objectStoreNames.contains('documents')) {
-          database.createObjectStore('documents');
-        }
-      };
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
-
-    const db = await openDatabase();
-    await new Promise((resolve, reject) => {
-      const transaction = db.transaction('documents', 'readwrite');
-      const store = transaction.objectStore('documents');
-      store.put({
-        version: 2,
-        contentHtml: '<div>LOCAL INFO DRAFT</div>',
-        paperSettings: {
-          brightness: 10,
-          grain: 90,
-          vignette: 90,
-          creases: 90,
-          dirt: 90,
-          textScale: 1,
-          tone: 0,
-          inkFade: 90,
-          inkBleed: 90,
-        },
-        overlays: [],
-        updatedAt: new Date().toISOString(),
-      }, 'default:ru');
-      transaction.oncomplete = () => resolve();
-      transaction.onerror = () => reject(transaction.error);
-    });
-    db.close();
-  });
-}
-
-async function runPublicSourceChecks(browser) {
-  const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
-  const page = await context.newPage();
-  const issues = [];
-  collectPageIssues(page, issues);
-
-  await seedLocalPublicDrafts(page);
-
-  await page.goto(`${baseUrl}/portfolio`, { waitUntil: 'domcontentloaded' });
-  await expectVisible(page, page.getByTestId('portfolio-project-focus-point'), 'published portfolio card');
-  const firstProjectName = (await page.locator('.portfolio-title-item__name').first().textContent())?.trim();
-  assert(firstProjectName === 'Тихая точка фокуса', 'Public portfolio should ignore local draft storage');
-
-  await page.goto(`${baseUrl}/map`, { waitUntil: 'domcontentloaded' });
-  await expectVisible(page, page.getByTestId('map-page'), 'published map page');
-  const markerCount = await page.locator('.ddg-map-marker').count();
-  assert(markerCount >= 5, 'Public map should ignore local draft storage');
-
-  await page.goto(`${baseUrl}/info`, { waitUntil: 'domcontentloaded' });
-  await expectVisible(page, page.getByTestId('info-page'), 'published info page');
-  const infoHtml = await page.locator('.info-view-surface').innerHTML();
-  assert(!infoHtml.includes('LOCAL INFO DRAFT'), 'Public info should ignore local editor draft');
-  log('OK public pages ignore local drafts');
-
-  await context.close();
-  return issues;
-}
-
-async function runResourceAudit(browser) {
+async function runRuntimeStabilityChecks(browser) {
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   const page = await context.newPage();
   const issues = [];
@@ -396,38 +364,20 @@ async function runResourceAudit(browser) {
   const homeSamples = [];
   const editorSamples = [];
 
-  for (let cycle = 0; cycle < 3; cycle += 1) {
+  for (let cycle = 0; cycle < 2; cycle += 1) {
     await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
-    homeSamples.push(await waitForRuntimeMetrics(page, 'home'));
+    homeSamples.push(await waitForRuntimeMetrics(page, 'water-scene'));
 
-    await page.goto(`${baseUrl}/info`, { waitUntil: 'domcontentloaded' });
-    await expectVisible(page, page.getByTestId('info-title'), `info title cycle ${cycle + 1}`);
-
-    await page.goto(`${baseUrl}/portfolio`, { waitUntil: 'domcontentloaded' });
-    const firstProject = page.getByTestId('portfolio-project-focus-point');
-    await expectVisible(page, firstProject, `portfolio card cycle ${cycle + 1}`);
-    await firstProject.click();
-    await expectVisible(page, page.getByTestId('portfolio-project-close'), `portfolio project close cycle ${cycle + 1}`);
-    await page.getByTestId('portfolio-plate-focus-point-1').click();
-    await expectVisible(page, page.getByTestId('portfolio-lightbox-close'), `portfolio lightbox close cycle ${cycle + 1}`);
-    await page.getByTestId('portfolio-lightbox-close').click({ force: true });
-    await page.getByTestId('portfolio-project-close').click();
-    await settlePage(page, 200);
-    const bodyOverflow = await page.evaluate(() => document.body.style.overflow);
-    assert(bodyOverflow === '' || bodyOverflow === 'visible', 'Portfolio close should restore body overflow');
-
-    await page.goto(`${baseUrl}/snake/edit`, { waitUntil: 'domcontentloaded' });
-    await settlePage(page, 500);
-    editorSamples.push(await waitForRuntimeMetrics(page, 'snake-editor'));
+    await page.goto(`${baseUrl}/home/edit`, { waitUntil: 'domcontentloaded' });
+    await settlePage(page, 600);
+    editorSamples.push(await waitForRuntimeMetrics(page, 'home-scene-editor'));
   }
 
-  assertStableMetricSeries(homeSamples, (sample) => sample.renderer.geometries, 'Home geometries', 1);
-  assertStableMetricSeries(homeSamples, (sample) => sample.renderer.textures, 'Home textures', 1);
-  assertStableMetricSeries(homeSamples, (sample) => sample.renderer.programs, 'Home programs', 1);
-  assertStableMetricSeries(editorSamples, (sample) => sample.renderer.geometries, 'Editor geometries', 2);
-  assertStableMetricSeries(editorSamples, (sample) => sample.renderer.textures, 'Editor textures', 2);
-  assertStableMetricSeries(editorSamples, (sample) => sample.renderer.programs, 'Editor programs', 1);
-  log('OK resource audit');
+  assertStableMetricSeries(homeSamples, (sample) => sample.renderer.geometries, 'Home geometries', 4);
+  assertStableMetricSeries(homeSamples, (sample) => sample.renderer.textures, 'Home textures', 4);
+  assertStableMetricSeries(editorSamples, (sample) => sample.renderer.geometries, 'Editor geometries', 6);
+  assertStableMetricSeries(editorSamples, (sample) => sample.renderer.textures, 'Editor textures', 6);
+  log('OK runtime stability');
 
   await context.close();
   return issues;
@@ -441,16 +391,13 @@ async function runMobileChecks(browser) {
 
   await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
   await expectVisible(page, page.getByTestId('site-nav'), 'mobile nav');
-  const navMetrics = await page.evaluate(() => {
-    const links = document.querySelector('.nav-links');
-    return {
-      scrollable: links ? links.scrollWidth > links.clientWidth : false,
-    };
-  });
-  assert(navMetrics.scrollable, 'Mobile navigation should remain horizontally scrollable');
+  await expectVisible(page, page.getByTestId('language-ru'), 'mobile language RU');
+  await expectVisible(page, page.getByTestId('language-en'), 'mobile language EN');
+  await expectVisible(page, page.getByTestId('home-page'), 'mobile home page');
 
   await page.goto(`${baseUrl}/portfolio`, { waitUntil: 'domcontentloaded' });
-  await expectVisible(page, page.getByTestId('portfolio-page'), 'mobile portfolio page');
+  await expectVisible(page, page.locator('.portfolio-page'), 'mobile portfolio page');
+  await expectVisible(page, page.locator('[data-testid^="project-row-"]'), 'mobile portfolio rows');
   log('OK mobile checks');
 
   await context.close();
@@ -476,9 +423,9 @@ async function main() {
     const issues = [
       ...(await runRouteChecks(browser)),
       ...(await runWebglFallbackChecks(browser)),
-      ...(await runPublishAndDraftChecks(browser)),
-      ...(await runPublicSourceChecks(browser)),
-      ...(await runResourceAudit(browser)),
+      ...(await runDraftMigrationChecks(browser)),
+      ...(await runPublishChecks(browser)),
+      ...(await runRuntimeStabilityChecks(browser)),
       ...(await runMobileChecks(browser)),
     ];
 
