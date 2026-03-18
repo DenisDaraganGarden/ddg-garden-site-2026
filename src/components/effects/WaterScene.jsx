@@ -49,9 +49,9 @@ const REFLECTION_BOAT_POSITION_EPSILON_SQ = 0.00004;
 const REFLECTION_BOAT_ROTATION_EPSILON = 0.00008;
 const CURSOR_BOAT_IMPACT_DURATION = 1.35;
 const CURSOR_BOAT_IMPACT_RADIUS_FACTOR = 5.2;
-const BOAT_NEUTRAL_Y = 0.18;
-const BOAT_TARGET_Y_MIN = -0.04;
-const BOAT_TARGET_Y_MAX = 0.36;
+const BOAT_NEUTRAL_Y = 0.26;
+const BOAT_TARGET_Y_MIN = 0.02;
+const BOAT_TARGET_Y_MAX = 0.44;
 const BOAT_MAX_PITCH = 0.24;
 const BOAT_MAX_ROLL = 0.28;
 let qualityTierCache = null;
@@ -1273,9 +1273,7 @@ function FloatingBoat({ settings, runtime, mode, orbitRef, onBoatPositionChange 
 
   const boatMaterial = useMemo(() => {
     const boatColor = new THREE.Color(settings.boatColor);
-    const luminance = (boatColor.r * 0.2126) + (boatColor.g * 0.7152) + (boatColor.b * 0.0722);
-    const darkBoost = THREE.MathUtils.clamp((0.12 - luminance) / 0.12, 0, 1);
-    const emissiveColor = boatColor.clone().lerp(new THREE.Color('#ffffff'), 0.14);
+    const envReflection = THREE.MathUtils.clamp(settings.envReflectionIntensity / 260, 0.08, 0.48);
 
     return new THREE.MeshPhysicalMaterial({
       color: boatColor,
@@ -1283,9 +1281,15 @@ function FloatingBoat({ settings, runtime, mode, orbitRef, onBoatPositionChange 
       roughness: settings.boatRoughness,
       clearcoat: settings.boatClearcoat,
       clearcoatRoughness: settings.boatClearcoatRoughness,
-      envMapIntensity: Math.max(settings.envReflectionIntensity / 100, 1.0),
-      emissive: emissiveColor,
-      emissiveIntensity: darkBoost * 0.24,
+      envMapIntensity: envReflection,
+      emissive: new THREE.Color('#000000'),
+      emissiveIntensity: 0,
+      transmission: 0,
+      transparent: false,
+      opacity: 1,
+      depthWrite: true,
+      depthTest: true,
+      side: THREE.DoubleSide,
     });
   }, [
     settings.boatColor,
