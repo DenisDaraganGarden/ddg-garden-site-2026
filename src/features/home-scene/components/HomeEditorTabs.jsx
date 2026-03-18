@@ -496,6 +496,125 @@ export const BoatTab = ({ settings, handleSettingChange }) => {
     );
 };
 
+export const SculptureTab = ({ settings, handleSettingChange }) => {
+    const { t } = useLanguage();
+
+    return (
+        <>
+            <p className="home-editor-inline-hint">
+                {t('homeEditor.controls.sculptureMoveHint')}
+            </p>
+            <RangeControl
+                label={t('homeEditor.controls.sculpturePositionX')}
+                value={settings.sculpturePosition?.x ?? 0}
+                min={-20}
+                max={20}
+                step={0.01}
+                unit="m"
+                formatValue={(value) => formatFloat(value)}
+                onChange={(event) => handleSettingChange(event, 'sculpturePosition.x')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.sculpturePositionZ')}
+                value={settings.sculpturePosition?.z ?? 0}
+                min={-20}
+                max={20}
+                step={0.01}
+                unit="m"
+                formatValue={(value) => formatFloat(value)}
+                onChange={(event) => handleSettingChange(event, 'sculpturePosition.z')}
+            />
+            <ColorControl
+                label={t('homeEditor.controls.sculptureColor')}
+                value={settings.sculptureColor}
+                onChange={(event) => handleSettingChange(event, 'sculptureColor', 'color')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.sculptureMetalness')}
+                value={settings.sculptureMetalness}
+                min={0}
+                max={1}
+                step={0.01}
+                formatValue={(value) => formatFloat(value)}
+                onChange={(event) => handleSettingChange(event, 'sculptureMetalness')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.sculptureRoughness')}
+                value={settings.sculptureRoughness}
+                min={0}
+                max={1}
+                step={0.01}
+                formatValue={(value) => formatFloat(value)}
+                onChange={(event) => handleSettingChange(event, 'sculptureRoughness')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.sculptureClearcoat')}
+                value={settings.sculptureClearcoat}
+                min={0}
+                max={1}
+                step={0.01}
+                formatValue={(value) => formatFloat(value)}
+                onChange={(event) => handleSettingChange(event, 'sculptureClearcoat')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.sculptureClearcoatRoughness')}
+                value={settings.sculptureClearcoatRoughness}
+                min={0}
+                max={1}
+                step={0.01}
+                formatValue={(value) => formatFloat(value)}
+                onChange={(event) => handleSettingChange(event, 'sculptureClearcoatRoughness')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.sculptureScale')}
+                value={settings.sculptureScale}
+                min={0.005}
+                max={0.2}
+                step={0.001}
+                formatValue={(value) => formatFloat(value, 3)}
+                onChange={(event) => handleSettingChange(event, 'sculptureScale')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.sculptureRotationX')}
+                value={settings.sculptureRotationX}
+                min={-180}
+                max={180}
+                step={1}
+                unit="°"
+                onChange={(event) => handleSettingChange(event, 'sculptureRotationX')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.sculptureRotationY')}
+                value={settings.sculptureRotationY}
+                min={-180}
+                max={180}
+                step={1}
+                unit="°"
+                onChange={(event) => handleSettingChange(event, 'sculptureRotationY')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.sculptureRotationZ')}
+                value={settings.sculptureRotationZ}
+                min={-180}
+                max={180}
+                step={1}
+                unit="°"
+                onChange={(event) => handleSettingChange(event, 'sculptureRotationZ')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.sculptureBottomOffset')}
+                value={settings.sculptureBottomOffset}
+                min={-2}
+                max={2}
+                step={0.01}
+                unit="m"
+                formatValue={(value) => formatFloat(value)}
+                onChange={(event) => handleSettingChange(event, 'sculptureBottomOffset')}
+            />
+        </>
+    );
+};
+
 export const DebugTab = ({ settings, handleSettingChange }) => {
     const { t } = useLanguage();
 

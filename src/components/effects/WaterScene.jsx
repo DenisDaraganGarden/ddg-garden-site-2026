@@ -24,6 +24,8 @@ const MOBILE_CAMERA_POSITION = [0, 5.1, 7.3];
 const DEFAULT_CLEAR_COLOR = '#000000';
 const DRAWING_BUFFER_SIZE = new THREE.Vector2();
 const DEFAULT_BOAT_ANCHOR = Object.freeze({ x: 2.1, z: -1.4 });
+const DEFAULT_SCULPTURE_ANCHOR = Object.freeze({ x: 0.6, z: 1.2 });
+const SCULPTURE_DRAG_EDGE_MARGIN = 0.35;
 const BOAT_PROBE_OFFSETS = [
   new THREE.Vector3(0, 0, 0),
   new THREE.Vector3(0, 0, 0.95),
@@ -786,6 +788,8 @@ const reflectionTargetPosition = new THREE.Vector3();
 const waterSurfaceWorldPosition = new THREE.Vector3();
 const reflectionBoatPosition = new THREE.Vector3();
 const reflectionBoatQuaternion = new THREE.Quaternion();
+const reflectionSculpturePosition = new THREE.Vector3();
+const reflectionSculptureQuaternion = new THREE.Quaternion();
 const reflectionPreviousClearColor = new THREE.Color();
 
 function WaterReflections({
@@ -812,6 +816,7 @@ function WaterReflections({
     seabed: null,
     interactionPlane: null,
     boatAnchor: null,
+    sculptureAnchor: null,
   });
   const reflectionTimingRef = useRef({
     initialized: false,
@@ -820,6 +825,8 @@ function WaterReflections({
     cameraQuaternion: new THREE.Quaternion(),
     boatPosition: new THREE.Vector3(),
     boatQuaternion: new THREE.Quaternion(),
+    sculpturePosition: new THREE.Vector3(),
+    sculptureQuaternion: new THREE.Quaternion(),
   });
 
   useEffect(() => () => {
@@ -856,11 +863,15 @@ function WaterReflections({
     if (!sceneObjects.boatAnchor) {
       sceneObjects.boatAnchor = scene.getObjectByName('boat-anchor');
     }
+    if (!sceneObjects.sculptureAnchor) {
+      sceneObjects.sculptureAnchor = scene.getObjectByName('sculpture-anchor');
+    }
 
     const waterSurface = sceneObjects.waterSurface;
     const seabed = sceneObjects.seabed;
     const interactionPlane = sceneObjects.interactionPlane;
     const boatAnchor = sceneObjects.boatAnchor;
+    const sculptureAnchor = sceneObjects.sculptureAnchor;
 
     if (!waterSurface) {
       return;
@@ -873,6 +884,10 @@ function WaterReflections({
       boatAnchor.getWorldPosition(reflectionBoatPosition);
       boatAnchor.getWorldQuaternion(reflectionBoatQuaternion);
     }
+    if (sculptureAnchor) {
+      sculptureAnchor.getWorldPosition(reflectionSculpturePosition);
+      sculptureAnchor.getWorldQuaternion(reflectionSculptureQuaternion);
+    }
 
     if (reflectionTiming.initialized) {
       const cameraMoved = camera.position.distanceToSquared(reflectionTiming.cameraPosition) > REFLECTION_CAMERA_POSITION_EPSILON_SQ
@@ -883,8 +898,14 @@ function WaterReflections({
           || quaternionDelta(reflectionBoatQuaternion, reflectionTiming.boatQuaternion) > REFLECTION_BOAT_ROTATION_EPSILON
         )
         : false;
+      const sculptureMoved = sculptureAnchor
+        ? (
+          reflectionSculpturePosition.distanceToSquared(reflectionTiming.sculpturePosition) > REFLECTION_BOAT_POSITION_EPSILON_SQ
+          || quaternionDelta(reflectionSculptureQuaternion, reflectionTiming.sculptureQuaternion) > REFLECTION_BOAT_ROTATION_EPSILON
+        )
+        : false;
 
-      isMoving = cameraMoved || boatMoved;
+      isMoving = cameraMoved || boatMoved || sculptureMoved;
     }
 
     const minInterval = 1 / Math.max(isMoving ? activeFps : idleFps, 1);
@@ -899,6 +920,10 @@ function WaterReflections({
     if (boatAnchor) {
       reflectionTiming.boatPosition.copy(reflectionBoatPosition);
       reflectionTiming.boatQuaternion.copy(reflectionBoatQuaternion);
+    }
+    if (sculptureAnchor) {
+      reflectionTiming.sculpturePosition.copy(reflectionSculpturePosition);
+      reflectionTiming.sculptureQuaternion.copy(reflectionSculptureQuaternion);
     }
 
     waterSurface.getWorldPosition(waterSurfaceWorldPosition);
@@ -1519,6 +1544,211 @@ function FloatingBoat({ settings, runtime, mode, orbitRef, onBoatPositionChange 
   );
 }
 
+function StaticSculpture({ settings, mode, orbitRef, onSculpturePositionChange }) {
+  const anchorRef = useRef();
+  const isDraggingRef = useRef(false);
+  const dragPointerIdRef = useRef(null);
+  const dragPlaneRef = useRef(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0));
+  const dragHitPointRef = useRef(new THREE.Vector3());
+  const dragOffsetRef = useRef(new THREE.Vector3());
+  const sculptureAnchorRef = useRef(new THREE.Vector3(
+    settings?.sculpturePosition?.x ?? DEFAULT_SCULPTURE_ANCHOR.x,
+    0,
+    settings?.sculpturePosition?.z ?? DEFAULT_SCULPTURE_ANCHOR.z,
+  ));
+  const setOrbitEnabled = useCallback((enabled) => {
+    if (orbitRef?.current) {
+      orbitRef.current.enabled = enabled;
+    }
+  }, [orbitRef]);
+  const seabedY = (-settings.waterDepthMeters) + settings.sculptureBottomOffset;
+  const commitSculpturePosition = useCallback((position) => {
+    if (typeof onSculpturePositionChange !== 'function' || !position) {
+      return;
+    }
+
+    onSculpturePositionChange({
+      x: Number(position.x.toFixed(4)),
+      z: Number(position.z.toFixed(4)),
+    });
+  }, [onSculpturePositionChange]);
+  const applySculptureAnchor = useCallback((x, z) => {
+    const halfExtent = Math.max((settings.waterExtent * 0.5) - SCULPTURE_DRAG_EDGE_MARGIN, 0.1);
+    const nextX = clamp(x, -halfExtent, halfExtent);
+    const nextZ = clamp(z, -halfExtent, halfExtent);
+    sculptureAnchorRef.current.set(nextX, 0, nextZ);
+
+    if (anchorRef.current) {
+      anchorRef.current.position.set(nextX, seabedY, nextZ);
+    }
+  }, [settings.waterExtent, seabedY]);
+
+  const sculptureMaterial = useMemo(() => new THREE.MeshPhysicalMaterial({
+    color: new THREE.Color(settings.sculptureColor),
+    metalness: settings.sculptureMetalness,
+    roughness: settings.sculptureRoughness,
+    clearcoat: settings.sculptureClearcoat,
+    clearcoatRoughness: settings.sculptureClearcoatRoughness,
+    envMapIntensity: THREE.MathUtils.clamp(settings.envReflectionIntensity / 220, 0.08, 0.6),
+    transmission: 0,
+    transparent: false,
+    opacity: 1,
+    depthWrite: true,
+    depthTest: true,
+    side: THREE.DoubleSide,
+  }), [
+    settings.envReflectionIntensity,
+    settings.sculptureClearcoat,
+    settings.sculptureClearcoatRoughness,
+    settings.sculptureColor,
+    settings.sculptureMetalness,
+    settings.sculptureRoughness,
+  ]);
+
+  useEffect(() => () => {
+    sculptureMaterial.dispose();
+  }, [sculptureMaterial]);
+
+  useEffect(() => {
+    const anchorX = settings?.sculpturePosition?.x ?? DEFAULT_SCULPTURE_ANCHOR.x;
+    const anchorZ = settings?.sculpturePosition?.z ?? DEFAULT_SCULPTURE_ANCHOR.z;
+
+    if (isDraggingRef.current) {
+      return;
+    }
+
+    applySculptureAnchor(anchorX, anchorZ);
+  }, [applySculptureAnchor, settings?.sculpturePosition?.x, settings?.sculpturePosition?.z]);
+
+  useEffect(() => {
+    if (!anchorRef.current) {
+      return;
+    }
+
+    anchorRef.current.position.y = seabedY;
+  }, [seabedY]);
+
+  const handleSculpturePointerDown = useCallback((event) => {
+    if (mode !== 'editor' || event.button !== 0 || !event.shiftKey) {
+      return;
+    }
+
+    dragPlaneRef.current.set(new THREE.Vector3(0, 1, 0), -seabedY);
+    const dragHitPoint = dragHitPointRef.current;
+
+    if (!event.ray?.intersectPlane(dragPlaneRef.current, dragHitPoint)) {
+      return;
+    }
+
+    event.stopPropagation();
+    event.target.setPointerCapture?.(event.pointerId);
+    isDraggingRef.current = true;
+    dragPointerIdRef.current = event.pointerId;
+    setOrbitEnabled(false);
+
+    const currentAnchor = anchorRef.current?.position ?? sculptureAnchorRef.current;
+    dragOffsetRef.current.set(
+      currentAnchor.x - dragHitPoint.x,
+      0,
+      currentAnchor.z - dragHitPoint.z,
+    );
+  }, [mode, seabedY, setOrbitEnabled]);
+
+  const handleSculpturePointerMove = useCallback((event) => {
+    if (!isDraggingRef.current) {
+      return;
+    }
+
+    if (dragPointerIdRef.current !== null && event.pointerId !== dragPointerIdRef.current) {
+      return;
+    }
+
+    const dragHitPoint = dragHitPointRef.current;
+
+    if (!event.ray?.intersectPlane(dragPlaneRef.current, dragHitPoint)) {
+      return;
+    }
+
+    event.stopPropagation();
+    applySculptureAnchor(
+      dragHitPoint.x + dragOffsetRef.current.x,
+      dragHitPoint.z + dragOffsetRef.current.z,
+    );
+  }, [applySculptureAnchor]);
+
+  const finishSculptureDrag = useCallback((event) => {
+    if (!isDraggingRef.current) {
+      return;
+    }
+
+    event?.stopPropagation?.();
+    setOrbitEnabled(true);
+
+    if (dragPointerIdRef.current !== null && event?.target?.releasePointerCapture) {
+      event.target.releasePointerCapture(dragPointerIdRef.current);
+    }
+
+    isDraggingRef.current = false;
+    dragPointerIdRef.current = null;
+    commitSculpturePosition(anchorRef.current?.position ?? sculptureAnchorRef.current);
+  }, [commitSculpturePosition, setOrbitEnabled]);
+
+  useEffect(() => () => {
+    setOrbitEnabled(true);
+  }, [setOrbitEnabled]);
+
+  const obj = useLoader(OBJLoader, '/models/sculpture/sculpture.obj');
+  const normalizedObj = useMemo(() => {
+    const clone = obj.clone();
+    const bounds = new THREE.Box3().setFromObject(clone);
+    const center = bounds.getCenter(new THREE.Vector3());
+
+    clone.position.set(-center.x, -bounds.min.y, -center.z);
+    return clone;
+  }, [obj]);
+  const clonedObj = useMemo(() => {
+    const clone = normalizedObj.clone();
+
+    clone.traverse((child) => {
+      if (!child.isMesh) {
+        return;
+      }
+
+      child.material = sculptureMaterial;
+      child.castShadow = true;
+      child.receiveShadow = true;
+    });
+
+    return clone;
+  }, [normalizedObj, sculptureMaterial]);
+
+  if (settings.debugView !== 'beauty') {
+    return null;
+  }
+
+  return (
+    <group
+      ref={anchorRef}
+      name="sculpture-anchor"
+      rotation={[
+        THREE.MathUtils.degToRad(settings.sculptureRotationX),
+        THREE.MathUtils.degToRad(settings.sculptureRotationY),
+        THREE.MathUtils.degToRad(settings.sculptureRotationZ),
+      ]}
+      scale={[settings.sculptureScale, settings.sculptureScale, settings.sculptureScale]}
+      onPointerDown={handleSculpturePointerDown}
+      onPointerMove={handleSculpturePointerMove}
+      onPointerUp={finishSculptureDrag}
+      onPointerCancel={finishSculptureDrag}
+      onLostPointerCapture={finishSculptureDrag}
+    >
+      <group name="sculpture">
+        <primitive object={clonedObj} />
+      </group>
+    </group>
+  );
+}
+
 function SceneReadyBeacon({ onSceneReady }) {
   const { active } = useProgress();
   const didNotifyRef = useRef(false);
@@ -1551,6 +1781,7 @@ function WaterRuntimeScene({
   mode,
   onCameraRigApi,
   onBoatPositionChange,
+  onSculpturePositionChange,
   onSceneReady,
 }) {
   const { size } = useThree();
@@ -1588,6 +1819,12 @@ function WaterRuntimeScene({
           orbitRef={orbitRef}
           onBoatPositionChange={onBoatPositionChange}
         />
+        <StaticSculpture
+          settings={settings}
+          mode={mode}
+          orbitRef={orbitRef}
+          onSculpturePositionChange={onSculpturePositionChange}
+        />
         <WaterInteractionPlane settings={settings} pointerStateRef={runtime.pointerStateRef} />
       </WaterReflections>
       <SceneReadyBeacon onSceneReady={onSceneReady} />
@@ -1610,6 +1847,7 @@ const WaterScene = ({
   fallbackTestId,
   onCameraRigApi,
   onBoatPositionChange,
+  onSculpturePositionChange,
   onSceneReady,
 }) => {
   const settings = settingsProp ?? getBaseHomeSceneSettings();
@@ -1629,6 +1867,7 @@ const WaterScene = ({
         mode={mode}
         onCameraRigApi={onCameraRigApi}
         onBoatPositionChange={onBoatPositionChange}
+        onSculpturePositionChange={onSculpturePositionChange}
         onSceneReady={onSceneReady}
       />
     </SceneCanvas>

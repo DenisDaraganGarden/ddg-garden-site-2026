@@ -17,7 +17,30 @@ export const useHomeSceneEditor = () => {
             value = parseFloat(event.target.value);
         }
 
-        setSettings(prev => ({
+        if (typeof key === 'string' && key.includes('.')) {
+            const path = key.split('.');
+
+            setSettings((prev) => {
+                const next = { ...prev };
+                let cursor = next;
+
+                for (let index = 0; index < path.length - 1; index += 1) {
+                    const part = path[index];
+                    const current = cursor[part];
+                    cursor[part] = current && typeof current === 'object' && !Array.isArray(current)
+                        ? { ...current }
+                        : {};
+                    cursor = cursor[part];
+                }
+
+                cursor[path[path.length - 1]] = value;
+                return next;
+            });
+
+            return;
+        }
+
+        setSettings((prev) => ({
             ...prev,
             [key]: value,
         }));

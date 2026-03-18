@@ -7,6 +7,7 @@ import {
     LightingTab,
     WaterTab,
     BoatTab,
+    SculptureTab,
 } from './HomeEditorTabs';
 
 const HomeEditorPanel = ({
@@ -28,6 +29,7 @@ const HomeEditorPanel = ({
         { id: 'depth', label: t('homeEditor.tabs.depth') },
         { id: 'camera', label: t('homeEditor.tabs.camera') },
         { id: 'boat', label: t('homeEditor.tabs.boat') },
+        { id: 'sculpture', label: t('homeEditor.tabs.sculpture') },
         { id: 'debug', label: t('homeEditor.tabs.debug') },
     ];
     const canPublish = typeof onPublish === 'function';
@@ -81,6 +83,7 @@ const HomeEditorPanel = ({
                         />
                     )}
                     {activeTab === 'boat' && <BoatTab settings={settings} handleSettingChange={handleSettingChange} />}
+                    {activeTab === 'sculpture' && <SculptureTab settings={settings} handleSettingChange={handleSettingChange} />}
                     {activeTab === 'debug' && <DebugTab settings={settings} handleSettingChange={handleSettingChange} />}
                 </div>
             </div>

@@ -31,6 +31,7 @@ const DEFAULT_DEBUG_VIEW = HOME_SCENE_DEBUG_VIEWS[0].value;
 const DEFAULT_LANDSCAPE_CAMERA_POSITION = { x: 0, y: 5.8, z: 8.9 };
 const DEFAULT_PORTRAIT_CAMERA_POSITION = { x: 0, y: 5.1, z: 7.3 };
 const DEFAULT_CAMERA_TARGET = { x: 0, y: 0, z: 0 };
+const DEFAULT_SCULPTURE_POSITION = { x: 0.6, z: 1.2 };
 const VALID_HDRI_PRESETS = new Set(HOME_SCENE_HDRI_PRESETS.map((option) => option.value));
 const VALID_DEBUG_VIEWS = new Set(HOME_SCENE_DEBUG_VIEWS.map((option) => option.value));
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
@@ -140,6 +141,17 @@ export const getBaseHomeSceneSettings = () => ({
   boatPosition: { x: 2.1, z: -1.4 },
   boatYaw: 18,
   boatScale: 0.001,
+  sculptureColor: '#b7bcc7',
+  sculptureMetalness: 0.08,
+  sculptureRoughness: 0.78,
+  sculptureClearcoat: 0.12,
+  sculptureClearcoatRoughness: 0.82,
+  sculpturePosition: { ...DEFAULT_SCULPTURE_POSITION },
+  sculptureScale: 0.045,
+  sculptureRotationX: 0,
+  sculptureRotationY: 0,
+  sculptureRotationZ: 0,
+  sculptureBottomOffset: 0.08,
   seabedTextureScale: 1.0,
   seabedSaturation: 1.0,
   seabedBrightness: 1.0,
@@ -302,6 +314,22 @@ const normalizeHomeSceneSettings = (savedSettings = {}) => {
     boatPosition: pickVector2(merged.boatPosition, defaults.boatPosition),
     boatYaw: clampFloat(merged.boatYaw, -180, 180, defaults.boatYaw),
     boatScale: clampFloat(merged.boatScale, 0.001, 0.1, defaults.boatScale),
+    sculptureColor: pickColor(merged.sculptureColor, defaults.sculptureColor),
+    sculptureMetalness: clampFloat(merged.sculptureMetalness, 0, 1, defaults.sculptureMetalness),
+    sculptureRoughness: clampFloat(merged.sculptureRoughness, 0, 1, defaults.sculptureRoughness),
+    sculptureClearcoat: clampFloat(merged.sculptureClearcoat, 0, 1, defaults.sculptureClearcoat),
+    sculptureClearcoatRoughness: clampFloat(
+      merged.sculptureClearcoatRoughness,
+      0,
+      1,
+      defaults.sculptureClearcoatRoughness,
+    ),
+    sculpturePosition: pickVector2(merged.sculpturePosition, defaults.sculpturePosition),
+    sculptureScale: clampFloat(merged.sculptureScale, 0.005, 0.2, defaults.sculptureScale),
+    sculptureRotationX: clampFloat(merged.sculptureRotationX, -180, 180, defaults.sculptureRotationX),
+    sculptureRotationY: clampFloat(merged.sculptureRotationY, -180, 180, defaults.sculptureRotationY),
+    sculptureRotationZ: clampFloat(merged.sculptureRotationZ, -180, 180, defaults.sculptureRotationZ),
+    sculptureBottomOffset: clampFloat(merged.sculptureBottomOffset, -2, 2, defaults.sculptureBottomOffset),
     seabedTextureScale: clampFloat(merged.seabedTextureScale, 0.1, 10.0, defaults.seabedTextureScale),
     seabedSaturation: clampFloat(merged.seabedSaturation, 0, 2, defaults.seabedSaturation),
     seabedBrightness: clampFloat(merged.seabedBrightness, 0, 2, defaults.seabedBrightness),

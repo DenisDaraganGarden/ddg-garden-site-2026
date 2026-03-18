@@ -97,6 +97,19 @@ const HomeEdit = () => {
             },
         }));
     }, [setSettings]);
+    const handleSculpturePositionChange = useCallback((position) => {
+        if (!position) {
+            return;
+        }
+
+        setSettings((previous) => ({
+            ...previous,
+            sculpturePosition: {
+                x: Number(position.x.toFixed(4)),
+                z: Number(position.z.toFixed(4)),
+            },
+        }));
+    }, [setSettings]);
 
     const handlePublish = async () => {
         const publishableSettings = sanitizeHomeSceneSettingsForPublish(settings);
@@ -146,6 +159,7 @@ const HomeEdit = () => {
                     settings={settings}
                     onCameraRigApi={handleCameraRigApi}
                     onBoatPositionChange={handleBoatPositionChange}
+                    onSculpturePositionChange={handleSculpturePositionChange}
                 />
             </div>
 

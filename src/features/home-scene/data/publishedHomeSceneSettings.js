@@ -22,62 +22,76 @@ export const publishedHomeSceneSettings = {
   "moonSpecularStrength": 0.18,
   "moonSpecularPower": 38,
   "waterDepthMeters": 1,
-  "seabedReliefStrength": 0.86,
+  "seabedReliefStrength": 1.2,
   "seabedReliefScale": 1.8,
   "causticsIntensity": 0.55,
   "causticsScale": 1.2,
   "causticsSharpness": 0.45,
-  "cameraFov": 36,
+  "cameraFov": 39,
   "cameraCustomPose": true,
   "cameraPosition": {
-    "x": -12.9263,
-    "y": 6.117,
-    "z": 3.9813
+    "x": 12.8726,
+    "y": 5.444,
+    "z": -0.6884
   },
   "cameraTarget": {
-    "x": 3.1038,
+    "x": 3.1143,
     "y": 0,
-    "z": -1.461
+    "z": -0.2615
   },
   "cameraCustomPoseLandscape": true,
   "cameraPositionLandscape": {
-    "x": -12.9263,
-    "y": 6.117,
-    "z": 3.9813
+    "x": 12.8726,
+    "y": 5.444,
+    "z": -0.6884
   },
   "cameraTargetLandscape": {
-    "x": 3.1038,
+    "x": 3.1143,
     "y": 0,
-    "z": -1.461
+    "z": -0.2615
   },
   "cameraCustomPosePortrait": true,
   "cameraPositionPortrait": {
-    "x": -12.9263,
-    "y": 6.117,
-    "z": 3.9813
+    "x": 19.4985,
+    "y": 5.2462,
+    "z": -2.9406
   },
   "cameraTargetPortrait": {
-    "x": 3.1038,
+    "x": 2.2931,
     "y": 0,
-    "z": -1.461
+    "z": -2.27
   },
   "debugView": "beauty",
-  "boatColor": "#1a1c21",
-  "boatMetalness": 0.08,
-  "boatRoughness": 0.82,
-  "boatClearcoat": 0.12,
-  "boatClearcoatRoughness": 0.76,
-  "boatReflectionIntensity": 0.9,
+  "boatColor": "#787878",
+  "boatMetalness": 0.19,
+  "boatRoughness": 0.65,
+  "boatClearcoat": 0.74,
+  "boatClearcoatRoughness": 0.36,
+  "boatReflectionIntensity": 1.05,
   "boatPosition": {
     "x": 2.1,
     "z": -1.4
   },
   "boatYaw": 18,
   "boatScale": 0.001,
+  "sculptureColor": "#b7bcc7",
+  "sculptureMetalness": 0.08,
+  "sculptureRoughness": 0.78,
+  "sculptureClearcoat": 0.12,
+  "sculptureClearcoatRoughness": 0.82,
+  "sculpturePosition": {
+    "x": 0.6,
+    "z": 1.2
+  },
+  "sculptureScale": 0.045,
+  "sculptureRotationX": 0,
+  "sculptureRotationY": 0,
+  "sculptureRotationZ": 0,
+  "sculptureBottomOffset": 0.08,
   "seabedTextureScale": 1,
   "seabedSaturation": 1,
   "seabedBrightness": 1,
   "waterTurbidity": 0.3,
-  "ambientWaveIntensity": 0.12,
+  "ambientWaveIntensity": 0.11,
   "ambientWaveSpeed": 0.85
 };
