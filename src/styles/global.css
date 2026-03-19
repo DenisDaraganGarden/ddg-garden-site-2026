@@ -71,7 +71,7 @@ main {
 
 .stub-page {
   min-height: 100vh;
-  padding: 2.5rem 2rem calc(var(--mobile-header-height) + 2rem);
+  padding: var(--nav-safe-top) var(--nav-safe-left) calc(var(--mobile-header-height) + 2rem);
   display: flex;
   align-items: flex-start;
   justify-content: flex-start;
@@ -114,6 +114,6 @@ main {
   }
 
   .stub-page {
-    padding: calc(var(--mobile-header-height) + 1rem) 1rem 2rem;
+    padding: var(--nav-safe-top) var(--nav-safe-left) 2rem;
   }
 }

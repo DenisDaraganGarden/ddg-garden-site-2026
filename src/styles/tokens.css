@@ -14,6 +14,8 @@
   --mobile-header-height: 132px;
   --space-page-x: clamp(1rem, 4vw, 4rem);
   --space-page-y: 2.5rem;
+  --nav-safe-top: calc(8.8rem + env(safe-area-inset-top));
+  --nav-safe-left: clamp(1.2rem, 3vw, 3rem);
 
   --motion-fast: 180ms;
   --motion-base: 300ms;
@@ -27,5 +29,7 @@
 @media (max-width: 768px) {
   :root {
     --mobile-header-height: 92px;
+    --nav-safe-top: calc(5.8rem + env(safe-area-inset-top));
+    --nav-safe-left: 1rem;
   }
 }

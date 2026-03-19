@@ -7,6 +7,7 @@
     "dev": "node ./node_modules/vite/bin/vite.js",
     "build": "node ./node_modules/vite/bin/vite.js build",
     "check:bundle": "node scripts/check-bundle.mjs",
+    "cleanup:playwright": "node scripts/cleanup-playwright.mjs",
     "lint": "node ./node_modules/eslint/bin/eslint.js .",
     "optimize:portfolio": "node scripts/optimize-portfolio-images.mjs --prune-originals",
     "preview": "node ./node_modules/vite/bin/vite.js preview",

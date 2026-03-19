@@ -11,8 +11,8 @@
 
 .map-page__header {
     position: absolute;
-    top: 6rem;
-    left: 5%;
+    top: var(--nav-safe-top);
+    left: var(--nav-safe-left);
     z-index: 1000;
     pointer-events: none;
 }
@@ -25,104 +25,6 @@
     color: #fff;
     /* White for dark theme */
     margin-top: 0.5rem;
-}
-
-.map-container-wrap {
-    flex-grow: 1;
-    width: 100%;
-    height: 100%;
-    position: relative;
-}
-
-.map-empty-state {
-    display: grid;
-    gap: 0.8rem;
-    width: min(34rem, calc(100% - 3rem));
-    margin: auto;
-    padding: 2rem;
-    text-align: left;
-    background: rgba(255, 255, 255, 0.7);
-    border: 1px solid rgba(0, 0, 0, 0.08);
-}
-
-.map-empty-state h2 {
-    font-size: clamp(1.2rem, 2vw, 1.6rem);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: #111;
-}
-
-.map-empty-state p {
-    color: rgba(0, 0, 0, 0.7);
-    line-height: 1.7;
-}
-
-.ddg-leaflet-container {
-    width: 100%;
-    height: 100%;
-    background: #fbf9f6;
-    filter: grayscale(1) contrast(1.1) brightness(1.05);
-    /* Ensure black and white */
-}
-
-/* Custom Marker Styling */
-.ddg-map-marker {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.ddg-map-marker-inner {
-    width: 12px;
-    height: 12px;
-    background: #000;
-    border-radius: 50%;
-    border: 2px solid #fff;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-    transition: transform 0.2s ease;
-}
-
-.ddg-map-marker:hover .ddg-map-marker-inner {
-    transform: scale(1.3);
-    background: #333;
-}
-
-/* Popup Styling */
-.ddg-map-popup .leaflet-popup-content-wrapper {
-    background: #fbf9f6;
-    border-radius: 0;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
-    padding: 1rem;
-    border: 1px solid rgba(0, 0, 0, 0.1);
-}
-
-.ddg-map-popup .leaflet-popup-tip {
-    background: #fbf9f6;
-}
-
-.ddg-popup-content {
-    min-width: 200px;
-}
-
-.ddg-popup-year {
-    display: block;
-    font-size: 0.75rem;
-    color: rgba(0, 0, 0, 0.5);
-    margin-bottom: 0.25rem;
-}
-
-.ddg-popup-title {
-    font-size: 1.1rem;
-    text-transform: uppercase;
-    letter-spacing: -0.02em;
-    margin: 0 0 0.5rem 0;
-    line-height: 1.1;
-}
-
-.ddg-popup-location {
-    font-size: 0.85rem;
-    color: rgba(0, 0, 0, 0.7);
-    margin-bottom: 1rem;
 }
 
 .portfolio-kicker {
@@ -195,12 +97,6 @@
     font-size: 0.9rem;
     color: rgba(255, 255, 255, 0.7);
     margin: 0;
-}
-
-/* Override for 2D map elements (cleanup) */
-.map-container-wrap,
-.map-empty-state {
-    display: none;
 }
 
 /* HTML Labels */
@@ -351,7 +247,8 @@
 }
 
 .globe-html-label--project-cluster:hover .globe-html-label__project-link--detail,
-.globe-html-label--project-cluster:focus-within .globe-html-label__project-link--detail {
+.globe-html-label--project-cluster:focus-within .globe-html-label__project-link--detail,
+.globe-html-label--project-cluster.is-expanded .globe-html-label__project-link--detail {
     display: block;
 }
 
@@ -374,8 +271,8 @@
 
 @media (max-width: 900px) {
     .map-page__header {
-        top: 5rem;
-        left: 1.5rem;
+        top: var(--nav-safe-top);
+        left: var(--nav-safe-left);
     }
 
     .globe-tooltip {

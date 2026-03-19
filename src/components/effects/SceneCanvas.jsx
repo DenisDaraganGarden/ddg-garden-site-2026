@@ -37,6 +37,7 @@ function getCanvasProfile(mode) {
   }
 
   const isEditor = mode === 'editor';
+  const isPublicMode = !isEditor;
   const isMobileViewport = window.innerWidth < 768;
   const hasNavigator = typeof navigator !== 'undefined';
   const deviceMemory = hasNavigator && typeof navigator.deviceMemory === 'number'
@@ -52,9 +53,9 @@ function getCanvasProfile(mode) {
   return {
     maxDpr: isEditor
       ? (isLowPowerDevice ? 1.2 : 1.4)
-      : (isLowPowerDevice ? 1.05 : 1.3),
-    antialias: !isLowPowerDevice,
-    powerPreference: isLowPowerDevice ? 'low-power' : 'default',
+      : (isLowPowerDevice ? 1 : 1.12),
+    antialias: isPublicMode ? false : !isLowPowerDevice,
+    powerPreference: isPublicMode ? 'low-power' : (isLowPowerDevice ? 'low-power' : 'default'),
   };
 }
 

@@ -424,6 +424,26 @@ export const BoatTab = ({ settings, handleSettingChange }) => {
             <p className="home-editor-inline-hint">
                 {t('homeEditor.controls.boatMoveHint')}
             </p>
+            <RangeControl
+                label={t('homeEditor.controls.boatPositionX')}
+                value={settings.boatPosition?.x ?? 0}
+                min={-20}
+                max={20}
+                step={0.01}
+                unit="m"
+                formatValue={(value) => formatFloat(value)}
+                onChange={(event) => handleSettingChange(event, 'boatPosition.x')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.boatPositionZ')}
+                value={settings.boatPosition?.z ?? 0}
+                min={-20}
+                max={20}
+                step={0.01}
+                unit="m"
+                formatValue={(value) => formatFloat(value)}
+                onChange={(event) => handleSettingChange(event, 'boatPosition.z')}
+            />
             <ColorControl
                 label={t('homeEditor.controls.boatColor')}
                 value={settings.boatColor}

@@ -2,12 +2,21 @@ import React from 'react';
 import { useLocation } from 'react-router-dom';
 import ambientTrack from '../../../portfolio/VOCES8 & Samuel Barber - Barber Agnus Dei.mp3';
 
+function isDocumentVisible() {
+    if (typeof document === 'undefined') {
+        return true;
+    }
+
+    return document.visibilityState === 'visible' && !document.hidden;
+}
+
 const SiteMusicController = () => {
     const location = useLocation();
     const isEditorRoute = location.pathname.startsWith('/home/edit');
     const [isMusicPlaying, setIsMusicPlaying] = React.useState(false);
     const audioRef = React.useRef(null);
     const waitingForGestureRef = React.useRef(false);
+    const wasPlayingBeforeBackgroundRef = React.useRef(false);
 
     const syncPlayback = React.useCallback(async () => {
         const audio = audioRef.current;
@@ -15,7 +24,7 @@ const SiteMusicController = () => {
             return;
         }
 
-        if (isEditorRoute) {
+        if (isEditorRoute || !isDocumentVisible()) {
             waitingForGestureRef.current = false;
             audio.pause();
             setIsMusicPlaying(false);
@@ -25,6 +34,7 @@ const SiteMusicController = () => {
         try {
             await audio.play();
             waitingForGestureRef.current = false;
+            wasPlayingBeforeBackgroundRef.current = true;
             setIsMusicPlaying(true);
         } catch {
             waitingForGestureRef.current = true;
@@ -35,8 +45,9 @@ const SiteMusicController = () => {
     React.useEffect(() => {
         const audio = new Audio(ambientTrack);
         audio.loop = true;
-        audio.preload = 'auto';
+        audio.preload = 'metadata';
         audio.volume = 0.36;
+        audio.playsInline = true;
 
         const handlePlay = () => setIsMusicPlaying(true);
         const handlePause = () => setIsMusicPlaying(false);
@@ -63,7 +74,7 @@ const SiteMusicController = () => {
         }
 
         const resumePlayback = () => {
-            if (!waitingForGestureRef.current) {
+            if (!waitingForGestureRef.current || !isDocumentVisible()) {
                 return;
             }
 
@@ -78,6 +89,57 @@ const SiteMusicController = () => {
             window.removeEventListener('pointerdown', resumePlayback);
             window.removeEventListener('touchstart', resumePlayback);
             window.removeEventListener('keydown', resumePlayback);
+        };
+    }, [isEditorRoute, syncPlayback]);
+
+    React.useEffect(() => {
+        if (typeof window === 'undefined' || typeof document === 'undefined') {
+            return undefined;
+        }
+
+        const pauseForBackground = () => {
+            const audio = audioRef.current;
+            if (!audio) {
+                return;
+            }
+
+            wasPlayingBeforeBackgroundRef.current = !audio.paused;
+            audio.pause();
+            setIsMusicPlaying(false);
+        };
+
+        const resumeFromBackground = () => {
+            if (!isDocumentVisible()) {
+                return;
+            }
+
+            if (!isEditorRoute && wasPlayingBeforeBackgroundRef.current) {
+                void syncPlayback();
+            }
+        };
+
+        const handleVisibilityChange = () => {
+            if (isDocumentVisible()) {
+                resumeFromBackground();
+                return;
+            }
+
+            pauseForBackground();
+        };
+
+        handleVisibilityChange();
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        window.addEventListener('pagehide', pauseForBackground);
+        window.addEventListener('pageshow', resumeFromBackground);
+        window.addEventListener('blur', pauseForBackground);
+        window.addEventListener('focus', resumeFromBackground);
+
+        return () => {
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+            window.removeEventListener('pagehide', pauseForBackground);
+            window.removeEventListener('pageshow', resumeFromBackground);
+            window.removeEventListener('blur', pauseForBackground);
+            window.removeEventListener('focus', resumeFromBackground);
         };
     }, [isEditorRoute, syncPlayback]);
 

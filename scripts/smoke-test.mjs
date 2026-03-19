@@ -5,12 +5,15 @@ import process from 'node:process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
 import { chromium } from 'playwright';
+import { cleanupPlaywrightProcesses } from './cleanup-playwright.mjs';
 
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const host = '127.0.0.1';
 const port = Number(process.env.SMOKE_PORT ?? '4173');
 const baseUrl = process.env.SMOKE_BASE_URL ?? `http://${host}:${port}`;
 const useExistingServer = process.env.SMOKE_USE_EXISTING_SERVER === '1';
+const smokeMaxRuntimeMs = Number(process.env.SMOKE_MAX_RUNTIME_MS ?? '900000');
+const shouldAutoCleanupProcesses = process.env.SMOKE_SKIP_PROCESS_CLEANUP !== '1';
 
 const HOME_SCENE_SETTINGS_STORAGE_KEY = 'ddg_home_scene_settings_v1';
 const LEGACY_HOME_SCENE_KEYS = ['ddg_snake_settings_v4', 'ddg_snake_settings_v3'];
@@ -31,6 +34,21 @@ const publishedKeysPath = path.join(
   'data',
   'publishedHomeSceneKeys.js',
 );
+const homeEditorTabsPath = path.join(
+  rootDir,
+  'src',
+  'features',
+  'home-scene',
+  'components',
+  'HomeEditorTabs.jsx',
+);
+
+let activeServerProcess;
+let activeBrowser;
+let cleanupPromise = null;
+let watchdogTimer = null;
+let isShuttingDown = false;
+let guardsInstalled = false;
 
 function log(message) {
   process.stdout.write(`${message}\n`);
@@ -88,6 +106,7 @@ function startDevServer() {
     {
       cwd: rootDir,
       env: { ...process.env, BROWSER: 'none' },
+      detached: true,
       stdio: ['ignore', 'pipe', 'pipe'],
     },
   );
@@ -101,6 +120,104 @@ function startDevServer() {
   });
 
   return child;
+}
+
+function stopDevServer(serverProcess) {
+  if (!serverProcess || serverProcess.killed) {
+    return;
+  }
+
+  try {
+    process.kill(-serverProcess.pid, 'SIGTERM');
+  } catch {
+    serverProcess.kill('SIGTERM');
+  }
+}
+
+function clearSmokeWatchdog() {
+  if (!watchdogTimer) {
+    return;
+  }
+
+  clearTimeout(watchdogTimer);
+  watchdogTimer = null;
+}
+
+function startSmokeWatchdog() {
+  if (!Number.isFinite(smokeMaxRuntimeMs) || smokeMaxRuntimeMs <= 0) {
+    return;
+  }
+
+  watchdogTimer = setTimeout(() => {
+    if (isShuttingDown) {
+      return;
+    }
+
+    isShuttingDown = true;
+    process.stderr.write(
+      `[smoke] Max runtime exceeded (${Math.round(smokeMaxRuntimeMs / 1000)}s). Starting cleanup.\n`,
+    );
+    void performCleanup().finally(() => {
+      process.exit(1);
+    });
+  }, smokeMaxRuntimeMs);
+  watchdogTimer.unref?.();
+}
+
+async function performCleanup() {
+  if (cleanupPromise) {
+    await cleanupPromise;
+    return;
+  }
+
+  cleanupPromise = (async () => {
+    clearSmokeWatchdog();
+
+    if (activeBrowser) {
+      await activeBrowser.close().catch(() => {});
+      activeBrowser = undefined;
+    }
+
+    if (activeServerProcess) {
+      stopDevServer(activeServerProcess);
+      activeServerProcess = undefined;
+    }
+
+    await delay(250);
+
+    if (shouldAutoCleanupProcesses) {
+      cleanupPlaywrightProcesses({
+        includeSmokeScript: false,
+        logger: (message) => log(message),
+      });
+    }
+  })();
+
+  await cleanupPromise;
+  cleanupPromise = null;
+}
+
+function installProcessGuards() {
+  if (guardsInstalled) {
+    return;
+  }
+
+  guardsInstalled = true;
+
+  const handleSignal = (signal, exitCode) => {
+    if (isShuttingDown) {
+      return;
+    }
+
+    isShuttingDown = true;
+    process.stderr.write(`[smoke] Received ${signal}. Starting cleanup.\n`);
+    void performCleanup().finally(() => {
+      process.exit(exitCode);
+    });
+  };
+
+  process.once('SIGINT', () => handleSignal('SIGINT', 130));
+  process.once('SIGTERM', () => handleSignal('SIGTERM', 143));
 }
 
 async function expectVisible(page, locator, description) {
@@ -130,11 +247,11 @@ async function waitForCondition(check, message, timeoutMs = 12000, intervalMs = 
   throw new Error(message);
 }
 
-async function waitForRuntimeMetrics(page, sceneId) {
+async function waitForRuntimeMetrics(page, sceneId, timeoutMs = 20000) {
   await page.waitForFunction(
     (id) => Boolean(window.__DDG_RUNTIME_METRICS__?.[id]),
     sceneId,
-    { timeout: 10000 },
+    { timeout: timeoutMs },
   );
   return page.evaluate((id) => window.__DDG_RUNTIME_METRICS__[id], sceneId);
 }
@@ -152,6 +269,23 @@ async function importFresh(modulePath) {
   const fileUrl = new URL(pathToFileURL(modulePath).href);
   fileUrl.searchParams.set('t', `${Date.now()}-${Math.random()}`);
   return import(fileUrl.href);
+}
+
+async function readEditorControlKeys() {
+  const source = await fs.readFile(homeEditorTabsPath, 'utf8');
+  const regex = /handleSettingChange\(event,\s*'([^']+)'/g;
+  const keys = new Set();
+  let match = regex.exec(source);
+
+  while (match) {
+    const rawKey = String(match[1] ?? '').trim();
+    if (rawKey) {
+      keys.add(rawKey.split('.')[0]);
+    }
+    match = regex.exec(source);
+  }
+
+  return [...keys];
 }
 
 async function readPublishedSettings() {
@@ -255,6 +389,79 @@ async function runWebglFallbackChecks(browser) {
   return issues;
 }
 
+async function runAudioLifecycleChecks(browser) {
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  await context.addInitScript(() => {
+    class MockAudio extends EventTarget {
+      constructor() {
+        super();
+        this.loop = false;
+        this.preload = 'auto';
+        this.volume = 1;
+        this.paused = true;
+        this.playsInline = true;
+      }
+
+      play() {
+        this.paused = false;
+        this.dispatchEvent(new Event('play'));
+        return Promise.resolve();
+      }
+
+      pause() {
+        if (this.paused) {
+          return;
+        }
+        this.paused = true;
+        this.dispatchEvent(new Event('pause'));
+      }
+    }
+
+    window.Audio = MockAudio;
+  });
+
+  const page = await context.newPage();
+  const issues = [];
+  collectPageIssues(page, issues);
+
+  await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
+  await page.getByTestId('site-music-controller').first().waitFor({ state: 'attached', timeout: 10000 });
+
+  await waitForCondition(async () => {
+    const playing = await page.getByTestId('site-music-controller').getAttribute('data-playing');
+    return playing === 'true';
+  }, 'Music controller should start in playing state');
+
+  await page.evaluate(() => {
+    window.dispatchEvent(new Event('blur'));
+  });
+
+  await waitForCondition(async () => {
+    const playing = await page.getByTestId('site-music-controller').getAttribute('data-playing');
+    return playing === 'false';
+  }, 'Music should pause when window blurs');
+
+  await page.evaluate(() => {
+    window.dispatchEvent(new Event('focus'));
+  });
+
+  await waitForCondition(async () => {
+    const playing = await page.getByTestId('site-music-controller').getAttribute('data-playing');
+    return playing === 'true';
+  }, 'Music should resume when window focuses');
+
+  await page.goto(`${baseUrl}/home/edit`, { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(150);
+  assert(
+    await page.getByTestId('site-music-controller').count() === 0,
+    'Music controller should be hidden on /home/edit',
+  );
+
+  log('OK audio lifecycle');
+  await context.close();
+  return issues;
+}
+
 async function runDraftMigrationChecks(browser) {
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   const page = await context.newPage();
@@ -305,6 +512,23 @@ async function runDraftMigrationChecks(browser) {
   return issues;
 }
 
+async function runEditorPublishCoverageChecks() {
+  const [publishedKeys, editorKeys] = await Promise.all([
+    readPublishedKeys(),
+    readEditorControlKeys(),
+  ]);
+  const publishedKeySet = new Set(publishedKeys);
+  const missingKeys = editorKeys.filter((key) => !publishedKeySet.has(key));
+
+  assert(
+    missingKeys.length === 0,
+    `Editor controls are missing publish keys: ${missingKeys.join(', ')}`,
+  );
+
+  log('OK editor publish coverage');
+  return [];
+}
+
 async function runPublishChecks(browser) {
   if (!baseUrl.startsWith(`http://${host}`) && !baseUrl.startsWith('http://localhost')) {
     log('Skipping publish checks for non-local base URL.');
@@ -321,6 +545,11 @@ async function runPublishChecks(browser) {
     await page.goto(`${baseUrl}/home/edit`, { waitUntil: 'domcontentloaded' });
     await expectVisible(page, page.getByTestId('home-editor-page'), 'home editor page for publish');
     await expectVisible(page, page.getByTestId('home-editor-publish'), 'home editor publish button');
+    const publishButton = page.getByTestId('home-editor-publish');
+    assert(
+      await publishButton.isDisabled(),
+      'Publish button should be disabled when there are no unsaved changes',
+    );
 
     await page.getByTestId('home-editor-tab-water').click();
     const ranges = page.locator('.home-editor-controls input[type="range"]');
@@ -330,12 +559,38 @@ async function runPublishChecks(browser) {
     await setRangeValue(ranges.nth(1), 336); // waterMeshDensity
     await settlePage(page, 200);
 
-    await page.getByTestId('home-editor-publish').click();
+    await page.getByTestId('home-editor-tab-boat').click();
+    const boatRanges = page.locator('.home-editor-controls input[type="range"]');
+    await expectVisible(page, boatRanges.nth(3), 'boat tab sliders');
+    await setRangeValue(boatRanges.nth(0), 3.45); // boatPosition.x
+    await setRangeValue(boatRanges.nth(1), -2.2); // boatPosition.z
+    await setRangeValue(boatRanges.nth(3), 0.41); // boatRoughness
+    await settlePage(page, 220);
+
+    const draftSettings = await page.evaluate((key) => {
+      const draft = localStorage.getItem(key);
+      return draft ? JSON.parse(draft) : null;
+    }, HOME_SCENE_SETTINGS_STORAGE_KEY);
+    assert(Boolean(draftSettings), 'Expected draft settings in localStorage');
+    assert(draftSettings.boatPosition?.x === 3.45, 'boatPosition.x was not saved to draft settings');
+    assert(draftSettings.boatPosition?.z === -2.2, 'boatPosition.z was not saved to draft settings');
+    assert(draftSettings.boatRoughness === 0.41, 'boatRoughness was not saved to draft settings');
+
+    await waitForCondition(async () => !(await publishButton.isDisabled()), 'Publish button did not enable');
+
+    await publishButton.click();
 
     await waitForCondition(async () => {
       const settings = await readPublishedSettings();
-      return settings.waterExtent === 31.5 && settings.waterMeshDensity === 336;
+      return (
+        settings.waterExtent === 31.5
+        && settings.waterMeshDensity === 336
+        && settings.boatPosition?.x === 3.45
+        && settings.boatPosition?.z === -2.2
+        && settings.boatRoughness === 0.41
+      );
     }, 'Publish did not update water settings');
+    await waitForCondition(async () => publishButton.isDisabled(), 'Publish button should disable after save');
 
     const [settings, keys] = await Promise.all([
       readPublishedSettings(),
@@ -356,6 +611,45 @@ async function runPublishChecks(browser) {
   return issues;
 }
 
+async function runLongSessionMemoryChecks(browser) {
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  const page = await context.newPage();
+  const issues = [];
+  collectPageIssues(page, issues);
+
+  const runSeries = async (urlPath, sceneId, label, tolerance) => {
+    const samples = [];
+    await page.goto(`${baseUrl}${urlPath}`, { waitUntil: 'domcontentloaded' });
+    await settlePage(page, 800);
+    samples.push(await waitForRuntimeMetrics(page, sceneId, 30000));
+
+    for (let index = 0; index < 5; index += 1) {
+      await settlePage(page, 2500);
+      samples.push(await waitForRuntimeMetrics(page, sceneId, 30000));
+    }
+
+    assertStableMetricSeries(
+      samples,
+      (sample) => sample.renderer.geometries,
+      `${label} geometries`,
+      tolerance,
+    );
+    assertStableMetricSeries(
+      samples,
+      (sample) => sample.renderer.textures,
+      `${label} textures`,
+      tolerance,
+    );
+  };
+
+  await runSeries('/', 'water-scene', 'Long home session', 6);
+  await runSeries('/home/edit', 'home-scene-editor', 'Long editor session', 8);
+  log('OK long session memory');
+
+  await context.close();
+  return issues;
+}
+
 async function runRuntimeStabilityChecks(browser) {
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   const page = await context.newPage();
@@ -366,6 +660,7 @@ async function runRuntimeStabilityChecks(browser) {
 
   for (let cycle = 0; cycle < 2; cycle += 1) {
     await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
+    await settlePage(page, 350);
     homeSamples.push(await waitForRuntimeMetrics(page, 'water-scene'));
 
     await page.goto(`${baseUrl}/home/edit`, { waitUntil: 'domcontentloaded' });
@@ -405,31 +700,44 @@ async function runMobileChecks(browser) {
 }
 
 async function main() {
-  let serverProcess;
-
   try {
+    installProcessGuards();
+    startSmokeWatchdog();
+
+    if (shouldAutoCleanupProcesses) {
+      cleanupPlaywrightProcesses({
+        includeSmokeScript: false,
+        logger: (message) => log(message),
+      });
+    }
+
     if (!useExistingServer) {
-      serverProcess = startDevServer();
+      activeServerProcess = startDevServer();
       await waitForServer(baseUrl);
     } else {
       await waitForServer(baseUrl);
     }
 
-    const browser = await chromium.launch({
+    activeBrowser = await chromium.launch({
       headless: true,
       args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'],
     });
+    const browser = activeBrowser;
 
     const issues = [
       ...(await runRouteChecks(browser)),
+      ...(await runAudioLifecycleChecks(browser)),
       ...(await runWebglFallbackChecks(browser)),
+      ...(await runEditorPublishCoverageChecks()),
       ...(await runDraftMigrationChecks(browser)),
       ...(await runPublishChecks(browser)),
       ...(await runRuntimeStabilityChecks(browser)),
+      ...(await runLongSessionMemoryChecks(browser)),
       ...(await runMobileChecks(browser)),
     ];
 
     await browser.close();
+    activeBrowser = undefined;
 
     if (issues.length > 0) {
       log('');
@@ -451,9 +759,7 @@ async function main() {
     }
     process.exitCode = 1;
   } finally {
-    if (serverProcess && !serverProcess.killed) {
-      serverProcess.kill('SIGTERM');
-    }
+    await performCleanup();
   }
 }
 

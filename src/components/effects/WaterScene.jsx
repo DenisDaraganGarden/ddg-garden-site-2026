@@ -98,36 +98,36 @@ function buildRuntimeQualityProfile(mode, viewportWidth) {
 
   if (isMobileViewport || tier === QUALITY_TIER.low) {
     return {
-      simulationTargetFps: isEditor ? 34 : 30,
+      simulationTargetFps: isEditor ? 32 : 28,
       simulationMaxResolution: 256,
-      reflectionActiveFps: 16,
-      reflectionIdleFps: 6,
-      reflectionTextureSize: 320,
-      waterMeshDensityCap: 176,
-      shadowMapSize: 512,
+      reflectionActiveFps: 14,
+      reflectionIdleFps: 4,
+      reflectionTextureSize: 256,
+      waterMeshDensityCap: 160,
+      shadowMapSize: 384,
     };
   }
 
   if (tier === QUALITY_TIER.medium) {
     return {
-      simulationTargetFps: isEditor ? 42 : 38,
+      simulationTargetFps: isEditor ? 38 : 34,
       simulationMaxResolution: 384,
-      reflectionActiveFps: 22,
-      reflectionIdleFps: 8,
-      reflectionTextureSize: isEditor ? 512 : 384,
-      waterMeshDensityCap: 224,
-      shadowMapSize: 640,
+      reflectionActiveFps: 18,
+      reflectionIdleFps: 6,
+      reflectionTextureSize: isEditor ? 448 : 352,
+      waterMeshDensityCap: 208,
+      shadowMapSize: 512,
     };
   }
 
   return {
-    simulationTargetFps: 48,
+    simulationTargetFps: isEditor ? 44 : 38,
     simulationMaxResolution: 512,
-    reflectionActiveFps: 30,
-    reflectionIdleFps: 12,
-    reflectionTextureSize: isEditor ? 768 : 512,
-    waterMeshDensityCap: 288,
-    shadowMapSize: isEditor ? 1024 : 768,
+    reflectionActiveFps: 24,
+    reflectionIdleFps: 8,
+    reflectionTextureSize: isEditor ? 640 : 448,
+    waterMeshDensityCap: 256,
+    shadowMapSize: isEditor ? 896 : 640,
   };
 }
 
@@ -991,7 +991,9 @@ const reflectionContext = React.createContext({ current: { texture: null, matrix
 
 function WaterLights({ settings, mode, qualityProfile }) {
   const moonDirection = useMemo(() => buildMoonDirection(settings), [settings]);
-  const shadowsEnabled = settings.debugView === 'beauty';
+  const canRunHighShadowCost = (qualityProfile?.shadowMapSize ?? 0) >= 640;
+  const shadowsEnabled = settings.debugView === 'beauty'
+    && (mode === 'editor' || canRunHighShadowCost);
   const shadowMapSize = qualityProfile?.shadowMapSize ?? (mode === 'editor' ? 1024 : 768);
 
   return (

@@ -10,6 +10,10 @@ import '../styles/Map.css';
 const COUNTRIES_GEOJSON_URL = 'https://raw.githubusercontent.com/datasets/geo-boundaries-world-110m/master/countries.geojson';
 const PROJECT_CLUSTER_DISTANCE_KM = 60;
 const LABEL_NEIGHBORHOOD_DISTANCE_KM = 2200;
+const MOBILE_VIEWPORT_MAX_WIDTH = 900;
+
+let cachedCountriesGeojson = null;
+let countriesGeojsonPromise = null;
 
 const MAJOR_COUNTRIES = [
     { lat: 37.0902, lng: -95.7129, text: 'USA' },
@@ -23,6 +27,31 @@ const MAJOR_COUNTRIES = [
 ];
 
 const toRadians = (value) => value * (Math.PI / 180);
+
+const isMobileViewport = () => (
+    typeof window !== 'undefined' && window.innerWidth <= MOBILE_VIEWPORT_MAX_WIDTH
+);
+
+const loadCountriesGeojson = async (signal) => {
+    if (cachedCountriesGeojson) {
+        return cachedCountriesGeojson;
+    }
+
+    if (!countriesGeojsonPromise) {
+        countriesGeojsonPromise = fetch(COUNTRIES_GEOJSON_URL, { signal })
+            .then((response) => response.json())
+            .then((data) => {
+                cachedCountriesGeojson = data;
+                return data;
+            })
+            .catch((error) => {
+                countriesGeojsonPromise = null;
+                throw error;
+            });
+    }
+
+    return countriesGeojsonPromise;
+};
 
 const getDistanceKm = (first, second) => {
     const latDelta = toRadians(second.lat - first.lat);
@@ -242,10 +271,11 @@ const createNoirGlobeMaterial = () => {
                 varying vec3 vWorldNormal;`,
             )
             .replace(
-                '#include <worldpos_vertex>',
-                `#include <worldpos_vertex>
-                vWorldPosition = worldPosition.xyz;
-                vWorldNormal = normalize(mat3(modelMatrix) * normal);`,
+                '#include <begin_vertex>',
+                `#include <begin_vertex>
+                vec4 ddgWorldPosition = modelMatrix * vec4(transformed, 1.0);
+                vWorldPosition = ddgWorldPosition.xyz;
+                vWorldNormal = normalize(mat3(modelMatrix) * objectNormal);`,
             );
 
         shader.fragmentShader = shader.fragmentShader
@@ -386,12 +416,29 @@ const Map = () => {
     const [hoverD, setHoverD] = useState(null);
     const [countries, setCountries] = useState({ features: [] });
     const [globeRadius, setGlobeRadius] = useState(0);
+    const [mobileViewport, setMobileViewport] = useState(() => isMobileViewport());
+
+    useEffect(() => {
+        if (typeof window === 'undefined') {
+            return undefined;
+        }
+
+        const updateViewport = () => {
+            setMobileViewport(isMobileViewport());
+        };
+
+        updateViewport();
+        window.addEventListener('resize', updateViewport);
+
+        return () => {
+            window.removeEventListener('resize', updateViewport);
+        };
+    }, []);
 
     useEffect(() => {
         const controller = new AbortController();
 
-        fetch(COUNTRIES_GEOJSON_URL, { signal: controller.signal })
-            .then((response) => response.json())
+        loadCountriesGeojson(controller.signal)
             .then(setCountries)
             .catch((error) => {
                 if (error.name !== 'AbortError') {
@@ -475,10 +522,60 @@ const Map = () => {
 
         const controls = globeEl.current.controls();
         controls.autoRotate = true;
-        controls.autoRotateSpeed = 0.06;
+        controls.autoRotateSpeed = mobileViewport ? 0.04 : 0.06;
         controls.enableDamping = true;
         controls.dampingFactor = 0.05;
+    }, [mobileViewport]);
+
+    useEffect(() => {
+        if (!globeEl.current || typeof document === 'undefined') {
+            return undefined;
+        }
+
+        const globe = globeEl.current;
+        const controls = globe.controls?.();
+
+        const applyVisibilityState = () => {
+            const isHidden = document.hidden || document.visibilityState !== 'visible';
+
+            if (controls) {
+                controls.autoRotate = !isHidden;
+                controls.enabled = !isHidden;
+            }
+
+            if (isHidden) {
+                globe.pauseAnimation?.();
+            } else {
+                globe.resumeAnimation?.();
+            }
+        };
+
+        applyVisibilityState();
+        document.addEventListener('visibilitychange', applyVisibilityState);
+        window.addEventListener('pagehide', applyVisibilityState);
+        window.addEventListener('pageshow', applyVisibilityState);
+        window.addEventListener('blur', applyVisibilityState);
+        window.addEventListener('focus', applyVisibilityState);
+
+        return () => {
+            document.removeEventListener('visibilitychange', applyVisibilityState);
+            window.removeEventListener('pagehide', applyVisibilityState);
+            window.removeEventListener('pageshow', applyVisibilityState);
+            window.removeEventListener('blur', applyVisibilityState);
+            window.removeEventListener('focus', applyVisibilityState);
+        };
     }, []);
+
+    useEffect(() => {
+        if (!globeEl.current || typeof window === 'undefined') {
+            return;
+        }
+
+        const renderer = globeEl.current.renderer?.();
+        if (renderer) {
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, mobileViewport ? 1 : 1.1));
+        }
+    }, [mobileViewport]);
 
     return (
         <div className="map-page map-page--globe" data-testid="map-page">
@@ -492,7 +589,11 @@ const Map = () => {
                     ref={globeEl}
                     backgroundColor="#000000"
                     globeMaterial={globeMaterial}
-                    rendererConfig={{ antialias: false, alpha: true, powerPreference: 'high-performance' }}
+                    rendererConfig={{
+                        antialias: false,
+                        alpha: true,
+                        powerPreference: mobileViewport ? 'low-power' : 'default',
+                    }}
                     showAtmosphere
                     atmosphereColor="#ffffff"
                     atmosphereAltitude={0.12}
@@ -502,7 +603,7 @@ const Map = () => {
                         const renderer = globeEl.current?.renderer();
 
                         if (renderer) {
-                            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.25));
+                            renderer.setPixelRatio(Math.min(window.devicePixelRatio, mobileViewport ? 1 : 1.1));
                         }
 
                         if (globeEl.current) {
@@ -517,7 +618,7 @@ const Map = () => {
                     ringsData={ringData}
                     ringColor={() => '#ffffff'}
                     ringAltitude={0.006}
-                    ringResolution={32}
+                    ringResolution={mobileViewport ? 22 : 32}
                     ringMaxRadius="maxR"
                     ringPropagationSpeed="propagationSpeed"
                     ringRepeatPeriod="repeatPeriod"
@@ -587,6 +688,16 @@ const Map = () => {
                             element.appendChild(body);
                             return element;
                         }
+
+                        summary.onclick = (event) => {
+                            event.stopPropagation();
+
+                            const shouldExpand = !element.classList.contains('is-expanded');
+                            document
+                                .querySelectorAll('.globe-html-label--project-cluster.is-expanded')
+                                .forEach((node) => node.classList.remove('is-expanded'));
+                            element.classList.toggle('is-expanded', shouldExpand);
+                        };
 
                         item.projects.forEach((project) => {
                             const button = document.createElement('button');

@@ -21,6 +21,9 @@ const HomeEditorPanel = ({
     onResetCameraPoseLandscape,
     onPublish,
     publishState,
+    hasPublishChanges = false,
+    publishEnabled = false,
+    publishHint = '',
 }) => {
     const { t } = useLanguage();
     const tabs = [
@@ -32,7 +35,8 @@ const HomeEditorPanel = ({
         { id: 'sculpture', label: t('homeEditor.tabs.sculpture') },
         { id: 'debug', label: t('homeEditor.tabs.debug') },
     ];
-    const canPublish = typeof onPublish === 'function';
+    const canPublish = publishEnabled && typeof onPublish === 'function';
+    const isPublishDisabled = publishState?.busy || !hasPublishChanges || !canPublish;
 
     return (
         <div className="home-editor-panel">
@@ -40,6 +44,7 @@ const HomeEditorPanel = ({
                 {tabs.map(tab => (
                     <button
                         key={tab.id}
+                        type="button"
                         className={`home-editor-tab ${activeTab === tab.id ? 'active' : ''}`}
                         onClick={() => setActiveTab(tab.id)}
                         data-testid={`home-editor-tab-${tab.id}`}
@@ -47,21 +52,30 @@ const HomeEditorPanel = ({
                         {tab.label}
                     </button>
                 ))}
-                {canPublish ? (
-                    <button
-                        type="button"
-                        className="home-editor-tab"
-                        onClick={onPublish}
-                        disabled={publishState?.busy}
-                        data-testid="home-editor-publish"
-                        style={{ marginLeft: 'auto' }}
-                    >
-                        {publishState?.busy ? t('homeEditor.publish.publishing') : t('homeEditor.publish.publish')}
-                    </button>
-                ) : null}
+                <button
+                    type="button"
+                    className="home-editor-tab"
+                    onClick={canPublish ? onPublish : undefined}
+                    disabled={isPublishDisabled}
+                    data-testid="home-editor-publish"
+                    style={{ marginLeft: 'auto' }}
+                    title={publishHint || undefined}
+                >
+                    {publishState?.busy ? t('homeEditor.publish.publishing') : t('homeEditor.publish.publish')}
+                </button>
             </div>
 
-            {canPublish && publishState?.message ? (
+            <div className="home-editor-status">
+                {hasPublishChanges ? t('common.unsaved') : t('common.saved')}
+            </div>
+
+            {publishHint ? (
+                <div className="home-editor-status">
+                    {publishHint}
+                </div>
+            ) : null}
+
+            {publishState?.message ? (
                 <div className="home-editor-status">
                     {publishState.message}
                 </div>

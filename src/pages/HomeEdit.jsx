@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import WaterScene from '../components/effects/WaterScene';
 import {
     getBaseHomeSceneSettings,
@@ -31,6 +31,21 @@ const HomeEdit = () => {
     const publishRequestRef = useRef(0);
     const lastPublishedSnapshotRef = useRef(INITIAL_PUBLISHED_SNAPSHOT);
     const cameraRigApiRef = useRef(null);
+    const publishableSettings = useMemo(
+        () => sanitizeHomeSceneSettingsForPublish(settings),
+        [settings],
+    );
+    const serializedPublishSettings = useMemo(
+        () => JSON.stringify(publishableSettings),
+        [publishableSettings],
+    );
+    const [hasPublishChanges, setHasPublishChanges] = useState(
+        serializedPublishSettings !== lastPublishedSnapshotRef.current,
+    );
+
+    useEffect(() => {
+        setHasPublishChanges(serializedPublishSettings !== lastPublishedSnapshotRef.current);
+    }, [serializedPublishSettings]);
 
     const handleCameraRigApi = useCallback((api) => {
         cameraRigApiRef.current = api;
@@ -112,8 +127,10 @@ const HomeEdit = () => {
     }, [setSettings]);
 
     const handlePublish = async () => {
-        const publishableSettings = sanitizeHomeSceneSettingsForPublish(settings);
-        const serializedSettings = JSON.stringify(publishableSettings);
+        if (!hasPublishChanges) {
+            return;
+        }
+
         const requestId = publishRequestRef.current + 1;
 
         publishRequestRef.current = requestId;
@@ -129,7 +146,8 @@ const HomeEdit = () => {
                 return;
             }
 
-            lastPublishedSnapshotRef.current = serializedSettings;
+            lastPublishedSnapshotRef.current = serializedPublishSettings;
+            setHasPublishChanges(false);
             setPublishState({
                 busy: false,
                 message: t('homeEditor.publish.success'),
@@ -174,6 +192,9 @@ const HomeEdit = () => {
                 onResetCameraPoseLandscape={() => handleResetCameraPose('landscape')}
                 onPublish={isLocalPublishAvailable ? handlePublish : undefined}
                 publishState={publishState}
+                hasPublishChanges={hasPublishChanges}
+                publishEnabled={isLocalPublishAvailable}
+                publishHint={isLocalPublishAvailable ? '' : t('homeEditor.publish.unavailable')}
             />
         </div>
     );
