@@ -4,12 +4,14 @@ import { useLanguage } from '../../i18n/useLanguage';
 import { archiveNavigationItems, primaryNavigationItems } from '../../config/siteNavigation';
 import ouroborosDark from '../../../portfolio/DDG_logo.png';
 import ouroborosWhite from '../../../portfolio/Denis Daragan Garden Logo White.png';
+import { useSiteMusic } from './SiteMusicController';
 import './Navigation.css';
 
 const Navigation = () => {
     const location = useLocation();
     const isHomeRoute = location.pathname === '/';
     const { language, setLanguage, t } = useLanguage();
+    const { isMusicPlaying, toggleMusic, isEditorRoute } = useSiteMusic();
     const [isArchiveOpen, setIsArchiveOpen] = React.useState(false);
     const [isMenuOpen, setIsMenuOpen] = React.useState(false);
     const navMenuRef = React.useRef(null);
@@ -222,6 +224,36 @@ const Navigation = () => {
             </div>
 
             <div className="language-switch" role="group" aria-label={t('navigation.language')}>
+                {!isEditorRoute ? (
+                    <button
+                        type="button"
+                        onClick={toggleMusic}
+                        className="language-switch__music"
+                        data-testid="site-music-controller"
+                        data-playing={isMusicPlaying ? 'true' : 'false'}
+                        aria-label={isMusicPlaying ? 'Выключить музыку' : 'Включить музыку'}
+                        aria-pressed={isMusicPlaying}
+                        title={isMusicPlaying ? 'Выключить музыку' : 'Включить музыку'}
+                    >
+                        <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" focusable="false">
+                            <path d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor" />
+                            {isMusicPlaying ? (
+                                <g fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+                                    <path d="M16 8.5a5 5 0 0 1 0 7" />
+                                    <path d="M18.5 6a8.5 8.5 0 0 1 0 12" />
+                                </g>
+                            ) : (
+                                <path
+                                    d="M16 9l5 6M21 9l-5 6"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="1.6"
+                                    strokeLinecap="round"
+                                />
+                            )}
+                        </svg>
+                    </button>
+                ) : null}
                 {['ru', 'en'].map((code) => (
                     <button
                         key={code}

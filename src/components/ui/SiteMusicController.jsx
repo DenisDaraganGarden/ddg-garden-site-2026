@@ -10,7 +10,12 @@ function isDocumentVisible() {
     return document.visibilityState === 'visible' && !document.hidden;
 }
 
-const SiteMusicController = () => {
+/**
+ * Owns the ambient-music audio element and its lifecycle, and exposes a manual
+ * play/pause toggle. The visible control is rendered by the Navigation so it can
+ * sit next to the language switch.
+ */
+export function useSiteMusic() {
     const location = useLocation();
     const isEditorRoute = location.pathname.startsWith('/home/edit');
     const [isMusicPlaying, setIsMusicPlaying] = React.useState(false);
@@ -143,18 +148,26 @@ const SiteMusicController = () => {
         };
     }, [isEditorRoute, syncPlayback]);
 
-    if (isEditorRoute) {
-        return null;
-    }
+    const toggleMusic = React.useCallback(() => {
+        const audio = audioRef.current;
+        if (!audio) {
+            return;
+        }
 
-    return (
-        <div
-            aria-hidden="true"
-            data-testid="site-music-controller"
-            style={{ display: 'none' }}
-            data-playing={isMusicPlaying ? 'true' : 'false'}
-        />
-    );
-};
+        if (audio.paused) {
+            waitingForGestureRef.current = false;
+            audio.play().then(() => {
+                wasPlayingBeforeBackgroundRef.current = true;
+            }).catch(() => {
+                waitingForGestureRef.current = true;
+            });
+        } else {
+            wasPlayingBeforeBackgroundRef.current = false;
+            audio.pause();
+        }
+    }, []);
 
-export default SiteMusicController;
+    return { isMusicPlaying, toggleMusic, isEditorRoute };
+}
+
+export default useSiteMusic;

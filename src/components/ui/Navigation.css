@@ -384,6 +384,34 @@
     border-bottom-color: #fff;
 }
 
+.language-switch__music {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.2rem;
+    margin-right: 0.1rem;
+    border: none;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.5);
+    cursor: pointer;
+    line-height: 0;
+    transition: color 0.24s ease, transform 0.24s ease;
+}
+
+.language-switch__music:hover {
+    color: #fff;
+    transform: translateY(-1px);
+}
+
+.language-switch__music[data-playing='true'] {
+    color: #fff;
+}
+
+.language-switch__music:focus-visible {
+    outline: 2px solid rgba(255, 255, 255, 0.7);
+    outline-offset: 2px;
+}
+
 @media (max-width: 1024px) {
     .nav-brand {
         padding: calc(1.9rem + env(safe-area-inset-top)) 2.2rem 1.6rem;

@@ -56,6 +56,9 @@ const BOAT_TARGET_Y_MIN = 0.02;
 const BOAT_TARGET_Y_MAX = 0.44;
 const BOAT_MAX_PITCH = 0.24;
 const BOAT_MAX_ROLL = 0.28;
+// Buoyancy probes need a GPU->CPU pixel readback, which stalls the pipeline.
+// Reading more often than the wave simulation updates is wasted work, so cap it.
+const BOAT_PROBE_INTERVAL = 1 / 40;
 let qualityTierCache = null;
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
@@ -1014,6 +1017,8 @@ function WaterLights({ settings, mode, qualityProfile }) {
         shadow-camera-top={12}
         shadow-camera-bottom={-12}
         shadow-bias={-0.0002}
+        shadow-normalBias={0.02}
+        shadow-radius={4}
       />
       <Environment
         preset={settings.hdrPreset}
@@ -1276,6 +1281,8 @@ function FloatingBoat({ settings, runtime, mode, orbitRef, onBoatPositionChange 
   const boatMatrixRef = useRef(new THREE.Matrix4());
   const averageNormalRef = useRef(new THREE.Vector3());
   const cursorToBoatRef = useRef(new THREE.Vector2());
+  const probeAccumulatorRef = useRef(0);
+  const lastProbesRef = useRef(null);
   const probeWorldPointsRef = useRef(BOAT_PROBE_OFFSETS.map(() => new THREE.Vector3()));
   const commitBoatPosition = useCallback((position) => {
     if (typeof onBoatPositionChange !== 'function' || !position) {
@@ -1429,7 +1436,17 @@ function FloatingBoat({ settings, runtime, mode, orbitRef, onBoatPositionChange 
         .add(boatAnchor);
     }
 
-    const probes = runtime.sampleBoatProbes(probeWorldPointsRef.current);
+    // Throttle the expensive probe readback; reuse the last sample between reads.
+    probeAccumulatorRef.current += delta;
+    let probes = lastProbesRef.current;
+    if (probeAccumulatorRef.current >= BOAT_PROBE_INTERVAL || !probes) {
+      probeAccumulatorRef.current = 0;
+      const sampled = runtime.sampleBoatProbes(probeWorldPointsRef.current);
+      if (sampled) {
+        probes = sampled;
+        lastProbesRef.current = sampled;
+      }
+    }
 
     if (!probes) {
       boatRef.current.position.y = THREE.MathUtils.damp(

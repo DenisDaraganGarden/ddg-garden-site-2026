@@ -225,6 +225,19 @@ export const waterFragmentShader = `
   uniform mat4 uReflectionMatrix;
   uniform int uDebugView;
 
+  // Warm sunset sky, ported from the ocean prototype (getSkyColor)
+  vec3 oceanSky(vec3 e, vec3 sunDir) {
+    float ey = max(e.y, 0.0);
+    float sh = clamp(sunDir.y * 1.6, 0.0, 1.0);
+    vec3 zen = mix(vec3(0.30, 0.20, 0.38), vec3(0.10, 0.32, 0.62), sh);
+    vec3 hor = mix(vec3(1.05, 0.45, 0.22), vec3(0.62, 0.78, 0.92), sh);
+    vec3 sky = mix(hor, zen, pow(ey, 0.5 + sh * 0.3));
+    float sd = max(dot(e, sunDir), 0.0);
+    vec3 sc = mix(vec3(1.2, 0.55, 0.25), vec3(1.1, 1.0, 0.85), sh);
+    sky += sc * (pow(sd, 800.0) * 6.0 + pow(sd, 128.0) * 0.8 + pow(sd, 8.0) * 0.25);
+    return sky;
+  }
+
   void main() {
     vec3 surfaceNormal = normalize(vWaterNormal);
     vec3 viewDir = normalize(cameraPosition - vSurfaceWorldPosition);
@@ -268,10 +281,27 @@ export const waterFragmentShader = `
       return;
     }
 
-    vec3 deepWater = mix(vec3(0.008, 0.011, 0.017), uEnvTint * 0.1, fresnel * 0.38);
-    vec3 emissive = uEnvTint * (0.022 + fresnel * 0.03) + uMoonColor * moonHighlight * 0.45;
+    // ---- Adapted ocean look (ported from the ocean prototype) ----
+    // Reflected view ray, kept pointing at the sky dome
+    vec3 reflectDir = reflect(-viewDir, surfaceNormal);
+    reflectDir.y = abs(reflectDir.y);
 
-    // Planar Reflections
+    // Warm sunset sky used as the water's reflected environment
+    vec3 skyReflection = oceanSky(reflectDir, lightDir);
+
+    // Strong Fresnel: deep & colourful looking down, mirror-bright at grazing angles
+    float fres = clamp(1.0 - dot(surfaceNormal, viewDir), 0.0, 1.0);
+    fres = 0.03 + 0.97 * pow(fres, 4.0);
+
+    // Deep ocean body, warmed slightly on the crests (subsurface scatter)
+    vec3 deepOcean = vec3(0.014, 0.046, 0.060);
+    float crest = clamp(vHeightSample * 0.6 + 0.3, 0.0, 1.0);
+    vec3 waterBody = deepOcean + vec3(0.05, 0.16, 0.16) * crest * 0.5;
+    waterBody = mix(waterBody, uEnvTint * 0.18, fres * 0.25);
+
+    vec3 reflection = skyReflection;
+
+    // Planar reflection (boat & scene) overlaid so objects still mirror in the water
     vec4 reflectPos = uReflectionMatrix * vec4(vSurfaceWorldPosition, 1.0);
     vec2 reflectUv = (reflectPos.xy / max(reflectPos.w, 0.0001)) * 0.5 + 0.5;
     float distortion = mix(0.006, 0.018, slope) * (0.52 + abs(vHeightSample) * 0.58);
@@ -291,41 +321,30 @@ export const waterFragmentShader = `
     vec2 lowerMask = smoothstep(vec2(0.0), edgeSoftness, reflectUv);
     vec2 upperMask = 1.0 - smoothstep(vec2(1.0) - edgeSoftness, vec2(1.0), reflectUv);
     float inBounds = clamp(lowerMask.x * lowerMask.y * upperMask.x * upperMask.y, 0.0, 1.0);
+    float boatMirror = reflectedCenter.a * (0.3 + 0.5 * fres) * inBounds * uReflectionActive
+      * clamp(uBoatReflectionIntensity, 0.0, 1.5);
+    reflection = mix(reflection, reflectedRgb, boatMirror);
 
-    float baseReflection = mix(0.06, 0.22, 1.0 - uWaterTurbidity);
-    float boatBoost = clamp(uBoatReflectionIntensity, 0.0, 2.0) * 0.45;
-    float reflectionMix = clamp(
-      baseReflection + fresnel * (0.55 + boatBoost) + slope * 0.12,
-      0.0,
-      1.0
-    );
-    deepWater = mix(
-      deepWater,
-      reflectedRgb,
-      reflectedCenter.a * reflectionMix * inBounds * uReflectionActive
-    );
+    // Sun glints + warm sun path along the reflected sun direction (prototype-style)
+    float sunAlign = max(dot(reflectDir, lightDir), 0.0);
+    float sunCore = pow(sunAlign, 320.0) * 5.0;
+    float sunPath = pow(sunAlign, 18.0) * (0.4 + fres * 1.8);
+    vec3 sun = uMoonColor * (sunCore + sunPath);
 
-    float transmissionBase = (1.0 - uWaterTurbidity) * (1.0 - fresnel * 0.55);
-    float depthAbsorption = exp(-uWaterDepth * 0.38);
-    float transparency = clamp(
-      transmissionBase * mix(0.48, 0.22, depthFactor) * depthAbsorption + 0.02,
-      0.06,
-      0.34
-    );
-    float opacity = clamp(
-      mix(0.84, 0.985, fresnel * 0.46 + uWaterTurbidity * 0.35 + depthFactor * 0.24),
-      0.83,
-      0.99
-    );
+    // Transparent ocean: looking straight down the water clears so the caustic seabed
+    // shows through; at grazing angles the warm sky takes over (Fresnel).
+    float seeThrough = 1.0 - fres;
+    float transparency = clamp(0.5 * seeThrough * (1.0 - uWaterTurbidity) + 0.04, 0.05, 0.5);
+    float opacity = clamp(mix(0.62, 0.99, fres) + uWaterTurbidity * 0.12, 0.6, 0.99);
 
-    csm_DiffuseColor = vec4(deepWater, opacity);
-    csm_Emissive = emissive;
-    csm_Roughness = clamp(mix(0.15, 0.03, fresnel) + slope * 0.04 + (1.0 - vNormalHeight) * 0.04, 0.02, 0.32);
-    csm_Metalness = 0.06;
+    csm_DiffuseColor = vec4(waterBody, opacity);
+    csm_Emissive = reflection * fres + sun;
+    csm_Roughness = clamp(mix(0.08, 0.02, fres) + slope * 0.04, 0.015, 0.22);
+    csm_Metalness = 0.0;
     csm_Clearcoat = 1.0;
-    csm_ClearcoatRoughness = clamp(mix(0.2, 0.035, fresnel), 0.03, 0.26);
+    csm_ClearcoatRoughness = clamp(mix(0.18, 0.03, fres), 0.03, 0.22);
     csm_Transmission = transparency;
-    csm_Thickness = 1.45 + depthFactor * 1.9;
+    csm_Thickness = 1.2;
   }
 `;
 
@@ -460,14 +479,18 @@ export const seabedFragmentShader = `
     float sharpness = clamp(uCausticsSharpness, 0.0, 1.0);
     float focus = 1.0 / (1.0 + area * mix(160.0, 520.0, sharpness));
     focus = pow(focus, mix(0.9, 2.8, sharpness));
+    // Dual-layer animated caustic network (cheap: one extra sin) — more organic & lively,
+    // plus a squared term that sharpens the bright veins.
     float flow = 0.84 + 0.16 * sin((projected.x * 21.0 + projected.y * 19.0) + uTime * 1.15);
+    float flow2 = 0.84 + 0.16 * sin((projected.y * 27.0 - projected.x * 24.0) - uTime * 0.85);
+    float network = focus * mix(flow, flow2, 0.5) + focus * focus * 0.6;
 
     float slope = clamp(1.0 - waterNormal.y, 0.0, 1.0);
     float waveEnergy = clamp(curvature * 6.5 + abs(h) * 0.9, 0.0, 1.6);
     float depthAbsorption = exp(-uWaterDepth * 0.16);
     float substrateLuma = dot(texture2D(uSeabedTexture, projected * uSeabedTextureScale).rgb, vec3(0.299, 0.587, 0.114));
     float substrateMask = mix(0.82, 1.18, clamp(substrateLuma, 0.0, 1.0));
-    float caustics = focus * flow * (0.24 + slope * 1.05 + waveEnergy * 0.62) * uCausticsIntensity;
+    float caustics = network * (0.45 + slope * 0.95 + waveEnergy * 0.62) * uCausticsIntensity;
     caustics *= clamp(dot(waterNormal, vec3(0.0, 1.0, 0.0)), 0.25, 1.0);
     caustics *= clamp(-refracted.y * 1.2, 0.0, 1.0);
     caustics *= mix(0.65, 1.0, depthAbsorption);
@@ -494,7 +517,10 @@ export const seabedFragmentShader = `
     vec3 baseColor = mix(vec3(0.06, 0.08, 0.1), vec3(0.1, 0.12, 0.15), clamp(vRelief + 0.5, 0.0, 1.0));
     baseColor = mix(baseColor, seabedTexture, 0.68);
     baseColor *= exp(-uWaterDepth * 0.11);
-    vec3 causticColor = uMoonColor * caustics * 1.12;
+    // Chromatic dispersion: bright vein cores skew warm, faint edges skew cool (cheap tint)
+    float causticChroma = clamp(caustics * 1.4, 0.0, 1.0);
+    vec3 causticTint = mix(vec3(0.7, 0.85, 1.15), vec3(1.18, 1.0, 0.72), causticChroma);
+    vec3 causticColor = uMoonColor * caustics * causticTint * 1.12;
 
     csm_DiffuseColor = vec4(baseColor + causticColor * 0.26, 1.0);
     csm_Emissive = causticColor * 0.1;

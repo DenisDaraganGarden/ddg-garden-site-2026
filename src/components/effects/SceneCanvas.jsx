@@ -53,9 +53,9 @@ function getCanvasProfile(mode) {
   return {
     maxDpr: isEditor
       ? (isLowPowerDevice ? 1.2 : 1.4)
-      : (isLowPowerDevice ? 1 : 1.12),
-    antialias: isPublicMode ? false : !isLowPowerDevice,
-    powerPreference: isPublicMode ? 'low-power' : (isLowPowerDevice ? 'low-power' : 'default'),
+      : (isLowPowerDevice ? 1 : 1.4),
+    antialias: !isLowPowerDevice,
+    powerPreference: isLowPowerDevice ? 'low-power' : 'default',
   };
 }
 
@@ -261,7 +261,7 @@ const SceneCanvas = ({
         style={{ width: '100%', height: '100%', ...style }}
       >
         <Canvas
-          shadows={{ type: THREE.PCFShadowMap }}
+          shadows={{ type: THREE.PCFSoftShadowMap }}
           frameloop={isTabVisible ? 'always' : 'never'}
           dpr={[1, profile.maxDpr]}
           camera={camera}
