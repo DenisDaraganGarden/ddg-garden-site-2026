@@ -54,6 +54,10 @@ export const SelectControl = ({ label, value, onChange, options }) => (
     </div>
 );
 
+export const SectionHeading = ({ label }) => (
+    <h4 className="home-editor-section-heading">{label}</h4>
+);
+
 export const CheckboxControl = ({ label, checked, onChange }) => (
     <div className="home-editor-control-group" style={{ flexDirection: 'row', alignItems: 'center', gap: '12px', justifyContent: 'space-between' }}>
         <label style={{ marginBottom: 0 }}>{label}</label>

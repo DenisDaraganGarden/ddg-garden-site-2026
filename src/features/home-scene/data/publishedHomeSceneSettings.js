@@ -1,86 +1,168 @@
 export const publishedHomeSceneSettings = {
-  "waterExtent": 40,
-  "simulationResolution": 512,
-  "waterMeshDensity": 272,
-  "waveAmplitude": 0.085,
-  "waveLength": 0.72,
-  "waveChoppiness": 0.1,
-  "rippleDamping": 0.9892857142857143,
-  "rippleRadius": 0.6666666666666666,
-  "rippleImpulse": 0.22,
-  "normalStrength": 1.2,
-  "normalBlur": 0.85,
-  "hdrPreset": "sunset",
-  "hdrRotation": 200,
-  "hdrExposure": 58,
-  "envReflectionIntensity": 70,
-  "envTint": "#ff9e5a",
-  "moonIntensity": 1.85,
-  "moonColor": "#ff8a3d",
-  "moonAzimuth": 40,
-  "moonElevation": 9,
-  "moonSpecularStrength": 0.62,
-  "moonSpecularPower": 24,
-  "waterDepthMeters": 2.2,
-  "seabedReliefStrength": 0.42,
-  "seabedReliefScale": 1.8,
-  "causticsIntensity": 0.82,
-  "causticsScale": 1.25,
+  "waterExtent": 22,
+  "simulationResolution": 256,
+  "waterMeshDensity": 96,
+  "waveAmplitude": 0.03,
+  "waveLength": 1.2,
+  "waveChoppiness": 0.08,
+  "rippleDamping": 0.942,
+  "rippleRadius": 0.36,
+  "rippleImpulse": 0.23,
+  "normalStrength": 0.8,
+  "normalBlur": 1,
+  "hdrPreset": "night",
+  "hdrRotation": 263,
+  "hdrExposure": 183,
+  "envReflectionIntensity": 165,
+  "envTint": "#dbdbdb",
+  "moonIntensity": 3.45,
+  "moonColor": "#212d45",
+  "moonAzimuth": 143,
+  "moonElevation": 61,
+  "moonSpecularStrength": 1.59,
+  "moonSpecularPower": 78,
+  "showHdriBackground": false,
+  "shadowsEnabled": false,
+  "shadowRadius": 9.5,
+  "shadowBias": 0.0013,
+  "ambientIntensity": 0.52,
+  "ambientColor": "#0f141f",
+  "hemisphereIntensity": 1.38,
+  "hemisphereSkyColor": "#1b2a3b",
+  "hemisphereGroundColor": "#020305",
+  "waterDepthMeters": 1,
+  "seabedReliefStrength": 1.22,
+  "seabedReliefScale": 1.7,
+  "causticsIntensity": 3,
+  "causticsScale": 6,
   "causticsSharpness": 0.52,
-  "cameraFov": 35,
+  "cameraFov": 24,
   "cameraCustomPose": true,
   "cameraPosition": {
-    "x": -15.9593,
-    "y": 6.3708,
-    "z": 3.2952
+    "x": -15.0368,
+    "y": 7.3812,
+    "z": 3.73
   },
   "cameraTarget": {
-    "x": -1.0207,
+    "x": 1.2826,
     "y": 0,
-    "z": 2.9067
+    "z": 1.9434
   },
   "cameraCustomPoseLandscape": true,
   "cameraPositionLandscape": {
-    "x": -15.9593,
-    "y": 6.3708,
-    "z": 3.2952
+    "x": -15.0368,
+    "y": 7.3812,
+    "z": 3.73
   },
   "cameraTargetLandscape": {
-    "x": -1.0207,
+    "x": 1.2826,
     "y": 0,
-    "z": 2.9067
+    "z": 1.9434
   },
   "cameraCustomPosePortrait": true,
   "cameraPositionPortrait": {
-    "x": -15.2971,
-    "y": 6.2336,
-    "z": 11.9248
+    "x": -19.6824,
+    "y": 12.7996,
+    "z": 6.4625
   },
   "cameraTargetPortrait": {
-    "x": -1.0207,
+    "x": -2.689,
     "y": 0,
-    "z": 2.9067
+    "z": 0.4814
+  },
+  "layouts": {
+    "portrait": {
+      "customized": true,
+      "cameraPosition": {
+        "x": -11.0533,
+        "y": 8.0796,
+        "z": 3.9724
+      },
+      "cameraTarget": {
+        "x": -4.3979,
+        "y": 0,
+        "z": 1.4081
+      },
+      "cameraFov": 57,
+      "boatPosition": {
+        "x": -5.9,
+        "z": 2.09
+      },
+      "sculpturePosition": {
+        "x": 1.97,
+        "z": -0.81
+      }
+    },
+    "desktop": {
+      "customized": true,
+      "cameraPosition": {
+        "x": -15.5162,
+        "y": 7.8761,
+        "z": 5.6336
+      },
+      "cameraTarget": {
+        "x": 2.2453,
+        "y": 0,
+        "z": 2.636
+      },
+      "cameraFov": 24,
+      "boatPosition": {
+        "x": -2.96,
+        "z": 2.97
+      },
+      "sculpturePosition": {
+        "x": 0.6,
+        "z": 1.2
+      }
+    },
+    "wide": {
+      "customized": true,
+      "cameraPosition": {
+        "x": -6.3733,
+        "y": 2.7385,
+        "z": 3.4302
+      },
+      "cameraTarget": {
+        "x": 1.3017,
+        "y": 0,
+        "z": 4.5088
+      },
+      "cameraFov": 36,
+      "boatPosition": {
+        "x": -2.96,
+        "z": 2.97
+      },
+      "sculpturePosition": {
+        "x": 0.6,
+        "z": 1.2
+      }
+    }
   },
   "debugView": "beauty",
   "boatColor": "#1a1b1f",
   "boatMetalness": 0,
-  "boatRoughness": 0.62,
-  "boatClearcoat": 0.14,
-  "boatClearcoatRoughness": 0.6,
-  "boatReflectionIntensity": 1.15,
+  "boatRoughness": 0.35,
+  "boatClearcoat": 0.33,
+  "boatClearcoatRoughness": 0.52,
+  "boatReflectionIntensity": 1.9,
   "boatPosition": {
-    "x": -2.13,
-    "z": 5.48
+    "x": -3.37,
+    "z": 0.81
   },
-  "boatYaw": 18,
+  "boatYaw": -79,
   "boatScale": 0.001,
-  "sculptureColor": "#1a1b1f",
+  "boatHeightOffset": -0.6,
+  "boatCutoutLength": 1.11,
+  "boatCutoutWidth": 0.32,
+  "boatCutoutOffsetX": 1.37,
+  "boatCutoutOffsetZ": -1.96,
+  "sculptureColor": "#808289",
   "sculptureMetalness": 0,
   "sculptureRoughness": 0.62,
   "sculptureClearcoat": 0.14,
   "sculptureClearcoatRoughness": 0.6,
   "sculpturePosition": {
-    "x": 1.35,
+    "x": 1.97,
     "z": -0.81
   },
   "sculptureScale": 0.11,
@@ -88,10 +170,10 @@ export const publishedHomeSceneSettings = {
   "sculptureRotationY": -33,
   "sculptureRotationZ": 0,
   "sculptureBottomOffset": -0.41,
-  "seabedTextureScale": 1,
-  "seabedSaturation": 1,
+  "seabedTextureScale": 3,
+  "seabedSaturation": 2,
   "seabedBrightness": 1,
   "waterTurbidity": 0.34,
-  "ambientWaveIntensity": 0.1,
-  "ambientWaveSpeed": 0.85
+  "ambientWaveIntensity": 0.22,
+  "ambientWaveSpeed": 1.61
 };

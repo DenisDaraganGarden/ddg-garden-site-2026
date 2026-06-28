@@ -1,0 +1,35 @@
+# 3ds Max Wavefront OBJ Exporter v0.99 - (c)2007 guruware
+# File Created: 28.06.2026 07:38:50
+
+newmtl OBJ_wire_000000000
+	Kd 0.0000 0.0000 0.0000
+	Ks 0.3500 0.3500 0.3500
+	Tr 0.0000
+	d 1.0000
+	Tf 1.0000 1.0000 1.0000
+	Pr 0.8400
+	Pm 0.0000
+	Pc 0.0000
+	Pcr 0.0000
+	Ni 1.5000
+	Ke 0.0000 0.0000 0.0000
+	illum 2
+	map_Kd -bm 0.0000 Map__2138627272_CoronaBitmap.tga
+	map_Ks -bm 0.0000 Map__1_CoronaBitmap.tga
+	map_Pr -bm 0.0000 Map__3_CoronaBitmap.tga
+	bump -bm 0.3000 Map__5_CoronaBitmap.tga
+	map_bump -bm 0.3000 Map__5_CoronaBitmap.tga
+
+newmtl OBJ_wire_metall
+	Kd 0.0000 0.0000 0.0000
+	Ks 0.3500 0.3500 0.3500
+	Tr 0.0000
+	d 1.0000
+	Tf 1.0000 1.0000 1.0000
+	Pr 0.6800
+	Pm 0.0000
+	Pc 0.0000
+	Pcr 0.0000
+	Ni 1.5000
+	Ke 0.0000 0.0000 0.0000
+	illum 2

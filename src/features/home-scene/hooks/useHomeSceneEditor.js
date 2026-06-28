@@ -9,7 +9,9 @@ export const useHomeSceneEditor = () => {
     const handleSettingChange = (event, key, valueType = 'float') => {
         let value;
 
-        if (valueType === 'color' || valueType === 'string') {
+        if (valueType === 'boolean') {
+            value = event.target.checked;
+        } else if (valueType === 'color' || valueType === 'string') {
             value = event.target.value;
         } else if (valueType === 'integer') {
             value = parseInt(event.target.value, 10);

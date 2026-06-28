@@ -7,6 +7,7 @@ import CustomShaderMaterial from 'three-custom-shader-material';
 import {
   getBaseHomeSceneSettings,
 } from '../../features/home-scene/hooks/useHomeSceneSettings';
+import { resolveLayout, resolveLayoutKey } from '../../features/home-scene/lib/layout';
 import SceneCanvas from './SceneCanvas';
 import {
   fullScreenVertexShader,
@@ -20,7 +21,6 @@ import {
 } from './shaders/waterRuntimeShaders';
 
 const PUBLIC_CAMERA_POSITION = [0, 5.8, 8.9];
-const MOBILE_CAMERA_POSITION = [0, 5.1, 7.3];
 const DEFAULT_CLEAR_COLOR = '#000000';
 const DRAWING_BUFFER_SIZE = new THREE.Vector2();
 const DEFAULT_BOAT_ANCHOR = Object.freeze({ x: 2.1, z: -1.4 });
@@ -39,6 +39,11 @@ const DEBUG_VIEW_IDS = {
   normals: 2,
   caustics: 3,
   'seabed-depth': 4,
+};
+// HDRI presets we ship locally (no runtime CDN dependency in production). The published
+// look uses `night`; other presets still fall back to drei's CDN for in-editor experiments.
+const SELF_HOSTED_HDRI = {
+  night: 'hdri/dikhololo_night_1k.hdr',
 };
 const QUALITY_TIER = Object.freeze({
   low: 'low',
@@ -94,13 +99,22 @@ function detectQualityTier() {
   return qualityTierCache;
 }
 
+function isTouchPrimaryDevice() {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+    return false;
+  }
+
+  return window.matchMedia('(hover: none) and (pointer: coarse)').matches;
+}
+
 function buildRuntimeQualityProfile(mode, viewportWidth) {
   const tier = detectQualityTier();
   const isEditor = mode === 'editor';
-  const isMobileViewport = viewportWidth < 768;
+  const isMobileDevice = viewportWidth < 768 || isTouchPrimaryDevice();
 
-  if (isMobileViewport || tier === QUALITY_TIER.low) {
+  if (isMobileDevice || tier === QUALITY_TIER.low) {
     return {
+      isLowPower: true,
       simulationTargetFps: isEditor ? 32 : 28,
       simulationMaxResolution: 256,
       reflectionActiveFps: 14,
@@ -108,11 +122,13 @@ function buildRuntimeQualityProfile(mode, viewportWidth) {
       reflectionTextureSize: 256,
       waterMeshDensityCap: 160,
       shadowMapSize: 384,
+      boatProbeInterval: 1 / 22,
     };
   }
 
   if (tier === QUALITY_TIER.medium) {
     return {
+      isLowPower: false,
       simulationTargetFps: isEditor ? 38 : 34,
       simulationMaxResolution: 384,
       reflectionActiveFps: 18,
@@ -120,10 +136,12 @@ function buildRuntimeQualityProfile(mode, viewportWidth) {
       reflectionTextureSize: isEditor ? 448 : 352,
       waterMeshDensityCap: 208,
       shadowMapSize: 512,
+      boatProbeInterval: 1 / 40,
     };
   }
 
   return {
+    isLowPower: false,
     simulationTargetFps: isEditor ? 44 : 38,
     simulationMaxResolution: 512,
     reflectionActiveFps: 24,
@@ -131,6 +149,7 @@ function buildRuntimeQualityProfile(mode, viewportWidth) {
     reflectionTextureSize: isEditor ? 640 : 448,
     waterMeshDensityCap: 256,
     shadowMapSize: isEditor ? 896 : 640,
+    boatProbeInterval: 1 / 40,
   };
 }
 
@@ -202,62 +221,35 @@ const LazyOrbitControls = React.lazy(() => import('@react-three/drei/core/OrbitC
   default: module.OrbitControls,
 })));
 
-function WaterCameraRig({ mode, settings, onCameraRigApi, orbitRef }) {
-  const { camera, gl, size } = useThree();
+function WaterCameraRig({ mode, layout, onCameraRigApi, orbitRef }) {
+  const { camera, gl } = useThree();
   const internalControlsRef = useRef();
   const controlsRef = orbitRef ?? internalControlsRef;
   const formatAxis = useCallback((value) => Number(value.toFixed(4)), []);
-  const isPortraitViewport = size.height > size.width;
-  const hasLandscapePose = Boolean(settings.cameraCustomPoseLandscape ?? settings.cameraCustomPose);
-  const hasPortraitPose = Boolean(settings.cameraCustomPosePortrait);
-  const landscapeCameraTarget = useMemo(
-    () => settings.cameraTargetLandscape ?? settings.cameraTarget ?? { x: 0, y: 0, z: 0 },
-    [settings.cameraTargetLandscape, settings.cameraTarget],
-  );
-  const portraitCameraTarget = useMemo(
-    () => settings.cameraTargetPortrait ?? landscapeCameraTarget,
-    [settings.cameraTargetPortrait, landscapeCameraTarget],
-  );
-  const activeCameraTarget = isPortraitViewport
-    ? (hasPortraitPose ? portraitCameraTarget : (hasLandscapePose ? landscapeCameraTarget : { x: 0, y: 0, z: 0 }))
-    : (hasLandscapePose ? landscapeCameraTarget : { x: 0, y: 0, z: 0 });
+  const cameraTarget = layout?.cameraTarget ?? { x: 0, y: 0, z: 0 };
 
   useEffect(() => {
-    if (camera.fov === settings.cameraFov) {
+    if (!layout || camera.fov === layout.cameraFov) {
       return;
     }
 
-    camera.fov = settings.cameraFov;
+    camera.fov = layout.cameraFov;
     camera.updateProjectionMatrix();
-  }, [camera, settings.cameraFov]);
+  }, [camera, layout?.cameraFov]);
 
+  // Apply the active composition bucket's pose. Depends on the bucket's camera numbers
+  // (not the object identity) so editing object positions doesn't snap the camera, and
+  // free-orbiting in the editor isn't interrupted by unrelated setting changes.
   useLayoutEffect(() => {
-    const defaultCameraPosition = isPortraitViewport ? MOBILE_CAMERA_POSITION : PUBLIC_CAMERA_POSITION;
-    const landscapeCameraPosition = settings.cameraPositionLandscape ?? settings.cameraPosition;
-    const portraitCameraPosition = settings.cameraPositionPortrait ?? landscapeCameraPosition;
-    const useSavedPose = isPortraitViewport
-      ? (hasPortraitPose || hasLandscapePose)
-      : hasLandscapePose;
-    const savedCameraPosition = isPortraitViewport
-      ? (hasPortraitPose ? portraitCameraPosition : landscapeCameraPosition)
-      : landscapeCameraPosition;
-    const savedCameraTarget = isPortraitViewport
-      ? (hasPortraitPose ? portraitCameraTarget : landscapeCameraTarget)
-      : landscapeCameraTarget;
-    const cameraPosition = useSavedPose
-      ? savedCameraPosition
-      : {
-          x: defaultCameraPosition[0],
-          y: defaultCameraPosition[1],
-          z: defaultCameraPosition[2],
-        };
-    const cameraTarget = useSavedPose
-      ? savedCameraTarget
-      : { x: 0, y: 0, z: 0 };
+    if (!layout) {
+      return;
+    }
 
+    const { cameraPosition } = layout;
     camera.position.set(cameraPosition.x, cameraPosition.y, cameraPosition.z);
     camera.near = 0.1;
     camera.far = 80;
+    camera.fov = layout.cameraFov;
     CAMERA_POSE_TARGET.set(cameraTarget.x, cameraTarget.y, cameraTarget.z);
     camera.lookAt(CAMERA_POSE_TARGET);
     camera.updateMatrixWorld();
@@ -267,22 +259,17 @@ function WaterCameraRig({ mode, settings, onCameraRigApi, orbitRef }) {
       controlsRef.current.target.copy(CAMERA_POSE_TARGET);
       controlsRef.current.update();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     camera,
     controlsRef,
-    hasLandscapePose,
-    hasPortraitPose,
-    isPortraitViewport,
-    landscapeCameraTarget,
-    portraitCameraTarget,
-    settings.cameraPosition,
-    settings.cameraPositionLandscape,
-    settings.cameraPositionPortrait,
-    settings.cameraTarget,
-    settings.cameraTargetLandscape,
-    settings.cameraTargetPortrait,
-    size.width,
-    size.height,
+    layout?.cameraPosition?.x,
+    layout?.cameraPosition?.y,
+    layout?.cameraPosition?.z,
+    cameraTarget.x,
+    cameraTarget.y,
+    cameraTarget.z,
+    layout?.cameraFov,
   ]);
 
   useEffect(() => {
@@ -327,11 +314,7 @@ function WaterCameraRig({ mode, settings, onCameraRigApi, orbitRef }) {
 
     const capturePose = () => {
       const target = controlsRef.current?.target
-        ?? CAMERA_POSE_TARGET.set(
-          activeCameraTarget.x,
-          activeCameraTarget.y,
-          activeCameraTarget.z,
-        );
+        ?? CAMERA_POSE_TARGET.set(cameraTarget.x, cameraTarget.y, cameraTarget.z);
 
       return {
         cameraPosition: {
@@ -344,6 +327,7 @@ function WaterCameraRig({ mode, settings, onCameraRigApi, orbitRef }) {
           y: formatAxis(target.y),
           z: formatAxis(target.z),
         },
+        cameraFov: Math.round(camera.fov),
       };
     };
 
@@ -352,7 +336,7 @@ function WaterCameraRig({ mode, settings, onCameraRigApi, orbitRef }) {
     return () => {
       onCameraRigApi(null);
     };
-  }, [activeCameraTarget.x, activeCameraTarget.y, activeCameraTarget.z, camera, controlsRef, formatAxis, onCameraRigApi]);
+  }, [cameraTarget.x, cameraTarget.y, cameraTarget.z, camera, controlsRef, formatAxis, onCameraRigApi]);
 
   if (mode !== 'editor') {
     return null;
@@ -372,15 +356,11 @@ function WaterCameraRig({ mode, settings, onCameraRigApi, orbitRef }) {
         screenSpacePanning={false}
         enableDamping
         dampingFactor={0.08}
-        minDistance={4}
-        maxDistance={18}
+        minDistance={0.5}
+        maxDistance={2000}
         minPolarAngle={0.45}
         maxPolarAngle={1.35}
-        target={[
-          activeCameraTarget.x,
-          activeCameraTarget.y,
-          activeCameraTarget.z,
-        ]}
+        target={[cameraTarget.x, cameraTarget.y, cameraTarget.z]}
       />
     </React.Suspense>
   );
@@ -629,7 +609,7 @@ function useWaterRuntime(settings, qualityProfile) {
   };
 }
 
-function WaterInteractionPlane({ settings, pointerStateRef }) {
+function WaterInteractionPlane({ settings, pointerStateRef, sampleBoatProbes, enableSurfaceRefine = true }) {
   const { camera, gl } = useThree();
   const raycasterRef = useRef(new THREE.Raycaster());
   const ndcPointerRef = useRef(new THREE.Vector2());
@@ -637,6 +617,14 @@ function WaterInteractionPlane({ settings, pointerStateRef }) {
   const projectedUvRef = useRef(new THREE.Vector2(0.5, 0.5));
   const deltaUvRef = useRef(new THREE.Vector2());
   const waterPlaneRef = useRef(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0));
+  const surfacePlaneRef = useRef(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0));
+  const surfaceProbePointsRef = useRef([
+    new THREE.Vector3(),
+    new THREE.Vector3(),
+    new THREE.Vector3(),
+    new THREE.Vector3(),
+    new THREE.Vector3(),
+  ]);
 
   const resetPointerState = useCallback(() => {
     pointerStateRef.current.hasImpulse = false;
@@ -675,18 +663,41 @@ function WaterInteractionPlane({ settings, pointerStateRef }) {
     );
 
     raycasterRef.current.setFromCamera(ndcPointerRef.current, camera);
-    const hit = raycasterRef.current.ray.intersectPlane(waterPlaneRef.current, rayHitPointRef.current);
+    const ray = raycasterRef.current.ray;
+    const hit = ray.intersectPlane(waterPlaneRef.current, rayHitPointRef.current);
     if (!hit) {
       return null;
     }
 
-    const uv = worldPointToUv(hit);
+    // Refine the hit against the actual displaced water surface, so the impulse lands
+    // under the cursor even at grazing / zoomed camera angles (parallax fix). We read the
+    // wave height under the first guess and re-aim at that height (two cheap iterations).
+    if (enableSurfaceRefine && typeof sampleBoatProbes === 'function' && settings.waveAmplitude > 0.0001) {
+      for (let iteration = 0; iteration < 2; iteration += 1) {
+        const probePoints = surfaceProbePointsRef.current;
+        for (let index = 0; index < probePoints.length; index += 1) {
+          probePoints[index].copy(rayHitPointRef.current);
+        }
+
+        const probes = sampleBoatProbes(probePoints);
+        if (!probes) {
+          break;
+        }
+
+        surfacePlaneRef.current.constant = -(probes[0].height * settings.waveAmplitude);
+        if (!ray.intersectPlane(surfacePlaneRef.current, rayHitPointRef.current)) {
+          break;
+        }
+      }
+    }
+
+    const uv = worldPointToUv(rayHitPointRef.current);
     if (!uv) {
       return null;
     }
 
-    return hit;
-  }, [camera, gl, worldPointToUv]);
+    return rayHitPointRef.current;
+  }, [camera, gl, worldPointToUv, sampleBoatProbes, settings.waveAmplitude, enableSurfaceRefine]);
 
   const registerPointerImpulse = useCallback((uv, worldPoint, baseStrength = 0.22) => {
     if (!uv) {
@@ -992,17 +1003,29 @@ function WaterReflections({
 
 const reflectionContext = React.createContext({ current: { texture: null, matrix: new THREE.Matrix4() } });
 
+// Stencil ref written by the boat hull cap; the water surface skips pixels stamped with it.
+const BOAT_CUTOUT_STENCIL_REF = 1;
+
 function WaterLights({ settings, mode, qualityProfile }) {
   const moonDirection = useMemo(() => buildMoonDirection(settings), [settings]);
   const canRunHighShadowCost = (qualityProfile?.shadowMapSize ?? 0) >= 640;
-  const shadowsEnabled = settings.debugView === 'beauty'
+  const shadowsEnabled = settings.shadowsEnabled !== false
+    && settings.debugView === 'beauty'
     && (mode === 'editor' || canRunHighShadowCost);
   const shadowMapSize = qualityProfile?.shadowMapSize ?? (mode === 'editor' ? 1024 : 768);
+  const localHdriFile = SELF_HOSTED_HDRI[settings.hdrPreset];
+  const environmentSource = localHdriFile
+    ? { files: `${import.meta.env.BASE_URL}${localHdriFile}` }
+    : { preset: settings.hdrPreset };
 
   return (
     <>
-      <ambientLight intensity={0.11} color="#202635" />
-      <hemisphereLight intensity={0.26} color="#314762" groundColor="#020305" />
+      <ambientLight intensity={settings.ambientIntensity} color={settings.ambientColor} />
+      <hemisphereLight
+        intensity={settings.hemisphereIntensity}
+        color={settings.hemisphereSkyColor}
+        groundColor={settings.hemisphereGroundColor}
+      />
       <directionalLight
         position={moonDirection.clone().multiplyScalar(18).toArray()}
         intensity={settings.moonIntensity}
@@ -1016,13 +1039,13 @@ function WaterLights({ settings, mode, qualityProfile }) {
         shadow-camera-right={12}
         shadow-camera-top={12}
         shadow-camera-bottom={-12}
-        shadow-bias={-0.0002}
+        shadow-bias={settings.shadowBias}
         shadow-normalBias={0.02}
-        shadow-radius={4}
+        shadow-radius={settings.shadowRadius}
       />
       <Environment
-        preset={settings.hdrPreset}
-        background={false}
+        {...environmentSource}
+        background={Boolean(settings.showHdriBackground)}
         environmentIntensity={settings.hdrExposure / 100}
         environmentRotation={[0, THREE.MathUtils.degToRad(settings.hdrRotation), 0]}
       />
@@ -1118,6 +1141,21 @@ function WaterSurface({ settings, runtime, qualityProfile }) {
     uniforms.uReflectionTexture.value = reflectionTexture;
     uniforms.uReflectionMatrix.value.copy(reflectionDataRef.current.matrix);
   });
+
+  // Stencil test: skip water pixels stamped by the boat hull cap (the cutout mask).
+  useLayoutEffect(() => {
+    const material = materialRef.current;
+    if (!material) {
+      return;
+    }
+    material.stencilWrite = true;
+    material.stencilRef = BOAT_CUTOUT_STENCIL_REF;
+    material.stencilFunc = THREE.NotEqualStencilFunc;
+    material.stencilFail = THREE.KeepStencilOp;
+    material.stencilZFail = THREE.KeepStencilOp;
+    material.stencilZPass = THREE.KeepStencilOp;
+    material.needsUpdate = true;
+  }, [settings.debugView]);
 
   return (
     <mesh name="water-surface" rotation={[-Math.PI / 2, 0, 0]} renderOrder={1}>
@@ -1264,7 +1302,7 @@ function Seabed({ settings, runtime }) {
   );
 }
 
-function FloatingBoat({ settings, runtime, mode, orbitRef, onBoatPositionChange }) {
+function FloatingBoat({ settings, layout, runtime, mode, orbitRef, onBoatPositionChange, probeInterval = BOAT_PROBE_INTERVAL }) {
   const anchorRef = useRef();
   const boatRef = useRef();
   const isDraggingRef = useRef(false);
@@ -1273,9 +1311,9 @@ function FloatingBoat({ settings, runtime, mode, orbitRef, onBoatPositionChange 
   const dragHitPointRef = useRef(new THREE.Vector3());
   const dragOffsetRef = useRef(new THREE.Vector3());
   const boatAnchorRef = useRef(new THREE.Vector3(
-    settings?.boatPosition?.x ?? DEFAULT_BOAT_ANCHOR.x,
+    layout?.boatPosition?.x ?? settings?.boatPosition?.x ?? DEFAULT_BOAT_ANCHOR.x,
     0,
-    settings?.boatPosition?.z ?? DEFAULT_BOAT_ANCHOR.z,
+    layout?.boatPosition?.z ?? settings?.boatPosition?.z ?? DEFAULT_BOAT_ANCHOR.z,
   ));
   const targetVector = useRef(new THREE.Vector3());
   const boatMatrixRef = useRef(new THREE.Matrix4());
@@ -1310,49 +1348,60 @@ function FloatingBoat({ settings, runtime, mode, orbitRef, onBoatPositionChange 
     }
   }, [orbitRef]);
 
-  const boatMaterial = useMemo(() => {
-    const boatColor = new THREE.Color(settings.boatColor);
-    const envReflection = THREE.MathUtils.clamp(settings.envReflectionIntensity / 260, 0.08, 0.48);
-
-    return new THREE.MeshPhysicalMaterial({
-      color: boatColor,
-      metalness: settings.boatMetalness,
-      roughness: settings.boatRoughness,
-      clearcoat: settings.boatClearcoat,
-      clearcoatRoughness: settings.boatClearcoatRoughness,
-      envMapIntensity: envReflection,
-      emissive: new THREE.Color('#000000'),
-      emissiveIntensity: 0,
-      transmission: 0,
-      transparent: false,
-      opacity: 1,
-      depthWrite: true,
-      depthTest: true,
-      side: THREE.DoubleSide,
-    });
-  }, [
-    settings.boatColor,
-    settings.boatMetalness,
-    settings.boatRoughness,
-    settings.boatClearcoat,
-    settings.boatClearcoatRoughness,
-    settings.envReflectionIntensity,
+  const boatTextures = useLoader(THREE.TextureLoader, [
+    '/models/boat/boat_basecolor.webp',
+    '/models/boat/boat_roughness.webp',
+    '/models/boat/boat_bump.webp',
   ]);
 
+  const { woodMaterial, metalMaterial } = useMemo(() => {
+    const [baseColorMap, roughnessMap, bumpMap] = boatTextures;
+    const envReflection = THREE.MathUtils.clamp(settings.envReflectionIntensity / 260, 0.08, 0.48);
+
+    baseColorMap.colorSpace = THREE.SRGBColorSpace;
+    [baseColorMap, roughnessMap, bumpMap].forEach((texture) => {
+      texture.anisotropy = 8;
+    });
+
+    // Wood hull/oars: PBR maps authored in 3ds Max (no more flat-graphite override).
+    const wood = new THREE.MeshStandardMaterial({
+      map: baseColorMap,
+      roughnessMap,
+      roughness: 1.0,
+      metalness: THREE.MathUtils.clamp(settings.boatMetalness, 0, 0.3),
+      bumpMap,
+      bumpScale: 0.4,
+      envMapIntensity: envReflection,
+      side: THREE.DoubleSide,
+    });
+
+    // Black metal: oar fittings / brackets (OBJ_wire_metall).
+    const metal = new THREE.MeshStandardMaterial({
+      color: new THREE.Color('#0b0b0d'),
+      metalness: 0.85,
+      roughness: 0.42,
+      envMapIntensity: envReflection,
+      side: THREE.DoubleSide,
+    });
+
+    return { woodMaterial: wood, metalMaterial: metal };
+  }, [boatTextures, settings.boatMetalness, settings.envReflectionIntensity]);
+
   useEffect(() => () => {
-    boatMaterial.dispose();
-  }, [boatMaterial]);
+    woodMaterial.dispose();
+    metalMaterial.dispose();
+  }, [woodMaterial, metalMaterial]);
 
   useEffect(() => {
-    const anchorX = settings?.boatPosition?.x ?? DEFAULT_BOAT_ANCHOR.x;
-    const anchorZ = settings?.boatPosition?.z ?? DEFAULT_BOAT_ANCHOR.z;
+    const anchorX = layout?.boatPosition?.x ?? settings?.boatPosition?.x ?? DEFAULT_BOAT_ANCHOR.x;
+    const anchorZ = layout?.boatPosition?.z ?? settings?.boatPosition?.z ?? DEFAULT_BOAT_ANCHOR.z;
 
     if (isDraggingRef.current) {
       return;
     }
 
     applyBoatAnchor(anchorX, anchorZ);
-  }, [applyBoatAnchor, settings?.boatPosition?.x, settings?.boatPosition?.z]);
+  }, [applyBoatAnchor, layout?.boatPosition?.x, layout?.boatPosition?.z, settings?.boatPosition?.x, settings?.boatPosition?.z]);
   const handleBoatPointerDown = useCallback((event) => {
     if (mode !== 'editor' || event.button !== 0 || !event.shiftKey) {
       return;
@@ -1427,6 +1476,7 @@ function FloatingBoat({ settings, runtime, mode, orbitRef, onBoatPositionChange 
 
     const boatAnchor = anchorRef.current?.position ?? boatAnchorRef.current;
     boatAnchorRef.current.copy(boatAnchor);
+    const boatHeightOffset = settings.boatHeightOffset ?? 0;
     const boatYawRadians = THREE.MathUtils.degToRad(settings.boatYaw ?? 18);
     boatMatrixRef.current.makeRotationY(boatYawRadians);
     for (let index = 0; index < BOAT_PROBE_OFFSETS.length; index += 1) {
@@ -1439,7 +1489,7 @@ function FloatingBoat({ settings, runtime, mode, orbitRef, onBoatPositionChange 
     // Throttle the expensive probe readback; reuse the last sample between reads.
     probeAccumulatorRef.current += delta;
     let probes = lastProbesRef.current;
-    if (probeAccumulatorRef.current >= BOAT_PROBE_INTERVAL || !probes) {
+    if (probeAccumulatorRef.current >= probeInterval || !probes) {
       probeAccumulatorRef.current = 0;
       const sampled = runtime.sampleBoatProbes(probeWorldPointsRef.current);
       if (sampled) {
@@ -1451,7 +1501,7 @@ function FloatingBoat({ settings, runtime, mode, orbitRef, onBoatPositionChange 
     if (!probes) {
       boatRef.current.position.y = THREE.MathUtils.damp(
         boatRef.current.position.y,
-        BOAT_NEUTRAL_Y,
+        BOAT_NEUTRAL_Y + boatHeightOffset,
         4.2,
         delta,
       );
@@ -1476,7 +1526,7 @@ function FloatingBoat({ settings, runtime, mode, orbitRef, onBoatPositionChange 
     const normalPitch = Math.atan2(-averageNormal.z, Math.max(averageNormal.y, 0.25));
     const normalRoll = Math.atan2(averageNormal.x, Math.max(averageNormal.y, 0.25));
 
-    let targetY = centerHeight + BOAT_NEUTRAL_Y;
+    let targetY = centerHeight + BOAT_NEUTRAL_Y + boatHeightOffset;
     let targetPitch = clamp(
       (Math.atan2(sternHeight - bowHeight, 1.9) * 0.7) + (normalPitch * 0.55),
       -0.28,
@@ -1516,7 +1566,7 @@ function FloatingBoat({ settings, runtime, mode, orbitRef, onBoatPositionChange 
       }
     }
 
-    targetY = clamp(targetY, BOAT_TARGET_Y_MIN, BOAT_TARGET_Y_MAX);
+    targetY = clamp(targetY, BOAT_TARGET_Y_MIN + boatHeightOffset, BOAT_TARGET_Y_MAX + boatHeightOffset);
     targetPitch = clamp(targetPitch, -BOAT_MAX_PITCH, BOAT_MAX_PITCH);
     targetRoll = clamp(targetRoll, -BOAT_MAX_ROLL, BOAT_MAX_ROLL);
 
@@ -1527,27 +1577,68 @@ function FloatingBoat({ settings, runtime, mode, orbitRef, onBoatPositionChange 
     boatRef.current.rotation.z = THREE.MathUtils.damp(boatRef.current.rotation.z, targetRoll, 4.5, delta);
   });
 
-  const obj = useLoader(OBJLoader, '/models/boat/OBJ.obj');
+  const obj = useLoader(OBJLoader, '/models/boat/OBJ_boat2.0.obj');
 
   const clonedObj = useMemo(() => {
     const clone = obj.clone();
+    const pickMaterial = (material) => (
+      material && material.name === 'OBJ_wire_metall' ? metalMaterial : woodMaterial
+    );
     clone.traverse((child) => {
-      if (child.isMesh) {
-        child.material = boatMaterial;
-        child.castShadow = true;
-        child.receiveShadow = true;
+      if (!child.isMesh) {
+        return;
+      }
+      // Keep the model's own (custom) normals — do NOT recompute.
+      child.material = Array.isArray(child.material)
+        ? child.material.map(pickMaterial)
+        : pickMaterial(child.material);
+      child.castShadow = true;
+      child.receiveShadow = true;
+    });
+    clone.scale.setScalar(settings.boatScale);
+    clone.rotateY(Math.PI); // bow orientation — fine-tune via boatYaw if needed
+    return clone;
+  }, [obj, woodMaterial, metalMaterial, settings.boatScale]);
+
+  // Auto-fit the cutout to the hull: take the largest sub-mesh footprint (the hull, not the
+  // thin oars) in boat-local space, so the cap self-centres and self-sizes — no manual offset.
+  const hullFootprint = useMemo(() => {
+    clonedObj.updateMatrixWorld(true);
+    const meshBox = new THREE.Box3();
+    const size = new THREE.Vector3();
+    const center = new THREE.Vector3();
+    const best = { center: new THREE.Vector3(0, 0, 0), size: new THREE.Vector3(0.84, 0.4, 1.9), area: -1 };
+
+    clonedObj.traverse((child) => {
+      if (!child.isMesh || !child.geometry) {
+        return;
+      }
+      child.geometry.computeBoundingBox();
+      if (!child.geometry.boundingBox) {
+        return;
+      }
+      meshBox.copy(child.geometry.boundingBox).applyMatrix4(child.matrixWorld);
+      meshBox.getSize(size);
+      const area = size.x * size.z;
+      if (area > best.area) {
+        best.area = area;
+        meshBox.getCenter(center);
+        best.center.copy(center);
+        best.size.copy(size);
       }
     });
-    // Adjust scale and orientation if needed. 
-    // Usually OBJs from free3D etc need some normalization.
-    clone.scale.setScalar(settings.boatScale); 
-    clone.rotateY(Math.PI); // Adjust if bow is pointing wrong way
-    return clone;
-  }, [obj, boatMaterial, settings.boatScale]);
+
+    return { center: best.center.clone(), size: best.size.clone() };
+  }, [clonedObj]);
 
   if (settings.debugView !== 'beauty') {
     return null;
   }
+
+  const cutoutActive = settings.boatCutoutFitWidth > 0.05 && settings.boatCutoutFitLength > 0.05;
+  const cutoutDebug = Boolean(settings.boatCutoutDebug);
+  const capScaleX = Math.max(hullFootprint.size.x * settings.boatCutoutFitWidth, 0.01);
+  const capScaleZ = Math.max(hullFootprint.size.z * settings.boatCutoutFitLength, 0.01);
 
   return (
     <>
@@ -1562,13 +1653,40 @@ function FloatingBoat({ settings, runtime, mode, orbitRef, onBoatPositionChange 
       >
         <group ref={boatRef} name="boat">
           <primitive object={clonedObj} />
+          {/* Hull cap: stamps the stencil buffer so the water surface skips the boat's
+              footprint. Parented to the boat, so it follows pitch/roll/heave exactly.
+              Debug mode paints it magenta on top instead of masking. */}
+          <mesh
+            name="boat-cutout-cap"
+            visible={cutoutActive}
+            position={[hullFootprint.center.x, hullFootprint.center.y, hullFootprint.center.z]}
+            rotation={[-Math.PI / 2, 0, 0]}
+            scale={[capScaleX, capScaleZ, 1]}
+            renderOrder={cutoutDebug ? 30 : 2}
+          >
+            <circleGeometry args={[0.5, 64]} />
+            <meshBasicMaterial
+              color={cutoutDebug ? '#ff00ff' : '#ffffff'}
+              side={THREE.DoubleSide}
+              transparent={cutoutDebug}
+              opacity={cutoutDebug ? 0.55 : 1}
+              colorWrite={cutoutDebug}
+              depthTest={false}
+              depthWrite={false}
+              toneMapped={false}
+              stencilWrite={!cutoutDebug}
+              stencilRef={BOAT_CUTOUT_STENCIL_REF}
+              stencilFunc={THREE.AlwaysStencilFunc}
+              stencilZPass={THREE.ReplaceStencilOp}
+            />
+          </mesh>
         </group>
       </group>
     </>
   );
 }
 
-function StaticSculpture({ settings, mode, orbitRef, onSculpturePositionChange }) {
+function StaticSculpture({ settings, layout, mode, orbitRef, onSculpturePositionChange }) {
   const anchorRef = useRef();
   const isDraggingRef = useRef(false);
   const dragPointerIdRef = useRef(null);
@@ -1576,9 +1694,9 @@ function StaticSculpture({ settings, mode, orbitRef, onSculpturePositionChange }
   const dragHitPointRef = useRef(new THREE.Vector3());
   const dragOffsetRef = useRef(new THREE.Vector3());
   const sculptureAnchorRef = useRef(new THREE.Vector3(
-    settings?.sculpturePosition?.x ?? DEFAULT_SCULPTURE_ANCHOR.x,
+    layout?.sculpturePosition?.x ?? settings?.sculpturePosition?.x ?? DEFAULT_SCULPTURE_ANCHOR.x,
     0,
-    settings?.sculpturePosition?.z ?? DEFAULT_SCULPTURE_ANCHOR.z,
+    layout?.sculpturePosition?.z ?? settings?.sculpturePosition?.z ?? DEFAULT_SCULPTURE_ANCHOR.z,
   ));
   const setOrbitEnabled = useCallback((enabled) => {
     if (orbitRef?.current) {
@@ -1634,15 +1752,15 @@ function StaticSculpture({ settings, mode, orbitRef, onSculpturePositionChange }
   }, [sculptureMaterial]);
 
   useEffect(() => {
-    const anchorX = settings?.sculpturePosition?.x ?? DEFAULT_SCULPTURE_ANCHOR.x;
-    const anchorZ = settings?.sculpturePosition?.z ?? DEFAULT_SCULPTURE_ANCHOR.z;
+    const anchorX = layout?.sculpturePosition?.x ?? settings?.sculpturePosition?.x ?? DEFAULT_SCULPTURE_ANCHOR.x;
+    const anchorZ = layout?.sculpturePosition?.z ?? settings?.sculpturePosition?.z ?? DEFAULT_SCULPTURE_ANCHOR.z;
 
     if (isDraggingRef.current) {
       return;
     }
 
     applySculptureAnchor(anchorX, anchorZ);
-  }, [applySculptureAnchor, settings?.sculpturePosition?.x, settings?.sculpturePosition?.z]);
+  }, [applySculptureAnchor, layout?.sculpturePosition?.x, layout?.sculpturePosition?.z, settings?.sculpturePosition?.x, settings?.sculpturePosition?.z]);
 
   useEffect(() => {
     if (!anchorRef.current) {
@@ -1803,6 +1921,7 @@ function SceneReadyBeacon({ onSceneReady }) {
 function WaterRuntimeScene({
   settings,
   mode,
+  layoutOverride,
   onCameraRigApi,
   onBoatPositionChange,
   onSculpturePositionChange,
@@ -1816,14 +1935,26 @@ function WaterRuntimeScene({
   const runtime = useWaterRuntime(settings, qualityProfile);
   const orbitRef = useRef();
   const showDebugHelpers = mode === 'editor' && settings.debugView !== 'beauty';
-  const reflectionsEnabled = settings.debugView === 'beauty' && settings.boatReflectionIntensity > 0.01;
+  const reflectionsEnabled = settings.debugView === 'beauty'
+    && settings.boatReflectionIntensity > 0.01
+    && !qualityProfile.isLowPower;
+  // Pick the composition bucket: editor forces the one being edited; the public site
+  // derives it from the window orientation + the physical monitor aspect (chrome-independent).
+  const hasWindow = typeof window !== 'undefined';
+  const viewportWidth = hasWindow ? window.innerWidth : size.width;
+  const viewportHeight = hasWindow ? window.innerHeight : size.height;
+  const screenWidth = hasWindow && window.screen ? window.screen.width : viewportWidth;
+  const screenHeight = hasWindow && window.screen ? window.screen.height : viewportHeight;
+  const activeLayoutKey = layoutOverride
+    ?? resolveLayoutKey(viewportWidth, viewportHeight, screenWidth, screenHeight);
+  const activeLayout = resolveLayout(settings.layouts, activeLayoutKey);
 
   return (
     <>
       <color attach="background" args={['#040507']} />
       <WaterCameraRig
         mode={mode}
-        settings={settings}
+        layout={activeLayout}
         onCameraRigApi={onCameraRigApi}
         orbitRef={orbitRef}
       />
@@ -1838,18 +1969,26 @@ function WaterRuntimeScene({
         <WaterSurface settings={settings} runtime={runtime} qualityProfile={qualityProfile} />
         <FloatingBoat
           settings={settings}
+          layout={activeLayout}
           runtime={runtime}
           mode={mode}
           orbitRef={orbitRef}
           onBoatPositionChange={onBoatPositionChange}
+          probeInterval={qualityProfile.boatProbeInterval}
         />
         <StaticSculpture
           settings={settings}
+          layout={activeLayout}
           mode={mode}
           orbitRef={orbitRef}
           onSculpturePositionChange={onSculpturePositionChange}
         />
-        <WaterInteractionPlane settings={settings} pointerStateRef={runtime.pointerStateRef} />
+        <WaterInteractionPlane
+          settings={settings}
+          pointerStateRef={runtime.pointerStateRef}
+          sampleBoatProbes={runtime.sampleBoatProbes}
+          enableSurfaceRefine={!qualityProfile.isLowPower}
+        />
       </WaterReflections>
       <SceneReadyBeacon onSceneReady={onSceneReady} />
       {showDebugHelpers ? <axesHelper args={[2]} /> : null}
@@ -1869,6 +2008,7 @@ const WaterScene = ({
   sceneId = 'water-scene',
   testId,
   fallbackTestId,
+  layoutOverride,
   onCameraRigApi,
   onBoatPositionChange,
   onSculpturePositionChange,
@@ -1889,6 +2029,7 @@ const WaterScene = ({
       <WaterRuntimeScene
         settings={settings}
         mode={mode}
+        layoutOverride={layoutOverride}
         onCameraRigApi={onCameraRigApi}
         onBoatPositionChange={onBoatPositionChange}
         onSculpturePositionChange={onSculpturePositionChange}

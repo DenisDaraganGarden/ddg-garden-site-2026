@@ -17,18 +17,107 @@
 
 .home-editor-panel {
   position: fixed;
-  left: clamp(1rem, 2vw, 2rem);
-  right: clamp(1rem, 2vw, 2rem);
+  left: 50%;
   bottom: 1rem;
+  transform: translateX(-50%);
+  width: min(1120px, calc(100vw - 2rem));
   z-index: 140;
   display: grid;
-  gap: 0.8rem;
-  padding: 1rem;
-  background: rgba(14, 14, 14, 0.86);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  gap: 0.7rem;
+  padding: 0.85rem 1rem 1rem;
+  background: rgba(13, 13, 13, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 18px;
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
-  backdrop-filter: blur(20px);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(22px);
+}
+
+/* Free-drag mode: positioned by inline left/top (top-left anchor). */
+.home-editor-panel--floating {
+  left: 0;
+  bottom: auto;
+  transform: none;
+}
+
+.home-editor-panel--collapsed {
+  gap: 0;
+  padding: 0.5rem 0.7rem;
+  width: max-content;
+  min-width: 280px;
+}
+
+.home-editor-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: -0.1rem -0.2rem 0.1rem;
+  padding: 0.1rem 0.2rem;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+}
+
+.home-editor-panel--collapsed .home-editor-panel-header {
+  margin: 0;
+}
+
+.home-editor-panel-header:active {
+  cursor: grabbing;
+}
+
+.home-editor-panel-grip {
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 1rem;
+  line-height: 1;
+  letter-spacing: -1px;
+}
+
+.home-editor-panel-title {
+  font-family: var(--font-secondary);
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.home-editor-panel-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #f0b24b;
+  box-shadow: 0 0 8px rgba(240, 178, 75, 0.7);
+}
+
+.home-editor-panel-collapse {
+  margin-left: auto;
+  width: 1.9rem;
+  height: 1.9rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.05);
+  color: #f5f5f5;
+  border-radius: 9px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  line-height: 1;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.home-editor-panel-collapse:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.26);
+}
+
+.home-editor-tab--publish {
+  background: rgba(240, 178, 75, 0.16);
+  border-color: rgba(240, 178, 75, 0.4);
+}
+
+.home-editor-tab--publish:hover:not(:disabled) {
+  background: rgba(240, 178, 75, 0.26);
+  border-color: rgba(240, 178, 75, 0.55);
 }
 
 .home-editor-tabs {
@@ -75,6 +164,10 @@
 
 .home-editor-section {
   display: grid;
+  max-height: 40vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 0.25rem;
 }
 
 .home-editor-controls {
@@ -87,6 +180,24 @@
   display: flex;
   flex-direction: column;
   gap: 0.45rem;
+}
+
+.home-editor-section-heading {
+  grid-column: 1 / -1;
+  margin: 0.55rem 0 0;
+  padding-top: 0.6rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.09);
+  font-family: var(--font-secondary);
+  font-size: 0.66rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.home-editor-section-heading:first-child {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
 }
 
 .home-editor-control-group label {
@@ -126,10 +237,17 @@
   padding: 0 0.85rem;
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(20, 20, 20, 0.92);
   color: #f5f5f5;
   font-family: var(--font-secondary);
   cursor: pointer;
+}
+
+/* Native dropdown popup: Windows/Chrome renders <option>s with a light system
+   background, so without this the menu shows white-on-white. Force dark rows. */
+.home-editor-select option {
+  background-color: #161616;
+  color: #f5f5f5;
 }
 
 .home-editor-control-group input[type="checkbox"] {
@@ -142,6 +260,36 @@
   display: flex;
   flex-wrap: wrap;
   gap: 0.55rem;
+}
+
+.home-editor-layout-tabs {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.home-editor-layout-tab {
+  flex: 1 1 auto;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+  color: #f5f5f5;
+  padding: 0.5rem 0.6rem;
+  border-radius: 9px;
+  cursor: pointer;
+  font-family: var(--font-secondary);
+  font-size: 0.78rem;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.home-editor-layout-tab:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.24);
+}
+
+.home-editor-layout-tab.active {
+  background: rgba(255, 255, 255, 0.92);
+  color: #111;
+  border-color: transparent;
 }
 
 .home-editor-camera-pose-grid {
@@ -216,10 +364,15 @@
 }
 
 @media (max-width: 768px) {
-  .home-editor-panel {
+  .home-editor-panel,
+  .home-editor-panel--collapsed {
     left: 1rem;
     right: 1rem;
     bottom: calc(var(--mobile-header-height) + 0.6rem);
+    top: auto;
+    transform: none;
+    width: auto;
+    min-width: 0;
     padding: 0.85rem;
   }
 

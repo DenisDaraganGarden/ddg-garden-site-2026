@@ -5,3 +5,6 @@ output/
 .playwright-cli/
 progress.md
 CleanShot*.mp4
+
+.claude/
+_src_boat/

@@ -4,9 +4,12 @@ import {
     HOME_SCENE_DEBUG_VIEWS,
     HOME_SCENE_HDRI_PRESETS,
 } from '../hooks/useHomeSceneSettings';
+import { resolveLayout } from '../lib/layout';
 import {
+    CheckboxControl,
     ColorControl,
     RangeControl,
+    SectionHeading,
     SelectControl,
 } from './HomeEditorControls';
 
@@ -21,7 +24,7 @@ export const WaterTab = ({ settings, handleSettingChange }) => {
                 label={t('homeEditor.controls.waterExtent')}
                 value={settings.waterExtent}
                 min={12}
-                max={40}
+                max={200}
                 step={0.5}
                 unit="m"
                 formatValue={(value) => formatFloat(value, 1)}
@@ -147,44 +150,7 @@ export const LightingTab = ({ settings, handleSettingChange }) => {
 
     return (
         <>
-            <SelectControl
-                label={t('homeEditor.controls.hdrPreset')}
-                value={settings.hdrPreset}
-                options={HOME_SCENE_HDRI_PRESETS}
-                onChange={(event) => handleSettingChange(event, 'hdrPreset', 'string')}
-            />
-            <RangeControl
-                label={t('homeEditor.controls.hdrRotation')}
-                value={settings.hdrRotation}
-                min={0}
-                max={360}
-                step={1}
-                unit="°"
-                onChange={(event) => handleSettingChange(event, 'hdrRotation')}
-            />
-            <RangeControl
-                label={t('homeEditor.controls.hdrExposure')}
-                value={settings.hdrExposure}
-                min={20}
-                max={220}
-                step={1}
-                unit="%"
-                onChange={(event) => handleSettingChange(event, 'hdrExposure', 'integer')}
-            />
-            <RangeControl
-                label={t('homeEditor.controls.envReflectionIntensity')}
-                value={settings.envReflectionIntensity}
-                min={20}
-                max={220}
-                step={1}
-                unit="%"
-                onChange={(event) => handleSettingChange(event, 'envReflectionIntensity', 'integer')}
-            />
-            <ColorControl
-                label={t('homeEditor.controls.envTint')}
-                value={settings.envTint}
-                onChange={(event) => handleSettingChange(event, 'envTint', 'color')}
-            />
+            <SectionHeading label={t('homeEditor.controls.lightingSectionSunMoon')} />
             <ColorControl
                 label={t('homeEditor.controls.moonColor')}
                 value={settings.moonColor}
@@ -233,6 +199,111 @@ export const LightingTab = ({ settings, handleSettingChange }) => {
                 max={128}
                 step={1}
                 onChange={(event) => handleSettingChange(event, 'moonSpecularPower')}
+            />
+
+            <SectionHeading label={t('homeEditor.controls.lightingSectionHdri')} />
+            <SelectControl
+                label={t('homeEditor.controls.hdrPreset')}
+                value={settings.hdrPreset}
+                options={HOME_SCENE_HDRI_PRESETS}
+                onChange={(event) => handleSettingChange(event, 'hdrPreset', 'string')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.hdrRotation')}
+                value={settings.hdrRotation}
+                min={0}
+                max={360}
+                step={1}
+                unit="°"
+                onChange={(event) => handleSettingChange(event, 'hdrRotation')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.hdrExposure')}
+                value={settings.hdrExposure}
+                min={20}
+                max={220}
+                step={1}
+                unit="%"
+                onChange={(event) => handleSettingChange(event, 'hdrExposure', 'integer')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.envReflectionIntensity')}
+                value={settings.envReflectionIntensity}
+                min={20}
+                max={220}
+                step={1}
+                unit="%"
+                onChange={(event) => handleSettingChange(event, 'envReflectionIntensity', 'integer')}
+            />
+            <ColorControl
+                label={t('homeEditor.controls.envTint')}
+                value={settings.envTint}
+                onChange={(event) => handleSettingChange(event, 'envTint', 'color')}
+            />
+            <CheckboxControl
+                label={t('homeEditor.controls.showHdriBackground')}
+                checked={Boolean(settings.showHdriBackground)}
+                onChange={(event) => handleSettingChange(event, 'showHdriBackground', 'boolean')}
+            />
+
+            <SectionHeading label={t('homeEditor.controls.lightingSectionShadows')} />
+            <CheckboxControl
+                label={t('homeEditor.controls.shadowsEnabled')}
+                checked={settings.shadowsEnabled !== false}
+                onChange={(event) => handleSettingChange(event, 'shadowsEnabled', 'boolean')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.shadowRadius')}
+                value={settings.shadowRadius}
+                min={0}
+                max={16}
+                step={0.5}
+                formatValue={(value) => formatFloat(value, 1)}
+                onChange={(event) => handleSettingChange(event, 'shadowRadius')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.shadowBias')}
+                value={settings.shadowBias}
+                min={-0.005}
+                max={0.005}
+                step={0.0001}
+                formatValue={(value) => formatFloat(value, 4)}
+                onChange={(event) => handleSettingChange(event, 'shadowBias')}
+            />
+
+            <SectionHeading label={t('homeEditor.controls.lightingSectionFill')} />
+            <RangeControl
+                label={t('homeEditor.controls.ambientIntensity')}
+                value={settings.ambientIntensity}
+                min={0}
+                max={2}
+                step={0.01}
+                formatValue={(value) => formatFloat(value)}
+                onChange={(event) => handleSettingChange(event, 'ambientIntensity')}
+            />
+            <ColorControl
+                label={t('homeEditor.controls.ambientColor')}
+                value={settings.ambientColor}
+                onChange={(event) => handleSettingChange(event, 'ambientColor', 'color')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.hemisphereIntensity')}
+                value={settings.hemisphereIntensity}
+                min={0}
+                max={2}
+                step={0.01}
+                formatValue={(value) => formatFloat(value)}
+                onChange={(event) => handleSettingChange(event, 'hemisphereIntensity')}
+            />
+            <ColorControl
+                label={t('homeEditor.controls.hemisphereSkyColor')}
+                value={settings.hemisphereSkyColor}
+                onChange={(event) => handleSettingChange(event, 'hemisphereSkyColor', 'color')}
+            />
+            <ColorControl
+                label={t('homeEditor.controls.hemisphereGroundColor')}
+                value={settings.hemisphereGroundColor}
+                onChange={(event) => handleSettingChange(event, 'hemisphereGroundColor', 'color')}
             />
         </>
     );
@@ -330,94 +401,100 @@ export const DepthTab = ({ settings, handleSettingChange }) => {
     );
 };
 
-export const CameraTab = ({
-    settings,
-    handleSettingChange,
-    onCaptureCameraPosePortrait,
-    onResetCameraPosePortrait,
-    onCaptureCameraPoseLandscape,
-    onResetCameraPoseLandscape,
-}) => {
+const LAYOUT_LABEL_KEYS = {
+    portrait: 'homeEditor.controls.layoutPortrait',
+    desktop: 'homeEditor.controls.layoutDesktop',
+    wide: 'homeEditor.controls.layoutWide',
+};
+
+export const CameraTab = ({ settings, layoutEditor }) => {
     const { t } = useLanguage();
+
+    if (!layoutEditor) {
+        return null;
+    }
+
+    const {
+        selectedKey,
+        setSelectedKey,
+        currentKey,
+        layouts,
+        captureLayout,
+        resetLayout,
+        onFovChange,
+    } = layoutEditor;
+    const effective = resolveLayout(layouts, selectedKey) ?? {};
+    const isCustomized = Boolean(layouts?.[selectedKey]?.customized);
+    const buckets = ['portrait', 'desktop', 'wide'];
 
     return (
         <>
+            <p className="home-editor-inline-hint">{t('homeEditor.controls.layoutHint')}</p>
+            <div className="home-editor-control-group">
+                <label>{t('homeEditor.controls.layoutBucket')}</label>
+                <div className="home-editor-layout-tabs">
+                    {buckets.map((key) => (
+                        <button
+                            key={key}
+                            type="button"
+                            className={`home-editor-layout-tab ${selectedKey === key ? 'active' : ''}`}
+                            onClick={() => setSelectedKey(key)}
+                        >
+                            {t(LAYOUT_LABEL_KEYS[key])}
+                            {currentKey === key ? ' •' : ''}
+                        </button>
+                    ))}
+                </div>
+                <span className="home-editor-camera-pose-status">
+                    {isCustomized
+                        ? t('homeEditor.controls.layoutStatusSet')
+                        : t('homeEditor.controls.layoutStatusAuto')}
+                    {currentKey === selectedKey ? ` · ${t('homeEditor.controls.layoutIsCurrent')}` : ''}
+                </span>
+            </div>
             <RangeControl
                 label={t('homeEditor.controls.cameraFov')}
-                value={settings.cameraFov}
+                value={effective.cameraFov ?? settings.cameraFov}
                 min={24}
                 max={75}
                 step={1}
                 unit="°"
-                onChange={(event) => handleSettingChange(event, 'cameraFov', 'integer')}
+                onChange={(event) => onFovChange(parseInt(event.target.value, 10))}
             />
-            <div className="home-editor-control-group">
-                <label>{t('homeEditor.controls.cameraPoseTools')}</label>
-                <div className="home-editor-camera-pose-grid">
-                    <div className="home-editor-camera-pose-block">
-                        <span className="home-editor-camera-pose-heading">
-                            {t('homeEditor.controls.cameraPosePortraitTitle')}
-                        </span>
-                        <div className="home-editor-camera-actions">
-                            <button
-                                type="button"
-                                className="home-editor-action-button"
-                                onClick={onCaptureCameraPosePortrait}
-                                disabled={typeof onCaptureCameraPosePortrait !== 'function'}
-                            >
-                                {t('homeEditor.controls.cameraSavePortraitPose')}
-                            </button>
-                            <button
-                                type="button"
-                                className="home-editor-action-button"
-                                onClick={onResetCameraPosePortrait}
-                                disabled={typeof onResetCameraPosePortrait !== 'function'}
-                            >
-                                {t('homeEditor.controls.cameraResetPortraitPose')}
-                            </button>
-                        </div>
-                        <span className="home-editor-camera-pose-status">
-                            {settings.cameraCustomPosePortrait
-                                ? t('homeEditor.controls.cameraPosePortraitSaved')
-                                : t('homeEditor.controls.cameraPosePortraitAuto')}
-                        </span>
-                    </div>
-                    <div className="home-editor-camera-pose-block">
-                        <span className="home-editor-camera-pose-heading">
-                            {t('homeEditor.controls.cameraPoseLandscapeTitle')}
-                        </span>
-                        <div className="home-editor-camera-actions">
-                            <button
-                                type="button"
-                                className="home-editor-action-button"
-                                onClick={onCaptureCameraPoseLandscape}
-                                disabled={typeof onCaptureCameraPoseLandscape !== 'function'}
-                            >
-                                {t('homeEditor.controls.cameraSaveLandscapePose')}
-                            </button>
-                            <button
-                                type="button"
-                                className="home-editor-action-button"
-                                onClick={onResetCameraPoseLandscape}
-                                disabled={typeof onResetCameraPoseLandscape !== 'function'}
-                            >
-                                {t('homeEditor.controls.cameraResetLandscapePose')}
-                            </button>
-                        </div>
-                        <span className="home-editor-camera-pose-status">
-                            {settings.cameraCustomPoseLandscape
-                                ? t('homeEditor.controls.cameraPoseLandscapeSaved')
-                                : t('homeEditor.controls.cameraPoseLandscapeAuto')}
-                        </span>
-                    </div>
-                </div>
+            <div className="home-editor-camera-actions">
+                <button
+                    type="button"
+                    className="home-editor-action-button"
+                    onClick={() => captureLayout(selectedKey)}
+                >
+                    {t('homeEditor.controls.layoutCapture')}
+                </button>
+                <button
+                    type="button"
+                    className="home-editor-action-button"
+                    onClick={() => resetLayout(selectedKey)}
+                    disabled={!isCustomized}
+                >
+                    {t('homeEditor.controls.layoutReset')}
+                </button>
             </div>
         </>
     );
 };
 
-export const BoatTab = ({ settings, handleSettingChange }) => {
+export const BoatTab = ({ settings, handleSettingChange, layoutEditor }) => {
     const { t } = useLanguage();
+    const activeBoat = (layoutEditor
+        ? resolveLayout(layoutEditor.layouts, layoutEditor.selectedKey)?.boatPosition
+        : null) ?? settings.boatPosition ?? { x: 0, z: 0 };
+    const setBoatAxis = (axis, value) => {
+        if (!layoutEditor) {
+            return;
+        }
+        layoutEditor.updateLayout(layoutEditor.selectedKey, {
+            boatPosition: { ...activeBoat, [axis]: value },
+        });
+    };
 
     return (
         <>
@@ -426,23 +503,23 @@ export const BoatTab = ({ settings, handleSettingChange }) => {
             </p>
             <RangeControl
                 label={t('homeEditor.controls.boatPositionX')}
-                value={settings.boatPosition?.x ?? 0}
+                value={activeBoat.x ?? 0}
                 min={-20}
                 max={20}
                 step={0.01}
                 unit="m"
                 formatValue={(value) => formatFloat(value)}
-                onChange={(event) => handleSettingChange(event, 'boatPosition.x')}
+                onChange={(event) => setBoatAxis('x', parseFloat(event.target.value))}
             />
             <RangeControl
                 label={t('homeEditor.controls.boatPositionZ')}
-                value={settings.boatPosition?.z ?? 0}
+                value={activeBoat.z ?? 0}
                 min={-20}
                 max={20}
                 step={0.01}
                 unit="m"
                 formatValue={(value) => formatFloat(value)}
-                onChange={(event) => handleSettingChange(event, 'boatPosition.z')}
+                onChange={(event) => setBoatAxis('z', parseFloat(event.target.value))}
             />
             <ColorControl
                 label={t('homeEditor.controls.boatColor')}
@@ -512,12 +589,56 @@ export const BoatTab = ({ settings, handleSettingChange }) => {
                 formatValue={(value) => formatFloat(value, 3)}
                 onChange={(event) => handleSettingChange(event, 'boatScale')}
             />
+            <RangeControl
+                label={t('homeEditor.controls.boatHeightOffset')}
+                value={settings.boatHeightOffset}
+                min={-0.6}
+                max={0.6}
+                step={0.01}
+                unit="m"
+                formatValue={(value) => formatFloat(value)}
+                onChange={(event) => handleSettingChange(event, 'boatHeightOffset')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.boatCutoutFitLength')}
+                value={settings.boatCutoutFitLength}
+                min={0.1}
+                max={1.4}
+                step={0.01}
+                formatValue={(value) => formatFloat(value)}
+                onChange={(event) => handleSettingChange(event, 'boatCutoutFitLength')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.boatCutoutFitWidth')}
+                value={settings.boatCutoutFitWidth}
+                min={0.1}
+                max={1.4}
+                step={0.01}
+                formatValue={(value) => formatFloat(value)}
+                onChange={(event) => handleSettingChange(event, 'boatCutoutFitWidth')}
+            />
+            <CheckboxControl
+                label={t('homeEditor.controls.boatCutoutDebug')}
+                checked={Boolean(settings.boatCutoutDebug)}
+                onChange={(event) => handleSettingChange(event, 'boatCutoutDebug', 'boolean')}
+            />
         </>
     );
 };
 
-export const SculptureTab = ({ settings, handleSettingChange }) => {
+export const SculptureTab = ({ settings, handleSettingChange, layoutEditor }) => {
     const { t } = useLanguage();
+    const activeSculpture = (layoutEditor
+        ? resolveLayout(layoutEditor.layouts, layoutEditor.selectedKey)?.sculpturePosition
+        : null) ?? settings.sculpturePosition ?? { x: 0, z: 0 };
+    const setSculptureAxis = (axis, value) => {
+        if (!layoutEditor) {
+            return;
+        }
+        layoutEditor.updateLayout(layoutEditor.selectedKey, {
+            sculpturePosition: { ...activeSculpture, [axis]: value },
+        });
+    };
 
     return (
         <>
@@ -526,23 +647,23 @@ export const SculptureTab = ({ settings, handleSettingChange }) => {
             </p>
             <RangeControl
                 label={t('homeEditor.controls.sculpturePositionX')}
-                value={settings.sculpturePosition?.x ?? 0}
+                value={activeSculpture.x ?? 0}
                 min={-20}
                 max={20}
                 step={0.01}
                 unit="m"
                 formatValue={(value) => formatFloat(value)}
-                onChange={(event) => handleSettingChange(event, 'sculpturePosition.x')}
+                onChange={(event) => setSculptureAxis('x', parseFloat(event.target.value))}
             />
             <RangeControl
                 label={t('homeEditor.controls.sculpturePositionZ')}
-                value={settings.sculpturePosition?.z ?? 0}
+                value={activeSculpture.z ?? 0}
                 min={-20}
                 max={20}
                 step={0.01}
                 unit="m"
                 formatValue={(value) => formatFloat(value)}
-                onChange={(event) => handleSettingChange(event, 'sculpturePosition.z')}
+                onChange={(event) => setSculptureAxis('z', parseFloat(event.target.value))}
             />
             <ColorControl
                 label={t('homeEditor.controls.sculptureColor')}

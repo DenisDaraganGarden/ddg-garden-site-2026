@@ -39,6 +39,8 @@ function getCanvasProfile(mode) {
   const isEditor = mode === 'editor';
   const isPublicMode = !isEditor;
   const isMobileViewport = window.innerWidth < 768;
+  const isTouchPrimary = typeof window.matchMedia === 'function'
+    && window.matchMedia('(hover: none) and (pointer: coarse)').matches;
   const hasNavigator = typeof navigator !== 'undefined';
   const deviceMemory = hasNavigator && typeof navigator.deviceMemory === 'number'
     ? navigator.deviceMemory
@@ -47,13 +49,17 @@ function getCanvasProfile(mode) {
     ? navigator.hardwareConcurrency
     : null;
   const isLowPowerDevice = isMobileViewport
+    || isTouchPrimary
     || (deviceMemory !== null && deviceMemory <= 4)
     || (hardwareConcurrency !== null && hardwareConcurrency <= 4);
 
   return {
+    // Force supersampling on capable devices so thin geometry (oars, ribs) and
+    // shader edges resolve cleanly even on standard 1x monitors.
+    minDpr: isLowPowerDevice ? 1 : 1.5,
     maxDpr: isEditor
-      ? (isLowPowerDevice ? 1.2 : 1.4)
-      : (isLowPowerDevice ? 1 : 1.4),
+      ? (isLowPowerDevice ? 1.2 : 1.7)
+      : (isLowPowerDevice ? 1 : 2),
     antialias: !isLowPowerDevice,
     powerPreference: isLowPowerDevice ? 'low-power' : 'default',
   };
@@ -263,13 +269,14 @@ const SceneCanvas = ({
         <Canvas
           shadows={{ type: THREE.PCFSoftShadowMap }}
           frameloop={isTabVisible ? 'always' : 'never'}
-          dpr={[1, profile.maxDpr]}
+          dpr={[profile.minDpr, profile.maxDpr]}
           camera={camera}
           gl={{
             alpha: true,
             antialias: profile.antialias,
             powerPreference: profile.powerPreference,
-            stencil: false,
+            // Stencil buffer powers the boat water-cutout (hull cap masks the water surface).
+            stencil: true,
           }}
         >
           <VisibilityResume isActive={isTabVisible} />

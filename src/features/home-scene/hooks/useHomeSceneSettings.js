@@ -32,6 +32,18 @@ const DEFAULT_LANDSCAPE_CAMERA_POSITION = { x: 0, y: 5.8, z: 8.9 };
 const DEFAULT_PORTRAIT_CAMERA_POSITION = { x: 0, y: 5.1, z: 7.3 };
 const DEFAULT_CAMERA_TARGET = { x: 0, y: 0, z: 0 };
 const DEFAULT_SCULPTURE_POSITION = { x: 0.6, z: 1.2 };
+const DEFAULT_BOAT_POSITION = { x: 2.1, z: -1.4 };
+const DEFAULT_CAMERA_FOV = 36;
+
+// One composition bucket (see features/home-scene/lib/layout.js for selection logic).
+const buildLayout = (cameraPosition, cameraFov) => ({
+  customized: false,
+  cameraPosition: { ...cameraPosition },
+  cameraTarget: { ...DEFAULT_CAMERA_TARGET },
+  cameraFov,
+  boatPosition: { ...DEFAULT_BOAT_POSITION },
+  sculpturePosition: { ...DEFAULT_SCULPTURE_POSITION },
+});
 const VALID_HDRI_PRESETS = new Set(HOME_SCENE_HDRI_PRESETS.map((option) => option.value));
 const VALID_DEBUG_VIEWS = new Set(HOME_SCENE_DEBUG_VIEWS.map((option) => option.value));
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
@@ -91,6 +103,18 @@ const pickColor = (value, fallback) => (
     ? value
     : fallback
 );
+const pickLayout = (value, fallback) => {
+  const source = (value && typeof value === 'object' && !Array.isArray(value)) ? value : {};
+
+  return {
+    customized: pickBoolean(source.customized, fallback.customized),
+    cameraPosition: pickVector3(source.cameraPosition, fallback.cameraPosition),
+    cameraTarget: pickVector3(source.cameraTarget, fallback.cameraTarget),
+    cameraFov: clampInt(source.cameraFov, 24, 75, fallback.cameraFov),
+    boatPosition: pickVector2(source.boatPosition, fallback.boatPosition),
+    sculpturePosition: pickVector2(source.sculpturePosition, fallback.sculpturePosition),
+  };
+};
 
 export const getBaseHomeSceneSettings = () => ({
   waterExtent: 24,
@@ -115,6 +139,15 @@ export const getBaseHomeSceneSettings = () => ({
   moonElevation: 18,
   moonSpecularStrength: 0.18,
   moonSpecularPower: 38,
+  showHdriBackground: false,
+  shadowsEnabled: true,
+  shadowRadius: 4,
+  shadowBias: -0.0002,
+  ambientIntensity: 0.11,
+  ambientColor: '#202635',
+  hemisphereIntensity: 0.26,
+  hemisphereSkyColor: '#314762',
+  hemisphereGroundColor: '#020305',
   waterDepthMeters: 5,
   seabedReliefStrength: 0.42,
   seabedReliefScale: 1.8,
@@ -131,6 +164,11 @@ export const getBaseHomeSceneSettings = () => ({
   cameraCustomPosePortrait: false,
   cameraPositionPortrait: { ...DEFAULT_PORTRAIT_CAMERA_POSITION },
   cameraTargetPortrait: { ...DEFAULT_CAMERA_TARGET },
+  layouts: {
+    portrait: buildLayout(DEFAULT_PORTRAIT_CAMERA_POSITION, DEFAULT_CAMERA_FOV),
+    desktop: buildLayout(DEFAULT_LANDSCAPE_CAMERA_POSITION, DEFAULT_CAMERA_FOV),
+    wide: buildLayout(DEFAULT_LANDSCAPE_CAMERA_POSITION, DEFAULT_CAMERA_FOV),
+  },
   debugView: DEFAULT_DEBUG_VIEW,
   boatColor: '#ffffff',
   boatMetalness: 0.15,
@@ -141,6 +179,14 @@ export const getBaseHomeSceneSettings = () => ({
   boatPosition: { x: 2.1, z: -1.4 },
   boatYaw: 18,
   boatScale: 0.001,
+  boatHeightOffset: 0,
+  boatCutoutLength: 1.15,
+  boatCutoutWidth: 0.52,
+  boatCutoutOffsetX: 0,
+  boatCutoutOffsetZ: 0,
+  boatCutoutFitWidth: 0.72,
+  boatCutoutFitLength: 0.92,
+  boatCutoutDebug: false,
   sculptureColor: '#b7bcc7',
   sculptureMetalness: 0.08,
   sculptureRoughness: 0.78,
@@ -260,8 +306,51 @@ const normalizeHomeSceneSettings = (savedSettings = {}) => {
     defaults.cameraTargetPortrait,
   );
 
+  const normalizedCameraFov = clampInt(merged.cameraFov, 24, 75, defaults.cameraFov);
+  const normalizedBoatPosition = pickVector2(merged.boatPosition, defaults.boatPosition);
+  const normalizedSculpturePosition = pickVector2(merged.sculpturePosition, defaults.sculpturePosition);
+
+  // Migrate the old flat camera fields into the responsive composition buckets when a
+  // settings blob predates `layouts`. Desktop = old landscape, portrait = old portrait,
+  // wide inherits desktop. Object positions seed every bucket from the old globals.
+  const legacyDesktopLayout = {
+    customized: cameraCustomPoseLandscape,
+    cameraPosition: cameraPositionLandscape,
+    cameraTarget: cameraTargetLandscape,
+    cameraFov: normalizedCameraFov,
+    boatPosition: normalizedBoatPosition,
+    sculpturePosition: normalizedSculpturePosition,
+  };
+  const legacyPortraitLayout = {
+    customized: cameraCustomPosePortrait,
+    cameraPosition: cameraPositionPortrait,
+    cameraTarget: cameraTargetPortrait,
+    cameraFov: normalizedCameraFov,
+    boatPosition: normalizedBoatPosition,
+    sculpturePosition: normalizedSculpturePosition,
+  };
+  const legacyWideLayout = { ...legacyDesktopLayout, customized: false };
+  // Read layouts from the RAW saved blob, not `merged` — defaults always carry a `layouts`
+  // object, so merged.layouts would mask a legacy (pre-layouts) settings file and skip migration.
+  const incomingLayouts = (savedSettings.layouts && typeof savedSettings.layouts === 'object' && !Array.isArray(savedSettings.layouts))
+    ? savedSettings.layouts
+    : {};
+  // Use a saved bucket only when it was explicitly locked; otherwise (absent OR a stale
+  // default-uncustomised bucket) re-migrate from the legacy flat fields so the real
+  // composition is never masked by an empty layouts block.
+  const resolveBucket = (incoming, legacyLayout) => (
+    (incoming && typeof incoming === 'object' && incoming.customized)
+      ? pickLayout(incoming, legacyLayout)
+      : pickLayout(legacyLayout, legacyLayout)
+  );
+  const layouts = {
+    portrait: resolveBucket(incomingLayouts.portrait, legacyPortraitLayout),
+    desktop: resolveBucket(incomingLayouts.desktop, legacyDesktopLayout),
+    wide: resolveBucket(incomingLayouts.wide, legacyWideLayout),
+  };
+
   return {
-    waterExtent: clampFloat(merged.waterExtent, 12, 40, defaults.waterExtent),
+    waterExtent: clampFloat(merged.waterExtent, 12, 200, defaults.waterExtent),
     simulationResolution: clampResolution(merged.simulationResolution),
     waterMeshDensity: clampInt(merged.waterMeshDensity, 96, 384, defaults.waterMeshDensity),
     waveAmplitude: clampFloat(merged.waveAmplitude, 0.01, 0.2, defaults.waveAmplitude),
@@ -283,13 +372,23 @@ const normalizeHomeSceneSettings = (savedSettings = {}) => {
     moonElevation: clampFloat(merged.moonElevation, 5, 85, defaults.moonElevation),
     moonSpecularStrength: clampFloat(merged.moonSpecularStrength, 0, 2, defaults.moonSpecularStrength),
     moonSpecularPower: clampFloat(merged.moonSpecularPower, 4, 128, defaults.moonSpecularPower),
+    showHdriBackground: pickBoolean(merged.showHdriBackground, defaults.showHdriBackground),
+    shadowsEnabled: pickBoolean(merged.shadowsEnabled, defaults.shadowsEnabled),
+    shadowRadius: clampFloat(merged.shadowRadius, 0, 16, defaults.shadowRadius),
+    shadowBias: clampFloat(merged.shadowBias, -0.005, 0.005, defaults.shadowBias),
+    ambientIntensity: clampFloat(merged.ambientIntensity, 0, 2, defaults.ambientIntensity),
+    ambientColor: pickColor(merged.ambientColor, defaults.ambientColor),
+    hemisphereIntensity: clampFloat(merged.hemisphereIntensity, 0, 2, defaults.hemisphereIntensity),
+    hemisphereSkyColor: pickColor(merged.hemisphereSkyColor, defaults.hemisphereSkyColor),
+    hemisphereGroundColor: pickColor(merged.hemisphereGroundColor, defaults.hemisphereGroundColor),
     waterDepthMeters: clampFloat(merged.waterDepthMeters, 1, 12, defaults.waterDepthMeters),
     seabedReliefStrength: clampFloat(merged.seabedReliefStrength, 0, 2, defaults.seabedReliefStrength),
     seabedReliefScale: clampFloat(merged.seabedReliefScale, 0.5, 6, defaults.seabedReliefScale),
     causticsIntensity: clampFloat(merged.causticsIntensity, 0, 3, defaults.causticsIntensity),
     causticsScale: clampFloat(merged.causticsScale, 0.5, 6, defaults.causticsScale),
     causticsSharpness: clampFloat(merged.causticsSharpness, 0.1, 1.5, defaults.causticsSharpness),
-    cameraFov: clampInt(merged.cameraFov, 24, 75, defaults.cameraFov),
+    cameraFov: normalizedCameraFov,
+    layouts,
     cameraCustomPose: cameraCustomPoseLandscape,
     cameraPosition: cameraPositionLandscape,
     cameraTarget: cameraTargetLandscape,
@@ -311,9 +410,17 @@ const normalizeHomeSceneSettings = (savedSettings = {}) => {
       2,
       defaults.boatReflectionIntensity,
     ),
-    boatPosition: pickVector2(merged.boatPosition, defaults.boatPosition),
+    boatPosition: normalizedBoatPosition,
     boatYaw: clampFloat(merged.boatYaw, -180, 180, defaults.boatYaw),
     boatScale: clampFloat(merged.boatScale, 0.001, 0.1, defaults.boatScale),
+    boatHeightOffset: clampFloat(merged.boatHeightOffset, -0.6, 0.6, defaults.boatHeightOffset),
+    boatCutoutLength: clampFloat(merged.boatCutoutLength, 0, 4, defaults.boatCutoutLength),
+    boatCutoutWidth: clampFloat(merged.boatCutoutWidth, 0, 3, defaults.boatCutoutWidth),
+    boatCutoutOffsetX: clampFloat(merged.boatCutoutOffsetX, -3, 3, defaults.boatCutoutOffsetX),
+    boatCutoutOffsetZ: clampFloat(merged.boatCutoutOffsetZ, -3, 3, defaults.boatCutoutOffsetZ),
+    boatCutoutFitWidth: clampFloat(merged.boatCutoutFitWidth, 0.1, 1.6, defaults.boatCutoutFitWidth),
+    boatCutoutFitLength: clampFloat(merged.boatCutoutFitLength, 0.1, 1.6, defaults.boatCutoutFitLength),
+    boatCutoutDebug: pickBoolean(merged.boatCutoutDebug, defaults.boatCutoutDebug),
     sculptureColor: pickColor(merged.sculptureColor, defaults.sculptureColor),
     sculptureMetalness: clampFloat(merged.sculptureMetalness, 0, 1, defaults.sculptureMetalness),
     sculptureRoughness: clampFloat(merged.sculptureRoughness, 0, 1, defaults.sculptureRoughness),
@@ -324,7 +431,7 @@ const normalizeHomeSceneSettings = (savedSettings = {}) => {
       1,
       defaults.sculptureClearcoatRoughness,
     ),
-    sculpturePosition: pickVector2(merged.sculpturePosition, defaults.sculpturePosition),
+    sculpturePosition: normalizedSculpturePosition,
     sculptureScale: clampFloat(merged.sculptureScale, 0.005, 0.2, defaults.sculptureScale),
     sculptureRotationX: clampFloat(merged.sculptureRotationX, -180, 180, defaults.sculptureRotationX),
     sculptureRotationY: clampFloat(merged.sculptureRotationY, -180, 180, defaults.sculptureRotationY),

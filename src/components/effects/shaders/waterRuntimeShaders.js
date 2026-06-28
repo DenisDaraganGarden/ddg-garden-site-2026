@@ -41,6 +41,16 @@ export const simulationFragmentShader = `
     return mix(a, b, u.x) + (c - a) * u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
   }
 
+  // Smoothly saturate toward a ceiling instead of hard-clipping, which flattens wave
+  // crests into "canyons". Identity below the knee, gentle roll-off above it.
+  float softLimit(float value, float knee, float ceiling) {
+    float a = abs(value);
+    float range = max(ceiling - knee, 0.0001);
+    float over = max(a - knee, 0.0);
+    float soft = knee + range * (1.0 - exp(-over / range));
+    return sign(value) * mix(a, soft, step(knee, a));
+  }
+
   void main() {
     vec2 texel = 1.0 / uResolution;
 
@@ -71,19 +81,22 @@ export const simulationFragmentShader = `
     if (uImpulseActive > 0.5 && uImpulseStrength > 0.0) {
       float dist = distance(vUv, uPointerUv);
       float radius = max(uRippleRadius, 0.0005);
-      float impulse = exp(-(dist * dist) / (radius * radius));
-      velocity -= impulse * uRippleImpulse * uImpulseStrength * 0.36;
+      float falloff = exp(-(dist * dist) / (radius * radius));
+      // Stir up concentric ripples (nearly zero-mean) instead of pressing a smooth
+      // bowl, so dragging the cursor keeps making waves rather than flattening the water.
+      float ring = sin((dist / radius) * 7.0 - uTime * 9.0);
+      velocity += falloff * (ring - 0.12) * uRippleImpulse * uImpulseStrength * 0.5;
     }
 
     if (uAmbientWaveIntensity > 0.0) {
       float t = uTime * uAmbientWaveSpeed;
       float noiseVal = noise(vUv * 8.0 + t);
       noiseVal += noise(vUv * 16.0 - t * 0.5) * 0.5;
-      velocity += (noiseVal - 0.75) * uAmbientWaveIntensity * 0.005;
+      velocity += (noiseVal - 0.75) * uAmbientWaveIntensity * 0.02;
     }
 
-    height = clamp(height, -0.85, 0.85);
-    velocity = clamp(velocity, -0.85, 0.85);
+    height = softLimit(height, 0.55, 1.05);
+    velocity = softLimit(velocity, 0.6, 1.0);
 
     gl_FragColor = vec4(height, velocity, laplacian, 1.0);
   }
@@ -229,11 +242,11 @@ export const waterFragmentShader = `
   vec3 oceanSky(vec3 e, vec3 sunDir) {
     float ey = max(e.y, 0.0);
     float sh = clamp(sunDir.y * 1.6, 0.0, 1.0);
-    vec3 zen = mix(vec3(0.30, 0.20, 0.38), vec3(0.10, 0.32, 0.62), sh);
-    vec3 hor = mix(vec3(1.05, 0.45, 0.22), vec3(0.62, 0.78, 0.92), sh);
+    vec3 zen = mix(vec3(0.09, 0.15, 0.16), vec3(0.10, 0.30, 0.40), sh);
+    vec3 hor = mix(vec3(0.34, 0.42, 0.37), vec3(0.55, 0.72, 0.74), sh);
     vec3 sky = mix(hor, zen, pow(ey, 0.5 + sh * 0.3));
     float sd = max(dot(e, sunDir), 0.0);
-    vec3 sc = mix(vec3(1.2, 0.55, 0.25), vec3(1.1, 1.0, 0.85), sh);
+    vec3 sc = mix(vec3(0.70, 0.85, 0.78), vec3(0.95, 1.0, 0.92), sh);
     sky += sc * (pow(sd, 800.0) * 6.0 + pow(sd, 128.0) * 0.8 + pow(sd, 8.0) * 0.25);
     return sky;
   }
