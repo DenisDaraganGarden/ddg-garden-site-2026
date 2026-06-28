@@ -243,39 +243,144 @@ const getClusterLabelText = (projects) => (
         .sort((left, right) => left.length - right.length)[0]
 );
 
-const createNoirGlobeMaterial = () => {
-    const material = new THREE.MeshPhongMaterial({
-        color: new THREE.Color('#040608'),
-        emissive: new THREE.Color('#020304'),
-        emissiveIntensity: 0.8,
-        shininess: 18,
-        specular: new THREE.Color('#56626d'),
+const makePixelTexture = (r, g, b) => {
+    const texture = new THREE.DataTexture(
+        new Uint8Array([r, g, b, 255]),
+        1,
+        1,
+        THREE.RGBAFormat,
+    );
+    texture.needsUpdate = true;
+    return texture;
+};
+
+// White-on-black land mask, drawn at runtime from the same country geojson that
+// feeds the border outlines — so the scales sit exactly inside the coastlines.
+const buildLandMaskTexture = (features) => {
+    const width = 2048;
+    const height = 1024;
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+
+    const context = canvas.getContext('2d');
+    context.fillStyle = '#000000';
+    context.fillRect(0, 0, width, height);
+    context.fillStyle = '#ffffff';
+
+    const project = (lng, lat) => [
+        ((lng + 180) / 360) * width,
+        ((90 - lat) / 180) * height,
+    ];
+
+    const drawRing = (ring) => {
+        if (!ring || ring.length < 3) {
+            return;
+        }
+
+        // Unwrap longitudes so polygons that straddle the antimeridian (Russia,
+        // Fiji…) don't smear a horizontal band across the ocean.
+        let previousLng = ring[0][0];
+        const unwrapped = ring.map((coordinate, index) => {
+            let lng = coordinate[0];
+
+            if (index > 0) {
+                while (lng - previousLng > 180) lng -= 360;
+                while (lng - previousLng < -180) lng += 360;
+            }
+
+            previousLng = lng;
+            return [lng, coordinate[1]];
+        });
+
+        // Draw the ring plus its ±360° copies so wrapped land shows on both edges.
+        [-360, 0, 360].forEach((offset) => {
+            context.beginPath();
+            unwrapped.forEach(([lng, lat], index) => {
+                const [x, y] = project(lng + offset, lat);
+                if (index === 0) {
+                    context.moveTo(x, y);
+                } else {
+                    context.lineTo(x, y);
+                }
+            });
+            context.closePath();
+            context.fill();
+        });
+    };
+
+    const drawPolygon = (rings) => rings.forEach(drawRing);
+
+    features.forEach((feature) => {
+        const geometry = feature.geometry;
+        if (!geometry) {
+            return;
+        }
+
+        if (geometry.type === 'Polygon') {
+            drawPolygon(geometry.coordinates);
+        } else if (geometry.type === 'MultiPolygon') {
+            geometry.coordinates.forEach(drawPolygon);
+        }
     });
 
-    material.customProgramCacheKey = () => 'ddg-noir-gloss-v3';
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.ClampToEdgeWrapping;
+    texture.needsUpdate = true;
+    return texture;
+};
+
+const createNoirGlobeMaterial = () => {
+    const material = new THREE.MeshPhongMaterial({
+        color: new THREE.Color('#070809'),
+        emissive: new THREE.Color('#010102'),
+        emissiveIntensity: 0.5,
+        shininess: 60,
+        specular: new THREE.Color('#2c3034'),
+    });
+
+    // Expose the sphere's native UVs (vUv) to the shader. three-globe aligns
+    // standard equirectangular textures to the country outlines via these UVs,
+    // so we sample the land mask the same way for pixel-perfect coastlines.
+    material.defines = { USE_UV: '' };
+
+    // Shared uniform objects: stored on userData so the component can swap the
+    // land mask in once the geojson loads, and reused as-is inside the shader.
+    const uniforms = {
+        uTime: { value: 0 },
+        uLandMask: { value: makePixelTexture(255, 255, 255) },
+        uMaskUvOffset: { value: new THREE.Vector2(0, 0) },
+        uGapColor: { value: new THREE.Color('#020203') },
+        uScaleColor: { value: new THREE.Color('#0e0f11') },
+        uWaterColor: { value: new THREE.Color('#050607') },
+        uSheenColor: { value: new THREE.Color('#ffffff') },
+        uRimColor: { value: new THREE.Color('#8b9097') },
+        uWaterLightDir: { value: new THREE.Vector3(-0.3, 0.55, 0.78).normalize() },
+        // x = scales per longitude band, y = scale rows per latitude (fine grain)
+        uScaleFreq: { value: new THREE.Vector2(900.0, 475.0) },
+    };
+    material.userData.uniforms = uniforms;
+
+    material.customProgramCacheKey = () => 'ddg-snake-scale-v9';
     material.onBeforeCompile = (shader) => {
-        shader.uniforms.uTime = { value: 0 };
-        shader.uniforms.uDeepColor = { value: new THREE.Color('#030507') };
-        shader.uniforms.uWaveColor = { value: new THREE.Color('#0b1218') };
-        shader.uniforms.uRimColor = { value: new THREE.Color('#7d92a6') };
-        shader.uniforms.uHighlightColor = { value: new THREE.Color('#d8e3f0') };
-        shader.uniforms.uFogColor = { value: new THREE.Color('#2b3641') };
-        shader.uniforms.uCoreColor = { value: new THREE.Color('#7ea2c7') };
-        shader.uniforms.uCorePulseColor = { value: new THREE.Color('#f6fbff') };
+        Object.assign(shader.uniforms, uniforms);
 
         shader.vertexShader = shader.vertexShader
             .replace(
                 '#include <common>',
                 `#include <common>
                 varying vec3 vWorldPosition;
-                varying vec3 vWorldNormal;`,
+                varying vec3 vWorldNormal;
+                varying vec3 vObjPosition;`,
             )
             .replace(
                 '#include <begin_vertex>',
                 `#include <begin_vertex>
                 vec4 ddgWorldPosition = modelMatrix * vec4(transformed, 1.0);
                 vWorldPosition = ddgWorldPosition.xyz;
-                vWorldNormal = normalize(mat3(modelMatrix) * objectNormal);`,
+                vWorldNormal = normalize(mat3(modelMatrix) * objectNormal);
+                vObjPosition = normalize(transformed);`,
             );
 
         shader.fragmentShader = shader.fragmentShader
@@ -283,63 +388,114 @@ const createNoirGlobeMaterial = () => {
                 '#include <common>',
                 `#include <common>
                 uniform float uTime;
-                uniform vec3 uDeepColor;
-                uniform vec3 uWaveColor;
+                uniform sampler2D uLandMask;
+                uniform vec2 uMaskUvOffset;
+                uniform vec3 uGapColor;
+                uniform vec3 uScaleColor;
+                uniform vec3 uWaterColor;
+                uniform vec3 uSheenColor;
                 uniform vec3 uRimColor;
-                uniform vec3 uHighlightColor;
-                uniform vec3 uFogColor;
-                uniform vec3 uCoreColor;
-                uniform vec3 uCorePulseColor;
+                uniform vec3 uWaterLightDir;
+                uniform vec2 uScaleFreq;
                 varying vec3 vWorldPosition;
                 varying vec3 vWorldNormal;
+                varying vec3 vObjPosition;
 
-                float waveBand(vec3 point, float scale, float speed, float phase) {
-                    return sin(point.x * scale + point.y * (scale * 0.63) + point.z * (scale * 0.37) + uTime * speed + phase);
+                float ddgHash(vec2 p) {
+                    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+                }
+
+                // One snake scale for integer row ri, sampled at this fragment.
+                // Columns per row follow cos(lat) and snap to an integer, so the
+                // tiling closes seamlessly in longitude (no meridian seam) and
+                // thins toward the poles instead of spiralling into a vortex.
+                // Returns (bodyMask, rimShade, scaleHash).
+                vec3 ddgScale(float ri, float ulon, float rowF, vec2 freq) {
+                    float rowLat = ((ri + 0.5) / freq.y) * PI - PI * 0.5;
+                    float cosc = max(cos(rowLat), 0.06);
+                    float cols = max(floor(freq.x * cosc + 0.5), 1.0);
+                    float colF = ulon * cols + 0.5 * mod(ri, 2.0);
+                    float cx = fract(colF) - 0.5;
+                    float cy = rowF - (ri + 0.5);
+                    float r = length(vec2(cx, cy * 0.9));
+                    float body = 1.0 - smoothstep(0.42, 0.5, r);
+                    float shade = smoothstep(0.5, -0.4, cy); // bright on the exposed lower rim
+                    float id = ddgHash(vec2(floor(colF), ri));
+                    return vec3(body, shade, id);
                 }`,
             )
             .replace(
                 '#include <opaque_fragment>',
                 `
-                vec3 spherePoint = normalize(vWorldPosition);
                 vec3 worldNormal = normalize(vWorldNormal);
                 vec3 viewDir = normalize(cameraPosition - vWorldPosition);
+                float ndv = max(dot(worldNormal, viewDir), 0.0);
+                float fresnel = pow(1.0 - ndv, 3.0);
 
-                float wave = 0.0;
-                wave += waveBand(spherePoint, 12.0, 0.16, 0.0);
-                wave += waveBand(spherePoint.zxy, 18.0, -0.11, 1.7);
-                wave += waveBand(spherePoint.yzx, 26.0, 0.09, 3.1);
-                wave = wave / 3.0 * 0.5 + 0.5;
+                // object-space point keeps the scale tiling glued to the sphere
+                vec3 sp = normalize(vObjPosition);
+                float lon = atan(sp.z, sp.x);
+                float lat = asin(clamp(sp.y, -1.0, 1.0));
 
-                float fresnel = pow(1.0 - max(dot(worldNormal, viewDir), 0.0), 2.7);
-                float specSweep = smoothstep(0.62, 0.95, wave) * 0.14;
-                float surfaceTone = smoothstep(0.18, 0.88, wave);
-                float frontMask = pow(max(dot(worldNormal, viewDir), 0.0), 1.45);
+                // land vs ocean from the geojson-built mask (white = land).
+                // Sample via the sphere's native UVs — three-globe maps standard
+                // equirectangular textures by uv and keeps them aligned with the
+                // country outlines, so the scales land exactly on the coastlines.
+                float landRaw = texture2D(uLandMask, vUv + uMaskUvOffset).r;
+                float land = smoothstep(0.35, 0.65, landRaw);
 
-                float fogPattern = 0.0;
-                fogPattern += waveBand(spherePoint * 0.85, 5.5, 0.05, 0.4);
-                fogPattern += waveBand(spherePoint.yzx * 1.15, 8.0, -0.035, 2.2);
-                fogPattern += waveBand(spherePoint.zxy * 1.4, 11.0, 0.025, 4.1);
-                fogPattern = fogPattern / 3.0 * 0.5 + 0.5;
+                // --- overlapping snake scales (procedural, seamless) ---
+                float ulon = fract((lon + PI) / (2.0 * PI));
+                float rowF = ((lat + PI * 0.5) / PI) * uScaleFreq.y;
+                float r0 = floor(rowF);
 
-                float innerFog = smoothstep(0.24, 0.86, fogPattern) * frontMask * 0.22;
-                innerFog += pow(frontMask, 3.0) * 0.06;
+                // composite two rows: the upper scale genuinely lies over the lower
+                vec3 sLow = ddgScale(r0, ulon, rowF, uScaleFreq);
+                vec3 sUp = ddgScale(r0 + 1.0, ulon, rowF, uScaleFreq);
+                float body = max(sLow.x, sUp.x);
+                float shade = mix(sLow.y, sUp.y, sUp.x);
+                float hashId = mix(sLow.z, sUp.z, sUp.x);
 
-                float corePulse = 0.5 + 0.5 * sin(uTime * 0.28);
-                float coreMask = pow(frontMask, 1.85);
-                float coreShape = smoothstep(0.18, 0.95, fogPattern) * 0.72 + 0.28;
-                float coreGlow = coreMask * coreShape * (1.05 + corePulse * 0.28);
-                float coreHotspot = pow(frontMask, 3.8) * (0.55 + corePulse * 0.18);
-                float coreBloom = pow(frontMask, 1.25) * 0.18;
-                vec3 coreLight = mix(uCoreColor, uCorePulseColor, corePulse * 0.35);
+                // antialias: dissolve the micro-pattern as cells approach 1px (the
+                // longitude seam self-hides here too, since ulon's wrap spikes fwidth)
+                float density = fwidth(rowF) + fwidth(ulon * uScaleFreq.x);
+                float detail = 1.0 - smoothstep(0.6, 1.4, density);
 
-                vec3 noirWater = mix(uDeepColor, uWaveColor, surfaceTone * 0.65);
-                outgoingLight = mix(outgoingLight, noirWater, 0.82);
-                outgoingLight = mix(outgoingLight, uFogColor, innerFog);
-                outgoingLight += uFogColor * innerFog * 0.18;
-                outgoingLight = mix(outgoingLight, coreLight, coreGlow * 0.42);
-                outgoingLight += coreLight * (coreGlow * 1.05 + coreHotspot * 1.45 + coreBloom);
-                outgoingLight += uRimColor * fresnel * 0.16;
-                outgoingLight += uHighlightColor * (specSweep + fresnel * 0.03);
+                // melt the converging rows into a smooth matte cap at the poles,
+                // so the rings never collapse into a bullseye (~69deg..~84deg)
+                float poleFade = 1.0 - smoothstep(1.20, 1.46, abs(lat));
+                body *= detail * poleFade;
+
+                // matte near-black body; per-scale jitter + overlap relief shading
+                vec3 bodyTone = mix(uGapColor, uScaleColor, body);
+                bodyTone *= 0.80 + 0.34 * hashId;
+                bodyTone *= 0.74 + 0.52 * shade;
+
+                // monochrome glint along the exposed scale rim + silhouette
+                float crest = smoothstep(0.72, 1.0, shade) * body;
+                float glint = (crest * 0.9 + fresnel * 0.5) * (0.35 + 0.65 * body);
+
+                vec3 landSurface = mix(outgoingLight, bodyTone, 0.92);
+                landSurface += uSheenColor * glint * 0.16;
+                landSurface += uRimColor * fresnel * 0.10;
+
+                // ocean: glossy black water. A fixed light + the globe's spin makes
+                // the specular "sun glint" drift across the surface; faint ripple
+                // (object-space, so no poles/seam) breaks it into sparkle.
+                vec3 L = normalize(uWaterLightDir);
+                vec3 reflDir = reflect(-viewDir, worldNormal);
+                float rl = max(dot(reflDir, L), 0.0);
+                float ripple = 0.62 + 0.38
+                    * sin(sp.x * 90.0 + uTime * 0.8)
+                    * sin(sp.z * 86.0 - uTime * 0.6);
+                float waterGlint = pow(rl, 90.0) * ripple; // tight, broken highlight
+                float sheen = pow(rl, 6.0) * 0.14;          // broad soft sheen
+
+                vec3 waterSurface = mix(outgoingLight, uWaterColor, 0.92);
+                waterSurface += uSheenColor * (waterGlint * 0.9 + sheen);
+                waterSurface += uRimColor * fresnel * 0.10;
+
+                outgoingLight = mix(waterSurface, landSurface, land);
 
                 #include <opaque_fragment>`,
             );
@@ -348,51 +504,10 @@ const createNoirGlobeMaterial = () => {
     };
 
     material.onBeforeRender = () => {
-        const shader = material.userData.shader;
-
-        if (shader) {
-            shader.uniforms.uTime.value = performance.now() * 0.001;
-        }
+        uniforms.uTime.value = performance.now() * 0.001;
     };
 
     return material;
-};
-
-const createInnerCoreSprite = (radius) => {
-    const canvas = document.createElement('canvas');
-    canvas.width = 512;
-    canvas.height = 512;
-
-    const context = canvas.getContext('2d');
-    const gradient = context.createRadialGradient(256, 256, 24, 256, 256, 256);
-    gradient.addColorStop(0, 'rgba(245, 250, 255, 0.92)');
-    gradient.addColorStop(0.18, 'rgba(170, 194, 221, 0.68)');
-    gradient.addColorStop(0.42, 'rgba(94, 121, 150, 0.28)');
-    gradient.addColorStop(0.72, 'rgba(52, 68, 86, 0.08)');
-    gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
-
-    context.fillStyle = gradient;
-    context.fillRect(0, 0, canvas.width, canvas.height);
-
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.needsUpdate = true;
-
-    const material = new THREE.SpriteMaterial({
-        map: texture,
-        color: 0xffffff,
-        transparent: true,
-        opacity: 0.42,
-        depthWrite: false,
-        depthTest: false,
-        blending: THREE.AdditiveBlending,
-    });
-
-    const sprite = new THREE.Sprite(material);
-    const size = radius * 1.18;
-    sprite.scale.set(size, size, 1);
-    sprite.renderOrder = 1;
-
-    return sprite;
 };
 
 const navigateToProject = (projectId) => {
@@ -415,7 +530,6 @@ const Map = () => {
 
     const [hoverD, setHoverD] = useState(null);
     const [countries, setCountries] = useState({ features: [] });
-    const [globeRadius, setGlobeRadius] = useState(0);
     const [mobileViewport, setMobileViewport] = useState(() => isMobileViewport());
 
     useEffect(() => {
@@ -453,6 +567,28 @@ const Map = () => {
 
     useEffect(() => () => globeMaterial.dispose(), [globeMaterial]);
 
+    useEffect(() => {
+        if (!countries.features || countries.features.length === 0) {
+            return undefined;
+        }
+
+        const maskTexture = buildLandMaskTexture(countries.features);
+        const landMaskUniform = globeMaterial.userData.uniforms?.uLandMask;
+        const previousTexture = landMaskUniform?.value;
+
+        if (landMaskUniform) {
+            landMaskUniform.value = maskTexture;
+        }
+
+        if (previousTexture && previousTexture !== maskTexture) {
+            previousTexture.dispose();
+        }
+
+        return () => {
+            maskTexture.dispose();
+        };
+    }, [countries, globeMaterial]);
+
     const localizedProjects = useMemo(() => (
         projectRegistry.map((project) => ({
             ...project,
@@ -481,10 +617,6 @@ const Map = () => {
             repeatPeriod: cluster.count > 1 ? 1500 : 1200,
         }))
     ), [projectClusters]);
-
-    const coreLayerData = useMemo(() => (
-        globeRadius > 0 ? [{ id: 'inner-core', radius: globeRadius }] : []
-    ), [globeRadius]);
 
     const labelData = useMemo(() => {
         const projectLabels = projectClusters.map((cluster) => ({
@@ -573,7 +705,7 @@ const Map = () => {
 
         const renderer = globeEl.current.renderer?.();
         if (renderer) {
-            renderer.setPixelRatio(Math.min(window.devicePixelRatio, mobileViewport ? 1 : 1.1));
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, mobileViewport ? 1 : 1.5));
         }
     }, [mobileViewport]);
 
@@ -603,11 +735,7 @@ const Map = () => {
                         const renderer = globeEl.current?.renderer();
 
                         if (renderer) {
-                            renderer.setPixelRatio(Math.min(window.devicePixelRatio, mobileViewport ? 1 : 1.1));
-                        }
-
-                        if (globeEl.current) {
-                            setGlobeRadius(globeEl.current.getGlobeRadius());
+                            renderer.setPixelRatio(Math.min(window.devicePixelRatio, mobileViewport ? 1 : 1.5));
                         }
                     }}
                     polygonsData={countries.features}
@@ -622,12 +750,6 @@ const Map = () => {
                     ringMaxRadius="maxR"
                     ringPropagationSpeed="propagationSpeed"
                     ringRepeatPeriod="repeatPeriod"
-                    customLayerData={coreLayerData}
-                    customThreeObject={(item) => createInnerCoreSprite(item.radius)}
-                    customThreeObjectUpdate={(object, item) => {
-                        const size = item.radius * 1.18;
-                        object.scale.set(size, size, 1);
-                    }}
                     htmlElementsData={labelData}
                     htmlLat={(item) => item.lat}
                     htmlLng={(item) => item.lng}
