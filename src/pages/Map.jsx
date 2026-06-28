@@ -329,6 +329,7 @@ const buildLandMaskTexture = (features) => {
     const texture = new THREE.CanvasTexture(canvas);
     texture.wrapS = THREE.RepeatWrapping;
     texture.wrapT = THREE.ClampToEdgeWrapping;
+    texture.flipY = false; // shader V maps north -> 0 to match the canvas (north on top)
     texture.needsUpdate = true;
     return texture;
 };
@@ -341,11 +342,6 @@ const createNoirGlobeMaterial = () => {
         shininess: 60,
         specular: new THREE.Color('#2c3034'),
     });
-
-    // Expose the sphere's native UVs (vUv) to the shader. three-globe aligns
-    // standard equirectangular textures to the country outlines via these UVs,
-    // so we sample the land mask the same way for pixel-perfect coastlines.
-    material.defines = { USE_UV: '' };
 
     // Shared uniform objects: stored on userData so the component can swap the
     // land mask in once the geojson loads, and reused as-is inside the shader.
@@ -364,7 +360,7 @@ const createNoirGlobeMaterial = () => {
     };
     material.userData.uniforms = uniforms;
 
-    material.customProgramCacheKey = () => 'ddg-snake-scale-v10';
+    material.customProgramCacheKey = () => 'ddg-snake-scale-v11';
     material.onBeforeCompile = (shader) => {
         Object.assign(shader.uniforms, uniforms);
 
@@ -440,10 +436,17 @@ const createNoirGlobeMaterial = () => {
                 float lat = asin(clamp(sp.y, -1.0, 1.0));
 
                 // land vs ocean from the geojson-built mask (white = land).
-                // Sample via the sphere's native UVs — three-globe maps standard
-                // equirectangular textures by uv and keeps them aligned with the
-                // country outlines, so the scales land exactly on the coastlines.
-                float landRaw = texture2D(uLandMask, vUv + uMaskUvOffset).r;
+                // Object-space lon/lat recover the geographic coords (verified to
+                // match three-globe's polygon placement, incl. its -90deg spin).
+                // The mask texture uses flipY=false, so V maps north -> 0 just
+                // like the canvas was drawn (north at the top).
+                float gLat = degrees(lat);
+                float gLng = 90.0 - degrees(atan(sp.x, -sp.z));
+                vec2 maskUv = vec2(
+                    fract((gLng + 180.0) / 360.0),
+                    clamp((90.0 - gLat) / 180.0, 0.0, 1.0)
+                ) + uMaskUvOffset;
+                float landRaw = texture2D(uLandMask, maskUv).r;
                 float land = smoothstep(0.35, 0.65, landRaw);
 
                 // --- overlapping snake scales (procedural, seamless) ---
