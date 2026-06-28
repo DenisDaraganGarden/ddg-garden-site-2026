@@ -2,21 +2,19 @@ import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useLanguage } from '../../i18n/useLanguage';
 import { archiveNavigationItems, primaryNavigationItems } from '../../config/siteNavigation';
-import ouroborosDark from '../../../portfolio/DDG_logo.png';
-import ouroborosWhite from '../../../portfolio/Denis Daragan Garden Logo White.png';
 import { useSiteMusic } from './SiteMusicController';
 import './Navigation.css';
+
+const PORTFOLIO_CATEGORIES = ['city', 'parks', 'residences'];
 
 const Navigation = () => {
     const location = useLocation();
     const isHomeRoute = location.pathname === '/';
     const { language, setLanguage, t } = useLanguage();
     const { isMusicPlaying, toggleMusic, isEditorRoute } = useSiteMusic();
-    const [isArchiveOpen, setIsArchiveOpen] = React.useState(false);
-    const [isMenuOpen, setIsMenuOpen] = React.useState(false);
-    const navMenuRef = React.useRef(null);
-    const toggleButtonRef = React.useRef(null);
-    const touchStartRef = React.useRef(null);
+    const [openGroup, setOpenGroup] = React.useState(null);
+    const navRef = React.useRef(null);
+
     const canUseHover = React.useMemo(() => {
         if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
             return true;
@@ -25,202 +23,151 @@ const Navigation = () => {
         return window.matchMedia('(hover: hover) and (pointer: fine)').matches;
     }, []);
 
-    const logoSrc = ouroborosWhite || ouroborosDark;
+    const closeGroups = React.useCallback(() => setOpenGroup(null), []);
 
-    const closeMenu = React.useCallback(() => {
-        setIsMenuOpen(false);
-        setIsArchiveOpen(false);
-    }, []);
-
+    // Close any open dropdown on route change.
     React.useEffect(() => {
-        closeMenu();
-    }, [location.pathname, location.search, location.hash, closeMenu]);
+        closeGroups();
+    }, [location.pathname, location.search, location.hash, closeGroups]);
 
+    // On touch devices a dropdown is opened by tap; close it on outside tap / Escape.
     React.useEffect(() => {
-        if (typeof document === 'undefined') {
-            return undefined;
-        }
-
-        const handleVisibilityChange = () => {
-            if (document.hidden) {
-                closeMenu();
-            }
-        };
-
-        document.addEventListener('visibilitychange', handleVisibilityChange);
-        return () => {
-            document.removeEventListener('visibilitychange', handleVisibilityChange);
-        };
-    }, [closeMenu]);
-
-    React.useEffect(() => {
-        if (!isMenuOpen) {
+        if (!openGroup || canUseHover) {
             return undefined;
         }
 
         const handlePointerDown = (event) => {
-            const target = event.target;
-            if (navMenuRef.current?.contains(target) || toggleButtonRef.current?.contains(target)) {
+            if (navRef.current?.contains(event.target)) {
                 return;
             }
-
-            closeMenu();
+            closeGroups();
         };
 
-        const handleTouchStart = (event) => {
-            const touch = event.touches?.[0];
-            if (!touch) {
-                return;
-            }
-
-            touchStartRef.current = { x: touch.clientX, y: touch.clientY };
-        };
-
-        const handleTouchMove = (event) => {
-            const touch = event.touches?.[0];
-            const start = touchStartRef.current;
-
-            if (!touch || !start) {
-                return;
-            }
-
-            const deltaX = Math.abs(touch.clientX - start.x);
-            const deltaY = Math.abs(touch.clientY - start.y);
-
-            if (deltaX > 12 || deltaY > 12) {
-                closeMenu();
-                touchStartRef.current = null;
-            }
-        };
-
-        const handleWheel = () => closeMenu();
-        const handleBlur = () => closeMenu();
-        const handleEscape = (event) => {
+        const handleKeyDown = (event) => {
             if (event.key === 'Escape') {
-                closeMenu();
+                closeGroups();
             }
         };
 
         document.addEventListener('pointerdown', handlePointerDown);
-        window.addEventListener('touchstart', handleTouchStart, { passive: true });
-        window.addEventListener('touchmove', handleTouchMove, { passive: true });
-        window.addEventListener('wheel', handleWheel, { passive: true });
-        window.addEventListener('blur', handleBlur);
-        window.addEventListener('keydown', handleEscape);
+        window.addEventListener('keydown', handleKeyDown);
 
         return () => {
             document.removeEventListener('pointerdown', handlePointerDown);
-            window.removeEventListener('touchstart', handleTouchStart);
-            window.removeEventListener('touchmove', handleTouchMove);
-            window.removeEventListener('wheel', handleWheel);
-            window.removeEventListener('blur', handleBlur);
-            window.removeEventListener('keydown', handleEscape);
+            window.removeEventListener('keydown', handleKeyDown);
         };
-    }, [closeMenu, isMenuOpen]);
+    }, [openGroup, canUseHover, closeGroups]);
 
-    const handleArchiveToggle = (event) => {
-        event.stopPropagation();
-        setIsArchiveOpen((previous) => !previous);
+    const groupHandlers = (key) => {
+        if (canUseHover) {
+            return {
+                onMouseEnter: () => setOpenGroup(key),
+                onMouseLeave: () => setOpenGroup((current) => (current === key ? null : current)),
+            };
+        }
+        return {};
+    };
+
+    const handleGroupTap = (key) => (event) => {
+        // Touch: first tap reveals the dropdown instead of following the parent.
+        if (canUseHover) {
+            return;
+        }
+        if (openGroup !== key) {
+            event.preventDefault();
+            setOpenGroup(key);
+        }
     };
 
     return (
-        <nav className={`main-nav ${isHomeRoute ? 'main-nav--home' : ''}`} data-testid="site-nav">
+        <nav
+            ref={navRef}
+            className={`main-nav ${isHomeRoute ? 'main-nav--home' : ''}`}
+            data-testid="site-nav"
+        >
             <div className="nav-brand">
-                <NavLink to="/" data-testid="brand-link">
+                <NavLink to="/" className="nav-brand__link" data-testid="brand-link">
                     Denis Daragan
                     <span className="brand-subtitle">{t('navigation.brandSubtitle')}</span>
                 </NavLink>
-            </div>
 
-            <div ref={navMenuRef} className={`nav-menu ${isMenuOpen ? 'is-open' : ''}`}>
-                <button
-                    ref={toggleButtonRef}
-                    type="button"
-                    className={`ouroboros-toggle ${isMenuOpen ? 'is-open' : ''}`}
-                    aria-label={isMenuOpen ? t('navigation.closeMenu') : t('navigation.openMenu')}
-                    aria-expanded={isMenuOpen}
-                    aria-controls="site-nav-drawer"
-                    onClick={() => setIsMenuOpen((previous) => !previous)}
-                >
-                    <img className="ouroboros-toggle__icon" src={logoSrc} alt="" aria-hidden="true" />
-                </button>
-
-                <div id="site-nav-drawer" className="nav-drawer" aria-hidden={!isMenuOpen}>
-                    <div className="nav-links-wrapper">
-                        <ul className="nav-links">
-                            {primaryNavigationItems.map((item) => {
-                                if (item.key === 'portfolio') {
-                                    return (
-                                        <li key="portfolio-group" className="nav-group nav-group--portfolio">
+                <ul className="nav-links">
+                    {primaryNavigationItems.map((item) => {
+                        if (item.key === 'portfolio') {
+                            return (
+                                <li
+                                    key="portfolio"
+                                    className={`nav-item nav-item--has-sub ${openGroup === 'portfolio' ? 'is-open' : ''}`}
+                                    {...groupHandlers('portfolio')}
+                                >
+                                    <NavLink
+                                        to="/portfolio"
+                                        className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}
+                                        data-testid="nav-portfolio"
+                                        onClick={handleGroupTap('portfolio')}
+                                    >
+                                        {t('navigation.portfolio')}
+                                    </NavLink>
+                                    <div className="nav-sub">
+                                        {PORTFOLIO_CATEGORIES.map((cat) => (
                                             <NavLink
-                                                to="/portfolio"
-                                                className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}
-                                                data-testid="nav-portfolio"
-                                                onClick={closeMenu}
+                                                key={cat}
+                                                to={`/portfolio?category=${cat}`}
+                                                className="nav-sub__link"
                                             >
-                                                {t('navigation.portfolio')}
+                                                {t(`navigation.portfolio_${cat}`)}
                                             </NavLink>
-                                            <div className="nav-portfolio-sub">
-                                                {['city', 'parks', 'residences'].map((cat) => (
-                                                    <NavLink
-                                                        key={cat}
-                                                        to={`/portfolio?category=${cat}`}
-                                                        className="nav-portfolio-sub__link"
-                                                        onClick={closeMenu}
-                                                    >
-                                                        {t(`navigation.portfolio_${cat}`)}
-                                                    </NavLink>
-                                                ))}
-                                                <NavLink
-                                                    to="/portfolio"
-                                                    className="nav-portfolio-sub__link nav-portfolio-sub__link--all"
-                                                    onClick={closeMenu}
-                                                >
-                                                    {t('navigation.portfolio_all')}
-                                                </NavLink>
-                                            </div>
-                                        </li>
-                                    );
-                                }
-                                return (
-                                    <li key={item.key}>
+                                        ))}
                                         <NavLink
-                                            to={item.path}
-                                            data-testid={`nav-${item.key}`}
-                                            className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}
-                                            onClick={closeMenu}
+                                            to="/portfolio"
+                                            className="nav-sub__link nav-sub__link--all"
                                         >
-                                            {t(`navigation.${item.key}`)}
+                                            {t('navigation.portfolio_all')}
                                         </NavLink>
-                                    </li>
-                                );
-                            })}
-                            <li
-                                className={`nav-group ${isArchiveOpen ? 'is-open' : ''}`}
-                                onMouseEnter={canUseHover ? () => setIsArchiveOpen(true) : undefined}
-                                onMouseLeave={canUseHover ? () => setIsArchiveOpen(false) : undefined}
-                                onClick={handleArchiveToggle}
-                            >
-                                <span className="nav-link group-label">
-                                    {t('navigation.archive')}
-                                </span>
-                                <div className="nav-group-scroll">
-                                    {archiveNavigationItems.map((item) => (
-                                        <NavLink
-                                            key={item.key}
-                                            to={item.path}
-                                            data-testid={`nav-${item.key}`}
-                                            className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}
-                                            onClick={closeMenu}
-                                        >
-                                            {t(`navigation.${item.key}`)}
-                                        </NavLink>
-                                    ))}
-                                </div>
+                                    </div>
+                                </li>
+                            );
+                        }
+
+                        return (
+                            <li key={item.key} className="nav-item">
+                                <NavLink
+                                    to={item.path}
+                                    data-testid={`nav-${item.key}`}
+                                    className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}
+                                >
+                                    {t(`navigation.${item.key}`)}
+                                </NavLink>
                             </li>
-                        </ul>
-                    </div>
-                </div>
+                        );
+                    })}
+
+                    <li
+                        className={`nav-item nav-item--has-sub ${openGroup === 'archive' ? 'is-open' : ''}`}
+                        {...groupHandlers('archive')}
+                    >
+                        <button
+                            type="button"
+                            className="nav-link nav-link--group"
+                            aria-expanded={openGroup === 'archive'}
+                            onClick={() => setOpenGroup((current) => (current === 'archive' ? null : 'archive'))}
+                        >
+                            {t('navigation.archive')}
+                        </button>
+                        <div className="nav-sub">
+                            {archiveNavigationItems.map((archiveItem) => (
+                                <NavLink
+                                    key={archiveItem.key}
+                                    to={archiveItem.path}
+                                    data-testid={`nav-${archiveItem.key}`}
+                                    className="nav-sub__link"
+                                >
+                                    {t(`navigation.${archiveItem.key}`)}
+                                </NavLink>
+                            ))}
+                        </div>
+                    </li>
+                </ul>
             </div>
 
             <div className="language-switch" role="group" aria-label={t('navigation.language')}>
