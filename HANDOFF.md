@@ -68,11 +68,12 @@
    `ReplaceStencilOp`, ref=`BOAT_CUTOUT_STENCIL_REF`=1, `colorWrite:false, depthTest:false`). Материал
    воды (`WaterSurface`, через `materialRef` в useLayoutEffect) тестит `NotEqualStencilFunc` ref=1 →
    не рисует там, где колпак. Stencil включён на канвасе (`SceneCanvas` `gl.stencil:true`).
-   Слайдеры `boatCutoutWidth/Length` (полуоси, scale овала ×2) и `boatCutoutOffsetX/Z` (позиция в
-   boat-local) рулят колпаком. ⚠️ Старые значения offset из прошлых методов НЕ подходят — юзер
-   перетюнил (≈ width 0.56, length 1.78). `boatCutoutDebug` (чекбокс, editor-only, НЕ публикуется) —
-   рисует колпак розовым поверх воды для наводки. Только в beauty (FloatingBoat=null вне beauty).
-   В шейдере воды кода выреза НЕТ (всё аппаратно через stencil).
+   **Колпак авто-подгоняется** под корпус: берём bbox самого крупного суб-меша модели (это корпус,
+   не вёсла) в boat-local → колпак **сам центруется и масштабируется**. Тонкая настройка — 2 слайдера
+   `boatCutoutFitWidth` (0.72) / `boatCutoutFitLength` (0.92) = доля от габарита корпуса. Ручные
+   `boatCutoutWidth/Length/Offset*` УДАЛЕНЫ (были тупиком — невозможно навести). `boatCutoutDebug`
+   (чекбокс, editor-only, НЕ публикуется) — рисует колпак розовым поверх воды для наводки. Только в
+   beauty (FloatingBoat=null вне beauty). В шейдере воды кода выреза НЕТ (всё аппаратно через stencil).
    Дефолты-затравка: length 1.15, width 0.52 — **подогнать слайдерами в браузере**
    под ватерлинию корпуса (велик эллипс → сухой «ров» вокруг лодки; мал → вода лезет внутрь).
    Смещение выреза — **двухосевое** (`boatCutoutOffsetX` поперёк / `boatCutoutOffsetZ` вдоль),
