@@ -7,7 +7,9 @@ import { projectRegistry } from '../data/projectRegistry';
 import { localizeField } from '../lib/localizeField';
 import '../styles/Map.css';
 
-const COUNTRIES_GEOJSON_URL = 'https://raw.githubusercontent.com/datasets/geo-boundaries-world-110m/master/countries.geojson';
+// Self-hosted so country outlines AND the land-scale mask always load (the old
+// runtime GitHub CDN was flaky → mask fell back to "all land" = scales everywhere).
+const COUNTRIES_GEOJSON_URL = `${import.meta.env.BASE_URL}geo/countries-110m.geojson`;
 const PROJECT_CLUSTER_DISTANCE_KM = 60;
 const LABEL_NEIGHBORHOOD_DISTANCE_KM = 2200;
 const MOBILE_VIEWPORT_MAX_WIDTH = 900;
@@ -362,7 +364,7 @@ const createNoirGlobeMaterial = () => {
     };
     material.userData.uniforms = uniforms;
 
-    material.customProgramCacheKey = () => 'ddg-snake-scale-v9';
+    material.customProgramCacheKey = () => 'ddg-snake-scale-v10';
     material.onBeforeCompile = (shader) => {
         Object.assign(shader.uniforms, uniforms);
 
@@ -485,14 +487,17 @@ const createNoirGlobeMaterial = () => {
                 vec3 L = normalize(uWaterLightDir);
                 vec3 reflDir = reflect(-viewDir, worldNormal);
                 float rl = max(dot(reflDir, L), 0.0);
-                float ripple = 0.62 + 0.38
-                    * sin(sp.x * 90.0 + uTime * 0.8)
-                    * sin(sp.z * 86.0 - uTime * 0.6);
-                float waterGlint = pow(rl, 90.0) * ripple; // tight, broken highlight
+                // soft liquid ripple: a SUM of sines (not a product) avoids the
+                // blocky checkerboard the multiplied version produced
+                float rip = sin(sp.x * 68.0 + uTime * 0.7)
+                          + sin(sp.z * 61.0 - uTime * 0.5)
+                          + sin((sp.x + sp.z) * 44.0 + uTime * 0.32);
+                rip = 0.74 + 0.26 * (rip / 3.0);
+                float waterGlint = pow(rl, 64.0) * rip;   // softer, liquid highlight
                 float sheen = pow(rl, 6.0) * 0.14;          // broad soft sheen
 
                 vec3 waterSurface = mix(outgoingLight, uWaterColor, 0.92);
-                waterSurface += uSheenColor * (waterGlint * 0.9 + sheen);
+                waterSurface += uSheenColor * (waterGlint * 0.85 + sheen);
                 waterSurface += uRimColor * fresnel * 0.10;
 
                 outgoingLight = mix(waterSurface, landSurface, land);
