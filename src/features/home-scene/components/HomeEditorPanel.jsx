@@ -66,9 +66,9 @@ const HomeEditorPanel = ({
             : null
     ));
     const [isMobile, setIsMobile] = useState(isMobileViewport);
-    const showDeveloperTab = import.meta.env.DEV
-        && typeof window !== 'undefined'
-        && new URLSearchParams(window.location.search).has('debug');
+    // The editor itself is already dev-only. Keeping diagnostics behind an
+    // additional query flag made the performance tools effectively invisible.
+    const showDeveloperTab = import.meta.env.DEV;
 
     const tabs = [
         { id: 'water', label: t('homeEditor.tabs.water') },

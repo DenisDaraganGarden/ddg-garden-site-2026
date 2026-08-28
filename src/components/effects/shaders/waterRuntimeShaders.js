@@ -443,6 +443,10 @@ export const seabedFragmentShader = `
   uniform float uTime;
   uniform float uWaterDepth;
   uniform float uWaterTurbidity;
+  uniform vec3 uWaterScatteringColor;
+  uniform float uWaterScatteringStrength;
+  uniform vec3 uEnvironmentAmbientColor;
+  uniform float uEnvironmentDiffuse;
   uniform float uCausticsIntensity;
   uniform float uCausticsScale;
   uniform float uCausticsSharpness;
@@ -450,6 +454,9 @@ export const seabedFragmentShader = `
   uniform float uSeabedTextureScale;
   uniform float uSeabedSaturation;
   uniform float uSeabedBrightness;
+  uniform float uSeabedVariation;
+  uniform float uSeabedAoStrength;
+  uniform float uReliefStrength;
   uniform int uWaterEngine;
   uniform int uDebugView;
 
@@ -555,12 +562,65 @@ export const seabedFragmentShader = `
       return;
     }
 
-    vec3 seabedTexture = texture2D(uSeabedTexture, vUv * uSeabedTextureScale).rgb;
+    vec2 seabedUv = vUv * uSeabedTextureScale;
+    vec3 primaryTexture = texture2D(uSeabedTexture, seabedUv).rgb;
+    mat2 detailRotation = mat2(0.819, -0.574, 0.574, 0.819);
+    vec3 broadTexture = texture2D(
+      uSeabedTexture,
+      detailRotation * seabedUv * 0.37 + vec2(0.173, 0.619)
+    ).rgb;
+    float broadLuma = dot(broadTexture, vec3(0.299, 0.587, 0.114));
+    vec3 variedTexture = primaryTexture
+      * mix(vec3(0.72), broadTexture * 1.42, 0.58)
+      * mix(0.82, 1.18, broadLuma);
+    vec3 seabedTexture = mix(
+      primaryTexture,
+      variedTexture,
+      clamp(uSeabedVariation, 0.0, 1.0)
+    );
     seabedTexture = applySaturation(seabedTexture, uSeabedSaturation);
     seabedTexture *= uSeabedBrightness;
 
     vec3 baseColor = mix(vec3(0.06, 0.08, 0.1), vec3(0.1, 0.12, 0.15), clamp(vRelief + 0.5, 0.0, 1.0));
     baseColor = mix(baseColor, seabedTexture, 0.68);
+    float reliefRange = max(abs(uReliefStrength), 0.001);
+    float normalizedRelief = clamp(vRelief / reliefRange + 0.5, 0.0, 1.0);
+    float reliefCavity = 1.0 - smoothstep(0.14, 0.58, normalizedRelief);
+    float textureCavity = 1.0 - smoothstep(0.16, 0.54, broadLuma);
+    float contactAo = clamp(
+      1.0 - clamp(uSeabedAoStrength, 0.0, 1.0)
+        * (reliefCavity * 0.46 + textureCavity * 0.2),
+      0.48,
+      1.0
+    );
+    float ambientLuma = max(
+      dot(uEnvironmentAmbientColor, vec3(0.2126, 0.7152, 0.0722)),
+      0.001
+    );
+    vec3 ambientChroma = clamp(
+      uEnvironmentAmbientColor / ambientLuma,
+      vec3(0.58),
+      vec3(1.55)
+    );
+    baseColor *= mix(
+      vec3(1.0),
+      ambientChroma,
+      clamp(uEnvironmentDiffuse, 0.0, 2.2) * 0.16
+    );
+    baseColor *= contactAo;
+    float bottomScatter = (
+      1.0 - exp(
+        -uWaterDepth
+        * turbidity
+        * clamp(uWaterScatteringStrength, 0.0, 1.5)
+        * 0.11
+      )
+    ) * 0.34;
+    baseColor = mix(
+      baseColor,
+      max(uWaterScatteringColor, vec3(0.002)) * 0.42,
+      clamp(bottomScatter, 0.0, 0.34)
+    );
     // Water V2 applies the single view-path absorption pass while compositing
     // refraction. Darkening the floor here as well caused the old double haze.
     // Chromatic dispersion: bright vein cores skew warm, faint edges skew cool (cheap tint)

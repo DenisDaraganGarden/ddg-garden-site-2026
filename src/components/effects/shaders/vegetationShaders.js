@@ -106,6 +106,8 @@ export const surfaceVegetationFragmentShader = `
   uniform float uReflectionStrength;
   uniform float uEnvironmentExposure;
   uniform float uEnvironmentReflection;
+  uniform vec3 uEnvironmentAmbientColor;
+  uniform float uEnvironmentDiffuse;
   uniform vec3 uMoonDirection;
   uniform vec3 uMoonColor;
   uniform float uMoonIntensity;
@@ -168,7 +170,21 @@ export const surfaceVegetationFragmentShader = `
     float moonDiffuse = max(dot(normal, lightDirection), 0.0);
     float nDotV = clamp(dot(normal, viewDirection), 0.0, 1.0);
     float rim = pow(1.0 - nDotV, 2.0);
-    vec3 lighting = vec3(0.38) + uMoonColor
+    float ambientLuma = max(
+      dot(uEnvironmentAmbientColor, vec3(0.2126, 0.7152, 0.0722)),
+      0.001
+    );
+    vec3 ambientChroma = clamp(
+      uEnvironmentAmbientColor / ambientLuma,
+      vec3(0.62),
+      vec3(1.5)
+    );
+    vec3 skyFill = vec3(0.36) * mix(
+      vec3(1.0),
+      ambientChroma,
+      clamp(uEnvironmentDiffuse, 0.0, 2.2) * 0.22
+    );
+    vec3 lighting = skyFill + uMoonColor
       * moonDiffuse
       * (0.24 + clamp(uMoonIntensity, 0.0, 4.0) * 0.3);
     color *= lighting;
@@ -375,6 +391,11 @@ export const underwaterAlgaeFragmentShader = `
   uniform vec3 uMoonDirection;
   uniform vec3 uMoonColor;
   uniform float uMoonIntensity;
+  uniform vec3 uEnvironmentAmbientColor;
+  uniform float uEnvironmentDiffuse;
+  uniform vec3 uWaterScatteringColor;
+  uniform float uWaterTurbidity;
+  uniform float uPlantAoStrength;
 
   #include <common>
   #include <dithering_pars_fragment>
@@ -416,10 +437,32 @@ export const underwaterAlgaeFragmentShader = `
 
     float moonDiffuse = abs(dot(normalize(vRibbonNormal), normalize(uMoonDirection)));
     float topLift = mix(0.68, 1.08, vHeightAlongBlade);
-    vec3 lighting = vec3(0.46) + uMoonColor
+    float ambientLuma = max(
+      dot(uEnvironmentAmbientColor, vec3(0.2126, 0.7152, 0.0722)),
+      0.001
+    );
+    vec3 ambientChroma = clamp(
+      uEnvironmentAmbientColor / ambientLuma,
+      vec3(0.62),
+      vec3(1.5)
+    );
+    vec3 lighting = vec3(0.42) * mix(
+      vec3(1.0),
+      ambientChroma,
+      clamp(uEnvironmentDiffuse, 0.0, 2.2) * 0.2
+    ) + uMoonColor
       * moonDiffuse
       * (0.16 + clamp(uMoonIntensity, 0.0, 4.0) * 0.2);
-    color *= lighting * topLift;
+    float rootAo = mix(
+      1.0 - clamp(uPlantAoStrength, 0.0, 1.0) * 0.58,
+      1.0,
+      smoothstep(0.02, 0.34, vHeightAlongBlade)
+    );
+    float waterHaze = clamp(uWaterTurbidity, 0.0, 1.0)
+      * (1.0 - smoothstep(0.12, 1.0, vHeightAlongBlade))
+      * 0.18;
+    color *= lighting * topLift * rootAo;
+    color = mix(color, uWaterScatteringColor * 0.36, waterHaze);
 
     gl_FragColor = vec4(color, alpha);
     #include <tonemapping_fragment>

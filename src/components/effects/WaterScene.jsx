@@ -14,6 +14,7 @@ import {
 } from '../../features/home-scene/lib/layout';
 import SceneCanvas from './SceneCanvas';
 import ScenePostProcessing from './ScenePostProcessing';
+import { buildHomeSceneLighting } from './homeSceneLighting';
 import {
   fullScreenVertexShader,
   normalFragmentShader,
@@ -129,16 +130,21 @@ function buildRuntimeQualityProfile(mode, viewportWidth) {
   if (isMobileDevice || tier === QUALITY_TIER.low) {
     return {
       isLowPower: true,
-      simulationTargetFps: isEditor ? 30 : 36,
-      simulationMaxResolution: isEditor ? 128 : 256,
-      reflectionActiveFps: 10,
-      reflectionIdleFps: 4,
-      reflectionTextureSize: 224,
-      waterMeshDensityCap: 144,
+      simulationTargetFps: isEditor ? 24 : 30,
+      simulationMaxResolution: 128,
+      reflectionActiveFps: 4,
+      reflectionIdleFps: 2,
+      reflectionTextureSize: 160,
+      refractionTextureType: THREE.UnsignedByteType,
+      refractionDepthEnabled: false,
+      postRenderScale: 0.75,
+      waterMeshDensityCap: 104,
+      seabedMeshDensity: 96,
       shadowMapSize: 384,
-      boatProbeInterval: 1 / 16,
-      surfacePlantMaxInstances: 220,
-      underwaterAlgaeMaxInstances: 280,
+      boatProbeInterval: 1 / 6,
+      useGpuBoatProbes: false,
+      surfacePlantMaxInstances: 180,
+      underwaterAlgaeMaxInstances: 220,
     };
   }
 
@@ -150,9 +156,14 @@ function buildRuntimeQualityProfile(mode, viewportWidth) {
       reflectionActiveFps: isEditor ? 24 : 20,
       reflectionIdleFps: isEditor ? 18 : 6,
       reflectionTextureSize: isEditor ? 768 : 384,
+      refractionTextureType: THREE.HalfFloatType,
+      refractionDepthEnabled: true,
+      postRenderScale: 1,
       waterMeshDensityCap: isEditor ? 224 : 176,
+      seabedMeshDensity: 144,
       shadowMapSize: isEditor ? 1024 : 768,
       boatProbeInterval: 1 / 18,
+      useGpuBoatProbes: true,
       surfacePlantMaxInstances: 560,
       underwaterAlgaeMaxInstances: 900,
     };
@@ -165,17 +176,22 @@ function buildRuntimeQualityProfile(mode, viewportWidth) {
     reflectionActiveFps: isEditor ? 60 : 30,
     reflectionIdleFps: isEditor ? 60 : 8,
     reflectionTextureSize: isEditor ? 1024 : 768,
+    refractionTextureType: THREE.HalfFloatType,
+    refractionDepthEnabled: true,
+    postRenderScale: 1,
     waterMeshDensityCap: isEditor ? 352 : 224,
+    seabedMeshDensity: 176,
     shadowMapSize: isEditor ? 2048 : 1024,
     boatProbeInterval: 1 / 20,
+    useGpuBoatProbes: true,
     surfacePlantMaxInstances: 900,
     underwaterAlgaeMaxInstances: 1600,
   };
 }
 
-// The editor stays responsive while the published site receives the next simulation
-// tier whenever hardware allows it. This is the project rule: public water quality is
-// never lower than the authored setting and is normally one resolution step higher.
+// The published scene receives the next simulation tier whenever the hardware cap
+// allows it. Low-power devices intentionally stay at 128: a stable 30 fps carries
+// more visible quality than a 256 simulation that thermally collapses after a minute.
 function resolveRuntimeSimulationResolution(requestedResolution, mode, maximumResolution) {
   const requested = Number(requestedResolution);
   const requestedIndex = SIMULATION_RESOLUTION_STEPS.findIndex((value) => value >= requested);
@@ -229,18 +245,6 @@ function createPass(fragmentShader, uniforms) {
 function disposePass(pass) {
   pass.quad.geometry.dispose();
   pass.material.dispose();
-}
-
-function buildMoonDirection(settings) {
-  const azimuth = THREE.MathUtils.degToRad(settings.moonAzimuth);
-  const elevation = THREE.MathUtils.degToRad(settings.moonElevation);
-  const direction = new THREE.Vector3(
-    Math.cos(elevation) * Math.sin(azimuth),
-    Math.sin(elevation),
-    Math.cos(elevation) * Math.cos(azimuth),
-  );
-
-  return direction.normalize();
 }
 
 function restoreDefaultFramebuffer(gl) {
@@ -865,6 +869,8 @@ const reflectionCameraUp = new THREE.Vector3();
 const waterWorldNormal = new THREE.Vector3(0, 1, 0);
 const reflectionClipPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
 const refractionClipPlane = new THREE.Plane(new THREE.Vector3(0, -1, 0), 0);
+const REFLECTION_CLIP_PLANES = [reflectionClipPlane];
+const REFRACTION_CLIP_PLANES = [refractionClipPlane];
 const WATER_CLIP_OVERLAP = 0.015;
 
 function WaterReflections({
@@ -873,6 +879,8 @@ function WaterReflections({
   enabled = true,
   reflectionEnabled = true,
   refractionEnabled = false,
+  refractionTextureType = THREE.HalfFloatType,
+  refractionDepthEnabled = true,
   activeFps = 30,
   idleFps = 12,
 }) {
@@ -892,9 +900,10 @@ function WaterReflections({
 
     const target = new THREE.WebGLRenderTarget(textureSize, textureSize, {
       format: THREE.RGBAFormat,
-      // Underwater lighting contains long, dark gradients. RGBA8 quantized
-      // them before Beer-Lambert absorption and produced coloured bands.
-      type: THREE.HalfFloatType,
+      // Half-float preserves long gradients on full browsers. Low-power and
+      // embedded WebViews use RGBA8 because incomplete half-float FBOs were
+      // the source of the flat blue fallback plane.
+      type: refractionTextureType,
       colorSpace: THREE.LinearSRGBColorSpace,
       depthBuffer: true,
       stencilBuffer: false,
@@ -902,19 +911,21 @@ function WaterReflections({
       minFilter: THREE.LinearFilter,
       magFilter: THREE.LinearFilter,
     });
-    target.depthTexture = new THREE.DepthTexture(
-      textureSize,
-      textureSize,
-      THREE.UnsignedIntType,
-    );
-    target.depthTexture.format = THREE.DepthFormat;
-    target.depthTexture.minFilter = THREE.NearestFilter;
-    target.depthTexture.magFilter = THREE.NearestFilter;
-    target.depthTexture.generateMipmaps = false;
-    target.depthTexture.name = 'water-refraction-depth';
+    if (refractionDepthEnabled) {
+      target.depthTexture = new THREE.DepthTexture(
+        textureSize,
+        textureSize,
+        THREE.UnsignedIntType,
+      );
+      target.depthTexture.format = THREE.DepthFormat;
+      target.depthTexture.minFilter = THREE.NearestFilter;
+      target.depthTexture.magFilter = THREE.NearestFilter;
+      target.depthTexture.generateMipmaps = false;
+      target.depthTexture.name = 'water-refraction-depth';
+    }
 
     return target;
-  }, [refractionEnabled, textureSize]);
+  }, [refractionDepthEnabled, refractionEnabled, refractionTextureType, textureSize]);
 
   const reflectionCamera = useMemo(() => new THREE.PerspectiveCamera(), []);
   const reflectionData = useRef({
@@ -931,6 +942,7 @@ function WaterReflections({
     surfaceVegetation: null,
     underwaterAlgae: null,
     interactionPlane: null,
+    celestialDisc: null,
     boatAnchor: null,
     boat: null,
     sculptureAnchor: null,
@@ -1002,6 +1014,9 @@ function WaterReflections({
     if (!sceneObjects.interactionPlane || !sceneObjects.interactionPlane.parent) {
       sceneObjects.interactionPlane = scene.getObjectByName('water-interaction-plane');
     }
+    if (!sceneObjects.celestialDisc || !sceneObjects.celestialDisc.parent) {
+      sceneObjects.celestialDisc = scene.getObjectByName('celestial-disc');
+    }
     if (!sceneObjects.boatAnchor || !sceneObjects.boatAnchor.parent) {
       sceneObjects.boatAnchor = scene.getObjectByName('boat-anchor');
     }
@@ -1017,6 +1032,7 @@ function WaterReflections({
     const surfaceVegetation = sceneObjects.surfaceVegetation;
     const underwaterAlgae = sceneObjects.underwaterAlgae;
     const interactionPlane = sceneObjects.interactionPlane;
+    const celestialDisc = sceneObjects.celestialDisc;
     const boatAnchor = sceneObjects.boatAnchor;
     const boat = sceneObjects.boat;
     const sculptureAnchor = sceneObjects.sculptureAnchor;
@@ -1108,12 +1124,16 @@ function WaterReflections({
     // seabed visible, so its regular shadow map remains part of the image.
     const surfaceVegetationWasVisible = surfaceVegetation?.visible ?? false;
     const underwaterAlgaeWasVisible = underwaterAlgae?.visible ?? false;
+    const celestialDiscWasVisible = celestialDisc?.visible ?? false;
 
     if (waterSurface) waterSurface.visible = false;
     // Surface plants already sit on the mirror plane. Capturing them in either
     // offscreen target creates a doubled dark fringe around every leaf.
     if (surfaceVegetation) surfaceVegetation.visible = false;
     if (interactionPlane) interactionPlane.visible = false;
+    // The procedural water sky already contains the key-light highlight.
+    // Excluding the UI-facing disc avoids a doubled sun in planar captures.
+    if (celestialDisc) celestialDisc.visible = false;
 
     const previousClearAlpha = gl.getClearAlpha();
     gl.getClearColor(reflectionPreviousClearColor);
@@ -1129,7 +1149,7 @@ function WaterReflections({
         // and sculpture here created a camera-dependent dark duplicate that
         // looked like a shadow travelling out of the objects.
         refractionClipPlane.constant = mirrorY + WATER_CLIP_OVERLAP;
-        gl.clippingPlanes = [refractionClipPlane];
+        gl.clippingPlanes = REFRACTION_CLIP_PLANES;
         gl.setRenderTarget(refractionTarget);
         gl.clear(true, true, true);
         gl.render(scene, camera);
@@ -1152,7 +1172,7 @@ function WaterReflections({
         // The mirrored pass must only contain the part above the waterline.
         // Otherwise underwater geometry is mirrored as a second dark object.
         reflectionClipPlane.constant = -mirrorY + WATER_CLIP_OVERLAP;
-        gl.clippingPlanes = [reflectionClipPlane];
+        gl.clippingPlanes = REFLECTION_CLIP_PLANES;
         gl.setRenderTarget(reflectionTarget);
         gl.clear(true, true, true);
         gl.render(scene, reflectionCamera);
@@ -1170,6 +1190,7 @@ function WaterReflections({
       if (surfaceVegetation) surfaceVegetation.visible = surfaceVegetationWasVisible;
       if (underwaterAlgae) underwaterAlgae.visible = underwaterAlgaeWasVisible;
       if (interactionPlane) interactionPlane.visible = true;
+      if (celestialDisc) celestialDisc.visible = celestialDiscWasVisible;
     }
   });
 
@@ -1194,8 +1215,11 @@ const reflectionContext = React.createContext({
 // Stencil ref written by the boat hull cap; the water surface skips pixels stamped with it.
 const BOAT_CUTOUT_STENCIL_REF = 1;
 
-function WaterLights({ settings, mode, qualityProfile }) {
-  const moonDirection = useMemo(() => buildMoonDirection(settings), [settings]);
+function WaterLights({ settings, mode, qualityProfile, lighting }) {
+  const lightDirection = useMemo(
+    () => new THREE.Vector3().fromArray(lighting.key.direction),
+    [lighting],
+  );
   // Legacy drafts often contain very strong unshadowed fill. Cap it so the
   // directional shadow remains readable without adding more editor controls.
   const ambientIntensity = Math.min(Math.sqrt(Math.max(settings.ambientIntensity, 0)) * 0.36, 0.32);
@@ -1220,9 +1244,9 @@ function WaterLights({ settings, mode, qualityProfile }) {
         groundColor={settings.hemisphereGroundColor}
       />
       <directionalLight
-        position={moonDirection.clone().multiplyScalar(18).toArray()}
-        intensity={settings.moonIntensity}
-        color={settings.moonColor}
+        position={lightDirection.clone().multiplyScalar(18).toArray()}
+        intensity={lighting.key.intensity}
+        color={lighting.key.color.hex}
         castShadow={shadowsEnabled}
         shadow-mapSize-width={shadowMapSize}
         shadow-mapSize-height={shadowMapSize}
@@ -1237,6 +1261,28 @@ function WaterLights({ settings, mode, qualityProfile }) {
         shadow-radius={settings.shadowRadius}
         shadow-intensity={settings.shadowIntensity}
       />
+      {settings.lightDiscEnabled ? (
+        <sprite
+          name="celestial-disc"
+          position={lightDirection.clone().multiplyScalar(46).toArray()}
+          scale={[
+            settings.lightDiscSize * (lighting.key.type === 'sun' ? 1.35 : 1),
+            settings.lightDiscSize * (lighting.key.type === 'sun' ? 1.35 : 1),
+            1,
+          ]}
+          renderOrder={-5}
+        >
+          <spriteMaterial
+            color={lighting.key.type === 'sun' ? '#fff1c4' : lighting.key.color.hex}
+            transparent
+            opacity={lighting.key.type === 'sun' ? 0.92 : 0.78}
+            depthTest={false}
+            depthWrite={false}
+            blending={THREE.AdditiveBlending}
+            toneMapped={false}
+          />
+        </sprite>
+      ) : null}
       <Environment
         {...environmentSource}
         background={Boolean(settings.showHdriBackground)}
@@ -1248,7 +1294,7 @@ function WaterLights({ settings, mode, qualityProfile }) {
   );
 }
 
-function WaterSurfaceV2({ settings, runtime, qualityProfile }) {
+function WaterSurfaceV2({ settings, runtime, qualityProfile, lighting }) {
   const materialRef = useRef();
   const reflectionDataRef = React.useContext(reflectionContext);
   const debugView = DEBUG_VIEW_IDS[settings.debugView] ?? 0;
@@ -1256,7 +1302,10 @@ function WaterSurfaceV2({ settings, runtime, qualityProfile }) {
     settings.waterMeshDensity,
     qualityProfile?.waterMeshDensityCap ?? settings.waterMeshDensity,
   );
-  const moonDirection = useMemo(() => buildMoonDirection(settings), [settings]);
+  const lightDirection = useMemo(
+    () => new THREE.Vector3().fromArray(lighting.key.direction),
+    [lighting],
+  );
   const uniforms = useMemo(() => ({
     uState: { value: null },
     uNormalMap: { value: null },
@@ -1272,29 +1321,45 @@ function WaterSurfaceV2({ settings, runtime, qualityProfile }) {
     uWaveAmplitude: { value: settings.waveAmplitude },
     uWaveChoppiness: { value: settings.waveChoppiness },
     uWaterTint: { value: new THREE.Color(settings.envTint) },
-    uMoonDirection: { value: moonDirection.clone() },
-    uMoonColor: { value: new THREE.Color(settings.moonColor) },
-    uMoonIntensity: { value: settings.moonIntensity },
+    uMoonDirection: { value: lightDirection.clone() },
+    uMoonColor: { value: new THREE.Color().fromArray(lighting.key.color.linear) },
+    uMoonIntensity: { value: lighting.key.intensity },
     uMoonSpecularStrength: { value: settings.moonSpecularStrength },
     uMoonSpecularPower: { value: settings.moonSpecularPower },
     uReflectionIntensity: { value: settings.boatReflectionIntensity },
-    uEnvironmentExposure: { value: settings.hdrExposure / 100 },
-    uEnvironmentReflection: { value: settings.envReflectionIntensity / 100 },
+    uEnvironmentExposure: { value: lighting.environment.exposure },
+    uEnvironmentReflection: { value: lighting.environment.reflection },
+    uEnvironmentHorizonColor: {
+      value: new THREE.Color().fromArray(lighting.environment.horizon.linear),
+    },
+    uEnvironmentZenithColor: {
+      value: new THREE.Color().fromArray(lighting.environment.zenith.linear),
+    },
+    uEnvironmentRotation: { value: lighting.environment.rotationRadians },
     uWaterDepth: { value: settings.waterDepthMeters },
     uWaterTurbidity: { value: settings.waterTurbidity },
+    uWaterScatteringColor: {
+      value: new THREE.Color().fromArray(lighting.water.scatteringColor),
+    },
+    uWaterScatteringStrength: { value: settings.waterScatteringStrength },
+    uWaterGlintStrength: { value: settings.waterGlintStrength },
+    uWaterGlintDensity: { value: settings.waterGlintDensity },
+    uWaterGlintSharpness: { value: settings.waterGlintSharpness },
+    uTime: { value: 0 },
     uDebugView: { value: debugView },
   }), [
     debugView,
-    moonDirection,
+    lightDirection,
+    lighting,
     settings.boatReflectionIntensity,
-    settings.envReflectionIntensity,
     settings.envTint,
-    settings.hdrExposure,
-    settings.moonColor,
-    settings.moonIntensity,
     settings.moonSpecularPower,
     settings.moonSpecularStrength,
     settings.waterDepthMeters,
+    settings.waterGlintDensity,
+    settings.waterGlintSharpness,
+    settings.waterGlintStrength,
+    settings.waterScatteringStrength,
     settings.waterTurbidity,
     settings.waveAmplitude,
     settings.waveChoppiness,
@@ -1304,36 +1369,45 @@ function WaterSurfaceV2({ settings, runtime, qualityProfile }) {
     uniforms.uWaveAmplitude.value = settings.waveAmplitude;
     uniforms.uWaveChoppiness.value = settings.waveChoppiness;
     uniforms.uWaterTint.value.set(settings.envTint);
-    uniforms.uMoonDirection.value.copy(moonDirection);
-    uniforms.uMoonColor.value.set(settings.moonColor);
-    uniforms.uMoonIntensity.value = settings.moonIntensity;
+    uniforms.uMoonDirection.value.copy(lightDirection);
+    uniforms.uMoonColor.value.fromArray(lighting.key.color.linear);
+    uniforms.uMoonIntensity.value = lighting.key.intensity;
     uniforms.uMoonSpecularStrength.value = settings.moonSpecularStrength;
     uniforms.uMoonSpecularPower.value = settings.moonSpecularPower;
     uniforms.uReflectionIntensity.value = settings.boatReflectionIntensity;
-    uniforms.uEnvironmentExposure.value = settings.hdrExposure / 100;
-    uniforms.uEnvironmentReflection.value = settings.envReflectionIntensity / 100;
+    uniforms.uEnvironmentExposure.value = lighting.environment.exposure;
+    uniforms.uEnvironmentReflection.value = lighting.environment.reflection;
+    uniforms.uEnvironmentHorizonColor.value.fromArray(lighting.environment.horizon.linear);
+    uniforms.uEnvironmentZenithColor.value.fromArray(lighting.environment.zenith.linear);
+    uniforms.uEnvironmentRotation.value = lighting.environment.rotationRadians;
     uniforms.uWaterDepth.value = settings.waterDepthMeters;
     uniforms.uWaterTurbidity.value = settings.waterTurbidity;
+    uniforms.uWaterScatteringColor.value.fromArray(lighting.water.scatteringColor);
+    uniforms.uWaterScatteringStrength.value = settings.waterScatteringStrength;
+    uniforms.uWaterGlintStrength.value = settings.waterGlintStrength;
+    uniforms.uWaterGlintDensity.value = settings.waterGlintDensity;
+    uniforms.uWaterGlintSharpness.value = settings.waterGlintSharpness;
     uniforms.uDebugView.value = DEBUG_VIEW_IDS[settings.debugView] ?? 0;
   }, [
-    moonDirection,
+    lightDirection,
+    lighting,
     settings.boatReflectionIntensity,
     settings.debugView,
-    settings.envReflectionIntensity,
     settings.envTint,
-    settings.hdrExposure,
-    settings.moonColor,
-    settings.moonIntensity,
     settings.moonSpecularPower,
     settings.moonSpecularStrength,
     settings.waterDepthMeters,
+    settings.waterGlintDensity,
+    settings.waterGlintSharpness,
+    settings.waterGlintStrength,
+    settings.waterScatteringStrength,
     settings.waterTurbidity,
     settings.waveAmplitude,
     settings.waveChoppiness,
     uniforms,
   ]);
 
-  useFrame(() => {
+  useFrame(({ clock }) => {
     uniforms.uState.value = runtime.currentStateTargetRef.current?.texture ?? null;
     uniforms.uNormalMap.value = runtime.normalTargetRef.current?.texture ?? null;
 
@@ -1349,6 +1423,7 @@ function WaterSurfaceV2({ settings, runtime, qualityProfile }) {
     uniforms.uCameraNear.value = reflectionDataRef.current.cameraNear;
     uniforms.uCameraFar.value = reflectionDataRef.current.cameraFar;
     uniforms.uReflectionMatrix.value.copy(reflectionDataRef.current.matrix);
+    uniforms.uTime.value = clock.elapsedTime;
   }, -2);
 
   useLayoutEffect(() => {
@@ -1385,11 +1460,14 @@ function WaterSurfaceV2({ settings, runtime, qualityProfile }) {
   );
 }
 
-function Seabed({ settings, runtime }) {
+function Seabed({ settings, runtime, qualityProfile, lighting }) {
   const materialRef = useRef();
   const { gl } = useThree();
   const debugView = DEBUG_VIEW_IDS[settings.debugView] ?? 0;
-  const moonDirection = useMemo(() => buildMoonDirection(settings), [settings]);
+  const lightDirection = useMemo(
+    () => new THREE.Vector3().fromArray(lighting.key.direction),
+    [lighting],
+  );
   const texture = useLoader(THREE.TextureLoader, '/textures/seabed/seabed_texture.webp');
 
   useLayoutEffect(() => {
@@ -1406,9 +1484,17 @@ function Seabed({ settings, runtime }) {
   const uniforms = useMemo(() => ({
     uNormalMap: { value: null },
     uStateResolution: { value: new THREE.Vector2(settings.simulationResolution, settings.simulationResolution) },
-    uMoonDirection: { value: moonDirection.clone() },
-    uMoonColor: { value: new THREE.Color(settings.moonColor) },
-    uMoonIntensity: { value: settings.moonIntensity },
+    uMoonDirection: { value: lightDirection.clone() },
+    uMoonColor: { value: new THREE.Color().fromArray(lighting.key.color.linear) },
+    uMoonIntensity: { value: lighting.key.intensity },
+    uEnvironmentAmbientColor: {
+      value: new THREE.Color().fromArray(lighting.environment.ambient.linear),
+    },
+    uEnvironmentDiffuse: { value: lighting.environment.exposure },
+    uWaterScatteringColor: {
+      value: new THREE.Color().fromArray(lighting.water.scatteringColor),
+    },
+    uWaterScatteringStrength: { value: settings.waterScatteringStrength },
     uTime: { value: 0 },
     uWaterDepth: { value: settings.waterDepthMeters },
     uCausticsIntensity: { value: settings.causticsIntensity },
@@ -1420,31 +1506,39 @@ function Seabed({ settings, runtime }) {
     uSeabedTextureScale: { value: settings.seabedTextureScale },
     uSeabedSaturation: { value: settings.seabedSaturation },
     uSeabedBrightness: { value: settings.seabedBrightness },
+    uSeabedVariation: { value: settings.seabedVariation },
+    uSeabedAoStrength: { value: settings.seabedAoStrength },
     uWaterTurbidity: { value: settings.waterTurbidity },
     uWaterEngine: { value: 1 },
     uDebugView: { value: debugView },
   }), [
     debugView,
-    moonDirection,
+    lightDirection,
+    lighting,
     settings.causticsIntensity,
     settings.causticsScale,
     settings.causticsSharpness,
-    settings.moonColor,
-    settings.moonIntensity,
     settings.seabedReliefScale,
     settings.seabedReliefStrength,
     settings.seabedSaturation,
     settings.seabedBrightness,
+    settings.seabedAoStrength,
     settings.seabedTextureScale,
+    settings.seabedVariation,
     settings.simulationResolution,
     settings.waterDepthMeters,
+    settings.waterScatteringStrength,
     settings.waterTurbidity,
   ]);
 
   useEffect(() => {
-    uniforms.uMoonDirection.value.copy(moonDirection);
-    uniforms.uMoonColor.value.set(settings.moonColor);
-    uniforms.uMoonIntensity.value = settings.moonIntensity;
+    uniforms.uMoonDirection.value.copy(lightDirection);
+    uniforms.uMoonColor.value.fromArray(lighting.key.color.linear);
+    uniforms.uMoonIntensity.value = lighting.key.intensity;
+    uniforms.uEnvironmentAmbientColor.value.fromArray(lighting.environment.ambient.linear);
+    uniforms.uEnvironmentDiffuse.value = lighting.environment.exposure;
+    uniforms.uWaterScatteringColor.value.fromArray(lighting.water.scatteringColor);
+    uniforms.uWaterScatteringStrength.value = settings.waterScatteringStrength;
     uniforms.uWaterDepth.value = settings.waterDepthMeters;
     uniforms.uCausticsIntensity.value = settings.causticsIntensity;
     uniforms.uCausticsScale.value = settings.causticsScale;
@@ -1455,24 +1549,28 @@ function Seabed({ settings, runtime }) {
     uniforms.uSeabedTextureScale.value = settings.seabedTextureScale;
     uniforms.uSeabedSaturation.value = settings.seabedSaturation;
     uniforms.uSeabedBrightness.value = settings.seabedBrightness;
+    uniforms.uSeabedVariation.value = settings.seabedVariation;
+    uniforms.uSeabedAoStrength.value = settings.seabedAoStrength;
     uniforms.uWaterTurbidity.value = settings.waterTurbidity;
     uniforms.uWaterEngine.value = 1;
     uniforms.uDebugView.value = DEBUG_VIEW_IDS[settings.debugView] ?? 0;
   }, [
     debugView,
-    moonDirection,
+    lightDirection,
+    lighting,
     settings.causticsIntensity,
     settings.causticsScale,
     settings.causticsSharpness,
     settings.debugView,
-    settings.moonColor,
-    settings.moonIntensity,
     settings.seabedBrightness,
+    settings.seabedAoStrength,
     settings.seabedReliefScale,
     settings.seabedReliefStrength,
     settings.seabedSaturation,
     settings.seabedTextureScale,
+    settings.seabedVariation,
     settings.waterDepthMeters,
+    settings.waterScatteringStrength,
     settings.waterTurbidity,
     texture,
     uniforms,
@@ -1495,13 +1593,19 @@ function Seabed({ settings, runtime }) {
       receiveShadow
       renderOrder={0}
     >
-      <planeGeometry args={[settings.waterExtent, settings.waterExtent, 192, 192]} />
+      <planeGeometry args={[
+        settings.waterExtent,
+        settings.waterExtent,
+        qualityProfile?.seabedMeshDensity ?? 144,
+        qualityProfile?.seabedMeshDensity ?? 144,
+      ]} />
       <CustomShaderMaterial
         ref={materialRef}
         baseMaterial={THREE.MeshStandardMaterial}
         color="#11161d"
         roughness={0.9}
         metalness={0.02}
+        envMapIntensity={lighting.environment.reflection}
         vertexShader={seabedVertexShader}
         fragmentShader={seabedFragmentShader}
         uniforms={uniforms}
@@ -1656,7 +1760,7 @@ function createUnderwaterAlgaeGeometry(maxInstances, segments = 8) {
   return geometry;
 }
 
-function SurfaceVegetation({ settings, runtime, qualityProfile }) {
+function SurfaceVegetation({ settings, runtime, qualityProfile, lighting }) {
   const materialRef = useRef();
   const reflectionDataRef = React.useContext(reflectionContext);
   const maxInstances = qualityProfile?.surfacePlantMaxInstances ?? 560;
@@ -1682,10 +1786,10 @@ function SurfaceVegetation({ settings, runtime, qualityProfile }) {
     () => createSurfaceVegetationGeometry(maxInstances),
     [maxInstances],
   );
-  const moonDirection = useMemo(() => buildMoonDirection({
-    moonAzimuth: settings.moonAzimuth,
-    moonElevation: settings.moonElevation,
-  }), [settings.moonAzimuth, settings.moonElevation]);
+  const lightDirection = useMemo(
+    () => new THREE.Vector3().fromArray(lighting.key.direction),
+    [lighting],
+  );
   const uniforms = useMemo(() => ({
     uLeafAlbedoMap: { value: leafAlbedoMap },
     uLeafNormalMap: { value: leafNormalMap },
@@ -1709,6 +1813,8 @@ function SurfaceVegetation({ settings, runtime, qualityProfile }) {
     uReflectionStrength: { value: 0.72 },
     uEnvironmentExposure: { value: 1 },
     uEnvironmentReflection: { value: 1 },
+    uEnvironmentAmbientColor: { value: new THREE.Color('#30465b') },
+    uEnvironmentDiffuse: { value: 1 },
     uMoonDirection: { value: new THREE.Vector3(0, 1, 0) },
     uMoonColor: { value: new THREE.Color('#d9e4ff') },
     uMoonIntensity: { value: 1 },
@@ -1734,12 +1840,14 @@ function SurfaceVegetation({ settings, runtime, qualityProfile }) {
     uniforms.uSaturation.value = settings.surfacePlantSaturation;
     uniforms.uSubsurfaceStrength.value = settings.surfacePlantTranslucency;
     uniforms.uReflectionStrength.value = settings.surfacePlantReflection;
-    uniforms.uEnvironmentExposure.value = settings.hdrExposure / 100;
-    uniforms.uEnvironmentReflection.value = settings.envReflectionIntensity / 100;
-    uniforms.uMoonDirection.value.copy(moonDirection);
-    uniforms.uMoonColor.value.set(settings.moonColor);
-    uniforms.uMoonIntensity.value = settings.moonIntensity;
-  }, [moonDirection, settings, uniforms]);
+    uniforms.uEnvironmentExposure.value = lighting.environment.exposure;
+    uniforms.uEnvironmentReflection.value = lighting.environment.reflection;
+    uniforms.uEnvironmentAmbientColor.value.fromArray(lighting.environment.ambient.linear);
+    uniforms.uEnvironmentDiffuse.value = lighting.environment.exposure;
+    uniforms.uMoonDirection.value.copy(lightDirection);
+    uniforms.uMoonColor.value.fromArray(lighting.key.color.linear);
+    uniforms.uMoonIntensity.value = lighting.key.intensity;
+  }, [lightDirection, lighting, settings, uniforms]);
 
   useFrame(({ clock }) => {
     uniforms.uState.value = runtime.currentStateTargetRef.current?.texture ?? null;
@@ -1794,16 +1902,16 @@ function SurfaceVegetation({ settings, runtime, qualityProfile }) {
   );
 }
 
-function UnderwaterAlgae({ settings, qualityProfile }) {
+function UnderwaterAlgae({ settings, qualityProfile, lighting }) {
   const maxInstances = qualityProfile?.underwaterAlgaeMaxInstances ?? 240;
   const geometry = useMemo(
     () => createUnderwaterAlgaeGeometry(maxInstances),
     [maxInstances],
   );
-  const moonDirection = useMemo(() => buildMoonDirection({
-    moonAzimuth: settings.moonAzimuth,
-    moonElevation: settings.moonElevation,
-  }), [settings.moonAzimuth, settings.moonElevation]);
+  const lightDirection = useMemo(
+    () => new THREE.Vector3().fromArray(lighting.key.direction),
+    [lighting],
+  );
   const uniforms = useMemo(() => ({
     uCenter: { value: new THREE.Vector2() },
     uRadius: { value: 1 },
@@ -1823,6 +1931,11 @@ function UnderwaterAlgae({ settings, qualityProfile }) {
     uMoonDirection: { value: new THREE.Vector3(0, 1, 0) },
     uMoonColor: { value: new THREE.Color('#d9e4ff') },
     uMoonIntensity: { value: 1 },
+    uEnvironmentAmbientColor: { value: new THREE.Color('#30465b') },
+    uEnvironmentDiffuse: { value: 1 },
+    uWaterScatteringColor: { value: new THREE.Color('#496d72') },
+    uWaterTurbidity: { value: 0 },
+    uPlantAoStrength: { value: 0.5 },
   }), []);
 
   useEffect(() => () => geometry.dispose(), [geometry]);
@@ -1851,10 +1964,15 @@ function UnderwaterAlgae({ settings, qualityProfile }) {
     uniforms.uReliefScale.value = settings.seabedReliefScale;
     uniforms.uColor.value.set(settings.underwaterAlgaeColor);
     uniforms.uSaturation.value = settings.underwaterAlgaeSaturation;
-    uniforms.uMoonDirection.value.copy(moonDirection);
-    uniforms.uMoonColor.value.set(settings.moonColor);
-    uniforms.uMoonIntensity.value = settings.moonIntensity;
-  }, [moonDirection, settings, uniforms]);
+    uniforms.uMoonDirection.value.copy(lightDirection);
+    uniforms.uMoonColor.value.fromArray(lighting.key.color.linear);
+    uniforms.uMoonIntensity.value = lighting.key.intensity;
+    uniforms.uEnvironmentAmbientColor.value.fromArray(lighting.environment.ambient.linear);
+    uniforms.uEnvironmentDiffuse.value = lighting.environment.exposure;
+    uniforms.uWaterScatteringColor.value.fromArray(lighting.water.scatteringColor);
+    uniforms.uWaterTurbidity.value = settings.waterTurbidity;
+    uniforms.uPlantAoStrength.value = settings.plantAoStrength;
+  }, [lightDirection, lighting, settings, uniforms]);
 
   useFrame(({ clock }) => {
     uniforms.uTime.value = clock.elapsedTime;
@@ -1887,7 +2005,16 @@ function UnderwaterAlgae({ settings, qualityProfile }) {
   );
 }
 
-function FloatingBoat({ settings, layout, runtime, mode, orbitRef, onBoatPositionChange, probeInterval = BOAT_PROBE_INTERVAL }) {
+function FloatingBoat({
+  settings,
+  layout,
+  runtime,
+  mode,
+  orbitRef,
+  onBoatPositionChange,
+  probeInterval = BOAT_PROBE_INTERVAL,
+  useGpuProbes = true,
+}) {
   const anchorRef = useRef();
   const boatRef = useRef();
   const isDraggingRef = useRef(false);
@@ -2065,7 +2192,7 @@ function FloatingBoat({ settings, layout, runtime, mode, orbitRef, onBoatPositio
     setOrbitEnabled(true);
   }, [setOrbitEnabled]);
 
-  useFrame((_, delta) => {
+  useFrame(({ clock }, delta) => {
     if (!boatRef.current || settings.debugView !== 'beauty' || !isDocumentCurrentlyVisible()) {
       return;
     }
@@ -2074,6 +2201,30 @@ function FloatingBoat({ settings, layout, runtime, mode, orbitRef, onBoatPositio
     boatAnchorRef.current.copy(boatAnchor);
     const boatHeightOffset = settings.boatHeightOffset ?? 0;
     const boatYawRadians = THREE.MathUtils.degToRad(settings.boatYaw ?? 18);
+
+    if (!useGpuProbes) {
+      // Avoid synchronous GPU->CPU readback on phones. The public effect only
+      // needs believable buoyancy, so two phase-shifted waves are sufficient.
+      const phase = clock.elapsedTime + boatAnchor.x * 0.37 - boatAnchor.z * 0.29;
+      const amplitude = Math.min(settings.waveAmplitude, 0.12);
+      const targetY = clamp(
+        BOAT_NEUTRAL_Y + boatHeightOffset
+          + Math.sin(phase * 0.83) * amplitude * 0.42
+          + Math.sin(phase * 1.71 + 1.4) * amplitude * 0.18,
+        BOAT_TARGET_Y_MIN + boatHeightOffset,
+        BOAT_TARGET_Y_MAX + boatHeightOffset,
+      );
+      const targetPitch = Math.sin(phase * 0.71 + 0.6) * amplitude * 0.58;
+      const targetRoll = Math.sin(phase * 0.94 - 0.8) * amplitude * 0.72;
+
+      targetVector.current.set(0, targetY, 0);
+      boatRef.current.position.lerp(targetVector.current, 1 - Math.exp(-delta * 3.4));
+      boatRef.current.rotation.y = boatYawRadians;
+      boatRef.current.rotation.x = THREE.MathUtils.damp(boatRef.current.rotation.x, targetPitch, 3.4, delta);
+      boatRef.current.rotation.z = THREE.MathUtils.damp(boatRef.current.rotation.z, targetRoll, 3.4, delta);
+      return;
+    }
+
     boatMatrixRef.current.makeRotationY(boatYawRadians);
     const boatProbeOffsets = boatProbeOffsetsRef.current;
     for (let index = 0; index < boatProbeOffsets.length; index += 1) {
@@ -2580,15 +2731,14 @@ function WaterRuntimeScene({
     () => buildRuntimeQualityProfile(mode, size.width),
     [mode, size.width],
   );
+  const lighting = useMemo(() => buildHomeSceneLighting(settings), [settings]);
   const runtime = useWaterRuntime(settings, qualityProfile, mode);
   const orbitRef = useRef();
   const showDebugHelpers = mode === 'editor' && settings.debugView !== 'beauty';
   const reflectionsEnabled = settings.debugView === 'beauty'
-    && settings.boatReflectionIntensity > 0.01
-    && !qualityProfile.isLowPower;
-  // Keep the inexpensive refraction capture on phones as well: this is what
-  // makes the instanced underwater meadow visible through the opaque water.
-  // Low-power profiles already cap it to 224px and 4–10 updates per second.
+    && settings.boatReflectionIntensity > 0.01;
+  // Mobile uses a conservative RGBA8 capture without a depth texture. This
+  // keeps the meadow visible and avoids incomplete half-float FBOs in WebViews.
   const refractionEnabled = settings.debugView === 'beauty';
   const opticsEnabled = reflectionsEnabled || refractionEnabled;
   // Editor forces the authored frame. Public layout follows the outer browser
@@ -2607,13 +2757,35 @@ function WaterRuntimeScene({
     dataset.ddgWaterEngine = 'v2';
     dataset.ddgSimulationRequested = String(settings.simulationResolution);
     dataset.ddgSimulationEffective = String(runtime.effectiveResolution);
+    dataset.ddgRefractionMode = qualityProfile.refractionTextureType === THREE.UnsignedByteType
+      ? 'rgba8-analytic-depth'
+      : 'half-float-depth';
+    dataset.ddgReflectionMode = reflectionsEnabled ? 'planar-generic' : 'procedural-sky';
+    dataset.ddgWaterMeshDensity = String(Math.min(settings.waterMeshDensity, qualityProfile.waterMeshDensityCap));
+    dataset.ddgSeabedMeshDensity = String(qualityProfile.seabedMeshDensity);
+    dataset.ddgPostRenderScale = String(qualityProfile.postRenderScale);
 
     return () => {
       delete dataset.ddgWaterEngine;
       delete dataset.ddgSimulationRequested;
       delete dataset.ddgSimulationEffective;
+      delete dataset.ddgRefractionMode;
+      delete dataset.ddgReflectionMode;
+      delete dataset.ddgWaterMeshDensity;
+      delete dataset.ddgSeabedMeshDensity;
+      delete dataset.ddgPostRenderScale;
     };
-  }, [gl, runtime.effectiveResolution, settings.simulationResolution]);
+  }, [
+    gl,
+    qualityProfile.refractionTextureType,
+    qualityProfile.postRenderScale,
+    qualityProfile.seabedMeshDensity,
+    qualityProfile.waterMeshDensityCap,
+    reflectionsEnabled,
+    runtime.effectiveResolution,
+    settings.simulationResolution,
+    settings.waterMeshDensity,
+  ]);
 
   return (
     <>
@@ -2629,17 +2801,43 @@ function WaterRuntimeScene({
         enabled={opticsEnabled}
         reflectionEnabled={reflectionsEnabled}
         refractionEnabled={refractionEnabled}
+        refractionTextureType={qualityProfile.refractionTextureType}
+        refractionDepthEnabled={qualityProfile.refractionDepthEnabled}
         textureSize={qualityProfile.reflectionTextureSize}
         activeFps={qualityProfile.reflectionActiveFps}
         idleFps={qualityProfile.reflectionIdleFps}
       >
-        <WaterLights settings={settings} mode={mode} qualityProfile={qualityProfile} />
-        <Seabed settings={settings} runtime={runtime} />
+        <WaterLights
+          settings={settings}
+          mode={mode}
+          qualityProfile={qualityProfile}
+          lighting={lighting}
+        />
+        <Seabed
+          settings={settings}
+          runtime={runtime}
+          qualityProfile={qualityProfile}
+          lighting={lighting}
+        />
         {refractionEnabled ? (
-          <UnderwaterAlgae settings={settings} qualityProfile={qualityProfile} />
+          <UnderwaterAlgae
+            settings={settings}
+            qualityProfile={qualityProfile}
+            lighting={lighting}
+          />
         ) : null}
-        <WaterSurfaceV2 settings={settings} runtime={runtime} qualityProfile={qualityProfile} />
-        <SurfaceVegetation settings={settings} runtime={runtime} qualityProfile={qualityProfile} />
+        <WaterSurfaceV2
+          settings={settings}
+          runtime={runtime}
+          qualityProfile={qualityProfile}
+          lighting={lighting}
+        />
+        <SurfaceVegetation
+          settings={settings}
+          runtime={runtime}
+          qualityProfile={qualityProfile}
+          lighting={lighting}
+        />
         <FloatingBoat
           settings={settings}
           layout={activeLayout}
@@ -2648,6 +2846,7 @@ function WaterRuntimeScene({
           orbitRef={orbitRef}
           onBoatPositionChange={onBoatPositionChange}
           probeInterval={qualityProfile.boatProbeInterval}
+          useGpuProbes={qualityProfile.useGpuBoatProbes}
         />
         <StaticSculpture
           settings={settings}
@@ -2663,7 +2862,7 @@ function WaterRuntimeScene({
           enableSurfaceRefine={mode !== 'editor' && !qualityProfile.isLowPower}
         />
       </WaterReflections>
-      <ScenePostProcessing settings={settings} />
+      <ScenePostProcessing settings={settings} qualityProfile={qualityProfile} />
       <SceneReadyBeacon onSceneReady={onSceneReady} />
       {showDebugHelpers ? <axesHelper args={[2]} /> : null}
       {showDebugHelpers ? (

@@ -81,8 +81,17 @@ export const waterV2FragmentShader = `
   uniform float uReflectionIntensity;
   uniform float uEnvironmentExposure;
   uniform float uEnvironmentReflection;
+  uniform vec3 uEnvironmentHorizonColor;
+  uniform vec3 uEnvironmentZenithColor;
+  uniform float uEnvironmentRotation;
   uniform float uWaterDepth;
   uniform float uWaterTurbidity;
+  uniform vec3 uWaterScatteringColor;
+  uniform float uWaterScatteringStrength;
+  uniform float uWaterGlintStrength;
+  uniform float uWaterGlintDensity;
+  uniform float uWaterGlintSharpness;
+  uniform float uTime;
   uniform int uDebugView;
 
   #include <common>
@@ -106,10 +115,14 @@ export const waterV2FragmentShader = `
 
   vec3 skyColor(vec3 ray, vec3 lightDir) {
     float height = max(ray.y, 0.0);
-    float nightLift = clamp(lightDir.y * 1.4, 0.0, 1.0);
-    vec3 horizon = mix(vec3(0.12, 0.16, 0.19), vec3(0.28, 0.38, 0.41), nightLift);
-    vec3 zenith = mix(vec3(0.025, 0.04, 0.055), vec3(0.07, 0.13, 0.16), nightLift);
-    vec3 color = mix(horizon, zenith, pow(height, 0.58));
+    vec3 color = mix(
+      max(uEnvironmentHorizonColor, vec3(0.001)),
+      max(uEnvironmentZenithColor, vec3(0.001)),
+      pow(height, 0.58)
+    );
+    float environmentAzimuth = atan(ray.z, ray.x) + uEnvironmentRotation;
+    float horizonVariation = 0.88 + 0.12 * cos(environmentAzimuth * 2.0 + 0.7);
+    color *= mix(horizonVariation, 1.0, smoothstep(0.0, 0.72, height));
     float moon = max(dot(ray, lightDir), 0.0);
     // Exposure controls are perceptual in the editor, so use a square-root
     // response while preserving a true black at zero.
@@ -120,6 +133,12 @@ export const waterV2FragmentShader = `
       * clamp(uMoonIntensity, 0.0, 4.0)
       * (pow(moon, 420.0) * 3.5 + pow(moon, 28.0) * 0.18);
     return color;
+  }
+
+  float hash12(vec2 p) {
+    vec3 p3 = fract(vec3(p.xyx) * 0.1031);
+    p3 += dot(p3, p3.yzx + 33.33);
+    return fract((p3.x + p3.y) * p3.z);
   }
 
   float edgeMask(vec2 uv) {
@@ -216,19 +235,36 @@ export const waterV2FragmentShader = `
     float density = turbidity * (0.45 + 0.55 * turbidity);
     vec3 absorptionCoefficient = vec3(0.008, 0.003, 0.001)
       + density * vec3(0.13, 0.055, 0.018);
-    float scatteringCoefficient = density * 0.55;
+    float scatteringCoefficient = density
+      * 0.62
+      * clamp(uWaterScatteringStrength, 0.0, 1.5);
     vec3 extinction = absorptionCoefficient + vec3(scatteringCoefficient);
     vec3 transmittance = exp(-extinction * opticalPath);
-    vec3 deepTint = vec3(0.025, 0.082, 0.105);
+    vec3 deepTint = mix(
+      vec3(0.018, 0.052, 0.064),
+      max(uWaterScatteringColor, vec3(0.001)),
+      0.7
+    );
     float scatterAmount = 1.0 - exp(-scatteringCoefficient * opticalPath);
     float scatterLight = mix(
       0.48,
       1.0,
       sqrt(clamp(uEnvironmentExposure * uEnvironmentReflection, 0.0, 1.0))
     );
+    float forwardScatter = pow(max(dot(viewDirection, lightDirection), 0.0), 5.0);
+    vec3 scatterColor = mix(deepTint, uMoonColor, forwardScatter * 0.46);
     vec3 refraction = refractedScene * transmittance
-      + deepTint * scatterAmount * scatterLight;
-    refraction = mix(deepTint, refraction, uRefractionActive);
+      + scatterColor * scatterAmount * scatterLight
+      * (0.82 + forwardScatter * clamp(uMoonIntensity, 0.0, 4.0) * 0.2);
+    // The fallback still contains normal- and environment-driven variation;
+    // an unavailable offscreen target must never turn the surface into a flat
+    // cyan rectangle.
+    vec3 analyticRefraction = mix(
+      deepTint * (0.72 + vHeightSample * 0.08),
+      uEnvironmentHorizonColor * 0.34,
+      clamp(slope * 1.7 + fresnel * 0.28, 0.0, 0.72)
+    );
+    refraction = mix(analyticRefraction, refraction, uRefractionActive);
 
     vec3 reflectedRay = reflect(-viewDirection, normal);
     reflectedRay.y = abs(reflectedRay.y);
@@ -277,8 +313,45 @@ export const waterV2FragmentShader = `
       * clamp(uMoonIntensity, 0.0, 4.0)
       * (0.3 + fresnel * 1.7);
 
+    float glintDensity = clamp(uWaterGlintDensity, 0.0, 1.0);
+    float glintSharpness = clamp(uWaterGlintSharpness, 0.0, 1.0);
+    vec2 glintGrid = (vSurfaceWorldPosition.xz + normal.xz * 2.4)
+      * mix(8.0, 24.0, glintDensity);
+    vec2 glintCell = floor(glintGrid);
+    vec2 glintOffset = vec2(
+      hash12(glintCell + vec2(7.1, 2.7)),
+      hash12(glintCell + vec2(3.4, 9.2))
+    ) - 0.5;
+    vec2 glintLocal = fract(glintGrid) - 0.5 - glintOffset * 0.56;
+    float sparkleSeed = hash12(glintCell);
+    float sparkleMask = smoothstep(
+      mix(0.996, 0.84, glintDensity),
+      1.0,
+      sparkleSeed
+    );
+    float sparklePoint = 1.0 - smoothstep(
+      mix(0.035, 0.07, glintDensity),
+      mix(0.095, 0.16, glintDensity),
+      length(glintLocal)
+    );
+    float sparkleTwinkle = 0.64 + 0.36 * sin(
+      uTime * mix(3.2, 6.8, glintSharpness) + sparkleSeed * 24.0
+    );
+    float microfacet = pow(
+      max(dot(normal, halfDirection), 0.0),
+      mix(120.0, 720.0, glintSharpness)
+    );
+    float waterGlint = sparkleMask
+      * sparklePoint
+      * sparkleTwinkle
+      * microfacet
+      * clamp(uWaterGlintStrength, 0.0, 1.5)
+      * (0.65 + fresnel * 2.2)
+      * clamp(uMoonIntensity, 0.0, 4.0);
+
     vec3 color = mix(refraction, reflection, clamp(fresnel, 0.02, 0.96));
     color += uMoonColor * moonHighlight;
+    color += mix(vec3(1.0), uMoonColor, 0.2) * waterGlint * 1.6;
     // A small neutral-blue crest lift keeps ripples legible without coupling
     // the reflection colour control to the water volume.
     color += vec3(0.07, 0.11, 0.14) * max(vHeightSample, 0.0) * 0.035;

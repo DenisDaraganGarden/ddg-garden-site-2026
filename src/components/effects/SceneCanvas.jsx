@@ -153,6 +153,8 @@ const RuntimeDiagnostics = ({ sceneId, mode, settings }) => {
     }
 
     const runtimeRoot = window.__DDG_RUNTIME_METRICS__ ?? {};
+    const browserMemory = performance.memory;
+    const canvasDataset = gl.domElement.dataset;
     const nextSettings = settings
       ? {
           simulationResolution: settings.simulationResolution,
@@ -176,6 +178,9 @@ const RuntimeDiagnostics = ({ sceneId, mode, settings }) => {
         longFramesOver50Ms: frameTimes.filter((value) => value > 50).length,
         sampleSize: frameTimes.length,
       },
+      memory: typeof browserMemory?.usedJSHeapSize === 'number'
+        ? { jsHeapUsedBytes: browserMemory.usedJSHeapSize }
+        : null,
       drawingBuffer: {
         width: gl.domElement.width,
         height: gl.domElement.height,
@@ -190,6 +195,15 @@ const RuntimeDiagnostics = ({ sceneId, mode, settings }) => {
         triangles: gl.info.render.triangles,
         points: gl.info.render.points,
         lines: gl.info.render.lines,
+      },
+      runtime: {
+        waterEngine: canvasDataset.ddgWaterEngine ?? null,
+        simulationRequested: canvasDataset.ddgSimulationRequested ?? null,
+        simulationEffective: canvasDataset.ddgSimulationEffective ?? null,
+        refraction: canvasDataset.ddgRefractionMode
+          ?? canvasDataset.ddgRefraction
+          ?? canvasDataset.ddgRefractionActive
+          ?? null,
       },
       sceneChildren: scene.children.length,
       camera: {
@@ -229,6 +243,80 @@ const RuntimeDiagnostics = ({ sceneId, mode, settings }) => {
   }, [sceneId]);
 
   return null;
+};
+
+const formatMetric = (value, digits = 0) => (
+  typeof value === 'number' && Number.isFinite(value)
+    ? value.toFixed(digits)
+    : '—'
+);
+
+const PerformanceHud = ({ sceneId, enabled }) => {
+  const [metrics, setMetrics] = useState(null);
+
+  useEffect(() => {
+    if (!enabled || typeof window === 'undefined') {
+      setMetrics(null);
+      return undefined;
+    }
+
+    const syncMetrics = () => {
+      setMetrics(window.__DDG_RUNTIME_METRICS__?.[sceneId] ?? null);
+    };
+
+    syncMetrics();
+    const intervalId = window.setInterval(syncMetrics, 500);
+    return () => window.clearInterval(intervalId);
+  }, [enabled, sceneId]);
+
+  if (!enabled || !metrics) {
+    return null;
+  }
+
+  const jsHeapMegabytes = metrics.memory?.jsHeapUsedBytes
+    ? metrics.memory.jsHeapUsedBytes / (1024 * 1024)
+    : null;
+  const runtimeEntries = [
+    ['sim', [metrics.runtime?.simulationRequested, metrics.runtime?.simulationEffective]
+      .filter(Boolean)
+      .join('→')],
+    ['refract', metrics.runtime?.refraction],
+  ].filter(([, value]) => value);
+
+  return (
+    <aside
+      aria-label="Performance diagnostics"
+      data-testid={`${sceneId}-performance-hud`}
+      style={{
+        position: 'absolute',
+        top: 12,
+        right: 12,
+        zIndex: 20,
+        minWidth: 174,
+        padding: '9px 10px',
+        color: '#edf3f5',
+        background: 'rgba(4, 6, 8, 0.78)',
+        border: '1px solid rgba(230, 244, 247, 0.24)',
+        borderRadius: 5,
+        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+        fontSize: 10,
+        lineHeight: 1.5,
+        letterSpacing: '0.02em',
+        pointerEvents: 'none',
+        userSelect: 'none',
+      }}
+    >
+      <div style={{ color: '#aebcc0', marginBottom: 3 }}>PERFORMANCE · DEV</div>
+      <div>FPS {formatMetric(metrics.performance?.fps)}</div>
+      <div>P95 {formatMetric(metrics.performance?.p95FrameMs, 1)} ms</div>
+      <div>HEAP {jsHeapMegabytes === null ? '—' : `${formatMetric(jsHeapMegabytes, 1)} MB`}</div>
+      <div>TEX {formatMetric(metrics.renderer?.textures)} · GEO {formatMetric(metrics.renderer?.geometries)}</div>
+      <div>PROG {formatMetric(metrics.renderer?.programs)} · TRI {formatMetric(metrics.renderer?.triangles)}</div>
+      {runtimeEntries.map(([label, value]) => (
+        <div key={label}>{label.toUpperCase()} {value}</div>
+      ))}
+    </aside>
+  );
 };
 
 const VisibilityResume = ({ isActive }) => {
@@ -316,7 +404,7 @@ const SceneCanvas = ({
       <div
         className={className}
         data-testid={testId}
-        style={{ width: '100%', height: '100%', ...style }}
+        style={{ position: 'relative', width: '100%', height: '100%', ...style }}
       >
         <Canvas
           shadows={SHADOWS_CONFIG}
@@ -341,6 +429,10 @@ const SceneCanvas = ({
             />
           ) : null}
         </Canvas>
+        <PerformanceHud
+          sceneId={sceneId}
+          enabled={Boolean(import.meta.env.DEV && settings?.showPerformanceHud)}
+        />
       </div>
     </SceneCanvasErrorBoundary>
   );

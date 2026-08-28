@@ -37,6 +37,11 @@ export const HOME_SCENE_FOG_MODES = [
   { value: 'volumetric', label: 'Volumetric' },
 ];
 
+export const HOME_SCENE_LIGHT_TYPES = [
+  { value: 'sun', label: 'Sun' },
+  { value: 'moon', label: 'Moon' },
+];
+
 const DEFAULT_HDRI_PRESET = HOME_SCENE_HDRI_PRESETS[0].value;
 const DEFAULT_DEBUG_VIEW = HOME_SCENE_DEBUG_VIEWS[0].value;
 const DEFAULT_LANDSCAPE_CAMERA_POSITION = { x: 0, y: 5.8, z: 8.9 };
@@ -59,6 +64,7 @@ const buildLayout = (cameraPosition, cameraFov, frameInset) => ({
 const VALID_HDRI_PRESETS = new Set(HOME_SCENE_HDRI_PRESETS.map((option) => option.value));
 const VALID_DEBUG_VIEWS = new Set(HOME_SCENE_DEBUG_VIEWS.map((option) => option.value));
 const VALID_FOG_MODES = new Set(HOME_SCENE_FOG_MODES.map((option) => option.value));
+const VALID_LIGHT_TYPES = new Set(HOME_SCENE_LIGHT_TYPES.map((option) => option.value));
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 const clampResolution = (value) => {
   const requested = Number(value);
@@ -151,6 +157,9 @@ export const getBaseHomeSceneSettings = () => ({
   hdrExposure: 64,
   envReflectionIntensity: 84,
   envTint: '#6b7484',
+  keyLightType: 'sun',
+  lightDiscEnabled: true,
+  lightDiscSize: 1.6,
   moonIntensity: 0.95,
   moonColor: '#d9e4ff',
   moonAzimuth: 42,
@@ -224,6 +233,11 @@ export const getBaseHomeSceneSettings = () => ({
   seabedSaturation: 1.0,
   seabedBrightness: 1.0,
   waterTurbidity: 0.3,
+  waterScatteringStrength: 0.85,
+  waterScatteringColor: '#6f8d91',
+  seabedVariation: 0.55,
+  seabedAoStrength: 0.62,
+  plantAoStrength: 0.55,
   surfacePlantAmount: 0.72,
   surfacePlantCenterX: -3.6,
   surfacePlantCenterZ: 1.6,
@@ -255,6 +269,9 @@ export const getBaseHomeSceneSettings = () => ({
   bloomStrength: 0.18,
   bloomThreshold: 0.72,
   bloomRadius: 0.58,
+  waterGlintStrength: 0.48,
+  waterGlintDensity: 0.5,
+  waterGlintSharpness: 0.72,
   colorContrast: 1.03,
   colorSaturation: 1.02,
   colorHue: 0,
@@ -274,6 +291,7 @@ export const getBaseHomeSceneSettings = () => ({
   fogScattering: 0.25,
   ambientWaveIntensity: 0.12,
   ambientWaveSpeed: 0.85,
+  showPerformanceHud: false,
 });
 
 const normalizeLegacySettings = (savedSettings, defaults) => {
@@ -442,6 +460,9 @@ const normalizeHomeSceneSettings = (savedSettings = {}) => {
     hdrExposure: clampInt(merged.hdrExposure, 0, 220, defaults.hdrExposure),
     envReflectionIntensity: clampInt(merged.envReflectionIntensity, 0, 220, defaults.envReflectionIntensity),
     envTint: pickColor(merged.envTint, defaults.envTint),
+    keyLightType: VALID_LIGHT_TYPES.has(merged.keyLightType) ? merged.keyLightType : defaults.keyLightType,
+    lightDiscEnabled: pickBoolean(merged.lightDiscEnabled, defaults.lightDiscEnabled),
+    lightDiscSize: clampFloat(merged.lightDiscSize, 0.25, 6, defaults.lightDiscSize),
     moonIntensity: clampFloat(merged.moonIntensity, 0, 4, defaults.moonIntensity),
     moonColor: pickColor(merged.moonColor, defaults.moonColor),
     moonAzimuth: clampFloat(merged.moonAzimuth, 0, 360, defaults.moonAzimuth),
@@ -514,6 +535,16 @@ const normalizeHomeSceneSettings = (savedSettings = {}) => {
     seabedSaturation: clampFloat(merged.seabedSaturation, 0, 2, defaults.seabedSaturation),
     seabedBrightness: clampFloat(merged.seabedBrightness, 0, 2, defaults.seabedBrightness),
     waterTurbidity: clampFloat(merged.waterTurbidity, 0, 1, defaults.waterTurbidity),
+    waterScatteringStrength: clampFloat(
+      merged.waterScatteringStrength,
+      0,
+      2,
+      defaults.waterScatteringStrength,
+    ),
+    waterScatteringColor: pickColor(merged.waterScatteringColor, defaults.waterScatteringColor),
+    seabedVariation: clampFloat(merged.seabedVariation, 0, 1, defaults.seabedVariation),
+    seabedAoStrength: clampFloat(merged.seabedAoStrength, 0, 1.5, defaults.seabedAoStrength),
+    plantAoStrength: clampFloat(merged.plantAoStrength, 0, 1.5, defaults.plantAoStrength),
     surfacePlantAmount: clampFloat(merged.surfacePlantAmount, 0, 1, defaults.surfacePlantAmount),
     surfacePlantCenterX: clampFloat(merged.surfacePlantCenterX, -40, 40, defaults.surfacePlantCenterX),
     surfacePlantCenterZ: clampFloat(merged.surfacePlantCenterZ, -40, 40, defaults.surfacePlantCenterZ),
@@ -628,6 +659,9 @@ const normalizeHomeSceneSettings = (savedSettings = {}) => {
     bloomStrength: clampFloat(merged.bloomStrength, 0, 2.5, defaults.bloomStrength),
     bloomThreshold: clampFloat(merged.bloomThreshold, 0, 2, defaults.bloomThreshold),
     bloomRadius: clampFloat(merged.bloomRadius, 0, 1, defaults.bloomRadius),
+    waterGlintStrength: clampFloat(merged.waterGlintStrength, 0, 2, defaults.waterGlintStrength),
+    waterGlintDensity: clampFloat(merged.waterGlintDensity, 0, 1, defaults.waterGlintDensity),
+    waterGlintSharpness: clampFloat(merged.waterGlintSharpness, 0, 1, defaults.waterGlintSharpness),
     colorContrast: clampFloat(merged.colorContrast, 0, 2, defaults.colorContrast),
     colorSaturation: clampFloat(merged.colorSaturation, 0, 2, defaults.colorSaturation),
     colorHue: clampFloat(merged.colorHue, -180, 180, defaults.colorHue),
@@ -652,6 +686,7 @@ const normalizeHomeSceneSettings = (savedSettings = {}) => {
     fogScattering: clampFloat(merged.fogScattering, 0, 2, defaults.fogScattering),
     ambientWaveIntensity: clampFloat(merged.ambientWaveIntensity, 0, 1, defaults.ambientWaveIntensity),
     ambientWaveSpeed: clampFloat(merged.ambientWaveSpeed, 0, 10, defaults.ambientWaveSpeed),
+    showPerformanceHud: pickBoolean(merged.showPerformanceHud, defaults.showPerformanceHud),
   };
 };
 

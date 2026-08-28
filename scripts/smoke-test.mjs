@@ -22,6 +22,7 @@ const windowsBrowserCandidates = [
 
 const HOME_SCENE_SETTINGS_STORAGE_KEY = 'ddg_home_scene_settings_v1';
 const LEGACY_HOME_SCENE_KEYS = ['ddg_snake_settings_v4', 'ddg_snake_settings_v3'];
+const DEV_LOCAL_EDITOR_KEYS = new Set(['showPerformanceHud']);
 
 const publishedSettingsPath = path.join(
   rootDir,
@@ -564,7 +565,9 @@ async function runEditorPublishCoverageChecks() {
     readEditorControlKeys(),
   ]);
   const publishedKeySet = new Set(publishedKeys);
-  const missingKeys = editorKeys.filter((key) => !publishedKeySet.has(key));
+  const missingKeys = editorKeys.filter(
+    (key) => !publishedKeySet.has(key) && !DEV_LOCAL_EDITOR_KEYS.has(key),
+  );
 
   assert(
     missingKeys.length === 0,

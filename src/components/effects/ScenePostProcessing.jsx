@@ -34,6 +34,7 @@ const postFragmentShader = `
   uniform float uBloomStrength;
   uniform float uBloomThreshold;
   uniform float uBloomRadius;
+  uniform float uBloomTapCount;
 
   uniform float uContrast;
   uniform float uSaturation;
@@ -45,6 +46,7 @@ const postFragmentShader = `
   uniform float uSunRaysIntensity;
   uniform float uSunRaysDecay;
   uniform float uSunRaysDensity;
+  uniform float uSunRaySampleCount;
 
   uniform float uFogMode;
   uniform vec3 uFogColor;
@@ -90,23 +92,30 @@ const postFragmentShader = `
     bloom += brightPass(texture2D(uColorTexture, uv - radius).rgb) * 0.07;
     bloom += brightPass(texture2D(uColorTexture, uv + vec2(radius.x, -radius.y)).rgb) * 0.07;
     bloom += brightPass(texture2D(uColorTexture, uv + vec2(-radius.x, radius.y)).rgb) * 0.07;
-    vec2 wide = radius * 2.35;
-    bloom += brightPass(texture2D(uColorTexture, uv + vec2(wide.x, 0.0)).rgb) * 0.035;
-    bloom += brightPass(texture2D(uColorTexture, uv - vec2(wide.x, 0.0)).rgb) * 0.035;
-    bloom += brightPass(texture2D(uColorTexture, uv + vec2(0.0, wide.y)).rgb) * 0.035;
-    bloom += brightPass(texture2D(uColorTexture, uv - vec2(0.0, wide.y)).rgb) * 0.035;
+    // The wide tail is a modest visual gain for desktop but four additional
+    // texture fetches per pixel. Low-power profiles stop at the 9-tap core.
+    if (uBloomTapCount > 9.0) {
+      vec2 wide = radius * 2.35;
+      bloom += brightPass(texture2D(uColorTexture, uv + vec2(wide.x, 0.0)).rgb) * 0.035;
+      bloom += brightPass(texture2D(uColorTexture, uv - vec2(wide.x, 0.0)).rgb) * 0.035;
+      bloom += brightPass(texture2D(uColorTexture, uv + vec2(0.0, wide.y)).rgb) * 0.035;
+      bloom += brightPass(texture2D(uColorTexture, uv - vec2(0.0, wide.y)).rgb) * 0.035;
+    }
     return bloom;
   }
 
   float sampleSunRays(vec2 uv) {
     vec2 stepVector = (uv - uSunUv)
       * clamp(uSunRaysDensity, 0.0, 1.5)
-      / 18.0;
+      / max(uSunRaySampleCount, 1.0);
     vec2 sampleUv = uv;
     float illumination = 1.0;
     float rays = 0.0;
 
     for (int index = 0; index < 18; index += 1) {
+      if (float(index) >= uSunRaySampleCount) {
+        break;
+      }
       sampleUv -= stepVector;
       vec3 sampleColor = texture2D(uColorTexture, clamp(sampleUv, 0.001, 0.999)).rgb;
       float source = smoothstep(0.48, 1.08, ddgLuminance(sampleColor));
@@ -118,7 +127,7 @@ const postFragmentShader = `
       * smoothstep(1.0, 0.92, uSunUv.x)
       * smoothstep(0.0, 0.08, uSunUv.y)
       * smoothstep(1.0, 0.92, uSunUv.y);
-    return rays / 18.0 * screenMask * uSunVisible;
+    return rays / max(uSunRaySampleCount, 1.0) * screenMask * uSunVisible;
   }
 
   float sampleFogNoise(vec2 uv, float distanceRatio) {
@@ -257,8 +266,10 @@ function createNoiseTexture(size = 128) {
 
 const toEnabledFloat = (value) => (value ? 1 : 0);
 
-export default function ScenePostProcessing({ settings }) {
+export default function ScenePostProcessing({ settings, qualityProfile }) {
   const { gl, scene, camera } = useThree();
+  const isLowPower = qualityProfile?.isLowPower === true;
+  const renderScale = qualityProfile?.postRenderScale ?? 1;
   const drawingBufferSize = useRef(new THREE.Vector2());
   const lastTargetSize = useRef(new THREE.Vector2());
   const sunPoint = useRef(new THREE.Vector3());
@@ -303,6 +314,7 @@ export default function ScenePostProcessing({ settings }) {
     uBloomStrength: { value: 0 },
     uBloomThreshold: { value: 0.7 },
     uBloomRadius: { value: 0.5 },
+    uBloomTapCount: { value: 13 },
     uContrast: { value: 1 },
     uSaturation: { value: 1 },
     uHue: { value: 0 },
@@ -312,6 +324,7 @@ export default function ScenePostProcessing({ settings }) {
     uSunRaysIntensity: { value: 0 },
     uSunRaysDecay: { value: 0.93 },
     uSunRaysDensity: { value: 0.72 },
+    uSunRaySampleCount: { value: 18 },
     uFogMode: { value: 0 },
     uFogColor: { value: new THREE.Color(settings.fogColor) },
     uFogDensity: { value: 0 },
@@ -345,24 +358,29 @@ export default function ScenePostProcessing({ settings }) {
 
   useEffect(() => {
     const fogModes = { off: 0, cheap: 1, volumetric: 2 };
+    const fogMode = isLowPower && settings.fogMode === 'volumetric'
+      ? 'cheap'
+      : settings.fogMode;
     uniforms.uGrainEnabled.value = toEnabledFloat(settings.filmGrainEnabled);
     uniforms.uGrainIntensity.value = settings.filmGrainIntensity;
     uniforms.uGrainSize.value = settings.filmGrainSize;
     uniforms.uGrainSpeed.value = settings.filmGrainSpeed;
-    uniforms.uBloomEnabled.value = toEnabledFloat(settings.bloomEnabled);
+    uniforms.uBloomEnabled.value = toEnabledFloat(!isLowPower && settings.bloomEnabled);
     uniforms.uBloomStrength.value = settings.bloomStrength;
     uniforms.uBloomThreshold.value = settings.bloomThreshold;
     uniforms.uBloomRadius.value = settings.bloomRadius;
+    uniforms.uBloomTapCount.value = isLowPower ? 9 : 13;
     uniforms.uContrast.value = settings.colorContrast;
     uniforms.uSaturation.value = settings.colorSaturation;
     uniforms.uHue.value = THREE.MathUtils.degToRad(settings.colorHue);
     uniforms.uGamma.value = settings.colorGamma;
     uniforms.uExposure.value = settings.colorExposure;
-    uniforms.uSunRaysEnabled.value = toEnabledFloat(settings.sunRaysEnabled);
+    uniforms.uSunRaysEnabled.value = toEnabledFloat(!isLowPower && settings.sunRaysEnabled);
     uniforms.uSunRaysIntensity.value = settings.sunRaysIntensity;
     uniforms.uSunRaysDecay.value = settings.sunRaysDecay;
     uniforms.uSunRaysDensity.value = settings.sunRaysDensity;
-    uniforms.uFogMode.value = fogModes[settings.fogMode] ?? 0;
+    uniforms.uSunRaySampleCount.value = isLowPower ? 8 : 18;
+    uniforms.uFogMode.value = fogModes[fogMode] ?? 0;
     uniforms.uFogColor.value.set(settings.fogColor);
     uniforms.uFogDensity.value = settings.fogDensity;
     uniforms.uFogNear.value = settings.fogNear;
@@ -371,7 +389,7 @@ export default function ScenePostProcessing({ settings }) {
     uniforms.uFogSpeed.value = settings.fogSpeed;
     uniforms.uFogScattering.value = settings.fogScattering;
     uniforms.uSunColor.value.set(settings.moonColor);
-  }, [settings, uniforms]);
+  }, [isLowPower, settings, uniforms]);
 
   useEffect(() => () => {
     const quad = postScene.children[0];
@@ -390,8 +408,8 @@ export default function ScenePostProcessing({ settings }) {
     }
 
     gl.getDrawingBufferSize(drawingBufferSize.current);
-    const width = Math.max(1, Math.round(drawingBufferSize.current.x));
-    const height = Math.max(1, Math.round(drawingBufferSize.current.y));
+    const width = Math.max(1, Math.round(drawingBufferSize.current.x * renderScale));
+    const height = Math.max(1, Math.round(drawingBufferSize.current.y * renderScale));
     if (lastTargetSize.current.x !== width || lastTargetSize.current.y !== height) {
       renderTarget.setSize(width, height);
       lastTargetSize.current.set(width, height);

@@ -3,6 +3,7 @@ import { useLanguage } from '../../../i18n/useLanguage';
 import {
     HOME_SCENE_DEBUG_VIEWS,
     HOME_SCENE_HDRI_PRESETS,
+    HOME_SCENE_LIGHT_TYPES,
 } from '../hooks/useHomeSceneSettings';
 import {
     getLayoutVisibleAspect,
@@ -98,10 +99,34 @@ export const WaterTab = ({ settings, handleSettingChange }) => {
 
 export const LightingTab = ({ settings, handleSettingChange }) => {
     const { t } = useLanguage();
+    const lightTypeOptions = HOME_SCENE_LIGHT_TYPES.map((option) => ({
+        ...option,
+        label: t(`homeEditor.controls.lightType${option.value === 'sun' ? 'Sun' : 'Moon'}`),
+    }));
 
     return (
         <>
             <SectionHeading label={t('homeEditor.controls.lightingSectionSunMoon')} />
+            <SelectControl
+                label={t('homeEditor.controls.keyLightType')}
+                value={settings.keyLightType}
+                options={lightTypeOptions}
+                onChange={(event) => handleSettingChange(event, 'keyLightType', 'string')}
+            />
+            <CheckboxControl
+                label={t('homeEditor.controls.lightDiscEnabled')}
+                checked={Boolean(settings.lightDiscEnabled)}
+                onChange={(event) => handleSettingChange(event, 'lightDiscEnabled', 'boolean')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.lightDiscSize')}
+                value={settings.lightDiscSize}
+                min={0.25}
+                max={6}
+                step={0.05}
+                formatValue={(value) => formatFloat(value)}
+                onChange={(event) => handleSettingChange(event, 'lightDiscSize')}
+            />
             <ColorControl
                 label={t('homeEditor.controls.moonColor')}
                 value={settings.moonColor}
@@ -234,6 +259,20 @@ export const DepthTab = ({ settings, handleSettingChange }) => {
                 onChange={(event) => handleSettingChange(event, 'waterTurbidity')}
             />
             <RangeControl
+                label={t('homeEditor.controls.waterScatteringStrength')}
+                value={settings.waterScatteringStrength}
+                min={0}
+                max={2}
+                step={0.01}
+                formatValue={(value) => formatFloat(value)}
+                onChange={(event) => handleSettingChange(event, 'waterScatteringStrength')}
+            />
+            <ColorControl
+                label={t('homeEditor.controls.waterScatteringColor')}
+                value={settings.waterScatteringColor}
+                onChange={(event) => handleSettingChange(event, 'waterScatteringColor', 'color')}
+            />
+            <RangeControl
                 label={t('homeEditor.controls.seabedReliefStrength')}
                 value={settings.seabedReliefStrength}
                 min={0}
@@ -268,6 +307,34 @@ export const DepthTab = ({ settings, handleSettingChange }) => {
                 step={0.05}
                 formatValue={(value) => formatFloat(value)}
                 onChange={(event) => handleSettingChange(event, 'seabedBrightness')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.seabedVariation')}
+                value={settings.seabedVariation}
+                min={0}
+                max={1}
+                step={0.01}
+                unit="%"
+                formatValue={(value) => Math.round(Number(value) * 100)}
+                onChange={(event) => handleSettingChange(event, 'seabedVariation')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.seabedAoStrength')}
+                value={settings.seabedAoStrength}
+                min={0}
+                max={1.5}
+                step={0.01}
+                formatValue={(value) => formatFloat(value)}
+                onChange={(event) => handleSettingChange(event, 'seabedAoStrength')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.plantAoStrength')}
+                value={settings.plantAoStrength}
+                min={0}
+                max={1.5}
+                step={0.01}
+                formatValue={(value) => formatFloat(value)}
+                onChange={(event) => handleSettingChange(event, 'plantAoStrength')}
             />
         </>
   );
@@ -577,6 +644,37 @@ export const PostProcessingTab = ({ settings, handleSettingChange }) => {
                 unit="%"
                 formatValue={(value) => Math.round(Number(value) * 100)}
                 onChange={(event) => handleSettingChange(event, 'bloomRadius')}
+            />
+
+            <SectionHeading label={t('homeEditor.controls.postSectionWaterGlints')} />
+            <RangeControl
+                label={t('homeEditor.controls.waterGlintStrength')}
+                value={settings.waterGlintStrength}
+                min={0}
+                max={2}
+                step={0.01}
+                formatValue={(value) => formatFloat(value)}
+                onChange={(event) => handleSettingChange(event, 'waterGlintStrength')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.waterGlintDensity')}
+                value={settings.waterGlintDensity}
+                min={0}
+                max={1}
+                step={0.01}
+                unit="%"
+                formatValue={(value) => Math.round(Number(value) * 100)}
+                onChange={(event) => handleSettingChange(event, 'waterGlintDensity')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.waterGlintSharpness')}
+                value={settings.waterGlintSharpness}
+                min={0}
+                max={1}
+                step={0.01}
+                unit="%"
+                formatValue={(value) => Math.round(Number(value) * 100)}
+                onChange={(event) => handleSettingChange(event, 'waterGlintSharpness')}
             />
 
             <SectionHeading label={t('homeEditor.controls.postSectionColor')} />
@@ -1015,11 +1113,18 @@ export const DebugTab = ({ settings, handleSettingChange }) => {
     const { t } = useLanguage();
 
     return (
-        <SelectControl
-            label={t('homeEditor.controls.debugView')}
-            value={settings.debugView}
-            options={HOME_SCENE_DEBUG_VIEWS}
-            onChange={(event) => handleSettingChange(event, 'debugView', 'string')}
-        />
+        <>
+            <CheckboxControl
+                label={t('homeEditor.controls.showPerformanceHud')}
+                checked={Boolean(settings.showPerformanceHud)}
+                onChange={(event) => handleSettingChange(event, 'showPerformanceHud', 'boolean')}
+            />
+            <SelectControl
+                label={t('homeEditor.controls.debugView')}
+                value={settings.debugView}
+                options={HOME_SCENE_DEBUG_VIEWS}
+                onChange={(event) => handleSettingChange(event, 'debugView', 'string')}
+            />
+        </>
     );
 };
