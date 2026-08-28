@@ -31,6 +31,12 @@ export const HOME_SCENE_DEBUG_VIEWS = [
   { value: 'seabed-depth', label: 'Seabed Depth' },
 ];
 
+export const HOME_SCENE_FOG_MODES = [
+  { value: 'off', label: 'Off' },
+  { value: 'cheap', label: 'Cheap' },
+  { value: 'volumetric', label: 'Volumetric' },
+];
+
 const DEFAULT_HDRI_PRESET = HOME_SCENE_HDRI_PRESETS[0].value;
 const DEFAULT_DEBUG_VIEW = HOME_SCENE_DEBUG_VIEWS[0].value;
 const DEFAULT_LANDSCAPE_CAMERA_POSITION = { x: 0, y: 5.8, z: 8.9 };
@@ -52,6 +58,7 @@ const buildLayout = (cameraPosition, cameraFov, frameInset) => ({
 });
 const VALID_HDRI_PRESETS = new Set(HOME_SCENE_HDRI_PRESETS.map((option) => option.value));
 const VALID_DEBUG_VIEWS = new Set(HOME_SCENE_DEBUG_VIEWS.map((option) => option.value));
+const VALID_FOG_MODES = new Set(HOME_SCENE_FOG_MODES.map((option) => option.value));
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 const clampResolution = (value) => {
   const requested = Number(value);
@@ -217,24 +224,54 @@ export const getBaseHomeSceneSettings = () => ({
   seabedSaturation: 1.0,
   seabedBrightness: 1.0,
   waterTurbidity: 0.3,
-  surfacePlantAmount: 0.46,
+  surfacePlantAmount: 0.72,
   surfacePlantCenterX: -3.6,
   surfacePlantCenterZ: 1.6,
-  surfacePlantRadius: 4.8,
+  surfacePlantRadius: 7.8,
   surfacePlantClustering: 0.76,
-  surfacePlantSize: 0.24,
+  surfacePlantSize: 0.36,
   surfacePlantColor: '#667b32',
   surfacePlantSaturation: 0.96,
   surfacePlantTranslucency: 0.62,
   surfacePlantReflection: 0.72,
-  underwaterAlgaeAmount: 0.58,
+  underwaterAlgaeAmount: 0.72,
   underwaterAlgaeCenterX: 2.6,
   underwaterAlgaeCenterZ: 1.6,
-  underwaterAlgaeRadius: 4.4,
+  underwaterAlgaeRadius: 11,
   underwaterAlgaeLength: 1.65,
   underwaterAlgaeSway: 0.75,
   underwaterAlgaeColor: '#29462a',
   underwaterAlgaeSaturation: 0.88,
+  underwaterAlgaeFlowDirection: 24,
+  underwaterAlgaeFlowStrength: 1.1,
+  underwaterAlgaeSpeciesMix: 0.68,
+  underwaterAlgaePatchiness: 0.42,
+  postProcessingEnabled: true,
+  filmGrainEnabled: true,
+  filmGrainIntensity: 0.028,
+  filmGrainSize: 1.15,
+  filmGrainSpeed: 0.85,
+  bloomEnabled: true,
+  bloomStrength: 0.18,
+  bloomThreshold: 0.72,
+  bloomRadius: 0.58,
+  colorContrast: 1.03,
+  colorSaturation: 1.02,
+  colorHue: 0,
+  colorGamma: 1,
+  colorExposure: 0,
+  sunRaysEnabled: true,
+  sunRaysIntensity: 0.14,
+  sunRaysDecay: 0.93,
+  sunRaysDensity: 0.72,
+  fogMode: 'cheap',
+  fogColor: '#46545d',
+  fogDensity: 0.08,
+  fogNear: 2.5,
+  fogFar: 36,
+  fogNoiseScale: 2.1,
+  fogSpeed: 0.05,
+  fogScattering: 0.25,
   ambientWaveIntensity: 0.12,
   ambientWaveSpeed: 0.85,
 });
@@ -550,6 +587,69 @@ const normalizeHomeSceneSettings = (savedSettings = {}) => {
       2,
       defaults.underwaterAlgaeSaturation,
     ),
+    underwaterAlgaeFlowDirection: clampFloat(
+      merged.underwaterAlgaeFlowDirection,
+      -180,
+      180,
+      defaults.underwaterAlgaeFlowDirection,
+    ),
+    underwaterAlgaeFlowStrength: clampFloat(
+      merged.underwaterAlgaeFlowStrength,
+      0,
+      2,
+      defaults.underwaterAlgaeFlowStrength,
+    ),
+    underwaterAlgaeSpeciesMix: clampFloat(
+      merged.underwaterAlgaeSpeciesMix,
+      0,
+      1,
+      defaults.underwaterAlgaeSpeciesMix,
+    ),
+    underwaterAlgaePatchiness: clampFloat(
+      merged.underwaterAlgaePatchiness,
+      0,
+      1,
+      defaults.underwaterAlgaePatchiness,
+    ),
+    postProcessingEnabled: pickBoolean(
+      merged.postProcessingEnabled,
+      defaults.postProcessingEnabled,
+    ),
+    filmGrainEnabled: pickBoolean(merged.filmGrainEnabled, defaults.filmGrainEnabled),
+    filmGrainIntensity: clampFloat(
+      merged.filmGrainIntensity,
+      0,
+      0.25,
+      defaults.filmGrainIntensity,
+    ),
+    filmGrainSize: clampFloat(merged.filmGrainSize, 0.35, 4, defaults.filmGrainSize),
+    filmGrainSpeed: clampFloat(merged.filmGrainSpeed, 0, 3, defaults.filmGrainSpeed),
+    bloomEnabled: pickBoolean(merged.bloomEnabled, defaults.bloomEnabled),
+    bloomStrength: clampFloat(merged.bloomStrength, 0, 2.5, defaults.bloomStrength),
+    bloomThreshold: clampFloat(merged.bloomThreshold, 0, 2, defaults.bloomThreshold),
+    bloomRadius: clampFloat(merged.bloomRadius, 0, 1, defaults.bloomRadius),
+    colorContrast: clampFloat(merged.colorContrast, 0, 2, defaults.colorContrast),
+    colorSaturation: clampFloat(merged.colorSaturation, 0, 2, defaults.colorSaturation),
+    colorHue: clampFloat(merged.colorHue, -180, 180, defaults.colorHue),
+    colorGamma: clampFloat(merged.colorGamma, 0.35, 2.5, defaults.colorGamma),
+    colorExposure: clampFloat(merged.colorExposure, -3, 3, defaults.colorExposure),
+    sunRaysEnabled: pickBoolean(merged.sunRaysEnabled, defaults.sunRaysEnabled),
+    sunRaysIntensity: clampFloat(
+      merged.sunRaysIntensity,
+      0,
+      2,
+      defaults.sunRaysIntensity,
+    ),
+    sunRaysDecay: clampFloat(merged.sunRaysDecay, 0.72, 0.995, defaults.sunRaysDecay),
+    sunRaysDensity: clampFloat(merged.sunRaysDensity, 0, 1.5, defaults.sunRaysDensity),
+    fogMode: VALID_FOG_MODES.has(merged.fogMode) ? merged.fogMode : defaults.fogMode,
+    fogColor: pickColor(merged.fogColor, defaults.fogColor),
+    fogDensity: clampFloat(merged.fogDensity, 0, 1, defaults.fogDensity),
+    fogNear: clampFloat(merged.fogNear, 0, 100, defaults.fogNear),
+    fogFar: clampFloat(merged.fogFar, 0.1, 200, defaults.fogFar),
+    fogNoiseScale: clampFloat(merged.fogNoiseScale, 0.1, 12, defaults.fogNoiseScale),
+    fogSpeed: clampFloat(merged.fogSpeed, 0, 2, defaults.fogSpeed),
+    fogScattering: clampFloat(merged.fogScattering, 0, 2, defaults.fogScattering),
     ambientWaveIntensity: clampFloat(merged.ambientWaveIntensity, 0, 1, defaults.ambientWaveIntensity),
     ambientWaveSpeed: clampFloat(merged.ambientWaveSpeed, 0, 10, defaults.ambientWaveSpeed),
   };
@@ -598,9 +698,33 @@ export function readHomeSceneDraftSettings() {
     const hasAppliedWaterDefault = window.localStorage.getItem(
       HOME_SCENE_WATER_DEFAULT_MIGRATION_KEY,
     ) === '1';
-    const migrated = !hasAppliedWaterDefault && Number(parsed?.simulationResolution) === 512
+    let migrated = !hasAppliedWaterDefault && Number(parsed?.simulationResolution) === 512
       ? { ...parsed, simulationResolution: 128 }
       : parsed;
+
+    // Expand the old single algae tuft into the meadow system once. Presence
+    // of the new flow control acts as the schema marker and preserves every
+    // subsequent artistic adjustment made by the user.
+    if (parsed?.underwaterAlgaeFlowDirection === undefined) {
+      const waterExtent = Number(parsed?.waterExtent) || 24;
+      migrated = {
+        ...migrated,
+        underwaterAlgaeRadius: Math.max(
+          Number(parsed?.underwaterAlgaeRadius) || 0,
+          Math.min(waterExtent * 0.47, 18),
+        ),
+        underwaterAlgaeSaturation: Math.max(
+          Number(parsed?.underwaterAlgaeSaturation) || 0,
+          0.72,
+        ),
+        underwaterAlgaeFlowDirection: 24,
+        underwaterAlgaeFlowStrength: 1.1,
+        underwaterAlgaeSpeciesMix: 0.68,
+        underwaterAlgaePatchiness: 0.42,
+        surfacePlantAmount: Math.min(Number(parsed?.surfacePlantAmount) || 0.76, 0.82),
+        surfacePlantSize: Math.max(Number(parsed?.surfacePlantSize) || 0, 0.36),
+      };
+    }
 
     if (!hasAppliedWaterDefault) {
       window.localStorage.setItem(HOME_SCENE_WATER_DEFAULT_MIGRATION_KEY, '1');

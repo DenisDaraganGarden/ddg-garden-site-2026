@@ -13,6 +13,7 @@ import {
   resolveLayoutKey,
 } from '../../features/home-scene/lib/layout';
 import SceneCanvas from './SceneCanvas';
+import ScenePostProcessing from './ScenePostProcessing';
 import {
   fullScreenVertexShader,
   normalFragmentShader,
@@ -137,7 +138,7 @@ function buildRuntimeQualityProfile(mode, viewportWidth) {
       shadowMapSize: 384,
       boatProbeInterval: 1 / 16,
       surfacePlantMaxInstances: 220,
-      underwaterAlgaeMaxInstances: 0,
+      underwaterAlgaeMaxInstances: 280,
     };
   }
 
@@ -153,7 +154,7 @@ function buildRuntimeQualityProfile(mode, viewportWidth) {
       shadowMapSize: isEditor ? 1024 : 768,
       boatProbeInterval: 1 / 18,
       surfacePlantMaxInstances: 560,
-      underwaterAlgaeMaxInstances: 360,
+      underwaterAlgaeMaxInstances: 900,
     };
   }
 
@@ -168,7 +169,7 @@ function buildRuntimeQualityProfile(mode, viewportWidth) {
     shadowMapSize: isEditor ? 2048 : 1024,
     boatProbeInterval: 1 / 20,
     surfacePlantMaxInstances: 900,
-    underwaterAlgaeMaxInstances: 600,
+    underwaterAlgaeMaxInstances: 1600,
   };
 }
 
@@ -1612,38 +1613,44 @@ function createUnderwaterAlgaeGeometry(maxInstances, segments = 8) {
   geometry.setAttribute('aRibbonPlane', new THREE.Float32BufferAttribute(ribbonPlanes, 1));
 
   const scatter = new Float32Array(maxInstances * 2);
+  const clustered = new Float32Array(maxInstances * 2);
   const heights = new Float32Array(maxInstances);
   const widths = new Float32Array(maxInstances);
   const yaws = new Float32Array(maxInstances);
   const phases = new Float32Array(maxInstances);
   const tones = new Float32Array(maxInstances);
-  const patchCenters = Array.from({ length: 7 }, () => randomPointInDisk(random, 0.72));
+  const species = new Float32Array(maxInstances);
+  const patchCenters = Array.from({ length: 19 }, () => randomPointInDisk(random, 0.82));
 
   for (let index = 0; index < maxInstances; index += 1) {
     const patch = patchCenters[Math.floor(random() * patchCenters.length)];
-    const local = randomPointInDisk(random, 0.08 + random() * 0.25);
-    const freePoint = randomPointInDisk(random, 0.94);
-    const patchMix = 0.68 + random() * 0.24;
-    const x = THREE.MathUtils.lerp(freePoint.x, patch.x + local.x, patchMix);
-    const y = THREE.MathUtils.lerp(freePoint.y, patch.y + local.y, patchMix);
-    const length = Math.hypot(x, y);
-    const fit = length > 0.96 ? 0.96 / length : 1;
+    const local = randomPointInDisk(random, 0.035 + random() * 0.16);
+    const freePoint = randomPointInDisk(random, 0.97);
+    const clusteredX = patch.x + local.x;
+    const clusteredY = patch.y + local.y;
+    const clusterLength = Math.hypot(clusteredX, clusteredY);
+    const clusterFit = clusterLength > 0.97 ? 0.97 / clusterLength : 1;
 
-    scatter[index * 2] = x * fit;
-    scatter[index * 2 + 1] = y * fit;
+    scatter[index * 2] = freePoint.x;
+    scatter[index * 2 + 1] = freePoint.y;
+    clustered[index * 2] = clusteredX * clusterFit;
+    clustered[index * 2 + 1] = clusteredY * clusterFit;
     heights[index] = random();
-    widths[index] = 0.58 + random() * 1.16;
+    widths[index] = 0.62 + random() * 1.28;
     yaws[index] = random() * Math.PI * 2;
     phases[index] = random() * Math.PI * 2;
     tones[index] = random();
+    species[index] = random();
   }
 
   geometry.setAttribute('aScatter', new THREE.InstancedBufferAttribute(scatter, 2));
+  geometry.setAttribute('aCluster', new THREE.InstancedBufferAttribute(clustered, 2));
   geometry.setAttribute('aHeight', new THREE.InstancedBufferAttribute(heights, 1));
   geometry.setAttribute('aWidth', new THREE.InstancedBufferAttribute(widths, 1));
   geometry.setAttribute('aYaw', new THREE.InstancedBufferAttribute(yaws, 1));
   geometry.setAttribute('aPhase', new THREE.InstancedBufferAttribute(phases, 1));
   geometry.setAttribute('aTone', new THREE.InstancedBufferAttribute(tones, 1));
+  geometry.setAttribute('aSpecies', new THREE.InstancedBufferAttribute(species, 1));
   geometry.instanceCount = maxInstances;
 
   return geometry;
@@ -1653,6 +1660,24 @@ function SurfaceVegetation({ settings, runtime, qualityProfile }) {
   const materialRef = useRef();
   const reflectionDataRef = React.useContext(reflectionContext);
   const maxInstances = qualityProfile?.surfacePlantMaxInstances ?? 560;
+  const leafTextures = useLoader(THREE.TextureLoader, [
+    '/textures/lily/lily_atlas_albedo.png',
+    '/textures/lily/lily_atlas_normal.png',
+    '/textures/lily/lily_atlas_material.png',
+  ]);
+  const [leafAlbedoMap, leafNormalMap, leafMaterialMap] = useMemo(() => {
+    leafTextures.forEach((texture) => {
+      texture.wrapS = THREE.ClampToEdgeWrapping;
+      texture.wrapT = THREE.ClampToEdgeWrapping;
+      texture.minFilter = THREE.LinearMipmapLinearFilter;
+      texture.magFilter = THREE.LinearFilter;
+      texture.generateMipmaps = true;
+      texture.anisotropy = 8;
+      texture.colorSpace = THREE.NoColorSpace;
+      texture.needsUpdate = true;
+    });
+    return leafTextures;
+  }, [leafTextures]);
   const geometry = useMemo(
     () => createSurfaceVegetationGeometry(maxInstances),
     [maxInstances],
@@ -1662,6 +1687,9 @@ function SurfaceVegetation({ settings, runtime, qualityProfile }) {
     moonElevation: settings.moonElevation,
   }), [settings.moonAzimuth, settings.moonElevation]);
   const uniforms = useMemo(() => ({
+    uLeafAlbedoMap: { value: leafAlbedoMap },
+    uLeafNormalMap: { value: leafNormalMap },
+    uLeafMaterialMap: { value: leafMaterialMap },
     uState: { value: null },
     uNormalMap: { value: null },
     uCenter: { value: new THREE.Vector2() },
@@ -1684,7 +1712,7 @@ function SurfaceVegetation({ settings, runtime, qualityProfile }) {
     uMoonDirection: { value: new THREE.Vector3(0, 1, 0) },
     uMoonColor: { value: new THREE.Color('#d9e4ff') },
     uMoonIntensity: { value: 1 },
-  }), []);
+  }), [leafAlbedoMap, leafMaterialMap, leafNormalMap]);
 
   useEffect(() => () => geometry.dispose(), [geometry]);
 
@@ -1781,6 +1809,10 @@ function UnderwaterAlgae({ settings, qualityProfile }) {
     uRadius: { value: 1 },
     uLength: { value: 1 },
     uSway: { value: 0.5 },
+    uPatchiness: { value: 0.5 },
+    uSpeciesMix: { value: 0.5 },
+    uFlowDirection: { value: new THREE.Vector2(1, 0) },
+    uFlowStrength: { value: 0.7 },
     uWaterDepth: { value: 5 },
     uWaterExtent: { value: 24 },
     uReliefStrength: { value: 0.4 },
@@ -1806,6 +1838,13 @@ function UnderwaterAlgae({ settings, qualityProfile }) {
     uniforms.uRadius.value = settings.underwaterAlgaeRadius;
     uniforms.uLength.value = settings.underwaterAlgaeLength;
     uniforms.uSway.value = settings.underwaterAlgaeSway;
+    uniforms.uPatchiness.value = settings.underwaterAlgaePatchiness;
+    uniforms.uSpeciesMix.value = settings.underwaterAlgaeSpeciesMix;
+    uniforms.uFlowDirection.value.set(
+      Math.cos(THREE.MathUtils.degToRad(settings.underwaterAlgaeFlowDirection)),
+      Math.sin(THREE.MathUtils.degToRad(settings.underwaterAlgaeFlowDirection)),
+    );
+    uniforms.uFlowStrength.value = settings.underwaterAlgaeFlowStrength;
     uniforms.uWaterDepth.value = settings.waterDepthMeters;
     uniforms.uWaterExtent.value = settings.waterExtent;
     uniforms.uReliefStrength.value = settings.seabedReliefStrength;
@@ -1914,8 +1953,11 @@ function FloatingBoat({ settings, layout, runtime, mode, orbitRef, onBoatPositio
     // Wood hull/oars: PBR maps authored in 3ds Max (no more flat-graphite override).
     const wood = new THREE.MeshStandardMaterial({
       map: baseColorMap,
+      // `color` is a real albedo tint: white keeps the authored map, while the
+      // published near-black value produces the current charred-black boat.
+      color: new THREE.Color(settings.boatColor),
       roughnessMap,
-      roughness: 1.0,
+      roughness: settings.boatRoughness,
       metalness: THREE.MathUtils.clamp(settings.boatMetalness, 0, 0.3),
       bumpMap,
       bumpScale: 0.4,
@@ -1933,7 +1975,13 @@ function FloatingBoat({ settings, layout, runtime, mode, orbitRef, onBoatPositio
     });
 
     return { woodMaterial: wood, metalMaterial: metal };
-  }, [boatTextures, settings.boatMetalness, settings.envReflectionIntensity]);
+  }, [
+    boatTextures,
+    settings.boatColor,
+    settings.boatMetalness,
+    settings.boatRoughness,
+    settings.envReflectionIntensity,
+  ]);
 
   useEffect(() => () => {
     woodMaterial.dispose();
@@ -2538,8 +2586,10 @@ function WaterRuntimeScene({
   const reflectionsEnabled = settings.debugView === 'beauty'
     && settings.boatReflectionIntensity > 0.01
     && !qualityProfile.isLowPower;
-  const refractionEnabled = settings.debugView === 'beauty'
-    && !qualityProfile.isLowPower;
+  // Keep the inexpensive refraction capture on phones as well: this is what
+  // makes the instanced underwater meadow visible through the opaque water.
+  // Low-power profiles already cap it to 224px and 4–10 updates per second.
+  const refractionEnabled = settings.debugView === 'beauty';
   const opticsEnabled = reflectionsEnabled || refractionEnabled;
   // Editor forces the authored frame. Public layout follows the outer browser
   // orientation, while camera fitting uses the actual render band between the
@@ -2613,6 +2663,7 @@ function WaterRuntimeScene({
           enableSurfaceRefine={mode !== 'editor' && !qualityProfile.isLowPower}
         />
       </WaterReflections>
+      <ScenePostProcessing settings={settings} />
       <SceneReadyBeacon onSceneReady={onSceneReady} />
       {showDebugHelpers ? <axesHelper args={[2]} /> : null}
       {showDebugHelpers ? (

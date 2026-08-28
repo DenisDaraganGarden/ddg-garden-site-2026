@@ -469,8 +469,14 @@ async function runAudioLifecycleChecks(browser) {
 
   await waitForCondition(async () => {
     const playing = await page.getByTestId('site-music-controller').getAttribute('data-playing');
+    return playing === 'false';
+  }, 'Music controller should start muted in local development');
+
+  await page.getByTestId('site-music-controller').click();
+  await waitForCondition(async () => {
+    const playing = await page.getByTestId('site-music-controller').getAttribute('data-playing');
     return playing === 'true';
-  }, 'Music controller should start in playing state');
+  }, 'Music controller should play after an explicit user click');
 
   await page.evaluate(() => {
     window.dispatchEvent(new Event('blur'));

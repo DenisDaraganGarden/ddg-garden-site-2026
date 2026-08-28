@@ -5,6 +5,7 @@ import {
     DebugTab,
     DepthTab,
     LightingTab,
+    PostProcessingTab,
     PlantsTab,
     WaterTab,
     BoatTab,
@@ -74,6 +75,7 @@ const HomeEditorPanel = ({
         { id: 'lighting', label: t('homeEditor.tabs.lighting') },
         { id: 'depth', label: t('homeEditor.tabs.depth') },
         { id: 'plants', label: t('homeEditor.tabs.plants') },
+        { id: 'post', label: t('homeEditor.tabs.post') },
         { id: 'camera', label: t('homeEditor.tabs.camera') },
         { id: 'boat', label: t('homeEditor.tabs.boat') },
         { id: 'sculpture', label: t('homeEditor.tabs.sculpture') },
@@ -279,7 +281,8 @@ const HomeEditorPanel = ({
                     </div>
 
                     <div className="home-editor-status">
-                        {hasPublishChanges ? t('common.unsaved') : t('common.saved')}
+                        {t('homeEditor.panel.autoSaved')}
+                        {hasPublishChanges ? ` · ${t('homeEditor.panel.publishPending')}` : ''}
                     </div>
 
                     {publishHint ? (
@@ -300,6 +303,7 @@ const HomeEditorPanel = ({
                             {activeTab === 'lighting' && <LightingTab settings={settings} handleSettingChange={handleSettingChange} />}
                             {activeTab === 'depth' && <DepthTab settings={settings} handleSettingChange={handleSettingChange} />}
                             {activeTab === 'plants' && <PlantsTab settings={settings} handleSettingChange={handleSettingChange} />}
+                            {activeTab === 'post' && <PostProcessingTab settings={settings} handleSettingChange={handleSettingChange} />}
                             {activeTab === 'camera' && (
                                 <CameraTab
                                     settings={settings}

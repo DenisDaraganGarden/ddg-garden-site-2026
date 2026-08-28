@@ -397,6 +397,44 @@ export const PlantsTab = ({ settings, handleSettingChange }) => {
                 onChange={(event) => handleSettingChange(event, 'underwaterAlgaeSway')}
             />
             <RangeControl
+                label={t('homeEditor.controls.underwaterAlgaeFlowDirection')}
+                value={settings.underwaterAlgaeFlowDirection}
+                min={-180}
+                max={180}
+                step={1}
+                unit="°"
+                onChange={(event) => handleSettingChange(event, 'underwaterAlgaeFlowDirection')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.underwaterAlgaeFlowStrength')}
+                value={settings.underwaterAlgaeFlowStrength}
+                min={0}
+                max={2}
+                step={0.01}
+                formatValue={(value) => formatFloat(value)}
+                onChange={(event) => handleSettingChange(event, 'underwaterAlgaeFlowStrength')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.underwaterAlgaeSpeciesMix')}
+                value={settings.underwaterAlgaeSpeciesMix}
+                min={0}
+                max={1}
+                step={0.01}
+                unit="%"
+                formatValue={(value) => Math.round(Number(value) * 100)}
+                onChange={(event) => handleSettingChange(event, 'underwaterAlgaeSpeciesMix')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.underwaterAlgaePatchiness')}
+                value={settings.underwaterAlgaePatchiness}
+                min={0}
+                max={1}
+                step={0.01}
+                unit="%"
+                formatValue={(value) => Math.round(Number(value) * 100)}
+                onChange={(event) => handleSettingChange(event, 'underwaterAlgaePatchiness')}
+            />
+            <RangeControl
                 label={t('homeEditor.controls.underwaterAlgaeCenterX')}
                 value={settings.underwaterAlgaeCenterX}
                 min={-20}
@@ -450,6 +488,249 @@ export const PlantsTab = ({ settings, handleSettingChange }) => {
                 unit="%"
                 formatValue={(value) => Math.round(Number(value) * 100)}
                 onChange={(event) => handleSettingChange(event, 'underwaterAlgaeSaturation')}
+            />
+        </>
+    );
+};
+
+export const PostProcessingTab = ({ settings, handleSettingChange }) => {
+    const { t } = useLanguage();
+    const fogOptions = [
+        { value: 'off', label: t('homeEditor.controls.fogModeOff') },
+        { value: 'cheap', label: t('homeEditor.controls.fogModeCheap') },
+        { value: 'volumetric', label: t('homeEditor.controls.fogModeVolumetric') },
+    ];
+
+    return (
+        <>
+            <CheckboxControl
+                label={t('homeEditor.controls.postProcessingEnabled')}
+                checked={Boolean(settings.postProcessingEnabled)}
+                onChange={(event) => handleSettingChange(event, 'postProcessingEnabled', 'boolean')}
+            />
+
+            <SectionHeading label={t('homeEditor.controls.postSectionGrain')} />
+            <CheckboxControl
+                label={t('homeEditor.controls.filmGrainEnabled')}
+                checked={Boolean(settings.filmGrainEnabled)}
+                onChange={(event) => handleSettingChange(event, 'filmGrainEnabled', 'boolean')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.filmGrainIntensity')}
+                value={settings.filmGrainIntensity}
+                min={0}
+                max={0.25}
+                step={0.001}
+                formatValue={(value) => formatFloat(value, 3)}
+                onChange={(event) => handleSettingChange(event, 'filmGrainIntensity')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.filmGrainSize')}
+                value={settings.filmGrainSize}
+                min={0.35}
+                max={4}
+                step={0.05}
+                unit="px"
+                formatValue={(value) => formatFloat(value)}
+                onChange={(event) => handleSettingChange(event, 'filmGrainSize')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.filmGrainSpeed')}
+                value={settings.filmGrainSpeed}
+                min={0}
+                max={3}
+                step={0.05}
+                formatValue={(value) => formatFloat(value)}
+                onChange={(event) => handleSettingChange(event, 'filmGrainSpeed')}
+            />
+
+            <SectionHeading label={t('homeEditor.controls.postSectionBloom')} />
+            <CheckboxControl
+                label={t('homeEditor.controls.bloomEnabled')}
+                checked={Boolean(settings.bloomEnabled)}
+                onChange={(event) => handleSettingChange(event, 'bloomEnabled', 'boolean')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.bloomStrength')}
+                value={settings.bloomStrength}
+                min={0}
+                max={2.5}
+                step={0.01}
+                formatValue={(value) => formatFloat(value)}
+                onChange={(event) => handleSettingChange(event, 'bloomStrength')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.bloomThreshold')}
+                value={settings.bloomThreshold}
+                min={0}
+                max={2}
+                step={0.01}
+                formatValue={(value) => formatFloat(value)}
+                onChange={(event) => handleSettingChange(event, 'bloomThreshold')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.bloomRadius')}
+                value={settings.bloomRadius}
+                min={0}
+                max={1}
+                step={0.01}
+                unit="%"
+                formatValue={(value) => Math.round(Number(value) * 100)}
+                onChange={(event) => handleSettingChange(event, 'bloomRadius')}
+            />
+
+            <SectionHeading label={t('homeEditor.controls.postSectionColor')} />
+            <RangeControl
+                label={t('homeEditor.controls.colorContrast')}
+                value={settings.colorContrast}
+                min={0}
+                max={2}
+                step={0.01}
+                unit="%"
+                formatValue={(value) => Math.round(Number(value) * 100)}
+                onChange={(event) => handleSettingChange(event, 'colorContrast')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.colorSaturation')}
+                value={settings.colorSaturation}
+                min={0}
+                max={2}
+                step={0.01}
+                unit="%"
+                formatValue={(value) => Math.round(Number(value) * 100)}
+                onChange={(event) => handleSettingChange(event, 'colorSaturation')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.colorHue')}
+                value={settings.colorHue}
+                min={-180}
+                max={180}
+                step={1}
+                unit="°"
+                onChange={(event) => handleSettingChange(event, 'colorHue')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.colorGamma')}
+                value={settings.colorGamma}
+                min={0.35}
+                max={2.5}
+                step={0.01}
+                formatValue={(value) => formatFloat(value)}
+                onChange={(event) => handleSettingChange(event, 'colorGamma')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.colorExposure')}
+                value={settings.colorExposure}
+                min={-3}
+                max={3}
+                step={0.05}
+                unit="EV"
+                formatValue={(value) => formatFloat(value)}
+                onChange={(event) => handleSettingChange(event, 'colorExposure')}
+            />
+
+            <SectionHeading label={t('homeEditor.controls.postSectionSunRays')} />
+            <CheckboxControl
+                label={t('homeEditor.controls.sunRaysEnabled')}
+                checked={Boolean(settings.sunRaysEnabled)}
+                onChange={(event) => handleSettingChange(event, 'sunRaysEnabled', 'boolean')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.sunRaysIntensity')}
+                value={settings.sunRaysIntensity}
+                min={0}
+                max={2}
+                step={0.01}
+                formatValue={(value) => formatFloat(value)}
+                onChange={(event) => handleSettingChange(event, 'sunRaysIntensity')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.sunRaysDecay')}
+                value={settings.sunRaysDecay}
+                min={0.72}
+                max={0.995}
+                step={0.005}
+                formatValue={(value) => formatFloat(value, 3)}
+                onChange={(event) => handleSettingChange(event, 'sunRaysDecay')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.sunRaysDensity')}
+                value={settings.sunRaysDensity}
+                min={0}
+                max={1.5}
+                step={0.01}
+                formatValue={(value) => formatFloat(value)}
+                onChange={(event) => handleSettingChange(event, 'sunRaysDensity')}
+            />
+
+            <SectionHeading label={t('homeEditor.controls.postSectionFog')} />
+            <SelectControl
+                label={t('homeEditor.controls.fogMode')}
+                value={settings.fogMode}
+                options={fogOptions}
+                onChange={(event) => handleSettingChange(event, 'fogMode', 'string')}
+            />
+            <ColorControl
+                label={t('homeEditor.controls.fogColor')}
+                value={settings.fogColor}
+                onChange={(event) => handleSettingChange(event, 'fogColor', 'color')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.fogDensity')}
+                value={settings.fogDensity}
+                min={0}
+                max={1}
+                step={0.01}
+                unit="%"
+                formatValue={(value) => Math.round(Number(value) * 100)}
+                onChange={(event) => handleSettingChange(event, 'fogDensity')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.fogNear')}
+                value={settings.fogNear}
+                min={0}
+                max={100}
+                step={0.5}
+                unit="m"
+                formatValue={(value) => formatFloat(value, 1)}
+                onChange={(event) => handleSettingChange(event, 'fogNear')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.fogFar')}
+                value={settings.fogFar}
+                min={0.1}
+                max={200}
+                step={0.5}
+                unit="m"
+                formatValue={(value) => formatFloat(value, 1)}
+                onChange={(event) => handleSettingChange(event, 'fogFar')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.fogNoiseScale')}
+                value={settings.fogNoiseScale}
+                min={0.1}
+                max={12}
+                step={0.1}
+                formatValue={(value) => formatFloat(value, 1)}
+                onChange={(event) => handleSettingChange(event, 'fogNoiseScale')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.fogSpeed')}
+                value={settings.fogSpeed}
+                min={0}
+                max={2}
+                step={0.01}
+                formatValue={(value) => formatFloat(value)}
+                onChange={(event) => handleSettingChange(event, 'fogSpeed')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.fogScattering')}
+                value={settings.fogScattering}
+                min={0}
+                max={2}
+                step={0.01}
+                formatValue={(value) => formatFloat(value)}
+                onChange={(event) => handleSettingChange(event, 'fogScattering')}
             />
         </>
     );

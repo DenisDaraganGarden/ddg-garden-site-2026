@@ -1,5 +1,5 @@
-// Procedural pond vegetation. Both layers are texture-free and rendered as
-// instanced geometry, so changing their density only changes instanceCount.
+// Instanced pond vegetation. Surface leaves use a compact hand-derived PBR
+// atlas; underwater blades remain procedural so large meadows stay cheap.
 
 export const surfaceVegetationVertexShader = `
   attribute vec2 aScatter;
@@ -11,9 +11,10 @@ export const surfaceVegetationVertexShader = `
   attribute float aPhase;
 
   varying vec2 vLeafUv;
-  varying float vLeafType;
+  varying float vLeafVariant;
   varying float vTone;
   varying float vPhase;
+  varying vec2 vLeafRotation;
   varying float vInsideWater;
   varying vec3 vLeafNormal;
   varying vec3 vLeafWorldPosition;
@@ -36,7 +37,6 @@ export const surfaceVegetationVertexShader = `
   }
 
   void main() {
-    float largeLeaf = step(0.72, aType);
     vec2 placement = mix(aScatter, aCluster, clamp(uClustering, 0.0, 1.0));
     vec2 leafCenter = uCenter + placement * uRadius;
     vec2 simulationUv = vec2(
@@ -55,9 +55,8 @@ export const surfaceVegetationVertexShader = `
     float displacement = heightSample * uWaveAmplitude;
     vec3 waterNormal = decodeNormal(texture2D(uNormalMap, simulationUv).rgb);
 
-    float sizeVariation = mix(0.18 + aScale * 0.34, 0.78 + aScale * 0.56, largeLeaf);
+    float sizeVariation = mix(0.52, 1.46, aScale);
     vec2 local = position.xy * uSize * sizeVariation;
-    local.x *= mix(0.72, 1.0, largeLeaf);
 
     float angle = aRotation + sin(uTime * 0.22 + aPhase) * 0.025;
     float cosine = cos(angle);
@@ -72,10 +71,11 @@ export const surfaceVegetationVertexShader = `
     float slopeHeight = -dot(waterNormal.xz, rotatedLocal) / max(waterNormal.y, 0.45);
     float worldY = displacement + clamp(slopeHeight, -0.035, 0.035) + 0.014;
 
-    vLeafUv = uv * 2.0 - 1.0;
-    vLeafType = largeLeaf;
+    vLeafUv = uv;
+    vLeafVariant = floor(min(aType, 0.9999) * 4.0);
     vTone = aTone;
     vPhase = aPhase;
+    vLeafRotation = vec2(cosine, sine);
     vLeafNormal = waterNormal;
     vLeafWorldPosition = vec3(worldXZ.x, worldY, worldXZ.y);
     vLeafReflectionPosition = uReflectionMatrix * vec4(vLeafWorldPosition, 1.0);
@@ -86,14 +86,18 @@ export const surfaceVegetationVertexShader = `
 
 export const surfaceVegetationFragmentShader = `
   varying vec2 vLeafUv;
-  varying float vLeafType;
+  varying float vLeafVariant;
   varying float vTone;
   varying float vPhase;
+  varying vec2 vLeafRotation;
   varying float vInsideWater;
   varying vec3 vLeafNormal;
   varying vec3 vLeafWorldPosition;
   varying vec4 vLeafReflectionPosition;
 
+  uniform sampler2D uLeafAlbedoMap;
+  uniform sampler2D uLeafNormalMap;
+  uniform sampler2D uLeafMaterialMap;
   uniform sampler2D uReflectionTexture;
   uniform float uReflectionActive;
   uniform vec3 uColor;
@@ -120,103 +124,71 @@ export const surfaceVegetationFragmentShader = `
     return lower.x * lower.y * upper.x * upper.y;
   }
 
+  vec2 resolveAtlasUv(vec2 uv, float variant) {
+    float column = mod(variant, 2.0);
+    float row = floor(variant * 0.5);
+    // Every atlas cell contains its own transparent gutter. Sampling the whole
+    // cell keeps mipmaps inside the assigned UV island.
+    return (uv + vec2(column, row)) * 0.5;
+  }
+
   void main() {
     if (vInsideWater < 0.5) {
       discard;
     }
 
-    vec2 p = vLeafUv;
-    float radius = length(p);
-    float shapeDistance;
-
-    if (vLeafType > 0.5) {
-      shapeDistance = radius;
-      float notchWidth = mix(0.075, 0.16, clamp(p.x, 0.0, 1.0));
-      if (p.x > 0.02 && abs(p.y) < notchWidth) {
-        discard;
-      }
-    } else {
-      // Three small ovals inside one card read as natural duckweed while the
-      // whole patch still costs a single instance.
-      float leafA = length(vec2((p.x + 0.32) / 0.52, (p.y + 0.02) / 0.34));
-      float leafB = length(vec2((p.x - 0.25) / 0.48, (p.y - 0.15) / 0.32));
-      float leafC = length(vec2((p.x + 0.02) / 0.38, (p.y + 0.36) / 0.28));
-      shapeDistance = min(leafA, min(leafB, leafC));
-    }
-
-    float edge = 1.0 - smoothstep(0.88, 0.99, shapeDistance);
-    if (edge < 0.05) {
+    vec2 atlasUv = resolveAtlasUv(vLeafUv, vLeafVariant);
+    vec4 materialSample = texture2D(uLeafMaterialMap, atlasUv);
+    float opacity = materialSample.a;
+    if (opacity < 0.42) {
       discard;
     }
 
-    float angle = atan(p.y, p.x);
-    float radialVeins = pow(max(cos(angle * mix(5.0, 8.0, vLeafType)), 0.0), 18.0);
-    radialVeins *= smoothstep(0.12, 0.82, radius) * (1.0 - smoothstep(0.78, 0.96, radius));
-    float centerVein = (1.0 - smoothstep(0.025, 0.11, abs(p.y)))
-      * smoothstep(-0.78, 0.6, p.x);
-    float mottling = 0.5 + 0.5 * sin(
-      p.x * 17.0 + p.y * 13.0 + sin(p.y * 21.0 + vPhase) * 1.7 + vPhase
+    vec3 albedo = pow(max(texture2D(uLeafAlbedoMap, atlasUv).rgb, vec3(0.0)), vec3(2.2));
+    float roughness = materialSample.r;
+    float specularMap = materialSample.g;
+    float transmissionMap = materialSample.b;
+    vec3 tangentNormal = texture2D(uLeafNormalMap, atlasUv).xyz * 2.0 - 1.0;
+    vec2 rotatedSlope = vec2(
+      tangentNormal.x * vLeafRotation.x - tangentNormal.y * vLeafRotation.y,
+      tangentNormal.x * vLeafRotation.y + tangentNormal.y * vLeafRotation.x
     );
-    float veinMask = clamp(radialVeins + centerVein * mix(0.45, 0.8, vLeafType), 0.0, 1.0);
-    float thinEdge = smoothstep(0.34, 0.96, shapeDistance);
-    // A procedural thickness map: edges and mottled tissue transmit light,
-    // while the denser veins remain darker and more opaque.
-    float transmissionMap = clamp(
-      0.12 + thinEdge * 0.7 + mottling * 0.2 - veinMask * 0.38,
-      0.03,
-      1.0
-    );
-    // A separate wetness/reflectivity map breaks up the otherwise flat cards.
-    float wetnessMap = clamp(
-      0.38 + mottling * 0.34 + vLeafType * 0.1 - veinMask * 0.12,
-      0.0,
-      1.0
+    vec3 normal = normalize(
+      vLeafNormal * max(tangentNormal.z, 0.34)
+      + vec3(rotatedSlope.x, 0.0, rotatedSlope.y) * 0.42
     );
 
-    vec3 color = uColor * mix(0.72, 1.24, vTone);
+    vec3 tint = max(uColor, vec3(0.025));
+    vec3 color = mix(albedo, albedo * tint * 1.85, 0.28);
     color = applySaturation(color, clamp(uSaturation, 0.0, 2.0));
-    color *= 0.62 + mottling * 0.2;
-    color += color * (radialVeins * 0.18 + centerVein * mix(0.08, 0.2, vLeafType));
+    color *= mix(0.82, 1.18, vTone);
 
-    vec2 radialDirection = p / max(radius, 0.08);
-    vec2 microSlope = vec2(
-      sin(p.x * 31.0 + p.y * 11.0 + vPhase),
-      cos(p.y * 29.0 - p.x * 13.0 + vPhase * 0.73)
-    ) * (0.012 + wetnessMap * 0.016);
-    microSlope += radialDirection
-      * smoothstep(0.18, 0.96, shapeDistance)
-      * mix(0.012, 0.045, vLeafType);
-
-    vec3 normal = normalize(vLeafNormal + vec3(microSlope.x, 0.0, microSlope.y));
     vec3 lightDirection = normalize(uMoonDirection);
     vec3 viewDirection = normalize(cameraPosition - vLeafWorldPosition);
     float moonDiffuse = max(dot(normal, lightDirection), 0.0);
-    float rim = pow(1.0 - clamp(normal.y, 0.0, 1.0), 2.0);
-    vec3 lighting = vec3(0.46) + uMoonColor
+    float nDotV = clamp(dot(normal, viewDirection), 0.0, 1.0);
+    float rim = pow(1.0 - nDotV, 2.0);
+    vec3 lighting = vec3(0.38) + uMoonColor
       * moonDiffuse
-      * (0.22 + clamp(uMoonIntensity, 0.0, 4.0) * 0.28);
+      * (0.24 + clamp(uMoonIntensity, 0.0, 4.0) * 0.3);
     color *= lighting;
-    color += uMoonColor * rim * 0.035;
+    color += albedo * uMoonColor * rim * 0.045;
 
     float reverseLight = max(dot(-normal, lightDirection), 0.0);
-    float transmissionLight = 0.08 + sqrt(moonDiffuse) * 0.24 + reverseLight * 0.72;
-    vec3 transmissionColor = applySaturation(
-      uColor * vec3(1.32, 1.58, 0.46),
-      clamp(uSaturation * 1.08, 0.0, 2.0)
-    );
+    float transmissionLight = 0.06 + reverseLight * 0.78 + rim * 0.24;
+    vec3 transmissionColor = applySaturation(albedo * vec3(1.14, 1.56, 0.38), 1.18);
     color += transmissionColor
       * transmissionMap
       * clamp(uSubsurfaceStrength, 0.0, 1.0)
       * transmissionLight
-      * (0.46 + clamp(uMoonIntensity, 0.0, 4.0) * 0.16);
-    color *= 1.0 - veinMask * clamp(uSubsurfaceStrength, 0.0, 1.0) * 0.055;
+      * (0.42 + clamp(uMoonIntensity, 0.0, 4.0) * 0.18);
 
     vec2 reflectionUv = (
       vLeafReflectionPosition.xy / max(vLeafReflectionPosition.w, 0.0001)
     ) * 0.5 + 0.5;
     // Keep the low-resolution planar capture as a quiet detail. The procedural
     // wet lobe below carries the material, so reflections do not pixelate or lag.
-    reflectionUv += normal.xz * (0.0007 + wetnessMap * 0.0009);
+    reflectionUv += normal.xz * (0.00045 + specularMap * 0.00085);
     vec2 clampedReflectionUv = clamp(reflectionUv, vec2(0.002), vec2(0.998));
     vec4 reflectedScene = texture2D(uReflectionTexture, clampedReflectionUv);
     float reflectedSceneMask = reflectionEdgeMask(reflectionUv)
@@ -235,23 +207,26 @@ export const surfaceVegetationFragmentShader = `
       0.64
     );
     vec3 reflectedColor = mix(ambientReflection, reflectedScene.rgb, reflectedSceneMask * 0.24);
-    float nDotV = clamp(dot(normal, viewDirection), 0.0, 1.0);
     float fresnel = 0.025 + 0.34 * pow(1.0 - nDotV, 3.0);
     float reflectionAmount = clamp(uReflectionStrength, 0.0, 1.0)
-      * wetnessMap
+      * specularMap
       * (0.16 + fresnel * 1.18)
+      * mix(0.72, 0.24, roughness)
       * (0.62 + environmentLevel * 0.38);
-    color = mix(color, reflectedColor, clamp(reflectionAmount, 0.0, 0.46));
+    color = mix(color, reflectedColor, clamp(reflectionAmount, 0.0, 0.4));
 
     vec3 halfDirection = normalize(viewDirection + lightDirection);
-    float wetHighlight = pow(max(dot(normal, halfDirection), 0.0), mix(34.0, 78.0, wetnessMap));
-    wetHighlight *= wetnessMap
+    float wetHighlight = pow(
+      max(dot(normal, halfDirection), 0.0),
+      mix(24.0, 112.0, specularMap * (1.0 - roughness * 0.45))
+    );
+    wetHighlight *= specularMap
       * clamp(uReflectionStrength, 0.0, 1.0)
       * clamp(uMoonIntensity, 0.0, 4.0)
-      * (0.32 + fresnel * 1.35);
-    color += uMoonColor * wetHighlight * 0.72;
+      * (0.28 + fresnel * 1.25);
+    color += uMoonColor * wetHighlight * 0.64;
 
-    gl_FragColor = vec4(color, edge);
+    gl_FragColor = vec4(color, 1.0);
     #include <tonemapping_fragment>
     #include <colorspace_fragment>
     #include <dithering_fragment>
@@ -261,16 +236,19 @@ export const surfaceVegetationFragmentShader = `
 export const underwaterAlgaeVertexShader = `
   attribute float aRibbonPlane;
   attribute vec2 aScatter;
+  attribute vec2 aCluster;
   attribute float aHeight;
   attribute float aWidth;
   attribute float aYaw;
   attribute float aPhase;
   attribute float aTone;
+  attribute float aSpecies;
 
   varying vec2 vRibbonUv;
   varying float vTone;
   varying float vPhase;
   varying float vHeightAlongBlade;
+  varying float vSpecies;
   varying float vInsideWater;
   varying vec3 vRibbonNormal;
 
@@ -278,6 +256,10 @@ export const underwaterAlgaeVertexShader = `
   uniform float uRadius;
   uniform float uLength;
   uniform float uSway;
+  uniform float uPatchiness;
+  uniform float uSpeciesMix;
+  uniform vec2 uFlowDirection;
+  uniform float uFlowStrength;
   uniform float uWaterDepth;
   uniform float uWaterExtent;
   uniform float uReliefStrength;
@@ -311,7 +293,8 @@ export const underwaterAlgaeVertexShader = `
   }
 
   void main() {
-    vec2 bladeCenter = uCenter + aScatter * uRadius;
+    vec2 placement = mix(aScatter, aCluster, clamp(uPatchiness, 0.0, 1.0));
+    vec2 bladeCenter = uCenter + placement * uRadius;
     vec2 seabedUv = vec2(
       bladeCenter.x / max(uWaterExtent, 0.001) + 0.5,
       0.5 - bladeCenter.y / max(uWaterExtent, 0.001)
@@ -322,30 +305,43 @@ export const underwaterAlgaeVertexShader = `
     seabedUv = clamp(seabedUv, vec2(0.001), vec2(0.999));
 
     float relief = (fbm(seabedUv * uReliefScale) - 0.5) * uReliefStrength;
+    float species = mix(0.16, aSpecies, clamp(uSpeciesMix, 0.0, 1.0));
+    float broadSpecies = smoothstep(0.28, 0.38, species)
+      * (1.0 - smoothstep(0.66, 0.76, species));
+    float filamentSpecies = smoothstep(0.68, 0.82, species);
+    float speciesLength = mix(1.0, 1.18, broadSpecies);
+    speciesLength = mix(speciesLength, 1.34, filamentSpecies);
     float bladeLength = min(
-      uLength * mix(0.68, 1.28, aHeight),
+      uLength * mix(0.58, 1.34, aHeight) * speciesLength,
       max(uWaterDepth - relief - 0.16, 0.02)
     );
     float t = position.y;
-    float taperedWidth = position.x * 0.046 * aWidth * (1.0 - t * 0.76);
+    float widthProfile = mix(0.038, 0.086, broadSpecies);
+    widthProfile = mix(widthProfile, 0.018, filamentSpecies);
+    float tipProfile = mix(1.0 - t * 0.74, sin((1.0 - t) * 1.57079632679), broadSpecies);
+    tipProfile = mix(tipProfile, 1.0 - t * 0.58, filamentSpecies);
+    float taperedWidth = position.x * widthProfile * aWidth * max(tipProfile, 0.08);
     float ribbonAngle = aYaw + aRibbonPlane * 1.57079632679;
     vec2 ribbonRight = vec2(cos(ribbonAngle), sin(ribbonAngle));
 
-    vec2 currentDirection = normalize(vec2(0.82, 0.36) + vec2(
+    vec2 currentDirection = normalize(uFlowDirection + vec2(
       sin(aPhase * 1.7),
       cos(aPhase * 1.3)
-    ) * 0.18);
-    float swayWave = sin(uTime * 0.72 + aPhase + t * 3.2)
-      + 0.42 * sin(uTime * 1.17 - aPhase * 0.61 + t * 6.1);
-    float bend = (0.34 * t + swayWave * 0.22 * clamp(uSway, 0.0, 1.5))
+    ) * 0.16);
+    float speciesFrequency = mix(1.0, 1.38, filamentSpecies);
+    float swayWave = sin(uTime * 0.64 * speciesFrequency + aPhase + t * 3.1)
+      + 0.38 * sin(uTime * 1.08 - aPhase * 0.61 + t * mix(5.4, 8.2, filamentSpecies));
+    float steadyLean = clamp(uFlowStrength, 0.0, 2.0) * mix(0.42, 0.7, broadSpecies);
+    float bend = (steadyLean + swayWave * 0.2 * clamp(uSway, 0.0, 1.5))
       * bladeLength
-      * pow(t, 1.28);
+      * pow(t, mix(1.22, 1.48, filamentSpecies));
     vec2 crossCurrent = vec2(-currentDirection.y, currentDirection.x);
     float sideFlutter = sin(uTime * 0.9 + aPhase * 1.8 + t * 4.7)
       * 0.045
       * bladeLength
       * pow(t, 1.6)
-      * clamp(uSway, 0.0, 1.5);
+      * clamp(uSway, 0.0, 1.5)
+      * mix(0.72, 1.35, filamentSpecies);
 
     vec2 worldXZ = bladeCenter
       + ribbonRight * taperedWidth
@@ -358,6 +354,7 @@ export const underwaterAlgaeVertexShader = `
     vTone = aTone;
     vPhase = aPhase;
     vHeightAlongBlade = t;
+    vSpecies = species;
     vRibbonNormal = normal;
 
     gl_Position = projectionMatrix * viewMatrix * vec4(worldXZ.x, worldY, worldXZ.y, 1.0);
@@ -369,6 +366,7 @@ export const underwaterAlgaeFragmentShader = `
   varying float vTone;
   varying float vPhase;
   varying float vHeightAlongBlade;
+  varying float vSpecies;
   varying float vInsideWater;
   varying vec3 vRibbonNormal;
 
@@ -394,7 +392,14 @@ export const underwaterAlgaeFragmentShader = `
     float side = abs(vRibbonUv.x * 2.0 - 1.0);
     float edge = 1.0 - smoothstep(0.7, 0.99, side);
     float baseFade = smoothstep(0.0, 0.055, vHeightAlongBlade);
-    float tipFade = 1.0 - smoothstep(0.78, 1.0, vHeightAlongBlade);
+    float broadSpecies = smoothstep(0.28, 0.38, vSpecies)
+      * (1.0 - smoothstep(0.66, 0.76, vSpecies));
+    float filamentSpecies = smoothstep(0.68, 0.82, vSpecies);
+    float tipFade = 1.0 - smoothstep(
+      mix(0.78, 0.9, broadSpecies),
+      1.0,
+      vHeightAlongBlade
+    );
     float filament = 0.78 + 0.22 * sin(
       vHeightAlongBlade * 54.0 + vPhase + vRibbonUv.x * 6.0
     );
@@ -403,9 +408,11 @@ export const underwaterAlgaeFragmentShader = `
       discard;
     }
 
-    vec3 color = uColor * mix(0.64, 1.32, vTone);
+    vec3 speciesTint = mix(vec3(0.72, 1.06, 0.56), vec3(0.52, 1.16, 0.72), broadSpecies);
+    speciesTint = mix(speciesTint, vec3(0.86, 1.08, 0.42), filamentSpecies);
+    vec3 color = uColor * speciesTint * mix(0.62, 1.36, vTone);
     color = applySaturation(color, clamp(uSaturation, 0.0, 2.0));
-    color *= filament;
+    color *= mix(filament, 0.9 + filament * 0.1, broadSpecies);
 
     float moonDiffuse = abs(dot(normalize(vRibbonNormal), normalize(uMoonDirection)));
     float topLift = mix(0.68, 1.08, vHeightAlongBlade);
