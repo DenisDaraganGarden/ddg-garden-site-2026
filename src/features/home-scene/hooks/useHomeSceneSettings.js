@@ -1,8 +1,13 @@
 import { useEffect, useState } from 'react';
 import { publishedHomeSceneSettings } from '../data/publishedHomeSceneSettings';
 import { publishedHomeSceneKeys } from '../data/publishedHomeSceneKeys';
+import {
+  clampLayoutFrameInset,
+  DEFAULT_LAYOUT_FRAME_INSETS,
+} from '../lib/layout';
 
 export const HOME_SCENE_SETTINGS_STORAGE_KEY = 'ddg_home_scene_settings_v1';
+const HOME_SCENE_WATER_DEFAULT_MIGRATION_KEY = 'ddg_home_scene_water_default_128_v1';
 export const LEGACY_HOME_SCENE_SETTINGS_STORAGE_KEYS = ['ddg_snake_settings_v4', 'ddg_snake_settings_v3'];
 const OBSOLETE_PUBLISHED_HOME_SCENE_STORAGE_KEYS = [
   'ddg_published_home_scene_settings_v1',
@@ -36,11 +41,12 @@ const DEFAULT_BOAT_POSITION = { x: 2.1, z: -1.4 };
 const DEFAULT_CAMERA_FOV = 36;
 
 // One composition bucket (see features/home-scene/lib/layout.js for selection logic).
-const buildLayout = (cameraPosition, cameraFov) => ({
+const buildLayout = (cameraPosition, cameraFov, frameInset) => ({
   customized: false,
   cameraPosition: { ...cameraPosition },
   cameraTarget: { ...DEFAULT_CAMERA_TARGET },
   cameraFov,
+  frameInset: clampLayoutFrameInset(frameInset),
   boatPosition: { ...DEFAULT_BOAT_POSITION },
   sculpturePosition: { ...DEFAULT_SCULPTURE_POSITION },
 });
@@ -51,7 +57,11 @@ const clampResolution = (value) => {
   const requested = Number(value);
 
   if (!Number.isFinite(requested)) {
-    return 512;
+    return 128;
+  }
+
+  if (requested <= 192) {
+    return 128;
   }
 
   if (requested <= 320) {
@@ -111,6 +121,7 @@ const pickLayout = (value, fallback) => {
     cameraPosition: pickVector3(source.cameraPosition, fallback.cameraPosition),
     cameraTarget: pickVector3(source.cameraTarget, fallback.cameraTarget),
     cameraFov: clampInt(source.cameraFov, 24, 75, fallback.cameraFov),
+    frameInset: clampLayoutFrameInset(source.frameInset ?? fallback.frameInset),
     boatPosition: pickVector2(source.boatPosition, fallback.boatPosition),
     sculpturePosition: pickVector2(source.sculpturePosition, fallback.sculpturePosition),
   };
@@ -118,7 +129,7 @@ const pickLayout = (value, fallback) => {
 
 export const getBaseHomeSceneSettings = () => ({
   waterExtent: 24,
-  simulationResolution: 512,
+  simulationResolution: 128,
   waterMeshDensity: 288,
   waveAmplitude: 0.055,
   waveLength: 0.72,
@@ -141,7 +152,8 @@ export const getBaseHomeSceneSettings = () => ({
   moonSpecularPower: 38,
   showHdriBackground: false,
   shadowsEnabled: true,
-  shadowRadius: 4,
+  shadowIntensity: 1,
+  shadowRadius: 3,
   shadowBias: -0.0002,
   ambientIntensity: 0.11,
   ambientColor: '#202635',
@@ -165,9 +177,16 @@ export const getBaseHomeSceneSettings = () => ({
   cameraPositionPortrait: { ...DEFAULT_PORTRAIT_CAMERA_POSITION },
   cameraTargetPortrait: { ...DEFAULT_CAMERA_TARGET },
   layouts: {
-    portrait: buildLayout(DEFAULT_PORTRAIT_CAMERA_POSITION, DEFAULT_CAMERA_FOV),
-    desktop: buildLayout(DEFAULT_LANDSCAPE_CAMERA_POSITION, DEFAULT_CAMERA_FOV),
-    wide: buildLayout(DEFAULT_LANDSCAPE_CAMERA_POSITION, DEFAULT_CAMERA_FOV),
+    portrait: buildLayout(
+      DEFAULT_PORTRAIT_CAMERA_POSITION,
+      DEFAULT_CAMERA_FOV,
+      DEFAULT_LAYOUT_FRAME_INSETS.portrait,
+    ),
+    desktop: buildLayout(
+      DEFAULT_LANDSCAPE_CAMERA_POSITION,
+      DEFAULT_CAMERA_FOV,
+      DEFAULT_LAYOUT_FRAME_INSETS.desktop,
+    ),
   },
   debugView: DEFAULT_DEBUG_VIEW,
   boatColor: '#ffffff',
@@ -198,6 +217,24 @@ export const getBaseHomeSceneSettings = () => ({
   seabedSaturation: 1.0,
   seabedBrightness: 1.0,
   waterTurbidity: 0.3,
+  surfacePlantAmount: 0.46,
+  surfacePlantCenterX: -3.6,
+  surfacePlantCenterZ: 1.6,
+  surfacePlantRadius: 4.8,
+  surfacePlantClustering: 0.76,
+  surfacePlantSize: 0.24,
+  surfacePlantColor: '#667b32',
+  surfacePlantSaturation: 0.96,
+  surfacePlantTranslucency: 0.62,
+  surfacePlantReflection: 0.72,
+  underwaterAlgaeAmount: 0.58,
+  underwaterAlgaeCenterX: 2.6,
+  underwaterAlgaeCenterZ: 1.6,
+  underwaterAlgaeRadius: 4.4,
+  underwaterAlgaeLength: 1.65,
+  underwaterAlgaeSway: 0.75,
+  underwaterAlgaeColor: '#29462a',
+  underwaterAlgaeSaturation: 0.88,
   ambientWaveIntensity: 0.12,
   ambientWaveSpeed: 0.85,
 });
@@ -214,7 +251,7 @@ const normalizeLegacySettings = (savedSettings, defaults) => {
   }
 
   if (savedSettings?.planeHeight !== undefined) {
-    legacy.waveAmplitude = clampFloat(savedSettings.planeHeight / 1200, 0.01, 0.2, defaults.waveAmplitude);
+    legacy.waveAmplitude = clampFloat(savedSettings.planeHeight / 1200, 0, 0.2, defaults.waveAmplitude);
   }
 
   if (savedSettings?.planeRadius !== undefined) {
@@ -235,7 +272,7 @@ const normalizeLegacySettings = (savedSettings, defaults) => {
   }
 
   if (savedSettings?.hdrExposure !== undefined) {
-    legacy.hdrExposure = clampInt(savedSettings.hdrExposure, 20, 220, defaults.hdrExposure);
+    legacy.hdrExposure = clampInt(savedSettings.hdrExposure, 0, 220, defaults.hdrExposure);
   }
 
   if (savedSettings?.lightColor !== undefined) {
@@ -251,7 +288,7 @@ const normalizeLegacySettings = (savedSettings, defaults) => {
   }
 
   if (savedSettings?.lightHeight !== undefined) {
-    legacy.moonElevation = clampFloat(savedSettings.lightHeight / 4, 5, 85, defaults.moonElevation);
+    legacy.moonElevation = clampFloat(savedSettings.lightHeight / 4, 0, 85, defaults.moonElevation);
   }
 
   return legacy;
@@ -305,15 +342,22 @@ const normalizeHomeSceneSettings = (savedSettings = {}) => {
   const normalizedCameraFov = clampInt(merged.cameraFov, 24, 75, defaults.cameraFov);
   const normalizedBoatPosition = pickVector2(merged.boatPosition, defaults.boatPosition);
   const normalizedSculpturePosition = pickVector2(merged.sculpturePosition, defaults.sculpturePosition);
+  const usesLegacyShadowModel = savedSettings.shadowIntensity === undefined;
+  const migratedShadowRadius = usesLegacyShadowModel
+    ? Math.min(Number(merged.shadowRadius), 3.5)
+    : merged.shadowRadius;
+  const migratedShadowBias = usesLegacyShadowModel && Number(merged.shadowBias) > 0
+    ? defaults.shadowBias
+    : merged.shadowBias;
 
-  // Migrate the old flat camera fields into the responsive composition buckets when a
-  // settings blob predates `layouts`. Desktop = old landscape, portrait = old portrait,
-  // wide inherits desktop. Object positions seed every bucket from the old globals.
+  // Migrate the old flat camera fields into the two responsive composition buckets when
+  // a settings blob predates `layouts`. Object positions seed both buckets from the old globals.
   const legacyDesktopLayout = {
     customized: cameraCustomPoseLandscape,
     cameraPosition: cameraPositionLandscape,
     cameraTarget: cameraTargetLandscape,
     cameraFov: normalizedCameraFov,
+    frameInset: DEFAULT_LAYOUT_FRAME_INSETS.desktop,
     boatPosition: normalizedBoatPosition,
     sculpturePosition: normalizedSculpturePosition,
   };
@@ -322,10 +366,10 @@ const normalizeHomeSceneSettings = (savedSettings = {}) => {
     cameraPosition: cameraPositionPortrait,
     cameraTarget: cameraTargetPortrait,
     cameraFov: normalizedCameraFov,
+    frameInset: DEFAULT_LAYOUT_FRAME_INSETS.portrait,
     boatPosition: normalizedBoatPosition,
     sculpturePosition: normalizedSculpturePosition,
   };
-  const legacyWideLayout = { ...legacyDesktopLayout, customized: false };
   // Read layouts from the RAW saved blob, not `merged` — defaults always carry a `layouts`
   // object, so merged.layouts would mask a legacy (pre-layouts) settings file and skip migration.
   const incomingLayouts = (savedSettings.layouts && typeof savedSettings.layouts === 'object' && !Array.isArray(savedSettings.layouts))
@@ -342,47 +386,47 @@ const normalizeHomeSceneSettings = (savedSettings = {}) => {
   const layouts = {
     portrait: resolveBucket(incomingLayouts.portrait, legacyPortraitLayout),
     desktop: resolveBucket(incomingLayouts.desktop, legacyDesktopLayout),
-    wide: resolveBucket(incomingLayouts.wide, legacyWideLayout),
   };
 
   return {
     waterExtent: clampFloat(merged.waterExtent, 12, 200, defaults.waterExtent),
     simulationResolution: clampResolution(merged.simulationResolution),
     waterMeshDensity: clampInt(merged.waterMeshDensity, 96, 384, defaults.waterMeshDensity),
-    waveAmplitude: clampFloat(merged.waveAmplitude, 0.01, 0.2, defaults.waveAmplitude),
+    waveAmplitude: clampFloat(merged.waveAmplitude, 0, 0.2, defaults.waveAmplitude),
     waveLength: clampFloat(merged.waveLength, 0.4, 3.2, defaults.waveLength),
     waveChoppiness: clampFloat(merged.waveChoppiness, 0, 1.25, defaults.waveChoppiness),
     rippleDamping: clampFloat(merged.rippleDamping, 0.93, 0.992, defaults.rippleDamping),
     rippleRadius: clampFloat(merged.rippleRadius, 0.1, 2.4, defaults.rippleRadius),
-    rippleImpulse: clampFloat(merged.rippleImpulse, 0.05, 1.2, defaults.rippleImpulse),
-    normalStrength: clampFloat(merged.normalStrength, 0.4, 3.2, defaults.normalStrength),
+    rippleImpulse: clampFloat(merged.rippleImpulse, 0, 1.2, defaults.rippleImpulse),
+    normalStrength: clampFloat(merged.normalStrength, 0, 3.2, defaults.normalStrength),
     normalBlur: clampFloat(merged.normalBlur, 0.2, 2.5, defaults.normalBlur),
     hdrPreset: VALID_HDRI_PRESETS.has(merged.hdrPreset) ? merged.hdrPreset : defaults.hdrPreset,
     hdrRotation: clampFloat(merged.hdrRotation, 0, 360, defaults.hdrRotation),
-    hdrExposure: clampInt(merged.hdrExposure, 20, 220, defaults.hdrExposure),
-    envReflectionIntensity: clampInt(merged.envReflectionIntensity, 20, 220, defaults.envReflectionIntensity),
+    hdrExposure: clampInt(merged.hdrExposure, 0, 220, defaults.hdrExposure),
+    envReflectionIntensity: clampInt(merged.envReflectionIntensity, 0, 220, defaults.envReflectionIntensity),
     envTint: pickColor(merged.envTint, defaults.envTint),
     moonIntensity: clampFloat(merged.moonIntensity, 0, 4, defaults.moonIntensity),
     moonColor: pickColor(merged.moonColor, defaults.moonColor),
     moonAzimuth: clampFloat(merged.moonAzimuth, 0, 360, defaults.moonAzimuth),
-    moonElevation: clampFloat(merged.moonElevation, 5, 85, defaults.moonElevation),
+    moonElevation: clampFloat(merged.moonElevation, 0, 85, defaults.moonElevation),
     moonSpecularStrength: clampFloat(merged.moonSpecularStrength, 0, 2, defaults.moonSpecularStrength),
     moonSpecularPower: clampFloat(merged.moonSpecularPower, 4, 128, defaults.moonSpecularPower),
     showHdriBackground: pickBoolean(merged.showHdriBackground, defaults.showHdriBackground),
     shadowsEnabled: pickBoolean(merged.shadowsEnabled, defaults.shadowsEnabled),
-    shadowRadius: clampFloat(merged.shadowRadius, 0, 16, defaults.shadowRadius),
-    shadowBias: clampFloat(merged.shadowBias, -0.005, 0.005, defaults.shadowBias),
+    shadowIntensity: clampFloat(merged.shadowIntensity, 0, 1, defaults.shadowIntensity),
+    shadowRadius: clampFloat(migratedShadowRadius, 0, 8, defaults.shadowRadius),
+    shadowBias: clampFloat(migratedShadowBias, -0.005, 0.005, defaults.shadowBias),
     ambientIntensity: clampFloat(merged.ambientIntensity, 0, 2, defaults.ambientIntensity),
     ambientColor: pickColor(merged.ambientColor, defaults.ambientColor),
     hemisphereIntensity: clampFloat(merged.hemisphereIntensity, 0, 2, defaults.hemisphereIntensity),
     hemisphereSkyColor: pickColor(merged.hemisphereSkyColor, defaults.hemisphereSkyColor),
     hemisphereGroundColor: pickColor(merged.hemisphereGroundColor, defaults.hemisphereGroundColor),
-    waterDepthMeters: clampFloat(merged.waterDepthMeters, 1, 12, defaults.waterDepthMeters),
+    waterDepthMeters: clampFloat(merged.waterDepthMeters, 0.25, 12, defaults.waterDepthMeters),
     seabedReliefStrength: clampFloat(merged.seabedReliefStrength, 0, 2, defaults.seabedReliefStrength),
     seabedReliefScale: clampFloat(merged.seabedReliefScale, 0.5, 6, defaults.seabedReliefScale),
     causticsIntensity: clampFloat(merged.causticsIntensity, 0, 3, defaults.causticsIntensity),
     causticsScale: clampFloat(merged.causticsScale, 0.5, 6, defaults.causticsScale),
-    causticsSharpness: clampFloat(merged.causticsSharpness, 0.1, 1.5, defaults.causticsSharpness),
+    causticsSharpness: clampFloat(merged.causticsSharpness, 0, 1, defaults.causticsSharpness),
     cameraFov: normalizedCameraFov,
     layouts,
     cameraCustomPose: cameraCustomPoseLandscape,
@@ -433,6 +477,79 @@ const normalizeHomeSceneSettings = (savedSettings = {}) => {
     seabedSaturation: clampFloat(merged.seabedSaturation, 0, 2, defaults.seabedSaturation),
     seabedBrightness: clampFloat(merged.seabedBrightness, 0, 2, defaults.seabedBrightness),
     waterTurbidity: clampFloat(merged.waterTurbidity, 0, 1, defaults.waterTurbidity),
+    surfacePlantAmount: clampFloat(merged.surfacePlantAmount, 0, 1, defaults.surfacePlantAmount),
+    surfacePlantCenterX: clampFloat(merged.surfacePlantCenterX, -40, 40, defaults.surfacePlantCenterX),
+    surfacePlantCenterZ: clampFloat(merged.surfacePlantCenterZ, -40, 40, defaults.surfacePlantCenterZ),
+    surfacePlantRadius: clampFloat(merged.surfacePlantRadius, 0, 40, defaults.surfacePlantRadius),
+    surfacePlantClustering: clampFloat(
+      merged.surfacePlantClustering,
+      0,
+      1,
+      defaults.surfacePlantClustering,
+    ),
+    surfacePlantSize: clampFloat(merged.surfacePlantSize, 0, 0.8, defaults.surfacePlantSize),
+    surfacePlantColor: pickColor(merged.surfacePlantColor, defaults.surfacePlantColor),
+    surfacePlantSaturation: clampFloat(
+      merged.surfacePlantSaturation,
+      0,
+      2,
+      defaults.surfacePlantSaturation,
+    ),
+    surfacePlantTranslucency: clampFloat(
+      merged.surfacePlantTranslucency,
+      0,
+      1,
+      defaults.surfacePlantTranslucency,
+    ),
+    surfacePlantReflection: clampFloat(
+      merged.surfacePlantReflection,
+      0,
+      1,
+      defaults.surfacePlantReflection,
+    ),
+    underwaterAlgaeAmount: clampFloat(
+      merged.underwaterAlgaeAmount,
+      0,
+      1,
+      defaults.underwaterAlgaeAmount,
+    ),
+    underwaterAlgaeCenterX: clampFloat(
+      merged.underwaterAlgaeCenterX,
+      -40,
+      40,
+      defaults.underwaterAlgaeCenterX,
+    ),
+    underwaterAlgaeCenterZ: clampFloat(
+      merged.underwaterAlgaeCenterZ,
+      -40,
+      40,
+      defaults.underwaterAlgaeCenterZ,
+    ),
+    underwaterAlgaeRadius: clampFloat(
+      merged.underwaterAlgaeRadius,
+      0,
+      40,
+      defaults.underwaterAlgaeRadius,
+    ),
+    underwaterAlgaeLength: clampFloat(
+      merged.underwaterAlgaeLength,
+      0,
+      4,
+      defaults.underwaterAlgaeLength,
+    ),
+    underwaterAlgaeSway: clampFloat(
+      merged.underwaterAlgaeSway,
+      0,
+      1.5,
+      defaults.underwaterAlgaeSway,
+    ),
+    underwaterAlgaeColor: pickColor(merged.underwaterAlgaeColor, defaults.underwaterAlgaeColor),
+    underwaterAlgaeSaturation: clampFloat(
+      merged.underwaterAlgaeSaturation,
+      0,
+      2,
+      defaults.underwaterAlgaeSaturation,
+    ),
     ambientWaveIntensity: clampFloat(merged.ambientWaveIntensity, 0, 1, defaults.ambientWaveIntensity),
     ambientWaveSpeed: clampFloat(merged.ambientWaveSpeed, 0, 10, defaults.ambientWaveSpeed),
   };
@@ -477,7 +594,19 @@ export function readHomeSceneDraftSettings() {
   }
 
   try {
-    return normalizeHomeSceneDraftSettings(JSON.parse(saved));
+    const parsed = JSON.parse(saved);
+    const hasAppliedWaterDefault = window.localStorage.getItem(
+      HOME_SCENE_WATER_DEFAULT_MIGRATION_KEY,
+    ) === '1';
+    const migrated = !hasAppliedWaterDefault && Number(parsed?.simulationResolution) === 512
+      ? { ...parsed, simulationResolution: 128 }
+      : parsed;
+
+    if (!hasAppliedWaterDefault) {
+      window.localStorage.setItem(HOME_SCENE_WATER_DEFAULT_MIGRATION_KEY, '1');
+    }
+
+    return normalizeHomeSceneDraftSettings(migrated);
   } catch (error) {
     console.error('Failed to parse home scene draft settings', error);
     return null;

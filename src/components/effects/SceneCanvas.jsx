@@ -4,6 +4,7 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { useLanguage } from '../../i18n/useLanguage';
 
 let webglSupportCache;
+const SHADOWS_CONFIG = { type: THREE.PCFShadowMap };
 
 function detectWebGLSupport() {
   if (typeof window === 'undefined' || typeof document === 'undefined') {
@@ -37,7 +38,6 @@ function getCanvasProfile(mode) {
   }
 
   const isEditor = mode === 'editor';
-  const isPublicMode = !isEditor;
   const isMobileViewport = window.innerWidth < 768;
   const isTouchPrimary = typeof window.matchMedia === 'function'
     && window.matchMedia('(hover: none) and (pointer: coarse)').matches;
@@ -54,14 +54,16 @@ function getCanvasProfile(mode) {
     || (hardwareConcurrency !== null && hardwareConcurrency <= 4);
 
   return {
-    // Force supersampling on capable devices so thin geometry (oars, ribs) and
-    // shader edges resolve cleanly even on standard 1x monitors.
-    minDpr: isLowPowerDevice ? 1 : 1.5,
+    // The editor covers almost the whole viewport. Supersampling it at 1.5x meant
+    // shading roughly 5.6 million pixels every frame on a 1440p-class window.
+    // Keep modest supersampling on the public scene, while favoring responsive
+    // controls in the editor.
+    minDpr: 1,
     maxDpr: isEditor
-      ? (isLowPowerDevice ? 1.2 : 1.7)
-      : (isLowPowerDevice ? 1 : 2),
+      ? (isLowPowerDevice ? 1 : 1.25)
+      : (isLowPowerDevice ? 1 : 1.5),
     antialias: !isLowPowerDevice,
-    powerPreference: isLowPowerDevice ? 'low-power' : 'default',
+    powerPreference: isLowPowerDevice ? 'low-power' : 'high-performance',
   };
 }
 
@@ -106,18 +108,50 @@ const SceneFallback = ({ title, body, testId }) => (
 const RuntimeDiagnostics = ({ sceneId, mode, settings }) => {
   const { camera, gl, scene } = useThree();
   const lastWriteRef = useRef(0);
+  const frameTimesRef = useRef([]);
+  const gpuInfoRef = useRef(null);
 
-  useFrame(() => {
+  useFrame((_, delta) => {
     if (!import.meta.env.DEV || typeof window === 'undefined') {
       return;
     }
 
+    const frameTimes = frameTimesRef.current;
+    frameTimes.push(Math.min(delta * 1000, 1000));
+    if (frameTimes.length > 240) {
+      frameTimes.shift();
+    }
+
     const now = performance.now();
-    if (now - lastWriteRef.current < 300) {
+    if (now - lastWriteRef.current < 1000) {
       return;
     }
 
     lastWriteRef.current = now;
+    const sortedFrameTimes = [...frameTimes].sort((left, right) => left - right);
+    const averageFrameMs = frameTimes.length > 0
+      ? frameTimes.reduce((total, value) => total + value, 0) / frameTimes.length
+      : 0;
+    const percentile = (ratio) => (
+      sortedFrameTimes.length > 0
+        ? sortedFrameTimes[Math.min(sortedFrameTimes.length - 1, Math.floor(sortedFrameTimes.length * ratio))]
+        : 0
+    );
+
+    if (!gpuInfoRef.current) {
+      const context = gl.getContext();
+      const debugRendererInfo = context.getExtension('WEBGL_debug_renderer_info');
+      gpuInfoRef.current = {
+        vendor: debugRendererInfo
+          ? context.getParameter(debugRendererInfo.UNMASKED_VENDOR_WEBGL)
+          : context.getParameter(context.VENDOR),
+        renderer: debugRendererInfo
+          ? context.getParameter(debugRendererInfo.UNMASKED_RENDERER_WEBGL)
+          : context.getParameter(context.RENDERER),
+        maxTextureSize: context.getParameter(context.MAX_TEXTURE_SIZE),
+      };
+    }
+
     const runtimeRoot = window.__DDG_RUNTIME_METRICS__ ?? {};
     const nextSettings = settings
       ? {
@@ -131,41 +165,59 @@ const RuntimeDiagnostics = ({ sceneId, mode, settings }) => {
         }
       : null;
 
+    const runtimeMetrics = {
+      mode,
+      timestamp: now,
+      performance: {
+        fps: averageFrameMs > 0 ? 1000 / averageFrameMs : 0,
+        averageFrameMs,
+        p95FrameMs: percentile(0.95),
+        p99FrameMs: percentile(0.99),
+        longFramesOver50Ms: frameTimes.filter((value) => value > 50).length,
+        sampleSize: frameTimes.length,
+      },
+      drawingBuffer: {
+        width: gl.domElement.width,
+        height: gl.domElement.height,
+        pixelRatio: gl.getPixelRatio(),
+      },
+      gpu: gpuInfoRef.current,
+      renderer: {
+        geometries: gl.info.memory.geometries,
+        textures: gl.info.memory.textures,
+        programs: gl.info.programs?.length ?? 0,
+        calls: gl.info.render.calls,
+        triangles: gl.info.render.triangles,
+        points: gl.info.render.points,
+        lines: gl.info.render.lines,
+      },
+      sceneChildren: scene.children.length,
+      camera: {
+        position: {
+          x: camera.position.x,
+          y: camera.position.y,
+          z: camera.position.z,
+        },
+        rotation: {
+          x: camera.rotation.x,
+          y: camera.rotation.y,
+          z: camera.rotation.z,
+        },
+      },
+      childTypes: scene.children.map((child) => ({
+        name: child.name || child.type,
+        type: child.type,
+        visible: child.visible,
+      })),
+      settings: nextSettings,
+    };
+
     window.__DDG_RUNTIME_METRICS__ = {
       ...runtimeRoot,
-      [sceneId]: {
-        mode,
-        timestamp: now,
-        renderer: {
-          geometries: gl.info.memory.geometries,
-          textures: gl.info.memory.textures,
-          programs: gl.info.programs?.length ?? 0,
-          calls: gl.info.render.calls,
-          triangles: gl.info.render.triangles,
-          points: gl.info.render.points,
-          lines: gl.info.render.lines,
-        },
-        sceneChildren: scene.children.length,
-        camera: {
-          position: {
-            x: camera.position.x,
-            y: camera.position.y,
-            z: camera.position.z,
-          },
-          rotation: {
-            x: camera.rotation.x,
-            y: camera.rotation.y,
-            z: camera.rotation.z,
-          },
-        },
-        childTypes: scene.children.map((child) => ({
-          name: child.name || child.type,
-          type: child.type,
-          visible: child.visible,
-        })),
-        settings: nextSettings,
-      },
+      [sceneId]: runtimeMetrics,
     };
+
+    gl.domElement.dataset.ddgRuntimeMetrics = JSON.stringify(runtimeMetrics);
   });
 
   useEffect(() => () => {
@@ -267,7 +319,7 @@ const SceneCanvas = ({
         style={{ width: '100%', height: '100%', ...style }}
       >
         <Canvas
-          shadows={{ type: THREE.PCFSoftShadowMap }}
+          shadows={SHADOWS_CONFIG}
           frameloop={isTabVisible ? 'always' : 'never'}
           dpr={[profile.minDpr, profile.maxDpr]}
           camera={camera}

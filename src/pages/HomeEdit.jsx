@@ -4,7 +4,11 @@ import {
     getPublishedHomeSceneSettings,
     sanitizeHomeSceneSettingsForPublish,
 } from '../features/home-scene/hooks/useHomeSceneSettings';
-import { resolveLayoutKey } from '../features/home-scene/lib/layout';
+import {
+    DEFAULT_LAYOUT_FRAME_INSETS,
+    resolveLayoutFrameInset,
+    resolveLayoutKey,
+} from '../features/home-scene/lib/layout';
 import { useHomeSceneEditor } from '../features/home-scene/hooks/useHomeSceneEditor';
 import HomeEditorPanel from '../features/home-scene/components/HomeEditorPanel';
 import { publishHomeSceneSettings } from '../features/home-scene/lib/homeScenePublishClient';
@@ -21,9 +25,7 @@ const getCurrentLayoutKey = () => {
         return 'desktop';
     }
 
-    const screenWidth = window.screen ? window.screen.width : window.innerWidth;
-    const screenHeight = window.screen ? window.screen.height : window.innerHeight;
-    return resolveLayoutKey(window.innerWidth, window.innerHeight, screenWidth, screenHeight);
+    return resolveLayoutKey(window.innerWidth, window.innerHeight);
 };
 
 const HomeEdit = () => {
@@ -68,7 +70,11 @@ const HomeEdit = () => {
         const handleResize = () => setCurrentLayoutKey(getCurrentLayoutKey());
         handleResize();
         window.addEventListener('resize', handleResize);
-        return () => window.removeEventListener('resize', handleResize);
+        window.addEventListener('orientationchange', handleResize);
+        return () => {
+            window.removeEventListener('resize', handleResize);
+            window.removeEventListener('orientationchange', handleResize);
+        };
     }, []);
 
     const handleCameraRigApi = useCallback((api) => {
@@ -81,14 +87,19 @@ const HomeEdit = () => {
         setSettings((previous) => {
             const layouts = previous.layouts ?? {};
             const current = layouts[key];
+            const inherited = layouts.desktop ?? current ?? {};
             const source = (current && current.customized)
                 ? current
-                : (layouts.desktop ?? current ?? {});
+                : {
+                    ...inherited,
+                    frameInset: resolveLayoutFrameInset(layouts, key),
+                };
             const nextLayout = {
                 customized: true,
                 cameraPosition: { ...source.cameraPosition },
                 cameraTarget: { ...source.cameraTarget },
                 cameraFov: source.cameraFov,
+                frameInset: source.frameInset,
                 boatPosition: { ...source.boatPosition },
                 sculpturePosition: { ...source.sculpturePosition },
                 ...patch,
@@ -126,7 +137,11 @@ const HomeEdit = () => {
                 ...previous,
                 layouts: {
                     ...layouts,
-                    [key]: { ...layouts[key], customized: false },
+                    [key]: {
+                        ...layouts[key],
+                        customized: false,
+                        frameInset: DEFAULT_LAYOUT_FRAME_INSETS[key],
+                    },
                 },
             };
         });
@@ -134,6 +149,10 @@ const HomeEdit = () => {
 
     const handleLayoutFovChange = useCallback((value) => {
         updateLayout(selectedLayoutKey, { cameraFov: value });
+    }, [updateLayout, selectedLayoutKey]);
+
+    const handleFrameInsetChange = useCallback((value) => {
+        updateLayout(selectedLayoutKey, { frameInset: value });
     }, [updateLayout, selectedLayoutKey]);
 
     const handleBoatPositionChange = useCallback((position) => {
@@ -171,6 +190,7 @@ const HomeEdit = () => {
         resetLayout,
         updateLayout,
         onFovChange: handleLayoutFovChange,
+        onFrameInsetChange: handleFrameInsetChange,
     }), [
         selectedLayoutKey,
         currentLayoutKey,
@@ -179,7 +199,10 @@ const HomeEdit = () => {
         resetLayout,
         updateLayout,
         handleLayoutFovChange,
+        handleFrameInsetChange,
     ]);
+
+    const selectedFrameInset = resolveLayoutFrameInset(settings.layouts, selectedLayoutKey);
 
     const handlePublish = async () => {
         if (!hasPublishChanges) {
@@ -224,17 +247,26 @@ const HomeEdit = () => {
     return (
         <div className="home-editor-page" data-testid="home-editor-page">
             <div className="home-editor-stage">
-                <WaterScene
-                    sceneId="home-scene-editor"
-                    mode="editor"
-                    testId="home-editor-scene"
-                    fallbackTestId="home-editor-fallback"
-                    settings={settings}
-                    layoutOverride={selectedLayoutKey}
-                    onCameraRigApi={handleCameraRigApi}
-                    onBoatPositionChange={handleBoatPositionChange}
-                    onSculpturePositionChange={handleSculpturePositionChange}
-                />
+                <div
+                    className={`home-editor-viewport home-editor-viewport--${selectedLayoutKey}`}
+                    style={{ '--home-editor-frame-inset': `${selectedFrameInset * 100}%` }}
+                >
+                    <div className="home-editor-render-frame">
+                        <WaterScene
+                            sceneId="home-scene-editor"
+                            mode="editor"
+                            testId="home-editor-scene"
+                            fallbackTestId="home-editor-fallback"
+                            settings={settings}
+                            layoutOverride={selectedLayoutKey}
+                            onCameraRigApi={handleCameraRigApi}
+                            onBoatPositionChange={handleBoatPositionChange}
+                            onSculpturePositionChange={handleSculpturePositionChange}
+                        />
+                    </div>
+                    <div className="home-editor-frame-mask home-editor-frame-mask--top" aria-hidden="true" />
+                    <div className="home-editor-frame-mask home-editor-frame-mask--bottom" aria-hidden="true" />
+                </div>
             </div>
 
             <HomeEditorPanel

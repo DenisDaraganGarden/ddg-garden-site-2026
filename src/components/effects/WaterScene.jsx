@@ -7,7 +7,11 @@ import CustomShaderMaterial from 'three-custom-shader-material';
 import {
   getBaseHomeSceneSettings,
 } from '../../features/home-scene/hooks/useHomeSceneSettings';
-import { resolveLayout, resolveLayoutKey } from '../../features/home-scene/lib/layout';
+import {
+  fitCameraFovToLayout,
+  resolveLayout,
+  resolveLayoutKey,
+} from '../../features/home-scene/lib/layout';
 import SceneCanvas from './SceneCanvas';
 import {
   fullScreenVertexShader,
@@ -16,9 +20,17 @@ import {
   seabedFragmentShader,
   seabedVertexShader,
   simulationFragmentShader,
-  waterFragmentShader,
-  waterVertexShader,
 } from './shaders/waterRuntimeShaders';
+import {
+  waterV2FragmentShader,
+  waterV2VertexShader,
+} from './shaders/waterV2Shaders';
+import {
+  surfaceVegetationFragmentShader,
+  surfaceVegetationVertexShader,
+  underwaterAlgaeFragmentShader,
+  underwaterAlgaeVertexShader,
+} from './shaders/vegetationShaders';
 
 const PUBLIC_CAMERA_POSITION = [0, 5.8, 8.9];
 const DEFAULT_CLEAR_COLOR = '#000000';
@@ -50,6 +62,7 @@ const QUALITY_TIER = Object.freeze({
   medium: 'medium',
   high: 'high',
 });
+const SIMULATION_RESOLUTION_STEPS = Object.freeze([128, 256, 384, 512]);
 const REFLECTION_CAMERA_POSITION_EPSILON_SQ = 0.00006;
 const REFLECTION_CAMERA_ROTATION_EPSILON = 0.00008;
 const REFLECTION_BOAT_POSITION_EPSILON_SQ = 0.00004;
@@ -115,42 +128,64 @@ function buildRuntimeQualityProfile(mode, viewportWidth) {
   if (isMobileDevice || tier === QUALITY_TIER.low) {
     return {
       isLowPower: true,
-      simulationTargetFps: isEditor ? 32 : 28,
-      simulationMaxResolution: 256,
-      reflectionActiveFps: 14,
+      simulationTargetFps: isEditor ? 30 : 36,
+      simulationMaxResolution: isEditor ? 128 : 256,
+      reflectionActiveFps: 10,
       reflectionIdleFps: 4,
-      reflectionTextureSize: 256,
-      waterMeshDensityCap: 160,
+      reflectionTextureSize: 224,
+      waterMeshDensityCap: 144,
       shadowMapSize: 384,
-      boatProbeInterval: 1 / 22,
+      boatProbeInterval: 1 / 16,
+      surfacePlantMaxInstances: 220,
+      underwaterAlgaeMaxInstances: 0,
     };
   }
 
   if (tier === QUALITY_TIER.medium) {
     return {
       isLowPower: false,
-      simulationTargetFps: isEditor ? 38 : 34,
-      simulationMaxResolution: 384,
-      reflectionActiveFps: 18,
-      reflectionIdleFps: 6,
-      reflectionTextureSize: isEditor ? 448 : 352,
-      waterMeshDensityCap: 208,
-      shadowMapSize: 512,
-      boatProbeInterval: 1 / 40,
+      simulationTargetFps: isEditor ? 45 : 54,
+      simulationMaxResolution: isEditor ? 384 : 512,
+      reflectionActiveFps: isEditor ? 24 : 20,
+      reflectionIdleFps: isEditor ? 18 : 6,
+      reflectionTextureSize: isEditor ? 768 : 384,
+      waterMeshDensityCap: isEditor ? 224 : 176,
+      shadowMapSize: isEditor ? 1024 : 768,
+      boatProbeInterval: 1 / 18,
+      surfacePlantMaxInstances: 560,
+      underwaterAlgaeMaxInstances: 360,
     };
   }
 
   return {
     isLowPower: false,
-    simulationTargetFps: isEditor ? 44 : 38,
+    simulationTargetFps: isEditor ? 50 : 60,
     simulationMaxResolution: 512,
-    reflectionActiveFps: 24,
-    reflectionIdleFps: 8,
-    reflectionTextureSize: isEditor ? 640 : 448,
-    waterMeshDensityCap: 256,
-    shadowMapSize: isEditor ? 896 : 640,
-    boatProbeInterval: 1 / 40,
+    reflectionActiveFps: isEditor ? 60 : 30,
+    reflectionIdleFps: isEditor ? 60 : 8,
+    reflectionTextureSize: isEditor ? 1024 : 768,
+    waterMeshDensityCap: isEditor ? 352 : 224,
+    shadowMapSize: isEditor ? 2048 : 1024,
+    boatProbeInterval: 1 / 20,
+    surfacePlantMaxInstances: 900,
+    underwaterAlgaeMaxInstances: 600,
   };
+}
+
+// The editor stays responsive while the published site receives the next simulation
+// tier whenever hardware allows it. This is the project rule: public water quality is
+// never lower than the authored setting and is normally one resolution step higher.
+function resolveRuntimeSimulationResolution(requestedResolution, mode, maximumResolution) {
+  const requested = Number(requestedResolution);
+  const requestedIndex = SIMULATION_RESOLUTION_STEPS.findIndex((value) => value >= requested);
+  const normalizedIndex = requestedIndex >= 0
+    ? requestedIndex
+    : SIMULATION_RESOLUTION_STEPS.length - 1;
+  const runtimeIndex = mode === 'public'
+    ? Math.min(normalizedIndex + 1, SIMULATION_RESOLUTION_STEPS.length - 1)
+    : normalizedIndex;
+
+  return Math.min(SIMULATION_RESOLUTION_STEPS[runtimeIndex], maximumResolution);
 }
 
 function isDocumentCurrentlyVisible() {
@@ -221,21 +256,29 @@ const LazyOrbitControls = React.lazy(() => import('@react-three/drei/core/OrbitC
   default: module.OrbitControls,
 })));
 
-function WaterCameraRig({ mode, layout, onCameraRigApi, orbitRef }) {
-  const { camera, gl } = useThree();
+function WaterCameraRig({ mode, layout, layoutKey, onCameraRigApi, orbitRef }) {
+  const { camera, gl, size } = useThree();
   const internalControlsRef = useRef();
   const controlsRef = orbitRef ?? internalControlsRef;
   const formatAxis = useCallback((value) => Number(value.toFixed(4)), []);
   const cameraTarget = layout?.cameraTarget ?? { x: 0, y: 0, z: 0 };
+  const cameraFov = layout?.cameraFov;
+  const fittedCameraFov = fitCameraFovToLayout(
+    cameraFov,
+    size.width,
+    size.height,
+    layoutKey,
+    layout?.frameInset,
+  );
 
   useEffect(() => {
-    if (!layout || camera.fov === layout.cameraFov) {
+    if (typeof fittedCameraFov !== 'number' || camera.fov === fittedCameraFov) {
       return;
     }
 
-    camera.fov = layout.cameraFov;
+    camera.fov = fittedCameraFov;
     camera.updateProjectionMatrix();
-  }, [camera, layout?.cameraFov]);
+  }, [camera, fittedCameraFov]);
 
   // Apply the active composition bucket's pose. Depends on the bucket's camera numbers
   // (not the object identity) so editing object positions doesn't snap the camera, and
@@ -249,7 +292,7 @@ function WaterCameraRig({ mode, layout, onCameraRigApi, orbitRef }) {
     camera.position.set(cameraPosition.x, cameraPosition.y, cameraPosition.z);
     camera.near = 0.1;
     camera.far = 80;
-    camera.fov = layout.cameraFov;
+    camera.fov = fittedCameraFov;
     CAMERA_POSE_TARGET.set(cameraTarget.x, cameraTarget.y, cameraTarget.z);
     camera.lookAt(CAMERA_POSE_TARGET);
     camera.updateMatrixWorld();
@@ -269,7 +312,7 @@ function WaterCameraRig({ mode, layout, onCameraRigApi, orbitRef }) {
     cameraTarget.x,
     cameraTarget.y,
     cameraTarget.z,
-    layout?.cameraFov,
+    fittedCameraFov,
   ]);
 
   useEffect(() => {
@@ -327,7 +370,7 @@ function WaterCameraRig({ mode, layout, onCameraRigApi, orbitRef }) {
           y: formatAxis(target.y),
           z: formatAxis(target.z),
         },
-        cameraFov: Math.round(camera.fov),
+        cameraFov: Math.round(cameraFov ?? camera.fov),
       };
     };
 
@@ -336,7 +379,7 @@ function WaterCameraRig({ mode, layout, onCameraRigApi, orbitRef }) {
     return () => {
       onCameraRigApi(null);
     };
-  }, [cameraTarget.x, cameraTarget.y, cameraTarget.z, camera, controlsRef, formatAxis, onCameraRigApi]);
+  }, [cameraFov, cameraTarget.x, cameraTarget.y, cameraTarget.z, camera, controlsRef, formatAxis, onCameraRigApi]);
 
   if (mode !== 'editor') {
     return null;
@@ -366,8 +409,10 @@ function WaterCameraRig({ mode, layout, onCameraRigApi, orbitRef }) {
   );
 }
 
-function useWaterRuntime(settings, qualityProfile) {
+function useWaterRuntime(settings, qualityProfile, mode) {
   const { gl } = useThree();
+  const settingsRef = useRef(settings);
+  settingsRef.current = settings;
   const stateRef = useRef(null);
   const normalTargetRef = useRef(null);
   const pointerStateRef = useRef({
@@ -386,12 +431,14 @@ function useWaterRuntime(settings, qualityProfile) {
     { length: 5 },
     () => ({ height: 0, normal: new THREE.Vector3(0, 1, 0) }),
   ));
-  const effectiveResolution = Math.min(
+  const effectiveResolution = resolveRuntimeSimulationResolution(
     settings.simulationResolution,
+    mode,
     qualityProfile.simulationMaxResolution,
   );
 
   const renderState = useMemo(() => {
+    const runtimeSettings = settingsRef.current;
     const read = createTarget(effectiveResolution, effectiveResolution, {
       type: THREE.FloatType,
       format: THREE.RGBAFormat,
@@ -422,21 +469,21 @@ function useWaterRuntime(settings, qualityProfile) {
       uPointerUv: { value: new THREE.Vector2(0.5, 0.5) },
       uImpulseActive: { value: 0 },
       uImpulseStrength: { value: 0 },
-      uRippleRadius: { value: settings.rippleRadius },
-      uRippleImpulse: { value: settings.rippleImpulse },
-      uDamping: { value: settings.rippleDamping },
+      uRippleRadius: { value: runtimeSettings.rippleRadius },
+      uRippleImpulse: { value: runtimeSettings.rippleImpulse },
+      uDamping: { value: runtimeSettings.rippleDamping },
       uDelta: { value: 1 / 60 },
       uTime: { value: 0 },
-      uAmbientWaveIntensity: { value: settings.ambientWaveIntensity },
-      uAmbientWaveSpeed: { value: settings.ambientWaveSpeed },
-      uWaveLength: { value: settings.waveLength },
+      uAmbientWaveIntensity: { value: runtimeSettings.ambientWaveIntensity },
+      uAmbientWaveSpeed: { value: runtimeSettings.ambientWaveSpeed },
+      uWaveLength: { value: runtimeSettings.waveLength },
     });
     const normalPass = createPass(normalFragmentShader, {
       uState: { value: read.texture },
       uResolution: { value: new THREE.Vector2(effectiveResolution, effectiveResolution) },
-      uNormalStrength: { value: settings.normalStrength },
-      uNormalBlur: { value: settings.normalBlur },
-      uWaveLength: { value: settings.waveLength },
+      uNormalStrength: { value: runtimeSettings.normalStrength },
+      uNormalBlur: { value: runtimeSettings.normalBlur },
+      uWaveLength: { value: runtimeSettings.waveLength },
     });
     const probePass = createPass(probeFragmentShader, {
       uState: { value: read.texture },
@@ -464,17 +511,11 @@ function useWaterRuntime(settings, qualityProfile) {
       normalPass,
       probePass,
     };
-  }, [
-    settings.ambientWaveIntensity,
-    settings.ambientWaveSpeed,
-    effectiveResolution,
-    settings.normalBlur,
-    settings.normalStrength,
-    settings.rippleDamping,
-    settings.rippleImpulse,
-    settings.rippleRadius,
-    settings.waveLength,
-  ]);
+  // GPU render targets and full-screen passes only depend on their resolution.
+  // Artistic settings are refreshed on the existing uniforms in useFrame below.
+  // Recreating these resources for every slider event caused large interaction
+  // stalls and looked like a VRAM leak while dragging controls.
+  }, [effectiveResolution]);
 
   useEffect(() => () => {
     renderState.read.dispose();
@@ -606,6 +647,7 @@ function useWaterRuntime(settings, qualityProfile) {
     normalTargetRef,
     pointerStateRef,
     sampleBoatProbes,
+    effectiveResolution,
   };
 }
 
@@ -625,6 +667,7 @@ function WaterInteractionPlane({ settings, pointerStateRef, sampleBoatProbes, en
     new THREE.Vector3(),
     new THREE.Vector3(),
   ]);
+  const lastPointerMoveTimeRef = useRef(-Infinity);
 
   const resetPointerState = useCallback(() => {
     pointerStateRef.current.hasImpulse = false;
@@ -671,9 +714,10 @@ function WaterInteractionPlane({ settings, pointerStateRef, sampleBoatProbes, en
 
     // Refine the hit against the actual displaced water surface, so the impulse lands
     // under the cursor even at grazing / zoomed camera angles (parallax fix). We read the
-    // wave height under the first guess and re-aim at that height (two cheap iterations).
+    // wave height under the first guess and re-aim at that height. One iteration is
+    // enough for the small displacement used here and halves synchronous GPU reads.
     if (enableSurfaceRefine && typeof sampleBoatProbes === 'function' && settings.waveAmplitude > 0.0001) {
-      for (let iteration = 0; iteration < 2; iteration += 1) {
+      for (let iteration = 0; iteration < 1; iteration += 1) {
         const probePoints = surfaceProbePointsRef.current;
         for (let index = 0; index < probePoints.length; index += 1) {
           probePoints[index].copy(rayHitPointRef.current);
@@ -746,6 +790,12 @@ function WaterInteractionPlane({ settings, pointerStateRef, sampleBoatProbes, en
     }
 
     const handlePointerMove = (event) => {
+      const now = performance.now();
+      if ((now - lastPointerMoveTimeRef.current) < (1000 / 30)) {
+        return;
+      }
+      lastPointerMoveTimeRef.current = now;
+
       const hitPoint = screenPointToHit(event.clientX, event.clientY);
       if (!hitPoint) {
         resetPointerState();
@@ -810,11 +860,18 @@ const reflectionBoatQuaternion = new THREE.Quaternion();
 const reflectionSculpturePosition = new THREE.Vector3();
 const reflectionSculptureQuaternion = new THREE.Quaternion();
 const reflectionPreviousClearColor = new THREE.Color();
+const reflectionCameraUp = new THREE.Vector3();
+const waterWorldNormal = new THREE.Vector3(0, 1, 0);
+const reflectionClipPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+const refractionClipPlane = new THREE.Plane(new THREE.Vector3(0, -1, 0), 0);
+const WATER_CLIP_OVERLAP = 0.015;
 
 function WaterReflections({
   children,
   textureSize = 512,
   enabled = true,
+  reflectionEnabled = true,
+  refractionEnabled = false,
   activeFps = 30,
   idleFps = 12,
 }) {
@@ -827,14 +884,54 @@ function WaterReflections({
     minFilter: THREE.LinearFilter,
     magFilter: THREE.LinearFilter,
   }), [textureSize]);
+  const refractionTarget = useMemo(() => {
+    if (!refractionEnabled) {
+      return null;
+    }
+
+    const target = new THREE.WebGLRenderTarget(textureSize, textureSize, {
+      format: THREE.RGBAFormat,
+      // Underwater lighting contains long, dark gradients. RGBA8 quantized
+      // them before Beer-Lambert absorption and produced coloured bands.
+      type: THREE.HalfFloatType,
+      colorSpace: THREE.LinearSRGBColorSpace,
+      depthBuffer: true,
+      stencilBuffer: false,
+      generateMipmaps: false,
+      minFilter: THREE.LinearFilter,
+      magFilter: THREE.LinearFilter,
+    });
+    target.depthTexture = new THREE.DepthTexture(
+      textureSize,
+      textureSize,
+      THREE.UnsignedIntType,
+    );
+    target.depthTexture.format = THREE.DepthFormat;
+    target.depthTexture.minFilter = THREE.NearestFilter;
+    target.depthTexture.magFilter = THREE.NearestFilter;
+    target.depthTexture.generateMipmaps = false;
+    target.depthTexture.name = 'water-refraction-depth';
+
+    return target;
+  }, [refractionEnabled, textureSize]);
 
   const reflectionCamera = useMemo(() => new THREE.PerspectiveCamera(), []);
-  const reflectionData = useRef({ texture: null, matrix: new THREE.Matrix4() });
+  const reflectionData = useRef({
+    texture: null,
+    refractionTexture: null,
+    refractionDepthTexture: null,
+    cameraNear: camera.near,
+    cameraFar: camera.far,
+    matrix: new THREE.Matrix4(),
+  });
   const sceneObjectsRef = useRef({
     waterSurface: null,
     seabed: null,
+    surfaceVegetation: null,
+    underwaterAlgae: null,
     interactionPlane: null,
     boatAnchor: null,
+    boat: null,
     sculptureAnchor: null,
   });
   const reflectionTimingRef = useRef({
@@ -852,15 +949,34 @@ function WaterReflections({
     reflectionTarget.dispose();
   }, [reflectionTarget]);
 
+  useEffect(() => () => {
+    refractionTarget?.dispose();
+  }, [refractionTarget]);
+
   useEffect(() => {
     if (enabled) {
       return;
     }
 
     reflectionData.current.texture = null;
+    reflectionData.current.refractionTexture = null;
+    reflectionData.current.refractionDepthTexture = null;
     reflectionTimingRef.current.initialized = false;
     reflectionTimingRef.current.lastRenderTime = -Infinity;
   }, [enabled]);
+
+  useEffect(() => {
+    if (!reflectionEnabled) {
+      reflectionData.current.texture = null;
+    }
+    if (!refractionEnabled) {
+      reflectionData.current.refractionTexture = null;
+      reflectionData.current.refractionDepthTexture = null;
+    }
+
+    reflectionTimingRef.current.initialized = false;
+    reflectionTimingRef.current.lastRenderTime = -Infinity;
+  }, [reflectionEnabled, refractionEnabled]);
 
   useFrame(({ clock }) => {
     if (!enabled || !reflectionCamera || !reflectionTarget || !isDocumentCurrentlyVisible()) {
@@ -870,26 +986,38 @@ function WaterReflections({
     const sceneObjects = sceneObjectsRef.current;
     const reflectionTiming = reflectionTimingRef.current;
 
-    if (!sceneObjects.waterSurface) {
+    if (!sceneObjects.waterSurface || !sceneObjects.waterSurface.parent) {
       sceneObjects.waterSurface = scene.getObjectByName('water-surface');
     }
-    if (!sceneObjects.seabed) {
+    if (!sceneObjects.seabed || !sceneObjects.seabed.parent) {
       sceneObjects.seabed = scene.getObjectByName('seabed');
     }
-    if (!sceneObjects.interactionPlane) {
+    if (!sceneObjects.surfaceVegetation || !sceneObjects.surfaceVegetation.parent) {
+      sceneObjects.surfaceVegetation = scene.getObjectByName('surface-vegetation');
+    }
+    if (!sceneObjects.underwaterAlgae || !sceneObjects.underwaterAlgae.parent) {
+      sceneObjects.underwaterAlgae = scene.getObjectByName('underwater-algae');
+    }
+    if (!sceneObjects.interactionPlane || !sceneObjects.interactionPlane.parent) {
       sceneObjects.interactionPlane = scene.getObjectByName('water-interaction-plane');
     }
-    if (!sceneObjects.boatAnchor) {
+    if (!sceneObjects.boatAnchor || !sceneObjects.boatAnchor.parent) {
       sceneObjects.boatAnchor = scene.getObjectByName('boat-anchor');
     }
-    if (!sceneObjects.sculptureAnchor) {
+    if (!sceneObjects.boat || !sceneObjects.boat.parent) {
+      sceneObjects.boat = scene.getObjectByName('boat');
+    }
+    if (!sceneObjects.sculptureAnchor || !sceneObjects.sculptureAnchor.parent) {
       sceneObjects.sculptureAnchor = scene.getObjectByName('sculpture-anchor');
     }
 
     const waterSurface = sceneObjects.waterSurface;
     const seabed = sceneObjects.seabed;
+    const surfaceVegetation = sceneObjects.surfaceVegetation;
+    const underwaterAlgae = sceneObjects.underwaterAlgae;
     const interactionPlane = sceneObjects.interactionPlane;
     const boatAnchor = sceneObjects.boatAnchor;
+    const boat = sceneObjects.boat;
     const sculptureAnchor = sceneObjects.sculptureAnchor;
 
     if (!waterSurface) {
@@ -899,9 +1027,10 @@ function WaterReflections({
     const now = clock.elapsedTime;
     let isMoving = true;
 
-    if (boatAnchor) {
-      boatAnchor.getWorldPosition(reflectionBoatPosition);
-      boatAnchor.getWorldQuaternion(reflectionBoatQuaternion);
+    if (boat || boatAnchor) {
+      const trackedBoat = boat ?? boatAnchor;
+      trackedBoat.getWorldPosition(reflectionBoatPosition);
+      trackedBoat.getWorldQuaternion(reflectionBoatQuaternion);
     }
     if (sculptureAnchor) {
       sculptureAnchor.getWorldPosition(reflectionSculpturePosition);
@@ -911,7 +1040,7 @@ function WaterReflections({
     if (reflectionTiming.initialized) {
       const cameraMoved = camera.position.distanceToSquared(reflectionTiming.cameraPosition) > REFLECTION_CAMERA_POSITION_EPSILON_SQ
         || quaternionDelta(camera.quaternion, reflectionTiming.cameraQuaternion) > REFLECTION_CAMERA_ROTATION_EPSILON;
-      const boatMoved = boatAnchor
+      const boatMoved = (boat || boatAnchor)
         ? (
           reflectionBoatPosition.distanceToSquared(reflectionTiming.boatPosition) > REFLECTION_BOAT_POSITION_EPSILON_SQ
           || quaternionDelta(reflectionBoatQuaternion, reflectionTiming.boatQuaternion) > REFLECTION_BOAT_ROTATION_EPSILON
@@ -936,7 +1065,7 @@ function WaterReflections({
     reflectionTiming.lastRenderTime = now;
     reflectionTiming.cameraPosition.copy(camera.position);
     reflectionTiming.cameraQuaternion.copy(camera.quaternion);
-    if (boatAnchor) {
+    if (boat || boatAnchor) {
       reflectionTiming.boatPosition.copy(reflectionBoatPosition);
       reflectionTiming.boatQuaternion.copy(reflectionBoatQuaternion);
     }
@@ -965,34 +1094,83 @@ function WaterReflections({
     reflectionTargetPosition.y = (mirrorY * 2) - reflectionTargetPosition.y;
 
     reflectionCamera.position.copy(reflectionCameraPosition);
-    reflectionCamera.up.copy(camera.up);
-    reflectionCamera.up.y *= -1;
+    reflectionCameraUp.set(0, 1, 0).applyQuaternion(camera.quaternion).reflect(waterWorldNormal);
+    reflectionCamera.up.copy(reflectionCameraUp);
     reflectionCamera.lookAt(reflectionTargetPosition);
     reflectionCamera.updateMatrixWorld(true);
     reflectionCamera.matrixWorldInverse.copy(reflectionCamera.matrixWorld).invert();
 
-    // 3. Update reflection data for surface
-    reflectionData.current.texture = reflectionTarget.texture;
+    // 3. Update reflection projection for the water surface.
     reflectionData.current.matrix.copy(reflectionCamera.projectionMatrix).multiply(reflectionCamera.matrixWorldInverse);
 
-    // 4. Render
+    // 4. Render scene optics. Refraction uses the real camera and keeps the
+    // seabed visible, so its regular shadow map remains part of the image.
+    const surfaceVegetationWasVisible = surfaceVegetation?.visible ?? false;
+    const underwaterAlgaeWasVisible = underwaterAlgae?.visible ?? false;
+
     if (waterSurface) waterSurface.visible = false;
-    if (seabed) seabed.visible = false;
+    // Surface plants already sit on the mirror plane. Capturing them in either
+    // offscreen target creates a doubled dark fringe around every leaf.
+    if (surfaceVegetation) surfaceVegetation.visible = false;
     if (interactionPlane) interactionPlane.visible = false;
 
     const previousClearAlpha = gl.getClearAlpha();
     gl.getClearColor(reflectionPreviousClearColor);
     gl.setClearColor(DEFAULT_CLEAR_COLOR, 0);
-    gl.setRenderTarget(reflectionTarget);
-    gl.clear(true, true, true);
-    gl.render(scene, reflectionCamera);
-    gl.setRenderTarget(null);
-    gl.setClearColor(reflectionPreviousClearColor, previousClearAlpha);
+    const previousShadowAutoUpdate = gl.shadowMap.autoUpdate;
+    const previousSceneBackground = scene.background;
+    const previousClippingPlanes = gl.clippingPlanes;
+    gl.shadowMap.autoUpdate = false;
 
-    if (waterSurface) waterSurface.visible = true;
-    if (seabed) seabed.visible = true;
-    if (interactionPlane) interactionPlane.visible = true;
-  }, -1);
+    try {
+      if (refractionEnabled && refractionTarget) {
+        // Keep only geometry below the waterline. Rendering the complete boat
+        // and sculpture here created a camera-dependent dark duplicate that
+        // looked like a shadow travelling out of the objects.
+        refractionClipPlane.constant = mirrorY + WATER_CLIP_OVERLAP;
+        gl.clippingPlanes = [refractionClipPlane];
+        gl.setRenderTarget(refractionTarget);
+        gl.clear(true, true, true);
+        gl.render(scene, camera);
+        reflectionData.current.refractionTexture = refractionTarget.texture;
+        reflectionData.current.refractionDepthTexture = refractionTarget.depthTexture;
+        reflectionData.current.cameraNear = camera.near;
+        reflectionData.current.cameraFar = camera.far;
+      }
+
+      if (reflectionEnabled) {
+        // Keep the reflection target transparent outside rendered objects.
+        // The water shader already draws its own sky; capturing the scene
+        // background here creates a dark, low-resolution duplicate of it.
+        scene.background = null;
+        if (seabed) seabed.visible = false;
+        // The custom ribbon shader intentionally stays minimal and does not
+        // compile the global clipping-plane chunks. Hide the submerged layer
+        // explicitly from the mirrored pass; it remains visible in refraction.
+        if (underwaterAlgae) underwaterAlgae.visible = false;
+        // The mirrored pass must only contain the part above the waterline.
+        // Otherwise underwater geometry is mirrored as a second dark object.
+        reflectionClipPlane.constant = -mirrorY + WATER_CLIP_OVERLAP;
+        gl.clippingPlanes = [reflectionClipPlane];
+        gl.setRenderTarget(reflectionTarget);
+        gl.clear(true, true, true);
+        gl.render(scene, reflectionCamera);
+        reflectionData.current.texture = reflectionTarget.texture;
+      }
+    } finally {
+      scene.background = previousSceneBackground;
+      gl.clippingPlanes = previousClippingPlanes;
+      gl.shadowMap.autoUpdate = previousShadowAutoUpdate;
+      restoreDefaultFramebuffer(gl);
+      gl.setClearColor(reflectionPreviousClearColor, previousClearAlpha);
+
+      if (waterSurface) waterSurface.visible = true;
+      if (seabed) seabed.visible = true;
+      if (surfaceVegetation) surfaceVegetation.visible = surfaceVegetationWasVisible;
+      if (underwaterAlgae) underwaterAlgae.visible = underwaterAlgaeWasVisible;
+      if (interactionPlane) interactionPlane.visible = true;
+    }
+  });
 
   return (
     <reflectionContext.Provider value={reflectionData}>
@@ -1001,18 +1179,32 @@ function WaterReflections({
   );
 }
 
-const reflectionContext = React.createContext({ current: { texture: null, matrix: new THREE.Matrix4() } });
+const reflectionContext = React.createContext({
+  current: {
+    texture: null,
+    refractionTexture: null,
+    refractionDepthTexture: null,
+    cameraNear: 0.1,
+    cameraFar: 1000,
+    matrix: new THREE.Matrix4(),
+  },
+});
 
 // Stencil ref written by the boat hull cap; the water surface skips pixels stamped with it.
 const BOAT_CUTOUT_STENCIL_REF = 1;
 
 function WaterLights({ settings, mode, qualityProfile }) {
   const moonDirection = useMemo(() => buildMoonDirection(settings), [settings]);
+  // Legacy drafts often contain very strong unshadowed fill. Cap it so the
+  // directional shadow remains readable without adding more editor controls.
+  const ambientIntensity = Math.min(Math.sqrt(Math.max(settings.ambientIntensity, 0)) * 0.36, 0.32);
+  const hemisphereIntensity = Math.min(Math.sqrt(Math.max(settings.hemisphereIntensity, 0)) * 0.55, 0.68);
   const canRunHighShadowCost = (qualityProfile?.shadowMapSize ?? 0) >= 640;
   const shadowsEnabled = settings.shadowsEnabled !== false
     && settings.debugView === 'beauty'
     && (mode === 'editor' || canRunHighShadowCost);
   const shadowMapSize = qualityProfile?.shadowMapSize ?? (mode === 'editor' ? 1024 : 768);
+  const shadowFrustum = THREE.MathUtils.clamp((settings.waterExtent * Math.SQRT1_2) + 1.25, 10, 24);
   const localHdriFile = SELF_HOSTED_HDRI[settings.hdrPreset];
   const environmentSource = localHdriFile
     ? { files: `${import.meta.env.BASE_URL}${localHdriFile}` }
@@ -1020,9 +1212,9 @@ function WaterLights({ settings, mode, qualityProfile }) {
 
   return (
     <>
-      <ambientLight intensity={settings.ambientIntensity} color={settings.ambientColor} />
+      <ambientLight intensity={ambientIntensity} color={settings.ambientColor} />
       <hemisphereLight
-        intensity={settings.hemisphereIntensity}
+        intensity={hemisphereIntensity}
         color={settings.hemisphereSkyColor}
         groundColor={settings.hemisphereGroundColor}
       />
@@ -1034,18 +1226,20 @@ function WaterLights({ settings, mode, qualityProfile }) {
         shadow-mapSize-width={shadowMapSize}
         shadow-mapSize-height={shadowMapSize}
         shadow-camera-near={1}
-        shadow-camera-far={36}
-        shadow-camera-left={-12}
-        shadow-camera-right={12}
-        shadow-camera-top={12}
-        shadow-camera-bottom={-12}
-        shadow-bias={settings.shadowBias}
-        shadow-normalBias={0.02}
+        shadow-camera-far={52}
+        shadow-camera-left={-shadowFrustum}
+        shadow-camera-right={shadowFrustum}
+        shadow-camera-top={shadowFrustum}
+        shadow-camera-bottom={-shadowFrustum}
+        shadow-bias={-0.0002}
+        shadow-normalBias={0.007}
         shadow-radius={settings.shadowRadius}
+        shadow-intensity={settings.shadowIntensity}
       />
       <Environment
         {...environmentSource}
         background={Boolean(settings.showHdriBackground)}
+        backgroundIntensity={settings.hdrExposure / 100}
         environmentIntensity={settings.hdrExposure / 100}
         environmentRotation={[0, THREE.MathUtils.degToRad(settings.hdrRotation), 0]}
       />
@@ -1053,7 +1247,7 @@ function WaterLights({ settings, mode, qualityProfile }) {
   );
 }
 
-function WaterSurface({ settings, runtime, qualityProfile }) {
+function WaterSurfaceV2({ settings, runtime, qualityProfile }) {
   const materialRef = useRef();
   const reflectionDataRef = React.useContext(reflectionContext);
   const debugView = DEBUG_VIEW_IDS[settings.debugView] ?? 0;
@@ -1066,88 +1260,102 @@ function WaterSurface({ settings, runtime, qualityProfile }) {
     uState: { value: null },
     uNormalMap: { value: null },
     uReflectionTexture: { value: null },
-    uReflectionActive: { value: 0 },
+    uRefractionTexture: { value: null },
+    uRefractionDepthTexture: { value: null },
     uReflectionMatrix: { value: new THREE.Matrix4() },
+    uReflectionActive: { value: 0 },
+    uRefractionActive: { value: 0 },
+    uRefractionDepthActive: { value: 0 },
+    uCameraNear: { value: 0.1 },
+    uCameraFar: { value: 1000 },
     uWaveAmplitude: { value: settings.waveAmplitude },
     uWaveChoppiness: { value: settings.waveChoppiness },
-    uWaveLength: { value: settings.waveLength },
-    uEnvTint: { value: new THREE.Color(settings.envTint) },
+    uWaterTint: { value: new THREE.Color(settings.envTint) },
     uMoonDirection: { value: moonDirection.clone() },
     uMoonColor: { value: new THREE.Color(settings.moonColor) },
+    uMoonIntensity: { value: settings.moonIntensity },
     uMoonSpecularStrength: { value: settings.moonSpecularStrength },
     uMoonSpecularPower: { value: settings.moonSpecularPower },
-    uBoatReflectionIntensity: { value: settings.boatReflectionIntensity },
+    uReflectionIntensity: { value: settings.boatReflectionIntensity },
+    uEnvironmentExposure: { value: settings.hdrExposure / 100 },
+    uEnvironmentReflection: { value: settings.envReflectionIntensity / 100 },
     uWaterDepth: { value: settings.waterDepthMeters },
     uWaterTurbidity: { value: settings.waterTurbidity },
     uDebugView: { value: debugView },
   }), [
     debugView,
     moonDirection,
+    settings.boatReflectionIntensity,
+    settings.envReflectionIntensity,
     settings.envTint,
+    settings.hdrExposure,
     settings.moonColor,
+    settings.moonIntensity,
     settings.moonSpecularPower,
     settings.moonSpecularStrength,
-    settings.boatReflectionIntensity,
     settings.waterDepthMeters,
     settings.waterTurbidity,
     settings.waveAmplitude,
     settings.waveChoppiness,
-    settings.waveLength,
   ]);
 
   useEffect(() => {
     uniforms.uWaveAmplitude.value = settings.waveAmplitude;
     uniforms.uWaveChoppiness.value = settings.waveChoppiness;
-    uniforms.uWaveLength.value = settings.waveLength;
-    uniforms.uEnvTint.value.set(settings.envTint);
+    uniforms.uWaterTint.value.set(settings.envTint);
     uniforms.uMoonDirection.value.copy(moonDirection);
     uniforms.uMoonColor.value.set(settings.moonColor);
+    uniforms.uMoonIntensity.value = settings.moonIntensity;
     uniforms.uMoonSpecularStrength.value = settings.moonSpecularStrength;
     uniforms.uMoonSpecularPower.value = settings.moonSpecularPower;
-    uniforms.uBoatReflectionIntensity.value = settings.boatReflectionIntensity;
+    uniforms.uReflectionIntensity.value = settings.boatReflectionIntensity;
+    uniforms.uEnvironmentExposure.value = settings.hdrExposure / 100;
+    uniforms.uEnvironmentReflection.value = settings.envReflectionIntensity / 100;
     uniforms.uWaterDepth.value = settings.waterDepthMeters;
     uniforms.uWaterTurbidity.value = settings.waterTurbidity;
     uniforms.uDebugView.value = DEBUG_VIEW_IDS[settings.debugView] ?? 0;
-
-    if (materialRef.current) {
-      materialRef.current.envMapIntensity = settings.envReflectionIntensity / 100;
-    }
   }, [
     moonDirection,
+    settings.boatReflectionIntensity,
     settings.debugView,
     settings.envReflectionIntensity,
     settings.envTint,
+    settings.hdrExposure,
     settings.moonColor,
+    settings.moonIntensity,
     settings.moonSpecularPower,
     settings.moonSpecularStrength,
-    settings.boatReflectionIntensity,
     settings.waterDepthMeters,
     settings.waterTurbidity,
     settings.waveAmplitude,
     settings.waveChoppiness,
-    settings.waveLength,
     uniforms,
   ]);
 
   useFrame(() => {
-    if (!materialRef.current) {
-      return;
-    }
-
     uniforms.uState.value = runtime.currentStateTargetRef.current?.texture ?? null;
     uniforms.uNormalMap.value = runtime.normalTargetRef.current?.texture ?? null;
-    const reflectionTexture = reflectionDataRef.current.texture;
-    uniforms.uReflectionActive.value = reflectionTexture ? 1 : 0;
-    uniforms.uReflectionTexture.value = reflectionTexture;
-    uniforms.uReflectionMatrix.value.copy(reflectionDataRef.current.matrix);
-  });
 
-  // Stencil test: skip water pixels stamped by the boat hull cap (the cutout mask).
+    const reflectionTexture = reflectionDataRef.current.texture;
+    const refractionTexture = reflectionDataRef.current.refractionTexture;
+    const refractionDepthTexture = reflectionDataRef.current.refractionDepthTexture;
+    uniforms.uReflectionTexture.value = reflectionTexture;
+    uniforms.uRefractionTexture.value = refractionTexture;
+    uniforms.uRefractionDepthTexture.value = refractionDepthTexture;
+    uniforms.uReflectionActive.value = reflectionTexture ? 1 : 0;
+    uniforms.uRefractionActive.value = refractionTexture ? 1 : 0;
+    uniforms.uRefractionDepthActive.value = refractionDepthTexture ? 1 : 0;
+    uniforms.uCameraNear.value = reflectionDataRef.current.cameraNear;
+    uniforms.uCameraFar.value = reflectionDataRef.current.cameraFar;
+    uniforms.uReflectionMatrix.value.copy(reflectionDataRef.current.matrix);
+  }, -2);
+
   useLayoutEffect(() => {
     const material = materialRef.current;
     if (!material) {
       return;
     }
+
     material.stencilWrite = true;
     material.stencilRef = BOAT_CUTOUT_STENCIL_REF;
     material.stencilFunc = THREE.NotEqualStencilFunc;
@@ -1160,24 +1368,17 @@ function WaterSurface({ settings, runtime, qualityProfile }) {
   return (
     <mesh name="water-surface" rotation={[-Math.PI / 2, 0, 0]} renderOrder={1}>
       <planeGeometry args={[settings.waterExtent, settings.waterExtent, meshDensity, meshDensity]} />
-      <CustomShaderMaterial
+      <shaderMaterial
         ref={materialRef}
-        baseMaterial={THREE.MeshPhysicalMaterial}
-        transparent={settings.debugView === 'beauty'}
-        depthWrite={settings.debugView !== 'beauty'}
-        side={THREE.DoubleSide}
-        color="#0b1119"
-        roughness={0.1}
-        metalness={0.06}
-        clearcoat={1}
-        clearcoatRoughness={0.08}
-        transmission={settings.debugView === 'beauty' ? 0.32 : 0}
-        thickness={1.6}
-        ior={1.333}
-        envMapIntensity={settings.envReflectionIntensity / 100}
-        vertexShader={waterVertexShader}
-        fragmentShader={waterFragmentShader}
+        vertexShader={waterV2VertexShader}
+        fragmentShader={waterV2FragmentShader}
         uniforms={uniforms}
+        transparent={false}
+        depthWrite
+        depthTest
+        side={THREE.DoubleSide}
+        toneMapped
+        dithering
       />
     </mesh>
   );
@@ -1206,6 +1407,7 @@ function Seabed({ settings, runtime }) {
     uStateResolution: { value: new THREE.Vector2(settings.simulationResolution, settings.simulationResolution) },
     uMoonDirection: { value: moonDirection.clone() },
     uMoonColor: { value: new THREE.Color(settings.moonColor) },
+    uMoonIntensity: { value: settings.moonIntensity },
     uTime: { value: 0 },
     uWaterDepth: { value: settings.waterDepthMeters },
     uCausticsIntensity: { value: settings.causticsIntensity },
@@ -1218,6 +1420,7 @@ function Seabed({ settings, runtime }) {
     uSeabedSaturation: { value: settings.seabedSaturation },
     uSeabedBrightness: { value: settings.seabedBrightness },
     uWaterTurbidity: { value: settings.waterTurbidity },
+    uWaterEngine: { value: 1 },
     uDebugView: { value: debugView },
   }), [
     debugView,
@@ -1226,6 +1429,7 @@ function Seabed({ settings, runtime }) {
     settings.causticsScale,
     settings.causticsSharpness,
     settings.moonColor,
+    settings.moonIntensity,
     settings.seabedReliefScale,
     settings.seabedReliefStrength,
     settings.seabedSaturation,
@@ -1239,6 +1443,7 @@ function Seabed({ settings, runtime }) {
   useEffect(() => {
     uniforms.uMoonDirection.value.copy(moonDirection);
     uniforms.uMoonColor.value.set(settings.moonColor);
+    uniforms.uMoonIntensity.value = settings.moonIntensity;
     uniforms.uWaterDepth.value = settings.waterDepthMeters;
     uniforms.uCausticsIntensity.value = settings.causticsIntensity;
     uniforms.uCausticsScale.value = settings.causticsScale;
@@ -1250,6 +1455,7 @@ function Seabed({ settings, runtime }) {
     uniforms.uSeabedSaturation.value = settings.seabedSaturation;
     uniforms.uSeabedBrightness.value = settings.seabedBrightness;
     uniforms.uWaterTurbidity.value = settings.waterTurbidity;
+    uniforms.uWaterEngine.value = 1;
     uniforms.uDebugView.value = DEBUG_VIEW_IDS[settings.debugView] ?? 0;
   }, [
     debugView,
@@ -1259,6 +1465,7 @@ function Seabed({ settings, runtime }) {
     settings.causticsSharpness,
     settings.debugView,
     settings.moonColor,
+    settings.moonIntensity,
     settings.seabedBrightness,
     settings.seabedReliefScale,
     settings.seabedReliefStrength,
@@ -1277,7 +1484,7 @@ function Seabed({ settings, runtime }) {
       runtime.currentStateTargetRef.current?.width ?? settings.simulationResolution,
       runtime.currentStateTargetRef.current?.height ?? settings.simulationResolution,
     );
-  });
+  }, -2);
 
   return (
     <mesh
@@ -1302,6 +1509,345 @@ function Seabed({ settings, runtime }) {
   );
 }
 
+function createDeterministicRandom(seed) {
+  let state = seed >>> 0;
+
+  return () => {
+    state += 0x6d2b79f5;
+    let value = state;
+    value = Math.imul(value ^ (value >>> 15), value | 1);
+    value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
+    return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function randomPointInDisk(random, radius = 1) {
+  const angle = random() * Math.PI * 2;
+  const distance = Math.sqrt(random()) * radius;
+
+  return {
+    x: Math.cos(angle) * distance,
+    y: Math.sin(angle) * distance,
+  };
+}
+
+function createSurfaceVegetationGeometry(maxInstances) {
+  const random = createDeterministicRandom(0x5ea1f00d);
+  const baseGeometry = new THREE.PlaneGeometry(1, 1, 1, 1);
+  const geometry = new THREE.InstancedBufferGeometry();
+  const scatter = new Float32Array(maxInstances * 2);
+  const clustered = new Float32Array(maxInstances * 2);
+  const scales = new Float32Array(maxInstances);
+  const rotations = new Float32Array(maxInstances);
+  const types = new Float32Array(maxInstances);
+  const tones = new Float32Array(maxInstances);
+  const phases = new Float32Array(maxInstances);
+  const clusterCenters = Array.from({ length: 11 }, () => randomPointInDisk(random, 0.76));
+
+  geometry.index = baseGeometry.index;
+  geometry.setAttribute('position', baseGeometry.getAttribute('position'));
+  geometry.setAttribute('uv', baseGeometry.getAttribute('uv'));
+
+  for (let index = 0; index < maxInstances; index += 1) {
+    const point = randomPointInDisk(random, 0.96);
+    const center = clusterCenters[Math.floor(random() * clusterCenters.length)];
+    const local = randomPointInDisk(random, 0.08 + random() * 0.2);
+    const targetX = center.x + local.x;
+    const targetY = center.y + local.y;
+    const targetLength = Math.hypot(targetX, targetY);
+    const targetScale = targetLength > 0.96 ? 0.96 / targetLength : 1;
+
+    scatter[index * 2] = point.x;
+    scatter[index * 2 + 1] = point.y;
+    clustered[index * 2] = targetX * targetScale;
+    clustered[index * 2 + 1] = targetY * targetScale;
+    scales[index] = random();
+    rotations[index] = random() * Math.PI * 2;
+    types[index] = random();
+    tones[index] = random();
+    phases[index] = random() * Math.PI * 2;
+  }
+
+  geometry.setAttribute('aScatter', new THREE.InstancedBufferAttribute(scatter, 2));
+  geometry.setAttribute('aCluster', new THREE.InstancedBufferAttribute(clustered, 2));
+  geometry.setAttribute('aScale', new THREE.InstancedBufferAttribute(scales, 1));
+  geometry.setAttribute('aRotation', new THREE.InstancedBufferAttribute(rotations, 1));
+  geometry.setAttribute('aType', new THREE.InstancedBufferAttribute(types, 1));
+  geometry.setAttribute('aTone', new THREE.InstancedBufferAttribute(tones, 1));
+  geometry.setAttribute('aPhase', new THREE.InstancedBufferAttribute(phases, 1));
+  geometry.instanceCount = maxInstances;
+
+  return geometry;
+}
+
+function createUnderwaterAlgaeGeometry(maxInstances, segments = 8) {
+  const random = createDeterministicRandom(0xa19ae5e1);
+  const geometry = new THREE.InstancedBufferGeometry();
+  const positions = [];
+  const uvs = [];
+  const ribbonPlanes = [];
+
+  const pushVertex = (x, y, plane) => {
+    positions.push(x, y, 0);
+    uvs.push(x + 0.5, y);
+    ribbonPlanes.push(plane);
+  };
+
+  for (let plane = 0; plane < 2; plane += 1) {
+    for (let segment = 0; segment < segments; segment += 1) {
+      const lower = segment / segments;
+      const upper = (segment + 1) / segments;
+
+      pushVertex(-0.5, lower, plane);
+      pushVertex(0.5, lower, plane);
+      pushVertex(0.5, upper, plane);
+      pushVertex(-0.5, lower, plane);
+      pushVertex(0.5, upper, plane);
+      pushVertex(-0.5, upper, plane);
+    }
+  }
+
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+  geometry.setAttribute('aRibbonPlane', new THREE.Float32BufferAttribute(ribbonPlanes, 1));
+
+  const scatter = new Float32Array(maxInstances * 2);
+  const heights = new Float32Array(maxInstances);
+  const widths = new Float32Array(maxInstances);
+  const yaws = new Float32Array(maxInstances);
+  const phases = new Float32Array(maxInstances);
+  const tones = new Float32Array(maxInstances);
+  const patchCenters = Array.from({ length: 7 }, () => randomPointInDisk(random, 0.72));
+
+  for (let index = 0; index < maxInstances; index += 1) {
+    const patch = patchCenters[Math.floor(random() * patchCenters.length)];
+    const local = randomPointInDisk(random, 0.08 + random() * 0.25);
+    const freePoint = randomPointInDisk(random, 0.94);
+    const patchMix = 0.68 + random() * 0.24;
+    const x = THREE.MathUtils.lerp(freePoint.x, patch.x + local.x, patchMix);
+    const y = THREE.MathUtils.lerp(freePoint.y, patch.y + local.y, patchMix);
+    const length = Math.hypot(x, y);
+    const fit = length > 0.96 ? 0.96 / length : 1;
+
+    scatter[index * 2] = x * fit;
+    scatter[index * 2 + 1] = y * fit;
+    heights[index] = random();
+    widths[index] = 0.58 + random() * 1.16;
+    yaws[index] = random() * Math.PI * 2;
+    phases[index] = random() * Math.PI * 2;
+    tones[index] = random();
+  }
+
+  geometry.setAttribute('aScatter', new THREE.InstancedBufferAttribute(scatter, 2));
+  geometry.setAttribute('aHeight', new THREE.InstancedBufferAttribute(heights, 1));
+  geometry.setAttribute('aWidth', new THREE.InstancedBufferAttribute(widths, 1));
+  geometry.setAttribute('aYaw', new THREE.InstancedBufferAttribute(yaws, 1));
+  geometry.setAttribute('aPhase', new THREE.InstancedBufferAttribute(phases, 1));
+  geometry.setAttribute('aTone', new THREE.InstancedBufferAttribute(tones, 1));
+  geometry.instanceCount = maxInstances;
+
+  return geometry;
+}
+
+function SurfaceVegetation({ settings, runtime, qualityProfile }) {
+  const materialRef = useRef();
+  const reflectionDataRef = React.useContext(reflectionContext);
+  const maxInstances = qualityProfile?.surfacePlantMaxInstances ?? 560;
+  const geometry = useMemo(
+    () => createSurfaceVegetationGeometry(maxInstances),
+    [maxInstances],
+  );
+  const moonDirection = useMemo(() => buildMoonDirection({
+    moonAzimuth: settings.moonAzimuth,
+    moonElevation: settings.moonElevation,
+  }), [settings.moonAzimuth, settings.moonElevation]);
+  const uniforms = useMemo(() => ({
+    uState: { value: null },
+    uNormalMap: { value: null },
+    uCenter: { value: new THREE.Vector2() },
+    uRadius: { value: 1 },
+    uClustering: { value: 0 },
+    uSize: { value: 0.18 },
+    uWaterExtent: { value: 24 },
+    uWaveAmplitude: { value: 0.05 },
+    uWaveChoppiness: { value: 0.18 },
+    uTime: { value: 0 },
+    uReflectionTexture: { value: null },
+    uReflectionActive: { value: 0 },
+    uReflectionMatrix: { value: new THREE.Matrix4() },
+    uColor: { value: new THREE.Color('#7f9d42') },
+    uSaturation: { value: 1 },
+    uSubsurfaceStrength: { value: 0.62 },
+    uReflectionStrength: { value: 0.72 },
+    uEnvironmentExposure: { value: 1 },
+    uEnvironmentReflection: { value: 1 },
+    uMoonDirection: { value: new THREE.Vector3(0, 1, 0) },
+    uMoonColor: { value: new THREE.Color('#d9e4ff') },
+    uMoonIntensity: { value: 1 },
+  }), []);
+
+  useEffect(() => () => geometry.dispose(), [geometry]);
+
+  useLayoutEffect(() => {
+    geometry.instanceCount = Math.round(
+      THREE.MathUtils.clamp(settings.surfacePlantAmount, 0, 1) * maxInstances,
+    );
+  }, [geometry, maxInstances, settings.surfacePlantAmount]);
+
+  useEffect(() => {
+    uniforms.uCenter.value.set(settings.surfacePlantCenterX, settings.surfacePlantCenterZ);
+    uniforms.uRadius.value = settings.surfacePlantRadius;
+    uniforms.uClustering.value = settings.surfacePlantClustering;
+    uniforms.uSize.value = settings.surfacePlantSize;
+    uniforms.uWaterExtent.value = settings.waterExtent;
+    uniforms.uWaveAmplitude.value = settings.waveAmplitude;
+    uniforms.uWaveChoppiness.value = settings.waveChoppiness;
+    uniforms.uColor.value.set(settings.surfacePlantColor);
+    uniforms.uSaturation.value = settings.surfacePlantSaturation;
+    uniforms.uSubsurfaceStrength.value = settings.surfacePlantTranslucency;
+    uniforms.uReflectionStrength.value = settings.surfacePlantReflection;
+    uniforms.uEnvironmentExposure.value = settings.hdrExposure / 100;
+    uniforms.uEnvironmentReflection.value = settings.envReflectionIntensity / 100;
+    uniforms.uMoonDirection.value.copy(moonDirection);
+    uniforms.uMoonColor.value.set(settings.moonColor);
+    uniforms.uMoonIntensity.value = settings.moonIntensity;
+  }, [moonDirection, settings, uniforms]);
+
+  useFrame(({ clock }) => {
+    uniforms.uState.value = runtime.currentStateTargetRef.current?.texture ?? null;
+    uniforms.uNormalMap.value = runtime.normalTargetRef.current?.texture ?? null;
+    uniforms.uTime.value = clock.elapsedTime;
+    const reflectionTexture = reflectionDataRef.current.texture;
+    uniforms.uReflectionTexture.value = reflectionTexture;
+    uniforms.uReflectionActive.value = reflectionTexture ? 1 : 0;
+    uniforms.uReflectionMatrix.value.copy(reflectionDataRef.current.matrix);
+  }, -2);
+
+  useLayoutEffect(() => {
+    const material = materialRef.current;
+    if (!material) {
+      return;
+    }
+
+    material.stencilWrite = true;
+    material.stencilRef = BOAT_CUTOUT_STENCIL_REF;
+    material.stencilFunc = THREE.NotEqualStencilFunc;
+    material.stencilFail = THREE.KeepStencilOp;
+    material.stencilZFail = THREE.KeepStencilOp;
+    material.stencilZPass = THREE.KeepStencilOp;
+    material.needsUpdate = true;
+  }, [settings.debugView]);
+
+  if (settings.debugView !== 'beauty') {
+    return null;
+  }
+
+  return (
+    <mesh
+      name="surface-vegetation"
+      geometry={geometry}
+      renderOrder={2}
+      frustumCulled={false}
+    >
+      <shaderMaterial
+        ref={materialRef}
+        vertexShader={surfaceVegetationVertexShader}
+        fragmentShader={surfaceVegetationFragmentShader}
+        uniforms={uniforms}
+        transparent={false}
+        depthWrite
+        depthTest
+        side={THREE.DoubleSide}
+        toneMapped
+        dithering
+        alphaToCoverage
+      />
+    </mesh>
+  );
+}
+
+function UnderwaterAlgae({ settings, qualityProfile }) {
+  const maxInstances = qualityProfile?.underwaterAlgaeMaxInstances ?? 240;
+  const geometry = useMemo(
+    () => createUnderwaterAlgaeGeometry(maxInstances),
+    [maxInstances],
+  );
+  const moonDirection = useMemo(() => buildMoonDirection({
+    moonAzimuth: settings.moonAzimuth,
+    moonElevation: settings.moonElevation,
+  }), [settings.moonAzimuth, settings.moonElevation]);
+  const uniforms = useMemo(() => ({
+    uCenter: { value: new THREE.Vector2() },
+    uRadius: { value: 1 },
+    uLength: { value: 1 },
+    uSway: { value: 0.5 },
+    uWaterDepth: { value: 5 },
+    uWaterExtent: { value: 24 },
+    uReliefStrength: { value: 0.4 },
+    uReliefScale: { value: 1.8 },
+    uTime: { value: 0 },
+    uColor: { value: new THREE.Color('#365d2d') },
+    uSaturation: { value: 1 },
+    uMoonDirection: { value: new THREE.Vector3(0, 1, 0) },
+    uMoonColor: { value: new THREE.Color('#d9e4ff') },
+    uMoonIntensity: { value: 1 },
+  }), []);
+
+  useEffect(() => () => geometry.dispose(), [geometry]);
+
+  useLayoutEffect(() => {
+    geometry.instanceCount = Math.round(
+      THREE.MathUtils.clamp(settings.underwaterAlgaeAmount, 0, 1) * maxInstances,
+    );
+  }, [geometry, maxInstances, settings.underwaterAlgaeAmount]);
+
+  useEffect(() => {
+    uniforms.uCenter.value.set(settings.underwaterAlgaeCenterX, settings.underwaterAlgaeCenterZ);
+    uniforms.uRadius.value = settings.underwaterAlgaeRadius;
+    uniforms.uLength.value = settings.underwaterAlgaeLength;
+    uniforms.uSway.value = settings.underwaterAlgaeSway;
+    uniforms.uWaterDepth.value = settings.waterDepthMeters;
+    uniforms.uWaterExtent.value = settings.waterExtent;
+    uniforms.uReliefStrength.value = settings.seabedReliefStrength;
+    uniforms.uReliefScale.value = settings.seabedReliefScale;
+    uniforms.uColor.value.set(settings.underwaterAlgaeColor);
+    uniforms.uSaturation.value = settings.underwaterAlgaeSaturation;
+    uniforms.uMoonDirection.value.copy(moonDirection);
+    uniforms.uMoonColor.value.set(settings.moonColor);
+    uniforms.uMoonIntensity.value = settings.moonIntensity;
+  }, [moonDirection, settings, uniforms]);
+
+  useFrame(({ clock }) => {
+    uniforms.uTime.value = clock.elapsedTime;
+  }, -2);
+
+  if (settings.debugView !== 'beauty' || maxInstances <= 0) {
+    return null;
+  }
+
+  return (
+    <mesh
+      name="underwater-algae"
+      geometry={geometry}
+      renderOrder={0}
+      frustumCulled={false}
+    >
+      <shaderMaterial
+        vertexShader={underwaterAlgaeVertexShader}
+        fragmentShader={underwaterAlgaeFragmentShader}
+        uniforms={uniforms}
+        transparent={false}
+        depthWrite
+        depthTest
+        side={THREE.DoubleSide}
+        toneMapped
+        dithering
+        alphaToCoverage
+      />
+    </mesh>
+  );
+}
+
 function FloatingBoat({ settings, layout, runtime, mode, orbitRef, onBoatPositionChange, probeInterval = BOAT_PROBE_INTERVAL }) {
   const anchorRef = useRef();
   const boatRef = useRef();
@@ -1321,6 +1867,8 @@ function FloatingBoat({ settings, layout, runtime, mode, orbitRef, onBoatPositio
   const cursorToBoatRef = useRef(new THREE.Vector2());
   const probeAccumulatorRef = useRef(0);
   const lastProbesRef = useRef(null);
+  const boatProbeOffsetsRef = useRef(BOAT_PROBE_OFFSETS.map((offset) => offset.clone()));
+  const boatProbeSpansRef = useRef({ longitudinal: 1.9, lateral: 0.84 });
   const probeWorldPointsRef = useRef(BOAT_PROBE_OFFSETS.map(() => new THREE.Vector3()));
   const commitBoatPosition = useCallback((position) => {
     if (typeof onBoatPositionChange !== 'function' || !position) {
@@ -1356,7 +1904,7 @@ function FloatingBoat({ settings, layout, runtime, mode, orbitRef, onBoatPositio
 
   const { woodMaterial, metalMaterial } = useMemo(() => {
     const [baseColorMap, roughnessMap, bumpMap] = boatTextures;
-    const envReflection = THREE.MathUtils.clamp(settings.envReflectionIntensity / 260, 0.08, 0.48);
+    const envReflection = THREE.MathUtils.clamp(settings.envReflectionIntensity / 260, 0, 0.48);
 
     baseColorMap.colorSpace = THREE.SRGBColorSpace;
     [baseColorMap, roughnessMap, bumpMap].forEach((texture) => {
@@ -1479,9 +2027,10 @@ function FloatingBoat({ settings, layout, runtime, mode, orbitRef, onBoatPositio
     const boatHeightOffset = settings.boatHeightOffset ?? 0;
     const boatYawRadians = THREE.MathUtils.degToRad(settings.boatYaw ?? 18);
     boatMatrixRef.current.makeRotationY(boatYawRadians);
-    for (let index = 0; index < BOAT_PROBE_OFFSETS.length; index += 1) {
+    const boatProbeOffsets = boatProbeOffsetsRef.current;
+    for (let index = 0; index < boatProbeOffsets.length; index += 1) {
       probeWorldPointsRef.current[index]
-        .copy(BOAT_PROBE_OFFSETS[index])
+        .copy(boatProbeOffsets[index])
         .applyMatrix4(boatMatrixRef.current)
         .add(boatAnchor);
     }
@@ -1511,7 +2060,9 @@ function FloatingBoat({ settings, layout, runtime, mode, orbitRef, onBoatPositio
       return;
     }
 
-    const buoyancyGain = Math.max(settings.waveAmplitude * 3.8, 0.12);
+    // Use the same height scale as the visible water. The old 3.8x multiplier
+    // made the hull move ahead of the surface and read as delayed animation.
+    const buoyancyGain = settings.waveAmplitude * 1.15;
     const centerHeight = probes[0].height * buoyancyGain;
     const bowHeight = probes[1].height * buoyancyGain;
     const sternHeight = probes[2].height * buoyancyGain;
@@ -1528,12 +2079,14 @@ function FloatingBoat({ settings, layout, runtime, mode, orbitRef, onBoatPositio
 
     let targetY = centerHeight + BOAT_NEUTRAL_Y + boatHeightOffset;
     let targetPitch = clamp(
-      (Math.atan2(sternHeight - bowHeight, 1.9) * 0.7) + (normalPitch * 0.55),
+      (Math.atan2(sternHeight - bowHeight, boatProbeSpansRef.current.longitudinal) * 0.7)
+        + (normalPitch * 0.55),
       -0.28,
       0.28,
     );
     let targetRoll = clamp(
-      (Math.atan2(rightHeight - leftHeight, 0.84) * 0.7) + (normalRoll * 0.55),
+      (Math.atan2(rightHeight - leftHeight, boatProbeSpansRef.current.lateral) * 0.7)
+        + (normalRoll * 0.55),
       -0.34,
       0.34,
     );
@@ -1575,7 +2128,7 @@ function FloatingBoat({ settings, layout, runtime, mode, orbitRef, onBoatPositio
     boatRef.current.rotation.y = boatYawRadians;
     boatRef.current.rotation.x = THREE.MathUtils.damp(boatRef.current.rotation.x, targetPitch, 4.5, delta);
     boatRef.current.rotation.z = THREE.MathUtils.damp(boatRef.current.rotation.z, targetRoll, 4.5, delta);
-  });
+  }, -5);
 
   const obj = useLoader(OBJLoader, '/models/boat/OBJ_boat2.0.obj');
 
@@ -1631,6 +2184,36 @@ function FloatingBoat({ settings, layout, runtime, mode, orbitRef, onBoatPositio
     return { center: best.center.clone(), size: best.size.clone() };
   }, [clonedObj]);
 
+  useLayoutEffect(() => {
+    const offsets = boatProbeOffsetsRef.current;
+    const centerX = hullFootprint.center.x;
+    const centerZ = hullFootprint.center.z;
+    const halfLength = Math.max(hullFootprint.size.z * 0.36, 0.65);
+    const halfWidth = Math.max(hullFootprint.size.x * 0.32, 0.26);
+
+    offsets[0].set(centerX, 0, centerZ);
+    offsets[1].set(centerX, 0, centerZ + halfLength);
+    offsets[2].set(centerX, 0, centerZ - halfLength);
+    offsets[3].set(centerX - halfWidth, 0, centerZ);
+    offsets[4].set(centerX + halfWidth, 0, centerZ);
+    boatProbeSpansRef.current.longitudinal = halfLength * 2;
+    boatProbeSpansRef.current.lateral = halfWidth * 2;
+  }, [hullFootprint]);
+
+  const cutoutShape = useMemo(() => {
+    const shape = new THREE.Shape();
+
+    // Normalized waterline footprint: widest through the cockpit and tapered
+    // quickly at both ends. This avoids the dry halo produced by an ellipse.
+    shape.moveTo(0, 0.5);
+    shape.bezierCurveTo(0.16, 0.44, 0.46, 0.18, 0.5, -0.06);
+    shape.bezierCurveTo(0.47, -0.3, 0.23, -0.47, 0, -0.5);
+    shape.bezierCurveTo(-0.23, -0.47, -0.47, -0.3, -0.5, -0.06);
+    shape.bezierCurveTo(-0.46, 0.18, -0.16, 0.44, 0, 0.5);
+
+    return shape;
+  }, []);
+
   if (settings.debugView !== 'beauty') {
     return null;
   }
@@ -1639,6 +2222,7 @@ function FloatingBoat({ settings, layout, runtime, mode, orbitRef, onBoatPositio
   const cutoutDebug = Boolean(settings.boatCutoutDebug);
   const capScaleX = Math.max(hullFootprint.size.x * settings.boatCutoutFitWidth, 0.01);
   const capScaleZ = Math.max(hullFootprint.size.z * settings.boatCutoutFitLength, 0.01);
+  const cutoutYawRadians = THREE.MathUtils.degToRad(settings.boatYaw ?? 18);
 
   return (
     <>
@@ -1651,20 +2235,23 @@ function FloatingBoat({ settings, layout, runtime, mode, orbitRef, onBoatPositio
         onPointerCancel={finishBoatDrag}
         onLostPointerCapture={finishBoatDrag}
       >
-        <group ref={boatRef} name="boat">
-          <primitive object={clonedObj} />
-          {/* Hull cap: stamps the stencil buffer so the water surface skips the boat's
-              footprint. Parented to the boat, so it follows pitch/roll/heave exactly.
-              Debug mode paints it magenta on top instead of masking. */}
+        {/* Keep the stencil at the actual water plane and rotate only around Y.
+            Pitch/roll/heave belong to the hull; applying them to the flat mask
+            made the dry area drift across the cockpit as the boat moved. */}
+        <group
+          name="boat-cutout"
+          position={[0, 0.012, 0]}
+          rotation={[0, cutoutYawRadians, 0]}
+        >
           <mesh
             name="boat-cutout-cap"
             visible={cutoutActive}
-            position={[hullFootprint.center.x, hullFootprint.center.y, hullFootprint.center.z]}
+            position={[hullFootprint.center.x, 0, hullFootprint.center.z]}
             rotation={[-Math.PI / 2, 0, 0]}
             scale={[capScaleX, capScaleZ, 1]}
-            renderOrder={cutoutDebug ? 30 : 2}
+            renderOrder={cutoutDebug ? 30 : -1}
           >
-            <circleGeometry args={[0.5, 64]} />
+            <shapeGeometry args={[cutoutShape, 24]} />
             <meshBasicMaterial
               color={cutoutDebug ? '#ff00ff' : '#ffffff'}
               side={THREE.DoubleSide}
@@ -1680,6 +2267,9 @@ function FloatingBoat({ settings, layout, runtime, mode, orbitRef, onBoatPositio
               stencilZPass={THREE.ReplaceStencilOp}
             />
           </mesh>
+        </group>
+        <group ref={boatRef} name="boat">
+          <primitive object={clonedObj} />
         </group>
       </group>
     </>
@@ -1731,7 +2321,7 @@ function StaticSculpture({ settings, layout, mode, orbitRef, onSculpturePosition
     roughness: settings.sculptureRoughness,
     clearcoat: settings.sculptureClearcoat,
     clearcoatRoughness: settings.sculptureClearcoatRoughness,
-    envMapIntensity: THREE.MathUtils.clamp(settings.envReflectionIntensity / 220, 0.08, 0.6),
+    envMapIntensity: THREE.MathUtils.clamp(settings.envReflectionIntensity / 220, 0, 0.6),
     transmission: 0,
     transparent: false,
     opacity: 1,
@@ -1895,6 +2485,13 @@ function SceneReadyBeacon({ onSceneReady }) {
   const { active } = useProgress();
   const didNotifyRef = useRef(false);
   const stableFramesRef = useRef(0);
+  const notifyTimerRef = useRef(null);
+
+  useEffect(() => () => {
+    if (notifyTimerRef.current !== null) {
+      window.clearTimeout(notifyTimerRef.current);
+    }
+  }, []);
 
   useFrame(() => {
     if (typeof onSceneReady !== 'function' || didNotifyRef.current) {
@@ -1912,7 +2509,10 @@ function SceneReadyBeacon({ onSceneReady }) {
     }
 
     didNotifyRef.current = true;
-    onSceneReady();
+    // Do not update the surrounding React page while drei's Environment is
+    // completing its own render. Deferring one task avoids the React warning
+    // and keeps scene initialization deterministic.
+    notifyTimerRef.current = window.setTimeout(onSceneReady, 0);
   });
 
   return null;
@@ -1927,27 +2527,43 @@ function WaterRuntimeScene({
   onSculpturePositionChange,
   onSceneReady,
 }) {
-  const { size } = useThree();
+  const { gl, size } = useThree();
   const qualityProfile = useMemo(
     () => buildRuntimeQualityProfile(mode, size.width),
     [mode, size.width],
   );
-  const runtime = useWaterRuntime(settings, qualityProfile);
+  const runtime = useWaterRuntime(settings, qualityProfile, mode);
   const orbitRef = useRef();
   const showDebugHelpers = mode === 'editor' && settings.debugView !== 'beauty';
   const reflectionsEnabled = settings.debugView === 'beauty'
     && settings.boatReflectionIntensity > 0.01
     && !qualityProfile.isLowPower;
-  // Pick the composition bucket: editor forces the one being edited; the public site
-  // derives it from the window orientation + the physical monitor aspect (chrome-independent).
+  const refractionEnabled = settings.debugView === 'beauty'
+    && !qualityProfile.isLowPower;
+  const opticsEnabled = reflectionsEnabled || refractionEnabled;
+  // Editor forces the authored frame. Public layout follows the outer browser
+  // orientation, while camera fitting uses the actual render band between the
+  // cinematic bars.
   const hasWindow = typeof window !== 'undefined';
-  const viewportWidth = hasWindow ? window.innerWidth : size.width;
-  const viewportHeight = hasWindow ? window.innerHeight : size.height;
-  const screenWidth = hasWindow && window.screen ? window.screen.width : viewportWidth;
-  const screenHeight = hasWindow && window.screen ? window.screen.height : viewportHeight;
   const activeLayoutKey = layoutOverride
-    ?? resolveLayoutKey(viewportWidth, viewportHeight, screenWidth, screenHeight);
+    ?? resolveLayoutKey(
+      hasWindow ? window.innerWidth : size.width,
+      hasWindow ? window.innerHeight : size.height,
+    );
   const activeLayout = resolveLayout(settings.layouts, activeLayoutKey);
+
+  useEffect(() => {
+    const { dataset } = gl.domElement;
+    dataset.ddgWaterEngine = 'v2';
+    dataset.ddgSimulationRequested = String(settings.simulationResolution);
+    dataset.ddgSimulationEffective = String(runtime.effectiveResolution);
+
+    return () => {
+      delete dataset.ddgWaterEngine;
+      delete dataset.ddgSimulationRequested;
+      delete dataset.ddgSimulationEffective;
+    };
+  }, [gl, runtime.effectiveResolution, settings.simulationResolution]);
 
   return (
     <>
@@ -1955,18 +2571,25 @@ function WaterRuntimeScene({
       <WaterCameraRig
         mode={mode}
         layout={activeLayout}
+        layoutKey={activeLayoutKey}
         onCameraRigApi={onCameraRigApi}
         orbitRef={orbitRef}
       />
       <WaterReflections
-        enabled={reflectionsEnabled}
+        enabled={opticsEnabled}
+        reflectionEnabled={reflectionsEnabled}
+        refractionEnabled={refractionEnabled}
         textureSize={qualityProfile.reflectionTextureSize}
         activeFps={qualityProfile.reflectionActiveFps}
         idleFps={qualityProfile.reflectionIdleFps}
       >
         <WaterLights settings={settings} mode={mode} qualityProfile={qualityProfile} />
         <Seabed settings={settings} runtime={runtime} />
-        <WaterSurface settings={settings} runtime={runtime} qualityProfile={qualityProfile} />
+        {refractionEnabled ? (
+          <UnderwaterAlgae settings={settings} qualityProfile={qualityProfile} />
+        ) : null}
+        <WaterSurfaceV2 settings={settings} runtime={runtime} qualityProfile={qualityProfile} />
+        <SurfaceVegetation settings={settings} runtime={runtime} qualityProfile={qualityProfile} />
         <FloatingBoat
           settings={settings}
           layout={activeLayout}
@@ -1987,7 +2610,7 @@ function WaterRuntimeScene({
           settings={settings}
           pointerStateRef={runtime.pointerStateRef}
           sampleBoatProbes={runtime.sampleBoatProbes}
-          enableSurfaceRefine={!qualityProfile.isLowPower}
+          enableSurfaceRefine={mode !== 'editor' && !qualityProfile.isLowPower}
         />
       </WaterReflections>
       <SceneReadyBeacon onSceneReady={onSceneReady} />

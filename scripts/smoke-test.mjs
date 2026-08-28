@@ -14,6 +14,11 @@ const baseUrl = process.env.SMOKE_BASE_URL ?? `http://${host}:${port}`;
 const useExistingServer = process.env.SMOKE_USE_EXISTING_SERVER === '1';
 const smokeMaxRuntimeMs = Number(process.env.SMOKE_MAX_RUNTIME_MS ?? '900000');
 const shouldAutoCleanupProcesses = process.env.SMOKE_SKIP_PROCESS_CLEANUP !== '1';
+const smokeBrowserArgs = ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'];
+const windowsBrowserCandidates = [
+  'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+  'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
+];
 
 const HOME_SCENE_SETTINGS_STORAGE_KEY = 'ddg_home_scene_settings_v1';
 const LEGACY_HOME_SCENE_KEYS = ['ddg_snake_settings_v4', 'ddg_snake_settings_v3'];
@@ -77,6 +82,41 @@ function collectPageIssues(page, issues) {
       issues.push(`request failed: ${request.method()} ${request.url()} (${errorText})`);
     }
   });
+}
+
+async function launchSmokeBrowser() {
+  const launchOptions = {
+    headless: true,
+    args: smokeBrowserArgs,
+  };
+  const configuredExecutable = process.env.SMOKE_BROWSER_EXECUTABLE;
+
+  if (configuredExecutable) {
+    return chromium.launch({ ...launchOptions, executablePath: configuredExecutable });
+  }
+
+  try {
+    return await chromium.launch(launchOptions);
+  } catch (error) {
+    const message = String(error?.message ?? '');
+    const isMissingBundledBrowser = message.includes("Executable doesn't exist")
+      || message.includes('browser is missing');
+    if (process.platform !== 'win32' || !isMissingBundledBrowser) {
+      throw error;
+    }
+
+    for (const executablePath of windowsBrowserCandidates) {
+      try {
+        await fs.access(executablePath);
+        log(`Playwright browser is missing; using installed browser: ${executablePath}`);
+        return await chromium.launch({ ...launchOptions, executablePath });
+      } catch {
+        // Try the next installed browser candidate.
+      }
+    }
+
+    throw error;
+  }
 }
 
 async function waitForServer(url, timeoutMs = 30000) {
@@ -556,15 +596,15 @@ async function runPublishChecks(browser) {
     await expectVisible(page, ranges.nth(1), 'water tab sliders');
 
     await setRangeValue(ranges.nth(0), 31.5); // waterExtent
-    await setRangeValue(ranges.nth(1), 336); // waterMeshDensity
+    await setRangeValue(ranges.nth(1), 0.08); // waveAmplitude
     await settlePage(page, 200);
 
     await page.getByTestId('home-editor-tab-boat').click();
     const boatRanges = page.locator('.home-editor-controls input[type="range"]');
-    await expectVisible(page, boatRanges.nth(3), 'boat tab sliders');
+    await expectVisible(page, boatRanges.nth(2), 'boat tab sliders');
     await setRangeValue(boatRanges.nth(0), 3.45); // boatPosition.x
     await setRangeValue(boatRanges.nth(1), -2.2); // boatPosition.z
-    await setRangeValue(boatRanges.nth(3), 0.41); // boatRoughness
+    await setRangeValue(boatRanges.nth(2), 0.41); // boatRoughness
     await settlePage(page, 220);
 
     const draftSettings = await page.evaluate((key) => {
@@ -572,8 +612,8 @@ async function runPublishChecks(browser) {
       return draft ? JSON.parse(draft) : null;
     }, HOME_SCENE_SETTINGS_STORAGE_KEY);
     assert(Boolean(draftSettings), 'Expected draft settings in localStorage');
-    assert(draftSettings.boatPosition?.x === 3.45, 'boatPosition.x was not saved to draft settings');
-    assert(draftSettings.boatPosition?.z === -2.2, 'boatPosition.z was not saved to draft settings');
+    assert(draftSettings.layouts?.desktop?.boatPosition?.x === 3.45, 'Desktop boatPosition.x was not saved to draft settings');
+    assert(draftSettings.layouts?.desktop?.boatPosition?.z === -2.2, 'Desktop boatPosition.z was not saved to draft settings');
     assert(draftSettings.boatRoughness === 0.41, 'boatRoughness was not saved to draft settings');
 
     await waitForCondition(async () => !(await publishButton.isDisabled()), 'Publish button did not enable');
@@ -584,9 +624,9 @@ async function runPublishChecks(browser) {
       const settings = await readPublishedSettings();
       return (
         settings.waterExtent === 31.5
-        && settings.waterMeshDensity === 336
-        && settings.boatPosition?.x === 3.45
-        && settings.boatPosition?.z === -2.2
+        && settings.waveAmplitude === 0.08
+        && settings.layouts?.desktop?.boatPosition?.x === 3.45
+        && settings.layouts?.desktop?.boatPosition?.z === -2.2
         && settings.boatRoughness === 0.41
       );
     }, 'Publish did not update water settings');
@@ -718,10 +758,7 @@ async function main() {
       await waitForServer(baseUrl);
     }
 
-    activeBrowser = await chromium.launch({
-      headless: true,
-      args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'],
-    });
+    activeBrowser = await launchSmokeBrowser();
     const browser = activeBrowser;
 
     const issues = [

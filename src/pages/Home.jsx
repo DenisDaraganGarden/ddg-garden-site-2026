@@ -1,13 +1,52 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import WaterScene from '../components/effects/WaterScene';
 import { usePublishedHomeSceneSettings } from '../features/home-scene/hooks/useHomeSceneSettings';
+import {
+    getLayoutVisibleAspect,
+    resolveLayoutFrameInset,
+    resolveLayoutKey,
+} from '../features/home-scene/lib/layout';
 import ddgLogo from '../../portfolio/DDG_logo.png';
 import '../styles/Home.css';
 
 const Home = () => {
     const { settings } = usePublishedHomeSceneSettings();
     const [isSceneReady, setIsSceneReady] = useState(false);
+    const [isLoaderMinimumElapsed, setIsLoaderMinimumElapsed] = useState(false);
     const [showLoaderOverlay, setShowLoaderOverlay] = useState(true);
+    const [viewport, setViewport] = useState(() => {
+        const width = typeof window === 'undefined' ? 16 : window.innerWidth;
+        const height = typeof window === 'undefined' ? 9 : window.innerHeight;
+
+        return {
+            width,
+            height,
+            layoutKey: resolveLayoutKey(width, height),
+        };
+    });
+
+    useEffect(() => {
+        if (typeof window === 'undefined') {
+            return undefined;
+        }
+
+        const syncLayout = () => {
+            setViewport({
+                width: window.innerWidth,
+                height: window.innerHeight,
+                layoutKey: resolveLayoutKey(window.innerWidth, window.innerHeight),
+            });
+        };
+
+        syncLayout();
+        window.addEventListener('resize', syncLayout);
+        window.addEventListener('orientationchange', syncLayout);
+
+        return () => {
+            window.removeEventListener('resize', syncLayout);
+            window.removeEventListener('orientationchange', syncLayout);
+        };
+    }, []);
 
     useEffect(() => {
         if (typeof window === 'undefined') {
@@ -35,7 +74,17 @@ const Home = () => {
     }, []);
 
     useEffect(() => {
-        if (!isSceneReady) {
+        const minimumTimer = window.setTimeout(() => {
+            setIsLoaderMinimumElapsed(true);
+        }, 1400);
+
+        return () => window.clearTimeout(minimumTimer);
+    }, []);
+
+    const shouldRevealScene = isSceneReady && isLoaderMinimumElapsed;
+
+    useEffect(() => {
+        if (!shouldRevealScene) {
             return undefined;
         }
 
@@ -46,14 +95,28 @@ const Home = () => {
         return () => {
             window.clearTimeout(cleanupDelay);
         };
-    }, [isSceneReady]);
+    }, [shouldRevealScene]);
 
     const handleSceneReady = useCallback(() => {
         setIsSceneReady(true);
     }, []);
 
+    const frameInset = resolveLayoutFrameInset(settings.layouts, viewport.layoutKey);
+    const visibleAspect = getLayoutVisibleAspect(viewport.layoutKey, frameInset);
+    const viewportAspect = viewport.height > 0 ? viewport.width / viewport.height : visibleAspect;
+    const viewportFrameInset = Math.min(
+        0.48,
+        Math.max(0, (1 - (viewportAspect / visibleAspect)) * 0.5),
+    );
+
     return (
-        <div className="home-page" data-testid="home-page">
+        <div
+            className="home-page"
+            data-testid="home-page"
+            data-layout={viewport.layoutKey}
+            data-visible-aspect={visibleAspect.toFixed(3)}
+            style={{ '--home-frame-inset': `${viewportFrameInset * 100}dvh` }}
+        >
             <div className="home-cinematic-frame home-cinematic-frame--top" />
             <div className="home-cinematic-frame home-cinematic-frame--bottom" />
             <div className="home-film-grain" aria-hidden="true" />
@@ -66,16 +129,22 @@ const Home = () => {
 
             {showLoaderOverlay ? (
                 <div
-                    className={`home-scene-loader ${isSceneReady ? 'home-scene-loader--fade-out' : ''}`}
+                    className={`home-scene-loader ${shouldRevealScene ? 'home-scene-loader--fade-out' : ''}`}
                     aria-label="3D scene is loading"
                     role="status"
                 >
-                    <img
-                        className="home-scene-loader__logo"
-                        src={ddgLogo}
-                        alt=""
-                        aria-hidden="true"
-                    />
+                    <div className="home-scene-loader__identity">
+                        <img
+                            className="home-scene-loader__logo"
+                            src={ddgLogo}
+                            alt=""
+                            aria-hidden="true"
+                        />
+                        <div className="home-scene-loader__wordmark" aria-hidden="true">
+                            <span className="home-scene-loader__name">DENIS DARAGAN</span>
+                            <span className="home-scene-loader__bureau">БЮРО</span>
+                        </div>
+                    </div>
                 </div>
             ) : null}
 

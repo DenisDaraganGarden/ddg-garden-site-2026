@@ -41,16 +41,6 @@ export const simulationFragmentShader = `
     return mix(a, b, u.x) + (c - a) * u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
   }
 
-  // Smoothly saturate toward a ceiling instead of hard-clipping, which flattens wave
-  // crests into "canyons". Identity below the knee, gentle roll-off above it.
-  float softLimit(float value, float knee, float ceiling) {
-    float a = abs(value);
-    float range = max(ceiling - knee, 0.0001);
-    float over = max(a - knee, 0.0);
-    float soft = knee + range * (1.0 - exp(-over / range));
-    return sign(value) * mix(a, soft, step(knee, a));
-  }
-
   void main() {
     vec2 texel = 1.0 / uResolution;
 
@@ -95,8 +85,15 @@ export const simulationFragmentShader = `
       velocity += (noiseVal - 0.75) * uAmbientWaveIntensity * 0.02;
     }
 
-    height = softLimit(height, 0.55, 1.05);
-    velocity = softLimit(velocity, 0.6, 1.0);
+    // Do not saturate ordinary crests toward a shared height: that creates the
+    // visible "invisible plateau". Excess energy gets a gradual restoring force,
+    // while the distant clamp only protects the float target from runaway values.
+    float excessHeight = max(abs(height) - 0.72, 0.0);
+    velocity -= sign(height) * excessHeight * 0.055 * frameScale;
+    float excessVelocity = max(abs(velocity) - 0.85, 0.0);
+    velocity /= 1.0 + excessVelocity * 0.12 * frameScale;
+    height = clamp(height, -2.4, 2.4);
+    velocity = clamp(velocity, -2.2, 2.2);
 
     gl_FragColor = vec4(height, velocity, laplacian, 1.0);
   }
@@ -162,8 +159,13 @@ export const probeFragmentShader = `
     float index = floor(vUv.x * 5.0);
     vec2 probeUv = clamp(readProbeUv(index), 0.001, 0.999);
 
-    float height = texture2D(uState, probeUv).r;
-    vec3 normal = texture2D(uNormalMap, probeUv).rgb * 2.0 - 1.0;
+    float rawHeight = texture2D(uState, probeUv).r;
+    vec4 normalSample = texture2D(uNormalMap, probeUv);
+    float smoothHeight = normalSample.a * 2.0 - 1.0;
+    // Match the visible surface vertex displacement exactly. This prevents
+    // the boat from leading or exaggerating the wave underneath it.
+    float height = mix(rawHeight, smoothHeight, 0.84);
+    vec3 normal = normalSample.rgb * 2.0 - 1.0;
 
     gl_FragColor = vec4(
       clamp((height * 0.5) + 0.5, 0.0, 1.0),
@@ -238,6 +240,16 @@ export const waterFragmentShader = `
   uniform mat4 uReflectionMatrix;
   uniform int uDebugView;
 
+  vec3 reflectionTone() {
+    vec3 tint = max(uEnvTint, vec3(0.0));
+    float luminance = dot(tint, vec3(0.2126, 0.7152, 0.0722));
+    vec3 chroma = luminance > 0.001
+      ? clamp(tint / luminance, vec3(0.35), vec3(2.2))
+      : vec3(1.0);
+    float value = mix(0.45, 1.0, sqrt(clamp(luminance, 0.0, 1.0)));
+    return chroma * value;
+  }
+
   // Warm sunset sky, ported from the ocean prototype (getSkyColor)
   vec3 oceanSky(vec3 e, vec3 sunDir) {
     float ey = max(e.y, 0.0);
@@ -310,9 +322,7 @@ export const waterFragmentShader = `
     vec3 deepOcean = vec3(0.014, 0.046, 0.060);
     float crest = clamp(vHeightSample * 0.6 + 0.3, 0.0, 1.0);
     vec3 waterBody = deepOcean + vec3(0.05, 0.16, 0.16) * crest * 0.5;
-    waterBody = mix(waterBody, uEnvTint * 0.18, fres * 0.25);
-
-    vec3 reflection = skyReflection;
+    vec3 reflection = skyReflection * mix(vec3(1.0), reflectionTone(), 0.55);
 
     // Planar reflection (boat & scene) overlaid so objects still mirror in the water
     vec4 reflectPos = uReflectionMatrix * vec4(vSurfaceWorldPosition, 1.0);
@@ -329,6 +339,7 @@ export const waterFragmentShader = `
     reflectedRgb += texture2D(uReflectionTexture, clamp(clampedReflectUv - aaOffsetX, vec2(0.001), vec2(0.999))).rgb * 0.1375;
     reflectedRgb += texture2D(uReflectionTexture, clamp(clampedReflectUv + aaOffsetY, vec2(0.001), vec2(0.999))).rgb * 0.1375;
     reflectedRgb += texture2D(uReflectionTexture, clamp(clampedReflectUv - aaOffsetY, vec2(0.001), vec2(0.999))).rgb * 0.1375;
+    reflectedRgb *= mix(vec3(1.0), reflectionTone(), 0.22);
 
     vec2 edgeSoftness = vec2(0.08);
     vec2 lowerMask = smoothstep(vec2(0.0), edgeSoftness, reflectUv);
@@ -428,8 +439,10 @@ export const seabedFragmentShader = `
   uniform vec2 uStateResolution;
   uniform vec3 uMoonDirection;
   uniform vec3 uMoonColor;
+  uniform float uMoonIntensity;
   uniform float uTime;
   uniform float uWaterDepth;
+  uniform float uWaterTurbidity;
   uniform float uCausticsIntensity;
   uniform float uCausticsScale;
   uniform float uCausticsSharpness;
@@ -437,6 +450,7 @@ export const seabedFragmentShader = `
   uniform float uSeabedTextureScale;
   uniform float uSeabedSaturation;
   uniform float uSeabedBrightness;
+  uniform int uWaterEngine;
   uniform int uDebugView;
 
   vec3 decodeNormal(vec3 packedNormal) {
@@ -500,13 +514,31 @@ export const seabedFragmentShader = `
 
     float slope = clamp(1.0 - waterNormal.y, 0.0, 1.0);
     float waveEnergy = clamp(curvature * 6.5 + abs(h) * 0.9, 0.0, 1.6);
-    float depthAbsorption = exp(-uWaterDepth * 0.16);
+    float turbidity = clamp(uWaterTurbidity, 0.0, 1.0);
+    float scatteringDensity = turbidity * (0.45 + 0.55 * turbidity);
+    float depthAbsorption = exp(-uWaterDepth * (0.015 + scatteringDensity * 0.55));
     float substrateLuma = dot(texture2D(uSeabedTexture, projected * uSeabedTextureScale).rgb, vec3(0.299, 0.587, 0.114));
     float substrateMask = mix(0.82, 1.18, clamp(substrateLuma, 0.0, 1.0));
-    float caustics = network * (0.45 + slope * 0.95 + waveEnergy * 0.62) * uCausticsIntensity;
+    float legacyCaustics = network * (0.45 + slope * 0.95 + waveEnergy * 0.62) * uCausticsIntensity;
+
+    // Water V2 follows the differential-area idea used by the reference water
+    // demo: a refracted patch becomes bright only where rays truly converge.
+    // The old shader treated almost the entire floor as focused light, which
+    // washed out shadows and made the caustics look like a soft overlay.
+    float flatArea = max(texel.x * texel.y, 0.00000001);
+    float compression = clamp(flatArea / max(area, flatArea * 0.12), 0.0, 7.0);
+    float focusThreshold = mix(1.02, 1.34, sharpness);
+    float focusedVeins = smoothstep(focusThreshold, focusThreshold + mix(0.5, 0.16, sharpness), compression);
+    float causticsV2 = (focusedVeins * 0.72 + max(compression - 1.0, 0.0) * 0.16)
+      * (0.5 + waveEnergy * 0.72)
+      * uCausticsIntensity;
+    causticsV2 *= 0.86 + 0.14 * mix(flow, flow2, 0.5);
+
+    float caustics = uWaterEngine == 1 ? causticsV2 : legacyCaustics;
     caustics *= clamp(dot(waterNormal, vec3(0.0, 1.0, 0.0)), 0.25, 1.0);
     caustics *= clamp(-refracted.y * 1.2, 0.0, 1.0);
-    caustics *= mix(0.65, 1.0, depthAbsorption);
+    caustics *= depthAbsorption;
+    caustics *= clamp(uMoonIntensity, 0.0, 4.0);
     caustics *= substrateMask;
 
     float depthValue = clamp((-vSeabedWorldPosition.y) / max(uWaterDepth + 1.5, 0.01), 0.0, 1.0);
@@ -529,15 +561,26 @@ export const seabedFragmentShader = `
 
     vec3 baseColor = mix(vec3(0.06, 0.08, 0.1), vec3(0.1, 0.12, 0.15), clamp(vRelief + 0.5, 0.0, 1.0));
     baseColor = mix(baseColor, seabedTexture, 0.68);
-    baseColor *= exp(-uWaterDepth * 0.11);
+    // Water V2 applies the single view-path absorption pass while compositing
+    // refraction. Darkening the floor here as well caused the old double haze.
     // Chromatic dispersion: bright vein cores skew warm, faint edges skew cool (cheap tint)
     float causticChroma = clamp(caustics * 1.4, 0.0, 1.0);
     vec3 causticTint = mix(vec3(0.7, 0.85, 1.15), vec3(1.18, 1.0, 0.72), causticChroma);
     vec3 causticColor = uMoonColor * caustics * causticTint * 1.12;
 
-    csm_DiffuseColor = vec4(baseColor + causticColor * 0.26, 1.0);
-    csm_Emissive = causticColor * 0.1;
-    csm_Roughness = clamp(0.78 - caustics * 0.18, 0.45, 0.95);
+    if (uWaterEngine == 1) {
+      // Keep the caustic contribution inside the regular lit material so the
+      // boat and sculpture shadows remain dark. Emissive light would bypass
+      // those shadows and recreate the milky look of the legacy water.
+      vec3 causticLight = clamp(causticColor * 0.68, vec3(0.0), vec3(2.2));
+      csm_DiffuseColor = vec4(baseColor * (vec3(1.0) + causticLight), 1.0);
+      csm_Emissive = vec3(0.0);
+      csm_Roughness = clamp(0.84 - caustics * 0.08, 0.58, 0.94);
+    } else {
+      csm_DiffuseColor = vec4(baseColor + causticColor * 0.26, 1.0);
+      csm_Emissive = causticColor * 0.1;
+      csm_Roughness = clamp(0.78 - caustics * 0.18, 0.45, 0.95);
+    }
     csm_Metalness = 0.02;
   }
 `;

@@ -5,6 +5,7 @@ import {
     DebugTab,
     DepthTab,
     LightingTab,
+    PlantsTab,
     WaterTab,
     BoatTab,
     SculptureTab,
@@ -12,10 +13,11 @@ import {
 
 const PANEL_STATE_KEY = 'ddg_home_editor_panel_v1';
 const PANEL_MARGIN = 12;
+const COMPACT_PANEL_MEDIA = '(max-width: 768px), (max-height: 560px)';
 
 const isMobileViewport = () => typeof window !== 'undefined'
     && typeof window.matchMedia === 'function'
-    && window.matchMedia('(max-width: 768px)').matches;
+    && window.matchMedia(COMPACT_PANEL_MEDIA).matches;
 
 const readPanelState = () => {
     if (typeof window === 'undefined') {
@@ -63,16 +65,22 @@ const HomeEditorPanel = ({
             : null
     ));
     const [isMobile, setIsMobile] = useState(isMobileViewport);
+    const showDeveloperTab = import.meta.env.DEV
+        && typeof window !== 'undefined'
+        && new URLSearchParams(window.location.search).has('debug');
 
     const tabs = [
         { id: 'water', label: t('homeEditor.tabs.water') },
         { id: 'lighting', label: t('homeEditor.tabs.lighting') },
         { id: 'depth', label: t('homeEditor.tabs.depth') },
+        { id: 'plants', label: t('homeEditor.tabs.plants') },
         { id: 'camera', label: t('homeEditor.tabs.camera') },
         { id: 'boat', label: t('homeEditor.tabs.boat') },
         { id: 'sculpture', label: t('homeEditor.tabs.sculpture') },
-        { id: 'debug', label: t('homeEditor.tabs.debug') },
     ];
+    if (showDeveloperTab) {
+        tabs.push({ id: 'debug', label: t('homeEditor.tabs.debug') });
+    }
     const canPublish = publishEnabled && typeof onPublish === 'function';
     const isPublishDisabled = publishState?.busy || !hasPublishChanges || !canPublish;
     const isFloating = !isMobile && position !== null;
@@ -83,7 +91,7 @@ const HomeEditorPanel = ({
             return undefined;
         }
 
-        const mediaQuery = window.matchMedia('(max-width: 768px)');
+        const mediaQuery = window.matchMedia(COMPACT_PANEL_MEDIA);
         const handleChange = () => setIsMobile(mediaQuery.matches);
 
         handleChange();
@@ -291,6 +299,7 @@ const HomeEditorPanel = ({
                             {activeTab === 'water' && <WaterTab settings={settings} handleSettingChange={handleSettingChange} />}
                             {activeTab === 'lighting' && <LightingTab settings={settings} handleSettingChange={handleSettingChange} />}
                             {activeTab === 'depth' && <DepthTab settings={settings} handleSettingChange={handleSettingChange} />}
+                            {activeTab === 'plants' && <PlantsTab settings={settings} handleSettingChange={handleSettingChange} />}
                             {activeTab === 'camera' && (
                                 <CameraTab
                                     settings={settings}
@@ -300,7 +309,9 @@ const HomeEditorPanel = ({
                             )}
                             {activeTab === 'boat' && <BoatTab settings={settings} handleSettingChange={handleSettingChange} layoutEditor={layoutEditor} />}
                             {activeTab === 'sculpture' && <SculptureTab settings={settings} handleSettingChange={handleSettingChange} layoutEditor={layoutEditor} />}
-                            {activeTab === 'debug' && <DebugTab settings={settings} handleSettingChange={handleSettingChange} />}
+                            {showDeveloperTab && activeTab === 'debug' && (
+                                <DebugTab settings={settings} handleSettingChange={handleSettingChange} />
+                            )}
                         </div>
                     </div>
                 </>

@@ -4,7 +4,12 @@ import {
     HOME_SCENE_DEBUG_VIEWS,
     HOME_SCENE_HDRI_PRESETS,
 } from '../hooks/useHomeSceneSettings';
-import { resolveLayout } from '../lib/layout';
+import {
+    getLayoutVisibleAspect,
+    LAYOUT_KEYS,
+    resolveLayout,
+    resolveLayoutFrameInset,
+} from '../lib/layout';
 import {
     CheckboxControl,
     ColorControl,
@@ -14,6 +19,10 @@ import {
 } from './HomeEditorControls';
 
 const formatFloat = (value, digits = 2) => Number(value).toFixed(digits);
+const SIMULATION_RESOLUTION_OPTIONS = [128, 256, 384, 512].map((value) => ({
+    value,
+    label: `${value} × ${value}`,
+}));
 
 export const WaterTab = ({ settings, handleSettingChange }) => {
     const { t } = useLanguage();
@@ -32,26 +41,14 @@ export const WaterTab = ({ settings, handleSettingChange }) => {
             />
             <SelectControl
                 label={t('homeEditor.controls.simulationResolution')}
-                value={String(settings.simulationResolution)}
-                options={[
-                    { value: '256', label: '256' },
-                    { value: '384', label: '384' },
-                    { value: '512', label: '512' },
-                ]}
+                value={settings.simulationResolution}
+                options={SIMULATION_RESOLUTION_OPTIONS}
                 onChange={(event) => handleSettingChange(event, 'simulationResolution', 'integer')}
-            />
-            <RangeControl
-                label={t('homeEditor.controls.waterMeshDensity')}
-                value={settings.waterMeshDensity}
-                min={96}
-                max={384}
-                step={16}
-                onChange={(event) => handleSettingChange(event, 'waterMeshDensity', 'integer')}
             />
             <RangeControl
                 label={t('homeEditor.controls.waveAmplitude')}
                 value={settings.waveAmplitude}
-                min={0.01}
+                min={0}
                 max={0.2}
                 step={0.005}
                 unit="m"
@@ -78,50 +75,13 @@ export const WaterTab = ({ settings, handleSettingChange }) => {
                 onChange={(event) => handleSettingChange(event, 'waveChoppiness')}
             />
             <RangeControl
-                label={t('homeEditor.controls.rippleDamping')}
-                value={settings.rippleDamping}
-                min={0.93}
-                max={0.992}
-                step={0.001}
-                formatValue={(value) => formatFloat(value, 3)}
-                onChange={(event) => handleSettingChange(event, 'rippleDamping')}
-            />
-            <RangeControl
-                label={t('homeEditor.controls.rippleRadius')}
-                value={settings.rippleRadius}
-                min={0.1}
-                max={2.4}
-                step={0.01}
-                unit="m"
-                formatValue={(value) => formatFloat(value)}
-                onChange={(event) => handleSettingChange(event, 'rippleRadius')}
-            />
-            <RangeControl
                 label={t('homeEditor.controls.rippleImpulse')}
                 value={settings.rippleImpulse}
-                min={0.05}
+                min={0}
                 max={1.2}
                 step={0.01}
                 formatValue={(value) => formatFloat(value)}
                 onChange={(event) => handleSettingChange(event, 'rippleImpulse')}
-            />
-            <RangeControl
-                label={t('homeEditor.controls.normalStrength')}
-                value={settings.normalStrength}
-                min={0.4}
-                max={3.2}
-                step={0.05}
-                formatValue={(value) => formatFloat(value)}
-                onChange={(event) => handleSettingChange(event, 'normalStrength')}
-            />
-            <RangeControl
-                label={t('homeEditor.controls.normalBlur')}
-                value={settings.normalBlur}
-                min={0.2}
-                max={2.5}
-                step={0.05}
-                formatValue={(value) => formatFloat(value)}
-                onChange={(event) => handleSettingChange(event, 'normalBlur')}
             />
             <RangeControl
                 label={t('homeEditor.controls.ambientWaveIntensity')}
@@ -131,15 +91,6 @@ export const WaterTab = ({ settings, handleSettingChange }) => {
                 step={0.01}
                 formatValue={(value) => formatFloat(value)}
                 onChange={(event) => handleSettingChange(event, 'ambientWaveIntensity')}
-            />
-            <RangeControl
-                label={t('homeEditor.controls.ambientWaveSpeed')}
-                value={settings.ambientWaveSpeed}
-                min={0}
-                max={5}
-                step={0.01}
-                formatValue={(value) => formatFloat(value)}
-                onChange={(event) => handleSettingChange(event, 'ambientWaveSpeed')}
             />
         </>
     );
@@ -177,30 +128,12 @@ export const LightingTab = ({ settings, handleSettingChange }) => {
             <RangeControl
                 label={t('homeEditor.controls.moonElevation')}
                 value={settings.moonElevation}
-                min={5}
+                min={0}
                 max={85}
                 step={1}
                 unit="°"
                 onChange={(event) => handleSettingChange(event, 'moonElevation')}
             />
-            <RangeControl
-                label={t('homeEditor.controls.moonSpecularStrength')}
-                value={settings.moonSpecularStrength}
-                min={0}
-                max={2}
-                step={0.01}
-                formatValue={(value) => formatFloat(value)}
-                onChange={(event) => handleSettingChange(event, 'moonSpecularStrength')}
-            />
-            <RangeControl
-                label={t('homeEditor.controls.moonSpecularPower')}
-                value={settings.moonSpecularPower}
-                min={4}
-                max={128}
-                step={1}
-                onChange={(event) => handleSettingChange(event, 'moonSpecularPower')}
-            />
-
             <SectionHeading label={t('homeEditor.controls.lightingSectionHdri')} />
             <SelectControl
                 label={t('homeEditor.controls.hdrPreset')}
@@ -220,7 +153,7 @@ export const LightingTab = ({ settings, handleSettingChange }) => {
             <RangeControl
                 label={t('homeEditor.controls.hdrExposure')}
                 value={settings.hdrExposure}
-                min={20}
+                min={0}
                 max={220}
                 step={1}
                 unit="%"
@@ -229,7 +162,7 @@ export const LightingTab = ({ settings, handleSettingChange }) => {
             <RangeControl
                 label={t('homeEditor.controls.envReflectionIntensity')}
                 value={settings.envReflectionIntensity}
-                min={20}
+                min={0}
                 max={220}
                 step={1}
                 unit="%"
@@ -253,57 +186,23 @@ export const LightingTab = ({ settings, handleSettingChange }) => {
                 onChange={(event) => handleSettingChange(event, 'shadowsEnabled', 'boolean')}
             />
             <RangeControl
+                label={t('homeEditor.controls.shadowIntensity')}
+                value={settings.shadowIntensity}
+                min={0}
+                max={1}
+                step={0.05}
+                unit="%"
+                formatValue={(value) => Math.round(Number(value) * 100)}
+                onChange={(event) => handleSettingChange(event, 'shadowIntensity')}
+            />
+            <RangeControl
                 label={t('homeEditor.controls.shadowRadius')}
                 value={settings.shadowRadius}
                 min={0}
-                max={16}
-                step={0.5}
+                max={8}
+                step={0.25}
                 formatValue={(value) => formatFloat(value, 1)}
                 onChange={(event) => handleSettingChange(event, 'shadowRadius')}
-            />
-            <RangeControl
-                label={t('homeEditor.controls.shadowBias')}
-                value={settings.shadowBias}
-                min={-0.005}
-                max={0.005}
-                step={0.0001}
-                formatValue={(value) => formatFloat(value, 4)}
-                onChange={(event) => handleSettingChange(event, 'shadowBias')}
-            />
-
-            <SectionHeading label={t('homeEditor.controls.lightingSectionFill')} />
-            <RangeControl
-                label={t('homeEditor.controls.ambientIntensity')}
-                value={settings.ambientIntensity}
-                min={0}
-                max={2}
-                step={0.01}
-                formatValue={(value) => formatFloat(value)}
-                onChange={(event) => handleSettingChange(event, 'ambientIntensity')}
-            />
-            <ColorControl
-                label={t('homeEditor.controls.ambientColor')}
-                value={settings.ambientColor}
-                onChange={(event) => handleSettingChange(event, 'ambientColor', 'color')}
-            />
-            <RangeControl
-                label={t('homeEditor.controls.hemisphereIntensity')}
-                value={settings.hemisphereIntensity}
-                min={0}
-                max={2}
-                step={0.01}
-                formatValue={(value) => formatFloat(value)}
-                onChange={(event) => handleSettingChange(event, 'hemisphereIntensity')}
-            />
-            <ColorControl
-                label={t('homeEditor.controls.hemisphereSkyColor')}
-                value={settings.hemisphereSkyColor}
-                onChange={(event) => handleSettingChange(event, 'hemisphereSkyColor', 'color')}
-            />
-            <ColorControl
-                label={t('homeEditor.controls.hemisphereGroundColor')}
-                value={settings.hemisphereGroundColor}
-                onChange={(event) => handleSettingChange(event, 'hemisphereGroundColor', 'color')}
             />
         </>
     );
@@ -317,12 +216,22 @@ export const DepthTab = ({ settings, handleSettingChange }) => {
             <RangeControl
                 label={t('homeEditor.controls.waterDepthMeters')}
                 value={settings.waterDepthMeters}
-                min={1}
+                min={0.25}
                 max={12}
                 step={0.25}
                 unit="m"
                 formatValue={(value) => formatFloat(value, 1)}
                 onChange={(event) => handleSettingChange(event, 'waterDepthMeters')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.waterTurbidity')}
+                value={settings.waterTurbidity}
+                min={0}
+                max={1}
+                step={0.01}
+                unit="%"
+                formatValue={(value) => Math.round(Number(value) * 100)}
+                onChange={(event) => handleSettingChange(event, 'waterTurbidity')}
             />
             <RangeControl
                 label={t('homeEditor.controls.seabedReliefStrength')}
@@ -334,15 +243,6 @@ export const DepthTab = ({ settings, handleSettingChange }) => {
                 onChange={(event) => handleSettingChange(event, 'seabedReliefStrength')}
             />
             <RangeControl
-                label={t('homeEditor.controls.seabedReliefScale')}
-                value={settings.seabedReliefScale}
-                min={0.5}
-                max={6}
-                step={0.05}
-                formatValue={(value) => formatFloat(value)}
-                onChange={(event) => handleSettingChange(event, 'seabedReliefScale')}
-            />
-            <RangeControl
                 label={t('homeEditor.controls.causticsIntensity')}
                 value={settings.causticsIntensity}
                 min={0}
@@ -352,41 +252,13 @@ export const DepthTab = ({ settings, handleSettingChange }) => {
                 onChange={(event) => handleSettingChange(event, 'causticsIntensity')}
             />
             <RangeControl
-                label={t('homeEditor.controls.causticsScale')}
-                value={settings.causticsScale}
-                min={0.5}
-                max={6}
-                step={0.05}
-                formatValue={(value) => formatFloat(value)}
-                onChange={(event) => handleSettingChange(event, 'causticsScale')}
-            />
-            <RangeControl
                 label={t('homeEditor.controls.causticsSharpness')}
                 value={settings.causticsSharpness}
-                min={0.1}
-                max={1.5}
-                step={0.01}
+                min={0}
+                max={1}
+                step={0.02}
                 formatValue={(value) => formatFloat(value)}
                 onChange={(event) => handleSettingChange(event, 'causticsSharpness')}
-            />
-            <hr style={{ margin: '12px 0', borderColor: 'rgba(255,255,255,0.1)' }} />
-            <RangeControl
-                label={t('homeEditor.controls.seabedTextureScale')}
-                value={settings.seabedTextureScale}
-                min={0.1}
-                max={10}
-                step={0.1}
-                formatValue={(value) => formatFloat(value, 1)}
-                onChange={(event) => handleSettingChange(event, 'seabedTextureScale')}
-            />
-            <RangeControl
-                label={t('homeEditor.controls.seabedSaturation')}
-                value={settings.seabedSaturation}
-                min={0}
-                max={2}
-                step={0.05}
-                formatValue={(value) => formatFloat(value)}
-                onChange={(event) => handleSettingChange(event, 'seabedSaturation')}
             />
             <RangeControl
                 label={t('homeEditor.controls.seabedBrightness')}
@@ -398,13 +270,194 @@ export const DepthTab = ({ settings, handleSettingChange }) => {
                 onChange={(event) => handleSettingChange(event, 'seabedBrightness')}
             />
         </>
+  );
+};
+
+export const PlantsTab = ({ settings, handleSettingChange }) => {
+    const { t } = useLanguage();
+
+    return (
+        <>
+            <SectionHeading label={t('homeEditor.controls.plantsSectionSurface')} />
+            <RangeControl
+                label={t('homeEditor.controls.surfacePlantAmount')}
+                value={settings.surfacePlantAmount}
+                min={0}
+                max={1}
+                step={0.01}
+                unit="%"
+                formatValue={(value) => Math.round(Number(value) * 100)}
+                onChange={(event) => handleSettingChange(event, 'surfacePlantAmount')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.surfacePlantClustering')}
+                value={settings.surfacePlantClustering}
+                min={0}
+                max={1}
+                step={0.01}
+                unit="%"
+                formatValue={(value) => Math.round(Number(value) * 100)}
+                onChange={(event) => handleSettingChange(event, 'surfacePlantClustering')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.surfacePlantCenterX')}
+                value={settings.surfacePlantCenterX}
+                min={-20}
+                max={20}
+                step={0.1}
+                unit="m"
+                formatValue={(value) => formatFloat(value, 1)}
+                onChange={(event) => handleSettingChange(event, 'surfacePlantCenterX')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.surfacePlantCenterZ')}
+                value={settings.surfacePlantCenterZ}
+                min={-20}
+                max={20}
+                step={0.1}
+                unit="m"
+                formatValue={(value) => formatFloat(value, 1)}
+                onChange={(event) => handleSettingChange(event, 'surfacePlantCenterZ')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.surfacePlantRadius')}
+                value={settings.surfacePlantRadius}
+                min={0}
+                max={20}
+                step={0.1}
+                unit="m"
+                formatValue={(value) => formatFloat(value, 1)}
+                onChange={(event) => handleSettingChange(event, 'surfacePlantRadius')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.surfacePlantSize')}
+                value={settings.surfacePlantSize}
+                min={0}
+                max={0.6}
+                step={0.01}
+                unit="m"
+                formatValue={(value) => formatFloat(value)}
+                onChange={(event) => handleSettingChange(event, 'surfacePlantSize')}
+            />
+            <ColorControl
+                label={t('homeEditor.controls.surfacePlantColor')}
+                value={settings.surfacePlantColor}
+                onChange={(event) => handleSettingChange(event, 'surfacePlantColor', 'color')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.surfacePlantSaturation')}
+                value={settings.surfacePlantSaturation}
+                min={0}
+                max={2}
+                step={0.01}
+                unit="%"
+                formatValue={(value) => Math.round(Number(value) * 100)}
+                onChange={(event) => handleSettingChange(event, 'surfacePlantSaturation')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.surfacePlantTranslucency')}
+                value={settings.surfacePlantTranslucency}
+                min={0}
+                max={1}
+                step={0.01}
+                unit="%"
+                formatValue={(value) => Math.round(Number(value) * 100)}
+                onChange={(event) => handleSettingChange(event, 'surfacePlantTranslucency')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.surfacePlantReflection')}
+                value={settings.surfacePlantReflection}
+                min={0}
+                max={1}
+                step={0.01}
+                unit="%"
+                formatValue={(value) => Math.round(Number(value) * 100)}
+                onChange={(event) => handleSettingChange(event, 'surfacePlantReflection')}
+            />
+
+            <SectionHeading label={t('homeEditor.controls.plantsSectionUnderwater')} />
+            <RangeControl
+                label={t('homeEditor.controls.underwaterAlgaeAmount')}
+                value={settings.underwaterAlgaeAmount}
+                min={0}
+                max={1}
+                step={0.01}
+                unit="%"
+                formatValue={(value) => Math.round(Number(value) * 100)}
+                onChange={(event) => handleSettingChange(event, 'underwaterAlgaeAmount')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.underwaterAlgaeSway')}
+                value={settings.underwaterAlgaeSway}
+                min={0}
+                max={1.5}
+                step={0.01}
+                unit="%"
+                formatValue={(value) => Math.round(Number(value) * 100)}
+                onChange={(event) => handleSettingChange(event, 'underwaterAlgaeSway')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.underwaterAlgaeCenterX')}
+                value={settings.underwaterAlgaeCenterX}
+                min={-20}
+                max={20}
+                step={0.1}
+                unit="m"
+                formatValue={(value) => formatFloat(value, 1)}
+                onChange={(event) => handleSettingChange(event, 'underwaterAlgaeCenterX')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.underwaterAlgaeCenterZ')}
+                value={settings.underwaterAlgaeCenterZ}
+                min={-20}
+                max={20}
+                step={0.1}
+                unit="m"
+                formatValue={(value) => formatFloat(value, 1)}
+                onChange={(event) => handleSettingChange(event, 'underwaterAlgaeCenterZ')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.underwaterAlgaeRadius')}
+                value={settings.underwaterAlgaeRadius}
+                min={0}
+                max={20}
+                step={0.1}
+                unit="m"
+                formatValue={(value) => formatFloat(value, 1)}
+                onChange={(event) => handleSettingChange(event, 'underwaterAlgaeRadius')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.underwaterAlgaeLength')}
+                value={settings.underwaterAlgaeLength}
+                min={0}
+                max={3}
+                step={0.05}
+                unit="m"
+                formatValue={(value) => formatFloat(value)}
+                onChange={(event) => handleSettingChange(event, 'underwaterAlgaeLength')}
+            />
+            <ColorControl
+                label={t('homeEditor.controls.underwaterAlgaeColor')}
+                value={settings.underwaterAlgaeColor}
+                onChange={(event) => handleSettingChange(event, 'underwaterAlgaeColor', 'color')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.underwaterAlgaeSaturation')}
+                value={settings.underwaterAlgaeSaturation}
+                min={0}
+                max={2}
+                step={0.01}
+                unit="%"
+                formatValue={(value) => Math.round(Number(value) * 100)}
+                onChange={(event) => handleSettingChange(event, 'underwaterAlgaeSaturation')}
+            />
+        </>
     );
 };
 
 const LAYOUT_LABEL_KEYS = {
     portrait: 'homeEditor.controls.layoutPortrait',
     desktop: 'homeEditor.controls.layoutDesktop',
-    wide: 'homeEditor.controls.layoutWide',
 };
 
 export const CameraTab = ({ settings, layoutEditor }) => {
@@ -422,10 +475,13 @@ export const CameraTab = ({ settings, layoutEditor }) => {
         captureLayout,
         resetLayout,
         onFovChange,
+        onFrameInsetChange,
     } = layoutEditor;
     const effective = resolveLayout(layouts, selectedKey) ?? {};
+    const frameInset = resolveLayoutFrameInset(layouts, selectedKey);
+    const visibleAspect = getLayoutVisibleAspect(selectedKey, frameInset);
     const isCustomized = Boolean(layouts?.[selectedKey]?.customized);
-    const buckets = ['portrait', 'desktop', 'wide'];
+    const buckets = LAYOUT_KEYS;
 
     return (
         <>
@@ -461,6 +517,19 @@ export const CameraTab = ({ settings, layoutEditor }) => {
                 unit="°"
                 onChange={(event) => onFovChange(parseInt(event.target.value, 10))}
             />
+            <RangeControl
+                label={t('homeEditor.controls.frameInset')}
+                value={frameInset * 100}
+                min={0}
+                max={32}
+                step={0.5}
+                unit="%"
+                formatValue={(value) => formatFloat(value, 1)}
+                onChange={(event) => onFrameInsetChange(parseFloat(event.target.value) / 100)}
+            />
+            <p className="home-editor-inline-hint">
+                {t('homeEditor.controls.frameVisibleAspect', { aspect: visibleAspect.toFixed(2) })}
+            </p>
             <div className="home-editor-camera-actions">
                 <button
                     type="button"
@@ -527,15 +596,6 @@ export const BoatTab = ({ settings, handleSettingChange, layoutEditor }) => {
                 onChange={(event) => handleSettingChange(event, 'boatColor', 'color')}
             />
             <RangeControl
-                label={t('homeEditor.controls.boatMetalness')}
-                value={settings.boatMetalness}
-                min={0}
-                max={1}
-                step={0.01}
-                formatValue={(value) => formatFloat(value)}
-                onChange={(event) => handleSettingChange(event, 'boatMetalness')}
-            />
-            <RangeControl
                 label={t('homeEditor.controls.boatRoughness')}
                 value={settings.boatRoughness}
                 min={0}
@@ -543,24 +603,6 @@ export const BoatTab = ({ settings, handleSettingChange, layoutEditor }) => {
                 step={0.01}
                 formatValue={(value) => formatFloat(value)}
                 onChange={(event) => handleSettingChange(event, 'boatRoughness')}
-            />
-            <RangeControl
-                label={t('homeEditor.controls.boatClearcoat')}
-                value={settings.boatClearcoat}
-                min={0}
-                max={1}
-                step={0.01}
-                formatValue={(value) => formatFloat(value)}
-                onChange={(event) => handleSettingChange(event, 'boatClearcoat')}
-            />
-            <RangeControl
-                label={t('homeEditor.controls.boatClearcoatRoughness')}
-                value={settings.boatClearcoatRoughness}
-                min={0}
-                max={1}
-                step={0.01}
-                formatValue={(value) => formatFloat(value)}
-                onChange={(event) => handleSettingChange(event, 'boatClearcoatRoughness')}
             />
             <RangeControl
                 label={t('homeEditor.controls.boatReflectionIntensity')}
@@ -598,29 +640,6 @@ export const BoatTab = ({ settings, handleSettingChange, layoutEditor }) => {
                 unit="m"
                 formatValue={(value) => formatFloat(value)}
                 onChange={(event) => handleSettingChange(event, 'boatHeightOffset')}
-            />
-            <RangeControl
-                label={t('homeEditor.controls.boatCutoutFitLength')}
-                value={settings.boatCutoutFitLength}
-                min={0.1}
-                max={1.4}
-                step={0.01}
-                formatValue={(value) => formatFloat(value)}
-                onChange={(event) => handleSettingChange(event, 'boatCutoutFitLength')}
-            />
-            <RangeControl
-                label={t('homeEditor.controls.boatCutoutFitWidth')}
-                value={settings.boatCutoutFitWidth}
-                min={0.1}
-                max={1.4}
-                step={0.01}
-                formatValue={(value) => formatFloat(value)}
-                onChange={(event) => handleSettingChange(event, 'boatCutoutFitWidth')}
-            />
-            <CheckboxControl
-                label={t('homeEditor.controls.boatCutoutDebug')}
-                checked={Boolean(settings.boatCutoutDebug)}
-                onChange={(event) => handleSettingChange(event, 'boatCutoutDebug', 'boolean')}
             />
         </>
     );
@@ -671,15 +690,6 @@ export const SculptureTab = ({ settings, handleSettingChange, layoutEditor }) =>
                 onChange={(event) => handleSettingChange(event, 'sculptureColor', 'color')}
             />
             <RangeControl
-                label={t('homeEditor.controls.sculptureMetalness')}
-                value={settings.sculptureMetalness}
-                min={0}
-                max={1}
-                step={0.01}
-                formatValue={(value) => formatFloat(value)}
-                onChange={(event) => handleSettingChange(event, 'sculptureMetalness')}
-            />
-            <RangeControl
                 label={t('homeEditor.controls.sculptureRoughness')}
                 value={settings.sculptureRoughness}
                 min={0}
@@ -687,24 +697,6 @@ export const SculptureTab = ({ settings, handleSettingChange, layoutEditor }) =>
                 step={0.01}
                 formatValue={(value) => formatFloat(value)}
                 onChange={(event) => handleSettingChange(event, 'sculptureRoughness')}
-            />
-            <RangeControl
-                label={t('homeEditor.controls.sculptureClearcoat')}
-                value={settings.sculptureClearcoat}
-                min={0}
-                max={1}
-                step={0.01}
-                formatValue={(value) => formatFloat(value)}
-                onChange={(event) => handleSettingChange(event, 'sculptureClearcoat')}
-            />
-            <RangeControl
-                label={t('homeEditor.controls.sculptureClearcoatRoughness')}
-                value={settings.sculptureClearcoatRoughness}
-                min={0}
-                max={1}
-                step={0.01}
-                formatValue={(value) => formatFloat(value)}
-                onChange={(event) => handleSettingChange(event, 'sculptureClearcoatRoughness')}
             />
             <RangeControl
                 label={t('homeEditor.controls.sculptureScale')}
@@ -716,15 +708,6 @@ export const SculptureTab = ({ settings, handleSettingChange, layoutEditor }) =>
                 onChange={(event) => handleSettingChange(event, 'sculptureScale')}
             />
             <RangeControl
-                label={t('homeEditor.controls.sculptureRotationX')}
-                value={settings.sculptureRotationX}
-                min={-180}
-                max={180}
-                step={1}
-                unit="°"
-                onChange={(event) => handleSettingChange(event, 'sculptureRotationX')}
-            />
-            <RangeControl
                 label={t('homeEditor.controls.sculptureRotationY')}
                 value={settings.sculptureRotationY}
                 min={-180}
@@ -732,15 +715,6 @@ export const SculptureTab = ({ settings, handleSettingChange, layoutEditor }) =>
                 step={1}
                 unit="°"
                 onChange={(event) => handleSettingChange(event, 'sculptureRotationY')}
-            />
-            <RangeControl
-                label={t('homeEditor.controls.sculptureRotationZ')}
-                value={settings.sculptureRotationZ}
-                min={-180}
-                max={180}
-                step={1}
-                unit="°"
-                onChange={(event) => handleSettingChange(event, 'sculptureRotationZ')}
             />
             <RangeControl
                 label={t('homeEditor.controls.sculptureBottomOffset')}

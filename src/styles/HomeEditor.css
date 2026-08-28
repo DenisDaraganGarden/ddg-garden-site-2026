@@ -13,21 +13,62 @@
   position: absolute;
   inset: 0;
   z-index: 0;
+  display: grid;
+  place-items: center;
+  background: #000;
+}
+
+.home-editor-viewport {
+  position: relative;
+  --home-editor-frame-inset: 18%;
+  width: min(100vw, 177.7778dvh);
+  height: min(100dvh, 56.25vw);
+  overflow: hidden;
+  background: #040507;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.home-editor-viewport--portrait {
+  width: min(100vw, 56.25dvh);
+  height: min(100dvh, 177.7778vw);
+}
+
+.home-editor-render-frame {
+  position: absolute;
+  inset: var(--home-editor-frame-inset) 0;
+}
+
+.home-editor-frame-mask {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  height: var(--home-editor-frame-inset);
+  background: #000;
+  pointer-events: none;
+}
+
+.home-editor-frame-mask--top {
+  top: 0;
+}
+
+.home-editor-frame-mask--bottom {
+  bottom: 0;
 }
 
 .home-editor-panel {
   position: fixed;
   left: 50%;
-  bottom: 1rem;
+  bottom: 0.65rem;
   transform: translateX(-50%);
-  width: min(1120px, calc(100vw - 2rem));
+  width: min(760px, calc(100vw - 1.25rem));
   z-index: 140;
   display: grid;
-  gap: 0.7rem;
-  padding: 0.85rem 1rem 1rem;
+  gap: 0.42rem;
+  padding: 0.58rem 0.7rem 0.7rem;
   background: rgba(13, 13, 13, 0.9);
   border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 18px;
+  border-radius: 14px;
   box-shadow: 0 18px 44px rgba(0, 0, 0, 0.45);
   backdrop-filter: blur(22px);
 }
@@ -41,15 +82,15 @@
 
 .home-editor-panel--collapsed {
   gap: 0;
-  padding: 0.5rem 0.7rem;
+  padding: 0.38rem 0.55rem;
   width: max-content;
-  min-width: 280px;
+  min-width: 230px;
 }
 
 .home-editor-panel-header {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
+  gap: 0.45rem;
   margin: -0.1rem -0.2rem 0.1rem;
   padding: 0.1rem 0.2rem;
   cursor: grab;
@@ -74,7 +115,7 @@
 
 .home-editor-panel-title {
   font-family: var(--font-secondary);
-  font-size: 0.72rem;
+  font-size: 0.64rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.72);
@@ -90,15 +131,15 @@
 
 .home-editor-panel-collapse {
   margin-left: auto;
-  width: 1.9rem;
-  height: 1.9rem;
+  width: 1.65rem;
+  height: 1.65rem;
   display: flex;
   align-items: center;
   justify-content: center;
   border: 1px solid rgba(255, 255, 255, 0.14);
   background: rgba(255, 255, 255, 0.05);
   color: #f5f5f5;
-  border-radius: 9px;
+  border-radius: 7px;
   cursor: pointer;
   font-size: 0.95rem;
   line-height: 1;
@@ -123,7 +164,7 @@
 .home-editor-tabs {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.55rem;
+  gap: 0.32rem;
   align-items: center;
 }
 
@@ -131,12 +172,12 @@
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: rgba(255, 255, 255, 0.04);
   color: #f5f5f5;
-  padding: 0.7rem 0.95rem;
-  border-radius: 12px;
+  padding: 0.42rem 0.58rem;
+  border-radius: 8px;
   cursor: pointer;
   transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
   font-family: var(--font-secondary);
-  font-size: 0.85rem;
+  font-size: 0.71rem;
 }
 
 .home-editor-tab:hover:not(:disabled) {
@@ -158,13 +199,13 @@
 .home-editor-status {
   color: rgba(255, 255, 255, 0.85);
   font-family: var(--font-secondary);
-  font-size: 0.82rem;
-  line-height: 1.4;
+  font-size: 0.68rem;
+  line-height: 1.25;
 }
 
 .home-editor-section {
   display: grid;
-  max-height: 40vh;
+  max-height: 27dvh;
   overflow-y: auto;
   overscroll-behavior: contain;
   padding-right: 0.25rem;
@@ -172,23 +213,23 @@
 
 .home-editor-controls {
   display: grid;
-  gap: 0.85rem;
+  gap: 0.58rem 0.72rem;
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .home-editor-control-group {
   display: flex;
   flex-direction: column;
-  gap: 0.45rem;
+  gap: 0.3rem;
 }
 
 .home-editor-section-heading {
   grid-column: 1 / -1;
-  margin: 0.55rem 0 0;
-  padding-top: 0.6rem;
+  margin: 0.38rem 0 0;
+  padding-top: 0.42rem;
   border-top: 1px solid rgba(255, 255, 255, 0.09);
   font-family: var(--font-secondary);
-  font-size: 0.66rem;
+  font-size: 0.6rem;
   letter-spacing: 0.2em;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.5);
@@ -204,7 +245,7 @@
   display: flex;
   justify-content: space-between;
   gap: 0.8rem;
-  font-size: 0.68rem;
+  font-size: 0.61rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.66);
@@ -223,20 +264,20 @@
 
 .home-editor-control-group input[type="color"] {
   width: 100%;
-  min-height: 2.5rem;
+  min-height: 2rem;
   padding: 0;
   border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 12px;
+  border-radius: 8px;
   background: transparent;
   cursor: pointer;
 }
 
 .home-editor-select {
   width: 100%;
-  min-height: 2.5rem;
-  padding: 0 0.85rem;
+  min-height: 2rem;
+  padding: 0 0.65rem;
   border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 12px;
+  border-radius: 8px;
   background: rgba(20, 20, 20, 0.92);
   color: #f5f5f5;
   font-family: var(--font-secondary);
@@ -259,7 +300,7 @@
 .home-editor-camera-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.55rem;
+  gap: 0.38rem;
 }
 
 .home-editor-layout-tabs {
@@ -273,11 +314,11 @@
   border: 1px solid rgba(255, 255, 255, 0.14);
   background: rgba(255, 255, 255, 0.04);
   color: #f5f5f5;
-  padding: 0.5rem 0.6rem;
-  border-radius: 9px;
+  padding: 0.4rem 0.5rem;
+  border-radius: 7px;
   cursor: pointer;
   font-family: var(--font-secondary);
-  font-size: 0.78rem;
+  font-size: 0.69rem;
   transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
 }
 
@@ -320,12 +361,12 @@
   border: 1px solid rgba(255, 255, 255, 0.14);
   background: rgba(255, 255, 255, 0.04);
   color: #f5f5f5;
-  padding: 0.56rem 0.75rem;
-  border-radius: 10px;
+  padding: 0.44rem 0.6rem;
+  border-radius: 8px;
   cursor: pointer;
   transition: background 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
   font-family: var(--font-secondary);
-  font-size: 0.75rem;
+  font-size: 0.68rem;
 }
 
 .home-editor-action-button:hover:not(:disabled) {
@@ -341,7 +382,7 @@
 .home-editor-camera-pose-status {
   color: rgba(255, 255, 255, 0.74);
   font-family: var(--font-secondary);
-  font-size: 0.72rem;
+  font-size: 0.65rem;
   line-height: 1.35;
 }
 
@@ -349,8 +390,8 @@
   margin: 0;
   color: rgba(255, 255, 255, 0.68);
   font-family: var(--font-secondary);
-  font-size: 0.72rem;
-  line-height: 1.4;
+  font-size: 0.65rem;
+  line-height: 1.3;
 }
 
 @media (max-width: 900px) {
@@ -363,21 +404,53 @@
   }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 768px), (max-height: 560px) {
   .home-editor-panel,
   .home-editor-panel--collapsed {
-    left: 1rem;
-    right: 1rem;
-    bottom: calc(var(--mobile-header-height) + 0.6rem);
+    left: 0.5rem;
+    right: 0.5rem;
+    bottom: 0.5rem;
     top: auto;
     transform: none;
     width: auto;
     min-width: 0;
-    padding: 0.85rem;
+    max-height: min(350px, calc(100dvh - 1rem));
+    padding: 0.5rem;
+    gap: 0.34rem;
+  }
+
+  .home-editor-tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    padding-bottom: 0.15rem;
   }
 
   .home-editor-tab {
-    font-size: 0.8rem;
-    padding: 0.65rem 0.8rem;
+    flex: 0 0 auto;
+    font-size: 0.66rem;
+    padding: 0.38rem 0.5rem;
+  }
+
+  .home-editor-section {
+    max-height: 23dvh;
+  }
+}
+
+@media (max-height: 560px) and (orientation: landscape) {
+  .home-editor-panel,
+  .home-editor-panel--collapsed {
+    left: auto;
+    right: 0.5rem;
+    width: min(560px, calc(100vw - 1rem));
+    max-height: 190px;
+  }
+
+  .home-editor-section {
+    max-height: 72px;
+  }
+
+  .home-editor-controls {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

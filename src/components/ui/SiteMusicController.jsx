@@ -36,6 +36,15 @@ export function useSiteMusic() {
             return;
         }
 
+        // Local development must open silently. The music button still works, and a
+        // manually started track resumes after the tab returns to the foreground.
+        if (import.meta.env.DEV && !wasPlayingBeforeBackgroundRef.current) {
+            waitingForGestureRef.current = false;
+            audio.pause();
+            setIsMusicPlaying(false);
+            return;
+        }
+
         try {
             await audio.play();
             waitingForGestureRef.current = false;
