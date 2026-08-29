@@ -233,11 +233,19 @@ export const waterV2FragmentShader = `
     // there is no artificial haze; at maximum a metre of water is visibly
     // cloudy, while nearby submerged geometry stays clearer than the bottom.
     float density = turbidity * (0.45 + 0.55 * turbidity);
-    vec3 absorptionCoefficient = vec3(0.008, 0.003, 0.001)
-      + density * vec3(0.13, 0.055, 0.018);
+    // Per metre, these coefficients only read on deep water. The published pond
+    // is 0.75m, where the whole travel of the turbidity slider changed the frame
+    // by a few percent - the control looked broken because at that depth it
+    // effectively was. Normalising against the authored depth makes the slider
+    // mean "how much this water hides its own bottom" at any depth; at the
+    // default 5m it lands exactly where it used to.
+    float depthScale = 5.0 / max(uWaterDepth, 0.25);
+    vec3 absorptionCoefficient = (vec3(0.008, 0.003, 0.001)
+      + density * vec3(0.13, 0.055, 0.018)) * depthScale;
     float scatteringCoefficient = density
       * 0.62
-      * clamp(uWaterScatteringStrength, 0.0, 1.5);
+      * depthScale
+      * clamp(uWaterScatteringStrength, 0.0, 2.0);
     vec3 extinction = absorptionCoefficient + vec3(scatteringCoefficient);
     vec3 transmittance = exp(-extinction * opticalPath);
     vec3 deepTint = mix(
@@ -345,7 +353,7 @@ export const waterV2FragmentShader = `
       * sparklePoint
       * sparkleTwinkle
       * microfacet
-      * clamp(uWaterGlintStrength, 0.0, 1.5)
+      * clamp(uWaterGlintStrength, 0.0, 2.0)
       * (0.65 + fresnel * 2.2)
       * clamp(uMoonIntensity, 0.0, 4.0);
 
