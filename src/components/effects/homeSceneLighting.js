@@ -7,6 +7,7 @@
 import {
   SKY,
   buildHomeSceneLightDirection,
+  solveKeyLight,
   solveMoonElevationAzimuth,
   solveNightWeight,
   solveSunElevationAzimuth,
@@ -122,7 +123,6 @@ export const buildHomeSceneLighting = (settings = {}) => {
   const waterTint = hexToLightingColor(settings.envTint, '#6b7484');
   const turbidity = clamp(finiteNumber(settings.waterTurbidity, 0), 0, 1);
   const keyLightType = settings.keyLightType === 'moon' ? 'moon' : 'sun';
-  const direction = buildHomeSceneLightDirection(settings.moonAzimuth, settings.moonElevation);
   const ambientIntensity = clamp(
     finiteNumber(settings.ambientIntensity, 0.11)
       + finiteNumber(settings.hemisphereIntensity, 0.26) * 0.5,
@@ -154,17 +154,42 @@ export const buildHomeSceneLighting = (settings = {}) => {
     sunDirection[1] + (moonDirection[1] - sunDirection[1]) * night,
     sunDirection[2] + (moonDirection[2] - sunDirection[2]) * night,
   ];
-  const keyRadiance = scaleColor(keyColor.linear, keyIntensity);
   const cloudCover = clamp(finiteNumber(settings.cloudCover, 0), 0, 1);
   const sunAngularSize = clamp(finiteNumber(settings.sunAngularSize, 1), 0.2, 6);
+  const skyTurbidity = clamp(finiteNumber(settings.skyTurbidity, 2.6), 1, 10);
+  const sunTint = hexToLightingColor(settings.sunTint, '#fff5ea');
+  const sunIntensity = clamp(finiteNumber(settings.sunIntensity, keyIntensity), 0, 8);
+  // The key's colour is the sun's colour AFTER the air has had it. Nobody picks
+  // it; a low sun reddens because its light crossed more atmosphere, which is the
+  // same reason the horizon behind it reddens. Authoring the two separately is
+  // what let them disagree for the whole life of this scene.
+  const keyRadiance = solveKeyLight({
+    sunElevationDeg: sun.elevationDeg,
+    moonElevationDeg: moon.elevationDeg,
+    sunTint: sunTint.linear,
+    sunIntensity,
+    skyTurbidity,
+    cloudCover,
+    night,
+    moonIllumination: moon.illumination,
+    moonBrightness: clamp(finiteNumber(settings.moonBrightness, 1), 0, 4),
+  });
+  const keyLuminance = 0.2126 * keyRadiance[0] + 0.7152 * keyRadiance[1] + 0.0722 * keyRadiance[2];
 
   return {
     key: {
       type: keyLightType,
-      direction,
+      // Shading follows the sun through the day, so the light, the disc and the
+      // reflection are one direction.
+      direction: skyKeyDirection,
       color: keyColor,
-      intensity: keyIntensity,
-      radiance: scaleColor(keyColor.linear, keyIntensity),
+      // Split back out for three's directionalLight, which wants a colour and a
+      // scalar: the hue is the extinguished sunlight, the scalar its level.
+      colorLinear: keyLuminance > 1e-6
+        ? keyRadiance.map((value) => value / keyLuminance)
+        : [1, 1, 1],
+      intensity: keyLuminance,
+      radiance: keyRadiance,
     },
     environment: {
       preset: settings.hdrPreset in HOME_SCENE_HDRI_PALETTES ? settings.hdrPreset : 'night',
@@ -184,7 +209,7 @@ export const buildHomeSceneLighting = (settings = {}) => {
       // water reflects and the image-based fill are the same sky by construction.
       keyDirection: skyKeyDirection,
       keyRadiance,
-      skyTurbidity: clamp(finiteNumber(settings.skyTurbidity, 2.6), 1, 10),
+      skyTurbidity,
       cloudCover,
       groundAlbedo: [0.08, 0.09, 0.07],
       // A real solar disc is 0.53 deg across; the slider scales that, and the

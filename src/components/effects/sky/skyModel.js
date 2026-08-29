@@ -113,6 +113,52 @@ export function solveNightWeight(sunElevationDeg) {
   return night;
 }
 
+// The colour of sunlight after the atmosphere has had it. A real sun is very
+// nearly white above the haze; everything warm about a low sun is extinction
+// along a long path, which is why a sunset reddens the light AND the horizon
+// together. Authoring the key colour directly - as this scene did with a fixed
+// #e78b23 - makes those two independent, and then the sky and the light it
+// supposedly comes from can never agree.
+export function solveKeyLight({
+  sunElevationDeg = 18,
+  moonElevationDeg = 18,
+  sunTint = [1, 0.96, 0.92],
+  sunIntensity = 1,
+  skyTurbidity = 2.6,
+  cloudCover = 0,
+  night = 0,
+  moonIllumination = 1,
+  moonBrightness = 1,
+} = {}) {
+  const betaM = SKY.betaM * (0.4 + clamp(skyTurbidity, 1, 10) * 0.36);
+  const extinction = (elevationDeg) => {
+    const mass = airMass(elevationDeg);
+    return SKY.betaR.map((b) => Math.exp(-(b + betaM) * mass));
+  };
+
+  const sunTransmittance = extinction(sunElevationDeg);
+  const sun = [
+    sunTint[0] * sunTransmittance[0] * sunIntensity,
+    sunTint[1] * sunTransmittance[1] * sunIntensity,
+    sunTint[2] * sunTransmittance[2] * sunIntensity,
+  ];
+
+  // Moonlight is sunlight twice reflected: a fraction of the intensity, slightly
+  // blue because the lunar surface is grey against a warm sun. It reddens along
+  // ITS OWN path - taking the sun's extinction here made a midnight moon glow
+  // the colour of a sunset.
+  const moonTransmittance = extinction(moonElevationDeg);
+  const moonScale = 0.02 * clamp(moonIllumination, 0, 1) * moonBrightness;
+  const moon = [
+    sunTint[0] * moonTransmittance[0] * sunIntensity * moonScale * 0.78,
+    sunTint[1] * moonTransmittance[1] * sunIntensity * moonScale * 0.88,
+    sunTint[2] * moonTransmittance[2] * sunIntensity * moonScale * 1.15,
+  ];
+
+  const beam = 1 - 0.9 * clamp(cloudCover, 0, 1);
+  return [0, 1, 2].map((c) => (sun[c] * (1 - night) + moon[c] * night) * beam);
+}
+
 const normalize = (v) => {
   const length = Math.hypot(v[0], v[1], v[2]) || 1;
   return [v[0] / length, v[1] / length, v[2] / length];

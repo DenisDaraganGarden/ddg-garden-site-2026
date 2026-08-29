@@ -166,6 +166,20 @@ export const getBaseHomeSceneSettings = () => ({
   moonElevation: 18,
   moonSpecularStrength: 0.18,
   moonSpecularPower: 38,
+  // Sky + Sun + Moon. The clock drives the sun; bearing stays authored, because
+  // the composition was built around a direction rather than a latitude.
+  timeOfDay: 12,
+  sunBearing: 42,
+  sunNoonElevation: 18,
+  sunTint: '#fff5ea',
+  sunIntensity: 1.6,
+  sunAngularSize: 1,
+  skyTurbidity: 2.6,
+  cloudCover: 0,
+  moonPhase: 0.5,
+  moonBrightness: 1,
+  envMode: 'sky',
+  hdriIntensity: 1,
   showHdriBackground: false,
   shadowsEnabled: true,
   shadowIntensity: 1,
@@ -498,6 +512,38 @@ const normalizeHomeSceneSettings = (savedSettings = {}) => {
     moonElevation: clampFloat(merged.moonElevation, 0, 85, defaults.moonElevation),
     moonSpecularStrength: clampFloat(merged.moonSpecularStrength, 0, 2, defaults.moonSpecularStrength),
     moonSpecularPower: clampFloat(merged.moonSpecularPower, 4, 128, defaults.moonSpecularPower),
+    // The sun arc replaces the raw azimuth/elevation pair. Legacy drafts carry
+    // the old names, so the bearing and the noon height migrate out of them and
+    // a scene authored before the clock existed opens exactly where it was.
+    timeOfDay: clampFloat(merged.timeOfDay, 0, 24, defaults.timeOfDay),
+    sunBearing: clampFloat(
+      merged.sunBearing ?? merged.moonAzimuth,
+      0,
+      360,
+      defaults.sunBearing,
+    ),
+    sunNoonElevation: clampFloat(
+      merged.sunNoonElevation ?? merged.moonElevation,
+      0,
+      85,
+      defaults.sunNoonElevation,
+    ),
+    sunTint: pickColor(merged.sunTint, defaults.sunTint),
+    sunIntensity: clampFloat(
+      merged.sunIntensity ?? merged.moonIntensity,
+      0,
+      8,
+      defaults.sunIntensity,
+    ),
+    sunAngularSize: clampFloat(merged.sunAngularSize, 0.2, 6, defaults.sunAngularSize),
+    skyTurbidity: clampFloat(merged.skyTurbidity, 1, 10, defaults.skyTurbidity),
+    cloudCover: clampFloat(merged.cloudCover, 0, 1, defaults.cloudCover),
+    moonPhase: clampFloat(merged.moonPhase, 0, 1, defaults.moonPhase),
+    moonBrightness: clampFloat(merged.moonBrightness, 0, 4, defaults.moonBrightness),
+    envMode: ['sky', 'sky+hdri', 'hdri'].includes(merged.envMode)
+      ? merged.envMode
+      : defaults.envMode,
+    hdriIntensity: clampFloat(merged.hdriIntensity, 0, 2, defaults.hdriIntensity),
     showHdriBackground: pickBoolean(merged.showHdriBackground, defaults.showHdriBackground),
     shadowsEnabled: pickBoolean(merged.shadowsEnabled, defaults.shadowsEnabled),
     shadowIntensity: clampFloat(merged.shadowIntensity, 0, 1, defaults.shadowIntensity),

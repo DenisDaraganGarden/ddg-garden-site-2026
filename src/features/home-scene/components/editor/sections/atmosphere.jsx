@@ -8,59 +8,114 @@ import {
     SectionHeading,
 } from '../../HomeEditorControls';
 import { formatFloat } from '../editorShared';
-import {
-    HOME_SCENE_HDRI_PRESETS,
-    HOME_SCENE_LIGHT_TYPES,
-} from '../../../hooks/useHomeSceneSettings';
+import { HOME_SCENE_HDRI_PRESETS } from '../../../hooks/useHomeSceneSettings';
+
+const formatHour = (value) => {
+    const hours = Math.floor(value);
+    const minutes = Math.round((value - hours) * 60);
+    return `${String(hours).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
+};
 
 export const LightSection = ({ settings, handleSettingChange }) => {
     const { t } = useLanguage();
-    const lightTypeOptions = HOME_SCENE_LIGHT_TYPES.map((option) => ({
-        ...option,
-        label: t(`homeEditor.controls.lightType${option.value === 'sun' ? 'Sun' : 'Moon'}`),
-    }));
 
     return (
         <>
-            <SectionHeading label={t('homeEditor.blocks.keyLight')} subtle />
-            <SelectControl
-                label={t('homeEditor.controls.keyLightType')}
-                value={settings.keyLightType}
-                options={lightTypeOptions}
-                onChange={(event) => handleSettingChange(event, 'keyLightType', 'string')}
-            />
-            <ColorControl
-                label={t('homeEditor.controls.moonColor')}
-                value={settings.moonColor}
-                onChange={(event) => handleSettingChange(event, 'moonColor', 'color')}
-            />
+            <SectionHeading label={t('homeEditor.blocks.sun')} subtle />
+            <p className="home-editor-inline-hint">{t('homeEditor.controls.sunHint')}</p>
             <RangeControl
-                label={t('homeEditor.controls.moonIntensity')}
-                value={settings.moonIntensity}
+                label={t('homeEditor.controls.timeOfDay')}
+                value={settings.timeOfDay}
                 min={0}
-                max={4}
+                max={24}
                 step={0.05}
-                formatValue={(value) => formatFloat(value)}
-                onChange={(event) => handleSettingChange(event, 'moonIntensity')}
+                formatValue={formatHour}
+                onChange={(event) => handleSettingChange(event, 'timeOfDay')}
             />
             <RangeControl
-                label={t('homeEditor.controls.moonAzimuth')}
-                value={settings.moonAzimuth}
+                label={t('homeEditor.controls.sunBearing')}
+                value={settings.sunBearing}
                 min={0}
                 max={360}
                 step={1}
                 unit="°"
-                onChange={(event) => handleSettingChange(event, 'moonAzimuth')}
+                onChange={(event) => handleSettingChange(event, 'sunBearing')}
             />
             <RangeControl
-                label={t('homeEditor.controls.moonElevation')}
-                value={settings.moonElevation}
+                label={t('homeEditor.controls.sunNoonElevation')}
+                value={settings.sunNoonElevation}
                 min={0}
                 max={85}
                 step={1}
                 unit="°"
-                onChange={(event) => handleSettingChange(event, 'moonElevation')}
+                onChange={(event) => handleSettingChange(event, 'sunNoonElevation')}
             />
+            <RangeControl
+                label={t('homeEditor.controls.sunIntensity')}
+                value={settings.sunIntensity}
+                min={0}
+                max={8}
+                step={0.05}
+                formatValue={(value) => formatFloat(value)}
+                onChange={(event) => handleSettingChange(event, 'sunIntensity')}
+            />
+            <ColorControl
+                label={t('homeEditor.controls.sunTint')}
+                value={settings.sunTint}
+                onChange={(event) => handleSettingChange(event, 'sunTint', 'color')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.sunAngularSize')}
+                value={settings.sunAngularSize}
+                min={0.2}
+                max={6}
+                step={0.05}
+                unit="x"
+                formatValue={(value) => formatFloat(value)}
+                onChange={(event) => handleSettingChange(event, 'sunAngularSize')}
+            />
+
+            <SectionHeading label={t('homeEditor.blocks.air')} subtle />
+            <RangeControl
+                label={t('homeEditor.controls.skyTurbidity')}
+                value={settings.skyTurbidity}
+                min={1}
+                max={10}
+                step={0.1}
+                formatValue={(value) => formatFloat(value, 1)}
+                onChange={(event) => handleSettingChange(event, 'skyTurbidity')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.cloudCover')}
+                value={settings.cloudCover}
+                min={0}
+                max={1}
+                step={0.01}
+                unit="%"
+                formatValue={(value) => Math.round(Number(value) * 100)}
+                onChange={(event) => handleSettingChange(event, 'cloudCover')}
+            />
+
+            <SectionHeading label={t('homeEditor.blocks.moon')} subtle />
+            <RangeControl
+                label={t('homeEditor.controls.moonPhase')}
+                value={settings.moonPhase}
+                min={0}
+                max={1}
+                step={0.01}
+                formatValue={(value) => formatFloat(value)}
+                onChange={(event) => handleSettingChange(event, 'moonPhase')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.moonBrightness')}
+                value={settings.moonBrightness}
+                min={0}
+                max={4}
+                step={0.05}
+                formatValue={(value) => formatFloat(value)}
+                onChange={(event) => handleSettingChange(event, 'moonBrightness')}
+            />
+
             <SectionHeading label={t('homeEditor.blocks.disc')} subtle />
             <CheckboxControl
                 label={t('homeEditor.controls.lightDiscEnabled')}
@@ -110,6 +165,26 @@ export const HdriSection = ({ settings, handleSettingChange }) => {
 
     return (
         <>
+            <SelectControl
+                label={t('homeEditor.controls.envMode')}
+                value={settings.envMode}
+                options={[
+                    { value: 'sky', label: t('homeEditor.controls.envModeSky') },
+                    { value: 'sky+hdri', label: t('homeEditor.controls.envModeBoth') },
+                    { value: 'hdri', label: t('homeEditor.controls.envModeHdri') },
+                ]}
+                onChange={(event) => handleSettingChange(event, 'envMode', 'string')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.hdriIntensity')}
+                value={settings.hdriIntensity}
+                min={0}
+                max={2}
+                step={0.01}
+                unit="x"
+                formatValue={(value) => formatFloat(value)}
+                onChange={(event) => handleSettingChange(event, 'hdriIntensity')}
+            />
             <SelectControl
                 label={t('homeEditor.controls.hdrPreset')}
                 value={settings.hdrPreset}
