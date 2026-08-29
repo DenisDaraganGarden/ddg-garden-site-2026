@@ -131,7 +131,10 @@ const postFragmentShader = `
   }
 
   float sampleFogNoise(vec2 uv, float distanceRatio) {
-    vec2 drift = vec2(uTime * uFogSpeed * 0.37, -uTime * uFogSpeed * 0.23);
+    // The noise texture repeats, so dropping the integer part samples identically
+    // while keeping the coordinate small - an unbounded uTime term loses float
+    // precision over a long session and makes the fog shimmer on its own.
+    vec2 drift = fract(vec2(uTime * uFogSpeed * 0.37, -uTime * uFogSpeed * 0.23));
     vec2 baseUv = uv * max(uFogNoiseScale, 0.1) + drift;
     float noiseValue = texture2D(uNoiseTexture, baseUv).r;
 
@@ -143,7 +146,11 @@ const postFragmentShader = `
         vec2 layerUv = baseUv
           * (1.0 + layer * 0.72)
           + vec2(layer * 0.31, -layer * 0.19)
-          + (uSunUv - 0.5) * layer * distanceRatio * 0.28;
+          // uSunUv is unbounded: with the key light above the frame it reaches ~4.7,
+          // which turned this per-pixel, depth-driven warp into a jump of whole noise
+          // tiles between neighbouring pixels. On an animated water surface that is
+          // the flicker. Clamping keeps the parallax but bounds it to +/-0.14 uv.
+          + (clamp(uSunUv, 0.0, 1.0) - 0.5) * layer * distanceRatio * 0.28;
         float layerWeight = mix(1.0, 0.42, layer);
         volume += texture2D(uNoiseTexture, layerUv).r * layerWeight;
         weight += layerWeight;
@@ -184,7 +191,11 @@ const postFragmentShader = `
     }
 
     float rays = 0.0;
-    if (uSunRaysEnabled > 0.5 && uSunRaysIntensity > 0.0001) {
+    // uSunVisible now carries the CPU-side screen mask too. Without that test the
+    // loop below ran its 18 dependent texture fetches per pixel and multiplied the
+    // result by a zero mask - a guaranteed no-op paid for on every frame whenever
+    // the key light sits outside the frame, which the letterboxed band makes common.
+    if (uSunRaysEnabled > 0.5 && uSunRaysIntensity > 0.0001 && uSunVisible > 0.5) {
       rays = sampleSunRays(vUv);
     }
 
@@ -281,7 +292,13 @@ export default function ScenePostProcessing({ settings, qualityProfile }) {
       minFilter: THREE.LinearFilter,
       magFilter: THREE.LinearFilter,
       format: THREE.RGBAFormat,
-      type: THREE.UnsignedByteType,
+      // The whole scene lands here before grading. Storing it as 8-bit LINEAR
+      // was the source of the banding in the night gradients: linear coding
+      // spends most of its 256 steps on highlights and leaves barely a dozen
+      // for the shadows this scene is almost entirely made of. Half float
+      // removes the quantisation (and lets the grade work on real HDR values)
+      // for two bytes per channel. Weak devices keep the cheap buffer.
+      type: isLowPower ? THREE.UnsignedByteType : THREE.HalfFloatType,
       depthBuffer: true,
       stencilBuffer: true,
       generateMipmaps: false,
@@ -294,7 +311,7 @@ export default function ScenePostProcessing({ settings, qualityProfile }) {
     target.depthTexture.generateMipmaps = false;
     target.depthTexture.name = 'home-scene-post-depth';
     return target;
-  }, []);
+  }, [isLowPower]);
   const uniforms = useMemo(() => ({
     uColorTexture: { value: renderTarget.texture },
     uDepthTexture: { value: renderTarget.depthTexture },
@@ -429,7 +446,20 @@ export default function ScenePostProcessing({ settings, qualityProfile }) {
       sunPoint.current.x * 0.5 + 0.5,
       sunPoint.current.y * 0.5 + 0.5,
     );
-    uniforms.uSunVisible.value = cameraDirection.current.dot(sunDirection) > 0 ? 1 : 0;
+    // Same mask the shader applies to the ray result, evaluated once on the CPU so
+    // an off-screen sun skips the whole loop instead of shading it away.
+    const edgeFade = (edge0, edge1, x) => {
+      const t = Math.min(1, Math.max(0, (x - edge0) / (edge1 - edge0)));
+      return t * t * (3 - 2 * t);
+    };
+    const sunU = uniforms.uSunUv.value.x;
+    const sunV = uniforms.uSunUv.value.y;
+    const screenMask = edgeFade(0, 0.08, sunU)
+      * edgeFade(1, 0.92, sunU)
+      * edgeFade(0, 0.08, sunV)
+      * edgeFade(1, 0.92, sunV);
+    const facesSun = cameraDirection.current.dot(sunDirection) > 0;
+    uniforms.uSunVisible.value = (facesSun && screenMask > 0.0001) ? 1 : 0;
     uniforms.uCameraNear.value = camera.near;
     uniforms.uCameraFar.value = camera.far;
     uniforms.uTime.value = clock.elapsedTime;

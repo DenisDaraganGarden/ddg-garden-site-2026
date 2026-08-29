@@ -576,6 +576,17 @@ export const PostProcessingTab = ({ settings, handleSettingChange }) => {
                 onChange={(event) => handleSettingChange(event, 'postProcessingEnabled', 'boolean')}
             />
 
+            <RangeControl
+                label={t('homeEditor.controls.renderScale')}
+                value={settings.renderScale}
+                min={0.5}
+                max={2}
+                step={0.05}
+                unit="x"
+                formatValue={(value) => formatFloat(value, 2)}
+                onChange={(event) => handleSettingChange(event, 'renderScale')}
+            />
+
             <SectionHeading label={t('homeEditor.controls.postSectionGrain')} />
             <CheckboxControl
                 label={t('homeEditor.controls.filmGrainEnabled')}

@@ -100,10 +100,17 @@ function detectQualityTier() {
   const hardwareConcurrency = typeof navigator.hardwareConcurrency === 'number'
     ? navigator.hardwareConcurrency
     : null;
-  const isLowTier = (deviceMemory !== null && deviceMemory <= 4)
-    || (hardwareConcurrency !== null && hardwareConcurrency <= 4);
-  const isMediumTier = (deviceMemory !== null && deviceMemory <= 8)
-    || (hardwareConcurrency !== null && hardwareConcurrency <= 8);
+  // Safari never exposes deviceMemory, and iOS reports 4 cores even on a current
+  // iPhone Pro. Judging that by core count alone demoted every iPhone to the low
+  // tier. Only trust a small core count as a weak-device signal when deviceMemory
+  // is present to corroborate it (Chrome/Android); otherwise assume a capable GPU.
+  const hasMemoryHint = deviceMemory !== null;
+  const isLowTier = hasMemoryHint
+    ? (deviceMemory <= 4 || (hardwareConcurrency !== null && hardwareConcurrency <= 4))
+    : (hardwareConcurrency !== null && hardwareConcurrency <= 2);
+  const isMediumTier = hasMemoryHint
+    ? deviceMemory <= 8
+    : (hardwareConcurrency !== null && hardwareConcurrency <= 6);
 
   if (isLowTier) {
     qualityTierCache = QUALITY_TIER.low;
@@ -122,18 +129,40 @@ function isTouchPrimaryDevice() {
   return window.matchMedia('(hover: none) and (pointer: coarse)').matches;
 }
 
+// A phone is a small screen, not necessarily a slow one. Trim the memory-bound
+// sizes (they buy nothing on a ~400pt-wide canvas) but keep the tier's update
+// rates: the stutter came from the rates, not from the resolutions.
+function trimProfileForMobile(profile, isMobileDevice) {
+  if (!isMobileDevice) {
+    return profile;
+  }
+
+  return {
+    ...profile,
+    simulationMaxResolution: Math.min(profile.simulationMaxResolution, 256),
+    reflectionTextureSize: Math.min(profile.reflectionTextureSize, 256),
+    waterMeshDensityCap: Math.min(profile.waterMeshDensityCap, 144),
+    seabedMeshDensity: Math.min(profile.seabedMeshDensity, 128),
+    shadowMapSize: Math.min(profile.shadowMapSize, 512),
+    surfacePlantMaxInstances: Math.min(profile.surfacePlantMaxInstances, 420),
+    underwaterAlgaeMaxInstances: Math.min(profile.underwaterAlgaeMaxInstances, 640),
+  };
+}
+
 function buildRuntimeQualityProfile(mode, viewportWidth) {
   const tier = detectQualityTier();
   const isEditor = mode === 'editor';
   const isMobileDevice = viewportWidth < 768 || isTouchPrimaryDevice();
 
-  if (isMobileDevice || tier === QUALITY_TIER.low) {
+  if (tier === QUALITY_TIER.low) {
     return {
       isLowPower: true,
       simulationTargetFps: isEditor ? 24 : 30,
       simulationMaxResolution: 128,
-      reflectionActiveFps: 4,
-      reflectionIdleFps: 2,
+      // 4/2 fps read as a slideshow rather than as a cheap reflection. Even the
+      // weakest tier needs the reflection to move with the water, not step.
+      reflectionActiveFps: 20,
+      reflectionIdleFps: 10,
       reflectionTextureSize: 160,
       refractionTextureType: THREE.UnsignedByteType,
       refractionDepthEnabled: false,
@@ -149,7 +178,7 @@ function buildRuntimeQualityProfile(mode, viewportWidth) {
   }
 
   if (tier === QUALITY_TIER.medium) {
-    return {
+    return trimProfileForMobile({
       isLowPower: false,
       simulationTargetFps: isEditor ? 45 : 54,
       simulationMaxResolution: isEditor ? 384 : 512,
@@ -166,10 +195,10 @@ function buildRuntimeQualityProfile(mode, viewportWidth) {
       useGpuBoatProbes: true,
       surfacePlantMaxInstances: 560,
       underwaterAlgaeMaxInstances: 900,
-    };
+    }, isMobileDevice);
   }
 
-  return {
+  return trimProfileForMobile({
     isLowPower: false,
     simulationTargetFps: isEditor ? 50 : 60,
     simulationMaxResolution: 512,
@@ -186,7 +215,7 @@ function buildRuntimeQualityProfile(mode, viewportWidth) {
     useGpuBoatProbes: true,
     surfacePlantMaxInstances: 900,
     underwaterAlgaeMaxInstances: 1600,
-  };
+  }, isMobileDevice);
 }
 
 // The published scene receives the next simulation tier whenever the hardware cap

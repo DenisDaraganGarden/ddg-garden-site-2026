@@ -4,13 +4,16 @@
 export const LAYOUT_KEYS = ['desktop', 'portrait'];
 export const LAYOUT_FRAME_ASPECTS = Object.freeze({
   desktop: 16 / 9,
-  portrait: 9 / 16,
+  // Phones keep the desktop frame shape: the widescreen band is the whole idea,
+  // and a 9/16 frame turned the composition into a near-square (0.74:1).
+  // Only the authored camera pose differs between the two buckets now.
+  portrait: 16 / 9,
 });
 export const DEFAULT_LAYOUT_FRAME_INSETS = Object.freeze({
   // 18% top + bottom leaves a 2.78:1 image inside 16:9 — the long
   // Ultra Panavision composition used as the desktop authoring reference.
   desktop: 0.18,
-  portrait: 0.12,
+  portrait: 0.18,
 });
 export const MIN_LAYOUT_FRAME_INSET = 0;
 export const MAX_LAYOUT_FRAME_INSET = 0.32;

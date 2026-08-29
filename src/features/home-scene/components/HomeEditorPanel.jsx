@@ -13,12 +13,8 @@ import {
 } from './HomeEditorTabs';
 
 const PANEL_STATE_KEY = 'ddg_home_editor_panel_v1';
-const PANEL_MARGIN = 12;
-const COMPACT_PANEL_MEDIA = '(max-width: 768px), (max-height: 560px)';
-
-const isMobileViewport = () => typeof window !== 'undefined'
-    && typeof window.matchMedia === 'function'
-    && window.matchMedia(COMPACT_PANEL_MEDIA).matches;
+const MIN_PANEL_HEIGHT = 150;
+const DEFAULT_PANEL_HEIGHT = 320;
 
 const readPanelState = () => {
     if (typeof window === 'undefined') {
@@ -33,14 +29,13 @@ const readPanelState = () => {
     }
 };
 
-const clampToViewport = (x, y, width, height) => {
-    const maxX = Math.max(PANEL_MARGIN, window.innerWidth - width - PANEL_MARGIN);
-    const maxY = Math.max(PANEL_MARGIN, window.innerHeight - height - PANEL_MARGIN);
+// Leave enough of the stage visible that the composition is still judgeable.
+const clampPanelHeight = (height) => {
+    const ceiling = typeof window !== 'undefined'
+        ? Math.max(MIN_PANEL_HEIGHT, window.innerHeight - 120)
+        : Number.POSITIVE_INFINITY;
 
-    return {
-        x: Math.min(Math.max(x, PANEL_MARGIN), maxX),
-        y: Math.min(Math.max(y, PANEL_MARGIN), maxY),
-    };
+    return Math.min(Math.max(height, MIN_PANEL_HEIGHT), ceiling);
 };
 
 const HomeEditorPanel = ({
@@ -57,15 +52,12 @@ const HomeEditorPanel = ({
 }) => {
     const { t } = useLanguage();
     const panelRef = useRef(null);
-    const dragStateRef = useRef(null);
+    const resizeStateRef = useRef(null);
     const [storedState] = useState(readPanelState);
     const [collapsed, setCollapsed] = useState(() => Boolean(storedState.collapsed));
-    const [position, setPosition] = useState(() => (
-        typeof storedState.x === 'number' && typeof storedState.y === 'number'
-            ? { x: storedState.x, y: storedState.y }
-            : null
+    const [panelHeight, setPanelHeight] = useState(() => (
+        typeof storedState.height === 'number' ? storedState.height : DEFAULT_PANEL_HEIGHT
     ));
-    const [isMobile, setIsMobile] = useState(isMobileViewport);
     // The editor itself is already dev-only. Keeping diagnostics behind an
     // additional query flag made the performance tools effectively invisible.
     const showDeveloperTab = import.meta.env.DEV;
@@ -85,83 +77,55 @@ const HomeEditorPanel = ({
     }
     const canPublish = publishEnabled && typeof onPublish === 'function';
     const isPublishDisabled = publishState?.busy || !hasPublishChanges || !canPublish;
-    const isFloating = !isMobile && position !== null;
-
-    // Track viewport class so we fall back to the docked bottom layout on phones.
-    useEffect(() => {
-        if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
-            return undefined;
-        }
-
-        const mediaQuery = window.matchMedia(COMPACT_PANEL_MEDIA);
-        const handleChange = () => setIsMobile(mediaQuery.matches);
-
-        handleChange();
-        mediaQuery.addEventListener('change', handleChange);
-        return () => mediaQuery.removeEventListener('change', handleChange);
-    }, []);
-
-    // Persist position + collapsed state.
+    // Persist height + collapsed state.
     useEffect(() => {
         if (typeof window === 'undefined') {
             return;
         }
 
-        const payload = { collapsed };
-        if (position) {
-            payload.x = position.x;
-            payload.y = position.y;
-        }
-        window.localStorage.setItem(PANEL_STATE_KEY, JSON.stringify(payload));
-    }, [collapsed, position]);
+        window.localStorage.setItem(
+            PANEL_STATE_KEY,
+            JSON.stringify({ collapsed, height: panelHeight }),
+        );
+    }, [collapsed, panelHeight]);
 
-    // First desktop render with no saved spot: seed it bottom-centred (matches the
-    // old docked look) so switching to free-drag doesn't visually jump.
+    // Report the height the panel actually occupies so the stage can reserve it.
+    // Measuring beats recomputing: this covers the collapsed bar and a wrapped
+    // tab row without duplicating any of that layout maths here.
     useLayoutEffect(() => {
-        if (isMobile || position || !panelRef.current) {
-            return;
-        }
+        const node = panelRef.current;
 
-        const rect = panelRef.current.getBoundingClientRect();
-        const x = (window.innerWidth - rect.width) / 2;
-        const y = window.innerHeight - rect.height - 16;
-        setPosition(clampToViewport(x, y, rect.width, rect.height));
-    }, [isMobile, position]);
-
-    // Keep the panel on-screen when it collapses/expands or the window resizes.
-    useLayoutEffect(() => {
-        if (isMobile || !position || !panelRef.current) {
-            return;
-        }
-
-        const rect = panelRef.current.getBoundingClientRect();
-        setPosition((previous) => (
-            previous ? clampToViewport(previous.x, previous.y, rect.width, rect.height) : previous
-        ));
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [collapsed]);
-
-    useEffect(() => {
-        if (isMobile) {
+        if (!node || typeof ResizeObserver === 'undefined') {
             return undefined;
         }
 
-        const handleResize = () => {
-            if (!panelRef.current) {
-                return;
-            }
-            const rect = panelRef.current.getBoundingClientRect();
-            setPosition((previous) => (
-                previous ? clampToViewport(previous.x, previous.y, rect.width, rect.height) : previous
-            ));
+        const publishHeight = () => {
+            document.documentElement.style.setProperty(
+                '--home-editor-panel-height',
+                `${Math.round(node.getBoundingClientRect().height)}px`,
+            );
         };
+
+        publishHeight();
+        const observer = new ResizeObserver(publishHeight);
+        observer.observe(node);
+
+        return () => {
+            observer.disconnect();
+            document.documentElement.style.removeProperty('--home-editor-panel-height');
+        };
+    }, []);
+
+    // A shorter window can leave the stored height taller than the ceiling allows.
+    useEffect(() => {
+        const handleResize = () => setPanelHeight((value) => clampPanelHeight(value));
 
         window.addEventListener('resize', handleResize);
         return () => window.removeEventListener('resize', handleResize);
-    }, [isMobile]);
+    }, []);
 
-    const handleDragPointerDown = useCallback((event) => {
-        if (isMobile || event.button !== 0 || !panelRef.current) {
+    const handleResizePointerDown = useCallback((event) => {
+        if (collapsed || event.button !== 0 || !panelRef.current) {
             return;
         }
         // Don't hijack clicks on the collapse button / interactive header bits.
@@ -169,13 +133,10 @@ const HomeEditorPanel = ({
             return;
         }
 
-        const rect = panelRef.current.getBoundingClientRect();
-        dragStateRef.current = {
+        resizeStateRef.current = {
             pointerId: event.pointerId,
-            offsetX: event.clientX - rect.left,
-            offsetY: event.clientY - rect.top,
-            width: rect.width,
-            height: rect.height,
+            startY: event.clientY,
+            startHeight: panelRef.current.getBoundingClientRect().height,
         };
 
         try {
@@ -183,46 +144,38 @@ const HomeEditorPanel = ({
         } catch {
             /* no-op */
         }
+    }, [collapsed]);
 
-        if (!position) {
-            setPosition({ x: rect.left, y: rect.top });
-        }
-    }, [isMobile, position]);
-
-    const handleDragPointerMove = useCallback((event) => {
-        const drag = dragStateRef.current;
-        if (!drag || event.pointerId !== drag.pointerId) {
+    const handleResizePointerMove = useCallback((event) => {
+        const resize = resizeStateRef.current;
+        if (!resize || event.pointerId !== resize.pointerId) {
             return;
         }
 
-        const x = event.clientX - drag.offsetX;
-        const y = event.clientY - drag.offsetY;
-        setPosition(clampToViewport(x, y, drag.width, drag.height));
+        // Dragging the header upwards grows the panel.
+        setPanelHeight(clampPanelHeight(resize.startHeight + (resize.startY - event.clientY)));
     }, []);
 
-    const endDrag = useCallback((event) => {
-        const drag = dragStateRef.current;
-        if (!drag) {
+    const endResize = useCallback((event) => {
+        const resize = resizeStateRef.current;
+        if (!resize) {
             return;
         }
 
-        if (drag.pointerId != null && event?.currentTarget?.releasePointerCapture) {
+        if (resize.pointerId != null && event?.currentTarget?.releasePointerCapture) {
             try {
-                event.currentTarget.releasePointerCapture(drag.pointerId);
+                event.currentTarget.releasePointerCapture(resize.pointerId);
             } catch {
                 /* no-op */
             }
         }
 
-        dragStateRef.current = null;
+        resizeStateRef.current = null;
     }, []);
 
-    const panelStyle = isFloating
-        ? { left: `${position.x}px`, top: `${position.y}px`, right: 'auto', bottom: 'auto', transform: 'none' }
-        : undefined;
+    const panelStyle = collapsed ? undefined : { height: `${panelHeight}px` };
     const panelClassName = [
         'home-editor-panel',
-        isFloating ? 'home-editor-panel--floating' : '',
         collapsed ? 'home-editor-panel--collapsed' : '',
     ].filter(Boolean).join(' ');
 
@@ -230,11 +183,12 @@ const HomeEditorPanel = ({
         <div className={panelClassName} ref={panelRef} style={panelStyle}>
             <div
                 className="home-editor-panel-header"
-                onPointerDown={handleDragPointerDown}
-                onPointerMove={handleDragPointerMove}
-                onPointerUp={endDrag}
-                onPointerCancel={endDrag}
-                onLostPointerCapture={endDrag}
+                onPointerDown={handleResizePointerDown}
+                onPointerMove={handleResizePointerMove}
+                onPointerUp={endResize}
+                onPointerCancel={endResize}
+                onLostPointerCapture={endResize}
+                title={collapsed ? undefined : t('homeEditor.panel.resizeHint')}
             >
                 <span className="home-editor-panel-grip" aria-hidden="true">⠿</span>
                 <span className="home-editor-panel-title">{t('homeEditor.panel.title')}</span>

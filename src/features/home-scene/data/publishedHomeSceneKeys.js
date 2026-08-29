@@ -106,6 +106,7 @@ const keys = [
   'underwaterAlgaeFlowStrength',
   'underwaterAlgaeSpeciesMix',
   'underwaterAlgaePatchiness',
+  'renderScale',
   'postProcessingEnabled',
   'filmGrainEnabled',
   'filmGrainIntensity',
