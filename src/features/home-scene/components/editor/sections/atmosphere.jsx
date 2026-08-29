@@ -116,20 +116,10 @@ export const LightSection = ({ settings, handleSettingChange }) => {
                 onChange={(event) => handleSettingChange(event, 'moonBrightness')}
             />
 
-            <SectionHeading label={t('homeEditor.blocks.disc')} subtle />
             <CheckboxControl
                 label={t('homeEditor.controls.lightDiscEnabled')}
                 checked={Boolean(settings.lightDiscEnabled)}
                 onChange={(event) => handleSettingChange(event, 'lightDiscEnabled', 'boolean')}
-            />
-            <RangeControl
-                label={t('homeEditor.controls.lightDiscSize')}
-                value={settings.lightDiscSize}
-                min={0.25}
-                max={6}
-                step={0.05}
-                formatValue={(value) => formatFloat(value)}
-                onChange={(event) => handleSettingChange(event, 'lightDiscSize')}
             />
             <SectionHeading label={t('homeEditor.blocks.shadows')} subtle />
             <CheckboxControl
@@ -155,6 +145,25 @@ export const LightSection = ({ settings, handleSettingChange }) => {
                 step={0.25}
                 formatValue={(value) => formatFloat(value, 1)}
                 onChange={(event) => handleSettingChange(event, 'shadowRadius')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.shadowBias')}
+                value={settings.shadowBias}
+                min={-0.005}
+                max={0.005}
+                step={0.0001}
+                formatValue={(value) => Number(value).toFixed(4)}
+                onChange={(event) => handleSettingChange(event, 'shadowBias')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.waterShadowStrength')}
+                value={settings.waterShadowStrength}
+                min={0}
+                max={1}
+                step={0.01}
+                unit="%"
+                formatValue={(value) => Math.round(Number(value) * 100)}
+                onChange={(event) => handleSettingChange(event, 'waterShadowStrength')}
             />
         </>
     );

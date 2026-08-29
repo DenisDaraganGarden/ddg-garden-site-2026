@@ -301,7 +301,7 @@ function WaterRuntimeScene({
           enableSurfaceRefine={mode !== 'editor' && !qualityProfile.isLowPower}
         />
       </WaterReflections>
-      <ScenePostProcessing settings={settings} qualityProfile={qualityProfile} />
+      <ScenePostProcessing settings={settings} qualityProfile={qualityProfile} lighting={lighting} />
       {mode === 'editor' && editorGizmo?.selection ? (
         <EditorGizmo
           selection={editorGizmo.selection}

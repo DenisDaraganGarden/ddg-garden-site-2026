@@ -277,7 +277,7 @@ function createNoiseTexture(size = 128) {
 
 const toEnabledFloat = (value) => (value ? 1 : 0);
 
-export default function ScenePostProcessing({ settings, qualityProfile }) {
+export default function ScenePostProcessing({ settings, qualityProfile, lighting }) {
   const { gl, scene, camera } = useThree();
   const isLowPower = qualityProfile?.isLowPower === true;
   const renderScale = qualityProfile?.postRenderScale ?? 1;
@@ -433,13 +433,10 @@ export default function ScenePostProcessing({ settings, qualityProfile }) {
       uniforms.uResolution.value.set(width, height);
     }
 
-    const azimuth = THREE.MathUtils.degToRad(settings.moonAzimuth);
-    const elevation = THREE.MathUtils.degToRad(settings.moonElevation);
-    sunDirection.set(
-      Math.cos(elevation) * Math.sin(azimuth),
-      Math.sin(elevation),
-      Math.cos(elevation) * Math.cos(azimuth),
-    ).normalize();
+    // The direction comes from the lighting contract, not from a second copy of
+    // the spherical formula. The copy that used to live here is exactly how the
+    // rays ended up anchored to a different point than the visible sun.
+    sunDirection.fromArray(lighting.sky.keyDirection).normalize();
     sunPoint.current.copy(camera.position).addScaledVector(sunDirection, 80).project(camera);
     camera.getWorldDirection(cameraDirection.current);
     uniforms.uSunUv.value.set(
