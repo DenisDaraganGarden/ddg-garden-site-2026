@@ -261,6 +261,7 @@ function WaterRuntimeScene({
         {settings.boatVisible ? (
           <FloatingBoat
             settings={settings}
+            lighting={lighting}
             layout={activeLayout}
             runtime={runtime}
             mode={mode}
@@ -273,6 +274,7 @@ function WaterRuntimeScene({
         {settings.sculptureVisible ? (
           <StaticSculpture
             settings={settings}
+            lighting={lighting}
             layout={activeLayout}
             mode={mode}
             orbitRef={orbitRef}

@@ -3,6 +3,7 @@ import { useFrame, useLoader, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import CustomShaderMaterial from 'three-custom-shader-material';
 import { DEBUG_VIEW_IDS } from './constants';
+import { configureMaps } from './pbrMaterial';
 import { seabedFragmentShader, seabedVertexShader } from '../shaders/waterRuntimeShaders';
 
 // The lake bed: relief, texture and the caustics the water casts onto it.
@@ -23,8 +24,7 @@ export default function Seabed({ settings, runtime, qualityProfile, lighting }) 
       texture.wrapT = THREE.RepeatWrapping;
       texture.minFilter = THREE.LinearMipmapLinearFilter;
       texture.magFilter = THREE.LinearFilter;
-      texture.anisotropy = Math.min(gl.capabilities.getMaxAnisotropy(), 8);
-      texture.colorSpace = THREE.SRGBColorSpace;
+      configureMaps(gl, { color: [texture] });
     }
   }, [gl, texture]);
 

@@ -3,12 +3,20 @@ import { useLoader } from '@react-three/fiber';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader';
 import * as THREE from 'three';
 import { useDragOnPlane } from './useDragOnPlane';
+import { ENV_REFLECTION_SCALE } from './pbrMaterial';
 import { DEFAULT_SCULPTURE_ANCHOR, SCULPTURE_DRAG_EDGE_MARGIN, clamp } from './constants';
 
 // The sculpture stands on the seabed. It does not float, so its height is the base
 // offset rather than anything the simulation decides.
 
-export default function StaticSculpture({ settings, layout, mode, orbitRef, onSculpturePositionChange }) {
+export default function StaticSculpture({
+  settings,
+  lighting,
+  layout,
+  mode,
+  orbitRef,
+  onSculpturePositionChange,
+}) {
   const anchorRef = useRef();
   const sculptureAnchorRef = useRef(new THREE.Vector3(
     layout?.sculpturePosition?.x ?? settings?.sculpturePosition?.x ?? DEFAULT_SCULPTURE_ANCHOR.x,
@@ -59,7 +67,7 @@ export default function StaticSculpture({ settings, layout, mode, orbitRef, onSc
     roughness: settings.sculptureRoughness,
     clearcoat: settings.sculptureClearcoat,
     clearcoatRoughness: settings.sculptureClearcoatRoughness,
-    envMapIntensity: THREE.MathUtils.clamp(settings.envReflectionIntensity / 220, 0, 0.6),
+    envMapIntensity: lighting.environment.reflection * ENV_REFLECTION_SCALE.sculpture,
     transmission: 0,
     transparent: false,
     opacity: 1,
@@ -67,7 +75,7 @@ export default function StaticSculpture({ settings, layout, mode, orbitRef, onSc
     depthTest: true,
     side: THREE.DoubleSide,
   }), [
-    settings.envReflectionIntensity,
+    lighting,
     settings.sculptureClearcoat,
     settings.sculptureClearcoatRoughness,
     settings.sculptureColor,

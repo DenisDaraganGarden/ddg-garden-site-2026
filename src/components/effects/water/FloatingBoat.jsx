@@ -1,15 +1,17 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
-import { useFrame, useLoader } from '@react-three/fiber';
+import { useFrame, useLoader, useThree } from '@react-three/fiber';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader';
 import * as THREE from 'three';
 import { BOAT_CUTOUT_STENCIL_REF, BOAT_MAX_PITCH, BOAT_MAX_ROLL, BOAT_NEUTRAL_Y, BOAT_PROBE_INTERVAL, BOAT_PROBE_OFFSETS, BOAT_TARGET_Y_MAX, BOAT_TARGET_Y_MIN, CURSOR_BOAT_IMPACT_DURATION, CURSOR_BOAT_IMPACT_RADIUS_FACTOR, DEFAULT_BOAT_ANCHOR, clamp, isDocumentCurrentlyVisible } from './constants';
 import { useDragOnPlane } from './useDragOnPlane';
+import { ENV_REFLECTION_SCALE, configureMaps } from './pbrMaterial';
 
 // The boat floats: buoyancy probes read the height field, the hull follows it in
 // pitch, roll and heave, and a stencil cutout keeps the cockpit dry.
 
 export default function FloatingBoat({
   settings,
+  lighting,
   layout,
   runtime,
   mode,
@@ -70,6 +72,7 @@ export default function FloatingBoat({
     setOrbitEnabled,
   });
 
+  const { gl } = useThree();
   const boatTextures = useLoader(THREE.TextureLoader, [
     '/models/boat/boat_basecolor.webp',
     '/models/boat/boat_roughness.webp',
@@ -78,12 +81,9 @@ export default function FloatingBoat({
 
   const { woodMaterial, metalMaterial } = useMemo(() => {
     const [baseColorMap, roughnessMap, bumpMap] = boatTextures;
-    const envReflection = THREE.MathUtils.clamp(settings.envReflectionIntensity / 260, 0, 0.48);
+    const envReflection = lighting.environment.reflection * ENV_REFLECTION_SCALE.boat;
 
-    baseColorMap.colorSpace = THREE.SRGBColorSpace;
-    [baseColorMap, roughnessMap, bumpMap].forEach((texture) => {
-      texture.anisotropy = 8;
-    });
+    configureMaps(gl, { color: [baseColorMap], data: [roughnessMap, bumpMap] });
 
     // Wood hull/oars: PBR maps authored in 3ds Max (no more flat-graphite override).
     const wood = new THREE.MeshStandardMaterial({
@@ -112,10 +112,11 @@ export default function FloatingBoat({
     return { woodMaterial: wood, metalMaterial: metal };
   }, [
     boatTextures,
+    gl,
+    lighting,
     settings.boatColor,
     settings.boatMetalness,
     settings.boatRoughness,
-    settings.envReflectionIntensity,
   ]);
 
   useEffect(() => () => {
