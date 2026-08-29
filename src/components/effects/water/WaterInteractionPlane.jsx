@@ -14,7 +14,7 @@ export default function WaterInteractionPlane({
   enableSurfaceRefine = true,
   debug = false,
 }) {
-  const { camera, gl } = useThree();
+  const { camera, gl, size } = useThree();
   const raycasterRef = useRef(new THREE.Raycaster());
   const ndcPointerRef = useRef(new THREE.Vector2());
   const rayHitPointRef = useRef(new THREE.Vector3());
@@ -32,6 +32,8 @@ export default function WaterInteractionPlane({
   const lastSurfaceRefineTimeRef = useRef(-Infinity);
   const debugMarkerRef = useRef();
   const reprojectRef = useRef(new THREE.Vector3());
+  const markerWorldRef = useRef(new THREE.Vector3());
+  const markerProjectedRef = useRef(new THREE.Vector3());
 
   const resetPointerState = useCallback(() => {
     pointerStateRef.current.hasImpulse = false;
@@ -69,6 +71,16 @@ export default function WaterInteractionPlane({
       -(((clientY - rect.top) / rect.height) * 2 - 1),
     );
 
+    // The pointer handler runs between frames. If the camera has moved since the
+    // last render - orbiting, or the rig re-applying the authored pose - its world
+    // and projection matrices are stale, and a ray built from them aims where the
+    // camera used to be.
+    camera.updateMatrixWorld();
+    camera.updateProjectionMatrix();
+    // updateMatrixWorld does not touch matrixWorldInverse - the renderer maintains
+    // that separately - and Vector3.project reads it. Without this the instrument
+    // measures the projection against a camera pose that may be a frame old.
+    camera.matrixWorldInverse.copy(camera.matrixWorld).invert();
     raycasterRef.current.setFromCamera(ndcPointerRef.current, camera);
     const ray = raycasterRef.current.ray;
     const hit = ray.intersectPlane(waterPlaneRef.current, rayHitPointRef.current);
@@ -141,6 +153,14 @@ export default function WaterInteractionPlane({
       window.__DDG_POINTER__ = {
         client: { x: clientX, y: clientY },
         onWater: true,
+        // The ray is built from the CSS box, but the camera's aspect comes from
+        // r3f's own measurement. If those two disagree the ray is skewed, and a
+        // reprojection through the same box cannot reveal it - only comparing the
+        // two measurements can.
+        canvasCssSize: { width: rect.width, height: rect.height },
+        r3fSize: { width: size.width, height: size.height },
+        aspectMismatch: Math.round(((rect.width / rect.height) - (size.width / size.height)) * 10000) / 10000,
+        cameraAspect: Math.round(camera.aspect * 10000) / 10000,
         projectedClient,
         errorPx: Math.round(Math.hypot(projectedClient.x - clientX, projectedClient.y - clientY) * 100) / 100,
         canvasRect: { left: rect.left, top: rect.top, width: rect.width, height: rect.height },
@@ -165,6 +185,20 @@ export default function WaterInteractionPlane({
     if (debugMarkerRef.current) {
       debugMarkerRef.current.position.copy(rayHitPointRef.current);
       debugMarkerRef.current.position.y += 0.02;
+
+      if (import.meta.env.DEV && typeof window !== 'undefined' && window.__DDG_POINTER__) {
+        // Where the marker really is, and where that world point should land on
+        // screen. If the drawn marker sits somewhere else, the camera the scene
+        // is rendered with is not the camera this ray was built from.
+        debugMarkerRef.current.updateWorldMatrix(true, false);
+        const markerWorld = debugMarkerRef.current.getWorldPosition(markerWorldRef.current);
+        const projected = markerProjectedRef.current.copy(markerWorld).project(camera);
+        window.__DDG_POINTER__.markerWorld = { x: markerWorld.x, y: markerWorld.y, z: markerWorld.z };
+        window.__DDG_POINTER__.markerScreen = {
+          x: Math.round(rect.left + ((projected.x + 1) / 2) * rect.width),
+          y: Math.round(rect.top + ((1 - projected.y) / 2) * rect.height),
+        };
+      }
     }
 
     return rayHitPointRef.current;
@@ -174,6 +208,8 @@ export default function WaterInteractionPlane({
     worldPointToUv,
     sampleBoatProbes,
     settings,
+    size.width,
+    size.height,
     enableSurfaceRefine,
   ]);
 
@@ -275,11 +311,22 @@ export default function WaterInteractionPlane({
     <mesh
       name="water-interaction-plane"
       rotation={[-Math.PI / 2, 0, 0]}
-      position={[0, 0.05, 0]}
-      visible={false}
+      // Sits on the same plane the ray is cast against. The 5 cm it used to float
+      // at put r3f's own hit 10 cm away from the manual one at a grazing camera.
+      position={[0, 0, 0]}
+      visible={debug}
+      onPointerMove={debug ? (event) => {
+        // r3f derives its own pointer -> world hit. Comparing it with the manual
+        // ray is the only check that is not circular: the manual path builds the
+        // ray from the css box and then reprojects through the same box, so it
+        // cannot see an error in that box at all.
+        if (typeof window !== 'undefined') {
+          window.__DDG_R3F_POINT__ = { x: event.point.x, y: event.point.y, z: event.point.z };
+        }
+      } : undefined}
     >
       <planeGeometry args={[settings.waterExtent, settings.waterExtent, 1, 1]} />
-      <meshBasicMaterial transparent opacity={0} depthWrite={false} side={THREE.DoubleSide} />
+      <meshBasicMaterial transparent opacity={0} depthWrite={false} depthTest={false} side={THREE.DoubleSide} />
     </mesh>
     </>
   );
@@ -300,6 +347,12 @@ export function PointerDebugMarker({ settings, markerRef }) {
       </mesh>
       <mesh rotation={[-Math.PI / 2, 0, 0]}>
         <ringGeometry args={[0, 0.06, 24]} />
+        <meshBasicMaterial color="#ff3b6b" depthTest={false} toneMapped={false} />
+      </mesh>
+      {/* A ring a few pixels across is invisible against dark water, and an
+          instrument you cannot read is worse than none. The mast is unmistakable. */}
+      <mesh position={[0, 1.5, 0]}>
+        <cylinderGeometry args={[0.02, 0.02, 3, 8]} />
         <meshBasicMaterial color="#ff3b6b" depthTest={false} toneMapped={false} />
       </mesh>
       <mesh rotation={[-Math.PI / 2, 0, 0]}>
