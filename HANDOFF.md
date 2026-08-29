@@ -93,6 +93,22 @@ FPS/память, режим отладки.
 наследует desktop. Каждая хранит `cameraPosition/Target`, `cameraFov`, `frameInset`,
 `boatPosition`, `sculpturePosition`.
 
+## Ассеты
+
+`public/` содержит **только то, что запрашивает рантайм**. Всё, из чего это собрано,
+лежит в `assets-source/` и в деплой не уезжает:
+
+- модели — `assets-source/models/*.obj` → `npm run convert:models` → `public/models/*.glb`
+- кувшинки — `assets-source/lily/lily-atlas-source.png` → `npm run generate:lily`
+  (`scripts/generate-lily-pbr.mjs`) → промежуточные PNG там же, а в `public/textures/lily/`
+  кладутся три webp-атласа, которые грузит сцена
+
+Модели раздаются в GLB, не в OBJ: текстовый OBJ весил 10.4 МБ на две модели и держал
+показ сцены, пока браузер его разбирал. Конвертер режет меш по группам материалов
+(корпус — один меш с чередованием дерево/металл), сваривает вершины каждой части
+отдельно и сохраняет **имена материалов** — лодка выбирает металл по имени
+`OBJ_wire_metall`, так что переименование молча покрасит уключины деревом.
+
 ## Грабли
 
 - **Нормаль-мапа воды — не геометрический уклон.** Она усилена `normalStrength` ради
@@ -119,6 +135,7 @@ FPS/память, режим отладки.
 | `npm run lint` | ESLint |
 | `npm run build` | Сборка |
 | `npm run check:bundle` | Размеры и состав чанков по манифесту |
+| `npm run convert:models` | Пересобрать GLB из исходных OBJ |
 | `npm run smoke` | Playwright: маршруты, WebGL-фолбэк, аудио, миграция черновика, покрытие publish-ключей, публикация end-to-end, память в долгой сессии, мобилка |
 
 CI: `checks.yml` гоняет всё это на push и PR. `deploy-pages.yml` перед публикацией

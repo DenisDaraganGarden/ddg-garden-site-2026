@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { useFrame, useLoader, useThree } from '@react-three/fiber';
-import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import * as THREE from 'three';
 import { BOAT_CUTOUT_STENCIL_REF, BOAT_MAX_PITCH, BOAT_MAX_ROLL, BOAT_NEUTRAL_Y, BOAT_PROBE_INTERVAL, BOAT_PROBE_OFFSETS, BOAT_TARGET_Y_MAX, BOAT_TARGET_Y_MIN, CURSOR_BOAT_IMPACT_DURATION, CURSOR_BOAT_IMPACT_RADIUS_FACTOR, DEFAULT_BOAT_ANCHOR, clamp, isDocumentCurrentlyVisible } from './constants';
 import { useDragOnPlane } from './useDragOnPlane';
@@ -271,7 +271,7 @@ export default function FloatingBoat({
     boatRef.current.rotation.z = THREE.MathUtils.damp(boatRef.current.rotation.z, targetRoll, 4.5, delta);
   }, -5);
 
-  const obj = useLoader(OBJLoader, '/models/boat/OBJ_boat2.0.obj');
+  const obj = useLoader(GLTFLoader, '/models/boat/OBJ_boat2.0.glb').scene;
 
   const clonedObj = useMemo(() => {
     const clone = obj.clone();

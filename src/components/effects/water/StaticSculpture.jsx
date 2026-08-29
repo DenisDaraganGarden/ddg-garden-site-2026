@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useLoader } from '@react-three/fiber';
-import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import * as THREE from 'three';
 import { useDragOnPlane } from './useDragOnPlane';
 import { ENV_REFLECTION_SCALE } from './pbrMaterial';
@@ -106,7 +106,7 @@ export default function StaticSculpture({
     anchorRef.current.position.y = seabedY;
   }, [seabedY]);
 
-  const obj = useLoader(OBJLoader, '/models/sculpture/sculpture.obj');
+  const obj = useLoader(GLTFLoader, '/models/sculpture/sculpture.glb').scene;
   const normalizedObj = useMemo(() => {
     const clone = obj.clone();
     const bounds = new THREE.Box3().setFromObject(clone);
