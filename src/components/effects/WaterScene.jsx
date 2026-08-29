@@ -221,6 +221,7 @@ function WaterRuntimeScene({
           onSculpturePositionChange={onSculpturePositionChange}
         />
         <WaterInteractionPlane
+          debug={Boolean(settings.showPointerDebug)}
           settings={settings}
           pointerStateRef={runtime.pointerStateRef}
           sampleBoatProbes={runtime.sampleBoatProbes}

@@ -67,6 +67,16 @@ export const WaterWavesSection = ({ settings, handleSettingChange }) => {
                 onChange={(event) => handleSettingChange(event, 'waveChoppiness')}
             />
             <RangeControl
+                label={t('homeEditor.controls.rippleRadius')}
+                value={settings.rippleRadius}
+                min={0.05}
+                max={2.4}
+                step={0.05}
+                unit="m"
+                formatValue={(value) => formatFloat(value)}
+                onChange={(event) => handleSettingChange(event, 'rippleRadius')}
+            />
+            <RangeControl
                 label={t('homeEditor.controls.rippleImpulse')}
                 value={settings.rippleImpulse}
                 min={0}

@@ -268,6 +268,11 @@ export const DebugSection = ({ settings, handleSettingChange }) => {
     return (
         <>
             <CheckboxControl
+                label={t('homeEditor.controls.showPointerDebug')}
+                checked={Boolean(settings.showPointerDebug)}
+                onChange={(event) => handleSettingChange(event, 'showPointerDebug', 'boolean')}
+            />
+            <CheckboxControl
                 label={t('homeEditor.controls.showPerformanceHud')}
                 checked={Boolean(settings.showPerformanceHud)}
                 onChange={(event) => handleSettingChange(event, 'showPerformanceHud', 'boolean')}

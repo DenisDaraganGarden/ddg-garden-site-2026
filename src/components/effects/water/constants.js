@@ -73,3 +73,11 @@ export function isDocumentCurrentlyVisible() {
 
   return document.visibilityState === 'visible';
 }
+
+// The shader clamps the radius after the divide, so the metres the water really
+// feels can differ from the authored number. One place computes it for both the
+// readout and the marker, so they cannot disagree.
+export function effectiveImpulseRadius(settings) {
+  const extent = Math.max(settings.waterExtent, 0.001);
+  return clamp(settings.rippleRadius / extent, 0.0025, 0.12) * extent;
+}

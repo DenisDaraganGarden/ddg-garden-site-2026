@@ -335,6 +335,7 @@ export const translations = {
         ambientWaveSpeed: 'Скорость фоновых волн',
         debugView: 'Режим отладки',
         showPerformanceHud: 'Показывать FPS и память',
+        showPointerDebug: 'Отладка курсора и тача',
       },
       publish: {
         publish: 'На главную',
@@ -680,6 +681,7 @@ export const translations = {
         ambientWaveSpeed: 'Ambient Wave Speed',
         debugView: 'Debug View',
         showPerformanceHud: 'Show FPS and Memory',
+        showPointerDebug: 'Pointer / touch debug',
       },
       publish: {
         publish: 'Publish',
