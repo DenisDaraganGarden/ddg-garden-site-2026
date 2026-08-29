@@ -31,7 +31,7 @@ function detectWebGLSupport() {
 function getCanvasProfile(mode, renderScale = 1) {
   if (typeof window === 'undefined') {
     return {
-      maxDpr: 1.3,
+      dpr: 1.3,
       antialias: true,
       powerPreference: 'default',
     };
@@ -68,11 +68,18 @@ function getCanvasProfile(mode, renderScale = 1) {
   // pulled back to buy GPU time without touching code. r3f still clamps the
   // result to the display's own devicePixelRatio.
   const automaticDpr = Math.min(isWeakDevice ? 1 : 2, Math.max(1, budgetedDpr));
-  const targetDpr = Math.min(3, Math.max(0.5, automaticDpr * renderScale));
+  // Never ask for more pixels than the display can show. Above the device ratio
+  // the browser just scales the result back down, so the cost is quadratic and
+  // the gain is marginal.
+  const displayCap = Math.max(1, window.devicePixelRatio || 1);
+  const targetDpr = Math.min(displayCap, Math.max(0.5, automaticDpr * renderScale));
 
+  // One number, not a [min, max] range. A range switches r3f into adaptive dpr,
+  // which drops the pixel ratio on interaction and restores it after - so the
+  // buffer is resized while the pointer is moving, which is precisely when the
+  // scene must not change under the hand. Nobody asked for that trade.
   return {
-    minDpr: Math.min(1, targetDpr),
-    maxDpr: targetDpr,
+    dpr: targetDpr,
     antialias: !isWeakDevice,
     powerPreference: isWeakDevice ? 'low-power' : 'high-performance',
   };
@@ -437,7 +444,7 @@ const SceneCanvas = ({
         <Canvas
           shadows={SHADOWS_CONFIG}
           frameloop={isTabVisible ? 'always' : 'never'}
-          dpr={[profile.minDpr, profile.maxDpr]}
+          dpr={profile.dpr}
           camera={camera}
           gl={{
             alpha: true,

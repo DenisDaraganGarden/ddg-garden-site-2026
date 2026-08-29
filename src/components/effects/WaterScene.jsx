@@ -161,6 +161,7 @@ function WaterRuntimeScene({
         layoutKey={activeLayoutKey}
         onCameraRigApi={onCameraRigApi}
         orbitRef={orbitRef}
+        freeCamera={mode === 'editor' && Boolean(settings.freeCamera)}
       />
       <WaterReflections
         enabled={opticsEnabled}
@@ -221,6 +222,7 @@ function WaterRuntimeScene({
           onSculpturePositionChange={onSculpturePositionChange}
         />
         <WaterInteractionPlane
+          debug={Boolean(settings.showPointerDebug)}
           settings={settings}
           pointerStateRef={runtime.pointerStateRef}
           sampleBoatProbes={runtime.sampleBoatProbes}

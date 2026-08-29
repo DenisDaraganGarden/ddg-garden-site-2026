@@ -41,10 +41,15 @@ export function disposePass(pass) {
 }
 
 export function restoreDefaultFramebuffer(gl) {
-  const drawingBufferSize = gl.getDrawingBufferSize(DRAWING_BUFFER_SIZE);
+  // setViewport takes CSS pixels and multiplies by the pixel ratio itself. Handing
+  // it the drawing buffer - already in device pixels - made the viewport dpr times
+  // too large, so the whole scene was drawn magnified by dpr from the WebGL origin
+  // at the bottom-left. At dpr 1 nothing moved, which is why lowering the render
+  // resolution appeared to fix the pointer.
+  const cssSize = gl.getSize(DRAWING_BUFFER_SIZE);
 
   gl.setRenderTarget(null);
-  gl.setViewport(0, 0, drawingBufferSize.x, drawingBufferSize.y);
-  gl.setScissor(0, 0, drawingBufferSize.x, drawingBufferSize.y);
+  gl.setViewport(0, 0, cssSize.x, cssSize.y);
+  gl.setScissor(0, 0, cssSize.x, cssSize.y);
   gl.setScissorTest(false);
 }

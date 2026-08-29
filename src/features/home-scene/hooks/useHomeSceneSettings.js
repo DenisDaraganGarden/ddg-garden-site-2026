@@ -303,6 +303,8 @@ export const getBaseHomeSceneSettings = () => ({
   ambientWaveIntensity: 0.12,
   ambientWaveSpeed: 0.85,
   showPerformanceHud: false,
+  showPointerDebug: false,
+  freeCamera: false,
 });
 
 const normalizeLegacySettings = (savedSettings, defaults) => {
@@ -705,6 +707,8 @@ const normalizeHomeSceneSettings = (savedSettings = {}) => {
     ambientWaveIntensity: clampFloat(merged.ambientWaveIntensity, 0, 1, defaults.ambientWaveIntensity),
     ambientWaveSpeed: clampFloat(merged.ambientWaveSpeed, 0, 10, defaults.ambientWaveSpeed),
     showPerformanceHud: pickBoolean(merged.showPerformanceHud, defaults.showPerformanceHud),
+    showPointerDebug: pickBoolean(merged.showPointerDebug, defaults.showPointerDebug),
+    freeCamera: pickBoolean(merged.freeCamera, defaults.freeCamera),
   };
 };
 
