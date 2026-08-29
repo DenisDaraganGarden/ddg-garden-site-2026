@@ -109,6 +109,17 @@ const Home = () => {
         Math.max(0, (1 - (viewportAspect / visibleAspect)) * 0.5),
     );
 
+    // The header is rendered outside .home-page, so it cannot inherit the band
+    // geometry from it. Publishing the inset on the root lets the title and menu
+    // position themselves against the cinematic frame instead of against the
+    // viewport, which is what used to cut the block in half on a phone.
+    useEffect(() => {
+        const root = document.documentElement;
+        root.style.setProperty('--home-frame-inset', `${viewportFrameInset * 100}dvh`);
+
+        return () => root.style.removeProperty('--home-frame-inset');
+    }, [viewportFrameInset]);
+
     return (
         <div
             className="home-page"
