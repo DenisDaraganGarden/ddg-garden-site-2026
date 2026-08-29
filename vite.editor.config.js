@@ -36,4 +36,13 @@ function editorAtRootPlugin() {
 export default {
   ...baseConfig,
   plugins: [...baseConfig.plugins, editorAtRootPlugin()],
+  server: {
+    ...baseConfig.server,
+    // Hot reload off on purpose. Every server here runs from the same working
+    // copy, so while the agent edits a file this page was rebuilding the scene
+    // under Denis's hands - which reads exactly like "the sliders are laggy and
+    // barely do anything". His editor now only picks up code changes when he
+    // reloads it himself, which is also the moment he chooses to take them.
+    hmr: false,
+  },
 };
