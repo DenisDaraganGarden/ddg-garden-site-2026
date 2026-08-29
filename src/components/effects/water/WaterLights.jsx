@@ -2,9 +2,13 @@ import React, { useMemo } from 'react';
 import { Environment } from '@react-three/drei';
 import * as THREE from 'three';
 import { SELF_HOSTED_HDRI } from './constants';
+import SkyDome from './SkyDome';
+import { useSkyEnvironment } from './skyEnvironment';
 
-// Every light in the scene, plus the environment map. The key light doubles as the
-// visible disc, which is why the two are described together rather than apart.
+// Every light in the scene, plus the sky. The key light and the visible disc are
+// the same direction by construction now: the disc is a dot product against the
+// light vector inside the sky shader, not a sprite parked at a finite distance
+// that missed it by 12.6 degrees.
 
 export default function WaterLights({ settings, mode, qualityProfile, lighting }) {
   const lightDirection = useMemo(
@@ -21,6 +25,14 @@ export default function WaterLights({ settings, mode, qualityProfile, lighting }
     && (mode === 'editor' || canRunHighShadowCost);
   const shadowMapSize = qualityProfile?.shadowMapSize ?? (mode === 'editor' ? 1024 : 768);
   const shadowFrustum = THREE.MathUtils.clamp((settings.waterExtent * Math.SQRT1_2) + 1.25, 10, 24);
+  // Phase 1 shows the sky but leaves the image-based light on the HDRI, so the
+  // materials do not all move at once. Phase 2 flips applyToScene and the HDR
+  // file leaves the load entirely.
+  const sky = useSkyEnvironment(lighting.sky, {
+    width: (qualityProfile?.shadowMapSize ?? 1024) >= 640 ? 256 : 128,
+    height: (qualityProfile?.shadowMapSize ?? 1024) >= 640 ? 128 : 64,
+    applyToScene: false,
+  });
   const localHdriFile = SELF_HOSTED_HDRI[settings.hdrPreset];
   const environmentSource = localHdriFile
     ? { files: `${import.meta.env.BASE_URL}${localHdriFile}` }
@@ -53,26 +65,17 @@ export default function WaterLights({ settings, mode, qualityProfile, lighting }
         shadow-intensity={settings.shadowIntensity}
       />
       {settings.lightDiscEnabled ? (
-        <sprite
-          name="celestial-disc"
-          position={lightDirection.clone().multiplyScalar(46).toArray()}
-          scale={[
-            settings.lightDiscSize * (lighting.key.type === 'sun' ? 1.35 : 1),
-            settings.lightDiscSize * (lighting.key.type === 'sun' ? 1.35 : 1),
-            1,
-          ]}
-          renderOrder={-5}
-        >
-          <spriteMaterial
-            color={lighting.key.type === 'sun' ? '#fff1c4' : lighting.key.color.hex}
-            transparent
-            opacity={lighting.key.type === 'sun' ? 0.92 : 0.78}
-            depthTest={false}
-            depthWrite={false}
-            blending={THREE.AdditiveBlending}
-            toneMapped={false}
-          />
-        </sprite>
+        <SkyDome
+          sky={{
+            texture: sky.texture,
+            keyDirection: lighting.sky.keyDirection,
+            keyRadiance: lighting.sky.discRadiance,
+            keyCosRadius: lighting.sky.keyCosRadius,
+            keyGlowPower: lighting.sky.keyGlowPower,
+            keyGlowStrength: lighting.sky.keyGlowStrength,
+            skyLevel: lighting.environment.exposure,
+          }}
+        />
       ) : null}
       <Environment
         {...environmentSource}

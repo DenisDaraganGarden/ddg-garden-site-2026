@@ -115,6 +115,7 @@ export default function WaterReflections({
     underwaterAlgae: null,
     interactionPlane: null,
     celestialDisc: null,
+    skyDome: null,
     boatAnchor: null,
     boat: null,
     sculptureAnchor: null,
@@ -189,6 +190,9 @@ export default function WaterReflections({
     if (!sceneObjects.celestialDisc || !sceneObjects.celestialDisc.parent) {
       sceneObjects.celestialDisc = scene.getObjectByName('celestial-disc');
     }
+    if (!sceneObjects.skyDome || !sceneObjects.skyDome.parent) {
+      sceneObjects.skyDome = scene.getObjectByName('sky-dome');
+    }
     if (!sceneObjects.boatAnchor || !sceneObjects.boatAnchor.parent) {
       sceneObjects.boatAnchor = scene.getObjectByName('boat-anchor');
     }
@@ -201,6 +205,7 @@ export default function WaterReflections({
 
     const waterSurface = sceneObjects.waterSurface;
     const seabed = sceneObjects.seabed;
+    const skyDome = sceneObjects.skyDome;
     const surfaceVegetation = sceneObjects.surfaceVegetation;
     const underwaterAlgae = sceneObjects.underwaterAlgae;
     const interactionPlane = sceneObjects.interactionPlane;
@@ -297,12 +302,18 @@ export default function WaterReflections({
     const surfaceVegetationWasVisible = surfaceVegetation?.visible ?? false;
     const underwaterAlgaeWasVisible = underwaterAlgae?.visible ?? false;
     const celestialDiscWasVisible = celestialDisc?.visible ?? false;
+    const skyDomeWasVisible = skyDome?.visible ?? false;
 
     if (waterSurface) waterSurface.visible = false;
     if (interactionPlane) interactionPlane.visible = false;
     // The procedural water sky already contains the key-light highlight.
     // Excluding the UI-facing disc avoids a doubled sun in planar captures.
     if (celestialDisc) celestialDisc.visible = false;
+    // The sky triangle is drawn at the far plane from the MAIN camera's inverse
+    // matrices, so capturing it into either offscreen target paints the wrong
+    // sky over the whole capture. Hidden in both passes, deliberately - the
+    // water samples the same table directly, so it loses nothing.
+    if (skyDome) skyDome.visible = false;
 
     const previousClearAlpha = gl.getClearAlpha();
     gl.getClearColor(reflectionPreviousClearColor);
@@ -371,6 +382,7 @@ export default function WaterReflections({
       if (underwaterAlgae) underwaterAlgae.visible = underwaterAlgaeWasVisible;
       if (interactionPlane) interactionPlane.visible = true;
       if (celestialDisc) celestialDisc.visible = celestialDiscWasVisible;
+      if (skyDome) skyDome.visible = skyDomeWasVisible;
     }
   });
 

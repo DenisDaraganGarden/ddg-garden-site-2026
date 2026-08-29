@@ -4,6 +4,20 @@
 // uniform adapters and tests can all consume the exact same authored light.
 // Values are plain arrays/numbers: `linear` colours are ready for GLSL.
 
+import {
+  SKY,
+  buildHomeSceneLightDirection,
+  solveMoonElevationAzimuth,
+  solveNightWeight,
+  solveSunElevationAzimuth,
+} from './sky/skyModel.js';
+
+// Re-exported so existing importers keep working; the formula itself now lives
+// beside the sun path that has to agree with it.
+export { buildHomeSceneLightDirection };
+
+const DEG_TO_RAD = Math.PI / 180;
+
 const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, value));
 
 const finiteNumber = (value, fallback) => {
@@ -80,18 +94,6 @@ export const HOME_SCENE_HDRI_PALETTES = Object.freeze({
 
 const DEFAULT_HDRI_PALETTE = HOME_SCENE_HDRI_PALETTES.night;
 
-export const buildHomeSceneLightDirection = (azimuthDegrees = 42, elevationDegrees = 18) => {
-  const azimuth = (finiteNumber(azimuthDegrees, 42) * Math.PI) / 180;
-  const elevation = (finiteNumber(elevationDegrees, 18) * Math.PI) / 180;
-  const direction = [
-    Math.cos(elevation) * Math.sin(azimuth),
-    Math.sin(elevation),
-    Math.cos(elevation) * Math.cos(azimuth),
-  ];
-  const length = Math.hypot(...direction) || 1;
-
-  return direction.map((value) => value / length);
-};
 
 const scaleColor = (color, scalar) => color.map((value) => value * scalar);
 const mixColor = (left, right, ratio) => left.map(
@@ -128,6 +130,34 @@ export const buildHomeSceneLighting = (settings = {}) => {
     2,
   );
 
+  // Phase 1 derives the sun arc from the existing authored pair, so the frame is
+  // unchanged: at noon the arc returns exactly the azimuth and elevation that
+  // were authored. Phase 2 replaces these with a real clock.
+  const timeOfDay = finiteNumber(settings.timeOfDay, 12);
+  const sunBearing = finiteNumber(settings.sunBearing, finiteNumber(settings.moonAzimuth, 42));
+  const sunNoonElevation = finiteNumber(
+    settings.sunNoonElevation,
+    finiteNumber(settings.moonElevation, 18),
+  );
+  const sun = solveSunElevationAzimuth(timeOfDay, sunBearing, sunNoonElevation);
+  const moon = solveMoonElevationAzimuth(
+    timeOfDay,
+    sunBearing,
+    sunNoonElevation,
+    finiteNumber(settings.moonPhase, 0.5),
+  );
+  const night = solveNightWeight(sun.elevationDeg);
+  const sunDirection = buildHomeSceneLightDirection(sun.azimuthDeg, sun.elevationDeg);
+  const moonDirection = buildHomeSceneLightDirection(moon.azimuthDeg, moon.elevationDeg);
+  const skyKeyDirection = [
+    sunDirection[0] + (moonDirection[0] - sunDirection[0]) * night,
+    sunDirection[1] + (moonDirection[1] - sunDirection[1]) * night,
+    sunDirection[2] + (moonDirection[2] - sunDirection[2]) * night,
+  ];
+  const keyRadiance = scaleColor(keyColor.linear, keyIntensity);
+  const cloudCover = clamp(finiteNumber(settings.cloudCover, 0), 0, 1);
+  const sunAngularSize = clamp(finiteNumber(settings.sunAngularSize, 1), 0.2, 6);
+
   return {
     key: {
       type: keyLightType,
@@ -148,6 +178,26 @@ export const buildHomeSceneLighting = (settings = {}) => {
       // This is the uniform-friendly IBL proxy for custom shaders.
       diffuseIrradiance: scaleColor(ambient.linear, exposure * ambientIntensity),
       specularRadiance: scaleColor(horizon.linear, exposure * reflection),
+    },
+    sky: {
+      // Everything the sky needs, in one place, so the visible sky, the sky the
+      // water reflects and the image-based fill are the same sky by construction.
+      keyDirection: skyKeyDirection,
+      keyRadiance,
+      skyTurbidity: clamp(finiteNumber(settings.skyTurbidity, 2.6), 1, 10),
+      cloudCover,
+      groundAlbedo: [0.08, 0.09, 0.07],
+      // A real solar disc is 0.53 deg across; the slider scales that, and the
+      // same number drives the glow falloff so a bigger disc is also a softer one.
+      keyCosRadius: Math.cos(
+        ((SKY.sunAngularSizeDeg * sunAngularSize) * 0.5) * DEG_TO_RAD,
+      ),
+      keyGlowPower: 2000 + (12 - 2000) * cloudCover,
+      keyGlowStrength: 0.35,
+      discRadiance: scaleColor(keyRadiance, SKY.discGain),
+      night,
+      sunElevationDeg: sun.elevationDeg,
+      moonIllumination: moon.illumination,
     },
     water: {
       tint: waterTint,
