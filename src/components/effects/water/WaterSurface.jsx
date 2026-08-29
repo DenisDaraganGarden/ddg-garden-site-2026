@@ -65,6 +65,13 @@ export default function WaterSurfaceV2({ settings, runtime, qualityProfile, ligh
     // The shared sky. Same table the dome samples, so the water cannot reflect
     // a different sky than the one above it.
     uSkyLut: { value: null },
+    uKeyShadowMap: { value: null },
+    uKeyShadowMatrix: { value: new THREE.Matrix4() },
+    uKeyShadowActive: { value: 0 },
+    uKeyShadowBias: { value: -0.0006 },
+    uKeyDirectShare: { value: 0 },
+    uShadowIntensity: { value: 0.8 },
+    uWaterShadowStrength: { value: 1 },
     uKeyDirection: { value: new THREE.Vector3(0, 0.3, 1) },
     uKeyRadiance: { value: new THREE.Color(1, 1, 1) },
     uKeyCosRadius: { value: 1 },
@@ -116,6 +123,9 @@ export default function WaterSurfaceV2({ settings, runtime, qualityProfile, ligh
     uniforms.uKeyCosRadius.value = lighting.sky.keyCosRadius;
     uniforms.uKeyGlowPower.value = lighting.sky.keyGlowPower;
     uniforms.uKeyGlowStrength.value = lighting.sky.keyGlowStrength;
+    uniforms.uKeyShadowBias.value = settings.shadowBias;
+    uniforms.uShadowIntensity.value = settings.shadowIntensity;
+    uniforms.uWaterShadowStrength.value = settings.waterShadowStrength;
   }, [
     lightDirection,
     lighting,
@@ -132,11 +142,24 @@ export default function WaterSurfaceV2({ settings, runtime, qualityProfile, ligh
     settings.waterTurbidity,
     settings.waveAmplitude,
     settings.waveChoppiness,
+    settings.shadowBias,
+    settings.shadowIntensity,
+    settings.waterShadowStrength,
     uniforms,
   ]);
 
   useFrame(({ clock }) => {
     uniforms.uSkyLut.value = sky?.texture ?? null;
+    // Read every frame: the shadow map does not exist until the first shadow
+    // render, and three recreates it whenever the map size changes.
+    const shadowMap = reflectionDataRef.current.keyShadowMap ?? null;
+    const shadowMatrix = reflectionDataRef.current.keyShadowMatrix ?? null;
+    uniforms.uKeyShadowMap.value = shadowMap;
+    uniforms.uKeyShadowActive.value = shadowMap && shadowMatrix ? 1 : 0;
+    if (shadowMatrix) {
+      uniforms.uKeyShadowMatrix.value.copy(shadowMatrix);
+    }
+    uniforms.uKeyDirectShare.value = reflectionDataRef.current.keyDirectShare ?? 0;
     uniforms.uState.value = runtime.currentStateTargetRef.current?.texture ?? null;
     uniforms.uNormalMap.value = runtime.normalTargetRef.current?.texture ?? null;
 

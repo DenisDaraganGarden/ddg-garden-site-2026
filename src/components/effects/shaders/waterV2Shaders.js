@@ -7,6 +7,7 @@ import { skyShaderChunk } from './skyShader';
 export const waterV2VertexShader = `
   varying vec2 vUv;
   varying vec3 vSurfaceWorldPosition;
+  varying vec4 vKeyShadowCoord;
   varying vec3 vWaterNormal;
   varying vec3 vViewNormal;
   varying vec4 vClipPosition;
@@ -14,6 +15,7 @@ export const waterV2VertexShader = `
 
   uniform sampler2D uState;
   uniform sampler2D uNormalMap;
+  uniform mat4 uKeyShadowMatrix;
   uniform float uWaveAmplitude;
   uniform float uWaveChoppiness;
 
@@ -48,6 +50,8 @@ export const waterV2VertexShader = `
     vec4 viewPosition = viewMatrix * worldPosition;
 
     vSurfaceWorldPosition = worldPosition.xyz;
+    // From the wave, not from the plane it started as.
+    vKeyShadowCoord = uKeyShadowMatrix * vec4(worldPosition.xyz, 1.0);
     vWaterNormal = normalize(mat3(modelMatrix) * localNormal);
     vViewNormal = normalize(normalMatrix * localNormal);
     vHeightSample = heightSample;
@@ -60,11 +64,18 @@ export const waterV2FragmentShader = `
   ${skyShaderChunk}
   varying vec2 vUv;
   varying vec3 vSurfaceWorldPosition;
+  varying vec4 vKeyShadowCoord;
   varying vec3 vWaterNormal;
   varying vec3 vViewNormal;
   varying vec4 vClipPosition;
   varying float vHeightSample;
 
+  uniform highp sampler2DShadow uKeyShadowMap;
+  uniform float uKeyShadowActive;
+  uniform float uKeyShadowBias;
+  uniform float uKeyDirectShare;
+  uniform float uShadowIntensity;
+  uniform float uWaterShadowStrength;
   uniform sampler2D uReflectionTexture;
   uniform sampler2D uRefractionTexture;
   uniform sampler2D uRefractionDepthTexture;
@@ -121,14 +132,34 @@ export const waterV2FragmentShader = `
   // between two hand-picked hexes plus a two-lobe cosine wobble, with the sun
   // faked as two hardcoded pow() terms that no more agreed with the light
   // direction than the sprite did.
-  vec3 skyColor(vec3 ray, vec3 lightDir) {
+  vec3 skyColor(vec3 ray, vec3 lightDir, float discShadow) {
     // Exposure controls are perceptual in the editor, so use a square-root
     // response while preserving a true black at zero.
     float environmentLevel = sqrt(clamp(uEnvironmentExposure * uEnvironmentReflection, 0.0, 4.84));
     vec3 color = skyRadiance(ray) * environmentLevel;
     color *= mix(vec3(1.0), reflectionTone(), 0.6);
-    color += celestialBody(ray, uKeyDirection, uKeyRadiance, uKeyCosRadius, uKeyGlowPower);
+    color += celestialBody(ray, uKeyDirection, uKeyRadiance, uKeyCosRadius, uKeyGlowPower) * discShadow;
     return color;
+  }
+
+  // One hardware-PCF fetch: four filtered taps for the price of one, and no
+  // second shadow map. The water could never receive a shadow before - it is a
+  // hand-written material, so three's lighting chunks never touched it, and the
+  // boat cast nothing onto the water it floats in.
+  float keyShadow() {
+    if (uKeyShadowActive < 0.5) {
+      return 1.0;
+    }
+
+    vec3 coord = vKeyShadowCoord.xyz / max(vKeyShadowCoord.w, 1e-5);
+    if (coord.z > 1.0
+      || any(lessThan(coord.xy, vec2(0.0)))
+      || any(greaterThan(coord.xy, vec2(1.0)))) {
+      return 1.0;
+    }
+
+    float lit = texture(uKeyShadowMap, vec3(coord.xy, coord.z + uKeyShadowBias));
+    return mix(1.0, lit, clamp(uShadowIntensity, 0.0, 1.0));
   }
 
   float hash12(vec2 p) {
@@ -203,6 +234,7 @@ export const waterV2FragmentShader = `
     // Measure the actual water thickness to the first submerged surface from
     // the existing refraction depth buffer. This separates a nearby hull from
     // the deeper seabed without another render pass.
+    float shadow = keyShadow();
     float turbidity = clamp(uWaterTurbidity, 0.0, 1.0);
     float analyticPath = min(
       uWaterDepth / max(normalDotView, 0.22),
@@ -257,8 +289,14 @@ export const waterV2FragmentShader = `
     );
     float forwardScatter = pow(max(dot(viewDirection, lightDirection), 0.0), 5.0);
     vec3 scatterColor = mix(deepTint, uMoonColor, forwardScatter * 0.46);
+    // The fix for the worst live bug: the haze used to rise exactly as
+    // refractedScene * transmittance fell, so raising turbidity ERASED the
+    // boat's shadow. Occluding the in-scatter by the same shadow - and only by
+    // the fraction of light that is direct - makes murky water show a STRONGER
+    // shadow shaft, which is what murky water does.
     vec3 refraction = refractedScene * transmittance
       + scatterColor * scatterAmount * scatterLight
+      * mix(1.0, shadow, clamp(uKeyDirectShare * uWaterShadowStrength, 0.0, 1.0))
       * (0.82 + forwardScatter * clamp(uMoonIntensity, 0.0, 4.0) * 0.2);
     // The fallback still contains normal- and environment-driven variation;
     // an unavailable offscreen target must never turn the surface into a flat
@@ -272,7 +310,7 @@ export const waterV2FragmentShader = `
 
     vec3 reflectedRay = reflect(-viewDirection, normal);
     reflectedRay.y = abs(reflectedRay.y);
-    vec3 reflection = skyColor(reflectedRay, lightDirection);
+    vec3 reflection = skyColor(reflectedRay, lightDirection, shadow);
 
     vec4 reflectedPosition = uReflectionMatrix * vec4(vSurfaceWorldPosition, 1.0);
     vec2 reflectUv = (reflectedPosition.xy / max(reflectedPosition.w, 0.0001)) * 0.5 + 0.5;
@@ -354,8 +392,8 @@ export const waterV2FragmentShader = `
       * clamp(uMoonIntensity, 0.0, 4.0);
 
     vec3 color = mix(refraction, reflection, clamp(fresnel, 0.02, 0.96));
-    color += uMoonColor * moonHighlight;
-    color += mix(vec3(1.0), uMoonColor, 0.2) * waterGlint * 1.6;
+    color += uMoonColor * moonHighlight * shadow;
+    color += mix(vec3(1.0), uMoonColor, 0.2) * waterGlint * 1.6 * shadow;
     // A small neutral-blue crest lift keeps ripples legible without coupling
     // the reflection colour control to the water volume.
     color += vec3(0.07, 0.11, 0.14) * max(vHeightSample, 0.0) * 0.035;

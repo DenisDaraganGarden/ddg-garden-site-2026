@@ -236,6 +236,7 @@ function WaterRuntimeScene({
           qualityProfile={qualityProfile}
           lighting={lighting}
           sky={sky}
+          layout={activeLayout}
         />
         {settings.seabedVisible ? (
           <Seabed

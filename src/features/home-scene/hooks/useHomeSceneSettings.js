@@ -184,6 +184,9 @@ export const getBaseHomeSceneSettings = () => ({
   shadowsEnabled: true,
   shadowIntensity: 1,
   shadowRadius: 3,
+  // How much of the water's own scattered light a shadow may take. Separate
+  // from surface shadowing because murky water is where it reads at all.
+  waterShadowStrength: 1,
   shadowBias: -0.0002,
   ambientIntensity: 0.11,
   ambientColor: '#202635',
@@ -548,6 +551,7 @@ const normalizeHomeSceneSettings = (savedSettings = {}) => {
     shadowsEnabled: pickBoolean(merged.shadowsEnabled, defaults.shadowsEnabled),
     shadowIntensity: clampFloat(merged.shadowIntensity, 0, 1, defaults.shadowIntensity),
     shadowRadius: clampFloat(migratedShadowRadius, 0, 8, defaults.shadowRadius),
+    waterShadowStrength: clampFloat(merged.waterShadowStrength, 0, 1, defaults.waterShadowStrength),
     shadowBias: clampFloat(migratedShadowBias, -0.005, 0.005, defaults.shadowBias),
     ambientIntensity: clampFloat(merged.ambientIntensity, 0, 2, defaults.ambientIntensity),
     ambientColor: pickColor(merged.ambientColor, defaults.ambientColor),

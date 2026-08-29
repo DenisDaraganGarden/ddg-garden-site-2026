@@ -1,4 +1,5 @@
 export const publishedHomeSceneSettings = {
+  "waterShadowStrength": 1,
   "timeOfDay": 12,
   "sunBearing": 75,
   "sunNoonElevation": 14,

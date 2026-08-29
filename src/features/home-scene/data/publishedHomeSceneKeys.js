@@ -40,6 +40,7 @@ const keys = [
   'shadowsEnabled',
   'shadowIntensity',
   'shadowRadius',
+  'waterShadowStrength',
   'shadowBias',
   'ambientIntensity',
   'ambientColor',
