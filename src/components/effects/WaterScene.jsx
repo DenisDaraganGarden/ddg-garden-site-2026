@@ -44,6 +44,53 @@ import {
 
 
 
+// Wireframe is a material flag, not a shader mode, so it cannot be one more
+// entry in the debug view list. Sweeping the scene rather than threading a prop
+// into every material also covers what arrives late: the boat and the sculpture
+// only get their materials once their models finish loading.
+function DebugWireframe({ enabled }) {
+  const { scene } = useThree();
+  const touchedRef = useRef(new Set());
+
+  useFrame(() => {
+    const touched = touchedRef.current;
+
+    if (!enabled) {
+      if (touched.size === 0) {
+        return;
+      }
+
+      touched.forEach((material) => {
+        material.wireframe = false;
+      });
+      touched.clear();
+      return;
+    }
+
+    scene.traverse((object) => {
+      const materials = Array.isArray(object.material) ? object.material : [object.material];
+
+      materials.forEach((material) => {
+        if (!material || material.wireframe) {
+          return;
+        }
+
+        material.wireframe = true;
+        touched.add(material);
+      });
+    });
+  });
+
+  useEffect(() => () => {
+    touchedRef.current.forEach((material) => {
+      material.wireframe = false;
+    });
+    touchedRef.current.clear();
+  }, []);
+
+  return null;
+}
+
 function SceneReadyBeacon({ onSceneReady }) {
   const { active } = useProgress();
   const didNotifyRef = useRef(false);
@@ -249,6 +296,7 @@ function WaterRuntimeScene({
           onTransform={editorGizmo.onTransform}
         />
       ) : null}
+      <DebugWireframe enabled={mode === 'editor' && Boolean(settings.debugWireframe)} />
       <SceneReadyBeacon onSceneReady={onSceneReady} />
       {showDebugHelpers ? <axesHelper args={[2]} /> : null}
       {showDebugHelpers ? (

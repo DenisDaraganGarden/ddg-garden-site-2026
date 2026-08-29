@@ -374,6 +374,7 @@ export const translations = {
         debugView: 'Режим отладки',
         showPerformanceHud: 'Показывать FPS и память',
         showPointerDebug: 'Отладка курсора и тача',
+        debugWireframe: 'Каркас (wireframe)',
         freeCamera: 'Свободная камера вьюпорта',
       },
       publish: {
@@ -759,6 +760,7 @@ export const translations = {
         debugView: 'Debug View',
         showPerformanceHud: 'Show FPS and Memory',
         showPointerDebug: 'Pointer / touch debug',
+        debugWireframe: 'Wireframe',
         freeCamera: 'Free viewport camera',
       },
       publish: {

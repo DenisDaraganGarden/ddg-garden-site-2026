@@ -320,6 +320,7 @@ export const getBaseHomeSceneSettings = () => ({
   showPerformanceHud: false,
   showPointerDebug: false,
   freeCamera: false,
+  debugWireframe: false,
 });
 
 const normalizeLegacySettings = (savedSettings, defaults) => {
@@ -733,6 +734,7 @@ const normalizeHomeSceneSettings = (savedSettings = {}) => {
     showPerformanceHud: pickBoolean(merged.showPerformanceHud, defaults.showPerformanceHud),
     showPointerDebug: pickBoolean(merged.showPointerDebug, defaults.showPointerDebug),
     freeCamera: pickBoolean(merged.freeCamera, defaults.freeCamera),
+    debugWireframe: pickBoolean(merged.debugWireframe, defaults.debugWireframe),
   };
 };
 

@@ -307,6 +307,11 @@ export const DebugSection = ({ settings, handleSettingChange }) => {
                 onChange={(event) => handleSettingChange(event, 'freeCamera', 'boolean')}
             />
             <CheckboxControl
+                label={t('homeEditor.controls.debugWireframe')}
+                checked={Boolean(settings.debugWireframe)}
+                onChange={(event) => handleSettingChange(event, 'debugWireframe', 'boolean')}
+            />
+            <CheckboxControl
                 label={t('homeEditor.controls.showPointerDebug')}
                 checked={Boolean(settings.showPointerDebug)}
                 onChange={(event) => handleSettingChange(event, 'showPointerDebug', 'boolean')}
