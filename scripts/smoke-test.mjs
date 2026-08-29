@@ -40,13 +40,15 @@ const publishedKeysPath = path.join(
   'data',
   'publishedHomeSceneKeys.js',
 );
-const homeEditorTabsPath = path.join(
+// The editor controls are split by scene group, so coverage walks the directory
+// rather than a single file.
+const homeEditorSectionsDir = path.join(
   rootDir,
   'src',
   'features',
   'home-scene',
   'components',
-  'HomeEditorTabs.jsx',
+  'editor',
 );
 
 let activeServerProcess;
@@ -312,18 +314,37 @@ async function importFresh(modulePath) {
   return import(fileUrl.href);
 }
 
-async function readEditorControlKeys() {
-  const source = await fs.readFile(homeEditorTabsPath, 'utf8');
-  const regex = /handleSettingChange\(event,\s*'([^']+)'/g;
-  const keys = new Set();
-  let match = regex.exec(source);
+async function readEditorSources(directory) {
+  const entries = await fs.readdir(directory, { withFileTypes: true });
+  const sources = [];
 
-  while (match) {
-    const rawKey = String(match[1] ?? '').trim();
-    if (rawKey) {
-      keys.add(rawKey.split('.')[0]);
+  for (const entry of entries) {
+    const entryPath = path.join(directory, entry.name);
+    if (entry.isDirectory()) {
+      sources.push(...(await readEditorSources(entryPath)));
+    } else if (entry.name.endsWith('.jsx') || entry.name.endsWith('.js')) {
+      sources.push(await fs.readFile(entryPath, 'utf8'));
     }
-    match = regex.exec(source);
+  }
+
+  return sources;
+}
+
+async function readEditorControlKeys() {
+  const sources = await readEditorSources(homeEditorSectionsDir);
+  const keys = new Set();
+
+  for (const source of sources) {
+    const regex = /handleSettingChange\(event,\s*'([^']+)'/g;
+    let match = regex.exec(source);
+
+    while (match) {
+      const rawKey = String(match[1] ?? '').trim();
+      if (rawKey) {
+        keys.add(rawKey.split('.')[0]);
+      }
+      match = regex.exec(source);
+    }
   }
 
   return [...keys];
@@ -608,12 +629,15 @@ async function runPublishChecks(browser) {
     await setRangeValue(ranges.nth(1), 0.08); // waveAmplitude
     await settlePage(page, 200);
 
+    await page.getByTestId('home-editor-group-objects').click();
     await page.getByTestId('home-editor-tab-boat').click();
+    // Sliders are addressed positionally, so this list mirrors BoatSection's order:
+    // 0 position.x, 1 position.z, 2 yaw, 3 height, 4 scale, 5 roughness, 6 reflection.
     const boatRanges = page.locator('.home-editor-controls input[type="range"]');
-    await expectVisible(page, boatRanges.nth(2), 'boat tab sliders');
+    await expectVisible(page, boatRanges.nth(5), 'boat tab sliders');
     await setRangeValue(boatRanges.nth(0), 3.45); // boatPosition.x
     await setRangeValue(boatRanges.nth(1), -2.2); // boatPosition.z
-    await setRangeValue(boatRanges.nth(2), 0.41); // boatRoughness
+    await setRangeValue(boatRanges.nth(5), 0.41); // boatRoughness
     await settlePage(page, 220);
 
     const draftSettings = await page.evaluate((key) => {

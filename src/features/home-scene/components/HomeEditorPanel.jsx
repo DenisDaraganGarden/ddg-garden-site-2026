@@ -1,17 +1,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useLanguage } from '../../../i18n/useLanguage';
-import {
-    CameraTab,
-    DebugTab,
-    DepthTab,
-    LightingTab,
-    PostProcessingTab,
-    PlantsTab,
-    WaterTab,
-    BoatTab,
-    SculptureTab,
-    InterfaceTab,
-} from './HomeEditorTabs';
+import { DEFAULT_EDITOR_PATH, resolveEditorPath } from './editor/editorTree';
+import { SectionHeading } from './HomeEditorControls';
 
 const PANEL_STATE_KEY = 'ddg_home_editor_panel_v1';
 const MIN_PANEL_HEIGHT = 150;
@@ -63,20 +53,9 @@ const HomeEditorPanel = ({
     // additional query flag made the performance tools effectively invisible.
     const showDeveloperTab = import.meta.env.DEV;
 
-    const tabs = [
-        { id: 'water', label: t('homeEditor.tabs.water') },
-        { id: 'lighting', label: t('homeEditor.tabs.lighting') },
-        { id: 'depth', label: t('homeEditor.tabs.depth') },
-        { id: 'plants', label: t('homeEditor.tabs.plants') },
-        { id: 'post', label: t('homeEditor.tabs.post') },
-        { id: 'camera', label: t('homeEditor.tabs.camera') },
-        { id: 'boat', label: t('homeEditor.tabs.boat') },
-        { id: 'sculpture', label: t('homeEditor.tabs.sculpture') },
-        { id: 'interface', label: t('homeEditor.tabs.interface') },
-    ];
-    if (showDeveloperTab) {
-        tabs.push({ id: 'debug', label: t('homeEditor.tabs.debug') });
-    }
+    const { groups, group, node } = resolveEditorPath(activeTab ?? DEFAULT_EDITOR_PATH, {
+        includeDevOnly: showDeveloperTab,
+    });
     const canPublish = publishEnabled && typeof onPublish === 'function';
     const isPublishDisabled = publishState?.busy || !hasPublishChanges || !canPublish;
     // Persist height + collapsed state.
@@ -211,16 +190,16 @@ const HomeEditorPanel = ({
 
             {!collapsed ? (
                 <>
-                    <div className="home-editor-tabs">
-                        {tabs.map((tab) => (
+                    <div className="home-editor-tabs home-editor-tabs--groups">
+                        {groups.map((item) => (
                             <button
-                                key={tab.id}
+                                key={item.id}
                                 type="button"
-                                className={`home-editor-tab ${activeTab === tab.id ? 'active' : ''}`}
-                                onClick={() => setActiveTab(tab.id)}
-                                data-testid={`home-editor-tab-${tab.id}`}
+                                className={`home-editor-tab ${group.id === item.id ? 'active' : ''}`}
+                                onClick={() => setActiveTab(`${item.id}/${item.nodes[0].id}`)}
+                                data-testid={`home-editor-group-${item.id}`}
                             >
-                                {tab.label}
+                                {t(`homeEditor.groups.${item.id}`)}
                             </button>
                         ))}
                         <button
@@ -253,26 +232,34 @@ const HomeEditorPanel = ({
                         </div>
                     ) : null}
 
+                    <div className="home-editor-tabs home-editor-tabs--nodes">
+                        {group.nodes.map((item) => (
+                            <button
+                                key={item.id}
+                                type="button"
+                                className={`home-editor-tab home-editor-tab--node ${node.id === item.id ? 'active' : ''}`}
+                                onClick={() => setActiveTab(`${group.id}/${item.id}`)}
+                                data-testid={`home-editor-tab-${item.id}`}
+                            >
+                                {t(`homeEditor.nodes.${item.id}`)}
+                            </button>
+                        ))}
+                    </div>
+
                     <div className="home-editor-section">
                         <div className="home-editor-controls">
-                            {activeTab === 'water' && <WaterTab settings={settings} handleSettingChange={handleSettingChange} />}
-                            {activeTab === 'lighting' && <LightingTab settings={settings} handleSettingChange={handleSettingChange} />}
-                            {activeTab === 'depth' && <DepthTab settings={settings} handleSettingChange={handleSettingChange} />}
-                            {activeTab === 'plants' && <PlantsTab settings={settings} handleSettingChange={handleSettingChange} />}
-                            {activeTab === 'post' && <PostProcessingTab settings={settings} handleSettingChange={handleSettingChange} />}
-                            {activeTab === 'camera' && (
-                                <CameraTab
-                                    settings={settings}
-                                    handleSettingChange={handleSettingChange}
-                                    layoutEditor={layoutEditor}
-                                />
-                            )}
-                            {activeTab === 'boat' && <BoatTab settings={settings} handleSettingChange={handleSettingChange} layoutEditor={layoutEditor} />}
-                            {activeTab === 'sculpture' && <SculptureTab settings={settings} handleSettingChange={handleSettingChange} layoutEditor={layoutEditor} />}
-                            {activeTab === 'interface' && <InterfaceTab settings={settings} handleSettingChange={handleSettingChange} />}
-                            {showDeveloperTab && activeTab === 'debug' && (
-                                <DebugTab settings={settings} handleSettingChange={handleSettingChange} />
-                            )}
+                            {node.aspects.map(({ id, Section }) => (
+                                <React.Fragment key={id}>
+                                    {node.aspects.length > 1 ? (
+                                        <SectionHeading label={t(`homeEditor.aspects.${id}`)} />
+                                    ) : null}
+                                    <Section
+                                        settings={settings}
+                                        handleSettingChange={handleSettingChange}
+                                        layoutEditor={layoutEditor}
+                                    />
+                                </React.Fragment>
+                            ))}
                         </div>
                     </div>
                 </>
