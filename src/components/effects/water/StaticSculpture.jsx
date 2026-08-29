@@ -131,10 +131,6 @@ export default function StaticSculpture({
     return clone;
   }, [normalizedObj, sculptureMaterial]);
 
-  if (settings.debugView !== 'beauty') {
-    return null;
-  }
-
   return (
     <group
       ref={anchorRef}

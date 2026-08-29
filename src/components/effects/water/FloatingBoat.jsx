@@ -135,7 +135,7 @@ export default function FloatingBoat({
     applyBoatAnchor(anchorX, anchorZ);
   }, [applyBoatAnchor, isDraggingRef, layout?.boatPosition?.x, layout?.boatPosition?.z, settings?.boatPosition?.x, settings?.boatPosition?.z]);
   useFrame(({ clock }, delta) => {
-    if (!boatRef.current || settings.debugView !== 'beauty' || !isDocumentCurrentlyVisible()) {
+    if (!boatRef.current || !isDocumentCurrentlyVisible()) {
       return;
     }
 
@@ -354,10 +354,6 @@ export default function FloatingBoat({
 
     return shape;
   }, []);
-
-  if (settings.debugView !== 'beauty') {
-    return null;
-  }
 
   const cutoutActive = settings.boatCutoutFitWidth > 0.05 && settings.boatCutoutFitLength > 0.05;
   const cutoutDebug = Boolean(settings.boatCutoutDebug);

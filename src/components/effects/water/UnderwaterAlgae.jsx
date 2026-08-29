@@ -86,7 +86,7 @@ export function UnderwaterAlgae({ settings, qualityProfile, lighting }) {
     uniforms.uTime.value = clock.elapsedTime;
   }, -2);
 
-  if (settings.debugView !== 'beauty' || maxInstances <= 0) {
+  if (maxInstances <= 0) {
     return null;
   }
 

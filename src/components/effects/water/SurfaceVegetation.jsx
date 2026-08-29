@@ -133,10 +133,6 @@ export function SurfaceVegetation({ settings, runtime, qualityProfile, lighting 
     material.needsUpdate = true;
   }, [settings.debugView]);
 
-  if (settings.debugView !== 'beauty') {
-    return null;
-  }
-
   return (
     <mesh
       name="surface-vegetation"
