@@ -316,6 +316,7 @@ export default function WaterInteractionPlane({
   return (
     <>
       {debug ? <PointerDebugMarker settings={settings} markerRef={debugMarkerRef} /> : null}
+      {debug ? <PointerPixelProbe enabled={debug} /> : null}
       {debug ? <SceneReferenceMast objectName="boat-anchor" color="#35ff9e" /> : null}
       {debug ? <SceneReferenceMast objectName="sculpture-anchor" color="#ffd23b" /> : null}
     <mesh
@@ -371,6 +372,75 @@ export function SceneReferenceMast({ objectName, color }) {
   );
 }
 
+// Reads the finished frame back from the GPU and finds the marker by colour.
+// Every earlier measurement compared the ray against something derived from the
+// same camera, so a shared error stayed invisible. Pixels cannot collude: this
+// reports where the marker is actually drawn, in buffer coordinates.
+export function PointerPixelProbe({ enabled }) {
+  const { gl } = useThree();
+  const lastSampleRef = useRef(0);
+  const bufferRef = useRef(null);
+
+  useFrame(() => {
+    if (!enabled || typeof window === 'undefined') {
+      return;
+    }
+
+    const now = performance.now();
+    if (now - lastSampleRef.current < 500) {
+      return;
+    }
+    lastSampleRef.current = now;
+
+    const canvas = gl.domElement;
+    const width = canvas.width;
+    const height = canvas.height;
+    const context = gl.getContext();
+    const needed = width * height * 4;
+
+    if (!bufferRef.current || bufferRef.current.length !== needed) {
+      bufferRef.current = new Uint8Array(needed);
+    }
+
+    gl.setRenderTarget(null);
+    context.readPixels(0, 0, width, height, context.RGBA, context.UNSIGNED_BYTE, bufferRef.current);
+
+    const pixels = bufferRef.current;
+    let sumX = 0;
+    let sumY = 0;
+    let count = 0;
+
+    for (let index = 0; index < needed; index += 4) {
+      const red = pixels[index];
+      const green = pixels[index + 1];
+      const blue = pixels[index + 2];
+      // magenta: both ends of the spectrum lit, the middle dark
+      if (red > 150 && blue > 110 && green < red * 0.6 && green < blue * 0.75) {
+        const pixel = index / 4;
+        sumX += pixel % width;
+        sumY += Math.floor(pixel / width);
+        count += 1;
+      }
+    }
+
+    const rect = canvas.getBoundingClientRect();
+    window.__DDG_PIXEL_PROBE__ = count > 0
+      ? {
+        found: count,
+        bufferPx: { x: Math.round(sumX / count), y: Math.round(sumY / count) },
+        // readPixels counts from the bottom, the page counts from the top
+        clientPx: {
+          x: Math.round(rect.left + (sumX / count) * (rect.width / width)),
+          y: Math.round(rect.top + (height - sumY / count) * (rect.height / height)),
+        },
+        buffer: { width, height },
+      }
+      : { found: 0 };
+  }, 200);
+
+  return null;
+}
+
 export function PointerDebugMarker({ settings, markerRef }) {
   const impulseRadius = Math.max(effectiveImpulseRadius(settings), 0.02);
   const boatRadius = impulseRadius * 5.2;
@@ -382,14 +452,14 @@ export function PointerDebugMarker({ settings, markerRef }) {
         <meshBasicMaterial color="#ff3b6b" transparent opacity={0.75} depthTest={false} toneMapped={false} />
       </mesh>
       <mesh rotation={[-Math.PI / 2, 0, 0]}>
-        <ringGeometry args={[0, 0.06, 24]} />
-        <meshBasicMaterial color="#ff3b6b" depthTest={false} toneMapped={false} />
+        <ringGeometry args={[0, 0.25, 32]} />
+        <meshBasicMaterial color="#ff00ff" depthTest={false} toneMapped={false} />
       </mesh>
       {/* A ring a few pixels across is invisible against dark water, and an
           instrument you cannot read is worse than none. The mast is unmistakable. */}
       <mesh position={[0, 1.5, 0]}>
         <cylinderGeometry args={[0.02, 0.02, 3, 8]} />
-        <meshBasicMaterial color="#ff3b6b" depthTest={false} toneMapped={false} />
+        <meshBasicMaterial color="#ff8800" depthTest={false} toneMapped={false} />
       </mesh>
       <mesh rotation={[-Math.PI / 2, 0, 0]}>
         <ringGeometry args={[boatRadius * 0.99, boatRadius, 96]} />
