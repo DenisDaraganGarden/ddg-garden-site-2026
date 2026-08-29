@@ -3,7 +3,10 @@ import path from 'node:path';
 import process from 'node:process';
 import sharp from 'sharp';
 
-const sourcePath = process.argv[2] ?? 'public/textures/lily/lily-atlas-source.png';
+// Authoring inputs live outside public/: they are what the atlas is built FROM,
+// and nothing at runtime requests them. Only the three webp atlases the scene
+// actually loads stay in the served folder.
+const sourcePath = process.argv[2] ?? 'assets-source/lily/lily-atlas-source.png';
 const outputDirectory = process.argv[3] ?? path.dirname(sourcePath);
 const outputSize = Number(process.env.LILY_TEXTURE_SIZE ?? 2048);
 
