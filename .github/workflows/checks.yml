@@ -41,6 +41,9 @@ jobs:
       - name: Check bundle
         run: npm run check:bundle
 
+      - name: Check the sky model
+        run: npm run check:sky
+
       - name: Install Chromium for Playwright
         run: npx playwright install --with-deps chromium
 
