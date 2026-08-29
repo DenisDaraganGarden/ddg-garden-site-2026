@@ -32,8 +32,16 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Fast, deterministic gates only. The browser smoke test runs in the
+      # Checks workflow: a flaky WebGL run must not block publishing the site.
+      - name: Lint
+        run: npm run lint
+
       - name: Build site
         run: npm run build
+
+      - name: Check bundle
+        run: npm run check:bundle
 
       - name: Configure Pages
         uses: actions/configure-pages@v5

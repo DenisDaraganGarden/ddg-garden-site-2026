@@ -1,0 +1,49 @@
+name: Checks
+
+# The browser smoke test lives here rather than in the deploy workflow on
+# purpose: it drives a real Chromium over a real WebGL scene, and a flaky run
+# must never be able to hold the published site hostage. Deploy keeps the fast,
+# deterministic gates (lint, build, bundle) and this runs everything.
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build site
+        run: npm run build
+
+      - name: Check bundle
+        run: npm run check:bundle
+
+      - name: Install Chromium for Playwright
+        run: npx playwright install --with-deps chromium
+
+      # The smoke test starts its own Vite server, so it needs no built output.
+      - name: Smoke test
+        run: npm run smoke
