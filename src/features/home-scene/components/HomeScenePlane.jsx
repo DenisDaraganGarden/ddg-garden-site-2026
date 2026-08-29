@@ -69,9 +69,12 @@ export default function HomeScenePlane({
     );
     const viewportAtPlane = viewport.getCurrentViewport(camera, planeTarget);
     const isMobileViewport = size.width < 768;
+    // 8% of margin was not enough on desktop: wave displacement plus the camera
+    // pitch pushed the far edge of the plane into frame, leaving the scene
+    // floating in black. Mobile already used 1.18 and never showed the edge.
     const coverageScale = editable
         ? (settings?.freeCamera ? 2.2 : 1.7)
-        : (isMobileViewport ? 1.18 : 1.08);
+        : 1.18;
     const planeWorldWidth = Math.max(viewportAtPlane.width * coverageScale, 8);
     const planeWorldDepth = Math.max(viewportAtPlane.height * coverageScale, 8);
     const planeLongSide = Math.max(planeWorldWidth, planeWorldDepth);

@@ -28,7 +28,7 @@ function detectWebGLSupport() {
   return webglSupportCache;
 }
 
-function getCanvasProfile(mode) {
+function getCanvasProfile(mode, renderScale = 1) {
   if (typeof window === 'undefined') {
     return {
       maxDpr: 1.3,
@@ -38,9 +38,6 @@ function getCanvasProfile(mode) {
   }
 
   const isEditor = mode === 'editor';
-  const isMobileViewport = window.innerWidth < 768;
-  const isTouchPrimary = typeof window.matchMedia === 'function'
-    && window.matchMedia('(hover: none) and (pointer: coarse)').matches;
   const hasNavigator = typeof navigator !== 'undefined';
   const deviceMemory = hasNavigator && typeof navigator.deviceMemory === 'number'
     ? navigator.deviceMemory
@@ -48,22 +45,36 @@ function getCanvasProfile(mode) {
   const hardwareConcurrency = hasNavigator && typeof navigator.hardwareConcurrency === 'number'
     ? navigator.hardwareConcurrency
     : null;
-  const isLowPowerDevice = isMobileViewport
-    || isTouchPrimary
-    || (deviceMemory !== null && deviceMemory <= 4)
-    || (hardwareConcurrency !== null && hardwareConcurrency <= 4);
+  // Being on a touchscreen is not evidence of being slow. Safari exposes no
+  // deviceMemory and reports 4 cores on a current iPhone, so treat a small core
+  // count as a weakness signal only when deviceMemory corroborates it.
+  const hasMemoryHint = deviceMemory !== null;
+  const isWeakDevice = hasMemoryHint
+    ? (deviceMemory <= 4 || (hardwareConcurrency !== null && hardwareConcurrency <= 4))
+    : (hardwareConcurrency !== null && hardwareConcurrency <= 2);
+
+  // Budget the shaded pixels instead of branching on viewport width. The frame is
+  // a short 2.78:1 band, so its area grows as width^2 / 2.78 - a phone can afford
+  // full density while a large desktop window cannot. Deriving the cap from that
+  // budget also means nothing pops when the window crosses a breakpoint, which a
+  // width threshold did. The editor gets a smaller budget: it also pays for the
+  // reflection and simulation passes every frame.
+  const shadedPixelBudget = isEditor ? 1700000 : 2600000;
+  const bandPixels = Math.max(1, (window.innerWidth * window.innerWidth) / 2.778);
+  const budgetedDpr = Math.sqrt(shadedPixelBudget / bandPixels);
+
+  // The budget picks a sane automatic density; renderScale is the authored
+  // multiplier on top of it, so the scene can be pushed to native sharpness or
+  // pulled back to buy GPU time without touching code. r3f still clamps the
+  // result to the display's own devicePixelRatio.
+  const automaticDpr = Math.min(isWeakDevice ? 1 : 2, Math.max(1, budgetedDpr));
+  const targetDpr = Math.min(3, Math.max(0.5, automaticDpr * renderScale));
 
   return {
-    // The editor covers almost the whole viewport. Supersampling it at 1.5x meant
-    // shading roughly 5.6 million pixels every frame on a 1440p-class window.
-    // Keep modest supersampling on the public scene, while favoring responsive
-    // controls in the editor.
-    minDpr: 1,
-    maxDpr: isEditor
-      ? (isLowPowerDevice ? 1 : 1.25)
-      : (isLowPowerDevice ? 1 : 1.5),
-    antialias: !isLowPowerDevice,
-    powerPreference: isLowPowerDevice ? 'low-power' : 'high-performance',
+    minDpr: Math.min(1, targetDpr),
+    maxDpr: targetDpr,
+    antialias: !isWeakDevice,
+    powerPreference: isWeakDevice ? 'low-power' : 'high-performance',
   };
 }
 
@@ -345,9 +356,10 @@ const SceneCanvas = ({
   style,
 }) => {
   const { t } = useLanguage();
+  const renderScale = typeof settings?.renderScale === 'number' ? settings.renderScale : 1;
   const [runtimeError, setRuntimeError] = useState(false);
   const supportsWebgl = useMemo(() => detectWebGLSupport(), []);
-  const [profile, setProfile] = useState(() => getCanvasProfile(mode));
+  const [profile, setProfile] = useState(() => getCanvasProfile(mode, renderScale));
   const [isTabVisible, setIsTabVisible] = useState(() => isDocumentVisible());
   const fallback = (
     <SceneFallback
@@ -363,13 +375,13 @@ const SceneCanvas = ({
     }
 
     const syncProfile = () => {
-      setProfile(getCanvasProfile(mode));
+      setProfile(getCanvasProfile(mode, renderScale));
     };
 
     syncProfile();
     window.addEventListener('resize', syncProfile);
     return () => window.removeEventListener('resize', syncProfile);
-  }, [mode]);
+  }, [mode, renderScale]);
 
   useEffect(() => {
     if (typeof document === 'undefined') {

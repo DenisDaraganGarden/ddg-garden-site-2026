@@ -263,6 +263,9 @@ export const getBaseHomeSceneSettings = () => ({
   postProcessingEnabled: true,
   filmGrainEnabled: true,
   filmGrainIntensity: 0.028,
+  // 1 = the automatic pixel budget. Raise for a sharper frame, lower to buy
+  // back GPU time; the budget still adapts to the window on top of this.
+  renderScale: 1,
   filmGrainSize: 1.15,
   filmGrainSpeed: 0.85,
   bloomEnabled: true,
@@ -653,6 +656,7 @@ const normalizeHomeSceneSettings = (savedSettings = {}) => {
       0.25,
       defaults.filmGrainIntensity,
     ),
+    renderScale: clampFloat(merged.renderScale, 0.5, 2, defaults.renderScale),
     filmGrainSize: clampFloat(merged.filmGrainSize, 0.35, 4, defaults.filmGrainSize),
     filmGrainSpeed: clampFloat(merged.filmGrainSpeed, 0, 3, defaults.filmGrainSpeed),
     bloomEnabled: pickBoolean(merged.bloomEnabled, defaults.bloomEnabled),

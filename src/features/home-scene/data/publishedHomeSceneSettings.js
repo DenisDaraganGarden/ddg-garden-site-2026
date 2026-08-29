@@ -63,7 +63,7 @@ export const publishedHomeSceneSettings = {
     "y": 0,
     "z": 1.9434
   },
-  "cameraCustomPosePortrait": true,
+  "cameraCustomPosePortrait": false,
   "cameraPositionPortrait": {
     "x": -19.6824,
     "y": 12.7996,
@@ -76,7 +76,7 @@ export const publishedHomeSceneSettings = {
   },
   "layouts": {
     "portrait": {
-      "customized": true,
+      "customized": false,
       "cameraPosition": {
         "x": -11.0533,
         "y": 8.0796,
@@ -88,7 +88,7 @@ export const publishedHomeSceneSettings = {
         "z": 1.4081
       },
       "cameraFov": 57,
-      "frameInset": 0.12,
+      "frameInset": 0.18,
       "boatPosition": {
         "x": -5.9,
         "z": 2.09
