@@ -121,11 +121,27 @@ const RuntimeDiagnostics = ({ sceneId, mode, settings }) => {
   const lastWriteRef = useRef(0);
   const frameTimesRef = useRef([]);
   const gpuInfoRef = useRef(null);
+  const frameInfoRef = useRef({ calls: 0, triangles: 0, points: 0, lines: 0 });
 
   useFrame((_, delta) => {
     if (!import.meta.env.DEV || typeof window === 'undefined') {
       return;
     }
+
+    // three resets gl.info on every render() by default, and this callback runs
+    // before the frame is drawn - so the counters it used to read belonged to the
+    // last pass of the previous frame, which is the fullscreen post quad. That is
+    // why the HUD always claimed 2 triangles. Turn the auto reset off, snapshot
+    // the whole previous frame (simulation + reflection + scene + post), and clear
+    // it here instead.
+    gl.info.autoReset = false;
+    frameInfoRef.current = {
+      calls: gl.info.render.calls,
+      triangles: gl.info.render.triangles,
+      points: gl.info.render.points,
+      lines: gl.info.render.lines,
+    };
+    gl.info.reset();
 
     const frameTimes = frameTimesRef.current;
     frameTimes.push(Math.min(delta * 1000, 1000));
@@ -202,10 +218,10 @@ const RuntimeDiagnostics = ({ sceneId, mode, settings }) => {
         geometries: gl.info.memory.geometries,
         textures: gl.info.memory.textures,
         programs: gl.info.programs?.length ?? 0,
-        calls: gl.info.render.calls,
-        triangles: gl.info.render.triangles,
-        points: gl.info.render.points,
-        lines: gl.info.render.lines,
+        calls: frameInfoRef.current.calls,
+        triangles: frameInfoRef.current.triangles,
+        points: frameInfoRef.current.points,
+        lines: frameInfoRef.current.lines,
       },
       runtime: {
         waterEngine: canvasDataset.ddgWaterEngine ?? null,
