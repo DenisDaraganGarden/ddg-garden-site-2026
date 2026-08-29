@@ -169,8 +169,23 @@
 }
 
 /* ---- Home variant: brand block centered on the left edge ---- */
+/* Anchored to the cinematic band, not to the viewport. A fixed 43% of the screen
+   happens to land inside the band on a desktop window, but on a phone the band is
+   a short strip near the middle, so the same 43% cut the title block in half on
+   its top edge. Measuring from the band keeps the block at the same place within
+   the composition on every screen. */
+.main-nav--home {
+    --home-band-height: calc(100dvh - (2 * var(--home-frame-inset, 18dvh)));
+    /* Where the block sits inside the band, as a fraction of its height. Matches
+       the position the desktop composition already had. */
+    --home-brand-anchor: 0.36;
+}
+
 .main-nav--home .nav-brand {
-    top: 43%;
+    top: calc(
+        var(--home-frame-inset, 18dvh)
+        + (var(--home-band-height) * var(--home-brand-anchor))
+    );
     left: clamp(1.2rem, 3.8vw, 3.4rem);
     transform: translateY(-50%);
     padding: 0;
@@ -269,9 +284,7 @@
 
 @media (max-width: 900px) {
     .main-nav--home .nav-brand {
-        top: 38%;
         left: clamp(1rem, 3.5vw, 2.2rem);
-        transform: translateY(-50%);
         padding: 0;
     }
 
@@ -338,9 +351,7 @@
     }
 
     .main-nav--home .nav-brand {
-        top: 34%;
         left: 1rem;
-        transform: translateY(-50%);
         padding: 0;
     }
 
@@ -373,5 +384,56 @@
 
     .nav-sub__link {
         font-size: 0.68rem;
+    }
+}
+
+/* The home header is authored to sit inside the cinematic letterbox bar, and the
+   rule above centres it at 38% for narrow screens - which is above the band on a
+   phone held upright. Turned sideways the band grows to nearly the full screen
+   (the bar collapses to ~36px at 844x390), so that same 38% lands in the middle
+   of the water and the difference blend makes the title unreadable. Put the
+   header back at the top edge there and give it the scrim the inner pages use. */
+@media (max-width: 900px) and (orientation: landscape) {
+    .main-nav--home {
+        mix-blend-mode: normal;
+    }
+
+    .main-nav--home .nav-brand {
+        top: 0;
+        transform: none;
+        padding: calc(0.85rem + env(safe-area-inset-top)) 1.2rem 0.7rem;
+    }
+
+    .main-nav--home::before {
+        content: '';
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: calc(8rem + env(safe-area-inset-top));
+        background: linear-gradient(
+            to bottom,
+            rgba(4, 4, 4, 0.94) 0%,
+            rgba(4, 4, 4, 0.74) 55%,
+            rgba(4, 4, 4, 0) 100%
+        );
+        z-index: 1001;
+        pointer-events: none;
+    }
+}
+
+/* Upright phone: the band is a short, bright strip, so sitting the title inside it
+   the way the desktop composition does leaves the text swimming in the water (the
+   nav uses mix-blend-mode: difference, which has nothing dark to work against
+   here). Anchor the block to the frame all the same, but rest it just above the
+   top edge, where the letterbox bar gives it room and contrast. */
+@media (max-width: 900px) and (orientation: portrait) {
+    .main-nav--home .nav-brand {
+        top: auto;
+        bottom: calc(
+            100dvh - var(--home-frame-inset, 18dvh)
+            + (var(--home-band-height) * 0.14)
+        );
+        transform: none;
     }
 }

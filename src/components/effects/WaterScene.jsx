@@ -152,7 +152,12 @@ function trimProfileForMobile(profile, isMobileDevice) {
 function buildRuntimeQualityProfile(mode, viewportWidth) {
   const tier = detectQualityTier();
   const isEditor = mode === 'editor';
-  const isMobileDevice = viewportWidth < 768 || isTouchPrimaryDevice();
+  // A narrow window is not a weak device. In the editor only a real touch device
+  // earns the mobile trim, otherwise resizing the authoring window quietly halved
+  // the simulation and the author was judging a downgraded scene.
+  const isMobileDevice = isEditor
+    ? isTouchPrimaryDevice()
+    : (viewportWidth < 768 || isTouchPrimaryDevice());
 
   if (tier === QUALITY_TIER.low) {
     return {
@@ -182,8 +187,8 @@ function buildRuntimeQualityProfile(mode, viewportWidth) {
       isLowPower: false,
       simulationTargetFps: isEditor ? 45 : 54,
       simulationMaxResolution: isEditor ? 384 : 512,
-      reflectionActiveFps: isEditor ? 24 : 20,
-      reflectionIdleFps: isEditor ? 18 : 6,
+      reflectionActiveFps: isEditor ? 30 : 30,
+      reflectionIdleFps: isEditor ? 20 : 15,
       reflectionTextureSize: isEditor ? 768 : 384,
       refractionTextureType: THREE.HalfFloatType,
       refractionDepthEnabled: true,
@@ -202,8 +207,8 @@ function buildRuntimeQualityProfile(mode, viewportWidth) {
     isLowPower: false,
     simulationTargetFps: isEditor ? 50 : 60,
     simulationMaxResolution: 512,
-    reflectionActiveFps: isEditor ? 60 : 30,
-    reflectionIdleFps: isEditor ? 60 : 8,
+    reflectionActiveFps: isEditor ? 60 : 60,
+    reflectionIdleFps: isEditor ? 30 : 20,
     reflectionTextureSize: isEditor ? 1024 : 768,
     refractionTextureType: THREE.HalfFloatType,
     refractionDepthEnabled: true,
