@@ -5,6 +5,7 @@ import {
     ColorControl,
     RangeControl,
     SelectControl,
+    SectionHeading,
 } from '../../HomeEditorControls';
 import { formatFloat } from '../editorShared';
 import {
@@ -21,6 +22,7 @@ export const LightSection = ({ settings, handleSettingChange }) => {
 
     return (
         <>
+            <SectionHeading label={t('homeEditor.blocks.keyLight')} subtle />
             <SelectControl
                 label={t('homeEditor.controls.keyLightType')}
                 value={settings.keyLightType}
@@ -59,6 +61,7 @@ export const LightSection = ({ settings, handleSettingChange }) => {
                 unit="°"
                 onChange={(event) => handleSettingChange(event, 'moonElevation')}
             />
+            <SectionHeading label={t('homeEditor.blocks.disc')} subtle />
             <CheckboxControl
                 label={t('homeEditor.controls.lightDiscEnabled')}
                 checked={Boolean(settings.lightDiscEnabled)}
@@ -73,6 +76,7 @@ export const LightSection = ({ settings, handleSettingChange }) => {
                 formatValue={(value) => formatFloat(value)}
                 onChange={(event) => handleSettingChange(event, 'lightDiscSize')}
             />
+            <SectionHeading label={t('homeEditor.blocks.shadows')} subtle />
             <CheckboxControl
                 label={t('homeEditor.controls.shadowsEnabled')}
                 checked={settings.shadowsEnabled !== false}
@@ -159,6 +163,7 @@ export const FogSection = ({ settings, handleSettingChange }) => {
 
     return (
         <>
+            <SectionHeading label={t('homeEditor.blocks.fog')} subtle />
             <SelectControl
                 label={t('homeEditor.controls.fogMode')}
                 value={settings.fogMode}
@@ -180,6 +185,7 @@ export const FogSection = ({ settings, handleSettingChange }) => {
                 formatValue={(value) => Math.round(Number(value) * 100)}
                 onChange={(event) => handleSettingChange(event, 'fogDensity')}
             />
+            <SectionHeading label={t('homeEditor.blocks.distance')} subtle />
             <RangeControl
                 label={t('homeEditor.controls.fogNear')}
                 value={settings.fogNear}
@@ -200,6 +206,7 @@ export const FogSection = ({ settings, handleSettingChange }) => {
                 formatValue={(value) => formatFloat(value, 1)}
                 onChange={(event) => handleSettingChange(event, 'fogFar')}
             />
+            <SectionHeading label={t('homeEditor.blocks.volume')} subtle />
             <RangeControl
                 label={t('homeEditor.controls.fogNoiseScale')}
                 value={settings.fogNoiseScale}

@@ -4,6 +4,7 @@ import {
     ColorControl,
     RangeControl,
     SelectControl,
+    SectionHeading,
 } from '../../HomeEditorControls';
 import { formatFloat, SIMULATION_RESOLUTION_OPTIONS } from '../editorShared';
 
@@ -31,12 +32,14 @@ export const WaterWavesSection = ({ settings, handleSettingChange }) => {
 
     return (
         <>
+            <SectionHeading label={t('homeEditor.blocks.simulation')} subtle />
             <SelectControl
                 label={t('homeEditor.controls.simulationResolution')}
                 value={settings.simulationResolution}
                 options={SIMULATION_RESOLUTION_OPTIONS}
                 onChange={(event) => handleSettingChange(event, 'simulationResolution', 'integer')}
             />
+            <SectionHeading label={t('homeEditor.blocks.waveShape')} subtle />
             <RangeControl
                 label={t('homeEditor.controls.waveAmplitude')}
                 value={settings.waveAmplitude}
@@ -66,6 +69,7 @@ export const WaterWavesSection = ({ settings, handleSettingChange }) => {
                 formatValue={(value) => formatFloat(value)}
                 onChange={(event) => handleSettingChange(event, 'waveChoppiness')}
             />
+            <SectionHeading label={t('homeEditor.blocks.cursorRipples')} subtle />
             <RangeControl
                 label={t('homeEditor.controls.rippleRadius')}
                 value={settings.rippleRadius}
@@ -85,6 +89,7 @@ export const WaterWavesSection = ({ settings, handleSettingChange }) => {
                 formatValue={(value) => formatFloat(value)}
                 onChange={(event) => handleSettingChange(event, 'rippleImpulse')}
             />
+            <SectionHeading label={t('homeEditor.blocks.ambientWaves')} subtle />
             <RangeControl
                 label={t('homeEditor.controls.ambientWaveIntensity')}
                 value={settings.ambientWaveIntensity}
@@ -103,6 +108,7 @@ export const WaterShaderSection = ({ settings, handleSettingChange }) => {
 
     return (
         <>
+            <SectionHeading label={t('homeEditor.blocks.body')} subtle />
             <RangeControl
                 label={t('homeEditor.controls.waterDepthMeters')}
                 value={settings.waterDepthMeters}
@@ -128,6 +134,7 @@ export const WaterShaderSection = ({ settings, handleSettingChange }) => {
                 formatValue={(value) => Math.round(Number(value) * 100)}
                 onChange={(event) => handleSettingChange(event, 'waterTurbidity')}
             />
+            <SectionHeading label={t('homeEditor.blocks.scattering')} subtle />
             <RangeControl
                 label={t('homeEditor.controls.waterScatteringStrength')}
                 value={settings.waterScatteringStrength}
@@ -142,6 +149,7 @@ export const WaterShaderSection = ({ settings, handleSettingChange }) => {
                 value={settings.waterScatteringColor}
                 onChange={(event) => handleSettingChange(event, 'waterScatteringColor', 'color')}
             />
+            <SectionHeading label={t('homeEditor.blocks.glints')} subtle />
             <RangeControl
                 label={t('homeEditor.controls.waterGlintStrength')}
                 value={settings.waterGlintStrength}
@@ -181,6 +189,7 @@ export const SeabedSection = ({ settings, handleSettingChange }) => {
 
     return (
         <>
+            <SectionHeading label={t('homeEditor.blocks.surface')} subtle />
             <RangeControl
                 label={t('homeEditor.controls.seabedReliefStrength')}
                 value={settings.seabedReliefStrength}
@@ -218,6 +227,7 @@ export const SeabedSection = ({ settings, handleSettingChange }) => {
                 formatValue={(value) => formatFloat(value)}
                 onChange={(event) => handleSettingChange(event, 'seabedAoStrength')}
             />
+            <SectionHeading label={t('homeEditor.blocks.caustics')} subtle />
             <RangeControl
                 label={t('homeEditor.controls.causticsIntensity')}
                 value={settings.causticsIntensity}

@@ -4,6 +4,7 @@ import {
     CheckboxControl,
     RangeControl,
     SelectControl,
+    SectionHeading,
 } from '../../HomeEditorControls';
 import { formatFloat } from '../editorShared';
 import { HOME_SCENE_DEBUG_VIEWS } from '../../../hooks/useHomeSceneSettings';
@@ -17,6 +18,35 @@ import {
 const LAYOUT_LABEL_KEYS = {
     portrait: 'homeEditor.controls.layoutPortrait',
     desktop: 'homeEditor.controls.layoutDesktop',
+};
+
+// The show flags. Shadows, post and sun rays already own a switch inside their
+// own section - duplicating them here would put one value behind two checkboxes.
+export const VisibilitySection = ({ settings, handleSettingChange }) => {
+    const { t } = useLanguage();
+    const flags = [
+        'waterVisible',
+        'seabedVisible',
+        'liliesVisible',
+        'algaeVisible',
+        'boatVisible',
+        'sculptureVisible',
+        'reflectionsEnabled',
+    ];
+
+    return (
+        <>
+            <p className="home-editor-inline-hint">{t('homeEditor.controls.visibilityHint')}</p>
+            {flags.map((key) => (
+                <CheckboxControl
+                    key={key}
+                    label={t(`homeEditor.controls.${key}`)}
+                    checked={Boolean(settings[key])}
+                    onChange={(event) => handleSettingChange(event, key, 'boolean')}
+                />
+            ))}
+        </>
+    );
 };
 
 export const CameraSection = ({ settings, layoutEditor }) => {
@@ -135,12 +165,14 @@ export const PostSection = ({ settings, handleSettingChange }) => {
 
     return (
         <>
+            <SectionHeading label={t('homeEditor.blocks.post')} subtle />
             <CheckboxControl
                 label={t('homeEditor.controls.postProcessingEnabled')}
                 checked={Boolean(settings.postProcessingEnabled)}
                 onChange={(event) => handleSettingChange(event, 'postProcessingEnabled', 'boolean')}
             />
 
+            <SectionHeading label={t('homeEditor.blocks.grain')} subtle />
             <CheckboxControl
                 label={t('homeEditor.controls.filmGrainEnabled')}
                 checked={Boolean(settings.filmGrainEnabled)}
@@ -175,6 +207,7 @@ export const PostSection = ({ settings, handleSettingChange }) => {
                 onChange={(event) => handleSettingChange(event, 'filmGrainSpeed')}
             />
 
+            <SectionHeading label={t('homeEditor.blocks.bloom')} subtle />
             <CheckboxControl
                 label={t('homeEditor.controls.bloomEnabled')}
                 checked={Boolean(settings.bloomEnabled)}
@@ -209,6 +242,7 @@ export const PostSection = ({ settings, handleSettingChange }) => {
                 onChange={(event) => handleSettingChange(event, 'bloomRadius')}
             />
 
+            <SectionHeading label={t('homeEditor.blocks.color')} subtle />
             <RangeControl
                 label={t('homeEditor.controls.colorExposure')}
                 value={settings.colorExposure}

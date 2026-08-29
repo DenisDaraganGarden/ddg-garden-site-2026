@@ -16,6 +16,7 @@ export const surfaceVegetationVertexShader = `
   varying float vPhase;
   varying vec2 vLeafRotation;
   varying float vInsideWater;
+  varying float vSubmergence;
   varying vec3 vLeafNormal;
   varying vec3 vLeafWorldPosition;
   varying vec4 vLeafReflectionPosition;
@@ -30,30 +31,40 @@ export const surfaceVegetationVertexShader = `
   uniform float uWaveAmplitude;
   uniform float uWaveChoppiness;
   uniform float uTime;
+  uniform float uFloatOffset;
+  uniform float uStiffness;
   uniform mat4 uReflectionMatrix;
 
   vec3 decodeNormal(vec3 packedNormal) {
     return normalize((packedNormal * 2.0) - 1.0);
   }
 
+  vec2 simulationUvFor(vec2 worldXZ) {
+    return vec2(
+      worldXZ.x / max(uWaterExtent, 0.001) + 0.5,
+      0.5 - worldXZ.y / max(uWaterExtent, 0.001)
+    );
+  }
+
+  // The height field is authored in the same two textures the water surface
+  // reads, so a pad sampling them lands on exactly the water it floats on.
+  float waterHeightAt(vec2 simulationUv) {
+    float rawHeight = texture2D(uState, simulationUv).r;
+    float smoothHeight = texture2D(uNormalMap, simulationUv).a * 2.0 - 1.0;
+    return mix(rawHeight, smoothHeight, 0.84) * uWaveAmplitude;
+  }
+
   void main() {
     vec2 placement = mix(aScatter, aCluster, clamp(uClustering, 0.0, 1.0));
     vec2 leafCenter = uCenter + placement * uRadius;
-    vec2 simulationUv = vec2(
-      leafCenter.x / max(uWaterExtent, 0.001) + 0.5,
-      0.5 - leafCenter.y / max(uWaterExtent, 0.001)
-    );
+    vec2 centerUv = simulationUvFor(leafCenter);
 
-    vec2 validUv = step(vec2(0.012), simulationUv)
-      * step(simulationUv, vec2(0.988));
+    // Whether the pad belongs to the pond is a property of the instance, so it
+    // is decided at the centre - a corner drifting past the edge must not clip
+    // half a leaf away.
+    vec2 validUv = step(vec2(0.012), centerUv) * step(centerUv, vec2(0.988));
     vInsideWater = validUv.x * validUv.y;
-    simulationUv = clamp(simulationUv, vec2(0.001), vec2(0.999));
-
-    float rawHeight = texture2D(uState, simulationUv).r;
-    float smoothHeight = texture2D(uNormalMap, simulationUv).a * 2.0 - 1.0;
-    float heightSample = mix(rawHeight, smoothHeight, 0.84);
-    float displacement = heightSample * uWaveAmplitude;
-    vec3 waterNormal = decodeNormal(texture2D(uNormalMap, simulationUv).rgb);
+    centerUv = clamp(centerUv, vec2(0.001), vec2(0.999));
 
     float sizeVariation = mix(0.52, 1.46, aScale);
     vec2 local = position.xy * uSize * sizeVariation;
@@ -66,10 +77,34 @@ export const surfaceVegetationVertexShader = `
       local.x * sine + local.y * cosine
     );
 
-    vec2 worldXZ = leafCenter + rotatedLocal;
-    worldXZ += waterNormal.xz * displacement * clamp(uWaveChoppiness, 0.0, 1.25) * 0.34;
-    float slopeHeight = -dot(waterNormal.xz, rotatedLocal) / max(waterNormal.y, 0.45);
-    float worldY = displacement + clamp(slopeHeight, -0.035, 0.035) + 0.014;
+    // The sideways shove of a choppy wave moves the whole pad, so it is read
+    // once at the centre. Riding the wave is per-vertex; drifting is not.
+    vec3 centerNormal = decodeNormal(texture2D(uNormalMap, centerUv).rgb);
+    float centerHeight = waterHeightAt(centerUv);
+    vec2 worldXZ = leafCenter + rotatedLocal
+      + centerNormal.xz * centerHeight * clamp(uWaveChoppiness, 0.0, 1.25) * 0.34;
+
+    // Each corner sits on the water under it rather than on a tilt approximated
+    // from the centre. That approximation had to be clamped to a few centimetres
+    // to stay plausible, which left the pad flat while the wave underneath it was
+    // not - one edge in the air, the opposite edge submerged.
+    vec2 vertexUv = clamp(simulationUvFor(worldXZ), vec2(0.001), vec2(0.999));
+    vec3 waterNormal = decodeNormal(texture2D(uNormalMap, vertexUv).rgb);
+    float waterY = waterHeightAt(vertexUv);
+
+    // A pad is a stiff disc, not a cloth. Fully supple it takes the shape of the
+    // water under it and can never be washed over; fully rigid it stays a flat
+    // disc at the height of its own centre, so a wave steep enough laps over the
+    // edge - and that submerged edge is what the water shows through itself.
+    //
+    // The tilt is read from the height field, never from the normal map: that map
+    // is exaggerated by uNormalStrength to light the ripples, so its slope is far
+    // steeper than the water actually is. Building a tangent plane from it stood
+    // every leaf on end - which is what the old clamp of a few centimetres was
+    // quietly holding back.
+    float worldY = mix(waterY, centerHeight, clamp(uStiffness, 0.0, 1.0)) + uFloatOffset;
+
+    vSubmergence = waterY - worldY;
 
     vLeafUv = uv;
     vLeafVariant = floor(min(aType, 0.9999) * 4.0);
@@ -91,10 +126,12 @@ export const surfaceVegetationFragmentShader = `
   varying float vPhase;
   varying vec2 vLeafRotation;
   varying float vInsideWater;
+  varying float vSubmergence;
   varying vec3 vLeafNormal;
   varying vec3 vLeafWorldPosition;
   varying vec4 vLeafReflectionPosition;
 
+  uniform float uSubmergedOnly;
   uniform sampler2D uLeafAlbedoMap;
   uniform sampler2D uLeafNormalMap;
   uniform sampler2D uLeafMaterialMap;
@@ -139,10 +176,22 @@ export const surfaceVegetationFragmentShader = `
       discard;
     }
 
+    // The refraction capture is what the water samples through itself, so only
+    // the submerged part belongs in it. Drawing the whole leaf there put it in
+    // the frame twice - once directly, once through the surface - which is the
+    // dark fringe that used to ring every pad.
+    if (uSubmergedOnly > 0.5 && vSubmergence <= 0.0) {
+      discard;
+    }
+
     vec2 atlasUv = resolveAtlasUv(vLeafUv, vLeafVariant);
     vec4 materialSample = texture2D(uLeafMaterialMap, atlasUv);
-    float opacity = materialSample.a;
-    if (opacity < 0.42) {
+    // The material has alphaToCoverage on, so the edge is meant to be resolved
+    // by MSAA coverage - but writing alpha 1.0 made coverage always full and the
+    // silhouette fell back to the hard cutoff alone. Ramp it instead: with MSAA
+    // the rim softens, without it the floor keeps the same outline as before.
+    float coverage = smoothstep(0.28, 0.55, materialSample.a);
+    if (coverage <= 0.0) {
       discard;
     }
 
@@ -156,7 +205,7 @@ export const surfaceVegetationFragmentShader = `
       tangentNormal.x * vLeafRotation.y + tangentNormal.y * vLeafRotation.x
     );
     vec3 normal = normalize(
-      vLeafNormal * max(tangentNormal.z, 0.34)
+      normalize(vLeafNormal) * max(tangentNormal.z, 0.34)
       + vec3(rotatedSlope.x, 0.0, rotatedSlope.y) * 0.42
     );
 
@@ -242,7 +291,7 @@ export const surfaceVegetationFragmentShader = `
       * (0.28 + fresnel * 1.25);
     color += uMoonColor * wetHighlight * 0.64;
 
-    gl_FragColor = vec4(color, 1.0);
+    gl_FragColor = vec4(color, coverage);
     #include <tonemapping_fragment>
     #include <colorspace_fragment>
     #include <dithering_fragment>

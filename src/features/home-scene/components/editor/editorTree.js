@@ -17,6 +17,7 @@ import {
     DebugSection,
     PostSection,
     ResolutionSection,
+    VisibilitySection,
 } from './sections/render';
 import { InterfaceSection } from './sections/interfaceSection';
 
@@ -73,6 +74,7 @@ export const EDITOR_TREE = [
     {
         id: 'render',
         nodes: [
+            { id: 'visibility', aspects: [{ id: 'visibility', Section: VisibilitySection }] },
             { id: 'camera', aspects: [{ id: 'camera', Section: CameraSection }] },
             { id: 'resolution', aspects: [{ id: 'resolution', Section: ResolutionSection }] },
             { id: 'post', aspects: [{ id: 'post', Section: PostSection }] },

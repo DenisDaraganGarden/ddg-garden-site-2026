@@ -3,6 +3,7 @@ import { useLanguage } from '../../../../../i18n/useLanguage';
 import {
     ColorControl,
     RangeControl,
+    SectionHeading,
 } from '../../HomeEditorControls';
 import { formatFloat } from '../editorShared';
 import { resolveLayout } from '../../../lib/layout';
@@ -23,6 +24,7 @@ export const BoatSection = ({ settings, handleSettingChange, layoutEditor }) => 
 
     return (
         <>
+            <SectionHeading label={t('homeEditor.blocks.transform')} subtle />
             <RangeControl
                 label={t('homeEditor.controls.boatPositionX')}
                 value={activeBoat.x ?? 0}
@@ -71,6 +73,7 @@ export const BoatSection = ({ settings, handleSettingChange, layoutEditor }) => 
                 formatValue={(value) => formatFloat(value, 3)}
                 onChange={(event) => handleSettingChange(event, 'boatScale')}
             />
+            <SectionHeading label={t('homeEditor.blocks.material')} subtle />
             <ColorControl
                 label={t('homeEditor.controls.boatColor')}
                 value={settings.boatColor}
@@ -114,6 +117,7 @@ export const SculptureSection = ({ settings, handleSettingChange, layoutEditor }
 
     return (
         <>
+            <SectionHeading label={t('homeEditor.blocks.transform')} subtle />
             <RangeControl
                 label={t('homeEditor.controls.sculpturePositionX')}
                 value={activeSculpture.x ?? 0}
@@ -162,6 +166,7 @@ export const SculptureSection = ({ settings, handleSettingChange, layoutEditor }
                 formatValue={(value) => formatFloat(value, 3)}
                 onChange={(event) => handleSettingChange(event, 'sculptureScale')}
             />
+            <SectionHeading label={t('homeEditor.blocks.material')} subtle />
             <ColorControl
                 label={t('homeEditor.controls.sculptureColor')}
                 value={settings.sculptureColor}

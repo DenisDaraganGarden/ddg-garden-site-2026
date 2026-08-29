@@ -100,7 +100,8 @@ function WaterRuntimeScene({
   const runtime = useWaterRuntime(settings, qualityProfile, mode);
   const orbitRef = useRef();
   const showDebugHelpers = mode === 'editor' && settings.debugView !== 'beauty';
-  const reflectionsEnabled = settings.debugView === 'beauty'
+  const reflectionsEnabled = settings.reflectionsEnabled
+    && settings.debugView === 'beauty'
     && settings.boatReflectionIntensity > 0.01;
   // Mobile uses a conservative RGBA8 capture without a depth texture. This
   // keeps the meadow visible and avoids incomplete half-float FBOs in WebViews.
@@ -179,48 +180,58 @@ function WaterRuntimeScene({
           qualityProfile={qualityProfile}
           lighting={lighting}
         />
-        <Seabed
-          settings={settings}
-          runtime={runtime}
-          qualityProfile={qualityProfile}
-          lighting={lighting}
-        />
-        {refractionEnabled ? (
+        {settings.seabedVisible ? (
+          <Seabed
+            settings={settings}
+            runtime={runtime}
+            qualityProfile={qualityProfile}
+            lighting={lighting}
+          />
+        ) : null}
+        {refractionEnabled && settings.algaeVisible ? (
           <UnderwaterAlgae
             settings={settings}
             qualityProfile={qualityProfile}
             lighting={lighting}
           />
         ) : null}
-        <WaterSurfaceV2
-          settings={settings}
-          runtime={runtime}
-          qualityProfile={qualityProfile}
-          lighting={lighting}
-        />
-        <SurfaceVegetation
-          settings={settings}
-          runtime={runtime}
-          qualityProfile={qualityProfile}
-          lighting={lighting}
-        />
-        <FloatingBoat
-          settings={settings}
-          layout={activeLayout}
-          runtime={runtime}
-          mode={mode}
-          orbitRef={orbitRef}
-          onBoatPositionChange={onBoatPositionChange}
-          probeInterval={qualityProfile.boatProbeInterval}
-          useGpuProbes={qualityProfile.useGpuBoatProbes}
-        />
-        <StaticSculpture
-          settings={settings}
-          layout={activeLayout}
-          mode={mode}
-          orbitRef={orbitRef}
-          onSculpturePositionChange={onSculpturePositionChange}
-        />
+        {settings.waterVisible ? (
+          <WaterSurfaceV2
+            settings={settings}
+            runtime={runtime}
+            qualityProfile={qualityProfile}
+            lighting={lighting}
+          />
+        ) : null}
+        {settings.liliesVisible ? (
+          <SurfaceVegetation
+            settings={settings}
+            runtime={runtime}
+            qualityProfile={qualityProfile}
+            lighting={lighting}
+          />
+        ) : null}
+        {settings.boatVisible ? (
+          <FloatingBoat
+            settings={settings}
+            layout={activeLayout}
+            runtime={runtime}
+            mode={mode}
+            orbitRef={orbitRef}
+            onBoatPositionChange={onBoatPositionChange}
+            probeInterval={qualityProfile.boatProbeInterval}
+            useGpuProbes={qualityProfile.useGpuBoatProbes}
+          />
+        ) : null}
+        {settings.sculptureVisible ? (
+          <StaticSculpture
+            settings={settings}
+            layout={activeLayout}
+            mode={mode}
+            orbitRef={orbitRef}
+            onSculpturePositionChange={onSculpturePositionChange}
+          />
+        ) : null}
         <WaterInteractionPlane
           debug={Boolean(settings.showPointerDebug)}
           settings={settings}

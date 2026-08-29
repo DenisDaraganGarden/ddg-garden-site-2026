@@ -35,6 +35,16 @@ const REFLECTION_CLIP_PLANES = [reflectionClipPlane];
 const REFRACTION_CLIP_PLANES = [refractionClipPlane];
 const WATER_CLIP_OVERLAP = 0.015;
 
+// The lily shader cuts itself against the wave it floats on rather than against
+// a flat plane, so the refraction capture asks it for the submerged part only.
+const setSubmergedOnly = (mesh, value) => {
+  const uniform = mesh?.material?.uniforms?.uSubmergedOnly;
+
+  if (uniform) {
+    uniform.value = value;
+  }
+};
+
 export default function WaterReflections({
   children,
   textureSize = 512,
@@ -289,9 +299,6 @@ export default function WaterReflections({
     const celestialDiscWasVisible = celestialDisc?.visible ?? false;
 
     if (waterSurface) waterSurface.visible = false;
-    // Surface plants already sit on the mirror plane. Capturing them in either
-    // offscreen target creates a doubled dark fringe around every leaf.
-    if (surfaceVegetation) surfaceVegetation.visible = false;
     if (interactionPlane) interactionPlane.visible = false;
     // The procedural water sky already contains the key-light highlight.
     // Excluding the UI-facing disc avoids a doubled sun in planar captures.
@@ -311,6 +318,13 @@ export default function WaterReflections({
         // and sculpture here created a camera-dependent dark duplicate that
         // looked like a shadow travelling out of the objects.
         refractionClipPlane.constant = mirrorY + WATER_CLIP_OVERLAP;
+        // A pad washed over by a wave belongs in this capture: the water samples
+        // it through itself, so the submerged part reads as a green shape under
+        // the surface instead of vanishing behind the depth test. Only that part
+        // though - capturing the whole leaf drew it twice, which is the dark
+        // fringe that used to ring every one of them. A flat clipping plane
+        // cannot make that cut on a wave, so the leaf shader makes it per vertex.
+        setSubmergedOnly(surfaceVegetation, 1);
         gl.clippingPlanes = REFRACTION_CLIP_PLANES;
         gl.setRenderTarget(refractionTarget);
         gl.clear(true, true, true);
@@ -327,6 +341,9 @@ export default function WaterReflections({
         // background here creates a dark, low-resolution duplicate of it.
         scene.background = null;
         if (seabed) seabed.visible = false;
+        // A pad lies on the mirror plane itself, so mirroring it welds a second
+        // leaf to the first.
+        if (surfaceVegetation) surfaceVegetation.visible = false;
         // The custom ribbon shader intentionally stays minimal and does not
         // compile the global clipping-plane chunks. Hide the submerged layer
         // explicitly from the mirrored pass; it remains visible in refraction.
@@ -349,6 +366,7 @@ export default function WaterReflections({
 
       if (waterSurface) waterSurface.visible = true;
       if (seabed) seabed.visible = true;
+      setSubmergedOnly(surfaceVegetation, 0);
       if (surfaceVegetation) surfaceVegetation.visible = surfaceVegetationWasVisible;
       if (underwaterAlgae) underwaterAlgae.visible = underwaterAlgaeWasVisible;
       if (interactionPlane) interactionPlane.visible = true;

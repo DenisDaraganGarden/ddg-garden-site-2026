@@ -54,8 +54,13 @@ export const SelectControl = ({ label, value, onChange, options }) => (
     </div>
 );
 
-export const SectionHeading = ({ label }) => (
-    <h4 className="home-editor-section-heading">{label}</h4>
+// `subtle` marks a block inside a section, as opposed to the heading of a whole
+// aspect. Same rule and label, quieter - otherwise two headings in a row read as
+// siblings and the nesting disappears.
+export const SectionHeading = ({ label, subtle = false }) => (
+    <h4 className={`home-editor-section-heading${subtle ? ' home-editor-section-heading--block' : ''}`}>
+        {label}
+    </h4>
 );
 
 export const CheckboxControl = ({ label, checked, onChange }) => (

@@ -244,6 +244,12 @@ export const getBaseHomeSceneSettings = () => ({
   surfacePlantRadius: 7.8,
   surfacePlantClustering: 0.76,
   surfacePlantSize: 0.36,
+  // How far the pad rides above the water it samples. Small, but it is what
+  // keeps a leaf off the surface instead of inside it.
+  surfacePlantFloatOffset: 0.022,
+  // 0 = the pad takes the shape of the wave and is never washed over;
+  // 1 = a flat disc tangent to the wave, whose edge a short wave laps over.
+  surfacePlantStiffness: 0.3,
   surfacePlantColor: '#667b32',
   surfacePlantSaturation: 0.96,
   surfacePlantTranslucency: 0.62,
@@ -260,6 +266,15 @@ export const getBaseHomeSceneSettings = () => ({
   underwaterAlgaeFlowStrength: 1.1,
   underwaterAlgaeSpeciesMix: 0.68,
   underwaterAlgaePatchiness: 0.42,
+  // Show flags: what the scene draws at all. Every other control shapes a part
+  // that is already on, so these live together instead of one per section.
+  waterVisible: true,
+  seabedVisible: true,
+  liliesVisible: true,
+  algaeVisible: true,
+  boatVisible: true,
+  sculptureVisible: true,
+  reflectionsEnabled: true,
   postProcessingEnabled: true,
   filmGrainEnabled: true,
   filmGrainIntensity: 0.028,
@@ -569,6 +584,8 @@ const normalizeHomeSceneSettings = (savedSettings = {}) => {
       defaults.surfacePlantClustering,
     ),
     surfacePlantSize: clampFloat(merged.surfacePlantSize, 0, 0.8, defaults.surfacePlantSize),
+    surfacePlantFloatOffset: clampFloat(merged.surfacePlantFloatOffset, -0.05, 0.2, defaults.surfacePlantFloatOffset),
+    surfacePlantStiffness: clampFloat(merged.surfacePlantStiffness, 0, 1, defaults.surfacePlantStiffness),
     surfacePlantColor: pickColor(merged.surfacePlantColor, defaults.surfacePlantColor),
     surfacePlantSaturation: clampFloat(
       merged.surfacePlantSaturation,
@@ -655,6 +672,13 @@ const normalizeHomeSceneSettings = (savedSettings = {}) => {
       1,
       defaults.underwaterAlgaePatchiness,
     ),
+    waterVisible: pickBoolean(merged.waterVisible, defaults.waterVisible),
+    seabedVisible: pickBoolean(merged.seabedVisible, defaults.seabedVisible),
+    liliesVisible: pickBoolean(merged.liliesVisible, defaults.liliesVisible),
+    algaeVisible: pickBoolean(merged.algaeVisible, defaults.algaeVisible),
+    boatVisible: pickBoolean(merged.boatVisible, defaults.boatVisible),
+    sculptureVisible: pickBoolean(merged.sculptureVisible, defaults.sculptureVisible),
+    reflectionsEnabled: pickBoolean(merged.reflectionsEnabled, defaults.reflectionsEnabled),
     postProcessingEnabled: pickBoolean(
       merged.postProcessingEnabled,
       defaults.postProcessingEnabled,

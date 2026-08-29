@@ -52,6 +52,11 @@ export function SurfaceVegetation({ settings, runtime, qualityProfile, lighting 
     uRadius: { value: 1 },
     uClustering: { value: 0 },
     uSize: { value: 0.18 },
+    uFloatOffset: { value: 0.022 },
+    uStiffness: { value: 0.3 },
+    // Raised by the refraction pass so the capture holds only what is
+    // actually under the water. See WaterReflections.
+    uSubmergedOnly: { value: 0 },
     uWaterExtent: { value: 24 },
     uWaveAmplitude: { value: 0.05 },
     uWaveChoppiness: { value: 0.18 },
@@ -85,6 +90,8 @@ export function SurfaceVegetation({ settings, runtime, qualityProfile, lighting 
     uniforms.uRadius.value = settings.surfacePlantRadius;
     uniforms.uClustering.value = settings.surfacePlantClustering;
     uniforms.uSize.value = settings.surfacePlantSize;
+    uniforms.uFloatOffset.value = settings.surfacePlantFloatOffset;
+    uniforms.uStiffness.value = settings.surfacePlantStiffness;
     uniforms.uWaterExtent.value = settings.waterExtent;
     uniforms.uWaveAmplitude.value = settings.waveAmplitude;
     uniforms.uWaveChoppiness.value = settings.waveChoppiness;

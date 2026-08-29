@@ -3,6 +3,7 @@ import { useLanguage } from '../../../../../i18n/useLanguage';
 import {
     ColorControl,
     RangeControl,
+    SectionHeading,
 } from '../../HomeEditorControls';
 import { formatFloat } from '../editorShared';
 
@@ -11,6 +12,7 @@ export const LiliesSection = ({ settings, handleSettingChange }) => {
 
     return (
         <>
+            <SectionHeading label={t('homeEditor.blocks.scatter')} subtle />
             <RangeControl
                 label={t('homeEditor.controls.surfacePlantAmount')}
                 value={settings.surfacePlantAmount}
@@ -71,6 +73,27 @@ export const LiliesSection = ({ settings, handleSettingChange }) => {
                 formatValue={(value) => formatFloat(value)}
                 onChange={(event) => handleSettingChange(event, 'surfacePlantSize')}
             />
+            <RangeControl
+                label={t('homeEditor.controls.surfacePlantFloatOffset')}
+                value={settings.surfacePlantFloatOffset}
+                min={-0.05}
+                max={0.2}
+                step={0.002}
+                unit="m"
+                formatValue={(value) => formatFloat(value, 3)}
+                onChange={(event) => handleSettingChange(event, 'surfacePlantFloatOffset')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.surfacePlantStiffness')}
+                value={settings.surfacePlantStiffness}
+                min={0}
+                max={1}
+                step={0.01}
+                unit="%"
+                formatValue={(value) => Math.round(Number(value) * 100)}
+                onChange={(event) => handleSettingChange(event, 'surfacePlantStiffness')}
+            />
+            <SectionHeading label={t('homeEditor.blocks.material')} subtle />
             <ColorControl
                 label={t('homeEditor.controls.surfacePlantColor')}
                 value={settings.surfacePlantColor}
@@ -125,6 +148,7 @@ export const AlgaeSection = ({ settings, handleSettingChange }) => {
 
     return (
         <>
+            <SectionHeading label={t('homeEditor.blocks.scatter')} subtle />
             <RangeControl
                 label={t('homeEditor.controls.underwaterAlgaeAmount')}
                 value={settings.underwaterAlgaeAmount}
@@ -165,6 +189,7 @@ export const AlgaeSection = ({ settings, handleSettingChange }) => {
                 formatValue={(value) => formatFloat(value, 1)}
                 onChange={(event) => handleSettingChange(event, 'underwaterAlgaeRadius')}
             />
+            <SectionHeading label={t('homeEditor.blocks.shapeMotion')} subtle />
             <RangeControl
                 label={t('homeEditor.controls.underwaterAlgaeLength')}
                 value={settings.underwaterAlgaeLength}
@@ -223,6 +248,7 @@ export const AlgaeSection = ({ settings, handleSettingChange }) => {
                 formatValue={(value) => Math.round(Number(value) * 100)}
                 onChange={(event) => handleSettingChange(event, 'underwaterAlgaePatchiness')}
             />
+            <SectionHeading label={t('homeEditor.blocks.material')} subtle />
             <ColorControl
                 label={t('homeEditor.controls.underwaterAlgaeColor')}
                 value={settings.underwaterAlgaeColor}
