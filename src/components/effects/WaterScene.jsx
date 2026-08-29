@@ -13,6 +13,7 @@ import {
   resolveLayoutKey,
 } from '../../features/home-scene/lib/layout';
 import SceneCanvas from './SceneCanvas';
+import EditorGizmo from '../../features/home-scene/components/editor/EditorGizmo';
 import ScenePostProcessing from './ScenePostProcessing';
 import { buildHomeSceneLighting } from './homeSceneLighting';
 import {
@@ -2759,6 +2760,7 @@ function WaterRuntimeScene({
   onBoatPositionChange,
   onSculpturePositionChange,
   onSceneReady,
+  editorGizmo,
 }) {
   const { gl, size } = useThree();
   const qualityProfile = useMemo(
@@ -2897,6 +2899,14 @@ function WaterRuntimeScene({
         />
       </WaterReflections>
       <ScenePostProcessing settings={settings} qualityProfile={qualityProfile} />
+      {mode === 'editor' && editorGizmo?.selection ? (
+        <EditorGizmo
+          selection={editorGizmo.selection}
+          mode={editorGizmo.mode}
+          orbitRef={orbitRef}
+          onTransform={editorGizmo.onTransform}
+        />
+      ) : null}
       <SceneReadyBeacon onSceneReady={onSceneReady} />
       {showDebugHelpers ? <axesHelper args={[2]} /> : null}
       {showDebugHelpers ? (
@@ -2920,6 +2930,7 @@ const WaterScene = ({
   onBoatPositionChange,
   onSculpturePositionChange,
   onSceneReady,
+  editorGizmo,
 }) => {
   const settings = settingsProp ?? getBaseHomeSceneSettings();
 
@@ -2936,6 +2947,7 @@ const WaterScene = ({
       <WaterRuntimeScene
         settings={settings}
         mode={mode}
+        editorGizmo={editorGizmo}
         layoutOverride={layoutOverride}
         onCameraRigApi={onCameraRigApi}
         onBoatPositionChange={onBoatPositionChange}

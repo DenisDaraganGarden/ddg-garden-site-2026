@@ -136,6 +136,14 @@ export const translations = {
         ui: 'UI',
         empty: 'Пусто',
       },
+      gizmo: {
+        translate: 'Двигать',
+        rotate: 'Вращать',
+        scale: 'Масштаб',
+        translateHint: 'Перемещение — G или W',
+        rotateHint: 'Поворот — R или E',
+        scaleHint: 'Масштаб — S',
+      },
       tabs: {
         water: 'Вода',
         lighting: 'Освещение',
@@ -472,6 +480,14 @@ export const translations = {
         debug: 'Debug',
         ui: 'UI',
         empty: 'Empty',
+      },
+      gizmo: {
+        translate: 'Move',
+        rotate: 'Rotate',
+        scale: 'Scale',
+        translateHint: 'Move — G or W',
+        rotateHint: 'Rotate — R or E',
+        scaleHint: 'Scale — S',
       },
       tabs: {
         water: 'Water',

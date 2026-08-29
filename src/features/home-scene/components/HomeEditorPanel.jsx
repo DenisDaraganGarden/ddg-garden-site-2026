@@ -35,6 +35,7 @@ const HomeEditorPanel = ({
     settings,
     handleSettingChange,
     layoutEditor,
+    gizmo,
     onPublish,
     publishState,
     hasPublishChanges = false,
@@ -244,6 +245,21 @@ const HomeEditorPanel = ({
                                 {t(`homeEditor.nodes.${item.id}`)}
                             </button>
                         ))}
+                        {gizmo?.selection ? (
+                            <span className="home-editor-gizmo" data-testid="home-editor-gizmo">
+                                {['translate', 'rotate', 'scale'].map((toolMode) => (
+                                    <button
+                                        key={toolMode}
+                                        type="button"
+                                        className={`home-editor-tab home-editor-tab--node ${gizmo.mode === toolMode ? 'active' : ''}`}
+                                        onClick={() => gizmo.setMode(toolMode)}
+                                        title={t(`homeEditor.gizmo.${toolMode}Hint`)}
+                                    >
+                                        {t(`homeEditor.gizmo.${toolMode}`)}
+                                    </button>
+                                ))}
+                            </span>
+                        ) : null}
                     </div>
 
                     <div className="home-editor-section">
