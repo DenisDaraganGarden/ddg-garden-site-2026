@@ -75,8 +75,8 @@
   z-index: 140;
   display: flex;
   flex-direction: column;
-  gap: 0.42rem;
-  padding: 0.58rem 0.7rem 0.7rem;
+  gap: 0.28rem;
+  padding: 0.42rem 0.6rem 0.5rem;
   background: rgba(13, 13, 13, 0.94);
   border-top: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 14px 14px 0 0;
@@ -166,28 +166,56 @@
   border-color: rgba(240, 178, 75, 0.55);
 }
 
+/* Two rows: groups on top, the group's objects underneath. The chip border was
+   the heaviest thing in the panel for the least information, so it is gone -
+   weight now carries meaning (filled = selected). */
 .home-editor-tabs {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.32rem;
+  gap: 0.2rem;
   align-items: center;
+  flex: 0 0 auto;
+}
+
+.home-editor-tabs--nodes {
+  gap: 0.1rem;
+  padding-bottom: 0.12rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
 }
 
 .home-editor-tab {
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid transparent;
+  background: rgba(255, 255, 255, 0.05);
   color: #f5f5f5;
-  padding: 0.42rem 0.58rem;
-  border-radius: 8px;
+  padding: 0.28rem 0.5rem;
+  border-radius: 6px;
   cursor: pointer;
-  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+  transition: background 0.16s ease, color 0.16s ease;
   font-family: var(--font-secondary);
-  font-size: 0.71rem;
+  font-size: 0.68rem;
+  white-space: nowrap;
+}
+
+/* The object row is a level down, so it reads quieter until it is the one open. */
+.home-editor-tab--node {
+  background: transparent;
+  color: rgba(255, 255, 255, 0.6);
+  padding: 0.22rem 0.44rem;
+  font-size: 0.65rem;
+}
+
+.home-editor-tab--node:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  color: #f5f5f5;
+}
+
+.home-editor-tab--node.active {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
 }
 
 .home-editor-tab:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.11);
 }
 
 .home-editor-tab:disabled {
@@ -220,20 +248,20 @@
 
 .home-editor-controls {
   display: grid;
-  gap: 0.58rem 0.72rem;
+  gap: 0.34rem 0.8rem;
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .home-editor-control-group {
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
+  gap: 0.16rem;
 }
 
 .home-editor-section-heading {
   grid-column: 1 / -1;
-  margin: 0.38rem 0 0;
-  padding-top: 0.42rem;
+  margin: 0.22rem 0 0;
+  padding-top: 0.26rem;
   border-top: 1px solid rgba(255, 255, 255, 0.09);
   font-family: var(--font-secondary);
   font-size: 0.6rem;
@@ -437,4 +465,15 @@
   .home-editor-controls {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+}
+
+/* Tool switch, shown only while an object is selected. Sits at the end of the
+   object row so the gizmo controls read as part of that object, not as a mode
+   of the whole editor. */
+.home-editor-gizmo {
+  display: inline-flex;
+  gap: 0.1rem;
+  margin-left: auto;
+  padding-left: 0.4rem;
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
 }

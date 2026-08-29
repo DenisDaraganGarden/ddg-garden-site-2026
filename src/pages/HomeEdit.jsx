@@ -10,6 +10,9 @@ import {
     resolveLayoutKey,
 } from '../features/home-scene/lib/layout';
 import { useHomeSceneEditor } from '../features/home-scene/hooks/useHomeSceneEditor';
+import { useHomeChromeVisibility } from '../features/home-scene/hooks/useHomeChromeVisibility';
+import { useEditorTool } from '../features/home-scene/hooks/useEditorTool';
+import { resolveEditorPath } from '../features/home-scene/components/editor/editorTree';
 import HomeEditorPanel from '../features/home-scene/components/HomeEditorPanel';
 import { publishHomeSceneSettings } from '../features/home-scene/lib/homeScenePublishClient';
 import { useLanguage } from '../i18n/useLanguage';
@@ -37,6 +40,9 @@ const HomeEdit = () => {
         setActiveTab,
         handleSettingChange,
     } = useHomeSceneEditor();
+    // Preview the chrome toggles in the editor itself, not only after publishing.
+    useHomeChromeVisibility(settings);
+    const { mode: gizmoMode, setMode: setGizmoMode, suppressed: gizmoSuppressed } = useEditorTool();
     const isLocalPublishAvailable = typeof window !== 'undefined'
         && LOCAL_EDIT_HOSTS.has(window.location.hostname);
     const [publishState, setPublishState] = useState({ busy: false, message: '' });
@@ -181,6 +187,38 @@ const HomeEdit = () => {
         });
     }, [updateLayout, selectedLayoutKey]);
 
+    // Picking an object in the tree is the selection; the gizmo writes back into
+    // the same settings the sliders do, so the two are one value seen two ways.
+    const handleGizmoTransform = useCallback((id, patch) => {
+        if (patch.position) {
+            if (id === 'boat') {
+                handleBoatPositionChange(patch.position);
+            } else {
+                handleSculpturePositionChange(patch.position);
+            }
+            return;
+        }
+
+        if (typeof patch.rotationY === 'number') {
+            const key = id === 'boat' ? 'boatYaw' : 'sculptureRotationY';
+            setSettings((previous) => ({ ...previous, [key]: patch.rotationY }));
+            return;
+        }
+
+        if (typeof patch.scale === 'number') {
+            const key = id === 'boat' ? 'boatScale' : 'sculptureScale';
+            setSettings((previous) => ({ ...previous, [key]: patch.scale }));
+        }
+    }, [handleBoatPositionChange, handleSculpturePositionChange, setSettings]);
+
+    const { group: gizmoGroup, node: gizmoNode } = resolveEditorPath(activeTab, { includeDevOnly: true });
+    const editorGizmo = useMemo(() => ({
+        selection: (!gizmoSuppressed && gizmoGroup.id === 'objects') ? gizmoNode.id : null,
+        mode: gizmoMode,
+        onTransform: handleGizmoTransform,
+    }), [gizmoSuppressed, gizmoGroup.id, gizmoNode.id, gizmoMode, handleGizmoTransform]);
+
+
     const layoutEditor = useMemo(() => ({
         selectedKey: selectedLayoutKey,
         setSelectedKey: setSelectedLayoutKey,
@@ -262,6 +300,7 @@ const HomeEdit = () => {
                             onCameraRigApi={handleCameraRigApi}
                             onBoatPositionChange={handleBoatPositionChange}
                             onSculpturePositionChange={handleSculpturePositionChange}
+                            editorGizmo={editorGizmo}
                         />
                     </div>
                     <div className="home-editor-frame-mask home-editor-frame-mask--top" aria-hidden="true" />
@@ -275,6 +314,7 @@ const HomeEdit = () => {
                 settings={settings}
                 handleSettingChange={handleSettingChange}
                 layoutEditor={layoutEditor}
+                gizmo={{ mode: gizmoMode, setMode: setGizmoMode, selection: editorGizmo.selection }}
                 onPublish={isLocalPublishAvailable ? handlePublish : undefined}
                 publishState={publishState}
                 hasPublishChanges={hasPublishChanges}

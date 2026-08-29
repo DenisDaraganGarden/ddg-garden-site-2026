@@ -437,3 +437,29 @@
         transform: none;
     }
 }
+
+/* Visibility of the site chrome over the scene, authored in the editor's Interface
+   tab. The attribute is set on the root only while the home scene is mounted, so
+   the inner pages keep their header regardless. */
+/* Not scoped to .main-nav--home on purpose: the editor route renders the plain
+   header, and the author has to preview the same result. The attribute is the
+   scope - it exists only while a home scene is mounted. */
+:root[data-home-hidden~="brand"] .nav-brand {
+  display: none;
+}
+
+:root[data-home-hidden~="subtitle"] .brand-subtitle {
+  display: none;
+}
+
+:root[data-home-hidden~="menu"] .nav-links {
+  display: none;
+}
+
+:root[data-home-hidden~="language"] .language-switch__button {
+  display: none;
+}
+
+:root[data-home-hidden~="sound"] .language-switch__music {
+  display: none;
+}
