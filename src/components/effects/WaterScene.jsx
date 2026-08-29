@@ -30,6 +30,7 @@ import {
 import EditorGizmo from '../../features/home-scene/components/editor/EditorGizmo';
 import ScenePostProcessing from './ScenePostProcessing';
 import { buildHomeSceneLighting } from './homeSceneLighting';
+import { useSkyEnvironment } from './water/skyEnvironment';
 import {
 } from './shaders/waterRuntimeShaders';
 import {
@@ -144,6 +145,14 @@ function WaterRuntimeScene({
     [mode, size.width],
   );
   const lighting = useMemo(() => buildHomeSceneLighting(settings), [settings]);
+  // One sky, built once, handed to everything that has to agree about it: the
+  // visible dome, the water that reflects it, and (from Phase 2) the image-based
+  // light on every material.
+  const sky = useSkyEnvironment(lighting.sky, {
+    width: qualityProfile.isLowPower ? 128 : 256,
+    height: qualityProfile.isLowPower ? 64 : 128,
+    applyToScene: false,
+  });
   const runtime = useWaterRuntime(settings, qualityProfile, mode);
   const orbitRef = useRef();
   const showDebugHelpers = mode === 'editor' && settings.debugView !== 'beauty';
@@ -226,6 +235,7 @@ function WaterRuntimeScene({
           mode={mode}
           qualityProfile={qualityProfile}
           lighting={lighting}
+          sky={sky}
         />
         {settings.seabedVisible ? (
           <Seabed
@@ -248,6 +258,7 @@ function WaterRuntimeScene({
             runtime={runtime}
             qualityProfile={qualityProfile}
             lighting={lighting}
+            sky={sky}
           />
         ) : null}
         {settings.liliesVisible ? (

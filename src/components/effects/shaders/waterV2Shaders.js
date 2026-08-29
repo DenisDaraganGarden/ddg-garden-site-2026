@@ -1,3 +1,5 @@
+import { skyShaderChunk } from './skyShader';
+
 // Water V2 optics. The wave state still comes from the existing DDG ping-pong
 // simulation; the optical model follows the Fresnel/refraction approach used by
 // Evan Wallace's WebGL water demo and Yong Su's Three.js adaptation.
@@ -55,6 +57,7 @@ export const waterV2VertexShader = `
 `;
 
 export const waterV2FragmentShader = `
+  ${skyShaderChunk}
   varying vec2 vUv;
   varying vec3 vSurfaceWorldPosition;
   varying vec3 vWaterNormal;
@@ -113,25 +116,18 @@ export const waterV2FragmentShader = `
     return chroma * value;
   }
 
+  // The sky the water reflects is now literally the sky above it - the same
+  // table, the same disc function. What used to be here was a separate ramp
+  // between two hand-picked hexes plus a two-lobe cosine wobble, with the sun
+  // faked as two hardcoded pow() terms that no more agreed with the light
+  // direction than the sprite did.
   vec3 skyColor(vec3 ray, vec3 lightDir) {
-    float height = max(ray.y, 0.0);
-    vec3 color = mix(
-      max(uEnvironmentHorizonColor, vec3(0.001)),
-      max(uEnvironmentZenithColor, vec3(0.001)),
-      pow(height, 0.58)
-    );
-    float environmentAzimuth = atan(ray.z, ray.x) + uEnvironmentRotation;
-    float horizonVariation = 0.88 + 0.12 * cos(environmentAzimuth * 2.0 + 0.7);
-    color *= mix(horizonVariation, 1.0, smoothstep(0.0, 0.72, height));
-    float moon = max(dot(ray, lightDir), 0.0);
     // Exposure controls are perceptual in the editor, so use a square-root
     // response while preserving a true black at zero.
     float environmentLevel = sqrt(clamp(uEnvironmentExposure * uEnvironmentReflection, 0.0, 4.84));
-    color *= environmentLevel;
+    vec3 color = skyRadiance(ray) * environmentLevel;
     color *= mix(vec3(1.0), reflectionTone(), 0.6);
-    color += uMoonColor
-      * clamp(uMoonIntensity, 0.0, 4.0)
-      * (pow(moon, 420.0) * 3.5 + pow(moon, 28.0) * 0.18);
+    color += celestialBody(ray, uKeyDirection, uKeyRadiance, uKeyCosRadius, uKeyGlowPower);
     return color;
   }
 

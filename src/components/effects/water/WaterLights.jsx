@@ -3,14 +3,13 @@ import { Environment } from '@react-three/drei';
 import * as THREE from 'three';
 import { SELF_HOSTED_HDRI } from './constants';
 import SkyDome from './SkyDome';
-import { useSkyEnvironment } from './skyEnvironment';
 
 // Every light in the scene, plus the sky. The key light and the visible disc are
 // the same direction by construction now: the disc is a dot product against the
 // light vector inside the sky shader, not a sprite parked at a finite distance
 // that missed it by 12.6 degrees.
 
-export default function WaterLights({ settings, mode, qualityProfile, lighting }) {
+export default function WaterLights({ settings, mode, qualityProfile, lighting, sky }) {
   const lightDirection = useMemo(
     () => new THREE.Vector3().fromArray(lighting.key.direction),
     [lighting],
@@ -25,14 +24,6 @@ export default function WaterLights({ settings, mode, qualityProfile, lighting }
     && (mode === 'editor' || canRunHighShadowCost);
   const shadowMapSize = qualityProfile?.shadowMapSize ?? (mode === 'editor' ? 1024 : 768);
   const shadowFrustum = THREE.MathUtils.clamp((settings.waterExtent * Math.SQRT1_2) + 1.25, 10, 24);
-  // Phase 1 shows the sky but leaves the image-based light on the HDRI, so the
-  // materials do not all move at once. Phase 2 flips applyToScene and the HDR
-  // file leaves the load entirely.
-  const sky = useSkyEnvironment(lighting.sky, {
-    width: (qualityProfile?.shadowMapSize ?? 1024) >= 640 ? 256 : 128,
-    height: (qualityProfile?.shadowMapSize ?? 1024) >= 640 ? 128 : 64,
-    applyToScene: false,
-  });
   const localHdriFile = SELF_HOSTED_HDRI[settings.hdrPreset];
   const environmentSource = localHdriFile
     ? { files: `${import.meta.env.BASE_URL}${localHdriFile}` }

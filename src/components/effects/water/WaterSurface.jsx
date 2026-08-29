@@ -9,7 +9,7 @@ import { waterV2FragmentShader, waterV2VertexShader } from '../shaders/waterV2Sh
 // the reflection and refraction textures, and the mesh that writes the stencil the
 // boat's dry cockpit is cut from.
 
-export default function WaterSurfaceV2({ settings, runtime, qualityProfile, lighting }) {
+export default function WaterSurfaceV2({ settings, runtime, qualityProfile, lighting, sky }) {
   const materialRef = useRef();
   const reflectionDataRef = React.useContext(reflectionContext);
   const debugView = DEBUG_VIEW_IDS[settings.debugView] ?? 0;
@@ -62,6 +62,14 @@ export default function WaterSurfaceV2({ settings, runtime, qualityProfile, ligh
     uWaterGlintSharpness: { value: settings.waterGlintSharpness },
     uTime: { value: 0 },
     uDebugView: { value: debugView },
+    // The shared sky. Same table the dome samples, so the water cannot reflect
+    // a different sky than the one above it.
+    uSkyLut: { value: null },
+    uKeyDirection: { value: new THREE.Vector3(0, 0.3, 1) },
+    uKeyRadiance: { value: new THREE.Color(1, 1, 1) },
+    uKeyCosRadius: { value: 1 },
+    uKeyGlowPower: { value: 2000 },
+    uKeyGlowStrength: { value: 0.35 },
   }), [
     debugView,
     lightDirection,
@@ -103,6 +111,11 @@ export default function WaterSurfaceV2({ settings, runtime, qualityProfile, ligh
     uniforms.uWaterGlintDensity.value = settings.waterGlintDensity;
     uniforms.uWaterGlintSharpness.value = settings.waterGlintSharpness;
     uniforms.uDebugView.value = DEBUG_VIEW_IDS[settings.debugView] ?? 0;
+    uniforms.uKeyDirection.value.fromArray(lighting.sky.keyDirection);
+    uniforms.uKeyRadiance.value.fromArray(lighting.sky.discRadiance);
+    uniforms.uKeyCosRadius.value = lighting.sky.keyCosRadius;
+    uniforms.uKeyGlowPower.value = lighting.sky.keyGlowPower;
+    uniforms.uKeyGlowStrength.value = lighting.sky.keyGlowStrength;
   }, [
     lightDirection,
     lighting,
@@ -123,6 +136,7 @@ export default function WaterSurfaceV2({ settings, runtime, qualityProfile, ligh
   ]);
 
   useFrame(({ clock }) => {
+    uniforms.uSkyLut.value = sky?.texture ?? null;
     uniforms.uState.value = runtime.currentStateTargetRef.current?.texture ?? null;
     uniforms.uNormalMap.value = runtime.normalTargetRef.current?.texture ?? null;
 
