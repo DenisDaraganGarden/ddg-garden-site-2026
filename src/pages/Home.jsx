@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import WaterScene from '../components/effects/WaterScene';
 import { usePublishedHomeSceneSettings } from '../features/home-scene/hooks/useHomeSceneSettings';
+import { useHomeChromeVisibility } from '../features/home-scene/hooks/useHomeChromeVisibility';
 import {
     getLayoutVisibleAspect,
     resolveLayoutFrameInset,
@@ -109,16 +110,24 @@ const Home = () => {
         Math.max(0, (1 - (viewportAspect / visibleAspect)) * 0.5),
     );
 
+    useHomeChromeVisibility(settings);
+
+    // Turning the bars off means letting the scene fill the viewport rather than
+    // painting the black strips over it - under them is the same black. The camera
+    // fit already expands to contain the authored composition when the viewport is
+    // wider than the reference, so nothing is cropped.
+    const frameBarInset = settings.uiFrameVisible === false ? 0 : viewportFrameInset;
+
     // The header is rendered outside .home-page, so it cannot inherit the band
     // geometry from it. Publishing the inset on the root lets the title and menu
     // position themselves against the cinematic frame instead of against the
     // viewport, which is what used to cut the block in half on a phone.
     useEffect(() => {
         const root = document.documentElement;
-        root.style.setProperty('--home-frame-inset', `${viewportFrameInset * 100}dvh`);
+        root.style.setProperty('--home-frame-inset', `${frameBarInset * 100}dvh`);
 
         return () => root.style.removeProperty('--home-frame-inset');
-    }, [viewportFrameInset]);
+    }, [frameBarInset]);
 
     return (
         <div
@@ -126,7 +135,7 @@ const Home = () => {
             data-testid="home-page"
             data-layout={viewport.layoutKey}
             data-visible-aspect={visibleAspect.toFixed(3)}
-            style={{ '--home-frame-inset': `${viewportFrameInset * 100}dvh` }}
+            style={{ '--home-frame-inset': `${frameBarInset * 100}dvh` }}
         >
             <div className="home-cinematic-frame home-cinematic-frame--top" />
             <div className="home-cinematic-frame home-cinematic-frame--bottom" />

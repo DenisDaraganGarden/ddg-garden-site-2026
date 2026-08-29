@@ -266,6 +266,14 @@ export const getBaseHomeSceneSettings = () => ({
   // 1 = the automatic pixel budget. Raise for a sharper frame, lower to buy
   // back GPU time; the budget still adapts to the window on top of this.
   renderScale: 1,
+  // Site chrome shown over the scene. Authored per published scene so the frame
+  // can be cleared for a screenshot or a bare cinematic view.
+  uiBrandVisible: true,
+  uiSubtitleVisible: true,
+  uiMenuVisible: true,
+  uiLanguageVisible: true,
+  uiSoundVisible: true,
+  uiFrameVisible: true,
   filmGrainSize: 1.15,
   filmGrainSpeed: 0.85,
   bloomEnabled: true,
@@ -657,6 +665,12 @@ const normalizeHomeSceneSettings = (savedSettings = {}) => {
       defaults.filmGrainIntensity,
     ),
     renderScale: clampFloat(merged.renderScale, 0.5, 2, defaults.renderScale),
+    uiBrandVisible: pickBoolean(merged.uiBrandVisible, defaults.uiBrandVisible),
+    uiSubtitleVisible: pickBoolean(merged.uiSubtitleVisible, defaults.uiSubtitleVisible),
+    uiMenuVisible: pickBoolean(merged.uiMenuVisible, defaults.uiMenuVisible),
+    uiLanguageVisible: pickBoolean(merged.uiLanguageVisible, defaults.uiLanguageVisible),
+    uiSoundVisible: pickBoolean(merged.uiSoundVisible, defaults.uiSoundVisible),
+    uiFrameVisible: pickBoolean(merged.uiFrameVisible, defaults.uiFrameVisible),
     filmGrainSize: clampFloat(merged.filmGrainSize, 0.35, 4, defaults.filmGrainSize),
     filmGrainSpeed: clampFloat(merged.filmGrainSpeed, 0, 3, defaults.filmGrainSpeed),
     bloomEnabled: pickBoolean(merged.bloomEnabled, defaults.bloomEnabled),

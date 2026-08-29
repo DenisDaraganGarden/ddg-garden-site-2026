@@ -1139,3 +1139,28 @@ export const DebugTab = ({ settings, handleSettingChange }) => {
         </>
     );
 };
+
+export const InterfaceTab = ({ settings, handleSettingChange }) => {
+    const { t } = useLanguage();
+    const toggles = [
+        'uiBrandVisible',
+        'uiSubtitleVisible',
+        'uiMenuVisible',
+        'uiLanguageVisible',
+        'uiSoundVisible',
+        'uiFrameVisible',
+    ];
+
+    return (
+        <>
+            {toggles.map((key) => (
+                <CheckboxControl
+                    key={key}
+                    label={t(`homeEditor.controls.${key}`)}
+                    checked={Boolean(settings[key])}
+                    onChange={(event) => handleSettingChange(event, key, 'boolean')}
+                />
+            ))}
+        </>
+    );
+};

@@ -10,6 +10,7 @@ import {
     resolveLayoutKey,
 } from '../features/home-scene/lib/layout';
 import { useHomeSceneEditor } from '../features/home-scene/hooks/useHomeSceneEditor';
+import { useHomeChromeVisibility } from '../features/home-scene/hooks/useHomeChromeVisibility';
 import HomeEditorPanel from '../features/home-scene/components/HomeEditorPanel';
 import { publishHomeSceneSettings } from '../features/home-scene/lib/homeScenePublishClient';
 import { useLanguage } from '../i18n/useLanguage';
@@ -37,6 +38,8 @@ const HomeEdit = () => {
         setActiveTab,
         handleSettingChange,
     } = useHomeSceneEditor();
+    // Preview the chrome toggles in the editor itself, not only after publishing.
+    useHomeChromeVisibility(settings);
     const isLocalPublishAvailable = typeof window !== 'undefined'
         && LOCAL_EDIT_HOSTS.has(window.location.hostname);
     const [publishState, setPublishState] = useState({ busy: false, message: '' });

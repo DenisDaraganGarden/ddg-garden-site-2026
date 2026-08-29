@@ -10,6 +10,7 @@ import {
     WaterTab,
     BoatTab,
     SculptureTab,
+    InterfaceTab,
 } from './HomeEditorTabs';
 
 const PANEL_STATE_KEY = 'ddg_home_editor_panel_v1';
@@ -71,6 +72,7 @@ const HomeEditorPanel = ({
         { id: 'camera', label: t('homeEditor.tabs.camera') },
         { id: 'boat', label: t('homeEditor.tabs.boat') },
         { id: 'sculpture', label: t('homeEditor.tabs.sculpture') },
+        { id: 'interface', label: t('homeEditor.tabs.interface') },
     ];
     if (showDeveloperTab) {
         tabs.push({ id: 'debug', label: t('homeEditor.tabs.debug') });
@@ -267,6 +269,7 @@ const HomeEditorPanel = ({
                             )}
                             {activeTab === 'boat' && <BoatTab settings={settings} handleSettingChange={handleSettingChange} layoutEditor={layoutEditor} />}
                             {activeTab === 'sculpture' && <SculptureTab settings={settings} handleSettingChange={handleSettingChange} layoutEditor={layoutEditor} />}
+                            {activeTab === 'interface' && <InterfaceTab settings={settings} handleSettingChange={handleSettingChange} />}
                             {showDeveloperTab && activeTab === 'debug' && (
                                 <DebugTab settings={settings} handleSettingChange={handleSettingChange} />
                             )}
