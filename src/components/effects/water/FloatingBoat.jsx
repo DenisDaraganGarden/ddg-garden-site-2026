@@ -3,6 +3,7 @@ import { useFrame, useLoader } from '@react-three/fiber';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader';
 import * as THREE from 'three';
 import { BOAT_CUTOUT_STENCIL_REF, BOAT_MAX_PITCH, BOAT_MAX_ROLL, BOAT_NEUTRAL_Y, BOAT_PROBE_INTERVAL, BOAT_PROBE_OFFSETS, BOAT_TARGET_Y_MAX, BOAT_TARGET_Y_MIN, CURSOR_BOAT_IMPACT_DURATION, CURSOR_BOAT_IMPACT_RADIUS_FACTOR, DEFAULT_BOAT_ANCHOR, clamp, isDocumentCurrentlyVisible } from './constants';
+import { useDragOnPlane } from './useDragOnPlane';
 
 // The boat floats: buoyancy probes read the height field, the hull follows it in
 // pitch, roll and heave, and a stencil cutout keeps the cockpit dry.
@@ -19,11 +20,6 @@ export default function FloatingBoat({
 }) {
   const anchorRef = useRef();
   const boatRef = useRef();
-  const isDraggingRef = useRef(false);
-  const dragPointerIdRef = useRef(null);
-  const dragPlaneRef = useRef(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0));
-  const dragHitPointRef = useRef(new THREE.Vector3());
-  const dragOffsetRef = useRef(new THREE.Vector3());
   const boatAnchorRef = useRef(new THREE.Vector3(
     layout?.boatPosition?.x ?? settings?.boatPosition?.x ?? DEFAULT_BOAT_ANCHOR.x,
     0,
@@ -63,6 +59,16 @@ export default function FloatingBoat({
       orbitRef.current.enabled = enabled;
     }
   }, [orbitRef]);
+
+  const { isDraggingRef, dragHandlers } = useDragOnPlane({
+    mode,
+    anchorRef,
+    fallbackAnchorRef: boatAnchorRef,
+    planeHeight: 0,
+    applyAnchor: applyBoatAnchor,
+    commitPosition: commitBoatPosition,
+    setOrbitEnabled,
+  });
 
   const boatTextures = useLoader(THREE.TextureLoader, [
     '/models/boat/boat_basecolor.webp',
@@ -126,74 +132,7 @@ export default function FloatingBoat({
     }
 
     applyBoatAnchor(anchorX, anchorZ);
-  }, [applyBoatAnchor, layout?.boatPosition?.x, layout?.boatPosition?.z, settings?.boatPosition?.x, settings?.boatPosition?.z]);
-  const handleBoatPointerDown = useCallback((event) => {
-    if (mode !== 'editor' || event.button !== 0 || !event.shiftKey) {
-      return;
-    }
-
-    const dragHitPoint = dragHitPointRef.current;
-
-    if (!event.ray?.intersectPlane(dragPlaneRef.current, dragHitPoint)) {
-      return;
-    }
-
-    event.stopPropagation();
-    event.target.setPointerCapture?.(event.pointerId);
-
-    isDraggingRef.current = true;
-    dragPointerIdRef.current = event.pointerId;
-    setOrbitEnabled(false);
-
-    const currentAnchor = anchorRef.current?.position ?? boatAnchorRef.current;
-    dragOffsetRef.current.set(
-      currentAnchor.x - dragHitPoint.x,
-      0,
-      currentAnchor.z - dragHitPoint.z,
-    );
-  }, [mode, setOrbitEnabled]);
-  const handleBoatPointerMove = useCallback((event) => {
-    if (!isDraggingRef.current) {
-      return;
-    }
-
-    if (dragPointerIdRef.current !== null && event.pointerId !== dragPointerIdRef.current) {
-      return;
-    }
-
-    const dragHitPoint = dragHitPointRef.current;
-
-    if (!event.ray?.intersectPlane(dragPlaneRef.current, dragHitPoint)) {
-      return;
-    }
-
-    event.stopPropagation();
-    applyBoatAnchor(
-      dragHitPoint.x + dragOffsetRef.current.x,
-      dragHitPoint.z + dragOffsetRef.current.z,
-    );
-  }, [applyBoatAnchor]);
-  const finishBoatDrag = useCallback((event) => {
-    if (!isDraggingRef.current) {
-      return;
-    }
-
-    event?.stopPropagation?.();
-    setOrbitEnabled(true);
-
-    if (dragPointerIdRef.current !== null && event?.target?.releasePointerCapture) {
-      event.target.releasePointerCapture(dragPointerIdRef.current);
-    }
-
-    isDraggingRef.current = false;
-    dragPointerIdRef.current = null;
-    commitBoatPosition(anchorRef.current?.position ?? boatAnchorRef.current);
-  }, [commitBoatPosition, setOrbitEnabled]);
-
-  useEffect(() => () => {
-    setOrbitEnabled(true);
-  }, [setOrbitEnabled]);
-
+  }, [applyBoatAnchor, isDraggingRef, layout?.boatPosition?.x, layout?.boatPosition?.z, settings?.boatPosition?.x, settings?.boatPosition?.z]);
   useFrame(({ clock }, delta) => {
     if (!boatRef.current || settings.debugView !== 'beauty' || !isDocumentCurrentlyVisible()) {
       return;
@@ -430,11 +369,7 @@ export default function FloatingBoat({
       <group
         ref={anchorRef}
         name="boat-anchor"
-        onPointerDown={handleBoatPointerDown}
-        onPointerMove={handleBoatPointerMove}
-        onPointerUp={finishBoatDrag}
-        onPointerCancel={finishBoatDrag}
-        onLostPointerCapture={finishBoatDrag}
+      {...dragHandlers}
       >
         {/* Keep the stencil at the actual water plane and rotate only around Y.
             Pitch/roll/heave belong to the hull; applying them to the flat mask

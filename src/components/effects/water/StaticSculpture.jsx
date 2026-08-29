@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useLoader } from '@react-three/fiber';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader';
 import * as THREE from 'three';
+import { useDragOnPlane } from './useDragOnPlane';
 import { DEFAULT_SCULPTURE_ANCHOR, SCULPTURE_DRAG_EDGE_MARGIN, clamp } from './constants';
 
 // The sculpture stands on the seabed. It does not float, so its height is the base
@@ -9,11 +10,6 @@ import { DEFAULT_SCULPTURE_ANCHOR, SCULPTURE_DRAG_EDGE_MARGIN, clamp } from './c
 
 export default function StaticSculpture({ settings, layout, mode, orbitRef, onSculpturePositionChange }) {
   const anchorRef = useRef();
-  const isDraggingRef = useRef(false);
-  const dragPointerIdRef = useRef(null);
-  const dragPlaneRef = useRef(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0));
-  const dragHitPointRef = useRef(new THREE.Vector3());
-  const dragOffsetRef = useRef(new THREE.Vector3());
   const sculptureAnchorRef = useRef(new THREE.Vector3(
     layout?.sculpturePosition?.x ?? settings?.sculpturePosition?.x ?? DEFAULT_SCULPTURE_ANCHOR.x,
     0,
@@ -24,6 +20,7 @@ export default function StaticSculpture({ settings, layout, mode, orbitRef, onSc
       orbitRef.current.enabled = enabled;
     }
   }, [orbitRef]);
+
   const seabedY = (-settings.waterDepthMeters) + settings.sculptureBottomOffset;
   const commitSculpturePosition = useCallback((position) => {
     if (typeof onSculpturePositionChange !== 'function' || !position) {
@@ -45,6 +42,16 @@ export default function StaticSculpture({ settings, layout, mode, orbitRef, onSc
       anchorRef.current.position.set(nextX, seabedY, nextZ);
     }
   }, [settings.waterExtent, seabedY]);
+
+  const { isDraggingRef, dragHandlers } = useDragOnPlane({
+    mode,
+    anchorRef,
+    fallbackAnchorRef: sculptureAnchorRef,
+    planeHeight: seabedY,
+    applyAnchor: applySculptureAnchor,
+    commitPosition: commitSculpturePosition,
+    setOrbitEnabled,
+  });
 
   const sculptureMaterial = useMemo(() => new THREE.MeshPhysicalMaterial({
     color: new THREE.Color(settings.sculptureColor),
@@ -81,7 +88,7 @@ export default function StaticSculpture({ settings, layout, mode, orbitRef, onSc
     }
 
     applySculptureAnchor(anchorX, anchorZ);
-  }, [applySculptureAnchor, layout?.sculpturePosition?.x, layout?.sculpturePosition?.z, settings?.sculpturePosition?.x, settings?.sculpturePosition?.z]);
+  }, [applySculptureAnchor, isDraggingRef, layout?.sculpturePosition?.x, layout?.sculpturePosition?.z, settings?.sculpturePosition?.x, settings?.sculpturePosition?.z]);
 
   useEffect(() => {
     if (!anchorRef.current) {
@@ -90,75 +97,6 @@ export default function StaticSculpture({ settings, layout, mode, orbitRef, onSc
 
     anchorRef.current.position.y = seabedY;
   }, [seabedY]);
-
-  const handleSculpturePointerDown = useCallback((event) => {
-    if (mode !== 'editor' || event.button !== 0 || !event.shiftKey) {
-      return;
-    }
-
-    dragPlaneRef.current.set(new THREE.Vector3(0, 1, 0), -seabedY);
-    const dragHitPoint = dragHitPointRef.current;
-
-    if (!event.ray?.intersectPlane(dragPlaneRef.current, dragHitPoint)) {
-      return;
-    }
-
-    event.stopPropagation();
-    event.target.setPointerCapture?.(event.pointerId);
-    isDraggingRef.current = true;
-    dragPointerIdRef.current = event.pointerId;
-    setOrbitEnabled(false);
-
-    const currentAnchor = anchorRef.current?.position ?? sculptureAnchorRef.current;
-    dragOffsetRef.current.set(
-      currentAnchor.x - dragHitPoint.x,
-      0,
-      currentAnchor.z - dragHitPoint.z,
-    );
-  }, [mode, seabedY, setOrbitEnabled]);
-
-  const handleSculpturePointerMove = useCallback((event) => {
-    if (!isDraggingRef.current) {
-      return;
-    }
-
-    if (dragPointerIdRef.current !== null && event.pointerId !== dragPointerIdRef.current) {
-      return;
-    }
-
-    const dragHitPoint = dragHitPointRef.current;
-
-    if (!event.ray?.intersectPlane(dragPlaneRef.current, dragHitPoint)) {
-      return;
-    }
-
-    event.stopPropagation();
-    applySculptureAnchor(
-      dragHitPoint.x + dragOffsetRef.current.x,
-      dragHitPoint.z + dragOffsetRef.current.z,
-    );
-  }, [applySculptureAnchor]);
-
-  const finishSculptureDrag = useCallback((event) => {
-    if (!isDraggingRef.current) {
-      return;
-    }
-
-    event?.stopPropagation?.();
-    setOrbitEnabled(true);
-
-    if (dragPointerIdRef.current !== null && event?.target?.releasePointerCapture) {
-      event.target.releasePointerCapture(dragPointerIdRef.current);
-    }
-
-    isDraggingRef.current = false;
-    dragPointerIdRef.current = null;
-    commitSculpturePosition(anchorRef.current?.position ?? sculptureAnchorRef.current);
-  }, [commitSculpturePosition, setOrbitEnabled]);
-
-  useEffect(() => () => {
-    setOrbitEnabled(true);
-  }, [setOrbitEnabled]);
 
   const obj = useLoader(OBJLoader, '/models/sculpture/sculpture.obj');
   const normalizedObj = useMemo(() => {
@@ -199,11 +137,7 @@ export default function StaticSculpture({ settings, layout, mode, orbitRef, onSc
         THREE.MathUtils.degToRad(settings.sculptureRotationZ),
       ]}
       scale={[settings.sculptureScale, settings.sculptureScale, settings.sculptureScale]}
-      onPointerDown={handleSculpturePointerDown}
-      onPointerMove={handleSculpturePointerMove}
-      onPointerUp={finishSculptureDrag}
-      onPointerCancel={finishSculptureDrag}
-      onLostPointerCapture={finishSculptureDrag}
+      {...dragHandlers}
     >
       <group name="sculpture">
         <primitive object={clonedObj} />

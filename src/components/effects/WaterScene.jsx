@@ -18,7 +18,8 @@ import WaterReflections from './water/WaterReflections';
 import WaterLights from './water/WaterLights';
 import WaterSurfaceV2 from './water/WaterSurface';
 import Seabed from './water/Seabed';
-import { SurfaceVegetation, UnderwaterAlgae } from './water/Vegetation';
+import { SurfaceVegetation } from './water/SurfaceVegetation';
+import { UnderwaterAlgae } from './water/UnderwaterAlgae';
 import FloatingBoat from './water/FloatingBoat';
 import StaticSculpture from './water/StaticSculpture';
 import {
