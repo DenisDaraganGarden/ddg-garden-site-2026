@@ -83,6 +83,13 @@ const HomeEdit = () => {
         };
     }, []);
 
+    // The editor and the sandbox run on different ports, so their drafts are
+    // separate localStorage. The published file is what they share: work lands
+    // there via Publish, and this pulls it back into whichever draft is open.
+    const handleAdoptPublished = useCallback(() => {
+        setSettings(getPublishedHomeSceneSettings());
+    }, [setSettings]);
+
     const handleCameraRigApi = useCallback((api) => {
         cameraRigApiRef.current = api;
     }, []);
@@ -316,6 +323,7 @@ const HomeEdit = () => {
                 layoutEditor={layoutEditor}
                 gizmo={{ mode: gizmoMode, setMode: setGizmoMode, selection: editorGizmo.selection }}
                 onPublish={isLocalPublishAvailable ? handlePublish : undefined}
+                onAdoptPublished={handleAdoptPublished}
                 publishState={publishState}
                 hasPublishChanges={hasPublishChanges}
                 publishEnabled={isLocalPublishAvailable}

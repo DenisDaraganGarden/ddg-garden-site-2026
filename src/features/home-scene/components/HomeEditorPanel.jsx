@@ -37,6 +37,7 @@ const HomeEditorPanel = ({
     layoutEditor,
     gizmo,
     onPublish,
+    onAdoptPublished,
     publishState,
     hasPublishChanges = false,
     publishEnabled = false,
@@ -57,6 +58,9 @@ const HomeEditorPanel = ({
     const { groups, group, node } = resolveEditorPath(activeTab ?? DEFAULT_EDITOR_PATH, {
         includeDevOnly: showDeveloperTab,
     });
+    // Two steps on purpose: this throws the current draft away, and the draft is
+    // where an unpublished afternoon of work lives.
+    const [confirmAdopt, setConfirmAdopt] = useState(false);
     const canPublish = publishEnabled && typeof onPublish === 'function';
     const isPublishDisabled = publishState?.busy || !hasPublishChanges || !canPublish;
     // Persist height + collapsed state.
@@ -205,11 +209,32 @@ const HomeEditorPanel = ({
                         ))}
                         <button
                             type="button"
+                            className="home-editor-tab"
+                            style={{ marginLeft: 'auto' }}
+                            onClick={() => {
+                                if (!confirmAdopt) {
+                                    setConfirmAdopt(true);
+                                    return;
+                                }
+
+                                setConfirmAdopt(false);
+                                onAdoptPublished?.();
+                            }}
+                            onBlur={() => setConfirmAdopt(false)}
+                            disabled={typeof onAdoptPublished !== 'function'}
+                            data-testid="home-editor-adopt-published"
+                            title={t('homeEditor.publish.adoptHint')}
+                        >
+                            {confirmAdopt
+                                ? t('homeEditor.publish.adoptConfirm')
+                                : t('homeEditor.publish.adopt')}
+                        </button>
+                        <button
+                            type="button"
                             className="home-editor-tab home-editor-tab--publish"
                             onClick={canPublish ? onPublish : undefined}
                             disabled={isPublishDisabled}
                             data-testid="home-editor-publish"
-                            style={{ marginLeft: 'auto' }}
                             title={publishHint || undefined}
                         >
                             {publishState?.busy ? t('homeEditor.publish.publishing') : t('homeEditor.publish.publish')}
