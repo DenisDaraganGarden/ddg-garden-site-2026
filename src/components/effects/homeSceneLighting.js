@@ -220,6 +220,11 @@ export const buildHomeSceneLighting = (settings = {}) => {
       keyGlowPower: 2000 + (12 - 2000) * cloudCover,
       keyGlowStrength: 0.35,
       discRadiance: scaleColor(keyRadiance, SKY.discGain),
+      // The scene has no auto-exposure, so one gain lifts the whole lighting
+      // rig into a renderable range at once - the directional light and the sky
+      // take the same number. Splitting them is how the sky ended up black while
+      // the water was correctly lit.
+      skyLevel: exposure * SKY.sceneGain,
       night,
       sunElevationDeg: sun.elevationDeg,
       moonIllumination: moon.illumination,

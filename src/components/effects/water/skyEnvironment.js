@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { useThree } from '@react-three/fiber';
 import { buildSkyLut } from '../sky/skyModel.js';
@@ -45,6 +45,12 @@ export function useSkyEnvironment(state, {
   applyToScene = true,
 } = {}) {
   const { gl, scene } = useThree();
+  // State, not a ref: the texture is built in an effect, so a ref would leave
+  // every consumer that reads it during render holding the null from the first
+  // pass forever. That is exactly what kept the sky dome from ever mounting -
+  // the water, which reads it per frame, got the texture and the visible sky
+  // did not.
+  const [texture, setTexture] = useState(null);
   const textureRef = useRef(null);
   const pmremRef = useRef(null);
   const targetRef = useRef(null);
@@ -74,21 +80,21 @@ export function useSkyEnvironment(state, {
       return undefined;
     }
 
-    const texture = new THREE.DataTexture(
+    const nextTexture = new THREE.DataTexture(
       toHalfFloatRgba(lut.data, lut.width, lut.height),
       lut.width,
       lut.height,
       THREE.RGBAFormat,
       THREE.HalfFloatType,
     );
-    texture.mapping = THREE.EquirectangularReflectionMapping;
-    texture.colorSpace = THREE.LinearSRGBColorSpace;
-    texture.minFilter = THREE.LinearFilter;
-    texture.magFilter = THREE.LinearFilter;
-    texture.wrapS = THREE.RepeatWrapping;
-    texture.wrapT = THREE.ClampToEdgeWrapping;
-    texture.generateMipmaps = false;
-    texture.needsUpdate = true;
+    nextTexture.mapping = THREE.EquirectangularReflectionMapping;
+    nextTexture.colorSpace = THREE.LinearSRGBColorSpace;
+    nextTexture.minFilter = THREE.LinearFilter;
+    nextTexture.magFilter = THREE.LinearFilter;
+    nextTexture.wrapS = THREE.RepeatWrapping;
+    nextTexture.wrapT = THREE.ClampToEdgeWrapping;
+    nextTexture.generateMipmaps = false;
+    nextTexture.needsUpdate = true;
 
     if (!pmremRef.current) {
       pmremRef.current = new THREE.PMREMGenerator(gl);
@@ -96,11 +102,12 @@ export function useSkyEnvironment(state, {
     }
 
     const previousTexture = textureRef.current;
-    textureRef.current = texture;
+    textureRef.current = nextTexture;
+    setTexture(nextTexture);
 
     let previousTarget = null;
     if (applyToScene) {
-      const target = pmremRef.current.fromEquirectangular(texture);
+      const target = pmremRef.current.fromEquirectangular(nextTexture);
       previousTarget = targetRef.current;
       targetRef.current = target;
       scene.environment = target.texture;
@@ -125,7 +132,7 @@ export function useSkyEnvironment(state, {
   }, []);
 
   return {
-    texture: textureRef.current,
+    texture,
     skyIrradiance: lut.skyIrradiance,
     directShare: lut.directShare,
     sunElevationDeg: lut.sunElevationDeg,

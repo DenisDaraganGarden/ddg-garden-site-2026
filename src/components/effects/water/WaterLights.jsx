@@ -1,6 +1,7 @@
 import React, { useContext, useMemo, useRef } from 'react';
 import { Environment } from '@react-three/drei';
 import * as THREE from 'three';
+import { SKY } from '../sky/skyModel.js';
 import { SELF_HOSTED_HDRI } from './constants';
 import { useFrame } from '@react-three/fiber';
 import { reflectionContext } from './reflectionContext';
@@ -80,7 +81,7 @@ export default function WaterLights({ settings, mode, qualityProfile, lighting, 
       <directionalLight
         ref={keyLightRef}
         position={lightDirection.clone().multiplyScalar(standoff).toArray()}
-        intensity={lighting.key.intensity * 3.2}
+        intensity={lighting.key.intensity * SKY.sceneGain}
         color={keyColor}
         castShadow={shadowsEnabled}
         shadow-mapSize-width={shadowMapSize}
@@ -96,19 +97,20 @@ export default function WaterLights({ settings, mode, qualityProfile, lighting, 
         shadow-radius={shadowRadius}
         shadow-intensity={shadowIntensity}
       />
-      {settings.lightDiscEnabled ? (
-        <SkyDome
+      {/* The sky is always drawn; the disc toggle hides the body, not the sky. */}
+      <SkyDome
           sky={{
             texture: sky.texture,
             keyDirection: lighting.sky.keyDirection,
-            keyRadiance: lighting.sky.discRadiance,
+            keyRadiance: settings.lightDiscEnabled === false
+              ? [0, 0, 0]
+              : lighting.sky.discRadiance,
             keyCosRadius: lighting.sky.keyCosRadius,
             keyGlowPower: lighting.sky.keyGlowPower,
             keyGlowStrength: lighting.sky.keyGlowStrength,
-            skyLevel: lighting.environment.exposure,
+            skyLevel: lighting.sky.skyLevel,
           }}
-        />
-      ) : null}
+      />
       {useHdri ? (
         <Environment
           {...environmentSource}

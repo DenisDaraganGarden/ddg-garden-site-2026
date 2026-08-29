@@ -26,6 +26,9 @@ export const SKY = Object.freeze({
   // overflows the half-float reflection, refraction and post targets to Inf.
   // The coupling is what matters - disc, light and water lobe share one number.
   discGain: 24.0,
+  // Lifts the physically-scaled radiances into the range a renderer without
+  // auto-exposure can show. Applied identically to the key light and the sky.
+  sceneGain: 3.2,
   sunAngularSizeDeg: 0.53,
 });
 
