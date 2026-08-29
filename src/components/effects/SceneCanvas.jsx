@@ -367,6 +367,17 @@ const VisibilityResume = ({ isActive }) => {
   return null;
 };
 
+// The HUD switch lives in the editor panel, which is not something you can
+// operate on a phone. `?hud=1` turns it on wherever the scene renders, so a real
+// device can be measured on the page it actually ships. Dev builds only.
+const isHudRequestedByUrl = () => {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+
+  return new URLSearchParams(window.location.search).has('hud');
+};
+
 const SceneCanvas = ({
   sceneId,
   mode = 'public',
@@ -379,6 +390,7 @@ const SceneCanvas = ({
   style,
 }) => {
   const { t } = useLanguage();
+  const hudRequestedByUrl = useMemo(isHudRequestedByUrl, []);
   const renderScale = typeof settings?.renderScale === 'number' ? settings.renderScale : 1;
   const [runtimeError, setRuntimeError] = useState(false);
   const supportsWebgl = useMemo(() => detectWebGLSupport(), []);
@@ -466,7 +478,7 @@ const SceneCanvas = ({
         </Canvas>
         <PerformanceHud
           sceneId={sceneId}
-          enabled={Boolean(import.meta.env.DEV && settings?.showPerformanceHud)}
+          enabled={Boolean(import.meta.env.DEV && (settings?.showPerformanceHud || hudRequestedByUrl))}
         />
       </div>
     </SceneCanvasErrorBoundary>
