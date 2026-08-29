@@ -78,17 +78,17 @@ export const publishedHomeSceneSettings = {
     "portrait": {
       "customized": true,
       "cameraPosition": {
-        "x": -23.5399,
-        "y": 9.97,
-        "z": -0.5884
+        "x": -14.6456,
+        "y": 6.335,
+        "z": -1.7926
       },
       "cameraTarget": {
-        "x": 4.5752,
+        "x": -1.6547,
         "y": 0,
-        "z": 9.975
+        "z": 0.6678
       },
-      "cameraFov": 30,
-      "frameInset": 0.12,
+      "cameraFov": 24,
+      "frameInset": 0.115,
       "boatPosition": {
         "x": -5.9,
         "z": 2.09
@@ -101,17 +101,17 @@ export const publishedHomeSceneSettings = {
     "desktop": {
       "customized": true,
       "cameraPosition": {
-        "x": -25.4594,
-        "y": 11.8746,
-        "z": -2.9168
+        "x": -12.1368,
+        "y": 5.2948,
+        "z": 0.5097
       },
       "cameraTarget": {
-        "x": 3.7889,
+        "x": -1.0713,
         "y": 0,
-        "z": 11.1577
+        "z": 2.252
       },
       "cameraFov": 24,
-      "frameInset": 0.165,
+      "frameInset": 0.145,
       "boatPosition": {
         "x": -4.12,
         "z": 4.05
@@ -167,6 +167,8 @@ export const publishedHomeSceneSettings = {
   "surfacePlantRadius": 6.7,
   "surfacePlantClustering": 0.23,
   "surfacePlantSize": 0.31,
+  "surfacePlantFloatOffset": 0.022,
+  "surfacePlantStiffness": 0.3,
   "surfacePlantColor": "#66723c",
   "surfacePlantSaturation": 0.72,
   "surfacePlantTranslucency": 0.62,
@@ -184,6 +186,19 @@ export const publishedHomeSceneSettings = {
   "underwaterAlgaeSpeciesMix": 0.68,
   "underwaterAlgaePatchiness": 0.82,
   "renderScale": 2,
+  "uiBrandVisible": true,
+  "uiSubtitleVisible": true,
+  "uiMenuVisible": true,
+  "uiLanguageVisible": true,
+  "uiSoundVisible": true,
+  "uiFrameVisible": true,
+  "waterVisible": true,
+  "seabedVisible": true,
+  "liliesVisible": true,
+  "algaeVisible": true,
+  "boatVisible": true,
+  "sculptureVisible": true,
+  "reflectionsEnabled": true,
   "postProcessingEnabled": false,
   "filmGrainEnabled": false,
   "filmGrainIntensity": 0.101,
