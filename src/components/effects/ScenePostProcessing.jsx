@@ -216,8 +216,12 @@ const postFragmentShader = `
         * mix(2.2, 3.4, step(1.5, uFogMode))
       );
       float sunHalo = pow(max(1.0 - distance(vUv, uSunUv), 0.0), 7.0) * uSunVisible;
+      // Scaled by the ray intensity like the direct term below it. Without that
+      // the slider was discontinuous at zero: with fog on, turning the rays off
+      // still left them at full strength inside the fog.
       vec3 scatteredFog = uFogColor
-        + uSunColor * (rays * 1.6 + sunHalo * 0.18) * uFogScattering;
+        + uSunColor * (rays * 1.6 + sunHalo * 0.18)
+          * uFogScattering * clamp(uSunRaysIntensity, 0.0, 2.0);
       color = mix(color, scatteredFog, clamp(fogAmount, 0.0, 0.94));
     }
 
