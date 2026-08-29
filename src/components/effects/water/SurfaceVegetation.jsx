@@ -17,9 +17,9 @@ export function SurfaceVegetation({ settings, runtime, qualityProfile, lighting 
   const reflectionDataRef = React.useContext(reflectionContext);
   const maxInstances = qualityProfile?.surfacePlantMaxInstances ?? 560;
   const leafTextures = useLoader(THREE.TextureLoader, [
-    '/textures/lily/lily_atlas_albedo.png',
-    '/textures/lily/lily_atlas_normal.png',
-    '/textures/lily/lily_atlas_material.png',
+    '/textures/lily/lily_atlas_albedo.webp',
+    '/textures/lily/lily_atlas_normal.webp',
+    '/textures/lily/lily_atlas_material.webp',
   ]);
   const [leafAlbedoMap, leafNormalMap, leafMaterialMap] = useMemo(() => {
     leafTextures.forEach((texture) => {
