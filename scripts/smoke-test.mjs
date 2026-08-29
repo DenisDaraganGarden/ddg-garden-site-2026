@@ -24,7 +24,7 @@ const HOME_SCENE_SETTINGS_STORAGE_KEY = 'ddg_home_scene_settings_v1';
 const LEGACY_HOME_SCENE_KEYS = ['ddg_snake_settings_v4', 'ddg_snake_settings_v3'];
 // Editor-only aids. They are deliberately not published: they belong to whoever is
 // authoring the scene, not to the scene itself.
-const DEV_LOCAL_EDITOR_KEYS = new Set(['showPerformanceHud', 'showPointerDebug']);
+const DEV_LOCAL_EDITOR_KEYS = new Set(['showPerformanceHud', 'showPointerDebug', 'freeCamera']);
 
 const publishedSettingsPath = path.join(
   rootDir,

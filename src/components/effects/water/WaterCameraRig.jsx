@@ -12,14 +12,26 @@ const LazyOrbitControls = React.lazy(() => import('@react-three/drei/core/OrbitC
   default: module.OrbitControls,
 })));
 
-export default function WaterCameraRig({ mode, layout, layoutKey, onCameraRigApi, orbitRef }) {
+// freeCamera turns the viewport camera into a plain working camera: no authored
+// pose re-applied under the hand, no field of view fitted to the frame, and no
+// polar limits, so it can look straight up or straight down. It is the control
+// case for anything that looks like a camera problem - if a symptom survives it,
+// the composition rig is not the cause.
+export default function WaterCameraRig({
+  mode,
+  layout,
+  layoutKey,
+  onCameraRigApi,
+  orbitRef,
+  freeCamera = false,
+}) {
   const { camera, gl, size } = useThree();
   const internalControlsRef = useRef();
   const controlsRef = orbitRef ?? internalControlsRef;
   const formatAxis = useCallback((value) => Number(value.toFixed(4)), []);
   const cameraTarget = layout?.cameraTarget ?? { x: 0, y: 0, z: 0 };
   const cameraFov = layout?.cameraFov;
-  const fittedCameraFov = fitCameraFovToLayout(
+  const fittedCameraFov = freeCamera ? cameraFov : fitCameraFovToLayout(
     cameraFov,
     size.width,
     size.height,
@@ -40,7 +52,7 @@ export default function WaterCameraRig({ mode, layout, layoutKey, onCameraRigApi
   // (not the object identity) so editing object positions doesn't snap the camera, and
   // free-orbiting in the editor isn't interrupted by unrelated setting changes.
   useLayoutEffect(() => {
-    if (!layout) {
+    if (!layout || freeCamera) {
       return;
     }
 
@@ -152,14 +164,14 @@ export default function WaterCameraRig({ mode, layout, layoutKey, onCameraRigApi
           RIGHT: THREE.MOUSE.PAN,
         }}
         enablePan
-        screenSpacePanning={false}
         enableDamping
         dampingFactor={0.08}
         minDistance={0.5}
         maxDistance={2000}
-        minPolarAngle={0.45}
-        maxPolarAngle={1.35}
-        target={[cameraTarget.x, cameraTarget.y, cameraTarget.z]}
+        screenSpacePanning={freeCamera}
+        minPolarAngle={freeCamera ? 0 : 0.45}
+        maxPolarAngle={freeCamera ? Math.PI : 1.35}
+        target={freeCamera ? undefined : [cameraTarget.x, cameraTarget.y, cameraTarget.z]}
       />
     </React.Suspense>
   );

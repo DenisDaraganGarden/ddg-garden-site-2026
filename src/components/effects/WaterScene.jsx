@@ -161,6 +161,7 @@ function WaterRuntimeScene({
         layoutKey={activeLayoutKey}
         onCameraRigApi={onCameraRigApi}
         orbitRef={orbitRef}
+        freeCamera={mode === 'editor' && Boolean(settings.freeCamera)}
       />
       <WaterReflections
         enabled={opticsEnabled}

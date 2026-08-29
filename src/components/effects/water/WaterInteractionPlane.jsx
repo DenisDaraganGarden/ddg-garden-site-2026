@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef } from 'react';
-import { useThree } from '@react-three/fiber';
+import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { clamp, effectiveImpulseRadius } from './constants';
 
@@ -125,6 +125,13 @@ export default function WaterInteractionPlane({
       // Off the water entirely - past the far edge, or above the horizon. Say so,
       // otherwise the readout silently keeps showing the last good sample and
       // looks like the pointer froze.
+      // Freezing the marker here is what made the pointer look like it missed:
+      // it stayed at the last point inside the simulation while the cursor kept
+      // going, so the gap grew with distance. Off the simulated water it hides.
+      if (debugMarkerRef.current) {
+        debugMarkerRef.current.visible = false;
+      }
+
       if (import.meta.env.DEV && typeof window !== 'undefined') {
         window.__DDG_POINTER__ = {
           client: { x: clientX, y: clientY },
@@ -183,6 +190,7 @@ export default function WaterInteractionPlane({
     }
 
     if (debugMarkerRef.current) {
+      debugMarkerRef.current.visible = true;
       debugMarkerRef.current.position.copy(rayHitPointRef.current);
       debugMarkerRef.current.position.y += 0.02;
 
@@ -308,6 +316,8 @@ export default function WaterInteractionPlane({
   return (
     <>
       {debug ? <PointerDebugMarker settings={settings} markerRef={debugMarkerRef} /> : null}
+      {debug ? <SceneReferenceMast objectName="boat-anchor" color="#35ff9e" /> : null}
+      {debug ? <SceneReferenceMast objectName="sculpture-anchor" color="#ffd23b" /> : null}
     <mesh
       name="water-interaction-plane"
       rotation={[-Math.PI / 2, 0, 0]}
@@ -335,6 +345,32 @@ export default function WaterInteractionPlane({
 // Draws where the pointer actually lands and how far the impulse it raises
 // reaches. The inner cross is the ray hit; the ring is the impulse footprint,
 // which is authored in uv and therefore scales with the water extent.
+// A mast planted on an object whose world position we already know. If it draws
+// on that object, then world -> screen is faithful and any pointer mismatch has
+// to be upstream. If it draws beside it, the render disagrees with the world and
+// nothing measured against the camera can be trusted.
+export function SceneReferenceMast({ objectName, color }) {
+  const { scene } = useThree();
+  const groupRef = useRef();
+
+  useFrame(() => {
+    const target = scene.getObjectByName(objectName);
+    if (target && groupRef.current) {
+      target.getWorldPosition(groupRef.current.position);
+      groupRef.current.position.y = 0;
+    }
+  });
+
+  return (
+    <group ref={groupRef} name={`reference-${objectName}`}>
+      <mesh position={[0, 1.5, 0]}>
+        <cylinderGeometry args={[0.03, 0.03, 3, 8]} />
+        <meshBasicMaterial color={color} depthTest={false} toneMapped={false} />
+      </mesh>
+    </group>
+  );
+}
+
 export function PointerDebugMarker({ settings, markerRef }) {
   const impulseRadius = Math.max(effectiveImpulseRadius(settings), 0.02);
   const boatRadius = impulseRadius * 5.2;
