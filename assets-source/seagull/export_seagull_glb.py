@@ -92,7 +92,19 @@ def main():
             "cruiseSpeedMetersPerSecond": [9.5, 15.7],
             "nearestNeighborMeters": 1.5,
             "normalSceneHeightMeters": [12, 28],
-            "lowTransitHeightMeters": [2, 8],
+            "waterlineHeightMeters": [2, 6],
+            "longTransitHeightMeters": [8, 19],
+            "highCirclingHeightMeters": [28, 42],
+            "routeMix": {
+                "flock": 5,
+                "waterline": 2,
+                "high": 1,
+                "long": 1,
+            },
+            "routeSpanLabMeters": {
+                "waterline": 11.5,
+                "long": 13.2,
+            },
             "landing": {
                 "states": [
                     "airborne", "approach", "flare", "settle",
@@ -107,6 +119,10 @@ def main():
                 "takeoffSeconds": 1.35,
                 "rejoinSeconds": 1.9,
                 "dispatchIntervalSeconds": [4.6, 7.8],
+                "siteCount": {"boat": 4, "sculpture": 1},
+                "soleHeightMeters": 0.12425,
+                "maxVerifiedFootGapMeters": 0.00075,
+                "projection": "dual-foot raycast fit on support geometry",
             },
             "mode": "procedural runtime motor; source animation is reference only",
         },

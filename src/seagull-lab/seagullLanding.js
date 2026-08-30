@@ -11,9 +11,9 @@ export const LANDING_STATE = Object.freeze({
 });
 
 export const MAX_ACTIVE_LANDINGS = 3;
+export const PERCHED_SOLE_HEIGHT_METERS = 0.12425;
 
 const SURFACE_CAPACITY = Object.freeze({ boat: 2, sculpture: 1 });
-const BODY_CLEARANCE_METERS = 0.134;
 const APPROACH_SECONDS = 2.7;
 const FLARE_SECONDS = 0.95;
 const SETTLE_SECONDS = 0.62;
@@ -63,7 +63,7 @@ function cubicBezier(out, a, b, c, d, t) {
     .addScaledVector(d, t2 * t);
 }
 
-function readSite(site) {
+function readSite(site, agent) {
   if (!site?.object?.parent) return false;
   site.object.getWorldPosition(scratchSitePosition);
   site.object.getWorldQuaternion(scratchSiteQuaternion);
@@ -71,7 +71,7 @@ function readSite(site) {
   scratchSiteUp.copy(UP).applyQuaternion(scratchSiteQuaternion).normalize();
   scratchBodyPosition.copy(scratchSitePosition).addScaledVector(
     scratchSiteUp,
-    site.bodyClearance ?? BODY_CLEARANCE_METERS,
+    site.bodyClearance ?? PERCHED_SOLE_HEIGHT_METERS * (agent.modelScale ?? 1),
   );
   return true;
 }
@@ -238,7 +238,7 @@ export function updateLandingMotion(agent, time, delta, sites) {
   }
 
   const site = sites[agent.landingSiteIndex];
-  if (!readSite(site)) {
+  if (!readSite(site, agent)) {
     loseSite(agent, time);
     return false;
   }
@@ -315,10 +315,9 @@ export function updateLandingMotion(agent, time, delta, sites) {
 
   if (agent.landingState === LANDING_STATE.SETTLE) {
     const progress = clamp01(agent.landingClock / SETTLE_SECONDS);
-    const eased = smooth01(progress);
     agent.position.copy(scratchBodyPosition).addScaledVector(
       scratchSiteUp,
-      Math.sin(progress * Math.PI) * 0.018 - eased * 0.008,
+      Math.sin(progress * Math.PI) * 0.018,
     );
     writeQuaternion(scratchTargetQuaternion, scratchSiteForward, scratchSiteUp);
     turnAgentTowards(agent, scratchTargetQuaternion, delta, 2.8);
@@ -336,7 +335,7 @@ export function updateLandingMotion(agent, time, delta, sites) {
   }
 
   if (agent.landingState === LANDING_STATE.PERCHED) {
-    agent.position.copy(scratchBodyPosition).addScaledVector(scratchSiteUp, -0.008);
+    agent.position.copy(scratchBodyPosition);
     writeQuaternion(scratchTargetQuaternion, scratchSiteForward, scratchSiteUp);
     turnAgentTowards(agent, scratchTargetQuaternion, delta, 2.8);
     agent.heading.copy(scratchSiteForward);

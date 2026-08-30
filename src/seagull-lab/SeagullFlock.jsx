@@ -100,10 +100,18 @@ export default function SeagullFlock({ mode, paused, showRig, landingSitesRef, o
     );
     const scale = mode === 'specimen' ? 1.42 : 0.92 + (index % 5) * 0.025;
     object.scale.setScalar(scale);
-    return { object, bones, bind };
+    return {
+      object, bones, bind, scale,
+    };
   }), [count, gltf.scene, material, mode]);
 
-  const agents = useMemo(() => createFlightAgents(count), [count]);
+  const agents = useMemo(() => {
+    const created = createFlightAgents(count);
+    created.forEach((agent, index) => {
+      agent.modelScale = instances[index]?.scale ?? 1;
+    });
+    return created;
+  }, [count, instances]);
   const rigHelper = useMemo(() => {
     if (!instances[0]) return null;
     const helper = new THREE.SkeletonHelper(instances[0].object);

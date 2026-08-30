@@ -15,6 +15,20 @@ const MAX_BANK_RADIANS = 0.3;
 const FORMATION_TRAIL_SPACING = 0.68;
 const FORMATION_LATERAL_SPACING = 1.28;
 
+export const FLIGHT_ROUTE = Object.freeze({
+  FLOCK: 'flock',
+  WATERLINE: 'waterline',
+  HIGH: 'high',
+  LONG: 'long',
+});
+
+const SOLO_ROUTE_SEQUENCE = Object.freeze([
+  FLIGHT_ROUTE.HIGH,
+  FLIGHT_ROUTE.WATERLINE,
+  FLIGHT_ROUTE.LONG,
+  FLIGHT_ROUTE.WATERLINE,
+]);
+
 const scratchForward = new THREE.Vector3();
 const scratchRight = new THREE.Vector3();
 const scratchStableUp = new THREE.Vector3();
@@ -42,6 +56,7 @@ function seededRandom(seed) {
 
 function formationAgentCount(count) {
   if (count <= 3) return count;
+  if (count <= 9) return Math.min(count, 5);
   return Math.min(count, 7);
 }
 
@@ -76,18 +91,51 @@ function sampleFormationTarget(time, agent) {
 }
 
 function sampleSoloTarget(time, agent) {
-  const angle = time * (0.2 + agent.index * 0.004) + agent.orbitPhase;
-  const radiusX = 3.15 + agent.orbitScale * 0.72;
-  const radiusZ = 2.4 + agent.orbitScale * 0.58;
+  const speed = agent.route === FLIGHT_ROUTE.HIGH
+    ? 0.13
+    : agent.route === FLIGHT_ROUTE.LONG
+      ? 0.155
+      : 0.185;
+  const angle = time * (speed + agent.index * 0.0015) + agent.orbitPhase;
+  const route = {
+    [FLIGHT_ROUTE.HIGH]: {
+      radiusX: 4.45 + agent.orbitScale * 0.55,
+      radiusZ: 3.15 + agent.orbitScale * 0.35,
+      zFrequency: 0.82,
+      height: 3.45,
+      verticalAmplitude: 0.62,
+      verticalFrequency: 1.12,
+    },
+    [FLIGHT_ROUTE.LONG]: {
+      radiusX: 6.15 + agent.orbitScale * 0.5,
+      radiusZ: 1.65 + agent.orbitScale * 0.32,
+      zFrequency: 0.58,
+      height: 1.08,
+      verticalAmplitude: 0.34,
+      verticalFrequency: 1.34,
+    },
+    [FLIGHT_ROUTE.WATERLINE]: {
+      radiusX: 5.2 + agent.orbitScale * 0.5,
+      radiusZ: 2.65 + agent.orbitScale * 0.38,
+      zFrequency: 0.72,
+      height: -0.78,
+      verticalAmplitude: 0.1,
+      verticalFrequency: 1.46,
+    },
+  }[agent.route];
+  const {
+    radiusX, radiusZ, zFrequency, height, verticalAmplitude, verticalFrequency,
+  } = route;
   agent.target.set(
     Math.cos(angle) * radiusX,
-    0.62 + agent.altitudeBias + Math.sin(angle * 1.8 + agent.index) * 0.28,
-    Math.sin(angle * 0.93) * radiusZ,
+    height + agent.altitudeBias * 0.24
+      + Math.sin(angle * verticalFrequency + agent.index) * verticalAmplitude,
+    Math.sin(angle * zFrequency) * radiusZ,
   );
   agent.plannedHeading.set(
     -Math.sin(angle) * radiusX,
     0,
-    Math.cos(angle * 0.93) * radiusZ * 0.93,
+    Math.cos(angle * zFrequency) * radiusZ * zFrequency,
   ).normalize();
 }
 
@@ -98,10 +146,32 @@ function writeTarget(agent, time, mode = 'flight') {
     agent.target.y += Math.sin(time * 0.52 + agent.index) * 0.13 + 0.18;
   }
   if (mode === 'landing') {
-    agent.target.x *= 1.45;
-    agent.target.z *= 1.35;
-    agent.target.y += 1.35;
+    if (agent.route === FLIGHT_ROUTE.FLOCK) {
+      agent.target.x *= 1.45;
+      agent.target.z *= 1.35;
+      agent.target.y += 1.35;
+    } else if (agent.route === FLIGHT_ROUTE.HIGH) {
+      agent.target.x *= 1.08;
+      agent.target.y += 0.24;
+    } else if (agent.route === FLIGHT_ROUTE.LONG) {
+      agent.target.x *= 1.04;
+      agent.target.z *= 1.08;
+      agent.target.y += 0.42;
+    }
   }
+}
+
+function routeHeightMeters(agent) {
+  if (agent.route === FLIGHT_ROUTE.WATERLINE) {
+    return THREE.MathUtils.clamp(2.8 + (agent.position.y + 0.78) * 8, 2, 6);
+  }
+  if (agent.route === FLIGHT_ROUTE.HIGH) {
+    return THREE.MathUtils.clamp(34 + (agent.position.y - 3.45) * 8, 28, 42);
+  }
+  if (agent.route === FLIGHT_ROUTE.LONG) {
+    return THREE.MathUtils.clamp(12 + (agent.position.y - 1.08) * 8, 8, 19);
+  }
+  return THREE.MathUtils.clamp(18 + agent.position.y * 8.5, 12, 28);
 }
 
 function solveSeparation(agents, property, iterations = 6) {
@@ -150,6 +220,9 @@ export function createFlightAgents(count) {
     const random = seededRandom(701 + index * 977);
     const formation = index < formationCount;
     const soloIndex = index - formationCount;
+    const route = formation
+      ? FLIGHT_ROUTE.FLOCK
+      : SOLO_ROUTE_SEQUENCE[soloIndex % SOLO_ROUTE_SEQUENCE.length];
     const orbitPhase = formation || soloCount === 0
       ? random() * Math.PI * 2
       : (soloIndex / soloCount) * Math.PI * 2 + (random() - 0.5) * 0.24;
@@ -166,11 +239,16 @@ export function createFlightAgents(count) {
       quaternion: new THREE.Quaternion(),
       phase: random() * Math.PI * 2,
       flapFrequency: 3.33 + random() * 0.96,
-      state: index % 4 === 0 ? 'glide' : 'flap',
+      state: route === FLIGHT_ROUTE.WATERLINE
+        ? 'flap'
+        : route === FLIGHT_ROUTE.HIGH || index % 4 === 0
+          ? 'glide'
+          : 'flap',
       stateTime: 0.8 + random() * 2.2,
       orbitPhase,
       orbitScale: 0.88 + random() * 0.26,
       altitudeBias: (random() - 0.5) * 0.32,
+      route,
       bank: 0,
       physicalHeight: 12,
       random,
@@ -196,10 +274,16 @@ function chooseState(agent, mode) {
     return;
   }
   const roll = agent.random();
-  if (roll < 0.56) {
+  const flapThreshold = agent.route === FLIGHT_ROUTE.WATERLINE
+    ? 0.72
+    : agent.route === FLIGHT_ROUTE.HIGH
+      ? 0.28
+      : 0.56;
+  const glideThreshold = agent.route === FLIGHT_ROUTE.HIGH ? 0.82 : 0.9;
+  if (roll < flapThreshold) {
     agent.state = 'flap';
     agent.stateTime = 0.8 + agent.random() * 1.25;
-  } else if (roll < 0.9) {
+  } else if (roll < glideThreshold) {
     agent.state = 'glide';
     agent.stateTime = 1.5 + agent.random() * 3.2;
   } else {
@@ -314,7 +398,7 @@ export function updateFlightAgents(agents, time, delta, mode, landingSites = [])
     );
     agent.bank = THREE.MathUtils.damp(agent.bank, desiredBank, 3.8, delta);
     setStableOrientation(agent, delta);
-    agent.physicalHeight = THREE.MathUtils.clamp(18 + agent.position.y * 8.5, 12, 28);
+    agent.physicalHeight = routeHeightMeters(agent);
   }
 }
 

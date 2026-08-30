@@ -99,7 +99,7 @@ export default function AssetStudio({ children, view = 'specimens' }) {
       <directionalLight position={[-4, 0.7, -3]} intensity={1.05} color="#c4dbdf" />
       {children}
       <mesh position={[0, -1.14, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[8, 6]} />
+        <planeGeometry args={flightView ? [18, 12] : [8, 6]} />
         <meshStandardMaterial color="#f0eee9" roughness={0.96} metalness={0} />
       </mesh>
       <StudioCamera view={view} />

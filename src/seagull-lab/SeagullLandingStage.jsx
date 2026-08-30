@@ -2,63 +2,53 @@ import React, { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import { useGLTF } from '@react-three/drei';
+import {
+  BOAT_LANDING_SPECS,
+  createNormalizedSurfaceClone,
+  projectLandingSites,
+  SCULPTURE_LANDING_SPECS,
+} from './seagullLandingSurfaces';
 
 const FLOOR_Y = -1.14;
 
-const BOAT_SITES = Object.freeze([
-  { id: 'boat-bow', surface: 'boat', position: [0.02, 0.83, 1.45], rotationY: -Math.PI / 2 },
-  { id: 'boat-stern', surface: 'boat', position: [-0.02, 0.8, -1.3], rotationY: Math.PI / 2 },
-  { id: 'boat-port-seat', surface: 'boat', position: [-0.48, 0.81, 0.56], rotationY: 0.12 },
-  { id: 'boat-starboard-seat', surface: 'boat', position: [0.45, 0.81, 0.56], rotationY: Math.PI - 0.12 },
-]);
+const SHOW_LANDING_MARKERS = typeof window !== 'undefined'
+  && new URLSearchParams(window.location.search).get('rigcheck') === '1';
 
-const SCULPTURE_SITES = Object.freeze([
-  { id: 'sculpture-crown', surface: 'sculpture', position: [0.4, 2.36, 0.315], rotationY: Math.PI },
-  { id: 'sculpture-ridge', surface: 'sculpture', position: [-0.005, 2.16, 0.494], rotationY: -2.4 },
-  { id: 'sculpture-left-crest', surface: 'sculpture', position: [-0.697, 1.88, 0.015], rotationY: -0.55 },
-  { id: 'sculpture-right-crest', surface: 'sculpture', position: [0.784, 1.74, -0.231], rotationY: 2.45 },
-]);
-
-function normalizedClone(source, scale, rotationY, material) {
-  const clone = source.clone(true);
-  clone.updateMatrixWorld(true);
-  const bounds = new THREE.Box3().setFromObject(clone);
-  const center = bounds.getCenter(new THREE.Vector3());
-  clone.position.set(-center.x, -bounds.min.y, -center.z);
-  clone.traverse((child) => {
+function applySurfaceMaterial(object, material) {
+  object.traverse((child) => {
     if (!child.isMesh) return;
     child.material = material;
     child.castShadow = false;
     child.receiveShadow = true;
   });
-  const wrapper = new THREE.Group();
-  wrapper.add(clone);
-  wrapper.scale.setScalar(scale);
-  wrapper.rotation.y = rotationY;
-  wrapper.updateMatrixWorld(true);
-  return wrapper;
+  return object;
 }
 
-function LandingSite({ spec, register }) {
+function LandingSite({ spec, register, showMarker }) {
   return (
-    <group
-      ref={register}
-      name={`seagull-landing-site-${spec.id}`}
-      position={spec.position}
-      rotation={[0, spec.rotationY, 0]}
-    >
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.006, 0]} renderOrder={6}>
-        <ringGeometry args={[0.026, 0.042, 24]} />
-        <meshBasicMaterial
-          color="#c84b43"
-          transparent
-          opacity={0.72}
-          depthWrite={false}
-          toneMapped={false}
-          side={THREE.DoubleSide}
-        />
-      </mesh>
-    </group>
+    <>
+      <group
+        ref={register}
+        name={`seagull-landing-site-${spec.id}`}
+        position={spec.position}
+        quaternion={spec.quaternion}
+      />
+      {showMarker && (
+        <group position={spec.markerPosition} quaternion={spec.markerQuaternion}>
+          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.0008, 0]} renderOrder={6}>
+            <ringGeometry args={[0.026, 0.042, 24]} />
+            <meshBasicMaterial
+              color="#c84b43"
+              transparent
+              opacity={0.72}
+              depthWrite={false}
+              toneMapped={false}
+              side={THREE.DoubleSide}
+            />
+          </mesh>
+        </group>
+      )}
+    </>
   );
 }
 
@@ -68,7 +58,6 @@ export default function SeagullLandingStage({ landingSitesRef }) {
   const boatGroup = useRef();
   const sculptureGroup = useRef();
   const siteObjects = useRef([]);
-  const specs = useMemo(() => [...BOAT_SITES, ...SCULPTURE_SITES], []);
 
   const boatMaterial = useMemo(() => new THREE.MeshPhysicalMaterial({
     color: '#343735',
@@ -89,13 +78,25 @@ export default function SeagullLandingStage({ landingSitesRef }) {
     side: THREE.DoubleSide,
   }), []);
 
-  const boat = useMemo(
-    () => normalizedClone(boatSource, 0.0007, Math.PI, boatMaterial),
-    [boatMaterial, boatSource],
+  const boat = useMemo(() => applySurfaceMaterial(
+    createNormalizedSurfaceClone(boatSource, 0.0007, Math.PI),
+    boatMaterial,
+  ), [boatMaterial, boatSource]);
+  const sculpture = useMemo(() => applySurfaceMaterial(
+    createNormalizedSurfaceClone(sculptureSource, 0.075, 0),
+    sculptureMaterial,
+  ), [sculptureMaterial, sculptureSource]);
+  const boatSites = useMemo(
+    () => projectLandingSites(boat, BOAT_LANDING_SPECS),
+    [boat],
   );
-  const sculpture = useMemo(
-    () => normalizedClone(sculptureSource, 0.075, 0, sculptureMaterial),
-    [sculptureMaterial, sculptureSource],
+  const sculptureSites = useMemo(
+    () => projectLandingSites(sculpture, SCULPTURE_LANDING_SPECS),
+    [sculpture],
+  );
+  const specs = useMemo(
+    () => [...boatSites, ...sculptureSites],
+    [boatSites, sculptureSites],
   );
 
   useLayoutEffect(() => {
@@ -133,10 +134,11 @@ export default function SeagullLandingStage({ landingSitesRef }) {
     <group name="seagull-landing-stage">
       <group ref={boatGroup} name="landing-preview-boat" position={[-2.05, FLOOR_Y, 0.1]}>
         <primitive object={boat} />
-        {BOAT_SITES.map((spec, index) => (
+        {boatSites.map((spec, index) => (
           <LandingSite
             key={spec.id}
             spec={spec}
+            showMarker={SHOW_LANDING_MARKERS}
             register={(object) => { siteObjects.current[index] = object; }}
           />
         ))}
@@ -148,11 +150,12 @@ export default function SeagullLandingStage({ landingSitesRef }) {
         rotation={[0.07, 0.18, -0.14]}
       >
         <primitive object={sculpture} />
-        {SCULPTURE_SITES.map((spec, index) => (
+        {sculptureSites.map((spec, index) => (
           <LandingSite
             key={spec.id}
             spec={spec}
-            register={(object) => { siteObjects.current[BOAT_SITES.length + index] = object; }}
+            showMarker={SHOW_LANDING_MARKERS}
+            register={(object) => { siteObjects.current[boatSites.length + index] = object; }}
           />
         ))}
       </group>

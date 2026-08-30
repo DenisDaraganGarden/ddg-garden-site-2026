@@ -26,7 +26,15 @@ export const SEAGULL_ASSET = Object.freeze({
     cruiseSpeed: [9.5, 15.7],
     nearestNeighbor: 1.5,
     normalHeight: [12, 28],
-    lowTransitHeight: [2, 8],
+    waterlineHeight: [2, 6],
+    longTransitHeight: [8, 19],
+    highCirclingHeight: [28, 42],
+    routes: {
+      flock: 5,
+      waterline: 2,
+      high: 1,
+      long: 1,
+    },
   },
 });
 
