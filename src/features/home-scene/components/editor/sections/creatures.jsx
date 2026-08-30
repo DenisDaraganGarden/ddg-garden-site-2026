@@ -73,6 +73,12 @@ export const FishSection = ({ settings, handleSettingChange }) => {
                 onChange={(event) => handleSettingChange(event, 'fishEnabled', 'boolean')}
                 testId="home-editor-fish-enabled"
             />
+            <CheckboxControl
+                label={t('homeEditor.controls.fishPointerInteraction')}
+                checked={Boolean(settings.fishPointerInteraction)}
+                onChange={(event) => handleSettingChange(event, 'fishPointerInteraction', 'boolean')}
+                testId="home-editor-fish-pointer-interaction"
+            />
             <RangeControl
                 label={t('homeEditor.controls.fishCount')}
                 value={settings.fishCount}

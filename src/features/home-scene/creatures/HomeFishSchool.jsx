@@ -20,6 +20,10 @@ import {
   createFishBatch,
   disposeFishBatch,
 } from './fish/fishRendering.js';
+import {
+  advanceFishCursorResponse,
+  createFishCursorInteractionState,
+} from './fish/fishPointerInteraction.js';
 
 const FISH_OBSTACLE_REFRESH_SECONDS = 0.2;
 const FISH_SURFACE_PROBE_SECONDS = 0.125;
@@ -95,7 +99,7 @@ export default function HomeFishSchool({
   const perch = useGLTF(FISH_CATALOG.perch.glb);
   const roach = useGLTF(FISH_CATALOG.roach.glb);
   const loadedTextures = useTexture(textureUrls());
-  const { gl, scene } = useThree();
+  const { camera, gl, scene, size } = useThree();
   const {
     fishDepthBand,
     seabedReliefStrength,
@@ -174,6 +178,17 @@ export default function HomeFishSchool({
   const surfaceProbeElapsed = useRef(FISH_SURFACE_PROBE_SECONDS);
   const surfaceProbeCursor = useRef(0);
   const diagnosticsElapsed = useRef(FISH_DIAGNOSTICS_REFRESH_SECONDS);
+  const cursorElapsed = useRef(0);
+  const pointerState = useRef({ active: false, ndc: new THREE.Vector2() });
+  const cursorInteraction = useRef(createFishCursorInteractionState());
+  const cursorDiagnostics = useRef({
+    focusId: null,
+    focusInfluence: 0,
+    directTargets: 0,
+    propagatedTargets: 0,
+    waveCount: 0,
+    waveAge: null,
+  });
   const debugEnabled = useMemo(() => (
     import.meta.env.DEV
     && typeof window !== 'undefined'
@@ -203,6 +218,42 @@ export default function HomeFishSchool({
   useEffect(() => () => batches.forEach(disposeFishBatch), [batches]);
 
   useEffect(() => {
+    const domElement = gl.domElement;
+    if (!domElement) return undefined;
+    const resetPointer = () => { pointerState.current.active = false; };
+    const updatePointer = (event) => {
+      const rect = domElement.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) return false;
+      pointerState.current.ndc.set(
+        ((event.clientX - rect.left) / rect.width) * 2 - 1,
+        -(((event.clientY - rect.top) / rect.height) * 2 - 1),
+      );
+      return true;
+    };
+    const handlePointerMove = (event) => {
+      // Observational only: water, site links, clicks and the flashlight keep
+      // their own pointer paths and this listener never captures or cancels.
+      if (event.pointerType === 'touch' || event.buttons !== 0 || !updatePointer(event)) {
+        resetPointer();
+        return;
+      }
+      pointerState.current.active = true;
+    };
+    domElement.addEventListener('pointermove', handlePointerMove, { passive: true });
+    domElement.addEventListener('pointerdown', resetPointer, { passive: true });
+    domElement.addEventListener('pointerup', resetPointer, { passive: true });
+    domElement.addEventListener('pointercancel', resetPointer, { passive: true });
+    domElement.addEventListener('pointerleave', resetPointer, { passive: true });
+    return () => {
+      domElement.removeEventListener('pointermove', handlePointerMove);
+      domElement.removeEventListener('pointerdown', resetPointer);
+      domElement.removeEventListener('pointerup', resetPointer);
+      domElement.removeEventListener('pointercancel', resetPointer);
+      domElement.removeEventListener('pointerleave', resetPointer);
+    };
+  }, [gl]);
+
+  useEffect(() => {
     const { dataset } = gl.domElement;
     dataset.ddgFishRequested = String(quality.requestedCount);
     dataset.ddgFishCount = String(quality.effectiveCount);
@@ -230,6 +281,7 @@ export default function HomeFishSchool({
     if (typeof document !== 'undefined' && document.hidden) return;
     const safeDelta = Math.min(delta, 0.05);
     const behaviorStep = 1 / Math.max(qualityProfile.fishBehaviorFps ?? 24, 1);
+    cursorElapsed.current += safeDelta;
 
     surfaceProbeElapsed.current += safeDelta;
     if (
@@ -261,6 +313,25 @@ export default function HomeFishSchool({
         captureObstacle(scene, 'sculpture-anchor', 'sculpture', obstacleBounds),
       ].filter(Boolean);
     }
+
+    // Build one cursor ray, then project the fish; there are no raycasts
+    // against individual fish or against water geometry. This runs before the
+    // fixed behavior step so its per-agent threat fields are consumed in-frame.
+    camera.updateMatrixWorld();
+    camera.updateProjectionMatrix();
+    camera.matrixWorldInverse.copy(camera.matrixWorld).invert();
+    const interaction = cursorInteraction.current;
+    interaction.pointerActive = settings.fishPointerInteraction !== false
+      && pointerState.current.active;
+    interaction.pointerNdc = pointerState.current.ndc;
+    interaction.viewport = size;
+    cursorDiagnostics.current = advanceFishCursorResponse(
+      agents,
+      interaction,
+      cursorElapsed.current,
+      safeDelta,
+      camera,
+    );
 
     behaviorAccumulator.current += safeDelta;
     let behaviorSteps = 0;
@@ -324,6 +395,11 @@ export default function HomeFishSchool({
         min: habitat.min.toArray(),
         max: habitat.max.toArray(),
         obstacles: habitat.obstacles.map(({ id }) => id),
+      },
+      cursor: {
+        active: settings.fishPointerInteraction !== false && pointerState.current.active,
+        raycastsPerFish: 0,
+        ...cursorDiagnostics.current,
       },
       ...runtimeMetrics,
     };

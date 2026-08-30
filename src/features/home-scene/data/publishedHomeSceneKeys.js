@@ -174,6 +174,7 @@ const keys = [
   'seagullPointerInteraction',
   'seagullShootingEnabled',
   'fishEnabled',
+  'fishPointerInteraction',
   'fishCount',
   'fishSchooling',
   'fishActivity',

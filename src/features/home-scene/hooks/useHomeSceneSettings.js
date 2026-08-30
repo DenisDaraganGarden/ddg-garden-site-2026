@@ -359,6 +359,7 @@ export const getBaseHomeSceneSettings = () => ({
   seagullPointerInteraction: true,
   seagullShootingEnabled: true,
   fishEnabled: true,
+  fishPointerInteraction: true,
   fishCount: 50,
   fishSchooling: 0.68,
   fishActivity: 0.55,
@@ -920,6 +921,10 @@ const normalizeHomeSceneSettings = (savedSettings = {}, includeCameraSystem = tr
       defaults.seagullShootingEnabled,
     ),
     fishEnabled: pickBoolean(merged.fishEnabled, defaults.fishEnabled),
+    fishPointerInteraction: pickBoolean(
+      merged.fishPointerInteraction,
+      defaults.fishPointerInteraction,
+    ),
     fishCount: clampInt(merged.fishCount, 0, 50, defaults.fishCount),
     fishSchooling: clampFloat(merged.fishSchooling, 0, 1, defaults.fishSchooling),
     fishActivity: clampFloat(merged.fishActivity, 0, 1, defaults.fishActivity),

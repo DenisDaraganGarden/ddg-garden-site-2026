@@ -72,6 +72,14 @@ dual-foot landing anchors to resolve.
 - Refresh boat and arbitrarily tilted sculpture AABBs at 5 Hz and steer/push
   fish around those world-space proxies. Keep the authored school near the
   composition centre instead of scattering it over the full lake extent.
+- Keep perch and roach on seeded, ordered S-routes with lateral lanes and
+  individual pace envelopes. Cohesion must remain primarily lateral so the
+  school reads as a flexible ribbon instead of collapsing into compact clumps;
+  surface visits share a three-fish maximum and a staggered entry gate.
+- Cursor response is screen-space and camera-relative: build one cursor ray,
+  project the fish, and propagate a delayed local alarm through neighbours.
+  Never raycast once per fish, capture the pointer, or interfere with water,
+  flashlight and click handlers.
 - Runtime caps are 50 high desktop, 30 medium, 14 low and 18 on a phone. The
   requested and effective totals must remain separately visible in diagnostics.
 
