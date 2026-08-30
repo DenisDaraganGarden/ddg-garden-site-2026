@@ -35,6 +35,13 @@ export const SEAGULL_ASSET = Object.freeze({
       high: 1,
       long: 1,
     },
+    pointerInteraction: {
+      minimumVisibleBodyPixels: 8,
+      cursorRadiusPixels: [22, 58],
+      habitatDistance: [1.2, 5.2],
+      hoverDwellSeconds: 0.09,
+      avoidanceMemorySeconds: 1.35,
+    },
   },
 });
 

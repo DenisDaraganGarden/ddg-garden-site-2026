@@ -7,6 +7,7 @@ import {
   scheduleLanding,
   updateLandingMotion,
 } from './seagullLanding.js';
+import { pointerAvoidanceOffset } from './seagullPointerInteraction.js';
 
 const FORWARD = new THREE.Vector3(1, 0, 0);
 const UP = new THREE.Vector3(0, 1, 0);
@@ -159,6 +160,10 @@ function writeTarget(agent, time, mode = 'flight') {
       agent.target.y += 0.42;
     }
   }
+  const avoidanceOffset = pointerAvoidanceOffset(agent);
+  if (avoidanceOffset > 0) {
+    agent.target.addScaledVector(agent.pointerAvoidance, avoidanceOffset);
+  }
 }
 
 function routeHeightMeters(agent) {
@@ -251,6 +256,14 @@ export function createFlightAgents(count) {
       route,
       bank: 0,
       physicalHeight: 12,
+      pointerAvoidance: new THREE.Vector3(1, 0.18, 0).normalize(),
+      pointerAvoidanceStrength: 0,
+      pointerAvoidanceTime: 0,
+      pointerThreat: 0,
+      pointerCooldown: 0,
+      pointerLatched: false,
+      pointerInfluence: 0,
+      pointerStartleCount: 0,
       random,
     };
   });
@@ -437,7 +450,8 @@ export function getWingPose(agent) {
 
   const wave = Math.sin(agent.phase);
   const upstroke = Math.max(0, -wave);
-  const flapScale = landingPose?.flapScale ?? 1;
+  const panicScale = 1 + Math.min(0.14, (agent.pointerAvoidanceStrength ?? 0) * 0.14);
+  const flapScale = (landingPose?.flapScale ?? 1) * panicScale;
   return {
     shoulder: (wave * 0.58 * flapScale) + (landingPose?.shoulderBias ?? 0),
     inner: (wave * 0.06 - upstroke * 0.04) * flapScale,

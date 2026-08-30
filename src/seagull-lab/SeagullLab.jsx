@@ -43,6 +43,8 @@ export default function SeagullLab() {
     approaching: 0,
     takingOff: 0,
     airborne: 9,
+    cursorTargets: 0,
+    startled: 0,
     minHeight: 12,
     maxHeight: 28,
   });
@@ -78,7 +80,7 @@ export default function SeagullLab() {
             Небо · 9
           </button>
           <button type="button" className={mode === 'landing' ? 'is-active' : ''} aria-pressed={mode === 'landing'} onClick={() => chooseMode('landing')}>
-            Посадки · до 3
+            Посадки · курсор
           </button>
           <button type="button" className={mode === 'glide' ? 'is-active' : ''} aria-pressed={mode === 'glide'} onClick={() => chooseMode('glide')}>
             Планирование
@@ -126,6 +128,7 @@ export default function SeagullLab() {
             <span><b>{stats.approaching}</b> заходят</span>
             <span><b>{stats.perched}</b> сидят</span>
             <span><b>{stats.takingOff}</b> взлетают</span>
+            <span><b>{stats.startled}</b> спугнуто</span>
           </>
         ) : (
           <>
@@ -140,7 +143,7 @@ export default function SeagullLab() {
       <div className="fish-lab__note">
         <span>ЛКМ — вращение</span>
         <span>Колесо — масштаб</span>
-        <span>{mode === 'landing' ? 'Скрытые точки посадки спроецированы на геометрию' : 'Лаборатория замедляет физическую скорость для осмотра'}</span>
+        <span>{mode === 'landing' ? 'Наведи на близкую чайку — сидящая взлетит, летящая сменит курс' : 'Лаборатория замедляет физическую скорость для осмотра'}</span>
       </div>
     </div>
   );

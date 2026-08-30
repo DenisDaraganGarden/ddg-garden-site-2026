@@ -42,6 +42,7 @@ const scratchPitch = new THREE.Quaternion();
 const scratchTargetQuaternion = new THREE.Quaternion();
 const scratchBlendedQuaternion = new THREE.Quaternion();
 const scratchLevelForward = new THREE.Vector3();
+const scratchTakeoffForward = new THREE.Vector3();
 
 function clamp01(value) {
   return THREE.MathUtils.clamp(value, 0, 1);
@@ -123,6 +124,7 @@ function ensureLandingFields(agent) {
   agent.approachControl ??= new THREE.Vector3();
   agent.flareStart ??= new THREE.Vector3();
   agent.flareQuaternion ??= new THREE.Quaternion();
+  agent.startleDirection ??= new THREE.Vector3();
 }
 
 function activeLanding(agent) {
@@ -199,6 +201,7 @@ export function scheduleLanding(agents, time, sites) {
   agent.approachControl.copy(agent.position)
     .addScaledVector(agent.heading, 0.72)
     .addScaledVector(UP, 0.36);
+  agent.startleDirection.set(0, 0, 0);
   agent.state = 'flap';
   agent.stateTime = APPROACH_SECONDS + FLARE_SECONDS;
   schedule.siteCursor = (chosenIndex + 1) % sites.length;
@@ -211,6 +214,31 @@ function loseSite(agent, time) {
   agent.landingClock = 0;
   agent.landingProgress = 1;
   agent.nextLandingTime = time + 18 + agent.random() * 20;
+}
+
+export function scareLandingAgent(agent, time, direction) {
+  ensureLandingFields(agent);
+  if (direction?.isVector3 && direction.toArray().every(Number.isFinite)) {
+    agent.startleDirection.copy(direction).normalize();
+  } else {
+    agent.startleDirection.copy(agent.heading).normalize();
+  }
+
+  if ([LANDING_STATE.APPROACH, LANDING_STATE.FLARE].includes(agent.landingState)) {
+    loseSite(agent, time);
+    agent.state = 'flap';
+    agent.stateTime = TAKEOFF_SECONDS + REJOIN_SECONDS;
+    return 'abort';
+  }
+  if ([LANDING_STATE.SETTLE, LANDING_STATE.PERCHED].includes(agent.landingState)) {
+    agent.landingState = LANDING_STATE.TAKEOFF;
+    agent.landingClock = 0;
+    agent.landingProgress = 0;
+    agent.state = 'flap';
+    agent.stateTime = TAKEOFF_SECONDS + REJOIN_SECONDS;
+    return 'takeoff';
+  }
+  return null;
 }
 
 function orientFromMovement(agent, delta, pitch = 0) {
@@ -347,16 +375,25 @@ export function updateLandingMotion(agent, time, delta, sites) {
       agent.landingProgress = 0;
       agent.state = 'flap';
       agent.stateTime = TAKEOFF_SECONDS + REJOIN_SECONDS;
+      agent.startleDirection.set(0, 0, 0);
     }
     return true;
   }
 
   const progress = clamp01(agent.landingClock / TAKEOFF_SECONDS);
   const eased = smooth01(progress);
+  scratchTakeoffForward.copy(scratchSiteForward);
+  if (agent.startleDirection.lengthSq() > 1e-6) {
+    scratchVelocity.copy(agent.startleDirection)
+      .addScaledVector(scratchSiteUp, -agent.startleDirection.dot(scratchSiteUp));
+    if (scratchVelocity.lengthSq() > 1e-6) {
+      scratchTakeoffForward.lerp(scratchVelocity.normalize(), 0.72).normalize();
+    }
+  }
   agent.position.copy(scratchBodyPosition)
-    .addScaledVector(scratchSiteForward, 0.12 + eased * 1.35)
+    .addScaledVector(scratchTakeoffForward, 0.12 + eased * 1.35)
     .addScaledVector(scratchSiteUp, 0.06 + eased * 0.88);
-  scratchVelocity.copy(scratchSiteForward).multiplyScalar(0.9).addScaledVector(scratchSiteUp, 0.42).normalize();
+  scratchVelocity.copy(scratchTakeoffForward).multiplyScalar(0.9).addScaledVector(scratchSiteUp, 0.42).normalize();
   agent.heading.copy(scratchVelocity);
   writeLevelledQuaternion(
     scratchTargetQuaternion,
@@ -374,6 +411,7 @@ export function updateLandingMotion(agent, time, delta, sites) {
     agent.landingProgress = 1;
     agent.nextLandingTime = time + 18 + agent.random() * 20;
     agent.velocity.copy(agent.heading).multiplyScalar(1.4);
+    agent.startleDirection.set(0, 0, 0);
   }
   return true;
 }
@@ -422,7 +460,7 @@ export function getLandingRigPose(agent) {
       };
     case LANDING_STATE.TAKEOFF:
       return {
-        flapScale: 1.38,
+        flapScale: agent.startleDirection?.lengthSq() > 1e-6 ? 1.52 : 1.38,
         fold: 1.16 * (1 - smooth01(progress / 0.24)),
         legDeploy: 1 - smooth01(progress / 0.62),
         legCompression: (1 - progress) * 0.34,

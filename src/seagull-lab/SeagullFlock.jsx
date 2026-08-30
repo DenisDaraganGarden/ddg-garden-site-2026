@@ -1,10 +1,16 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
-import { useFrame } from '@react-three/fiber';
+import { useFrame, useThree } from '@react-three/fiber';
 import { useGLTF, useTexture } from '@react-three/drei';
 import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { MODE_COUNTS, SEAGULL_ASSET } from './seagullCatalog';
 import { createFlightAgents, getWingPose, updateFlightAgents } from './seagullFlight';
+import { scareLandingAgent } from './seagullLanding';
+import {
+  advancePointerResponse,
+  createPointerSample,
+  measurePointerInteraction,
+} from './seagullPointerInteraction';
 
 const ROTATION_AXIS_X = new THREE.Vector3(1, 0, 0);
 const ROTATION_AXIS_Y = new THREE.Vector3(0, 1, 0);
@@ -45,8 +51,19 @@ function applyWingRotation(bone, bindQuaternion, flapAngle, sweepAngle) {
 export default function SeagullFlock({ mode, paused, showRig, landingSitesRef, onStats }) {
   const gltf = useGLTF(SEAGULL_ASSET.model);
   const textures = useTexture(SEAGULL_ASSET.textures);
+  const { gl: renderer } = useThree();
   const statsClock = useRef(0);
   const elapsed = useRef(0);
+  const pointerTargetCount = useRef(0);
+  const habitatPoints = useRef([]);
+  const pointerState = useRef({
+    active: false,
+    ndc: new THREE.Vector2(),
+  });
+  const pointerDebugEnabled = useMemo(() => (
+    typeof window !== 'undefined'
+    && new URLSearchParams(window.location.search).has('pointercheck')
+  ), []);
   const count = MODE_COUNTS[mode] ?? MODE_COUNTS.flight;
 
   useEffect(() => {
@@ -109,9 +126,11 @@ export default function SeagullFlock({ mode, paused, showRig, landingSitesRef, o
     const created = createFlightAgents(count);
     created.forEach((agent, index) => {
       agent.modelScale = instances[index]?.scale ?? 1;
+      agent.pointerSample = createPointerSample();
     });
     return created;
   }, [count, instances]);
+  const inactivePointerSample = useMemo(() => createPointerSample(), []);
   const rigHelper = useMemo(() => {
     if (!instances[0]) return null;
     const helper = new THREE.SkeletonHelper(instances[0].object);
@@ -131,6 +150,47 @@ export default function SeagullFlock({ mode, paused, showRig, landingSitesRef, o
 
   useEffect(() => () => material.dispose(), [material]);
 
+  useEffect(() => {
+    const domElement = renderer.domElement;
+    const resetPointer = () => {
+      pointerState.current.active = false;
+      domElement.style.cursor = '';
+      delete domElement.dataset.seagullPointerTarget;
+    };
+    const handlePointerMove = (event) => {
+      if (event.pointerType === 'touch' || event.buttons !== 0) {
+        resetPointer();
+        return;
+      }
+      const rect = domElement.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) {
+        resetPointer();
+        return;
+      }
+      pointerState.current.ndc.set(
+        ((event.clientX - rect.left) / rect.width) * 2 - 1,
+        -(((event.clientY - rect.top) / rect.height) * 2 - 1),
+      );
+      pointerState.current.active = true;
+    };
+
+    domElement.addEventListener('pointermove', handlePointerMove, { passive: true });
+    domElement.addEventListener('pointerdown', resetPointer, { passive: true });
+    domElement.addEventListener('pointerup', resetPointer, { passive: true });
+    domElement.addEventListener('pointercancel', resetPointer, { passive: true });
+    domElement.addEventListener('pointerleave', resetPointer, { passive: true });
+    return () => {
+      domElement.removeEventListener('pointermove', handlePointerMove);
+      domElement.removeEventListener('pointerdown', resetPointer);
+      domElement.removeEventListener('pointerup', resetPointer);
+      domElement.removeEventListener('pointercancel', resetPointer);
+      domElement.removeEventListener('pointerleave', resetPointer);
+      resetPointer();
+      delete domElement.dataset.seagullPointerDebug;
+      if (typeof window !== 'undefined') delete window.__DDG_SEAGULL_POINTER__;
+    };
+  }, [renderer]);
+
   useEffect(() => () => {
     rigHelper?.geometry?.dispose();
     if (Array.isArray(rigHelper?.material)) {
@@ -140,10 +200,57 @@ export default function SeagullFlock({ mode, paused, showRig, landingSitesRef, o
     }
   }, [rigHelper]);
 
-  useFrame(({ gl }, delta) => {
+  useFrame(({ camera, gl, size }, delta) => {
     const safeDelta = Math.min(delta, 0.05);
     if (!paused) elapsed.current += safeDelta * 0.74;
     if (!paused) {
+      const points = habitatPoints.current;
+      let pointCount = 0;
+      for (const site of landingSitesRef?.current ?? []) {
+        if (!site?.object?.parent) continue;
+        points[pointCount] ??= new THREE.Vector3();
+        site.object.getWorldPosition(points[pointCount]);
+        pointCount += 1;
+      }
+      points.length = pointCount;
+
+      camera.updateMatrixWorld();
+      camera.updateProjectionMatrix();
+      camera.matrixWorldInverse.copy(camera.matrixWorld).invert();
+      let focusedIndex = -1;
+      let focusedInfluence = 0.025;
+      for (const agent of agents) {
+        const sample = measurePointerInteraction(
+          agent.pointerSample,
+          agent,
+          camera,
+          size,
+          pointerState.current.ndc,
+          pointerState.current.active,
+          points,
+        );
+        if (sample.influence > focusedInfluence) {
+          focusedInfluence = sample.influence;
+          focusedIndex = agent.index;
+        }
+      }
+
+      for (const agent of agents) {
+        const sample = agent.index === focusedIndex
+          ? agent.pointerSample
+          : inactivePointerSample;
+        if (!advancePointerResponse(agent, sample, safeDelta)) continue;
+        scareLandingAgent(agent, elapsed.current, agent.pointerSample.away);
+      }
+      pointerTargetCount.current = focusedIndex >= 0 ? 1 : 0;
+      if (focusedIndex >= 0) {
+        renderer.domElement.style.cursor = 'crosshair';
+        renderer.domElement.dataset.seagullPointerTarget = String(focusedIndex);
+      } else {
+        renderer.domElement.style.cursor = '';
+        delete renderer.domElement.dataset.seagullPointerTarget;
+      }
+
       updateFlightAgents(
         agents,
         elapsed.current,
@@ -151,6 +258,10 @@ export default function SeagullFlock({ mode, paused, showRig, landingSitesRef, o
         mode,
         landingSitesRef?.current ?? [],
       );
+    } else {
+      pointerTargetCount.current = 0;
+      renderer.domElement.style.cursor = '';
+      delete renderer.domElement.dataset.seagullPointerTarget;
     }
 
     for (let index = 0; index < instances.length; index += 1) {
@@ -205,9 +316,29 @@ export default function SeagullFlock({ mode, paused, showRig, landingSitesRef, o
         approaching: (landingStates.approach ?? 0) + (landingStates.flare ?? 0) + (landingStates.settle ?? 0),
         takingOff: (landingStates.takeoff ?? 0) + (landingStates.rejoin ?? 0),
         airborne: landingStates.airborne ?? 0,
+        cursorTargets: pointerTargetCount.current,
+        startled: agents.reduce((sum, agent) => sum + agent.pointerStartleCount, 0),
         minHeight: Math.min(...agents.map((agent) => agent.physicalHeight)),
         maxHeight: Math.max(...agents.map((agent) => agent.physicalHeight)),
       });
+      if (pointerDebugEnabled && typeof window !== 'undefined') {
+        const pointerDiagnostics = {
+          active: pointerState.current.active,
+          targetIndex: Number(renderer.domElement.dataset.seagullPointerTarget ?? -1),
+          birds: agents.map((agent) => ({
+            index: agent.index,
+            landingState: agent.landingState ?? 'airborne',
+            influence: agent.pointerSample.influence,
+            visibleBodyPixels: agent.pointerSample.visibleBodyPixels,
+            screenX: agent.pointerSample.screenX,
+            screenY: agent.pointerSample.screenY,
+            habitatDistanceMeters: agent.pointerSample.habitatDistanceMeters,
+            startled: agent.pointerStartleCount,
+          })),
+        };
+        window.__DDG_SEAGULL_POINTER__ = pointerDiagnostics;
+        renderer.domElement.dataset.seagullPointerDebug = JSON.stringify(pointerDiagnostics);
+      }
     }
   });
 

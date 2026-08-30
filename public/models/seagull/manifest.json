@@ -119,6 +119,22 @@
         "waterline": 11.5,
         "long": 13.2
       },
+      "pointerInteraction": {
+        "law": "projected body size plus physical habitat distance",
+        "minimumVisibleBodyPixels": 8,
+        "cursorRadiusPixels": [
+          22,
+          58
+        ],
+        "habitatDistanceMeters": [
+          1.2,
+          5.2
+        ],
+        "hoverDwellSeconds": 0.09,
+        "avoidanceMemorySeconds": 1.35,
+        "maximumAvoidanceMeters": 1.9,
+        "distantPolicy": "ignore below visibility gate or outside habitat"
+      },
       "landing": {
         "states": [
           "airborne",

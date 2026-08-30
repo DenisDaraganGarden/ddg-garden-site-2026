@@ -9,13 +9,23 @@ import {
   LANDING_STATE,
   updateFlightAgents,
 } from '../src/seagull-lab/seagullFlight.js';
-import { PERCHED_SOLE_HEIGHT_METERS } from '../src/seagull-lab/seagullLanding.js';
+import {
+  PERCHED_SOLE_HEIGHT_METERS,
+  scareLandingAgent,
+} from '../src/seagull-lab/seagullLanding.js';
 import {
   BOAT_LANDING_SPECS,
   createNormalizedSurfaceClone,
   projectLandingSites,
   SCULPTURE_LANDING_SPECS,
 } from '../src/seagull-lab/seagullLandingSurfaces.js';
+import {
+  advancePointerResponse,
+  createPointerSample,
+  measurePointerInteraction,
+  pointerAvoidanceOffset,
+  SEAGULL_POINTER_LAW,
+} from '../src/seagull-lab/seagullPointerInteraction.js';
 
 globalThis.ProgressEvent ??= class ProgressEvent {
   constructor(type, init = {}) {
@@ -109,6 +119,188 @@ const flightChecks = [
   checkFlight(9, 'flight'),
   checkFlight(18, 'stress'),
 ];
+
+function makePerspectiveCamera(distance, zoom = 1) {
+  const camera = new THREE.PerspectiveCamera(50, 16 / 9, 0.1, 200);
+  camera.position.set(0, 0, distance);
+  camera.zoom = zoom;
+  camera.lookAt(0, 0, 0);
+  camera.updateProjectionMatrix();
+  camera.updateMatrixWorld(true);
+  camera.matrixWorldInverse.copy(camera.matrixWorld).invert();
+  return camera;
+}
+
+function makeOrthographicCamera(visibleHeight) {
+  const camera = new THREE.OrthographicCamera(
+    -visibleHeight * 8 / 9,
+    visibleHeight * 8 / 9,
+    visibleHeight * 0.5,
+    -visibleHeight * 0.5,
+    0.1,
+    200,
+  );
+  camera.position.set(0, 0, 20);
+  camera.lookAt(0, 0, 0);
+  camera.updateProjectionMatrix();
+  camera.updateMatrixWorld(true);
+  camera.matrixWorldInverse.copy(camera.matrixWorld).invert();
+  return camera;
+}
+
+function checkPointerInteractionLaw() {
+  const viewport = { width: 1920, height: 1080 };
+  const pointer = new THREE.Vector2(0, 0);
+  const habitat = [new THREE.Vector3(0, 0, 0)];
+  const agent = createFlightAgents(1)[0];
+  agent.position.set(0, 0, 0);
+  agent.modelScale = 1;
+
+  const nearSample = measurePointerInteraction(
+    createPointerSample(),
+    agent,
+    makePerspectiveCamera(8),
+    viewport,
+    pointer,
+    true,
+    habitat,
+  );
+  const distantSample = measurePointerInteraction(
+    createPointerSample(),
+    agent,
+    makePerspectiveCamera(80),
+    viewport,
+    pointer,
+    true,
+    habitat,
+  );
+  const zoomedSample = measurePointerInteraction(
+    createPointerSample(),
+    agent,
+    makePerspectiveCamera(24, 3),
+    viewport,
+    pointer,
+    true,
+    habitat,
+  );
+  const orthographicVisibleHeight = (
+    SEAGULL_POINTER_LAW.bodyLengthMeters * viewport.height
+  ) / nearSample.visibleBodyPixels;
+  const orthographicSample = measurePointerInteraction(
+    createPointerSample(),
+    agent,
+    makeOrthographicCamera(orthographicVisibleHeight),
+    viewport,
+    pointer,
+    true,
+    habitat,
+  );
+  const outsideHabitatSample = measurePointerInteraction(
+    createPointerSample(),
+    agent,
+    makePerspectiveCamera(8),
+    viewport,
+    pointer,
+    true,
+    [new THREE.Vector3(10, 0, 0)],
+  );
+  const offCursorSample = measurePointerInteraction(
+    createPointerSample(),
+    agent,
+    makePerspectiveCamera(8),
+    viewport,
+    new THREE.Vector2(0.5, 0.5),
+    true,
+    habitat,
+  );
+
+  assert.ok(nearSample.influence > 0.98, 'near visible bird must react at cursor center');
+  assert.equal(distantSample.influence, 0, 'visually tiny distant bird must ignore the cursor');
+  assert.ok(zoomedSample.influence > 0.98, 'camera zoom must restore interaction with a visibly large bird');
+  assert.ok(
+    Math.abs(zoomedSample.visibleBodyPixels - nearSample.visibleBodyPixels)
+      / nearSample.visibleBodyPixels < 0.12,
+    'equivalent framing must produce an equivalent projected bird size',
+  );
+  assert.ok(orthographicSample.influence > 0.98, 'orthographic camera must use the same visibility law');
+  assert.ok(
+    Math.abs(orthographicSample.visibleBodyPixels - nearSample.visibleBodyPixels) < 1e-6,
+    'perspective and orthographic cameras with equivalent framing must agree',
+  );
+  assert.equal(outsideHabitatSample.influence, 0, 'airborne bird outside object habitat must ignore cursor');
+  assert.equal(offCursorSample.influence, 0, 'cursor outside the screen-space radius must not steer bird');
+
+  const responseAgent = createFlightAgents(1)[0];
+  const activeSample = createPointerSample();
+  activeSample.influence = 1;
+  activeSample.away.set(0.9, 0.18, 0.2).normalize();
+  let triggered = false;
+  for (let frame = 0; frame < 7; frame += 1) {
+    triggered ||= advancePointerResponse(responseAgent, activeSample, FRAME_DELTA);
+  }
+  assert.ok(triggered, 'focused hover must trigger after the authored dwell time');
+  assert.equal(responseAgent.pointerStartleCount, 1, 'one hover dwell must count as one startle');
+  assert.equal(responseAgent.state, 'flap', 'startled flying bird must switch to active flapping');
+  assert.ok(pointerAvoidanceOffset(responseAgent) > 1.5, 'focused bird must receive a visible avoidance offset');
+  for (let frame = 0; frame < 180; frame += 1) {
+    advancePointerResponse(responseAgent, activeSample, FRAME_DELTA);
+  }
+  assert.equal(responseAgent.pointerStartleCount, 1, 'held cursor must stay latched to one startle');
+  advancePointerResponse(responseAgent, createPointerSample(), FRAME_DELTA);
+  for (let frame = 0; frame < 7; frame += 1) {
+    advancePointerResponse(responseAgent, activeSample, FRAME_DELTA);
+  }
+  assert.equal(responseAgent.pointerStartleCount, 2, 'leaving and hovering again may trigger a new startle');
+
+  const perchedAgent = createFlightAgents(1)[0];
+  perchedAgent.landingState = LANDING_STATE.PERCHED;
+  perchedAgent.landingSiteIndex = 0;
+  perchedAgent.landingClock = 3;
+  const perchResult = scareLandingAgent(perchedAgent, 5, activeSample.away);
+  assert.equal(perchResult, 'takeoff', 'hovered perched bird must enter takeoff');
+  assert.equal(perchedAgent.landingState, LANDING_STATE.TAKEOFF);
+  assert.ok(perchedAgent.startleDirection.dot(activeSample.away) > 0.999, 'startled takeoff must remember cursor escape direction');
+
+  const approachingAgent = createFlightAgents(1)[0];
+  approachingAgent.landingState = LANDING_STATE.APPROACH;
+  approachingAgent.landingSiteIndex = 0;
+  const approachResult = scareLandingAgent(approachingAgent, 5, activeSample.away);
+  assert.equal(approachResult, 'abort', 'hovered approaching bird must abort landing');
+  assert.equal(approachingAgent.landingState, LANDING_STATE.REJOIN);
+  assert.equal(approachingAgent.landingSiteIndex, -1);
+
+  const controlAgents = createFlightAgents(1);
+  const interactiveAgents = createFlightAgents(1);
+  const inactiveSample = createPointerSample();
+  let maxTrajectoryDeviation = 0;
+  for (let frame = 1; frame <= 4 * 60; frame += 1) {
+    const sample = frame <= 12 ? activeSample : inactiveSample;
+    advancePointerResponse(interactiveAgents[0], sample, FRAME_DELTA);
+    updateFlightAgents(controlAgents, frame * FRAME_DELTA, FRAME_DELTA, 'flight');
+    updateFlightAgents(interactiveAgents, frame * FRAME_DELTA, FRAME_DELTA, 'flight');
+    maxTrajectoryDeviation = Math.max(
+      maxTrajectoryDeviation,
+      controlAgents[0].position.distanceTo(interactiveAgents[0].position),
+    );
+    assert.ok(
+      interactiveAgents[0].position.toArray().every(Number.isFinite)
+        && interactiveAgents[0].quaternion.toArray().every(Number.isFinite),
+      'pointer avoidance must keep finite transforms',
+    );
+  }
+  assert.ok(maxTrajectoryDeviation > 0.55, 'near cursor must visibly bend the airborne trajectory');
+
+  return {
+    law: SEAGULL_POINTER_LAW,
+    nearVisibleBodyPixels: nearSample.visibleBodyPixels,
+    distantVisibleBodyPixels: distantSample.visibleBodyPixels,
+    zoomedVisibleBodyPixels: zoomedSample.visibleBodyPixels,
+    orthographicVisibleBodyPixels: orthographicSample.visibleBodyPixels,
+    maxTrajectoryDeviationMeters: maxTrajectoryDeviation,
+  };
+}
+
+const pointerInteractionCheck = checkPointerInteractionLaw();
 
 function createLandingFixture() {
   const root = new THREE.Object3D();
@@ -468,6 +660,7 @@ assert.ok(maxFootSurfaceGap < 0.001, 'both feet must meet real support geometry 
 
 console.log(JSON.stringify({
   flightChecks,
+  pointerInteractionCheck,
   landingCheck,
   runtimeWingBones: requiredWingBones.length,
   runtimeLegBones: requiredLegBones.length,
