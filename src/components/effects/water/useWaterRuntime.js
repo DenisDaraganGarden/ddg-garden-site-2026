@@ -18,11 +18,15 @@ import {
   probeFragmentShader,
   simulationFragmentShader,
 } from '../shaders/waterRuntimeShaders';
+import {
+  enqueueWaterImpulse,
+  takeNextWaterImpulse,
+  WATER_IMPULSE_QUEUE_LIMIT,
+} from './waterImpulseQueue';
 
 // The wave simulation: a ping-pong height field advanced on the GPU, plus the
 // derived normal and probe passes the rest of the scene reads from.
 
-const WATER_IMPULSE_QUEUE_LIMIT = 8;
 const WATER_SURFACE_SAMPLE_CACHE_MS = 50;
 
 export function useWaterRuntime(settings, qualityProfile, mode) {
@@ -39,11 +43,14 @@ export function useWaterRuntime(settings, qualityProfile, mode) {
     uv: new THREE.Vector2(0.5, 0.5),
     impulseUv: new THREE.Vector2(0.5, 0.5),
     impulseStrength: 0,
+    impulseWorldPoint: new THREE.Vector3(0, 0, 0),
     hasImpulse: false,
     isInside: false,
     recentWorldPoint: new THREE.Vector3(0, 0, 0),
     recentImpulseStrength: 0,
     recentImpulseTime: -Infinity,
+    recentImpulseSerial: 0,
+    recentImpulseSource: 'none',
   });
   const simulationAccumulatorRef = useRef(0);
   const probeBufferRef = useRef(new Uint8Array(5 * 4));
@@ -79,7 +86,12 @@ export function useWaterRuntime(settings, qualityProfile, mode) {
     );
   }, [settings.waterExtent]);
 
-  const emitWaterImpulse = useCallback((worldPoint, { strength = 0.8 } = {}) => {
+  const emitWaterImpulse = useCallback((worldPoint, {
+    strength = 0.8,
+    source = 'external',
+    affectsBoat = true,
+    priority = 0,
+  } = {}) => {
     if (!worldPoint || !Number.isFinite(worldPoint.x) || !Number.isFinite(worldPoint.z)) {
       return false;
     }
@@ -94,16 +106,14 @@ export function useWaterRuntime(settings, qualityProfile, mode) {
       return false;
     }
 
-    const queue = impulseQueueRef.current;
-    if (queue.length >= WATER_IMPULSE_QUEUE_LIMIT) {
-      queue.shift();
-    }
-    queue.push({
+    return enqueueWaterImpulse(impulseQueueRef.current, {
       uv: worldToUv(worldPoint.x, worldPoint.z),
       worldPoint: new THREE.Vector3(worldPoint.x, worldPoint.y || 0, worldPoint.z),
       strength: impulseStrength,
-    });
-    return true;
+      source,
+      affectsBoat: Boolean(affectsBoat),
+      priority,
+    }, WATER_IMPULSE_QUEUE_LIMIT);
   }, [settings.waterExtent, worldToUv]);
 
   const renderState = useMemo(() => {
@@ -231,20 +241,30 @@ export function useWaterRuntime(settings, qualityProfile, mode) {
     const simulationDelta = Math.min(simulationAccumulatorRef.current, 1 / 20);
     simulationAccumulatorRef.current = 0;
     const pointerState = pointerStateRef.current;
-    const queuedImpulse = impulseQueueRef.current.shift() ?? null;
     const cursorImpulseActive = pointerState.hasImpulse;
-    const activeImpulse = queuedImpulse ?? (cursorImpulseActive ? {
+    const cursorImpulse = cursorImpulseActive ? {
       uv: pointerState.impulseUv,
+      worldPoint: pointerState.impulseWorldPoint,
       strength: pointerState.impulseStrength,
-    } : null);
+      source: 'cursor',
+      affectsBoat: true,
+      priority: 5,
+    } : null;
+    const { event: activeImpulse, usedDirect } = takeNextWaterImpulse(
+      impulseQueueRef.current,
+      cursorImpulse,
+    );
     const rippleRadiusUv = clamp(settings.rippleRadius / settings.waterExtent, 0.0025, 0.12);
 
-    if (queuedImpulse) {
-      // Match the cursor's bookkeeping so the boat responds to an impact through
-      // the existing proximity logic, at the same moment it enters the simulation.
-      pointerState.recentWorldPoint.copy(queuedImpulse.worldPoint);
-      pointerState.recentImpulseStrength = queuedImpulse.strength;
+    if (activeImpulse?.affectsBoat && activeImpulse.worldPoint) {
+      // The boat only sees an impulse after the simulation accepted it. A serial
+      // makes every event one-shot; boat wakes deliberately opt out so they
+      // cannot push the hull that created them.
+      pointerState.recentWorldPoint.copy(activeImpulse.worldPoint);
+      pointerState.recentImpulseStrength = activeImpulse.strength;
       pointerState.recentImpulseTime = performance.now() * 0.001;
+      pointerState.recentImpulseSerial += 1;
+      pointerState.recentImpulseSource = activeImpulse.source ?? 'external';
     }
 
     renderState.simulationPass.material.uniforms.uState.value = renderState.read.texture;
@@ -280,9 +300,7 @@ export function useWaterRuntime(settings, qualityProfile, mode) {
     restoreDefaultFramebuffer(gl);
 
     normalTargetRef.current = renderState.normal;
-    // A queued impact wins this tick, but preserve an input the cursor may have
-    // written so it is consumed on the next tick instead of being silently lost.
-    if (!queuedImpulse && cursorImpulseActive) {
+    if (usedDirect) {
       pointerState.hasImpulse = false;
       pointerState.impulseStrength = 0;
     }

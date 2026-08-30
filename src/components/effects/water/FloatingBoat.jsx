@@ -2,12 +2,38 @@ import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 
 import { useFrame, useLoader, useThree } from '@react-three/fiber';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import * as THREE from 'three';
-import { BOAT_CUTOUT_STENCIL_REF, BOAT_MAX_PITCH, BOAT_MAX_ROLL, BOAT_NEUTRAL_Y, BOAT_PROBE_INTERVAL, BOAT_PROBE_OFFSETS, BOAT_TARGET_Y_MAX, BOAT_TARGET_Y_MIN, CURSOR_BOAT_IMPACT_DURATION, CURSOR_BOAT_IMPACT_RADIUS_FACTOR, DEFAULT_BOAT_ANCHOR, clamp, isDocumentCurrentlyVisible } from './constants';
+import {
+  BOAT_CUTOUT_STENCIL_REF,
+  BOAT_MAX_PITCH,
+  BOAT_MAX_ROLL,
+  BOAT_NEUTRAL_Y,
+  BOAT_PROBE_INTERVAL,
+  BOAT_PROBE_OFFSETS,
+  BOAT_TARGET_Y_MAX,
+  BOAT_TARGET_Y_MIN,
+  CURSOR_BOAT_IMPACT_DURATION,
+  CURSOR_BOAT_IMPACT_RADIUS_FACTOR,
+  DEFAULT_BOAT_ANCHOR,
+  clamp,
+  effectiveImpulseRadius,
+  isDocumentCurrentlyVisible,
+} from './constants';
 import { useDragOnPlane } from './useDragOnPlane';
 import { ENV_REFLECTION_SCALE, configureMaps, createLiftedTextureTint } from './pbrMaterial';
+import {
+  applyBoatDynamicsImpulse,
+  BOAT_WAKE_INTERVAL,
+  createBoatDynamicsState,
+  resolveBoatImpact,
+  resolveBoatWakeStrength,
+  stepBoatDynamics,
+} from './boatDynamics';
+import { resolveBoatCockpitSeal } from './boatCockpitSeal';
 
 // The boat floats: buoyancy probes read the height field, the hull follows it in
 // pitch, roll and heave, and a stencil cutout keeps the cockpit dry.
+
+const BOAT_WAKE_PROBE_INDICES = Object.freeze([1, 2, 3, 4]);
 
 export default function FloatingBoat({
   settings,
@@ -30,13 +56,27 @@ export default function FloatingBoat({
     0,
     layout?.boatPosition?.z ?? settings?.boatPosition?.z ?? DEFAULT_BOAT_ANCHOR.z,
   ));
-  const targetVector = useRef(new THREE.Vector3());
   const boatMatrixRef = useRef(new THREE.Matrix4());
   const audioWorldPositionRef = useRef(new THREE.Vector3());
   const averageNormalRef = useRef(new THREE.Vector3());
-  const cursorToBoatRef = useRef(new THREE.Vector2());
   const probeAccumulatorRef = useRef(0);
   const lastProbesRef = useRef(null);
+  const dynamicsRef = useRef(createBoatDynamicsState());
+  const targetPoseRef = useRef({ heave: 0, pitch: 0, roll: 0 });
+  const lastImpactSerialRef = useRef(0);
+  const lastCursorImpactAtRef = useRef(-Infinity);
+  const wakeAccumulatorRef = useRef(0);
+  const wakePointCursorRef = useRef(0);
+  const wakeCountRef = useRef(0);
+  const wakeWorldPointRef = useRef(new THREE.Vector3());
+  const cockpitSealRef = useRef();
+  const cockpitSealProjectionRef = useRef(new THREE.Vector3());
+  const diagnosticsFrameRef = useRef(0);
+  const dynamicsLimitsRef = useRef({
+    heave: [BOAT_TARGET_Y_MIN, BOAT_TARGET_Y_MAX],
+    pitch: [-BOAT_MAX_PITCH, BOAT_MAX_PITCH],
+    roll: [-BOAT_MAX_ROLL, BOAT_MAX_ROLL],
+  });
   const boatProbeOffsetsRef = useRef(BOAT_PROBE_OFFSETS.map((offset) => offset.clone()));
   const boatProbeSpansRef = useRef({ longitudinal: 1.9, lateral: 0.84 });
   const probeWorldPointsRef = useRef(BOAT_PROBE_OFFSETS.map(() => new THREE.Vector3()));
@@ -131,6 +171,19 @@ export default function FloatingBoat({
   }, [woodMaterial, metalMaterial]);
 
   useEffect(() => {
+    if (!import.meta.env.DEV || typeof window === 'undefined') {
+      return undefined;
+    }
+
+    gl.domElement.dataset.ddgBoatDynamics = 'spring-v2';
+    return () => {
+      delete gl.domElement.dataset.ddgBoatDynamics;
+      delete gl.domElement.dataset.ddgBoatPhysics;
+      delete window.__DDG_BOAT__;
+    };
+  }, [gl]);
+
+  useEffect(() => {
     const anchorX = layout?.boatPosition?.x ?? settings?.boatPosition?.x ?? DEFAULT_BOAT_ANCHOR.x;
     const anchorZ = layout?.boatPosition?.z ?? settings?.boatPosition?.z ?? DEFAULT_BOAT_ANCHOR.z;
 
@@ -149,29 +202,7 @@ export default function FloatingBoat({
     boatAnchorRef.current.copy(boatAnchor);
     const boatHeightOffset = settings.boatHeightOffset ?? 0;
     const boatYawRadians = THREE.MathUtils.degToRad(settings.boatYaw ?? 18);
-
-    if (!useGpuProbes) {
-      // Avoid synchronous GPU->CPU readback on phones. The public effect only
-      // needs believable buoyancy, so two phase-shifted waves are sufficient.
-      const phase = clock.elapsedTime + boatAnchor.x * 0.37 - boatAnchor.z * 0.29;
-      const amplitude = Math.min(settings.waveAmplitude, 0.12);
-      const targetY = clamp(
-        BOAT_NEUTRAL_Y + boatHeightOffset
-          + Math.sin(phase * 0.83) * amplitude * 0.42
-          + Math.sin(phase * 1.71 + 1.4) * amplitude * 0.18,
-        BOAT_TARGET_Y_MIN + boatHeightOffset,
-        BOAT_TARGET_Y_MAX + boatHeightOffset,
-      );
-      const targetPitch = Math.sin(phase * 0.71 + 0.6) * amplitude * 0.58;
-      const targetRoll = Math.sin(phase * 0.94 - 0.8) * amplitude * 0.72;
-
-      targetVector.current.set(0, targetY, 0);
-      boatRef.current.position.lerp(targetVector.current, 1 - Math.exp(-delta * 3.4));
-      boatRef.current.rotation.y = boatYawRadians;
-      boatRef.current.rotation.x = THREE.MathUtils.damp(boatRef.current.rotation.x, targetPitch, 3.4, delta);
-      boatRef.current.rotation.z = THREE.MathUtils.damp(boatRef.current.rotation.z, targetRoll, 3.4, delta);
-      return;
-    }
+    const targetPose = targetPoseRef.current;
 
     boatMatrixRef.current.makeRotationY(boatYawRadians);
     const boatProbeOffsets = boatProbeOffsetsRef.current;
@@ -182,99 +213,184 @@ export default function FloatingBoat({
         .add(boatAnchor);
     }
 
-    // Throttle the expensive probe readback; reuse the last sample between reads.
-    probeAccumulatorRef.current += delta;
-    let probes = lastProbesRef.current;
-    if (probeAccumulatorRef.current >= probeInterval || !probes) {
-      probeAccumulatorRef.current = 0;
-      const sampled = runtime.sampleBoatProbes(probeWorldPointsRef.current);
-      if (sampled) {
-        probes = sampled;
-        lastProbesRef.current = sampled;
+    if (!useGpuProbes) {
+      // Avoid synchronous GPU->CPU readback on phones. The public effect only
+      // needs believable buoyancy, so two phase-shifted waves are sufficient.
+      const phase = clock.elapsedTime + boatAnchor.x * 0.37 - boatAnchor.z * 0.29;
+      const amplitude = Math.min(settings.waveAmplitude, 0.12);
+      targetPose.heave = clamp(
+        BOAT_NEUTRAL_Y + boatHeightOffset
+          + Math.sin(phase * 0.83) * amplitude * 0.42
+          + Math.sin(phase * 1.71 + 1.4) * amplitude * 0.18,
+        BOAT_TARGET_Y_MIN + boatHeightOffset,
+        BOAT_TARGET_Y_MAX + boatHeightOffset,
+      );
+      targetPose.pitch = Math.sin(phase * 0.71 + 0.6) * amplitude * 0.58;
+      targetPose.roll = Math.sin(phase * 0.94 - 0.8) * amplitude * 0.72;
+    } else {
+      // GPU readback is intentionally slower than the render loop. Filtering its
+      // target before the spring prevents the 8-bit samples from becoming steps.
+      probeAccumulatorRef.current += delta;
+      let probes = lastProbesRef.current;
+      if (probeAccumulatorRef.current >= probeInterval || !probes) {
+        probeAccumulatorRef.current = 0;
+        const sampled = runtime.sampleBoatProbes(probeWorldPointsRef.current);
+        if (sampled) {
+          probes = sampled;
+          lastProbesRef.current = sampled;
+        }
+      }
+
+      if (!probes) {
+        targetPose.heave = BOAT_NEUTRAL_Y + boatHeightOffset;
+        targetPose.pitch = 0;
+        targetPose.roll = 0;
+      } else {
+        // Use the same height scale as the visible water. The old 3.8x multiplier
+        // made the hull move ahead of the surface and read as delayed animation.
+        const buoyancyGain = settings.waveAmplitude * 1.15;
+        const centerHeight = probes[0].height * buoyancyGain;
+        const bowHeight = probes[1].height * buoyancyGain;
+        const sternHeight = probes[2].height * buoyancyGain;
+        const leftHeight = probes[3].height * buoyancyGain;
+        const rightHeight = probes[4].height * buoyancyGain;
+        averageNormalRef.current.set(0, 0, 0);
+        for (let index = 0; index < probes.length; index += 1) {
+          averageNormalRef.current.add(probes[index].normal);
+        }
+        averageNormalRef.current.normalize();
+        const averageNormal = averageNormalRef.current;
+        const normalPitch = Math.atan2(-averageNormal.z, Math.max(averageNormal.y, 0.25));
+        const normalRoll = Math.atan2(averageNormal.x, Math.max(averageNormal.y, 0.25));
+
+        targetPose.heave = centerHeight + BOAT_NEUTRAL_Y + boatHeightOffset;
+        targetPose.pitch = (Math.atan2(
+          sternHeight - bowHeight,
+          boatProbeSpansRef.current.longitudinal,
+        ) * 0.7) + (normalPitch * 0.55);
+        targetPose.roll = (Math.atan2(
+          rightHeight - leftHeight,
+          boatProbeSpansRef.current.lateral,
+        ) * 0.7) + (normalRoll * 0.55);
       }
     }
 
-    if (!probes) {
-      boatRef.current.position.y = THREE.MathUtils.damp(
-        boatRef.current.position.y,
-        BOAT_NEUTRAL_Y + boatHeightOffset,
-        4.2,
-        delta,
-      );
-      boatRef.current.rotation.x = THREE.MathUtils.damp(boatRef.current.rotation.x, 0, 4.2, delta);
-      boatRef.current.rotation.z = THREE.MathUtils.damp(boatRef.current.rotation.z, 0, 4.2, delta);
-      boatRef.current.rotation.y = boatYawRadians;
-      return;
-    }
-
-    // Use the same height scale as the visible water. The old 3.8x multiplier
-    // made the hull move ahead of the surface and read as delayed animation.
-    const buoyancyGain = settings.waveAmplitude * 1.15;
-    const centerHeight = probes[0].height * buoyancyGain;
-    const bowHeight = probes[1].height * buoyancyGain;
-    const sternHeight = probes[2].height * buoyancyGain;
-    const leftHeight = probes[3].height * buoyancyGain;
-    const rightHeight = probes[4].height * buoyancyGain;
-    averageNormalRef.current.set(0, 0, 0);
-    for (let index = 0; index < probes.length; index += 1) {
-      averageNormalRef.current.add(probes[index].normal);
-    }
-    averageNormalRef.current.normalize();
-    const averageNormal = averageNormalRef.current;
-    const normalPitch = Math.atan2(-averageNormal.z, Math.max(averageNormal.y, 0.25));
-    const normalRoll = Math.atan2(averageNormal.x, Math.max(averageNormal.y, 0.25));
-
-    let targetY = centerHeight + BOAT_NEUTRAL_Y + boatHeightOffset;
-    let targetPitch = clamp(
-      (Math.atan2(sternHeight - bowHeight, boatProbeSpansRef.current.longitudinal) * 0.7)
-        + (normalPitch * 0.55),
-      -0.28,
-      0.28,
+    targetPose.heave = clamp(
+      targetPose.heave,
+      BOAT_TARGET_Y_MIN + boatHeightOffset,
+      BOAT_TARGET_Y_MAX + boatHeightOffset,
     );
-    let targetRoll = clamp(
-      (Math.atan2(rightHeight - leftHeight, boatProbeSpansRef.current.lateral) * 0.7)
-        + (normalRoll * 0.55),
-      -0.34,
-      0.34,
-    );
+    targetPose.pitch = clamp(targetPose.pitch, -BOAT_MAX_PITCH, BOAT_MAX_PITCH);
+    targetPose.roll = clamp(targetPose.roll, -BOAT_MAX_ROLL, BOAT_MAX_ROLL);
 
     const pointerState = runtime.pointerStateRef.current;
-    if (pointerState && Number.isFinite(pointerState.recentImpulseTime)) {
-      const impactAge = (performance.now() * 0.001) - pointerState.recentImpulseTime;
-      if (impactAge >= 0 && impactAge <= CURSOR_BOAT_IMPACT_DURATION) {
-        cursorToBoatRef.current.set(
-          boatAnchor.x - pointerState.recentWorldPoint.x,
-          boatAnchor.z - pointerState.recentWorldPoint.z,
-        );
+    const impactSerial = pointerState?.recentImpulseSerial ?? 0;
+    if (impactSerial !== lastImpactSerialRef.current) {
+      lastImpactSerialRef.current = impactSerial;
+      const now = performance.now() * 0.001;
+      const impactAge = now - pointerState.recentImpulseTime;
+      const source = pointerState.recentImpulseSource ?? 'external';
+      const cursorRateLimited = source === 'cursor'
+        && now - lastCursorImpactAtRef.current < 0.09;
 
-        const cursorDistance = cursorToBoatRef.current.length();
-        const influenceRadius = Math.max(settings.rippleRadius * CURSOR_BOAT_IMPACT_RADIUS_FACTOR, 1.25);
-        const proximity = clamp(1 - (cursorDistance / influenceRadius), 0, 1);
-        const timeFade = Math.exp(-impactAge * 3.0);
-        const cursorImpact = proximity * timeFade * pointerState.recentImpulseStrength;
+      if (
+        !cursorRateLimited
+        && impactAge >= 0
+        && impactAge <= CURSOR_BOAT_IMPACT_DURATION
+      ) {
+        const impact = resolveBoatImpact({
+          // The GLB origin is offset from the hull by more than a metre. Use the
+          // centre buoyancy probe so the visible boat, not its authoring pivot,
+          // is what the cursor actually pushes.
+          boatX: probeWorldPointsRef.current[0].x,
+          boatZ: probeWorldPointsRef.current[0].z,
+          pointX: pointerState.recentWorldPoint.x,
+          pointZ: pointerState.recentWorldPoint.z,
+          strength: pointerState.recentImpulseStrength,
+          radius: Math.max(
+            effectiveImpulseRadius(settings) * CURSOR_BOAT_IMPACT_RADIUS_FACTOR,
+            1.15,
+          ),
+          source,
+          boatYaw: boatYawRadians,
+        });
 
-        if (cursorImpact > 0.001) {
-          const invLength = cursorDistance > 0.0001 ? 1 / cursorDistance : 0;
-          const directionX = cursorToBoatRef.current.x * invLength;
-          const directionZ = cursorToBoatRef.current.y * invLength;
-          const oscillation = Math.sin(impactAge * 17.5) * cursorImpact * 0.1;
-
-          targetY += cursorImpact * 0.2;
-          targetPitch = clamp(targetPitch + (directionZ * cursorImpact * 0.2) + (oscillation * 0.8), -0.32, 0.32);
-          targetRoll = clamp(targetRoll + (-directionX * cursorImpact * 0.24) + (oscillation * 0.8), -0.36, 0.36);
+        if (impact.energy > 0.005) {
+          applyBoatDynamicsImpulse(dynamicsRef.current, impact);
+          if (source === 'cursor') lastCursorImpactAtRef.current = now;
         }
       }
     }
 
-    targetY = clamp(targetY, BOAT_TARGET_Y_MIN + boatHeightOffset, BOAT_TARGET_Y_MAX + boatHeightOffset);
-    targetPitch = clamp(targetPitch, -BOAT_MAX_PITCH, BOAT_MAX_PITCH);
-    targetRoll = clamp(targetRoll, -BOAT_MAX_ROLL, BOAT_MAX_ROLL);
+    const limits = dynamicsLimitsRef.current;
+    limits.heave[0] = BOAT_TARGET_Y_MIN + boatHeightOffset;
+    limits.heave[1] = BOAT_TARGET_Y_MAX + boatHeightOffset;
+    stepBoatDynamics(dynamicsRef.current, targetPose, delta, limits);
+    const dynamics = dynamicsRef.current;
 
-    targetVector.current.set(0, targetY, 0);
-    boatRef.current.position.lerp(targetVector.current, 1 - Math.exp(-delta * 4.5));
-    boatRef.current.rotation.y = boatYawRadians;
-    boatRef.current.rotation.x = THREE.MathUtils.damp(boatRef.current.rotation.x, targetPitch, 4.5, delta);
-    boatRef.current.rotation.z = THREE.MathUtils.damp(boatRef.current.rotation.z, targetRoll, 4.5, delta);
+    boatRef.current.position.set(0, dynamics.heave, 0);
+    boatRef.current.rotation.set(dynamics.pitch, boatYawRadians, dynamics.roll);
+
+    if (cockpitSealRef.current) {
+      boatRef.current.updateMatrix();
+      const sealProjection = cockpitSealProjectionRef.current
+        .set(cockpitSeal.centerX, cockpitSeal.localY, cockpitSeal.centerZ)
+        .applyMatrix4(boatRef.current.matrix);
+      cockpitSealRef.current.position.set(sealProjection.x, 0.012, sealProjection.z);
+      cockpitSealRef.current.rotation.y = boatYawRadians;
+    }
+
+    wakeAccumulatorRef.current += delta;
+    if (wakeAccumulatorRef.current >= BOAT_WAKE_INTERVAL) {
+      const wakeStrength = resolveBoatWakeStrength(dynamics);
+      if (wakeStrength > 0) {
+        const pointIndex = BOAT_WAKE_PROBE_INDICES[
+          wakePointCursorRef.current % BOAT_WAKE_PROBE_INDICES.length
+        ];
+        wakePointCursorRef.current += 1;
+        // Start outside the buoyancy footprint. The wake still belongs to the
+        // shared water, but its initial crest cannot jump the probe that made it.
+        const wakePoint = wakeWorldPointRef.current
+          .copy(probeWorldPointsRef.current[pointIndex])
+          .sub(probeWorldPointsRef.current[0])
+          .multiplyScalar(1.6)
+          .add(probeWorldPointsRef.current[0]);
+        if (runtime.emitWaterImpulse(wakePoint, {
+          strength: wakeStrength,
+          source: 'boat-wake',
+          affectsBoat: false,
+          priority: -1,
+        })) {
+          wakeCountRef.current += 1;
+        }
+        wakeAccumulatorRef.current = 0;
+      } else {
+        wakeAccumulatorRef.current = BOAT_WAKE_INTERVAL;
+      }
+    }
+
+    if (
+      import.meta.env.DEV
+      && typeof window !== 'undefined'
+      && diagnosticsFrameRef.current++ % 6 === 0
+    ) {
+      const diagnostics = {
+        model: 'spring-v2',
+        position: { y: dynamics.heave },
+        rotation: { pitch: dynamics.pitch, roll: dynamics.roll },
+        velocity: {
+          heave: dynamics.heaveVelocity,
+          pitch: dynamics.pitchVelocity,
+          roll: dynamics.rollVelocity,
+        },
+        target: { ...targetPose },
+        externalEnergy: dynamics.externalEnergy,
+        wakeCount: wakeCountRef.current,
+        lastImpactSource: pointerState?.recentImpulseSource ?? 'none',
+      };
+      window.__DDG_BOAT__ = diagnostics;
+      gl.domElement.dataset.ddgBoatPhysics = JSON.stringify(diagnostics);
+    }
   }, -5);
 
   // Run after buoyancy so the sound follows the hull visitors actually see,
@@ -341,8 +457,8 @@ export default function FloatingBoat({
     return () => onLandingSurfaceReady({ surface: 'boat', root: null, collisionObject: null });
   }, [clonedObj, onLandingSurfaceReady]);
 
-  // Auto-fit the cutout to the hull: take the largest sub-mesh footprint (the hull, not the
-  // thin oars) in boat-local space, so the cap self-centres and self-sizes — no manual offset.
+  // Find the hull footprint in boat-local space. The dry seal uses only the
+  // cockpit centre; the hull itself already provides the exterior waterline.
   const hullFootprint = useMemo(() => {
     clonedObj.updateMatrixWorld(true);
     const meshBox = new THREE.Box3();
@@ -404,32 +520,35 @@ export default function FloatingBoat({
 
   const cutoutActive = settings.boatCutoutFitWidth > 0.05 && settings.boatCutoutFitLength > 0.05;
   const cutoutDebug = Boolean(settings.boatCutoutDebug);
-  const capScaleX = Math.max(hullFootprint.size.x * settings.boatCutoutFitWidth, 0.01);
-  const capScaleZ = Math.max(hullFootprint.size.z * settings.boatCutoutFitLength, 0.01);
-  const cutoutYawRadians = THREE.MathUtils.degToRad(settings.boatYaw ?? 18);
+  const cockpitSeal = useMemo(() => resolveBoatCockpitSeal(hullFootprint, {
+    fitWidth: settings.boatCutoutFitWidth,
+    fitLength: settings.boatCutoutFitLength,
+  }), [hullFootprint, settings.boatCutoutFitLength, settings.boatCutoutFitWidth]);
 
   return (
     <>
       <group
         ref={anchorRef}
         name="boat-anchor"
-      {...dragHandlers}
+        {...dragHandlers}
       >
-        {/* Keep the stencil at the actual water plane and rotate only around Y.
-            Pitch/roll/heave belong to the hull; applying them to the flat mask
-            made the dry area drift across the cockpit as the boat moved. */}
+        <group ref={boatRef} name="boat">
+          <primitive object={clonedObj} />
+        </group>
+        {/* A narrow horizontal seal follows the cockpit's projected centre but
+            never tilts into a visible dry plane. The hull supplies its outline. */}
         <group
-          name="boat-cutout"
-          position={[0, 0.012, 0]}
-          rotation={[0, cutoutYawRadians, 0]}
+          ref={cockpitSealRef}
+          name="boat-cockpit-seal-anchor"
+          position={[cockpitSeal.centerX, 0.012, cockpitSeal.centerZ]}
+          rotation={[0, THREE.MathUtils.degToRad(settings.boatYaw ?? 18), 0]}
         >
           <mesh
-            name="boat-cutout-cap"
+            name="boat-cockpit-seal"
             visible={cutoutActive}
-            position={[hullFootprint.center.x, 0, hullFootprint.center.z]}
             rotation={[-Math.PI / 2, 0, 0]}
-            scale={[capScaleX, capScaleZ, 1]}
-            renderOrder={cutoutDebug ? 30 : -1}
+            scale={[cockpitSeal.width, cockpitSeal.length, 1]}
+            renderOrder={cutoutDebug ? 30 : 0.5}
           >
             <shapeGeometry args={[cutoutShape, 24]} />
             <meshBasicMaterial
@@ -438,7 +557,7 @@ export default function FloatingBoat({
               transparent={cutoutDebug}
               opacity={cutoutDebug ? 0.55 : 1}
               colorWrite={cutoutDebug}
-              depthTest={false}
+              depthTest
               depthWrite={false}
               toneMapped={false}
               stencilWrite={!cutoutDebug}
@@ -447,9 +566,6 @@ export default function FloatingBoat({
               stencilZPass={THREE.ReplaceStencilOp}
             />
           </mesh>
-        </group>
-        <group ref={boatRef} name="boat">
-          <primitive object={clonedObj} />
         </group>
       </group>
     </>

@@ -8,8 +8,8 @@ export const DEFAULT_CLEAR_COLOR = '#000000';
 export const DRAWING_BUFFER_SIZE = new THREE.Vector2();
 export const DEFAULT_BOAT_ANCHOR = Object.freeze({ x: 2.1, z: -1.4 });
 export const DEFAULT_SCULPTURE_ANCHOR = Object.freeze({ x: 0.6, z: 1.2 });
-// The water surface writes this stencil value and the boat hull punches it, so the
-// dry cockpit is one agreement between two meshes.
+// The water surface rejects this stencil value; a narrow cockpit seal writes it
+// before the water pass so the interior stays dry without cutting around the hull.
 export const BOAT_CUTOUT_STENCIL_REF = 1;
 export const SCULPTURE_DRAG_EDGE_MARGIN = 0.35;
 export const BOAT_PROBE_OFFSETS = [

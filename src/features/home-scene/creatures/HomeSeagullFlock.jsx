@@ -470,7 +470,12 @@ export default function HomeSeagullFlock({
       if (event.kind === 'water-impact') {
         const impulseAccepted = runtime.emitWaterImpulse?.(
           event.position,
-          { strength: event.strength },
+          {
+            strength: event.strength,
+            source: 'gull-impact',
+            affectsBoat: true,
+            priority: 10,
+          },
         ) ?? false;
         lastWaterImpact.current = {
           index: event.index,

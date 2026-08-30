@@ -35,7 +35,14 @@ export default function WaterInteractionPlane({
   const markerWorldRef = useRef(new THREE.Vector3());
   const markerProjectedRef = useRef(new THREE.Vector3());
 
-  const resetPointerState = useCallback(() => {
+  const deactivatePointerState = useCallback(() => {
+    // Keep a valid impulse pending until the simulation consumes it. A quick
+    // click can complete between two simulation ticks; clearing here would lose
+    // both the water ring and the boat push.
+    pointerStateRef.current.isInside = false;
+  }, [pointerStateRef]);
+
+  const discardPointerState = useCallback(() => {
     pointerStateRef.current.hasImpulse = false;
     pointerStateRef.current.impulseStrength = 0;
     pointerStateRef.current.isInside = false;
@@ -250,15 +257,12 @@ export default function WaterInteractionPlane({
     }
 
     pointerState.impulseUv.copy(uv);
+    if (worldPoint) {
+      pointerState.impulseWorldPoint.copy(worldPoint);
+    }
     pointerState.impulseStrength = clamp(impulseStrength, 0.18, 1);
     pointerState.hasImpulse = true;
     pointerState.isInside = true;
-
-    if (worldPoint) {
-      pointerState.recentWorldPoint.copy(worldPoint);
-    }
-    pointerState.recentImpulseStrength = pointerState.impulseStrength;
-    pointerState.recentImpulseTime = performance.now() * 0.001;
   }, [pointerStateRef]);
 
   useEffect(() => {
@@ -273,7 +277,7 @@ export default function WaterInteractionPlane({
       // earlier, which reads as the cursor missing rather than as lag.
       const hitPoint = screenPointToHit(event.clientX, event.clientY);
       if (!hitPoint) {
-        resetPointerState();
+        deactivatePointerState();
         return;
       }
 
@@ -290,6 +294,7 @@ export default function WaterInteractionPlane({
       // raise an unrelated cursor splash underneath it before the body reaches
       // the surface; the actual impact will enqueue its own physical impulse.
       if (domElement.dataset.seagullShotTarget !== undefined) {
+        discardPointerState();
         return;
       }
 
@@ -301,7 +306,7 @@ export default function WaterInteractionPlane({
     };
 
     const handlePointerLeave = () => {
-      resetPointerState();
+      deactivatePointerState();
     };
 
     domElement.addEventListener('pointermove', handlePointerMove, { passive: true });
@@ -316,8 +321,15 @@ export default function WaterInteractionPlane({
       domElement.removeEventListener('pointerup', handlePointerLeave);
       domElement.removeEventListener('pointercancel', handlePointerLeave);
       domElement.removeEventListener('pointerleave', handlePointerLeave);
+      discardPointerState();
     };
-  }, [gl, registerPointerImpulse, resetPointerState, screenPointToHit]);
+  }, [
+    deactivatePointerState,
+    discardPointerState,
+    gl,
+    registerPointerImpulse,
+    screenPointToHit,
+  ]);
 
   return (
     <>
