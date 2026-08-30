@@ -107,6 +107,16 @@ const manualChunks = (id) => {
     return 'react-vendor';
   }
 
+  // three ships a second, complete renderer for WebGPU plus its shading
+  // language. Only the globe on /map reaches for it; on the home route it was
+  // 610 kB of download and parse that nothing called.
+  if (
+    id.includes('/three/build/three.webgpu.js') ||
+    id.includes('/three/build/three.tsl.js')
+  ) {
+    return 'three-webgpu';
+  }
+
   if (
     id.includes('/@react-three/fiber/') ||
     (id.includes('/three/') && !id.includes('/three/examples/')) ||
