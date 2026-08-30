@@ -460,6 +460,16 @@ const SceneCanvas = ({
         style={{ position: 'relative', width: '100%', height: '100%', ...style }}
       >
         <Canvas
+          // The scene is physically scaled now - a sun disc is orders of
+          // magnitude brighter than the water under it - so it needs a tone map
+          // to become an image. Without one the renderer simply clipped, which is
+          // why the sky read as flat and post-processing could never be switched
+          // on: three compiles tone mapping out for render-target passes, so the
+          // post path had none at all.
+          onCreated={({ gl: renderer }) => {
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1;
+          }}
           shadows={SHADOWS_CONFIG}
           frameloop={isTabVisible ? 'always' : 'never'}
           dpr={profile.dpr}

@@ -245,8 +245,14 @@ const postFragmentShader = `
     }
 
     gl_FragColor = vec4(max(color, vec3(0.0)), 1.0);
-    #include <dithering_fragment>
+    // three compiles tone mapping OUT for any render-target pass, and the whole
+    // scene is rendered into a target here - so with post on there was no tone
+    // map at all, and the pass could only be left off. Applying it explicitly is
+    // what makes post shippable, and the order matches three's own: map, encode,
+    // then dither against the final 8-bit steps.
+    #include <tonemapping_fragment>
     #include <colorspace_fragment>
+    #include <dithering_fragment>
   }
 `;
 
@@ -362,7 +368,7 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
     depthTest: false,
     depthWrite: false,
     stencilWrite: false,
-    toneMapped: false,
+    toneMapped: true,
     dithering: true,
   }), [uniforms]);
   const postScene = useMemo(() => {

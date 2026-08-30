@@ -138,7 +138,20 @@ export const waterV2FragmentShader = `
     float environmentLevel = sqrt(clamp(uEnvironmentExposure * uEnvironmentReflection, 0.0, 4.84));
     vec3 color = skyRadiance(ray) * environmentLevel;
     color *= mix(vec3(1.0), reflectionTone(), 0.6);
-    color += celestialBody(ray, uKeyDirection, uKeyRadiance, uKeyCosRadius, uKeyGlowPower) * discShadow;
+    // The sun reflected off water is not the sun seen through air: the surface
+    // is rough, so its mirror image spreads into a glitter path. Reflecting the
+    // disc at its true angular size drew a hard vertical column down the frame at
+    // grazing angles. Widen it and drop its radiance by the same factor, which
+    // conserves roughly the energy a real rough mirror returns.
+    const float WATER_DISC_SPREAD = 60.0;
+    float waterCosRadius = 1.0 - (1.0 - uKeyCosRadius) * WATER_DISC_SPREAD;
+    color += celestialBody(
+      ray,
+      uKeyDirection,
+      uKeyRadiance / WATER_DISC_SPREAD,
+      waterCosRadius,
+      uKeyGlowPower
+    ) * discShadow;
     return color;
   }
 
