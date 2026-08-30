@@ -22,15 +22,22 @@ export default function CursorSpotlight() {
   const lightDirection = useMemo(() => new THREE.Vector3(), []);
   const waterPlane = useMemo(() => new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), []);
 
-  const updateDebugState = useCallback((state, beamDegrees) => {
-    const debugKey = `${state}:${beamDegrees}`;
+  const updateDebugState = useCallback((state, runtime) => {
+    const debugKey = [
+      state,
+      runtime.beamDegrees,
+      runtime.lightIntensity,
+      runtime.lightSoftness,
+    ].join(':');
     if (debugKey === lastDebugStateRef.current) {
       return;
     }
 
     lastDebugStateRef.current = debugKey;
     gl.domElement.dataset.ddgCursorFlashlight = state;
-    gl.domElement.dataset.ddgCursorFlashlightBeam = String(beamDegrees);
+    gl.domElement.dataset.ddgCursorFlashlightBeam = String(runtime.beamDegrees);
+    gl.domElement.dataset.ddgCursorFlashlightIntensity = String(runtime.lightIntensity);
+    gl.domElement.dataset.ddgCursorFlashlightSoftness = String(runtime.lightSoftness);
   }, [gl]);
 
   useEffect(() => {
@@ -45,6 +52,8 @@ export default function CursorSpotlight() {
       resetCursorFlashlightWorldRuntime();
       delete gl.domElement.dataset.ddgCursorFlashlight;
       delete gl.domElement.dataset.ddgCursorFlashlightBeam;
+      delete gl.domElement.dataset.ddgCursorFlashlightIntensity;
+      delete gl.domElement.dataset.ddgCursorFlashlightSoftness;
       delete gl.domElement.dataset.ddgCursorFlashlightOrigin;
       delete gl.domElement.dataset.ddgCursorFlashlightMaterials;
     };
@@ -62,7 +71,7 @@ export default function CursorSpotlight() {
     if (!runtime.enabled || !runtime.pointerInsideFrame) {
       light.visible = false;
       resetCursorFlashlightWorldRuntime();
-      updateDebugState(runtime.enabled ? 'outside' : 'off', runtime.beamDegrees);
+      updateDebugState(runtime.enabled ? 'outside' : 'off', runtime);
       return;
     }
 
@@ -70,7 +79,7 @@ export default function CursorSpotlight() {
     if (rect.width <= 0 || rect.height <= 0) {
       light.visible = false;
       resetCursorFlashlightWorldRuntime();
-      updateDebugState('outside', runtime.beamDegrees);
+      updateDebugState('outside', runtime);
       return;
     }
 
@@ -98,12 +107,14 @@ export default function CursorSpotlight() {
 
     const distanceToTarget = sourcePosition.distanceTo(hitPoint);
     const outerAngle = THREE.MathUtils.degToRad(runtime.beamDegrees * 0.5);
-    const innerAngle = outerAngle * (1 - light.penumbra);
+    const innerAngle = outerAngle * (1 - runtime.lightSoftness);
     const lightRange = Math.max(36, distanceToTarget + 18);
-    const intensity = Math.min(96, Math.max(18, distanceToTarget * distanceToTarget * 0.18));
+    const intensity = Math.min(96, Math.max(18, distanceToTarget * distanceToTarget * 0.18))
+      * runtime.lightIntensity;
     light.visible = true;
     light.position.copy(sourcePosition);
     light.angle = outerAngle;
+    light.penumbra = runtime.lightSoftness;
     light.distance = lightRange;
     light.intensity = intensity;
     target.position.copy(hitPoint);
@@ -117,7 +128,7 @@ export default function CursorSpotlight() {
       outerCos: Math.cos(outerAngle),
       hitsWater: Boolean(hitWaterPlane),
     });
-    updateDebugState('on', runtime.beamDegrees);
+    updateDebugState('on', runtime);
   }, -3);
 
   return (

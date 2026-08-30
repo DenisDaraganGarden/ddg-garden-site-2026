@@ -1,16 +1,35 @@
 const MIN_BEAM_DEGREES = 12;
 const MAX_BEAM_DEGREES = 70;
 const DEFAULT_BEAM_DEGREES = 34;
+const DEFAULT_POINT_SIZE = 6;
+const DEFAULT_LIGHT_INTENSITY = 1;
+const DEFAULT_LIGHT_SOFTNESS = 0.72;
+
+const clamp = (value, min, max, fallback) => {
+  const numericValue = Number(value);
+  return Number.isFinite(numericValue)
+    ? Math.min(max, Math.max(min, numericValue))
+    : fallback;
+};
+
+let configuredBeamDegrees = DEFAULT_BEAM_DEGREES;
 
 let controls = {
   available: false,
   enabled: false,
+  cursorEnabled: true,
+  pointSize: DEFAULT_POINT_SIZE,
+  lightDefaultEnabled: true,
   beamDegrees: DEFAULT_BEAM_DEGREES,
+  lightIntensity: DEFAULT_LIGHT_INTENSITY,
+  lightSoftness: DEFAULT_LIGHT_SOFTNESS,
 };
 
 const runtime = {
   enabled: controls.enabled,
   beamDegrees: controls.beamDegrees,
+  lightIntensity: controls.lightIntensity,
+  lightSoftness: controls.lightSoftness,
   clientX: -100,
   clientY: -100,
   pointerInsideFrame: false,
@@ -40,6 +59,8 @@ const publishControls = (nextControls) => {
   controls = nextControls;
   runtime.enabled = nextControls.enabled;
   runtime.beamDegrees = nextControls.beamDegrees;
+  runtime.lightIntensity = nextControls.lightIntensity;
+  runtime.lightSoftness = nextControls.lightSoftness;
   if (!nextControls.enabled) {
     worldRuntime.active = false;
   }
@@ -56,6 +77,48 @@ export const subscribeToCursorFlashlight = (listener) => {
   return () => listeners.delete(listener);
 };
 
+export const syncCursorFlashlightConfiguration = (settings = {}) => {
+  const cursorEnabled = settings.cursorEnabled !== false;
+  const pointSize = clamp(settings.cursorPointSize, 3, 12, DEFAULT_POINT_SIZE);
+  const lightDefaultEnabled = settings.cursorLightEnabled !== false;
+  const nextConfiguredBeamDegrees = clamp(
+    settings.cursorLightBeamAngle,
+    MIN_BEAM_DEGREES,
+    MAX_BEAM_DEGREES,
+    DEFAULT_BEAM_DEGREES,
+  );
+  const lightIntensity = clamp(
+    settings.cursorLightIntensity,
+    0,
+    2,
+    DEFAULT_LIGHT_INTENSITY,
+  );
+  const lightSoftness = clamp(
+    settings.cursorLightSoftness,
+    0,
+    1,
+    DEFAULT_LIGHT_SOFTNESS,
+  );
+  const defaultEnabledChanged = lightDefaultEnabled !== controls.lightDefaultEnabled;
+  const configuredBeamChanged = nextConfiguredBeamDegrees !== configuredBeamDegrees;
+  const nextControls = {
+    ...controls,
+    cursorEnabled,
+    pointSize,
+    lightDefaultEnabled,
+    beamDegrees: configuredBeamChanged ? nextConfiguredBeamDegrees : controls.beamDegrees,
+    enabled: defaultEnabledChanged ? lightDefaultEnabled : controls.enabled,
+    lightIntensity,
+    lightSoftness,
+  };
+
+  configuredBeamDegrees = nextConfiguredBeamDegrees;
+  const unchanged = Object.keys(nextControls).every((key) => nextControls[key] === controls[key]);
+  if (!unchanged) {
+    publishControls(nextControls);
+  }
+};
+
 export const setCursorFlashlightAvailable = (available) => {
   const nextAvailable = Boolean(available);
   if (nextAvailable === controls.available) {
@@ -65,7 +128,7 @@ export const setCursorFlashlightAvailable = (available) => {
   publishControls({
     ...controls,
     available: nextAvailable,
-    enabled: nextAvailable ? controls.enabled : false,
+    enabled: nextAvailable ? controls.lightDefaultEnabled : false,
   });
 };
 

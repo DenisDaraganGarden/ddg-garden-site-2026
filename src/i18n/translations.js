@@ -102,6 +102,7 @@ export const translations = {
         audio: 'Звук',
         render: 'Рендер',
         interface: 'Интерфейс',
+        cursor: 'Курсор',
       },
       nodes: {
         water: 'Вода',
@@ -129,6 +130,7 @@ export const translations = {
         post: 'Постобработка',
         debug: 'Дебаг',
         ui: 'UI',
+        cursor: 'Точка',
         visibility: 'Видимость',
       },
       // Headings inside one section, splitting a long control list into
@@ -167,6 +169,7 @@ export const translations = {
         shapeMotion: 'Форма и движение',
         material: 'Материал',
         transform: 'Трансформ',
+        cursorLight: 'Световой пучок',
       },
       aspects: {
         geometry: 'Геометрия',
@@ -186,6 +189,7 @@ export const translations = {
         post: 'Постобработка',
         debug: 'Дебаг',
         ui: 'UI',
+        cursor: 'Курсор',
         empty: 'Пусто',
       },
       gizmo: {
@@ -458,6 +462,12 @@ export const translations = {
         uiLanguageVisible: 'Переключатель языка',
         uiSoundVisible: 'Кнопка звука',
         uiFrameVisible: 'Киноплёночные полосы',
+        cursorEnabled: 'Показывать курсор',
+        cursorPointSize: 'Размер точки',
+        cursorLightEnabled: 'Фонарь включён по умолчанию',
+        cursorLightBeamAngle: 'Угол пучка',
+        cursorLightIntensity: 'Интенсивность света',
+        cursorLightSoftness: 'Мягкость края пятна',
         postSectionGrain: 'Film grain / кинозерно',
         filmEnabled: 'Включить',
         filmStock: 'Тип',
@@ -633,6 +643,7 @@ export const translations = {
         audio: 'Audio',
         render: 'Render',
         interface: 'Interface',
+        cursor: 'Cursor',
       },
       nodes: {
         water: 'Water',
@@ -656,6 +667,7 @@ export const translations = {
         post: 'Post',
         debug: 'Debug',
         ui: 'UI',
+        cursor: 'Point',
         visibility: 'Visibility',
       },
       // Headings inside one section, splitting a long control list into
@@ -694,6 +706,7 @@ export const translations = {
         shapeMotion: 'Shape & motion',
         material: 'Material',
         transform: 'Transform',
+        cursorLight: 'Light beam',
       },
       aspects: {
         geometry: 'Geometry',
@@ -713,6 +726,7 @@ export const translations = {
         post: 'Post',
         debug: 'Debug',
         ui: 'UI',
+        cursor: 'Cursor',
         empty: 'Empty',
       },
       gizmo: {
@@ -981,6 +995,12 @@ export const translations = {
         uiLanguageVisible: 'Language Switch',
         uiSoundVisible: 'Sound Button',
         uiFrameVisible: 'Cinematic Bars',
+        cursorEnabled: 'Show Cursor',
+        cursorPointSize: 'Point Size',
+        cursorLightEnabled: 'Flashlight On by Default',
+        cursorLightBeamAngle: 'Beam Angle',
+        cursorLightIntensity: 'Light Intensity',
+        cursorLightSoftness: 'Spot Edge Softness',
         postSectionGrain: 'Film Grain',
         filmEnabled: 'Enable',
         filmStock: 'Stock',

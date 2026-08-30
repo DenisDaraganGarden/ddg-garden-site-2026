@@ -77,8 +77,8 @@
 
 /* 01 — a bare point. The optional light pool has no outlined edge. */
 .cursor-concept[data-mode='point'] .cursor-concept__core-shape {
-    width: 6px;
-    height: 6px;
+    width: var(--cursor-point-size, 6px);
+    height: var(--cursor-point-size, 6px);
     border-radius: 50%;
     background: #f5f4ef;
     box-shadow: 0 0 7px rgba(255, 255, 255, 0.2);
@@ -92,10 +92,10 @@
     opacity: 0;
     background: radial-gradient(
         circle,
-        rgba(255, 246, 226, 0.16) 0%,
-        rgba(255, 244, 220, 0.09) 32%,
-        rgba(255, 244, 220, 0.025) 58%,
-        transparent 74%
+        rgb(255 246 226 / var(--cursor-flashlight-core-alpha, 0.15)) 0%,
+        rgb(255 244 220 / var(--cursor-flashlight-mid-alpha, 0.085)) var(--cursor-flashlight-core-stop, 29%),
+        rgb(255 244 220 / var(--cursor-flashlight-edge-alpha, 0.025)) var(--cursor-flashlight-mid-stop, 58%),
+        transparent var(--cursor-flashlight-edge-stop, 76%)
     );
     mix-blend-mode: screen;
 }
@@ -105,14 +105,14 @@
 }
 
 .cursor-concept[data-mode='point'][data-context='water'] .cursor-concept__core-shape {
-    width: 7px;
-    height: 7px;
+    width: calc(var(--cursor-point-size, 6px) * 1.17);
+    height: calc(var(--cursor-point-size, 6px) * 1.17);
     box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
 }
 
 .cursor-concept[data-mode='point'][data-context='interactive'] .cursor-concept__core-shape {
-    width: 9px;
-    height: 9px;
+    width: calc(var(--cursor-point-size, 6px) * 1.5);
+    height: calc(var(--cursor-point-size, 6px) * 1.5);
     box-shadow: 0 0 12px rgba(255, 255, 255, 0.36);
 }
 

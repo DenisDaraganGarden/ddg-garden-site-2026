@@ -6,7 +6,6 @@ import {
     getCursorFlashlightSnapshot,
     hideCursorFlashlight,
     setCursorFlashlightAvailable,
-    setCursorFlashlightEnabled,
     subscribeToCursorFlashlight,
     toggleCursorFlashlight,
     updateCursorFlashlightPointer,
@@ -35,7 +34,7 @@ const getCursorMode = (search) => {
 const CursorConceptLab = () => {
     const location = useLocation();
     const navigate = useNavigate();
-    const mode = useMemo(() => getCursorMode(location.search), [location.search]);
+    const requestedMode = useMemo(() => getCursorMode(location.search), [location.search]);
     const layerRef = useRef(null);
     const coreRef = useRef(null);
     const followerRef = useRef(null);
@@ -46,7 +45,15 @@ const CursorConceptLab = () => {
         getCursorFlashlightSnapshot,
         getCursorFlashlightServerSnapshot,
     );
+    const mode = requestedMode ?? (flashlight.cursorEnabled ? 'point' : null);
+    const showLab = requestedMode !== null;
     const flashlightBeamPixels = Math.round(96 + ((flashlight.beamDegrees - 12) / 58) * 254);
+    const lightPoolCoreAlpha = Math.min(0.3, flashlight.lightIntensity * 0.15).toFixed(3);
+    const lightPoolMidAlpha = Math.min(0.18, flashlight.lightIntensity * 0.085).toFixed(3);
+    const lightPoolEdgeAlpha = Math.min(0.06, flashlight.lightIntensity * 0.025).toFixed(3);
+    const lightPoolCoreStop = Math.round(38 - (flashlight.lightSoftness * 12));
+    const lightPoolMidStop = Math.round(52 + (flashlight.lightSoftness * 8));
+    const lightPoolEdgeStop = Math.round(62 + (flashlight.lightSoftness * 20));
 
     const selectConcept = useCallback((nextMode) => {
         const searchParams = new URLSearchParams(location.search);
@@ -100,16 +107,18 @@ const CursorConceptLab = () => {
 
         root.dataset.cursorConcept = mode;
         setCursorFlashlightAvailable(mode === 'point');
-        setCursorFlashlightEnabled(mode === 'point');
 
         const setContext = (eventTarget, clientX, clientY) => {
             const targetElement = eventTarget instanceof Element ? eventTarget : null;
-            let nextContext = targetElement?.closest(INTERACTIVE_SELECTOR)
+            const interactiveElement = targetElement?.closest(INTERACTIVE_SELECTOR);
+            let nextContext = interactiveElement && interactiveElement.tagName !== 'CANVAS'
                 ? 'interactive'
                 : 'ambient';
 
             if (nextContext === 'ambient') {
-                const waterContainer = document.querySelector('.home-water-container');
+                const waterContainer = document.querySelector(
+                    '.home-water-container, .home-editor-render-frame',
+                );
                 if (waterContainer) {
                     const rect = waterContainer.getBoundingClientRect();
                     const isWithinWaterFrame = clientX >= rect.left
@@ -255,7 +264,6 @@ const CursorConceptLab = () => {
             window.removeEventListener('wheel', handleWheel);
             window.removeEventListener('blur', hideCursor);
             hideCursorFlashlight();
-            setCursorFlashlightEnabled(false);
             setCursorFlashlightAvailable(false);
             delete root.dataset.cursorConcept;
         };
@@ -279,7 +287,16 @@ const CursorConceptLab = () => {
                 data-flashlight={flashlight.enabled ? 'on' : 'off'}
                 data-testid="cursor-concept"
                 aria-hidden="true"
-                style={{ '--cursor-flashlight-size': `${flashlightBeamPixels}px` }}
+                style={{
+                    '--cursor-point-size': `${flashlight.pointSize}px`,
+                    '--cursor-flashlight-size': `${flashlightBeamPixels}px`,
+                    '--cursor-flashlight-core-alpha': lightPoolCoreAlpha,
+                    '--cursor-flashlight-mid-alpha': lightPoolMidAlpha,
+                    '--cursor-flashlight-edge-alpha': lightPoolEdgeAlpha,
+                    '--cursor-flashlight-core-stop': `${lightPoolCoreStop}%`,
+                    '--cursor-flashlight-mid-stop': `${lightPoolMidStop}%`,
+                    '--cursor-flashlight-edge-stop': `${lightPoolEdgeStop}%`,
+                }}
             >
                 <div ref={coreRef} className="cursor-concept__anchor cursor-concept__anchor--core">
                     <span className="cursor-concept__core-shape" />
@@ -292,57 +309,59 @@ const CursorConceptLab = () => {
                 </div>
             </div>
 
-            <aside className="cursor-lab" aria-label="Варианты интерактивного курсора" data-testid="cursor-lab">
-                <div className="cursor-lab__header">
-                    <div>
-                        <span className="cursor-lab__eyebrow">Cursor study</span>
-                        <strong className="cursor-lab__title">
-                            {activeConcept.number} / {activeConcept.label}
-                        </strong>
-                    </div>
-                    <button
-                        type="button"
-                        className="cursor-lab__close"
-                        onClick={closeLab}
-                        aria-label="Закрыть варианты курсора"
-                    >
-                        ×
-                    </button>
-                </div>
-
-                <div className="cursor-lab__options" role="group" aria-label="Выбор курсора">
-                    {CURSOR_CONCEPTS.map((concept) => (
+            {showLab ? (
+                <aside className="cursor-lab" aria-label="Варианты интерактивного курсора" data-testid="cursor-lab">
+                    <div className="cursor-lab__header">
+                        <div>
+                            <span className="cursor-lab__eyebrow">Cursor study</span>
+                            <strong className="cursor-lab__title">
+                                {activeConcept.number} / {activeConcept.label}
+                            </strong>
+                        </div>
                         <button
-                            key={concept.id}
                             type="button"
-                            className="cursor-lab__option"
-                            data-testid={`cursor-option-${concept.id}`}
-                            aria-pressed={concept.id === mode}
-                            onClick={() => selectConcept(concept.id)}
+                            className="cursor-lab__close"
+                            onClick={closeLab}
+                            aria-label="Закрыть варианты курсора"
                         >
-                            <span>{concept.number}</span>
-                            {concept.label}
+                            ×
                         </button>
-                    ))}
-                </div>
-
-                <div className="cursor-lab__footer">
-                    <span>{mode === 'point' ? 'ПКМ · свет / колесо · пучок' : 'Двигайте и нажимайте на воду'}</span>
-                    <span ref={contextLabelRef} className="cursor-lab__context" data-testid="cursor-context">
-                        Фон
-                    </span>
-                </div>
-                {mode === 'point' ? (
-                    <div className="cursor-lab__flashlight" aria-live="polite">
-                        <span>Фонарь</span>
-                        <strong data-testid="cursor-flashlight-status">
-                            {flashlight.enabled ? 'Вкл' : 'Выкл'}
-                        </strong>
-                        <span>Пучок</span>
-                        <strong data-testid="cursor-flashlight-beam">{flashlight.beamDegrees}°</strong>
                     </div>
-                ) : null}
-            </aside>
+
+                    <div className="cursor-lab__options" role="group" aria-label="Выбор курсора">
+                        {CURSOR_CONCEPTS.map((concept) => (
+                            <button
+                                key={concept.id}
+                                type="button"
+                                className="cursor-lab__option"
+                                data-testid={`cursor-option-${concept.id}`}
+                                aria-pressed={concept.id === mode}
+                                onClick={() => selectConcept(concept.id)}
+                            >
+                                <span>{concept.number}</span>
+                                {concept.label}
+                            </button>
+                        ))}
+                    </div>
+
+                    <div className="cursor-lab__footer">
+                        <span>{mode === 'point' ? 'ПКМ · свет / колесо · пучок' : 'Двигайте и нажимайте на воду'}</span>
+                        <span ref={contextLabelRef} className="cursor-lab__context" data-testid="cursor-context">
+                            Фон
+                        </span>
+                    </div>
+                    {mode === 'point' ? (
+                        <div className="cursor-lab__flashlight" aria-live="polite">
+                            <span>Фонарь</span>
+                            <strong data-testid="cursor-flashlight-status">
+                                {flashlight.enabled ? 'Вкл' : 'Выкл'}
+                            </strong>
+                            <span>Пучок</span>
+                            <strong data-testid="cursor-flashlight-beam">{flashlight.beamDegrees}°</strong>
+                        </div>
+                    ) : null}
+                </aside>
+            ) : null}
         </>
     );
 };

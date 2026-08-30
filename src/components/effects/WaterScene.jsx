@@ -36,6 +36,7 @@ import {
   getCursorFlashlightServerSnapshot,
   getCursorFlashlightSnapshot,
   subscribeToCursorFlashlight,
+  syncCursorFlashlightConfiguration,
 } from '../../features/cursor/cursorFlashlightStore';
 import { buildHomeSceneLighting } from './homeSceneLighting';
 import { useSkyEnvironment } from './water/skyEnvironment';
@@ -168,6 +169,23 @@ function WaterRuntimeScene({
     getCursorFlashlightSnapshot,
     getCursorFlashlightServerSnapshot,
   );
+  useEffect(() => {
+    syncCursorFlashlightConfiguration({
+      cursorEnabled: settings.cursorEnabled,
+      cursorLightBeamAngle: settings.cursorLightBeamAngle,
+      cursorLightEnabled: settings.cursorLightEnabled,
+      cursorLightIntensity: settings.cursorLightIntensity,
+      cursorLightSoftness: settings.cursorLightSoftness,
+      cursorPointSize: settings.cursorPointSize,
+    });
+  }, [
+    settings.cursorEnabled,
+    settings.cursorLightBeamAngle,
+    settings.cursorLightEnabled,
+    settings.cursorLightIntensity,
+    settings.cursorLightSoftness,
+    settings.cursorPointSize,
+  ]);
   const orbitRef = useRef();
   const showDebugHelpers = mode === 'editor' && settings.debugView !== 'beauty';
   const reflectionsEnabled = settings.reflectionsEnabled

@@ -26,6 +26,7 @@ import {
     Light2TargetSection,
 } from './sections/lights';
 import { InterfaceSection } from './sections/interfaceSection';
+import { CursorSection } from './sections/cursorSection';
 import {
     AudioMixerSection,
     AudioSpatialSection,
@@ -113,6 +114,12 @@ export const EDITOR_TREE = [
         id: 'interface',
         nodes: [
             { id: 'ui', aspects: [{ id: 'ui', Section: InterfaceSection }] },
+        ],
+    },
+    {
+        id: 'cursor',
+        nodes: [
+            { id: 'cursor', aspects: [{ id: 'cursor', Section: CursorSection }] },
         ],
     },
 ];
