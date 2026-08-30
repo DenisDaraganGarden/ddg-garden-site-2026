@@ -30,6 +30,28 @@ const toHalfFloatRgba = (rgb, width, height) => {
   return data;
 };
 
+// The scene's children suspend on the boat, the sculpture and the fish
+// textures, so React throws away this component's first render and recomputes
+// every useMemo on the retry. At the desktop table size that is a second and a
+// half of noise paid twice, back to back, with the loader on screen. One entry
+// is enough: there is a single sky in the app, and a slider that genuinely
+// changes it changes the key too.
+let lastLut = null;
+
+function buildSkyLutOnce(request) {
+  if (lastLut?.key === request.key) {
+    return lastLut.lut;
+  }
+
+  const lut = buildSkyLut({
+    ...request.state,
+    width: request.width,
+    height: request.height,
+  });
+  lastLut = { key: request.key, lut };
+  return lut;
+}
+
 /**
  * Returns both the equirectangular sky texture and its pre-filtered PMREM.
  * This hook deliberately never writes scene.environment: WaterLights is the
@@ -98,14 +120,7 @@ export function useSkyEnvironment(state, {
     return () => window.clearTimeout(timer);
   }, [height, lutRequest.key, skyKey, state, width]);
 
-  const lut = useMemo(
-    () => buildSkyLut({
-      ...lutRequest.state,
-      width: lutRequest.width,
-      height: lutRequest.height,
-    }),
-    [lutRequest],
-  );
+  const lut = useMemo(() => buildSkyLutOnce(lutRequest), [lutRequest]);
 
   useEffect(() => {
     if (!enabled) {
