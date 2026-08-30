@@ -113,7 +113,7 @@ function DebugWireframe({ enabled }) {
   return null;
 }
 
-function SceneReadyBeacon({ onSceneReady }) {
+function SceneReadyBeacon({ onSceneReady, waiting }) {
   const { active } = useProgress();
   const didNotifyRef = useRef(false);
   const stableFramesRef = useRef(0);
@@ -130,7 +130,7 @@ function SceneReadyBeacon({ onSceneReady }) {
       return;
     }
 
-    if (active) {
+    if (active || waiting) {
       stableFramesRef.current = 0;
       return;
     }
@@ -470,7 +470,7 @@ function WaterRuntimeScene({
         />
       ) : null}
       <DebugWireframe enabled={mode === 'editor' && Boolean(settings.debugWireframe)} />
-      <SceneReadyBeacon onSceneReady={onSceneReady} />
+      <SceneReadyBeacon onSceneReady={onSceneReady} waiting={sky.isPlaceholder} />
       {showDebugHelpers ? <axesHelper args={[2]} /> : null}
       {showDebugHelpers ? (
         <gridHelper
