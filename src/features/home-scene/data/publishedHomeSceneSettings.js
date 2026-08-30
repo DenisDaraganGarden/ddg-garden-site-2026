@@ -67,7 +67,7 @@ export const publishedHomeSceneSettings = {
   "shadowIntensity": 0.8,
   "shadowRadius": 1.75,
   "waterShadowStrength": 1,
-  "shadowBias": -0.0042,
+  "shadowBias": -0.0008,
   "ambientIntensity": 0.81,
   "ambientColor": "#2b374f",
   "hemisphereIntensity": 1.05,

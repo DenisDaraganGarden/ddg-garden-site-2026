@@ -157,6 +157,9 @@ export const buildHomeSceneLighting = (settings = {}) => {
     sunDirection[2] + (moonDirection[2] - sunDirection[2]) * night,
   ];
   const cloudCover = clamp(finiteNumber(settings.cloudCover, 0), 0, 1);
+  const authoredShadowIntensity = clamp(finiteNumber(settings.shadowIntensity, 0.8), 0, 1);
+  const authoredShadowRadius = clamp(finiteNumber(settings.shadowRadius, 1.5), 0, 8);
+  const authoredShadowBias = clamp(finiteNumber(settings.shadowBias, -0.0006), -0.005, 0.005);
   const sunAngularSize = clamp(finiteNumber(settings.sunAngularSize, 1), 0.2, 6);
   const skyTurbidity = clamp(finiteNumber(settings.skyTurbidity, 2.6), 1, 10);
   const sunTint = hexToLightingColor(settings.sunTint, '#fff5ea');
@@ -240,6 +243,20 @@ export const buildHomeSceneLighting = (settings = {}) => {
       irradiance: diffuseIrradiance,
       colorLinear: fillColorLinear,
       intensity: fillIntensity,
+    },
+    shadow: {
+      enabled: settings.shadowsEnabled !== false,
+      // Cloud cover changes one physical source: a larger, dimmer sun. Both the
+      // standard material path and the custom water path consume these solved
+      // values instead of applying separate cloud rules.
+      intensity: authoredShadowIntensity * (1 - 0.75 * cloudCover),
+      radius: clamp(authoredShadowRadius * (1 + cloudCover * 2.4), 0.5, 4),
+      bias: authoredShadowBias,
+      // The custom sampler works in normalized shadow depth, where the legacy
+      // directional-light bias is too large. Keep its sign but calibrate it to
+      // the sampler's coordinate domain.
+      waterBias: clamp(authoredShadowBias * 0.35, -0.0015, 0.0015),
+      waterStrength: clamp(finiteNumber(settings.waterShadowStrength, 1), 0, 1),
     },
     sky: {
       // Everything the sky needs, in one place, so the visible sky, the sky the

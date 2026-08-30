@@ -30,7 +30,7 @@ export default function WaterLights({ settings, mode, qualityProfile, lighting, 
   // The 640-texel gate is gone. It silently switched shadows off on every phone
   // while the editor bypassed it, so the scene was authored in a view the
   // visitor never got. What made it affordable is the frustum refit below.
-  const shadowsEnabled = settings.shadowsEnabled !== false && settings.debugView === 'beauty';
+  const shadowsEnabled = lighting.shadow.enabled && settings.debugView === 'beauty';
   const shadowMapSize = qualityProfile?.shadowMapSize ?? (mode === 'editor' ? 1024 : 768);
   // Fit the box to what actually casts, not to the pond. The old box was ~4x
   // larger than the casters, so most of the map resolved empty water: 47 mm per
@@ -45,17 +45,6 @@ export default function WaterLights({ settings, mode, qualityProfile, lighting, 
   // HDRI is auxiliary now. 'sky' is the default and costs no download; 'hdri'
   // brings the file back for the cases where a photographed environment is what
   // the shot needs.
-  // Cloud softens and fades the shadow together, because that is one physical
-  // fact: an overcast sky is a bigger, dimmer source. Two sliders for it would be
-  // two answers to the same question.
-  const cloudCover = THREE.MathUtils.clamp(settings.cloudCover ?? 0, 0, 1);
-  const shadowRadius = THREE.MathUtils.clamp(
-    settings.shadowRadius * (1 + cloudCover * 2.4),
-    0.5,
-    4,
-  );
-  const shadowIntensity = settings.shadowIntensity * (1 - 0.75 * cloudCover);
-
   // The water is a hand-written ShaderMaterial, so three will never hand it a
   // shadow. Publishing the two handles the sampler needs on the ref the water
   // already reads each frame is the whole plumbing - no second shadow map, no
@@ -65,6 +54,15 @@ export default function WaterLights({ settings, mode, qualityProfile, lighting, 
     const shadow = keyLightRef.current?.shadow;
     reflectionDataRef.current.keyShadowMap = shadow?.map?.depthTexture ?? null;
     reflectionDataRef.current.keyShadowMatrix = shadow?.matrix ?? null;
+    if (shadow?.mapSize) {
+      const texelSize = reflectionDataRef.current.keyShadowTexelSize
+        ?? new THREE.Vector2();
+      texelSize.set(
+        1 / Math.max(shadow.mapSize.x, 1),
+        1 / Math.max(shadow.mapSize.y, 1),
+      );
+      reflectionDataRef.current.keyShadowTexelSize = texelSize;
+    }
     reflectionDataRef.current.keyDirectShare = sky?.directShare ?? 0;
   }, -4);
 
@@ -94,10 +92,10 @@ export default function WaterLights({ settings, mode, qualityProfile, lighting, 
         shadow-camera-right={shadowFrustum}
         shadow-camera-top={shadowFrustum}
         shadow-camera-bottom={-shadowFrustum}
-        shadow-bias={settings.shadowBias}
+        shadow-bias={lighting.shadow.bias}
         shadow-normalBias={0.007}
-        shadow-radius={shadowRadius}
-        shadow-intensity={shadowIntensity}
+        shadow-radius={lighting.shadow.radius}
+        shadow-intensity={lighting.shadow.intensity}
       />
       <ambientLight
         color={lighting.fill.ambient.color.hex}

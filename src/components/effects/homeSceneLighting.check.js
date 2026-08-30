@@ -31,6 +31,14 @@ const closeTo = (actual, expected, epsilon = 1e-10) => (
     publishedHomeSceneSettings.hemisphereSkyColor,
     'the hemisphere colour control must reach the renderer contract',
   );
+  assert.ok(
+    lighting.shadow.intensity < publishedHomeSceneSettings.shadowIntensity,
+    'cloud cover must soften direct shadows for every material path',
+  );
+  assert.ok(
+    Math.abs(lighting.shadow.waterBias) < Math.abs(lighting.shadow.bias),
+    'water depth comparisons need a normalized, calibrated shadow bias',
+  );
 }
 
 {

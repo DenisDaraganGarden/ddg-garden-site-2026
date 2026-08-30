@@ -117,8 +117,14 @@ const postFragmentShader = `
         break;
       }
       sampleUv -= stepVector;
-      vec3 sampleColor = texture2D(uColorTexture, clamp(sampleUv, 0.001, 0.999)).rgb;
-      float source = smoothstep(0.48, 1.08, ddgLuminance(sampleColor));
+      vec2 clampedSampleUv = clamp(sampleUv, 0.001, 0.999);
+      vec3 sampleColor = texture2D(uColorTexture, clampedSampleUv).rgb;
+      float sampleDepth = texture2D(uDepthTexture, clampedSampleUv).r;
+      // Rays belong to the sun disc and bright sky. Letting bright geometry or
+      // water glints seed the radial blur occasionally stretched a one-pixel
+      // specular highlight into a full-height band across the frame.
+      float skySource = smoothstep(0.997, 0.9999, sampleDepth);
+      float source = smoothstep(0.48, 1.08, ddgLuminance(sampleColor)) * skySource;
       rays += source * illumination;
       illumination *= clamp(uSunRaysDecay, 0.72, 0.995);
     }

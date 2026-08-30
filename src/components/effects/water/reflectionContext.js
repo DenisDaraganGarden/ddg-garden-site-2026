@@ -12,6 +12,7 @@ export const reflectionContext = React.createContext({
     cameraNear: 0.1,
     cameraFar: 1000,
     matrix: new THREE.Matrix4(),
+    keyShadowTexelSize: new THREE.Vector2(1 / 1024, 1 / 1024),
   },
 });
 

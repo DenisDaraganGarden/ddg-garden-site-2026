@@ -68,10 +68,12 @@ export default function WaterSurfaceV2({ settings, runtime, qualityProfile, ligh
     uKeyShadowMap: { value: null },
     uKeyShadowMatrix: { value: new THREE.Matrix4() },
     uKeyShadowActive: { value: 0 },
-    uKeyShadowBias: { value: -0.0006 },
+    uKeyShadowBias: { value: lighting.shadow.waterBias },
+    uKeyShadowTexelSize: { value: new THREE.Vector2(1 / 1024, 1 / 1024) },
+    uKeyShadowRadius: { value: lighting.shadow.radius },
     uKeyDirectShare: { value: 0 },
-    uShadowIntensity: { value: 0.8 },
-    uWaterShadowStrength: { value: 1 },
+    uShadowIntensity: { value: lighting.shadow.intensity },
+    uWaterShadowStrength: { value: lighting.shadow.waterStrength },
     uKeyDirection: { value: new THREE.Vector3(0, 0.3, 1) },
     uKeyRadiance: { value: new THREE.Color(1, 1, 1) },
     uKeyCosRadius: { value: 1 },
@@ -123,9 +125,10 @@ export default function WaterSurfaceV2({ settings, runtime, qualityProfile, ligh
     uniforms.uKeyCosRadius.value = lighting.sky.keyCosRadius;
     uniforms.uKeyGlowPower.value = lighting.sky.keyGlowPower;
     uniforms.uKeyGlowStrength.value = lighting.sky.keyGlowStrength;
-    uniforms.uKeyShadowBias.value = settings.shadowBias;
-    uniforms.uShadowIntensity.value = settings.shadowIntensity;
-    uniforms.uWaterShadowStrength.value = settings.waterShadowStrength;
+    uniforms.uKeyShadowBias.value = lighting.shadow.waterBias;
+    uniforms.uKeyShadowRadius.value = lighting.shadow.radius;
+    uniforms.uShadowIntensity.value = lighting.shadow.intensity;
+    uniforms.uWaterShadowStrength.value = lighting.shadow.waterStrength;
   }, [
     lightDirection,
     lighting,
@@ -142,9 +145,6 @@ export default function WaterSurfaceV2({ settings, runtime, qualityProfile, ligh
     settings.waterTurbidity,
     settings.waveAmplitude,
     settings.waveChoppiness,
-    settings.shadowBias,
-    settings.shadowIntensity,
-    settings.waterShadowStrength,
     uniforms,
   ]);
 
@@ -158,6 +158,11 @@ export default function WaterSurfaceV2({ settings, runtime, qualityProfile, ligh
     uniforms.uKeyShadowActive.value = shadowMap && shadowMatrix ? 1 : 0;
     if (shadowMatrix) {
       uniforms.uKeyShadowMatrix.value.copy(shadowMatrix);
+    }
+    if (reflectionDataRef.current.keyShadowTexelSize) {
+      uniforms.uKeyShadowTexelSize.value.copy(
+        reflectionDataRef.current.keyShadowTexelSize,
+      );
     }
     uniforms.uKeyDirectShare.value = reflectionDataRef.current.keyDirectShare ?? 0;
     uniforms.uState.value = runtime.currentStateTargetRef.current?.texture ?? null;

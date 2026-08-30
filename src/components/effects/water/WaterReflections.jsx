@@ -122,6 +122,7 @@ export default function WaterReflections({
     cameraNear: camera.near,
     cameraFar: camera.far,
     matrix: new THREE.Matrix4(),
+    keyShadowTexelSize: new THREE.Vector2(1 / 1024, 1 / 1024),
   });
   const sceneObjectsRef = useRef({
     waterSurface: null,

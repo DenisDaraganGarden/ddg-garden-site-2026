@@ -73,6 +73,8 @@ export const waterV2FragmentShader = `
   uniform highp sampler2DShadow uKeyShadowMap;
   uniform float uKeyShadowActive;
   uniform float uKeyShadowBias;
+  uniform vec2 uKeyShadowTexelSize;
+  uniform float uKeyShadowRadius;
   uniform float uKeyDirectShare;
   uniform float uShadowIntensity;
   uniform float uWaterShadowStrength;
@@ -171,7 +173,16 @@ export const waterV2FragmentShader = `
       return 1.0;
     }
 
-    float lit = texture(uKeyShadowMap, vec3(coord.xy, coord.z + uKeyShadowBias));
+    float compareDepth = coord.z + uKeyShadowBias;
+    vec2 filterStep = uKeyShadowTexelSize * clamp(uKeyShadowRadius, 0.5, 4.0);
+    // Five hardware-PCF samples give the custom water material the same soft,
+    // cloud-sized source as three's standard materials. One central fetch made
+    // water shadows visibly harder even though every object used the same sun.
+    float lit = texture(uKeyShadowMap, vec3(coord.xy, compareDepth)) * 0.28;
+    lit += texture(uKeyShadowMap, vec3(coord.xy + vec2(filterStep.x, 0.0), compareDepth)) * 0.18;
+    lit += texture(uKeyShadowMap, vec3(coord.xy - vec2(filterStep.x, 0.0), compareDepth)) * 0.18;
+    lit += texture(uKeyShadowMap, vec3(coord.xy + vec2(0.0, filterStep.y), compareDepth)) * 0.18;
+    lit += texture(uKeyShadowMap, vec3(coord.xy - vec2(0.0, filterStep.y), compareDepth)) * 0.18;
     return mix(1.0, lit, clamp(uShadowIntensity, 0.0, 1.0));
   }
 
@@ -370,8 +381,12 @@ export const waterV2FragmentShader = `
 
     float glintDensity = clamp(uWaterGlintDensity, 0.0, 1.0);
     float glintSharpness = clamp(uWaterGlintSharpness, 0.0, 1.0);
-    vec2 glintGrid = (vSurfaceWorldPosition.xz + normal.xz * 2.4)
-      * mix(8.0, 24.0, glintDensity);
+    // Keep the point pattern in stable world space. Offsetting these coordinates
+    // by normal.xz used to fold the grid over itself as a wave turned: hundreds
+    // of sparkles could then collapse into the same screen column and flash as
+    // a one-pixel vertical line. The normal still controls the BRDF below; it
+    // must not deform the point distribution itself.
+    vec2 glintGrid = vSurfaceWorldPosition.xz * mix(8.0, 22.0, glintDensity);
     vec2 glintCell = floor(glintGrid);
     vec2 glintOffset = vec2(
       hash12(glintCell + vec2(7.1, 2.7)),
@@ -384,29 +399,51 @@ export const waterV2FragmentShader = `
       1.0,
       sparkleSeed
     );
+    float pointRadius = mix(0.035, 0.065, glintDensity);
+    float gridFootprint = max(fwidth(glintGrid.x), fwidth(glintGrid.y));
+    float samplingFade = 1.0 - smoothstep(0.35, 0.8, gridFootprint);
+    float pointFeather = mix(0.06, 0.11, glintDensity);
     float sparklePoint = 1.0 - smoothstep(
-      mix(0.035, 0.07, glintDensity),
-      mix(0.095, 0.16, glintDensity),
+      pointRadius,
+      pointRadius + pointFeather,
       length(glintLocal)
     );
+    sparklePoint *= samplingFade;
     float sparkleTwinkle = 0.64 + 0.36 * sin(
       uTime * mix(3.2, 6.8, glintSharpness) + sparkleSeed * 24.0
     );
     float microfacet = pow(
       max(dot(normal, halfDirection), 0.0),
-      mix(120.0, 720.0, glintSharpness)
+      // A sub-pixel 700-power lobe is not a sparkle after rasterisation: it is
+      // an unstable alias that can light an entire screen column. The authored
+      // sharpness still tightens the lobe, but only inside a resolvable range.
+      mix(36.0, 96.0, glintSharpness)
     );
-    float waterGlint = sparkleMask
+    float rawWaterGlint = sparkleMask
       * sparklePoint
       * sparkleTwinkle
       * microfacet
       * clamp(uWaterGlintStrength, 0.0, 2.0)
       * (0.65 + fresnel * 2.2)
       * clamp(uMoonIntensity, 0.0, 4.0);
+    // A microscopic highlight has a finite integrated energy. Leaving this HDR
+    // spike unbounded let the axis-aligned bloom taps connect sparse points into
+    // full-height lines. Soft compression keeps the sparkle visible but below
+    // the level where one sub-pixel sample can dominate the post-processing pass.
+    float waterGlint = 0.28 * (1.0 - exp(-rawWaterGlint * 2.4));
 
     vec3 color = mix(refraction, reflection, clamp(fresnel, 0.02, 0.96));
     color += uMoonColor * moonHighlight * shadow;
-    color += mix(vec3(1.0), uMoonColor, 0.2) * waterGlint * 1.6 * shadow;
+    vec3 glintContribution = mix(vec3(1.0), uMoonColor, 0.2)
+      * waterGlint * 1.6 * shadow;
+    // Micro-sparkles are detail, not a second sun. Keep them below the HDR bloom
+    // gate, especially where the broad reflected disc is already bright; the
+    // sparkle remains visible on darker water without becoming a line generator.
+    float glintPeak = max(max(glintContribution.r, glintContribution.g), glintContribution.b);
+    float colorPeak = max(max(color.r, color.g), color.b);
+    float glintHeadroom = max(1.15 - colorPeak, 0.0);
+    glintContribution *= min(1.0, glintHeadroom / max(glintPeak, 1e-5));
+    color += glintContribution;
     // A small neutral-blue crest lift keeps ripples legible without coupling
     // the reflection colour control to the water volume.
     color += vec3(0.07, 0.11, 0.14) * max(vHeightSample, 0.0) * 0.035;
