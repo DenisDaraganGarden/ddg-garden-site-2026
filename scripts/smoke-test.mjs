@@ -306,6 +306,51 @@ async function waitForRuntimeMetrics(page, sceneId, timeoutMs = 20000) {
   return page.evaluate((id) => window.__DDG_RUNTIME_METRICS__[id], sceneId);
 }
 
+// Lazy GLB decoding can finish a few seconds after RuntimeDiagnostics starts.
+// A memory baseline taken before that work completes mistakes the real boat and
+// sculpture for a leak. Wait for several fresh diagnostic writes with unchanged
+// GPU resource counts; a genuine continuous leak never reaches this plateau.
+async function waitForSettledRuntimeMetrics(page, sceneId, timeoutMs = 30000) {
+  const startedAt = Date.now();
+  const stableWindowMs = 3500;
+  let previous = null;
+  let stableForMs = 0;
+
+  while (Date.now() - startedAt < timeoutMs) {
+    const sample = await waitForRuntimeMetrics(page, sceneId, timeoutMs);
+    const timestamp = Number(sample.timestamp);
+    const geometries = Number(sample.renderer?.geometries);
+    const textures = Number(sample.renderer?.textures);
+
+    if (
+      previous
+      && Number.isFinite(timestamp)
+      && timestamp > previous.timestamp
+    ) {
+      const resourcesUnchanged = geometries === previous.geometries
+        && textures === previous.textures;
+      stableForMs = resourcesUnchanged
+        ? stableForMs + (timestamp - previous.timestamp)
+        : 0;
+
+      if (stableForMs >= stableWindowMs) {
+        return sample;
+      }
+    }
+
+    if (!previous || (Number.isFinite(timestamp) && timestamp > previous.timestamp)) {
+      previous = { timestamp, geometries, textures };
+    }
+
+    await settlePage(page, 250);
+  }
+
+  const resourceSummary = previous
+    ? `${previous.geometries} geometries / ${previous.textures} textures`
+    : 'no metrics';
+  throw new Error(`${sceneId} resources did not settle (${resourceSummary})`);
+}
+
 async function setRangeValue(locator, value) {
   await locator.evaluate((input, nextValue) => {
     const descriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
@@ -700,8 +745,7 @@ async function runLongSessionMemoryChecks(browser) {
   const runSeries = async (urlPath, sceneId, label, tolerance) => {
     const samples = [];
     await page.goto(`${baseUrl}${urlPath}`, { waitUntil: 'domcontentloaded' });
-    await settlePage(page, 800);
-    samples.push(await waitForRuntimeMetrics(page, sceneId, 30000));
+    samples.push(await waitForSettledRuntimeMetrics(page, sceneId, 30000));
 
     for (let index = 0; index < 5; index += 1) {
       await settlePage(page, 2500);
