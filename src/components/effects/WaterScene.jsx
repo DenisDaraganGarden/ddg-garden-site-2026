@@ -186,12 +186,12 @@ function WaterRuntimeScene({
       ? 512
       : qualityProfile.isMobileDevice
         ? 1024
-        : (qualityProfile.qualityTier === QUALITY_TIER.medium ? 1536 : 3072),
+        : (qualityProfile.qualityTier === QUALITY_TIER.medium ? 1024 : 2048),
     height: qualityProfile.isLowPower
       ? 256
       : qualityProfile.isMobileDevice
         ? 512
-        : (qualityProfile.qualityTier === QUALITY_TIER.medium ? 768 : 1536),
+        : (qualityProfile.qualityTier === QUALITY_TIER.medium ? 512 : 1024),
   });
   const runtime = useWaterRuntime(settings, qualityProfile, mode);
   const landingSitesRef = useRef([]);

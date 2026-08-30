@@ -37,9 +37,6 @@ const toHalfFloatRgba = (rgb, width, height) => {
 // loader is still on screen.
 const PLACEHOLDER = Object.freeze({ width: 192, height: 96 });
 
-// Above this width the worker builds a half-size table first so the loader has
-// something real to open on. Below it the full build is quick enough to wait for.
-const PREVIEW_ABOVE = 1024;
 
 // The scene's children suspend on the boat, the sculpture and the fish
 // textures, so React throws away this component's first render and recomputes
@@ -227,54 +224,40 @@ export function useSkyEnvironment(state, {
       return undefined;
     }
 
-    // Two passes, not one. Building the full table takes seconds of worker
-    // time, and the loader has to wait for a table it can show - so the worker
-    // builds a half-size one first, which the scene opens on, and the full one
-    // replaces it a second later. Half to full is a step the bicubic filter
-    // almost hides; placeholder to full is a visible snap.
-    const stages = [];
-    if (lutRequest.width > PREVIEW_ABOVE) {
-      stages.push({
-        width: Math.round(lutRequest.width / 2),
-        height: Math.round(lutRequest.height / 2),
-        final: false,
-      });
-    }
-    stages.push({ width: lutRequest.width, height: lutRequest.height, final: true });
-
-    const firstId = nextLutRequestId;
-    nextLutRequestId += stages.length;
+    // One pass, deliberately. A second, larger table arriving after the reveal
+    // means a second texture and a second PMREM target minutes into a session,
+    // and the runtime-stability contract wants the resource counts to reach a
+    // plateau and stay there. The loader waits for this one instead.
+    const id = nextLutRequestId;
+    nextLutRequestId += 1;
     let cancelled = false;
 
     const handleMessage = (event) => {
-      const index = event.data?.id - firstId;
-      if (!Number.isInteger(index) || index < 0 || index >= stages.length) {
+      if (event.data?.id !== id) {
         return;
       }
+
+      worker.removeEventListener('message', handleMessage);
 
       if (cancelled || !event.data.lut) {
         return;
       }
 
-      if (stages[index].final) {
-        worker.removeEventListener('message', handleMessage);
-        if (lutCache.size > 3) {
-          lutCache.clear();
-        }
-        lutCache.set(lutRequest.key, event.data.lut);
+      if (lutCache.size > 3) {
+        lutCache.clear();
       }
-
-      setLut((current) => (
-        current && current.width > event.data.lut.width ? current : event.data.lut
-      ));
+      lutCache.set(lutRequest.key, event.data.lut);
+      setLut(event.data.lut);
     };
 
     worker.addEventListener('message', handleMessage);
-    stages.forEach((stage, index) => {
-      worker.postMessage({
-        id: firstId + index,
-        state: { ...lutRequest.state, width: stage.width, height: stage.height },
-      });
+    worker.postMessage({
+      id,
+      state: {
+        ...lutRequest.state,
+        width: lutRequest.width,
+        height: lutRequest.height,
+      },
     });
 
     return () => {
@@ -359,7 +342,7 @@ export function useSkyEnvironment(state, {
     // True while the coarse inline table is what everything is sampling. The
     // loader waits on this: revealing the scene on a 192x96 sky and sharpening
     // it a second later reads as a glitch, not as loading.
-    isPlaceholder: lut.width < Math.min(lutRequest.width, PREVIEW_ABOVE + 1),
+    isPlaceholder: lut.width < lutRequest.width,
     width: lut.width,
     height: lut.height,
     environmentWidth: Math.min(lut.width, 256),
