@@ -334,12 +334,14 @@ export const underwaterAlgaeVertexShader = `
   attribute float aPhase;
   attribute float aTone;
   attribute float aSpecies;
+  attribute float aRootOcclusion;
 
   varying vec2 vRibbonUv;
   varying float vTone;
   varying float vPhase;
   varying float vHeightAlongBlade;
   varying float vSpecies;
+  varying float vRootOcclusion;
   varying float vInsideWater;
   varying vec3 vRibbonNormal;
   varying vec3 vRibbonWorldPosition;
@@ -451,6 +453,10 @@ export const underwaterAlgaeVertexShader = `
     vPhase = aPhase;
     vHeightAlongBlade = t;
     vSpecies = species;
+    // Sparse blades still have a narrow root collar; a clustered meadow gets a
+    // deeper, broader contact value. This belongs to the instance, not a moving
+    // noise field, so the bed stays visually anchored while the foliage sways.
+    vRootOcclusion = mix(0.24, aRootOcclusion, clamp(uPatchiness, 0.0, 1.0));
     vRibbonNormal = normal;
     vRibbonWorldPosition = vec3(worldXZ.x, worldY, worldXZ.y);
 
@@ -464,6 +470,7 @@ export const underwaterAlgaeFragmentShader = `
   varying float vPhase;
   varying float vHeightAlongBlade;
   varying float vSpecies;
+  varying float vRootOcclusion;
   varying float vInsideWater;
   varying vec3 vRibbonNormal;
   varying vec3 vRibbonWorldPosition;
@@ -541,11 +548,20 @@ export const underwaterAlgaeFragmentShader = `
     ) + uMoonColor
       * moonDiffuse
       * (0.1 + clamp(uMoonIntensity, 0.0, 4.0) * 0.16);
-    float rootAo = mix(
-      1.0 - clamp(uPlantAoStrength, 0.0, 1.0) * 0.42,
-      1.0,
-      smoothstep(0.02, 0.34, vHeightAlongBlade)
+    // A physical root collar is present even when the artist keeps the shared
+    // plant-AO slider at zero. It creates the small pocket of shade where a blade
+    // enters the bed, while the existing slider adds optional art direction over
+    // the same stable, cluster-aware mask.
+    float rootContact = 1.0 - smoothstep(
+      0.018,
+      mix(0.18, 0.31, broadSpecies),
+      vHeightAlongBlade
     );
+    float physicalRootAo = (0.09 + vRootOcclusion * 0.12) * rootContact;
+    float authoredRootAo = clamp(uPlantAoStrength, 0.0, 1.5)
+      * (0.14 + vRootOcclusion * 0.14)
+      * rootContact;
+    float rootAo = max(1.0 - physicalRootAo - authoredRootAo, 0.38);
     float waterHaze = clamp(uWaterTurbidity, 0.0, 1.0)
       * (1.0 - smoothstep(0.12, 1.0, vHeightAlongBlade))
       * 0.18;

@@ -114,11 +114,17 @@ export function createUnderwaterAlgaeGeometry(maxInstances, segments = 8) {
   const phases = new Float32Array(maxInstances);
   const tones = new Float32Array(maxInstances);
   const species = new Float32Array(maxInstances);
+  // The meadow is drawn as ribbons, so it cannot afford a shadow-map lookup for
+  // every blade. Keep a stable, per-instance measure of how protected a root is
+  // by its own cluster instead; the shader turns it into a small contact darkening
+  // only at the base of the blade.
+  const rootOcclusion = new Float32Array(maxInstances);
   const patchCenters = Array.from({ length: 19 }, () => randomPointInDisk(random, 0.82));
 
   for (let index = 0; index < maxInstances; index += 1) {
     const patch = patchCenters[Math.floor(random() * patchCenters.length)];
-    const local = randomPointInDisk(random, 0.035 + random() * 0.16);
+    const patchRadius = 0.035 + random() * 0.16;
+    const local = randomPointInDisk(random, patchRadius);
     const freePoint = randomPointInDisk(random, 0.97);
     const clusteredX = patch.x + local.x;
     const clusteredY = patch.y + local.y;
@@ -135,6 +141,8 @@ export function createUnderwaterAlgaeGeometry(maxInstances, segments = 8) {
     phases[index] = random() * Math.PI * 2;
     tones[index] = random();
     species[index] = random();
+    const patchCore = 1 - Math.min(1, Math.hypot(local.x, local.y) / patchRadius);
+    rootOcclusion[index] = Math.min(1, 0.24 + patchCore * 0.62 + (widths[index] - 0.62) * 0.11);
   }
 
   geometry.setAttribute('aScatter', new THREE.InstancedBufferAttribute(scatter, 2));
@@ -145,6 +153,7 @@ export function createUnderwaterAlgaeGeometry(maxInstances, segments = 8) {
   geometry.setAttribute('aPhase', new THREE.InstancedBufferAttribute(phases, 1));
   geometry.setAttribute('aTone', new THREE.InstancedBufferAttribute(tones, 1));
   geometry.setAttribute('aSpecies', new THREE.InstancedBufferAttribute(species, 1));
+  geometry.setAttribute('aRootOcclusion', new THREE.InstancedBufferAttribute(rootOcclusion, 1));
   geometry.instanceCount = maxInstances;
 
   return geometry;

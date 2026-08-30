@@ -10,6 +10,7 @@
     "check:bundle": "node scripts/check-bundle.mjs",
     "check:lighting": "node src/components/effects/homeSceneLighting.check.js",
     "check:materials": "node src/components/effects/water/pbrMaterial.check.js",
+    "check:vegetation": "node src/components/effects/water/vegetationGeometry.check.js",
     "check:render-targets": "node src/components/effects/water/renderTargets.check.js",
     "check:render-capabilities": "node src/components/effects/renderTargetCapabilities.check.js",
     "check:cameras": "node src/features/home-scene/lib/cameraLayout.check.js",
