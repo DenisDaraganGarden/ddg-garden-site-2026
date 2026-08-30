@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 
+const FILM_NOISE_TEXTURE_SIZE = 512;
+
 const postVertexShader = `
   varying vec2 vUv;
 
@@ -17,6 +19,7 @@ const postFragmentShader = `
   uniform sampler2D uColorTexture;
   uniform sampler2D uDepthTexture;
   uniform sampler2D uNoiseTexture;
+  uniform sampler2D uFilmNoiseTexture;
   uniform vec2 uResolution;
   uniform vec2 uSunUv;
   uniform float uSunVisible;
@@ -29,6 +32,18 @@ const postFragmentShader = `
   uniform float uGrainIntensity;
   uniform float uGrainSize;
   uniform float uGrainSpeed;
+
+  uniform float uFilmEnabled;
+  uniform float uFilmStock;
+  uniform float uFilmGrainAmount;
+  uniform float uFilmGrainSize;
+  uniform float uFilmDustAmount;
+  uniform float uFilmScratchAmount;
+  uniform float uFilmFlickerAmount;
+  uniform float uFilmFlickerRate;
+  uniform float uFilmGateWeaveAmount;
+  uniform float uFilmGateWeaveRate;
+  uniform float uFilmLowPower;
 
   uniform float uBloomEnabled;
   uniform float uBloomStrength;
@@ -104,8 +119,8 @@ const postFragmentShader = `
     return bloom;
   }
 
-  float sampleSunRays(vec2 uv) {
-    vec2 stepVector = (uv - uSunUv)
+  float sampleSunRays(vec2 uv, vec2 sunUv) {
+    vec2 stepVector = (uv - sunUv)
       * clamp(uSunRaysDensity, 0.0, 1.5)
       / max(uSunRaySampleCount, 1.0);
     vec2 sampleUv = uv;
@@ -129,14 +144,14 @@ const postFragmentShader = `
       illumination *= clamp(uSunRaysDecay, 0.72, 0.995);
     }
 
-    float screenMask = smoothstep(0.0, 0.08, uSunUv.x)
-      * smoothstep(1.0, 0.92, uSunUv.x)
-      * smoothstep(0.0, 0.08, uSunUv.y)
-      * smoothstep(1.0, 0.92, uSunUv.y);
+    float screenMask = smoothstep(0.0, 0.08, sunUv.x)
+      * smoothstep(1.0, 0.92, sunUv.x)
+      * smoothstep(0.0, 0.08, sunUv.y)
+      * smoothstep(1.0, 0.92, sunUv.y);
     return rays / max(uSunRaySampleCount, 1.0) * screenMask * uSunVisible;
   }
 
-  float sampleFogNoise(vec2 uv, float distanceRatio) {
+  float sampleFogNoise(vec2 uv, float distanceRatio, vec2 sunUv) {
     // The noise texture repeats, so dropping the integer part samples identically
     // while keeping the coordinate small - an unbounded uTime term loses float
     // precision over a long session and makes the fog shimmer on its own.
@@ -156,7 +171,7 @@ const postFragmentShader = `
           // which turned this per-pixel, depth-driven warp into a jump of whole noise
           // tiles between neighbouring pixels. On an animated water surface that is
           // the flicker. Clamping keeps the parallax but bounds it to +/-0.14 uv.
-          + (clamp(uSunUv, 0.0, 1.0) - 0.5) * layer * distanceRatio * 0.28;
+          + (clamp(sunUv, 0.0, 1.0) - 0.5) * layer * distanceRatio * 0.28;
         float layerWeight = mix(1.0, 0.42, layer);
         volume += texture2D(uNoiseTexture, layerUv).r * layerWeight;
         weight += layerWeight;
@@ -189,11 +204,155 @@ const postFragmentShader = `
     return fract(sin(dot(coordinate, vec2(12.9898, 78.233))) * 43758.5453123);
   }
 
+  float filmHash(float value) {
+    return fract(sin(value * 127.1 + 311.7) * 43758.5453123);
+  }
+
+  vec2 filmNoiseUv(vec2 pixelCell, float frame) {
+    const float textureSize = ${FILM_NOISE_TEXTURE_SIZE.toFixed(1)};
+    vec2 frameOffset = floor(
+      vec2(filmHash(frame + 7.0), filmHash(frame + 23.0)) * textureSize
+    );
+    vec2 shiftedCell = pixelCell + frameOffset;
+    vec2 tile = floor(shiftedCell / textureSize);
+    vec2 localCell = mod(shiftedCell, textureSize);
+    float tileSeed = frame * 173.0 + dot(tile, vec2(37.0, 91.0));
+
+    // Every repeated source tile gets an independent orientation and phase.
+    // The grain stays stable inside one film frame without revealing a digital grid.
+    localCell = mix(localCell, localCell.yx, step(0.5, filmHash(tileSeed + 11.0)));
+    localCell.x = mix(
+      localCell.x,
+      textureSize - 1.0 - localCell.x,
+      step(0.5, filmHash(tileSeed + 17.0))
+    );
+    localCell.y = mix(
+      localCell.y,
+      textureSize - 1.0 - localCell.y,
+      step(0.5, filmHash(tileSeed + 29.0))
+    );
+    vec2 tileOffset = floor(
+      vec2(filmHash(tileSeed + 41.0), filmHash(tileSeed + 53.0)) * textureSize
+    );
+    localCell = mod(localCell + tileOffset, textureSize);
+    return (localCell + 0.5) / textureSize;
+  }
+
+  // A shutter does not flutter at display refresh rate. It holds one exposure
+  // for almost a whole film frame, then eases into the next one at the splice.
+  float filmFlickerEv() {
+    float rate = clamp(uFilmFlickerRate, 0.5, 24.0);
+    float frame = floor(uTime * rate);
+    float phase = fract(uTime * rate);
+    float splice = smoothstep(0.80, 1.0, phase);
+    float current = filmHash(frame) * 2.0 - 1.0;
+    float next = filmHash(frame + 1.0) * 2.0 - 1.0;
+    return mix(current, next, splice) * uFilmFlickerAmount;
+  }
+
+  vec2 filmGateOffset() {
+    float rate = clamp(uFilmGateWeaveRate, 0.25, 12.0);
+    float t = uTime * rate;
+    float frame = floor(t);
+    float phase = fract(t);
+    vec2 current = vec2(filmHash(frame + 17.0), filmHash(frame + 59.0)) * 2.0 - 1.0;
+    vec2 next = vec2(filmHash(frame + 18.0), filmHash(frame + 60.0)) * 2.0 - 1.0;
+    // A gentle eased hand-off avoids electronic looking vibration.
+    vec2 held = mix(current, next, smoothstep(0.72, 1.0, phase));
+    return held * uFilmGateWeaveAmount / max(uResolution, vec2(1.0));
+  }
+
+  vec3 sampleEmulsion(vec2 pixelCell, float frame, float blend) {
+    // Consecutive calls address consecutive deterministic film frames, so the
+    // temporal crossfade is continuous while each large tile is decorrelated.
+    vec3 a = texture2D(uFilmNoiseTexture, filmNoiseUv(pixelCell, frame)).rgb;
+    vec3 b = texture2D(uFilmNoiseTexture, filmNoiseUv(pixelCell, frame + 1.0)).rgb;
+    // A straight temporal mix loses variance around the half-way point. Restore
+    // it so grain density stays constant through the otherwise smooth transition.
+    float varianceCompensation = inversesqrt(
+      (1.0 - blend) * (1.0 - blend) + blend * blend
+    );
+    return (mix(a, b, blend) - 0.5) * varianceCompensation;
+  }
+
+  float filmGrainCadence() {
+    if (uFilmStock > 0.5 && uFilmStock < 1.5) return 24.0; // 35mm
+    if (uFilmStock < 2.5) return 18.0; // 16mm
+    if (uFilmStock < 3.5) return 12.0; // 8mm
+    return 18.0;
+  }
+
+  vec3 applyFilmStock(vec3 color) {
+    // Profiles are deliberately restrained: the authored grade remains the
+    // primary look and these only supply the stock's density response.
+    float luma = ddgLuminance(color);
+    if (uFilmStock < 0.5) return color; // neutral
+    if (uFilmStock < 1.5) { // 35mm
+      return mix(vec3(luma), color, 0.93) * vec3(1.015, 1.0, 0.985);
+    }
+    if (uFilmStock < 2.5) { // 16mm
+      vec3 tinted = color * vec3(1.035, 1.0, 0.94);
+      return mix(vec3(ddgLuminance(tinted)), tinted, 0.79) + vec3(0.004, 0.003, 0.0);
+    }
+    if (uFilmStock < 3.5) { // 8mm
+      vec3 tinted = color * vec3(1.08, 1.0, 0.84);
+      return mix(vec3(ddgLuminance(tinted)), tinted, 0.68) + vec3(0.012, 0.008, 0.003);
+    }
+    if (uFilmStock < 4.5) { // monochrome
+      return vec3(luma * 0.96 + 0.008);
+    }
+    if (uFilmStock < 5.5) { // sepia
+      return vec3(luma * 1.08, luma * 0.91, luma * 0.62) + vec3(0.008, 0.004, 0.0);
+    }
+    // faded
+    return mix(vec3(luma + 0.025), color, 0.58) * vec3(1.02, 1.0, 0.94);
+  }
+
+  float filmDust(vec2 uv, float bucket) {
+    float result = 0.0;
+    for (int index = 0; index < 4; index += 1) {
+      if (uFilmLowPower > 0.5 && index > 1) break;
+      float seed = bucket * 19.0 + float(index) * 13.0;
+      vec2 center = vec2(filmHash(seed), filmHash(seed + 4.0));
+      float radius = mix(0.00065, 0.0032, filmHash(seed + 8.0));
+      float distanceToDust = length(uv - center);
+      float edge = max(fwidth(distanceToDust) * 1.5, 0.00025);
+      float dotMask = 1.0 - smoothstep(radius, radius + edge, distanceToDust);
+      result += dotMask * mix(-0.55, 0.45, filmHash(seed + 12.0));
+    }
+    return result;
+  }
+
+  float filmScratches(vec2 uv, float bucket) {
+    float result = 0.0;
+    for (int index = 0; index < 3; index += 1) {
+      if (uFilmLowPower > 0.5 && index > 0) break;
+      float seed = bucket * 29.0 + float(index) * 31.0;
+      float x = filmHash(seed);
+      float waviness = sin(uv.y * (80.0 + filmHash(seed + 3.0) * 110.0) + seed) * 0.0012;
+      float distanceToHair = abs(uv.x - x + waviness);
+      float width = mix(0.00028, 0.00105, filmHash(seed + 7.0));
+      float edge = max(fwidth(distanceToHair) * 1.4, 0.00018);
+      float hair = 1.0 - smoothstep(width, width + edge, distanceToHair);
+      float segment = smoothstep(0.04, 0.16, uv.y) * smoothstep(0.98, 0.78, uv.y);
+      result += hair * segment * mix(-0.32, 0.24, filmHash(seed + 11.0));
+    }
+    return result;
+  }
+
   void main() {
-    vec3 color = texture2D(uColorTexture, vUv).rgb;
+    vec2 gateOffset = vec2(0.0);
+    if (uFilmEnabled > 0.5 && uFilmGateWeaveAmount > 0.0001) {
+      gateOffset = filmGateOffset();
+    }
+    // Sampling the source at the inverse offset shifts every scene-derived
+    // component together. DOM chrome is outside this pass and stays perfectly still.
+    vec2 filmUv = vUv - gateOffset;
+    vec2 filmSunUv = uSunUv + gateOffset;
+    vec3 color = texture2D(uColorTexture, filmUv).rgb;
 
     if (uBloomEnabled > 0.5 && uBloomStrength > 0.0001) {
-      color += sampleBloom(vUv) * uBloomStrength;
+      color += sampleBloom(filmUv) * uBloomStrength;
     }
 
     float rays = 0.0;
@@ -202,10 +361,10 @@ const postFragmentShader = `
     // result by a zero mask - a guaranteed no-op paid for on every frame whenever
     // the key light sits outside the frame, which the letterboxed band makes common.
     if (uSunRaysEnabled > 0.5 && uSunRaysIntensity > 0.0001 && uSunVisible > 0.5) {
-      rays = sampleSunRays(vUv);
+      rays = sampleSunRays(filmUv, filmSunUv);
     }
 
-    float depth = texture2D(uDepthTexture, vUv).r;
+    float depth = texture2D(uDepthTexture, filmUv).r;
     if (uFogMode > 0.5 && uFogDensity > 0.0001 && depth < 0.999999) {
       float viewDistance = getViewDistance(depth);
       float distanceRatio = smoothstep(
@@ -213,7 +372,7 @@ const postFragmentShader = `
         max(uFogFar, uFogNear + 0.001),
         viewDistance
       );
-      float noiseValue = sampleFogNoise(vUv, distanceRatio);
+      float noiseValue = sampleFogNoise(filmUv, distanceRatio, filmSunUv);
       float densityShape = mix(0.72, 1.32, noiseValue);
       float fogAmount = 1.0 - exp(
         -distanceRatio
@@ -221,7 +380,7 @@ const postFragmentShader = `
         * densityShape
         * mix(2.2, 3.4, step(1.5, uFogMode))
       );
-      float sunHalo = pow(max(1.0 - distance(vUv, uSunUv), 0.0), 7.0) * uSunVisible;
+      float sunHalo = pow(max(1.0 - distance(filmUv, filmSunUv), 0.0), 7.0) * uSunVisible;
       // Scaled by the ray intensity like the direct term below it. Without that
       // the slider was discontinuous at zero: with fog on, turning the rays off
       // still left them at full strength inside the fog.
@@ -232,6 +391,9 @@ const postFragmentShader = `
     }
 
     color += uSunColor * rays * uSunRaysIntensity * (0.68 + uFogScattering * 0.52);
+    if (uFilmEnabled > 0.5 && uFilmFlickerAmount > 0.000001) {
+      color *= exp2(filmFlickerEv());
+    }
     color *= exp2(uExposure);
     color = (color - 0.5) * uContrast + 0.5;
     float gray = ddgLuminance(color);
@@ -239,7 +401,42 @@ const postFragmentShader = `
     color = rotateHue(color, uHue);
     color = pow(max(color, vec3(0.0)), vec3(1.0 / max(uGamma, 0.01)));
 
-    if (uGrainEnabled > 0.5 && uGrainIntensity > 0.0001) {
+    if (uFilmEnabled > 0.5) {
+      color = applyFilmStock(color);
+      float imageLuma = clamp(ddgLuminance(color), 0.0, 1.0);
+      if (uFilmGrainAmount > 0.0001) {
+        float grainRate = filmGrainCadence();
+        float grainTime = uTime * grainRate;
+        float grainFrame = floor(grainTime);
+        float grainBlend = smoothstep(0.16, 0.84, fract(grainTime));
+        vec2 grainCell = floor(filmUv * uResolution / max(uFilmGrainSize, 0.45));
+        vec3 emulsion = sampleEmulsion(grainCell, grainFrame, grainBlend);
+        float mono = ddgLuminance(emulsion + 0.5) - 0.5;
+        // Slightly soften chroma between neighbouring grains; silver-density
+        // stays crisp, while colour never becomes digital RGB confetti.
+        if (uFilmLowPower > 0.5) {
+          emulsion = vec3(mono);
+        } else {
+          vec3 chromaNeighbour = sampleEmulsion(
+            grainCell + vec2(1.0, 1.0),
+            grainFrame,
+            grainBlend
+          );
+          vec3 chroma = mix(emulsion, chromaNeighbour, 0.52);
+          emulsion = mix(vec3(mono), chroma, 0.28);
+        }
+        float toe = smoothstep(0.012, 0.14, imageLuma);
+        float shoulder = 1.0 - smoothstep(0.78, 1.18, imageLuma);
+        color += emulsion * (uFilmGrainAmount * 0.105) * mix(0.38, 1.0, toe) * mix(0.72, 1.0, shoulder);
+      }
+      float damageBucket = floor(uTime * 0.45);
+      if (uFilmDustAmount > 0.0001) {
+        color += vec3(filmDust(filmUv, damageBucket) * uFilmDustAmount);
+      }
+      if (uFilmScratchAmount > 0.0001) {
+        color += vec3(filmScratches(filmUv, damageBucket) * uFilmScratchAmount);
+      }
+    } else if (uGrainEnabled > 0.5 && uGrainIntensity > 0.0001) {
       vec2 grainCell = floor(vUv * uResolution / max(uGrainSize, 0.35));
       float grain = randomGrain(grainCell + floor(uTime * uGrainSpeed * 24.0)) - 0.5;
       float imageLuma = clamp(ddgLuminance(color), 0.0, 1.0);
@@ -291,7 +488,43 @@ function createNoiseTexture(size = 128) {
   return texture;
 }
 
+function createFilmNoiseTexture(size = FILM_NOISE_TEXTURE_SIZE) {
+  const random = (() => {
+    let state = 0x9e3779b9;
+    return () => {
+      state = Math.imul(state ^ (state >>> 15), 1 | state);
+      state ^= state + Math.imul(state ^ (state >>> 7), 61 | state);
+      return ((state ^ (state >>> 14)) >>> 0) / 4294967296;
+    };
+  })();
+  const data = new Uint8Array(size * size * 4);
+  for (let index = 0; index < size * size; index += 1) {
+    data[index * 4] = Math.round(random() * 255);
+    data[index * 4 + 1] = Math.round(random() * 255);
+    data[index * 4 + 2] = Math.round(random() * 255);
+    data[index * 4 + 3] = 255;
+  }
+  const texture = new THREE.DataTexture(data, size, size, THREE.RGBAFormat);
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.RepeatWrapping;
+  texture.minFilter = THREE.NearestFilter;
+  texture.magFilter = THREE.NearestFilter;
+  texture.generateMipmaps = false;
+  texture.needsUpdate = true;
+  return texture;
+}
+
 const toEnabledFloat = (value) => (value ? 1 : 0);
+const filmStockIds = Object.freeze({
+  neutral: 0,
+  '35mm': 1,
+  '16mm': 2,
+  '8mm': 3,
+  bw: 4,
+  sepia: 5,
+  faded: 6,
+});
+const finiteSetting = (value, fallback) => (Number.isFinite(value) ? value : fallback);
 
 export default function ScenePostProcessing({ settings, qualityProfile, lighting }) {
   const { gl, scene, camera } = useThree();
@@ -304,6 +537,7 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
   const cameraDirection = useRef(new THREE.Vector3());
   const sunDirection = useMemo(() => new THREE.Vector3(), []);
   const noiseTexture = useMemo(() => createNoiseTexture(), []);
+  const filmNoiseTexture = useMemo(() => createFilmNoiseTexture(), []);
   const renderTarget = useMemo(() => {
     const target = new THREE.WebGLRenderTarget(1, 1, {
       minFilter: THREE.LinearFilter,
@@ -340,6 +574,7 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
     uColorTexture: { value: renderTarget.texture },
     uDepthTexture: { value: renderTarget.depthTexture },
     uNoiseTexture: { value: noiseTexture },
+    uFilmNoiseTexture: { value: filmNoiseTexture },
     uResolution: { value: new THREE.Vector2(1, 1) },
     uSunUv: { value: new THREE.Vector2(0.5, 0.5) },
     uSunVisible: { value: 0 },
@@ -351,6 +586,17 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
     uGrainIntensity: { value: 0 },
     uGrainSize: { value: 1 },
     uGrainSpeed: { value: 1 },
+    uFilmEnabled: { value: 0 },
+    uFilmStock: { value: 0 },
+    uFilmGrainAmount: { value: 0 },
+    uFilmGrainSize: { value: 1 },
+    uFilmDustAmount: { value: 0 },
+    uFilmScratchAmount: { value: 0 },
+    uFilmFlickerAmount: { value: 0 },
+    uFilmFlickerRate: { value: 12 },
+    uFilmGateWeaveAmount: { value: 0 },
+    uFilmGateWeaveRate: { value: 2 },
+    uFilmLowPower: { value: isLowPower ? 1 : 0 },
     uBloomEnabled: { value: 0 },
     uBloomStrength: { value: 0 },
     uBloomThreshold: { value: 0.7 },
@@ -374,7 +620,7 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
     uFogNoiseScale: { value: 1 },
     uFogSpeed: { value: 0 },
     uFogScattering: { value: 0 },
-  }), [camera.far, camera.near, lighting.key.colorLinear, noiseTexture, renderTarget, settings.fogColor]);
+  }), [camera.far, camera.near, filmNoiseTexture, isLowPower, lighting.key.colorLinear, noiseTexture, renderTarget, settings.fogColor]);
   const postMaterial = useMemo(() => new THREE.ShaderMaterial({
     uniforms,
     vertexShader: postVertexShader,
@@ -403,9 +649,21 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
       ? 'cheap'
       : settings.fogMode;
     uniforms.uGrainEnabled.value = toEnabledFloat(settings.filmGrainEnabled);
-    uniforms.uGrainIntensity.value = settings.filmGrainIntensity;
-    uniforms.uGrainSize.value = settings.filmGrainSize;
-    uniforms.uGrainSpeed.value = settings.filmGrainSpeed;
+    uniforms.uGrainIntensity.value = finiteSetting(settings.filmGrainIntensity, 0);
+    uniforms.uGrainSize.value = finiteSetting(settings.filmGrainSize, 1);
+    uniforms.uGrainSpeed.value = finiteSetting(settings.filmGrainSpeed, 1);
+    const filmStock = typeof settings.filmStock === 'string' ? settings.filmStock : 'neutral';
+    uniforms.uFilmEnabled.value = toEnabledFloat(settings.filmEnabled);
+    uniforms.uFilmStock.value = filmStockIds[filmStock] ?? filmStockIds.neutral;
+    uniforms.uFilmGrainAmount.value = finiteSetting(settings.filmGrainAmount, 0);
+    uniforms.uFilmGrainSize.value = finiteSetting(settings.filmGrainSize, 1);
+    uniforms.uFilmDustAmount.value = finiteSetting(settings.filmDustAmount, 0);
+    uniforms.uFilmScratchAmount.value = finiteSetting(settings.filmScratchAmount, 0);
+    uniforms.uFilmFlickerAmount.value = finiteSetting(settings.filmFlickerAmount, 0);
+    uniforms.uFilmFlickerRate.value = finiteSetting(settings.filmFlickerRate, 12);
+    uniforms.uFilmGateWeaveAmount.value = finiteSetting(settings.filmGateWeaveAmount, 0);
+    uniforms.uFilmGateWeaveRate.value = finiteSetting(settings.filmGateWeaveRate, 2);
+    uniforms.uFilmLowPower.value = toEnabledFloat(isLowPower);
     uniforms.uBloomEnabled.value = toEnabledFloat(!isLowPower && settings.bloomEnabled);
     uniforms.uBloomStrength.value = settings.bloomStrength;
     uniforms.uBloomThreshold.value = settings.bloomThreshold;
@@ -438,7 +696,8 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
     postMaterial.dispose();
     renderTarget.dispose();
     noiseTexture.dispose();
-  }, [noiseTexture, postMaterial, postScene, renderTarget]);
+    filmNoiseTexture.dispose();
+  }, [filmNoiseTexture, noiseTexture, postMaterial, postScene, renderTarget]);
 
   useEffect(() => {
     gl.domElement.dataset.ddgPostSamples = String(renderTarget.samples);
@@ -446,6 +705,23 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
       delete gl.domElement.dataset.ddgPostSamples;
     };
   }, [gl, renderTarget.samples]);
+
+  useEffect(() => {
+    const { dataset } = gl.domElement;
+    const enabled = settings.filmEnabled === true;
+    dataset.ddgFilm = enabled ? 'on' : 'off';
+    dataset.ddgFilmStock = enabled && typeof settings.filmStock === 'string'
+      ? settings.filmStock
+      : 'neutral';
+    dataset.ddgFilmFlicker = String(finiteSetting(settings.filmFlickerAmount, 0));
+    dataset.ddgFilmGateWeave = String(finiteSetting(settings.filmGateWeaveAmount, 0));
+    return () => {
+      delete dataset.ddgFilm;
+      delete dataset.ddgFilmStock;
+      delete dataset.ddgFilmFlicker;
+      delete dataset.ddgFilmGateWeave;
+    };
+  }, [gl, settings.filmEnabled, settings.filmFlickerAmount, settings.filmGateWeaveAmount, settings.filmStock]);
 
   useFrame(({ clock }) => {
     const enabled = settings.postProcessingEnabled && settings.debugView === 'beauty';

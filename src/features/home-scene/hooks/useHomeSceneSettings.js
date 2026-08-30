@@ -43,6 +43,16 @@ export const HOME_SCENE_FOG_MODES = [
   { value: 'volumetric', label: 'Volumetric' },
 ];
 
+export const HOME_SCENE_FILM_STOCKS = [
+  { value: 'neutral', labelKey: 'neutral' },
+  { value: '35mm', labelKey: '35mm' },
+  { value: '16mm', labelKey: '16mm' },
+  { value: '8mm', labelKey: '8mm' },
+  { value: 'bw', labelKey: 'bw' },
+  { value: 'sepia', labelKey: 'sepia' },
+  { value: 'faded', labelKey: 'faded' },
+];
+
 export const HOME_SCENE_LIGHT_TYPES = [
   { value: 'sun', label: 'Sun' },
   { value: 'moon', label: 'Moon' },
@@ -71,6 +81,7 @@ const buildLayout = (cameraPosition, cameraFov, frameInset) => ({
 const VALID_HDRI_PRESETS = new Set(HOME_SCENE_HDRI_PRESETS.map((option) => option.value));
 const VALID_DEBUG_VIEWS = new Set(HOME_SCENE_DEBUG_VIEWS.map((option) => option.value));
 const VALID_FOG_MODES = new Set(HOME_SCENE_FOG_MODES.map((option) => option.value));
+const VALID_FILM_STOCKS = new Set(HOME_SCENE_FILM_STOCKS.map((option) => option.value));
 const VALID_LIGHT_TYPES = new Set(HOME_SCENE_LIGHT_TYPES.map((option) => option.value));
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 const clampResolution = (value) => {
@@ -329,8 +340,16 @@ export const getBaseHomeSceneSettings = () => ({
   sculptureVisible: true,
   reflectionsEnabled: true,
   postProcessingEnabled: true,
-  filmGrainEnabled: true,
-  filmGrainIntensity: 0.028,
+  filmEnabled: false,
+  filmStock: '16mm',
+  filmGrainAmount: 0.28,
+  filmGrainSize: 1.05,
+  filmDustAmount: 0.04,
+  filmScratchAmount: 0.025,
+  filmFlickerAmount: 0.018,
+  filmFlickerRate: 7,
+  filmGateWeaveAmount: 0.18,
+  filmGateWeaveRate: 5,
   // 1 = the automatic pixel budget. Raise for a sharper frame, lower to buy
   // back GPU time; the budget still adapts to the window on top of this.
   renderScale: 1,
@@ -342,8 +361,6 @@ export const getBaseHomeSceneSettings = () => ({
   uiLanguageVisible: true,
   uiSoundVisible: true,
   uiFrameVisible: true,
-  filmGrainSize: 1.15,
-  filmGrainSpeed: 0.85,
   bloomEnabled: true,
   bloomStrength: 0.18,
   bloomThreshold: 0.72,
@@ -431,12 +448,59 @@ const normalizeLegacySettings = (savedSettings, defaults) => {
   return legacy;
 };
 
+const migrateLegacyFilmSettings = (savedSettings, defaults) => {
+  if (!savedSettings || typeof savedSettings !== 'object' || Array.isArray(savedSettings)) {
+    return {};
+  }
+
+  const hasModernFilmSettings = [
+    'filmEnabled',
+    'filmStock',
+    'filmGrainAmount',
+    'filmDustAmount',
+    'filmScratchAmount',
+    'filmFlickerAmount',
+    'filmFlickerRate',
+    'filmGateWeaveAmount',
+    'filmGateWeaveRate',
+  ].some((key) => Object.prototype.hasOwnProperty.call(savedSettings, key));
+  const hasLegacyGrainSettings = [
+    'filmGrainEnabled',
+    'filmGrainIntensity',
+    'filmGrainSize',
+    'filmGrainSpeed',
+  ].some((key) => Object.prototype.hasOwnProperty.call(savedSettings, key));
+
+  if (hasModernFilmSettings || !hasLegacyGrainSettings) {
+    return {};
+  }
+
+  return {
+    filmEnabled: pickBoolean(savedSettings.filmGrainEnabled, defaults.filmEnabled),
+    filmStock: defaults.filmStock,
+    filmGrainAmount: clampFloat(
+      Number(savedSettings.filmGrainIntensity) / 0.25,
+      0,
+      1,
+      defaults.filmGrainAmount,
+    ),
+    filmGrainSize: clampFloat(
+      savedSettings.filmGrainSize,
+      0.45,
+      3,
+      defaults.filmGrainSize,
+    ),
+  };
+};
+
 const normalizeHomeSceneSettings = (savedSettings = {}, includeCameraSystem = true) => {
   const defaults = getBaseHomeSceneSettings();
   const legacy = normalizeLegacySettings(savedSettings, defaults);
+  const legacyFilm = migrateLegacyFilmSettings(savedSettings, defaults);
   const merged = {
     ...defaults,
     ...legacy,
+    ...legacyFilm,
     ...savedSettings,
   };
   const legacyLandscapeCustomPose = pickBoolean(
@@ -796,12 +860,42 @@ const normalizeHomeSceneSettings = (savedSettings = {}, includeCameraSystem = tr
       merged.postProcessingEnabled,
       defaults.postProcessingEnabled,
     ),
-    filmGrainEnabled: pickBoolean(merged.filmGrainEnabled, defaults.filmGrainEnabled),
-    filmGrainIntensity: clampFloat(
-      merged.filmGrainIntensity,
+    filmEnabled: pickBoolean(merged.filmEnabled, defaults.filmEnabled),
+    filmStock: VALID_FILM_STOCKS.has(merged.filmStock)
+      ? merged.filmStock
+      : defaults.filmStock,
+    filmGrainAmount: clampFloat(merged.filmGrainAmount, 0, 1, defaults.filmGrainAmount),
+    filmGrainSize: clampFloat(merged.filmGrainSize, 0.45, 3, defaults.filmGrainSize),
+    filmDustAmount: clampFloat(merged.filmDustAmount, 0, 1, defaults.filmDustAmount),
+    filmScratchAmount: clampFloat(
+      merged.filmScratchAmount,
       0,
+      1,
+      defaults.filmScratchAmount,
+    ),
+    filmFlickerAmount: clampFloat(
+      merged.filmFlickerAmount,
+      0,
+      0.2,
+      defaults.filmFlickerAmount,
+    ),
+    filmFlickerRate: clampFloat(
+      merged.filmFlickerRate,
+      0.5,
+      24,
+      defaults.filmFlickerRate,
+    ),
+    filmGateWeaveAmount: clampFloat(
+      merged.filmGateWeaveAmount,
+      0,
+      2,
+      defaults.filmGateWeaveAmount,
+    ),
+    filmGateWeaveRate: clampFloat(
+      merged.filmGateWeaveRate,
       0.25,
-      defaults.filmGrainIntensity,
+      12,
+      defaults.filmGateWeaveRate,
     ),
     renderScale: clampFloat(merged.renderScale, 0.5, 2, defaults.renderScale),
     uiBrandVisible: pickBoolean(merged.uiBrandVisible, defaults.uiBrandVisible),
@@ -810,8 +904,6 @@ const normalizeHomeSceneSettings = (savedSettings = {}, includeCameraSystem = tr
     uiLanguageVisible: pickBoolean(merged.uiLanguageVisible, defaults.uiLanguageVisible),
     uiSoundVisible: pickBoolean(merged.uiSoundVisible, defaults.uiSoundVisible),
     uiFrameVisible: pickBoolean(merged.uiFrameVisible, defaults.uiFrameVisible),
-    filmGrainSize: clampFloat(merged.filmGrainSize, 0.35, 4, defaults.filmGrainSize),
-    filmGrainSpeed: clampFloat(merged.filmGrainSpeed, 0, 3, defaults.filmGrainSpeed),
     bloomEnabled: pickBoolean(merged.bloomEnabled, defaults.bloomEnabled),
     bloomStrength: clampFloat(merged.bloomStrength, 0, 2.5, defaults.bloomStrength),
     bloomThreshold: clampFloat(merged.bloomThreshold, 0, 2, defaults.bloomThreshold),
@@ -854,10 +946,14 @@ const normalizeHomeSceneSettings = (savedSettings = {}, includeCameraSystem = tr
   }
 
   const fallbackScene = createSceneSnapshot(normalizedScene, publishedHomeSceneKeys);
-  const normalizeSnapshot = (snapshot, fallback = fallbackScene) => createSceneSnapshot(
-    normalizeHomeSceneSettings({ ...fallback, ...snapshot }, false),
-    publishedHomeSceneKeys,
-  );
+  const normalizeSnapshot = (snapshot, fallback = fallbackScene) => {
+    const migratedFilm = migrateLegacyFilmSettings(snapshot, fallback);
+
+    return createSceneSnapshot(
+      normalizeHomeSceneSettings({ ...fallback, ...migratedFilm, ...snapshot }, false),
+      publishedHomeSceneKeys,
+    );
+  };
   const sceneCameras = normalizeSceneCameras(
     savedSettings.sceneCameras,
     fallbackScene,

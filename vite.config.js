@@ -149,6 +149,14 @@ const manualChunks = (id) => {
 
 export default defineConfig({
   plugins: [react(), homeScenePublishPlugin()],
+  optimizeDeps: {
+    include: [
+      'react-spring',
+      'react-globe.gl',
+      '@react-three/drei/core/OrbitControls.js',
+      '@react-three/drei/core/TransformControls.js',
+    ],
+  },
   build: {
     manifest: true,
     rollupOptions: {

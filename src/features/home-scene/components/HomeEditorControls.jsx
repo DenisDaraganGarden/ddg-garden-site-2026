@@ -8,7 +8,7 @@ const formatControlValue = (value, formatter) => {
     return value;
 };
 
-export const RangeControl = ({ label, value, min, max, step = 1, onChange, unit = '', formatValue }) => (
+export const RangeControl = ({ label, value, min, max, step = 1, onChange, unit = '', formatValue, testId }) => (
     <div className="home-editor-control-group">
         <label>
             {label}
@@ -23,11 +23,12 @@ export const RangeControl = ({ label, value, min, max, step = 1, onChange, unit 
             value={value}
             onChange={onChange}
             className="home-editor-slider"
+            data-testid={testId}
         />
     </div>
 );
 
-export const ColorControl = ({ label, value, onChange }) => (
+export const ColorControl = ({ label, value, onChange, testId }) => (
     <div className="home-editor-control-group">
         <label>{label}</label>
         <input
@@ -35,11 +36,12 @@ export const ColorControl = ({ label, value, onChange }) => (
             aria-label={label}
             value={value}
             onChange={onChange}
+            data-testid={testId}
         />
     </div>
 );
 
-export const SelectControl = ({ label, value, onChange, options }) => (
+export const SelectControl = ({ label, value, onChange, options, testId }) => (
     <div className="home-editor-control-group">
         <label>{label}</label>
         <select
@@ -47,6 +49,7 @@ export const SelectControl = ({ label, value, onChange, options }) => (
             value={value}
             onChange={onChange}
             className="home-editor-select"
+            data-testid={testId}
         >
             {options.map((option) => (
                 <option key={option.value} value={option.value}>
@@ -66,7 +69,7 @@ export const SectionHeading = ({ label, subtle = false }) => (
     </h4>
 );
 
-export const CheckboxControl = ({ label, checked, onChange }) => (
+export const CheckboxControl = ({ label, checked, onChange, testId }) => (
     <div className="home-editor-control-group" style={{ flexDirection: 'row', alignItems: 'center', gap: '12px', justifyContent: 'space-between' }}>
         <label style={{ marginBottom: 0 }}>{label}</label>
         <input
@@ -75,6 +78,7 @@ export const CheckboxControl = ({ label, checked, onChange }) => (
             checked={checked}
             onChange={onChange}
             style={{ width: '20px', height: '20px', cursor: 'pointer' }}
+            data-testid={testId}
         />
     </div>
 );

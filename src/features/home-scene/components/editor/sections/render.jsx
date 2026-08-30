@@ -7,7 +7,10 @@ import {
     SectionHeading,
 } from '../../HomeEditorControls';
 import { formatFloat } from '../editorShared';
-import { HOME_SCENE_DEBUG_VIEWS } from '../../../hooks/useHomeSceneSettings';
+import {
+    HOME_SCENE_DEBUG_VIEWS,
+    HOME_SCENE_FILM_STOCKS,
+} from '../../../hooks/useHomeSceneSettings';
 import {
     resolveLayout,
     resolveLayoutFrameInset,
@@ -280,6 +283,10 @@ export const ResolutionSection = ({ settings, handleSettingChange }) => {
 
 export const PostSection = ({ settings, handleSettingChange }) => {
     const { t } = useLanguage();
+    const filmStockOptions = HOME_SCENE_FILM_STOCKS.map(({ value }) => ({
+        value,
+        label: t(`homeEditor.filmStocks.${value}`),
+    }));
 
     return (
         <>
@@ -290,39 +297,110 @@ export const PostSection = ({ settings, handleSettingChange }) => {
                 onChange={(event) => handleSettingChange(event, 'postProcessingEnabled', 'boolean')}
             />
 
-            <SectionHeading label={t('homeEditor.blocks.grain')} subtle />
+            <SectionHeading label={t('homeEditor.blocks.film')} subtle />
             <CheckboxControl
-                label={t('homeEditor.controls.filmGrainEnabled')}
-                checked={Boolean(settings.filmGrainEnabled)}
-                onChange={(event) => handleSettingChange(event, 'filmGrainEnabled', 'boolean')}
+                label={t('homeEditor.controls.filmEnabled')}
+                checked={Boolean(settings.filmEnabled)}
+                onChange={(event) => handleSettingChange(event, 'filmEnabled', 'boolean')}
+                testId="home-editor-film-enabled"
             />
+            <SelectControl
+                label={t('homeEditor.controls.filmStock')}
+                value={settings.filmStock}
+                options={filmStockOptions}
+                onChange={(event) => handleSettingChange(event, 'filmStock', 'string')}
+                testId="home-editor-film-stock"
+            />
+
+            <SectionHeading label={t('homeEditor.blocks.filmGrain')} subtle />
             <RangeControl
-                label={t('homeEditor.controls.filmGrainIntensity')}
-                value={settings.filmGrainIntensity}
+                label={t('homeEditor.controls.filmGrainAmount')}
+                value={settings.filmGrainAmount}
                 min={0}
-                max={0.25}
-                step={0.001}
-                formatValue={(value) => formatFloat(value, 3)}
-                onChange={(event) => handleSettingChange(event, 'filmGrainIntensity')}
+                max={1}
+                step={0.01}
+                formatValue={(value) => formatFloat(value, 2)}
+                onChange={(event) => handleSettingChange(event, 'filmGrainAmount')}
+                testId="home-editor-film-grain-amount"
             />
             <RangeControl
                 label={t('homeEditor.controls.filmGrainSize')}
                 value={settings.filmGrainSize}
-                min={0.35}
-                max={4}
+                min={0.45}
+                max={3}
                 step={0.05}
                 unit="px"
                 formatValue={(value) => formatFloat(value)}
                 onChange={(event) => handleSettingChange(event, 'filmGrainSize')}
+                testId="home-editor-film-grain-size"
+            />
+
+            <SectionHeading label={t('homeEditor.blocks.filmDamage')} subtle />
+            <RangeControl
+                label={t('homeEditor.controls.filmDustAmount')}
+                value={settings.filmDustAmount}
+                min={0}
+                max={1}
+                step={0.005}
+                formatValue={(value) => formatFloat(value, 3)}
+                onChange={(event) => handleSettingChange(event, 'filmDustAmount')}
+                testId="home-editor-film-dust-amount"
             />
             <RangeControl
-                label={t('homeEditor.controls.filmGrainSpeed')}
-                value={settings.filmGrainSpeed}
+                label={t('homeEditor.controls.filmScratchAmount')}
+                value={settings.filmScratchAmount}
                 min={0}
-                max={3}
-                step={0.05}
-                formatValue={(value) => formatFloat(value)}
-                onChange={(event) => handleSettingChange(event, 'filmGrainSpeed')}
+                max={1}
+                step={0.005}
+                formatValue={(value) => formatFloat(value, 3)}
+                onChange={(event) => handleSettingChange(event, 'filmScratchAmount')}
+                testId="home-editor-film-scratch-amount"
+            />
+
+            <SectionHeading label={t('homeEditor.blocks.filmMechanics')} subtle />
+            <RangeControl
+                label={t('homeEditor.controls.filmFlickerAmount')}
+                value={settings.filmFlickerAmount}
+                min={0}
+                max={0.2}
+                step={0.001}
+                unit=" EV"
+                formatValue={(value) => formatFloat(value, 3)}
+                onChange={(event) => handleSettingChange(event, 'filmFlickerAmount')}
+                testId="home-editor-film-flicker-amount"
+            />
+            <RangeControl
+                label={t('homeEditor.controls.filmFlickerRate')}
+                value={settings.filmFlickerRate}
+                min={0.5}
+                max={24}
+                step={0.25}
+                unit=" Hz"
+                formatValue={(value) => formatFloat(value, 2)}
+                onChange={(event) => handleSettingChange(event, 'filmFlickerRate')}
+                testId="home-editor-film-flicker-rate"
+            />
+            <RangeControl
+                label={t('homeEditor.controls.filmGateWeaveAmount')}
+                value={settings.filmGateWeaveAmount}
+                min={0}
+                max={2}
+                step={0.01}
+                unit="px"
+                formatValue={(value) => formatFloat(value, 2)}
+                onChange={(event) => handleSettingChange(event, 'filmGateWeaveAmount')}
+                testId="home-editor-film-gate-weave-amount"
+            />
+            <RangeControl
+                label={t('homeEditor.controls.filmGateWeaveRate')}
+                value={settings.filmGateWeaveRate}
+                min={0.25}
+                max={12}
+                step={0.25}
+                unit=" Hz"
+                formatValue={(value) => formatFloat(value, 2)}
+                onChange={(event) => handleSettingChange(event, 'filmGateWeaveRate')}
+                testId="home-editor-film-gate-weave-rate"
             />
 
             <SectionHeading label={t('homeEditor.blocks.bloom')} subtle />

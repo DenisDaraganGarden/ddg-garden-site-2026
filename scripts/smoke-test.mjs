@@ -30,6 +30,18 @@ const DEV_LOCAL_EDITOR_KEYS = new Set([
   'freeCamera',
   'debugWireframe',
 ]);
+const FILM_CONTROL_IDS = [
+  'home-editor-film-enabled',
+  'home-editor-film-stock',
+  'home-editor-film-grain-amount',
+  'home-editor-film-grain-size',
+  'home-editor-film-dust-amount',
+  'home-editor-film-scratch-amount',
+  'home-editor-film-flicker-amount',
+  'home-editor-film-flicker-rate',
+  'home-editor-film-gate-weave-amount',
+  'home-editor-film-gate-weave-rate',
+];
 
 const publishedSettingsPath = path.join(
   rootDir,
@@ -464,6 +476,10 @@ async function runRouteChecks(browser) {
   await expectVisible(page, page.getByTestId('home-page'), 'home page');
   await page.getByTestId('site-music-controller').first().waitFor({ state: 'attached', timeout: 10000 });
   await waitForRuntimeMetrics(page, 'water-scene');
+  assert(
+    await page.locator('.home-film-grain').count() === 0,
+    'Home must not mount the legacy DOM film-grain overlay',
+  );
   log('OK route /');
 
   await page.goto(`${baseUrl}/info`, { waitUntil: 'domcontentloaded' });
@@ -625,6 +641,22 @@ async function runDraftMigrationChecks(browser) {
         cameraFov: 49,
         planeMeshDensity: 192,
         planeRadius: 560,
+        filmGrainEnabled: true,
+        filmGrainIntensity: 0.125,
+        filmGrainSize: 1.8,
+        filmGrainSpeed: 2,
+        sceneCameras: [{
+          id: 'legacy-film-camera',
+          name: 'Legacy film camera',
+          enabled: true,
+          holdSeconds: 8,
+          scene: {
+            filmGrainEnabled: false,
+            filmGrainIntensity: 0.05,
+            filmGrainSize: 2.6,
+            filmGrainSpeed: 1.2,
+          },
+        }],
       }),
     );
   }, {
@@ -657,6 +689,17 @@ async function runDraftMigrationChecks(browser) {
     draftState.parsed.sceneCameras[0].scene.cameraFov === 49,
     'Migrated camera should contain the full legacy scene snapshot',
   );
+  assert(draftState.parsed.filmEnabled === true, 'Root legacy grain toggle should migrate to filmEnabled');
+  assert(draftState.parsed.filmStock === '16mm', 'Root legacy grain should receive the default film stock');
+  assert(draftState.parsed.filmGrainAmount === 0.5, 'Root legacy grain intensity should migrate to film amount');
+  assert(draftState.parsed.filmGrainSize === 1.8, 'Root legacy grain size should migrate');
+  assert(!('filmGrainEnabled' in draftState.parsed), 'Root legacy film fields should not survive migration');
+  const migratedCameraFilm = draftState.parsed.sceneCameras[0].scene;
+  assert(migratedCameraFilm.filmEnabled === false, 'Camera legacy grain toggle should migrate independently');
+  assert(migratedCameraFilm.filmStock === '16mm', 'Camera legacy grain should receive the default film stock');
+  assert(migratedCameraFilm.filmGrainAmount === 0.2, 'Camera legacy grain intensity should migrate independently');
+  assert(migratedCameraFilm.filmGrainSize === 2.6, 'Camera legacy grain size should migrate independently');
+  assert(!('filmGrainEnabled' in migratedCameraFilm), 'Camera legacy film fields should not survive migration');
   log('OK legacy draft migration');
 
   await context.close();
@@ -691,6 +734,10 @@ async function runCameraSystemChecks(browser) {
   await page.goto(`${baseUrl}/home/edit`, { waitUntil: 'domcontentloaded' });
   await expectVisible(page, page.getByTestId('home-editor-page'), 'camera editor');
   await page.getByTestId('home-editor-group-render').click();
+  await page.getByTestId('home-editor-tab-post').click();
+  for (const testId of FILM_CONTROL_IDS) {
+    await expectVisible(page, page.getByTestId(testId), `film control ${testId}`);
+  }
   await page.getByTestId('home-editor-tab-camera').click();
   await expectVisible(page, page.getByTestId('home-editor-camera-list'), 'camera list');
   assert(await page.getByTestId('home-editor-free-camera-badge').count() === 0, 'Free-camera badge should stay removed');
@@ -701,6 +748,52 @@ async function runCameraSystemChecks(browser) {
     async () => (await page.locator('.home-editor-camera-row').count()) === 2,
     'Adding a camera should create a second row',
   );
+
+  await page.getByTestId('home-editor-tab-post').click();
+  await page.getByTestId('home-editor-film-enabled').check();
+  await waitForCondition(
+    async () => (await page.locator('canvas[data-ddg-film="on"]').count()) === 1,
+    'Enabling film should activate the canvas film pass',
+  );
+  await page.getByTestId('home-editor-film-stock').selectOption('8mm');
+  await setRangeValue(page.getByTestId('home-editor-film-grain-amount'), 0.42);
+  await setRangeValue(page.getByTestId('home-editor-film-grain-size'), 2.1);
+  await setRangeValue(page.getByTestId('home-editor-film-dust-amount'), 0.31);
+  await setRangeValue(page.getByTestId('home-editor-film-scratch-amount'), 0.22);
+  await setRangeValue(page.getByTestId('home-editor-film-flicker-amount'), 0.09);
+  await setRangeValue(page.getByTestId('home-editor-film-flicker-rate'), 13);
+  await setRangeValue(page.getByTestId('home-editor-film-gate-weave-amount'), 1.25);
+  await setRangeValue(page.getByTestId('home-editor-film-gate-weave-rate'), 7.5);
+
+  await page.getByTestId('home-editor-tab-camera').click();
+  await page.getByTestId('home-editor-camera-select-camera-1').click();
+  await page.getByTestId('home-editor-tab-post').click();
+  assert(!(await page.getByTestId('home-editor-film-enabled').isChecked()), 'Camera 1 film toggle should remain independent');
+  await waitForCondition(
+    async () => (await page.locator('canvas[data-ddg-film="off"]').count()) === 1,
+    'Selecting a camera with film disabled should deactivate the canvas film pass',
+  );
+  assert(await page.getByTestId('home-editor-film-stock').inputValue() === '16mm', 'Camera 1 film stock should remain independent');
+  assert(Number(await page.getByTestId('home-editor-film-grain-amount').inputValue()) === 0.28, 'Camera 1 grain should remain independent');
+
+  await page.getByTestId('home-editor-tab-camera').click();
+  await page.getByTestId('home-editor-camera-select-camera-2').click();
+  await page.getByTestId('home-editor-tab-post').click();
+  assert(await page.getByTestId('home-editor-film-enabled').isChecked(), 'Camera 2 film toggle should persist');
+  await waitForCondition(
+    async () => (await page.locator('canvas[data-ddg-film="on"]').count()) === 1,
+    'Returning to the film camera should reactivate the canvas film pass',
+  );
+  assert(await page.getByTestId('home-editor-film-stock').inputValue() === '8mm', 'Camera 2 film stock should persist');
+  assert(Number(await page.getByTestId('home-editor-film-grain-amount').inputValue()) === 0.42, 'Camera 2 grain should persist');
+  assert(Number(await page.getByTestId('home-editor-film-dust-amount').inputValue()) === 0.31, 'Camera 2 dust should persist');
+  assert(Number(await page.getByTestId('home-editor-film-scratch-amount').inputValue()) === 0.22, 'Camera 2 scratches should persist');
+  assert(Number(await page.getByTestId('home-editor-film-flicker-amount').inputValue()) === 0.09, 'Camera 2 flicker should persist');
+  assert(Number(await page.getByTestId('home-editor-film-flicker-rate').inputValue()) === 13, 'Camera 2 flicker rate should persist');
+  assert(Number(await page.getByTestId('home-editor-film-gate-weave-amount').inputValue()) === 1.25, 'Camera 2 weave should persist');
+  assert(Number(await page.getByTestId('home-editor-film-gate-weave-rate').inputValue()) === 7.5, 'Camera 2 weave rate should persist');
+
+  await page.getByTestId('home-editor-tab-camera').click();
 
   let ranges = page.locator('.home-editor-controls input[type="range"]');
   await setRangeValue(ranges.nth(0), 37);
@@ -752,6 +845,17 @@ async function runCameraSystemChecks(browser) {
   assert(draft.sceneCameras[0].scene.layouts.portrait.cameraFov === 46, 'Portrait FOV should persist in Camera 2');
   assert(draft.sceneCameras[0].scene.boatVisible === false, 'Full scene visibility should persist in Camera 2');
   assert(draft.sceneCameras[1].scene.boatVisible === true, 'Camera 1 visibility should remain independent');
+  assert(draft.sceneCameras[0].scene.filmEnabled === true, 'Camera 2 film toggle should persist in the snapshot');
+  assert(draft.sceneCameras[0].scene.filmStock === '8mm', 'Camera 2 film stock should persist in the snapshot');
+  assert(draft.sceneCameras[0].scene.filmGrainAmount === 0.42, 'Camera 2 grain should persist in the snapshot');
+  assert(draft.sceneCameras[0].scene.filmGrainSize === 2.1, 'Camera 2 grain size should persist in the snapshot');
+  assert(draft.sceneCameras[0].scene.filmDustAmount === 0.31, 'Camera 2 dust should persist in the snapshot');
+  assert(draft.sceneCameras[0].scene.filmScratchAmount === 0.22, 'Camera 2 scratches should persist in the snapshot');
+  assert(draft.sceneCameras[0].scene.filmFlickerAmount === 0.09, 'Camera 2 flicker should persist in the snapshot');
+  assert(draft.sceneCameras[0].scene.filmFlickerRate === 13, 'Camera 2 flicker rate should persist in the snapshot');
+  assert(draft.sceneCameras[0].scene.filmGateWeaveAmount === 1.25, 'Camera 2 weave should persist in the snapshot');
+  assert(draft.sceneCameras[0].scene.filmGateWeaveRate === 7.5, 'Camera 2 weave rate should persist in the snapshot');
+  assert(draft.sceneCameras[1].scene.filmEnabled === false, 'Camera 1 film toggle should remain independent in the snapshot');
   assert(draft.slideshow.enabled === true, 'Slideshow enabled state should persist');
   assert(draft.slideshow.fadeSeconds === 0.2, 'Slideshow fade should persist');
 
@@ -801,6 +905,20 @@ async function runPublishChecks(browser) {
     await setRangeValue(boatRanges.nth(5), 0.41); // boatRoughness
     await settlePage(page, 220);
 
+    await page.getByTestId('home-editor-group-render').click();
+    await page.getByTestId('home-editor-tab-post').click();
+    await page.getByTestId('home-editor-film-enabled').check();
+    await page.getByTestId('home-editor-film-stock').selectOption('sepia');
+    await setRangeValue(page.getByTestId('home-editor-film-grain-amount'), 0.37);
+    await setRangeValue(page.getByTestId('home-editor-film-grain-size'), 1.65);
+    await setRangeValue(page.getByTestId('home-editor-film-dust-amount'), 0.19);
+    await setRangeValue(page.getByTestId('home-editor-film-scratch-amount'), 0.14);
+    await setRangeValue(page.getByTestId('home-editor-film-flicker-amount'), 0.055);
+    await setRangeValue(page.getByTestId('home-editor-film-flicker-rate'), 11);
+    await setRangeValue(page.getByTestId('home-editor-film-gate-weave-amount'), 0.85);
+    await setRangeValue(page.getByTestId('home-editor-film-gate-weave-rate'), 4.5);
+    await settlePage(page, 220);
+
     const draftSettings = await page.evaluate((key) => {
       const draft = localStorage.getItem(key);
       return draft ? JSON.parse(draft) : null;
@@ -809,7 +927,16 @@ async function runPublishChecks(browser) {
     assert(draftSettings.layouts?.desktop?.boatPosition?.x === 3.45, 'Desktop boatPosition.x was not saved to draft settings');
     assert(draftSettings.layouts?.desktop?.boatPosition?.z === -2.2, 'Desktop boatPosition.z was not saved to draft settings');
     assert(draftSettings.boatRoughness === 0.41, 'boatRoughness was not saved to draft settings');
-
+    assert(draftSettings.filmEnabled === true, 'filmEnabled was not saved to draft settings');
+    assert(draftSettings.filmStock === 'sepia', 'filmStock was not saved to draft settings');
+    assert(draftSettings.filmGrainAmount === 0.37, 'filmGrainAmount was not saved to draft settings');
+    assert(draftSettings.filmGrainSize === 1.65, 'filmGrainSize was not saved to draft settings');
+    assert(draftSettings.filmDustAmount === 0.19, 'filmDustAmount was not saved to draft settings');
+    assert(draftSettings.filmScratchAmount === 0.14, 'filmScratchAmount was not saved to draft settings');
+    assert(draftSettings.filmFlickerAmount === 0.055, 'filmFlickerAmount was not saved to draft settings');
+    assert(draftSettings.filmFlickerRate === 11, 'filmFlickerRate was not saved to draft settings');
+    assert(draftSettings.filmGateWeaveAmount === 0.85, 'filmGateWeaveAmount was not saved to draft settings');
+    assert(draftSettings.filmGateWeaveRate === 4.5, 'filmGateWeaveRate was not saved to draft settings');
     await waitForCondition(async () => !(await publishButton.isDisabled()), 'Publish button did not enable');
 
     await publishButton.click();
@@ -824,6 +951,18 @@ async function runPublishChecks(browser) {
         && settings.boatRoughness === 0.41
         && settings.sceneCameras?.[0]?.scene?.waterExtent === 31.5
         && settings.sceneCameras?.[0]?.scene?.boatRoughness === 0.41
+        && settings.filmEnabled === true
+        && settings.filmStock === 'sepia'
+        && settings.filmGrainAmount === 0.37
+        && settings.filmGrainSize === 1.65
+        && settings.filmDustAmount === 0.19
+        && settings.filmScratchAmount === 0.14
+        && settings.filmFlickerAmount === 0.055
+        && settings.filmFlickerRate === 11
+        && settings.filmGateWeaveAmount === 0.85
+        && settings.filmGateWeaveRate === 4.5
+        && settings.sceneCameras?.[0]?.scene?.filmStock === 'sepia'
+        && settings.sceneCameras?.[0]?.scene?.filmGateWeaveRate === 4.5
       );
     }, 'Publish did not update water settings');
     await waitForCondition(async () => publishButton.isDisabled(), 'Publish button should disable after save');

@@ -564,7 +564,7 @@
   color: rgba(255, 255, 255, 0.78);
 }
 
-@media (max-width: 900px) {
+@media (max-width: 720px) {
   .home-editor-controls {
     grid-template-columns: 1fr;
   }

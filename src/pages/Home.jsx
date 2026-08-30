@@ -330,7 +330,6 @@ const Home = () => {
         >
             <div className="home-cinematic-frame home-cinematic-frame--top" />
             <div className="home-cinematic-frame home-cinematic-frame--bottom" />
-            <div className="home-film-grain" aria-hidden="true" />
 
             <div
                 className={`home-water-container ${isSceneReady ? 'home-water-container--visible' : ''}`}
