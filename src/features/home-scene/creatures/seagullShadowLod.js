@@ -85,7 +85,6 @@ export function resolveSeagullShadowCasters(agents, {
     const receiverDistance = distanceToReceiver(agent.position, receiverPoints);
     if (
       receiverPoints.length > 0
-      && !isSurfaceState
       && (!Number.isFinite(receiverDistance) || receiverDistance > receiverRadius)
     ) continue;
 
