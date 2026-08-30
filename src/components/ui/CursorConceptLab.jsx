@@ -48,9 +48,12 @@ const CursorConceptLab = () => {
     const mode = requestedMode ?? (flashlight.cursorEnabled ? 'point' : null);
     const showLab = requestedMode !== null;
     const flashlightBeamPixels = Math.round(96 + ((flashlight.beamDegrees - 12) / 58) * 254);
-    const lightPoolCoreAlpha = Math.min(0.3, flashlight.lightIntensity * 0.15).toFixed(3);
-    const lightPoolMidAlpha = Math.min(0.18, flashlight.lightIntensity * 0.085).toFixed(3);
-    const lightPoolEdgeAlpha = Math.min(0.06, flashlight.lightIntensity * 0.025).toFixed(3);
+    // This is only a restrained screen-space cue around the pointer. The editor's
+    // intensity control belongs to the physical scene light; scaling this layer
+    // with it masks surface shading and turns the flashlight into a flat glow.
+    const lightPoolCoreAlpha = '0.105';
+    const lightPoolMidAlpha = '0.045';
+    const lightPoolEdgeAlpha = '0.012';
     const lightPoolCoreStop = Math.round(38 - (flashlight.lightSoftness * 12));
     const lightPoolMidStop = Math.round(52 + (flashlight.lightSoftness * 8));
     const lightPoolEdgeStop = Math.round(62 + (flashlight.lightSoftness * 20));
@@ -195,6 +198,23 @@ const CursorConceptLab = () => {
             impact.classList.add('is-active');
         };
 
+        const handleFlashlightPointerDown = (event) => {
+            if (mode !== 'point' || event.button !== 2) {
+                return;
+            }
+
+            const nextContext = setContext(event.target, event.clientX, event.clientY);
+            if (nextContext !== 'water') {
+                return;
+            }
+
+            // OrbitControls also owns the right button for panning. Capture the
+            // flashlight gesture before it reaches the canvas so toggling the
+            // lamp never changes the authored camera pose.
+            event.preventDefault();
+            event.stopPropagation();
+        };
+
         const handlePointerUp = () => {
             layer.dataset.pressed = 'false';
         };
@@ -238,30 +258,33 @@ const CursorConceptLab = () => {
             }
 
             event.preventDefault();
+            event.stopPropagation();
             updateCursorFlashlightPointer(event.clientX, event.clientY, true);
             adjustCursorFlashlightBeam(event.deltaY);
         };
 
+        window.addEventListener('pointerdown', handleFlashlightPointerDown, { capture: true });
         window.addEventListener('pointermove', handlePointerMove, { passive: true });
         window.addEventListener('pointerdown', handlePointerDown, { passive: true });
         window.addEventListener('pointerup', handlePointerUp, { passive: true });
         window.addEventListener('pointercancel', handlePointerUp, { passive: true });
         window.addEventListener('mouseout', handlePointerExit, { passive: true });
         window.addEventListener('contextmenu', handleContextMenu);
-        window.addEventListener('wheel', handleWheel, { passive: false });
+        window.addEventListener('wheel', handleWheel, { passive: false, capture: true });
         window.addEventListener('blur', hideCursor);
 
         return () => {
             if (followerFrame !== null) {
                 window.cancelAnimationFrame(followerFrame);
             }
+            window.removeEventListener('pointerdown', handleFlashlightPointerDown, { capture: true });
             window.removeEventListener('pointermove', handlePointerMove);
             window.removeEventListener('pointerdown', handlePointerDown);
             window.removeEventListener('pointerup', handlePointerUp);
             window.removeEventListener('pointercancel', handlePointerUp);
             window.removeEventListener('mouseout', handlePointerExit);
             window.removeEventListener('contextmenu', handleContextMenu);
-            window.removeEventListener('wheel', handleWheel);
+            window.removeEventListener('wheel', handleWheel, { capture: true });
             window.removeEventListener('blur', hideCursor);
             hideCursorFlashlight();
             setCursorFlashlightAvailable(false);

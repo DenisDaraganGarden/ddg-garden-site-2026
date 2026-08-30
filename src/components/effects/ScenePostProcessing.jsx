@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
+import {
+  getCursorFlashlightRuntime,
+  getCursorFlashlightWorldRuntime,
+} from '../../features/cursor/cursorFlashlightStore';
 
 const FILM_NOISE_TEXTURE_SIZE = 512;
 
@@ -71,6 +75,13 @@ const postFragmentShader = `
   uniform float uFogNoiseScale;
   uniform float uFogSpeed;
   uniform float uFogScattering;
+
+  uniform float uCursorLightActive;
+  uniform vec2 uCursorLightUv;
+  uniform float uCursorLightRadius;
+  uniform float uCursorLightAspect;
+  uniform float uCursorLightSoftness;
+  uniform float uCursorLightFogRelief;
 
   #include <common>
   #include <dithering_pars_fragment>
@@ -180,6 +191,16 @@ const postFragmentShader = `
     }
 
     return noiseValue;
+  }
+
+  float cursorFogMask(vec2 uv) {
+    vec2 delta = uv - uCursorLightUv;
+    delta.x *= max(uCursorLightAspect, 0.001);
+    float radialDistance = length(delta) / max(uCursorLightRadius, 0.0001);
+    // Even a hard optical spot must not cut a graphic hole into volumetric fog.
+    // The authored softness still changes the roll-off, within a restrained range.
+    float innerRadius = mix(0.72, 0.42, clamp(uCursorLightSoftness, 0.0, 1.0));
+    return uCursorLightActive * (1.0 - smoothstep(innerRadius, 1.0, radialDistance));
   }
 
   vec3 rotateHue(vec3 color, float angle) {
@@ -387,7 +408,14 @@ const postFragmentShader = `
       vec3 scatteredFog = uFogColor
         + uSunColor * (rays * 1.6 + sunHalo * 0.18)
           * uFogScattering * clamp(uSunRaysIntensity, 0.0, 2.0);
-      color = mix(color, scatteredFog, clamp(fogAmount, 0.0, 0.94));
+      // The fog pass runs after all PBR lighting. Without a local allowance it
+      // overwrites up to 94% of the flashlight's grazing highlight and leaves
+      // only the DOM halo visible. Preserve part of that already-lit surface
+      // inside the beam instead of adding another flat screen-space glow.
+      float flashlightRelief = cursorFogMask(filmUv)
+        * clamp(uCursorLightFogRelief, 0.0, 1.0);
+      float relievedFogAmount = fogAmount * mix(1.0, 0.62, flashlightRelief);
+      color = mix(color, scatteredFog, clamp(relievedFogAmount, 0.0, 0.94));
     }
 
     color += uSunColor * rays * uSunRaysIntensity * (0.68 + uFogScattering * 0.52);
@@ -620,6 +648,12 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
     uFogNoiseScale: { value: 1 },
     uFogSpeed: { value: 0 },
     uFogScattering: { value: 0 },
+    uCursorLightActive: { value: 0 },
+    uCursorLightUv: { value: new THREE.Vector2(0.5, 0.5) },
+    uCursorLightRadius: { value: 0.1 },
+    uCursorLightAspect: { value: 1 },
+    uCursorLightSoftness: { value: 0.72 },
+    uCursorLightFogRelief: { value: 0 },
   }), [camera.far, camera.near, filmNoiseTexture, isLowPower, lighting.key.colorLinear, noiseTexture, renderTarget, settings.fogColor]);
   const postMaterial = useMemo(() => new THREE.ShaderMaterial({
     uniforms,
@@ -701,8 +735,10 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
 
   useEffect(() => {
     gl.domElement.dataset.ddgPostSamples = String(renderTarget.samples);
+    gl.domElement.dataset.ddgCursorFlashlightFog = 'local-relief';
     return () => {
       delete gl.domElement.dataset.ddgPostSamples;
+      delete gl.domElement.dataset.ddgCursorFlashlightFog;
     };
   }, [gl, renderTarget.samples]);
 
@@ -767,6 +803,31 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
     uniforms.uCameraNear.value = camera.near;
     uniforms.uCameraFar.value = camera.far;
     uniforms.uTime.value = clock.elapsedTime;
+
+    const cursorRuntime = getCursorFlashlightRuntime();
+    const cursorWorldRuntime = getCursorFlashlightWorldRuntime();
+    const canvasRect = gl.domElement.getBoundingClientRect();
+    const cursorActive = cursorWorldRuntime.active
+      && cursorRuntime.enabled
+      && cursorRuntime.pointerInsideFrame
+      && canvasRect.width > 0
+      && canvasRect.height > 0;
+    uniforms.uCursorLightActive.value = cursorActive ? 1 : 0;
+    if (cursorActive) {
+      uniforms.uCursorLightUv.value.set(
+        (cursorRuntime.clientX - canvasRect.left) / canvasRect.width,
+        1 - ((cursorRuntime.clientY - canvasRect.top) / canvasRect.height),
+      );
+      const beamPixels = 96 + ((cursorRuntime.beamDegrees - 12) / 58) * 254;
+      uniforms.uCursorLightRadius.value = (beamPixels * 0.5) / canvasRect.height;
+      uniforms.uCursorLightAspect.value = canvasRect.width / canvasRect.height;
+      uniforms.uCursorLightSoftness.value = cursorRuntime.lightSoftness;
+      uniforms.uCursorLightFogRelief.value = THREE.MathUtils.clamp(
+        cursorRuntime.lightIntensity / 1.5,
+        0,
+        1,
+      );
+    }
 
     gl.setRenderTarget(renderTarget);
     gl.clear(true, true, true);
