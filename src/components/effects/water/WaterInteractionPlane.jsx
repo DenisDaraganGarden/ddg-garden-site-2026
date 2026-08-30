@@ -286,6 +286,12 @@ export default function WaterInteractionPlane({
       if (event.button !== 0) {
         return;
       }
+      // A gull click is resolved on pointer-up by the creature runtime. Do not
+      // raise an unrelated cursor splash underneath it before the body reaches
+      // the surface; the actual impact will enqueue its own physical impulse.
+      if (domElement.dataset.seagullShotTarget !== undefined) {
+        return;
+      }
 
       const hitPoint = screenPointToHit(event.clientX, event.clientY);
       if (!hitPoint) {

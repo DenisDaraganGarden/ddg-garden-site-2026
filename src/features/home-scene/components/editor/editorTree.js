@@ -27,6 +27,7 @@ import {
 } from './sections/lights';
 import { InterfaceSection } from './sections/interfaceSection';
 import { CursorSection } from './sections/cursorSection';
+import { SeagullsSection } from './sections/creatures';
 import {
     AudioMixerSection,
     AudioSpatialSection,
@@ -72,6 +73,12 @@ export const EDITOR_TREE = [
         nodes: [
             { id: 'boat', aspects: [{ id: 'transform', Section: BoatSection }] },
             { id: 'sculpture', aspects: [{ id: 'transform', Section: SculptureSection }] },
+        ],
+    },
+    {
+        id: 'creatures',
+        nodes: [
+            { id: 'seagulls', aspects: [{ id: 'flock', Section: SeagullsSection }] },
         ],
     },
     {

@@ -22,12 +22,19 @@ import {
 // The wave simulation: a ping-pong height field advanced on the GPU, plus the
 // derived normal and probe passes the rest of the scene reads from.
 
+const WATER_IMPULSE_QUEUE_LIMIT = 8;
+const WATER_SURFACE_SAMPLE_CACHE_MS = 50;
+
 export function useWaterRuntime(settings, qualityProfile, mode) {
   const { gl } = useThree();
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
   const stateRef = useRef(null);
   const normalTargetRef = useRef(null);
+  // External actors (a falling bird, for example) must not overwrite the cursor's
+  // one-frame input slot. The simulation only supports one impulse per tick, so a
+  // short FIFO gives those actors a bounded, deterministic path into that slot.
+  const impulseQueueRef = useRef([]);
   const pointerStateRef = useRef({
     uv: new THREE.Vector2(0.5, 0.5),
     impulseUv: new THREE.Vector2(0.5, 0.5),
@@ -44,11 +51,60 @@ export function useWaterRuntime(settings, qualityProfile, mode) {
     { length: 5 },
     () => ({ height: 0, normal: new THREE.Vector3(0, 1, 0) }),
   ));
+  const surfaceSamplePointsRef = useRef(Array.from(
+    { length: 5 },
+    () => new THREE.Vector3(),
+  ));
+  const surfaceSampleCacheRef = useRef({
+    x: Infinity,
+    z: Infinity,
+    sampledAt: -Infinity,
+    result: {
+      height: 0,
+      worldY: 0,
+      normal: new THREE.Vector3(0, 1, 0),
+    },
+  });
   const effectiveResolution = resolveRuntimeSimulationResolution(
     settings.simulationResolution,
     mode,
     qualityProfile.simulationMaxResolution,
   );
+  const worldToUv = useCallback((x, z) => {
+    const halfExtent = settings.waterExtent * 0.5;
+
+    return new THREE.Vector2(
+      clamp((x + halfExtent) / settings.waterExtent, 0.001, 0.999),
+      clamp((halfExtent - z) / settings.waterExtent, 0.001, 0.999),
+    );
+  }, [settings.waterExtent]);
+
+  const emitWaterImpulse = useCallback((worldPoint, { strength = 0.8 } = {}) => {
+    if (!worldPoint || !Number.isFinite(worldPoint.x) || !Number.isFinite(worldPoint.z)) {
+      return false;
+    }
+
+    const halfExtent = settings.waterExtent * 0.5;
+    if (Math.abs(worldPoint.x) > halfExtent || Math.abs(worldPoint.z) > halfExtent) {
+      return false;
+    }
+
+    const impulseStrength = clamp(Number(strength) || 0, 0.01, 1);
+    if (impulseStrength <= 0.01) {
+      return false;
+    }
+
+    const queue = impulseQueueRef.current;
+    if (queue.length >= WATER_IMPULSE_QUEUE_LIMIT) {
+      queue.shift();
+    }
+    queue.push({
+      uv: worldToUv(worldPoint.x, worldPoint.z),
+      worldPoint: new THREE.Vector3(worldPoint.x, worldPoint.y || 0, worldPoint.z),
+      strength: impulseStrength,
+    });
+    return true;
+  }, [settings.waterExtent, worldToUv]);
 
   const renderState = useMemo(() => {
     const runtimeSettings = settingsRef.current;
@@ -175,13 +231,27 @@ export function useWaterRuntime(settings, qualityProfile, mode) {
     const simulationDelta = Math.min(simulationAccumulatorRef.current, 1 / 20);
     simulationAccumulatorRef.current = 0;
     const pointerState = pointerStateRef.current;
+    const queuedImpulse = impulseQueueRef.current.shift() ?? null;
+    const cursorImpulseActive = pointerState.hasImpulse;
+    const activeImpulse = queuedImpulse ?? (cursorImpulseActive ? {
+      uv: pointerState.impulseUv,
+      strength: pointerState.impulseStrength,
+    } : null);
     const rippleRadiusUv = clamp(settings.rippleRadius / settings.waterExtent, 0.0025, 0.12);
+
+    if (queuedImpulse) {
+      // Match the cursor's bookkeeping so the boat responds to an impact through
+      // the existing proximity logic, at the same moment it enters the simulation.
+      pointerState.recentWorldPoint.copy(queuedImpulse.worldPoint);
+      pointerState.recentImpulseStrength = queuedImpulse.strength;
+      pointerState.recentImpulseTime = performance.now() * 0.001;
+    }
 
     renderState.simulationPass.material.uniforms.uState.value = renderState.read.texture;
     renderState.simulationPass.material.uniforms.uResolution.value.set(effectiveResolution, effectiveResolution);
-    renderState.simulationPass.material.uniforms.uPointerUv.value.copy(pointerState.impulseUv);
-    renderState.simulationPass.material.uniforms.uImpulseActive.value = pointerState.hasImpulse ? 1 : 0;
-    renderState.simulationPass.material.uniforms.uImpulseStrength.value = pointerState.impulseStrength;
+    renderState.simulationPass.material.uniforms.uPointerUv.value.copy(activeImpulse?.uv ?? pointerState.impulseUv);
+    renderState.simulationPass.material.uniforms.uImpulseActive.value = activeImpulse ? 1 : 0;
+    renderState.simulationPass.material.uniforms.uImpulseStrength.value = activeImpulse?.strength ?? 0;
     renderState.simulationPass.material.uniforms.uRippleRadius.value = rippleRadiusUv;
     renderState.simulationPass.material.uniforms.uRippleImpulse.value = settings.rippleImpulse * 1.9;
     renderState.simulationPass.material.uniforms.uDamping.value = settings.rippleDamping;
@@ -210,18 +280,13 @@ export function useWaterRuntime(settings, qualityProfile, mode) {
     restoreDefaultFramebuffer(gl);
 
     normalTargetRef.current = renderState.normal;
-    pointerState.hasImpulse = false;
-    pointerState.impulseStrength = 0;
+    // A queued impact wins this tick, but preserve an input the cursor may have
+    // written so it is consumed on the next tick instead of being silently lost.
+    if (!queuedImpulse && cursorImpulseActive) {
+      pointerState.hasImpulse = false;
+      pointerState.impulseStrength = 0;
+    }
   }, -10);
-
-  const worldToUv = useCallback((x, z) => {
-    const halfExtent = settings.waterExtent * 0.5;
-
-    return new THREE.Vector2(
-      clamp((x + halfExtent) / settings.waterExtent, 0.001, 0.999),
-      clamp((halfExtent - z) / settings.waterExtent, 0.001, 0.999),
-    );
-  }, [settings.waterExtent]);
 
   const sampleBoatProbes = useCallback((worldPoints) => {
     if (!stateRef.current || !normalTargetRef.current || worldPoints.length !== 5) {
@@ -255,11 +320,53 @@ export function useWaterRuntime(settings, qualityProfile, mode) {
     return probeResultsRef.current;
   }, [gl, renderState, worldToUv]);
 
+  const sampleWaterSurface = useCallback((worldPoint) => {
+    if (!worldPoint || !Number.isFinite(worldPoint.x) || !Number.isFinite(worldPoint.z)) {
+      return null;
+    }
+
+    const halfExtent = settings.waterExtent * 0.5;
+    if (Math.abs(worldPoint.x) > halfExtent || Math.abs(worldPoint.z) > halfExtent) {
+      return null;
+    }
+
+    const now = performance.now();
+    const cache = surfaceSampleCacheRef.current;
+    const unchangedPosition = Math.abs(cache.x - worldPoint.x) < 0.01
+      && Math.abs(cache.z - worldPoint.z) < 0.01;
+    if (unchangedPosition && (now - cache.sampledAt) < WATER_SURFACE_SAMPLE_CACHE_MS) {
+      return cache.result;
+    }
+
+    // The probe pass is fixed at five texels. Repeating the same point lets a
+    // caller ask for one surface sample without allocating a second GPU pathway.
+    const points = surfaceSamplePointsRef.current;
+    for (let index = 0; index < points.length; index += 1) {
+      points[index].set(worldPoint.x, worldPoint.y || 0, worldPoint.z);
+    }
+    const probes = sampleBoatProbes(points);
+    if (!probes) {
+      return null;
+    }
+
+    cache.x = worldPoint.x;
+    cache.z = worldPoint.z;
+    cache.sampledAt = now;
+    cache.result.height = probes[0].height;
+    // The visible water mesh applies this same vertical scale. Its base plane is
+    // currently world y=0; a future translated surface can add its world origin.
+    cache.result.worldY = probes[0].height * settings.waveAmplitude;
+    cache.result.normal.copy(probes[0].normal);
+    return cache.result;
+  }, [sampleBoatProbes, settings.waterExtent, settings.waveAmplitude]);
+
   return {
     currentStateTargetRef: stateRef,
     normalTargetRef,
     pointerStateRef,
+    emitWaterImpulse,
     sampleBoatProbes,
+    sampleWaterSurface,
     effectiveResolution,
   };
 }
