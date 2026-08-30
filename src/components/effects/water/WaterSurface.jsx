@@ -1,6 +1,7 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
+import { buildFarWaterFieldData } from './farWaterGeometry';
 import { BOAT_CUTOUT_STENCIL_REF, DEBUG_VIEW_IDS } from './constants';
 import { reflectionContext } from './reflectionContext';
 import { waterV2FragmentShader, waterV2VertexShader } from '../shaders/waterV2Shaders';
@@ -14,6 +15,10 @@ import {
 // boat's dry cockpit is cut from.
 
 export default function WaterSurfaceV2({ settings, runtime, qualityProfile, lighting, sky }) {
+  const surfaceEdgeBlendUv = useMemo(
+    () => buildFarWaterFieldData(settings.waterExtent).surfaceEdgeBlendUv,
+    [settings.waterExtent],
+  );
   const materialRef = useRef();
   const reflectionDataRef = React.useContext(reflectionContext);
   const debugView = DEBUG_VIEW_IDS[settings.debugView] ?? 0;
@@ -39,7 +44,9 @@ export default function WaterSurfaceV2({ settings, runtime, qualityProfile, ligh
     uCameraFar: { value: 1000 },
     uWaveAmplitude: { value: settings.waveAmplitude },
     uWaveChoppiness: { value: settings.waveChoppiness },
+    uSurfaceEdgeBlendUv: { value: surfaceEdgeBlendUv },
     uWaterTint: { value: new THREE.Color(settings.envTint) },
+    uDistantSurfaceColor: { value: new THREE.Color(settings.distantSurfaceColor) },
     uMoonDirection: { value: lightDirection.clone() },
     uMoonColor: { value: new THREE.Color().fromArray(lighting.key.colorLinear) },
     uMoonIntensity: { value: lighting.key.intensity },
@@ -89,6 +96,7 @@ export default function WaterSurfaceV2({ settings, runtime, qualityProfile, ligh
     lightDirection,
     lighting,
     settings.boatReflectionIntensity,
+    settings.distantSurfaceColor,
     settings.envTint,
     settings.moonSpecularPower,
     settings.moonSpecularStrength,
@@ -100,12 +108,15 @@ export default function WaterSurfaceV2({ settings, runtime, qualityProfile, ligh
     settings.waterTurbidity,
     settings.waveAmplitude,
     settings.waveChoppiness,
+    surfaceEdgeBlendUv,
   ]);
 
   useEffect(() => {
     uniforms.uWaveAmplitude.value = settings.waveAmplitude;
     uniforms.uWaveChoppiness.value = settings.waveChoppiness;
+    uniforms.uSurfaceEdgeBlendUv.value = surfaceEdgeBlendUv;
     uniforms.uWaterTint.value.set(settings.envTint);
+    uniforms.uDistantSurfaceColor.value.set(settings.distantSurfaceColor);
     uniforms.uMoonDirection.value.copy(lightDirection);
     uniforms.uMoonColor.value.fromArray(lighting.key.colorLinear);
     uniforms.uMoonIntensity.value = lighting.key.intensity;
@@ -139,6 +150,7 @@ export default function WaterSurfaceV2({ settings, runtime, qualityProfile, ligh
     lighting,
     settings.boatReflectionIntensity,
     settings.debugView,
+    settings.distantSurfaceColor,
     settings.envTint,
     settings.moonSpecularPower,
     settings.moonSpecularStrength,
@@ -150,6 +162,7 @@ export default function WaterSurfaceV2({ settings, runtime, qualityProfile, ligh
     settings.waterTurbidity,
     settings.waveAmplitude,
     settings.waveChoppiness,
+    surfaceEdgeBlendUv,
     uniforms,
   ]);
 

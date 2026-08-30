@@ -208,6 +208,7 @@ export const getBaseHomeSceneSettings = () => ({
   sunAngularSize: 1,
   skyTurbidity: 2.6,
   cloudCover: 0,
+  distantSurfaceColor: '#70716d',
   moonPhase: 0.5,
   moonBrightness: 1,
   envMode: 'sky',
@@ -684,6 +685,10 @@ const normalizeHomeSceneSettings = (savedSettings = {}, includeCameraSystem = tr
     sunAngularSize: clampFloat(merged.sunAngularSize, 0.2, 6, defaults.sunAngularSize),
     skyTurbidity: clampFloat(merged.skyTurbidity, 1, 10, defaults.skyTurbidity),
     cloudCover: clampFloat(merged.cloudCover, 0, 1, defaults.cloudCover),
+    distantSurfaceColor: pickColor(
+      merged.distantSurfaceColor,
+      defaults.distantSurfaceColor,
+    ),
     moonPhase: clampFloat(merged.moonPhase, 0, 1, defaults.moonPhase),
     moonBrightness: clampFloat(merged.moonBrightness, 0, 4, defaults.moonBrightness),
     envMode: ['sky', 'sky+hdri', 'hdri'].includes(merged.envMode)

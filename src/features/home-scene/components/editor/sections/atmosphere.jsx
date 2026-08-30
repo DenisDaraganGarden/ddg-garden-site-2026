@@ -94,6 +94,11 @@ export const LightSection = ({ settings, handleSettingChange }) => {
                 formatValue={(value) => Math.round(Number(value) * 100)}
                 onChange={(event) => handleSettingChange(event, 'cloudCover')}
             />
+            <ColorControl
+                label={t('homeEditor.controls.distantSurfaceColor')}
+                value={settings.distantSurfaceColor}
+                onChange={(event) => handleSettingChange(event, 'distantSurfaceColor', 'color')}
+            />
 
             <SectionHeading label={t('homeEditor.blocks.moon')} subtle />
             <RangeControl

@@ -118,6 +118,7 @@ export default function WaterLights({ settings, mode, qualityProfile, lighting, 
             keyGlowPower: lighting.sky.keyGlowPower,
             keyGlowStrength: lighting.sky.keyGlowStrength,
             skyLevel: lighting.sky.skyLevel,
+            lowerSurfaceColor: lighting.surface.color.linear,
           }}
       />
       {useHdri ? (

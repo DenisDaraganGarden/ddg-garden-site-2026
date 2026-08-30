@@ -32,6 +32,7 @@ const keys = [
   'sunAngularSize',
   'skyTurbidity',
   'cloudCover',
+  'distantSurfaceColor',
   'moonPhase',
   'moonBrightness',
   'envMode',

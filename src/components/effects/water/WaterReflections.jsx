@@ -136,6 +136,7 @@ export default function WaterReflections({
     interactionPlane: null,
     celestialDisc: null,
     skyDome: null,
+    farWaterSurface: null,
     boatAnchor: null,
     boat: null,
     sculptureAnchor: null,
@@ -226,6 +227,9 @@ export default function WaterReflections({
     if (!sceneObjects.skyDome || !sceneObjects.skyDome.parent) {
       sceneObjects.skyDome = scene.getObjectByName('sky-dome');
     }
+    if (!sceneObjects.farWaterSurface || !sceneObjects.farWaterSurface.parent) {
+      sceneObjects.farWaterSurface = scene.getObjectByName('far-water-surface');
+    }
     if (!sceneObjects.boatAnchor || !sceneObjects.boatAnchor.parent) {
       sceneObjects.boatAnchor = scene.getObjectByName('boat-anchor');
     }
@@ -245,6 +249,7 @@ export default function WaterReflections({
     const waterSurface = sceneObjects.waterSurface;
     const seabed = sceneObjects.seabed;
     const skyDome = sceneObjects.skyDome;
+    const farWaterSurface = sceneObjects.farWaterSurface;
     const surfaceVegetation = sceneObjects.surfaceVegetation;
     const underwaterAlgae = sceneObjects.underwaterAlgae;
     const interactionPlane = sceneObjects.interactionPlane;
@@ -352,6 +357,7 @@ export default function WaterReflections({
     const underwaterAlgaeWasVisible = underwaterAlgae?.visible ?? false;
     const celestialDiscWasVisible = celestialDisc?.visible ?? false;
     const skyDomeWasVisible = skyDome?.visible ?? false;
+    const farWaterSurfaceWasVisible = farWaterSurface?.visible ?? false;
     const fishSchoolWasVisible = fishSchool?.visible ?? false;
 
     if (waterSurface) waterSurface.visible = false;
@@ -364,6 +370,9 @@ export default function WaterReflections({
     // sky over the whole capture. Hidden in both passes, deliberately - the
     // water samples the same table directly, so it loses nothing.
     if (skyDome) skyDome.visible = false;
+    // The analytic outer surface belongs only to the final scene. Capturing it
+    // beneath the detailed pond would hide the real seabed and underwater life.
+    if (farWaterSurface) farWaterSurface.visible = false;
 
     const previousClearAlpha = gl.getClearAlpha();
     gl.getClearColor(reflectionPreviousClearColor);
@@ -372,6 +381,10 @@ export default function WaterReflections({
     const previousSceneBackground = scene.background;
     const previousClippingPlanes = gl.clippingPlanes;
     gl.shadowMap.autoUpdate = false;
+    // Both optical targets need transparent empty pixels. The scene background
+    // is opaque even after a clear with alpha zero, which made uncovered
+    // refraction read as a real near-black surface.
+    scene.background = null;
 
     try {
       if (refractionEnabled && refractionTarget) {
@@ -400,7 +413,6 @@ export default function WaterReflections({
         // Keep the reflection target transparent outside rendered objects.
         // The water shader already draws its own sky; capturing the scene
         // background here creates a dark, low-resolution duplicate of it.
-        scene.background = null;
         if (seabed) seabed.visible = false;
         // A pad lies on the mirror plane itself, so mirroring it welds a second
         // leaf to the first.
@@ -443,6 +455,7 @@ export default function WaterReflections({
       if (interactionPlane) interactionPlane.visible = true;
       if (celestialDisc) celestialDisc.visible = celestialDiscWasVisible;
       if (skyDome) skyDome.visible = skyDomeWasVisible;
+      if (farWaterSurface) farWaterSurface.visible = farWaterSurfaceWasVisible;
     }
   });
 

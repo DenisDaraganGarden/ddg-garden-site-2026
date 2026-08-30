@@ -19,6 +19,7 @@ export const waterV2VertexShader = `
   uniform mat4 uKeyShadowMatrix;
   uniform float uWaveAmplitude;
   uniform float uWaveChoppiness;
+  uniform float uSurfaceEdgeBlendUv;
 
   vec3 decodeNormal(vec3 packedNormal) {
     return normalize((packedNormal * 2.0) - 1.0);
@@ -30,8 +31,20 @@ export const waterV2VertexShader = `
     float rawHeight = texture2D(uState, uv).r;
     float smoothHeight = texture2D(uNormalMap, uv).a * 2.0 - 1.0;
     float heightSample = mix(rawHeight, smoothHeight, 0.84);
-    float displacement = heightSample * uWaveAmplitude;
     vec3 simulationNormal = decodeNormal(texture2D(uNormalMap, uv).rgb);
+    vec2 edgeLower = smoothstep(vec2(0.0), vec2(uSurfaceEdgeBlendUv), uv);
+    vec2 edgeUpper = 1.0 - smoothstep(
+      vec2(1.0 - uSurfaceEdgeBlendUv),
+      vec2(1.0),
+      uv
+    );
+    float surfaceEdgeFade = clamp(
+      edgeLower.x * edgeLower.y * edgeUpper.x * edgeUpper.y,
+      0.0,
+      1.0
+    );
+    float displacement = heightSample * uWaveAmplitude * surfaceEdgeFade;
+    simulationNormal = normalize(mix(vec3(0.0, 1.0, 0.0), simulationNormal, surfaceEdgeFade));
     vec3 displacedPosition = position;
     float choppiness = clamp(uWaveChoppiness, 0.0, 1.25);
 
@@ -55,7 +68,7 @@ export const waterV2VertexShader = `
     vKeyShadowCoord = uKeyShadowMatrix * vec4(worldPosition.xyz, 1.0);
     vWaterNormal = normalize(mat3(modelMatrix) * localNormal);
     vViewNormal = normalize(normalMatrix * localNormal);
-    vHeightSample = heightSample;
+    vHeightSample = heightSample * surfaceEdgeFade;
     vClipPosition = projectionMatrix * viewPosition;
     gl_Position = vClipPosition;
   }
@@ -89,7 +102,9 @@ export const waterV2FragmentShader = `
   uniform float uCameraNear;
   uniform float uCameraFar;
   uniform float uWaveAmplitude;
+  uniform float uSurfaceEdgeBlendUv;
   uniform vec3 uWaterTint;
+  uniform vec3 uDistantSurfaceColor;
   uniform vec3 uMoonDirection;
   uniform vec3 uMoonColor;
   uniform float uMoonIntensity;
@@ -201,8 +216,19 @@ export const waterV2FragmentShader = `
     return clamp(lower.x * lower.y * upper.x * upper.y, 0.0, 1.0);
   }
 
+  float surfaceEdgeMask(vec2 uv) {
+    vec2 lower = smoothstep(vec2(0.0), vec2(uSurfaceEdgeBlendUv), uv);
+    vec2 upper = 1.0 - smoothstep(
+      vec2(1.0 - uSurfaceEdgeBlendUv),
+      vec2(1.0),
+      uv
+    );
+    return clamp(lower.x * lower.y * upper.x * upper.y, 0.0, 1.0);
+  }
+
   void main() {
     float waveInfluence = clamp(uWaveAmplitude / 0.08, 0.0, 1.0);
+    float surfaceTransition = surfaceEdgeMask(vUv);
     vec3 normal = normalize(mix(vec3(0.0, 1.0, 0.0), normalize(vWaterNormal), waveInfluence));
     if (!gl_FrontFacing) {
       normal = -normal;
@@ -257,7 +283,13 @@ export const waterV2FragmentShader = `
     // The refraction target contains linear HDR lighting. Keep it in that
     // domain until the water, absorption and reflections have been combined;
     // the final renderer tone-maps the result exactly once.
-    vec3 refractedScene = max(texture2D(uRefractionTexture, refractUv).rgb, vec3(0.0));
+    vec4 refractionCapture = texture2D(uRefractionTexture, refractUv);
+    vec3 refractedScene = max(refractionCapture.rgb, vec3(0.0));
+    // Empty refraction pixels are transparent. Alpha is the coverage channel on
+    // low-power RGBA8 targets; desktop depth replaces it with an exact geometry
+    // test. Without this distinction the opaque scene background became a black
+    // underwater wall outside the finite seabed.
+    float refractionCoverage = clamp(refractionCapture.a, 0.0, 1.0);
     // Measure the actual water thickness to the first submerged surface from
     // the existing refraction depth buffer. This separates a nearby hull from
     // the deeper seabed without another render pass.
@@ -268,8 +300,11 @@ export const waterV2FragmentShader = `
       uWaterDepth * 4.0
     );
     float opticalPath = analyticPath;
+    float sceneDepth = 1.0;
     if (uRefractionDepthActive > 0.5) {
-      float sceneDepth = texture2D(uRefractionDepthTexture, refractUv).x;
+      sceneDepth = texture2D(uRefractionDepthTexture, refractUv).x;
+      refractionCoverage = step(0.000001, sceneDepth)
+        * (1.0 - step(0.999999, sceneDepth));
       if (sceneDepth > 0.000001 && sceneDepth < 0.999999) {
         vec3 surfaceViewPosition = (viewMatrix * vec4(vSurfaceWorldPosition, 1.0)).xyz;
         float sceneViewZ = perspectiveDepthToViewZLocal(sceneDepth, uCameraNear, uCameraFar);
@@ -328,16 +363,29 @@ export const waterV2FragmentShader = `
     // The fallback still contains normal- and environment-driven variation;
     // an unavailable offscreen target must never turn the surface into a flat
     // cyan rectangle.
+    vec3 distantBody = mix(
+      deepTint,
+      max(uDistantSurfaceColor, vec3(0.001)),
+      0.76
+    ) * (0.54 + sqrt(clamp(uEnvironmentExposure, 0.0, 2.2)) * 0.28);
     vec3 analyticRefraction = mix(
-      deepTint * (0.72 + vHeightSample * 0.08),
-      uEnvironmentHorizonColor * 0.34,
+      distantBody * (0.94 + vHeightSample * 0.06),
+      uEnvironmentHorizonColor * 0.26 + distantBody * 0.24,
       clamp(slope * 1.7 + fresnel * 0.28, 0.0, 0.72)
     );
-    refraction = mix(analyticRefraction, refraction, uRefractionActive);
+    refraction = mix(
+      analyticRefraction,
+      refraction,
+      clamp(uRefractionActive * refractionCoverage * surfaceTransition, 0.0, 1.0)
+    );
 
     vec3 reflectedRay = reflect(-viewDirection, normal);
     reflectedRay.y = abs(reflectedRay.y);
-    vec3 reflection = skyColor(reflectedRay, lightDirection, shadow);
+    vec3 reflection = skyColor(
+      reflectedRay,
+      lightDirection,
+      mix(1.0, shadow, surfaceTransition)
+    );
 
     vec4 reflectedPosition = uReflectionMatrix * vec4(vSurfaceWorldPosition, 1.0);
     vec2 reflectUv = (reflectedPosition.xy / max(reflectedPosition.w, 0.0001)) * 0.5 + 0.5;
@@ -371,6 +419,7 @@ export const waterV2FragmentShader = `
     // hard shadows when the camera looks down at the water.
     float reflectionStrength = clamp(uReflectionIntensity * 0.24, 0.0, 0.48);
     float reflectionMask = edgeMask(reflectUv)
+      * surfaceTransition
       * uReflectionActive
       * reflectionStrength
       * clamp(reflectedScene.a, 0.0, 1.0);
@@ -436,7 +485,7 @@ export const waterV2FragmentShader = `
     float waterGlint = 0.28 * (1.0 - exp(-rawWaterGlint * 2.4));
 
     vec3 color = mix(refraction, reflection, clamp(fresnel, 0.02, 0.96));
-    color += uMoonColor * moonHighlight * shadow;
+    color += uMoonColor * moonHighlight * shadow * surfaceTransition;
     vec3 glintContribution = mix(vec3(1.0), uMoonColor, 0.2)
       * waterGlint * 1.6 * shadow;
     // Micro-sparkles are detail, not a second sun. Keep them below the HDR bloom
@@ -445,7 +494,8 @@ export const waterV2FragmentShader = `
     float glintPeak = max(max(glintContribution.r, glintContribution.g), glintContribution.b);
     float colorPeak = max(max(color.r, color.g), color.b);
     float glintHeadroom = max(1.15 - colorPeak, 0.0);
-    glintContribution *= min(1.0, glintHeadroom / max(glintPeak, 1e-5));
+    glintContribution *= min(1.0, glintHeadroom / max(glintPeak, 1e-5))
+      * surfaceTransition;
     color += glintContribution;
     // A small neutral-blue crest lift keeps ripples legible without coupling
     // the reflection colour control to the water volume.
@@ -465,7 +515,7 @@ export const waterV2FragmentShader = `
     float cursorSurfaceResponse = 0.045
       + cursorDiffuse * 0.11
       + cursorSpecular * (0.38 + fresnel * 0.82);
-    color += cursorLight.radiance * cursorSurfaceResponse;
+    color += cursorLight.radiance * cursorSurfaceResponse * surfaceTransition;
 
     gl_FragColor = vec4(color, 1.0);
     #include <tonemapping_fragment>

@@ -24,6 +24,7 @@ import WaterInteractionPlane from './water/WaterInteractionPlane';
 import WaterReflections from './water/WaterReflections';
 import WaterLights from './water/WaterLights';
 import WaterSurfaceV2 from './water/WaterSurface';
+import FarWaterSurface from './water/FarWaterSurface';
 import Seabed from './water/Seabed';
 import { SurfaceVegetation } from './water/SurfaceVegetation';
 import { UnderwaterAlgae } from './water/UnderwaterAlgae';
@@ -331,6 +332,14 @@ function WaterRuntimeScene({
             runtime={runtime}
             qualityProfile={qualityProfile}
             mode={mode}
+          />
+        ) : null}
+        {settings.waterVisible && settings.debugView === 'beauty' ? (
+          <FarWaterSurface
+            settings={settings}
+            lighting={lighting}
+            sky={sky}
+            qualityProfile={qualityProfile}
           />
         ) : null}
         {settings.waterVisible ? (

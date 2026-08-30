@@ -27,6 +27,7 @@ const skyVertexShader = /* glsl */`
 
 const skyFragmentShader = /* glsl */`
   uniform float uSkyLevel;
+  uniform vec3 uLowerSurfaceColor;
   varying vec3 vRay;
 
   ${skyShaderChunk}
@@ -38,6 +39,22 @@ const skyFragmentShader = /* glsl */`
     vec3 ray = normalize(vRay);
     vec3 color = skyRadiance(ray) * uSkyLevel
       + celestialBody(ray, uKeyDirection, uKeyRadiance, uKeyCosRadius, uKeyGlowPower);
+
+    // The full-screen sky also owns rays below the horizon. Treat those pixels
+    // as the distant continuation of the water instead of exposing the renderer
+    // clear colour when the finite pond or its far shell leaves the frame.
+    float lowerMask = 1.0 - smoothstep(-0.025, 0.025, ray.y);
+    float lowerDepth = smoothstep(0.0, 0.82, -ray.y);
+    vec3 horizonRay = normalize(vec3(ray.x, 0.035, ray.z));
+    vec3 horizonColor = skyRadiance(horizonRay) * uSkyLevel;
+    vec3 lowerBase = max(uLowerSurfaceColor, vec3(0.001))
+      * (0.78 + clamp(uSkyLevel, 0.0, 2.0) * 0.08);
+    vec3 lowerSurface = mix(
+      mix(horizonColor, lowerBase, 0.58),
+      lowerBase * 0.74,
+      lowerDepth
+    );
+    color = mix(color, lowerSurface, lowerMask * 0.94);
 
     gl_FragColor = vec4(color, 1.0);
     #include <tonemapping_fragment>
@@ -69,6 +86,7 @@ export default function SkyDome({ sky }) {
     uKeyGlowPower: { value: 2000 },
     uKeyGlowStrength: { value: 1 },
     uSkyLevel: { value: 1 },
+    uLowerSurfaceColor: { value: new THREE.Color('#70716d') },
     uInverseProjection: { value: new THREE.Matrix4() },
     uInverseView: { value: new THREE.Matrix4() },
   }), []);
@@ -86,6 +104,7 @@ export default function SkyDome({ sky }) {
     uniforms.uKeyGlowPower.value = sky.keyGlowPower;
     uniforms.uKeyGlowStrength.value = sky.keyGlowStrength;
     uniforms.uSkyLevel.value = sky.skyLevel;
+    uniforms.uLowerSurfaceColor.value.fromArray(sky.lowerSurfaceColor);
   }, -3);
 
   if (!sky.texture) {

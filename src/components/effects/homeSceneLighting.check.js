@@ -31,8 +31,22 @@ const closeTo = (actual, expected, epsilon = 1e-10) => (
     publishedHomeSceneSettings.hemisphereSkyColor,
     'the hemisphere colour control must reach the renderer contract',
   );
+  assert.equal(
+    lighting.surface.color.hex,
+    publishedHomeSceneSettings.distantSurfaceColor,
+    'the distant surface colour must reach the renderer contract',
+  );
+  assert.deepEqual(
+    lighting.sky.groundAlbedo,
+    lighting.surface.color.linear,
+    'the visible lower hemisphere and distant water must share one authored colour',
+  );
+  const cloudyLighting = buildHomeSceneLighting({
+    ...publishedHomeSceneSettings,
+    cloudCover: 0.65,
+  });
   assert.ok(
-    lighting.shadow.intensity < publishedHomeSceneSettings.shadowIntensity,
+    cloudyLighting.shadow.intensity < publishedHomeSceneSettings.shadowIntensity,
     'cloud cover must soften direct shadows for every material path',
   );
   assert.ok(

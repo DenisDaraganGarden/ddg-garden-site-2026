@@ -124,6 +124,7 @@ export const buildHomeSceneLighting = (settings = {}) => {
     preset.scattering,
   );
   const waterTint = hexToLightingColor(settings.envTint, '#6b7484');
+  const distantSurface = hexToLightingColor(settings.distantSurfaceColor, '#70716d');
   const turbidity = clamp(finiteNumber(settings.waterTurbidity, 0), 0, 1);
   const keyLightType = settings.keyLightType === 'moon' ? 'moon' : 'sun';
   const ambientLightColor = hexToLightingColor(settings.ambientColor, '#202635');
@@ -265,7 +266,7 @@ export const buildHomeSceneLighting = (settings = {}) => {
       keyRadiance,
       skyTurbidity,
       cloudCover,
-      groundAlbedo: [0.08, 0.09, 0.07],
+      groundAlbedo: distantSurface.linear,
       // A real solar disc is 0.53 deg across; the slider scales that, and the
       // same number drives the glow falloff so a bigger disc is also a softer one.
       keyCosRadius: Math.cos(
@@ -282,6 +283,9 @@ export const buildHomeSceneLighting = (settings = {}) => {
       night,
       sunElevationDeg: sun.elevationDeg,
       moonIllumination: moon.illumination,
+    },
+    surface: {
+      color: distantSurface,
     },
     water: {
       tint: waterTint,
