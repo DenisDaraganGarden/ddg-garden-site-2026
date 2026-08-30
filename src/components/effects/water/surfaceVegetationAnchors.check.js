@@ -1,11 +1,14 @@
 // Run: node src/components/effects/water/surfaceVegetationAnchors.check.js
 
 import assert from 'node:assert/strict';
+import * as THREE from 'three';
 import { createSurfaceVegetationGeometry } from './vegetationGeometry.js';
 import {
   createSurfacePlantContactMap,
+  createSurfacePlantStemGeometry,
   getSurfaceVegetationAnchor,
-  getSurfaceVegetationStemTop,
+  getSurfaceVegetationStemClearance,
+  sampleSurfaceVegetationSeabedNormal,
   sampleSurfaceVegetationSeabedRelief,
 } from './surfaceVegetationAnchors.js';
 
@@ -31,17 +34,21 @@ assert.notEqual(
   0,
   'anchors should use the same non-flat relief field as the visible seabed',
 );
-assert.ok(
-  getSurfaceVegetationStemTop(settings) < settings.surfacePlantFloatOffset,
-  'a rigid stem must finish below the moving leaf instead of protruding into the air',
-);
+assert.ok(getSurfaceVegetationStemClearance() > 0, 'the live stem cap must stay below the leaf');
+const normal = sampleSurfaceVegetationSeabedNormal(anchor.x, anchor.z, settings, new THREE.Vector3());
+assert.ok(normal.y > 0 && Math.abs(normal.length() - 1) < 1e-6, 'contact decals must align to an upward seabed normal');
 
 const contactMap = createSurfacePlantContactMap(8);
 const pixels = contactMap.image.data;
-const centreAlpha = pixels[(4 * 8 + 4) * 4 + 3];
-const edgeAlpha = pixels[3];
-assert.ok(centreAlpha > edgeAlpha, 'contact mark must soften outwards instead of reading as a hard disc');
+const centreGreen = pixels[(4 * 8 + 4) * 4 + 1];
+const edgeGreen = pixels[1];
+assert.ok(centreGreen > edgeGreen, 'alphaMap must read a soft green-channel falloff');
+
+const stemGeometry = createSurfacePlantStemGeometry(4);
+assert.equal(stemGeometry.getAttribute('aStemBaseY').count, 4, 'stems need one seabed base per pad');
+assert.equal(stemGeometry.getAttribute('aStemWaterUv').count, 4, 'stems need one wave lookup per pad');
 
 geometry.dispose();
 contactMap.dispose();
+stemGeometry.dispose();
 console.log('surfaceVegetationAnchors: all checks passed');

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 
-const contactRotation = new THREE.Quaternion().setFromEuler(new THREE.Euler(-Math.PI / 2, 0, 0));
+const contactRotation = new THREE.Quaternion();
 const stemMatrix = new THREE.Matrix4();
 const contactMatrix = new THREE.Matrix4();
 const stemPosition = new THREE.Vector3();
@@ -8,6 +8,8 @@ const contactPosition = new THREE.Vector3();
 const stemScale = new THREE.Vector3();
 const contactScale = new THREE.Vector3();
 const identityRotation = new THREE.Quaternion();
+const contactBaseNormal = new THREE.Vector3(0, 0, 1);
+const contactNormal = new THREE.Vector3();
 
 const fract = (value) => value - Math.floor(value);
 
@@ -36,9 +38,21 @@ function seabedNoise(x, y) {
 // Matches the five-octave `sampleRelief` in waterRuntimeShaders.js. World Z is
 // flipped when the seabed plane rotates from XY into XZ, hence the UV mapping.
 export function sampleSurfaceVegetationSeabedRelief(worldX, worldZ, settings) {
+  const uv = getSurfaceVegetationSeabedUv(worldX, worldZ, settings);
+  return sampleSurfaceVegetationSeabedReliefAtUv(uv, settings);
+}
+
+function getSurfaceVegetationSeabedUv(worldX, worldZ, settings) {
   const extent = Math.max(Number(settings.waterExtent) || 0, 0.001);
-  let x = (worldX / extent) + 0.5;
-  let y = 0.5 - (worldZ / extent);
+  return new THREE.Vector2(
+    (worldX / extent) + 0.5,
+    0.5 - (worldZ / extent),
+  );
+}
+
+function sampleSurfaceVegetationSeabedReliefAtUv(uv, settings) {
+  let x = uv.x;
+  let y = uv.y;
   let value = 0;
   let amplitude = 0.5;
   const reliefScale = Number(settings.seabedReliefScale) || 0;
@@ -53,6 +67,36 @@ export function sampleSurfaceVegetationSeabedRelief(worldX, worldZ, settings) {
   }
 
   return (value - 0.5) * (Number(settings.seabedReliefStrength) || 0);
+}
+
+// Uses the same 0.015 UV central point and forward differences as the seabed
+// vertex shader, then rotates that local-plane normal into world XZ space.
+export function sampleSurfaceVegetationSeabedNormal(worldX, worldZ, settings, target) {
+  const uv = getSurfaceVegetationSeabedUv(worldX, worldZ, settings);
+  const relief = sampleSurfaceVegetationSeabedReliefAtUv(uv, settings);
+  const step = 0.015;
+  const dx = sampleSurfaceVegetationSeabedReliefAtUv(
+    new THREE.Vector2(uv.x + step, uv.y),
+    settings,
+  ) - relief;
+  const dy = sampleSurfaceVegetationSeabedReliefAtUv(
+    new THREE.Vector2(uv.x, uv.y + step),
+    settings,
+  ) - relief;
+  return target.set(-dx, 1, dy).normalize();
+}
+
+export function createSurfacePlantStemGeometry(maxInstances) {
+  const geometry = new THREE.CylinderGeometry(1, 0.72, 1, 5, 1, true);
+  geometry.setAttribute(
+    'aStemBaseY',
+    new THREE.InstancedBufferAttribute(new Float32Array(maxInstances), 1),
+  );
+  geometry.setAttribute(
+    'aStemWaterUv',
+    new THREE.InstancedBufferAttribute(new Float32Array(maxInstances * 2), 2),
+  );
+  return geometry;
 }
 
 export function getSurfaceVegetationAnchor(geometry, index, settings) {
@@ -71,14 +115,8 @@ export function getSurfaceVegetationAnchor(geometry, index, settings) {
   };
 }
 
-export function getSurfaceVegetationStemTop(settings) {
-  const floatOffset = Number(settings.surfacePlantFloatOffset) || 0;
-  const waveAmplitude = Math.abs(Number(settings.waveAmplitude) || 0);
-
-  // Stop just below the pad's moving centre. The leaf itself hides this small
-  // overlap, while retracting by part of the wave envelope prevents a rigid
-  // cylinder from poking into the air when the simulated surface falls.
-  return floatOffset - waveAmplitude * 0.75 - 0.004;
+export function getSurfaceVegetationStemClearance() {
+  return 0.016;
 }
 
 // The leaf mesh already owns the deterministic scatter. Reusing its attributes
@@ -86,34 +124,54 @@ export function getSurfaceVegetationStemTop(settings) {
 // calls: slender stems and soft, depth-darkened attachment marks on the bed.
 export function updateSurfaceVegetationAnchors({
   geometry,
+  stemGeometry,
   stemMesh,
   contactMesh,
   maxInstances,
   settings,
 }) {
-  if (!stemMesh || !contactMesh) return;
+  if (!stemMesh || !contactMesh || !stemGeometry) return;
 
   const count = Math.round(
     THREE.MathUtils.clamp(settings.surfacePlantAmount, 0, 1) * maxInstances,
   );
   const waterDepth = Math.max(Number(settings.waterDepthMeters) || 0, 0.03);
-  const stemTopY = getSurfaceVegetationStemTop(settings);
+  const stemBaseY = stemGeometry.getAttribute('aStemBaseY');
+  const stemWaterUv = stemGeometry.getAttribute('aStemWaterUv');
 
   for (let index = 0; index < count; index += 1) {
     const anchor = getSurfaceVegetationAnchor(geometry, index, settings);
+    const waterUv = getSurfaceVegetationSeabedUv(anchor.x, anchor.z, settings);
     const relief = sampleSurfaceVegetationSeabedRelief(anchor.x, anchor.z, settings);
     const seabedY = -waterDepth + relief;
-    const stemHeight = Math.max(0.03, stemTopY - seabedY);
+    const insideWater = waterUv.x >= 0.012
+      && waterUv.x <= 0.988
+      && waterUv.y >= 0.012
+      && waterUv.y <= 0.988;
     const stemRadius = THREE.MathUtils.lerp(0.0024, 0.0052, anchor.sizeVariation);
     const contactRadius = Math.max(0.028, settings.surfacePlantSize * anchor.sizeVariation * 0.31);
+    stemBaseY.setX(index, seabedY);
+    stemWaterUv.setXY(index, waterUv.x, waterUv.y);
 
-    stemPosition.set(anchor.x, seabedY + stemHeight * 0.5, anchor.z);
-    stemScale.set(stemRadius, stemHeight, stemRadius);
+    if (!insideWater) {
+      stemScale.set(0, 0, 0);
+      stemMatrix.compose(stemPosition.set(0, 0, 0), identityRotation, stemScale);
+      stemMesh.setMatrixAt(index, stemMatrix);
+      contactMesh.setMatrixAt(index, stemMatrix);
+      continue;
+    }
+
+    // Height is resolved in the stem shader from the same wave textures as the
+    // leaf. Keep only horizontal placement and radius in the instance matrix.
+    stemPosition.set(anchor.x, 0, anchor.z);
+    stemScale.set(stemRadius, 1, stemRadius);
     stemMatrix.compose(stemPosition, identityRotation, stemScale);
     stemMesh.setMatrixAt(index, stemMatrix);
 
-    contactPosition.set(anchor.x, seabedY + 0.006, anchor.z);
+    sampleSurfaceVegetationSeabedNormal(anchor.x, anchor.z, settings, contactNormal);
+    contactPosition.set(anchor.x, seabedY, anchor.z).addScaledVector(contactNormal, 0.006);
     contactScale.set(contactRadius, contactRadius, 1);
+    contactRotation.setFromUnitVectors(contactBaseNormal, contactNormal);
     contactMatrix.compose(contactPosition, contactRotation, contactScale);
     contactMesh.setMatrixAt(index, contactMatrix);
   }
@@ -122,6 +180,8 @@ export function updateSurfaceVegetationAnchors({
   contactMesh.count = count;
   stemMesh.instanceMatrix.needsUpdate = true;
   contactMesh.instanceMatrix.needsUpdate = true;
+  stemBaseY.needsUpdate = true;
+  stemWaterUv.needsUpdate = true;
 }
 
 export function createSurfacePlantContactMap(size = 32) {
@@ -134,9 +194,12 @@ export function createSurfacePlantContactMap(size = 32) {
       const falloff = 1 - THREE.MathUtils.smoothstep(distance, 0.16, 1);
       const alpha = Math.round(falloff * falloff * 178);
       const offset = (y * size + x) * 4;
-      data[offset] = 255;
-      data[offset + 1] = 255;
-      data[offset + 2] = 255;
+      // Three's alphaMap shader chunk samples the green channel, not alpha.
+      // Keep alpha in sync for inspection/export, but write the live falloff to
+      // RGB so the soft decal survives material compilation on every renderer.
+      data[offset] = alpha;
+      data[offset + 1] = alpha;
+      data[offset + 2] = alpha;
       data[offset + 3] = alpha;
     }
   }

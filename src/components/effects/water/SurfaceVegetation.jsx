@@ -14,8 +14,26 @@ import {
 import { createSurfaceVegetationGeometry } from './vegetationGeometry';
 import {
   createSurfacePlantContactMap,
+  createSurfacePlantStemGeometry,
+  getSurfaceVegetationStemClearance,
   updateSurfaceVegetationAnchors,
 } from './surfaceVegetationAnchors';
+
+const stemWaveVertexChunk = `
+  uniform sampler2D uStemState;
+  uniform sampler2D uStemNormalMap;
+  uniform float uStemWaveAmplitude;
+  uniform float uStemFloatOffset;
+  uniform float uStemClearance;
+  attribute float aStemBaseY;
+  attribute vec2 aStemWaterUv;
+
+  float stemWaterHeightAt(vec2 waterUv) {
+    float rawHeight = texture2D(uStemState, waterUv).r;
+    float smoothHeight = texture2D(uStemNormalMap, waterUv).a * 2.0 - 1.0;
+    return mix(rawHeight, smoothHeight, 0.84) * uStemWaveAmplitude;
+  }
+`;
 
 // Lily pads riding the surface. They read the same height field the water does,
 // so a pad sits on the wave rather than through it.
@@ -75,22 +93,49 @@ export function SurfaceVegetation({ settings, runtime, qualityProfile, lighting 
     settings.waterExtent,
     settings.waveAmplitude,
   ]);
-  const stemGeometry = useMemo(
-    () => new THREE.CylinderGeometry(1, 0.72, 1, 5, 1, true),
-    [],
-  );
+  const stemGeometry = useMemo(() => createSurfacePlantStemGeometry(maxInstances), [maxInstances]);
   const contactGeometry = useMemo(
     () => new THREE.CircleGeometry(1, 20),
     [],
   );
   const contactMap = useMemo(() => createSurfacePlantContactMap(), []);
-  const stemMaterial = useMemo(() => new THREE.MeshBasicMaterial({
-    color: '#1a2b1a',
-    side: THREE.DoubleSide,
-    depthWrite: true,
-    depthTest: true,
-    toneMapped: true,
+  const stemWaveUniforms = useMemo(() => ({
+    uStemState: { value: null },
+    uStemNormalMap: { value: null },
+    uStemWaveAmplitude: { value: 0.05 },
+    uStemFloatOffset: { value: 0.022 },
+    uStemClearance: { value: getSurfaceVegetationStemClearance() },
   }), []);
+  const stemMaterial = useMemo(() => {
+    const material = new THREE.MeshBasicMaterial({
+      color: '#1a2b1a',
+      side: THREE.DoubleSide,
+      depthWrite: true,
+      depthTest: true,
+      toneMapped: true,
+    });
+    material.onBeforeCompile = (shader) => {
+      Object.assign(shader.uniforms, stemWaveUniforms);
+      shader.vertexShader = shader.vertexShader
+        .replace('#include <common>', `#include <common>\n${stemWaveVertexChunk}`)
+        .replace(
+          '#include <begin_vertex>',
+          `
+            float stemTopY = stemWaterHeightAt(aStemWaterUv)
+              + uStemFloatOffset
+              - uStemClearance;
+            float stemHeight = max(0.03, stemTopY - aStemBaseY);
+            vec3 transformed = vec3(
+              position.x,
+              aStemBaseY + (position.y + 0.5) * stemHeight,
+              position.z
+            );
+          `,
+        );
+    };
+    material.customProgramCacheKey = () => 'ddg-surface-plant-stem-waterline-v1';
+    return material;
+  }, [stemWaveUniforms]);
   const contactMaterial = useMemo(() => new THREE.MeshBasicMaterial({
     alphaMap: contactMap,
     color: '#07100b',
@@ -156,12 +201,13 @@ export function SurfaceVegetation({ settings, runtime, qualityProfile, lighting 
     geometry.instanceCount = count;
     updateSurfaceVegetationAnchors({
       geometry,
+      stemGeometry,
       stemMesh: stemMeshRef.current,
       contactMesh: contactMeshRef.current,
       maxInstances,
       settings: anchorSettings,
     });
-  }, [anchorSettings, geometry, maxInstances]);
+  }, [anchorSettings, geometry, maxInstances, stemGeometry]);
 
   useEffect(() => {
     uniforms.uCenter.value.set(settings.surfacePlantCenterX, settings.surfacePlantCenterZ);
@@ -184,12 +230,16 @@ export function SurfaceVegetation({ settings, runtime, qualityProfile, lighting 
     uniforms.uMoonDirection.value.copy(lightDirection);
     uniforms.uMoonColor.value.fromArray(lighting.key.colorLinear);
     uniforms.uMoonIntensity.value = lighting.key.intensity;
-  }, [lightDirection, lighting, settings, uniforms]);
+    stemWaveUniforms.uStemWaveAmplitude.value = settings.waveAmplitude;
+    stemWaveUniforms.uStemFloatOffset.value = settings.surfacePlantFloatOffset;
+  }, [lightDirection, lighting, settings, stemWaveUniforms, uniforms]);
 
   useFrame(({ clock }) => {
     syncCursorFlashlightUniforms(uniforms);
     uniforms.uState.value = runtime.currentStateTargetRef.current?.texture ?? null;
     uniforms.uNormalMap.value = runtime.normalTargetRef.current?.texture ?? null;
+    stemWaveUniforms.uStemState.value = runtime.currentStateTargetRef.current?.texture ?? null;
+    stemWaveUniforms.uStemNormalMap.value = runtime.normalTargetRef.current?.texture ?? null;
     uniforms.uTime.value = clock.elapsedTime;
     const reflectionTexture = reflectionDataRef.current.texture;
     uniforms.uReflectionTexture.value = reflectionTexture;
