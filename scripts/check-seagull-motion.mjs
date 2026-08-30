@@ -142,6 +142,7 @@ function checkShadowLod() {
     { index: 3, position: new THREE.Vector3(0.4, 3.4, 0), route: FLIGHT_ROUTE.HIGH },
     { index: 4, position: new THREE.Vector3(0.2, -0.7, 0), shotState: 'removed' },
     { index: 5, position: new THREE.Vector3(12, -0.72, 0), route: FLIGHT_ROUTE.WATERLINE },
+    { index: 6, position: new THREE.Vector3(11, 2.2, 0), shotState: 'falling' },
   ];
   const options = {
     waterY,
@@ -159,6 +160,7 @@ function checkShadowLod() {
   assert.ok(!first.has(3), 'high circling birds must not consume a native shadow draw');
   assert.ok(!first.has(4), 'removed birds must never cast');
   assert.ok(!first.has(5), 'airborne birds outside the receiver footprint must not cast');
+  assert.ok(!first.has(6), 'falling birds outside the receiver footprint must not consume the shadow budget');
   assert.equal(resolveSeagullShadowCasters(agents, { ...options, enabled: false }).size, 0);
   assert.equal(resolveSeagullShadowCasters(agents, { ...options, isLowPower: true }).size, 0);
   assert.equal(resolveSeagullShadowCasters(agents, { ...options, isMobile: true }).size, 0);
