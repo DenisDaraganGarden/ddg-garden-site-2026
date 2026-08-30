@@ -904,10 +904,18 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
     gl.getDrawingBufferSize(drawingBufferSize.current);
     const width = Math.max(1, Math.round(drawingBufferSize.current.x * renderScale));
     const height = Math.max(1, Math.round(drawingBufferSize.current.y * renderScale));
-    if (lastTargetSize.current.x !== width || lastTargetSize.current.y !== height) {
+    const bloomWidth = Math.max(1, Math.ceil(width * 0.25));
+    const bloomHeight = Math.max(1, Math.ceil(height * 0.25));
+    // `useMemo` recreates targets when their type/MSAA capability changes. The
+    // previous target's dimensions may match this viewport while the new target
+    // is still its 1x1 constructor size, so inspect the targets themselves too.
+    const targetNeedsResize = lastTargetSize.current.x !== width
+      || lastTargetSize.current.y !== height
+      || renderTarget.width !== width
+      || renderTarget.height !== height
+      || bloomTargets.some((target) => target.width !== bloomWidth || target.height !== bloomHeight);
+    if (targetNeedsResize) {
       renderTarget.setSize(width, height);
-      const bloomWidth = Math.max(1, Math.ceil(width * 0.25));
-      const bloomHeight = Math.max(1, Math.ceil(height * 0.25));
       bloomTargets.forEach((target) => target.setSize(bloomWidth, bloomHeight));
       lastTargetSize.current.set(width, height);
       uniforms.uResolution.value.set(width, height);

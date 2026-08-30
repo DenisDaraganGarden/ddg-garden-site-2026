@@ -1,4 +1,8 @@
 import * as THREE from 'three';
+import {
+  DEVICE_PERFORMANCE_TIER,
+  readRuntimeDevicePerformanceTier,
+} from './deviceCapabilityProfile';
 
 // How much of the scene a given device is asked to draw.
 //
@@ -24,32 +28,12 @@ export function detectQualityTier() {
     return qualityTierCache;
   }
 
-  const deviceMemory = typeof navigator.deviceMemory === 'number'
-    ? navigator.deviceMemory
-    : null;
-  const hardwareConcurrency = typeof navigator.hardwareConcurrency === 'number'
-    ? navigator.hardwareConcurrency
-    : null;
-  // Safari never exposes deviceMemory, and iOS reports 4 cores even on a current
-  // iPhone Pro. Judging that by core count alone demoted every iPhone to the low
-  // tier. Only trust a small core count as a weak-device signal when deviceMemory
-  // is present to corroborate it (Chrome/Android); otherwise assume a capable GPU.
-  const hasMemoryHint = deviceMemory !== null;
-  // Four gigabytes is still common on capable, eight-core Android phones. It
-  // needs smaller transient buffers, not the low-content scene profile.
-  const isLowTier = hasMemoryHint
-    ? (deviceMemory <= 2 || (deviceMemory <= 3 && hardwareConcurrency !== null && hardwareConcurrency <= 4))
-    : (hardwareConcurrency !== null && hardwareConcurrency <= 2);
-  const isMediumTier = hasMemoryHint
-    ? deviceMemory <= 6
-    : (hardwareConcurrency !== null && hardwareConcurrency <= 6);
-
-  if (isLowTier) {
-    qualityTierCache = QUALITY_TIER.low;
-    return qualityTierCache;
-  }
-
-  qualityTierCache = isMediumTier ? QUALITY_TIER.medium : QUALITY_TIER.high;
+  const tier = readRuntimeDevicePerformanceTier();
+  qualityTierCache = tier === DEVICE_PERFORMANCE_TIER.low
+    ? QUALITY_TIER.low
+    : tier === DEVICE_PERFORMANCE_TIER.medium
+      ? QUALITY_TIER.medium
+      : QUALITY_TIER.high;
   return qualityTierCache;
 }
 

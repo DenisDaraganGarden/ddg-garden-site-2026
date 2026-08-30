@@ -111,6 +111,37 @@ function createDepthTexture(gl) {
   return texture;
 }
 
+function createDepthStencilTexture(gl) {
+  const texture = gl.createTexture();
+  if (!texture) return null;
+
+  const webgl2 = isWebGl2(gl);
+  const depthTextureExtension = webgl2 ? null : gl.getExtension('WEBGL_depth_texture');
+  const packedDepthStencilExtension = webgl2 ? null : gl.getExtension('OES_packed_depth_stencil');
+  if (!webgl2 && (!depthTextureExtension || !packedDepthStencilExtension)) {
+    gl.deleteTexture(texture);
+    return null;
+  }
+
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.texImage2D(
+    gl.TEXTURE_2D,
+    0,
+    webgl2 ? gl.DEPTH24_STENCIL8 : gl.DEPTH_STENCIL,
+    PROBE_SIZE,
+    PROBE_SIZE,
+    0,
+    gl.DEPTH_STENCIL,
+    webgl2 ? gl.UNSIGNED_INT_24_8 : depthTextureExtension.UNSIGNED_INT_24_8_WEBGL,
+    null,
+  );
+  return texture;
+}
+
 function createDepthRenderbuffer(gl, depthStencil) {
   const buffer = gl.createRenderbuffer();
   if (!buffer) return null;
@@ -161,6 +192,16 @@ function probeFramebuffer(gl, { colorType, depthMode = 'none', depthStencil = fa
       depthTexture = createDepthTexture(gl);
       if (!depthTexture) return false;
       gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, depthTexture, 0);
+    } else if (depthMode === 'depth-stencil-texture') {
+      depthTexture = createDepthStencilTexture(gl);
+      if (!depthTexture) return false;
+      gl.framebufferTexture2D(
+        gl.FRAMEBUFFER,
+        gl.DEPTH_STENCIL_ATTACHMENT,
+        gl.TEXTURE_2D,
+        depthTexture,
+        0,
+      );
     } else if (depthMode === 'renderbuffer') {
       depthBuffer = createDepthRenderbuffer(gl, depthStencil);
       if (!depthBuffer) return false;
@@ -228,13 +269,11 @@ export function probeRenderTargetCapabilities(rendererOrContext) {
 
   const halfFloatDepthStencil = probeFramebuffer(gl, {
     colorType: 'half-float',
-    depthMode: 'renderbuffer',
-    depthStencil: true,
+    depthMode: 'depth-stencil-texture',
   });
   const rgba8DepthStencil = probeFramebuffer(gl, {
     colorType: 'rgba8',
-    depthMode: 'renderbuffer',
-    depthStencil: true,
+    depthMode: 'depth-stencil-texture',
   });
   const opticsProbes = {
     'half-float': {

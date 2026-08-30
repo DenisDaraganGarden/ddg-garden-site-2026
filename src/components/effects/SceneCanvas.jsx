@@ -2,6 +2,7 @@ import React, { Component, useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { useLanguage } from '../../i18n/useLanguage';
+import { DEVICE_PERFORMANCE_TIER, readRuntimeDevicePerformanceTier } from './deviceCapabilityProfile';
 import { getRenderTargetCapabilities } from './renderTargetCapabilities';
 
 let webglSupportCache;
@@ -39,20 +40,7 @@ function getCanvasProfile(mode, renderScale = 1) {
   }
 
   const isEditor = mode === 'editor';
-  const hasNavigator = typeof navigator !== 'undefined';
-  const deviceMemory = hasNavigator && typeof navigator.deviceMemory === 'number'
-    ? navigator.deviceMemory
-    : null;
-  const hardwareConcurrency = hasNavigator && typeof navigator.hardwareConcurrency === 'number'
-    ? navigator.hardwareConcurrency
-    : null;
-  // Being on a touchscreen is not evidence of being slow. Safari exposes no
-  // deviceMemory and reports 4 cores on a current iPhone, so treat a small core
-  // count as a weakness signal only when deviceMemory corroborates it.
-  const hasMemoryHint = deviceMemory !== null;
-  const isWeakDevice = hasMemoryHint
-    ? (deviceMemory <= 4 || (hardwareConcurrency !== null && hardwareConcurrency <= 4))
-    : (hardwareConcurrency !== null && hardwareConcurrency <= 2);
+  const isWeakDevice = readRuntimeDevicePerformanceTier() === DEVICE_PERFORMANCE_TIER.low;
 
   // Budget the shaded pixels instead of branching on viewport width. The frame is
   // a short 2.78:1 band, so its area grows as width^2 / 2.78 - a phone can afford
