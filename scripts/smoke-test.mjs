@@ -1043,12 +1043,10 @@ async function runRuntimeStabilityChecks(browser) {
 
   for (let cycle = 0; cycle < 2; cycle += 1) {
     await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
-    await settlePage(page, 350);
-    homeSamples.push(await waitForRuntimeMetrics(page, 'water-scene'));
+    homeSamples.push(await waitForSettledRuntimeMetrics(page, 'water-scene', 30000));
 
     await page.goto(`${baseUrl}/home/edit`, { waitUntil: 'domcontentloaded' });
-    await settlePage(page, 600);
-    editorSamples.push(await waitForRuntimeMetrics(page, 'home-scene-editor'));
+    editorSamples.push(await waitForSettledRuntimeMetrics(page, 'home-scene-editor', 30000));
   }
 
   assertStableMetricSeries(homeSamples, (sample) => sample.renderer.geometries, 'Home geometries', 4);
