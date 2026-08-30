@@ -43,3 +43,9 @@
     overflow-x: auto;
   }
 }
+
+@media (max-width: 1180px) {
+  .seagull-lab .fish-lab__note span:not(:first-child) {
+    display: none;
+  }
+}

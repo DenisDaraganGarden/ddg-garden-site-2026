@@ -47,6 +47,16 @@ export default function SeagullLab() {
     startled: 0,
     minHeight: 12,
     maxHeight: 28,
+    shells: 2,
+    reloading: false,
+    reloadRemaining: 0,
+    shots: 0,
+    hits: 0,
+    downed: 0,
+    falling: 0,
+    sliding: 0,
+    resting: 0,
+    flockAlarm: false,
   });
 
   const chooseMode = (nextMode) => {
@@ -138,12 +148,18 @@ export default function SeagullLab() {
             <span className="fish-lab__budget">в проекте: {Math.round(stats.minHeight)}–{Math.round(stats.maxHeight)} м</span>
           </>
         )}
+        <span className="fish-lab__budget">
+          <b>{stats.reloading ? `${stats.reloadRemaining.toFixed(1)}с` : `${stats.shells}/2`}</b>{' '}
+          {stats.reloading ? 'перезарядка' : 'ствола'}
+        </span>
+        {stats.downed > 0 && <span><b>{stats.downed}</b> подбито</span>}
+        {stats.flockAlarm && <span><b>40с+</b> возврат</span>}
       </footer>
 
       <div className="fish-lab__note">
-        <span>ЛКМ — вращение</span>
+        <span>ЛКМ по птице — выстрел · по фону — вращение</span>
         <span>Колесо — масштаб</span>
-        <span>{mode === 'landing' ? 'Наведи на близкую чайку — сидящая взлетит, летящая сменит курс' : 'Лаборатория замедляет физическую скорость для осмотра'}</span>
+        <span>{mode === 'landing' ? '2 ствола · перья без крови · стая возвращается постепенно' : 'Выстрел сохраняет направление полёта и включает физическое падение'}</span>
       </div>
     </div>
   );

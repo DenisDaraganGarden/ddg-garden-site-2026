@@ -101,12 +101,16 @@ export default function SeagullLandingStage({ landingSitesRef }) {
 
   useLayoutEffect(() => {
     landingSitesRef.current = specs
-      .map((spec, index) => ({ ...spec, object: siteObjects.current[index] }))
+      .map((spec, index) => ({
+        ...spec,
+        object: siteObjects.current[index],
+        collisionObject: index < boatSites.length ? boat : sculpture,
+      }))
       .filter((site) => site.object);
     return () => {
       landingSitesRef.current = [];
     };
-  }, [landingSitesRef, specs]);
+  }, [boat, boatSites.length, landingSitesRef, sculpture, specs]);
 
   useEffect(() => () => {
     boatMaterial.dispose();

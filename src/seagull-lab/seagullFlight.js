@@ -4,10 +4,16 @@ import {
   LANDING_STATE,
   prepareLandingMode,
   resetLandingMode,
+  scareLandingAgent,
   scheduleLanding,
   updateLandingMotion,
 } from './seagullLanding.js';
 import { pointerAvoidanceOffset } from './seagullPointerInteraction.js';
+import {
+  advanceShotFear,
+  getDownedRigPose,
+  shotFearOffset,
+} from './seagullShooting.js';
 
 const FORWARD = new THREE.Vector3(1, 0, 0);
 const UP = new THREE.Vector3(0, 1, 0);
@@ -164,6 +170,11 @@ function writeTarget(agent, time, mode = 'flight') {
   if (avoidanceOffset > 0) {
     agent.target.addScaledVector(agent.pointerAvoidance, avoidanceOffset);
   }
+  const fearOffset = shotFearOffset(agent);
+  if (fearOffset > 0 && agent.shotFearDirection) {
+    agent.target.addScaledVector(agent.shotFearDirection, fearOffset);
+    agent.target.y += fearOffset * 0.16;
+  }
 }
 
 function routeHeightMeters(agent) {
@@ -305,7 +316,14 @@ function chooseState(agent, mode) {
   }
 }
 
-export function updateFlightAgents(agents, time, delta, mode, landingSites = []) {
+export function updateFlightAgents(
+  agents,
+  time,
+  delta,
+  mode,
+  landingSites = [],
+  interactionTime = time,
+) {
   const specimen = mode === 'specimen';
   if (specimen) {
     for (const agent of agents) {
@@ -322,6 +340,24 @@ export function updateFlightAgents(agents, time, delta, mode, landingSites = [])
     return;
   }
 
+  for (const agent of agents) {
+    if (agent.shotState) continue;
+    const fear = advanceShotFear(agent, interactionTime);
+    if (
+      Number.isFinite(agent.shotFearReturnStart)
+      && interactionTime < agent.shotFearReturnStart
+    ) {
+      agent.nextLandingTime = Math.max(
+        Number.isFinite(agent.nextLandingTime) ? agent.nextLandingTime : 0,
+        time + 3.2,
+      );
+    }
+    if (!fear.startle) continue;
+    scareLandingAgent(agent, time, agent.shotFearDirection);
+    agent.state = 'flap';
+    agent.stateTime = Math.max(agent.stateTime ?? 0, 2.4);
+  }
+
   const landingMode = mode === 'landing';
   if (landingMode) {
     prepareLandingMode(agents);
@@ -332,6 +368,7 @@ export function updateFlightAgents(agents, time, delta, mode, landingSites = [])
 
   const freeAgents = [];
   for (const agent of agents) {
+    if (agent.shotState) continue;
     if (landingMode && updateLandingMotion(agent, time, delta, landingSites)) {
       if (agent.state === 'flap') agent.phase += delta * agent.flapFrequency * Math.PI * 2;
       else agent.phase += delta * Math.PI * 0.25;
@@ -416,6 +453,8 @@ export function updateFlightAgents(agents, time, delta, mode, landingSites = [])
 }
 
 export function getWingPose(agent) {
+  const downedPose = getDownedRigPose(agent);
+  if (downedPose) return downedPose;
   const landingPose = getLandingRigPose(agent);
   const rig = {
     fold: landingPose?.fold ?? 0,

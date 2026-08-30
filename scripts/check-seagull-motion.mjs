@@ -26,6 +26,15 @@ import {
   pointerAvoidanceOffset,
   SEAGULL_POINTER_LAW,
 } from '../src/seagull-lab/seagullPointerInteraction.js';
+import {
+  advanceDownedSeagulls,
+  advanceSeagullShootingRuntime,
+  createSeagullShootingRuntime,
+  findSeagullShotTarget,
+  fireSeagullShot,
+  SEAGULL_DOWNED_STATE,
+  SEAGULL_SHOOTING_LAW,
+} from '../src/seagull-lab/seagullShooting.js';
 
 globalThis.ProgressEvent ??= class ProgressEvent {
   constructor(type, init = {}) {
@@ -301,6 +310,284 @@ function checkPointerInteractionLaw() {
 }
 
 const pointerInteractionCheck = checkPointerInteractionLaw();
+
+function checkShootingMechanic() {
+  const viewport = { width: 1920, height: 1080 };
+  const pointer = new THREE.Vector2(0, 0);
+  const camera = makePerspectiveCamera(8);
+  const targetAgents = createFlightAgents(1);
+  targetAgents[0].position.set(0, 0, 0);
+  targetAgents[0].modelScale = 1;
+  const visibleTarget = findSeagullShotTarget(
+    targetAgents,
+    camera,
+    viewport,
+    pointer,
+  );
+  assert.equal(visibleTarget?.index, 0, 'centered visible gull must be targetable by LMB');
+
+  const occlusionScene = new THREE.Scene();
+  const occluder = new THREE.Group();
+  const occluderMesh = new THREE.Mesh(
+    new THREE.BoxGeometry(2, 2, 0.2),
+    new THREE.MeshBasicMaterial({ side: THREE.DoubleSide }),
+  );
+  const occlusionAnchor = new THREE.Object3D();
+  occluder.position.z = 2;
+  occluder.add(occluderMesh, occlusionAnchor);
+  occlusionScene.add(occluder);
+  occlusionScene.updateMatrixWorld(true);
+  const occludedTarget = findSeagullShotTarget(
+    targetAgents,
+    camera,
+    viewport,
+    pointer,
+    [{ object: occlusionAnchor, collisionObject: occluder }],
+  );
+  assert.equal(occludedTarget, null, 'boat or sculpture in front of a gull must block the shot');
+  occluderMesh.geometry.dispose();
+  occluderMesh.material.dispose();
+
+  const supportScene = new THREE.Scene();
+  const supportOccluder = new THREE.Group();
+  const supportMesh = new THREE.Mesh(
+    new THREE.BoxGeometry(2, 2, 0.02),
+    new THREE.MeshBasicMaterial({ side: THREE.DoubleSide }),
+  );
+  const supportAnchor = new THREE.Object3D();
+  supportOccluder.position.z = 0.11;
+  supportOccluder.add(supportMesh, supportAnchor);
+  supportScene.add(supportOccluder);
+  supportScene.updateMatrixWorld(true);
+  targetAgents[0].landingState = LANDING_STATE.PERCHED;
+  const supportedTarget = findSeagullShotTarget(
+    targetAgents,
+    camera,
+    viewport,
+    pointer,
+    [{ object: supportAnchor, collisionObject: supportOccluder }],
+  );
+  assert.equal(
+    supportedTarget?.index,
+    0,
+    'a landing support may overlap the lower body without hiding a perched gull',
+  );
+  targetAgents[0].landingState = LANDING_STATE.AIRBORNE;
+  assert.equal(
+    findSeagullShotTarget(
+      targetAgents,
+      camera,
+      viewport,
+      pointer,
+      [{ object: supportAnchor, collisionObject: supportOccluder }],
+    ),
+    null,
+    'the same overlap must still occlude an airborne gull',
+  );
+  supportMesh.geometry.dispose();
+  supportMesh.material.dispose();
+
+  const agents = createFlightAgents(5);
+  agents.forEach((agent) => { agent.modelScale = 1; });
+  agents[0].landingState = LANDING_STATE.PERCHED;
+  agents[0].landingSiteIndex = 0;
+  agents[0].landingClock = 3;
+  const runtime = createSeagullShootingRuntime('qa-ammo');
+  const rayDirection = new THREE.Vector3(0, 0, -1);
+  const firstShot = fireSeagullShot(runtime, agents, 0, rayDirection, 0);
+  assert.equal(firstShot.kind, 'hit', 'first barrel must hit a valid gull');
+  assert.equal(runtime.shells, 1, 'first shot must leave one barrel');
+  assert.equal(agents[0].shotState, SEAGULL_DOWNED_STATE.STUN);
+  assert.equal(agents[0].landingState, LANDING_STATE.AIRBORNE, 'hit gull must release its landing site');
+  assert.equal(agents[0].landingSiteIndex, -1);
+  assert.ok(
+    agents[0].shotVelocity.length() < 0.6,
+    'hit perched gull must collapse onto its support instead of launching away',
+  );
+  const downedRig = getWingPose(agents[0]);
+  assert.notEqual(downedRig.shoulderL, downedRig.shoulderR, 'downed rig must lose symmetric wing motion');
+
+  const returnStarts = agents.slice(1).map((agent) => agent.shotFearReturnStart);
+  assert.ok(
+    returnStarts.every((time) => (
+      time >= SEAGULL_SHOOTING_LAW.returnDelaySeconds[0]
+      && time <= SEAGULL_SHOOTING_LAW.returnDelaySeconds[1]
+    )),
+    'survivors must remain away for roughly 40 seconds',
+  );
+  const secondShot = fireSeagullShot(runtime, agents, 1, rayDirection, 0.3);
+  assert.equal(secondShot.kind, 'hit', 'second barrel must remain available during the scatter');
+  assert.equal(runtime.shells, 0);
+  assert.ok(runtime.reloadEndsAt >= 8, 'two empty barrels must begin the slow hidden reload');
+  const thirdShot = fireSeagullShot(runtime, agents, 2, rayDirection, 0.6);
+  assert.equal(thirdShot.kind, 'dry', 'third shot before reload must not hit another gull');
+  assert.equal(runtime.hitCount, 2);
+  advanceSeagullShootingRuntime(runtime, 8.2);
+  assert.equal(runtime.shells, 2, 'both barrels must return together after reload');
+
+  for (let frame = 1; frame <= 90; frame += 1) {
+    const time = 0.3 + frame * FRAME_DELTA;
+    updateFlightAgents(agents, time, FRAME_DELTA, 'flight', [], time);
+  }
+  const panicking = agents.filter((agent) => !agent.shotState && agent.shotFearStrength > 0);
+  assert.equal(panicking.length, 3, 'all surviving gulls must enter staggered escape routes');
+  updateFlightAgents(agents, 70, FRAME_DELTA, 'flight', [], 70);
+  assert.equal(
+    agents.filter((agent) => !agent.shotState && agent.shotFearStrength > 0).length,
+    0,
+    'survivors must release the fear offset after the authored return window',
+  );
+
+  function simulateFloorFall() {
+    const floorAgents = createFlightAgents(1);
+    floorAgents[0].modelScale = 1;
+    const floorRuntime = createSeagullShootingRuntime('qa-floor');
+    fireSeagullShot(floorRuntime, floorAgents, 0, rayDirection, 0);
+    const bird = floorAgents[0];
+    bird.position.set(0, 1.2, 0);
+    bird.previousPosition.copy(bird.position);
+    bird.shotVelocity.set(1.2, 0.15, 0);
+    bird.velocity.copy(bird.shotVelocity);
+    const events = [];
+    let minY = bird.position.y;
+    for (let frame = 1; frame <= 180; frame += 1) {
+      events.push(...advanceDownedSeagulls(
+        floorRuntime,
+        floorAgents,
+        frame * FRAME_DELTA,
+        FRAME_DELTA,
+        [],
+        -1.14,
+      ));
+      minY = Math.min(minY, bird.position.y);
+    }
+    return {
+      bird,
+      events,
+      minY,
+      position: bird.position.clone(),
+      quaternion: bird.quaternion.clone(),
+    };
+  }
+
+  const firstFall = simulateFloorFall();
+  const secondFall = simulateFloorFall();
+  assert.equal(firstFall.bird.shotState, SEAGULL_DOWNED_STATE.WATER);
+  assert.equal(
+    firstFall.events.filter((event) => event.kind === 'water-impact').length,
+    1,
+    'water plane must receive one impact event',
+  );
+  assert.ok(firstFall.position.x > 0.2, 'falling gull must preserve forward momentum');
+  assert.ok(firstFall.minY >= -1.14, 'downed body must not tunnel through the water plane');
+  assert.ok(firstFall.position.distanceTo(secondFall.position) < 1e-9, 'fixed seed fall must be deterministic');
+  assert.ok(firstFall.quaternion.angleTo(secondFall.quaternion) < 1e-9);
+  assert.ok(
+    firstFall.position.toArray().every(Number.isFinite)
+      && firstFall.quaternion.toArray().every(Number.isFinite),
+    'downed physics must keep finite transforms',
+  );
+
+  const surfaceScene = new THREE.Scene();
+  const tiltedSurface = new THREE.Group();
+  const tiltedMesh = new THREE.Mesh(
+    new THREE.BoxGeometry(8, 0.18, 4),
+    new THREE.MeshBasicMaterial({ side: THREE.DoubleSide }),
+  );
+  const surfaceAnchor = new THREE.Object3D();
+  tiltedSurface.position.y = -0.18;
+  tiltedSurface.rotation.z = 0.28;
+  tiltedSurface.add(tiltedMesh, surfaceAnchor);
+  surfaceScene.add(tiltedSurface);
+  surfaceScene.updateMatrixWorld(true);
+  const surfaceAgents = createFlightAgents(1);
+  surfaceAgents[0].modelScale = 1;
+  const surfaceRuntime = createSeagullShootingRuntime('qa-surface');
+  fireSeagullShot(surfaceRuntime, surfaceAgents, 0, rayDirection, 0);
+  surfaceAgents[0].position.set(0, 1.05, 0);
+  surfaceAgents[0].previousPosition.copy(surfaceAgents[0].position);
+  surfaceAgents[0].shotVelocity.set(2.5, -0.1, 0);
+  const surfaceEvents = [];
+  let consecutiveSupportFrames = 0;
+  let maxConsecutiveSupportFrames = 0;
+  for (let frame = 1; frame <= 150; frame += 1) {
+    surfaceScene.updateMatrixWorld(true);
+    surfaceEvents.push(...advanceDownedSeagulls(
+      surfaceRuntime,
+      surfaceAgents,
+      frame * FRAME_DELTA,
+      FRAME_DELTA,
+      [{ object: surfaceAnchor, collisionObject: tiltedSurface }],
+      -1.14,
+    ));
+    if (
+      [SEAGULL_DOWNED_STATE.SLIDING, SEAGULL_DOWNED_STATE.RESTING]
+        .includes(surfaceAgents[0].shotState)
+      && surfaceAgents[0].shotContactObject === tiltedSurface
+    ) {
+      consecutiveSupportFrames += 1;
+      maxConsecutiveSupportFrames = Math.max(
+        maxConsecutiveSupportFrames,
+        consecutiveSupportFrames,
+      );
+    } else {
+      consecutiveSupportFrames = 0;
+    }
+  }
+  assert.ok(
+    surfaceEvents.some((event) => event.kind === 'surface-impact'),
+    'tilted sculpture proxy must receive a swept collision',
+  );
+  assert.ok(
+    surfaceAgents[0].position.toArray().every(Number.isFinite)
+      && surfaceAgents[0].quaternion.toArray().every(Number.isFinite),
+    'surface sliding must keep finite transforms',
+  );
+  assert.ok(
+    maxConsecutiveSupportFrames >= 3,
+    `sliding body must retain support contact (${maxConsecutiveSupportFrames})`,
+  );
+  assert.equal(
+    surfaceAgents[0].shotState,
+    SEAGULL_DOWNED_STATE.RESTING,
+    'stable tilted support must let the body settle',
+  );
+  const restingLocalPosition = surfaceAgents[0].shotContactLocalPosition.clone();
+  tiltedSurface.position.set(0.18, -0.12, -0.09);
+  tiltedSurface.rotation.set(0.06, -0.12, 0.24);
+  surfaceScene.updateMatrixWorld(true);
+  advanceDownedSeagulls(
+    surfaceRuntime,
+    surfaceAgents,
+    151 * FRAME_DELTA,
+    FRAME_DELTA,
+    [{ object: surfaceAnchor, collisionObject: tiltedSurface }],
+    -1.14,
+  );
+  const movedRestPosition = restingLocalPosition.clone();
+  tiltedSurface.localToWorld(movedRestPosition);
+  assert.ok(
+    movedRestPosition.distanceTo(surfaceAgents[0].position) < 1e-5,
+    'resting body must inherit a moved and tilted support transform',
+  );
+  tiltedMesh.geometry.dispose();
+  tiltedMesh.material.dispose();
+
+  return {
+    law: SEAGULL_SHOOTING_LAW,
+    visibleTargetPixels: visibleTarget.visibleBodyPixels,
+    returnStartsSeconds: returnStarts,
+    panickingSurvivors: panicking.length,
+    reloadEndsAtSeconds: runtime.reloadEndsAt,
+    floorState: firstFall.bird.shotState,
+    floorForwardTravelMeters: firstFall.position.x,
+    surfaceState: surfaceAgents[0].shotState,
+    surfaceImpacts: surfaceEvents.filter((event) => event.kind === 'surface-impact').length,
+    maxConsecutiveSupportFrames,
+  };
+}
+
+const shootingCheck = checkShootingMechanic();
 
 function createLandingFixture() {
   const root = new THREE.Object3D();
@@ -658,9 +945,87 @@ assert.ok(maxSurfaceProjectionError < 0.005, 'landing support plane must stay wi
 assert.ok(maxFootFitError < 0.002, 'both feet must fit each landing support plane within 2 mm');
 assert.ok(maxFootSurfaceGap < 0.001, 'both feet must meet real support geometry within 1 mm');
 
+const realCollisionScene = new THREE.Scene();
+const movingSculptureRoot = new THREE.Group();
+movingSculptureRoot.position.set(2.15, -1.14, -0.08);
+movingSculptureRoot.rotation.set(0.07, 0.18, -0.14);
+movingSculptureRoot.add(sculptureSurface);
+realCollisionScene.add(movingSculptureRoot);
+const sculptureCrown = projectedSurfaces.find((site) => site.id === 'sculpture-crown');
+const sculptureCollisionAnchor = new THREE.Object3D();
+sculptureCollisionAnchor.position.fromArray(sculptureCrown.position);
+sculptureCollisionAnchor.quaternion.copy(sculptureCrown.quaternion);
+movingSculptureRoot.add(sculptureCollisionAnchor);
+realCollisionScene.updateMatrixWorld(true);
+const crownWorldPosition = sculptureCollisionAnchor.getWorldPosition(new THREE.Vector3());
+const crownWorldQuaternion = sculptureCollisionAnchor.getWorldQuaternion(new THREE.Quaternion());
+const crownWorldNormal = WORLD_UP.clone().applyQuaternion(crownWorldQuaternion).normalize();
+const crownWorldForward = new THREE.Vector3(1, 0, 0)
+  .applyQuaternion(crownWorldQuaternion)
+  .normalize();
+const realSurfaceAgents = createFlightAgents(1);
+realSurfaceAgents[0].modelScale = 1;
+const realSurfaceRuntime = createSeagullShootingRuntime('qa-real-sculpture');
+fireSeagullShot(realSurfaceRuntime, realSurfaceAgents, 0, crownWorldNormal.clone().negate(), 0);
+const realSurfaceBird = realSurfaceAgents[0];
+realSurfaceBird.position.copy(crownWorldPosition).addScaledVector(WORLD_UP, 0.48);
+realSurfaceBird.previousPosition.copy(realSurfaceBird.position);
+realSurfaceBird.quaternion.copy(crownWorldQuaternion);
+realSurfaceBird.heading.copy(crownWorldForward);
+realSurfaceBird.shotVelocity.copy(crownWorldForward).multiplyScalar(0.02)
+  .addScaledVector(WORLD_UP, -0.04);
+const realSurfaceEvents = [];
+let sculptureFollowError = Infinity;
+let sculptureContactFrame = null;
+let sculptureContactFrames = 0;
+let consecutiveSculptureContactFrames = 0;
+let maxConsecutiveSculptureContactFrames = 0;
+for (let frame = 1; frame <= 240; frame += 1) {
+  const time = frame * FRAME_DELTA;
+  movingSculptureRoot.position.x = 2.15 + Math.sin(time * 0.5) * 0.045;
+  movingSculptureRoot.position.y = -1.14 + Math.sin(time * 0.7) * 0.018;
+  movingSculptureRoot.rotation.z = -0.14 + Math.sin(time * 0.8) * 0.025;
+  realCollisionScene.updateMatrixWorld(true);
+  realSurfaceEvents.push(...advanceDownedSeagulls(
+    realSurfaceRuntime,
+    realSurfaceAgents,
+    time,
+    FRAME_DELTA,
+    [{ object: sculptureCollisionAnchor, collisionObject: sculptureSurface }],
+    -10,
+  ));
+  if (realSurfaceBird.shotContactObject === sculptureSurface) {
+    sculptureContactFrames += 1;
+    consecutiveSculptureContactFrames += 1;
+    maxConsecutiveSculptureContactFrames = Math.max(
+      maxConsecutiveSculptureContactFrames,
+      consecutiveSculptureContactFrames,
+    );
+    const expectedWorld = realSurfaceBird.shotContactLocalPosition.clone();
+    sculptureSurface.localToWorld(expectedWorld);
+    sculptureFollowError = Math.min(
+      sculptureFollowError,
+      expectedWorld.distanceTo(realSurfaceBird.position),
+    );
+    sculptureContactFrame ??= frame;
+  } else {
+    consecutiveSculptureContactFrames = 0;
+  }
+}
+assert.ok(
+  realSurfaceEvents.some((event) => event.kind === 'surface-impact'),
+  'real sculpture GLB must receive the downed body sweep',
+);
+assert.ok(sculptureContactFrame, 'downed gull must contact the real sculpture crown');
+assert.ok(
+  sculptureFollowError < 1e-5,
+  'real sculpture contact must remain in its moving local frame',
+);
+
 console.log(JSON.stringify({
   flightChecks,
   pointerInteractionCheck,
+  shootingCheck,
   landingCheck,
   runtimeWingBones: requiredWingBones.length,
   runtimeLegBones: requiredLegBones.length,
@@ -684,5 +1049,13 @@ console.log(JSON.stringify({
     maxFootFitErrorMeters: maxFootFitError,
     maxFootSurfaceGapMeters: maxFootSurfaceGap,
     worstFootSurfaceGap,
+  },
+  realSculptureCollision: {
+    impacts: realSurfaceEvents.filter((event) => event.kind === 'surface-impact').length,
+    contactFrame: sculptureContactFrame,
+    contactFrames: sculptureContactFrames,
+    maxConsecutiveContactFrames: maxConsecutiveSculptureContactFrames,
+    followErrorMeters: sculptureFollowError,
+    finalState: realSurfaceBird.shotState,
   },
 }, null, 2));
