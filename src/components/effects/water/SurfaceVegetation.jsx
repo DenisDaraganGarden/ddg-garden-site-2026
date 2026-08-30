@@ -7,6 +7,10 @@ import {
   surfaceVegetationFragmentShader,
   surfaceVegetationVertexShader,
 } from '../shaders/vegetationShaders';
+import {
+  createCursorFlashlightUniforms,
+  syncCursorFlashlightUniforms,
+} from '../shaders/cursorFlashlightShader';
 import { createSurfaceVegetationGeometry } from './vegetationGeometry';
 
 // Lily pads riding the surface. They read the same height field the water does,
@@ -75,6 +79,7 @@ export function SurfaceVegetation({ settings, runtime, qualityProfile, lighting 
     uMoonDirection: { value: new THREE.Vector3(0, 1, 0) },
     uMoonColor: { value: new THREE.Color('#d9e4ff') },
     uMoonIntensity: { value: 1 },
+    ...createCursorFlashlightUniforms(),
   }), [leafAlbedoMap, leafMaterialMap, leafNormalMap]);
 
   useEffect(() => () => geometry.dispose(), [geometry]);
@@ -109,6 +114,7 @@ export function SurfaceVegetation({ settings, runtime, qualityProfile, lighting 
   }, [lightDirection, lighting, settings, uniforms]);
 
   useFrame(({ clock }) => {
+    syncCursorFlashlightUniforms(uniforms);
     uniforms.uState.value = runtime.currentStateTargetRef.current?.texture ?? null;
     uniforms.uNormalMap.value = runtime.normalTargetRef.current?.texture ?? null;
     uniforms.uTime.value = clock.elapsedTime;

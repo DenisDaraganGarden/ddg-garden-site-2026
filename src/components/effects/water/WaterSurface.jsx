@@ -4,6 +4,10 @@ import * as THREE from 'three';
 import { BOAT_CUTOUT_STENCIL_REF, DEBUG_VIEW_IDS } from './constants';
 import { reflectionContext } from './reflectionContext';
 import { waterV2FragmentShader, waterV2VertexShader } from '../shaders/waterV2Shaders';
+import {
+  createCursorFlashlightUniforms,
+  syncCursorFlashlightUniforms,
+} from '../shaders/cursorFlashlightShader';
 
 // The water surface itself: displaced by the simulation height field, shaded with
 // the reflection and refraction textures, and the mesh that writes the stencil the
@@ -79,6 +83,7 @@ export default function WaterSurfaceV2({ settings, runtime, qualityProfile, ligh
     uKeyCosRadius: { value: 1 },
     uKeyGlowPower: { value: 2000 },
     uKeyGlowStrength: { value: 0.35 },
+    ...createCursorFlashlightUniforms(),
   }), [
     debugView,
     lightDirection,
@@ -149,6 +154,7 @@ export default function WaterSurfaceV2({ settings, runtime, qualityProfile, ligh
   ]);
 
   useFrame(({ clock }) => {
+    syncCursorFlashlightUniforms(uniforms);
     uniforms.uSkyLut.value = sky?.texture ?? null;
     // Read every frame: the shadow map does not exist until the first shadow
     // render, and three recreates it whenever the map size changes.

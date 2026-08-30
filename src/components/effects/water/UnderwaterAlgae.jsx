@@ -5,6 +5,10 @@ import {
   underwaterAlgaeFragmentShader,
   underwaterAlgaeVertexShader,
 } from '../shaders/vegetationShaders';
+import {
+  createCursorFlashlightUniforms,
+  syncCursorFlashlightUniforms,
+} from '../shaders/cursorFlashlightShader';
 import { createUnderwaterAlgaeGeometry } from './vegetationGeometry';
 
 // Algae standing on the bed and swaying with the flow. Below the surface, so it
@@ -44,6 +48,7 @@ export function UnderwaterAlgae({ settings, qualityProfile, lighting }) {
     uWaterScatteringColor: { value: new THREE.Color('#496d72') },
     uWaterTurbidity: { value: 0 },
     uPlantAoStrength: { value: 0.5 },
+    ...createCursorFlashlightUniforms(),
   }), []);
 
   useEffect(() => () => geometry.dispose(), [geometry]);
@@ -83,6 +88,7 @@ export function UnderwaterAlgae({ settings, qualityProfile, lighting }) {
   }, [lightDirection, lighting, settings, uniforms]);
 
   useFrame(({ clock }) => {
+    syncCursorFlashlightUniforms(uniforms);
     uniforms.uTime.value = clock.elapsedTime;
   }, -2);
 

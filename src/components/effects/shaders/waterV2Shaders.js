@@ -1,4 +1,5 @@
 import { skyShaderChunk } from './skyShader';
+import { cursorFlashlightShaderChunk } from './cursorFlashlightShader';
 
 // Water V2 optics. The wave state still comes from the existing DDG ping-pong
 // simulation; the optical model follows the Fresnel/refraction approach used by
@@ -109,6 +110,8 @@ export const waterV2FragmentShader = `
   uniform float uWaterGlintSharpness;
   uniform float uTime;
   uniform int uDebugView;
+
+  ${cursorFlashlightShaderChunk}
 
   #include <common>
   #include <dithering_pars_fragment>
@@ -447,6 +450,22 @@ export const waterV2FragmentShader = `
     // A small neutral-blue crest lift keeps ripples legible without coupling
     // the reflection colour control to the water volume.
     color += vec3(0.07, 0.11, 0.14) * max(vHeightSample, 0.0) * 0.035;
+
+    // The cursor light is sampled directly because this hand-written water
+    // material never sees Three's built-in spotlight chunks. A quiet diffuse
+    // lift reveals the surface itself; the tighter view-aligned lobe makes the
+    // moving ripple normals visible inside the beam.
+    CursorLightSample cursorLight = sampleCursorFlashlight(vSurfaceWorldPosition);
+    float cursorDiffuse = max(dot(normal, cursorLight.directionToLight), 0.0);
+    vec3 cursorHalfDirection = normalize(viewDirection + cursorLight.directionToLight);
+    float cursorSpecular = pow(
+      max(dot(normal, cursorHalfDirection), 0.0),
+      mix(42.0, 86.0, clamp(slope * 1.5, 0.0, 1.0))
+    );
+    float cursorSurfaceResponse = 0.045
+      + cursorDiffuse * 0.11
+      + cursorSpecular * (0.38 + fresnel * 0.82);
+    color += cursorLight.radiance * cursorSurfaceResponse;
 
     gl_FragColor = vec4(color, 1.0);
     #include <tonemapping_fragment>

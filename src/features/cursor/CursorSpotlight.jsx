@@ -1,9 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
-import { getCursorFlashlightRuntime } from './cursorFlashlightStore';
+import {
+  getCursorFlashlightRuntime,
+  resetCursorFlashlightWorldRuntime,
+  updateCursorFlashlightWorldRuntime,
+} from './cursorFlashlightStore';
 
 const FLASHLIGHT_COLOR = '#fff0d8';
+const SOURCE_BELOW_CAMERA_METERS = 0.18;
 
 export default function CursorSpotlight() {
   const { camera, gl } = useThree();
@@ -13,6 +18,8 @@ export default function CursorSpotlight() {
   const raycaster = useMemo(() => new THREE.Raycaster(), []);
   const pointerNdc = useMemo(() => new THREE.Vector2(), []);
   const hitPoint = useMemo(() => new THREE.Vector3(), []);
+  const sourcePosition = useMemo(() => new THREE.Vector3(), []);
+  const lightDirection = useMemo(() => new THREE.Vector3(), []);
   const waterPlane = useMemo(() => new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), []);
 
   const updateDebugState = useCallback((state, beamDegrees) => {
@@ -31,9 +38,15 @@ export default function CursorSpotlight() {
       lightRef.current.target = targetRef.current;
     }
 
+    gl.domElement.dataset.ddgCursorFlashlightOrigin = 'camera-below';
+    gl.domElement.dataset.ddgCursorFlashlightMaterials = 'water-and-submerged';
+
     return () => {
+      resetCursorFlashlightWorldRuntime();
       delete gl.domElement.dataset.ddgCursorFlashlight;
       delete gl.domElement.dataset.ddgCursorFlashlightBeam;
+      delete gl.domElement.dataset.ddgCursorFlashlightOrigin;
+      delete gl.domElement.dataset.ddgCursorFlashlightMaterials;
     };
   }, [gl]);
 
@@ -48,6 +61,7 @@ export default function CursorSpotlight() {
 
     if (!runtime.enabled || !runtime.pointerInsideFrame) {
       light.visible = false;
+      resetCursorFlashlightWorldRuntime();
       updateDebugState(runtime.enabled ? 'outside' : 'off', runtime.beamDegrees);
       return;
     }
@@ -55,6 +69,7 @@ export default function CursorSpotlight() {
     const rect = gl.domElement.getBoundingClientRect();
     if (rect.width <= 0 || rect.height <= 0) {
       light.visible = false;
+      resetCursorFlashlightWorldRuntime();
       updateDebugState('outside', runtime.beamDegrees);
       return;
     }
@@ -75,16 +90,35 @@ export default function CursorSpotlight() {
       raycaster.ray.at(18, hitPoint);
     }
 
-    const distanceToTarget = camera.position.distanceTo(hitPoint);
+    // The source follows the camera but sits slightly below its optical centre.
+    // It therefore feels handheld and never floats above the viewer by default.
+    sourcePosition.copy(camera.position);
+    sourcePosition.y -= SOURCE_BELOW_CAMERA_METERS;
+    lightDirection.copy(hitPoint).sub(sourcePosition).normalize();
+
+    const distanceToTarget = sourcePosition.distanceTo(hitPoint);
+    const outerAngle = THREE.MathUtils.degToRad(runtime.beamDegrees * 0.5);
+    const innerAngle = outerAngle * (1 - light.penumbra);
+    const lightRange = Math.max(36, distanceToTarget + 18);
+    const intensity = Math.min(96, Math.max(18, distanceToTarget * distanceToTarget * 0.18));
     light.visible = true;
-    light.position.copy(camera.position);
-    light.angle = THREE.MathUtils.degToRad(runtime.beamDegrees * 0.5);
-    light.distance = Math.max(12, distanceToTarget + 5);
-    light.intensity = Math.min(96, Math.max(18, distanceToTarget * distanceToTarget * 0.18));
+    light.position.copy(sourcePosition);
+    light.angle = outerAngle;
+    light.distance = lightRange;
+    light.intensity = intensity;
     target.position.copy(hitPoint);
     target.updateMatrixWorld();
+    updateCursorFlashlightWorldRuntime({
+      source: sourcePosition,
+      direction: lightDirection,
+      intensity,
+      range: lightRange,
+      innerCos: Math.cos(innerAngle),
+      outerCos: Math.cos(outerAngle),
+      hitsWater: Boolean(hitWaterPlane),
+    });
     updateDebugState('on', runtime.beamDegrees);
-  });
+  }, -3);
 
   return (
     <>

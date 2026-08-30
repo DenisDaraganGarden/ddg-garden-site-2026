@@ -1,6 +1,8 @@
 // Instanced pond vegetation. Surface leaves use a compact hand-derived PBR
 // atlas; underwater blades remain procedural so large meadows stay cheap.
 
+import { cursorFlashlightShaderChunk } from './cursorFlashlightShader';
+
 export const surfaceVegetationVertexShader = `
   attribute vec2 aScatter;
   attribute vec2 aCluster;
@@ -149,6 +151,8 @@ export const surfaceVegetationFragmentShader = `
   uniform vec3 uMoonColor;
   uniform float uMoonIntensity;
 
+  ${cursorFlashlightShaderChunk}
+
   #include <common>
   #include <dithering_pars_fragment>
 
@@ -291,6 +295,28 @@ export const surfaceVegetationFragmentShader = `
       * (0.28 + fresnel * 1.25);
     color += uMoonColor * wetHighlight * 0.64;
 
+    // The leaf material is custom, so mirror the cursor spotlight here. It
+    // drives both waxy pigment and the thin transmitted underside instead of
+    // reading as a flat screen-space overlay.
+    CursorLightSample cursorLight = sampleCursorFlashlight(vLeafWorldPosition);
+    float cursorDiffuse = max(dot(normal, cursorLight.directionToLight), 0.0);
+    float cursorBacklight = max(dot(-normal, cursorLight.directionToLight), 0.0);
+    vec3 cursorHalfDirection = normalize(viewDirection + cursorLight.directionToLight);
+    float cursorWetHighlight = pow(
+      max(dot(normal, cursorHalfDirection), 0.0),
+      mix(28.0, 92.0, specularMap * (1.0 - roughness * 0.4))
+    ) * specularMap;
+    color += albedo
+      * cursorLight.radiance
+      * (0.16 + cursorDiffuse * 0.9);
+    color += transmissionColor
+      * cursorLight.radiance
+      * transmissionMap
+      * clamp(uSubsurfaceStrength, 0.0, 1.0)
+      * cursorBacklight
+      * 0.46;
+    color += cursorLight.radiance * cursorWetHighlight * 0.42;
+
     gl_FragColor = vec4(color, coverage);
     #include <tonemapping_fragment>
     #include <colorspace_fragment>
@@ -316,6 +342,7 @@ export const underwaterAlgaeVertexShader = `
   varying float vSpecies;
   varying float vInsideWater;
   varying vec3 vRibbonNormal;
+  varying vec3 vRibbonWorldPosition;
 
   uniform vec2 uCenter;
   uniform float uRadius;
@@ -425,8 +452,9 @@ export const underwaterAlgaeVertexShader = `
     vHeightAlongBlade = t;
     vSpecies = species;
     vRibbonNormal = normal;
+    vRibbonWorldPosition = vec3(worldXZ.x, worldY, worldXZ.y);
 
-    gl_Position = projectionMatrix * viewMatrix * vec4(worldXZ.x, worldY, worldXZ.y, 1.0);
+    gl_Position = projectionMatrix * viewMatrix * vec4(vRibbonWorldPosition, 1.0);
   }
 `;
 
@@ -438,6 +466,7 @@ export const underwaterAlgaeFragmentShader = `
   varying float vSpecies;
   varying float vInsideWater;
   varying vec3 vRibbonNormal;
+  varying vec3 vRibbonWorldPosition;
 
   uniform vec3 uColor;
   uniform float uSaturation;
@@ -449,6 +478,8 @@ export const underwaterAlgaeFragmentShader = `
   uniform vec3 uWaterScatteringColor;
   uniform float uWaterTurbidity;
   uniform float uPlantAoStrength;
+
+  ${cursorFlashlightShaderChunk}
 
   #include <common>
   #include <dithering_pars_fragment>
@@ -489,6 +520,7 @@ export const underwaterAlgaeFragmentShader = `
     vec3 color = uColor * speciesTint * mix(0.78, 1.22, vTone);
     color = applySaturation(color, clamp(uSaturation, 0.0, 2.0));
     color *= mix(filament, 0.9 + filament * 0.1, broadSpecies);
+    vec3 cursorPigment = color;
 
     float moonDiffuse = abs(dot(normalize(vRibbonNormal), normalize(uMoonDirection)));
     float topLift = mix(0.76, 1.12, vHeightAlongBlade);
@@ -519,6 +551,27 @@ export const underwaterAlgaeFragmentShader = `
       * 0.18;
     color *= lighting * topLift * rootAo;
     color = mix(color, uWaterScatteringColor * 0.36, waterHaze);
+
+    // Underwater ribbons receive the same cone as the PBR seabed, with a
+    // depth-dependent loss so the beam reaches below the surface without
+    // turning the whole meadow into an emissive layer.
+    CursorLightSample cursorLight = sampleCursorFlashlight(vRibbonWorldPosition);
+    float cursorDiffuse = abs(dot(
+      normalize(vRibbonNormal),
+      cursorLight.directionToLight
+    ));
+    float submergedDepth = max(-vRibbonWorldPosition.y, 0.0);
+    float cursorTransmission = exp(
+      -submergedDepth * (0.045 + clamp(uWaterTurbidity, 0.0, 1.0) * 0.22)
+    );
+    color += cursorPigment
+      * cursorLight.radiance
+      * cursorTransmission
+      * (0.22 + cursorDiffuse * 0.92);
+    color += uWaterScatteringColor
+      * cursorLight.radiance
+      * (1.0 - cursorTransmission)
+      * 0.08;
 
     gl_FragColor = vec4(color, coverage);
     #include <tonemapping_fragment>
