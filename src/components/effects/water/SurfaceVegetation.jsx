@@ -12,12 +12,18 @@ import {
   syncCursorFlashlightUniforms,
 } from '../shaders/cursorFlashlightShader';
 import { createSurfaceVegetationGeometry } from './vegetationGeometry';
+import {
+  createSurfacePlantContactMap,
+  updateSurfaceVegetationAnchors,
+} from './surfaceVegetationAnchors';
 
 // Lily pads riding the surface. They read the same height field the water does,
 // so a pad sits on the wave rather than through it.
 
 export function SurfaceVegetation({ settings, runtime, qualityProfile, lighting }) {
   const materialRef = useRef();
+  const stemMeshRef = useRef();
+  const contactMeshRef = useRef();
   const reflectionDataRef = React.useContext(reflectionContext);
   const maxInstances = qualityProfile?.surfacePlantMaxInstances ?? 560;
   const leafTextures = useLoader(THREE.TextureLoader, [
@@ -42,6 +48,58 @@ export function SurfaceVegetation({ settings, runtime, qualityProfile, lighting 
     () => createSurfaceVegetationGeometry(maxInstances),
     [maxInstances],
   );
+  const anchorSettings = useMemo(() => ({
+    surfacePlantAmount: settings.surfacePlantAmount,
+    surfacePlantCenterX: settings.surfacePlantCenterX,
+    surfacePlantCenterZ: settings.surfacePlantCenterZ,
+    surfacePlantClustering: settings.surfacePlantClustering,
+    surfacePlantFloatOffset: settings.surfacePlantFloatOffset,
+    surfacePlantRadius: settings.surfacePlantRadius,
+    surfacePlantSize: settings.surfacePlantSize,
+    seabedReliefScale: settings.seabedReliefScale,
+    seabedReliefStrength: settings.seabedReliefStrength,
+    waterDepthMeters: settings.waterDepthMeters,
+    waterExtent: settings.waterExtent,
+    waveAmplitude: settings.waveAmplitude,
+  }), [
+    settings.surfacePlantAmount,
+    settings.surfacePlantCenterX,
+    settings.surfacePlantCenterZ,
+    settings.surfacePlantClustering,
+    settings.surfacePlantFloatOffset,
+    settings.surfacePlantRadius,
+    settings.surfacePlantSize,
+    settings.seabedReliefScale,
+    settings.seabedReliefStrength,
+    settings.waterDepthMeters,
+    settings.waterExtent,
+    settings.waveAmplitude,
+  ]);
+  const stemGeometry = useMemo(
+    () => new THREE.CylinderGeometry(1, 0.72, 1, 5, 1, true),
+    [],
+  );
+  const contactGeometry = useMemo(
+    () => new THREE.CircleGeometry(1, 20),
+    [],
+  );
+  const contactMap = useMemo(() => createSurfacePlantContactMap(), []);
+  const stemMaterial = useMemo(() => new THREE.MeshBasicMaterial({
+    color: '#1a2b1a',
+    side: THREE.DoubleSide,
+    depthWrite: true,
+    depthTest: true,
+    toneMapped: true,
+  }), []);
+  const contactMaterial = useMemo(() => new THREE.MeshBasicMaterial({
+    alphaMap: contactMap,
+    color: '#07100b',
+    transparent: true,
+    opacity: 0.42,
+    depthWrite: false,
+    depthTest: true,
+    toneMapped: false,
+  }), [contactMap]);
   const lightDirection = useMemo(
     () => new THREE.Vector3().fromArray(lighting.key.direction),
     [lighting],
@@ -82,13 +140,28 @@ export function SurfaceVegetation({ settings, runtime, qualityProfile, lighting 
     ...createCursorFlashlightUniforms(),
   }), [leafAlbedoMap, leafMaterialMap, leafNormalMap]);
 
-  useEffect(() => () => geometry.dispose(), [geometry]);
+  useEffect(() => () => {
+    geometry.dispose();
+    stemGeometry.dispose();
+    contactGeometry.dispose();
+    stemMaterial.dispose();
+    contactMaterial.dispose();
+    contactMap.dispose();
+  }, [contactGeometry, contactMap, contactMaterial, geometry, stemGeometry, stemMaterial]);
 
   useLayoutEffect(() => {
-    geometry.instanceCount = Math.round(
-      THREE.MathUtils.clamp(settings.surfacePlantAmount, 0, 1) * maxInstances,
+    const count = Math.round(
+      THREE.MathUtils.clamp(anchorSettings.surfacePlantAmount, 0, 1) * maxInstances,
     );
-  }, [geometry, maxInstances, settings.surfacePlantAmount]);
+    geometry.instanceCount = count;
+    updateSurfaceVegetationAnchors({
+      geometry,
+      stemMesh: stemMeshRef.current,
+      contactMesh: contactMeshRef.current,
+      maxInstances,
+      settings: anchorSettings,
+    });
+  }, [anchorSettings, geometry, maxInstances]);
 
   useEffect(() => {
     uniforms.uCenter.value.set(settings.surfacePlantCenterX, settings.surfacePlantCenterZ);
@@ -130,14 +203,16 @@ export function SurfaceVegetation({ settings, runtime, qualityProfile, lighting 
       return;
     }
 
-    material.stencilWrite = true;
-    material.stencilRef = BOAT_CUTOUT_STENCIL_REF;
-    material.stencilFunc = THREE.NotEqualStencilFunc;
-    material.stencilFail = THREE.KeepStencilOp;
-    material.stencilZFail = THREE.KeepStencilOp;
-    material.stencilZPass = THREE.KeepStencilOp;
-    material.needsUpdate = true;
-  }, [settings.debugView]);
+    [material, stemMaterial, contactMaterial].forEach((activeMaterial) => {
+      activeMaterial.stencilWrite = true;
+      activeMaterial.stencilRef = BOAT_CUTOUT_STENCIL_REF;
+      activeMaterial.stencilFunc = THREE.NotEqualStencilFunc;
+      activeMaterial.stencilFail = THREE.KeepStencilOp;
+      activeMaterial.stencilZFail = THREE.KeepStencilOp;
+      activeMaterial.stencilZPass = THREE.KeepStencilOp;
+      activeMaterial.needsUpdate = true;
+    });
+  }, [contactMaterial, settings.debugView, stemMaterial]);
 
   return (
     <mesh
@@ -158,6 +233,20 @@ export function SurfaceVegetation({ settings, runtime, qualityProfile, lighting 
         toneMapped
         dithering
         alphaToCoverage
+      />
+      <instancedMesh
+        ref={stemMeshRef}
+        name="surface-vegetation-stems"
+        args={[stemGeometry, stemMaterial, maxInstances]}
+        frustumCulled={false}
+        renderOrder={1}
+      />
+      <instancedMesh
+        ref={contactMeshRef}
+        name="surface-vegetation-contacts"
+        args={[contactGeometry, contactMaterial, maxInstances]}
+        frustumCulled={false}
+        renderOrder={1}
       />
     </mesh>
   );
