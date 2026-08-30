@@ -29,6 +29,18 @@ const CAMERA_VIEWS = {
     landscape: { position: [1.6, 0.9, 3.4], target: [0, 0.02, 0] },
     portrait: { position: [2.3, 1.45, 4.45], target: [0, 0.04, 0] },
   },
+  'stone-full': {
+    landscape: { position: [3.5, 1.45, 4.05], target: [0, 0.08, 0] },
+    portrait: { position: [3.55, 1.58, 4.3], target: [0, 0.05, 0] },
+  },
+  'stone-macro': {
+    landscape: { position: [2.5, 1.0, 2.82], target: [-0.15, 0.02, 0.02] },
+    portrait: { position: [3.15, 1.38, 3.8], target: [-0.12, 0.05, 0] },
+  },
+  'stone-top': {
+    landscape: { position: [0.45, 5.25, 0.3], target: [0, -0.05, 0] },
+    portrait: { position: [0.55, 6.8, 0.38], target: [0, -0.05, 0] },
+  },
 };
 
 function StudioEnvironment() {
@@ -54,6 +66,7 @@ function StudioCamera({ view }) {
   const { camera, size } = useThree();
   const controls = useRef();
   const flightView = view.startsWith('flight') || view === 'landing';
+  const stoneView = view.startsWith('stone');
 
   useEffect(() => {
     const preset = CAMERA_VIEWS[view] ?? CAMERA_VIEWS.specimens;
@@ -71,16 +84,22 @@ function StudioCamera({ view }) {
       ref={controls}
       makeDefault
       enablePan={false}
-      minDistance={1.2}
-      maxDistance={flightView ? 35 : 8.5}
-      minPolarAngle={0.45}
+      minDistance={stoneView ? 0.72 : 1.2}
+      maxDistance={flightView ? 35 : (stoneView ? 11 : 8.5)}
+      minPolarAngle={stoneView ? 0.08 : 0.45}
       maxPolarAngle={Math.PI - 0.5}
     />
   );
 }
 
-export default function AssetStudio({ children, view = 'specimens', waterReflection = false }) {
+export default function AssetStudio({
+  children,
+  view = 'specimens',
+  waterReflection = false,
+  lightingPreset = 'default',
+}) {
   const flightView = view.startsWith('flight') || view === 'landing';
+  const stoneLighting = lightingPreset === 'black-stone';
 
   return (
     <Canvas
@@ -97,10 +116,10 @@ export default function AssetStudio({ children, view = 'specimens', waterReflect
       <color attach="background" args={[STUDIO_BACKGROUND]} />
       <fog attach="fog" args={[STUDIO_BACKGROUND, flightView ? 32 : 6.2, flightView ? 48 : 10.5]} />
       <StudioEnvironment />
-      <hemisphereLight args={['#f9fbff', '#b8afa1', 1.35]} />
+      <hemisphereLight args={['#f9fbff', '#b8afa1', stoneLighting ? 0.34 : 1.35]} />
       <directionalLight
         position={[3.4, 5.5, 4]}
-        intensity={2.1}
+        intensity={stoneLighting ? 1.7 : 2.1}
         color="#fff7e9"
         castShadow
         shadow-mapSize-width={1024}
@@ -115,7 +134,11 @@ export default function AssetStudio({ children, view = 'specimens', waterReflect
         shadow-normalBias={0.01}
         shadow-radius={2.5}
       />
-      <directionalLight position={[-4, 0.7, -3]} intensity={1.05} color="#c4dbdf" />
+      <directionalLight
+        position={[-4, 0.7, -3]}
+        intensity={stoneLighting ? 0.26 : 1.05}
+        color="#c4dbdf"
+      />
       {children}
       {waterReflection ? (
         <StudioWaterReflection

@@ -1,5 +1,6 @@
 import FishLab from '../fish-lab/FishLab';
 import SeagullLab from '../seagull-lab/SeagullLab';
+import BlackStoneLab from '../black-stone-lab/BlackStoneLab';
 
 export const DEFAULT_ASSET_COLLECTION = 'river-fish';
 
@@ -13,6 +14,11 @@ export const ASSET_COLLECTIONS = Object.freeze({
     id: 'seagulls',
     label: 'Чайки',
     component: SeagullLab,
+  },
+  'black-stone-sculpture': {
+    id: 'black-stone-sculpture',
+    label: 'Скульптура · чёрный камень',
+    component: BlackStoneLab,
   },
 });
 
