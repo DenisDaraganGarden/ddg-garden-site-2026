@@ -16,6 +16,7 @@ export default function StaticSculpture({
   mode,
   orbitRef,
   onSculpturePositionChange,
+  onLandingSurfaceReady,
 }) {
   const anchorRef = useRef();
   const sculptureAnchorRef = useRef(new THREE.Vector3(
@@ -130,6 +131,23 @@ export default function StaticSculpture({
 
     return clone;
   }, [normalizedObj, sculptureMaterial]);
+
+  useEffect(() => {
+    if (typeof onLandingSurfaceReady !== 'function' || !anchorRef.current) {
+      return undefined;
+    }
+
+    // The sculpture anchor owns editor translation, scale and arbitrary tilt,
+    // so a perched bird inherits the same authored pose.
+    onLandingSurfaceReady({
+      surface: 'sculpture',
+      root: anchorRef.current,
+      collisionObject: anchorRef.current,
+      revision: clonedObj,
+    });
+
+    return () => onLandingSurfaceReady({ surface: 'sculpture', root: null, collisionObject: null });
+  }, [clonedObj, onLandingSurfaceReady]);
 
   return (
     <group

@@ -5,6 +5,9 @@ const UP = new THREE.Vector3(0, 1, 0);
 const RIGHT = new THREE.Vector3(0, 0, 1);
 const raycaster = new THREE.Raycaster();
 const rayDirection = new THREE.Vector3(0, -1, 0);
+const rayOrigin = new THREE.Vector3();
+const projectionUp = new THREE.Vector3();
+const boundsSize = new THREE.Vector3();
 const surfaceNormal = new THREE.Vector3();
 const surfaceForward = new THREE.Vector3();
 const surfaceRight = new THREE.Vector3();
@@ -20,14 +23,17 @@ const FIT_FOOT_CONTACTS = Object.freeze([
 ]);
 
 export const BOAT_LANDING_SPECS = Object.freeze([
-  { id: 'boat-bow', surface: 'boat', probe: [0.44, 1.06], rotationY: 3.142 },
-  { id: 'boat-stern', surface: 'boat', probe: [0.12, -1.34], rotationY: 3.665 },
-  { id: 'boat-port-seat', surface: 'boat', probe: [-0.52, 0.18], rotationY: 6.021 },
-  { id: 'boat-starboard-seat', surface: 'boat', probe: [0.48, 0.18], rotationY: 0.262 },
+  // `probe` is the asset-lab's normalized surface coordinate. `probeBounds`
+  // lets the home runtime remap that same intent to the real, differently
+  // scaled boat without baking a model scale into the landing behaviour.
+  { id: 'boat-bow', surface: 'boat', probe: [0.44, 1.06], probeBounds: [0.345, 0.692], rotationY: 3.142 },
+  { id: 'boat-stern', surface: 'boat', probe: [0.12, -1.34], probeBounds: [0.094, -0.874], rotationY: 3.665 },
+  { id: 'boat-port-seat', surface: 'boat', probe: [-0.52, 0.18], probeBounds: [-0.407, 0.117], rotationY: 6.021 },
+  { id: 'boat-starboard-seat', surface: 'boat', probe: [0.48, 0.18], probeBounds: [0.376, 0.117], rotationY: 0.262 },
 ]);
 
 export const SCULPTURE_LANDING_SPECS = Object.freeze([
-  { id: 'sculpture-crown', surface: 'sculpture', probe: [0.82, -0.23], rotationY: 3.927 },
+  { id: 'sculpture-crown', surface: 'sculpture', probe: [0.82, -0.23], probeBounds: [0.881, -0.273], rotationY: 3.927 },
 ]);
 
 export function createNormalizedSurfaceClone(source, scale, rotationY) {
@@ -52,8 +58,8 @@ function readWorldNormal(hit) {
     .normalize();
 }
 
-function makeSiteQuaternion(rotationY, normal) {
-  headingQuaternion.setFromAxisAngle(UP, rotationY);
+function makeSiteQuaternion(rotationY, normal, headingUp = UP) {
+  headingQuaternion.setFromAxisAngle(headingUp, rotationY);
   surfaceForward.copy(FORWARD).applyQuaternion(headingQuaternion);
   surfaceForward.addScaledVector(normal, -surfaceForward.dot(normal));
   if (surfaceForward.lengthSq() < 1e-6) {
@@ -123,48 +129,54 @@ function fitLandingPlane(surfaceObject, point, normal, initialQuaternion) {
   };
 }
 
-export function projectLandingSites(surfaceObject, specs, minUp = 0.82) {
+export function projectLandingSites(surfaceObject, specs, minUp = 0.82, surfaceUp = UP) {
   surfaceObject.updateMatrixWorld(true);
   const bounds = new THREE.Box3().setFromObject(surfaceObject);
-  const probeHeight = bounds.max.y + Math.max(0.5, bounds.max.y - bounds.min.y);
+  projectionUp.copy(surfaceUp).normalize();
+  const probeHeight = Math.max(0.5, bounds.getSize(boundsSize).length());
 
   return specs.map((spec) => {
     const [x, z] = spec.probe;
-    raycaster.set(new THREE.Vector3(x, probeHeight, z), rayDirection);
-    const intersections = raycaster.intersectObject(surfaceObject, true);
-    let hit = null;
-    let normal = null;
-    for (const candidate of intersections) {
-      const candidateNormal = readWorldNormal(candidate).clone();
-      if (candidateNormal.dot(UP) < minUp) continue;
-      hit = candidate;
-      normal = candidateNormal;
-      break;
-    }
-    if (!hit || !normal) {
-      throw new Error(`No stable top-facing surface below seagull landing site ${spec.id}`);
-    }
+    const probePoints = spec.probePoints ?? [spec.probePoint];
+    for (const probePoint of probePoints) {
+      if (probePoint) rayOrigin.fromArray(probePoint);
+      else rayOrigin.set(x, bounds.max.y + probeHeight, z);
+      raycaster.set(
+        rayOrigin.addScaledVector(projectionUp, probeHeight),
+        rayDirection.copy(projectionUp).negate(),
+      );
+      const intersections = raycaster.intersectObject(surfaceObject, true);
+      let hit = null;
+      let normal = null;
+      for (const candidate of intersections) {
+        const candidateNormal = readWorldNormal(candidate).clone();
+        if (candidateNormal.dot(projectionUp) < minUp) continue;
+        hit = candidate;
+        normal = candidateNormal;
+        break;
+      }
+      if (!hit || !normal) continue;
 
-    const initialQuaternion = makeSiteQuaternion(spec.rotationY, normal);
-    const fitted = fitLandingPlane(
-      surfaceObject,
-      hit.point,
-      normal,
-      initialQuaternion,
-    );
-    if (!fitted) {
-      throw new Error(`Both seagull feet do not fit landing site ${spec.id}`);
-    }
+      const initialQuaternion = makeSiteQuaternion(spec.rotationY, normal, projectionUp);
+      const fitted = fitLandingPlane(
+        surfaceObject,
+        hit.point,
+        normal,
+        initialQuaternion,
+      );
+      if (!fitted) continue;
 
-    return {
-      ...spec,
-      position: fitted.position.toArray(),
-      surfaceNormal: fitted.normal.toArray(),
-      quaternion: fitted.quaternion,
-      footFitError: fitted.fitError,
-      markerPosition: hit.point.toArray(),
-      markerQuaternion: initialQuaternion,
-      geometryObject: hit.object.name,
-    };
+      return {
+        ...spec,
+        position: fitted.position.toArray(),
+        surfaceNormal: fitted.normal.toArray(),
+        quaternion: fitted.quaternion,
+        footFitError: fitted.fitError,
+        markerPosition: hit.point.toArray(),
+        markerQuaternion: initialQuaternion,
+        geometryObject: hit.object.name,
+      };
+    }
+    throw new Error(`Both seagull feet must fit a stable top-facing surface at ${spec.id}`);
   });
 }

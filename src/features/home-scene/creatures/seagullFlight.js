@@ -27,10 +27,10 @@ const FORMATION_LATERAL_SPACING = 1.28;
 // y=-1.14 when this module is mounted in WaterScene.
 export const HOME_SEAGULL_WATER_Y = 0;
 export const SEAGULL_ROUTE_PROFILE = Object.freeze({
-  flock: Object.freeze({ height: 1.64 }),
-  waterline: Object.freeze({ height: 0.36 }),
-  long: Object.freeze({ height: 2.22 }),
-  high: Object.freeze({ height: 4.59 }),
+  flock: Object.freeze({ height: 1.64, zCenter: 2.8 }),
+  waterline: Object.freeze({ height: 0.36, zCenter: 0 }),
+  long: Object.freeze({ height: 2.22, zCenter: 3.2 }),
+  high: Object.freeze({ height: 4.59, zCenter: 6.4 }),
 });
 
 export const FLIGHT_ROUTE = Object.freeze({
@@ -95,7 +95,7 @@ function sampleFormationTarget(time, agent) {
   agent.target.set(
     Math.cos(angle) * 0.82,
     SEAGULL_ROUTE_PROFILE.flock.height + Math.sin(angle * 1.7) * 0.2,
-    Math.sin(angle) * 0.54,
+    SEAGULL_ROUTE_PROFILE.flock.zCenter + Math.sin(angle) * 0.54,
   );
   agent.plannedHeading.set(
     -Math.sin(angle) * 0.82,
@@ -119,6 +119,7 @@ function sampleSoloTarget(time, agent) {
     [FLIGHT_ROUTE.HIGH]: {
       radiusX: 4.45 + agent.orbitScale * 0.55,
       radiusZ: 3.15 + agent.orbitScale * 0.35,
+      zCenter: SEAGULL_ROUTE_PROFILE.high.zCenter,
       zFrequency: 0.82,
       height: SEAGULL_ROUTE_PROFILE.high.height,
       verticalAmplitude: 0.62,
@@ -127,6 +128,7 @@ function sampleSoloTarget(time, agent) {
     [FLIGHT_ROUTE.LONG]: {
       radiusX: 6.15 + agent.orbitScale * 0.5,
       radiusZ: 1.65 + agent.orbitScale * 0.32,
+      zCenter: SEAGULL_ROUTE_PROFILE.long.zCenter,
       zFrequency: 0.58,
       height: SEAGULL_ROUTE_PROFILE.long.height,
       verticalAmplitude: 0.34,
@@ -135,6 +137,7 @@ function sampleSoloTarget(time, agent) {
     [FLIGHT_ROUTE.WATERLINE]: {
       radiusX: 5.2 + agent.orbitScale * 0.5,
       radiusZ: 2.65 + agent.orbitScale * 0.38,
+      zCenter: SEAGULL_ROUTE_PROFILE.waterline.zCenter,
       zFrequency: 0.72,
       height: SEAGULL_ROUTE_PROFILE.waterline.height,
       verticalAmplitude: 0.1,
@@ -142,13 +145,13 @@ function sampleSoloTarget(time, agent) {
     },
   }[agent.route];
   const {
-    radiusX, radiusZ, zFrequency, height, verticalAmplitude, verticalFrequency,
+    radiusX, radiusZ, zCenter, zFrequency, height, verticalAmplitude, verticalFrequency,
   } = route;
   agent.target.set(
     Math.cos(angle) * radiusX,
     height + agent.altitudeBias * 0.24
       + Math.sin(angle * verticalFrequency + agent.index) * verticalAmplitude,
-    Math.sin(angle * zFrequency) * radiusZ,
+    zCenter + Math.sin(angle * zFrequency) * radiusZ,
   );
   agent.plannedHeading.set(
     -Math.sin(angle) * radiusX,
@@ -167,14 +170,14 @@ function writeTarget(agent, time, mode = 'flight') {
     if (agent.route === FLIGHT_ROUTE.FLOCK) {
       agent.target.x *= 1.45;
       agent.target.z *= 1.35;
-      agent.target.y += 1.35;
+      agent.target.y += 0.42;
     } else if (agent.route === FLIGHT_ROUTE.HIGH) {
       agent.target.x *= 1.08;
-      agent.target.y += 0.24;
+      agent.target.y += 0.12;
     } else if (agent.route === FLIGHT_ROUTE.LONG) {
       agent.target.x *= 1.04;
       agent.target.z *= 1.08;
-      agent.target.y += 0.42;
+      agent.target.y += 0.18;
     }
   }
   const avoidanceOffset = pointerAvoidanceOffset(agent);

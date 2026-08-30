@@ -21,6 +21,7 @@ export default function FloatingBoat({
   useGpuProbes = true,
   onWorldPositionChange,
   isWorldPositionReportingActive,
+  onLandingSurfaceReady,
 }) {
   const anchorRef = useRef();
   const boatRef = useRef();
@@ -322,6 +323,23 @@ export default function FloatingBoat({
     clone.rotateY(Math.PI); // bow orientation — fine-tune via boatYaw if needed
     return clone;
   }, [obj, woodMaterial, metalMaterial, settings.boatScale]);
+
+  useLayoutEffect(() => {
+    if (typeof onLandingSurfaceReady !== 'function' || !boatRef.current) {
+      return undefined;
+    }
+
+    // `boat` carries the live heave/pitch/roll. Landing anchors must be its
+    // children, not only children of the static drag anchor.
+    onLandingSurfaceReady({
+      surface: 'boat',
+      root: boatRef.current,
+      collisionObject: boatRef.current,
+      revision: clonedObj,
+    });
+
+    return () => onLandingSurfaceReady({ surface: 'boat', root: null, collisionObject: null });
+  }, [clonedObj, onLandingSurfaceReady]);
 
   // Auto-fit the cutout to the hull: take the largest sub-mesh footprint (the hull, not the
   // thin oars) in boat-local space, so the cap self-centres and self-sizes — no manual offset.

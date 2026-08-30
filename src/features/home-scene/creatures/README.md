@@ -29,15 +29,23 @@ mounting the Three.js home scene. The first production collection is seagulls.
   reflection cadence active while any selected bird is animated.
 - Use at most nine birds on desktop and five on low-power/mobile profiles. The
   runtime hard ceiling is twelve.
-- Landing anchors must be children of `boat-anchor` or `sculpture-anchor` so a
-  perched bird inherits translation, tilt and buoyancy. Each anchor must retain
-  the actual collision mesh through `collisionObject` for foot fitting and
-  downed-body sweeps.
-- Cursor hover is passive: it may read canvas pointer position, but must not
-  call `preventDefault`, `stopPropagation` or own `pointerdown`. The final shot
-  dispatcher is connected only after the cursor flashlight input contract is
-  stable.
+- Landing anchors must be children of the live `boat` or `sculpture-anchor`
+  transform so a perched bird inherits translation, arbitrary tilt and boat
+  buoyancy. Each anchor retains the actual collision mesh through
+  `collisionObject` for foot fitting and downed-body sweeps. Failure of one
+  point after an extreme editor transform must not take down the WebGL scene.
+- Cursor hover and LMB shooting share the canvas without calling
+  `preventDefault` or `stopPropagation`; a shot is accepted only for a short,
+  stationary pointer gesture over a screen-size-aware bird target. Water's
+  cursor plane suppresses its synthetic click impulse for that gesture, while
+  the eventual body contact emits the real impulse.
+- Water impacts enter the same bounded GPU impulse queue as the live cursor.
+  A downed body keeps entry momentum, briefly submerges, rises under damped
+  buoyancy, samples the animated surface normal, then remains afloat with slow
+  drift and bobbing instead of using the solid-surface despawn timer.
 - The caller supplies landing sites and water height to the pure runtime and is
   responsible for disposing cloned skeleton resources on unmount.
 
-Run `npm run check:seagulls` before mounting or changing this runtime.
+Run `npm run check:seagulls` before mounting or changing this runtime. The check
+includes the real published boat/sculpture hierarchy and requires all five
+dual-foot landing anchors to resolve.

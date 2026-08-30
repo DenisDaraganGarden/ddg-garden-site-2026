@@ -1,4 +1,11 @@
-import React, { useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 import { useProgress } from '@react-three/drei';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
@@ -40,6 +47,8 @@ import {
 } from '../../features/cursor/cursorFlashlightStore';
 import { buildHomeSceneLighting } from './homeSceneLighting';
 import { useSkyEnvironment } from './water/skyEnvironment';
+import HomeSeagullFlock from '../../features/home-scene/creatures/HomeSeagullFlock';
+import SeagullLandingHabitat from '../../features/home-scene/creatures/SeagullLandingHabitat.jsx';
 import {
 } from './shaders/waterRuntimeShaders';
 import {
@@ -164,6 +173,23 @@ function WaterRuntimeScene({
     height: qualityProfile.isLowPower ? 64 : 128,
   });
   const runtime = useWaterRuntime(settings, qualityProfile, mode);
+  const landingSitesRef = useRef([]);
+  const [landingSurfaces, setLandingSurfaces] = useState({
+    boat: null,
+    sculpture: null,
+  });
+  const handleLandingSurfaceReady = useCallback((surface) => {
+    const key = surface?.surface;
+    if (key !== 'boat' && key !== 'sculpture') return;
+    setLandingSurfaces((current) => {
+      const nextSurface = surface.root ? surface : null;
+      if (
+        current[key]?.root === nextSurface?.root
+        && current[key]?.revision === nextSurface?.revision
+      ) return current;
+      return { ...current, [key]: nextSurface };
+    });
+  }, []);
   const cursorFlashlight = useSyncExternalStore(
     subscribeToCursorFlashlight,
     getCursorFlashlightSnapshot,
@@ -325,6 +351,7 @@ function WaterRuntimeScene({
             useGpuProbes={qualityProfile.useGpuBoatProbes}
             onWorldPositionChange={updateBoatAudioPosition}
             isWorldPositionReportingActive={audioRuntime?.isActive}
+            onLandingSurfaceReady={handleLandingSurfaceReady}
           />
         ) : null}
         {settings.sculptureVisible ? (
@@ -335,6 +362,23 @@ function WaterRuntimeScene({
             mode={mode}
             orbitRef={orbitRef}
             onSculpturePositionChange={onSculpturePositionChange}
+            onLandingSurfaceReady={handleLandingSurfaceReady}
+          />
+        ) : null}
+        {settings.seagullsEnabled ? (
+          <SeagullLandingHabitat
+            boatSurface={landingSurfaces.boat}
+            sculptureSurface={landingSurfaces.sculpture}
+            landingSitesRef={landingSitesRef}
+          />
+        ) : null}
+        {settings.seagullsEnabled ? (
+          <HomeSeagullFlock
+            settings={settings}
+            runtime={runtime}
+            qualityProfile={qualityProfile}
+            landingSitesRef={landingSitesRef}
+            mode={mode}
           />
         ) : null}
         <SceneLightObjects settings={settings} />

@@ -25,6 +25,12 @@ export const SEAGULL_SHOOTING_LAW = Object.freeze({
   restitution: 0.08,
   dynamicFriction: 0.28,
   staticFriction: 0.42,
+  waterLinearDrag: 0.72,
+  waterVerticalDrag: 3.9,
+  waterBuoyancy: 13.5,
+  waterFloatRadiusRatio: 0.38,
+  waterMaximumSubmergeRadiusRatio: 1.05,
+  waterDriftAcceleration: 0.018,
   returnDelaySeconds: [40, 47],
   returnWindowSeconds: [12, 21],
   despawnSeconds: 12,
@@ -58,6 +64,8 @@ const scratchTargetQuaternion = new THREE.Quaternion();
 const scratchSurfaceQuaternion = new THREE.Quaternion();
 const scratchInverseQuaternion = new THREE.Quaternion();
 const scratchRollQuaternion = new THREE.Quaternion();
+const scratchWaterNormal = new THREE.Vector3();
+const scratchWaterDrift = new THREE.Vector3();
 
 function clamp01(value) {
   return THREE.MathUtils.clamp(value, 0, 1);
@@ -507,10 +515,12 @@ function resolveSurfaceVelocity(agent, normal) {
 }
 
 function setShotOrientation(agent, delta) {
-  const surfaceState = [
+  const supportedState = [
     SEAGULL_DOWNED_STATE.SLIDING,
     SEAGULL_DOWNED_STATE.RESTING,
   ].includes(agent.shotState);
+  const waterState = agent.shotState === SEAGULL_DOWNED_STATE.WATER;
+  const surfaceState = supportedState || waterState;
   const up = surfaceState ? agent.shotContactNormal : WORLD_UP;
   scratchForward.copy(agent.shotVelocity);
   if (surfaceState) scratchForward.addScaledVector(up, -scratchForward.dot(up));
@@ -528,7 +538,11 @@ function setShotOrientation(agent, delta) {
 
   agent.shotRoll += agent.shotAngularVelocity.x * delta;
   agent.shotAngularVelocity.multiplyScalar(Math.exp(-delta * 0.42));
-  const restingRoll = surfaceState ? agent.shotSide * 0.92 : agent.shotRoll;
+  const restingRoll = waterState
+    ? agent.shotSide * 1.08
+    : supportedState
+      ? agent.shotSide * 0.92
+      : agent.shotRoll;
   scratchRollQuaternion.setFromAxisAngle(FORWARD, restingRoll);
   scratchTargetQuaternion.multiply(scratchRollQuaternion).normalize();
   agent.quaternion.slerp(scratchTargetQuaternion, 1 - Math.exp(-delta * 5.2)).normalize();
@@ -537,24 +551,75 @@ function setShotOrientation(agent, delta) {
 
 function enterWater(agent, floorY, eventTime) {
   const radius = SEAGULL_SHOOTING_LAW.bodyRadiusMeters * (agent.modelScale ?? 1);
-  agent.position.y = floorY + radius * 0.56;
-  agent.shotVelocity.y = 0;
-  agent.shotVelocity.x *= 0.42;
-  agent.shotVelocity.z *= 0.42;
+  // Preserve the incoming vertical momentum. Buoyancy below will turn it into
+  // one short plunge and a damped rise; zeroing it here made the bird snap onto
+  // the plane as if the water were a solid floor.
+  agent.position.y = Math.max(agent.position.y, floorY + radius);
+  agent.shotVelocity.x *= 0.68;
+  agent.shotVelocity.z *= 0.68;
   agent.shotState = SEAGULL_DOWNED_STATE.WATER;
   agent.shotStateClock = 0;
   agent.shotLastImpactAt = eventTime;
   agent.shotContactObject = null;
+  agent.shotWaterSurfaceY = floorY;
+  agent.shotWaterNormal ??= new THREE.Vector3(0, 1, 0);
+  agent.shotWaterNormal.set(0, 1, 0);
+  agent.shotWaterPhase = 'submerging';
+  agent.shotWaterMinimumY = agent.position.y;
 }
 
 function updateWaterAgent(agent, delta, floorY) {
   const radius = SEAGULL_SHOOTING_LAW.bodyRadiusMeters * (agent.modelScale ?? 1);
-  const damping = Math.exp(-delta * 3.8);
-  agent.shotVelocity.multiplyScalar(damping);
+  const sampledSurfaceY = Number.isFinite(agent.shotWaterSurfaceY)
+    ? agent.shotWaterSurfaceY
+    : floorY;
+  scratchWaterNormal.copy(agent.shotWaterNormal ?? WORLD_UP).normalize();
+  if (!finiteVector(scratchWaterNormal) || scratchWaterNormal.y < 0.2) {
+    scratchWaterNormal.copy(WORLD_UP);
+  }
+
+  const targetY = sampledSurfaceY
+    + radius * SEAGULL_SHOOTING_LAW.waterFloatRadiusRatio;
+  const verticalError = targetY - agent.position.y;
+  const verticalAcceleration = verticalError * SEAGULL_SHOOTING_LAW.waterBuoyancy
+    - agent.shotVelocity.y * SEAGULL_SHOOTING_LAW.waterVerticalDrag;
+  agent.shotVelocity.y += verticalAcceleration * delta;
+
+  const horizontalDamping = Math.exp(-delta * SEAGULL_SHOOTING_LAW.waterLinearDrag);
+  agent.shotVelocity.x *= horizontalDamping;
+  agent.shotVelocity.z *= horizontalDamping;
+  // A tiny deterministic surface current prevents a corpse from becoming a
+  // pinned prop after its entry momentum has dissipated. The sampled normal
+  // contributes the local wave slope, so cursor and impact waves can nudge it.
+  const driftPhase = (agent.index + 1) * 1.618 + agent.shotClock * 0.12;
+  scratchWaterDrift.set(
+    Math.cos(driftPhase),
+    0,
+    Math.sin(driftPhase * 0.83),
+  ).multiplyScalar(SEAGULL_SHOOTING_LAW.waterDriftAcceleration);
+  scratchWaterDrift.x -= scratchWaterNormal.x * 0.08;
+  scratchWaterDrift.z -= scratchWaterNormal.z * 0.08;
+  agent.shotVelocity.addScaledVector(scratchWaterDrift, delta);
   agent.position.addScaledVector(agent.shotVelocity, delta);
-  agent.position.y = floorY + radius * 0.56
-    + Math.sin(agent.shotClock * 2.1 + agent.index) * 0.008;
-  agent.shotContactNormal.copy(WORLD_UP);
+
+  const minimumY = sampledSurfaceY
+    - radius * SEAGULL_SHOOTING_LAW.waterMaximumSubmergeRadiusRatio;
+  if (agent.position.y < minimumY) {
+    agent.position.y = minimumY;
+    agent.shotVelocity.y = Math.max(0, agent.shotVelocity.y);
+  }
+  agent.shotWaterMinimumY = Math.min(agent.shotWaterMinimumY ?? agent.position.y, agent.position.y);
+  if (agent.shotWaterPhase === 'submerging' && agent.shotVelocity.y > 0) {
+    agent.shotWaterPhase = 'resurfacing';
+  }
+  if (
+    agent.shotWaterPhase !== 'floating'
+    && Math.abs(verticalError) < radius * 0.16
+    && Math.abs(agent.shotVelocity.y) < 0.045
+  ) {
+    agent.shotWaterPhase = 'floating';
+  }
+  agent.shotContactNormal.copy(scratchWaterNormal);
   setShotOrientation(agent, delta);
 }
 
@@ -585,9 +650,8 @@ export function advanceDownedSeagulls(
     }
     if (agent.shotState === SEAGULL_DOWNED_STATE.WATER) {
       updateWaterAgent(agent, safeDelta, waterY);
-      if (agent.shotStateClock >= SEAGULL_SHOOTING_LAW.despawnSeconds) {
-        agent.shotState = SEAGULL_DOWNED_STATE.REMOVED;
-      }
+      agent.velocity.copy(agent.shotVelocity);
+      agent.physicalHeight = 0;
       continue;
     }
 
@@ -668,12 +732,19 @@ export function advanceDownedSeagulls(
       } else if (Number.isFinite(floorFraction)) {
         scratchTravel.subVectors(scratchNextPosition, agent.position);
         agent.position.addScaledVector(scratchTravel, floorFraction);
+        const impactVelocity = agent.shotVelocity.clone();
+        const impactStrength = THREE.MathUtils.clamp(
+          0.34 + Math.max(0, -impactVelocity.y) * 0.18 + impactVelocity.length() * 0.045,
+          0.42,
+          1,
+        );
         enterWater(agent, waterY, time);
         events.push({
           kind: 'water-impact',
           index: agent.index,
-          position: agent.position.clone(),
-          velocity: agent.shotVelocity.clone(),
+          position: new THREE.Vector3(agent.position.x, waterY, agent.position.z),
+          velocity: impactVelocity,
+          strength: impactStrength,
           seed: 5107 + agent.index * 157 + Math.round(time * 60),
         });
         break;

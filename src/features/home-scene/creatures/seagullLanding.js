@@ -136,14 +136,16 @@ function activeLanding(agent) {
 
 export function prepareLandingMode(agents) {
   if (agents.landingSchedule) return;
+  const density = clamp01(agents.landingDensity ?? 1);
+  const intervalScale = THREE.MathUtils.lerp(2.6, 0.7, density);
   agents.landingSchedule = { nextDispatchTime: 0.75, siteCursor: 0 };
   const preferred = [agents.length - 2, agents.length - 1, agents.length - 3];
   for (const agent of agents) {
     ensureLandingFields(agent);
     const rank = preferred.indexOf(agent.index);
     agent.nextLandingTime = rank >= 0
-      ? 0.65 + rank * 3.6
-      : 15 + agent.random() * 16;
+      ? 0.65 + rank * 3.6 * intervalScale
+      : (15 + agent.random() * 16) * intervalScale;
   }
 }
 
@@ -171,6 +173,8 @@ function surfaceCounts(agents, sites) {
 export function scheduleLanding(agents, time, sites) {
   prepareLandingMode(agents);
   const schedule = agents.landingSchedule;
+  const density = clamp01(agents.landingDensity ?? 1);
+  const intervalScale = THREE.MathUtils.lerp(2.6, 0.7, density);
   const active = agents.filter(activeLanding);
   if (time < schedule.nextDispatchTime || active.length >= MAX_ACTIVE_LANDINGS || sites.length === 0) return;
 
@@ -205,7 +209,7 @@ export function scheduleLanding(agents, time, sites) {
   agent.state = 'flap';
   agent.stateTime = APPROACH_SECONDS + FLARE_SECONDS;
   schedule.siteCursor = (chosenIndex + 1) % sites.length;
-  schedule.nextDispatchTime = time + 4.6 + agent.random() * 3.2;
+  schedule.nextDispatchTime = time + (4.6 + agent.random() * 3.2) * intervalScale;
 }
 
 function loseSite(agent, time) {

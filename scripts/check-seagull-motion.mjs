@@ -20,6 +20,10 @@ import {
   SCULPTURE_LANDING_SPECS,
 } from '../src/features/home-scene/creatures/seagullLandingSurfaces.js';
 import {
+  createLandingHabitatSites,
+  disposeLandingHabitatSites,
+} from '../src/features/home-scene/creatures/seagullLandingHabitat.js';
+import {
   advancePointerResponse,
   createPointerSample,
   measurePointerInteraction,
@@ -631,7 +635,7 @@ function checkShootingMechanic() {
     bird.velocity.copy(bird.shotVelocity);
     const events = [];
     let minY = bird.position.y;
-    for (let frame = 1; frame <= 180; frame += 1) {
+    for (let frame = 1; frame <= 30 * 60; frame += 1) {
       events.push(...advanceDownedSeagulls(
         floorRuntime,
         floorAgents,
@@ -660,7 +664,28 @@ function checkShootingMechanic() {
     'water plane must receive one impact event',
   );
   assert.ok(firstFall.position.x > 0.2, 'falling gull must preserve forward momentum');
-  assert.ok(firstFall.minY >= -1.14, 'downed body must not tunnel through the water plane');
+  assert.ok(
+    firstFall.minY < -1.14,
+    'water entry must briefly submerge the body instead of snapping it onto a solid plane',
+  );
+  assert.ok(
+    firstFall.minY >= -1.14 - SEAGULL_SHOOTING_LAW.bodyRadiusMeters * 1.06,
+    'buoyancy clamp must keep the body inside the bounded surface layer',
+  );
+  assert.equal(firstFall.bird.shotWaterPhase, 'floating');
+  assert.ok(
+    Math.abs(
+      firstFall.position.y
+      - (-1.14 + SEAGULL_SHOOTING_LAW.bodyRadiusMeters
+        * SEAGULL_SHOOTING_LAW.waterFloatRadiusRatio)
+    ) < 0.015,
+    'resurfaced body must settle at its authored waterline',
+  );
+  assert.ok(
+    firstFall.events[0].strength >= 0.42 && firstFall.events[0].strength <= 1,
+    'water event must carry a bounded impulse strength for the shared wave field',
+  );
+  assert.equal(firstFall.events[0].position.y, -1.14);
   assert.ok(firstFall.position.distanceTo(secondFall.position) < 1e-9, 'fixed seed fall must be deterministic');
   assert.ok(firstFall.quaternion.angleTo(secondFall.quaternion) < 1e-9);
   assert.ok(
@@ -1075,6 +1100,76 @@ const [boatGltf, sculptureGltf] = await Promise.all([
   loadGlb('public/models/boat/OBJ_boat2.0.glb'),
   loadGlb('public/models/sculpture/sculpture.glb'),
 ]);
+
+// Exercise the same hierarchy and authored transforms as WaterScene. The old
+// normalised proxy test did not include the real boat's oars in its bounds, so
+// it could pass while a narrow runtime seat failed and took down the canvas.
+const productionHabitatScene = new THREE.Scene();
+const productionBoatRoot = new THREE.Group();
+productionBoatRoot.name = 'qa-production-boat';
+productionBoatRoot.position.set(2.1, -0.14, -1.4);
+productionBoatRoot.rotation.set(
+  0.12,
+  THREE.MathUtils.degToRad(-51),
+  0.18,
+);
+const productionBoatModel = boatGltf.scene.clone();
+productionBoatModel.scale.setScalar(0.001);
+productionBoatModel.rotateY(Math.PI);
+productionBoatRoot.add(productionBoatModel);
+productionHabitatScene.add(productionBoatRoot);
+
+const productionSculptureRoot = new THREE.Group();
+productionSculptureRoot.name = 'qa-production-sculpture';
+productionSculptureRoot.position.set(-2.1, -0.66, 0.2);
+productionSculptureRoot.rotation.set(
+  THREE.MathUtils.degToRad(-55),
+  THREE.MathUtils.degToRad(-33),
+  0,
+);
+productionSculptureRoot.scale.setScalar(0.121);
+const productionSculptureModel = sculptureGltf.scene.clone();
+const productionSculptureBounds = new THREE.Box3().setFromObject(productionSculptureModel);
+const productionSculptureCenter = productionSculptureBounds.getCenter(new THREE.Vector3());
+productionSculptureModel.position.set(
+  -productionSculptureCenter.x,
+  -productionSculptureBounds.min.y,
+  -productionSculptureCenter.z,
+);
+productionSculptureRoot.add(productionSculptureModel);
+productionHabitatScene.add(productionSculptureRoot);
+productionHabitatScene.updateMatrixWorld(true);
+
+const productionLandingSites = [
+  ...createLandingHabitatSites({
+    root: productionBoatRoot,
+    collisionObject: productionBoatRoot,
+    specs: BOAT_LANDING_SPECS,
+  }),
+  ...createLandingHabitatSites({
+    root: productionSculptureRoot,
+    collisionObject: productionSculptureRoot,
+    specs: SCULPTURE_LANDING_SPECS,
+  }),
+];
+assert.deepEqual(
+  productionLandingSites.map((site) => site.id).sort(),
+  [...BOAT_LANDING_SPECS, ...SCULPTURE_LANDING_SPECS].map((site) => site.id).sort(),
+  'all five published landing anchors must fit the real production models',
+);
+const productionBoatAnchor = productionLandingSites.find((site) => site.surface === 'boat');
+const productionBoatAnchorBefore = productionBoatAnchor.object.getWorldPosition(new THREE.Vector3());
+productionBoatRoot.position.x += 0.42;
+productionBoatRoot.rotation.z += 0.09;
+productionHabitatScene.updateMatrixWorld(true);
+const productionBoatAnchorTravel = productionBoatAnchor.object
+  .getWorldPosition(new THREE.Vector3())
+  .distanceTo(productionBoatAnchorBefore);
+assert.ok(
+  productionBoatAnchorTravel > 0.25,
+  'boat landing anchors must inherit translation and buoyancy roll',
+);
+
 const boatSurface = createNormalizedSurfaceClone(boatGltf.scene, 0.0007, Math.PI);
 const sculptureSurface = createNormalizedSurfaceClone(sculptureGltf.scene, 0.075, 0);
 const projectedSurfaces = [
@@ -1234,6 +1329,11 @@ console.log(JSON.stringify({
     maxFootSurfaceGapMeters: maxFootSurfaceGap,
     worstFootSurfaceGap,
   },
+  productionLandingHabitat: {
+    sites: productionLandingSites.length,
+    ids: productionLandingSites.map((site) => site.id),
+    boatAnchorTravelMeters: productionBoatAnchorTravel,
+  },
   realSculptureCollision: {
     impacts: realSurfaceEvents.filter((event) => event.kind === 'surface-impact').length,
     contactFrame: sculptureContactFrame,
@@ -1243,3 +1343,5 @@ console.log(JSON.stringify({
     finalState: realSurfaceBird.shotState,
   },
 }, null, 2));
+
+disposeLandingHabitatSites(productionLandingSites);
