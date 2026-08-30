@@ -13,7 +13,10 @@ const rotationScratch = new THREE.Quaternion();
 function collectBones(object) {
   const bones = {};
   object.traverse((child) => {
-    if (child.isBone) bones[child.name] = child;
+    if (!child.isBone) return;
+    bones[child.name] = child;
+    const authoredName = child.userData?.name;
+    if (authoredName) bones[authoredName] = child;
   });
   return bones;
 }
@@ -130,20 +133,16 @@ export default function SeagullFlock({ mode, paused, showRig, onStats }) {
       const agent = agents[index];
       const wing = getWingPose(agent);
       instance.object.position.copy(agent.position);
-      instance.object.position.y += wing.heave;
       instance.object.quaternion.copy(agent.quaternion);
 
       applyBoneRotation(instance.bones['wing.shoulder.L'], instance.bind['wing.shoulder.L'], ROTATION_AXIS_X, wing.shoulder);
-      applyBoneRotation(instance.bones['wing.shoulder.R'], instance.bind['wing.shoulder.R'], ROTATION_AXIS_X, -wing.shoulder);
+      applyBoneRotation(instance.bones['wing.shoulder.R'], instance.bind['wing.shoulder.R'], ROTATION_AXIS_X, wing.shoulder);
       applyBoneRotation(instance.bones['wing.inner.L'], instance.bind['wing.inner.L'], ROTATION_AXIS_X, wing.inner);
-      applyBoneRotation(instance.bones['wing.inner.R'], instance.bind['wing.inner.R'], ROTATION_AXIS_X, -wing.inner);
-      applyBoneRotation(instance.bones['wing.outer.L'], instance.bind['wing.outer.L'], ROTATION_AXIS_Z, wing.outer);
-      applyBoneRotation(instance.bones['wing.outer.R'], instance.bind['wing.outer.R'], ROTATION_AXIS_Z, -wing.outer);
-      applyBoneRotation(instance.bones['wing.tip.L'], instance.bind['wing.tip.L'], ROTATION_AXIS_Z, wing.tip);
-      applyBoneRotation(instance.bones['wing.tip.R'], instance.bind['wing.tip.R'], ROTATION_AXIS_Z, -wing.tip);
-      applyBoneRotation(instance.bones.head, instance.bind.head, ROTATION_AXIS_X, -agent.bank * 0.32);
-      applyBoneRotation(instance.bones['tail.L'], instance.bind['tail.L'], ROTATION_AXIS_Z, agent.bank * 0.18);
-      applyBoneRotation(instance.bones['tail.R'], instance.bind['tail.R'], ROTATION_AXIS_Z, agent.bank * 0.18);
+      applyBoneRotation(instance.bones['wing.inner.R'], instance.bind['wing.inner.R'], ROTATION_AXIS_X, wing.inner);
+      applyBoneRotation(instance.bones['wing.outer.L'], instance.bind['wing.outer.L'], ROTATION_AXIS_X, wing.outer);
+      applyBoneRotation(instance.bones['wing.outer.R'], instance.bind['wing.outer.R'], ROTATION_AXIS_X, wing.outer);
+      applyBoneRotation(instance.bones['wing.tip.L'], instance.bind['wing.tip.L'], ROTATION_AXIS_X, wing.tip);
+      applyBoneRotation(instance.bones['wing.tip.R'], instance.bind['wing.tip.R'], ROTATION_AXIS_X, wing.tip);
       applyParentSpaceBoneRotation(instance.bones['leg.L'], instance.bind['leg.L'], ROTATION_AXIS_Z, -1.08);
       applyParentSpaceBoneRotation(instance.bones['leg.R'], instance.bind['leg.R'], ROTATION_AXIS_Z, -1.08);
     }

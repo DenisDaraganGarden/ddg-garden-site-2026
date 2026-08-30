@@ -16,8 +16,8 @@ const CAMERA_VIEWS = {
     portrait: { position: [2, 0.55, 6.2], target: [-0.34, 0.22, 0] },
   },
   flight: {
-    landscape: { position: [4.6, 2.15, 5.8], target: [0, 0.48, 0] },
-    portrait: { position: [11.8, 5.2, 14], target: [0.1, 0.5, 0] },
+    landscape: { position: [7.2, 3.1, 8.8], target: [0, 0.5, 0] },
+    portrait: { position: [15.5, 6.6, 18.8], target: [0, 0.5, 0] },
   },
   'flight-specimen': {
     landscape: { position: [1.6, 0.9, 3.4], target: [0, 0.02, 0] },
@@ -47,6 +47,7 @@ function StudioEnvironment() {
 function StudioCamera({ view }) {
   const { camera, size } = useThree();
   const controls = useRef();
+  const flightView = view.startsWith('flight');
 
   useEffect(() => {
     const preset = CAMERA_VIEWS[view] ?? CAMERA_VIEWS.specimens;
@@ -65,7 +66,7 @@ function StudioCamera({ view }) {
       makeDefault
       enablePan={false}
       minDistance={1.2}
-      maxDistance={8.5}
+      maxDistance={flightView ? 35 : 8.5}
       minPolarAngle={0.45}
       maxPolarAngle={Math.PI - 0.5}
     />
@@ -87,7 +88,7 @@ export default function AssetStudio({ children, view = 'specimens' }) {
       }}
     >
       <color attach="background" args={[STUDIO_BACKGROUND]} />
-      <fog attach="fog" args={[STUDIO_BACKGROUND, flightView ? 12 : 6.2, flightView ? 20 : 10.5]} />
+      <fog attach="fog" args={[STUDIO_BACKGROUND, flightView ? 32 : 6.2, flightView ? 48 : 10.5]} />
       <StudioEnvironment />
       <hemisphereLight args={['#f9fbff', '#b8afa1', 1.35]} />
       <directionalLight position={[3.4, 5.5, 4]} intensity={2.1} color="#fff7e9" />
