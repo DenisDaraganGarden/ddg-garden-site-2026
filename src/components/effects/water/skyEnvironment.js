@@ -125,10 +125,10 @@ export function useSkyEnvironment(state, {
     ...(state.groundAlbedo ?? []),
   ].join(':');
 
-  // Cloud look-dev can produce dozens of slider events per second. A 1536px
-  // desktop LUT is still cheap as one authored commit, but rebuilding it and
-  // its PMREM for every intermediate thumb position would turn that one-time
-  // cost into a stall. Hold the last coherent request for a short quiet window.
+  // Cloud look-dev can produce dozens of slider events per second. The table
+  // itself is built on a worker now, but its half-float packing, its upload and
+  // its PMREM are not, and paying those for every intermediate thumb position
+  // is a stall. Hold the last coherent request for a short quiet window.
   const [lutRequest, setLutRequest] = useState(() => ({
     key: skyKey,
     state,
