@@ -3,6 +3,7 @@ import {
     BrowserRouter as Router,
     Routes,
     Route,
+    useLocation,
 } from 'react-router-dom';
 import Navigation from './components/ui/Navigation';
 import { SiteAudioProvider } from './features/audio/SiteAudioProvider';
@@ -15,9 +16,14 @@ const Portfolio = lazy(() => import('./pages/Portfolio'));
 const ProjectDetail = lazy(() => import('./pages/ProjectDetail'));
 const Map = lazy(() => import('./pages/Map'));
 const HomeEdit = lazy(() => import('./pages/HomeEdit'));
+const CursorConceptLab = lazy(() => import('./components/ui/CursorConceptLab'));
+const CURSOR_CONCEPT_MODES = new Set(['point', 'cross', 'lens']);
 
 function AppShell() {
     const { t } = useLanguage();
+    const location = useLocation();
+    const cursorConcept = new URLSearchParams(location.search).get('cursor');
+    const showCursorConceptLab = CURSOR_CONCEPT_MODES.has(cursorConcept);
 
     const PlaceholderPage = ({ sectionKey }) => (
         <section className="stub-page">
@@ -96,6 +102,12 @@ function AppShell() {
                     </Routes>
                 </Suspense>
             </main>
+
+            {showCursorConceptLab ? (
+                <Suspense fallback={null}>
+                    <CursorConceptLab />
+                </Suspense>
+            ) : null}
         </>
     );
 }
