@@ -11,7 +11,13 @@ const Navigation = () => {
     const location = useLocation();
     const isHomeRoute = location.pathname === '/';
     const { language, setLanguage, t } = useLanguage();
-    const { isMusicPlaying, toggleMusic, isEditorRoute } = useSiteMusic();
+    const {
+        isMusicPlaying,
+        toggleMusic,
+        isEditorRoute,
+        audioMode,
+        isHomeAudioAudible,
+    } = useSiteMusic();
     const [openGroup, setOpenGroup] = React.useState(null);
     const navRef = React.useRef(null);
 
@@ -208,9 +214,13 @@ const Navigation = () => {
                         className="language-switch__music"
                         data-testid="site-music-controller"
                         data-playing={isMusicPlaying ? 'true' : 'false'}
-                        aria-label={isMusicPlaying ? 'Выключить музыку' : 'Включить музыку'}
+                        data-home-audible={isHomeAudioAudible ? 'true' : 'false'}
+                        data-audio-mode={audioMode}
+                        data-audio-silent="true"
+                        data-audio-consent-toggle="true"
+                        aria-label={isMusicPlaying ? t('navigation.soundOff') : t('navigation.soundOn')}
                         aria-pressed={isMusicPlaying}
-                        title={isMusicPlaying ? 'Выключить музыку' : 'Включить музыку'}
+                        title={isMusicPlaying ? t('navigation.soundOff') : t('navigation.soundOn')}
                     >
                         <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" focusable="false">
                             <path d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor" />

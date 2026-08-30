@@ -12,6 +12,7 @@ const host = '127.0.0.1';
 const port = Number(process.env.SMOKE_PORT ?? '4173');
 const baseUrl = process.env.SMOKE_BASE_URL ?? `http://${host}:${port}`;
 const useExistingServer = process.env.SMOKE_USE_EXISTING_SERVER === '1';
+const smokePhase = process.env.SMOKE_PHASE ?? 'all';
 const smokeMaxRuntimeMs = Number(process.env.SMOKE_MAX_RUNTIME_MS ?? '900000');
 const shouldAutoCleanupProcesses = process.env.SMOKE_SKIP_PROCESS_CLEANUP !== '1';
 const smokeBrowserArgs = ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'];
@@ -548,32 +549,7 @@ async function runWebglFallbackChecks(browser) {
 async function runAudioLifecycleChecks(browser) {
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   await context.addInitScript(() => {
-    class MockAudio extends EventTarget {
-      constructor() {
-        super();
-        this.loop = false;
-        this.preload = 'auto';
-        this.volume = 1;
-        this.paused = true;
-        this.playsInline = true;
-      }
-
-      play() {
-        this.paused = false;
-        this.dispatchEvent(new Event('play'));
-        return Promise.resolve();
-      }
-
-      pause() {
-        if (this.paused) {
-          return;
-        }
-        this.paused = true;
-        this.dispatchEvent(new Event('pause'));
-      }
-    }
-
-    window.Audio = MockAudio;
+    localStorage.removeItem('ddg_site_audio_preference_v1');
   });
 
   const page = await context.newPage();
@@ -591,35 +567,54 @@ async function runAudioLifecycleChecks(browser) {
   await page.getByTestId('site-music-controller').click();
   await waitForCondition(async () => {
     const playing = await page.getByTestId('site-music-controller').getAttribute('data-playing');
-    return playing === 'true';
-  }, 'Music controller should play after an explicit user click');
+    const audioState = await page.evaluate(() => window.__DDG_AUDIO_STATE__ ?? null);
+    return playing === 'true'
+      && audioState?.enabled === true
+      && audioState?.contextState === 'running';
+  }, 'Soundscape should unlock after an explicit user click');
 
-  await page.evaluate(() => {
-    window.dispatchEvent(new Event('blur'));
-  });
+  await waitForCondition(async () => page.evaluate(() => (
+    ['water', 'shore', 'boat', 'birds', 'wind', 'thunder']
+      .every((id) => window.__DDG_AUDIO_STATE__?.activeTracks?.includes(id))
+  )), 'Soundscape tracks should decode and start exactly once');
 
-  await waitForCondition(async () => {
-    const playing = await page.getByTestId('site-music-controller').getAttribute('data-playing');
-    return playing === 'false';
-  }, 'Music should pause when window blurs');
+  const initialTracks = await page.evaluate(() => (
+    window.__DDG_AUDIO_STATE__.activeTracks.slice().sort()
+  ));
 
-  await page.evaluate(() => {
-    window.dispatchEvent(new Event('focus'));
-  });
+  // Trigger the router link directly: the home scene can be inside its visual
+  // slideshow fade while this lifecycle check runs, but that overlay is not
+  // part of the audio routing contract under test.
+  await page.getByTestId('nav-info').evaluate((element) => element.click());
+  await expectVisible(page, page.getByTestId('info-page'), 'audio lifecycle info route');
+  await waitForCondition(async () => page.evaluate(() => (
+    window.__DDG_AUDIO_STATE__?.routeActive === false
+      && window.__DDG_AUDIO_STATE__?.homeGainTarget === 0
+  )), 'Home soundscape bus should fade toward silence on inner routes');
 
-  await waitForCondition(async () => {
-    const playing = await page.getByTestId('site-music-controller').getAttribute('data-playing');
-    return playing === 'true';
-  }, 'Music should resume when window focuses');
+  await page.getByTestId('brand-link').evaluate((element) => element.click());
+  await expectVisible(page, page.getByTestId('home-page'), 'audio lifecycle home return');
+  await waitForCondition(async () => page.evaluate(() => (
+    window.__DDG_AUDIO_STATE__?.routeActive === true
+      && window.__DDG_AUDIO_STATE__?.homeGainTarget === 1
+  )), 'Home soundscape bus should fade back in after returning home');
 
-  await page.goto(`${baseUrl}/home/edit`, { waitUntil: 'domcontentloaded' });
-  await page.waitForTimeout(150);
+  const returnTracks = await page.evaluate(() => (
+    window.__DDG_AUDIO_STATE__.activeTracks.slice().sort()
+  ));
   assert(
-    await page.getByTestId('site-music-controller').count() === 0,
-    'Music controller should be hidden on /home/edit',
+    JSON.stringify(returnTracks) === JSON.stringify(initialTracks),
+    'Home route return should preserve one continuous transport per track',
   );
 
-  log('OK audio lifecycle');
+  await page.goto(`${baseUrl}/home/edit`, { waitUntil: 'domcontentloaded' });
+  await page.getByTestId('home-editor-page').waitFor({ state: 'visible', timeout: 10000 });
+  assert(
+    await page.getByTestId('site-music-controller').count() === 0,
+    'Public sound controller should be hidden on /home/edit',
+  );
+
+  log('OK spatial audio lifecycle');
   await context.close();
   return issues;
 }
@@ -838,6 +833,11 @@ async function runCameraSystemChecks(browser) {
     return source ? JSON.parse(source) : null;
   }, HOME_SCENE_SETTINGS_STORAGE_KEY);
   assert(draft?.sceneCameras?.length === 2, 'Draft should persist two cameras');
+  assert(draft?.audio?.version === 1, 'Draft should persist one root audio configuration');
+  assert(
+    draft.sceneCameras.every((camera) => !Object.prototype.hasOwnProperty.call(camera.scene, 'audio')),
+    'Camera snapshots should not duplicate or reset the root audio configuration',
+  );
   assert(draft.sceneCameras[0].id === 'camera-2', 'Camera reorder should persist array order');
   assert(draft.sceneCameras[0].name === 'Second shot', 'Camera rename should persist');
   assert(draft.sceneCameras[0].holdSeconds === 1, 'Per-camera duration should persist');
@@ -1094,24 +1094,43 @@ async function main() {
       await waitForServer(baseUrl);
     }
 
-    activeBrowser = await launchSmokeBrowser();
-    const browser = activeBrowser;
+    assert(
+      ['all', 'scene', 'stability'].includes(smokePhase),
+      `Unknown SMOKE_PHASE: ${smokePhase}`,
+    );
 
-    const issues = [
-      ...(await runRouteChecks(browser)),
-      ...(await runAudioLifecycleChecks(browser)),
-      ...(await runWebglFallbackChecks(browser)),
-      ...(await runEditorPublishCoverageChecks()),
-      ...(await runDraftMigrationChecks(browser)),
-      ...(await runCameraSystemChecks(browser)),
-      ...(await runPublishChecks(browser)),
-      ...(await runRuntimeStabilityChecks(browser)),
-      ...(await runLongSessionMemoryChecks(browser)),
-      ...(await runMobileChecks(browser)),
-    ];
+    const issues = [];
 
-    await browser.close();
-    activeBrowser = undefined;
+    if (smokePhase === 'all' || smokePhase === 'scene') {
+      activeBrowser = await launchSmokeBrowser();
+      const sceneBrowser = activeBrowser;
+      issues.push(
+        ...(await runRouteChecks(sceneBrowser)),
+        ...(await runAudioLifecycleChecks(sceneBrowser)),
+        ...(await runWebglFallbackChecks(sceneBrowser)),
+        ...(await runEditorPublishCoverageChecks()),
+        ...(await runDraftMigrationChecks(sceneBrowser)),
+        ...(await runCameraSystemChecks(sceneBrowser)),
+      );
+      await sceneBrowser.close();
+      activeBrowser = undefined;
+    }
+
+    // The scene suite intentionally creates many software WebGL contexts.
+    // Publish and long-session checks use a fresh Chromium process so the
+    // result reflects application stability, not SwiftShader exhaustion.
+    if (smokePhase === 'all' || smokePhase === 'stability') {
+      activeBrowser = await launchSmokeBrowser();
+      const stabilityBrowser = activeBrowser;
+      issues.push(
+        ...(await runPublishChecks(stabilityBrowser)),
+        ...(await runRuntimeStabilityChecks(stabilityBrowser)),
+        ...(await runLongSessionMemoryChecks(stabilityBrowser)),
+        ...(await runMobileChecks(stabilityBrowser)),
+      );
+      await stabilityBrowser.close();
+      activeBrowser = undefined;
+    }
 
     if (issues.length > 0) {
       log('');

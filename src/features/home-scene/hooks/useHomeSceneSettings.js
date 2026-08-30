@@ -11,6 +11,10 @@ import {
   normalizeSceneCameras,
   normalizeSlideshow,
 } from '../lib/sceneCameras';
+import {
+  DEFAULT_SOUNDSCAPE_SETTINGS,
+  normalizeSoundscapeSettings,
+} from '../../audio/data/soundscapeSettings';
 
 export const HOME_SCENE_SETTINGS_STORAGE_KEY = 'ddg_home_scene_settings_v1';
 const HOME_SCENE_WATER_DEFAULT_MIGRATION_KEY = 'ddg_home_scene_water_default_128_v1';
@@ -83,6 +87,9 @@ const VALID_DEBUG_VIEWS = new Set(HOME_SCENE_DEBUG_VIEWS.map((option) => option.
 const VALID_FOG_MODES = new Set(HOME_SCENE_FOG_MODES.map((option) => option.value));
 const VALID_FILM_STOCKS = new Set(HOME_SCENE_FILM_STOCKS.map((option) => option.value));
 const VALID_LIGHT_TYPES = new Set(HOME_SCENE_LIGHT_TYPES.map((option) => option.value));
+const HOME_SCENE_CAMERA_SNAPSHOT_KEYS = publishedHomeSceneKeys.filter((key) => (
+  key !== 'sceneCameras' && key !== 'slideshow' && key !== 'audio'
+));
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 const clampResolution = (value) => {
   const requested = Number(value);
@@ -361,6 +368,7 @@ export const getBaseHomeSceneSettings = () => ({
   uiLanguageVisible: true,
   uiSoundVisible: true,
   uiFrameVisible: true,
+  audio: normalizeSoundscapeSettings(DEFAULT_SOUNDSCAPE_SETTINGS),
   bloomEnabled: true,
   bloomStrength: 0.18,
   bloomThreshold: 0.72,
@@ -904,6 +912,7 @@ const normalizeHomeSceneSettings = (savedSettings = {}, includeCameraSystem = tr
     uiLanguageVisible: pickBoolean(merged.uiLanguageVisible, defaults.uiLanguageVisible),
     uiSoundVisible: pickBoolean(merged.uiSoundVisible, defaults.uiSoundVisible),
     uiFrameVisible: pickBoolean(merged.uiFrameVisible, defaults.uiFrameVisible),
+    audio: normalizeSoundscapeSettings(merged.audio),
     bloomEnabled: pickBoolean(merged.bloomEnabled, defaults.bloomEnabled),
     bloomStrength: clampFloat(merged.bloomStrength, 0, 2.5, defaults.bloomStrength),
     bloomThreshold: clampFloat(merged.bloomThreshold, 0, 2, defaults.bloomThreshold),
@@ -945,13 +954,16 @@ const normalizeHomeSceneSettings = (savedSettings = {}, includeCameraSystem = tr
     return normalizedScene;
   }
 
-  const fallbackScene = createSceneSnapshot(normalizedScene, publishedHomeSceneKeys);
+  const fallbackScene = createSceneSnapshot(
+    normalizedScene,
+    HOME_SCENE_CAMERA_SNAPSHOT_KEYS,
+  );
   const normalizeSnapshot = (snapshot, fallback = fallbackScene) => {
     const migratedFilm = migrateLegacyFilmSettings(snapshot, fallback);
 
     return createSceneSnapshot(
       normalizeHomeSceneSettings({ ...fallback, ...migratedFilm, ...snapshot }, false),
-      publishedHomeSceneKeys,
+      HOME_SCENE_CAMERA_SNAPSHOT_KEYS,
     );
   };
   const sceneCameras = normalizeSceneCameras(
@@ -975,7 +987,7 @@ const normalizeHomeSceneSettings = (savedSettings = {}, includeCameraSystem = tr
 };
 
 export const HOME_SCENE_SNAPSHOT_KEYS = Object.freeze(
-  publishedHomeSceneKeys.filter((key) => key !== 'sceneCameras' && key !== 'slideshow'),
+  HOME_SCENE_CAMERA_SNAPSHOT_KEYS,
 );
 
 export const createHomeSceneSnapshot = (settings = {}) => (

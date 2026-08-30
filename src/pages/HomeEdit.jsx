@@ -26,6 +26,7 @@ import { resolveEditorPath } from '../features/home-scene/components/editor/edit
 import HomeEditorPanel from '../features/home-scene/components/HomeEditorPanel';
 import { publishHomeSceneSettings } from '../features/home-scene/lib/homeScenePublishClient';
 import { useLanguage } from '../i18n/useLanguage';
+import { useSiteAudio } from '../features/audio/SiteAudioContext';
 import '../styles/HomeEditor.css';
 
 const INITIAL_PUBLISHED_SNAPSHOT = JSON.stringify(
@@ -106,6 +107,16 @@ const makeCameraId = (cameras) => {
 const HomeEdit = () => {
     const { t } = useLanguage();
     const {
+        state: audioState,
+        editorPreviewEnabled,
+        setEditorPreviewEnabled,
+        previewTrack,
+        setSceneSettings: setAudioSettings,
+        setCameraTransition,
+        setSoloTrack,
+        runtime: audioRuntime,
+    } = useSiteAudio();
+    const {
         settings,
         setSettings,
         activeTab,
@@ -125,6 +136,7 @@ const HomeEdit = () => {
     const [currentLayoutKey, setCurrentLayoutKey] = useState(getCurrentLayoutKey);
     const [cameraPoseRevision, setCameraPoseRevision] = useState(0);
     const deferredSettings = useDeferredValue(settings);
+    const audioSettingsFingerprint = JSON.stringify(settings.audio);
     const preparedSettings = useMemo(
         () => syncActiveCameraScene(deferredSettings),
         [deferredSettings],
@@ -140,6 +152,20 @@ const HomeEdit = () => {
     const [hasPublishChanges, setHasPublishChanges] = useState(
         serializedPublishSettings !== lastPublishedSnapshotRef.current,
     );
+
+    useEffect(() => {
+        setAudioSettings(JSON.parse(audioSettingsFingerprint));
+    }, [audioSettingsFingerprint, setAudioSettings]);
+
+    useEffect(() => {
+        setCameraTransition('idle', 0);
+
+        return () => {
+            setAudioSettings(getPublishedHomeSceneSettings().audio);
+            void setEditorPreviewEnabled(false);
+            setSoloTrack(null);
+        };
+    }, [setAudioSettings, setCameraTransition, setEditorPreviewEnabled, setSoloTrack]);
 
     useEffect(() => {
         setHasPublishChanges(serializedPublishSettings !== lastPublishedSnapshotRef.current);
@@ -555,6 +581,7 @@ const HomeEdit = () => {
                             onSculpturePositionChange={handleSculpturePositionChange}
                             editorGizmo={editorGizmo}
                             cameraPoseKey={cameraPoseKey}
+                            audioRuntime={audioRuntime}
                         />
                     </div>
                     <div className="home-editor-frame-mask home-editor-frame-mask--top" aria-hidden="true" />
@@ -575,6 +602,13 @@ const HomeEdit = () => {
                 hasPublishChanges={hasPublishChanges}
                 publishEnabled={isLocalPublishAvailable}
                 publishHint={isLocalPublishAvailable ? '' : t('homeEditor.publish.unavailable')}
+                audioLab={{
+                    state: audioState,
+                    previewEnabled: editorPreviewEnabled,
+                    setPreviewEnabled: setEditorPreviewEnabled,
+                    previewTrack,
+                    setSoloTrack,
+                }}
             />
         </div>
     );

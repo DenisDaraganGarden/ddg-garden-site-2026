@@ -5,6 +5,7 @@ import {
     Route,
 } from 'react-router-dom';
 import Navigation from './components/ui/Navigation';
+import { SiteAudioProvider } from './features/audio/SiteAudioProvider';
 import { archiveNavigationItems } from './config/siteNavigation';
 import { useLanguage } from './i18n/useLanguage';
 import ddgLogo from '../portfolio/DDG_logo.png';
@@ -102,7 +103,9 @@ function AppShell() {
 function App() {
     return (
         <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-            <AppShell />
+            <SiteAudioProvider>
+                <AppShell />
+            </SiteAudioProvider>
         </Router>
     );
 }

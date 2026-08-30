@@ -26,6 +26,11 @@ import {
     Light2TargetSection,
 } from './sections/lights';
 import { InterfaceSection } from './sections/interfaceSection';
+import {
+    AudioMixerSection,
+    AudioSpatialSection,
+    AudioTracksSection,
+} from './sections/audio';
 
 // The editor is organised the way a game engine organises a scene: groups hold
 // objects, and an object exposes its aspects. Aspects render as headings inside
@@ -84,6 +89,14 @@ export const EDITOR_TREE = [
             { id: 'hdri', aspects: [{ id: 'hdri', Section: HdriSection }] },
             { id: 'fog', aspects: [{ id: 'fog', Section: FogSection }] },
             { id: 'rays', aspects: [{ id: 'rays', Section: RaysSection }] },
+        ],
+    },
+    {
+        id: 'audio',
+        nodes: [
+            { id: 'audioMixer', aspects: [{ id: 'mixer', Section: AudioMixerSection }] },
+            { id: 'audioTracks', aspects: [{ id: 'tracks', Section: AudioTracksSection }] },
+            { id: 'audioSpatial', aspects: [{ id: 'spatial', Section: AudioSpatialSection }] },
         ],
     },
     {

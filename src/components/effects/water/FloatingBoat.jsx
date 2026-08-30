@@ -19,6 +19,8 @@ export default function FloatingBoat({
   onBoatPositionChange,
   probeInterval = BOAT_PROBE_INTERVAL,
   useGpuProbes = true,
+  onWorldPositionChange,
+  isWorldPositionReportingActive,
 }) {
   const anchorRef = useRef();
   const boatRef = useRef();
@@ -29,6 +31,7 @@ export default function FloatingBoat({
   ));
   const targetVector = useRef(new THREE.Vector3());
   const boatMatrixRef = useRef(new THREE.Matrix4());
+  const audioWorldPositionRef = useRef(new THREE.Vector3());
   const averageNormalRef = useRef(new THREE.Vector3());
   const cursorToBoatRef = useRef(new THREE.Vector2());
   const probeAccumulatorRef = useRef(0);
@@ -272,6 +275,30 @@ export default function FloatingBoat({
     boatRef.current.rotation.x = THREE.MathUtils.damp(boatRef.current.rotation.x, targetPitch, 4.5, delta);
     boatRef.current.rotation.z = THREE.MathUtils.damp(boatRef.current.rotation.z, targetRoll, 4.5, delta);
   }, -5);
+
+  // Run after buoyancy so the sound follows the hull visitors actually see,
+  // including heave. The callback writes to Web Audio directly and never enters
+  // React state or the camera editor.
+  useFrame(() => {
+    if (
+      !boatRef.current
+      || typeof onWorldPositionChange !== 'function'
+      || (
+        typeof isWorldPositionReportingActive === 'function'
+        && !isWorldPositionReportingActive()
+      )
+    ) {
+      return;
+    }
+
+    boatRef.current.updateWorldMatrix(true, false);
+    boatRef.current.getWorldPosition(audioWorldPositionRef.current);
+    onWorldPositionChange(
+      audioWorldPositionRef.current.x,
+      audioWorldPositionRef.current.y,
+      audioWorldPositionRef.current.z,
+    );
+  }, -4);
 
   const obj = useLoader(GLTFLoader, '/models/boat/OBJ_boat2.0.glb').scene;
 

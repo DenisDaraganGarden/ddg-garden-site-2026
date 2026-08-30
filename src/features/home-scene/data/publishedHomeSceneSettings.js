@@ -232,6 +232,37 @@ export const publishedHomeSceneSettings = {
   "uiLanguageVisible": true,
   "uiSoundVisible": true,
   "uiFrameVisible": true,
+  "audio": {
+    "version": 1,
+    "enabled": true,
+    "mode": "soundscape",
+    "masterGain": 0.72,
+    "musicGain": 0.36,
+    "ambienceGain": 0.78,
+    "spatialGain": 0.92,
+    "weatherGain": 0.72,
+    "uiGain": 0.16,
+    "homeFadeSeconds": 1.6,
+    "routeFadeSeconds": 0.8,
+    "spatialEnabled": true,
+    "duckOnCameraCut": true,
+    "cameraCutDuck": 0.72,
+    "tracks": {
+      "water": { "enabled": true, "gain": 0.28 },
+      "shore": { "enabled": true, "gain": 0.12 },
+      "boat": { "enabled": true, "gain": 0.58 },
+      "birds": { "enabled": true, "gain": 0.86 },
+      "wind": { "enabled": true, "gain": 0.72 },
+      "thunder": { "enabled": true, "gain": 0.24 },
+      "ui": { "enabled": true, "gain": 1 }
+    },
+    "emitters": {
+      "shore": { "x": 15.5, "y": 0.2, "z": 2, "refDistance": 5, "maxDistance": 80, "rolloff": 1.1 },
+      "birds": { "x": 7, "y": 10, "z": -1, "refDistance": 7, "maxDistance": 110, "rolloff": 0.8 },
+      "wind": { "x": 13.5, "y": 2.2, "z": -8, "refDistance": 8, "maxDistance": 95, "rolloff": 0.7 },
+      "thunder": { "x": 35, "y": 10, "z": -20, "refDistance": 18, "maxDistance": 180, "rolloff": 0.55 }
+    }
+  },
   "waterVisible": true,
   "seabedVisible": true,
   "liliesVisible": true,

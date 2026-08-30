@@ -12,6 +12,8 @@
     "check:materials": "node src/components/effects/water/pbrMaterial.check.js",
     "check:render-targets": "node src/components/effects/water/renderTargets.check.js",
     "check:sky": "node src/components/effects/sky/skyModel.check.js",
+    "check:audio": "node scripts/check-audio.mjs",
+    "check:audio:browser": "node scripts/check-audio-browser.mjs",
     "convert:models": "node scripts/convert-models.mjs",
     "generate:lily": "node scripts/generate-lily-pbr.mjs",
     "cleanup:playwright": "node scripts/cleanup-playwright.mjs",

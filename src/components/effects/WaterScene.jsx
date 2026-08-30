@@ -30,6 +30,7 @@ import {
 } from './water/renderTargets';
 import EditorGizmo from '../../features/home-scene/components/editor/EditorGizmo';
 import ScenePostProcessing from './ScenePostProcessing';
+import HomeSoundscapeBridge from '../../features/audio/components/HomeSoundscapeBridge';
 import { buildHomeSceneLighting } from './homeSceneLighting';
 import { useSkyEnvironment } from './water/skyEnvironment';
 import {
@@ -140,6 +141,7 @@ function WaterRuntimeScene({
   onSceneReady,
   editorGizmo,
   cameraPoseKey,
+  audioRuntime,
 }) {
   const { gl, size } = useThree();
   const qualityProfile = useMemo(
@@ -174,6 +176,11 @@ function WaterRuntimeScene({
       hasWindow ? window.innerHeight : size.height,
     );
   const activeLayout = resolveLayout(settings.layouts, activeLayoutKey);
+  const updateBoatAudioPosition = useMemo(() => (
+    audioRuntime?.updateEmitter
+      ? (x, y, z) => audioRuntime.updateEmitter('boat', x, y, z)
+      : undefined
+  ), [audioRuntime]);
 
   useEffect(() => {
     const { dataset } = gl.domElement;
@@ -225,6 +232,7 @@ function WaterRuntimeScene({
         freeCamera={mode === 'editor'}
         poseKey={cameraPoseKey}
       />
+      <HomeSoundscapeBridge runtime={audioRuntime} />
       <WaterReflections
         enabled={opticsEnabled}
         reflectionEnabled={reflectionsEnabled}
@@ -286,6 +294,8 @@ function WaterRuntimeScene({
             onBoatPositionChange={onBoatPositionChange}
             probeInterval={qualityProfile.boatProbeInterval}
             useGpuProbes={qualityProfile.useGpuBoatProbes}
+            onWorldPositionChange={updateBoatAudioPosition}
+            isWorldPositionReportingActive={audioRuntime?.isActive}
           />
         ) : null}
         {settings.sculptureVisible ? (
@@ -342,6 +352,7 @@ const WaterScene = ({
   onSceneReady,
   editorGizmo,
   cameraPoseKey,
+  audioRuntime,
 }) => {
   const settings = settingsProp ?? getBaseHomeSceneSettings();
 
@@ -365,6 +376,7 @@ const WaterScene = ({
         onSculpturePositionChange={onSculpturePositionChange}
         onSceneReady={onSceneReady}
         cameraPoseKey={cameraPoseKey}
+        audioRuntime={audioRuntime}
       />
     </SceneCanvas>
   );
