@@ -1,0 +1,112 @@
+.site-loading-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 2200;
+  display: grid;
+  place-items: center;
+  background: #000;
+  opacity: 1;
+  visibility: visible;
+  transition:
+    opacity 0.95s ease,
+    visibility 0s linear 0s;
+  pointer-events: auto;
+  cursor: progress;
+  will-change: opacity;
+}
+
+.site-loading-screen--exit {
+  opacity: 0;
+  visibility: hidden;
+  transition-delay: 0s, 0.95s;
+  pointer-events: none;
+}
+
+.site-loading-screen__identity {
+  display: grid;
+  justify-items: center;
+  gap: clamp(1rem, 2.6vh, 1.6rem);
+}
+
+.site-loading-screen__logo {
+  width: clamp(3.4rem, 7vw, 5.6rem);
+  height: clamp(3.4rem, 7vw, 5.6rem);
+  object-fit: contain;
+  filter: invert(1) brightness(1.8) drop-shadow(0 0 14px rgba(255, 255, 255, 0.2));
+  transform-origin: center;
+  animation:
+    site-loader-spin 4.4s linear infinite,
+    site-loader-pulse 2.6s ease-in-out infinite;
+}
+
+.site-loading-screen__wordmark {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  color: #fff;
+  animation: site-loader-wordmark 1.15s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.site-loading-screen__name {
+  font-family: var(--font-editorial);
+  font-size: clamp(1.45rem, 3.2vw, 2.5rem);
+  font-weight: 400;
+  line-height: 0.9;
+  letter-spacing: 0.04em;
+}
+
+.site-loading-screen__bureau {
+  margin-top: 0.34rem;
+  font-family: var(--font-secondary);
+  font-size: clamp(0.55rem, 0.8vw, 0.68rem);
+  letter-spacing: 0.32em;
+  color: rgba(255, 255, 255, 0.66);
+}
+
+@keyframes site-loader-spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes site-loader-pulse {
+  0%,
+  100% {
+    opacity: 0.78;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes site-loader-wordmark {
+  from {
+    opacity: 0;
+    transform: translateY(0.8rem);
+    letter-spacing: 0.13em;
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    letter-spacing: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .site-loading-screen,
+  .site-loading-screen__logo,
+  .site-loading-screen__wordmark {
+    animation: none;
+    transition-duration: 0.01ms;
+  }
+
+  .site-loading-screen--exit {
+    transition-delay: 0s;
+  }
+}

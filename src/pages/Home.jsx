@@ -7,7 +7,6 @@ import {
     resolveLayoutFrameInset,
     resolveLayoutKey,
 } from '../features/home-scene/lib/layout';
-import ddgLogo from '../../portfolio/DDG_logo.png';
 import '../styles/Home.css';
 
 const DEFAULT_HOLD_SECONDS = 8;
@@ -194,11 +193,9 @@ function useHomeSceneSlideshow(settings, isSceneReady) {
     };
 }
 
-const Home = () => {
+const Home = ({ onSceneReady }) => {
     const { settings } = usePublishedHomeSceneSettings();
     const [isSceneReady, setIsSceneReady] = useState(false);
-    const [isLoaderMinimumElapsed, setIsLoaderMinimumElapsed] = useState(false);
-    const [showLoaderOverlay, setShowLoaderOverlay] = useState(true);
     const slideshow = useHomeSceneSlideshow(settings, isSceneReady);
     const activeSettings = slideshow.activeSettings;
     const [viewport, setViewport] = useState(() => {
@@ -260,33 +257,10 @@ const Home = () => {
         };
     }, []);
 
-    useEffect(() => {
-        const minimumTimer = window.setTimeout(() => {
-            setIsLoaderMinimumElapsed(true);
-        }, 1400);
-
-        return () => window.clearTimeout(minimumTimer);
-    }, []);
-
-    const shouldRevealScene = isSceneReady && isLoaderMinimumElapsed;
-
-    useEffect(() => {
-        if (!shouldRevealScene) {
-            return undefined;
-        }
-
-        const cleanupDelay = window.setTimeout(() => {
-            setShowLoaderOverlay(false);
-        }, 900);
-
-        return () => {
-            window.clearTimeout(cleanupDelay);
-        };
-    }, [shouldRevealScene]);
-
     const handleSceneReady = useCallback(() => {
         setIsSceneReady(true);
-    }, []);
+        onSceneReady?.();
+    }, [onSceneReady]);
 
     const frameInset = resolveLayoutFrameInset(activeSettings.layouts, viewport.layoutKey);
     const visibleAspect = getLayoutVisibleAspect(viewport.layoutKey, frameInset);
@@ -345,27 +319,6 @@ const Home = () => {
                 aria-hidden="true"
                 style={{ '--home-scene-transition-duration': `${slideshow.fadeSeconds}s` }}
             />
-
-            {showLoaderOverlay ? (
-                <div
-                    className={`home-scene-loader ${shouldRevealScene ? 'home-scene-loader--fade-out' : ''}`}
-                    aria-label="3D scene is loading"
-                    role="status"
-                >
-                    <div className="home-scene-loader__identity">
-                        <img
-                            className="home-scene-loader__logo"
-                            src={ddgLogo}
-                            alt=""
-                            aria-hidden="true"
-                        />
-                        <div className="home-scene-loader__wordmark" aria-hidden="true">
-                            <span className="home-scene-loader__name">DENIS DARAGAN</span>
-                            <span className="home-scene-loader__bureau">БЮРО</span>
-                        </div>
-                    </div>
-                </div>
-            ) : null}
 
             <div className="home-content" style={{ position: 'relative', zIndex: 1, pointerEvents: 'none' }}>
                 {/* Content can go here, pointerEvents: none allows interaction with water */}
