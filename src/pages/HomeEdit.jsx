@@ -94,6 +94,19 @@ const HomeEdit = () => {
         cameraRigApiRef.current = api;
     }, []);
 
+    const setFreeCamera = useCallback((enabled) => {
+        const nextValue = Boolean(enabled);
+        setSettings((previous) => (
+            previous.freeCamera === nextValue
+                ? previous
+                : { ...previous, freeCamera: nextValue }
+        ));
+    }, [setSettings]);
+
+    const restoreCameraPose = useCallback(() => {
+        cameraRigApiRef.current?.restorePose?.();
+    }, []);
+
     // Bake the bucket's currently-effective values (inherited from desktop when not yet
     // customised), then apply the patch and mark it independent.
     const updateLayout = useCallback((key, patch) => {
@@ -137,7 +150,10 @@ const HomeEdit = () => {
             cameraTarget: pose.cameraTarget,
             cameraFov: pose.cameraFov,
         });
-    }, [updateLayout]);
+        // Capturing from the working camera lands back in the real cinematic
+        // frame immediately, so the author sees exactly what was saved.
+        setFreeCamera(false);
+    }, [setFreeCamera, updateLayout]);
 
     const resetLayout = useCallback((key) => {
         setSettings((previous) => {
@@ -252,18 +268,25 @@ const HomeEdit = () => {
         updateLayout,
         onFovChange: handleLayoutFovChange,
         onFrameInsetChange: handleFrameInsetChange,
+        freeCamera: Boolean(settings.freeCamera),
+        setFreeCamera,
+        restoreCameraPose,
     }), [
         selectedLayoutKey,
         currentLayoutKey,
         settings.layouts,
+        settings.freeCamera,
         captureLayout,
         resetLayout,
         updateLayout,
         handleLayoutFovChange,
         handleFrameInsetChange,
+        setFreeCamera,
+        restoreCameraPose,
     ]);
 
     const selectedFrameInset = resolveLayoutFrameInset(settings.layouts, selectedLayoutKey);
+    const viewportFrameInset = settings.freeCamera ? 0 : selectedFrameInset;
 
     const handlePublish = async () => {
         if (!hasPublishChanges) {
@@ -309,8 +332,12 @@ const HomeEdit = () => {
         <div className="home-editor-page" data-testid="home-editor-page">
             <div className="home-editor-stage">
                 <div
-                    className={`home-editor-viewport home-editor-viewport--${selectedLayoutKey}`}
-                    style={{ '--home-editor-frame-inset': `${selectedFrameInset * 100}%` }}
+                    className={[
+                        'home-editor-viewport',
+                        `home-editor-viewport--${selectedLayoutKey}`,
+                        settings.freeCamera ? 'home-editor-viewport--free-camera' : '',
+                    ].filter(Boolean).join(' ')}
+                    style={{ '--home-editor-frame-inset': `${viewportFrameInset * 100}%` }}
                 >
                     <div className="home-editor-render-frame">
                         <WaterScene
@@ -326,8 +353,22 @@ const HomeEdit = () => {
                             editorGizmo={editorGizmo}
                         />
                     </div>
-                    <div className="home-editor-frame-mask home-editor-frame-mask--top" aria-hidden="true" />
-                    <div className="home-editor-frame-mask home-editor-frame-mask--bottom" aria-hidden="true" />
+                    {settings.freeCamera ? (
+                        <div className="home-editor-free-camera-badge" data-testid="home-editor-free-camera-badge">
+                            <span>
+                                <strong>{t('homeEditor.controls.freeCameraBadge')}</strong>
+                                {t('homeEditor.controls.freeCameraBadgeKeys')}
+                            </span>
+                            <button type="button" onClick={() => setFreeCamera(false)}>
+                                {t('homeEditor.controls.freeCameraExit')}
+                            </button>
+                        </div>
+                    ) : (
+                        <>
+                            <div className="home-editor-frame-mask home-editor-frame-mask--top" aria-hidden="true" />
+                            <div className="home-editor-frame-mask home-editor-frame-mask--bottom" aria-hidden="true" />
+                        </>
+                    )}
                 </div>
             </div>
 

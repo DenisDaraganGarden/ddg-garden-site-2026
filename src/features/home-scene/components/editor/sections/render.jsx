@@ -65,6 +65,9 @@ export const CameraSection = ({ settings, layoutEditor }) => {
         resetLayout,
         onFovChange,
         onFrameInsetChange,
+        freeCamera,
+        setFreeCamera,
+        restoreCameraPose,
     } = layoutEditor;
     const effective = resolveLayout(layouts, selectedKey) ?? {};
     const frameInset = resolveLayoutFrameInset(layouts, selectedKey);
@@ -74,7 +77,46 @@ export const CameraSection = ({ settings, layoutEditor }) => {
 
     return (
         <>
-            <p className="home-editor-inline-hint">{t('homeEditor.controls.layoutHint')}</p>
+            <div className="home-editor-control-group">
+                <label>{t('homeEditor.controls.cameraNavigationMode')}</label>
+                <div className="home-editor-layout-tabs">
+                    <button
+                        type="button"
+                        className={`home-editor-layout-tab ${!freeCamera ? 'active' : ''}`}
+                        onClick={() => setFreeCamera(false)}
+                        aria-pressed={!freeCamera}
+                        data-testid="home-editor-camera-mode-frame"
+                    >
+                        {t('homeEditor.controls.cameraModeFrame')}
+                    </button>
+                    <button
+                        type="button"
+                        className={`home-editor-layout-tab ${freeCamera ? 'active' : ''}`}
+                        onClick={() => setFreeCamera(true)}
+                        aria-pressed={Boolean(freeCamera)}
+                        data-testid="home-editor-camera-mode-free"
+                    >
+                        {t('homeEditor.controls.cameraModeFree')}
+                    </button>
+                </div>
+            </div>
+            <p className="home-editor-inline-hint">
+                {t(freeCamera
+                    ? 'homeEditor.controls.freeCameraHint'
+                    : 'homeEditor.controls.layoutHint')}
+            </p>
+            {freeCamera ? (
+                <div className="home-editor-camera-actions">
+                    <button
+                        type="button"
+                        className="home-editor-action-button"
+                        onClick={restoreCameraPose}
+                        data-testid="home-editor-camera-restore-pose"
+                    >
+                        {t('homeEditor.controls.freeCameraRestore')}
+                    </button>
+                </div>
+            ) : null}
             <div className="home-editor-control-group">
                 <label>{t('homeEditor.controls.layoutBucket')}</label>
                 <div className="home-editor-layout-tabs">
@@ -301,11 +343,6 @@ export const DebugSection = ({ settings, handleSettingChange }) => {
 
     return (
         <>
-            <CheckboxControl
-                label={t('homeEditor.controls.freeCamera')}
-                checked={Boolean(settings.freeCamera)}
-                onChange={(event) => handleSettingChange(event, 'freeCamera', 'boolean')}
-            />
             <CheckboxControl
                 label={t('homeEditor.controls.debugWireframe')}
                 checked={Boolean(settings.debugWireframe)}

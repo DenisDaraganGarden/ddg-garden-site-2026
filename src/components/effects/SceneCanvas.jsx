@@ -242,6 +242,9 @@ const RuntimeDiagnostics = ({ sceneId, mode, settings }) => {
       },
       sceneChildren: scene.children.length,
       camera: {
+        fov: camera.fov,
+        near: camera.near,
+        far: camera.far,
         position: {
           x: camera.position.x,
           y: camera.position.y,

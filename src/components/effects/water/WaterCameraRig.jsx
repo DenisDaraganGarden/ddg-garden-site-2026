@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef } from 'react';
-import { useThree } from '@react-three/fiber';
+import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { fitCameraFovToLayout } from '../../../features/home-scene/lib/layout';
 
@@ -11,6 +11,20 @@ const CAMERA_POSE_TARGET = new THREE.Vector3();
 const LazyOrbitControls = React.lazy(() => import('@react-three/drei/core/OrbitControls.js').then((module) => ({
   default: module.OrbitControls,
 })));
+const FRAME_CAMERA_NEAR = 0.1;
+const FRAME_CAMERA_FAR = 80;
+const FREE_CAMERA_NEAR = 0.01;
+const FREE_CAMERA_FAR = 10000;
+const FREE_CAMERA_KEYS = new Set([
+  'KeyW',
+  'KeyA',
+  'KeyS',
+  'KeyD',
+  'KeyQ',
+  'KeyE',
+  'ShiftLeft',
+  'ShiftRight',
+]);
 
 // freeCamera turns the viewport camera into a plain working camera: no authored
 // pose re-applied under the hand, no field of view fitted to the frame, and no
@@ -28,7 +42,21 @@ export default function WaterCameraRig({
   const { camera, gl, size } = useThree();
   const internalControlsRef = useRef();
   const controlsRef = orbitRef ?? internalControlsRef;
+  const cameraInitializedRef = useRef(false);
+  const pendingControlsTargetRef = useRef(false);
+  const pressedKeysRef = useRef(new Set());
+  const movementVectorsRef = useRef({
+    forward: new THREE.Vector3(),
+    right: new THREE.Vector3(),
+    up: new THREE.Vector3(0, 1, 0),
+    movement: new THREE.Vector3(),
+  });
   const formatAxis = useCallback((value) => Number(value.toFixed(4)), []);
+  const cameraPositionX = layout?.cameraPosition?.x;
+  const cameraPositionY = layout?.cameraPosition?.y;
+  const cameraPositionZ = layout?.cameraPosition?.z;
+  const hasCameraPosition = [cameraPositionX, cameraPositionY, cameraPositionZ]
+    .every((value) => Number.isFinite(value));
   const cameraTarget = layout?.cameraTarget ?? { x: 0, y: 0, z: 0 };
   const cameraFov = layout?.cameraFov;
   const fittedCameraFov = freeCamera ? cameraFov : fitCameraFovToLayout(
@@ -39,28 +67,18 @@ export default function WaterCameraRig({
     layout?.frameInset,
   );
 
-  useEffect(() => {
-    if (typeof fittedCameraFov !== 'number' || camera.fov === fittedCameraFov) {
-      return;
+  const applyLayoutPose = useCallback((fitToFrame = !freeCamera) => {
+    if (!hasCameraPosition) {
+      return false;
     }
 
-    camera.fov = fittedCameraFov;
-    camera.updateProjectionMatrix();
-  }, [camera, fittedCameraFov]);
-
-  // Apply the active composition bucket's pose. Depends on the bucket's camera numbers
-  // (not the object identity) so editing object positions doesn't snap the camera, and
-  // free-orbiting in the editor isn't interrupted by unrelated setting changes.
-  useLayoutEffect(() => {
-    if (!layout || freeCamera) {
-      return;
+    const nextFov = fitToFrame ? fittedCameraFov : cameraFov;
+    camera.position.set(cameraPositionX, cameraPositionY, cameraPositionZ);
+    camera.near = fitToFrame ? FRAME_CAMERA_NEAR : FREE_CAMERA_NEAR;
+    camera.far = fitToFrame ? FRAME_CAMERA_FAR : FREE_CAMERA_FAR;
+    if (typeof nextFov === 'number') {
+      camera.fov = nextFov;
     }
-
-    const { cameraPosition } = layout;
-    camera.position.set(cameraPosition.x, cameraPosition.y, cameraPosition.z);
-    camera.near = 0.1;
-    camera.far = 80;
-    camera.fov = fittedCameraFov;
     CAMERA_POSE_TARGET.set(cameraTarget.x, cameraTarget.y, cameraTarget.z);
     camera.lookAt(CAMERA_POSE_TARGET);
     camera.updateMatrixWorld();
@@ -69,19 +87,176 @@ export default function WaterCameraRig({
     if (controlsRef.current) {
       controlsRef.current.target.copy(CAMERA_POSE_TARGET);
       controlsRef.current.update();
+      pendingControlsTargetRef.current = false;
+    } else {
+      pendingControlsTargetRef.current = true;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
+    return true;
   }, [
     camera,
-    controlsRef,
-    layout?.cameraPosition?.x,
-    layout?.cameraPosition?.y,
-    layout?.cameraPosition?.z,
+    cameraFov,
+    cameraPositionX,
+    cameraPositionY,
+    cameraPositionZ,
     cameraTarget.x,
     cameraTarget.y,
     cameraTarget.z,
+    controlsRef,
     fittedCameraFov,
+    freeCamera,
+    hasCameraPosition,
   ]);
+
+  // Apply the active composition bucket's pose. Depends on the bucket's camera numbers
+  // (not the object identity) so editing object positions doesn't snap the camera, and
+  // free-orbiting in the editor isn't interrupted by unrelated setting changes.
+  useLayoutEffect(() => {
+    if (!hasCameraPosition) {
+      return;
+    }
+
+    if (freeCamera) {
+      if (!cameraInitializedRef.current) {
+        applyLayoutPose(false);
+        cameraInitializedRef.current = true;
+        return;
+      }
+
+      camera.near = FREE_CAMERA_NEAR;
+      camera.far = FREE_CAMERA_FAR;
+      if (typeof cameraFov === 'number') {
+        camera.fov = cameraFov;
+      }
+      camera.updateProjectionMatrix();
+      return;
+    }
+
+    applyLayoutPose(true);
+    cameraInitializedRef.current = true;
+  }, [
+    applyLayoutPose,
+    camera,
+    cameraFov,
+    freeCamera,
+    hasCameraPosition,
+  ]);
+
+  const moveFreeCamera = useCallback((delta) => {
+    const controls = controlsRef.current;
+    const pressedKeys = pressedKeysRef.current;
+
+    if (mode !== 'editor' || !freeCamera || !controls || pressedKeys.size === 0) {
+      return false;
+    }
+
+    const forwardInput = Number(pressedKeys.has('KeyW')) - Number(pressedKeys.has('KeyS'));
+    const rightInput = Number(pressedKeys.has('KeyD')) - Number(pressedKeys.has('KeyA'));
+    const upInput = Number(pressedKeys.has('KeyE')) - Number(pressedKeys.has('KeyQ'));
+
+    if (forwardInput === 0 && rightInput === 0 && upInput === 0) {
+      return false;
+    }
+
+    const vectors = movementVectorsRef.current;
+    camera.getWorldDirection(vectors.forward);
+    vectors.right.set(1, 0, 0).applyQuaternion(camera.quaternion).normalize();
+    vectors.movement
+      .set(0, 0, 0)
+      .addScaledVector(vectors.forward, forwardInput)
+      .addScaledVector(vectors.right, rightInput)
+      .addScaledVector(vectors.up, upInput)
+      .normalize();
+
+    const targetDistance = camera.position.distanceTo(controls.target);
+    const adaptiveSpeed = THREE.MathUtils.clamp(targetDistance * 0.8, 1.5, 120);
+    const boosted = pressedKeys.has('ShiftLeft') || pressedKeys.has('ShiftRight');
+    const travel = adaptiveSpeed * (boosted ? 4 : 1) * Math.min(delta, 0.05);
+
+    camera.position.addScaledVector(vectors.movement, travel);
+    controls.target.addScaledVector(vectors.movement, travel);
+    camera.updateMatrixWorld();
+    controls.update();
+    return true;
+  }, [camera, controlsRef, freeCamera, mode]);
+
+  // Keyboard flight is scoped to a focused editor canvas. Clicking a slider or
+  // another control immediately returns the letter keys to the UI instead of
+  // moving the camera behind the author's hand.
+  useEffect(() => {
+    const domElement = gl.domElement;
+    const pressedKeys = pressedKeysRef.current;
+    pressedKeys.clear();
+
+    if (mode !== 'editor' || !freeCamera || !domElement) {
+      return undefined;
+    }
+
+    const previousTabIndex = domElement.getAttribute('tabindex');
+    const previousAriaLabel = domElement.getAttribute('aria-label');
+    const handlePointerDown = () => {
+      domElement.focus({ preventScroll: true });
+    };
+    const handleKeyDown = (event) => {
+      if (!FREE_CAMERA_KEYS.has(event.code)) {
+        return;
+      }
+
+      pressedKeys.add(event.code);
+      domElement.dataset.ddgCameraLastKey = event.code;
+      if (!event.repeat) {
+        // A quick tap can begin and end between two 120 Hz frames. Give it one
+        // deterministic step; a held key continues smoothly in useFrame below.
+        moveFreeCamera(1 / 60);
+      }
+      event.preventDefault();
+    };
+    const handleKeyUp = (event) => {
+      pressedKeys.delete(event.code);
+    };
+    const clearPressedKeys = () => pressedKeys.clear();
+
+    domElement.tabIndex = 0;
+    domElement.setAttribute('aria-label', 'Free scene camera viewport');
+    domElement.dataset.ddgCameraMode = 'free';
+    domElement.addEventListener('pointerdown', handlePointerDown);
+    domElement.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    window.addEventListener('blur', clearPressedKeys);
+
+    return () => {
+      pressedKeys.clear();
+      domElement.removeEventListener('pointerdown', handlePointerDown);
+      domElement.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+      window.removeEventListener('blur', clearPressedKeys);
+
+      if (previousTabIndex === null) {
+        domElement.removeAttribute('tabindex');
+      } else {
+        domElement.setAttribute('tabindex', previousTabIndex);
+      }
+      if (previousAriaLabel === null) {
+        domElement.removeAttribute('aria-label');
+      } else {
+        domElement.setAttribute('aria-label', previousAriaLabel);
+      }
+      delete domElement.dataset.ddgCameraLastKey;
+      delete domElement.dataset.ddgCameraMode;
+    };
+  }, [freeCamera, gl, mode, moveFreeCamera]);
+
+  useFrame((_, delta) => {
+    const controls = controlsRef.current;
+
+    if (controls && pendingControlsTargetRef.current) {
+      controls.target.set(cameraTarget.x, cameraTarget.y, cameraTarget.z);
+      controls.update();
+      pendingControlsTargetRef.current = false;
+    }
+
+    moveFreeCamera(delta);
+  });
 
   useEffect(() => {
     if (mode !== 'editor') {
@@ -142,12 +317,25 @@ export default function WaterCameraRig({
       };
     };
 
-    onCameraRigApi({ capturePose });
+    const restorePose = () => applyLayoutPose(!freeCamera);
+
+    onCameraRigApi({ capturePose, restorePose });
 
     return () => {
       onCameraRigApi(null);
     };
-  }, [cameraFov, cameraTarget.x, cameraTarget.y, cameraTarget.z, camera, controlsRef, formatAxis, onCameraRigApi]);
+  }, [
+    applyLayoutPose,
+    cameraFov,
+    cameraTarget.x,
+    cameraTarget.y,
+    cameraTarget.z,
+    camera,
+    controlsRef,
+    formatAxis,
+    freeCamera,
+    onCameraRigApi,
+  ]);
 
   if (mode !== 'editor') {
     return null;
@@ -166,8 +354,9 @@ export default function WaterCameraRig({
         enablePan
         enableDamping
         dampingFactor={0.08}
-        minDistance={0.5}
-        maxDistance={2000}
+        minDistance={freeCamera ? FREE_CAMERA_NEAR : 0.5}
+        maxDistance={freeCamera ? Number.POSITIVE_INFINITY : 2000}
+        zoomToCursor={freeCamera}
         screenSpacePanning={freeCamera}
         minPolarAngle={freeCamera ? 0 : 0.45}
         maxPolarAngle={freeCamera ? Math.PI : 1.35}
