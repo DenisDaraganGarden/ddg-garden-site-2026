@@ -1,6 +1,6 @@
 import React from 'react';
 import { useLanguage } from '../i18n/useLanguage';
-import { projectRegistry } from '../data/projectRegistry';
+import { usePortfolioContent } from '../features/portfolio-content';
 import { localizeField } from '../lib/localizeField';
 import { useTrail, animated, config } from 'react-spring';
 import '../styles/Portfolio.css';
@@ -35,13 +35,14 @@ const ProjectRow = ({ project, style }) => {
 
 const Portfolio = () => {
   const { t } = useLanguage();
+  const { projects } = usePortfolioContent();
   const [searchParams] = useSearchParams();
   const categoryFilter = searchParams.get('category');
 
   const filteredProjects = React.useMemo(() => {
-    if (!categoryFilter || categoryFilter === 'all') return projectRegistry;
-    return projectRegistry.filter(p => p.category === categoryFilter);
-  }, [categoryFilter]);
+    if (!categoryFilter || categoryFilter === 'all') return projects;
+    return projects.filter(p => p.category === categoryFilter);
+  }, [categoryFilter, projects]);
 
   const trail = useTrail(filteredProjects.length, {
     config: { ...config.gentle, tension: 280, friction: 60 },

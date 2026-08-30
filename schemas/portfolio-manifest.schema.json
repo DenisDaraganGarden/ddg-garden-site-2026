@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://denisdaragan.com/schemas/portfolio-manifest.schema.json",
+  "title": "Denis Daragan portfolio manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "revision", "publishedAt", "assetBaseUrl", "projects"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "revision": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "publishedAt": { "type": "string", "format": "date-time" },
+    "assetBaseUrl": { "type": "string", "minLength": 1 },
+    "projects": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/project" }
+    }
+  },
+  "$defs": {
+    "localizedText": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ru", "en"],
+      "properties": {
+        "ru": { "type": "string" },
+        "en": { "type": "string" }
+      }
+    },
+    "coordinates": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lat", "lng"],
+      "properties": {
+        "lat": { "type": "number", "minimum": -90, "maximum": 90 },
+        "lng": { "type": "number", "minimum": -180, "maximum": 180 }
+      }
+    },
+    "project": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "slug", "year", "fileCode", "category", "title", "location", "coordinates", "status"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+        "slug": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+        "year": { "type": "string", "pattern": "^\\d{4}$" },
+        "fileCode": { "type": "string", "minLength": 1 },
+        "category": { "type": "string", "minLength": 1 },
+        "title": { "$ref": "#/$defs/localizedText" },
+        "location": { "$ref": "#/$defs/localizedText" },
+        "collaboration": { "$ref": "#/$defs/localizedText" },
+        "coordinates": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/coordinates" }] },
+        "images": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^/" }
+        },
+        "theme": { "type": "string", "minLength": 1 },
+        "status": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

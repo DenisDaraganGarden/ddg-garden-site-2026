@@ -7,6 +7,7 @@ import {
 import Navigation from './components/ui/Navigation';
 import { archiveNavigationItems } from './config/siteNavigation';
 import { useLanguage } from './i18n/useLanguage';
+import { PortfolioContentProvider } from './features/portfolio-content';
 import ddgLogo from '../portfolio/DDG_logo.png';
 const Home = lazy(() => import('./pages/Home'));
 const Info = lazy(() => import('./pages/Info'));
@@ -102,7 +103,9 @@ function AppShell() {
 function App() {
     return (
         <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-            <AppShell />
+            <PortfolioContentProvider>
+                <AppShell />
+            </PortfolioContentProvider>
         </Router>
     );
 }

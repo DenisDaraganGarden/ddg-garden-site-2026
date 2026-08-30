@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useLanguage } from '../i18n/useLanguage';
-import { projectRegistry } from '../data/projectRegistry';
+import { usePortfolioContent } from '../features/portfolio-content';
 import { localizeField } from '../lib/localizeField';
 import { useSpring, animated, config } from 'react-spring';
 import '../styles/ProjectDetail.css';
@@ -10,10 +10,11 @@ const ProjectDetail = () => {
     const { projectId } = useParams();
     const navigate = useNavigate();
     const { language, t } = useLanguage();
+    const { projects } = usePortfolioContent();
 
     const project = useMemo(() => {
-        return projectRegistry.find(p => p.id === projectId);
-    }, [projectId]);
+        return projects.find(p => p.id === projectId || p.slug === projectId);
+    }, [projectId, projects]);
 
     const fadeIn = useSpring({
         from: { opacity: 0, transform: 'translate3d(0, 20px, 0)' },
