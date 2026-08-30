@@ -14,6 +14,7 @@ const Portfolio = lazy(() => import('./pages/Portfolio'));
 const ProjectDetail = lazy(() => import('./pages/ProjectDetail'));
 const Map = lazy(() => import('./pages/Map'));
 const HomeEdit = lazy(() => import('./pages/HomeEdit'));
+const PortfolioEdit = lazy(() => import('./pages/PortfolioEdit'));
 
 function AppShell() {
     const { t } = useLanguage();
@@ -56,6 +57,7 @@ function AppShell() {
 
     const internalToolRoutes = [
         { path: '/home/edit', element: <HomeEdit /> },
+        { path: '/portfolio/edit', element: <PortfolioEdit /> },
     ];
 
     const routeDefinitions = [

@@ -3,6 +3,8 @@ import path from 'node:path';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { publishedHomeSceneKeys } from './src/features/home-scene/data/publishedHomeSceneKeys.js';
+import { projectRegistry } from './src/data/projectRegistry.js';
+import { normalizePortfolioPreviewSettings } from './src/features/portfolio-preview/lib/portfolioPreviewSettings.js';
 
 const projectRoot = process.cwd();
 const publishedHomeSceneSettingsPath = path.join(
@@ -12,6 +14,14 @@ const publishedHomeSceneSettingsPath = path.join(
   'home-scene',
   'data',
   'publishedHomeSceneSettings.js',
+);
+const publishedPortfolioPreviewSettingsPath = path.join(
+  projectRoot,
+  'src',
+  'features',
+  'portfolio-preview',
+  'data',
+  'publishedPortfolioPreviewSettings.js',
 );
 function sendJson(response, statusCode, payload) {
   response.statusCode = statusCode;
@@ -92,6 +102,52 @@ function homeScenePublishPlugin() {
   };
 }
 
+function buildPublishedPortfolioPreviewSettingsModule(settings) {
+  return `export const publishedPortfolioPreviewSettings = ${JSON.stringify(settings, null, 2)};\n`;
+}
+
+function portfolioPreviewPublishPlugin() {
+  const attachPortfolioPreviewPublishMiddleware = (middlewares) => {
+    middlewares.use('/__portfolio-preview/publish', async (request, response, next) => {
+      if (request.method !== 'POST') {
+        next();
+        return;
+      }
+
+      try {
+        const body = await readJsonBody(request);
+        const normalizedSettings = normalizePortfolioPreviewSettings(projectRegistry, body.settings);
+
+        await fs.writeFile(
+          publishedPortfolioPreviewSettingsPath,
+          buildPublishedPortfolioPreviewSettingsModule(normalizedSettings),
+          'utf8',
+        );
+
+        sendJson(response, 200, {
+          ok: true,
+          file: 'src/features/portfolio-preview/data/publishedPortfolioPreviewSettings.js',
+        });
+      } catch (error) {
+        sendJson(response, 500, {
+          ok: false,
+          message: error instanceof Error ? error.message : 'Portfolio preview publish failed',
+        });
+      }
+    });
+  };
+
+  return {
+    name: 'portfolio-preview-publish-api',
+    configureServer(server) {
+      attachPortfolioPreviewPublishMiddleware(server.middlewares);
+    },
+    configurePreviewServer(server) {
+      attachPortfolioPreviewPublishMiddleware(server.middlewares);
+    },
+  };
+}
+
 const manualChunks = (id) => {
   if (!id.includes('node_modules')) {
     return undefined;
@@ -148,7 +204,7 @@ const manualChunks = (id) => {
 };
 
 export default defineConfig({
-  plugins: [react(), homeScenePublishPlugin()],
+  plugins: [react(), homeScenePublishPlugin(), portfolioPreviewPublishPlugin()],
   build: {
     manifest: true,
     rollupOptions: {

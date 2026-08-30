@@ -1,36 +1,13 @@
 import React from 'react';
 import { useLanguage } from '../i18n/useLanguage';
 import { projectRegistry } from '../data/projectRegistry';
-import { localizeField } from '../lib/localizeField';
-import { useTrail, animated, config } from 'react-spring';
+import { animated } from 'react-spring';
+import PortfolioProjectList from '../components/portfolio/PortfolioProjectList';
+import { publishedPortfolioPreviewSettings } from '../features/portfolio-preview/data/publishedPortfolioPreviewSettings';
+import { normalizePortfolioPreviewSettings } from '../features/portfolio-preview/lib/portfolioPreviewSettings';
 import '../styles/Portfolio.css';
 
-import { Link, useSearchParams } from 'react-router-dom';
-
-const ProjectRow = ({ project, style }) => {
-  const { language } = useLanguage();
-
-  return (
-    <animated.div
-      className={`project-row project-row--${project.status}`}
-      style={style}
-      data-testid={`project-row-${project.id}`}
-    >
-      <Link to={`/portfolio/${project.slug}`} className="project-row__link">
-        <div className="project-row__meta">
-          <span className="project-row__year">{project.year}</span>
-          <span className="project-row__code">{project.fileCode}</span>
-        </div>
-        <div className="project-row__content">
-          <h2 className="project-row__title">{localizeField(project.title, language)}</h2>
-          <div className="project-row__discovery">
-            <span className="project-row__location">{localizeField(project.location, language)}</span>
-          </div>
-        </div>
-      </Link>
-    </animated.div>
-  );
-};
+import { useSearchParams } from 'react-router-dom';
 
 const Portfolio = () => {
   const { t } = useLanguage();
@@ -41,14 +18,9 @@ const Portfolio = () => {
     if (!categoryFilter || categoryFilter === 'all') return projectRegistry;
     return projectRegistry.filter(p => p.category === categoryFilter);
   }, [categoryFilter]);
-
-  const trail = useTrail(filteredProjects.length, {
-    config: { ...config.gentle, tension: 280, friction: 60 },
-    from: { opacity: 0, transform: 'translateY(40px)' },
-    to: { opacity: 1, transform: 'translateY(0)' },
-    delay: 300,
-    reset: true,
-  });
+  const previewSettings = React.useMemo(() => (
+    normalizePortfolioPreviewSettings(projectRegistry, publishedPortfolioPreviewSettings)
+  ), []);
 
   return (
     <main className="portfolio-page">
@@ -60,11 +32,10 @@ const Portfolio = () => {
         </header>
 
         <section className="portfolio-section">
-          <div className="portfolio-list">
-            {trail.map((style, index) => (
-              <ProjectRow key={filteredProjects[index].id} project={filteredProjects[index]} style={style} />
-            ))}
-          </div>
+          <PortfolioProjectList
+            projects={filteredProjects}
+            previewSettings={previewSettings}
+          />
         </section>
       </div>
     </main>
