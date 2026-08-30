@@ -1,0 +1,102 @@
+{
+  "sourceAudit": {
+    "file": "assets-source/seagull/source/seagull-fly-source.fbx",
+    "license": "Creazilla Open-Source License",
+    "vertices": 4382,
+    "triangles": 8765,
+    "bones": 162,
+    "vertexGroups": 89,
+    "maxInfluences": 9,
+    "unweightedVertices": 6,
+    "maxWeightError": 0.9635719368234277
+  },
+  "asset": {
+    "object": "seagull_web",
+    "rig": "seagull_flight_rig",
+    "vertices": 2800,
+    "triangles": 5607,
+    "bones": 16,
+    "boneNames": [
+      "root",
+      "chest",
+      "neck",
+      "head",
+      "wing.shoulder.L",
+      "wing.inner.L",
+      "wing.outer.L",
+      "wing.tip.L",
+      "wing.shoulder.R",
+      "wing.inner.R",
+      "wing.outer.R",
+      "wing.tip.R",
+      "tail.L",
+      "tail.R",
+      "leg.L",
+      "leg.R"
+    ],
+    "maxInfluences": 4,
+    "maxWeightError": 1.6391277313232422e-07,
+    "rigidLowerLegVertices": 562,
+    "nonManifoldEdges": 191,
+    "deformationProbeMeters": 0.2617977702712618,
+    "neutralRestoreError": 0.0,
+    "wingspanMeters": 1.0,
+    "bodyLengthMeters": 0.48,
+    "bounds": {
+      "min": [
+        -0.2697371244430542,
+        -0.12182378023862839,
+        -0.500522255897522
+      ],
+      "max": [
+        0.21026287972927094,
+        0.1181139424443245,
+        0.5005223155021667
+      ]
+    },
+    "forwardAxis": "+X",
+    "upAxis": "+Y",
+    "authoringAxes": {
+      "forward": "+X",
+      "up": "+Z",
+      "wing": "+/-Y"
+    },
+    "material": "Seagull_Feather_PBR",
+    "decimateRatio": 0.64,
+    "glb": "/models/seagull/seagull-flight.glb",
+    "glbBytes": 940968,
+    "exportedVertices": 13238,
+    "exportedTriangles": 5607,
+    "exportedJoints": 17,
+    "primitiveCount": 1,
+    "textures": {
+      "albedo": "/models/seagull/textures/seagull_albedo.webp",
+      "normal": "/models/seagull/textures/seagull_normal.webp",
+      "orm": "/models/seagull/textures/seagull_orm.webp",
+      "specular": "/models/seagull/textures/seagull_specular.webp"
+    },
+    "behavior": {
+      "defaultCount": 9,
+      "stressCount": 18,
+      "wingbeatHz": [
+        3.33,
+        4.29
+      ],
+      "cruiseSpeedMetersPerSecond": [
+        9.5,
+        15.7
+      ],
+      "nearestNeighborMeters": 1.5,
+      "normalSceneHeightMeters": [
+        12,
+        28
+      ],
+      "lowTransitHeightMeters": [
+        2,
+        8
+      ],
+      "mode": "procedural runtime motor; source animation is reference only"
+    },
+    "delivery": "single skinned GLB plus external PBR maps; runtime owns flap, glide and flock state"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "source": "assets-source/seagull/source/seagull-albedo-source.png",
+  "size": 1024,
+  "files": {
+    "albedo": "/models/seagull/textures/seagull_albedo.webp",
+    "normal": "/models/seagull/textures/seagull_normal.webp",
+    "orm": "/models/seagull/textures/seagull_orm.webp",
+    "specular": "/models/seagull/textures/seagull_specular.webp"
+  }
+}

@@ -1,0 +1,45 @@
+.seagull-lab__catalog {
+  width: min(282px, calc(100vw - 60px));
+}
+
+.seagull-lab__audit-card.is-web {
+  border-left-color: rgba(45, 82, 62, 0.72);
+  background: linear-gradient(90deg, rgba(235, 241, 235, 0.92), rgba(245, 244, 240, 0));
+}
+
+.seagull-lab__audit-card.is-web strong {
+  color: #244433;
+}
+
+.seagull-lab__flight-card {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: baseline;
+  gap: 3px 8px;
+  padding: 10px 12px;
+  border-left: 1px solid rgba(23, 25, 22, 0.2);
+  background: linear-gradient(90deg, rgba(245, 244, 240, 0.88), rgba(245, 244, 240, 0));
+}
+
+.seagull-lab__flight-card strong {
+  color: rgba(23, 25, 22, 0.82);
+  font-size: 11px;
+}
+
+.seagull-lab__flight-card span {
+  color: rgba(23, 25, 22, 0.46);
+  font-size: 10px;
+}
+
+.seagull-lab__flight-card small {
+  grid-column: 1 / -1;
+  color: rgba(23, 25, 22, 0.4);
+  font-size: 9px;
+}
+
+@media (max-width: 980px) {
+  .seagull-lab .fish-lab__controls {
+    max-width: min(620px, calc(100vw - 36px));
+    overflow-x: auto;
+  }
+}
