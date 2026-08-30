@@ -31,12 +31,20 @@ const PRESET_OPTIONS = Object.freeze([
 ]);
 
 const PARAMETER_OPTIONS = Object.freeze([
-  { id: 'layering', label: 'Слоистость' },
-  { id: 'fracture', label: 'Излом / сколы' },
-  { id: 'veins', label: 'Жилы' },
-  { id: 'polish', label: 'Потёртая полировка' },
-  { id: 'wetness', label: 'Влажность' },
-  { id: 'microRelief', label: 'Микрорельеф' },
+  { id: 'layering', label: 'Слоистость', min: 0, max: 1, step: 0.01 },
+  { id: 'layerScale', label: 'Масштаб слоёв', min: 0.6, max: 4, step: 0.05, scale: true },
+  { id: 'layerRelief', label: 'Рельеф слоёв', min: 0, max: 1, step: 0.01 },
+  { id: 'layerSharpness', label: 'Острота граней', min: 0, max: 1, step: 0.01 },
+  { id: 'layerEdgeChips', label: 'Сколы граней', min: 0, max: 1, step: 0.01 },
+  { id: 'fracture', label: 'Излом / сколы', min: 0, max: 1, step: 0.01 },
+  { id: 'fractureScale', label: 'Масштаб излома', min: 0.6, max: 4, step: 0.05, scale: true },
+  { id: 'veins', label: 'Жилы', min: 0, max: 1, step: 0.01 },
+  { id: 'veinScale', label: 'Масштаб жил', min: 0.6, max: 4, step: 0.05, scale: true },
+  { id: 'polish', label: 'Потёртая полировка', min: 0, max: 1, step: 0.01 },
+  { id: 'wearScale', label: 'Масштаб потёртости', min: 0.6, max: 4, step: 0.05, scale: true },
+  { id: 'wetness', label: 'Влажность', min: 0, max: 1, step: 0.01 },
+  { id: 'dryRoughness', label: 'Сухая шершавость', min: 0, max: 1, step: 0.01 },
+  { id: 'microRelief', label: 'Микрорельеф', min: 0, max: 1, step: 0.01 },
 ]);
 
 function LoadingStone() {
@@ -242,12 +250,15 @@ export default function BlackStoneLab() {
           {PARAMETER_OPTIONS.map((parameter) => (
             <label key={parameter.id} className="stone-lab__slider">
               <span>{parameter.label}</span>
-              <output>{parameters[parameter.id].toFixed(2)}</output>
+              <output>
+                {parameter.scale ? '×' : ''}{parameters[parameter.id].toFixed(2)}
+              </output>
               <input
                 type="range"
-                min="0"
-                max="1"
-                step="0.01"
+                aria-label={parameter.label}
+                min={parameter.min}
+                max={parameter.max}
+                step={parameter.step}
                 value={parameters[parameter.id]}
                 onChange={(event) => updateParameter(parameter.id, event.target.value)}
               />
