@@ -1,0 +1,115 @@
+{
+  "generator": "assets-source/fish/generate_fish_assets.py",
+  "sourceBlend": "assets-source/fish/river_fish_authoring.blend",
+  "units": "meters",
+  "species": [
+    {
+      "id": "pike",
+      "displayName": "Northern pike",
+      "scientificName": "Esox lucius",
+      "lengthMeters": 0.92,
+      "heightMeters": 0.155,
+      "vertices": 480,
+      "triangles": 908,
+      "bodyTriangles": 868,
+      "finTriangles": 40,
+      "spineBones": 8,
+      "totalBones": 10,
+      "maxInfluences": 2,
+      "bodyNonManifoldEdges": 0,
+      "bounds": {
+        "min": [
+          -0.46000000834465027,
+          -0.09030000120401382,
+          -0.09610000252723694
+        ],
+        "max": [
+          0.46000000834465027,
+          0.09030000120401382,
+          0.1023000031709671
+        ]
+      },
+      "forwardAxis": "+X",
+      "uv": "overlapping bilateral lateral islands",
+      "exportedMesh": "pike_mesh",
+      "materialSlots": [
+        "pike_body_PBR"
+      ],
+      "maxWeightError": 2.9802322387695312e-08,
+      "deformationProbeMeters": 0.037475705801860645,
+      "neutralRestoreError": 2.9095447346220367e-08
+    },
+    {
+      "id": "perch",
+      "displayName": "European perch",
+      "scientificName": "Perca fluviatilis",
+      "lengthMeters": 0.38,
+      "heightMeters": 0.145,
+      "vertices": 358,
+      "triangles": 664,
+      "bodyTriangles": 624,
+      "finTriangles": 40,
+      "spineBones": 7,
+      "totalBones": 9,
+      "maxInfluences": 2,
+      "bodyNonManifoldEdges": 0,
+      "bounds": {
+        "min": [
+          -0.1899999976158142,
+          -0.07051999866962433,
+          -0.08990000188350677
+        ],
+        "max": [
+          0.1899999976158142,
+          0.07051999866962433,
+          0.09570000320672989
+        ]
+      },
+      "forwardAxis": "+X",
+      "uv": "overlapping bilateral lateral islands",
+      "exportedMesh": "perch_mesh",
+      "materialSlots": [
+        "perch_body_PBR"
+      ],
+      "maxWeightError": 2.9802322387695312e-08,
+      "deformationProbeMeters": 0.016649775943758948,
+      "neutralRestoreError": 1.5423162990882244e-08
+    },
+    {
+      "id": "roach",
+      "displayName": "Common roach",
+      "scientificName": "Rutilus rutilus",
+      "lengthMeters": 0.18,
+      "heightMeters": 0.064,
+      "vertices": 256,
+      "triangles": 460,
+      "bodyTriangles": 420,
+      "finTriangles": 40,
+      "spineBones": 6,
+      "totalBones": 8,
+      "maxInfluences": 2,
+      "bodyNonManifoldEdges": 0,
+      "bounds": {
+        "min": [
+          -0.09000000357627869,
+          -0.032680001109838486,
+          -0.03968000039458275
+        ],
+        "max": [
+          0.09000000357627869,
+          0.032680001109838486,
+          0.04224000126123428
+        ]
+      },
+      "forwardAxis": "+X",
+      "uv": "overlapping bilateral lateral islands",
+      "exportedMesh": "roach_mesh",
+      "materialSlots": [
+        "roach_body_PBR"
+      ],
+      "maxWeightError": 2.9802322387695312e-08,
+      "deformationProbeMeters": 0.008626117782364906,
+      "neutralRestoreError": 8.33000234328132e-09
+    }
+  ]
+}

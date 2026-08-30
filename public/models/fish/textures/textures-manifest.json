@@ -1,0 +1,39 @@
+{
+  "generatedAt": "2026-08-30T01:14:59.285Z",
+  "size": [
+    1024,
+    512
+  ],
+  "mapping": "One lateral atlas is shared by overlapping left/right UV islands.",
+  "channels": {
+    "orm": {
+      "r": "ambient occlusion",
+      "g": "roughness",
+      "b": "metalness"
+    },
+    "specular": {
+      "rgb": "white",
+      "a": "per-scale specular intensity"
+    }
+  },
+  "species": {
+    "pike": {
+      "albedo": "/models/fish/textures/pike/pike_albedo.webp",
+      "normal": "/models/fish/textures/pike/pike_normal.webp",
+      "orm": "/models/fish/textures/pike/pike_orm.webp",
+      "specular": "/models/fish/textures/pike/pike_specular.webp"
+    },
+    "perch": {
+      "albedo": "/models/fish/textures/perch/perch_albedo.webp",
+      "normal": "/models/fish/textures/perch/perch_normal.webp",
+      "orm": "/models/fish/textures/perch/perch_orm.webp",
+      "specular": "/models/fish/textures/perch/perch_specular.webp"
+    },
+    "roach": {
+      "albedo": "/models/fish/textures/roach/roach_albedo.webp",
+      "normal": "/models/fish/textures/roach/roach_normal.webp",
+      "orm": "/models/fish/textures/roach/roach_orm.webp",
+      "specular": "/models/fish/textures/roach/roach_specular.webp"
+    }
+  }
+}
