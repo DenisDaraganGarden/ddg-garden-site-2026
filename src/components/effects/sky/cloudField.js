@@ -224,29 +224,7 @@ export function sampleCloudField(direction, state = {}) {
   const activation = smoothstep(0.005, 0.09, cloud.cover);
   const lowFrequency = preset.lowFrequency * cloud.scale;
   const highFrequency = preset.highFrequency * cloud.scale;
-  const warp = fbm3(
-    x * lowFrequency * 0.72 + 11.3,
-    y * lowFrequency * 0.9 - 7.1,
-    z * lowFrequency * 0.72 + 3.7,
-    preset.seed + 17,
-    3,
-  ) - 0.5;
-
-  const macro = fbm3(
-    x * lowFrequency + warp * 0.8,
-    y * lowFrequency * 1.72 - warp * 0.35,
-    z * lowFrequency - warp * 0.65,
-    preset.seed,
-    4,
-  );
-  const billowNoise = fbm3(
-    x * lowFrequency * 2.15 - 5.2,
-    y * lowFrequency * 2.8 + 8.4,
-    z * lowFrequency * 2.15 + 1.9,
-    preset.seed + 43,
-    3,
-  );
-  const billow = 1 - Math.abs(billowNoise * 2 - 1);
+  const top = mix(preset.topMin, preset.topMax, cloud.horizon);
 
   const keyDot = clamp(
     x * cloud.keyDirection[0] + y * cloud.keyDirection[1] + z * cloud.keyDirection[2],
@@ -254,30 +232,72 @@ export function sampleCloudField(direction, state = {}) {
     1,
   );
   const sunBankMask = smoothstep(Math.cos(23 * DEG), Math.cos(5 * DEG), keyDot);
+
+  // Whatever the tower does, the low deck's envelope closes at top * 1.42, and
+  // above that line every octave below is multiplied by an exact zero. Two
+  // thirds of the table sits up there. The billow survives the skip only
+  // inside the sun's 23-degree bank, because that is the one other term it
+  // feeds - outside it the mask is already zero.
+  const lowReaches = y < top * 1.42;
+  let macro = 0;
+  let billow = 0;
+
+  if (lowReaches || sunBankMask > 0) {
+    const billowNoise = fbm3(
+      x * lowFrequency * 2.15 - 5.2,
+      y * lowFrequency * 2.8 + 8.4,
+      z * lowFrequency * 2.15 + 1.9,
+      preset.seed + 43,
+      3,
+    );
+    billow = 1 - Math.abs(billowNoise * 2 - 1);
+  }
+
+  if (lowReaches) {
+    const warp = fbm3(
+      x * lowFrequency * 0.72 + 11.3,
+      y * lowFrequency * 0.9 - 7.1,
+      z * lowFrequency * 0.72 + 3.7,
+      preset.seed + 17,
+      3,
+    ) - 0.5;
+
+    macro = fbm3(
+      x * lowFrequency + warp * 0.8,
+      y * lowFrequency * 1.72 - warp * 0.35,
+      z * lowFrequency - warp * 0.65,
+      preset.seed,
+      4,
+    );
+  }
+
   const sunBank = sunBankMask
     * cloud.sunOcclusion
     * preset.sunBank
     * (0.62 + billow * 0.38);
 
   const lowField = macro * 0.72 + billow * 0.28 + sunBank;
-  const top = mix(preset.topMin, preset.topMax, cloud.horizon);
   const tower = smoothstep(0.5, 0.79, macro);
   const lowerFade = smoothstep(-0.025, 0.025, y);
   const upperStart = top * mix(0.58, 0.88, tower);
   const upperEnd = top * mix(0.92, 1.42, tower);
-  const lowEnvelope = lowerFade * (1 - smoothstep(upperStart, upperEnd, y));
+  const lowEnvelope = lowReaches
+    ? lowerFade * (1 - smoothstep(upperStart, upperEnd, y))
+    : 0;
   const lowThreshold = preset.lowThreshold
     + (1 - cloud.density) * 0.14
     - cloud.cover * 0.21;
-  const lowOpacity = smoothstep(
-    lowThreshold,
-    lowThreshold + preset.edgeSoftness,
-    lowField,
-  ) * lowEnvelope * preset.lowAmount * activation;
+  const lowOpacity = lowEnvelope === 0
+    ? 0
+    : smoothstep(
+      lowThreshold,
+      lowThreshold + preset.edgeSoftness,
+      lowField,
+    ) * lowEnvelope * preset.lowAmount * activation;
 
   let highNoise = 0.5;
   let highOpacity = 0;
-  if (preset.highAmount > 0.01) {
+  if (preset.highAmount > 0.01 && y > 0.045 && y < 0.99) {
     const highWarp = fbm3(
       x * highFrequency * 0.42 + 2.3,
       y * highFrequency * 1.6 + 6.5,
@@ -311,7 +331,7 @@ export function sampleCloudField(direction, state = {}) {
 
   let deckField = 0.5;
   let deckOpacity = 0;
-  if (preset.deckAmount > 0.01) {
+  if (preset.deckAmount > 0.01 && y > -0.02 && y < 1) {
     const deckNoise = fbm3(
       x * cloud.scale * 1.25 - 4.1,
       y * cloud.scale * 0.52 + 2.8,
