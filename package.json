@@ -11,6 +11,7 @@
     "check:lighting": "node src/components/effects/homeSceneLighting.check.js",
     "check:materials": "node src/components/effects/water/pbrMaterial.check.js",
     "check:render-targets": "node src/components/effects/water/renderTargets.check.js",
+    "check:cameras": "node src/features/home-scene/lib/cameraLayout.check.js",
     "check:atmosphere": "node src/components/effects/water/farWaterGeometry.check.js && node src/components/effects/homeSceneLighting.check.js && node src/components/effects/sky/skyModel.check.js",
     "check:boat": "node src/components/effects/water/boatDynamics.check.js",
     "check:fish": "node scripts/check-fish-assets.mjs && node scripts/check-fish-runtime.mjs && node scripts/check-fish-rendering.mjs && node scripts/check-fish-pointer.mjs",

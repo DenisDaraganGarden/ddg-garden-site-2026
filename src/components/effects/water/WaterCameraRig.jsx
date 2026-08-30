@@ -318,7 +318,10 @@ export default function WaterCameraRig({
           y: formatAxis(target.y),
           z: formatAxis(target.z),
         },
-        cameraFov: Math.round(cameraFov ?? camera.fov),
+        // Capture the projection that is actually being viewed. In particular,
+        // do not round narrow/Fractional lenses: at 1° a rounded value is a
+        // material change to the authored composition after a save/reload.
+        cameraFov: formatAxis(camera.fov),
       };
     };
 
