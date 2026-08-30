@@ -17,10 +17,69 @@ const postVertexShader = `
   }
 `;
 
+// Bloom is prepared away from the full-resolution grading pass. A soft-knee
+// luminance prefilter keeps saturated skies out of the glow, then two cheap
+// tent passes at quarter resolution produce a round, optical falloff instead of
+// the old full-resolution cross of isolated taps.
+const bloomPrefilterFragmentShader = `
+  varying vec2 vUv;
+
+  uniform sampler2D uColorTexture;
+  uniform vec2 uTexelSize;
+  uniform float uThreshold;
+
+  float bloomLuminance(vec3 color) {
+    return dot(color, vec3(0.2126, 0.7152, 0.0722));
+  }
+
+  vec3 bloomPrefilter(vec3 color) {
+    float luminance = bloomLuminance(color);
+    float threshold = uThreshold;
+    float knee = max(0.06, threshold * 0.28);
+    float soft = clamp((luminance - threshold + knee) / (2.0 * knee), 0.0, 1.0);
+    soft = soft * soft * (3.0 - 2.0 * soft);
+    float contribution = max(luminance - threshold, 0.0) + soft * knee;
+    return color * (contribution / max(luminance, 0.0001));
+  }
+
+  void main() {
+    vec2 halfTexel = uTexelSize * 0.5;
+    vec3 color = texture2D(uColorTexture, vUv).rgb * 0.5;
+    color += texture2D(uColorTexture, vUv + vec2(-halfTexel.x, -halfTexel.y)).rgb * 0.125;
+    color += texture2D(uColorTexture, vUv + vec2( halfTexel.x, -halfTexel.y)).rgb * 0.125;
+    color += texture2D(uColorTexture, vUv + vec2(-halfTexel.x,  halfTexel.y)).rgb * 0.125;
+    color += texture2D(uColorTexture, vUv + vec2( halfTexel.x,  halfTexel.y)).rgb * 0.125;
+    gl_FragColor = vec4(bloomPrefilter(color), 1.0);
+  }
+`;
+
+const bloomBlurFragmentShader = `
+  varying vec2 vUv;
+
+  uniform sampler2D uBloomTexture;
+  uniform vec2 uTexelSize;
+  uniform float uOffset;
+
+  void main() {
+    vec2 offset = uTexelSize * uOffset;
+    vec3 color = texture2D(uBloomTexture, vUv).rgb * 4.0;
+    color += texture2D(uBloomTexture, vUv + vec2( offset.x, 0.0)).rgb * 2.0;
+    color += texture2D(uBloomTexture, vUv + vec2(-offset.x, 0.0)).rgb * 2.0;
+    color += texture2D(uBloomTexture, vUv + vec2(0.0,  offset.y)).rgb * 2.0;
+    color += texture2D(uBloomTexture, vUv + vec2(0.0, -offset.y)).rgb * 2.0;
+    color += texture2D(uBloomTexture, vUv + vec2( offset.x,  offset.y)).rgb;
+    color += texture2D(uBloomTexture, vUv + vec2(-offset.x,  offset.y)).rgb;
+    color += texture2D(uBloomTexture, vUv + vec2( offset.x, -offset.y)).rgb;
+    color += texture2D(uBloomTexture, vUv + vec2(-offset.x, -offset.y)).rgb;
+    gl_FragColor = vec4(color / 16.0, 1.0);
+  }
+`;
+
 const postFragmentShader = `
   varying vec2 vUv;
 
   uniform sampler2D uColorTexture;
+  uniform sampler2D uBloomTexture;
   uniform sampler2D uDepthTexture;
   uniform sampler2D uNoiseTexture;
   uniform sampler2D uFilmNoiseTexture;
@@ -51,9 +110,6 @@ const postFragmentShader = `
 
   uniform float uBloomEnabled;
   uniform float uBloomStrength;
-  uniform float uBloomThreshold;
-  uniform float uBloomRadius;
-  uniform float uBloomTapCount;
 
   uniform float uContrast;
   uniform float uSaturation;
@@ -66,6 +122,7 @@ const postFragmentShader = `
   uniform float uSunRaysDecay;
   uniform float uSunRaysDensity;
   uniform float uSunRaySampleCount;
+  uniform float uSunRadius;
 
   uniform float uFogMode;
   uniform vec3 uFogColor;
@@ -96,47 +153,16 @@ const postFragmentShader = `
     return dot(color, vec3(0.2126, 0.7152, 0.0722));
   }
 
-  vec3 brightPass(vec3 color) {
-    float brightness = max(max(color.r, color.g), color.b);
-    float contribution = smoothstep(
-      max(uBloomThreshold - 0.12, 0.0),
-      uBloomThreshold + 0.16,
-      brightness
-    );
-    return color * contribution;
-  }
-
-  vec3 sampleBloom(vec2 uv) {
-    vec2 pixel = 1.0 / max(uResolution, vec2(1.0));
-    vec2 radius = pixel * mix(1.5, 11.0, clamp(uBloomRadius, 0.0, 1.0));
-    vec3 bloom = brightPass(texture2D(uColorTexture, uv).rgb) * 0.16;
-    bloom += brightPass(texture2D(uColorTexture, uv + vec2(radius.x, 0.0)).rgb) * 0.105;
-    bloom += brightPass(texture2D(uColorTexture, uv - vec2(radius.x, 0.0)).rgb) * 0.105;
-    bloom += brightPass(texture2D(uColorTexture, uv + vec2(0.0, radius.y)).rgb) * 0.105;
-    bloom += brightPass(texture2D(uColorTexture, uv - vec2(0.0, radius.y)).rgb) * 0.105;
-    bloom += brightPass(texture2D(uColorTexture, uv + radius).rgb) * 0.07;
-    bloom += brightPass(texture2D(uColorTexture, uv - radius).rgb) * 0.07;
-    bloom += brightPass(texture2D(uColorTexture, uv + vec2(radius.x, -radius.y)).rgb) * 0.07;
-    bloom += brightPass(texture2D(uColorTexture, uv + vec2(-radius.x, radius.y)).rgb) * 0.07;
-    // The wide tail is a modest visual gain for desktop but four additional
-    // texture fetches per pixel. Low-power profiles stop at the 9-tap core.
-    if (uBloomTapCount > 9.0) {
-      vec2 wide = radius * 2.35;
-      bloom += brightPass(texture2D(uColorTexture, uv + vec2(wide.x, 0.0)).rgb) * 0.035;
-      bloom += brightPass(texture2D(uColorTexture, uv - vec2(wide.x, 0.0)).rgb) * 0.035;
-      bloom += brightPass(texture2D(uColorTexture, uv + vec2(0.0, wide.y)).rgb) * 0.035;
-      bloom += brightPass(texture2D(uColorTexture, uv - vec2(0.0, wide.y)).rgb) * 0.035;
-    }
-    return bloom;
-  }
-
   float sampleSunRays(vec2 uv, vec2 sunUv) {
-    vec2 stepVector = (uv - sunUv)
-      * clamp(uSunRaysDensity, 0.0, 1.5)
-      / max(uSunRaySampleCount, 1.0);
+    float sampleCount = max(uSunRaySampleCount, 1.0);
+    vec2 aspectScale = vec2(uResolution.x / max(uResolution.y, 1.0), 1.0);
+    vec2 rayVector = uv - sunUv;
+    vec2 stepVector = rayVector / sampleCount;
     vec2 sampleUv = uv;
     float illumination = 1.0;
     float rays = 0.0;
+    float sourceWeight = 0.0;
+    float transmittance = 1.0;
 
     for (int index = 0; index < 18; index += 1) {
       if (float(index) >= uSunRaySampleCount) {
@@ -146,20 +172,34 @@ const postFragmentShader = `
       vec2 clampedSampleUv = clamp(sampleUv, 0.001, 0.999);
       vec3 sampleColor = texture2D(uColorTexture, clampedSampleUv).rgb;
       float sampleDepth = texture2D(uDepthTexture, clampedSampleUv).r;
-      // Rays belong to the sun disc and bright sky. Letting bright geometry or
-      // water glints seed the radial blur occasionally stretched a one-pixel
-      // specular highlight into a full-height band across the frame.
       float skySource = smoothstep(0.997, 0.9999, sampleDepth);
-      float source = smoothstep(0.48, 1.08, ddgLuminance(sampleColor)) * skySource;
-      rays += source * illumination;
+      // March all the way to the actual disc. Geometry on that path attenuates
+      // the source, so silhouettes cut real shafts instead of the whole bright
+      // sky becoming one flat radial wash.
+      transmittance *= mix(0.86, 1.0, skySource);
+      float sourceDistance = length((clampedSampleUv - sunUv) * aspectScale);
+      float sourceRadius = max(uSunRadius * 5.0, 0.018);
+      float sourceMask = 1.0 - smoothstep(sourceRadius * 0.22, sourceRadius, sourceDistance);
+      float sourceLuminance = smoothstep(0.32, 1.45, ddgLuminance(sampleColor));
+      float source = sourceMask * sourceLuminance * skySource;
+      rays += source * illumination * transmittance;
+      sourceWeight += sourceMask * illumination;
       illumination *= clamp(uSunRaysDecay, 0.72, 0.995);
     }
 
+    float distanceToSun = length(rayVector * aspectScale);
+    float density = clamp(uSunRaysDensity / 1.5, 0.0, 1.0);
+    float reach = mix(max(uSunRadius * 7.0, 0.08), 1.25, density);
+    float reachMask = 1.0 - smoothstep(reach * 0.68, reach, distanceToSun);
     float screenMask = smoothstep(0.0, 0.08, sunUv.x)
-      * smoothstep(1.0, 0.92, sunUv.x)
+      * (1.0 - smoothstep(0.92, 1.0, sunUv.x))
       * smoothstep(0.0, 0.08, sunUv.y)
-      * smoothstep(1.0, 0.92, sunUv.y);
-    return rays / max(uSunRaySampleCount, 1.0) * screenMask * uSunVisible;
+      * (1.0 - smoothstep(0.92, 1.0, sunUv.y));
+    return rays / max(sourceWeight, 0.025)
+      * reachMask
+      * screenMask
+      * uSunVisible
+      * 0.48;
   }
 
   float sampleFogNoise(vec2 uv, float distanceRatio, vec2 sunUv) {
@@ -373,7 +413,7 @@ const postFragmentShader = `
     vec3 color = texture2D(uColorTexture, filmUv).rgb;
 
     if (uBloomEnabled > 0.5 && uBloomStrength > 0.0001) {
-      color += sampleBloom(filmUv) * uBloomStrength;
+      color += texture2D(uBloomTexture, filmUv).rgb * uBloomStrength;
     }
 
     float rays = 0.0;
@@ -406,7 +446,7 @@ const postFragmentShader = `
       // the slider was discontinuous at zero: with fog on, turning the rays off
       // still left them at full strength inside the fog.
       vec3 scatteredFog = uFogColor
-        + uSunColor * (rays * 1.6 + sunHalo * 0.18)
+        + uSunColor * (rays * 0.82 + sunHalo * 0.12)
           * uFogScattering * clamp(uSunRaysIntensity, 0.0, 2.0);
       // The fog pass runs after all PBR lighting. Without a local allowance it
       // overwrites up to 94% of the flashlight's grazing highlight and leaves
@@ -418,7 +458,10 @@ const postFragmentShader = `
       color = mix(color, scatteredFog, clamp(relievedFogAmount, 0.0, 0.94));
     }
 
-    color += uSunColor * rays * uSunRaysIntensity * (0.68 + uFogScattering * 0.52);
+    float fogRayCoupling = step(0.5, uFogMode)
+      * clamp(uFogDensity * 4.0, 0.0, 1.0)
+      * clamp(uFogScattering, 0.0, 1.0);
+    color += uSunColor * rays * uSunRaysIntensity * mix(0.78, 0.34, fogRayCoupling);
     if (uFilmEnabled > 0.5 && uFilmFlickerAmount > 0.000001) {
       color *= exp2(filmFlickerEv());
     }
@@ -598,8 +641,28 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
       : Math.min(requestedSamples, gl.capabilities.maxSamples ?? requestedSamples);
     return target;
   }, [gl.capabilities.maxSamples, isLowPower, requestedSamples]);
+  const bloomTargets = useMemo(() => {
+    const createTarget = (name) => {
+      const target = new THREE.WebGLRenderTarget(1, 1, {
+        minFilter: THREE.LinearFilter,
+        magFilter: THREE.LinearFilter,
+        format: THREE.RGBAFormat,
+        type: isLowPower ? THREE.UnsignedByteType : THREE.HalfFloatType,
+        depthBuffer: false,
+        stencilBuffer: false,
+        generateMipmaps: false,
+      });
+      target.texture.name = name;
+      return target;
+    };
+    return [
+      createTarget('home-scene-bloom-a'),
+      createTarget('home-scene-bloom-b'),
+    ];
+  }, [isLowPower]);
   const uniforms = useMemo(() => ({
     uColorTexture: { value: renderTarget.texture },
+    uBloomTexture: { value: bloomTargets[0].texture },
     uDepthTexture: { value: renderTarget.depthTexture },
     uNoiseTexture: { value: noiseTexture },
     uFilmNoiseTexture: { value: filmNoiseTexture },
@@ -627,9 +690,6 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
     uFilmLowPower: { value: isLowPower ? 1 : 0 },
     uBloomEnabled: { value: 0 },
     uBloomStrength: { value: 0 },
-    uBloomThreshold: { value: 0.7 },
-    uBloomRadius: { value: 0.5 },
-    uBloomTapCount: { value: 13 },
     uContrast: { value: 1 },
     uSaturation: { value: 1 },
     uHue: { value: 0 },
@@ -640,6 +700,7 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
     uSunRaysDecay: { value: 0.93 },
     uSunRaysDensity: { value: 0.72 },
     uSunRaySampleCount: { value: 18 },
+    uSunRadius: { value: 0.01 },
     uFogMode: { value: 0 },
     uFogColor: { value: new THREE.Color(settings.fogColor) },
     uFogDensity: { value: 0 },
@@ -654,7 +715,7 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
     uCursorLightAspect: { value: 1 },
     uCursorLightSoftness: { value: 0.72 },
     uCursorLightFogRelief: { value: 0 },
-  }), [camera.far, camera.near, filmNoiseTexture, isLowPower, lighting.key.colorLinear, noiseTexture, renderTarget, settings.fogColor]);
+  }), [bloomTargets, camera.far, camera.near, filmNoiseTexture, isLowPower, lighting.key.colorLinear, noiseTexture, renderTarget, settings.fogColor]);
   const postMaterial = useMemo(() => new THREE.ShaderMaterial({
     uniforms,
     vertexShader: postVertexShader,
@@ -676,6 +737,46 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
     () => new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1),
     [],
   );
+  const bloomPrefilterUniforms = useMemo(() => ({
+    uColorTexture: { value: renderTarget.texture },
+    uTexelSize: { value: new THREE.Vector2(1, 1) },
+    uThreshold: { value: 0.7 },
+  }), [renderTarget.texture]);
+  const bloomPrefilterMaterial = useMemo(() => new THREE.ShaderMaterial({
+    uniforms: bloomPrefilterUniforms,
+    vertexShader: postVertexShader,
+    fragmentShader: bloomPrefilterFragmentShader,
+    depthTest: false,
+    depthWrite: false,
+    toneMapped: false,
+  }), [bloomPrefilterUniforms]);
+  const bloomPrefilterScene = useMemo(() => {
+    const nextScene = new THREE.Scene();
+    const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), bloomPrefilterMaterial);
+    quad.frustumCulled = false;
+    nextScene.add(quad);
+    return nextScene;
+  }, [bloomPrefilterMaterial]);
+  const bloomBlurUniforms = useMemo(() => ({
+    uBloomTexture: { value: bloomTargets[0].texture },
+    uTexelSize: { value: new THREE.Vector2(1, 1) },
+    uOffset: { value: 1 },
+  }), [bloomTargets]);
+  const bloomBlurMaterial = useMemo(() => new THREE.ShaderMaterial({
+    uniforms: bloomBlurUniforms,
+    vertexShader: postVertexShader,
+    fragmentShader: bloomBlurFragmentShader,
+    depthTest: false,
+    depthWrite: false,
+    toneMapped: false,
+  }), [bloomBlurUniforms]);
+  const bloomBlurScene = useMemo(() => {
+    const nextScene = new THREE.Scene();
+    const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), bloomBlurMaterial);
+    quad.frustumCulled = false;
+    nextScene.add(quad);
+    return nextScene;
+  }, [bloomBlurMaterial]);
 
   useEffect(() => {
     const fogModes = { off: 0, cheap: 1, volumetric: 2 };
@@ -698,17 +799,15 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
     uniforms.uFilmGateWeaveAmount.value = finiteSetting(settings.filmGateWeaveAmount, 0);
     uniforms.uFilmGateWeaveRate.value = finiteSetting(settings.filmGateWeaveRate, 2);
     uniforms.uFilmLowPower.value = toEnabledFloat(isLowPower);
-    uniforms.uBloomEnabled.value = toEnabledFloat(!isLowPower && settings.bloomEnabled);
+    uniforms.uBloomEnabled.value = toEnabledFloat(settings.bloomEnabled);
     uniforms.uBloomStrength.value = settings.bloomStrength;
-    uniforms.uBloomThreshold.value = settings.bloomThreshold;
-    uniforms.uBloomRadius.value = settings.bloomRadius;
-    uniforms.uBloomTapCount.value = isLowPower ? 9 : 13;
+    bloomPrefilterUniforms.uThreshold.value = settings.bloomThreshold;
     uniforms.uContrast.value = settings.colorContrast;
     uniforms.uSaturation.value = settings.colorSaturation;
     uniforms.uHue.value = THREE.MathUtils.degToRad(settings.colorHue);
     uniforms.uGamma.value = settings.colorGamma;
     uniforms.uExposure.value = settings.colorExposure;
-    uniforms.uSunRaysEnabled.value = toEnabledFloat(!isLowPower && settings.sunRaysEnabled);
+    uniforms.uSunRaysEnabled.value = toEnabledFloat(settings.sunRaysEnabled);
     uniforms.uSunRaysIntensity.value = settings.sunRaysIntensity;
     uniforms.uSunRaysDecay.value = settings.sunRaysDecay;
     uniforms.uSunRaysDensity.value = settings.sunRaysDensity;
@@ -722,25 +821,45 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
     uniforms.uFogSpeed.value = settings.fogSpeed;
     uniforms.uFogScattering.value = settings.fogScattering;
     uniforms.uSunColor.value.fromArray(lighting.key.colorLinear);
-  }, [isLowPower, lighting.key.colorLinear, settings, uniforms]);
+  }, [bloomPrefilterUniforms, isLowPower, lighting.key.colorLinear, settings, uniforms]);
 
   useEffect(() => () => {
     const quad = postScene.children[0];
     quad?.geometry?.dispose();
+    bloomPrefilterScene.children[0]?.geometry?.dispose();
+    bloomBlurScene.children[0]?.geometry?.dispose();
     postMaterial.dispose();
+    bloomPrefilterMaterial.dispose();
+    bloomBlurMaterial.dispose();
     renderTarget.dispose();
+    bloomTargets.forEach((target) => target.dispose());
     noiseTexture.dispose();
     filmNoiseTexture.dispose();
-  }, [filmNoiseTexture, noiseTexture, postMaterial, postScene, renderTarget]);
+  }, [
+    bloomBlurMaterial,
+    bloomBlurScene,
+    bloomPrefilterMaterial,
+    bloomPrefilterScene,
+    bloomTargets,
+    filmNoiseTexture,
+    noiseTexture,
+    postMaterial,
+    postScene,
+    renderTarget,
+  ]);
 
   useEffect(() => {
     gl.domElement.dataset.ddgPostSamples = String(renderTarget.samples);
+    gl.domElement.dataset.ddgBloomPipeline = isLowPower ? 'quarter-tent-1' : 'quarter-tent-2';
+    gl.domElement.dataset.ddgSunRays = isLowPower ? 'sun-occlusion-8' : 'sun-occlusion-18';
     gl.domElement.dataset.ddgCursorFlashlightFog = 'local-relief';
     return () => {
       delete gl.domElement.dataset.ddgPostSamples;
+      delete gl.domElement.dataset.ddgBloomPipeline;
+      delete gl.domElement.dataset.ddgSunRays;
       delete gl.domElement.dataset.ddgCursorFlashlightFog;
     };
-  }, [gl, renderTarget.samples]);
+  }, [gl, isLowPower, renderTarget.samples]);
 
   useEffect(() => {
     const { dataset } = gl.domElement;
@@ -772,8 +891,13 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
     const height = Math.max(1, Math.round(drawingBufferSize.current.y * renderScale));
     if (lastTargetSize.current.x !== width || lastTargetSize.current.y !== height) {
       renderTarget.setSize(width, height);
+      const bloomWidth = Math.max(1, Math.ceil(width * 0.25));
+      const bloomHeight = Math.max(1, Math.ceil(height * 0.25));
+      bloomTargets.forEach((target) => target.setSize(bloomWidth, bloomHeight));
       lastTargetSize.current.set(width, height);
       uniforms.uResolution.value.set(width, height);
+      bloomPrefilterUniforms.uTexelSize.value.set(1 / width, 1 / height);
+      bloomBlurUniforms.uTexelSize.value.set(1 / bloomWidth, 1 / bloomHeight);
     }
 
     // The direction comes from the lighting contract, not from a second copy of
@@ -800,6 +924,14 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
       * edgeFade(1, 0.92, sunV);
     const facesSun = cameraDirection.current.dot(sunDirection) > 0;
     uniforms.uSunVisible.value = (facesSun && screenMask > 0.0001) ? 1 : 0;
+    const angularRadius = Math.acos(THREE.MathUtils.clamp(lighting.sky.keyCosRadius, -1, 1));
+    const verticalHalfFov = camera.isPerspectiveCamera
+      ? THREE.MathUtils.degToRad(camera.fov) * 0.5
+      : Math.PI * 0.25;
+    uniforms.uSunRadius.value = Math.max(
+      0.002,
+      Math.tan(angularRadius) / Math.max(2 * Math.tan(verticalHalfFov), 0.0001),
+    );
     uniforms.uCameraNear.value = camera.near;
     uniforms.uCameraFar.value = camera.far;
     uniforms.uTime.value = clock.elapsedTime;
@@ -832,6 +964,30 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
     gl.setRenderTarget(renderTarget);
     gl.clear(true, true, true);
     gl.render(scene, camera);
+
+    if (settings.bloomEnabled && settings.bloomStrength > 0.0001) {
+      gl.setRenderTarget(bloomTargets[0]);
+      gl.clear(true, false, false);
+      gl.render(bloomPrefilterScene, postCamera);
+
+      bloomBlurUniforms.uBloomTexture.value = bloomTargets[0].texture;
+      bloomBlurUniforms.uOffset.value = 0.8 + settings.bloomRadius * 2.7;
+      gl.setRenderTarget(bloomTargets[1]);
+      gl.clear(true, false, false);
+      gl.render(bloomBlurScene, postCamera);
+
+      if (isLowPower) {
+        uniforms.uBloomTexture.value = bloomTargets[1].texture;
+      } else {
+        bloomBlurUniforms.uBloomTexture.value = bloomTargets[1].texture;
+        bloomBlurUniforms.uOffset.value = 1.4 + settings.bloomRadius * 4.6;
+        gl.setRenderTarget(bloomTargets[0]);
+        gl.clear(true, false, false);
+        gl.render(bloomBlurScene, postCamera);
+        uniforms.uBloomTexture.value = bloomTargets[0].texture;
+      }
+    }
+
     gl.setRenderTarget(null);
     gl.render(postScene, postCamera);
   }, 100);
