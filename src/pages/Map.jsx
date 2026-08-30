@@ -721,7 +721,7 @@ const Map = () => {
         <div className="map-page map-page--globe" data-testid="map-page">
             <div className="map-page__header">
                 <span className="portfolio-kicker">{t('navigation.map')}</span>
-                <h1>{t('map.title')}</h1>
+                <h1 className="site-section-title">{t('map.title')}</h1>
             </div>
 
             <div className="globe-container">

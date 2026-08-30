@@ -27,14 +27,6 @@
   margin-bottom: 1rem;
 }
 
-.portfolio-hero h1 {
-  font-size: clamp(2rem, 8vw, 6rem);
-  line-height: 0.85;
-  letter-spacing: -0.04em;
-  text-transform: uppercase;
-  margin: 0;
-}
-
 .portfolio-section {
   margin-bottom: 12rem;
 }

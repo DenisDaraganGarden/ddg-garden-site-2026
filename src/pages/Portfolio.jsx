@@ -55,7 +55,7 @@ const Portfolio = () => {
     <main className="portfolio-page">
       <div className="portfolio-container">
         <header className="portfolio-hero">
-          <animated.h1 className="portfolio-title">
+          <animated.h1 className="portfolio-title site-section-title">
             {t('portfolio.title')}
           </animated.h1>
         </header>

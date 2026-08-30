@@ -35,6 +35,17 @@ main {
   min-height: 100vh;
 }
 
+.site-section-title {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-family: var(--font-primary);
+  font-size: clamp(2rem, 8vw, 6rem);
+  font-weight: 700;
+  line-height: 0.85;
+  letter-spacing: -0.04em;
+  text-transform: uppercase;
+}
+
 .route-loading-fallback {
   position: fixed;
   inset: 0;

@@ -15,7 +15,7 @@ const Info = () => {
       <div className="info-shell">
         <header className="info-header">
           <div className="info-title-wrap">
-            <h1 className="info-title" data-testid="info-title">{t('info.title')}</h1>
+            <h1 className="info-title site-section-title" data-testid="info-title">{t('info.title')}</h1>
             <span className="info-kicker">{localizeField(infoContacts.sheetLabel, language)}</span>
           </div>
         </header>
