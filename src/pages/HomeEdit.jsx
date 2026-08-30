@@ -197,6 +197,20 @@ const HomeEdit = () => {
     // Picking an object in the tree is the selection; the gizmo writes back into
     // the same settings the sliders do, so the two are one value seen two ways.
     const handleGizmoTransform = useCallback((id, patch) => {
+        // A light and its target are plain XYZ - no layout bucket, because a
+        // light is not part of the authored composition the way the boat is.
+        const lightMatch = /^light([12])(target)?$/.exec(id);
+        if (lightMatch && patch.position) {
+            const prefix = `light${lightMatch[1]}${lightMatch[2] ? 'Target' : ''}`;
+            setSettings((previous) => ({
+                ...previous,
+                [`${prefix}X`]: Number(patch.position.x.toFixed(3)),
+                [`${prefix}Y`]: Number(patch.position.y.toFixed(3)),
+                [`${prefix}Z`]: Number(patch.position.z.toFixed(3)),
+            }));
+            return;
+        }
+
         if (patch.position) {
             if (id === 'boat') {
                 handleBoatPositionChange(patch.position);
@@ -220,7 +234,9 @@ const HomeEdit = () => {
 
     const { group: gizmoGroup, node: gizmoNode } = resolveEditorPath(activeTab, { includeDevOnly: true });
     const editorGizmo = useMemo(() => ({
-        selection: (!gizmoSuppressed && gizmoGroup.id === 'objects') ? gizmoNode.id : null,
+        selection: (!gizmoSuppressed && (gizmoGroup.id === 'objects' || gizmoGroup.id === 'lights'))
+            ? gizmoNode.id
+            : null,
         mode: gizmoMode,
         onTransform: handleGizmoTransform,
     }), [gizmoSuppressed, gizmoGroup.id, gizmoNode.id, gizmoMode, handleGizmoTransform]);

@@ -22,6 +22,7 @@ import { SurfaceVegetation } from './water/SurfaceVegetation';
 import { UnderwaterAlgae } from './water/UnderwaterAlgae';
 import FloatingBoat from './water/FloatingBoat';
 import StaticSculpture from './water/StaticSculpture';
+import SceneLightObjects from './water/SceneLightObjects';
 import {
   PUBLIC_CAMERA_POSITION,
 } from './water/constants';
@@ -293,6 +294,7 @@ function WaterRuntimeScene({
             onSculpturePositionChange={onSculpturePositionChange}
           />
         ) : null}
+        <SceneLightObjects settings={settings} />
         <WaterInteractionPlane
           debug={Boolean(settings.showPointerDebug)}
           settings={settings}

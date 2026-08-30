@@ -12,6 +12,7 @@ import {
   quaternionDelta,
 } from './constants';
 import { reflectionContext } from './reflectionContext';
+import { NO_REFLECTION_LAYER } from './SceneLightObjects';
 
 // Planar reflection and refraction: the scene is re-rendered from a mirrored
 // camera into a texture the water surface samples. The refresh is rate limited,
@@ -99,7 +100,14 @@ export default function WaterReflections({
     return target;
   }, [refractionDepthEnabled, refractionEnabled, refractionTextureType, textureSize]);
 
-  const reflectionCamera = useMemo(() => new THREE.PerspectiveCamera(), []);
+  const reflectionCamera = useMemo(() => {
+    const camera = new THREE.PerspectiveCamera();
+    // A light on this layer is culled from the mirrored render along with its
+    // illumination, which is what "not in reflections" has to mean - hiding only
+    // the bulb would leave its light pooling on reflected water.
+    camera.layers.disable(NO_REFLECTION_LAYER);
+    return camera;
+  }, []);
   const reflectionData = useRef({
     texture: null,
     refractionTexture: null,

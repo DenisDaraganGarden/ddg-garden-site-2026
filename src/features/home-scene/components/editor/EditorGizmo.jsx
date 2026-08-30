@@ -28,6 +28,33 @@ const GIZMO_TARGETS = {
         rotate: { x: false, y: true, z: false },
         uniformScale: true,
     },
+    // A light and the point it looks at are two separate handles, the way a
+    // Corona Light works: drag the body to place it, drag the pivot to aim it.
+    // Both move freely in all three axes - a light is not standing on anything.
+    light1: {
+        objectName: 'light-1-anchor',
+        translate: { x: true, y: true, z: true },
+        rotate: { x: false, y: false, z: false },
+        uniformScale: false,
+    },
+    light1target: {
+        objectName: 'light-1-target',
+        translate: { x: true, y: true, z: true },
+        rotate: { x: false, y: false, z: false },
+        uniformScale: false,
+    },
+    light2: {
+        objectName: 'light-2-anchor',
+        translate: { x: true, y: true, z: true },
+        rotate: { x: false, y: false, z: false },
+        uniformScale: false,
+    },
+    light2target: {
+        objectName: 'light-2-target',
+        translate: { x: true, y: true, z: true },
+        rotate: { x: false, y: false, z: false },
+        uniformScale: false,
+    },
 };
 
 const round = (value, digits = 3) => Number(value.toFixed(digits));

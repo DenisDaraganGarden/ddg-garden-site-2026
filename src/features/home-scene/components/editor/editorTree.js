@@ -19,6 +19,12 @@ import {
     ResolutionSection,
     VisibilitySection,
 } from './sections/render';
+import {
+    Light1Section,
+    Light1TargetSection,
+    Light2Section,
+    Light2TargetSection,
+} from './sections/lights';
 import { InterfaceSection } from './sections/interfaceSection';
 
 // The editor is organised the way a game engine organises a scene: groups hold
@@ -60,6 +66,15 @@ export const EDITOR_TREE = [
         nodes: [
             { id: 'boat', aspects: [{ id: 'transform', Section: BoatSection }] },
             { id: 'sculpture', aspects: [{ id: 'transform', Section: SculptureSection }] },
+        ],
+    },
+    {
+        id: 'lights',
+        nodes: [
+            { id: 'light1', aspects: [{ id: 'transform', Section: Light1Section }] },
+            { id: 'light1target', aspects: [{ id: 'transform', Section: Light1TargetSection }] },
+            { id: 'light2', aspects: [{ id: 'transform', Section: Light2Section }] },
+            { id: 'light2target', aspects: [{ id: 'transform', Section: Light2TargetSection }] },
         ],
     },
     {
