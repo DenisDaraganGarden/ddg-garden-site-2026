@@ -12,8 +12,13 @@ mounting the Three.js home scene. The first production collection is seagulls.
 - Build one shared PBR material from the four external WebP maps in
   `seagullAsset.js`. Use sRGB only for albedo; keep normal, ORM and specular as
   data textures with `flipY=false`.
-- Share geometry and material between birds. Clone only the skeleton. Do not
-  enable cast/receive shadows for the first release.
+- Share geometry and material between birds. Clone only the skeleton.
+- Reuse the home scene's existing directional shadow map; never create a bird
+  light or a second shadow map. On medium/high desktop, allow at most two
+  skinned casters selected by `seagullShadowLod.js`: perched, landing, taking
+  off, falling or low birds inside the boat/sculpture receiver footprint. Keep
+  high/long routes, low-power/mobile birds and all feather particles out of the
+  shadow map.
 - Use at most nine birds on desktop and five on low-power/mobile profiles. The
   runtime hard ceiling is twelve.
 - Landing anchors must be children of `boat-anchor` or `sculpture-anchor` so a

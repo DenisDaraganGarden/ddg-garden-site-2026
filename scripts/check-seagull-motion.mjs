@@ -35,6 +35,10 @@ import {
   SEAGULL_DOWNED_STATE,
   SEAGULL_SHOOTING_LAW,
 } from '../src/features/home-scene/creatures/seagullShooting.js';
+import {
+  resolveSeagullShadowCasters,
+  SEAGULL_SHADOW_LOD,
+} from '../src/features/home-scene/creatures/seagullShadowLod.js';
 
 globalThis.ProgressEvent ??= class ProgressEvent {
   constructor(type, init = {}) {
@@ -132,6 +136,52 @@ const flightChecks = [
   checkFlight(9, 'flight'),
   checkFlight(18, 'stress'),
 ];
+
+function checkShadowLod() {
+  const waterY = 0;
+  const agents = [
+    { index: 0, position: new THREE.Vector3(0, 0.66, 0), landingState: 'perched' },
+    { index: 1, position: new THREE.Vector3(1.1, 0.52, 0), route: FLIGHT_ROUTE.WATERLINE },
+    { index: 2, position: new THREE.Vector3(-1.2, 0.59, 0), route: FLIGHT_ROUTE.WATERLINE },
+    { index: 3, position: new THREE.Vector3(0.4, 4.54, 0), route: FLIGHT_ROUTE.HIGH },
+    { index: 4, position: new THREE.Vector3(0.2, 0.44, 0), shotState: 'removed' },
+    { index: 5, position: new THREE.Vector3(12, 0.42, 0), route: FLIGHT_ROUTE.WATERLINE },
+  ];
+  const options = {
+    waterY,
+    maxCasters: SEAGULL_SHADOW_LOD.maximumLabCasters,
+    receiverPoints: [new THREE.Vector3(0, waterY, 0)],
+  };
+  const first = resolveSeagullShadowCasters(agents, options);
+  const production = resolveSeagullShadowCasters(agents, {
+    ...options,
+    maxCasters: SEAGULL_SHADOW_LOD.maximumDesktopCasters,
+  });
+  const second = resolveSeagullShadowCasters(agents, {
+    ...options,
+    previousCasterIds: first,
+  });
+
+  assert.deepEqual([...first], [0, 1, 2], 'near surface birds must win the shadow budget');
+  assert.equal(production.size, 2, 'production must cap skinned shadow casters at two');
+  assert.deepEqual([...second], [...first], 'shadow caster selection must remain stable');
+  assert.ok(!first.has(3), 'high circling birds must not consume a native shadow draw');
+  assert.ok(!first.has(4), 'removed birds must never cast');
+  assert.ok(!first.has(5), 'airborne birds outside the receiver footprint must not cast');
+  assert.equal(resolveSeagullShadowCasters(agents, { ...options, enabled: false }).size, 0);
+  assert.equal(resolveSeagullShadowCasters(agents, { ...options, isLowPower: true }).size, 0);
+  assert.equal(resolveSeagullShadowCasters(agents, { ...options, isMobile: true }).size, 0);
+
+  return {
+    selected: [...first],
+    productionSelected: [...production],
+    maximumDesktopCasters: SEAGULL_SHADOW_LOD.maximumDesktopCasters,
+    maximumLabCasters: SEAGULL_SHADOW_LOD.maximumLabCasters,
+    lowPowerCasters: 0,
+  };
+}
+
+const shadowLodCheck = checkShadowLod();
 
 function makePerspectiveCamera(distance, zoom = 1) {
   const camera = new THREE.PerspectiveCamera(50, 16 / 9, 0.1, 200);
@@ -1028,6 +1078,7 @@ assert.ok(
 
 console.log(JSON.stringify({
   flightChecks,
+  shadowLodCheck,
   pointerInteractionCheck,
   shootingCheck,
   landingCheck,
