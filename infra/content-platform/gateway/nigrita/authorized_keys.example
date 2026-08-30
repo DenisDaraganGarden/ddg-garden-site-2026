@@ -1,0 +1,5 @@
+# Put exactly one real public key on one line in the user's authorized_keys.
+# `restrict` disables pty, agent/X11 forwarding, user rc and normal port
+# forwarding; `port-forwarding` re-enables it only so PermitListen can allow
+# the one reverse listener below. The forced command rejects shell commands.
+command="/usr/bin/false",restrict,port-forwarding,permitlisten="127.0.0.1:18055" ssh-ed25519 REPLACE_WITH_DDG_BRIDGE_PUBLIC_KEY ddg-content-tunnel@ddg-bridge-01
