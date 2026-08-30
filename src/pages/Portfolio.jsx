@@ -8,7 +8,7 @@ import '../styles/Portfolio.css';
 import { Link, useSearchParams } from 'react-router-dom';
 
 const ProjectRow = ({ project, style }) => {
-  const { language, t } = useLanguage();
+  const { language } = useLanguage();
 
   return (
     <animated.div
@@ -25,7 +25,6 @@ const ProjectRow = ({ project, style }) => {
           <h2 className="project-row__title">{localizeField(project.title, language)}</h2>
           <div className="project-row__discovery">
             <span className="project-row__location">{localizeField(project.location, language)}</span>
-            <span className="project-row__discover-label">{t('portfolio.discover')}</span>
           </div>
         </div>
       </Link>

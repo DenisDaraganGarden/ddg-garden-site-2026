@@ -137,8 +137,6 @@
     transition: opacity 0.24s ease, transform 0.24s ease, visibility 0.24s ease;
 }
 
-.nav-item--has-sub:hover .nav-sub,
-.nav-item--has-sub:focus-within .nav-sub,
 .nav-item--has-sub.is-open .nav-sub {
     opacity: 1;
     visibility: visible;

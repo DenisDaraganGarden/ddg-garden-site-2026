@@ -35,6 +35,19 @@ main {
   min-height: 100vh;
 }
 
+.app-content {
+  filter: none;
+  transition: filter 520ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+:root[data-nav-menu='page'] .app-content {
+  filter: grayscale(0) brightness(0.38) blur(0);
+}
+
+:root[data-nav-menu='home'] .app-content {
+  filter: grayscale(1) brightness(0.42) blur(8px);
+}
+
 .site-section-title {
   margin: 0;
   color: var(--color-text-primary);
@@ -126,5 +139,11 @@ main {
 
   .stub-page {
     padding: var(--nav-safe-top) var(--nav-safe-left) 2rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-content {
+    transition-duration: 1ms;
   }
 }

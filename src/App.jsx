@@ -86,7 +86,7 @@ function AppShell() {
         <>
             <Navigation />
 
-            <main style={{ position: 'relative', width: '100%', height: '100%' }}>
+            <main className="app-content" style={{ position: 'relative', width: '100%', height: '100%' }}>
                 <Suspense fallback={routeFallback}>
                     <Routes>
                         {routeDefinitions.map((route) => (

@@ -30,6 +30,19 @@ const Navigation = () => {
         closeGroups();
     }, [location.pathname, location.search, location.hash, closeGroups]);
 
+    React.useEffect(() => {
+        const root = document.documentElement;
+
+        if (!openGroup) {
+            root.removeAttribute('data-nav-menu');
+            return undefined;
+        }
+
+        root.setAttribute('data-nav-menu', isHomeRoute ? 'home' : 'page');
+
+        return () => root.removeAttribute('data-nav-menu');
+    }, [openGroup, isHomeRoute]);
+
     // On touch devices a dropdown is opened by tap; close it on outside tap / Escape.
     React.useEffect(() => {
         if (!openGroup || canUseHover) {
@@ -59,13 +72,28 @@ const Navigation = () => {
     }, [openGroup, canUseHover, closeGroups]);
 
     const groupHandlers = (key) => {
+        const handlers = {
+            onFocus: (event) => {
+                if (canUseHover && event.target.matches(':focus-visible')) {
+                    setOpenGroup(key);
+                }
+            },
+            onBlur: (event) => {
+                if (event.currentTarget.contains(event.relatedTarget)) {
+                    return;
+                }
+                setOpenGroup((current) => (current === key ? null : current));
+            },
+        };
+
         if (canUseHover) {
             return {
+                ...handlers,
                 onMouseEnter: () => setOpenGroup(key),
                 onMouseLeave: () => setOpenGroup((current) => (current === key ? null : current)),
             };
         }
-        return {};
+        return handlers;
     };
 
     const handleGroupTap = (key) => (event) => {
@@ -105,6 +133,8 @@ const Navigation = () => {
                                         className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}
                                         data-testid="nav-portfolio"
                                         onClick={handleGroupTap('portfolio')}
+                                        aria-expanded={openGroup === 'portfolio'}
+                                        aria-haspopup="true"
                                     >
                                         {t('navigation.portfolio')}
                                     </NavLink>
