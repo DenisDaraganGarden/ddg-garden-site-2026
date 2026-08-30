@@ -160,6 +160,24 @@
   border-color: rgba(255, 255, 255, 0.26);
 }
 
+/* Both buttons carry the collapse class, and both would claim the free space.
+   The pause button is first, so it keeps the auto margin and the collapse
+   button follows it. */
+.home-editor-panel-pause + .home-editor-panel-collapse {
+  margin-left: 0.4rem;
+}
+
+.home-editor-panel-pause--on {
+  background: rgba(240, 178, 75, 0.18);
+  border-color: rgba(240, 178, 75, 0.45);
+  color: #f0b24b;
+}
+
+.home-editor-panel-pause--on:hover {
+  background: rgba(240, 178, 75, 0.26);
+  border-color: rgba(240, 178, 75, 0.6);
+}
+
 .home-editor-tab--publish {
   background: rgba(240, 178, 75, 0.16);
   border-color: rgba(240, 178, 75, 0.4);

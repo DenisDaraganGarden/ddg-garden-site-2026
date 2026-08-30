@@ -375,6 +375,8 @@ export const getBaseHomeSceneSettings = () => ({
   // Show flags: what the scene draws at all. Every other control shapes a part
   // that is already on, so these live together instead of one per section.
   waterVisible: true,
+  farWaterVisible: true,
+  skyVisible: true,
   seabedVisible: true,
   liliesVisible: true,
   algaeVisible: true,
@@ -448,6 +450,7 @@ export const getBaseHomeSceneSettings = () => ({
   fogScattering: 0.25,
   ambientWaveIntensity: 0.12,
   ambientWaveSpeed: 0.85,
+  animationPaused: false,
   showPerformanceHud: false,
   showPointerDebug: false,
   freeCamera: false,
@@ -951,6 +954,8 @@ const normalizeHomeSceneSettings = (savedSettings = {}, includeCameraSystem = tr
       defaults.underwaterAlgaePatchiness,
     ),
     waterVisible: pickBoolean(merged.waterVisible, defaults.waterVisible),
+    farWaterVisible: pickBoolean(merged.farWaterVisible, defaults.farWaterVisible),
+    skyVisible: pickBoolean(merged.skyVisible, defaults.skyVisible),
     seabedVisible: pickBoolean(merged.seabedVisible, defaults.seabedVisible),
     liliesVisible: pickBoolean(merged.liliesVisible, defaults.liliesVisible),
     algaeVisible: pickBoolean(merged.algaeVisible, defaults.algaeVisible),
@@ -1089,6 +1094,7 @@ const normalizeHomeSceneSettings = (savedSettings = {}, includeCameraSystem = tr
     fogScattering: clampFloat(merged.fogScattering, 0, 2, defaults.fogScattering),
     ambientWaveIntensity: clampFloat(merged.ambientWaveIntensity, 0, 1, defaults.ambientWaveIntensity),
     ambientWaveSpeed: clampFloat(merged.ambientWaveSpeed, 0, 10, defaults.ambientWaveSpeed),
+    animationPaused: pickBoolean(merged.animationPaused, defaults.animationPaused),
     showPerformanceHud: pickBoolean(merged.showPerformanceHud, defaults.showPerformanceHud),
     showPointerDebug: pickBoolean(merged.showPointerDebug, defaults.showPointerDebug),
     freeCamera: pickBoolean(merged.freeCamera, defaults.freeCamera),

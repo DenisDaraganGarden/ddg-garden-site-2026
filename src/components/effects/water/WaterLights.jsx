@@ -106,8 +106,11 @@ export default function WaterLights({ settings, mode, qualityProfile, lighting, 
         groundColor={lighting.fill.hemisphere.groundColor.hex}
         intensity={lighting.fill.hemisphere.intensity}
       />
-      {/* The sky is always drawn; the disc toggle hides the body, not the sky. */}
-      <SkyDome
+      {/* The disc toggle hides the body, not the sky - that is what the sky
+          switch below is for, and turning it off leaves the clear colour where
+          the dome was, which is the point of a visibility switch. */}
+      {settings.skyVisible === false ? null : (
+        <SkyDome
           sky={{
             texture: showHdriBackground ? null : sky.texture,
             keyDirection: lighting.sky.keyDirection,
@@ -120,7 +123,8 @@ export default function WaterLights({ settings, mode, qualityProfile, lighting, 
             skyLevel: lighting.sky.skyLevel,
             lowerSurfaceColor: lighting.surface.color.linear,
           }}
-      />
+        />
+      )}
       {useHdri ? (
         <Environment
           {...environmentSource}

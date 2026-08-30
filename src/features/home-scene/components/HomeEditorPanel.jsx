@@ -167,6 +167,7 @@ const HomeEditorPanel = ({
         resizeStateRef.current = null;
     }, []);
 
+    const animationPaused = Boolean(settings?.animationPaused);
     const panelStyle = collapsed ? undefined : { height: `${panelHeight}px` };
     const panelClassName = [
         'home-editor-panel',
@@ -189,6 +190,29 @@ const HomeEditorPanel = ({
                 {!collapsed && hasPublishChanges ? (
                     <span className="home-editor-panel-dot" title={t('common.unsaved')} aria-hidden="true" />
                 ) : null}
+                {/* Lives in the header rather than in a tab: it is wanted
+                    while working inside Light, Atmosphere or Render, and a
+                    switch you have to leave the tab to reach is a switch you
+                    stop using. */}
+                <button
+                    type="button"
+                    className={`home-editor-panel-collapse home-editor-panel-pause ${animationPaused ? 'home-editor-panel-pause--on' : ''}`}
+                    onClick={() => handleSettingChange(
+                        { target: { checked: !animationPaused } },
+                        'animationPaused',
+                        'boolean',
+                    )}
+                    aria-label={animationPaused
+                        ? t('homeEditor.panel.resumeAnimation')
+                        : t('homeEditor.panel.pauseAnimation')}
+                    title={animationPaused
+                        ? t('homeEditor.panel.resumeAnimation')
+                        : t('homeEditor.panel.pauseAnimation')}
+                    aria-pressed={animationPaused}
+                    data-testid="home-editor-panel-pause"
+                >
+                    {animationPaused ? '▶' : '❙❙'}
+                </button>
                 <button
                     type="button"
                     className="home-editor-panel-collapse"

@@ -367,7 +367,7 @@ function WaterRuntimeScene({
             mode={mode}
           />
         ) : null}
-        {settings.waterVisible && settings.debugView === 'beauty' ? (
+        {settings.waterVisible && settings.farWaterVisible && settings.debugView === 'beauty' ? (
           <FarWaterSurface
             settings={settings}
             lighting={lighting}

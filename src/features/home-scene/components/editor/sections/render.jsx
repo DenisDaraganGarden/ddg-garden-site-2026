@@ -29,6 +29,8 @@ export const VisibilitySection = ({ settings, handleSettingChange }) => {
     const { t } = useLanguage();
     const flags = [
         'waterVisible',
+        'farWaterVisible',
+        'skyVisible',
         'seabedVisible',
         'liliesVisible',
         'algaeVisible',

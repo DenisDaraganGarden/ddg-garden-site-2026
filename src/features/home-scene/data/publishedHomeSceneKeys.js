@@ -182,6 +182,8 @@ const keys = [
   'cursorLightIntensity',
   'cursorLightSoftness',
   'waterVisible',
+  'farWaterVisible',
+  'skyVisible',
   'seabedVisible',
   'liliesVisible',
   'algaeVisible',

@@ -374,6 +374,50 @@ const VisibilityResume = ({ isActive }) => {
   return null;
 };
 
+// Pausing the editor's animation is two things, not one. The loop drops to
+// on-demand, so a still scene costs nothing until something asks for a frame;
+// and the clock stops, so the frame a slider does ask for advances no
+// simulation. Without the second half every drag would step the water forward
+// by however long the pause had lasted.
+//
+// r3f resets and restarts the clock whenever frameloop changes, in a layout
+// effect. This one is passive on purpose - passive effects run after layout
+// effects, so the freeze outlives the switch that provoked it.
+const AnimationPause = ({ paused, frameloop, settings }) => {
+  const clock = useThree((state) => state.clock);
+  const invalidate = useThree((state) => state.invalidate);
+
+  useEffect(() => {
+    if (!paused) {
+      return undefined;
+    }
+
+    clock.autoStart = false;
+    clock.stop();
+
+    return () => {
+      // Not clock.start(): that zeroes elapsedTime, and every shader reading it
+      // would jump on resume.
+      clock.autoStart = true;
+      clock.oldTime = performance.now();
+      clock.running = true;
+    };
+  }, [clock, frameloop, paused]);
+
+  // On demand nothing redraws by itself, so a settings change has to ask for
+  // frames - two of them, because the reflection pass writes a target the water
+  // reads on the frame after.
+  useEffect(() => {
+    if (!paused) {
+      return;
+    }
+
+    invalidate(2);
+  }, [invalidate, paused, settings]);
+
+  return null;
+};
+
 // The HUD switch lives in the editor panel, which is not something you can
 // operate on a phone. `?hud=1` turns it on wherever the scene renders, so a real
 // device can be measured on the page it actually ships. Dev builds only.
@@ -403,6 +447,11 @@ const SceneCanvas = ({
   const supportsWebgl = useMemo(() => detectWebGLSupport(), []);
   const [profile, setProfile] = useState(() => getCanvasProfile(mode, renderScale));
   const [isTabVisible, setIsTabVisible] = useState(() => isDocumentVisible());
+  // Editor-only: the public scene has no switch for this and never sees it.
+  const animationPaused = mode === 'editor' && Boolean(settings?.animationPaused);
+  const frameloop = isTabVisible
+    ? (animationPaused ? 'demand' : 'always')
+    : 'never';
   const fallback = (
     <SceneFallback
       title={t('app.webglTitle')}
@@ -474,7 +523,7 @@ const SceneCanvas = ({
             renderer.domElement.dataset.ddgRenderTargets = renderTargetCapabilities.label;
           }}
           shadows={SHADOWS_CONFIG}
-          frameloop={isTabVisible ? 'always' : 'never'}
+          frameloop={frameloop}
           dpr={profile.dpr}
           camera={camera}
           gl={{
@@ -486,6 +535,11 @@ const SceneCanvas = ({
           }}
         >
           <VisibilityResume isActive={isTabVisible} />
+          <AnimationPause
+            paused={animationPaused}
+            frameloop={frameloop}
+            settings={settings}
+          />
           {children}
           {import.meta.env.DEV ? (
             <RuntimeDiagnostics
