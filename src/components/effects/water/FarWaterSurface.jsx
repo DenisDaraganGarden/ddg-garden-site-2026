@@ -174,6 +174,7 @@ export default function FarWaterSurface({ settings, lighting, sky, qualityProfil
     uSurfaceBlendWidth: { value: geometry.userData.surfaceBlendWidth },
     uTime: { value: 0 },
     uSkyLut: { value: null },
+    uSkyLutTexel: { value: new THREE.Vector2(1 / 256, 1 / 128) },
     uKeyDirection: { value: new THREE.Vector3(0, 0.3, 1) },
     uKeyRadiance: { value: new THREE.Color(1, 1, 1) },
     uKeyCosRadius: { value: 1 },
@@ -209,6 +210,14 @@ export default function FarWaterSurface({ settings, lighting, sky, qualityProfil
       meshRef.current.position.z = camera.position.z;
     }
     uniforms.uSkyLut.value = sky?.texture ?? null;
+    // The bicubic tap pattern needs the table's own size; read it off the
+    // texture so nothing has to thread the resolution through props.
+    if (sky?.texture?.image) {
+      uniforms.uSkyLutTexel.value.set(
+        1 / sky?.texture.image.width,
+        1 / sky?.texture.image.height,
+      );
+    }
     uniforms.uTime.value = clock.elapsedTime;
   }, -2);
 

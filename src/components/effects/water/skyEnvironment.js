@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { useThree } from '@react-three/fiber';
 import { buildSkyLut } from '../sky/skyModel.js';
@@ -30,26 +30,53 @@ const toHalfFloatRgba = (rgb, width, height) => {
   return data;
 };
 
+// A coarse table, built inline, so the very first frame already has a sky to
+// sample. The worker's full-size table replaces it a moment later, while the
+// loader is still on screen.
+const PLACEHOLDER = Object.freeze({ width: 192, height: 96 });
+
 // The scene's children suspend on the boat, the sculpture and the fish
 // textures, so React throws away this component's first render and recomputes
-// every useMemo on the retry. At the desktop table size that is a second and a
-// half of noise paid twice, back to back, with the loader on screen. One entry
-// is enough: there is a single sky in the app, and a slider that genuinely
-// changes it changes the key too.
-let lastLut = null;
+// everything on the retry. Two entries - the placeholder and the real table -
+// are all a single sky ever needs, and a slider that genuinely changes the sky
+// changes the key too.
+const lutCache = new Map();
 
-function buildSkyLutOnce(request) {
-  if (lastLut?.key === request.key) {
-    return lastLut.lut;
+function buildSkyLutCached(key, state, width, height) {
+  const cached = lutCache.get(key);
+  if (cached) {
+    return cached;
   }
 
-  const lut = buildSkyLut({
-    ...request.state,
-    width: request.width,
-    height: request.height,
-  });
-  lastLut = { key: request.key, lut };
+  const lut = buildSkyLut({ ...state, width, height });
+  if (lutCache.size > 3) {
+    lutCache.clear();
+  }
+  lutCache.set(key, lut);
   return lut;
+}
+
+let lutWorker = null;
+let lutWorkerFailed = false;
+let nextLutRequestId = 0;
+
+function getLutWorker() {
+  if (lutWorkerFailed || typeof Worker === 'undefined') {
+    return null;
+  }
+
+  if (lutWorker === null) {
+    try {
+      lutWorker = new Worker(new URL('../sky/skyLut.worker.js', import.meta.url), { type: 'module' });
+    } catch {
+      // No worker here - an old browser, or a policy that blocks them. The
+      // caller builds the table inline instead.
+      lutWorkerFailed = true;
+      return null;
+    }
+  }
+
+  return lutWorker;
 }
 
 /**
@@ -120,7 +147,71 @@ export function useSkyEnvironment(state, {
     return () => window.clearTimeout(timer);
   }, [height, lutRequest.key, skyKey, state, width]);
 
-  const lut = useMemo(() => buildSkyLutOnce(lutRequest), [lutRequest]);
+  // The placeholder is synchronous on purpose: without a table there is no sky
+  // texture, and SkyDome and the far water both refuse to mount without one.
+  const [lut, setLut] = useState(() => buildSkyLutCached(
+    `${lutRequest.key}#placeholder`,
+    lutRequest.state,
+    PLACEHOLDER.width,
+    PLACEHOLDER.height,
+  ));
+
+  useEffect(() => {
+    const cached = lutCache.get(lutRequest.key);
+    if (cached) {
+      setLut(cached);
+      return undefined;
+    }
+
+    const worker = getLutWorker();
+
+    if (!worker) {
+      setLut(buildSkyLutCached(
+        lutRequest.key,
+        lutRequest.state,
+        lutRequest.width,
+        lutRequest.height,
+      ));
+      return undefined;
+    }
+
+    const id = nextLutRequestId;
+    nextLutRequestId += 1;
+    let cancelled = false;
+
+    const handleMessage = (event) => {
+      if (event.data?.id !== id) {
+        return;
+      }
+
+      worker.removeEventListener('message', handleMessage);
+
+      if (cancelled || !event.data.lut) {
+        return;
+      }
+
+      if (lutCache.size > 3) {
+        lutCache.clear();
+      }
+      lutCache.set(lutRequest.key, event.data.lut);
+      setLut(event.data.lut);
+    };
+
+    worker.addEventListener('message', handleMessage);
+    worker.postMessage({
+      id,
+      state: {
+        ...lutRequest.state,
+        width: lutRequest.width,
+        height: lutRequest.height,
+      },
+    });
+
+    return () => {
+      cancelled = true;
+      worker.removeEventListener('message', handleMessage);
+    };
+  }, [lutRequest]);
 
   useEffect(() => {
     if (!enabled) {

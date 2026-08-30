@@ -76,6 +76,7 @@ export default function WaterSurfaceV2({ settings, runtime, qualityProfile, ligh
     // The shared sky. Same table the dome samples, so the water cannot reflect
     // a different sky than the one above it.
     uSkyLut: { value: null },
+    uSkyLutTexel: { value: new THREE.Vector2(1 / 256, 1 / 128) },
     uKeyShadowMap: { value: null },
     uKeyShadowMatrix: { value: new THREE.Matrix4() },
     uKeyShadowActive: { value: 0 },
@@ -169,6 +170,14 @@ export default function WaterSurfaceV2({ settings, runtime, qualityProfile, ligh
   useFrame(({ clock }) => {
     syncCursorFlashlightUniforms(uniforms);
     uniforms.uSkyLut.value = sky?.texture ?? null;
+    // The bicubic tap pattern needs the table's own size; read it off the
+    // texture so nothing has to thread the resolution through props.
+    if (sky?.texture?.image) {
+      uniforms.uSkyLutTexel.value.set(
+        1 / sky?.texture.image.width,
+        1 / sky?.texture.image.height,
+      );
+    }
     // Read every frame: the shadow map does not exist until the first shadow
     // render, and three recreates it whenever the map size changes.
     const shadowMap = reflectionDataRef.current.keyShadowMap ?? null;

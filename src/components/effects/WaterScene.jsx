@@ -175,16 +175,17 @@ function WaterRuntimeScene({
   // One sky, built once, handed to everything that has to agree about it: the
   // visible dome, the water that reflects it, and (from Phase 2) the image-based
   // light on every material.
-  // Desktop keeps enough angular detail for the scene's narrow authored lens;
-  // mobile/low-power tiers stay small enough to avoid a large one-time CPU +
-  // PMREM spike on iOS.
+  // The table is built on a worker, so its size is a memory and PMREM question
+  // rather than a stall: desktop gets enough angular detail that the wide
+  // cameras read cloud rather than the grid the cloud was sampled on, and the
+  // phone tiers stay inside a sane texture budget.
   const sky = useSkyEnvironment(lighting.sky, {
     width: qualityProfile.isLowPower
+      ? 512
+      : (qualityProfile.isMobileDevice ? 1024 : 3072),
+    height: qualityProfile.isLowPower
       ? 256
       : (qualityProfile.isMobileDevice ? 512 : 1536),
-    height: qualityProfile.isLowPower
-      ? 128
-      : (qualityProfile.isMobileDevice ? 256 : 768),
   });
   const runtime = useWaterRuntime(settings, qualityProfile, mode);
   const landingSitesRef = useRef([]);

@@ -80,6 +80,7 @@ export default function SkyDome({ sky }) {
 
   const uniforms = useMemo(() => ({
     uSkyLut: { value: null },
+    uSkyLutTexel: { value: new THREE.Vector2(1 / 256, 1 / 128) },
     uKeyDirection: { value: new THREE.Vector3(0, 0.3, 1) },
     uKeyRadiance: { value: new THREE.Color(1, 1, 1) },
     uKeyCosRadius: { value: Math.cos(THREE.MathUtils.degToRad(0.53 * 0.5)) },
@@ -98,6 +99,14 @@ export default function SkyDome({ sky }) {
     uniforms.uInverseView.value.copy(camera.matrixWorld);
 
     uniforms.uSkyLut.value = sky.texture ?? null;
+    // The bicubic tap pattern needs the table's own size; read it off the
+    // texture so nothing has to thread the resolution through props.
+    if (sky.texture?.image) {
+      uniforms.uSkyLutTexel.value.set(
+        1 / sky.texture.image.width,
+        1 / sky.texture.image.height,
+      );
+    }
     uniforms.uKeyDirection.value.fromArray(sky.keyDirection);
     uniforms.uKeyRadiance.value.fromArray(sky.keyRadiance);
     uniforms.uKeyCosRadius.value = sky.keyCosRadius;
