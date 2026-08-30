@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
 import { useProgress } from '@react-three/drei';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
@@ -31,6 +31,12 @@ import {
 import EditorGizmo from '../../features/home-scene/components/editor/EditorGizmo';
 import ScenePostProcessing from './ScenePostProcessing';
 import HomeSoundscapeBridge from '../../features/audio/components/HomeSoundscapeBridge';
+import CursorSpotlight from '../../features/cursor/CursorSpotlight';
+import {
+  getCursorFlashlightServerSnapshot,
+  getCursorFlashlightSnapshot,
+  subscribeToCursorFlashlight,
+} from '../../features/cursor/cursorFlashlightStore';
 import { buildHomeSceneLighting } from './homeSceneLighting';
 import { useSkyEnvironment } from './water/skyEnvironment';
 import {
@@ -157,6 +163,11 @@ function WaterRuntimeScene({
     height: qualityProfile.isLowPower ? 64 : 128,
   });
   const runtime = useWaterRuntime(settings, qualityProfile, mode);
+  const cursorFlashlight = useSyncExternalStore(
+    subscribeToCursorFlashlight,
+    getCursorFlashlightSnapshot,
+    getCursorFlashlightServerSnapshot,
+  );
   const orbitRef = useRef();
   const showDebugHelpers = mode === 'editor' && settings.debugView !== 'beauty';
   const reflectionsEnabled = settings.reflectionsEnabled
@@ -309,6 +320,7 @@ function WaterRuntimeScene({
           />
         ) : null}
         <SceneLightObjects settings={settings} />
+        {cursorFlashlight.available ? <CursorSpotlight /> : null}
         <WaterInteractionPlane
           debug={Boolean(settings.showPointerDebug)}
           settings={settings}

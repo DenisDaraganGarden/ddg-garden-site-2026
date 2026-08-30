@@ -1,5 +1,16 @@
-import React, { useCallback, useEffect, useMemo, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import {
+    adjustCursorFlashlightBeam,
+    getCursorFlashlightServerSnapshot,
+    getCursorFlashlightSnapshot,
+    hideCursorFlashlight,
+    setCursorFlashlightAvailable,
+    setCursorFlashlightEnabled,
+    subscribeToCursorFlashlight,
+    toggleCursorFlashlight,
+    updateCursorFlashlightPointer,
+} from '../../features/cursor/cursorFlashlightStore';
 import './CursorConceptLab.css';
 
 const CURSOR_CONCEPTS = [
@@ -30,6 +41,12 @@ const CursorConceptLab = () => {
     const followerRef = useRef(null);
     const impactRef = useRef(null);
     const contextLabelRef = useRef(null);
+    const flashlight = useSyncExternalStore(
+        subscribeToCursorFlashlight,
+        getCursorFlashlightSnapshot,
+        getCursorFlashlightServerSnapshot,
+    );
+    const flashlightBeamPixels = Math.round(96 + ((flashlight.beamDegrees - 12) / 58) * 254);
 
     const selectConcept = useCallback((nextMode) => {
         const searchParams = new URLSearchParams(location.search);
@@ -82,6 +99,8 @@ const CursorConceptLab = () => {
         let currentContext = 'ambient';
 
         root.dataset.cursorConcept = mode;
+        setCursorFlashlightAvailable(mode === 'point');
+        setCursorFlashlightEnabled(mode === 'point');
 
         const setContext = (eventTarget, clientX, clientY) => {
             const targetElement = eventTarget instanceof Element ? eventTarget : null;
@@ -104,15 +123,15 @@ const CursorConceptLab = () => {
                 }
             }
 
-            if (nextContext === currentContext) {
-                return;
+            if (nextContext !== currentContext) {
+                currentContext = nextContext;
+                layer.dataset.context = nextContext;
+                if (contextLabel) {
+                    contextLabel.textContent = CONTEXT_LABELS[nextContext];
+                }
             }
 
-            currentContext = nextContext;
-            layer.dataset.context = nextContext;
-            if (contextLabel) {
-                contextLabel.textContent = CONTEXT_LABELS[nextContext];
-            }
+            return nextContext;
         };
 
         const moveFollower = () => {
@@ -147,7 +166,12 @@ const CursorConceptLab = () => {
             }
 
             layer.dataset.visible = 'true';
-            setContext(event.target, event.clientX, event.clientY);
+            const nextContext = setContext(event.target, event.clientX, event.clientY);
+            updateCursorFlashlightPointer(
+                event.clientX,
+                event.clientY,
+                mode === 'point' && nextContext === 'water',
+            );
         };
 
         const handlePointerDown = (event) => {
@@ -169,12 +193,44 @@ const CursorConceptLab = () => {
         const handlePointerExit = (event) => {
             if (event.relatedTarget === null) {
                 layer.dataset.visible = 'false';
+                hideCursorFlashlight();
             }
         };
 
         const hideCursor = () => {
             layer.dataset.visible = 'false';
             layer.dataset.pressed = 'false';
+            hideCursorFlashlight();
+        };
+
+        const handleContextMenu = (event) => {
+            if (mode !== 'point') {
+                return;
+            }
+
+            const nextContext = setContext(event.target, event.clientX, event.clientY);
+            if (nextContext !== 'water') {
+                return;
+            }
+
+            event.preventDefault();
+            updateCursorFlashlightPointer(event.clientX, event.clientY, true);
+            toggleCursorFlashlight();
+        };
+
+        const handleWheel = (event) => {
+            if (mode !== 'point') {
+                return;
+            }
+
+            const nextContext = setContext(event.target, event.clientX, event.clientY);
+            if (nextContext !== 'water') {
+                return;
+            }
+
+            event.preventDefault();
+            updateCursorFlashlightPointer(event.clientX, event.clientY, true);
+            adjustCursorFlashlightBeam(event.deltaY);
         };
 
         window.addEventListener('pointermove', handlePointerMove, { passive: true });
@@ -182,6 +238,8 @@ const CursorConceptLab = () => {
         window.addEventListener('pointerup', handlePointerUp, { passive: true });
         window.addEventListener('pointercancel', handlePointerUp, { passive: true });
         window.addEventListener('mouseout', handlePointerExit, { passive: true });
+        window.addEventListener('contextmenu', handleContextMenu);
+        window.addEventListener('wheel', handleWheel, { passive: false });
         window.addEventListener('blur', hideCursor);
 
         return () => {
@@ -193,7 +251,12 @@ const CursorConceptLab = () => {
             window.removeEventListener('pointerup', handlePointerUp);
             window.removeEventListener('pointercancel', handlePointerUp);
             window.removeEventListener('mouseout', handlePointerExit);
+            window.removeEventListener('contextmenu', handleContextMenu);
+            window.removeEventListener('wheel', handleWheel);
             window.removeEventListener('blur', hideCursor);
+            hideCursorFlashlight();
+            setCursorFlashlightEnabled(false);
+            setCursorFlashlightAvailable(false);
             delete root.dataset.cursorConcept;
         };
     }, [mode]);
@@ -213,8 +276,10 @@ const CursorConceptLab = () => {
                 data-context="ambient"
                 data-visible="false"
                 data-pressed="false"
+                data-flashlight={flashlight.enabled ? 'on' : 'off'}
                 data-testid="cursor-concept"
                 aria-hidden="true"
+                style={{ '--cursor-flashlight-size': `${flashlightBeamPixels}px` }}
             >
                 <div ref={coreRef} className="cursor-concept__anchor cursor-concept__anchor--core">
                     <span className="cursor-concept__core-shape" />
@@ -262,11 +327,21 @@ const CursorConceptLab = () => {
                 </div>
 
                 <div className="cursor-lab__footer">
-                    <span>Двигайте и нажимайте на воду</span>
+                    <span>{mode === 'point' ? 'ПКМ · свет / колесо · пучок' : 'Двигайте и нажимайте на воду'}</span>
                     <span ref={contextLabelRef} className="cursor-lab__context" data-testid="cursor-context">
                         Фон
                     </span>
                 </div>
+                {mode === 'point' ? (
+                    <div className="cursor-lab__flashlight" aria-live="polite">
+                        <span>Фонарь</span>
+                        <strong data-testid="cursor-flashlight-status">
+                            {flashlight.enabled ? 'Вкл' : 'Выкл'}
+                        </strong>
+                        <span>Пучок</span>
+                        <strong data-testid="cursor-flashlight-beam">{flashlight.beamDegrees}°</strong>
+                    </div>
+                ) : null}
             </aside>
         </>
     );
