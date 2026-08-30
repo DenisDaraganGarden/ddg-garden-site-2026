@@ -19,6 +19,10 @@ const CAMERA_VIEWS = {
     landscape: { position: [7.2, 3.1, 8.8], target: [0, 0.5, 0] },
     portrait: { position: [15.5, 6.6, 18.8], target: [0, 0.5, 0] },
   },
+  landing: {
+    landscape: { position: [8.6, 4.2, 10.4], target: [0, 0.35, 0] },
+    portrait: { position: [13.8, 7.2, 17.2], target: [0, 0.45, 0] },
+  },
   'flight-specimen': {
     landscape: { position: [1.6, 0.9, 3.4], target: [0, 0.02, 0] },
     portrait: { position: [2.3, 1.45, 4.45], target: [0, 0.04, 0] },
@@ -47,7 +51,7 @@ function StudioEnvironment() {
 function StudioCamera({ view }) {
   const { camera, size } = useThree();
   const controls = useRef();
-  const flightView = view.startsWith('flight');
+  const flightView = view.startsWith('flight') || view === 'landing';
 
   useEffect(() => {
     const preset = CAMERA_VIEWS[view] ?? CAMERA_VIEWS.specimens;
@@ -74,7 +78,7 @@ function StudioCamera({ view }) {
 }
 
 export default function AssetStudio({ children, view = 'specimens' }) {
-  const flightView = view.startsWith('flight');
+  const flightView = view.startsWith('flight') || view === 'landing';
 
   return (
     <Canvas

@@ -1,4 +1,12 @@
 import * as THREE from 'three';
+import {
+  getLandingRigPose,
+  LANDING_STATE,
+  prepareLandingMode,
+  resetLandingMode,
+  scheduleLanding,
+  updateLandingMotion,
+} from './seagullLanding.js';
 
 const FORWARD = new THREE.Vector3(1, 0, 0);
 const UP = new THREE.Vector3(0, 1, 0);
@@ -19,6 +27,7 @@ const scratchSeparation = new THREE.Vector3();
 const scratchBasis = new THREE.Matrix4();
 const scratchBank = new THREE.Quaternion();
 const scratchHeadingRotation = new THREE.Quaternion();
+const scratchTargetOrientation = new THREE.Quaternion();
 
 function seededRandom(seed) {
   let value = seed >>> 0;
@@ -82,11 +91,16 @@ function sampleSoloTarget(time, agent) {
   ).normalize();
 }
 
-function writeTarget(agent, time) {
+function writeTarget(agent, time, mode = 'flight') {
   if (agent.formation) sampleFormationTarget(time, agent);
   else sampleSoloTarget(time, agent);
   if (agent.state === 'thermal') {
     agent.target.y += Math.sin(time * 0.52 + agent.index) * 0.13 + 0.18;
+  }
+  if (mode === 'landing') {
+    agent.target.x *= 1.45;
+    agent.target.z *= 1.35;
+    agent.target.y += 1.35;
   }
 }
 
@@ -115,16 +129,18 @@ function solveSeparation(agents, property, iterations = 6) {
   }
 }
 
-function setStableOrientation(agent) {
+function setStableOrientation(agent, delta = null) {
   scratchForward.copy(agent.heading).normalize();
   scratchRight.crossVectors(scratchForward, UP);
   if (scratchRight.lengthSq() < 1e-6) scratchRight.set(0, 0, 1);
   else scratchRight.normalize();
   scratchStableUp.crossVectors(scratchRight, scratchForward).normalize();
   scratchBasis.makeBasis(scratchForward, scratchStableUp, scratchRight);
-  agent.quaternion.setFromRotationMatrix(scratchBasis);
+  scratchTargetOrientation.setFromRotationMatrix(scratchBasis);
   scratchBank.setFromAxisAngle(FORWARD, agent.bank);
-  agent.quaternion.multiply(scratchBank).normalize();
+  scratchTargetOrientation.multiply(scratchBank).normalize();
+  if (delta === null) agent.quaternion.copy(scratchTargetOrientation);
+  else agent.quaternion.rotateTowards(scratchTargetOrientation, delta * 2.8).normalize();
 }
 
 export function createFlightAgents(count) {
@@ -192,7 +208,7 @@ function chooseState(agent, mode) {
   }
 }
 
-export function updateFlightAgents(agents, time, delta, mode) {
+export function updateFlightAgents(agents, time, delta, mode, landingSites = []) {
   const specimen = mode === 'specimen';
   if (specimen) {
     for (const agent of agents) {
@@ -209,7 +225,22 @@ export function updateFlightAgents(agents, time, delta, mode) {
     return;
   }
 
+  const landingMode = mode === 'landing';
+  if (landingMode) {
+    prepareLandingMode(agents);
+    scheduleLanding(agents, time, landingSites);
+  } else if (agents.landingSchedule) {
+    resetLandingMode(agents);
+  }
+
+  const freeAgents = [];
   for (const agent of agents) {
+    if (landingMode && updateLandingMotion(agent, time, delta, landingSites)) {
+      if (agent.state === 'flap') agent.phase += delta * agent.flapFrequency * Math.PI * 2;
+      else agent.phase += delta * Math.PI * 0.25;
+      continue;
+    }
+
     agent.previousPosition.copy(agent.position);
     agent.stateTime -= delta;
     if (agent.stateTime <= 0) chooseState(agent, mode);
@@ -218,19 +249,20 @@ export function updateFlightAgents(agents, time, delta, mode) {
     } else {
       agent.phase += delta * Math.PI * 0.25;
     }
-    writeTarget(agent, time);
+    writeTarget(agent, time, mode);
+    freeAgents.push(agent);
   }
 
-  solveSeparation(agents, 'target');
+  solveSeparation(freeAgents, 'target');
 
-  for (const agent of agents) {
+  for (const agent of freeAgents) {
     const response = 1 - Math.exp(-delta * (agent.formation ? 3.4 : 2.15));
     agent.position.lerp(agent.target, response);
   }
-  solveSeparation(agents, 'position', 5);
+  solveSeparation(freeAgents, 'position', 5);
 
   const safeDelta = Math.max(delta, 1 / 240);
-  for (const agent of agents) {
+  for (const agent of freeAgents) {
     scratchInstantVelocity.subVectors(agent.position, agent.previousPosition).multiplyScalar(1 / safeDelta);
     if (scratchInstantVelocity.lengthSq() < 1e-5) scratchInstantVelocity.copy(agent.plannedHeading);
     agent.velocity.lerp(scratchInstantVelocity, 1 - Math.exp(-delta * 5.2));
@@ -281,30 +313,55 @@ export function updateFlightAgents(agents, time, delta, mode) {
       MAX_BANK_RADIANS,
     );
     agent.bank = THREE.MathUtils.damp(agent.bank, desiredBank, 3.8, delta);
-    setStableOrientation(agent);
+    setStableOrientation(agent, delta);
     agent.physicalHeight = THREE.MathUtils.clamp(18 + agent.position.y * 8.5, 12, 28);
   }
 }
 
 export function getWingPose(agent) {
+  const landingPose = getLandingRigPose(agent);
+  const rig = {
+    fold: landingPose?.fold ?? 0,
+    legDeploy: landingPose?.legDeploy ?? 0,
+    legCompression: landingPose?.legCompression ?? 0,
+    toeGrip: landingPose?.toeGrip ?? 0,
+    tailSpread: landingPose?.tailSpread ?? 0,
+    headLook: landingPose?.headLook ?? 0,
+  };
+  if (landingPose?.flapScale === 0) {
+    return {
+      shoulder: 0,
+      inner: 0,
+      outer: 0,
+      tip: 0,
+      heave: 0,
+      ...rig,
+    };
+  }
+
   if (agent.state !== 'flap') {
     const lift = agent.state === 'thermal' ? -0.1 : -0.065;
     return {
-      shoulder: lift,
+      shoulder: lift + (landingPose?.shoulderBias ?? 0),
       inner: -0.02,
       outer: -0.025,
       tip: -0.015,
       heave: 0,
+      ...rig,
     };
   }
 
   const wave = Math.sin(agent.phase);
   const upstroke = Math.max(0, -wave);
+  const flapScale = landingPose?.flapScale ?? 1;
   return {
-    shoulder: wave * 0.58,
-    inner: wave * 0.06 - upstroke * 0.04,
-    outer: wave * 0.025 - upstroke * 0.085,
-    tip: wave * 0.015 - upstroke * 0.055,
+    shoulder: (wave * 0.58 * flapScale) + (landingPose?.shoulderBias ?? 0),
+    inner: (wave * 0.06 - upstroke * 0.04) * flapScale,
+    outer: (wave * 0.025 - upstroke * 0.085) * flapScale,
+    tip: (wave * 0.015 - upstroke * 0.055) * flapScale,
     heave: 0,
+    ...rig,
   };
 }
+
+export { LANDING_STATE };

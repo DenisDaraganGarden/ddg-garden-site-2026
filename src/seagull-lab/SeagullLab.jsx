@@ -1,6 +1,7 @@
-import React, { Suspense, useState } from 'react';
+import React, { Suspense, useRef, useState } from 'react';
 import AssetStudio from '../asset-lab/AssetStudio';
 import SeagullFlock from './SeagullFlock';
+import SeagullLandingStage from './SeagullLandingStage';
 import { SEAGULL_ASSET } from './seagullCatalog';
 import './seagullLab.css';
 
@@ -30,6 +31,7 @@ export default function SeagullLab() {
   const [mode, setMode] = useState('flight');
   const [paused, setPaused] = useState(false);
   const [showRig, setShowRig] = useState(false);
+  const landingSitesRef = useRef([]);
   const [stats, setStats] = useState({
     birds: 9,
     calls: 0,
@@ -37,6 +39,10 @@ export default function SeagullLab() {
     flap: 0,
     glide: 0,
     thermal: 0,
+    perched: 0,
+    approaching: 0,
+    takingOff: 0,
+    airborne: 9,
     minHeight: 12,
     maxHeight: 28,
   });
@@ -48,12 +54,14 @@ export default function SeagullLab() {
 
   return (
     <div className="fish-lab seagull-lab" data-testid="seagull-lab" data-asset-collection="seagulls">
-      <AssetStudio view={mode === 'specimen' ? 'flight-specimen' : 'flight'}>
+      <AssetStudio view={mode === 'specimen' ? 'flight-specimen' : mode === 'landing' ? 'landing' : 'flight'}>
         <Suspense fallback={<LoadingBird />}>
+          {mode === 'landing' && <SeagullLandingStage landingSitesRef={landingSitesRef} />}
           <SeagullFlock
             mode={mode}
             paused={paused}
             showRig={showRig}
+            landingSitesRef={landingSitesRef}
             onStats={setStats}
           />
         </Suspense>
@@ -68,6 +76,9 @@ export default function SeagullLab() {
         <div className="fish-lab__controls" role="group" aria-label="Режим полёта чаек">
           <button type="button" className={mode === 'flight' ? 'is-active' : ''} aria-pressed={mode === 'flight'} onClick={() => chooseMode('flight')}>
             Небо · 9
+          </button>
+          <button type="button" className={mode === 'landing' ? 'is-active' : ''} aria-pressed={mode === 'landing'} onClick={() => chooseMode('landing')}>
+            Посадки · до 3
           </button>
           <button type="button" className={mode === 'glide' ? 'is-active' : ''} aria-pressed={mode === 'glide'} onClick={() => chooseMode('glide')}>
             Планирование
@@ -109,16 +120,27 @@ export default function SeagullLab() {
         <span><b>{stats.birds}</b> чаек</span>
         <span><b>{stats.calls}</b> draw calls</span>
         <span><b>{Math.round(stats.triangles / 1000)}k</b> трис / кадр</span>
-        <span><b>{stats.flap}</b> взмах</span>
-        <span><b>{stats.glide}</b> планируют</span>
-        <span><b>{stats.thermal}</b> кружат</span>
-        <span className="fish-lab__budget">в проекте: {Math.round(stats.minHeight)}–{Math.round(stats.maxHeight)} м</span>
+        {mode === 'landing' ? (
+          <>
+            <span><b>{stats.airborne}</b> в воздухе</span>
+            <span><b>{stats.approaching}</b> заходят</span>
+            <span><b>{stats.perched}</b> сидят</span>
+            <span><b>{stats.takingOff}</b> взлетают</span>
+          </>
+        ) : (
+          <>
+            <span><b>{stats.flap}</b> взмах</span>
+            <span><b>{stats.glide}</b> планируют</span>
+            <span><b>{stats.thermal}</b> кружат</span>
+            <span className="fish-lab__budget">в проекте: {Math.round(stats.minHeight)}–{Math.round(stats.maxHeight)} м</span>
+          </>
+        )}
       </footer>
 
       <div className="fish-lab__note">
         <span>ЛКМ — вращение</span>
         <span>Колесо — масштаб</span>
-        <span>Лаборатория замедляет физическую скорость для осмотра</span>
+        <span>{mode === 'landing' ? 'Красные кольца — допустимые точки контакта' : 'Лаборатория замедляет физическую скорость для осмотра'}</span>
       </div>
     </div>
   );

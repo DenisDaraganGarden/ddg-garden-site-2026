@@ -13,8 +13,8 @@ export const SEAGULL_ASSET = Object.freeze({
   },
   web: {
     triangles: 5607,
-    bones: 16,
-    exportedJoints: 17,
+    bones: 22,
+    exportedJoints: 23,
     influences: 4,
     wingspan: 1,
     bodyLength: 0.48,
@@ -32,6 +32,7 @@ export const SEAGULL_ASSET = Object.freeze({
 
 export const MODE_COUNTS = Object.freeze({
   flight: SEAGULL_ASSET.flight.defaultCount,
+  landing: SEAGULL_ASSET.flight.defaultCount,
   glide: 3,
   specimen: 1,
   stress: SEAGULL_ASSET.flight.stressCount,

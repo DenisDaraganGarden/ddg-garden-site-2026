@@ -15,7 +15,7 @@
     "rig": "seagull_flight_rig",
     "vertices": 2800,
     "triangles": 5607,
-    "bones": 16,
+    "bones": 22,
     "boneNames": [
       "root",
       "chest",
@@ -31,12 +31,18 @@
       "wing.tip.R",
       "tail.L",
       "tail.R",
-      "leg.L",
-      "leg.R"
+      "leg.upper.L",
+      "leg.lower.L",
+      "foot.L",
+      "toes.L",
+      "leg.upper.R",
+      "leg.lower.R",
+      "foot.R",
+      "toes.R"
     ],
     "maxInfluences": 4,
     "maxWeightError": 1.6391277313232422e-07,
-    "rigidLowerLegVertices": 562,
+    "articulatedLegVertices": 860,
     "nonManifoldEdges": 191,
     "deformationProbeMeters": 0.2617977702712618,
     "neutralRestoreError": 0.0,
@@ -64,10 +70,10 @@
     "material": "Seagull_Feather_PBR",
     "decimateRatio": 0.64,
     "glb": "/models/seagull/seagull-flight.glb",
-    "glbBytes": 940968,
+    "glbBytes": 942920,
     "exportedVertices": 13238,
     "exportedTriangles": 5607,
-    "exportedJoints": 17,
+    "exportedJoints": 23,
     "primitiveCount": 1,
     "textures": {
       "albedo": "/models/seagull/textures/seagull_albedo.webp",
@@ -95,8 +101,37 @@
         2,
         8
       ],
+      "landing": {
+        "states": [
+          "airborne",
+          "approach",
+          "flare",
+          "settle",
+          "perched",
+          "takeoff",
+          "rejoin"
+        ],
+        "maxConcurrent": 3,
+        "surfaceCapacity": {
+          "boat": 2,
+          "sculpture": 1
+        },
+        "approachSeconds": 2.7,
+        "flareSeconds": 0.95,
+        "settleSeconds": 0.62,
+        "perchSeconds": [
+          11,
+          20
+        ],
+        "takeoffSeconds": 1.35,
+        "rejoinSeconds": 1.9,
+        "dispatchIntervalSeconds": [
+          4.6,
+          7.8
+        ]
+      },
       "mode": "procedural runtime motor; source animation is reference only"
     },
-    "delivery": "single skinned GLB plus external PBR maps; runtime owns flap, glide and flock state"
+    "delivery": "single skinned GLB plus external PBR maps; runtime owns flight, landing and perching state"
   }
 }

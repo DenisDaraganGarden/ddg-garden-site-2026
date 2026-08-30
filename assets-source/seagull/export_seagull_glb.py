@@ -1,13 +1,23 @@
 import json
+import os
 from pathlib import Path
 
 import bpy
 
 
 ROOT = Path(__file__).resolve().parents[2]
-OUTPUT = ROOT / "public/models/seagull/seagull-flight.glb"
-AUTHORING_MANIFEST = ROOT / "assets-source/seagull/seagull-authoring-manifest.json"
-WEB_MANIFEST = ROOT / "public/models/seagull/manifest.json"
+OUTPUT = Path(os.environ.get(
+    "SEAGULL_OUTPUT_GLB",
+    ROOT / "public/models/seagull/seagull-flight.glb",
+)).resolve()
+AUTHORING_MANIFEST = Path(os.environ.get(
+    "SEAGULL_OUTPUT_MANIFEST",
+    ROOT / "assets-source/seagull/seagull-authoring-manifest.json",
+)).resolve()
+WEB_MANIFEST = Path(os.environ.get(
+    "SEAGULL_WEB_MANIFEST",
+    ROOT / "public/models/seagull/manifest.json",
+)).resolve()
 
 
 def main():
@@ -83,10 +93,26 @@ def main():
             "nearestNeighborMeters": 1.5,
             "normalSceneHeightMeters": [12, 28],
             "lowTransitHeightMeters": [2, 8],
+            "landing": {
+                "states": [
+                    "airborne", "approach", "flare", "settle",
+                    "perched", "takeoff", "rejoin",
+                ],
+                "maxConcurrent": 3,
+                "surfaceCapacity": {"boat": 2, "sculpture": 1},
+                "approachSeconds": 2.7,
+                "flareSeconds": 0.95,
+                "settleSeconds": 0.62,
+                "perchSeconds": [11, 20],
+                "takeoffSeconds": 1.35,
+                "rejoinSeconds": 1.9,
+                "dispatchIntervalSeconds": [4.6, 7.8],
+            },
             "mode": "procedural runtime motor; source animation is reference only",
         },
-        "delivery": "single skinned GLB plus external PBR maps; runtime owns flap, glide and flock state",
+        "delivery": "single skinned GLB plus external PBR maps; runtime owns flight, landing and perching state",
     }
+    WEB_MANIFEST.parent.mkdir(parents=True, exist_ok=True)
     WEB_MANIFEST.write_text(
         json.dumps({"sourceAudit": authoring["source"], "asset": web}, indent=2) + "\n",
         encoding="utf-8",

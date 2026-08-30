@@ -1,5 +1,6 @@
 import json
 import math
+import os
 from pathlib import Path
 
 import bmesh
@@ -10,8 +11,14 @@ from mathutils import Vector
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE_FBX = ROOT / "assets-source/seagull/source/seagull-fly-source.fbx"
 SOURCE_ALBEDO = ROOT / "assets-source/seagull/source/seagull-albedo-source.png"
-OUTPUT_BLEND = ROOT / "assets-source/seagull/seagull_authoring.blend"
-OUTPUT_MANIFEST = ROOT / "assets-source/seagull/seagull-authoring-manifest.json"
+OUTPUT_BLEND = Path(os.environ.get(
+    "SEAGULL_OUTPUT_BLEND",
+    ROOT / "assets-source/seagull/seagull_authoring.blend",
+)).resolve()
+OUTPUT_MANIFEST = Path(os.environ.get(
+    "SEAGULL_OUTPUT_MANIFEST",
+    ROOT / "assets-source/seagull/seagull-authoring-manifest.json",
+)).resolve()
 TARGET_WINGSPAN = 1.0
 TARGET_BODY_LENGTH = 0.48
 TARGET_HEIGHT = 0.24
@@ -37,10 +44,17 @@ def compact_group_name(name):
         return "tail.L"
     if name.startswith("t_feather.R"):
         return "tail.R"
-    if name.endswith(".L") and name.startswith(("pelvis", "thigh", "shin", "foot", "toe", "toes_parent", "t_ring", "t_index", "t_middle", "t_thumb")):
-        return "leg.L"
-    if name.endswith(".R") and name.startswith(("pelvis", "thigh", "shin", "foot", "toe", "toes_parent", "t_ring", "t_index", "t_middle", "t_thumb")):
-        return "leg.R"
+    for side in ("L", "R"):
+        if not name.endswith(f".{side}"):
+            continue
+        if name.startswith(("pelvis", "thigh")):
+            return f"leg.upper.{side}"
+        if name.startswith("shin"):
+            return f"leg.lower.{side}"
+        if name.startswith("foot"):
+            return f"foot.{side}"
+        if name.startswith(("toe", "toes_parent", "t_ring", "t_index", "t_middle", "t_thumb")):
+            return f"toes.{side}"
     if name in {"shoulder.L", "Wing.L"}:
         return "wing.shoulder.L"
     if name == "Wing.001.L":
@@ -184,19 +198,15 @@ def main():
         "root", "chest", "neck", "head",
         "wing.shoulder.L", "wing.inner.L", "wing.outer.L", "wing.tip.L",
         "wing.shoulder.R", "wing.inner.R", "wing.outer.R", "wing.tip.R",
-        "tail.L", "tail.R", "leg.L", "leg.R",
+        "tail.L", "tail.R",
+        "leg.upper.L", "leg.lower.L", "foot.L", "toes.L",
+        "leg.upper.R", "leg.lower.R", "foot.R", "toes.R",
     ]
     output_groups = {name: web_mesh.vertex_groups.new(name=name) for name in compact_names}
-    rigid_leg_vertices = 0
+    articulated_leg_vertices = 0
     for vertex_index, assignments in enumerate(accumulated_weights):
-        lower_leg_assignments = [
-            (name, weight)
-            for name, weight in assignments
-            if name in {"leg.L", "leg.R"} and weight > 0.045
-        ]
-        if web_mesh_data.vertices[vertex_index].co.z < -0.035 and lower_leg_assignments:
-            assignments = [max(lower_leg_assignments, key=lambda item: item[1])]
-            rigid_leg_vertices += 1
+        if any(name.startswith(("leg.", "foot.", "toes.")) for name, _ in assignments):
+            articulated_leg_vertices += 1
         for name, weight in assignments:
             output_groups[name].add([vertex_index], weight, "REPLACE")
 
@@ -270,8 +280,31 @@ def main():
 
     add_bone("tail.L", bone_point("t_feather.L", "head"), bone_point("t_feather.L_end", "tail"), root)
     add_bone("tail.R", bone_point("t_feather.R", "head"), bone_point("t_feather.R_end", "tail"), root)
-    add_bone("leg.L", bone_point("thigh.L", "head"), bone_point("foot.L", "tail"), root)
-    add_bone("leg.R", bone_point("thigh.R", "head"), bone_point("foot.R", "tail"), root)
+    for side in ("L", "R"):
+        upper = add_bone(
+            f"leg.upper.{side}",
+            bone_point(f"thigh.{side}", "head"),
+            bone_point(f"thigh.{side}", "tail"),
+            root,
+        )
+        lower = add_bone(
+            f"leg.lower.{side}",
+            bone_point(f"shin.{side}", "head"),
+            bone_point(f"shin.{side}", "tail"),
+            upper,
+        )
+        foot = add_bone(
+            f"foot.{side}",
+            bone_point(f"foot.{side}", "head"),
+            bone_point(f"foot.{side}", "tail"),
+            lower,
+        )
+        add_bone(
+            f"toes.{side}",
+            bone_point(f"toes_parent.{side}", "head"),
+            bone_point(f"t_middle.003.{side}", "tail"),
+            foot,
+        )
     bpy.ops.object.mode_set(mode="OBJECT")
 
     armature_modifier = web_mesh.modifiers.new("Seagull_Flight_Rig", "ARMATURE")
@@ -295,8 +328,8 @@ def main():
     for name, angle in (
         ("wing.shoulder.L", 0.72),
         ("wing.inner.L", -0.24),
-        ("wing.shoulder.R", -0.72),
-        ("wing.inner.R", 0.24),
+        ("wing.shoulder.R", 0.72),
+        ("wing.inner.R", -0.24),
     ):
         pose_bone = compact_rig.pose.bones[name]
         pose_bone.rotation_mode = "XYZ"
@@ -348,7 +381,7 @@ def main():
             "boneNames": [bone.name for bone in compact_armature.bones],
             "maxInfluences": max(influence_counts, default=0),
             "maxWeightError": max(weight_errors, default=0.0),
-            "rigidLowerLegVertices": rigid_leg_vertices,
+            "articulatedLegVertices": articulated_leg_vertices,
             "nonManifoldEdges": non_manifold_edges,
             "deformationProbeMeters": deformation_probe,
             "neutralRestoreError": restore_error,

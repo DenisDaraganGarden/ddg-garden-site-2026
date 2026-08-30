@@ -5,6 +5,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import {
   createFlightAgents,
   getWingPose,
+  LANDING_STATE,
   updateFlightAgents,
 } from '../src/seagull-lab/seagullFlight.js';
 
@@ -69,6 +70,141 @@ const flightChecks = [
   checkFlight(18, 'stress'),
 ];
 
+function createLandingFixture() {
+  const root = new THREE.Object3D();
+  const boatRoot = new THREE.Object3D();
+  const sculptureRoot = new THREE.Object3D();
+  boatRoot.position.x = -2;
+  sculptureRoot.position.x = 2;
+  root.add(boatRoot, sculptureRoot);
+  const sites = Array.from({ length: 8 }, (_, index) => {
+    const object = new THREE.Object3D();
+    const boat = index < 4;
+    object.position.set(
+      boat ? (index - 1.5) * 0.45 : (index - 5.5) * 0.34,
+      boat ? -0.68 : -0.18 + (index - 4) * 0.08,
+      (index % 2 ? 1 : -1) * 0.24,
+    );
+    object.rotation.y = boat ? 0.08 : -0.2;
+    (boat ? boatRoot : sculptureRoot).add(object);
+    return { object, surface: boat ? 'boat' : 'sculpture' };
+  });
+  root.updateMatrixWorld(true);
+  return { root, boatRoot, sculptureRoot, sites };
+}
+
+function checkLandingCycle() {
+  const {
+    root, boatRoot, sculptureRoot, sites,
+  } = createLandingFixture();
+  const agents = createFlightAgents(9);
+  const previousQuaternions = agents.map((agent) => agent.quaternion.clone());
+  const seenStates = new Set();
+  const sitePosition = new THREE.Vector3();
+  const siteQuaternion = new THREE.Quaternion();
+  const siteUp = new THREE.Vector3();
+  const expectedPerchPosition = new THREE.Vector3();
+  let maxActiveLandings = 0;
+  let maxBoatLandings = 0;
+  let maxSculptureLandings = 0;
+  let maxOrientationStepDegrees = 0;
+  let worstOrientationStep = null;
+  let maxPerchedOffsetError = 0;
+  let minBodyUpDot = 1;
+
+  for (let frame = 1; frame <= 90 * 60; frame += 1) {
+    const time = frame * FRAME_DELTA;
+    boatRoot.position.y = Math.sin(time * 0.64) * 0.018;
+    boatRoot.rotation.x = Math.sin(time * 0.45) * 0.018;
+    boatRoot.rotation.z = Math.sin(time * 0.5) * 0.022;
+    sculptureRoot.position.x = 2 + Math.sin(time * 0.17) * 0.045;
+    sculptureRoot.position.y = Math.sin(time * 0.24 + 1.1) * 0.018;
+    sculptureRoot.position.z = Math.sin(time * 0.13) * 0.035;
+    sculptureRoot.rotation.set(
+      0.07 + Math.sin(time * 0.19) * 0.025,
+      0.18 + Math.sin(time * 0.15) * 0.08,
+      -0.14 + Math.sin(time * 0.21) * 0.035,
+    );
+    root.updateMatrixWorld(true);
+    updateFlightAgents(agents, time, FRAME_DELTA, 'landing', sites);
+
+    const occupiedBySurface = { boat: 0, sculpture: 0 };
+    let activeLandings = 0;
+    for (let index = 0; index < agents.length; index += 1) {
+      const agent = agents[index];
+      seenStates.add(agent.landingState);
+      assert.ok(
+        agent.position.toArray().every(Number.isFinite)
+          && agent.quaternion.toArray().every(Number.isFinite),
+        `landing agent ${index} must keep finite transforms`,
+      );
+
+      const orientationStep = THREE.MathUtils.radToDeg(
+        previousQuaternions[index].angleTo(agent.quaternion),
+      );
+      if (orientationStep > maxOrientationStepDegrees) {
+        maxOrientationStepDegrees = orientationStep;
+        worstOrientationStep = {
+          agent: index,
+          timeSeconds: time,
+          state: agent.landingState,
+        };
+      }
+      previousQuaternions[index].copy(agent.quaternion);
+      localUp.copy(WORLD_UP).applyQuaternion(agent.quaternion);
+      minBodyUpDot = Math.min(minBodyUpDot, localUp.dot(WORLD_UP));
+
+      if (agent.landingSiteIndex >= 0) {
+        activeLandings += 1;
+        const site = sites[agent.landingSiteIndex];
+        occupiedBySurface[site.surface] += 1;
+        if (agent.landingState === LANDING_STATE.PERCHED) {
+          site.object.getWorldPosition(sitePosition);
+          site.object.getWorldQuaternion(siteQuaternion);
+          siteUp.copy(WORLD_UP).applyQuaternion(siteQuaternion).normalize();
+          expectedPerchPosition.copy(sitePosition).addScaledVector(siteUp, 0.126);
+          maxPerchedOffsetError = Math.max(
+            maxPerchedOffsetError,
+            agent.position.distanceTo(expectedPerchPosition),
+          );
+        }
+      }
+    }
+    maxActiveLandings = Math.max(maxActiveLandings, activeLandings);
+    maxBoatLandings = Math.max(maxBoatLandings, occupiedBySurface.boat);
+    maxSculptureLandings = Math.max(maxSculptureLandings, occupiedBySurface.sculpture);
+  }
+
+  for (const state of Object.values(LANDING_STATE)) {
+    assert.ok(seenStates.has(state), `landing cycle must visit ${state}`);
+  }
+  assert.ok(agents.every((agent) => agent.landingCycle >= 1), 'every bird must complete a landing cycle');
+  assert.ok(maxActiveLandings <= 3, 'no more than three birds may occupy landing traffic at once');
+  assert.ok(maxBoatLandings <= 2, 'the boat may host no more than two birds at once');
+  assert.ok(maxSculptureLandings <= 1, 'the sculpture may host no more than one bird at once');
+  assert.ok(
+    maxOrientationStepDegrees < 3,
+    `landing orientation must not snap between frames (${maxOrientationStepDegrees.toFixed(3)} degrees at ${JSON.stringify(worstOrientationStep)})`,
+  );
+  assert.ok(minBodyUpDot > 0.9, 'landing body-up axis must stay stable');
+  assert.ok(maxPerchedOffsetError < 1e-5, 'perched birds must inherit moving surface transforms');
+
+  return {
+    durationSeconds: 90,
+    visitedStates: [...seenStates],
+    completedCycles: agents.map((agent) => agent.landingCycle),
+    maxActiveLandings,
+    maxBoatLandings,
+    maxSculptureLandings,
+    maxOrientationStepDegrees,
+    worstOrientationStep,
+    minBodyUpDot,
+    maxPerchedOffsetErrorMeters: maxPerchedOffsetError,
+  };
+}
+
+const landingCheck = checkLandingCycle();
+
 const glb = await fs.readFile('public/models/seagull/seagull-flight.glb');
 const arrayBuffer = glb.buffer.slice(glb.byteOffset, glb.byteOffset + glb.byteLength);
 const loaded = await new Promise((resolve, reject) => {
@@ -89,7 +225,11 @@ const requiredWingBones = [
   'wing.shoulder.L', 'wing.inner.L', 'wing.outer.L', 'wing.tip.L',
   'wing.shoulder.R', 'wing.inner.R', 'wing.outer.R', 'wing.tip.R',
 ];
-for (const boneName of requiredWingBones) {
+const requiredLegBones = [
+  'leg.upper.L', 'leg.lower.L', 'foot.L', 'toes.L',
+  'leg.upper.R', 'leg.lower.R', 'foot.R', 'toes.R',
+];
+for (const boneName of [...requiredWingBones, ...requiredLegBones]) {
   assert.ok(bones[boneName], `runtime bone alias missing: ${boneName}`);
 }
 assert.ok(skinnedMesh, 'runtime skinned mesh missing');
@@ -129,10 +269,49 @@ assert.ok(Math.abs(tipLift.L - tipLift.R) < 0.01, 'left and right wing lift must
 assert.ok(maxVertexDisplacement > 0.2, 'wing pose must deform the rendered mesh');
 assert.ok(movedVertices > 7_000, 'wing pose must affect the full feather surface');
 
+const axisX = new THREE.Vector3(1, 0, 0);
+const axisZ = new THREE.Vector3(0, 0, 1);
+const localZRotation = new THREE.Quaternion();
+const localXRotation = new THREE.Quaternion();
+const legBind = Object.fromEntries(requiredLegBones.map((name) => [name, bones[name].quaternion.clone()]));
+
+function poseLegBone(name, xAngle, zAngle) {
+  localZRotation.setFromAxisAngle(axisZ, zAngle);
+  localXRotation.setFromAxisAngle(axisX, xAngle);
+  bones[name].quaternion.copy(legBind[name]).multiply(localZRotation).multiply(localXRotation);
+}
+
+poseLegBone('leg.upper.L', 0, 0.3);
+poseLegBone('leg.upper.R', 0.1, 0.2);
+poseLegBone('leg.lower.L', 0, 1.6);
+poseLegBone('leg.lower.R', 0, 1.6);
+poseLegBone('foot.L', 0, -0.2);
+poseLegBone('foot.R', 0, -0.2);
+poseLegBone('toes.L', 0, 0.16);
+poseLegBone('toes.R', 0, 0.16);
+loaded.scene.updateMatrixWorld(true);
+const tuckedToePositions = {
+  L: bones['toes.L'].getWorldPosition(new THREE.Vector3()),
+  R: bones['toes.R'].getWorldPosition(new THREE.Vector3()),
+};
+assert.ok(tuckedToePositions.L.z * tuckedToePositions.R.z < 0, 'tucked feet must remain on opposite body sides');
+assert.ok(Math.abs(tuckedToePositions.L.x - tuckedToePositions.R.x) < 0.012, 'front-view feet must align in depth');
+assert.ok(Math.abs(tuckedToePositions.L.y - tuckedToePositions.R.y) < 0.012, 'front-view feet must align vertically');
+assert.ok(
+  Math.abs(Math.abs(tuckedToePositions.L.z) - Math.abs(tuckedToePositions.R.z)) < 0.012,
+  'front-view feet must remain laterally symmetric',
+);
+
 console.log(JSON.stringify({
   flightChecks,
+  landingCheck,
   runtimeWingBones: requiredWingBones.length,
+  runtimeLegBones: requiredLegBones.length,
   tipLiftMeters: tipLift,
   maxVertexDisplacementMeters: maxVertexDisplacement,
   movedVertices,
+  tuckedToePositionsMeters: {
+    L: tuckedToePositions.L.toArray(),
+    R: tuckedToePositions.R.toArray(),
+  },
 }, null, 2));

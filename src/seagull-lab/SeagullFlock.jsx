@@ -7,8 +7,10 @@ import { MODE_COUNTS, SEAGULL_ASSET } from './seagullCatalog';
 import { createFlightAgents, getWingPose, updateFlightAgents } from './seagullFlight';
 
 const ROTATION_AXIS_X = new THREE.Vector3(1, 0, 0);
+const ROTATION_AXIS_Y = new THREE.Vector3(0, 1, 0);
 const ROTATION_AXIS_Z = new THREE.Vector3(0, 0, 1);
 const rotationScratch = new THREE.Quaternion();
+const rotationScratchSecondary = new THREE.Quaternion();
 
 function collectBones(object) {
   const bones = {};
@@ -33,7 +35,14 @@ function applyParentSpaceBoneRotation(bone, bindQuaternion, axis, angle) {
   bone.quaternion.copy(rotationScratch).multiply(bindQuaternion);
 }
 
-export default function SeagullFlock({ mode, paused, showRig, onStats }) {
+function applyWingRotation(bone, bindQuaternion, flapAngle, sweepAngle) {
+  if (!bone || !bindQuaternion) return;
+  rotationScratch.setFromAxisAngle(ROTATION_AXIS_Z, sweepAngle);
+  rotationScratchSecondary.setFromAxisAngle(ROTATION_AXIS_X, flapAngle);
+  bone.quaternion.copy(bindQuaternion).multiply(rotationScratch).multiply(rotationScratchSecondary);
+}
+
+export default function SeagullFlock({ mode, paused, showRig, landingSitesRef, onStats }) {
   const gltf = useGLTF(SEAGULL_ASSET.model);
   const textures = useTexture(SEAGULL_ASSET.textures);
   const statsClock = useRef(0);
@@ -126,7 +135,15 @@ export default function SeagullFlock({ mode, paused, showRig, onStats }) {
   useFrame(({ gl }, delta) => {
     const safeDelta = Math.min(delta, 0.05);
     if (!paused) elapsed.current += safeDelta * 0.74;
-    if (!paused) updateFlightAgents(agents, elapsed.current, safeDelta * 0.74, mode);
+    if (!paused) {
+      updateFlightAgents(
+        agents,
+        elapsed.current,
+        safeDelta * 0.74,
+        mode,
+        landingSitesRef?.current ?? [],
+      );
+    }
 
     for (let index = 0; index < instances.length; index += 1) {
       const instance = instances[index];
@@ -135,16 +152,27 @@ export default function SeagullFlock({ mode, paused, showRig, onStats }) {
       instance.object.position.copy(agent.position);
       instance.object.quaternion.copy(agent.quaternion);
 
-      applyBoneRotation(instance.bones['wing.shoulder.L'], instance.bind['wing.shoulder.L'], ROTATION_AXIS_X, wing.shoulder);
-      applyBoneRotation(instance.bones['wing.shoulder.R'], instance.bind['wing.shoulder.R'], ROTATION_AXIS_X, wing.shoulder);
-      applyBoneRotation(instance.bones['wing.inner.L'], instance.bind['wing.inner.L'], ROTATION_AXIS_X, wing.inner);
-      applyBoneRotation(instance.bones['wing.inner.R'], instance.bind['wing.inner.R'], ROTATION_AXIS_X, wing.inner);
-      applyBoneRotation(instance.bones['wing.outer.L'], instance.bind['wing.outer.L'], ROTATION_AXIS_X, wing.outer);
-      applyBoneRotation(instance.bones['wing.outer.R'], instance.bind['wing.outer.R'], ROTATION_AXIS_X, wing.outer);
-      applyBoneRotation(instance.bones['wing.tip.L'], instance.bind['wing.tip.L'], ROTATION_AXIS_X, wing.tip);
-      applyBoneRotation(instance.bones['wing.tip.R'], instance.bind['wing.tip.R'], ROTATION_AXIS_X, wing.tip);
-      applyParentSpaceBoneRotation(instance.bones['leg.L'], instance.bind['leg.L'], ROTATION_AXIS_Z, -1.08);
-      applyParentSpaceBoneRotation(instance.bones['leg.R'], instance.bind['leg.R'], ROTATION_AXIS_Z, -1.08);
+      applyWingRotation(instance.bones['wing.shoulder.L'], instance.bind['wing.shoulder.L'], wing.shoulder, -wing.fold);
+      applyWingRotation(instance.bones['wing.shoulder.R'], instance.bind['wing.shoulder.R'], wing.shoulder, wing.fold);
+      applyWingRotation(instance.bones['wing.inner.L'], instance.bind['wing.inner.L'], wing.inner, -wing.fold * 0.28);
+      applyWingRotation(instance.bones['wing.inner.R'], instance.bind['wing.inner.R'], wing.inner, wing.fold * 0.28);
+      applyWingRotation(instance.bones['wing.outer.L'], instance.bind['wing.outer.L'], wing.outer, -wing.fold * 0.08);
+      applyWingRotation(instance.bones['wing.outer.R'], instance.bind['wing.outer.R'], wing.outer, wing.fold * 0.08);
+      applyWingRotation(instance.bones['wing.tip.L'], instance.bind['wing.tip.L'], wing.tip, 0);
+      applyWingRotation(instance.bones['wing.tip.R'], instance.bind['wing.tip.R'], wing.tip, 0);
+
+      const tucked = 1 - wing.legDeploy;
+      applyWingRotation(instance.bones['leg.upper.L'], instance.bind['leg.upper.L'], 0, tucked * 0.3 + wing.legCompression * 0.25);
+      applyWingRotation(instance.bones['leg.upper.R'], instance.bind['leg.upper.R'], tucked * 0.1, tucked * 0.2 + wing.legCompression * 0.25);
+      applyBoneRotation(instance.bones['leg.lower.L'], instance.bind['leg.lower.L'], ROTATION_AXIS_Z, tucked * 1.6 + wing.legCompression * 0.58);
+      applyBoneRotation(instance.bones['leg.lower.R'], instance.bind['leg.lower.R'], ROTATION_AXIS_Z, tucked * 1.6 + wing.legCompression * 0.58);
+      applyBoneRotation(instance.bones['foot.L'], instance.bind['foot.L'], ROTATION_AXIS_Z, -tucked * 0.2 - wing.legCompression * 0.2);
+      applyBoneRotation(instance.bones['foot.R'], instance.bind['foot.R'], ROTATION_AXIS_Z, -tucked * 0.2 - wing.legCompression * 0.2);
+      applyBoneRotation(instance.bones['toes.L'], instance.bind['toes.L'], ROTATION_AXIS_Z, tucked * 0.16 - wing.toeGrip * 0.3);
+      applyBoneRotation(instance.bones['toes.R'], instance.bind['toes.R'], ROTATION_AXIS_Z, tucked * 0.16 - wing.toeGrip * 0.3);
+      applyBoneRotation(instance.bones['tail.L'], instance.bind['tail.L'], ROTATION_AXIS_X, -wing.tailSpread * 0.24);
+      applyBoneRotation(instance.bones['tail.R'], instance.bind['tail.R'], ROTATION_AXIS_X, -wing.tailSpread * 0.24);
+      applyParentSpaceBoneRotation(instance.bones.head, instance.bind.head, ROTATION_AXIS_Y, wing.headLook);
     }
 
     statsClock.current += safeDelta;
@@ -154,6 +182,10 @@ export default function SeagullFlock({ mode, paused, showRig, onStats }) {
         ...result,
         [agent.state]: (result[agent.state] ?? 0) + 1,
       }), {});
+      const landingStates = agents.reduce((result, agent) => ({
+        ...result,
+        [agent.landingState ?? 'airborne']: (result[agent.landingState ?? 'airborne'] ?? 0) + 1,
+      }), {});
       onStats({
         birds: instances.length,
         calls: gl.info.render.calls,
@@ -161,6 +193,10 @@ export default function SeagullFlock({ mode, paused, showRig, onStats }) {
         flap: states.flap ?? 0,
         glide: states.glide ?? 0,
         thermal: states.thermal ?? 0,
+        perched: landingStates.perched ?? 0,
+        approaching: (landingStates.approach ?? 0) + (landingStates.flare ?? 0) + (landingStates.settle ?? 0),
+        takingOff: (landingStates.takeoff ?? 0) + (landingStates.rejoin ?? 0),
+        airborne: landingStates.airborne ?? 0,
         minHeight: Math.min(...agents.map((agent) => agent.physicalHeight)),
         maxHeight: Math.max(...agents.map((agent) => agent.physicalHeight)),
       });
