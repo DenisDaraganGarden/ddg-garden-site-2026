@@ -25,6 +25,12 @@ const HOME_SCENE_SETTINGS_STORAGE_KEY = 'ddg_home_scene_settings_v1';
 const LEGACY_HOME_SCENE_KEYS = ['ddg_snake_settings_v4', 'ddg_snake_settings_v3'];
 // Editor-only aids. They are deliberately not published: they belong to whoever is
 // authoring the scene, not to the scene itself.
+// Position of the boat switch in the Visibility list, which this check drives by
+// index. It must track the `flags` array in editor/sections/render.jsx - water,
+// far water, sky, seabed, lilies, algae, boat, sculpture, reflections - so
+// adding a switch above the boat moves this number.
+const BOAT_VISIBILITY_INDEX = 6;
+
 const DEV_LOCAL_EDITOR_KEYS = new Set([
   'animationPaused',
   'showPerformanceHud',
@@ -809,14 +815,17 @@ async function runCameraSystemChecks(browser) {
 
   await page.getByTestId('home-editor-tab-visibility').click();
   const visibilityChecks = page.locator('.home-editor-controls input[type="checkbox"]');
-  await visibilityChecks.nth(4).uncheck();
-  assert(!(await visibilityChecks.nth(4).isChecked()), 'Camera 2 should hide the boat');
+  await visibilityChecks.nth(BOAT_VISIBILITY_INDEX).uncheck();
+  assert(
+    !(await visibilityChecks.nth(BOAT_VISIBILITY_INDEX).isChecked()),
+    'Camera 2 should hide the boat',
+  );
 
   await page.getByTestId('home-editor-tab-camera').click();
   await page.getByTestId('home-editor-camera-select-camera-1').click();
   await page.getByTestId('home-editor-tab-visibility').click();
   assert(
-    await page.locator('.home-editor-controls input[type="checkbox"]').nth(4).isChecked(),
+    await page.locator('.home-editor-controls input[type="checkbox"]').nth(BOAT_VISIBILITY_INDEX).isChecked(),
     'Camera 1 should retain its independent boat visibility',
   );
 
@@ -824,7 +833,7 @@ async function runCameraSystemChecks(browser) {
   await page.getByTestId('home-editor-camera-select-camera-2').click();
   await page.getByTestId('home-editor-tab-visibility').click();
   assert(
-    !(await page.locator('.home-editor-controls input[type="checkbox"]').nth(4).isChecked()),
+    !(await page.locator('.home-editor-controls input[type="checkbox"]').nth(BOAT_VISIBILITY_INDEX).isChecked()),
     'Camera 2 should restore its hidden boat',
   );
 
