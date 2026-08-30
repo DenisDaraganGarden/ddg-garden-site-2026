@@ -70,6 +70,8 @@ const DEFAULT_CAMERA_TARGET = { x: 0, y: 0, z: 0 };
 const DEFAULT_SCULPTURE_POSITION = { x: 0.6, z: 1.2 };
 const DEFAULT_BOAT_POSITION = { x: 2.1, z: -1.4 };
 const DEFAULT_CAMERA_FOV = 36;
+export const HOME_SCENE_CAMERA_FOV_MIN = 1;
+export const HOME_SCENE_CAMERA_FOV_MAX = 75;
 const MAX_CAMERA_COORDINATE = 1_000_000;
 
 // One composition bucket (see features/home-scene/lib/layout.js for selection logic).
@@ -158,7 +160,12 @@ const pickLayout = (value, fallback) => {
     customized: pickBoolean(source.customized, fallback.customized),
     cameraPosition: pickVector3(source.cameraPosition, fallback.cameraPosition),
     cameraTarget: pickVector3(source.cameraTarget, fallback.cameraTarget),
-    cameraFov: clampInt(source.cameraFov, 24, 75, fallback.cameraFov),
+    cameraFov: clampInt(
+      source.cameraFov,
+      HOME_SCENE_CAMERA_FOV_MIN,
+      HOME_SCENE_CAMERA_FOV_MAX,
+      fallback.cameraFov,
+    ),
     frameInset: clampLayoutFrameInset(source.frameInset ?? fallback.frameInset),
     boatPosition: pickVector2(source.boatPosition, fallback.boatPosition),
     sculpturePosition: pickVector2(source.sculpturePosition, fallback.sculpturePosition),
@@ -409,7 +416,12 @@ const normalizeLegacySettings = (savedSettings, defaults) => {
   }
 
   if (savedSettings?.cameraFov !== undefined) {
-    legacy.cameraFov = clampInt(savedSettings.cameraFov, 24, 75, defaults.cameraFov);
+    legacy.cameraFov = clampInt(
+      savedSettings.cameraFov,
+      HOME_SCENE_CAMERA_FOV_MIN,
+      HOME_SCENE_CAMERA_FOV_MAX,
+      defaults.cameraFov,
+    );
   }
 
   if (savedSettings?.planeHeight !== undefined) {
@@ -548,7 +560,12 @@ const normalizeHomeSceneSettings = (savedSettings = {}, includeCameraSystem = tr
     defaults.cameraTargetPortrait,
   );
 
-  const normalizedCameraFov = clampInt(merged.cameraFov, 24, 75, defaults.cameraFov);
+  const normalizedCameraFov = clampInt(
+    merged.cameraFov,
+    HOME_SCENE_CAMERA_FOV_MIN,
+    HOME_SCENE_CAMERA_FOV_MAX,
+    defaults.cameraFov,
+  );
   const normalizedBoatPosition = pickVector2(merged.boatPosition, defaults.boatPosition);
   const normalizedSculpturePosition = pickVector2(merged.sculpturePosition, defaults.sculpturePosition);
   const usesLegacyShadowModel = savedSettings.shadowIntensity === undefined;

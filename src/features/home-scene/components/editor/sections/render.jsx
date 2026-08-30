@@ -8,6 +8,8 @@ import {
 } from '../../HomeEditorControls';
 import { formatFloat } from '../editorShared';
 import {
+    HOME_SCENE_CAMERA_FOV_MAX,
+    HOME_SCENE_CAMERA_FOV_MIN,
     HOME_SCENE_DEBUG_VIEWS,
     HOME_SCENE_FILM_STOCKS,
 } from '../../../hooks/useHomeSceneSettings';
@@ -199,8 +201,8 @@ export const CameraSection = ({ settings, layoutEditor }) => {
             <RangeControl
                 label={t('homeEditor.controls.cameraFov')}
                 value={effective.cameraFov ?? settings.cameraFov}
-                min={24}
-                max={75}
+                min={HOME_SCENE_CAMERA_FOV_MIN}
+                max={HOME_SCENE_CAMERA_FOV_MAX}
                 step={1}
                 unit="°"
                 onChange={(event) => onFovChange(parseInt(event.target.value, 10))}

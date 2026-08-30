@@ -726,6 +726,12 @@ async function runCameraSystemChecks(browser) {
   const issues = [];
   collectPageIssues(page, issues);
 
+  // Keep the editor workflow deterministic when the published site already
+  // contains several authored cameras.
+  await page.addInitScript((draftKey) => {
+    localStorage.setItem(draftKey, JSON.stringify({ cameraFov: 36 }));
+  }, HOME_SCENE_SETTINGS_STORAGE_KEY);
+
   await page.goto(`${baseUrl}/home/edit`, { waitUntil: 'domcontentloaded' });
   await expectVisible(page, page.getByTestId('home-editor-page'), 'camera editor');
   await page.getByTestId('home-editor-group-render').click();
@@ -791,13 +797,14 @@ async function runCameraSystemChecks(browser) {
   await page.getByTestId('home-editor-tab-camera').click();
 
   let ranges = page.locator('.home-editor-controls input[type="range"]');
-  await setRangeValue(ranges.nth(0), 37);
+  assert(Number(await ranges.nth(0).getAttribute('min')) === 1, 'Camera FOV slider should allow 1 degree');
+  await setRangeValue(ranges.nth(0), 1);
   await page.getByTestId('home-editor-camera-variant-portrait').click();
   ranges = page.locator('.home-editor-controls input[type="range"]');
   await setRangeValue(ranges.nth(0), 46);
   await page.getByTestId('home-editor-camera-variant-desktop').click();
   ranges = page.locator('.home-editor-controls input[type="range"]');
-  assert(Number(await ranges.nth(0).inputValue()) === 37, 'Desktop camera FOV should remain independent');
+  assert(Number(await ranges.nth(0).inputValue()) === 1, 'Desktop camera FOV should retain the 1 degree minimum');
 
   await page.getByTestId('home-editor-tab-visibility').click();
   const visibilityChecks = page.locator('.home-editor-controls input[type="checkbox"]');
@@ -841,7 +848,7 @@ async function runCameraSystemChecks(browser) {
   assert(draft.sceneCameras[0].id === 'camera-2', 'Camera reorder should persist array order');
   assert(draft.sceneCameras[0].name === 'Second shot', 'Camera rename should persist');
   assert(draft.sceneCameras[0].holdSeconds === 1, 'Per-camera duration should persist');
-  assert(draft.sceneCameras[0].scene.layouts.desktop.cameraFov === 37, 'Desktop FOV should persist in Camera 2');
+  assert(draft.sceneCameras[0].scene.layouts.desktop.cameraFov === 1, 'Desktop 1 degree FOV should persist in Camera 2');
   assert(draft.sceneCameras[0].scene.layouts.portrait.cameraFov === 46, 'Portrait FOV should persist in Camera 2');
   assert(draft.sceneCameras[0].scene.boatVisible === false, 'Full scene visibility should persist in Camera 2');
   assert(draft.sceneCameras[1].scene.boatVisible === true, 'Camera 1 visibility should remain independent');
