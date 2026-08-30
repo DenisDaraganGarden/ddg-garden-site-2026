@@ -193,6 +193,7 @@ const keys = [
   'fogScattering',
   'ambientWaveIntensity',
   'ambientWaveSpeed',
+  'audio',
   'sceneCameras',
   'slideshow',
 ];

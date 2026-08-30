@@ -42,9 +42,11 @@ const HomeEditorPanel = ({
     hasPublishChanges = false,
     publishEnabled = false,
     publishHint = '',
+    audioLab,
 }) => {
     const { t } = useLanguage();
     const panelRef = useRef(null);
+    const sectionRef = useRef(null);
     const resizeStateRef = useRef(null);
     const [storedState] = useState(readPanelState);
     const [collapsed, setCollapsed] = useState(() => Boolean(storedState.collapsed));
@@ -63,6 +65,12 @@ const HomeEditorPanel = ({
     const [confirmAdopt, setConfirmAdopt] = useState(false);
     const canPublish = publishEnabled && typeof onPublish === 'function';
     const isPublishDisabled = publishState?.busy || !hasPublishChanges || !canPublish;
+
+    useEffect(() => {
+        if (sectionRef.current) {
+            sectionRef.current.scrollTop = 0;
+        }
+    }, [group.id, node.id]);
     // Persist height + collapsed state.
     useEffect(() => {
         if (typeof window === 'undefined') {
@@ -282,7 +290,7 @@ const HomeEditorPanel = ({
                         ) : null}
                     </div>
 
-                    <div className="home-editor-section">
+                    <div className="home-editor-section" ref={sectionRef}>
                         <div className="home-editor-controls">
                             {node.aspects.map(({ id, Section }) => (
                                 <React.Fragment key={id}>
@@ -293,6 +301,7 @@ const HomeEditorPanel = ({
                                         settings={settings}
                                         handleSettingChange={handleSettingChange}
                                         layoutEditor={layoutEditor}
+                                        audioLab={audioLab}
                                     />
                                 </React.Fragment>
                             ))}

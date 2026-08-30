@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import WaterScene from '../components/effects/WaterScene';
 import { usePublishedHomeSceneSettings } from '../features/home-scene/hooks/useHomeSceneSettings';
 import { useHomeChromeVisibility } from '../features/home-scene/hooks/useHomeChromeVisibility';
+import { useSiteAudio } from '../features/audio/SiteAudioContext';
 import {
     getLayoutVisibleAspect,
     resolveLayoutFrameInset,
@@ -196,11 +197,17 @@ function useHomeSceneSlideshow(settings, isSceneReady) {
 
 const Home = () => {
     const { settings } = usePublishedHomeSceneSettings();
+    const {
+        runtime: audioRuntime,
+        setSceneSettings: setAudioSettings,
+        setCameraTransition,
+    } = useSiteAudio();
     const [isSceneReady, setIsSceneReady] = useState(false);
     const [isLoaderMinimumElapsed, setIsLoaderMinimumElapsed] = useState(false);
     const [showLoaderOverlay, setShowLoaderOverlay] = useState(true);
     const slideshow = useHomeSceneSlideshow(settings, isSceneReady);
     const activeSettings = slideshow.activeSettings;
+    const audioSettingsFingerprint = JSON.stringify(settings.audio);
     const [viewport, setViewport] = useState(() => {
         const width = typeof window === 'undefined' ? 16 : window.innerWidth;
         const height = typeof window === 'undefined' ? 9 : window.innerHeight;
@@ -211,6 +218,15 @@ const Home = () => {
             layoutKey: resolveLayoutKey(width, height),
         };
     });
+
+    useEffect(() => {
+        setAudioSettings(JSON.parse(audioSettingsFingerprint));
+    }, [audioSettingsFingerprint, setAudioSettings]);
+
+    useEffect(() => {
+        setCameraTransition(slideshow.phase, slideshow.fadeSeconds);
+        return () => setCameraTransition('idle', 0);
+    }, [setCameraTransition, slideshow.fadeSeconds, slideshow.phase]);
 
     useEffect(() => {
         if (typeof window === 'undefined') {
@@ -335,7 +351,12 @@ const Home = () => {
             <div
                 className={`home-water-container ${isSceneReady ? 'home-water-container--visible' : ''}`}
             >
-                <WaterScene settings={activeSettings} sceneId="water-scene" onSceneReady={handleSceneReady} />
+                <WaterScene
+                    settings={activeSettings}
+                    sceneId="water-scene"
+                    onSceneReady={handleSceneReady}
+                    audioRuntime={audioRuntime}
+                />
             </div>
 
             <div
