@@ -28,6 +28,24 @@
   opacity: 1;
 }
 
+/* One persistent WebGL scene changes under this black cut. It deliberately
+   covers the site chrome too, so a camera can own its chrome settings without a
+   one-frame mismatch. */
+.home-scene-transition {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  pointer-events: none;
+  background: #000;
+  opacity: 0;
+  transition: opacity var(--home-scene-transition-duration, 1.2s) ease;
+}
+
+.home-scene-transition--fade-out,
+.home-scene-transition--black {
+  opacity: 1;
+}
+
 .home-scene-loader {
   position: fixed;
   inset: 0;

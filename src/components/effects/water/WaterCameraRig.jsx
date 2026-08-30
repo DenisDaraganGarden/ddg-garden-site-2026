@@ -11,10 +11,10 @@ const CAMERA_POSE_TARGET = new THREE.Vector3();
 const LazyOrbitControls = React.lazy(() => import('@react-three/drei/core/OrbitControls.js').then((module) => ({
   default: module.OrbitControls,
 })));
-const FRAME_CAMERA_NEAR = 0.1;
-const FRAME_CAMERA_FAR = 80;
 const FREE_CAMERA_NEAR = 0.01;
 const FREE_CAMERA_FAR = 10000;
+const FRAME_CAMERA_NEAR = FREE_CAMERA_NEAR;
+const FRAME_CAMERA_FAR = FREE_CAMERA_FAR;
 const FREE_CAMERA_KEYS = new Set([
   'KeyW',
   'KeyA',
@@ -38,11 +38,13 @@ export default function WaterCameraRig({
   onCameraRigApi,
   orbitRef,
   freeCamera = false,
+  poseKey,
 }) {
   const { camera, gl, size } = useThree();
   const internalControlsRef = useRef();
   const controlsRef = orbitRef ?? internalControlsRef;
   const cameraInitializedRef = useRef(false);
+  const appliedFreePoseKeyRef = useRef(null);
   const pendingControlsTargetRef = useRef(false);
   const pressedKeysRef = useRef(new Set());
   const movementVectorsRef = useRef({
@@ -117,9 +119,10 @@ export default function WaterCameraRig({
     }
 
     if (freeCamera) {
-      if (!cameraInitializedRef.current) {
+      if (!cameraInitializedRef.current || appliedFreePoseKeyRef.current !== poseKey) {
         applyLayoutPose(false);
         cameraInitializedRef.current = true;
+        appliedFreePoseKeyRef.current = poseKey;
         return;
       }
 
@@ -134,12 +137,14 @@ export default function WaterCameraRig({
 
     applyLayoutPose(true);
     cameraInitializedRef.current = true;
+    appliedFreePoseKeyRef.current = poseKey;
   }, [
     applyLayoutPose,
     camera,
     cameraFov,
     freeCamera,
     hasCameraPosition,
+    poseKey,
   ]);
 
   const moveFreeCamera = useCallback((delta) => {

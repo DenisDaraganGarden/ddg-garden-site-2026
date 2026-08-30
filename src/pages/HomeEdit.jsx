@@ -1,9 +1,19 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, {
+    useCallback,
+    useDeferredValue,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+} from 'react';
 import WaterScene from '../components/effects/WaterScene';
 import {
+    applyHomeSceneSnapshot,
+    createHomeSceneSnapshot,
     getPublishedHomeSceneSettings,
     sanitizeHomeSceneSettingsForPublish,
 } from '../features/home-scene/hooks/useHomeSceneSettings';
+import { DEFAULT_SCENE_CAMERA_HOLD_SECONDS } from '../features/home-scene/lib/sceneCameras';
 import {
     DEFAULT_LAYOUT_FRAME_INSETS,
     resolveLayoutFrameInset,
@@ -31,6 +41,68 @@ const getCurrentLayoutKey = () => {
     return resolveLayoutKey(window.innerWidth, window.innerHeight);
 };
 
+const syncActiveCameraScene = (settings) => {
+    const cameras = Array.isArray(settings.sceneCameras) ? settings.sceneCameras : [];
+    const activeId = settings.activeCameraId ?? cameras[0]?.id;
+
+    if (!activeId) {
+        return settings;
+    }
+
+    const snapshot = createHomeSceneSnapshot(settings);
+    let changed = false;
+    const sceneCameras = cameras.map((camera) => {
+        if (camera.id !== activeId) {
+            return camera;
+        }
+
+        changed = true;
+        return { ...camera, scene: snapshot };
+    });
+
+    return changed ? { ...settings, sceneCameras } : settings;
+};
+
+const updateLayoutInSettings = (settings, key, patch) => {
+    const layouts = settings.layouts ?? {};
+    const current = layouts[key];
+    const inherited = layouts.desktop ?? current ?? {};
+    const source = (current && current.customized)
+        ? current
+        : {
+            ...inherited,
+            frameInset: resolveLayoutFrameInset(layouts, key),
+        };
+    const nextLayout = {
+        customized: true,
+        cameraPosition: { ...source.cameraPosition },
+        cameraTarget: { ...source.cameraTarget },
+        cameraFov: source.cameraFov,
+        frameInset: source.frameInset,
+        boatPosition: { ...source.boatPosition },
+        sculpturePosition: { ...source.sculpturePosition },
+        ...patch,
+    };
+
+    return {
+        ...settings,
+        layouts: { ...layouts, [key]: nextLayout },
+    };
+};
+
+const makeCameraId = (cameras) => {
+    const used = new Set(cameras.map((camera) => camera.id));
+    let index = cameras.length + 1;
+    let candidate = `camera-${index}`;
+
+    while (used.has(candidate)) {
+        index += 1;
+        candidate = `camera-${index}`;
+    }
+
+    return candidate;
+};
+
 const HomeEdit = () => {
     const { t } = useLanguage();
     const {
@@ -51,9 +123,15 @@ const HomeEdit = () => {
     const cameraRigApiRef = useRef(null);
     const [selectedLayoutKey, setSelectedLayoutKey] = useState(getCurrentLayoutKey);
     const [currentLayoutKey, setCurrentLayoutKey] = useState(getCurrentLayoutKey);
+    const [cameraPoseRevision, setCameraPoseRevision] = useState(0);
+    const deferredSettings = useDeferredValue(settings);
+    const preparedSettings = useMemo(
+        () => syncActiveCameraScene(deferredSettings),
+        [deferredSettings],
+    );
     const publishableSettings = useMemo(
-        () => sanitizeHomeSceneSettingsForPublish(settings),
-        [settings],
+        () => sanitizeHomeSceneSettingsForPublish(preparedSettings),
+        [preparedSettings],
     );
     const serializedPublishSettings = useMemo(
         () => JSON.stringify(publishableSettings),
@@ -83,59 +161,29 @@ const HomeEdit = () => {
         };
     }, []);
 
-    // The editor and the sandbox run on different ports, so their drafts are
-    // separate localStorage. The published file is what they share: work lands
-    // there via Publish, and this pulls it back into whichever draft is open.
     const handleAdoptPublished = useCallback(() => {
-        setSettings(getPublishedHomeSceneSettings());
+        const published = getPublishedHomeSceneSettings();
+        const firstCamera = published.sceneCameras?.[0];
+        const next = firstCamera
+            ? applyHomeSceneSnapshot(published, firstCamera.scene)
+            : published;
+
+        setSettings({
+            ...next,
+            activeCameraId: firstCamera?.id ?? published.activeCameraId,
+            freeCamera: true,
+        });
+        setCameraPoseRevision((value) => value + 1);
     }, [setSettings]);
 
     const handleCameraRigApi = useCallback((api) => {
         cameraRigApiRef.current = api;
     }, []);
 
-    const setFreeCamera = useCallback((enabled) => {
-        const nextValue = Boolean(enabled);
-        setSettings((previous) => (
-            previous.freeCamera === nextValue
-                ? previous
-                : { ...previous, freeCamera: nextValue }
-        ));
-    }, [setSettings]);
-
-    const restoreCameraPose = useCallback(() => {
-        cameraRigApiRef.current?.restorePose?.();
-    }, []);
-
-    // Bake the bucket's currently-effective values (inherited from desktop when not yet
-    // customised), then apply the patch and mark it independent.
     const updateLayout = useCallback((key, patch) => {
-        setSettings((previous) => {
-            const layouts = previous.layouts ?? {};
-            const current = layouts[key];
-            const inherited = layouts.desktop ?? current ?? {};
-            const source = (current && current.customized)
-                ? current
-                : {
-                    ...inherited,
-                    frameInset: resolveLayoutFrameInset(layouts, key),
-                };
-            const nextLayout = {
-                customized: true,
-                cameraPosition: { ...source.cameraPosition },
-                cameraTarget: { ...source.cameraTarget },
-                cameraFov: source.cameraFov,
-                frameInset: source.frameInset,
-                boatPosition: { ...source.boatPosition },
-                sculpturePosition: { ...source.sculpturePosition },
-                ...patch,
-            };
-
-            return {
-                ...previous,
-                layouts: { ...layouts, [key]: nextLayout },
-            };
-        });
+        setSettings((previous) => syncActiveCameraScene(
+            updateLayoutInSettings(previous, key, patch),
+        ));
     }, [setSettings]);
 
     const captureLayout = useCallback((key) => {
@@ -145,15 +193,12 @@ const HomeEdit = () => {
             return;
         }
 
-        updateLayout(key, {
+        setSettings((previous) => syncActiveCameraScene(updateLayoutInSettings(previous, key, {
             cameraPosition: pose.cameraPosition,
             cameraTarget: pose.cameraTarget,
             cameraFov: pose.cameraFov,
-        });
-        // Capturing from the working camera lands back in the real cinematic
-        // frame immediately, so the author sees exactly what was saved.
-        setFreeCamera(false);
-    }, [setFreeCamera, updateLayout]);
+        })));
+    }, [setSettings]);
 
     const resetLayout = useCallback((key) => {
         setSettings((previous) => {
@@ -162,7 +207,7 @@ const HomeEdit = () => {
                 return previous;
             }
 
-            return {
+            return syncActiveCameraScene({
                 ...previous,
                 layouts: {
                     ...layouts,
@@ -172,8 +217,144 @@ const HomeEdit = () => {
                         frameInset: DEFAULT_LAYOUT_FRAME_INSETS[key],
                     },
                 },
+            });
+        });
+        setCameraPoseRevision((value) => value + 1);
+    }, [setSettings]);
+
+    const selectCamera = useCallback((id) => {
+        if (id === settings.activeCameraId) {
+            setSettings((previous) => syncActiveCameraScene(previous));
+            return;
+        }
+
+        setSettings((previous) => {
+            const prepared = syncActiveCameraScene(previous);
+            const target = prepared.sceneCameras?.find((camera) => camera.id === id);
+
+            if (!target || target.id === prepared.activeCameraId) {
+                return prepared;
+            }
+
+            return {
+                ...applyHomeSceneSnapshot(prepared, target.scene),
+                activeCameraId: target.id,
+                freeCamera: true,
             };
         });
+        setCameraPoseRevision((value) => value + 1);
+    }, [setSettings, settings.activeCameraId]);
+
+    const addCamera = useCallback(() => {
+        const pose = cameraRigApiRef.current?.capturePose?.();
+
+        setSettings((previous) => {
+            const cameras = Array.isArray(previous.sceneCameras) ? previous.sceneCameras : [];
+            const withPose = pose
+                ? updateLayoutInSettings(previous, selectedLayoutKey, {
+                    cameraPosition: pose.cameraPosition,
+                    cameraTarget: pose.cameraTarget,
+                    cameraFov: pose.cameraFov,
+                })
+                : previous;
+            const prepared = syncActiveCameraScene(withPose);
+            const id = makeCameraId(cameras);
+            const scene = createHomeSceneSnapshot(prepared);
+            const activeCamera = prepared.sceneCameras?.find(
+                (camera) => camera.id === prepared.activeCameraId,
+            );
+            const camera = {
+                id,
+                name: `Камера ${cameras.length + 1}`,
+                enabled: true,
+                holdSeconds: activeCamera?.holdSeconds ?? DEFAULT_SCENE_CAMERA_HOLD_SECONDS,
+                scene,
+            };
+
+            return {
+                ...prepared,
+                sceneCameras: [...(prepared.sceneCameras ?? []), camera],
+                activeCameraId: id,
+                freeCamera: true,
+            };
+        });
+    }, [selectedLayoutKey, setSettings]);
+
+    const removeCamera = useCallback((id) => {
+        setSettings((previous) => {
+            const prepared = syncActiveCameraScene(previous);
+            const cameras = prepared.sceneCameras ?? [];
+
+            if (cameras.length <= 1) {
+                return prepared;
+            }
+
+            const removedIndex = cameras.findIndex((camera) => camera.id === id);
+            const sceneCameras = cameras.filter((camera) => camera.id !== id);
+
+            if (removedIndex < 0 || id !== prepared.activeCameraId) {
+                return { ...prepared, sceneCameras };
+            }
+
+            const target = sceneCameras[Math.min(removedIndex, sceneCameras.length - 1)];
+
+            return {
+                ...applyHomeSceneSnapshot({ ...prepared, sceneCameras }, target.scene),
+                activeCameraId: target.id,
+                freeCamera: true,
+            };
+        });
+        if (id === settings.activeCameraId) {
+            setCameraPoseRevision((value) => value + 1);
+        }
+    }, [setSettings, settings.activeCameraId]);
+
+    const selectLayout = useCallback((key) => {
+        setSelectedLayoutKey(key);
+        setCameraPoseRevision((value) => value + 1);
+    }, []);
+
+    const moveCamera = useCallback((id, direction) => {
+        setSettings((previous) => {
+            const cameras = [...(previous.sceneCameras ?? [])];
+            const from = cameras.findIndex((camera) => camera.id === id);
+            const to = from + direction;
+
+            if (from < 0 || to < 0 || to >= cameras.length) {
+                return previous;
+            }
+
+            [cameras[from], cameras[to]] = [cameras[to], cameras[from]];
+            return { ...previous, sceneCameras: cameras };
+        });
+    }, [setSettings]);
+
+    const updateCamera = useCallback((id, patch) => {
+        setSettings((previous) => ({
+            ...previous,
+            sceneCameras: (previous.sceneCameras ?? []).map((camera) => (
+                camera.id === id ? { ...camera, ...patch } : camera
+            )),
+        }));
+    }, [setSettings]);
+
+    const renameCamera = useCallback((id, name) => {
+        updateCamera(id, { name: name.slice(0, 80) });
+    }, [updateCamera]);
+
+    const setCameraEnabled = useCallback((id, enabled) => {
+        updateCamera(id, { enabled: Boolean(enabled) });
+    }, [updateCamera]);
+
+    const setCameraHoldSeconds = useCallback((id, holdSeconds) => {
+        updateCamera(id, { holdSeconds: Math.min(3600, Math.max(1, holdSeconds)) });
+    }, [updateCamera]);
+
+    const updateSlideshow = useCallback((patch) => {
+        setSettings((previous) => ({
+            ...previous,
+            slideshow: { ...previous.slideshow, ...patch },
+        }));
     }, [setSettings]);
 
     const handleLayoutFovChange = useCallback((value) => {
@@ -259,37 +440,59 @@ const HomeEdit = () => {
 
 
     const layoutEditor = useMemo(() => ({
+        cameras: settings.sceneCameras,
+        activeCameraId: settings.activeCameraId,
+        selectCamera,
+        addCamera,
+        removeCamera,
+        moveCamera,
+        renameCamera,
+        setCameraEnabled,
+        setCameraHoldSeconds,
         selectedKey: selectedLayoutKey,
-        setSelectedKey: setSelectedLayoutKey,
+        setSelectedKey: selectLayout,
         currentKey: currentLayoutKey,
         layouts: settings.layouts,
+        currentScene: settings,
         captureLayout,
         resetLayout,
         updateLayout,
         onFovChange: handleLayoutFovChange,
         onFrameInsetChange: handleFrameInsetChange,
-        freeCamera: Boolean(settings.freeCamera),
-        setFreeCamera,
-        restoreCameraPose,
+        slideshow: settings.slideshow,
+        updateSlideshow,
     }), [
+        settings,
         selectedLayoutKey,
         currentLayoutKey,
-        settings.layouts,
-        settings.freeCamera,
+        selectCamera,
+        addCamera,
+        removeCamera,
+        moveCamera,
+        renameCamera,
+        setCameraEnabled,
+        setCameraHoldSeconds,
+        selectLayout,
         captureLayout,
         resetLayout,
         updateLayout,
         handleLayoutFovChange,
         handleFrameInsetChange,
-        setFreeCamera,
-        restoreCameraPose,
+        updateSlideshow,
     ]);
 
     const selectedFrameInset = resolveLayoutFrameInset(settings.layouts, selectedLayoutKey);
-    const viewportFrameInset = settings.freeCamera ? 0 : selectedFrameInset;
+    const cameraPoseKey = String(cameraPoseRevision);
 
     const handlePublish = async () => {
-        if (!hasPublishChanges) {
+        const currentPreparedSettings = syncActiveCameraScene(settings);
+        const currentPublishableSettings = sanitizeHomeSceneSettingsForPublish(
+            currentPreparedSettings,
+        );
+        const currentSerializedSettings = JSON.stringify(currentPublishableSettings);
+
+        if (currentSerializedSettings === lastPublishedSnapshotRef.current) {
+            setHasPublishChanges(false);
             return;
         }
 
@@ -300,15 +503,16 @@ const HomeEdit = () => {
             busy: true,
             message: t('homeEditor.publish.progress'),
         });
+        setSettings(currentPreparedSettings);
 
         try {
-            await publishHomeSceneSettings(publishableSettings);
+            await publishHomeSceneSettings(currentPublishableSettings);
 
             if (publishRequestRef.current !== requestId) {
                 return;
             }
 
-            lastPublishedSnapshotRef.current = serializedPublishSettings;
+            lastPublishedSnapshotRef.current = currentSerializedSettings;
             setHasPublishChanges(false);
             setPublishState({
                 busy: false,
@@ -335,9 +539,8 @@ const HomeEdit = () => {
                     className={[
                         'home-editor-viewport',
                         `home-editor-viewport--${selectedLayoutKey}`,
-                        settings.freeCamera ? 'home-editor-viewport--free-camera' : '',
                     ].filter(Boolean).join(' ')}
-                    style={{ '--home-editor-frame-inset': `${viewportFrameInset * 100}%` }}
+                    style={{ '--home-editor-frame-inset': `${selectedFrameInset * 100}%` }}
                 >
                     <div className="home-editor-render-frame">
                         <WaterScene
@@ -351,24 +554,11 @@ const HomeEdit = () => {
                             onBoatPositionChange={handleBoatPositionChange}
                             onSculpturePositionChange={handleSculpturePositionChange}
                             editorGizmo={editorGizmo}
+                            cameraPoseKey={cameraPoseKey}
                         />
                     </div>
-                    {settings.freeCamera ? (
-                        <div className="home-editor-free-camera-badge" data-testid="home-editor-free-camera-badge">
-                            <span>
-                                <strong>{t('homeEditor.controls.freeCameraBadge')}</strong>
-                                {t('homeEditor.controls.freeCameraBadgeKeys')}
-                            </span>
-                            <button type="button" onClick={() => setFreeCamera(false)}>
-                                {t('homeEditor.controls.freeCameraExit')}
-                            </button>
-                        </div>
-                    ) : (
-                        <>
-                            <div className="home-editor-frame-mask home-editor-frame-mask--top" aria-hidden="true" />
-                            <div className="home-editor-frame-mask home-editor-frame-mask--bottom" aria-hidden="true" />
-                        </>
-                    )}
+                    <div className="home-editor-frame-mask home-editor-frame-mask--top" aria-hidden="true" />
+                    <div className="home-editor-frame-mask home-editor-frame-mask--bottom" aria-hidden="true" />
                 </div>
             </div>
 

@@ -103,6 +103,7 @@ const keys = [
   'boatHeightOffset',
   'boatCutoutFitWidth',
   'boatCutoutFitLength',
+  'boatCutoutDebug',
   'sculptureColor',
   'sculptureMetalness',
   'sculptureRoughness',
@@ -192,6 +193,8 @@ const keys = [
   'fogScattering',
   'ambientWaveIntensity',
   'ambientWaveSpeed',
+  'sceneCameras',
+  'slideshow',
 ];
 
 const duplicatePublishedKeys = keys.filter((key, index) => keys.indexOf(key) !== index);

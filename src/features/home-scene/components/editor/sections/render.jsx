@@ -9,8 +9,6 @@ import {
 import { formatFloat } from '../editorShared';
 import { HOME_SCENE_DEBUG_VIEWS } from '../../../hooks/useHomeSceneSettings';
 import {
-    getLayoutVisibleAspect,
-    LAYOUT_KEYS,
     resolveLayout,
     resolveLayoutFrameInset,
 } from '../../../lib/layout';
@@ -36,7 +34,6 @@ export const VisibilitySection = ({ settings, handleSettingChange }) => {
 
     return (
         <>
-            <p className="home-editor-inline-hint">{t('homeEditor.controls.visibilityHint')}</p>
             {flags.map((key) => (
                 <CheckboxControl
                     key={key}
@@ -57,87 +54,144 @@ export const CameraSection = ({ settings, layoutEditor }) => {
     }
 
     const {
+        cameras = [],
+        activeCameraId,
+        selectCamera,
+        addCamera,
+        removeCamera,
+        moveCamera,
+        renameCamera,
+        setCameraEnabled,
+        setCameraHoldSeconds,
         selectedKey,
         setSelectedKey,
         currentKey,
-        layouts,
+        currentScene,
         captureLayout,
         resetLayout,
         onFovChange,
         onFrameInsetChange,
-        freeCamera,
-        setFreeCamera,
-        restoreCameraPose,
+        slideshow = {},
+        updateSlideshow,
     } = layoutEditor;
+    const activeCamera = cameras.find((camera) => camera.id === activeCameraId) ?? cameras[0];
+    const layouts = currentScene?.layouts ?? activeCamera?.scene?.layouts ?? {};
     const effective = resolveLayout(layouts, selectedKey) ?? {};
     const frameInset = resolveLayoutFrameInset(layouts, selectedKey);
-    const visibleAspect = getLayoutVisibleAspect(selectedKey, frameInset);
     const isCustomized = Boolean(layouts?.[selectedKey]?.customized);
-    const buckets = LAYOUT_KEYS;
+    const fadeSeconds = slideshow.fadeSeconds ?? 1.2;
 
     return (
         <>
-            <div className="home-editor-control-group">
-                <label>{t('homeEditor.controls.cameraNavigationMode')}</label>
-                <div className="home-editor-layout-tabs">
+            <section className="home-editor-cameras" aria-label={t('homeEditor.controls.cameras')}>
+                <div className="home-editor-cameras-header">
+                    <span>{t('homeEditor.controls.cameras')}</span>
                     <button
                         type="button"
-                        className={`home-editor-layout-tab ${!freeCamera ? 'active' : ''}`}
-                        onClick={() => setFreeCamera(false)}
-                        aria-pressed={!freeCamera}
-                        data-testid="home-editor-camera-mode-frame"
+                        className="home-editor-camera-icon-button"
+                        onClick={addCamera}
+                        aria-label={t('homeEditor.controls.cameraAdd')}
+                        data-testid="home-editor-camera-add"
                     >
-                        {t('homeEditor.controls.cameraModeFrame')}
-                    </button>
-                    <button
-                        type="button"
-                        className={`home-editor-layout-tab ${freeCamera ? 'active' : ''}`}
-                        onClick={() => setFreeCamera(true)}
-                        aria-pressed={Boolean(freeCamera)}
-                        data-testid="home-editor-camera-mode-free"
-                    >
-                        {t('homeEditor.controls.cameraModeFree')}
+                        +
                     </button>
                 </div>
-            </div>
-            <p className="home-editor-inline-hint">
-                {t(freeCamera
-                    ? 'homeEditor.controls.freeCameraHint'
-                    : 'homeEditor.controls.layoutHint')}
-            </p>
-            {freeCamera ? (
-                <div className="home-editor-camera-actions">
-                    <button
-                        type="button"
-                        className="home-editor-action-button"
-                        onClick={restoreCameraPose}
-                        data-testid="home-editor-camera-restore-pose"
-                    >
-                        {t('homeEditor.controls.freeCameraRestore')}
-                    </button>
+                <div className="home-editor-camera-list" data-testid="home-editor-camera-list">
+                    {cameras.map((camera, index) => (
+                        <div
+                            key={camera.id}
+                            className={`home-editor-camera-row ${camera.id === activeCamera?.id ? 'active' : ''}`}
+                        >
+                            <input
+                                type="checkbox"
+                                checked={Boolean(camera.enabled)}
+                                onChange={(event) => setCameraEnabled(camera.id, event.target.checked)}
+                                aria-label={t('homeEditor.controls.cameraEnabled')}
+                                data-testid={`home-editor-camera-enabled-${camera.id}`}
+                            />
+                            <button
+                                type="button"
+                                className="home-editor-camera-select"
+                                onClick={() => selectCamera(camera.id)}
+                                aria-pressed={camera.id === activeCamera?.id}
+                                data-testid={`home-editor-camera-select-${camera.id}`}
+                            >
+                                <span className="home-editor-camera-number">{String(index + 1).padStart(2, '0')}</span>
+                            </button>
+                            <input
+                                type="text"
+                                className="home-editor-camera-name"
+                                value={camera.name ?? `${t('homeEditor.controls.camera')} ${index + 1}`}
+                                onFocus={() => selectCamera(camera.id)}
+                                onChange={(event) => renameCamera(camera.id, event.target.value)}
+                                aria-label={t('homeEditor.controls.cameraName')}
+                                data-testid={`home-editor-camera-name-${camera.id}`}
+                            />
+                            <label className="home-editor-camera-hold">
+                                <input
+                                    type="number"
+                                    min="1"
+                                    max="3600"
+                                    step="0.5"
+                                    value={camera.holdSeconds ?? 8}
+                                    onFocus={() => selectCamera(camera.id)}
+                                    onChange={(event) => setCameraHoldSeconds(camera.id, parseFloat(event.target.value) || 1)}
+                                    aria-label={t('homeEditor.controls.cameraDuration')}
+                                    data-testid={`home-editor-camera-duration-${camera.id}`}
+                                />
+                                <span>{t('homeEditor.controls.seconds')}</span>
+                            </label>
+                            <div className="home-editor-camera-row-actions">
+                                <button
+                                    type="button"
+                                    className="home-editor-camera-icon-button"
+                                    onClick={() => moveCamera(camera.id, -1)}
+                                    disabled={index === 0}
+                                    aria-label={t('homeEditor.controls.cameraMoveUp')}
+                                    data-testid={`home-editor-camera-up-${camera.id}`}
+                                >
+                                    ↑
+                                </button>
+                                <button
+                                    type="button"
+                                    className="home-editor-camera-icon-button"
+                                    onClick={() => moveCamera(camera.id, 1)}
+                                    disabled={index === cameras.length - 1}
+                                    aria-label={t('homeEditor.controls.cameraMoveDown')}
+                                    data-testid={`home-editor-camera-down-${camera.id}`}
+                                >
+                                    ↓
+                                </button>
+                                <button
+                                    type="button"
+                                    className="home-editor-camera-icon-button home-editor-camera-icon-button--danger"
+                                    onClick={() => removeCamera(camera.id)}
+                                    disabled={cameras.length <= 1}
+                                    aria-label={t('homeEditor.controls.cameraDelete')}
+                                    data-testid={`home-editor-camera-delete-${camera.id}`}
+                                >
+                                    ×
+                                </button>
+                            </div>
+                        </div>
+                    ))}
                 </div>
-            ) : null}
-            <div className="home-editor-control-group">
-                <label>{t('homeEditor.controls.layoutBucket')}</label>
-                <div className="home-editor-layout-tabs">
-                    {buckets.map((key) => (
+            </section>
+            <div className="home-editor-camera-variants" role="tablist" aria-label={t('homeEditor.controls.layoutBucket')}>
+                {['desktop', 'portrait'].map((key) => (
                         <button
                             key={key}
                             type="button"
-                            className={`home-editor-layout-tab ${selectedKey === key ? 'active' : ''}`}
+                            className={`home-editor-camera-variant ${selectedKey === key ? 'active' : ''}`}
                             onClick={() => setSelectedKey(key)}
+                            role="tab"
+                            aria-selected={selectedKey === key}
+                            data-testid={`home-editor-camera-variant-${key}`}
                         >
                             {t(LAYOUT_LABEL_KEYS[key])}
-                            {currentKey === key ? ' •' : ''}
                         </button>
-                    ))}
-                </div>
-                <span className="home-editor-camera-pose-status">
-                    {isCustomized
-                        ? t('homeEditor.controls.layoutStatusSet')
-                        : t('homeEditor.controls.layoutStatusAuto')}
-                    {currentKey === selectedKey ? ` · ${t('homeEditor.controls.layoutIsCurrent')}` : ''}
-                </span>
+                ))}
+                {currentKey === selectedKey ? <span className="home-editor-camera-current" aria-label={t('homeEditor.controls.layoutIsCurrent')}>•</span> : null}
             </div>
             <RangeControl
                 label={t('homeEditor.controls.cameraFov')}
@@ -158,14 +212,12 @@ export const CameraSection = ({ settings, layoutEditor }) => {
                 formatValue={(value) => formatFloat(value, 1)}
                 onChange={(event) => onFrameInsetChange(parseFloat(event.target.value) / 100)}
             />
-            <p className="home-editor-inline-hint">
-                {t('homeEditor.controls.frameVisibleAspect', { aspect: visibleAspect.toFixed(2) })}
-            </p>
             <div className="home-editor-camera-actions">
                 <button
                     type="button"
                     className="home-editor-action-button"
                     onClick={() => captureLayout(selectedKey)}
+                    data-testid="home-editor-camera-capture"
                 >
                     {t('homeEditor.controls.layoutCapture')}
                 </button>
@@ -174,9 +226,33 @@ export const CameraSection = ({ settings, layoutEditor }) => {
                     className="home-editor-action-button"
                     onClick={() => resetLayout(selectedKey)}
                     disabled={!isCustomized}
+                    data-testid="home-editor-camera-reset"
                 >
                     {t('homeEditor.controls.layoutReset')}
                 </button>
+            </div>
+            <div className="home-editor-camera-playback">
+                <label className="home-editor-camera-playback-toggle">
+                    <input
+                        type="checkbox"
+                        checked={Boolean(slideshow.enabled)}
+                        onChange={(event) => updateSlideshow({ enabled: event.target.checked })}
+                        data-testid="home-editor-slideshow-enabled"
+                    />
+                    <span>{t('homeEditor.controls.slideshow')}</span>
+                </label>
+                <label>
+                    <span>{t('homeEditor.controls.cameraFade')}</span>
+                    <input
+                        type="number"
+                        min="0"
+                        max="30"
+                        step="0.1"
+                        value={fadeSeconds}
+                        onChange={(event) => updateSlideshow({ fadeSeconds: Math.max(0, parseFloat(event.target.value) || 0) })}
+                        data-testid="home-editor-slideshow-fade"
+                    />
+                </label>
             </div>
         </>
     );

@@ -16,6 +16,7 @@ export const RangeControl = ({ label, value, min, max, step = 1, onChange, unit 
         </label>
         <input
             type="range"
+            aria-label={label}
             min={min}
             max={max}
             step={step}
@@ -31,6 +32,7 @@ export const ColorControl = ({ label, value, onChange }) => (
         <label>{label}</label>
         <input
             type="color"
+            aria-label={label}
             value={value}
             onChange={onChange}
         />
@@ -41,6 +43,7 @@ export const SelectControl = ({ label, value, onChange, options }) => (
     <div className="home-editor-control-group">
         <label>{label}</label>
         <select
+            aria-label={label}
             value={value}
             onChange={onChange}
             className="home-editor-select"
@@ -68,6 +71,7 @@ export const CheckboxControl = ({ label, checked, onChange }) => (
         <label style={{ marginBottom: 0 }}>{label}</label>
         <input
             type="checkbox"
+            aria-label={label}
             checked={checked}
             onChange={onChange}
             style={{ width: '20px', height: '20px', cursor: 'pointer' }}

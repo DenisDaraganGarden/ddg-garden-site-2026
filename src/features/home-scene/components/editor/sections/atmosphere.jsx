@@ -22,7 +22,6 @@ export const LightSection = ({ settings, handleSettingChange }) => {
     return (
         <>
             <SectionHeading label={t('homeEditor.blocks.sun')} subtle />
-            <p className="home-editor-inline-hint">{t('homeEditor.controls.sunHint')}</p>
             <RangeControl
                 label={t('homeEditor.controls.timeOfDay')}
                 value={settings.timeOfDay}

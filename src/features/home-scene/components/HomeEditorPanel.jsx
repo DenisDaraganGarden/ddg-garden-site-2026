@@ -241,11 +241,6 @@ const HomeEditorPanel = ({
                         </button>
                     </div>
 
-                    <div className="home-editor-status">
-                        {t('homeEditor.panel.autoSaved')}
-                        {hasPublishChanges ? ` · ${t('homeEditor.panel.publishPending')}` : ''}
-                    </div>
-
                     {publishHint ? (
                         <div className="home-editor-status">
                             {publishHint}

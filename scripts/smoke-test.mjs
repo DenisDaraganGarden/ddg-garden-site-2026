@@ -274,7 +274,33 @@ async function expectVisible(page, locator, description) {
   try {
     await locator.first().waitFor({ state: 'visible', timeout: 10000 });
   } catch (error) {
-    throw new Error(`${description} not visible: ${error.message}`);
+    const geometry = await locator.first().evaluate((node) => {
+      const chain = [];
+      let current = node;
+
+      while (current && chain.length < 6) {
+        const rect = current.getBoundingClientRect();
+        const style = getComputedStyle(current);
+        chain.push({
+          tag: current.tagName.toLowerCase(),
+          className: current.className,
+          width: rect.width,
+          height: rect.height,
+          display: style.display,
+          visibility: style.visibility,
+        });
+        current = current.parentElement;
+      }
+
+      return {
+        chain,
+        panelHeight: getComputedStyle(document.documentElement)
+          .getPropertyValue('--home-editor-panel-height'),
+        viewport: { width: window.innerWidth, height: window.innerHeight },
+      };
+    }).catch(() => null);
+    const details = geometry ? `\nGeometry: ${JSON.stringify(geometry)}` : '';
+    throw new Error(`${description} not visible: ${error.message}${details}`);
   }
 }
 
@@ -626,6 +652,11 @@ async function runDraftMigrationChecks(browser) {
   assert(draftState.legacy.every((value) => value === null), 'Legacy draft keys should be removed');
   assert(draftState.parsed.cameraFov === 49, 'Legacy cameraFov should migrate into draft');
   assert(draftState.parsed.waterMeshDensity === 192, 'Legacy planeMeshDensity should migrate into waterMeshDensity');
+  assert(draftState.parsed.sceneCameras?.length === 1, 'Legacy draft should migrate into one scene camera');
+  assert(
+    draftState.parsed.sceneCameras[0].scene.cameraFov === 49,
+    'Migrated camera should contain the full legacy scene snapshot',
+  );
   log('OK legacy draft migration');
 
   await context.close();
@@ -649,6 +680,84 @@ async function runEditorPublishCoverageChecks() {
 
   log('OK editor publish coverage');
   return [];
+}
+
+async function runCameraSystemChecks(browser) {
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  const page = await context.newPage();
+  const issues = [];
+  collectPageIssues(page, issues);
+
+  await page.goto(`${baseUrl}/home/edit`, { waitUntil: 'domcontentloaded' });
+  await expectVisible(page, page.getByTestId('home-editor-page'), 'camera editor');
+  await page.getByTestId('home-editor-group-render').click();
+  await page.getByTestId('home-editor-tab-camera').click();
+  await expectVisible(page, page.getByTestId('home-editor-camera-list'), 'camera list');
+  assert(await page.getByTestId('home-editor-free-camera-badge').count() === 0, 'Free-camera badge should stay removed');
+  assert(await page.locator('.home-editor-camera-row').count() === 1, 'Legacy scene should migrate to one camera');
+
+  await page.getByTestId('home-editor-camera-add').click();
+  await waitForCondition(
+    async () => (await page.locator('.home-editor-camera-row').count()) === 2,
+    'Adding a camera should create a second row',
+  );
+
+  let ranges = page.locator('.home-editor-controls input[type="range"]');
+  await setRangeValue(ranges.nth(0), 37);
+  await page.getByTestId('home-editor-camera-variant-portrait').click();
+  ranges = page.locator('.home-editor-controls input[type="range"]');
+  await setRangeValue(ranges.nth(0), 46);
+  await page.getByTestId('home-editor-camera-variant-desktop').click();
+  ranges = page.locator('.home-editor-controls input[type="range"]');
+  assert(Number(await ranges.nth(0).inputValue()) === 37, 'Desktop camera FOV should remain independent');
+
+  await page.getByTestId('home-editor-tab-visibility').click();
+  const visibilityChecks = page.locator('.home-editor-controls input[type="checkbox"]');
+  await visibilityChecks.nth(4).uncheck();
+  assert(!(await visibilityChecks.nth(4).isChecked()), 'Camera 2 should hide the boat');
+
+  await page.getByTestId('home-editor-tab-camera').click();
+  await page.getByTestId('home-editor-camera-select-camera-1').click();
+  await page.getByTestId('home-editor-tab-visibility').click();
+  assert(
+    await page.locator('.home-editor-controls input[type="checkbox"]').nth(4).isChecked(),
+    'Camera 1 should retain its independent boat visibility',
+  );
+
+  await page.getByTestId('home-editor-tab-camera').click();
+  await page.getByTestId('home-editor-camera-select-camera-2').click();
+  await page.getByTestId('home-editor-tab-visibility').click();
+  assert(
+    !(await page.locator('.home-editor-controls input[type="checkbox"]').nth(4).isChecked()),
+    'Camera 2 should restore its hidden boat',
+  );
+
+  await page.getByTestId('home-editor-tab-camera').click();
+  await page.getByTestId('home-editor-camera-name-camera-2').fill('Second shot');
+  await page.getByTestId('home-editor-camera-duration-camera-2').fill('1');
+  await page.getByTestId('home-editor-camera-up-camera-2').click();
+  await page.getByTestId('home-editor-slideshow-enabled').check();
+  await page.getByTestId('home-editor-slideshow-fade').fill('0.2');
+  await settlePage(page, 250);
+
+  const draft = await page.evaluate((key) => {
+    const source = localStorage.getItem(key);
+    return source ? JSON.parse(source) : null;
+  }, HOME_SCENE_SETTINGS_STORAGE_KEY);
+  assert(draft?.sceneCameras?.length === 2, 'Draft should persist two cameras');
+  assert(draft.sceneCameras[0].id === 'camera-2', 'Camera reorder should persist array order');
+  assert(draft.sceneCameras[0].name === 'Second shot', 'Camera rename should persist');
+  assert(draft.sceneCameras[0].holdSeconds === 1, 'Per-camera duration should persist');
+  assert(draft.sceneCameras[0].scene.layouts.desktop.cameraFov === 37, 'Desktop FOV should persist in Camera 2');
+  assert(draft.sceneCameras[0].scene.layouts.portrait.cameraFov === 46, 'Portrait FOV should persist in Camera 2');
+  assert(draft.sceneCameras[0].scene.boatVisible === false, 'Full scene visibility should persist in Camera 2');
+  assert(draft.sceneCameras[1].scene.boatVisible === true, 'Camera 1 visibility should remain independent');
+  assert(draft.slideshow.enabled === true, 'Slideshow enabled state should persist');
+  assert(draft.slideshow.fadeSeconds === 0.2, 'Slideshow fade should persist');
+
+  log('OK multi-camera editor');
+  await context.close();
+  return issues;
 }
 
 async function runPublishChecks(browser) {
@@ -713,6 +822,8 @@ async function runPublishChecks(browser) {
         && settings.layouts?.desktop?.boatPosition?.x === 3.45
         && settings.layouts?.desktop?.boatPosition?.z === -2.2
         && settings.boatRoughness === 0.41
+        && settings.sceneCameras?.[0]?.scene?.waterExtent === 31.5
+        && settings.sceneCameras?.[0]?.scene?.boatRoughness === 0.41
       );
     }, 'Publish did not update water settings');
     await waitForCondition(async () => publishButton.isDisabled(), 'Publish button should disable after save');
@@ -725,6 +836,8 @@ async function runPublishChecks(browser) {
     for (const key of keys) {
       assert(settings[key] !== undefined, `Published settings missing key: ${key}`);
     }
+    assert(settings.sceneCameras.length >= 1, 'Published camera catalogue should not be empty');
+    assert(settings.slideshow && typeof settings.slideshow.enabled === 'boolean', 'Published slideshow settings should exist');
 
     log('OK publish flow');
   } finally {
@@ -851,6 +964,7 @@ async function main() {
       ...(await runWebglFallbackChecks(browser)),
       ...(await runEditorPublishCoverageChecks()),
       ...(await runDraftMigrationChecks(browser)),
+      ...(await runCameraSystemChecks(browser)),
       ...(await runPublishChecks(browser)),
       ...(await runRuntimeStabilityChecks(browser)),
       ...(await runLongSessionMemoryChecks(browser)),

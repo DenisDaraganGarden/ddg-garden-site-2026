@@ -41,15 +41,7 @@
   height: min(var(--home-editor-stage-height), 56.25vw);
 }
 
-.home-editor-viewport--free-camera {
-  width: 100vw;
-  height: var(--home-editor-stage-height);
-  box-shadow:
-    0 0 0 1px rgba(240, 178, 75, 0.42),
-    0 0 24px rgba(240, 178, 75, 0.08);
-}
-
-.home-editor-viewport--free-camera canvas:focus {
+.home-editor-viewport canvas:focus {
   outline: none;
 }
 
@@ -74,46 +66,6 @@
 
 .home-editor-frame-mask--bottom {
   bottom: 0;
-}
-
-.home-editor-free-camera-badge {
-  position: absolute;
-  left: 0.6rem;
-  bottom: 0.6rem;
-  z-index: 30;
-  display: flex;
-  align-items: center;
-  gap: 0.55rem;
-  max-width: calc(100% - 1.2rem);
-  padding: 0.34rem 0.38rem 0.34rem 0.55rem;
-  border: 1px solid rgba(240, 178, 75, 0.32);
-  border-radius: 8px;
-  background: rgba(11, 11, 11, 0.78);
-  color: rgba(255, 255, 255, 0.72);
-  font-family: var(--font-secondary);
-  font-size: 0.62rem;
-  line-height: 1.2;
-  backdrop-filter: blur(12px);
-}
-
-.home-editor-free-camera-badge strong {
-  color: #f2c36f;
-  font-weight: 500;
-}
-
-.home-editor-free-camera-badge button {
-  flex: 0 0 auto;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 6px;
-  padding: 0.25rem 0.42rem;
-  background: rgba(255, 255, 255, 0.08);
-  color: #f5f5f5;
-  font: inherit;
-  cursor: pointer;
-}
-
-.home-editor-free-camera-badge button:hover {
-  background: rgba(255, 255, 255, 0.16);
 }
 
 /* Docked to the bottom edge: the header drags vertically to resize it, so every
@@ -389,102 +341,227 @@
   cursor: pointer;
 }
 
-.home-editor-camera-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.38rem;
+.home-editor-cameras {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
 }
 
-.home-editor-layout-tabs {
+.home-editor-cameras-header {
   display: flex;
-  gap: 0.4rem;
-  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  font-family: var(--font-secondary);
+  font-size: 0.61rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.62);
 }
 
-.home-editor-layout-tab {
-  flex: 1 1 auto;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  background: rgba(255, 255, 255, 0.04);
-  color: #f5f5f5;
-  padding: 0.4rem 0.5rem;
-  border-radius: 7px;
+.home-editor-camera-list {
+  display: grid;
+  border-top: 1px solid rgba(255, 255, 255, 0.09);
+}
+
+.home-editor-camera-row {
+  display: grid;
+  grid-template-columns: auto auto minmax(5rem, 1fr) auto auto;
+  align-items: center;
+  min-height: 1.72rem;
+  gap: 0.32rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.075);
+  color: rgba(255, 255, 255, 0.64);
+}
+
+.home-editor-camera-row.active {
+  color: #fff;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.1), transparent 60%);
+}
+
+.home-editor-camera-row > input[type="checkbox"],
+.home-editor-camera-playback input[type="checkbox"] {
+  width: 0.82rem;
+  height: 0.82rem;
+  margin: 0;
+  accent-color: #eee;
+}
+
+.home-editor-camera-select,
+.home-editor-camera-icon-button,
+.home-editor-camera-variant,
+.home-editor-action-button {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
   cursor: pointer;
+}
+
+.home-editor-camera-select {
+  padding: 0.08rem 0;
+}
+
+.home-editor-camera-number {
+  color: rgba(255, 255, 255, 0.42);
+  font-family: var(--font-secondary);
+  font-size: 0.61rem;
+  letter-spacing: 0.08em;
+}
+
+.home-editor-camera-row.active .home-editor-camera-number {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.home-editor-camera-name {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  outline: 0;
+  padding: 0.12rem 0;
+  background: transparent;
+  color: inherit;
   font-family: var(--font-secondary);
   font-size: 0.69rem;
-  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
 }
 
-.home-editor-layout-tab:hover {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.24);
+.home-editor-camera-name:focus {
+  border-bottom-color: rgba(255, 255, 255, 0.55);
 }
 
-.home-editor-layout-tab.active {
-  background: rgba(255, 255, 255, 0.92);
-  color: #111;
-  border-color: transparent;
-}
-
-.home-editor-camera-pose-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.7rem;
-}
-
-.home-editor-camera-pose-block {
+.home-editor-camera-hold {
   display: flex;
-  flex-direction: column;
-  gap: 0.45rem;
-  padding: 0.55rem;
-  border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.02);
+  align-items: baseline;
+  gap: 0.1rem;
+  color: rgba(255, 255, 255, 0.48);
+  font-family: var(--font-secondary);
+  font-size: 0.59rem;
 }
 
-.home-editor-camera-pose-heading {
+.home-editor-camera-hold input,
+.home-editor-camera-playback input[type="number"] {
+  width: 2.35rem;
+  min-width: 0;
+  border: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.18);
+  outline: 0;
+  padding: 0.07rem 0;
+  background: transparent;
+  color: #f2f2f2;
+  font: inherit;
+  text-align: right;
+}
+
+.home-editor-camera-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.06rem;
+}
+
+.home-editor-camera-icon-button {
+  width: 1.18rem;
+  height: 1.18rem;
+  padding: 0;
+  color: rgba(255, 255, 255, 0.54);
+  font-size: 0.82rem;
+  line-height: 1;
+}
+
+.home-editor-camera-icon-button:hover:not(:disabled),
+.home-editor-camera-select:hover,
+.home-editor-camera-variant:hover,
+.home-editor-action-button:hover:not(:disabled) {
+  color: #fff;
+}
+
+.home-editor-camera-icon-button--danger:hover:not(:disabled) {
+  color: #e3a2a2;
+}
+
+.home-editor-camera-icon-button:disabled,
+.home-editor-action-button:disabled {
+  cursor: default;
+  opacity: 0.24;
+}
+
+.home-editor-camera-variants {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.09);
+}
+
+.home-editor-camera-variant {
+  position: relative;
+  padding: 0.17rem 0;
+  color: rgba(255, 255, 255, 0.5);
   font-family: var(--font-secondary);
-  font-size: 0.68rem;
-  letter-spacing: 0.11em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.66rem;
+}
+
+.home-editor-camera-variant.active {
+  color: #fff;
+}
+
+.home-editor-camera-variant.active::after {
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 1px;
+  background: #fff;
+  content: '';
+}
+
+.home-editor-camera-current {
+  color: rgba(240, 178, 75, 0.9);
+  font-size: 0.8rem;
+}
+
+.home-editor-camera-actions {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
 }
 
 .home-editor-action-button {
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  background: rgba(255, 255, 255, 0.04);
-  color: #f5f5f5;
-  padding: 0.44rem 0.6rem;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: background 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+  padding: 0.18rem 0;
+  color: rgba(255, 255, 255, 0.72);
   font-family: var(--font-secondary);
-  font-size: 0.68rem;
+  font-size: 0.67rem;
 }
 
-.home-editor-action-button:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.24);
+.home-editor-action-button + .home-editor-action-button::before {
+  display: inline-block;
+  width: 1px;
+  height: 0.65rem;
+  margin-right: 0.6rem;
+  background: rgba(255, 255, 255, 0.16);
+  content: '';
+  vertical-align: -0.06rem;
 }
 
-.home-editor-action-button:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
-}
-
-.home-editor-camera-pose-status {
-  color: rgba(255, 255, 255, 0.74);
-  font-family: var(--font-secondary);
-  font-size: 0.65rem;
-  line-height: 1.35;
-}
-
-.home-editor-inline-hint {
+.home-editor-camera-playback {
   grid-column: 1 / -1;
-  margin: 0;
-  color: rgba(255, 255, 255, 0.68);
+  display: flex;
+  align-items: center;
+  gap: 0.72rem;
+  color: rgba(255, 255, 255, 0.58);
   font-family: var(--font-secondary);
-  font-size: 0.65rem;
-  line-height: 1.3;
+  font-size: 0.62rem;
+}
+
+.home-editor-camera-playback label {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.home-editor-camera-playback-toggle {
+  color: rgba(255, 255, 255, 0.78);
 }
 
 @media (max-width: 900px) {

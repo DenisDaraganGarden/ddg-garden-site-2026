@@ -139,6 +139,7 @@ function WaterRuntimeScene({
   onSculpturePositionChange,
   onSceneReady,
   editorGizmo,
+  cameraPoseKey,
 }) {
   const { gl, size } = useThree();
   const qualityProfile = useMemo(
@@ -221,7 +222,8 @@ function WaterRuntimeScene({
         layoutKey={activeLayoutKey}
         onCameraRigApi={onCameraRigApi}
         orbitRef={orbitRef}
-        freeCamera={mode === 'editor' && Boolean(settings.freeCamera)}
+        freeCamera={mode === 'editor'}
+        poseKey={cameraPoseKey}
       />
       <WaterReflections
         enabled={opticsEnabled}
@@ -339,6 +341,7 @@ const WaterScene = ({
   onSculpturePositionChange,
   onSceneReady,
   editorGizmo,
+  cameraPoseKey,
 }) => {
   const settings = settingsProp ?? getBaseHomeSceneSettings();
 
@@ -361,6 +364,7 @@ const WaterScene = ({
         onBoatPositionChange={onBoatPositionChange}
         onSculpturePositionChange={onSculpturePositionChange}
         onSceneReady={onSceneReady}
+        cameraPoseKey={cameraPoseKey}
       />
     </SceneCanvas>
   );

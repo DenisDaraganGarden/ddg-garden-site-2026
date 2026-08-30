@@ -5,6 +5,12 @@ import {
   clampLayoutFrameInset,
   DEFAULT_LAYOUT_FRAME_INSETS,
 } from '../lib/layout';
+import {
+  applySceneSnapshot,
+  createSceneSnapshot,
+  normalizeSceneCameras,
+  normalizeSlideshow,
+} from '../lib/sceneCameras';
 
 export const HOME_SCENE_SETTINGS_STORAGE_KEY = 'ddg_home_scene_settings_v1';
 const HOME_SCENE_WATER_DEFAULT_MIGRATION_KEY = 'ddg_home_scene_water_default_128_v1';
@@ -50,6 +56,7 @@ const DEFAULT_CAMERA_TARGET = { x: 0, y: 0, z: 0 };
 const DEFAULT_SCULPTURE_POSITION = { x: 0.6, z: 1.2 };
 const DEFAULT_BOAT_POSITION = { x: 2.1, z: -1.4 };
 const DEFAULT_CAMERA_FOV = 36;
+const MAX_CAMERA_COORDINATE = 1_000_000;
 
 // One composition bucket (see features/home-scene/lib/layout.js for selection logic).
 const buildLayout = (cameraPosition, cameraFov, frameInset) => ({
@@ -116,9 +123,9 @@ const pickVector3 = (value, fallback) => {
   }
 
   return {
-    x: clampFloat(value.x, -120, 120, fallback.x),
-    y: clampFloat(value.y, -120, 120, fallback.y),
-    z: clampFloat(value.z, -120, 120, fallback.z),
+    x: clampFloat(value.x, -MAX_CAMERA_COORDINATE, MAX_CAMERA_COORDINATE, fallback.x),
+    y: clampFloat(value.y, -MAX_CAMERA_COORDINATE, MAX_CAMERA_COORDINATE, fallback.y),
+    z: clampFloat(value.z, -MAX_CAMERA_COORDINATE, MAX_CAMERA_COORDINATE, fallback.z),
   };
 };
 const pickColor = (value, fallback) => (
@@ -424,7 +431,7 @@ const normalizeLegacySettings = (savedSettings, defaults) => {
   return legacy;
 };
 
-const normalizeHomeSceneSettings = (savedSettings = {}) => {
+const normalizeHomeSceneSettings = (savedSettings = {}, includeCameraSystem = true) => {
   const defaults = getBaseHomeSceneSettings();
   const legacy = normalizeLegacySettings(savedSettings, defaults);
   const merged = {
@@ -518,7 +525,7 @@ const normalizeHomeSceneSettings = (savedSettings = {}) => {
     desktop: resolveBucket(incomingLayouts.desktop, legacyDesktopLayout),
   };
 
-  return {
+  const normalizedScene = {
     waterExtent: clampFloat(merged.waterExtent, 12, 200, defaults.waterExtent),
     simulationResolution: clampResolution(merged.simulationResolution),
     waterMeshDensity: clampInt(merged.waterMeshDensity, 96, 384, defaults.waterMeshDensity),
@@ -841,7 +848,47 @@ const normalizeHomeSceneSettings = (savedSettings = {}) => {
     freeCamera: pickBoolean(merged.freeCamera, defaults.freeCamera),
     debugWireframe: pickBoolean(merged.debugWireframe, defaults.debugWireframe),
   };
+
+  if (!includeCameraSystem) {
+    return normalizedScene;
+  }
+
+  const fallbackScene = createSceneSnapshot(normalizedScene, publishedHomeSceneKeys);
+  const normalizeSnapshot = (snapshot, fallback = fallbackScene) => createSceneSnapshot(
+    normalizeHomeSceneSettings({ ...fallback, ...snapshot }, false),
+    publishedHomeSceneKeys,
+  );
+  const sceneCameras = normalizeSceneCameras(
+    savedSettings.sceneCameras,
+    fallbackScene,
+    normalizeSnapshot,
+  );
+  const requestedActiveCameraId = typeof savedSettings.activeCameraId === 'string'
+    ? savedSettings.activeCameraId
+    : '';
+  const activeCameraId = sceneCameras.some((camera) => camera.id === requestedActiveCameraId)
+    ? requestedActiveCameraId
+    : sceneCameras[0].id;
+
+  return {
+    ...normalizedScene,
+    sceneCameras,
+    slideshow: normalizeSlideshow(savedSettings.slideshow),
+    activeCameraId,
+  };
 };
+
+export const HOME_SCENE_SNAPSHOT_KEYS = Object.freeze(
+  publishedHomeSceneKeys.filter((key) => key !== 'sceneCameras' && key !== 'slideshow'),
+);
+
+export const createHomeSceneSnapshot = (settings = {}) => (
+  createSceneSnapshot(settings, HOME_SCENE_SNAPSHOT_KEYS)
+);
+
+export const applyHomeSceneSnapshot = (settings = {}, snapshot = {}) => (
+  applySceneSnapshot(settings, snapshot)
+);
 
 export const sanitizeHomeSceneSettingsForPublish = (settings = {}) => {
   const normalizedSettings = normalizeHomeSceneSettings(settings);

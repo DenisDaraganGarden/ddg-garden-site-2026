@@ -22,7 +22,6 @@ const LightBody = ({ settings, handleSettingChange, slot }) => {
 
     return (
         <>
-            <p className="home-editor-inline-hint">{t('homeEditor.controls.lightBodyHint')}</p>
             <CheckboxControl
                 label={t('homeEditor.controls.lightEnabled')}
                 checked={Boolean(settings[`${prefix}Enabled`])}
@@ -53,7 +52,6 @@ const LightBody = ({ settings, handleSettingChange, slot }) => {
                 unit="°"
                 onChange={(event) => handleSettingChange(event, `${prefix}ConeAngle`)}
             />
-            <p className="home-editor-inline-hint">{t('homeEditor.controls.lightConeHint')}</p>
             <RangeControl
                 label={t('homeEditor.controls.lightSoftness')}
                 value={settings[`${prefix}Softness`]}
@@ -101,7 +99,6 @@ const LightTarget = ({ settings, handleSettingChange, slot }) => {
 
     return (
         <>
-            <p className="home-editor-inline-hint">{t('homeEditor.controls.lightTargetHint')}</p>
             {['X', 'Y', 'Z'].map((axis) => (
                 <RangeControl
                     key={axis}

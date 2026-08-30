@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import WaterScene from '../components/effects/WaterScene';
 import { usePublishedHomeSceneSettings } from '../features/home-scene/hooks/useHomeSceneSettings';
 import { useHomeChromeVisibility } from '../features/home-scene/hooks/useHomeChromeVisibility';
@@ -10,11 +10,197 @@ import {
 import ddgLogo from '../../portfolio/DDG_logo.png';
 import '../styles/Home.css';
 
+const DEFAULT_HOLD_SECONDS = 8;
+const BLACK_FRAME_SETTLE_MS = 80;
+
+const clampSeconds = (value, fallback, minimum = 0) => {
+    const numericValue = Number(value);
+
+    if (!Number.isFinite(numericValue)) {
+        return fallback;
+    }
+
+    return Math.max(minimum, Math.min(numericValue, 3600));
+};
+
+const getEnabledSceneCameras = (sceneCameras) => (
+    Array.isArray(sceneCameras)
+        ? sceneCameras.filter((camera) => (
+            camera
+            && camera.enabled !== false
+            && typeof camera.id === 'string'
+            && camera.id.length > 0
+            && camera.scene
+            && typeof camera.scene === 'object'
+        ))
+        : []
+);
+
+function useHomeSceneSlideshow(settings, isSceneReady) {
+    const sequenceFingerprint = JSON.stringify({
+        slideshow: settings?.slideshow ?? null,
+        sceneCameras: settings?.sceneCameras ?? [],
+    });
+    // The hook receives a freshly-normalized settings object on each Home render.
+    // Freeze the sequence by its JSON content, otherwise a state update would
+    // restart the clock simply because the wrapper object has a new identity.
+    const sequenceSource = useMemo(
+        () => JSON.parse(sequenceFingerprint).sceneCameras,
+        [sequenceFingerprint],
+    );
+    const sequence = useMemo(
+        () => getEnabledSceneCameras(sequenceSource),
+        [sequenceSource],
+    );
+    const isConfigured = Boolean(settings?.slideshow?.enabled) && sequence.length > 1;
+    const canAdvance = isConfigured && isSceneReady;
+    const configuredFadeSeconds = clampSeconds(settings?.slideshow?.fadeSeconds, 1.2);
+    const [isDocumentVisible, setIsDocumentVisible] = useState(() => (
+        typeof document === 'undefined' || document.visibilityState === 'visible'
+    ));
+    const [reducedMotion, setReducedMotion] = useState(() => (
+        typeof window !== 'undefined'
+        && typeof window.matchMedia === 'function'
+        && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    ));
+    const [activeCameraId, setActiveCameraId] = useState(() => sequence[0]?.id ?? null);
+    const [phase, setPhase] = useState('idle');
+
+    useEffect(() => {
+        if (typeof document === 'undefined') {
+            return undefined;
+        }
+
+        const syncVisibility = () => setIsDocumentVisible(document.visibilityState === 'visible');
+        syncVisibility();
+        document.addEventListener('visibilitychange', syncVisibility);
+        return () => document.removeEventListener('visibilitychange', syncVisibility);
+    }, []);
+
+    useEffect(() => {
+        if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+            return undefined;
+        }
+
+        const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+        const syncReducedMotion = () => setReducedMotion(mediaQuery.matches);
+        syncReducedMotion();
+        mediaQuery.addEventListener?.('change', syncReducedMotion);
+        return () => mediaQuery.removeEventListener?.('change', syncReducedMotion);
+    }, []);
+
+    // Any edit to the published sequence cancels the old clock. Keep the same
+    // shot when it survives the edit; otherwise start from the first enabled one.
+    useEffect(() => {
+        setActiveCameraId((currentId) => (
+            sequence.some((camera) => camera.id === currentId)
+                ? currentId
+                : (sequence[0]?.id ?? null)
+        ));
+        setPhase('idle');
+    }, [sequence, sequenceFingerprint]);
+
+    const activeCameraIndex = sequence.findIndex((camera) => camera.id === activeCameraId);
+    const activeCamera = activeCameraIndex >= 0 ? sequence[activeCameraIndex] : null;
+    const activeSettings = activeCamera?.scene ?? settings;
+    const fadeSeconds = reducedMotion ? 0 : configuredFadeSeconds;
+    const fadeMilliseconds = Math.round(fadeSeconds * 1000);
+
+    // The timer is deliberately restarted after a background tab resumes. A
+    // hidden tab is not allowed to return halfway through a transition or skip a
+    // composition because its timers were throttled.
+    useEffect(() => {
+        if (!canAdvance || !isDocumentVisible || phase !== 'idle') {
+            return undefined;
+        }
+
+        const holdMilliseconds = Math.round(
+            clampSeconds(activeCamera?.holdSeconds, DEFAULT_HOLD_SECONDS, 0.1) * 1000,
+        );
+        const timerId = window.setTimeout(() => setPhase('fade-out'), holdMilliseconds);
+        return () => window.clearTimeout(timerId);
+    }, [activeCamera?.holdSeconds, canAdvance, fadeMilliseconds, isDocumentVisible, phase]);
+
+    useEffect(() => {
+        if (!canAdvance || !isDocumentVisible || phase !== 'fade-out') {
+            return undefined;
+        }
+
+        const changeCamera = () => {
+            setActiveCameraId((currentId) => {
+                const currentIndex = sequence.findIndex((camera) => camera.id === currentId);
+                const nextIndex = currentIndex >= 0 ? (currentIndex + 1) % sequence.length : 0;
+                return sequence[nextIndex]?.id ?? null;
+            });
+            setPhase('black');
+        };
+
+        if (fadeMilliseconds === 0) {
+            changeCamera();
+            return undefined;
+        }
+
+        const timerId = window.setTimeout(changeCamera, fadeMilliseconds);
+        return () => window.clearTimeout(timerId);
+    }, [canAdvance, fadeMilliseconds, isDocumentVisible, phase, sequence]);
+
+    useEffect(() => {
+        if (!canAdvance || !isDocumentVisible || phase !== 'black') {
+            return undefined;
+        }
+
+        let settleTimerId;
+        const animationFrameId = window.requestAnimationFrame(() => {
+            settleTimerId = window.setTimeout(() => setPhase('fade-in'), BLACK_FRAME_SETTLE_MS);
+        });
+
+        return () => {
+            window.cancelAnimationFrame(animationFrameId);
+            if (settleTimerId !== undefined) {
+                window.clearTimeout(settleTimerId);
+            }
+        };
+    }, [canAdvance, isDocumentVisible, phase]);
+
+    useEffect(() => {
+        if (!canAdvance || !isDocumentVisible || phase !== 'fade-in') {
+            return undefined;
+        }
+
+        if (fadeMilliseconds === 0) {
+            setPhase('idle');
+            return undefined;
+        }
+
+        const timerId = window.setTimeout(() => setPhase('idle'), fadeMilliseconds);
+        return () => window.clearTimeout(timerId);
+    }, [canAdvance, fadeMilliseconds, isDocumentVisible, phase]);
+
+    // Stopping or hiding a slideshow always leaves the current shot visible.
+    useEffect(() => {
+        if (!canAdvance || !isDocumentVisible) {
+            setPhase('idle');
+        }
+    }, [canAdvance, isDocumentVisible]);
+
+    return {
+        activeCamera,
+        activeCameraIndex,
+        activeSettings,
+        cameraCount: sequence.length,
+        fadeSeconds,
+        isActive: isConfigured,
+        phase,
+    };
+}
+
 const Home = () => {
     const { settings } = usePublishedHomeSceneSettings();
     const [isSceneReady, setIsSceneReady] = useState(false);
     const [isLoaderMinimumElapsed, setIsLoaderMinimumElapsed] = useState(false);
     const [showLoaderOverlay, setShowLoaderOverlay] = useState(true);
+    const slideshow = useHomeSceneSlideshow(settings, isSceneReady);
+    const activeSettings = slideshow.activeSettings;
     const [viewport, setViewport] = useState(() => {
         const width = typeof window === 'undefined' ? 16 : window.innerWidth;
         const height = typeof window === 'undefined' ? 9 : window.innerHeight;
@@ -102,7 +288,7 @@ const Home = () => {
         setIsSceneReady(true);
     }, []);
 
-    const frameInset = resolveLayoutFrameInset(settings.layouts, viewport.layoutKey);
+    const frameInset = resolveLayoutFrameInset(activeSettings.layouts, viewport.layoutKey);
     const visibleAspect = getLayoutVisibleAspect(viewport.layoutKey, frameInset);
     const viewportAspect = viewport.height > 0 ? viewport.width / viewport.height : visibleAspect;
     const viewportFrameInset = Math.min(
@@ -110,13 +296,13 @@ const Home = () => {
         Math.max(0, (1 - (viewportAspect / visibleAspect)) * 0.5),
     );
 
-    useHomeChromeVisibility(settings);
+    useHomeChromeVisibility(activeSettings);
 
     // Turning the bars off means letting the scene fill the viewport rather than
     // painting the black strips over it - under them is the same black. The camera
     // fit already expands to contain the authored composition when the viewport is
     // wider than the reference, so nothing is cropped.
-    const frameBarInset = settings.uiFrameVisible === false ? 0 : viewportFrameInset;
+    const frameBarInset = activeSettings.uiFrameVisible === false ? 0 : viewportFrameInset;
 
     // The header is rendered outside .home-page, so it cannot inherit the band
     // geometry from it. Publishing the inset on the root lets the title and menu
@@ -135,6 +321,11 @@ const Home = () => {
             data-testid="home-page"
             data-layout={viewport.layoutKey}
             data-visible-aspect={visibleAspect.toFixed(3)}
+            data-slideshow-active={slideshow.isActive ? 'true' : 'false'}
+            data-slideshow-phase={slideshow.phase}
+            data-scene-camera-count={String(slideshow.cameraCount)}
+            data-scene-camera-index={String(slideshow.activeCameraIndex)}
+            data-scene-camera-id={slideshow.activeCamera?.id ?? ''}
             style={{ '--home-frame-inset': `${frameBarInset * 100}dvh` }}
         >
             <div className="home-cinematic-frame home-cinematic-frame--top" />
@@ -144,8 +335,16 @@ const Home = () => {
             <div
                 className={`home-water-container ${isSceneReady ? 'home-water-container--visible' : ''}`}
             >
-                <WaterScene settings={settings} sceneId="water-scene" onSceneReady={handleSceneReady} />
+                <WaterScene settings={activeSettings} sceneId="water-scene" onSceneReady={handleSceneReady} />
             </div>
+
+            <div
+                className={`home-scene-transition home-scene-transition--${slideshow.phase}`}
+                data-testid="home-scene-transition"
+                data-state={slideshow.phase}
+                aria-hidden="true"
+                style={{ '--home-scene-transition-duration': `${slideshow.fadeSeconds}s` }}
+            />
 
             {showLoaderOverlay ? (
                 <div
