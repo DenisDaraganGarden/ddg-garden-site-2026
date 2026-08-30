@@ -41,6 +41,13 @@ export const HOME_SCENE_DEBUG_VIEWS = [
   { value: 'seabed-depth', label: 'Seabed Depth' },
 ];
 
+export const HOME_SCENE_CLOUD_PRESETS = [
+  { value: 'clear-cumulus', labelKey: 'cloudPresetClearCumulus' },
+  { value: 'warm-veil', labelKey: 'cloudPresetWarmVeil' },
+  { value: 'red-horizon', labelKey: 'cloudPresetRedHorizon' },
+  { value: 'storm-deck', labelKey: 'cloudPresetStormDeck' },
+];
+
 export const HOME_SCENE_FOG_MODES = [
   { value: 'off', label: 'Off' },
   { value: 'cheap', label: 'Cheap' },
@@ -85,6 +92,7 @@ const buildLayout = (cameraPosition, cameraFov, frameInset) => ({
   sculpturePosition: { ...DEFAULT_SCULPTURE_POSITION },
 });
 const VALID_HDRI_PRESETS = new Set(HOME_SCENE_HDRI_PRESETS.map((option) => option.value));
+const VALID_CLOUD_PRESETS = new Set(HOME_SCENE_CLOUD_PRESETS.map((option) => option.value));
 const VALID_DEBUG_VIEWS = new Set(HOME_SCENE_DEBUG_VIEWS.map((option) => option.value));
 const VALID_FOG_MODES = new Set(HOME_SCENE_FOG_MODES.map((option) => option.value));
 const VALID_FILM_STOCKS = new Set(HOME_SCENE_FILM_STOCKS.map((option) => option.value));
@@ -207,7 +215,12 @@ export const getBaseHomeSceneSettings = () => ({
   sunIntensity: 1.6,
   sunAngularSize: 1,
   skyTurbidity: 2.6,
+  cloudPreset: 'clear-cumulus',
   cloudCover: 0,
+  cloudHorizon: 0.38,
+  cloudDensity: 0.62,
+  cloudScale: 1,
+  cloudSunOcclusion: 0.72,
   distantSurfaceColor: '#70716d',
   moonPhase: 0.5,
   moonBrightness: 1,
@@ -698,7 +711,19 @@ const normalizeHomeSceneSettings = (savedSettings = {}, includeCameraSystem = tr
     ),
     sunAngularSize: clampFloat(merged.sunAngularSize, 0.2, 6, defaults.sunAngularSize),
     skyTurbidity: clampFloat(merged.skyTurbidity, 1, 10, defaults.skyTurbidity),
+    cloudPreset: VALID_CLOUD_PRESETS.has(merged.cloudPreset)
+      ? merged.cloudPreset
+      : defaults.cloudPreset,
     cloudCover: clampFloat(merged.cloudCover, 0, 1, defaults.cloudCover),
+    cloudHorizon: clampFloat(merged.cloudHorizon, 0, 1, defaults.cloudHorizon),
+    cloudDensity: clampFloat(merged.cloudDensity, 0, 1, defaults.cloudDensity),
+    cloudScale: clampFloat(merged.cloudScale, 0.5, 4, defaults.cloudScale),
+    cloudSunOcclusion: clampFloat(
+      merged.cloudSunOcclusion,
+      0,
+      1,
+      defaults.cloudSunOcclusion,
+    ),
     distantSurfaceColor: pickColor(
       merged.distantSurfaceColor,
       defaults.distantSurfaceColor,

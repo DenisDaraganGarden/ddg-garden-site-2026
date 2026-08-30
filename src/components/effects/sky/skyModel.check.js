@@ -16,6 +16,11 @@ import {
   solveNightWeight,
   solveSunElevationAzimuth,
 } from './skyModel.js';
+import {
+  resolveCloudState,
+  sampleCloudField,
+  solveCloudSunVisibility,
+} from './cloudField.js';
 
 const luminance = (rgb) => 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2];
 
@@ -130,7 +135,43 @@ const sampleLut = (lut, azimuthDeg, elevationDeg) => {
   assert.ok(warmth(zenith) < 1, 'the zenith must stay cool at sunset');
 }
 
-// --- overcast moves light from the beam into the dome ----------------------
+// --- the cloud field is deterministic and seamless -------------------------
+
+{
+  const cloudState = resolveCloudState({
+    cloudPreset: 'warm-veil',
+    cloudCover: 0.7,
+    cloudHorizon: 0.5,
+    cloudDensity: 0.8,
+    cloudScale: 1.3,
+    cloudSunOcclusion: 0.6,
+    keyDirection: buildHomeSceneLightDirection(20, 12),
+  });
+  const direction = buildHomeSceneLightDirection(128, 9);
+  assert.deepEqual(
+    sampleCloudField(direction, cloudState),
+    sampleCloudField(direction, cloudState),
+    'the authored cloud field must be deterministic',
+  );
+
+  const atAzimuth = (azimuthDeg, elevationDeg) => {
+    const azimuth = azimuthDeg * Math.PI / 180;
+    const elevation = elevationDeg * Math.PI / 180;
+    return [
+      Math.cos(elevation) * Math.cos(azimuth),
+      Math.sin(elevation),
+      Math.cos(elevation) * Math.sin(azimuth),
+    ];
+  };
+  const seamLeft = sampleCloudField(atAzimuth(-179.999, 5), cloudState);
+  const seamRight = sampleCloudField(atAzimuth(179.999, 5), cloudState);
+  assert.ok(
+    Math.abs(seamLeft.opacity - seamRight.opacity) < 0.001,
+    'the spherical cloud field must close without an equirectangular seam',
+  );
+}
+
+// --- a storm moves light from the beam into the cloud dome -----------------
 
 {
   const base = {
@@ -141,12 +182,33 @@ const sampleLut = (lut, azimuthDeg, elevationDeg) => {
   };
 
   const clear = buildSkyLut({ ...base, cloudCover: 0 });
-  const overcast = buildSkyLut({ ...base, cloudCover: 1 });
+  const overcast = buildSkyLut({
+    ...base,
+    cloudPreset: 'storm-deck',
+    cloudCover: 1,
+    cloudHorizon: 0.8,
+    cloudDensity: 1,
+    cloudSunOcclusion: 1,
+  });
 
   assert.ok(clear.directShare > 0.5, `a clear noon must be beam-dominated, got ${clear.directShare}`);
   assert.ok(
-    overcast.directShare < 0.12,
-    `overcast must nearly extinguish the beam share, got ${overcast.directShare}`,
+    overcast.directShare < 0.3,
+    `a storm deck must make diffuse light dominant, got ${overcast.directShare}`,
+  );
+  assert.ok(overcast.cloudCoverage > 0.6, 'a full storm deck must cover most of the dome');
+  assert.ok(overcast.sunVisibility < 0.2, 'the same storm mask must obscure the sun');
+  assert.equal(
+    overcast.sunVisibility,
+    solveCloudSunVisibility(base.keyDirection, {
+      ...base,
+      cloudPreset: 'storm-deck',
+      cloudCover: 1,
+      cloudHorizon: 0.8,
+      cloudDensity: 1,
+      cloudSunOcclusion: 1,
+    }),
+    'the LUT and the light solver must sample the same sun mask',
   );
   assert.ok(
     luminance(overcast.skyIrradiance) > 0,

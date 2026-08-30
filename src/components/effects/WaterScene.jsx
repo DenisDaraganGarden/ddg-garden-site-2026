@@ -175,9 +175,16 @@ function WaterRuntimeScene({
   // One sky, built once, handed to everything that has to agree about it: the
   // visible dome, the water that reflects it, and (from Phase 2) the image-based
   // light on every material.
+  // Desktop keeps enough angular detail for the scene's narrow authored lens;
+  // mobile/low-power tiers stay small enough to avoid a large one-time CPU +
+  // PMREM spike on iOS.
   const sky = useSkyEnvironment(lighting.sky, {
-    width: qualityProfile.isLowPower ? 128 : 256,
-    height: qualityProfile.isLowPower ? 64 : 128,
+    width: qualityProfile.isLowPower
+      ? 256
+      : (qualityProfile.isMobileDevice ? 512 : 1536),
+    height: qualityProfile.isLowPower
+      ? 128
+      : (qualityProfile.isMobileDevice ? 256 : 768),
   });
   const runtime = useWaterRuntime(settings, qualityProfile, mode);
   const landingSitesRef = useRef([]);
@@ -249,6 +256,7 @@ function WaterRuntimeScene({
     dataset.ddgWaterEngine = 'v2';
     dataset.ddgQualityTier = qualityProfile.qualityTier ?? (qualityProfile.isLowPower ? 'low' : 'high');
     dataset.ddgMobileProfile = qualityProfile.isMobileDevice ? 'on' : 'off';
+    dataset.ddgSkyLut = `${sky.width}x${sky.height}`;
     dataset.ddgSimulationRequested = String(settings.simulationResolution);
     dataset.ddgSimulationEffective = String(runtime.effectiveResolution);
     const refractionColor = qualityProfile.refractionTextureType === THREE.UnsignedByteType
@@ -268,6 +276,7 @@ function WaterRuntimeScene({
       delete dataset.ddgWaterEngine;
       delete dataset.ddgQualityTier;
       delete dataset.ddgMobileProfile;
+      delete dataset.ddgSkyLut;
       delete dataset.ddgSimulationRequested;
       delete dataset.ddgSimulationEffective;
       delete dataset.ddgRefractionMode;
@@ -295,6 +304,8 @@ function WaterRuntimeScene({
     settings.simulationResolution,
     settings.waterMeshDensity,
     settings.shadowsEnabled,
+    sky.height,
+    sky.width,
   ]);
 
   return (

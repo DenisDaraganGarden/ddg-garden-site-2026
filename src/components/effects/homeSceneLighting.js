@@ -12,6 +12,10 @@ import {
   solveNightWeight,
   solveSunElevationAzimuth,
 } from './sky/skyModel.js';
+import {
+  resolveCloudState,
+  solveCloudSunVisibility,
+} from './sky/cloudField.js';
 
 // Re-exported so existing importers keep working; the formula itself now lives
 // beside the sun path that has to agree with it.
@@ -165,21 +169,33 @@ export const buildHomeSceneLighting = (settings = {}) => {
   const skyTurbidity = clamp(finiteNumber(settings.skyTurbidity, 2.6), 1, 10);
   const sunTint = hexToLightingColor(settings.sunTint, '#fff5ea');
   const sunIntensity = clamp(finiteNumber(settings.sunIntensity, keyIntensity), 0, 8);
+  const cloudState = resolveCloudState({
+    cloudPreset: settings.cloudPreset,
+    cloudCover,
+    cloudHorizon: settings.cloudHorizon,
+    cloudDensity: settings.cloudDensity,
+    cloudScale: settings.cloudScale,
+    cloudSunOcclusion: settings.cloudSunOcclusion,
+    keyDirection: skyKeyDirection,
+  });
+  const sunVisibility = solveCloudSunVisibility(skyKeyDirection, cloudState);
   // The key's colour is the sun's colour AFTER the air has had it. Nobody picks
   // it; a low sun reddens because its light crossed more atmosphere, which is the
   // same reason the horizon behind it reddens. Authoring the two separately is
   // what let them disagree for the whole life of this scene.
-  const keyRadiance = solveKeyLight({
+  const clearKeyRadiance = solveKeyLight({
     sunElevationDeg: sun.elevationDeg,
     moonElevationDeg: moon.elevationDeg,
     sunTint: sunTint.linear,
     sunIntensity,
     skyTurbidity,
-    cloudCover,
+    cloudCover: 0,
+    sunVisibility: 1,
     night,
     moonIllumination: moon.illumination,
     moonBrightness: clamp(finiteNumber(settings.moonBrightness, 1), 0, 4),
   });
+  const keyRadiance = scaleColor(clearKeyRadiance, sunVisibility);
   const keyLuminance = colorLuminance(keyRadiance);
   const keyColorLinear = keyLuminance > 1e-6
     ? keyRadiance.map((value) => value / keyLuminance)
@@ -198,6 +214,11 @@ export const buildHomeSceneLighting = (settings = {}) => {
   const fillColorLinear = fillIntensity > 1e-6
     ? diffuseIrradiance.map((value) => value / fillIntensity)
     : [1, 1, 1];
+  const cloudSoftness = clamp(
+    (1 - sunVisibility) * 0.85 + cloudCover * 0.35,
+    0,
+    1,
+  );
 
   return {
     key: {
@@ -250,8 +271,8 @@ export const buildHomeSceneLighting = (settings = {}) => {
       // Cloud cover changes one physical source: a larger, dimmer sun. Both the
       // standard material path and the custom water path consume these solved
       // values instead of applying separate cloud rules.
-      intensity: authoredShadowIntensity * (1 - 0.75 * cloudCover),
-      radius: clamp(authoredShadowRadius * (1 + cloudCover * 2.4), 0.5, 4),
+      intensity: authoredShadowIntensity * (1 - 0.75 * cloudSoftness),
+      radius: clamp(authoredShadowRadius * (1 + cloudSoftness * 2.4), 0.5, 4),
       bias: authoredShadowBias,
       // The custom sampler works in normalized shadow depth, where the legacy
       // directional-light bias is too large. Keep its sign but calibrate it to
@@ -263,16 +284,24 @@ export const buildHomeSceneLighting = (settings = {}) => {
       // Everything the sky needs, in one place, so the visible sky, the sky the
       // water reflects and the image-based fill are the same sky by construction.
       keyDirection: skyKeyDirection,
-      keyRadiance,
+      // The clear beam lights the atmosphere and cloud tops. The separately
+      // attenuated disc/key below is what reaches the scene through the mask.
+      keyRadiance: clearKeyRadiance,
       skyTurbidity,
       cloudCover,
+      cloudPreset: cloudState.cloudPreset,
+      cloudHorizon: cloudState.horizon,
+      cloudDensity: cloudState.density,
+      cloudScale: cloudState.scale,
+      cloudSunOcclusion: cloudState.sunOcclusion,
+      sunVisibility,
       groundAlbedo: distantSurface.linear,
       // A real solar disc is 0.53 deg across; the slider scales that, and the
       // same number drives the glow falloff so a bigger disc is also a softer one.
       keyCosRadius: Math.cos(
         ((SKY.sunAngularSizeDeg * sunAngularSize) * 0.5) * DEG_TO_RAD,
       ),
-      keyGlowPower: 2000 + (12 - 2000) * cloudCover,
+      keyGlowPower: 2000 + (12 - 2000) * cloudSoftness,
       keyGlowStrength: 0.35,
       discRadiance: scaleColor(keyRadiance, SKY.discGain),
       // The scene has no auto-exposure, so one gain lifts the whole lighting

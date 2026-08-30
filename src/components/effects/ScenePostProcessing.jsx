@@ -946,7 +946,9 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
       * edgeFade(0, 0.08, sunV)
       * edgeFade(1, 0.92, sunV);
     const facesSun = cameraDirection.current.dot(sunDirection) > 0;
-    uniforms.uSunVisible.value = (facesSun && screenMask > 0.0001) ? 1 : 0;
+    uniforms.uSunVisible.value = (facesSun && screenMask > 0.0001)
+      ? lighting.sky.sunVisibility
+      : 0;
     const angularRadius = Math.acos(THREE.MathUtils.clamp(lighting.sky.keyCosRadius, -1, 1));
     const verticalHalfFov = camera.isPerspectiveCamera
       ? THREE.MathUtils.degToRad(camera.fov) * 0.5

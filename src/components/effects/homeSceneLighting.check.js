@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import { publishedHomeSceneSettings } from '../../features/home-scene/data/publishedHomeSceneSettings.js';
-import { SKY } from './sky/skyModel.js';
+import { SKY, buildSkyLut } from './sky/skyModel.js';
 import { buildHomeSceneLighting } from './homeSceneLighting.js';
 
 const closeTo = (actual, expected, epsilon = 1e-10) => (
@@ -48,6 +48,19 @@ const closeTo = (actual, expected, epsilon = 1e-10) => (
   assert.ok(
     cloudyLighting.shadow.intensity < publishedHomeSceneSettings.shadowIntensity,
     'cloud cover must soften direct shadows for every material path',
+  );
+  assert.ok(
+    cloudyLighting.sky.sunVisibility < 1,
+    'the authored cloud mask must attenuate the direct source at the sun',
+  );
+  const cloudyLut = buildSkyLut({
+    ...cloudyLighting.sky,
+    width: 32,
+    height: 16,
+  });
+  assert.ok(
+    closeTo(cloudyLut.sunVisibility, cloudyLighting.sky.sunVisibility),
+    'visible sky, PMREM and direct light must sample one sun visibility',
   );
   assert.ok(
     Math.abs(lighting.shadow.waterBias) < Math.abs(lighting.shadow.bias),

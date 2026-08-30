@@ -68,13 +68,43 @@ export function useSkyEnvironment(state, {
     ...(state.keyRadiance ?? []),
     state.skyTurbidity,
     state.cloudCover,
+    state.cloudPreset,
+    state.cloudHorizon,
+    state.cloudDensity,
+    state.cloudScale,
+    state.cloudSunOcclusion,
     ...(state.groundAlbedo ?? []),
   ].join(':');
 
+  // Cloud look-dev can produce dozens of slider events per second. A 1536px
+  // desktop LUT is still cheap as one authored commit, but rebuilding it and
+  // its PMREM for every intermediate thumb position would turn that one-time
+  // cost into a stall. Hold the last coherent request for a short quiet window.
+  const [lutRequest, setLutRequest] = useState(() => ({
+    key: skyKey,
+    state,
+    width,
+    height,
+  }));
+
+  useEffect(() => {
+    if (lutRequest.key === skyKey) {
+      return undefined;
+    }
+
+    const timer = window.setTimeout(() => {
+      setLutRequest({ key: skyKey, state, width, height });
+    }, 140);
+    return () => window.clearTimeout(timer);
+  }, [height, lutRequest.key, skyKey, state, width]);
+
   const lut = useMemo(
-    () => buildSkyLut({ ...state, width, height }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [skyKey],
+    () => buildSkyLut({
+      ...lutRequest.state,
+      width: lutRequest.width,
+      height: lutRequest.height,
+    }),
+    [lutRequest],
   );
 
   useEffect(() => {
@@ -140,8 +170,12 @@ export function useSkyEnvironment(state, {
   return {
     texture,
     environment,
+    width: lut.width,
+    height: lut.height,
     skyIrradiance: lut.skyIrradiance,
     directShare: lut.directShare,
     sunElevationDeg: lut.sunElevationDeg,
+    sunVisibility: lut.sunVisibility,
+    cloudCoverage: lut.cloudCoverage,
   };
 }

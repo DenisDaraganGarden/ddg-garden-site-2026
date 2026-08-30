@@ -1,3 +1,10 @@
+import {
+  getCloudPresetShading,
+  resolveCloudState,
+  sampleCloudField,
+  solveCloudSunVisibility,
+} from './cloudField.js';
+
 // The sky, as numbers. No React, no three - so it runs in node and can be
 // checked against physics rather than against a screenshot (see skyModel.check.js).
 //
@@ -129,6 +136,7 @@ export function solveKeyLight({
   sunIntensity = 1,
   skyTurbidity = 2.6,
   cloudCover = 0,
+  sunVisibility = null,
   night = 0,
   moonIllumination = 1,
   moonBrightness = 1,
@@ -158,7 +166,12 @@ export function solveKeyLight({
     sunTint[2] * moonTransmittance[2] * sunIntensity * moonScale * 1.15,
   ];
 
-  const beam = 1 - 0.9 * clamp(cloudCover, 0, 1);
+  // New cloud scenes solve the beam from the actual mask at the sun. Keeping
+  // the cover fallback preserves old callers and makes legacy snapshots render
+  // exactly as before until their cloud fields are normalized.
+  const beam = Number.isFinite(Number(sunVisibility))
+    ? clamp(Number(sunVisibility), 0.04, 1)
+    : 1 - 0.9 * clamp(cloudCover, 0, 1);
   return [0, 1, 2].map((c) => (sun[c] * (1 - night) + moon[c] * night) * beam);
 }
 
@@ -186,6 +199,9 @@ export function buildSkyLut(state = {}) {
   const groundAlbedo = state.groundAlbedo ?? [0.08, 0.09, 0.07];
   const keyDirection = normalize(state.keyDirection ?? [0, 0.3, 1]);
   const keyRadiance = state.keyRadiance ?? [1, 1, 1];
+  const cloudState = resolveCloudState({ ...state, keyDirection });
+  const cloudShading = getCloudPresetShading(cloudState);
+  const sunVisibility = solveCloudSunVisibility(keyDirection, cloudState);
 
   const betaR = SKY.betaR;
   const betaM = SKY.betaM * (0.4 + turbidity * 0.36);
@@ -286,23 +302,18 @@ export function buildSkyLut(state = {}) {
   const keyUp = clamp(keyDirection[1], 0, 1);
   const clearIrradiance = integrateHemisphere();
 
-  // Overcast, with the energy actually conserved. The beam loses 90% of itself
-  // at full cover; that light does not vanish, it becomes the dome - minus what
-  // the cloud tops reflect back to space. Getting this wrong the obvious way
-  // (shaping the dome from the clear zenith) makes an overcast sky DARKER than a
-  // clear one, which is backwards, and leaves directShare high so the shadow
-  // stays hard under total cloud.
+  // Authored cloud volumes are composited into the table itself. This second
+  // pass is still one-time CPU work, but the result is now the one texture seen
+  // by the fullscreen sky, the water and the PMREM environment.
+  let cloudSolidAngle = 0;
+  let hemisphereSolidAngle = 0;
   if (cloudCover > 0) {
-    const blend = smoothstep(0, 1, cloudCover);
-    const CLOUD_TOP_ALBEDO = 0.35;
-    const beamRemoved = keyRadiance.map((value) => value * keyUp * 0.9 * cloudCover);
-    const target = clearIrradiance.map(
-      (value, c) => value + beamRemoved[c] * (1 - CLOUD_TOP_ALBEDO),
-    );
+    const clearAmbient = clearIrradiance.map((value) => value / Math.PI);
+    const keyLevel = luminance(keyRadiance);
+    const keyChroma = keyLevel > 1e-6
+      ? keyRadiance.map((value) => value / keyLevel)
+      : [1, 1, 1];
 
-    // CIE overcast: three times brighter overhead than at the horizon. Written
-    // with unit zenith radiance, then scaled to carry `target` exactly.
-    let shapeIrradiance = 0;
     for (let y = 0; y < height; y += 1) {
       const v = (y + 0.5) / height;
       const elevation = (v - 0.5) * Math.PI;
@@ -310,29 +321,59 @@ export function buildSkyLut(state = {}) {
       if (sinE < 0) {
         continue;
       }
-      shapeIrradiance += ((1 + 2 * sinE) / 3)
-        * sinE * Math.cos(elevation) * dElevation * dAzimuth * width;
-    }
+      const cosE = Math.cos(elevation);
+      const solidAngle = cosE * dElevation * dAzimuth;
 
-    const scale = target.map((value) => (shapeIrradiance > 1e-9 ? value / shapeIrradiance : 0));
-
-    for (let y = 0; y < height; y += 1) {
-      const v = (y + 0.5) / height;
-      const sinE = Math.sin((v - 0.5) * Math.PI);
-      if (sinE < 0) {
-        continue;
-      }
-      const shape = (1 + 2 * sinE) / 3;
       for (let x = 0; x < width; x += 1) {
+        const u = (x + 0.5) / width;
+        const azimuth = (u - 0.5) * TAU;
+        const dir = [cosE * Math.cos(azimuth), sinE, cosE * Math.sin(azimuth)];
+        const cloud = sampleCloudField(dir, cloudState);
         const index = (y * width + x) * 3;
+        hemisphereSolidAngle += solidAngle;
+        cloudSolidAngle += cloud.opacity * solidAngle;
+
+        if (cloud.opacity <= 1e-5) {
+          continue;
+        }
+
+        const mu = clamp(
+          dir[0] * keyDirection[0] + dir[1] * keyDirection[1] + dir[2] * keyDirection[2],
+          -1,
+          1,
+        );
+        const forward = Math.pow(Math.max(mu, 0), mix(7, 22, 1 - cloud.highRatio));
+        const rim = Math.pow(Math.max(mu, 0), mix(22, 70, 1 - cloud.highRatio))
+          * (1 - cloud.thickness * 0.72);
+        const altitudeLight = 0.58 + 0.42 * Math.sqrt(Math.max(sinE, 0));
+        const bodyLight = mix(
+          1,
+          1 - cloudShading.shadowDepth,
+          cloud.thickness,
+        ) * altitudeLight;
+
         for (let c = 0; c < 3; c += 1) {
-          data[index + c] = mix(data[index + c], shape * scale[c], blend);
+          const ambient = clearAmbient[c] * mix(1.2, 0.78, cloud.thickness);
+          const softKey = keyChroma[c] * keyLevel * keyUp
+            * (0.012 + forward * 0.035) * (1 - cloud.thickness * 0.38);
+          const silver = keyRadiance[c] * rim * cloudShading.silverLining * 0.16;
+          // What the cloud removes from the beam reappears as broad diffuse
+          // light under its body. Applying this only inside the authored mask
+          // keeps a broken cumulus horizon contrasty while a storm deck becomes
+          // the bright, shadowless source an overcast sky actually is.
+          const redirected = keyRadiance[c] * keyUp * (1 - sunVisibility)
+            * mix(0.18, 0.1, cloud.thickness);
+          const cloudRadiance = ambient * bodyLight + softKey + silver + redirected;
+          data[index + c] = mix(data[index + c], cloudRadiance, cloud.opacity);
         }
       }
     }
   }
 
   const irradiance = cloudCover > 0 ? integrateHemisphere() : clearIrradiance;
+  const cloudCoverage = hemisphereSolidAngle > 1e-9
+    ? cloudSolidAngle / hemisphereSolidAngle
+    : 0;
 
   const groundRadiance = [
     groundAlbedo[0] * irradiance[0] / Math.PI,
@@ -345,11 +386,10 @@ export function buildSkyLut(state = {}) {
     data[index + 2] = groundRadiance[2];
   }
 
-  const beamLoss = 1 - 0.9 * cloudCover;
   const keyIlluminance = [
-    keyRadiance[0] * keyUp * beamLoss,
-    keyRadiance[1] * keyUp * beamLoss,
-    keyRadiance[2] * keyUp * beamLoss,
+    keyRadiance[0] * keyUp * sunVisibility,
+    keyRadiance[1] * keyUp * sunVisibility,
+    keyRadiance[2] * keyUp * sunVisibility,
   ];
 
   const keyLevel = luminance(keyIlluminance);
@@ -366,5 +406,7 @@ export function buildSkyLut(state = {}) {
     keyIlluminance,
     directShare,
     sunElevationDeg,
+    sunVisibility,
+    cloudCoverage,
   };
 }

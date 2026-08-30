@@ -8,7 +8,10 @@ import {
     SectionHeading,
 } from '../../HomeEditorControls';
 import { formatFloat } from '../editorShared';
-import { HOME_SCENE_HDRI_PRESETS } from '../../../hooks/useHomeSceneSettings';
+import {
+    HOME_SCENE_CLOUD_PRESETS,
+    HOME_SCENE_HDRI_PRESETS,
+} from '../../../hooks/useHomeSceneSettings';
 
 const formatHour = (value) => {
     const hours = Math.floor(value);
@@ -18,6 +21,10 @@ const formatHour = (value) => {
 
 export const LightSection = ({ settings, handleSettingChange }) => {
     const { t } = useLanguage();
+    const cloudPresetOptions = HOME_SCENE_CLOUD_PRESETS.map((option) => ({
+        value: option.value,
+        label: t(`homeEditor.controls.${option.labelKey}`),
+    }));
 
     return (
         <>
@@ -84,6 +91,14 @@ export const LightSection = ({ settings, handleSettingChange }) => {
                 formatValue={(value) => formatFloat(value, 1)}
                 onChange={(event) => handleSettingChange(event, 'skyTurbidity')}
             />
+
+            <SectionHeading label={t('homeEditor.blocks.clouds')} subtle />
+            <SelectControl
+                label={t('homeEditor.controls.cloudPreset')}
+                value={settings.cloudPreset}
+                options={cloudPresetOptions}
+                onChange={(event) => handleSettingChange(event, 'cloudPreset', 'string')}
+            />
             <RangeControl
                 label={t('homeEditor.controls.cloudCover')}
                 value={settings.cloudCover}
@@ -93,6 +108,46 @@ export const LightSection = ({ settings, handleSettingChange }) => {
                 unit="%"
                 formatValue={(value) => Math.round(Number(value) * 100)}
                 onChange={(event) => handleSettingChange(event, 'cloudCover')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.cloudHorizon')}
+                value={settings.cloudHorizon}
+                min={0}
+                max={1}
+                step={0.01}
+                unit="%"
+                formatValue={(value) => Math.round(Number(value) * 100)}
+                onChange={(event) => handleSettingChange(event, 'cloudHorizon')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.cloudDensity')}
+                value={settings.cloudDensity}
+                min={0}
+                max={1}
+                step={0.01}
+                unit="%"
+                formatValue={(value) => Math.round(Number(value) * 100)}
+                onChange={(event) => handleSettingChange(event, 'cloudDensity')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.cloudScale')}
+                value={settings.cloudScale}
+                min={0.5}
+                max={4}
+                step={0.05}
+                unit="x"
+                formatValue={(value) => formatFloat(value)}
+                onChange={(event) => handleSettingChange(event, 'cloudScale')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.cloudSunOcclusion')}
+                value={settings.cloudSunOcclusion}
+                min={0}
+                max={1}
+                step={0.01}
+                unit="%"
+                formatValue={(value) => Math.round(Number(value) * 100)}
+                onChange={(event) => handleSettingChange(event, 'cloudSunOcclusion')}
             />
             <ColorControl
                 label={t('homeEditor.controls.distantSurfaceColor')}

@@ -20,6 +20,7 @@
     "check:fish-assets": "node scripts/check-fish-assets.mjs",
     "check:seagulls": "node scripts/check-seagull-motion.mjs && node scripts/validate-seagull-glb.mjs",
     "check:sky": "node src/components/effects/sky/skyModel.check.js",
+    "check:clouds": "node src/components/effects/sky/skyModel.check.js && node src/components/effects/homeSceneLighting.check.js && node src/features/home-scene/hooks/homeSceneCloudSettings.check.js",
     "check:audio": "node scripts/check-audio.mjs",
     "check:audio:browser": "node scripts/check-audio-browser.mjs",
     "convert:models": "node scripts/convert-models.mjs",
