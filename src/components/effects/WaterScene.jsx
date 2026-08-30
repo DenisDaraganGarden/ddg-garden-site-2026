@@ -257,6 +257,7 @@ function WaterRuntimeScene({
     dataset.ddgQualityTier = qualityProfile.qualityTier ?? (qualityProfile.isLowPower ? 'low' : 'high');
     dataset.ddgMobileProfile = qualityProfile.isMobileDevice ? 'on' : 'off';
     dataset.ddgSkyLut = `${sky.width}x${sky.height}`;
+    dataset.ddgSkyPmremSource = `${sky.environmentWidth}x${sky.environmentHeight}`;
     dataset.ddgSimulationRequested = String(settings.simulationResolution);
     dataset.ddgSimulationEffective = String(runtime.effectiveResolution);
     const refractionColor = qualityProfile.refractionTextureType === THREE.UnsignedByteType
@@ -277,6 +278,7 @@ function WaterRuntimeScene({
       delete dataset.ddgQualityTier;
       delete dataset.ddgMobileProfile;
       delete dataset.ddgSkyLut;
+      delete dataset.ddgSkyPmremSource;
       delete dataset.ddgSimulationRequested;
       delete dataset.ddgSimulationEffective;
       delete dataset.ddgRefractionMode;
@@ -305,6 +307,8 @@ function WaterRuntimeScene({
     settings.waterMeshDensity,
     settings.shadowsEnabled,
     sky.height,
+    sky.environmentHeight,
+    sky.environmentWidth,
     sky.width,
   ]);
 
