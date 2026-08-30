@@ -3,8 +3,26 @@
 import assert from 'node:assert/strict';
 import {
   formatRenderTargetCapabilities,
+  isSoftwareRendererName,
   selectOpticsTarget,
 } from './renderTargetCapabilities.js';
+import { buildRuntimeQualityProfile, QUALITY_TIER } from './qualityProfile.js';
+
+assert.equal(
+  isSoftwareRendererName('ANGLE (Google, Vulkan SwiftShader Device (Subzero))'),
+  true,
+  'SwiftShader must use the low-cost sky bootstrap instead of blocking first paint',
+);
+assert.equal(
+  isSoftwareRendererName('ANGLE Metal Renderer: Apple M3 Max'),
+  false,
+  'a hardware renderer must retain the authored high-detail sky',
+);
+assert.equal(
+  buildRuntimeQualityProfile('public', 1440, { softwareRenderer: true }).qualityTier,
+  QUALITY_TIER.low,
+  'a software renderer must downgrade the whole scene, not only its framebuffer formats',
+);
 
 assert.deepEqual(
   selectOpticsTarget({

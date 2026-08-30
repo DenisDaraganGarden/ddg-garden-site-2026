@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import {
   DEVICE_PERFORMANCE_TIER,
   readRuntimeDevicePerformanceTier,
-} from './deviceCapabilityProfile';
+} from './deviceCapabilityProfile.js';
 
 // How much of the scene a given device is asked to draw.
 //
@@ -91,7 +91,13 @@ export function applyRenderTargetCapabilities(profile, capabilities) {
 }
 
 export function buildRuntimeQualityProfile(mode, viewportWidth, capabilities = null) {
-  const tier = detectQualityTier();
+  // CPU and memory hints describe the host, not the renderer. A machine that
+  // fell back to SwiftShader/llvmpipe must use the low profile even when its
+  // reported RAM and core count look like a workstation; otherwise every
+  // expensive water target is executed in software before the first frame.
+  const tier = capabilities?.softwareRenderer
+    ? QUALITY_TIER.low
+    : detectQualityTier();
   const isEditor = mode === 'editor';
   // A narrow window is not a weak device. In the editor only a real touch device
   // earns the mobile trim, otherwise resizing the authoring window quietly halved

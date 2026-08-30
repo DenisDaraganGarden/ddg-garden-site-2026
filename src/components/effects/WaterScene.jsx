@@ -17,7 +17,7 @@ import {
   resolveLayoutKey,
 } from '../../features/home-scene/lib/layout';
 import SceneCanvas from './SceneCanvas';
-import { buildRuntimeQualityProfile } from './qualityProfile';
+import { buildRuntimeQualityProfile, QUALITY_TIER } from './qualityProfile';
 import { getRenderTargetCapabilities } from './renderTargetCapabilities';
 import WaterCameraRig from './water/WaterCameraRig';
 import { useWaterRuntime } from './water/useWaterRuntime';
@@ -175,16 +175,20 @@ function WaterRuntimeScene({
   // One sky, built once, handed to everything that has to agree about it: the
   // visible dome, the water that reflects it, and (from Phase 2) the image-based
   // light on every material.
-  // Desktop keeps enough angular detail for the scene's narrow authored lens;
-  // mobile/low-power tiers stay small enough to avoid a large one-time CPU +
-  // PMREM spike on iOS.
+  // High-tier desktop keeps enough angular detail for the scene's narrow
+  // authored lens. Medium/software, mobile and low-power runtimes step down so
+  // CPU LUT authoring cannot hold the first frame hostage.
   const sky = useSkyEnvironment(lighting.sky, {
     width: qualityProfile.isLowPower
       ? 256
-      : (qualityProfile.isMobileDevice ? 512 : 1536),
+      : qualityProfile.isMobileDevice
+        ? 512
+        : (qualityProfile.qualityTier === QUALITY_TIER.medium ? 768 : 1536),
     height: qualityProfile.isLowPower
       ? 128
-      : (qualityProfile.isMobileDevice ? 256 : 768),
+      : qualityProfile.isMobileDevice
+        ? 256
+        : (qualityProfile.qualityTier === QUALITY_TIER.medium ? 384 : 768),
   });
   const runtime = useWaterRuntime(settings, qualityProfile, mode);
   const landingSitesRef = useRef([]);

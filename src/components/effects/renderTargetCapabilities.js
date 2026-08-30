@@ -23,6 +23,22 @@ function isWebGl2(gl) {
   );
 }
 
+export function isSoftwareRendererName(rendererName = '') {
+  return /swiftshader|llvmpipe|software rasterizer|mesa offscreen/i.test(String(rendererName));
+}
+
+function readRendererName(gl) {
+  try {
+    const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+    const unmasked = debugInfo
+      ? gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL)
+      : '';
+    return `${unmasked ?? ''} ${gl.getParameter(gl.RENDERER) ?? ''}`.trim();
+  } catch {
+    return '';
+  }
+}
+
 function getHalfFloatType(gl, webgl2) {
   if (webgl2) return gl.HALF_FLOAT;
   return gl.getExtension('OES_texture_half_float')?.HALF_FLOAT_OES ?? null;
@@ -263,6 +279,7 @@ export function probeRenderTargetCapabilities(rendererOrContext) {
       post: { halfFloatDepthStencil: false, rgba8DepthStencil: false },
       optics: { colorType: 'rgba8', depthMode: 'none' },
       webgl2: false,
+      softwareRenderer: false,
     };
     return { ...unsupported, label: formatRenderTargetCapabilities(unsupported) };
   }
@@ -289,6 +306,7 @@ export function probeRenderTargetCapabilities(rendererOrContext) {
     post: { halfFloatDepthStencil, rgba8DepthStencil },
     optics: selectOpticsTarget(opticsProbes),
     webgl2: isWebGl2(gl),
+    softwareRenderer: isSoftwareRendererName(readRendererName(gl)),
   };
   // The probes intentionally touch raw bindings. Reset Three's binding cache so
   // its first real frame cannot inherit a stale texture/framebuffer assumption.
