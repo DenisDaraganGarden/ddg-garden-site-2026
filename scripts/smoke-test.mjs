@@ -951,7 +951,7 @@ async function runPublishChecks(browser) {
     await waitForCondition(async () => {
       const settings = await readPublishedSettings();
       return (
-        settings.waterExtent === 31.5
+        settings?.waterExtent === 31.5
         && settings.waveAmplitude === 0.08
         && settings.layouts?.desktop?.boatPosition?.x === 3.45
         && settings.layouts?.desktop?.boatPosition?.z === -2.2
