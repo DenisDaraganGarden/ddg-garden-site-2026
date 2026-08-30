@@ -1,7 +1,7 @@
 .portfolio-page {
   position: relative;
   min-height: 100vh;
-  padding: 8.5rem 2rem 5rem;
+  padding: calc(var(--nav-safe-top) + 7rem) 2rem 5rem;
   overflow-x: hidden;
   background: #040404;
   color: #f3efe6;
@@ -24,7 +24,7 @@
 }
 
 .portfolio-hero {
-  margin-bottom: 6rem;
+  margin-bottom: 1rem;
 }
 
 .portfolio-hero h1 {
@@ -173,7 +173,7 @@
 
 @media (max-width: 768px) {
   .portfolio-page {
-    padding: 6.5rem 1.5rem 4rem;
+    padding: calc(var(--nav-safe-top) + 7rem) 1.5rem 4rem;
   }
 
   .project-row__link {
