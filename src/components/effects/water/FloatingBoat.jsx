@@ -4,7 +4,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import * as THREE from 'three';
 import { BOAT_CUTOUT_STENCIL_REF, BOAT_MAX_PITCH, BOAT_MAX_ROLL, BOAT_NEUTRAL_Y, BOAT_PROBE_INTERVAL, BOAT_PROBE_OFFSETS, BOAT_TARGET_Y_MAX, BOAT_TARGET_Y_MIN, CURSOR_BOAT_IMPACT_DURATION, CURSOR_BOAT_IMPACT_RADIUS_FACTOR, DEFAULT_BOAT_ANCHOR, clamp, isDocumentCurrentlyVisible } from './constants';
 import { useDragOnPlane } from './useDragOnPlane';
-import { ENV_REFLECTION_SCALE, configureMaps } from './pbrMaterial';
+import { ENV_REFLECTION_SCALE, configureMaps, createLiftedTextureTint } from './pbrMaterial';
 
 // The boat floats: buoyancy probes read the height field, the hull follows it in
 // pitch, roll and heave, and a stencil cutout keeps the cockpit dry.
@@ -86,16 +86,16 @@ export default function FloatingBoat({
     configureMaps(gl, { color: [baseColorMap], data: [roughnessMap, bumpMap] });
 
     // Wood hull/oars: PBR maps authored in 3ds Max (no more flat-graphite override).
-    const wood = new THREE.MeshStandardMaterial({
+    const wood = new THREE.MeshPhysicalMaterial({
       map: baseColorMap,
-      // `color` is a real albedo tint: white keeps the authored map, while the
-      // published near-black value produces the current charred-black boat.
-      color: new THREE.Color(settings.boatColor),
+      color: createLiftedTextureTint(settings.boatColor),
       roughnessMap,
       roughness: settings.boatRoughness,
       metalness: THREE.MathUtils.clamp(settings.boatMetalness, 0, 0.3),
       bumpMap,
       bumpScale: 0.4,
+      clearcoat: settings.boatClearcoat,
+      clearcoatRoughness: settings.boatClearcoatRoughness,
       envMapIntensity: envReflection,
       side: THREE.DoubleSide,
     });
@@ -115,6 +115,8 @@ export default function FloatingBoat({
     gl,
     lighting,
     settings.boatColor,
+    settings.boatClearcoat,
+    settings.boatClearcoatRoughness,
     settings.boatMetalness,
     settings.boatRoughness,
   ]);

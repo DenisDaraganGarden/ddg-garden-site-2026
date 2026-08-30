@@ -9,6 +9,8 @@
     "build": "node ./node_modules/vite/bin/vite.js build",
     "check:bundle": "node scripts/check-bundle.mjs",
     "check:lighting": "node src/components/effects/homeSceneLighting.check.js",
+    "check:materials": "node src/components/effects/water/pbrMaterial.check.js",
+    "check:render-targets": "node src/components/effects/water/renderTargets.check.js",
     "check:sky": "node src/components/effects/sky/skyModel.check.js",
     "convert:models": "node scripts/convert-models.mjs",
     "generate:lily": "node scripts/generate-lily-pbr.mjs",

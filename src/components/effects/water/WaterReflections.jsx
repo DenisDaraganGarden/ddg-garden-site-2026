@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
-import { restoreDefaultFramebuffer } from './renderTargets';
+import { fitRenderTargetSize, restoreDefaultFramebuffer } from './renderTargets';
 import {
   DEFAULT_CLEAR_COLOR,
   REFLECTION_BOAT_POSITION_EPSILON_SQ,
@@ -57,21 +57,28 @@ export default function WaterReflections({
   activeFps = 30,
   idleFps = 12,
 }) {
-  const { gl, scene, camera } = useThree();
-  const reflectionTarget = useMemo(() => new THREE.WebGLRenderTarget(textureSize, textureSize, {
+  const { gl, scene, camera, size } = useThree();
+  const targetSize = useMemo(
+    () => fitRenderTargetSize(textureSize, size.width / Math.max(size.height, 1)),
+    [size.height, size.width, textureSize],
+  );
+  const reflectionTarget = useMemo(() => new THREE.WebGLRenderTarget(targetSize.width, targetSize.height, {
     format: THREE.RGBAFormat,
+    type: refractionTextureType,
+    colorSpace: THREE.LinearSRGBColorSpace,
     depthBuffer: true,
     stencilBuffer: false,
     generateMipmaps: false,
     minFilter: THREE.LinearFilter,
     magFilter: THREE.LinearFilter,
-  }), [textureSize]);
+  }), [refractionTextureType, targetSize.height, targetSize.width]);
+  reflectionTarget.texture.name = 'water-reflection-color';
   const refractionTarget = useMemo(() => {
     if (!refractionEnabled) {
       return null;
     }
 
-    const target = new THREE.WebGLRenderTarget(textureSize, textureSize, {
+    const target = new THREE.WebGLRenderTarget(targetSize.width, targetSize.height, {
       format: THREE.RGBAFormat,
       // Half-float preserves long gradients on full browsers. Low-power and
       // embedded WebViews use RGBA8 because incomplete half-float FBOs were
@@ -86,8 +93,8 @@ export default function WaterReflections({
     });
     if (refractionDepthEnabled) {
       target.depthTexture = new THREE.DepthTexture(
-        textureSize,
-        textureSize,
+        targetSize.width,
+        targetSize.height,
         THREE.UnsignedIntType,
       );
       target.depthTexture.format = THREE.DepthFormat;
@@ -98,7 +105,7 @@ export default function WaterReflections({
     }
 
     return target;
-  }, [refractionDepthEnabled, refractionEnabled, refractionTextureType, textureSize]);
+  }, [refractionDepthEnabled, refractionEnabled, refractionTextureType, targetSize.height, targetSize.width]);
 
   const reflectionCamera = useMemo(() => {
     const camera = new THREE.PerspectiveCamera();
@@ -146,6 +153,17 @@ export default function WaterReflections({
   useEffect(() => () => {
     refractionTarget?.dispose();
   }, [refractionTarget]);
+
+  useEffect(() => {
+    const textureLabel = refractionTextureType === THREE.HalfFloatType ? 'half-float' : 'rgba8';
+    gl.domElement.dataset.ddgOpticsTarget = `${targetSize.width}x${targetSize.height}`;
+    gl.domElement.dataset.ddgOpticsTexture = textureLabel;
+
+    return () => {
+      delete gl.domElement.dataset.ddgOpticsTarget;
+      delete gl.domElement.dataset.ddgOpticsTexture;
+    };
+  }, [gl, refractionTextureType, targetSize.height, targetSize.width]);
 
   useEffect(() => {
     if (enabled) {

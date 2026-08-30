@@ -1,10 +1,27 @@
 import * as THREE from 'three';
-import { fullScreenVertexShader } from '../shaders/waterRuntimeShaders';
-import { DRAWING_BUFFER_SIZE } from './constants';
+import { fullScreenVertexShader } from '../shaders/waterRuntimeShaders.js';
+import { DRAWING_BUFFER_SIZE } from './constants.js';
 
 // Render target and fullscreen-pass plumbing for the water simulation. Every pass
 // in the simulation is the same shape - a quad, an ortho camera, one shader - so
 // it is built once here rather than inline at each call site.
+
+export function fitRenderTargetSize(maxDimension, aspect) {
+  const limit = Math.max(1, Math.round(Number(maxDimension) || 1));
+  const safeAspect = Number.isFinite(aspect) && aspect > 0 ? aspect : 1;
+
+  if (safeAspect >= 1) {
+    return {
+      width: limit,
+      height: Math.max(1, Math.round(limit / safeAspect)),
+    };
+  }
+
+  return {
+    width: Math.max(1, Math.round(limit * safeAspect)),
+    height: limit,
+  };
+}
 
 export function createTarget(width, height, options) {
   const target = new THREE.WebGLRenderTarget(width, height, {

@@ -3,7 +3,7 @@ import { useLoader } from '@react-three/fiber';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import * as THREE from 'three';
 import { useDragOnPlane } from './useDragOnPlane';
-import { ENV_REFLECTION_SCALE } from './pbrMaterial';
+import { colorPickerToArtisticAlbedo, ENV_REFLECTION_SCALE } from './pbrMaterial';
 import { DEFAULT_SCULPTURE_ANCHOR, SCULPTURE_DRAG_EDGE_MARGIN, clamp } from './constants';
 
 // The sculpture stands on the seabed. It does not float, so its height is the base
@@ -62,7 +62,7 @@ export default function StaticSculpture({
   });
 
   const sculptureMaterial = useMemo(() => new THREE.MeshPhysicalMaterial({
-    color: new THREE.Color(settings.sculptureColor),
+    color: colorPickerToArtisticAlbedo(settings.sculptureColor),
     metalness: settings.sculptureMetalness,
     roughness: settings.sculptureRoughness,
     clearcoat: settings.sculptureClearcoat,
