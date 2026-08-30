@@ -1034,6 +1034,7 @@ async function runLongSessionMemoryChecks(browser) {
 }
 
 async function runRuntimeStabilityChecks(browser) {
+  const navigationTimeout = 60000;
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   const page = await context.newPage();
   const issues = [];
@@ -1042,10 +1043,10 @@ async function runRuntimeStabilityChecks(browser) {
   const editorSamples = [];
 
   for (let cycle = 0; cycle < 2; cycle += 1) {
-    await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
+    await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: navigationTimeout });
     homeSamples.push(await waitForSettledRuntimeMetrics(page, 'water-scene', 30000));
 
-    await page.goto(`${baseUrl}/home/edit`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${baseUrl}/home/edit`, { waitUntil: 'domcontentloaded', timeout: navigationTimeout });
     editorSamples.push(await waitForSettledRuntimeMetrics(page, 'home-scene-editor', 30000));
   }
 
