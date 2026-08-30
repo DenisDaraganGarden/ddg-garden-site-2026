@@ -1035,6 +1035,7 @@ async function runLongSessionMemoryChecks(browser) {
 }
 
 async function runRuntimeStabilityChecks(browser) {
+  const navigationTimeout = 60000;
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   const page = await context.newPage();
   const issues = [];
@@ -1043,10 +1044,10 @@ async function runRuntimeStabilityChecks(browser) {
   const editorSamples = [];
 
   for (let cycle = 0; cycle < 2; cycle += 1) {
-    await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
+    await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: navigationTimeout });
     homeSamples.push(await waitForSettledRuntimeMetrics(page, 'water-scene', 30000));
 
-    await page.goto(`${baseUrl}/home/edit`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${baseUrl}/home/edit`, { waitUntil: 'domcontentloaded', timeout: navigationTimeout });
     editorSamples.push(await waitForSettledRuntimeMetrics(page, 'home-scene-editor', 30000));
   }
 
@@ -1106,6 +1107,17 @@ async function main() {
     );
 
     const issues = [];
+    const runInFreshBrowser = async (check) => {
+      activeBrowser = await launchSmokeBrowser();
+      const browser = activeBrowser;
+
+      try {
+        issues.push(...(await check(browser)));
+      } finally {
+        await browser.close();
+        activeBrowser = undefined;
+      }
+    };
 
     if (smokePhase === 'all' || smokePhase === 'scene') {
       activeBrowser = await launchSmokeBrowser();
@@ -1122,20 +1134,14 @@ async function main() {
       activeBrowser = undefined;
     }
 
-    // The scene suite intentionally creates many software WebGL contexts.
-    // Publish and long-session checks use a fresh Chromium process so the
-    // result reflects application stability, not SwiftShader exhaustion.
+    // These suites intentionally create many software WebGL contexts. Keep
+    // each high-context phase in a fresh Chromium process so the result
+    // reflects application stability, not accumulated SwiftShader exhaustion.
     if (smokePhase === 'all' || smokePhase === 'stability') {
-      activeBrowser = await launchSmokeBrowser();
-      const stabilityBrowser = activeBrowser;
-      issues.push(
-        ...(await runPublishChecks(stabilityBrowser)),
-        ...(await runRuntimeStabilityChecks(stabilityBrowser)),
-        ...(await runLongSessionMemoryChecks(stabilityBrowser)),
-        ...(await runMobileChecks(stabilityBrowser)),
-      );
-      await stabilityBrowser.close();
-      activeBrowser = undefined;
+      await runInFreshBrowser(runPublishChecks);
+      await runInFreshBrowser(runRuntimeStabilityChecks);
+      await runInFreshBrowser(runLongSessionMemoryChecks);
+      await runInFreshBrowser(runMobileChecks);
     }
 
     if (issues.length > 0) {

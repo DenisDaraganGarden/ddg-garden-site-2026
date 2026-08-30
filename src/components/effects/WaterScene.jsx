@@ -17,7 +17,7 @@ import {
   resolveLayoutKey,
 } from '../../features/home-scene/lib/layout';
 import SceneCanvas from './SceneCanvas';
-import { buildRuntimeQualityProfile } from './qualityProfile';
+import { buildRuntimeQualityProfile, QUALITY_TIER } from './qualityProfile';
 import { getRenderTargetCapabilities } from './renderTargetCapabilities';
 import WaterCameraRig from './water/WaterCameraRig';
 import { useWaterRuntime } from './water/useWaterRuntime';
@@ -175,17 +175,23 @@ function WaterRuntimeScene({
   // One sky, built once, handed to everything that has to agree about it: the
   // visible dome, the water that reflects it, and (from Phase 2) the image-based
   // light on every material.
-  // The table is built on a worker, so its size is a memory and PMREM question
-  // rather than a stall: desktop gets enough angular detail that the wide
-  // cameras read cloud rather than the grid the cloud was sampled on, and the
-  // phone tiers stay inside a sane texture budget.
+  // The table is built on a worker now, so its size stopped being a stall and
+  // became a memory question - and PMREM reads a 256x128 downsample of it
+  // rather than the table itself, so the blur no longer scales with it either.
+  // High desktop therefore gets enough angular detail that the wide cameras
+  // read cloud instead of the grid the cloud was sampled on; the tiers below
+  // still step down, because texture bytes and worker seconds are not free.
   const sky = useSkyEnvironment(lighting.sky, {
     width: qualityProfile.isLowPower
       ? 512
-      : (qualityProfile.isMobileDevice ? 1024 : 3072),
+      : qualityProfile.isMobileDevice
+        ? 1024
+        : (qualityProfile.qualityTier === QUALITY_TIER.medium ? 1536 : 3072),
     height: qualityProfile.isLowPower
       ? 256
-      : (qualityProfile.isMobileDevice ? 512 : 1536),
+      : qualityProfile.isMobileDevice
+        ? 512
+        : (qualityProfile.qualityTier === QUALITY_TIER.medium ? 768 : 1536),
   });
   const runtime = useWaterRuntime(settings, qualityProfile, mode);
   const landingSitesRef = useRef([]);
@@ -258,6 +264,7 @@ function WaterRuntimeScene({
     dataset.ddgQualityTier = qualityProfile.qualityTier ?? (qualityProfile.isLowPower ? 'low' : 'high');
     dataset.ddgMobileProfile = qualityProfile.isMobileDevice ? 'on' : 'off';
     dataset.ddgSkyLut = `${sky.width}x${sky.height}`;
+    dataset.ddgSkyPmremSource = `${sky.environmentWidth}x${sky.environmentHeight}`;
     dataset.ddgSimulationRequested = String(settings.simulationResolution);
     dataset.ddgSimulationEffective = String(runtime.effectiveResolution);
     const refractionColor = qualityProfile.refractionTextureType === THREE.UnsignedByteType
@@ -278,6 +285,7 @@ function WaterRuntimeScene({
       delete dataset.ddgQualityTier;
       delete dataset.ddgMobileProfile;
       delete dataset.ddgSkyLut;
+      delete dataset.ddgSkyPmremSource;
       delete dataset.ddgSimulationRequested;
       delete dataset.ddgSimulationEffective;
       delete dataset.ddgRefractionMode;
@@ -306,6 +314,8 @@ function WaterRuntimeScene({
     settings.waterMeshDensity,
     settings.shadowsEnabled,
     sky.height,
+    sky.environmentHeight,
+    sky.environmentWidth,
     sky.width,
   ]);
 

@@ -3,8 +3,10 @@ import * as THREE from 'three';
 import { useThree } from '@react-three/fiber';
 import { buildSkyLut } from '../sky/skyModel.js';
 
-// The bridge between the sky model and three: one equirectangular texture, and
-// one pre-filtered environment map built from that same texture.
+// The bridge between the sky model and three: one detailed equirectangular
+// texture, and one pre-filtered environment map built from a smaller copy of
+// the same numeric sky. PMREM is a blur by definition, so feeding its expensive
+// convolution the full display table adds startup cost without visible detail.
 //
 // Because the image-based light IS a blur of the sky the viewer sees, they
 // cannot disagree. That was the previous system's structural problem: an HDR
@@ -78,6 +80,52 @@ function getLutWorker() {
 
   return lutWorker;
 }
+const downsampleRgb = (source, sourceWidth, sourceHeight, targetWidth, targetHeight) => {
+  if (sourceWidth === targetWidth && sourceHeight === targetHeight) {
+    return source;
+  }
+
+  const target = new Float32Array(targetWidth * targetHeight * 3);
+  for (let targetY = 0; targetY < targetHeight; targetY += 1) {
+    const sourceY0 = Math.floor(targetY * sourceHeight / targetHeight);
+    const sourceY1 = Math.max(sourceY0 + 1, Math.floor((targetY + 1) * sourceHeight / targetHeight));
+
+    for (let targetX = 0; targetX < targetWidth; targetX += 1) {
+      const sourceX0 = Math.floor(targetX * sourceWidth / targetWidth);
+      const sourceX1 = Math.max(sourceX0 + 1, Math.floor((targetX + 1) * sourceWidth / targetWidth));
+      const targetIndex = (targetY * targetWidth + targetX) * 3;
+      let samples = 0;
+
+      for (let sourceY = sourceY0; sourceY < sourceY1; sourceY += 1) {
+        for (let sourceX = sourceX0; sourceX < sourceX1; sourceX += 1) {
+          const sourceIndex = (sourceY * sourceWidth + sourceX) * 3;
+          target[targetIndex] += source[sourceIndex];
+          target[targetIndex + 1] += source[sourceIndex + 1];
+          target[targetIndex + 2] += source[sourceIndex + 2];
+          samples += 1;
+        }
+      }
+
+      target[targetIndex] /= samples;
+      target[targetIndex + 1] /= samples;
+      target[targetIndex + 2] /= samples;
+    }
+  }
+
+  return target;
+};
+
+const configureSkyTexture = (texture) => {
+  texture.mapping = THREE.EquirectangularReflectionMapping;
+  texture.colorSpace = THREE.LinearSRGBColorSpace;
+  texture.minFilter = THREE.LinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.ClampToEdgeWrapping;
+  texture.generateMipmaps = false;
+  texture.needsUpdate = true;
+  return texture;
+};
 
 /**
  * Returns both the equirectangular sky texture and its pre-filtered PMREM.
@@ -218,21 +266,30 @@ export function useSkyEnvironment(state, {
       return undefined;
     }
 
-    const nextTexture = new THREE.DataTexture(
+    const nextTexture = configureSkyTexture(new THREE.DataTexture(
       toHalfFloatRgba(lut.data, lut.width, lut.height),
       lut.width,
       lut.height,
       THREE.RGBAFormat,
       THREE.HalfFloatType,
+    ));
+
+    const environmentWidth = Math.min(lut.width, 256);
+    const environmentHeight = Math.min(lut.height, 128);
+    const environmentRgb = downsampleRgb(
+      lut.data,
+      lut.width,
+      lut.height,
+      environmentWidth,
+      environmentHeight,
     );
-    nextTexture.mapping = THREE.EquirectangularReflectionMapping;
-    nextTexture.colorSpace = THREE.LinearSRGBColorSpace;
-    nextTexture.minFilter = THREE.LinearFilter;
-    nextTexture.magFilter = THREE.LinearFilter;
-    nextTexture.wrapS = THREE.RepeatWrapping;
-    nextTexture.wrapT = THREE.ClampToEdgeWrapping;
-    nextTexture.generateMipmaps = false;
-    nextTexture.needsUpdate = true;
+    const environmentTexture = configureSkyTexture(new THREE.DataTexture(
+      toHalfFloatRgba(environmentRgb, environmentWidth, environmentHeight),
+      environmentWidth,
+      environmentHeight,
+      THREE.RGBAFormat,
+      THREE.HalfFloatType,
+    ));
 
     if (!pmremRef.current) {
       pmremRef.current = new THREE.PMREMGenerator(gl);
@@ -243,7 +300,8 @@ export function useSkyEnvironment(state, {
     textureRef.current = nextTexture;
     setTexture(nextTexture);
 
-    const nextTarget = pmremRef.current.fromEquirectangular(nextTexture);
+    const nextTarget = pmremRef.current.fromEquirectangular(environmentTexture);
+    environmentTexture.dispose();
     if (targetRef.current) {
       staleTargetsRef.current.push(targetRef.current);
     }
@@ -278,6 +336,8 @@ export function useSkyEnvironment(state, {
     environment,
     width: lut.width,
     height: lut.height,
+    environmentWidth: Math.min(lut.width, 256),
+    environmentHeight: Math.min(lut.height, 128),
     skyIrradiance: lut.skyIrradiance,
     directShare: lut.directShare,
     sunElevationDeg: lut.sunElevationDeg,
