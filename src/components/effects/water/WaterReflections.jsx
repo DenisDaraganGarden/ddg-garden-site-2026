@@ -58,6 +58,7 @@ export default function WaterReflections({
   refractionEnabled = false,
   refractionTextureType = THREE.HalfFloatType,
   refractionDepthEnabled = true,
+  refractionDepthMode = refractionDepthEnabled ? 'texture' : 'none',
   activeFps = 30,
   idleFps = 12,
 }) {
@@ -166,12 +167,14 @@ export default function WaterReflections({
     const textureLabel = refractionTextureType === THREE.HalfFloatType ? 'half-float' : 'rgba8';
     gl.domElement.dataset.ddgOpticsTarget = `${targetSize.width}x${targetSize.height}`;
     gl.domElement.dataset.ddgOpticsTexture = textureLabel;
+    gl.domElement.dataset.ddgOpticsDepth = refractionDepthMode;
 
     return () => {
       delete gl.domElement.dataset.ddgOpticsTarget;
       delete gl.domElement.dataset.ddgOpticsTexture;
+      delete gl.domElement.dataset.ddgOpticsDepth;
     };
-  }, [gl, refractionTextureType, targetSize.height, targetSize.width]);
+  }, [gl, refractionDepthMode, refractionTextureType, targetSize.height, targetSize.width]);
 
   useEffect(() => {
     if (enabled) {

@@ -602,6 +602,15 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
   const isLowPower = qualityProfile?.isLowPower === true;
   const renderScale = qualityProfile?.postRenderScale ?? 1;
   const requestedSamples = qualityProfile?.postSamples ?? 0;
+  const postProcessingSupported = qualityProfile?.postProcessingSupported !== false
+    && qualityProfile?.postDepthStencilEnabled !== false;
+  const postColorType = qualityProfile?.postColorType === 'rgba8'
+    ? THREE.UnsignedByteType
+    : qualityProfile?.postColorType === 'half-float'
+      ? THREE.HalfFloatType
+      : isLowPower
+        ? THREE.UnsignedByteType
+        : THREE.HalfFloatType;
   const drawingBufferSize = useRef(new THREE.Vector2());
   const lastTargetSize = useRef(new THREE.Vector2());
   const sunPoint = useRef(new THREE.Vector3());
@@ -620,34 +629,36 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
       // for the shadows this scene is almost entirely made of. Half float
       // removes the quantisation (and lets the grade work on real HDR values)
       // for two bytes per channel. Weak devices keep the cheap buffer.
-      type: isLowPower ? THREE.UnsignedByteType : THREE.HalfFloatType,
-      depthBuffer: true,
-      stencilBuffer: true,
+      type: postColorType,
+      depthBuffer: postProcessingSupported,
+      stencilBuffer: postProcessingSupported,
       generateMipmaps: false,
     });
     target.texture.name = 'home-scene-post-color';
-    target.depthTexture = new THREE.DepthTexture(1, 1, THREE.UnsignedInt248Type);
-    target.depthTexture.format = THREE.DepthStencilFormat;
-    target.depthTexture.minFilter = THREE.NearestFilter;
-    target.depthTexture.magFilter = THREE.NearestFilter;
-    target.depthTexture.generateMipmaps = false;
-    target.depthTexture.name = 'home-scene-post-depth';
+    if (postProcessingSupported) {
+      target.depthTexture = new THREE.DepthTexture(1, 1, THREE.UnsignedInt248Type);
+      target.depthTexture.format = THREE.DepthStencilFormat;
+      target.depthTexture.minFilter = THREE.NearestFilter;
+      target.depthTexture.magFilter = THREE.NearestFilter;
+      target.depthTexture.generateMipmaps = false;
+      target.depthTexture.name = 'home-scene-post-depth';
+    }
     // Canvas MSAA only covers the default framebuffer. With post enabled the
     // entire scene is drawn into this target first, so vegetation's
     // alphaToCoverage needs samples here as well or its thin edges turn into
     // hard black sawteeth despite a DPR-2 canvas.
-    target.samples = isLowPower
+    target.samples = isLowPower || !postProcessingSupported
       ? 0
       : Math.min(requestedSamples, gl.capabilities.maxSamples ?? requestedSamples);
     return target;
-  }, [gl.capabilities.maxSamples, isLowPower, requestedSamples]);
+  }, [gl.capabilities.maxSamples, isLowPower, postColorType, postProcessingSupported, requestedSamples]);
   const bloomTargets = useMemo(() => {
     const createTarget = (name) => {
       const target = new THREE.WebGLRenderTarget(1, 1, {
         minFilter: THREE.LinearFilter,
         magFilter: THREE.LinearFilter,
         format: THREE.RGBAFormat,
-        type: isLowPower ? THREE.UnsignedByteType : THREE.HalfFloatType,
+        type: postColorType,
         depthBuffer: false,
         stencilBuffer: false,
         generateMipmaps: false,
@@ -659,7 +670,7 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
       createTarget('home-scene-bloom-a'),
       createTarget('home-scene-bloom-b'),
     ];
-  }, [isLowPower]);
+  }, [postColorType]);
   const uniforms = useMemo(() => ({
     uColorTexture: { value: renderTarget.texture },
     uBloomTexture: { value: bloomTargets[0].texture },
@@ -850,16 +861,18 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
 
   useEffect(() => {
     gl.domElement.dataset.ddgPostSamples = String(renderTarget.samples);
+    gl.domElement.dataset.ddgPostStatus = postProcessingSupported ? 'ready' : 'default-framebuffer';
     gl.domElement.dataset.ddgBloomPipeline = isLowPower ? 'quarter-tent-1' : 'quarter-tent-2';
     gl.domElement.dataset.ddgSunRays = isLowPower ? 'sun-occlusion-8' : 'sun-occlusion-18';
     gl.domElement.dataset.ddgCursorFlashlightFog = 'local-relief';
     return () => {
       delete gl.domElement.dataset.ddgPostSamples;
+      delete gl.domElement.dataset.ddgPostStatus;
       delete gl.domElement.dataset.ddgBloomPipeline;
       delete gl.domElement.dataset.ddgSunRays;
       delete gl.domElement.dataset.ddgCursorFlashlightFog;
     };
-  }, [gl, isLowPower, renderTarget.samples]);
+  }, [gl, isLowPower, postProcessingSupported, renderTarget.samples]);
 
   useEffect(() => {
     const { dataset } = gl.domElement;
@@ -879,7 +892,9 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
   }, [gl, settings.filmEnabled, settings.filmFlickerAmount, settings.filmGateWeaveAmount, settings.filmStock]);
 
   useFrame(({ clock }) => {
-    const enabled = settings.postProcessingEnabled && settings.debugView === 'beauty';
+    const enabled = postProcessingSupported
+      && settings.postProcessingEnabled
+      && settings.debugView === 'beauty';
     if (!enabled) {
       gl.setRenderTarget(null);
       gl.render(scene, camera);

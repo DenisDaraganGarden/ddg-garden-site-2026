@@ -35,11 +35,13 @@ export function detectQualityTier() {
   // tier. Only trust a small core count as a weak-device signal when deviceMemory
   // is present to corroborate it (Chrome/Android); otherwise assume a capable GPU.
   const hasMemoryHint = deviceMemory !== null;
+  // Four gigabytes is still common on capable, eight-core Android phones. It
+  // needs smaller transient buffers, not the low-content scene profile.
   const isLowTier = hasMemoryHint
-    ? (deviceMemory <= 4 || (hardwareConcurrency !== null && hardwareConcurrency <= 4))
+    ? (deviceMemory <= 2 || (deviceMemory <= 3 && hardwareConcurrency !== null && hardwareConcurrency <= 4))
     : (hardwareConcurrency !== null && hardwareConcurrency <= 2);
   const isMediumTier = hasMemoryHint
-    ? deviceMemory <= 8
+    ? deviceMemory <= 6
     : (hardwareConcurrency !== null && hardwareConcurrency <= 6);
 
   if (isLowTier) {
@@ -59,9 +61,8 @@ function isTouchPrimaryDevice() {
   return window.matchMedia('(hover: none) and (pointer: coarse)').matches;
 }
 
-// A phone is a small screen, not necessarily a slow one. Trim the memory-bound
-// sizes (they buy nothing on a ~400pt-wide canvas) but keep the tier's update
-// rates: the stutter came from the rates, not from the resolutions.
+// A phone is a small screen, not a lesser version of the scene. Only temporary
+// GPU allocations shrink here; flora, fauna and mesh density stay authored.
 function trimProfileForMobile(profile, isMobileDevice) {
   if (!isMobileDevice) {
     return profile;
@@ -72,20 +73,37 @@ function trimProfileForMobile(profile, isMobileDevice) {
     simulationMaxResolution: Math.min(profile.simulationMaxResolution, 256),
     reflectionTextureSize: Math.min(profile.reflectionTextureSize, 256),
     postSamples: Math.min(profile.postSamples, 2),
-    waterMeshDensityCap: Math.min(profile.waterMeshDensityCap, 144),
-    seabedMeshDensity: Math.min(profile.seabedMeshDensity, 128),
     shadowMapSize: Math.min(profile.shadowMapSize, 512),
-    surfacePlantMaxInstances: Math.min(profile.surfacePlantMaxInstances, 420),
-    underwaterAlgaeMaxInstances: Math.min(profile.underwaterAlgaeMaxInstances, 640),
-    // Fifty animated specimens are reserved for a wide desktop canvas. On a
-    // phone the same shoal is sub-pixel after refraction, so fewer fish preserve
-    // the silhouette while avoiding needless matrix and offscreen-pass work.
-    fishMaxInstances: Math.min(profile.fishMaxInstances, 18),
-    fishBehaviorFps: Math.min(profile.fishBehaviorFps, 20),
   };
 }
 
-export function buildRuntimeQualityProfile(mode, viewportWidth) {
+export function applyRenderTargetCapabilities(profile, capabilities) {
+  const optics = capabilities?.optics;
+  if (!optics || (optics.colorType !== 'half-float' && optics.colorType !== 'rgba8')) {
+    return profile;
+  }
+
+  const postSupportsHdr = capabilities.post?.halfFloatDepthStencil === true;
+  return {
+    ...profile,
+    // The integration layer can choose a depth renderbuffer when a depth
+    // texture is unavailable. Keeping the exact mode here prevents a WebView
+    // from being forced into the analytic-depth fallback unnecessarily.
+    refractionTextureType: optics.colorType === 'half-float'
+      ? THREE.HalfFloatType
+      : THREE.UnsignedByteType,
+    // A depth renderbuffer keeps the optics pass depth-tested but cannot be
+    // sampled by the water shader. Only the texture path enables depth optics;
+    // the other modes use the existing analytic-distance fallback.
+    refractionDepthEnabled: optics.depthMode === 'texture',
+    refractionDepthMode: optics.depthMode,
+    postColorType: postSupportsHdr ? 'half-float' : 'rgba8',
+    postDepthStencilEnabled: postSupportsHdr || capabilities.post?.rgba8DepthStencil === true,
+    postProcessingSupported: postSupportsHdr || capabilities.post?.rgba8DepthStencil === true,
+  };
+}
+
+export function buildRuntimeQualityProfile(mode, viewportWidth, capabilities = null) {
   const tier = detectQualityTier();
   const isEditor = mode === 'editor';
   // A narrow window is not a weak device. In the editor only a real touch device
@@ -96,7 +114,9 @@ export function buildRuntimeQualityProfile(mode, viewportWidth) {
     : (viewportWidth < 768 || isTouchPrimaryDevice());
 
   if (tier === QUALITY_TIER.low) {
-    return {
+    return applyRenderTargetCapabilities({
+      qualityTier: tier,
+      isMobileDevice,
       isLowPower: true,
       simulationTargetFps: isEditor ? 24 : 30,
       simulationMaxResolution: 128,
@@ -118,11 +138,13 @@ export function buildRuntimeQualityProfile(mode, viewportWidth) {
       underwaterAlgaeMaxInstances: 220,
       fishMaxInstances: 14,
       fishBehaviorFps: 15,
-    };
+    }, capabilities);
   }
 
   if (tier === QUALITY_TIER.medium) {
-    return trimProfileForMobile({
+    return applyRenderTargetCapabilities(trimProfileForMobile({
+      qualityTier: tier,
+      isMobileDevice,
       isLowPower: false,
       simulationTargetFps: isEditor ? 45 : 54,
       simulationMaxResolution: isEditor ? 384 : 512,
@@ -142,10 +164,12 @@ export function buildRuntimeQualityProfile(mode, viewportWidth) {
       underwaterAlgaeMaxInstances: 720,
       fishMaxInstances: 30,
       fishBehaviorFps: 24,
-    }, isMobileDevice);
+    }, isMobileDevice), capabilities);
   }
 
-  return trimProfileForMobile({
+  return applyRenderTargetCapabilities(trimProfileForMobile({
+    qualityTier: tier,
+    isMobileDevice,
     isLowPower: false,
     simulationTargetFps: isEditor ? 50 : 60,
     simulationMaxResolution: 512,
@@ -165,5 +189,5 @@ export function buildRuntimeQualityProfile(mode, viewportWidth) {
     underwaterAlgaeMaxInstances: 1100,
     fishMaxInstances: 50,
     fishBehaviorFps: 30,
-  }, isMobileDevice);
+  }, isMobileDevice), capabilities);
 }

@@ -18,6 +18,7 @@ import {
 } from '../../features/home-scene/lib/layout';
 import SceneCanvas from './SceneCanvas';
 import { buildRuntimeQualityProfile } from './qualityProfile';
+import { getRenderTargetCapabilities } from './renderTargetCapabilities';
 import WaterCameraRig from './water/WaterCameraRig';
 import { useWaterRuntime } from './water/useWaterRuntime';
 import WaterInteractionPlane from './water/WaterInteractionPlane';
@@ -162,9 +163,13 @@ function WaterRuntimeScene({
   audioRuntime,
 }) {
   const { gl, size } = useThree();
+  const renderTargetCapabilities = useMemo(
+    () => getRenderTargetCapabilities(gl),
+    [gl],
+  );
   const qualityProfile = useMemo(
-    () => buildRuntimeQualityProfile(mode, size.width),
-    [mode, size.width],
+    () => buildRuntimeQualityProfile(mode, size.width, renderTargetCapabilities),
+    [mode, renderTargetCapabilities, size.width],
   );
   const lighting = useMemo(() => buildHomeSceneLighting(settings), [settings]);
   // One sky, built once, handed to everything that has to agree about it: the
@@ -242,19 +247,27 @@ function WaterRuntimeScene({
   useEffect(() => {
     const { dataset } = gl.domElement;
     dataset.ddgWaterEngine = 'v2';
+    dataset.ddgQualityTier = qualityProfile.qualityTier ?? (qualityProfile.isLowPower ? 'low' : 'high');
+    dataset.ddgMobileProfile = qualityProfile.isMobileDevice ? 'on' : 'off';
     dataset.ddgSimulationRequested = String(settings.simulationResolution);
     dataset.ddgSimulationEffective = String(runtime.effectiveResolution);
-    dataset.ddgRefractionMode = qualityProfile.refractionTextureType === THREE.UnsignedByteType
-      ? 'rgba8-analytic-depth'
-      : 'half-float-depth';
+    const refractionColor = qualityProfile.refractionTextureType === THREE.UnsignedByteType
+      ? 'rgba8'
+      : 'half-float';
+    dataset.ddgRefractionMode = `${refractionColor}-${qualityProfile.refractionDepthEnabled ? 'depth-texture' : 'analytic-depth'}`;
     dataset.ddgReflectionMode = reflectionsEnabled ? 'planar-generic' : 'procedural-sky';
     dataset.ddgWaterMeshDensity = String(Math.min(settings.waterMeshDensity, qualityProfile.waterMeshDensityCap));
     dataset.ddgSeabedMeshDensity = String(qualityProfile.seabedMeshDensity);
     dataset.ddgPostRenderScale = String(qualityProfile.postRenderScale);
+    dataset.ddgPostTarget = qualityProfile.postProcessingSupported === false
+      ? 'disabled'
+      : qualityProfile.postColorType ?? (qualityProfile.isLowPower ? 'rgba8' : 'half-float');
     dataset.ddgWaterShadow = settings.shadowsEnabled === false ? 'off' : 'on';
 
     return () => {
       delete dataset.ddgWaterEngine;
+      delete dataset.ddgQualityTier;
+      delete dataset.ddgMobileProfile;
       delete dataset.ddgSimulationRequested;
       delete dataset.ddgSimulationEffective;
       delete dataset.ddgRefractionMode;
@@ -262,12 +275,19 @@ function WaterRuntimeScene({
       delete dataset.ddgWaterMeshDensity;
       delete dataset.ddgSeabedMeshDensity;
       delete dataset.ddgPostRenderScale;
+      delete dataset.ddgPostTarget;
       delete dataset.ddgWaterShadow;
     };
   }, [
     gl,
+    qualityProfile.isLowPower,
+    qualityProfile.isMobileDevice,
+    qualityProfile.qualityTier,
     qualityProfile.refractionTextureType,
     qualityProfile.postRenderScale,
+    qualityProfile.postColorType,
+    qualityProfile.postProcessingSupported,
+    qualityProfile.refractionDepthEnabled,
     qualityProfile.seabedMeshDensity,
     qualityProfile.waterMeshDensityCap,
     reflectionsEnabled,
@@ -296,6 +316,7 @@ function WaterRuntimeScene({
         refractionEnabled={refractionEnabled}
         refractionTextureType={qualityProfile.refractionTextureType}
         refractionDepthEnabled={qualityProfile.refractionDepthEnabled}
+        refractionDepthMode={qualityProfile.refractionDepthMode}
         textureSize={qualityProfile.reflectionTextureSize}
         activeFps={qualityProfile.reflectionActiveFps}
         idleFps={qualityProfile.reflectionIdleFps}

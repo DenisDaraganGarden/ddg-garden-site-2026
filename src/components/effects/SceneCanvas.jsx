@@ -2,6 +2,7 @@ import React, { Component, useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { useLanguage } from '../../i18n/useLanguage';
+import { getRenderTargetCapabilities } from './renderTargetCapabilities';
 
 let webglSupportCache;
 const SHADOWS_CONFIG = { type: THREE.PCFShadowMap };
@@ -470,8 +471,10 @@ const SceneCanvas = ({
           // on: three compiles tone mapping out for render-target passes, so the
           // post path had none at all.
           onCreated={({ gl: renderer }) => {
+            const renderTargetCapabilities = getRenderTargetCapabilities(renderer);
             renderer.toneMapping = THREE.ACESFilmicToneMapping;
             renderer.toneMappingExposure = 1;
+            renderer.domElement.dataset.ddgRenderTargets = renderTargetCapabilities.label;
           }}
           shadows={SHADOWS_CONFIG}
           frameloop={isTabVisible ? 'always' : 'never'}
