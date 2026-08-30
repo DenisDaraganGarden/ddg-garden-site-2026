@@ -177,12 +177,23 @@ const postFragmentShader = `
     return dot(color, vec3(0.2126, 0.7152, 0.0722));
   }
 
+  // Eighteen steps along a ray, taken at the same fractional offsets by every
+  // pixel, put every pixel's samples on the same rings around the sun. The eye
+  // reads those rings as a stack of frames rather than as light. Starting each
+  // pixel a random fraction of one step along its own ray scatters the rings
+  // into noise, which at this sample count is what a shaft is supposed to look
+  // like anyway. Interleaved gradient noise: three instructions, no texture, and
+  // stable from frame to frame, so a still scene does not shimmer.
+  float rayMarchDither(vec2 fragment) {
+    return fract(52.9829189 * fract(dot(fragment, vec2(0.06711056, 0.00583715))));
+  }
+
   float sampleSunRays(vec2 uv, vec2 sunUv) {
     float sampleCount = max(uSunRaySampleCount, 1.0);
     vec2 aspectScale = vec2(uResolution.x / max(uResolution.y, 1.0), 1.0);
     vec2 rayVector = uv - sunUv;
     vec2 stepVector = rayVector / sampleCount;
-    vec2 sampleUv = uv;
+    vec2 sampleUv = uv + stepVector * rayMarchDither(gl_FragCoord.xy);
     float illumination = 1.0;
     float rays = 0.0;
     float sourceWeight = 0.0;
