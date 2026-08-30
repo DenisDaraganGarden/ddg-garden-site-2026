@@ -5,6 +5,7 @@ import { OrbitControls } from '@react-three/drei';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 
 const STUDIO_BACKGROUND = '#f5f4f0';
+const STUDIO_SHADOWS = { type: THREE.PCFShadowMap };
 
 const CAMERA_VIEWS = {
   school: {
@@ -82,6 +83,7 @@ export default function AssetStudio({ children, view = 'specimens' }) {
 
   return (
     <Canvas
+      shadows={STUDIO_SHADOWS}
       dpr={[1, 1.5]}
       camera={{ position: [3.65, 1.42, 4.9], fov: 32, near: 0.02, far: 40 }}
       gl={{ antialias: true, alpha: false, powerPreference: 'high-performance' }}
@@ -95,10 +97,30 @@ export default function AssetStudio({ children, view = 'specimens' }) {
       <fog attach="fog" args={[STUDIO_BACKGROUND, flightView ? 32 : 6.2, flightView ? 48 : 10.5]} />
       <StudioEnvironment />
       <hemisphereLight args={['#f9fbff', '#b8afa1', 1.35]} />
-      <directionalLight position={[3.4, 5.5, 4]} intensity={2.1} color="#fff7e9" />
+      <directionalLight
+        position={[3.4, 5.5, 4]}
+        intensity={2.1}
+        color="#fff7e9"
+        castShadow
+        shadow-mapSize-width={1024}
+        shadow-mapSize-height={1024}
+        shadow-camera-near={0.5}
+        shadow-camera-far={30}
+        shadow-camera-left={-9}
+        shadow-camera-right={9}
+        shadow-camera-top={9}
+        shadow-camera-bottom={-9}
+        shadow-bias={-0.00035}
+        shadow-normalBias={0.01}
+        shadow-radius={2.5}
+      />
       <directionalLight position={[-4, 0.7, -3]} intensity={1.05} color="#c4dbdf" />
       {children}
-      <mesh position={[0, -1.14, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+      <mesh
+        position={[0, -1.14, 0]}
+        rotation={[-Math.PI / 2, 0, 0]}
+        receiveShadow
+      >
         <planeGeometry args={flightView ? [18, 12] : [8, 6]} />
         <meshStandardMaterial color="#f0eee9" roughness={0.96} metalness={0} />
       </mesh>

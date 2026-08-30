@@ -20,6 +20,10 @@ import {
   SEAGULL_DOWNED_STATE,
   seagullShootingStats,
 } from './seagullShooting';
+import {
+  resolveSeagullShadowCasters,
+  SEAGULL_SHADOW_LOD,
+} from './seagullShadowLod';
 
 const ROTATION_AXIS_X = new THREE.Vector3(1, 0, 0);
 const ROTATION_AXIS_Y = new THREE.Vector3(0, 1, 0);
@@ -62,6 +66,8 @@ export default function SeagullFlock({ mode, paused, showRig, landingSitesRef, o
   const textures = useTexture(SEAGULL_ASSET.textures);
   const { camera, gl: renderer, size } = useThree();
   const statsClock = useRef(0);
+  const shadowClock = useRef(SEAGULL_SHADOW_LOD.updateIntervalSeconds);
+  const shadowCasterIds = useRef(new Set());
   const elapsed = useRef(0);
   const interactionElapsed = useRef(0);
   const pointerTargetCount = useRef(0);
@@ -130,6 +136,7 @@ export default function SeagullFlock({ mode, paused, showRig, landingSitesRef, o
 
   const instances = useMemo(() => Array.from({ length: count }, (_, index) => {
     const object = cloneSkeleton(gltf.scene);
+    const shadowMeshes = [];
     object.name = `seagull_${index + 1}`;
     object.traverse((child) => {
       if (!child.isMesh && !child.isSkinnedMesh) return;
@@ -137,6 +144,7 @@ export default function SeagullFlock({ mode, paused, showRig, landingSitesRef, o
       child.frustumCulled = false;
       child.castShadow = false;
       child.receiveShadow = false;
+      shadowMeshes.push(child);
     });
     const bones = collectBones(object);
     const bind = Object.fromEntries(
@@ -145,7 +153,7 @@ export default function SeagullFlock({ mode, paused, showRig, landingSitesRef, o
     const scale = mode === 'specimen' ? 1.42 : 0.92 + (index % 5) * 0.025;
     object.scale.setScalar(scale);
     return {
-      object, bones, bind, scale,
+      object, bones, bind, scale, shadowMeshes, castsShadow: false,
     };
   }), [count, gltf.scene, material, mode]);
 
@@ -180,6 +188,11 @@ export default function SeagullFlock({ mode, paused, showRig, landingSitesRef, o
   }, [instances]);
 
   useEffect(() => () => material.dispose(), [material]);
+
+  useEffect(() => {
+    shadowCasterIds.current = new Set();
+    shadowClock.current = SEAGULL_SHADOW_LOD.updateIntervalSeconds;
+  }, [instances]);
 
   useEffect(() => {
     const domElement = renderer.domElement;
@@ -455,6 +468,17 @@ export default function SeagullFlock({ mode, paused, showRig, landingSitesRef, o
         landingSitesRef?.current ?? [],
         interactionElapsed.current,
       );
+
+      shadowClock.current += safeDelta;
+      if (shadowClock.current >= SEAGULL_SHADOW_LOD.updateIntervalSeconds) {
+        shadowClock.current = 0;
+        shadowCasterIds.current = resolveSeagullShadowCasters(agents, {
+          waterY: -1.14,
+          maxCasters: mode === 'specimen' ? 1 : SEAGULL_SHADOW_LOD.maximumLabCasters,
+          receiverPoints: points,
+          previousCasterIds: shadowCasterIds.current,
+        });
+      }
     } else {
       pointerTargetCount.current = 0;
       shotTargetIndex.current = -1;
@@ -467,6 +491,14 @@ export default function SeagullFlock({ mode, paused, showRig, landingSitesRef, o
       const instance = instances[index];
       const agent = agents[index];
       const wing = getWingPose(agent);
+      const castsShadow = shadowCasterIds.current.has(agent.index);
+      if (instance.castsShadow !== castsShadow) {
+        instance.castsShadow = castsShadow;
+        for (const mesh of instance.shadowMeshes) {
+          mesh.castShadow = castsShadow;
+          mesh.receiveShadow = castsShadow;
+        }
+      }
       instance.object.visible = agent.shotState !== SEAGULL_DOWNED_STATE.REMOVED;
       instance.object.position.copy(agent.position);
       instance.object.quaternion.copy(agent.quaternion);
@@ -525,6 +557,7 @@ export default function SeagullFlock({ mode, paused, showRig, landingSitesRef, o
         takingOff: (landingStates.takeoff ?? 0) + (landingStates.rejoin ?? 0),
         airborne: landingStates.airborne ?? 0,
         cursorTargets: pointerTargetCount.current,
+        shadowCasters: shadowCasterIds.current.size,
         startled: agents.reduce((sum, agent) => sum + agent.pointerStartleCount, 0),
         minHeight: Math.min(...agents.map((agent) => agent.physicalHeight)),
         maxHeight: Math.max(...agents.map((agent) => agent.physicalHeight)),
@@ -554,6 +587,7 @@ export default function SeagullFlock({ mode, paused, showRig, landingSitesRef, o
           coordinateSystem: 'canvas pixels from top-left; world +Y is up',
           time: interactionElapsed.current,
           targetIndex: shotTargetIndex.current,
+          shadowCasters: [...shadowCasterIds.current],
           ...shooting,
           birds: agents.map((agent) => ({
             index: agent.index,

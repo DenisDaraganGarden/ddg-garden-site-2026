@@ -44,6 +44,7 @@ export default function SeagullLab() {
     takingOff: 0,
     airborne: 9,
     cursorTargets: 0,
+    shadowCasters: 0,
     startled: 0,
     minHeight: 12,
     maxHeight: 28,
@@ -132,6 +133,7 @@ export default function SeagullLab() {
         <span><b>{stats.birds}</b> чаек</span>
         <span><b>{stats.calls}</b> draw calls</span>
         <span><b>{Math.round(stats.triangles / 1000)}k</b> трис / кадр</span>
+        <span><b>{stats.shadowCasters}</b> тени · LOD</span>
         {mode === 'landing' ? (
           <>
             <span><b>{stats.airborne}</b> в воздухе</span>
