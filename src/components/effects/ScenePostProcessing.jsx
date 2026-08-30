@@ -291,6 +291,7 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
   const { gl, scene, camera } = useThree();
   const isLowPower = qualityProfile?.isLowPower === true;
   const renderScale = qualityProfile?.postRenderScale ?? 1;
+  const requestedSamples = qualityProfile?.postSamples ?? 0;
   const drawingBufferSize = useRef(new THREE.Vector2());
   const lastTargetSize = useRef(new THREE.Vector2());
   const sunPoint = useRef(new THREE.Vector3());
@@ -320,8 +321,15 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
     target.depthTexture.magFilter = THREE.NearestFilter;
     target.depthTexture.generateMipmaps = false;
     target.depthTexture.name = 'home-scene-post-depth';
+    // Canvas MSAA only covers the default framebuffer. With post enabled the
+    // entire scene is drawn into this target first, so vegetation's
+    // alphaToCoverage needs samples here as well or its thin edges turn into
+    // hard black sawteeth despite a DPR-2 canvas.
+    target.samples = isLowPower
+      ? 0
+      : Math.min(requestedSamples, gl.capabilities.maxSamples ?? requestedSamples);
     return target;
-  }, [isLowPower]);
+  }, [gl.capabilities.maxSamples, isLowPower, requestedSamples]);
   const uniforms = useMemo(() => ({
     uColorTexture: { value: renderTarget.texture },
     uDepthTexture: { value: renderTarget.depthTexture },
@@ -425,6 +433,13 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
     renderTarget.dispose();
     noiseTexture.dispose();
   }, [noiseTexture, postMaterial, postScene, renderTarget]);
+
+  useEffect(() => {
+    gl.domElement.dataset.ddgPostSamples = String(renderTarget.samples);
+    return () => {
+      delete gl.domElement.dataset.ddgPostSamples;
+    };
+  }, [gl, renderTarget.samples]);
 
   useFrame(({ clock }) => {
     const enabled = settings.postProcessingEnabled && settings.debugView === 'beauty';

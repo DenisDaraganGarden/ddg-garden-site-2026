@@ -71,6 +71,7 @@ function trimProfileForMobile(profile, isMobileDevice) {
     ...profile,
     simulationMaxResolution: Math.min(profile.simulationMaxResolution, 256),
     reflectionTextureSize: Math.min(profile.reflectionTextureSize, 256),
+    postSamples: Math.min(profile.postSamples, 2),
     waterMeshDensityCap: Math.min(profile.waterMeshDensityCap, 144),
     seabedMeshDensity: Math.min(profile.seabedMeshDensity, 128),
     shadowMapSize: Math.min(profile.shadowMapSize, 512),
@@ -102,6 +103,7 @@ export function buildRuntimeQualityProfile(mode, viewportWidth) {
       refractionTextureType: THREE.UnsignedByteType,
       refractionDepthEnabled: false,
       postRenderScale: 0.75,
+      postSamples: 0,
       waterMeshDensityCap: 104,
       seabedMeshDensity: 96,
       shadowMapSize: 384,
@@ -123,13 +125,14 @@ export function buildRuntimeQualityProfile(mode, viewportWidth) {
       refractionTextureType: THREE.HalfFloatType,
       refractionDepthEnabled: true,
       postRenderScale: 1,
+      postSamples: 2,
       waterMeshDensityCap: isEditor ? 224 : 176,
       seabedMeshDensity: 144,
       shadowMapSize: isEditor ? 1024 : 768,
       boatProbeInterval: 1 / 18,
       useGpuBoatProbes: true,
       surfacePlantMaxInstances: 560,
-      underwaterAlgaeMaxInstances: 900,
+      underwaterAlgaeMaxInstances: 720,
     }, isMobileDevice);
   }
 
@@ -143,12 +146,13 @@ export function buildRuntimeQualityProfile(mode, viewportWidth) {
     refractionTextureType: THREE.HalfFloatType,
     refractionDepthEnabled: true,
     postRenderScale: 1,
+    postSamples: 4,
     waterMeshDensityCap: isEditor ? 352 : 224,
     seabedMeshDensity: 176,
     shadowMapSize: isEditor ? 2048 : 1024,
     boatProbeInterval: 1 / 20,
     useGpuBoatProbes: true,
     surfacePlantMaxInstances: 900,
-    underwaterAlgaeMaxInstances: 1600,
+    underwaterAlgaeMaxInstances: 1100,
   }, isMobileDevice);
 }

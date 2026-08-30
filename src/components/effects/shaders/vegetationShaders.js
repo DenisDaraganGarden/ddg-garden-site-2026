@@ -381,8 +381,8 @@ export const underwaterAlgaeVertexShader = `
       max(uWaterDepth - relief - 0.16, 0.02)
     );
     float t = position.y;
-    float widthProfile = mix(0.038, 0.086, broadSpecies);
-    widthProfile = mix(widthProfile, 0.018, filamentSpecies);
+    float widthProfile = mix(0.03, 0.066, broadSpecies);
+    widthProfile = mix(widthProfile, 0.014, filamentSpecies);
     float tipProfile = mix(1.0 - t * 0.74, sin((1.0 - t) * 1.57079632679), broadSpecies);
     tipProfile = mix(tipProfile, 1.0 - t * 0.58, filamentSpecies);
     float taperedWidth = position.x * widthProfile * aWidth * max(tipProfile, 0.08);
@@ -392,11 +392,15 @@ export const underwaterAlgaeVertexShader = `
     vec2 currentDirection = normalize(uFlowDirection + vec2(
       sin(aPhase * 1.7),
       cos(aPhase * 1.3)
-    ) * 0.16);
+    ) * 0.38);
     float speciesFrequency = mix(1.0, 1.38, filamentSpecies);
     float swayWave = sin(uTime * 0.64 * speciesFrequency + aPhase + t * 3.1)
       + 0.38 * sin(uTime * 1.08 - aPhase * 0.61 + t * mix(5.4, 8.2, filamentSpecies));
-    float steadyLean = clamp(uFlowStrength, 0.0, 2.0) * mix(0.42, 0.7, broadSpecies);
+    // A strong current gives the meadow a shared gesture, but individual
+    // blades keep enough heading and stiffness variation not to collapse into
+    // one camera-facing carpet of parallel black strokes.
+    float flow = clamp(uFlowStrength, 0.0, 2.0) * 0.5;
+    float steadyLean = mix(0.12, 0.48, flow) * mix(0.82, 1.16, broadSpecies);
     float bend = (steadyLean + swayWave * 0.2 * clamp(uSway, 0.0, 1.5))
       * bladeLength
       * pow(t, mix(1.22, 1.48, filamentSpecies));
@@ -474,18 +478,20 @@ export const underwaterAlgaeFragmentShader = `
       vHeightAlongBlade * 54.0 + vPhase + vRibbonUv.x * 6.0
     );
     float alpha = edge * baseFade * tipFade;
-    if (alpha < 0.08) {
+    float coverageWidth = max(fwidth(alpha), 0.012);
+    float coverage = smoothstep(0.035 - coverageWidth, 0.035 + coverageWidth, alpha);
+    if (coverage < 0.002) {
       discard;
     }
 
     vec3 speciesTint = mix(vec3(0.72, 1.06, 0.56), vec3(0.52, 1.16, 0.72), broadSpecies);
     speciesTint = mix(speciesTint, vec3(0.86, 1.08, 0.42), filamentSpecies);
-    vec3 color = uColor * speciesTint * mix(0.62, 1.36, vTone);
+    vec3 color = uColor * speciesTint * mix(0.78, 1.22, vTone);
     color = applySaturation(color, clamp(uSaturation, 0.0, 2.0));
     color *= mix(filament, 0.9 + filament * 0.1, broadSpecies);
 
     float moonDiffuse = abs(dot(normalize(vRibbonNormal), normalize(uMoonDirection)));
-    float topLift = mix(0.68, 1.08, vHeightAlongBlade);
+    float topLift = mix(0.76, 1.12, vHeightAlongBlade);
     float ambientLuma = max(
       dot(uEnvironmentAmbientColor, vec3(0.2126, 0.7152, 0.0722)),
       0.001
@@ -495,15 +501,16 @@ export const underwaterAlgaeFragmentShader = `
       vec3(0.62),
       vec3(1.5)
     );
-    vec3 lighting = vec3(0.42) * mix(
+    float fillStrength = clamp(uEnvironmentDiffuse * 3.2, 0.0, 1.0);
+    vec3 lighting = vec3(0.5 + fillStrength * 0.1) * mix(
       vec3(1.0),
       ambientChroma,
-      clamp(uEnvironmentDiffuse, 0.0, 2.2) * 0.2
+      0.18 + fillStrength * 0.22
     ) + uMoonColor
       * moonDiffuse
-      * (0.16 + clamp(uMoonIntensity, 0.0, 4.0) * 0.2);
+      * (0.1 + clamp(uMoonIntensity, 0.0, 4.0) * 0.16);
     float rootAo = mix(
-      1.0 - clamp(uPlantAoStrength, 0.0, 1.0) * 0.58,
+      1.0 - clamp(uPlantAoStrength, 0.0, 1.0) * 0.42,
       1.0,
       smoothstep(0.02, 0.34, vHeightAlongBlade)
     );
@@ -513,7 +520,7 @@ export const underwaterAlgaeFragmentShader = `
     color *= lighting * topLift * rootAo;
     color = mix(color, uWaterScatteringColor * 0.36, waterHaze);
 
-    gl_FragColor = vec4(color, alpha);
+    gl_FragColor = vec4(color, coverage);
     #include <tonemapping_fragment>
     #include <colorspace_fragment>
     #include <dithering_fragment>
