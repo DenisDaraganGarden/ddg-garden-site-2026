@@ -3,6 +3,7 @@
 import assert from 'node:assert/strict';
 import {
   DEVICE_PERFORMANCE_TIER,
+  capRuntimePixelRatio,
   classifyDevicePerformance,
 } from './deviceCapabilityProfile.js';
 
@@ -25,6 +26,16 @@ assert.equal(
   classifyDevicePerformance({ deviceMemory: 8, hardwareConcurrency: 8 }),
   DEVICE_PERFORMANCE_TIER.high,
   'ample memory and cores retain the high profile',
+);
+assert.equal(
+  capRuntimePixelRatio({ devicePixelRatio: 3, touchPrimary: true }),
+  2,
+  'DPR-3 phones should trade their third device pixel for a stable shader-heavy frame',
+);
+assert.equal(
+  capRuntimePixelRatio({ devicePixelRatio: 3, touchPrimary: false }),
+  3,
+  'desktop authored rendering must retain its display capability',
 );
 
 console.log('deviceCapabilityProfile: all checks passed');

@@ -2,7 +2,11 @@ import React, { Component, useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { useLanguage } from '../../i18n/useLanguage';
-import { DEVICE_PERFORMANCE_TIER, readRuntimeDevicePerformanceTier } from './deviceCapabilityProfile';
+import {
+  DEVICE_PERFORMANCE_TIER,
+  capRuntimePixelRatio,
+  readRuntimeDevicePerformanceTier,
+} from './deviceCapabilityProfile';
 import { getRenderTargetCapabilities } from './renderTargetCapabilities';
 
 let webglSupportCache;
@@ -41,6 +45,8 @@ function getCanvasProfile(mode, renderScale = 1) {
 
   const isEditor = mode === 'editor';
   const isWeakDevice = readRuntimeDevicePerformanceTier() === DEVICE_PERFORMANCE_TIER.low;
+  const isTouchPrimary = typeof window.matchMedia === 'function'
+    && window.matchMedia('(hover: none) and (pointer: coarse)').matches;
 
   // Budget the shaded pixels instead of branching on viewport width. The frame is
   // a short 2.78:1 band, so its area grows as width^2 / 2.78 - a phone can afford
@@ -60,7 +66,10 @@ function getCanvasProfile(mode, renderScale = 1) {
   // Never ask for more pixels than the display can show. Above the device ratio
   // the browser just scales the result back down, so the cost is quadratic and
   // the gain is marginal.
-  const displayCap = Math.max(1, window.devicePixelRatio || 1);
+  const displayCap = capRuntimePixelRatio({
+    devicePixelRatio: window.devicePixelRatio,
+    touchPrimary: isTouchPrimary,
+  });
   const targetDpr = Math.min(displayCap, Math.max(0.5, automaticDpr * renderScale));
 
   // One number, not a [min, max] range. A range switches r3f into adaptive dpr,

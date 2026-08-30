@@ -55,7 +55,10 @@ function trimProfileForMobile(profile, isMobileDevice) {
   return {
     ...profile,
     simulationMaxResolution: Math.min(profile.simulationMaxResolution, 256),
-    reflectionTextureSize: Math.min(profile.reflectionTextureSize, 256),
+    // The old 256px cap became a visibly blocky 256×92 capture inside the wide
+    // film gate. At DPR 2, a 512px long edge keeps refracted reeds and fish
+    // coherent while the main canvas saves far more shaded pixels than it costs.
+    reflectionTextureSize: 512,
     postSamples: Math.min(profile.postSamples, 2),
     shadowMapSize: Math.min(profile.shadowMapSize, 512),
   };

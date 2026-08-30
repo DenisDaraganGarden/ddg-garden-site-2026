@@ -32,3 +32,12 @@ export function readRuntimeDevicePerformanceTier() {
     hardwareConcurrency: navigator.hardwareConcurrency,
   });
 }
+
+// A DPR-3 phone can request a 3× render scale through authored settings. The
+// final frame is a shader-heavy 3D image, not text: two physical pixels per CSS
+// pixel stay crisp while the third costs another 125% shaded area. Desktop
+// monitors keep their authored cap; only touch-primary runtimes get this guard.
+export function capRuntimePixelRatio({ devicePixelRatio = 1, touchPrimary = false } = {}) {
+  const physicalRatio = Math.max(1, Number(devicePixelRatio) || 1);
+  return touchPrimary ? Math.min(physicalRatio, 2) : physicalRatio;
+}
