@@ -9,8 +9,13 @@ import {
 } from '../src/features/home-scene/creatures/fish/fishCatalog.js';
 import {
   createFishGeometry,
+  createFishContactShadowBatch,
   createFishMaterial,
 } from '../src/features/home-scene/creatures/fish/fishRendering.js';
+import {
+  resolveFishContactShadow,
+  sampleFishShadowSeabedRelief,
+} from '../src/features/home-scene/creatures/fish/fishContactShadows.js';
 
 const reports = [];
 for (const species of FISH_SPECIES_ORDER) {
@@ -61,6 +66,62 @@ for (const species of FISH_SPECIES_ORDER) {
   material.dispose();
   Object.values(textures).forEach((texture) => texture.dispose());
 }
+
+const relief = sampleFishShadowSeabedRelief({
+  x: 2.1,
+  z: -3.7,
+  waterExtent: 24,
+  reliefStrength: 0.6,
+  reliefScale: 1.8,
+});
+assert.ok(
+  Math.abs(relief - (-0.11154820726304165)) < 1e-12,
+  'fish-contact relief must preserve the seabed plane V axis (world -Z)',
+);
+assert.notEqual(
+  relief,
+  sampleFishShadowSeabedRelief({
+    x: 2.1,
+    z: 3.7,
+    waterExtent: 24,
+    reliefStrength: 0.6,
+    reliefScale: 1.8,
+  }),
+  'the asymmetric seabed noise must not mirror the Z axis',
+);
+
+const shadow = resolveFishContactShadow({
+  position: { x: 0.4, y: -0.35, z: -0.2 },
+  forward: { x: 0, z: 1 },
+  catalog: FISH_CATALOG.pike,
+  lightDirection: { x: 0.45, y: 0.8, z: 0.2 },
+  waterExtent: 24,
+  waterDepthMeters: 1.25,
+  seabedReliefStrength: 0.6,
+  seabedReliefScale: 1.8,
+});
+assert.ok(shadow.height > 0 && shadow.opacity > 0, 'fish contact shadow must resolve above the relief');
+assert.ok(shadow.x < 0.4 && shadow.z < -0.2, 'key-light direction must project the shadow across the bed');
+assert.ok(shadow.length > shadow.width, 'fish contact shadow must retain the body silhouette');
+
+const contactBatch = createFishContactShadowBatch(12);
+assert.ok(contactBatch.mesh.isInstancedMesh, 'fish contact shadows must be one instanced layer');
+assert.equal(contactBatch.mesh.count, 12);
+assert.equal(contactBatch.mesh.castShadow, false);
+assert.equal(contactBatch.mesh.receiveShadow, false);
+assert.equal(contactBatch.mesh.instanceMatrix.usage, THREE.DynamicDrawUsage);
+assert.equal(contactBatch.material.depthWrite, false);
+assert.match(contactBatch.material.vertexShader, /0\.5 - \(worldXZ\.y/,
+  'GPU shadow relief must use the seabed plane V axis');
+assert.match(contactBatch.material.vertexShader, /instanceMatrix/,
+  'contact shadows must retain per-fish instancing');
+contactBatch.geometry.dispose();
+contactBatch.material.dispose();
+
+const emptyContactBatch = createFishContactShadowBatch(0);
+assert.equal(emptyContactBatch.mesh.count, 0, 'empty schools must not submit a transparent shadow draw');
+emptyContactBatch.geometry.dispose();
+emptyContactBatch.material.dispose();
 
 console.log(JSON.stringify({
   shader: 'instanced procedural spine plus pectoral fins',

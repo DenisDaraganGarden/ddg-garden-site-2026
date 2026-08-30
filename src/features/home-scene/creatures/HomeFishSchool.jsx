@@ -18,12 +18,16 @@ import { createFishHabitat } from './fish/fishHabitat.js';
 import {
   configureFishTextures,
   createFishBatch,
+  createFishContactShadowBatch,
   disposeFishBatch,
+  disposeFishContactShadowBatch,
 } from './fish/fishRendering.js';
+import { resolveFishContactShadow } from './fish/fishContactShadows.js';
 import {
   advanceFishCursorResponse,
   createFishCursorInteractionState,
 } from './fish/fishPointerInteraction.js';
+import { buildHomeSceneLighting } from '../../../components/effects/homeSceneLighting.js';
 
 const FISH_OBSTACLE_REFRESH_SECONDS = 0.2;
 const FISH_SURFACE_PROBE_SECONDS = 0.125;
@@ -108,7 +112,9 @@ export default function HomeFishSchool({
     waveAmplitude,
   } = settings;
   const batchMatrix = useMemo(() => new THREE.Object3D(), []);
+  const shadowMatrix = useMemo(() => new THREE.Object3D(), []);
   const targetOrientation = useMemo(() => new THREE.Quaternion(), []);
+  const shadowForward = useMemo(() => new THREE.Vector3(), []);
   const obstacleBounds = useMemo(() => new THREE.Box3(), []);
   const surfaceProbePoint = useMemo(() => new THREE.Vector3(), []);
   const surfaceSamples = useRef([]);
@@ -172,6 +178,18 @@ export default function HomeFishSchool({
       speciesAgents,
     )];
   }), [agents, templates, textureSets]);
+  const contactShadows = useMemo(
+    () => createFishContactShadowBatch(agents.length),
+    [agents.length],
+  );
+  const contactShadowStates = useMemo(
+    () => agents.map(() => ({})),
+    [agents],
+  );
+  const fishLighting = useMemo(
+    () => buildHomeSceneLighting(settings),
+    [settings],
+  );
   const behaviorAccumulator = useRef(0);
   const behaviorElapsed = useRef(0);
   const obstacleElapsed = useRef(FISH_OBSTACLE_REFRESH_SECONDS);
@@ -216,6 +234,7 @@ export default function HomeFishSchool({
   }, [habitat, surfaceFallback]);
 
   useEffect(() => () => batches.forEach(disposeFishBatch), [batches]);
+  useEffect(() => () => disposeFishContactShadowBatch(contactShadows), [contactShadows]);
 
   useEffect(() => {
     const domElement = gl.domElement;
@@ -261,6 +280,7 @@ export default function HomeFishSchool({
     dataset.ddgFishTier = quality.tier;
     dataset.ddgFishOptics = 'refraction-only';
     dataset.ddgFishRig = 'instanced-procedural-spine-fin';
+    dataset.ddgFishContactShadows = `${agents.length}:refraction-contact-decals`;
 
     return () => {
       delete dataset.ddgFishRequested;
@@ -269,13 +289,14 @@ export default function HomeFishSchool({
       delete dataset.ddgFishTier;
       delete dataset.ddgFishOptics;
       delete dataset.ddgFishRig;
+      delete dataset.ddgFishContactShadows;
       delete dataset.ddgFishDiagnostics;
       if (typeof window !== 'undefined') {
         delete window.__DDG_FISH__;
         delete window.render_fish_to_text;
       }
     };
-  }, [batches.length, gl, quality]);
+  }, [agents.length, batches.length, gl, quality]);
 
   useFrame(({ clock }, delta) => {
     if (typeof document !== 'undefined' && document.hidden) return;
@@ -376,6 +397,43 @@ export default function HomeFishSchool({
       batch.flex.needsUpdate = true;
     }
 
+    const shadowUniforms = contactShadows.material.userData.ddgFishContactShadowUniforms;
+    shadowUniforms.uWaterExtent.value = settings.waterExtent;
+    shadowUniforms.uWaterDepth.value = settings.waterDepthMeters;
+    shadowUniforms.uReliefStrength.value = settings.seabedReliefStrength;
+    shadowUniforms.uReliefScale.value = settings.seabedReliefScale;
+    const contactShadowsEnabled = fishLighting.shadow.enabled
+      && fishLighting.shadow.intensity > 0
+      && fishLighting.key.sceneIntensity > 0
+      && settings.debugView === 'beauty';
+    contactShadows.mesh.visible = contactShadowsEnabled;
+
+    if (contactShadowsEnabled) {
+      agents.forEach((agent, index) => {
+        const catalog = FISH_CATALOG[agent.species];
+        shadowForward.set(1, 0, 0).applyQuaternion(agent.renderOrientation);
+        const shadow = resolveFishContactShadow({
+          position: agent.renderPosition,
+          forward: shadowForward,
+          catalog,
+          lightDirection: fishLighting.key.direction,
+          waterExtent: settings.waterExtent,
+          waterDepthMeters: settings.waterDepthMeters,
+          seabedReliefStrength: settings.seabedReliefStrength,
+          seabedReliefScale: settings.seabedReliefScale,
+          scale: agent.scale,
+        }, contactShadowStates[index]);
+        shadowMatrix.position.set(shadow.x, 0, shadow.z);
+        shadowMatrix.rotation.set(0, shadow.yaw, 0);
+        shadowMatrix.scale.set(shadow.length, 1, shadow.width);
+        shadowMatrix.updateMatrix();
+        contactShadows.mesh.setMatrixAt(index, shadowMatrix.matrix);
+        contactShadows.opacity.setX(index, shadow.opacity);
+      });
+      contactShadows.mesh.instanceMatrix.needsUpdate = true;
+      contactShadows.opacity.needsUpdate = true;
+    }
+
     diagnosticsElapsed.current += safeDelta;
     if (diagnosticsElapsed.current < FISH_DIAGNOSTICS_REFRESH_SECONDS) return;
     diagnosticsElapsed.current = 0;
@@ -413,8 +471,12 @@ export default function HomeFishSchool({
   return (
     <group
       name="river-fish-school"
-      userData={{ ddgDynamicRefraction: agents.length > 0 }}
+      userData={{
+        ddgDynamicRefraction: agents.length > 0,
+        ddgFishContactShadows: 'refraction-contact-decals',
+      }}
     >
+      <primitive object={contactShadows.mesh} />
       {batches.map(({ mesh }) => <primitive key={mesh.uuid} object={mesh} />)}
     </group>
   );

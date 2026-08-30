@@ -2,6 +2,75 @@ import * as THREE from 'three';
 
 const FISH_SHADER_REVISION = 'ddg-instanced-fish-rig-v1';
 
+const fishContactShadowVertexShader = /* glsl */ `
+  attribute float aFishShadowOpacity;
+
+  varying vec2 vFishShadowUv;
+  varying float vFishShadowOpacity;
+
+  uniform float uWaterExtent;
+  uniform float uWaterDepth;
+  uniform float uReliefStrength;
+  uniform float uReliefScale;
+
+  float hash(vec2 p) {
+    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+  }
+
+  float noise(vec2 p) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    float a = hash(i);
+    float b = hash(i + vec2(1.0, 0.0));
+    float c = hash(i + vec2(0.0, 1.0));
+    float d = hash(i + vec2(1.0, 1.0));
+    vec2 u = f * f * (3.0 - 2.0 * f);
+    return mix(a, b, u.x) + (c - a) * u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
+  }
+
+  float fbm(vec2 p) {
+    float value = 0.0;
+    float amplitude = 0.5;
+
+    for (int i = 0; i < 5; i += 1) {
+      value += amplitude * noise(p);
+      p *= 2.0;
+      amplitude *= 0.5;
+    }
+
+    return value;
+  }
+
+  float sampleRelief(vec2 worldXZ) {
+    vec2 seabedUv = vec2(
+      (worldXZ.x / max(uWaterExtent, 0.001)) + 0.5,
+      0.5 - (worldXZ.y / max(uWaterExtent, 0.001))
+    );
+    return (fbm(seabedUv * uReliefScale) - 0.5) * uReliefStrength;
+  }
+
+  void main() {
+    vec4 worldPosition = modelMatrix * instanceMatrix * vec4(position, 1.0);
+    worldPosition.y = -uWaterDepth + sampleRelief(worldPosition.xz) + 0.012;
+    vFishShadowUv = uv;
+    vFishShadowOpacity = aFishShadowOpacity;
+    gl_Position = projectionMatrix * viewMatrix * worldPosition;
+  }
+`;
+
+const fishContactShadowFragmentShader = /* glsl */ `
+  varying vec2 vFishShadowUv;
+  varying float vFishShadowOpacity;
+
+  void main() {
+    vec2 radialUv = (vFishShadowUv * 2.0) - 1.0;
+    float radiusSquared = dot(radialUv, radialUv);
+    float edge = 1.0 - smoothstep(0.28, 1.0, radiusSquared);
+    float falloff = exp(-radiusSquared * 2.25) * edge;
+    gl_FragColor = vec4(vec3(0.0), vFishShadowOpacity * falloff);
+  }
+`;
+
 function fishRigShaderHeader() {
   return /* glsl */ `
     attribute float aFishPhase;
@@ -181,7 +250,53 @@ export function createFishBatch(catalog, template, textures, agents) {
   return { mesh, geometry, material, agents, flex };
 }
 
+export function createFishContactShadowBatch(instanceCount) {
+  const requestedCount = Math.max(0, Math.floor(instanceCount));
+  // Instanced attributes need non-zero backing storage, but a no-fish school
+  // must not submit a transparent draw to the refraction target.
+  const capacity = Math.max(1, requestedCount);
+  const geometry = new THREE.PlaneGeometry(1, 1, 1, 1);
+  geometry.rotateX(-Math.PI / 2);
+  const opacity = new THREE.InstancedBufferAttribute(new Float32Array(capacity), 1);
+  geometry.setAttribute('aFishShadowOpacity', opacity);
+  const uniforms = {
+    uWaterExtent: { value: 24 },
+    uWaterDepth: { value: 1.25 },
+    uReliefStrength: { value: 0.6 },
+    uReliefScale: { value: 1.8 },
+  };
+  const material = new THREE.ShaderMaterial({
+    name: 'fish-contact-shadows',
+    uniforms,
+    vertexShader: fishContactShadowVertexShader,
+    fragmentShader: fishContactShadowFragmentShader,
+    transparent: true,
+    depthTest: true,
+    depthWrite: false,
+    blending: THREE.NormalBlending,
+    toneMapped: false,
+  });
+  const mesh = new THREE.InstancedMesh(geometry, material, capacity);
+
+  mesh.name = 'fish-contact-shadows';
+  mesh.count = requestedCount;
+  mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  mesh.castShadow = false;
+  mesh.receiveShadow = false;
+  mesh.frustumCulled = false;
+  mesh.renderOrder = 1;
+  mesh.userData.ddgFishContactShadows = 'refraction-contact-decals';
+  material.userData.ddgFishContactShadowUniforms = uniforms;
+
+  return { mesh, geometry, material, opacity };
+}
+
 export function disposeFishBatch(batch) {
+  batch.geometry.dispose();
+  batch.material.dispose();
+}
+
+export function disposeFishContactShadowBatch(batch) {
   batch.geometry.dispose();
   batch.material.dispose();
 }
