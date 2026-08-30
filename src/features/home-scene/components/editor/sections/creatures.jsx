@@ -61,3 +61,60 @@ export const SeagullsSection = ({ settings, handleSettingChange }) => {
         </>
     );
 };
+
+export const FishSection = ({ settings, handleSettingChange }) => {
+    const { t } = useLanguage();
+
+    return (
+        <>
+            <CheckboxControl
+                label={t('homeEditor.controls.fishEnabled')}
+                checked={Boolean(settings.fishEnabled)}
+                onChange={(event) => handleSettingChange(event, 'fishEnabled', 'boolean')}
+                testId="home-editor-fish-enabled"
+            />
+            <RangeControl
+                label={t('homeEditor.controls.fishCount')}
+                value={settings.fishCount}
+                min={0}
+                max={50}
+                step={1}
+                onChange={(event) => handleSettingChange(event, 'fishCount', 'integer')}
+                testId="home-editor-fish-count"
+            />
+            <RangeControl
+                label={t('homeEditor.controls.fishSchooling')}
+                value={settings.fishSchooling}
+                min={0}
+                max={1}
+                step={0.01}
+                unit="%"
+                formatValue={formatPercent}
+                onChange={(event) => handleSettingChange(event, 'fishSchooling', 'float')}
+                testId="home-editor-fish-schooling"
+            />
+            <RangeControl
+                label={t('homeEditor.controls.fishActivity')}
+                value={settings.fishActivity}
+                min={0}
+                max={1}
+                step={0.01}
+                unit="%"
+                formatValue={formatPercent}
+                onChange={(event) => handleSettingChange(event, 'fishActivity', 'float')}
+                testId="home-editor-fish-activity"
+            />
+            <RangeControl
+                label={t('homeEditor.controls.fishDepthBand')}
+                value={settings.fishDepthBand}
+                min={0}
+                max={1}
+                step={0.01}
+                unit="%"
+                formatValue={formatPercent}
+                onChange={(event) => handleSettingChange(event, 'fishDepthBand', 'float')}
+                testId="home-editor-fish-depth-band"
+            />
+        </>
+    );
+};

@@ -11,6 +11,8 @@
     "check:lighting": "node src/components/effects/homeSceneLighting.check.js",
     "check:materials": "node src/components/effects/water/pbrMaterial.check.js",
     "check:render-targets": "node src/components/effects/water/renderTargets.check.js",
+    "check:fish": "node scripts/check-fish-assets.mjs && node scripts/check-fish-runtime.mjs && node scripts/check-fish-rendering.mjs",
+    "check:fish-assets": "node scripts/check-fish-assets.mjs",
     "check:seagulls": "node scripts/check-seagull-motion.mjs && node scripts/validate-seagull-glb.mjs",
     "check:sky": "node src/components/effects/sky/skyModel.check.js",
     "check:audio": "node scripts/check-audio.mjs",

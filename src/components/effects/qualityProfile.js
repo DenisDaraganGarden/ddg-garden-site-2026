@@ -77,6 +77,11 @@ function trimProfileForMobile(profile, isMobileDevice) {
     shadowMapSize: Math.min(profile.shadowMapSize, 512),
     surfacePlantMaxInstances: Math.min(profile.surfacePlantMaxInstances, 420),
     underwaterAlgaeMaxInstances: Math.min(profile.underwaterAlgaeMaxInstances, 640),
+    // Fifty animated specimens are reserved for a wide desktop canvas. On a
+    // phone the same shoal is sub-pixel after refraction, so fewer fish preserve
+    // the silhouette while avoiding needless matrix and offscreen-pass work.
+    fishMaxInstances: Math.min(profile.fishMaxInstances, 18),
+    fishBehaviorFps: Math.min(profile.fishBehaviorFps, 20),
   };
 }
 
@@ -111,6 +116,8 @@ export function buildRuntimeQualityProfile(mode, viewportWidth) {
       useGpuBoatProbes: false,
       surfacePlantMaxInstances: 180,
       underwaterAlgaeMaxInstances: 220,
+      fishMaxInstances: 14,
+      fishBehaviorFps: 15,
     };
   }
 
@@ -133,6 +140,8 @@ export function buildRuntimeQualityProfile(mode, viewportWidth) {
       useGpuBoatProbes: true,
       surfacePlantMaxInstances: 560,
       underwaterAlgaeMaxInstances: 720,
+      fishMaxInstances: 30,
+      fishBehaviorFps: 24,
     }, isMobileDevice);
   }
 
@@ -154,5 +163,7 @@ export function buildRuntimeQualityProfile(mode, viewportWidth) {
     useGpuBoatProbes: true,
     surfacePlantMaxInstances: 900,
     underwaterAlgaeMaxInstances: 1100,
+    fishMaxInstances: 50,
+    fishBehaviorFps: 30,
   }, isMobileDevice);
 }

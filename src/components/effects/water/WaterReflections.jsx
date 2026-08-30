@@ -140,6 +140,7 @@ export default function WaterReflections({
     boat: null,
     sculptureAnchor: null,
     seagullFlock: null,
+    fishSchool: null,
   });
   const reflectionTimingRef = useRef({
     initialized: false,
@@ -237,6 +238,9 @@ export default function WaterReflections({
     if (!sceneObjects.seagullFlock || !sceneObjects.seagullFlock.parent) {
       sceneObjects.seagullFlock = scene.getObjectByName('seagull-flock');
     }
+    if (!sceneObjects.fishSchool || !sceneObjects.fishSchool.parent) {
+      sceneObjects.fishSchool = scene.getObjectByName('river-fish-school');
+    }
 
     const waterSurface = sceneObjects.waterSurface;
     const seabed = sceneObjects.seabed;
@@ -249,6 +253,7 @@ export default function WaterReflections({
     const boat = sceneObjects.boat;
     const sculptureAnchor = sceneObjects.sculptureAnchor;
     const seagullFlock = sceneObjects.seagullFlock;
+    const fishSchool = sceneObjects.fishSchool;
     const seagullReflectionActivity = readSeagullReflectionActivity(seagullFlock);
 
     if (!waterSurface) {
@@ -287,7 +292,11 @@ export default function WaterReflections({
       isMoving = cameraMoved
         || boatMoved
         || sculptureMoved
-        || seagullReflectionActivity.dynamic;
+        || seagullReflectionActivity.dynamic
+        // Fish animate continuously inside the refraction texture. Without this
+        // signal a still camera with hidden scene props would throttle them to
+        // the idle optics rate and the shoal would visibly step.
+        || fishSchool?.userData?.ddgDynamicRefraction === true;
     }
 
     const minInterval = 1 / Math.max(isMoving ? activeFps : idleFps, 1);
@@ -343,6 +352,7 @@ export default function WaterReflections({
     const underwaterAlgaeWasVisible = underwaterAlgae?.visible ?? false;
     const celestialDiscWasVisible = celestialDisc?.visible ?? false;
     const skyDomeWasVisible = skyDome?.visible ?? false;
+    const fishSchoolWasVisible = fishSchool?.visible ?? false;
 
     if (waterSurface) waterSurface.visible = false;
     if (interactionPlane) interactionPlane.visible = false;
@@ -399,6 +409,10 @@ export default function WaterReflections({
         // compile the global clipping-plane chunks. Hide the submerged layer
         // explicitly from the mirrored pass; it remains visible in refraction.
         if (underwaterAlgae) underwaterAlgae.visible = false;
+        // Underwater life belongs to the refracted view through the surface,
+        // never to the mirrored world above it. The flat clip plane would catch
+        // near-surface tails during a wave, so exclude the school explicitly.
+        if (fishSchool) fishSchool.visible = false;
         // The mirrored pass must only contain the part above the waterline.
         // Otherwise underwater geometry is mirrored as a second dark object.
         reflectionClipPlane.constant = -mirrorY + WATER_CLIP_OVERLAP;
@@ -425,6 +439,7 @@ export default function WaterReflections({
       setSubmergedOnly(surfaceVegetation, 0);
       if (surfaceVegetation) surfaceVegetation.visible = surfaceVegetationWasVisible;
       if (underwaterAlgae) underwaterAlgae.visible = underwaterAlgaeWasVisible;
+      if (fishSchool) fishSchool.visible = fishSchoolWasVisible;
       if (interactionPlane) interactionPlane.visible = true;
       if (celestialDisc) celestialDisc.visible = celestialDiscWasVisible;
       if (skyDome) skyDome.visible = skyDomeWasVisible;

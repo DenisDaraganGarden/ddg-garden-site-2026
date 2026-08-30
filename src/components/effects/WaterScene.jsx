@@ -49,6 +49,7 @@ import { buildHomeSceneLighting } from './homeSceneLighting';
 import { useSkyEnvironment } from './water/skyEnvironment';
 import HomeSeagullFlock from '../../features/home-scene/creatures/HomeSeagullFlock';
 import SeagullLandingHabitat from '../../features/home-scene/creatures/SeagullLandingHabitat.jsx';
+import HomeFishSchool from '../../features/home-scene/creatures/HomeFishSchool.jsx';
 import {
 } from './shaders/waterRuntimeShaders';
 import {
@@ -319,6 +320,17 @@ function WaterRuntimeScene({
             settings={settings}
             qualityProfile={qualityProfile}
             lighting={lighting}
+          />
+        ) : null}
+        {refractionEnabled
+        && settings.waterVisible
+        && settings.fishEnabled
+        && settings.fishCount > 0 ? (
+          <HomeFishSchool
+            settings={settings}
+            runtime={runtime}
+            qualityProfile={qualityProfile}
+            mode={mode}
           />
         ) : null}
         {settings.waterVisible ? (

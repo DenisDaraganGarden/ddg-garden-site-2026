@@ -49,3 +49,32 @@ mounting the Three.js home scene. The first production collection is seagulls.
 Run `npm run check:seagulls` before mounting or changing this runtime. The check
 includes the real published boat/sculpture hierarchy and requires all five
 dual-foot landing anchors to resolve.
+
+## River-fish integration contract
+
+- The production payload is only `public/models/fish`: three metre-scale GLB
+  rigs, their external PBR maps and manifests. Blender authoring, generators and
+  the warm-white asset lab stay on `codex/asset-lab`.
+- Pike is the solitary predator, perch forms a loose middle group, and roach is
+  the dense school. The authored 50-fish mix is `1 + 11 + 38`; editor controls
+  change the total, activity, school cohesion and vertical range without
+  exposing low-level species physics.
+- Render one `InstancedMesh` per visible species. The vertex shader consumes the
+  GLB skin weights to drive the axial body wave and pectoral-fin tips, retaining
+  the authored rig contract without cloning 50 skeletons.
+- Fish are opaque contents of the existing refraction capture. The opaque water
+  surface composites them in the normal pass; explicitly hide the fish root
+  during planar reflection and never allocate a fish-only render target or
+  shadow map.
+- Track the animated surface with a small rotating CPU cache fed by one bounded
+  GPU probe at a time. Never read the water target once per fish. Low-power
+  profiles use the conservative deepest-wave ceiling.
+- Refresh boat and arbitrarily tilted sculpture AABBs at 5 Hz and steer/push
+  fish around those world-space proxies. Keep the authored school near the
+  composition centre instead of scattering it over the full lake extent.
+- Runtime caps are 50 high desktop, 30 medium, 14 low and 18 on a phone. The
+  requested and effective totals must remain separately visible in diagnostics.
+
+Run `npm run check:fish` after changing fish assets, behaviour or rendering. It
+pins the payload hashes, validates rig weights/bounds, runs ten simulated
+minutes at 50 fish and injects the production deformation into every real GLB.
