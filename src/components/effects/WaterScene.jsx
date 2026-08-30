@@ -187,6 +187,7 @@ function WaterRuntimeScene({
     dataset.ddgWaterMeshDensity = String(Math.min(settings.waterMeshDensity, qualityProfile.waterMeshDensityCap));
     dataset.ddgSeabedMeshDensity = String(qualityProfile.seabedMeshDensity);
     dataset.ddgPostRenderScale = String(qualityProfile.postRenderScale);
+    dataset.ddgWaterShadow = settings.shadowsEnabled === false ? 'off' : 'on';
 
     return () => {
       delete dataset.ddgWaterEngine;
@@ -197,6 +198,7 @@ function WaterRuntimeScene({
       delete dataset.ddgWaterMeshDensity;
       delete dataset.ddgSeabedMeshDensity;
       delete dataset.ddgPostRenderScale;
+      delete dataset.ddgWaterShadow;
     };
   }, [
     gl,
@@ -208,6 +210,7 @@ function WaterRuntimeScene({
     runtime.effectiveResolution,
     settings.simulationResolution,
     settings.waterMeshDensity,
+    settings.shadowsEnabled,
   ]);
 
   return (

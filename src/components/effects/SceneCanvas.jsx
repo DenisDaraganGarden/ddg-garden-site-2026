@@ -234,6 +234,7 @@ const RuntimeDiagnostics = ({ sceneId, mode, settings }) => {
         waterEngine: canvasDataset.ddgWaterEngine ?? null,
         simulationRequested: canvasDataset.ddgSimulationRequested ?? null,
         simulationEffective: canvasDataset.ddgSimulationEffective ?? null,
+        waterShadow: canvasDataset.ddgWaterShadow,
         refraction: canvasDataset.ddgRefractionMode
           ?? canvasDataset.ddgRefraction
           ?? canvasDataset.ddgRefractionActive
@@ -315,6 +316,11 @@ const PerformanceHud = ({ sceneId, enabled }) => {
       .filter(Boolean)
       .join('→')],
     ['refract', metrics.runtime?.refraction],
+    // On a phone this is the row that matters: it says whether the water is
+    // actually receiving the key light's shadow. The lookup uses sampler2DShadow
+    // in a hand-written shader, which is documented to compile under WebGL2 but
+    // has only been proven on desktop.
+    ['shadow', metrics.runtime?.waterShadow],
   ].filter(([, value]) => value);
 
   return (
