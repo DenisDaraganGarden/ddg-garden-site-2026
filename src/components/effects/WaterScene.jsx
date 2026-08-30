@@ -442,7 +442,12 @@ function WaterRuntimeScene({
           settings={settings}
           pointerStateRef={runtime.pointerStateRef}
           sampleBoatProbes={runtime.sampleBoatProbes}
-          enableSurfaceRefine={mode !== 'editor' && !qualityProfile.isLowPower}
+          // A narrow desktop window is not a finger. isMobileDevice folds in
+          // viewport width; the refine pass costs a readback per drag frame,
+          // and only a touch drag can afford to lose it.
+          enableSurfaceRefine={mode !== 'editor'
+            && !qualityProfile.isLowPower
+            && !qualityProfile.isTouchPrimary}
         />
       </WaterReflections>
       <ScenePostProcessing settings={settings} qualityProfile={qualityProfile} lighting={lighting} />

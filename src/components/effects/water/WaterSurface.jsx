@@ -227,7 +227,16 @@ export default function WaterSurfaceV2({ settings, runtime, qualityProfile, ligh
   }, [settings.debugView]);
 
   return (
-    <mesh name="water-surface" rotation={[-Math.PI / 2, 0, 0]} renderOrder={1}>
+    // The two seabed modes are about the seabed, and the water plate is an
+    // opaque same-extent plane drawn over it: from every above-water pose it
+    // covers the thing the mode exists to show. Height and normals still need
+    // the surface, so the cut is at 3, not at 4.
+    <mesh
+      name="water-surface"
+      rotation={[-Math.PI / 2, 0, 0]}
+      renderOrder={1}
+      visible={debugView < 3}
+    >
       <planeGeometry args={[settings.waterExtent, settings.waterExtent, meshDensity, meshDensity]} />
       <shaderMaterial
         ref={materialRef}
@@ -238,7 +247,7 @@ export default function WaterSurfaceV2({ settings, runtime, qualityProfile, ligh
         depthWrite
         depthTest
         side={THREE.DoubleSide}
-        toneMapped
+        toneMapped={debugView === 0}
         dithering
       />
     </mesh>

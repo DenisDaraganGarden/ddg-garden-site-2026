@@ -254,20 +254,10 @@ export const waterV2FragmentShader = `
       return;
     }
 
-    if (uDebugView == 3) {
-      float preview = pow(clamp(slope * 2.0, 0.0, 1.0), 1.3);
-      gl_FragColor = vec4(vec3(preview), 1.0);
-      #include <tonemapping_fragment>
-      #include <colorspace_fragment>
-      return;
-    }
-
-    if (uDebugView == 4) {
-      gl_FragColor = vec4(vec3(0.025, 0.04, 0.065), 1.0);
-      #include <tonemapping_fragment>
-      #include <colorspace_fragment>
-      return;
-    }
+    // Modes 3 and 4 belong to the seabed, and the surface is hidden for them
+    // (WaterSurface.jsx). Deleting the branches rather than discarding keeps
+    // early-Z on the shipping path, where this material draws after the boat
+    // and the sculpture and depth rejection is worth having.
 
     // Schlick Fresnel for an air/water boundary (IOR 1.333).
     float f0 = 0.02037;

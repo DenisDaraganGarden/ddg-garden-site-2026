@@ -1031,7 +1031,11 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
       gl.render(bloomPrefilterScene, postCamera);
 
       bloomBlurUniforms.uBloomTexture.value = bloomTargets[0].texture;
-      bloomBlurUniforms.uOffset.value = 0.8 + settings.bloomRadius * 2.7;
+      // The 9-tap tent only stays a tent while its taps touch. Past an offset of
+      // about one texel the composed pattern opens holes and the "bloom" becomes
+      // a lattice of replicas of the bright pixel. The published radius, 0.09,
+      // is nowhere near the clamp; the engine default of 0.58 is well past it.
+      bloomBlurUniforms.uOffset.value = Math.min(1.05, 0.8 + settings.bloomRadius * 2.7);
       gl.setRenderTarget(bloomTargets[1]);
       gl.clear(true, false, false);
       gl.render(bloomBlurScene, postCamera);
@@ -1040,7 +1044,7 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
         uniforms.uBloomTexture.value = bloomTargets[1].texture;
       } else {
         bloomBlurUniforms.uBloomTexture.value = bloomTargets[1].texture;
-        bloomBlurUniforms.uOffset.value = 1.4 + settings.bloomRadius * 4.6;
+        bloomBlurUniforms.uOffset.value = Math.min(2.0, 1.4 + settings.bloomRadius * 4.6);
         gl.setRenderTarget(bloomTargets[0]);
         gl.clear(true, false, false);
         gl.render(bloomBlurScene, postCamera);

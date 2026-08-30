@@ -9,6 +9,12 @@ import {
 
 const FLASHLIGHT_COLOR = '#fff0d8';
 
+// three skips an invisible light entirely, and the light COUNT is part of the
+// program cache key. Mounting these two hidden and showing them on the first
+// pointer entry therefore recompiled every lit material in the scene at the
+// moment the visitor first moved the mouse over the art, and re-uploaded their
+// uniforms on every enter and leave after that. An intensity of zero is a black
+// light: it stays in the count and adds exactly nothing to the image.
 export default function CursorSpotlight() {
   const { camera, gl, scene } = useThree();
   const lightRef = useRef();
@@ -79,8 +85,8 @@ export default function CursorSpotlight() {
     }
 
     if (!runtime.enabled || !runtime.pointerInsideFrame) {
-      light.visible = false;
-      glintLight.visible = false;
+      light.intensity = 0;
+      glintLight.intensity = 0;
       gl.domElement.dataset.ddgCursorFlashlightHit = 'none';
       resetCursorFlashlightWorldRuntime();
       updateDebugState(runtime.enabled ? 'outside' : 'off', runtime);
@@ -89,8 +95,8 @@ export default function CursorSpotlight() {
 
     const rect = gl.domElement.getBoundingClientRect();
     if (rect.width <= 0 || rect.height <= 0) {
-      light.visible = false;
-      glintLight.visible = false;
+      light.intensity = 0;
+      glintLight.intensity = 0;
       gl.domElement.dataset.ddgCursorFlashlightHit = 'none';
       resetCursorFlashlightWorldRuntime();
       updateDebugState('outside', runtime);
@@ -155,7 +161,6 @@ export default function CursorSpotlight() {
     const lightRange = Math.max(36, distanceToTarget + 18);
     const intensity = Math.min(96, Math.max(18, distanceToTarget * distanceToTarget * 0.18))
       * runtime.lightIntensity;
-    light.visible = true;
     light.position.copy(sourcePosition);
     light.angle = outerAngle;
     light.penumbra = runtime.lightSoftness;
@@ -172,7 +177,6 @@ export default function CursorSpotlight() {
       .copy(hitPoint)
       .addScaledVector(raycaster.ray.direction, -glintStandoff)
       .addScaledVector(surfaceNormal, aimedAtSolid ? 0.16 : 0.08);
-    glintLight.visible = true;
     glintLight.position.copy(glintPosition);
     glintLight.intensity = (aimedAtSolid ? 2.6 : 0.8) * runtime.lightIntensity;
     gl.domElement.dataset.ddgCursorFlashlightHit = aimedAtSolid ? 'solid' : 'water';
@@ -200,7 +204,6 @@ export default function CursorSpotlight() {
         distance={18}
         decay={2}
         castShadow={false}
-        visible={false}
       />
       <pointLight
         ref={glintLightRef}
@@ -210,7 +213,6 @@ export default function CursorSpotlight() {
         distance={4.5}
         decay={2}
         castShadow={false}
-        visible={false}
       />
       <object3D ref={targetRef} name="cursor-flashlight-target" />
     </>

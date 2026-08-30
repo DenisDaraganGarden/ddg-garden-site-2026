@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 
 import { useFrame, useLoader, useThree } from '@react-three/fiber';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import * as THREE from 'three';
+import { Bvh } from '@react-three/drei';
 import {
   BOAT_CUTOUT_STENCIL_REF,
   BOAT_MAX_PITCH,
@@ -533,7 +534,12 @@ export default function FloatingBoat({
         {...dragHandlers}
       >
         <group ref={boatRef} name="boat">
-          <primitive object={clonedObj} />
+          {/* The flashlight raycasts this hull every frame the pointer is over
+              it. Without a bounds tree that is 70,662 triangles tested one at a
+              time; with one it is a handful. drei builds it once, on mount. */}
+          <Bvh>
+            <primitive object={clonedObj} />
+          </Bvh>
         </group>
         {/* A narrow horizontal seal follows the cockpit's projected centre but
             never tilts into a visible dry plane. The hull supplies its outline. */}

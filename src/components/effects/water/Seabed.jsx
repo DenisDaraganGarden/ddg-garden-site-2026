@@ -156,6 +156,11 @@ export default function Seabed({ settings, runtime, qualityProfile, lighting }) 
         vertexShader={seabedVertexShader}
         fragmentShader={seabedFragmentShader}
         uniforms={uniforms}
+        // A debug view is a measurement. ACES is a picture-making curve: it
+        // compresses the top of every ramp, so 1.0 arrives as 226 rather than
+        // 255 and the mode has no white reference. Post is already bypassed for
+        // the debug views; this is the last curve between the data and the eye.
+        toneMapped={debugView === 0}
       />
     </mesh>
   );

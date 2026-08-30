@@ -127,14 +127,16 @@ const farWaterFragmentShader = /* glsl */`
     float reflectionWeight = clamp(fresnel, 0.02, 0.96);
     vec3 color = mix(refraction, reflection, reflectionWeight);
 #if FAR_WATER_LOW_POWER == 0
-    vec3 horizonRay = normalize(vec3(-viewDirection.x, 0.035, -viewDirection.z));
-    vec3 horizonLight = skyRadiance(horizonRay) * environmentLevel;
-    float farBlend = smoothstep(180.0, 3200.0, cameraDistance);
-    color = mix(
-      color,
-      mix(refraction, horizonLight, 0.28),
-      farBlend * pondEdgeBlend * 0.18
-    );
+    // Nine bicubic taps for a term smoothstep has already clamped to zero
+    // everywhere nearer than 180 units - which is the whole pond. farBlend
+    // carries the edge feather too, so the guard is exact rather than an
+    // approximation of the old expression.
+    float farBlend = smoothstep(180.0, 3200.0, cameraDistance) * pondEdgeBlend;
+    if (farBlend > 0.0) {
+      vec3 horizonRay = normalize(vec3(-viewDirection.x, 0.035, -viewDirection.z));
+      vec3 horizonLight = skyRadiance(horizonRay) * environmentLevel;
+      color = mix(color, mix(refraction, horizonLight, 0.28), farBlend * 0.18);
+    }
 #endif
 
     gl_FragColor = vec4(max(color, vec3(0.0)), 1.0);

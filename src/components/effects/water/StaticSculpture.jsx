@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useLoader } from '@react-three/fiber';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import * as THREE from 'three';
+import { Bvh } from '@react-three/drei';
 import { useDragOnPlane } from './useDragOnPlane';
 import { createLiftedTextureTint, ENV_REFLECTION_SCALE } from './pbrMaterial';
 import {
@@ -196,7 +197,10 @@ export default function StaticSculpture({
       {...dragHandlers}
     >
       <group name="sculpture">
-        <primitive object={clonedObj} />
+        {/* Same reason as the boat: 59,972 triangles under the cursor's ray. */}
+        <Bvh>
+          <primitive object={clonedObj} />
+        </Bvh>
       </group>
     </group>
   );

@@ -43,18 +43,24 @@ const skyFragmentShader = /* glsl */`
     // The full-screen sky also owns rays below the horizon. Treat those pixels
     // as the distant continuation of the water instead of exposing the renderer
     // clear colour when the finite pond or its far shell leaves the frame.
+    // Above the horizon the mask is exactly zero, so the second sky sample and
+    // its nine taps are multiplied away. The sun disc stays outside the branch:
+    // celestialBody antialiases its edge with fwidth, and a real derivative
+    // inside divergent flow would ripple that edge along the horizon line.
     float lowerMask = 1.0 - smoothstep(-0.025, 0.025, ray.y);
-    float lowerDepth = smoothstep(0.0, 0.82, -ray.y);
-    vec3 horizonRay = normalize(vec3(ray.x, 0.035, ray.z));
-    vec3 horizonColor = skyRadiance(horizonRay) * uSkyLevel;
-    vec3 lowerBase = max(uLowerSurfaceColor, vec3(0.001))
-      * (0.78 + clamp(uSkyLevel, 0.0, 2.0) * 0.08);
-    vec3 lowerSurface = mix(
-      mix(horizonColor, lowerBase, 0.58),
-      lowerBase * 0.74,
-      lowerDepth
-    );
-    color = mix(color, lowerSurface, lowerMask * 0.94);
+    if (lowerMask > 0.0) {
+      float lowerDepth = smoothstep(0.0, 0.82, -ray.y);
+      vec3 horizonRay = normalize(vec3(ray.x, 0.035, ray.z));
+      vec3 horizonColor = skyRadiance(horizonRay) * uSkyLevel;
+      vec3 lowerBase = max(uLowerSurfaceColor, vec3(0.001))
+        * (0.78 + clamp(uSkyLevel, 0.0, 2.0) * 0.08);
+      vec3 lowerSurface = mix(
+        mix(horizonColor, lowerBase, 0.58),
+        lowerBase * 0.74,
+        lowerDepth
+      );
+      color = mix(color, lowerSurface, lowerMask * 0.94);
+    }
 
     gl_FragColor = vec4(color, 1.0);
     #include <tonemapping_fragment>

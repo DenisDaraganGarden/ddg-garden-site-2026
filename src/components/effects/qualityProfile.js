@@ -55,6 +55,11 @@ function trimProfileForMobile(profile, isMobileDevice) {
   return {
     ...profile,
     simulationMaxResolution: Math.min(profile.simulationMaxResolution, 256),
+    // Every probe tick is a synchronous readback, and a tile GPU flushes the
+    // whole pipeline for one. 12 Hz is the floor, not a knob: below it the hold
+    // aliases the scene's own 4.79 Hz ambient drive into the hull's band
+    // instead of out of it, and the boat reads as delayed animation again.
+    boatProbeInterval: Math.max(profile.boatProbeInterval, 1 / 12),
     // The old 256px cap became a visibly blocky 256×92 capture inside the wide
     // film gate. At DPR 2, a 512px long edge keeps refracted reeds and fish
     // coherent while the main canvas saves far more shaded pixels than it costs.
@@ -104,6 +109,7 @@ export function buildRuntimeQualityProfile(mode, viewportWidth, capabilities = n
     return applyRenderTargetCapabilities({
       qualityTier: tier,
       isMobileDevice,
+      isTouchPrimary: isTouchPrimaryDevice(),
       isLowPower: true,
       simulationTargetFps: isEditor ? 24 : 30,
       simulationMaxResolution: 128,
@@ -132,6 +138,7 @@ export function buildRuntimeQualityProfile(mode, viewportWidth, capabilities = n
     return applyRenderTargetCapabilities(trimProfileForMobile({
       qualityTier: tier,
       isMobileDevice,
+      isTouchPrimary: isTouchPrimaryDevice(),
       isLowPower: false,
       simulationTargetFps: isEditor ? 45 : 54,
       simulationMaxResolution: isEditor ? 384 : 512,
@@ -157,6 +164,7 @@ export function buildRuntimeQualityProfile(mode, viewportWidth, capabilities = n
   return applyRenderTargetCapabilities(trimProfileForMobile({
     qualityTier: tier,
     isMobileDevice,
+    isTouchPrimary: isTouchPrimaryDevice(),
     isLowPower: false,
     simulationTargetFps: isEditor ? 50 : 60,
     simulationMaxResolution: 512,
