@@ -3,7 +3,12 @@ import { useLoader } from '@react-three/fiber';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import * as THREE from 'three';
 import { useDragOnPlane } from './useDragOnPlane';
-import { colorPickerToArtisticAlbedo, ENV_REFLECTION_SCALE } from './pbrMaterial';
+import { createLiftedTextureTint, ENV_REFLECTION_SCALE } from './pbrMaterial';
+import {
+  createBlackStoneMaterial,
+  createBlackStoneUniforms,
+  updateBlackStoneUniforms,
+} from './blackStoneMaterial';
 import { DEFAULT_SCULPTURE_ANCHOR, SCULPTURE_DRAG_EDGE_MARGIN, clamp } from './constants';
 
 // The sculpture stands on the seabed. It does not float, so its height is the base
@@ -62,26 +67,55 @@ export default function StaticSculpture({
     setOrbitEnabled,
   });
 
-  const sculptureMaterial = useMemo(() => new THREE.MeshPhysicalMaterial({
-    color: colorPickerToArtisticAlbedo(settings.sculptureColor),
-    metalness: settings.sculptureMetalness,
-    roughness: settings.sculptureRoughness,
-    clearcoat: settings.sculptureClearcoat,
-    clearcoatRoughness: settings.sculptureClearcoatRoughness,
-    envMapIntensity: lighting.environment.reflection * ENV_REFLECTION_SCALE.sculpture,
-    transmission: 0,
-    transparent: false,
-    opacity: 1,
-    depthWrite: true,
-    depthTest: true,
-    side: THREE.DoubleSide,
-  }), [
-    lighting,
-    settings.sculptureClearcoat,
-    settings.sculptureClearcoatRoughness,
+  const blackStoneUniforms = useMemo(() => createBlackStoneUniforms(), []);
+  const sculptureMaterial = useMemo(
+    () => createBlackStoneMaterial(blackStoneUniforms),
+    [blackStoneUniforms],
+  );
+
+  useEffect(() => {
+    updateBlackStoneUniforms(
+      blackStoneUniforms,
+      {
+        layering: settings.sculptureLayering,
+        layerScale: settings.sculptureLayerScale,
+        layerRelief: settings.sculptureLayerRelief,
+        layerSharpness: settings.sculptureLayerSharpness,
+        layerEdgeChips: settings.sculptureLayerEdgeChips,
+        fracture: settings.sculptureFracture,
+        fractureScale: settings.sculptureFractureScale,
+        veins: settings.sculptureVeins,
+        veinScale: settings.sculptureVeinScale,
+        polish: settings.sculpturePolish,
+        wearScale: settings.sculptureWearScale,
+        wetness: settings.sculptureWetness,
+        dryRoughness: settings.sculptureDryRoughness,
+        microRelief: settings.sculptureMicroRelief,
+      },
+      'beauty',
+      createLiftedTextureTint(settings.sculptureColor, 1),
+    );
+    sculptureMaterial.envMapIntensity = lighting.environment.reflection
+      * ENV_REFLECTION_SCALE.sculpture;
+  }, [
+    blackStoneUniforms,
+    lighting.environment.reflection,
+    sculptureMaterial,
     settings.sculptureColor,
-    settings.sculptureMetalness,
-    settings.sculptureRoughness,
+    settings.sculptureDryRoughness,
+    settings.sculptureFracture,
+    settings.sculptureFractureScale,
+    settings.sculptureLayerEdgeChips,
+    settings.sculptureLayerRelief,
+    settings.sculptureLayerScale,
+    settings.sculptureLayerSharpness,
+    settings.sculptureLayering,
+    settings.sculptureMicroRelief,
+    settings.sculpturePolish,
+    settings.sculptureVeinScale,
+    settings.sculptureVeins,
+    settings.sculptureWearScale,
+    settings.sculptureWetness,
   ]);
 
   useEffect(() => () => {

@@ -173,13 +173,130 @@ export const SculptureSection = ({ settings, handleSettingChange, layoutEditor }
                 onChange={(event) => handleSettingChange(event, 'sculptureColor', 'color')}
             />
             <RangeControl
-                label={t('homeEditor.controls.sculptureRoughness')}
-                value={settings.sculptureRoughness}
+                label={t('homeEditor.controls.sculptureLayering')}
+                value={settings.sculptureLayering}
                 min={0}
                 max={1}
                 step={0.01}
                 formatValue={(value) => formatFloat(value)}
-                onChange={(event) => handleSettingChange(event, 'sculptureRoughness')}
+                onChange={(event) => handleSettingChange(event, 'sculptureLayering')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.sculptureLayerScale')}
+                value={settings.sculptureLayerScale}
+                min={0.35}
+                max={4.5}
+                step={0.05}
+                formatValue={(value) => `×${formatFloat(value, 2)}`}
+                onChange={(event) => handleSettingChange(event, 'sculptureLayerScale')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.sculptureLayerRelief')}
+                value={settings.sculptureLayerRelief}
+                min={0}
+                max={1}
+                step={0.01}
+                formatValue={(value) => formatFloat(value)}
+                onChange={(event) => handleSettingChange(event, 'sculptureLayerRelief')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.sculptureLayerSharpness')}
+                value={settings.sculptureLayerSharpness}
+                min={0}
+                max={1}
+                step={0.01}
+                formatValue={(value) => formatFloat(value)}
+                onChange={(event) => handleSettingChange(event, 'sculptureLayerSharpness')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.sculptureLayerEdgeChips')}
+                value={settings.sculptureLayerEdgeChips}
+                min={0}
+                max={1}
+                step={0.01}
+                formatValue={(value) => formatFloat(value)}
+                onChange={(event) => handleSettingChange(event, 'sculptureLayerEdgeChips')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.sculptureFracture')}
+                value={settings.sculptureFracture}
+                min={0}
+                max={1}
+                step={0.01}
+                formatValue={(value) => formatFloat(value)}
+                onChange={(event) => handleSettingChange(event, 'sculptureFracture')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.sculptureFractureScale')}
+                value={settings.sculptureFractureScale}
+                min={0.35}
+                max={4.5}
+                step={0.05}
+                formatValue={(value) => `×${formatFloat(value, 2)}`}
+                onChange={(event) => handleSettingChange(event, 'sculptureFractureScale')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.sculptureVeins')}
+                value={settings.sculptureVeins}
+                min={0}
+                max={1}
+                step={0.01}
+                formatValue={(value) => formatFloat(value)}
+                onChange={(event) => handleSettingChange(event, 'sculptureVeins')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.sculptureVeinScale')}
+                value={settings.sculptureVeinScale}
+                min={0.35}
+                max={4.5}
+                step={0.05}
+                formatValue={(value) => `×${formatFloat(value, 2)}`}
+                onChange={(event) => handleSettingChange(event, 'sculptureVeinScale')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.sculpturePolish')}
+                value={settings.sculpturePolish}
+                min={0}
+                max={1}
+                step={0.01}
+                formatValue={(value) => formatFloat(value)}
+                onChange={(event) => handleSettingChange(event, 'sculpturePolish')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.sculptureWearScale')}
+                value={settings.sculptureWearScale}
+                min={0.35}
+                max={4.5}
+                step={0.05}
+                formatValue={(value) => `×${formatFloat(value, 2)}`}
+                onChange={(event) => handleSettingChange(event, 'sculptureWearScale')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.sculptureWetness')}
+                value={settings.sculptureWetness}
+                min={0}
+                max={1}
+                step={0.01}
+                formatValue={(value) => formatFloat(value)}
+                onChange={(event) => handleSettingChange(event, 'sculptureWetness')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.sculptureDryRoughness')}
+                value={settings.sculptureDryRoughness}
+                min={0}
+                max={1}
+                step={0.01}
+                formatValue={(value) => formatFloat(value)}
+                onChange={(event) => handleSettingChange(event, 'sculptureDryRoughness')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.sculptureMicroRelief')}
+                value={settings.sculptureMicroRelief}
+                min={0}
+                max={1}
+                step={0.01}
+                formatValue={(value) => formatFloat(value)}
+                onChange={(event) => handleSettingChange(event, 'sculptureMicroRelief')}
             />
         </>
     );
