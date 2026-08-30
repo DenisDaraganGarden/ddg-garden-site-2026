@@ -45,6 +45,7 @@ export default function SeagullLab() {
     airborne: 9,
     cursorTargets: 0,
     shadowCasters: 0,
+    reflectionParticipants: 0,
     startled: 0,
     minHeight: 12,
     maxHeight: 28,
@@ -67,7 +68,10 @@ export default function SeagullLab() {
 
   return (
     <div className="fish-lab seagull-lab" data-testid="seagull-lab" data-asset-collection="seagulls">
-      <AssetStudio view={mode === 'specimen' ? 'flight-specimen' : mode === 'landing' ? 'landing' : 'flight'}>
+      <AssetStudio
+        view={mode === 'specimen' ? 'flight-specimen' : mode === 'landing' ? 'landing' : 'flight'}
+        waterReflection
+      >
         <Suspense fallback={<LoadingBird />}>
           {mode === 'landing' && <SeagullLandingStage landingSitesRef={landingSitesRef} />}
           <SeagullFlock
@@ -134,6 +138,7 @@ export default function SeagullLab() {
         <span><b>{stats.calls}</b> draw calls</span>
         <span><b>{Math.round(stats.triangles / 1000)}k</b> трис / кадр</span>
         <span><b>{stats.shadowCasters}</b> тени · LOD</span>
+        <span><b>{stats.reflectionParticipants}</b> отражения · RT</span>
         {mode === 'landing' ? (
           <>
             <span><b>{stats.airborne}</b> в воздухе</span>

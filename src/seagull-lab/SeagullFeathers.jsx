@@ -125,7 +125,13 @@ const SeagullFeathers = forwardRef(function SeagullFeathers(_props, ref) {
   });
 
   return (
-    <instancedMesh ref={meshRef} args={[null, null, FEATHER_CAPACITY]} frustumCulled={false}>
+    <instancedMesh
+      ref={meshRef}
+      name="seagull-feathers"
+      userData={{ ddgNoWaterReflection: true }}
+      args={[null, null, FEATHER_CAPACITY]}
+      frustumCulled={false}
+    >
       <planeGeometry args={[0.046, 0.13]} />
       <meshStandardMaterial
         color="#c9c9c3"

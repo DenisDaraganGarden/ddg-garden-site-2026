@@ -35,7 +35,12 @@ function LandingSite({ spec, register, showMarker }) {
       />
       {showMarker && (
         <group position={spec.markerPosition} quaternion={spec.markerQuaternion}>
-          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.0008, 0]} renderOrder={6}>
+          <mesh
+            rotation={[-Math.PI / 2, 0, 0]}
+            position={[0, 0.0008, 0]}
+            renderOrder={6}
+            userData={{ ddgNoWaterReflection: true }}
+          >
             <ringGeometry args={[0.026, 0.042, 24]} />
             <meshBasicMaterial
               color="#c84b43"

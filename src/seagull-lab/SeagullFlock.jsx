@@ -24,12 +24,36 @@ import {
   resolveSeagullShadowCasters,
   SEAGULL_SHADOW_LOD,
 } from './seagullShadowLod';
+import {
+  resolveSeagullReflectionParticipants,
+  SEAGULL_REFLECTION_LOD,
+} from './seagullReflectionLod';
 
 const ROTATION_AXIS_X = new THREE.Vector3(1, 0, 0);
 const ROTATION_AXIS_Y = new THREE.Vector3(0, 1, 0);
 const ROTATION_AXIS_Z = new THREE.Vector3(0, 0, 1);
 const rotationScratch = new THREE.Quaternion();
 const rotationScratchSecondary = new THREE.Quaternion();
+const reflectionCameraForward = new THREE.Vector3();
+const reflectionCameraRight = new THREE.Vector3();
+const reflectionCameraUp = new THREE.Vector3();
+
+function describeReflectionCamera(camera) {
+  camera.getWorldDirection(reflectionCameraForward);
+  reflectionCameraRight.set(1, 0, 0).applyQuaternion(camera.quaternion);
+  reflectionCameraUp.set(0, 1, 0).applyQuaternion(camera.quaternion);
+  return {
+    position: camera.position,
+    forward: reflectionCameraForward,
+    right: reflectionCameraRight,
+    up: reflectionCameraUp,
+    fovDegrees: camera.fov,
+    aspect: camera.aspect,
+    zoom: camera.zoom,
+    near: camera.near,
+    far: camera.far,
+  };
+}
 
 function collectBones(object) {
   const bones = {};
@@ -68,6 +92,8 @@ export default function SeagullFlock({ mode, paused, showRig, landingSitesRef, o
   const statsClock = useRef(0);
   const shadowClock = useRef(SEAGULL_SHADOW_LOD.updateIntervalSeconds);
   const shadowCasterIds = useRef(new Set());
+  const reflectionClock = useRef(SEAGULL_REFLECTION_LOD.updateIntervalSeconds);
+  const reflectionParticipantIds = useRef(new Set());
   const elapsed = useRef(0);
   const interactionElapsed = useRef(0);
   const pointerTargetCount = useRef(0);
@@ -138,6 +164,9 @@ export default function SeagullFlock({ mode, paused, showRig, landingSitesRef, o
     const object = cloneSkeleton(gltf.scene);
     const shadowMeshes = [];
     object.name = `seagull_${index + 1}`;
+    object.userData.ddgSeagullRoot = true;
+    object.userData.ddgReflectInWater = false;
+    object.userData.ddgReflectionDynamic = false;
     object.traverse((child) => {
       if (!child.isMesh && !child.isSkinnedMesh) return;
       child.material = material;
@@ -173,6 +202,8 @@ export default function SeagullFlock({ mode, paused, showRig, landingSitesRef, o
   const rigHelper = useMemo(() => {
     if (!instances[0]) return null;
     const helper = new THREE.SkeletonHelper(instances[0].object);
+    helper.name = 'seagull-rig-helper';
+    helper.userData.ddgNoWaterReflection = true;
     helper.material.color.set('#b04335');
     helper.material.depthTest = false;
     helper.renderOrder = 5;
@@ -192,6 +223,8 @@ export default function SeagullFlock({ mode, paused, showRig, landingSitesRef, o
   useEffect(() => {
     shadowCasterIds.current = new Set();
     shadowClock.current = SEAGULL_SHADOW_LOD.updateIntervalSeconds;
+    reflectionParticipantIds.current = new Set();
+    reflectionClock.current = SEAGULL_REFLECTION_LOD.updateIntervalSeconds;
   }, [instances]);
 
   useEffect(() => {
@@ -479,6 +512,22 @@ export default function SeagullFlock({ mode, paused, showRig, landingSitesRef, o
           previousCasterIds: shadowCasterIds.current,
         });
       }
+
+      reflectionClock.current += safeDelta;
+      if (reflectionClock.current >= SEAGULL_REFLECTION_LOD.updateIntervalSeconds) {
+        reflectionClock.current = 0;
+        const reflection = resolveSeagullReflectionParticipants(agents, {
+          camera: describeReflectionCamera(camera),
+          viewport: size,
+          waterY: -1.14,
+          isMobile: Math.min(size.width, size.height) < 540,
+          maxParticipants: mode === 'specimen'
+            ? 1
+            : SEAGULL_REFLECTION_LOD.maximumLabParticipants,
+          previousParticipantIds: reflectionParticipantIds.current,
+        });
+        reflectionParticipantIds.current = reflection.participantIds;
+      }
     } else {
       pointerTargetCount.current = 0;
       shotTargetIndex.current = -1;
@@ -492,6 +541,7 @@ export default function SeagullFlock({ mode, paused, showRig, landingSitesRef, o
       const agent = agents[index];
       const wing = getWingPose(agent);
       const castsShadow = shadowCasterIds.current.has(agent.index);
+      const reflectsInWater = reflectionParticipantIds.current.has(agent.index);
       if (instance.castsShadow !== castsShadow) {
         instance.castsShadow = castsShadow;
         for (const mesh of instance.shadowMeshes) {
@@ -499,6 +549,8 @@ export default function SeagullFlock({ mode, paused, showRig, landingSitesRef, o
           mesh.receiveShadow = castsShadow;
         }
       }
+      instance.object.userData.ddgReflectInWater = reflectsInWater;
+      instance.object.userData.ddgReflectionDynamic = reflectsInWater && !paused;
       instance.object.visible = agent.shotState !== SEAGULL_DOWNED_STATE.REMOVED;
       instance.object.position.copy(agent.position);
       instance.object.quaternion.copy(agent.quaternion);
@@ -545,10 +597,20 @@ export default function SeagullFlock({ mode, paused, showRig, landingSitesRef, o
         agents,
         interactionElapsed.current,
       );
+      const reflectionCalls = Number(renderer.domElement.dataset.ddgLabReflectionCalls);
+      const reflectionTriangles = Number(renderer.domElement.dataset.ddgLabReflectionTriangles);
+      const reflectedBirds = reflectionParticipantIds.current.size;
+      const excludedBirds = Math.max(0, instances.length - reflectedBirds);
+      const estimatedMainCalls = Number.isFinite(reflectionCalls)
+        ? reflectionCalls + excludedBirds + 3
+        : gl.info.render.calls;
+      const estimatedMainTriangles = Number.isFinite(reflectionTriangles)
+        ? reflectionTriangles + excludedBirds * SEAGULL_ASSET.web.triangles + 148
+        : gl.info.render.triangles;
       const currentStats = {
         birds: instances.length,
-        calls: gl.info.render.calls,
-        triangles: gl.info.render.triangles,
+        calls: estimatedMainCalls,
+        triangles: estimatedMainTriangles,
         flap: states.flap ?? 0,
         glide: states.glide ?? 0,
         thermal: states.thermal ?? 0,
@@ -558,6 +620,7 @@ export default function SeagullFlock({ mode, paused, showRig, landingSitesRef, o
         airborne: landingStates.airborne ?? 0,
         cursorTargets: pointerTargetCount.current,
         shadowCasters: shadowCasterIds.current.size,
+        reflectionParticipants: reflectionParticipantIds.current.size,
         startled: agents.reduce((sum, agent) => sum + agent.pointerStartleCount, 0),
         minHeight: Math.min(...agents.map((agent) => agent.physicalHeight)),
         maxHeight: Math.max(...agents.map((agent) => agent.physicalHeight)),
@@ -588,6 +651,7 @@ export default function SeagullFlock({ mode, paused, showRig, landingSitesRef, o
           time: interactionElapsed.current,
           targetIndex: shotTargetIndex.current,
           shadowCasters: [...shadowCasterIds.current],
+          reflectionParticipants: [...reflectionParticipantIds.current],
           ...shooting,
           birds: agents.map((agent) => ({
             index: agent.index,
@@ -615,7 +679,7 @@ export default function SeagullFlock({ mode, paused, showRig, landingSitesRef, o
   });
 
   return (
-    <group>
+    <group name="seagull-flock">
       {instances.map((instance) => (
         <primitive key={instance.object.uuid} object={instance.object} />
       ))}
