@@ -71,6 +71,16 @@ export function getSurfaceVegetationAnchor(geometry, index, settings) {
   };
 }
 
+export function getSurfaceVegetationStemTop(settings) {
+  const floatOffset = Number(settings.surfacePlantFloatOffset) || 0;
+  const waveAmplitude = Math.abs(Number(settings.waveAmplitude) || 0);
+
+  // Stop just below the pad's moving centre. The leaf itself hides this small
+  // overlap, while retracting by part of the wave envelope prevents a rigid
+  // cylinder from poking into the air when the simulated surface falls.
+  return floatOffset - waveAmplitude * 0.75 - 0.004;
+}
+
 // The leaf mesh already owns the deterministic scatter. Reusing its attributes
 // keeps each root exactly below its own pad while adding only two instanced draw
 // calls: slender stems and soft, depth-darkened attachment marks on the bed.
@@ -87,18 +97,14 @@ export function updateSurfaceVegetationAnchors({
     THREE.MathUtils.clamp(settings.surfacePlantAmount, 0, 1) * maxInstances,
   );
   const waterDepth = Math.max(Number(settings.waterDepthMeters) || 0, 0.03);
-  const floatOffset = Number(settings.surfacePlantFloatOffset) || 0;
-  // The real leaf rides a GPU height field. Instead of a CPU readback for each
-  // stem, its tip overlaps the full authored wave envelope. That removes the
-  // visible split at crests while keeping this layer static and inexpensive.
-  const waveReach = Math.abs(Number(settings.waveAmplitude) || 0) * 2.6 + 0.035;
+  const stemTopY = getSurfaceVegetationStemTop(settings);
 
   for (let index = 0; index < count; index += 1) {
     const anchor = getSurfaceVegetationAnchor(geometry, index, settings);
     const relief = sampleSurfaceVegetationSeabedRelief(anchor.x, anchor.z, settings);
     const seabedY = -waterDepth + relief;
-    const stemHeight = Math.max(0.03, floatOffset + waveReach - seabedY);
-    const stemRadius = THREE.MathUtils.lerp(0.0045, 0.0105, anchor.sizeVariation);
+    const stemHeight = Math.max(0.03, stemTopY - seabedY);
+    const stemRadius = THREE.MathUtils.lerp(0.0024, 0.0052, anchor.sizeVariation);
     const contactRadius = Math.max(0.028, settings.surfacePlantSize * anchor.sizeVariation * 0.31);
 
     stemPosition.set(anchor.x, seabedY + stemHeight * 0.5, anchor.z);

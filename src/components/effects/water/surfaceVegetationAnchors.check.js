@@ -5,6 +5,7 @@ import { createSurfaceVegetationGeometry } from './vegetationGeometry.js';
 import {
   createSurfacePlantContactMap,
   getSurfaceVegetationAnchor,
+  getSurfaceVegetationStemTop,
   sampleSurfaceVegetationSeabedRelief,
 } from './surfaceVegetationAnchors.js';
 
@@ -17,6 +18,8 @@ const settings = {
   waterExtent: 24,
   seabedReliefScale: 1.8,
   seabedReliefStrength: 0.4,
+  surfacePlantFloatOffset: 0.022,
+  waveAmplitude: 0.045,
 };
 const scatter = geometry.getAttribute('aScatter');
 const anchor = getSurfaceVegetationAnchor(geometry, 0, settings);
@@ -27,6 +30,10 @@ assert.notEqual(
   sampleSurfaceVegetationSeabedRelief(anchor.x, anchor.z, settings),
   0,
   'anchors should use the same non-flat relief field as the visible seabed',
+);
+assert.ok(
+  getSurfaceVegetationStemTop(settings) < settings.surfacePlantFloatOffset,
+  'a rigid stem must finish below the moving leaf instead of protruding into the air',
 );
 
 const contactMap = createSurfacePlantContactMap(8);
