@@ -8,7 +8,7 @@ import {
     resolveLayoutFrameInset,
     resolveLayoutKey,
 } from '../features/home-scene/lib/layout';
-import ddgLogo from '../../portfolio/DDG_logo.png';
+import ddgLogo from '../../portfolio/DDG_logo.webp';
 import '../styles/Home.css';
 
 const DEFAULT_HOLD_SECONDS = 8;

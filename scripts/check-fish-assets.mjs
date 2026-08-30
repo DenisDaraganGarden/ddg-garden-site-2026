@@ -10,27 +10,34 @@ const manifestPath = path.join(root, 'manifest.json');
 const textureManifestPath = path.join(root, 'textures/textures-manifest.json');
 const manifest = JSON.parse(await fs.readFile(manifestPath, 'utf8'));
 const textureManifest = JSON.parse(await fs.readFile(textureManifestPath, 'utf8'));
+// The normal, ORM and specular maps were stored losslessly, which for this kind
+// of data is 2.7 MB spent on bit-exactness nobody can see. They are near-lossless
+// now: 4.00 MB -> 2.78 MB across the fish and the seagull, with a measured maximum
+// error of 2 of 255 on every channel of every file. Lossy WebP is NOT an option
+// here and the hashes must never be updated to accept it - it is unconditionally
+// 4:2:0, which halves the resolution of the normal's Y axis and costs about 6.5
+// degrees RMS on a material whose whole read is the glint on one scale.
 const expectedHashes = Object.freeze({
   pike: Object.freeze({
     glb: '12c7edfb1633fbb6338f3804c1811263389f3d848459ba368a97da076561e6e3',
     albedo: '0f0926766e69c86848743c7280dee72d8093d2d3e3ccd1ea05f731a080bb5c26',
-    normal: '34237f615fd6acf304deef81c818d17c3c1bdc16f8e82e17859e6a08eeed38f1',
-    orm: '688a7b80d8d5f453926419cdb95e44aa451083909be463e599d24dd610c884fa',
-    specular: '65f5472625589e7094f0805b1f8ccfadb6a2277eda04a27b2d4a012cebf95dea',
+    normal: 'f5d6e5a211b9522b211c2c73165c9634b681c5a3327f6d6d3ad1385bc257df61',
+    orm: '3b9c964a5fb8f42400de8e2e95ec6bf883ca86a607f14de79c491462e8068a23',
+    specular: '81c3732a47b11a5e974eb15ca3885d03a593067b0293b70bab376765216576b0',
   }),
   perch: Object.freeze({
     glb: '441467a16dd573eaa7da87f77cafc315983d7417f7de42db5d59f5800cfd4cbc',
     albedo: 'ef9990e178657f36cb7ee4622a66e2bc445e5184cda1b67c720b56130e0164a3',
-    normal: '06e573e4f6ce7730c966c1697f41f33bdfdec36ef2ff5b5509c53e93389960e7',
-    orm: '5e04253286d0ab017b530d6c6eb535dc631925f5f7dc9deca8dd43c4e9bc79ee',
-    specular: '9d69c14f42b0b086d3af375e288a7c1219337284ecf3b6164a93d4450d00e3b1',
+    normal: 'd50c6effbc6a967738ba72666f0330f014b6d6631310d29e5fcf06bc16372208',
+    orm: 'f4734bd33a0b1b114d67682c9fb8fc1aac9f141fcbe791d0d20774822e36d49e',
+    specular: 'e04afcd2150cb276ef1279439590e0ebeefc32a6396c0f5b768ce2c1a95503e4',
   }),
   roach: Object.freeze({
     glb: 'd093b97002cf958e5b182cd267ea60529a79fe5060ae55fd6640365bad5724e4',
     albedo: 'ac24eacfdac67b7dcec34dcfa184c32ce4b7cb505195edaf351dff91e06a4e2f',
-    normal: '98cb76d0acb0fb83904d9b33547fc0bc10053fa39b2bde4ec66392fefeef6c5b',
-    orm: '9cf089994cb1dd79d3c2e57854c73526de13c8e6ee391bbfdb25b82eb5d98d64',
-    specular: '208308a6e797d8fde52e81c06201ed7600b850b6ffd53d44129fda11572a219f',
+    normal: 'e5877a5b7a35dfc6c67f0976588648e77481d028c4c1e7d11dee074e00dfd5b1',
+    orm: 'bb1b748f33734219c47a6a849ce396f2ab8fdf529c8764bd1a6f708abb76659a',
+    specular: '14f81536ce041d8af7feb277e9673f71f34fa07e366f019d284d0ef1bbd1f1dc',
   }),
 });
 

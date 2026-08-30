@@ -8,7 +8,7 @@ import Navigation from './components/ui/Navigation';
 import { SiteAudioProvider } from './features/audio/SiteAudioProvider';
 import { archiveNavigationItems } from './config/siteNavigation';
 import { useLanguage } from './i18n/useLanguage';
-import ddgLogo from '../portfolio/DDG_logo.png';
+import ddgLogo from '../portfolio/DDG_logo.webp';
 const Home = lazy(() => import('./pages/Home'));
 const Info = lazy(() => import('./pages/Info'));
 const Portfolio = lazy(() => import('./pages/Portfolio'));
