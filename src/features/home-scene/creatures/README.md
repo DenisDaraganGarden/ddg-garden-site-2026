@@ -1,0 +1,30 @@
+# Home-scene creatures
+
+This directory owns procedural creature behaviour that can be tested without
+mounting the Three.js home scene. The first production collection is seagulls.
+
+## Seagull integration contract
+
+- The water surface datum is world `y=0`; flight routes and downed physics use
+  that coordinate directly.
+- Load `/models/seagull/seagull-flight.glb` lazily only when seagulls are
+  enabled. The GLB contains skinning but no animation clips or embedded maps.
+- Build one shared PBR material from the four external WebP maps in
+  `seagullAsset.js`. Use sRGB only for albedo; keep normal, ORM and specular as
+  data textures with `flipY=false`.
+- Share geometry and material between birds. Clone only the skeleton. Do not
+  enable cast/receive shadows for the first release.
+- Use at most nine birds on desktop and five on low-power/mobile profiles. The
+  runtime hard ceiling is twelve.
+- Landing anchors must be children of `boat-anchor` or `sculpture-anchor` so a
+  perched bird inherits translation, tilt and buoyancy. Each anchor must retain
+  the actual collision mesh through `collisionObject` for foot fitting and
+  downed-body sweeps.
+- Cursor hover is passive: it may read canvas pointer position, but must not
+  call `preventDefault`, `stopPropagation` or own `pointerdown`. The final shot
+  dispatcher is connected only after the cursor flashlight input contract is
+  stable.
+- The caller supplies landing sites and water height to the pure runtime and is
+  responsible for disposing cloned skeleton resources on unmount.
+
+Run `npm run check:seagulls` before mounting or changing this runtime.
