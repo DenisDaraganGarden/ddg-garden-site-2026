@@ -21,12 +21,34 @@ const postVertexShader = `
 // luminance prefilter keeps saturated skies out of the glow, then two cheap
 // tent passes at quarter resolution produce a round, optical falloff instead of
 // the old full-resolution cross of isolated taps.
+// One non-finite pixel anywhere in the scene does not stay one pixel. The bloom
+// prefilter drops it to quarter resolution, two tent passes spread it across ten
+// texels there, and the composite adds the result back: a hard black 40-pixel
+// square, wherever it happened, on about one frame in fifteen. Every comparison
+// against NaN is false, so the test below catches it; it is written as a
+// negation because the positive form is what a fast-math compiler folds away.
+//
+// This is a net under the shaders, not a repair of one: the pixel that went
+// non-finite is still somewhere upstream, and worth finding if it ever costs
+// more than the three instructions this pass spends.
+const finiteColorChunk = `
+  vec3 finiteColor(vec3 color) {
+    if (!(dot(color, vec3(1.0)) >= 0.0)) {
+      return vec3(0.0);
+    }
+
+    return color;
+  }
+`;
+
 const bloomPrefilterFragmentShader = `
   varying vec2 vUv;
 
   uniform sampler2D uColorTexture;
   uniform vec2 uTexelSize;
   uniform float uThreshold;
+
+  ${finiteColorChunk}
 
   float bloomLuminance(vec3 color) {
     return dot(color, vec3(0.2126, 0.7152, 0.0722));
@@ -49,7 +71,7 @@ const bloomPrefilterFragmentShader = `
     color += texture2D(uColorTexture, vUv + vec2( halfTexel.x, -halfTexel.y)).rgb * 0.125;
     color += texture2D(uColorTexture, vUv + vec2(-halfTexel.x,  halfTexel.y)).rgb * 0.125;
     color += texture2D(uColorTexture, vUv + vec2( halfTexel.x,  halfTexel.y)).rgb * 0.125;
-    gl_FragColor = vec4(bloomPrefilter(color), 1.0);
+    gl_FragColor = vec4(bloomPrefilter(finiteColor(color)), 1.0);
   }
 `;
 
@@ -77,6 +99,8 @@ const bloomBlurFragmentShader = `
 
 const postFragmentShader = `
   varying vec2 vUv;
+
+  ${finiteColorChunk}
 
   uniform sampler2D uColorTexture;
   uniform sampler2D uBloomTexture;
@@ -410,10 +434,10 @@ const postFragmentShader = `
     // component together. DOM chrome is outside this pass and stays perfectly still.
     vec2 filmUv = vUv - gateOffset;
     vec2 filmSunUv = uSunUv + gateOffset;
-    vec3 color = texture2D(uColorTexture, filmUv).rgb;
+    vec3 color = finiteColor(texture2D(uColorTexture, filmUv).rgb);
 
     if (uBloomEnabled > 0.5 && uBloomStrength > 0.0001) {
-      color += texture2D(uBloomTexture, filmUv).rgb * uBloomStrength;
+      color += finiteColor(texture2D(uBloomTexture, filmUv).rgb) * uBloomStrength;
     }
 
     float rays = 0.0;
