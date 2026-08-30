@@ -19,6 +19,14 @@ mounting the Three.js home scene. The first production collection is seagulls.
   off, falling or low birds inside the boat/sculpture receiver footprint. Keep
   high/long routes, low-power/mobile birds and all feather particles out of the
   shadow map.
+- Reuse the existing planar water reflection target; never create a bird-only
+  target. `seagullReflectionLod.js` selects at most three high-tier or two
+  medium-tier desktop birds that are low, large enough on screen and visible to
+  the mirrored view. Mobile/low-power, high routes, removed birds, feathers and
+  rig helpers stay out of the capture. The reflection adapter must temporarily
+  hide excluded bird roots through `seagullReflectionCapture.js` only around
+  the mirrored `gl.render` call, restore visibility in `finally`, and keep the
+  reflection cadence active while any selected bird is animated.
 - Use at most nine birds on desktop and five on low-power/mobile profiles. The
   runtime hard ceiling is twelve.
 - Landing anchors must be children of `boat-anchor` or `sculpture-anchor` so a

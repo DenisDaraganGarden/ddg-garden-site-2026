@@ -39,6 +39,15 @@ import {
   resolveSeagullShadowCasters,
   SEAGULL_SHADOW_LOD,
 } from '../src/features/home-scene/creatures/seagullShadowLod.js';
+import {
+  measureSeagullReflection,
+  resolveSeagullReflectionParticipants,
+  SEAGULL_REFLECTION_LOD,
+} from '../src/features/home-scene/creatures/seagullReflectionLod.js';
+import {
+  hideExcludedSeagullReflections,
+  readSeagullReflectionActivity,
+} from '../src/features/home-scene/creatures/seagullReflectionCapture.js';
 
 globalThis.ProgressEvent ??= class ProgressEvent {
   constructor(type, init = {}) {
@@ -184,6 +193,122 @@ function checkShadowLod() {
 }
 
 const shadowLodCheck = checkShadowLod();
+
+function describePerspectiveCamera(camera) {
+  const forward = new THREE.Vector3();
+  camera.getWorldDirection(forward);
+  return {
+    position: camera.position.clone(),
+    forward,
+    right: new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion),
+    up: new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion),
+    fovDegrees: camera.fov,
+    aspect: camera.aspect,
+    zoom: camera.zoom,
+    near: camera.near,
+    far: camera.far,
+  };
+}
+
+function checkReflectionLod() {
+  const camera = new THREE.PerspectiveCamera(48, 16 / 9, 0.1, 120);
+  camera.position.set(0, 3, 8);
+  camera.lookAt(0, 0, 0);
+  camera.updateProjectionMatrix();
+  camera.updateMatrixWorld(true);
+  const descriptor = describePerspectiveCamera(camera);
+  const viewport = { width: 1600, height: 900 };
+  const agents = [
+    { index: 0, position: new THREE.Vector3(0, 0.58, 0), physicalHeight: 3.2, landingState: 'perched', modelScale: 1 },
+    { index: 1, position: new THREE.Vector3(1.1, 0.64, -0.3), physicalHeight: 4.6, route: FLIGHT_ROUTE.WATERLINE, modelScale: 1 },
+    { index: 2, position: new THREE.Vector3(-1.2, 0.8, 0.2), physicalHeight: 7, route: FLIGHT_ROUTE.FLOCK, modelScale: 1 },
+    { index: 3, position: new THREE.Vector3(0, 4.5, 0), physicalHeight: 38, route: FLIGHT_ROUTE.HIGH, modelScale: 1 },
+    { index: 4, position: new THREE.Vector3(24, 0.45, 0), physicalHeight: 2, route: FLIGHT_ROUTE.WATERLINE, modelScale: 1 },
+    { index: 5, position: new THREE.Vector3(0, 0.4, 0), physicalHeight: 2, shotState: 'removed', modelScale: 1 },
+    { index: 6, position: new THREE.Vector3(0, 0.5, 20), physicalHeight: 3, route: FLIGHT_ROUTE.WATERLINE, modelScale: 1 },
+  ];
+  const options = {
+    camera: descriptor,
+    viewport,
+    waterY: 0,
+  };
+  const high = resolveSeagullReflectionParticipants(agents, options);
+  const repeat = resolveSeagullReflectionParticipants([...agents].reverse(), options);
+  const medium = resolveSeagullReflectionParticipants(agents, { ...options, quality: 'medium' });
+  const retained = resolveSeagullReflectionParticipants(agents, {
+    ...options,
+    previousParticipantIds: high.participantIds,
+  });
+
+  assert.deepEqual([...high.participantIds], [0, 1, 2], 'high desktop must select the three useful low reflections');
+  assert.deepEqual([...repeat.participantIds], [...high.participantIds], 'reflection selection must not depend on input order');
+  assert.equal(medium.participantIds.size, SEAGULL_REFLECTION_LOD.maximumMediumParticipants);
+  assert.deepEqual([...retained.participantIds], [...high.participantIds], 'reflection hysteresis must retain valid participants');
+  assert.equal(high.dynamic, true, 'an animated selected bird must keep the planar pass active');
+  assert.ok(!high.participantIds.has(3), 'high routes must not enter the planar capture');
+  assert.ok(!high.participantIds.has(4), 'off-screen birds must not enter the planar capture');
+  assert.ok(!high.participantIds.has(5), 'removed birds must not enter the planar capture');
+  assert.ok(!high.participantIds.has(6), 'birds behind the camera must not enter the planar capture');
+  assert.equal(resolveSeagullReflectionParticipants(agents, { ...options, isMobile: true }).dynamic, false);
+  assert.equal(resolveSeagullReflectionParticipants(agents, { ...options, isLowPower: true }).participantIds.size, 0);
+  assert.equal(resolveSeagullReflectionParticipants(agents, { ...options, enabled: false }).participantIds.size, 0);
+
+  const measurement = measureSeagullReflection(agents[0], options);
+  assert.ok(Number.isFinite(measurement.screenPixels) && measurement.screenPixels >= 4);
+
+  return {
+    selected: [...high.participantIds],
+    mediumSelected: [...medium.participantIds],
+    maximumHighParticipants: SEAGULL_REFLECTION_LOD.maximumHighParticipants,
+    maximumMediumParticipants: SEAGULL_REFLECTION_LOD.maximumMediumParticipants,
+    mobileParticipants: 0,
+    dynamic: high.dynamic,
+  };
+}
+
+const reflectionLodCheck = checkReflectionLod();
+
+function checkReflectionCapture() {
+  const selected = {
+    visible: true,
+    userData: {
+      ddgSeagullRoot: true,
+      ddgReflectInWater: true,
+      ddgReflectionDynamic: true,
+    },
+  };
+  const excluded = {
+    visible: true,
+    userData: { ddgSeagullRoot: true, ddgReflectInWater: false },
+  };
+  const feather = {
+    visible: true,
+    userData: { ddgNoWaterReflection: true },
+  };
+  const alreadyHidden = {
+    visible: false,
+    userData: { ddgSeagullRoot: true, ddgReflectInWater: false },
+  };
+  const objects = [selected, excluded, feather, alreadyHidden];
+  const root = { traverse: (visitor) => objects.forEach(visitor) };
+  const activity = readSeagullReflectionActivity(root);
+  const restore = hideExcludedSeagullReflections(root);
+
+  assert.deepEqual(activity, { participants: 1, dynamic: true });
+  assert.equal(selected.visible, true, 'selected bird must remain visible in the mirrored pass');
+  assert.equal(excluded.visible, false, 'excluded bird must be hidden only for the mirrored pass');
+  assert.equal(feather.visible, false, 'feathers must stay out of the planar capture');
+  assert.equal(alreadyHidden.visible, false, 'capture must preserve pre-existing hidden state');
+  restore();
+  assert.equal(selected.visible, true);
+  assert.equal(excluded.visible, true, 'excluded bird visibility must be restored after capture');
+  assert.equal(feather.visible, true, 'helper visibility must be restored after capture');
+  assert.equal(alreadyHidden.visible, false, 'restore must not reveal previously hidden objects');
+
+  return activity;
+}
+
+const reflectionCaptureCheck = checkReflectionCapture();
 
 function makePerspectiveCamera(distance, zoom = 1) {
   const camera = new THREE.PerspectiveCamera(50, 16 / 9, 0.1, 200);
@@ -1081,6 +1206,8 @@ assert.ok(
 console.log(JSON.stringify({
   flightChecks,
   shadowLodCheck,
+  reflectionLodCheck,
+  reflectionCaptureCheck,
   pointerInteractionCheck,
   shootingCheck,
   landingCheck,

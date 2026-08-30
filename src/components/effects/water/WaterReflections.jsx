@@ -13,6 +13,10 @@ import {
 } from './constants';
 import { reflectionContext } from './reflectionContext';
 import { NO_REFLECTION_LAYER } from './SceneLightObjects';
+import {
+  hideExcludedSeagullReflections,
+  readSeagullReflectionActivity,
+} from '../../../features/home-scene/creatures/seagullReflectionCapture';
 
 // Planar reflection and refraction: the scene is re-rendered from a mirrored
 // camera into a texture the water surface samples. The refresh is rate limited,
@@ -135,6 +139,7 @@ export default function WaterReflections({
     boatAnchor: null,
     boat: null,
     sculptureAnchor: null,
+    seagullFlock: null,
   });
   const reflectionTimingRef = useRef({
     initialized: false,
@@ -229,6 +234,9 @@ export default function WaterReflections({
     if (!sceneObjects.sculptureAnchor || !sceneObjects.sculptureAnchor.parent) {
       sceneObjects.sculptureAnchor = scene.getObjectByName('sculpture-anchor');
     }
+    if (!sceneObjects.seagullFlock || !sceneObjects.seagullFlock.parent) {
+      sceneObjects.seagullFlock = scene.getObjectByName('seagull-flock');
+    }
 
     const waterSurface = sceneObjects.waterSurface;
     const seabed = sceneObjects.seabed;
@@ -240,6 +248,8 @@ export default function WaterReflections({
     const boatAnchor = sceneObjects.boatAnchor;
     const boat = sceneObjects.boat;
     const sculptureAnchor = sceneObjects.sculptureAnchor;
+    const seagullFlock = sceneObjects.seagullFlock;
+    const seagullReflectionActivity = readSeagullReflectionActivity(seagullFlock);
 
     if (!waterSurface) {
       return;
@@ -274,7 +284,10 @@ export default function WaterReflections({
         )
         : false;
 
-      isMoving = cameraMoved || boatMoved || sculptureMoved;
+      isMoving = cameraMoved
+        || boatMoved
+        || sculptureMoved
+        || seagullReflectionActivity.dynamic;
     }
 
     const minInterval = 1 / Math.max(isMoving ? activeFps : idleFps, 1);
@@ -392,7 +405,12 @@ export default function WaterReflections({
         gl.clippingPlanes = REFLECTION_CLIP_PLANES;
         gl.setRenderTarget(reflectionTarget);
         gl.clear(true, true, true);
-        gl.render(scene, reflectionCamera);
+        const restoreSeagullVisibility = hideExcludedSeagullReflections(seagullFlock);
+        try {
+          gl.render(scene, reflectionCamera);
+        } finally {
+          restoreSeagullVisibility();
+        }
         reflectionData.current.texture = reflectionTarget.texture;
       }
     } finally {
