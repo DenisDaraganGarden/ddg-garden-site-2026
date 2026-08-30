@@ -52,8 +52,8 @@ export const hexToLightingColor = (value, fallback = '#ffffff') => {
 };
 
 // These are deliberately broad palette anchors, not a replacement for a PMREM.
-// Custom shaders use them as a cheap shared IBL proxy while standard materials
-// continue to receive the real HDR environment from drei's <Environment>.
+// They still provide the atmospheric horizon/zenith palette, while authored
+// fill-light controls below drive the actual diffuse fill seen by every shader.
 export const HOME_SCENE_HDRI_PALETTES = Object.freeze({
   night: Object.freeze({
     horizon: '#31445b',
@@ -100,6 +100,10 @@ const scaleColor = (color, scalar) => color.map((value) => value * scalar);
 const mixColor = (left, right, ratio) => left.map(
   (value, index) => value + (right[index] - value) * ratio,
 );
+const addColor = (left, right) => left.map((value, index) => value + right[index]);
+const colorLuminance = (color) => (
+  0.2126 * color[0] + 0.7152 * color[1] + 0.0722 * color[2]
+);
 
 /**
  * Converts persisted editor settings into one shared lighting vocabulary.
@@ -111,7 +115,6 @@ export const buildHomeSceneLighting = (settings = {}) => {
   const exposure = clamp(finiteNumber(settings.hdrExposure, 64) / 100, 0, 2.2);
   const reflection = clamp(finiteNumber(settings.envReflectionIntensity, 84) / 100, 0, 2.2);
   const keyIntensity = clamp(finiteNumber(settings.moonIntensity, 0.95), 0, 4);
-  const keyColor = hexToLightingColor(settings.moonColor, '#d9e4ff');
   const horizon = hexToLightingColor(preset.horizon);
   const zenith = hexToLightingColor(preset.zenith);
   const ambient = hexToLightingColor(preset.ambient);
@@ -123,12 +126,11 @@ export const buildHomeSceneLighting = (settings = {}) => {
   const waterTint = hexToLightingColor(settings.envTint, '#6b7484');
   const turbidity = clamp(finiteNumber(settings.waterTurbidity, 0), 0, 1);
   const keyLightType = settings.keyLightType === 'moon' ? 'moon' : 'sun';
-  const ambientIntensity = clamp(
-    finiteNumber(settings.ambientIntensity, 0.11)
-      + finiteNumber(settings.hemisphereIntensity, 0.26) * 0.5,
-    0,
-    2,
-  );
+  const ambientLightColor = hexToLightingColor(settings.ambientColor, '#202635');
+  const hemisphereSkyColor = hexToLightingColor(settings.hemisphereSkyColor, '#314762');
+  const hemisphereGroundColor = hexToLightingColor(settings.hemisphereGroundColor, '#020305');
+  const ambientIntensity = clamp(finiteNumber(settings.ambientIntensity, 0.11), 0, 2);
+  const hemisphereIntensity = clamp(finiteNumber(settings.hemisphereIntensity, 0.26), 0, 2);
 
   // Phase 1 derives the sun arc from the existing authored pair, so the frame is
   // unchanged: at noon the arc returns exactly the azimuth and elevation that
@@ -174,7 +176,24 @@ export const buildHomeSceneLighting = (settings = {}) => {
     moonIllumination: moon.illumination,
     moonBrightness: clamp(finiteNumber(settings.moonBrightness, 1), 0, 4),
   });
-  const keyLuminance = 0.2126 * keyRadiance[0] + 0.7152 * keyRadiance[1] + 0.0722 * keyRadiance[2];
+  const keyLuminance = colorLuminance(keyRadiance);
+  const keyColorLinear = keyLuminance > 1e-6
+    ? keyRadiance.map((value) => value / keyLuminance)
+    : [1, 1, 1];
+  const sceneKeyRadiance = scaleColor(keyRadiance, SKY.sceneGain);
+  const hemisphereAverage = mixColor(
+    hemisphereGroundColor.linear,
+    hemisphereSkyColor.linear,
+    0.68,
+  );
+  const diffuseIrradiance = addColor(
+    scaleColor(ambientLightColor.linear, ambientIntensity),
+    scaleColor(hemisphereAverage, hemisphereIntensity),
+  );
+  const fillIntensity = colorLuminance(diffuseIrradiance);
+  const fillColorLinear = fillIntensity > 1e-6
+    ? diffuseIrradiance.map((value) => value / fillIntensity)
+    : [1, 1, 1];
 
   return {
     key: {
@@ -182,14 +201,18 @@ export const buildHomeSceneLighting = (settings = {}) => {
       // Shading follows the sun through the day, so the light, the disc and the
       // reflection are one direction.
       direction: skyKeyDirection,
-      color: keyColor,
       // Split back out for three's directionalLight, which wants a colour and a
       // scalar: the hue is the extinguished sunlight, the scalar its level.
-      colorLinear: keyLuminance > 1e-6
-        ? keyRadiance.map((value) => value / keyLuminance)
-        : [1, 1, 1],
+      colorLinear: keyColorLinear,
+      // Hand-written shaders are calibrated against the atmospheric solution.
+      // Standard three materials need the scene-space gain as a separate,
+      // explicitly named value. Keeping both here prevents every consumer from
+      // inventing its own multiplier while avoiding a hidden 3.2x jump in water
+      // glints and caustics.
       intensity: keyLuminance,
       radiance: keyRadiance,
+      sceneIntensity: keyLuminance * SKY.sceneGain,
+      sceneRadiance: sceneKeyRadiance,
     },
     environment: {
       preset: settings.hdrPreset in HOME_SCENE_HDRI_PALETTES ? settings.hdrPreset : 'night',
@@ -199,10 +222,24 @@ export const buildHomeSceneLighting = (settings = {}) => {
       horizon,
       zenith,
       ambient,
-      ambientIntensity,
-      // This is the uniform-friendly IBL proxy for custom shaders.
-      diffuseIrradiance: scaleColor(ambient.linear, exposure * ambientIntensity),
+      // Kept on the environment object for older consumers. The value now comes
+      // from the editor's real fill lights instead of a preset-only colour.
+      diffuseIrradiance,
       specularRadiance: scaleColor(horizon.linear, exposure * reflection),
+    },
+    fill: {
+      ambient: {
+        color: ambientLightColor,
+        intensity: ambientIntensity,
+      },
+      hemisphere: {
+        skyColor: hemisphereSkyColor,
+        groundColor: hemisphereGroundColor,
+        intensity: hemisphereIntensity,
+      },
+      irradiance: diffuseIrradiance,
+      colorLinear: fillColorLinear,
+      intensity: fillIntensity,
     },
     sky: {
       // Everything the sky needs, in one place, so the visible sky, the sky the
@@ -238,7 +275,7 @@ export const buildHomeSceneLighting = (settings = {}) => {
         mixColor(authoredScattering.linear, scattering.linear, 0.32),
         exposure,
       ),
-      scatteringKeyColor: scaleColor(keyColor.linear, keyIntensity),
+      scatteringKeyColor: sceneKeyRadiance,
       scatteringDensity: turbidity * (0.45 + turbidity * 0.55),
       absorptionColor: [0.13, 0.055, 0.018].map((value) => value * turbidity),
     },

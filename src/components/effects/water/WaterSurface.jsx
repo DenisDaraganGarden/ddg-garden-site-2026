@@ -37,7 +37,7 @@ export default function WaterSurfaceV2({ settings, runtime, qualityProfile, ligh
     uWaveChoppiness: { value: settings.waveChoppiness },
     uWaterTint: { value: new THREE.Color(settings.envTint) },
     uMoonDirection: { value: lightDirection.clone() },
-    uMoonColor: { value: new THREE.Color().fromArray(lighting.key.color.linear) },
+    uMoonColor: { value: new THREE.Color().fromArray(lighting.key.colorLinear) },
     uMoonIntensity: { value: lighting.key.intensity },
     uMoonSpecularStrength: { value: settings.moonSpecularStrength },
     uMoonSpecularPower: { value: settings.moonSpecularPower },
@@ -100,7 +100,7 @@ export default function WaterSurfaceV2({ settings, runtime, qualityProfile, ligh
     uniforms.uWaveChoppiness.value = settings.waveChoppiness;
     uniforms.uWaterTint.value.set(settings.envTint);
     uniforms.uMoonDirection.value.copy(lightDirection);
-    uniforms.uMoonColor.value.fromArray(lighting.key.color.linear);
+    uniforms.uMoonColor.value.fromArray(lighting.key.colorLinear);
     uniforms.uMoonIntensity.value = lighting.key.intensity;
     uniforms.uMoonSpecularStrength.value = settings.moonSpecularStrength;
     uniforms.uMoonSpecularPower.value = settings.moonSpecularPower;

@@ -31,8 +31,9 @@ const toHalfFloatRgba = (rgb, width, height) => {
 };
 
 /**
- * Returns { texture, environment, skyIrradiance, directShare } and keeps
- * scene.environment pointing at the pre-filtered version.
+ * Returns both the equirectangular sky texture and its pre-filtered PMREM.
+ * This hook deliberately never writes scene.environment: WaterLights is the
+ * sole owner of that global slot, so editor renders cannot race sky and HDRI.
  *
  * `state` is whatever buildSkyLut takes; `resolution` shrinks the table on weak
  * devices. The sky model itself never scales down - it is CPU work that runs
@@ -42,18 +43,19 @@ export function useSkyEnvironment(state, {
   width = 256,
   height = 128,
   enabled = true,
-  applyToScene = true,
 } = {}) {
-  const { gl, scene } = useThree();
+  const { gl } = useThree();
   // State, not a ref: the texture is built in an effect, so a ref would leave
   // every consumer that reads it during render holding the null from the first
   // pass forever. That is exactly what kept the sky dome from ever mounting -
   // the water, which reads it per frame, got the texture and the visible sky
   // did not.
   const [texture, setTexture] = useState(null);
+  const [environment, setEnvironment] = useState(null);
   const textureRef = useRef(null);
   const pmremRef = useRef(null);
   const targetRef = useRef(null);
+  const staleTargetsRef = useRef([]);
 
   // Rebuilding is the expensive half, so it keys on the sky's own inputs rather
   // than the settings object identity, which changes on every slider anywhere in
@@ -105,27 +107,31 @@ export function useSkyEnvironment(state, {
     textureRef.current = nextTexture;
     setTexture(nextTexture);
 
-    let previousTarget = null;
-    if (applyToScene) {
-      const target = pmremRef.current.fromEquirectangular(nextTexture);
-      previousTarget = targetRef.current;
-      targetRef.current = target;
-      scene.environment = target.texture;
-      // The sky's own radiance carries the level; a second gain here would make
-      // every material quadratic in one slider.
-      scene.environmentIntensity = 1;
+    const nextTarget = pmremRef.current.fromEquirectangular(nextTexture);
+    if (targetRef.current) {
+      staleTargetsRef.current.push(targetRef.current);
     }
-
-    previousTarget?.dispose();
+    targetRef.current = nextTarget;
+    setEnvironment(nextTarget.texture);
     previousTexture?.dispose();
 
     return undefined;
-  }, [applyToScene, enabled, gl, lut, scene]);
+  }, [enabled, gl, lut]);
+
+  // The Environment owner switches to the new PMREM during the layout phase of
+  // this render. Dispose old targets only afterwards, never while the scene may
+  // still be sampling them for the current frame.
+  useEffect(() => {
+    staleTargetsRef.current.forEach((target) => target.dispose());
+    staleTargetsRef.current = [];
+  }, [environment]);
 
   useEffect(() => () => {
     targetRef.current?.dispose();
     textureRef.current?.dispose();
     pmremRef.current?.dispose();
+    staleTargetsRef.current.forEach((target) => target.dispose());
+    staleTargetsRef.current = [];
     targetRef.current = null;
     textureRef.current = null;
     pmremRef.current = null;
@@ -133,6 +139,7 @@ export function useSkyEnvironment(state, {
 
   return {
     texture,
+    environment,
     skyIrradiance: lut.skyIrradiance,
     directShare: lut.directShare,
     sunElevationDeg: lut.sunElevationDeg,

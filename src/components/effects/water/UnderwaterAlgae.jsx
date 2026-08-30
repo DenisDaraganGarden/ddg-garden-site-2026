@@ -73,10 +73,10 @@ export function UnderwaterAlgae({ settings, qualityProfile, lighting }) {
     uniforms.uColor.value.set(settings.underwaterAlgaeColor);
     uniforms.uSaturation.value = settings.underwaterAlgaeSaturation;
     uniforms.uMoonDirection.value.copy(lightDirection);
-    uniforms.uMoonColor.value.fromArray(lighting.key.color.linear);
+    uniforms.uMoonColor.value.fromArray(lighting.key.colorLinear);
     uniforms.uMoonIntensity.value = lighting.key.intensity;
-    uniforms.uEnvironmentAmbientColor.value.fromArray(lighting.environment.ambient.linear);
-    uniforms.uEnvironmentDiffuse.value = lighting.environment.exposure;
+    uniforms.uEnvironmentAmbientColor.value.fromArray(lighting.fill.colorLinear);
+    uniforms.uEnvironmentDiffuse.value = lighting.fill.intensity;
     uniforms.uWaterScatteringColor.value.fromArray(lighting.water.scatteringColor);
     uniforms.uWaterTurbidity.value = settings.waterTurbidity;
     uniforms.uPlantAoStrength.value = settings.plantAoStrength;

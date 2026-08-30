@@ -1,7 +1,6 @@
 import React, { useContext, useMemo, useRef } from 'react';
 import { Environment } from '@react-three/drei';
 import * as THREE from 'three';
-import { SKY } from '../sky/skyModel.js';
 import { SELF_HOSTED_HDRI } from './constants';
 import { useFrame } from '@react-three/fiber';
 import { reflectionContext } from './reflectionContext';
@@ -71,6 +70,9 @@ export default function WaterLights({ settings, mode, qualityProfile, lighting, 
 
   const envMode = settings.envMode ?? 'sky';
   const useHdri = envMode === 'hdri' || envMode === 'sky+hdri';
+  const showHdriBackground = useHdri && Boolean(settings.showHdriBackground);
+  const hdriEnvironmentIntensity = (settings.hdriIntensity ?? 1)
+    * lighting.environment.exposure;
   const localHdriFile = SELF_HOSTED_HDRI[settings.hdrPreset];
   const environmentSource = localHdriFile
     ? { files: `${import.meta.env.BASE_URL}${localHdriFile}` }
@@ -81,7 +83,7 @@ export default function WaterLights({ settings, mode, qualityProfile, lighting, 
       <directionalLight
         ref={keyLightRef}
         position={lightDirection.clone().multiplyScalar(standoff).toArray()}
-        intensity={lighting.key.intensity * SKY.sceneGain}
+        intensity={lighting.key.sceneIntensity}
         color={keyColor}
         castShadow={shadowsEnabled}
         shadow-mapSize-width={shadowMapSize}
@@ -97,10 +99,19 @@ export default function WaterLights({ settings, mode, qualityProfile, lighting, 
         shadow-radius={shadowRadius}
         shadow-intensity={shadowIntensity}
       />
+      <ambientLight
+        color={lighting.fill.ambient.color.hex}
+        intensity={lighting.fill.ambient.intensity}
+      />
+      <hemisphereLight
+        color={lighting.fill.hemisphere.skyColor.hex}
+        groundColor={lighting.fill.hemisphere.groundColor.hex}
+        intensity={lighting.fill.hemisphere.intensity}
+      />
       {/* The sky is always drawn; the disc toggle hides the body, not the sky. */}
       <SkyDome
           sky={{
-            texture: sky.texture,
+            texture: showHdriBackground ? null : sky.texture,
             keyDirection: lighting.sky.keyDirection,
             keyRadiance: settings.lightDiscEnabled === false
               ? [0, 0, 0]
@@ -114,10 +125,16 @@ export default function WaterLights({ settings, mode, qualityProfile, lighting, 
       {useHdri ? (
         <Environment
           {...environmentSource}
-          background={Boolean(settings.showHdriBackground)}
+          background={showHdriBackground}
           backgroundIntensity={settings.hdriIntensity ?? 1}
-          environmentIntensity={settings.hdriIntensity ?? 1}
+          environmentIntensity={hdriEnvironmentIntensity}
           environmentRotation={[0, THREE.MathUtils.degToRad(settings.hdrRotation), 0]}
+        />
+      ) : sky.environment ? (
+        <Environment
+          map={sky.environment}
+          background={false}
+          environmentIntensity={lighting.sky.skyLevel}
         />
       ) : null}
     </>

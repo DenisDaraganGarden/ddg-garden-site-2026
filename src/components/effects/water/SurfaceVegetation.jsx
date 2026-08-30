@@ -101,10 +101,10 @@ export function SurfaceVegetation({ settings, runtime, qualityProfile, lighting 
     uniforms.uReflectionStrength.value = settings.surfacePlantReflection;
     uniforms.uEnvironmentExposure.value = lighting.environment.exposure;
     uniforms.uEnvironmentReflection.value = lighting.environment.reflection;
-    uniforms.uEnvironmentAmbientColor.value.fromArray(lighting.environment.ambient.linear);
-    uniforms.uEnvironmentDiffuse.value = lighting.environment.exposure;
+    uniforms.uEnvironmentAmbientColor.value.fromArray(lighting.fill.colorLinear);
+    uniforms.uEnvironmentDiffuse.value = lighting.fill.intensity;
     uniforms.uMoonDirection.value.copy(lightDirection);
-    uniforms.uMoonColor.value.fromArray(lighting.key.color.linear);
+    uniforms.uMoonColor.value.fromArray(lighting.key.colorLinear);
     uniforms.uMoonIntensity.value = lighting.key.intensity;
   }, [lightDirection, lighting, settings, uniforms]);
 

@@ -152,7 +152,6 @@ function WaterRuntimeScene({
   const sky = useSkyEnvironment(lighting.sky, {
     width: qualityProfile.isLowPower ? 128 : 256,
     height: qualityProfile.isLowPower ? 64 : 128,
-    applyToScene: (settings.envMode ?? 'sky') !== 'hdri',
   });
   const runtime = useWaterRuntime(settings, qualityProfile, mode);
   const orbitRef = useRef();

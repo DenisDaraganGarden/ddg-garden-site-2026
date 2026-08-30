@@ -32,12 +32,12 @@ export default function Seabed({ settings, runtime, qualityProfile, lighting }) 
     uNormalMap: { value: null },
     uStateResolution: { value: new THREE.Vector2(settings.simulationResolution, settings.simulationResolution) },
     uMoonDirection: { value: lightDirection.clone() },
-    uMoonColor: { value: new THREE.Color().fromArray(lighting.key.color.linear) },
+    uMoonColor: { value: new THREE.Color().fromArray(lighting.key.colorLinear) },
     uMoonIntensity: { value: lighting.key.intensity },
     uEnvironmentAmbientColor: {
-      value: new THREE.Color().fromArray(lighting.environment.ambient.linear),
+      value: new THREE.Color().fromArray(lighting.fill.colorLinear),
     },
-    uEnvironmentDiffuse: { value: lighting.environment.exposure },
+    uEnvironmentDiffuse: { value: lighting.fill.intensity },
     uWaterScatteringColor: {
       value: new THREE.Color().fromArray(lighting.water.scatteringColor),
     },
@@ -80,10 +80,10 @@ export default function Seabed({ settings, runtime, qualityProfile, lighting }) 
 
   useEffect(() => {
     uniforms.uMoonDirection.value.copy(lightDirection);
-    uniforms.uMoonColor.value.fromArray(lighting.key.color.linear);
+    uniforms.uMoonColor.value.fromArray(lighting.key.colorLinear);
     uniforms.uMoonIntensity.value = lighting.key.intensity;
-    uniforms.uEnvironmentAmbientColor.value.fromArray(lighting.environment.ambient.linear);
-    uniforms.uEnvironmentDiffuse.value = lighting.environment.exposure;
+    uniforms.uEnvironmentAmbientColor.value.fromArray(lighting.fill.colorLinear);
+    uniforms.uEnvironmentDiffuse.value = lighting.fill.intensity;
     uniforms.uWaterScatteringColor.value.fromArray(lighting.water.scatteringColor);
     uniforms.uWaterScatteringStrength.value = settings.waterScatteringStrength;
     uniforms.uWaterDepth.value = settings.waterDepthMeters;

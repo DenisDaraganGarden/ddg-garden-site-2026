@@ -329,7 +329,7 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
     uResolution: { value: new THREE.Vector2(1, 1) },
     uSunUv: { value: new THREE.Vector2(0.5, 0.5) },
     uSunVisible: { value: 0 },
-    uSunColor: { value: new THREE.Color(settings.moonColor) },
+    uSunColor: { value: new THREE.Color().fromArray(lighting.key.colorLinear) },
     uCameraNear: { value: camera.near },
     uCameraFar: { value: camera.far },
     uTime: { value: 0 },
@@ -360,7 +360,7 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
     uFogNoiseScale: { value: 1 },
     uFogSpeed: { value: 0 },
     uFogScattering: { value: 0 },
-  }), [camera.far, camera.near, noiseTexture, renderTarget, settings.fogColor, settings.moonColor]);
+  }), [camera.far, camera.near, lighting.key.colorLinear, noiseTexture, renderTarget, settings.fogColor]);
   const postMaterial = useMemo(() => new THREE.ShaderMaterial({
     uniforms,
     vertexShader: postVertexShader,
@@ -415,8 +415,8 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
     uniforms.uFogNoiseScale.value = settings.fogNoiseScale;
     uniforms.uFogSpeed.value = settings.fogSpeed;
     uniforms.uFogScattering.value = settings.fogScattering;
-    uniforms.uSunColor.value.set(settings.moonColor);
-  }, [isLowPower, settings, uniforms]);
+    uniforms.uSunColor.value.fromArray(lighting.key.colorLinear);
+  }, [isLowPower, lighting.key.colorLinear, settings, uniforms]);
 
   useEffect(() => () => {
     const quad = postScene.children[0];
