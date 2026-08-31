@@ -54,6 +54,7 @@ export function useWaterRuntime(settings, qualityProfile, mode) {
   });
   const simulationAccumulatorRef = useRef(0);
   const probeBufferRef = useRef(new Uint8Array(5 * 4));
+  const probeReadState = useRef({ pending: false, hasData: false });
   const probeResultsRef = useRef(Array.from(
     { length: 5 },
     () => ({ height: 0, normal: new THREE.Vector3(0, 1, 0) }),
@@ -306,6 +307,27 @@ export function useWaterRuntime(settings, qualityProfile, mode) {
     }
   }, -10);
 
+  const decodeProbeBuffer = useCallback(() => {
+    for (let index = 0; index < 5; index += 1) {
+      const offset = index * 4;
+      const probeResult = probeResultsRef.current[index];
+
+      probeResult.height = ((probeBufferRef.current[offset] / 255) * 2) - 1;
+      probeResult.normal.set(
+        ((probeBufferRef.current[offset + 1] / 255) * 2) - 1,
+        ((probeBufferRef.current[offset + 3] / 255) * 2) - 1,
+        ((probeBufferRef.current[offset + 2] / 255) * 2) - 1,
+      ).normalize();
+    }
+  }, []);
+
+  // A synchronous readback stalls the CPU until the GPU has drained everything
+  // already queued - reflection, refraction, the whole frame. The boat pays it
+  // 20 times a second, the fish 8, and every seagull shot down onto the water
+  // adds 12 more; that sum is exactly the stutter reported while shooting.
+  // The physics on the other side of this call is spring-filtered and already
+  // tolerates the 50 ms probe interval, so a result that is one fence late is
+  // indistinguishable - and a fenced read costs the CPU nothing.
   const sampleBoatProbes = useCallback((worldPoints) => {
     if (!stateRef.current || !normalTargetRef.current || worldPoints.length !== 5) {
       return null;
@@ -320,23 +342,32 @@ export function useWaterRuntime(settings, qualityProfile, mode) {
 
     gl.setRenderTarget(renderState.probe);
     gl.render(renderState.probePass.scene, renderState.probePass.camera);
-    gl.readRenderTargetPixels(renderState.probe, 0, 0, 5, 1, probeBufferRef.current);
-    restoreDefaultFramebuffer(gl);
 
-    for (let index = 0; index < 5; index += 1) {
-      const offset = index * 4;
-      const probeResult = probeResultsRef.current[index];
-
-      probeResult.height = ((probeBufferRef.current[offset] / 255) * 2) - 1;
-      probeResult.normal.set(
-        ((probeBufferRef.current[offset + 1] / 255) * 2) - 1,
-        ((probeBufferRef.current[offset + 3] / 255) * 2) - 1,
-        ((probeBufferRef.current[offset + 2] / 255) * 2) - 1,
-      ).normalize();
+    if (gl.capabilities.isWebGL2) {
+      if (!probeReadState.current.pending) {
+        probeReadState.current.pending = true;
+        gl.readRenderTargetPixelsAsync(renderState.probe, 0, 0, 5, 1, probeBufferRef.current)
+          .then(() => {
+            decodeProbeBuffer();
+            probeReadState.current.hasData = true;
+          })
+          .catch(() => {})
+          .finally(() => {
+            probeReadState.current.pending = false;
+          });
+      }
+      restoreDefaultFramebuffer(gl);
+      // The first call has nothing to hand back yet; every caller already
+      // treats null as "keep what you had".
+      return probeReadState.current.hasData ? probeResultsRef.current : null;
     }
 
+    // WebGL1 has no fence to wait on, so the stall is the only way to read.
+    gl.readRenderTargetPixels(renderState.probe, 0, 0, 5, 1, probeBufferRef.current);
+    restoreDefaultFramebuffer(gl);
+    decodeProbeBuffer();
     return probeResultsRef.current;
-  }, [gl, renderState, worldToUv]);
+  }, [decodeProbeBuffer, gl, renderState, worldToUv]);
 
   const sampleWaterSurface = useCallback((worldPoint) => {
     if (!worldPoint || !Number.isFinite(worldPoint.x) || !Number.isFinite(worldPoint.z)) {
