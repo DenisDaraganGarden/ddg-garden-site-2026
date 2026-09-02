@@ -6,6 +6,8 @@ import React, {
 } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
+import { useTexture } from '@react-three/drei';
+import { SEAGULL_ASSET } from './seagullAsset.js';
 
 const FEATHER_CAPACITY = 72;
 const WORLD_UP = new THREE.Vector3(0, 1, 0);
@@ -41,8 +43,13 @@ function createParticle() {
   };
 }
 
+const configureFeatherTexture = (texture) => {
+  texture.colorSpace = THREE.SRGBColorSpace;
+};
+
 const SeagullFeathers = forwardRef(function SeagullFeathers(_props, ref) {
   const meshRef = useRef();
+  const featherMap = useTexture(SEAGULL_ASSET.featherTexture, configureFeatherTexture);
   const cursor = useRef(0);
   const particles = useMemo(
     () => Array.from({ length: FEATHER_CAPACITY }, createParticle),
@@ -128,13 +135,14 @@ const SeagullFeathers = forwardRef(function SeagullFeathers(_props, ref) {
     <instancedMesh ref={meshRef} args={[null, null, FEATHER_CAPACITY]} frustumCulled={false}>
       <planeGeometry args={[0.046, 0.13]} />
       <meshStandardMaterial
+        map={featherMap}
         color="#c9c9c3"
         roughness={0.92}
         metalness={0}
         side={THREE.DoubleSide}
-        transparent
-        opacity={0.9}
-        depthWrite={false}
+        // Cut-out through MSAA coverage like the vegetation: no sorting, no
+        // halo, and the barbs keep their soft edge.
+        alphaToCoverage
       />
     </instancedMesh>
   );

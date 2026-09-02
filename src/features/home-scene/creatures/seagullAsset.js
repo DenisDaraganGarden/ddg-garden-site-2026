@@ -6,6 +6,8 @@ export const SEAGULL_ASSET = Object.freeze({
     orm: '/models/seagull/textures/seagull_orm.webp',
     specular: '/models/seagull/textures/seagull_specular.webp',
   },
+  // Sprite for the shed feathers; drawn by scripts/make-feather-texture.mjs.
+  featherTexture: '/models/seagull/textures/seagull_feather.webp',
   source: {
     triangles: 8765,
     bones: 162,
