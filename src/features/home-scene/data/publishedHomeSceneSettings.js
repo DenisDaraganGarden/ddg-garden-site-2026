@@ -24,7 +24,7 @@ export const publishedHomeSceneSettings = {
   "moonElevation": 14,
   "moonSpecularStrength": 0.21,
   "moonSpecularPower": 75,
-  "timeOfDay": 7.9,
+  "timeOfDay": 9.3,
   "sunBearing": 354,
   "sunNoonElevation": 48,
   "sunTint": "#d68229",
@@ -123,16 +123,16 @@ export const publishedHomeSceneSettings = {
     "portrait": {
       "customized": true,
       "cameraPosition": {
-        "x": -3.9722,
-        "y": 6.1734,
-        "z": 11.5637
+        "x": -1.315,
+        "y": 4.9498,
+        "z": 12.5813
       },
       "cameraTarget": {
         "x": -1.0713,
         "y": -0.1523,
         "z": 1.0959
       },
-      "cameraFov": 30,
+      "cameraFov": 16,
       "frameInset": 0.18,
       "boatPosition": {
         "x": -5.9,
@@ -146,24 +146,24 @@ export const publishedHomeSceneSettings = {
     "desktop": {
       "customized": true,
       "cameraPosition": {
-        "x": -3.6718,
-        "y": 6.0163,
-        "z": 8.0807
+        "x": -5.3386,
+        "y": 11.6952,
+        "z": 16.8595
       },
       "cameraTarget": {
-        "x": -0.2438,
-        "y": 0.8325,
-        "z": -0.0556
+        "x": 33.6889,
+        "y": -85.0397,
+        "z": -119.8505
       },
-      "cameraFov": 24,
+      "cameraFov": 8,
       "frameInset": 0.18,
       "boatPosition": {
         "x": -3.37,
         "z": 0.81
       },
       "sculpturePosition": {
-        "x": 1.97,
-        "z": -0.81
+        "x": 5,
+        "z": 0.2054
       }
     }
   },
@@ -233,7 +233,7 @@ export const publishedHomeSceneSettings = {
   "surfacePlantSaturation": 0.82,
   "surfacePlantTranslucency": 0.48,
   "surfacePlantReflection": 0.36,
-  "underwaterAlgaeAmount": 1,
+  "underwaterAlgaeAmount": 0.71,
   "underwaterAlgaeCenterX": -0.1,
   "underwaterAlgaeCenterZ": 0.6,
   "underwaterAlgaeRadius": 10.5,
@@ -279,7 +279,7 @@ export const publishedHomeSceneSettings = {
   "fishActivity": 0.55,
   "fishDepthBand": 0.72,
   "reflectionsEnabled": true,
-  "postProcessingEnabled": false,
+  "postProcessingEnabled": true,
   "filmEnabled": false,
   "filmStock": "neutral",
   "filmGrainAmount": 0.99,
@@ -308,7 +308,7 @@ export const publishedHomeSceneSettings = {
   "sunRaysDensity": 0.67,
   "fogMode": "volumetric",
   "fogColor": "#99b2c2",
-  "fogDensity": 0.85,
+  "fogDensity": 0.11,
   "fogNear": 0,
   "fogFar": 58.1,
   "fogNoiseScale": 0.1,
@@ -528,9 +528,9 @@ export const publishedHomeSceneSettings = {
           "portrait": {
             "customized": true,
             "cameraPosition": {
-              "x": 5.7016,
-              "y": 0.9883,
-              "z": -0.1892
+              "x": 5.5634,
+              "y": 1.3135,
+              "z": -0.7156
             },
             "cameraTarget": {
               "x": -1.7012,
@@ -687,7 +687,7 @@ export const publishedHomeSceneSettings = {
         "fishActivity": 0.55,
         "fishDepthBand": 0.72,
         "reflectionsEnabled": true,
-        "postProcessingEnabled": false,
+        "postProcessingEnabled": true,
         "filmEnabled": false,
         "filmStock": "neutral",
         "filmGrainAmount": 0.99,
@@ -758,7 +758,7 @@ export const publishedHomeSceneSettings = {
         "moonElevation": 14,
         "moonSpecularStrength": 0.21,
         "moonSpecularPower": 75,
-        "timeOfDay": 7.9,
+        "timeOfDay": 9.3,
         "sunBearing": 354,
         "sunNoonElevation": 48,
         "sunTint": "#d68229",
@@ -857,16 +857,16 @@ export const publishedHomeSceneSettings = {
           "portrait": {
             "customized": true,
             "cameraPosition": {
-              "x": -3.9722,
-              "y": 6.1734,
-              "z": 11.5637
+              "x": -1.315,
+              "y": 4.9498,
+              "z": 12.5813
             },
             "cameraTarget": {
               "x": -1.0713,
               "y": -0.1523,
               "z": 1.0959
             },
-            "cameraFov": 30,
+            "cameraFov": 16,
             "frameInset": 0.18,
             "boatPosition": {
               "x": -5.9,
@@ -880,24 +880,24 @@ export const publishedHomeSceneSettings = {
           "desktop": {
             "customized": true,
             "cameraPosition": {
-              "x": -3.6718,
-              "y": 6.0163,
-              "z": 8.0807
+              "x": -5.3386,
+              "y": 11.6952,
+              "z": 16.8595
             },
             "cameraTarget": {
-              "x": -0.2438,
-              "y": 0.8325,
-              "z": -0.0556
+              "x": 33.6889,
+              "y": -85.0397,
+              "z": -119.8505
             },
-            "cameraFov": 24,
+            "cameraFov": 8,
             "frameInset": 0.18,
             "boatPosition": {
               "x": -3.37,
               "z": 0.81
             },
             "sculpturePosition": {
-              "x": 1.97,
-              "z": -0.81
+              "x": 5,
+              "z": 0.2054
             }
           }
         },
@@ -967,7 +967,7 @@ export const publishedHomeSceneSettings = {
         "surfacePlantSaturation": 0.82,
         "surfacePlantTranslucency": 0.48,
         "surfacePlantReflection": 0.36,
-        "underwaterAlgaeAmount": 1,
+        "underwaterAlgaeAmount": 0.71,
         "underwaterAlgaeDensity": 1,
         "underwaterAlgaeCenterX": -0.1,
         "underwaterAlgaeCenterZ": 0.6,
@@ -1016,7 +1016,7 @@ export const publishedHomeSceneSettings = {
         "fishActivity": 0.55,
         "fishDepthBand": 0.72,
         "reflectionsEnabled": true,
-        "postProcessingEnabled": false,
+        "postProcessingEnabled": true,
         "filmEnabled": false,
         "filmStock": "neutral",
         "filmGrainAmount": 0.99,
@@ -1045,7 +1045,7 @@ export const publishedHomeSceneSettings = {
         "sunRaysDensity": 0.67,
         "fogMode": "volumetric",
         "fogColor": "#99b2c2",
-        "fogDensity": 0.85,
+        "fogDensity": 0.11,
         "fogNear": 0,
         "fogFar": 58.1,
         "fogNoiseScale": 0.1,
@@ -1186,14 +1186,14 @@ export const publishedHomeSceneSettings = {
           "portrait": {
             "customized": true,
             "cameraPosition": {
-              "x": -0.0069,
-              "y": 0.3761,
-              "z": -2.3077
+              "x": 3.4154,
+              "y": 0.4075,
+              "z": -0.3749
             },
             "cameraTarget": {
-              "x": 0.0088,
-              "y": 0.383,
-              "z": -2.2985
+              "x": 3.3967,
+              "y": 0.4112,
+              "z": -0.3789
             },
             "cameraFov": 59,
             "frameInset": 0.18,

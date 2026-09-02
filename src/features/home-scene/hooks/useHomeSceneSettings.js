@@ -1181,7 +1181,16 @@ export const sanitizeHomeSceneSettingsForPublish = (settings = {}) => {
   }, {});
 };
 
-export const getPublishedHomeSceneSettings = () => normalizeHomeSceneSettings(publishedHomeSceneSettings);
+// A publish writes the root from whichever camera was active, while a load
+// always opens on the first camera. Mirror the first camera into the root, or
+// the editor syncs the wrong scene into camera 1 and opens with changes nobody
+// made - and the site's first frames belong to a camera it is not showing.
+export const getPublishedHomeSceneSettings = () => {
+  const published = normalizeHomeSceneSettings(publishedHomeSceneSettings);
+  const firstCamera = published.sceneCameras?.[0];
+
+  return firstCamera ? applySceneSnapshot(published, firstCamera.scene) : published;
+};
 
 export const normalizePublishedHomeSceneSettings = (settings = {}) => normalizeHomeSceneSettings(settings);
 
