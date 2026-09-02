@@ -620,14 +620,17 @@ const HomeEdit = () => {
     const selectedFrameInset = resolveLayoutFrameInset(settings.layouts, selectedLayoutKey);
     const cameraPoseKey = String(cameraPoseRevision);
 
-    const handlePublish = async () => {
+    // deploy: the file goes to the project AND to the site - the server
+    // commits it and pushes main, GitHub builds the page. Without deploy the
+    // file only lands in the project, which is what the smoke test exercises.
+    const handlePublish = async ({ deploy = false } = {}) => {
         const currentPreparedSettings = syncActiveCameraScene(settings);
         const currentPublishableSettings = sanitizeHomeSceneSettingsForPublish(
             currentPreparedSettings,
         );
         const currentSerializedSettings = JSON.stringify(currentPublishableSettings);
 
-        if (currentSerializedSettings === lastPublishedSnapshotRef.current) {
+        if (!deploy && currentSerializedSettings === lastPublishedSnapshotRef.current) {
             setHasPublishChanges(false);
             return;
         }
@@ -637,12 +640,12 @@ const HomeEdit = () => {
         publishRequestRef.current = requestId;
         setPublishState({
             busy: true,
-            message: t('homeEditor.publish.progress'),
+            message: t(deploy ? 'homeEditor.publish.deployProgress' : 'homeEditor.publish.progress'),
         });
         setSettings(currentPreparedSettings);
 
         try {
-            await publishHomeSceneSettings(currentPublishableSettings);
+            const payload = await publishHomeSceneSettings(currentPublishableSettings, { deploy });
 
             if (publishRequestRef.current !== requestId) {
                 return;
@@ -650,10 +653,16 @@ const HomeEdit = () => {
 
             lastPublishedSnapshotRef.current = currentSerializedSettings;
             setHasPublishChanges(false);
-            setPublishState({
-                busy: false,
-                message: t('homeEditor.publish.success'),
-            });
+            let message = t('homeEditor.publish.success');
+            if (deploy) {
+                message = payload?.deploy?.ok === false
+                    ? t('homeEditor.publish.deployFailed', { message: payload.deploy.message })
+                    : t('homeEditor.publish.deployed', {
+                        commit: payload?.deploy?.head ?? '',
+                        branch: payload?.deploy?.branch ?? '',
+                    });
+            }
+            setPublishState({ busy: false, message });
         } catch (error) {
             if (publishRequestRef.current !== requestId) {
                 return;
@@ -706,7 +715,8 @@ const HomeEdit = () => {
                 handleSettingChange={handleSettingChange}
                 layoutEditor={layoutEditor}
                 gizmo={{ mode: gizmoMode, setMode: setGizmoMode, selection: editorGizmo.selection }}
-                onPublish={isLocalPublishAvailable ? handlePublish : undefined}
+                onPublish={isLocalPublishAvailable ? () => handlePublish() : undefined}
+                onDeploy={isLocalPublishAvailable ? () => handlePublish({ deploy: true }) : undefined}
                 onAdoptPublished={handleAdoptPublished}
                 publishState={publishState}
                 hasPublishChanges={hasPublishChanges}

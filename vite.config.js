@@ -1,5 +1,7 @@
+import { execFile } from 'node:child_process';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { promisify } from 'node:util';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { publishedHomeSceneKeys } from './src/features/home-scene/data/publishedHomeSceneKeys.js';
@@ -13,6 +15,47 @@ const publishedHomeSceneSettingsPath = path.join(
   'data',
   'publishedHomeSceneSettings.js',
 );
+const execFileAsync = promisify(execFile);
+const PUBLISHED_HOME_SCENE_SETTINGS_FILE = 'src/features/home-scene/data/publishedHomeSceneSettings.js';
+const DEPLOY_REMOTE = 'origin';
+const DEPLOY_BRANCH = 'main';
+
+async function git(args, timeout = 60000) {
+  const { stdout, stderr } = await execFileAsync('git', args, {
+    cwd: projectRoot,
+    timeout,
+    maxBuffer: 1 << 20,
+  });
+  return `${stdout}${stderr}`.trim();
+}
+
+// Publishing writes a file into the checkout; the site only changes when that
+// file reaches main on GitHub, where the Pages workflow builds it. This is the
+// other half of the "to the site" button: commit the published file on its
+// own and push HEAD to main. Fast-forward only - anything else is a merge for
+// a person to look at, and the error says so.
+async function deployPublishedHomeScene() {
+  const branch = await git(['rev-parse', '--abbrev-ref', 'HEAD']);
+  await git(['add', '--', PUBLISHED_HOME_SCENE_SETTINGS_FILE]);
+  const staged = await git(['diff', '--cached', '--name-only', '--', PUBLISHED_HOME_SCENE_SETTINGS_FILE]);
+  let commit = null;
+
+  if (staged) {
+    await git(['commit', '--only', '-m', 'chore(home): publish authored scene', '--', PUBLISHED_HOME_SCENE_SETTINGS_FILE]);
+    commit = await git(['rev-parse', '--short', 'HEAD']);
+  }
+
+  const push = await git(['push', DEPLOY_REMOTE, `HEAD:${DEPLOY_BRANCH}`], 180000);
+
+  return {
+    ok: true,
+    branch,
+    commit,
+    head: await git(['rev-parse', '--short', 'HEAD']),
+    push,
+  };
+}
+
 function sendJson(response, statusCode, payload) {
   response.statusCode = statusCode;
   response.setHeader('Content-Type', 'application/json');
@@ -68,10 +111,24 @@ function homeScenePublishPlugin() {
           'utf8',
         );
 
-        sendJson(response, 200, {
+        const result = {
           ok: true,
-          file: 'src/features/home-scene/data/publishedHomeSceneSettings.js',
-        });
+          file: PUBLISHED_HOME_SCENE_SETTINGS_FILE,
+        };
+
+        if (body.deploy === true) {
+          try {
+            result.deploy = await deployPublishedHomeScene();
+          } catch (error) {
+            // The file is published either way; only the trip to the site failed.
+            result.deploy = {
+              ok: false,
+              message: error instanceof Error ? error.message : 'Deploy failed',
+            };
+          }
+        }
+
+        sendJson(response, 200, result);
       } catch (error) {
         sendJson(response, 500, {
           ok: false,

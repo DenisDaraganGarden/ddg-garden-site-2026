@@ -1,12 +1,13 @@
 const HOME_SCENE_PUBLISH_ENDPOINT = '/__home-scene/publish';
 
-export async function publishHomeSceneSettings(settings) {
+// deploy: true also commits the published file and pushes it to the site.
+export async function publishHomeSceneSettings(settings, { deploy = false } = {}) {
   const response = await fetch(HOME_SCENE_PUBLISH_ENDPOINT, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ settings }),
+    body: JSON.stringify({ settings, deploy }),
   });
 
   const payload = await response.json().catch(() => ({}));

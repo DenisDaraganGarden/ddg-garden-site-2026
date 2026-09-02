@@ -37,6 +37,7 @@ const HomeEditorPanel = ({
     layoutEditor,
     gizmo,
     onPublish,
+    onDeploy,
     onAdoptPublished,
     publishState,
     hasPublishChanges = false,
@@ -64,6 +65,7 @@ const HomeEditorPanel = ({
     // where an unpublished afternoon of work lives.
     const [confirmAdopt, setConfirmAdopt] = useState(false);
     const canPublish = publishEnabled && typeof onPublish === 'function';
+    const canDeploy = publishEnabled && typeof onDeploy === 'function';
     const isPublishDisabled = publishState?.busy || !hasPublishChanges || !canPublish;
 
     useEffect(() => {
@@ -270,6 +272,16 @@ const HomeEditorPanel = ({
                             title={publishHint || undefined}
                         >
                             {publishState?.busy ? t('homeEditor.publish.publishing') : t('homeEditor.publish.publish')}
+                        </button>
+                        <button
+                            type="button"
+                            className="home-editor-tab home-editor-tab--publish home-editor-tab--deploy"
+                            onClick={canDeploy ? onDeploy : undefined}
+                            disabled={publishState?.busy || !canDeploy}
+                            data-testid="home-editor-deploy"
+                            title={t('homeEditor.publish.deployHint')}
+                        >
+                            {t('homeEditor.publish.deploy')}
                         </button>
                     </div>
 
