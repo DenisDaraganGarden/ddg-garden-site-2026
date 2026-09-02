@@ -230,27 +230,57 @@ export function useSkyEnvironment(state, {
     // plateau and stay there. The loader waits for this one instead.
     const id = nextLutRequestId;
     nextLutRequestId += 1;
-    let cancelled = false;
+    let settled = false;
+    let watchdog = 0;
 
-    const handleMessage = (event) => {
-      if (event.data?.id !== id) {
-        return;
-      }
-
+    const detach = () => {
+      settled = true;
+      window.clearTimeout(watchdog);
       worker.removeEventListener('message', handleMessage);
-
-      if (cancelled || !event.data.lut) {
+      worker.removeEventListener('error', handleError);
+    };
+    // The loader waits for this table and has no other way out, so a worker
+    // that reports an error, fails to load, or never answers hands the build
+    // back to the main thread instead of leaving the site on the loader.
+    const fallbackInline = () => {
+      if (settled) {
+        return;
+      }
+      detach();
+      setLut(buildSkyLutCached(
+        lutRequest.key,
+        lutRequest.state,
+        lutRequest.width,
+        lutRequest.height,
+      ));
+    };
+    function handleError() {
+      lutWorkerFailed = true;
+      fallbackInline();
+    }
+    function handleMessage(event) {
+      if (event.data?.id !== id || settled) {
         return;
       }
 
+      if (!event.data.lut) {
+        fallbackInline();
+        return;
+      }
+
+      detach();
       if (lutCache.size > 3) {
         lutCache.clear();
       }
       lutCache.set(lutRequest.key, event.data.lut);
       setLut(event.data.lut);
-    };
+    }
 
     worker.addEventListener('message', handleMessage);
+    worker.addEventListener('error', handleError);
+    // Generous: a slow phone builds the full table in several seconds, and a
+    // second build on the main thread must not race a worker that is merely late.
+    watchdog = window.setTimeout(fallbackInline, 20000);
     worker.postMessage({
       id,
       state: {
@@ -261,8 +291,7 @@ export function useSkyEnvironment(state, {
     });
 
     return () => {
-      cancelled = true;
-      worker.removeEventListener('message', handleMessage);
+      detach();
     };
   }, [lutRequest]);
 

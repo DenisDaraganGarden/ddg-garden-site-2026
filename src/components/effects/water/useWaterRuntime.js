@@ -29,6 +29,36 @@ import {
 
 const WATER_SURFACE_SAMPLE_CACHE_MS = 50;
 
+// One probe read is five texels: height in R, the normal in GBA. Every reader
+// decodes into its own results, never into a shared array - the boat, the
+// pointer refine, the fish and the seagulls all ask at different times for
+// different points, and a shared buffer handed each of them another's water.
+const createProbeResults = () => Array.from({ length: 5 }, () => ({
+  height: 0,
+  normal: new THREE.Vector3(0, 1, 0),
+}));
+
+const createProbeSlot = () => ({
+  buffer: new Uint8Array(5 * 4),
+  results: createProbeResults(),
+  hasData: false,
+  pending: false,
+});
+
+const decodeProbeBuffer = (buffer, results) => {
+  for (let index = 0; index < 5; index += 1) {
+    const offset = index * 4;
+    const probeResult = results[index];
+
+    probeResult.height = ((buffer[offset] / 255) * 2) - 1;
+    probeResult.normal.set(
+      ((buffer[offset + 1] / 255) * 2) - 1,
+      ((buffer[offset + 3] / 255) * 2) - 1,
+      ((buffer[offset + 2] / 255) * 2) - 1,
+    ).normalize();
+  }
+};
+
 export function useWaterRuntime(settings, qualityProfile, mode) {
   const { gl } = useThree();
   const settingsRef = useRef(settings);
@@ -53,12 +83,6 @@ export function useWaterRuntime(settings, qualityProfile, mode) {
     recentImpulseSource: 'none',
   });
   const simulationAccumulatorRef = useRef(0);
-  const probeBufferRef = useRef(new Uint8Array(5 * 4));
-  const probeReadState = useRef({ pending: false, hasData: false });
-  const probeResultsRef = useRef(Array.from(
-    { length: 5 },
-    () => ({ height: 0, normal: new THREE.Vector3(0, 1, 0) }),
-  ));
   const surfaceSamplePointsRef = useRef(Array.from(
     { length: 5 },
     () => new THREE.Vector3(),
@@ -307,30 +331,26 @@ export function useWaterRuntime(settings, qualityProfile, mode) {
     }
   }, -10);
 
-  const decodeProbeBuffer = useCallback(() => {
-    for (let index = 0; index < 5; index += 1) {
-      const offset = index * 4;
-      const probeResult = probeResultsRef.current[index];
-
-      probeResult.height = ((probeBufferRef.current[offset] / 255) * 2) - 1;
-      probeResult.normal.set(
-        ((probeBufferRef.current[offset + 1] / 255) * 2) - 1,
-        ((probeBufferRef.current[offset + 3] / 255) * 2) - 1,
-        ((probeBufferRef.current[offset + 2] / 255) * 2) - 1,
-      ).normalize();
-    }
-  }, []);
-
   // A synchronous readback stalls the CPU until the GPU has drained everything
   // already queued - reflection, refraction, the whole frame. The boat pays it
   // 20 times a second, the fish 8, and every seagull shot down onto the water
   // adds 12 more; that sum is exactly the stutter reported while shooting.
-  // The physics on the other side of this call is spring-filtered and already
-  // tolerates the 50 ms probe interval, so a result that is one fence late is
-  // indistinguishable - and a fenced read costs the CPU nothing.
-  const sampleBoatProbes = useCallback((worldPoints) => {
+  // A fenced read costs the CPU nothing. Three issues the readPixels into a
+  // buffer object at once and only waits on the fence, so each read holds the
+  // render that preceded it even with several in flight.
+  const probeSlotsRef = useRef(new Map());
+  const getProbeSlot = useCallback((key) => {
+    let slot = probeSlotsRef.current.get(key);
+    if (!slot) {
+      slot = createProbeSlot();
+      probeSlotsRef.current.set(key, slot);
+    }
+    return slot;
+  }, []);
+
+  const renderProbes = useCallback((worldPoints) => {
     if (!stateRef.current || !normalTargetRef.current || worldPoints.length !== 5) {
-      return null;
+      return false;
     }
 
     worldPoints.forEach((point, index) => {
@@ -342,49 +362,65 @@ export function useWaterRuntime(settings, qualityProfile, mode) {
 
     gl.setRenderTarget(renderState.probe);
     gl.render(renderState.probePass.scene, renderState.probePass.camera);
+    return true;
+  }, [gl, renderState, worldToUv]);
+
+  // Polling callers that ask for the same five points every tick (the boat's
+  // hull, the pointer's hit) name their slot and get their own last answer,
+  // one fence late at most. The physics on the other side is spring-filtered
+  // and already tolerates the 50 ms probe interval.
+  const sampleBoatProbes = useCallback((worldPoints, slotKey = 'default') => {
+    if (!renderProbes(worldPoints)) {
+      return null;
+    }
+
+    const slot = getProbeSlot(slotKey);
 
     if (gl.capabilities.isWebGL2) {
-      if (!probeReadState.current.pending) {
-        probeReadState.current.pending = true;
-        gl.readRenderTargetPixelsAsync(renderState.probe, 0, 0, 5, 1, probeBufferRef.current)
+      if (!slot.pending) {
+        slot.pending = true;
+        gl.readRenderTargetPixelsAsync(renderState.probe, 0, 0, 5, 1, slot.buffer)
           .then(() => {
-            decodeProbeBuffer();
-            probeReadState.current.hasData = true;
+            decodeProbeBuffer(slot.buffer, slot.results);
+            slot.hasData = true;
           })
           .catch(() => {})
           .finally(() => {
-            probeReadState.current.pending = false;
+            slot.pending = false;
           });
       }
       restoreDefaultFramebuffer(gl);
       // The first call has nothing to hand back yet; every caller already
       // treats null as "keep what you had".
-      return probeReadState.current.hasData ? probeResultsRef.current : null;
+      return slot.hasData ? slot.results : null;
     }
 
     // WebGL1 has no fence to wait on, so the stall is the only way to read.
-    gl.readRenderTargetPixels(renderState.probe, 0, 0, 5, 1, probeBufferRef.current);
+    gl.readRenderTargetPixels(renderState.probe, 0, 0, 5, 1, slot.buffer);
     restoreDefaultFramebuffer(gl);
-    decodeProbeBuffer();
-    return probeResultsRef.current;
-  }, [decodeProbeBuffer, gl, renderState, worldToUv]);
+    decodeProbeBuffer(slot.buffer, slot.results);
+    slot.hasData = true;
+    return slot.results;
+  }, [getProbeSlot, gl, renderProbes, renderState]);
 
+  // A one-off sample of a point that changes every call (a fish, a downed
+  // gull) resolves with the answer for exactly that point, when its fence
+  // lands. The promise resolves to null when there is no water to ask.
   const sampleWaterSurface = useCallback((worldPoint) => {
     if (!worldPoint || !Number.isFinite(worldPoint.x) || !Number.isFinite(worldPoint.z)) {
-      return null;
+      return Promise.resolve(null);
     }
 
     const halfExtent = settings.waterExtent * 0.5;
     if (Math.abs(worldPoint.x) > halfExtent || Math.abs(worldPoint.z) > halfExtent) {
-      return null;
+      return Promise.resolve(null);
     }
 
-    const now = performance.now();
     const cache = surfaceSampleCacheRef.current;
     const unchangedPosition = Math.abs(cache.x - worldPoint.x) < 0.01
       && Math.abs(cache.z - worldPoint.z) < 0.01;
-    if (unchangedPosition && (now - cache.sampledAt) < WATER_SURFACE_SAMPLE_CACHE_MS) {
-      return cache.result;
+    if (unchangedPosition && cache.result && (performance.now() - cache.sampledAt) < WATER_SURFACE_SAMPLE_CACHE_MS) {
+      return Promise.resolve(cache.result);
     }
 
     // The probe pass is fixed at five texels. Repeating the same point lets a
@@ -393,21 +429,42 @@ export function useWaterRuntime(settings, qualityProfile, mode) {
     for (let index = 0; index < points.length; index += 1) {
       points[index].set(worldPoint.x, worldPoint.y || 0, worldPoint.z);
     }
-    const probes = sampleBoatProbes(points);
-    if (!probes) {
-      return null;
+    if (!renderProbes(points)) {
+      return Promise.resolve(null);
     }
 
-    cache.x = worldPoint.x;
-    cache.z = worldPoint.z;
-    cache.sampledAt = now;
-    cache.result.height = probes[0].height;
-    // The visible water mesh applies this same vertical scale. Its base plane is
-    // currently world y=0; a future translated surface can add its world origin.
-    cache.result.worldY = probes[0].height * settings.waveAmplitude;
-    cache.result.normal.copy(probes[0].normal);
-    return cache.result;
-  }, [sampleBoatProbes, settings.waterExtent, settings.waveAmplitude]);
+    const x = worldPoint.x;
+    const z = worldPoint.z;
+    const waveAmplitude = settings.waveAmplitude;
+    const buffer = new Uint8Array(5 * 4);
+    const finish = () => {
+      const results = createProbeResults();
+      decodeProbeBuffer(buffer, results);
+      const result = {
+        height: results[0].height,
+        // The visible water mesh applies this same vertical scale. Its base
+        // plane is world y=0; a future translated surface can add its origin.
+        worldY: results[0].height * waveAmplitude,
+        normal: results[0].normal,
+      };
+      cache.x = x;
+      cache.z = z;
+      cache.sampledAt = performance.now();
+      cache.result = result;
+      return result;
+    };
+
+    if (gl.capabilities.isWebGL2) {
+      const read = gl.readRenderTargetPixelsAsync(renderState.probe, 0, 0, 5, 1, buffer)
+        .then(finish, () => null);
+      restoreDefaultFramebuffer(gl);
+      return read;
+    }
+
+    gl.readRenderTargetPixels(renderState.probe, 0, 0, 5, 1, buffer);
+    restoreDefaultFramebuffer(gl);
+    return Promise.resolve(finish());
+  }, [gl, renderProbes, renderState, settings.waterExtent, settings.waveAmplitude]);
 
   return {
     currentStateTargetRef: stateRef,

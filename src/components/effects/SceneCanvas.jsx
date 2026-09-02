@@ -390,21 +390,35 @@ const VisibilityResume = ({ isActive }) => {
 const AnimationPause = ({ paused, frameloop, settings }) => {
   const clock = useThree((state) => state.clock);
   const invalidate = useThree((state) => state.invalidate);
+  const elapsedRef = useRef(0);
+
+  // The last time the running clock showed. r3f zeroes elapsedTime whenever
+  // frameloop changes, so without this the frozen frame - and the resumed one -
+  // would both snap to phase zero: waves, sway, caustics, every uTime.
+  useFrame(({ clock: liveClock }) => {
+    if (liveClock.running) {
+      elapsedRef.current = liveClock.elapsedTime;
+    }
+  });
 
   useEffect(() => {
+    // r3f has just reset the clock for this frameloop; put the time back.
+    clock.elapsedTime = elapsedRef.current;
+
     if (!paused) {
       return undefined;
     }
 
     clock.autoStart = false;
     clock.stop();
+    clock.elapsedTime = elapsedRef.current;
 
     return () => {
-      // Not clock.start(): that zeroes elapsedTime, and every shader reading it
-      // would jump on resume.
+      // Not clock.start(): that zeroes elapsedTime too.
       clock.autoStart = true;
       clock.oldTime = performance.now();
       clock.running = true;
+      clock.elapsedTime = elapsedRef.current;
     };
   }, [clock, frameloop, paused]);
 

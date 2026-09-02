@@ -139,7 +139,7 @@ export const CameraSection = ({ settings, layoutEditor }) => {
                                 type="text"
                                 className="home-editor-camera-name"
                                 value={camera.name ?? `${t('homeEditor.controls.camera')} ${index + 1}`}
-                                onFocus={() => selectCamera(camera.id)}
+                                onFocus={() => { if (camera.id !== activeCamera?.id) selectCamera(camera.id); }}
                                 onChange={(event) => renameCamera(camera.id, event.target.value)}
                                 aria-label={t('homeEditor.controls.cameraName')}
                                 data-testid={`home-editor-camera-name-${camera.id}`}
@@ -151,7 +151,7 @@ export const CameraSection = ({ settings, layoutEditor }) => {
                                     max="3600"
                                     step="0.5"
                                     value={camera.holdSeconds ?? 8}
-                                    onFocus={() => selectCamera(camera.id)}
+                                    onFocus={() => { if (camera.id !== activeCamera?.id) selectCamera(camera.id); }}
                                     onChange={(event) => setCameraHoldSeconds(camera.id, parseFloat(event.target.value) || 1)}
                                     aria-label={t('homeEditor.controls.cameraDuration')}
                                     data-testid={`home-editor-camera-duration-${camera.id}`}
@@ -226,7 +226,7 @@ export const CameraSection = ({ settings, layoutEditor }) => {
                                 type="text"
                                 className="home-editor-camera-name"
                                 value={camera.name}
-                                onFocus={() => selectWorkCamera(camera.id)}
+                                onFocus={() => { if (camera.id !== activeWorkCameraId) selectWorkCamera(camera.id); }}
                                 onChange={(event) => renameWorkCamera(camera.id, event.target.value)}
                                 aria-label={t('homeEditor.controls.cameraName')}
                                 data-testid={`home-editor-work-camera-name-${camera.id}`}

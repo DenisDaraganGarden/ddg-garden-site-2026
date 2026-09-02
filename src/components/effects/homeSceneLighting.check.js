@@ -49,9 +49,17 @@ const closeTo = (actual, expected, epsilon = 1e-10) => (
     cloudyLighting.shadow.intensity < publishedHomeSceneSettings.shadowIntensity,
     'cloud cover must soften direct shadows for every material path',
   );
+  // The mask can only attenuate a sun that sits inside the deck, and the
+  // authored sky is free to put the sun above it. Hold the sun low for this.
+  const lowSunCloudyLighting = buildHomeSceneLighting({
+    ...publishedHomeSceneSettings,
+    cloudCover: 0.65,
+    timeOfDay: 12,
+    sunNoonElevation: 10,
+  });
   assert.ok(
-    cloudyLighting.sky.sunVisibility < 1,
-    'the authored cloud mask must attenuate the direct source at the sun',
+    lowSunCloudyLighting.sky.sunVisibility < 1,
+    'the cloud mask must attenuate the direct source at a sun inside the deck',
   );
   const cloudyLut = buildSkyLut({
     ...cloudyLighting.sky,

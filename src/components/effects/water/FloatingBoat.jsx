@@ -235,7 +235,7 @@ export default function FloatingBoat({
       let probes = lastProbesRef.current;
       if (probeAccumulatorRef.current >= probeInterval || !probes) {
         probeAccumulatorRef.current = 0;
-        const sampled = runtime.sampleBoatProbes(probeWorldPointsRef.current);
+        const sampled = runtime.sampleBoatProbes(probeWorldPointsRef.current, 'boat');
         if (sampled) {
           probes = sampled;
           lastProbesRef.current = sampled;

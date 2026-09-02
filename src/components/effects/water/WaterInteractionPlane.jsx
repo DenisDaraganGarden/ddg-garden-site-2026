@@ -115,7 +115,7 @@ export default function WaterInteractionPlane({
           probePoints[index].copy(rayHitPointRef.current);
         }
 
-        const probes = sampleBoatProbes(probePoints);
+        const probes = sampleBoatProbes(probePoints, 'pointer');
         if (!probes) {
           break;
         }

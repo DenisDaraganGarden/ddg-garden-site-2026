@@ -317,13 +317,15 @@ export default function HomeFishSchool({
       ];
       surfaceProbeCursor.current += 1;
       surfaceProbePoint.set(sample.x, 0, sample.z);
-      const result = runtime.sampleWaterSurface(surfaceProbePoint);
-      if (result) {
-        // One rotating probe, never one synchronous GPU read per fish. A small
-        // lag allowance keeps dorsal fins submerged between cached samples.
-        sample.worldY = result.worldY - Math.max(0.012, Math.abs(waveAmplitude) * 0.35);
-        sample.ready = true;
-      }
+      // One rotating probe, never one synchronous GPU read per fish. The
+      // answer lands one fence later, for this sample's own point. A small
+      // lag allowance keeps dorsal fins submerged between cached samples.
+      runtime.sampleWaterSurface(surfaceProbePoint).then((result) => {
+        if (result) {
+          sample.worldY = result.worldY - Math.max(0.012, Math.abs(waveAmplitude) * 0.35);
+          sample.ready = true;
+        }
+      });
     }
 
     obstacleElapsed.current += safeDelta;

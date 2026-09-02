@@ -266,16 +266,14 @@ const HomeEdit = () => {
 
     const selectCamera = useCallback((id) => {
         if (id === settings.activeCameraId) {
-            // Re-selecting the active scene camera only moves the viewport when it
-            // is leaving a work camera; focusing its name field must not snap it.
-            const leavingWorkCamera = Boolean(settings.activeWorkCameraId);
+            // Re-selecting the active scene camera returns the viewport to its
+            // authored pose. The name and hold fields guard their own focus so
+            // typing never snaps the camera.
             setSettings((previous) => ({
                 ...syncActiveCameraScene(previous),
                 activeWorkCameraId: null,
             }));
-            if (leavingWorkCamera) {
-                setCameraPoseRevision((value) => value + 1);
-            }
+            setCameraPoseRevision((value) => value + 1);
             return;
         }
 
@@ -295,7 +293,7 @@ const HomeEdit = () => {
             };
         });
         setCameraPoseRevision((value) => value + 1);
-    }, [setSettings, settings.activeCameraId, settings.activeWorkCameraId]);
+    }, [setSettings, settings.activeCameraId]);
 
     const addCamera = useCallback(() => {
         const pose = cameraRigApiRef.current?.capturePose?.();
@@ -410,18 +408,16 @@ const HomeEdit = () => {
         }));
     }, [setSettings]);
 
+    // Always re-applies the pose, so the number button is also the way back
+    // to a bookmark after orbiting away. The name field guards its own focus.
     const selectWorkCamera = useCallback((id) => {
-        if (id === activeWorkCameraId) {
-            return;
-        }
-
         setSettings((previous) => (
             (previous.workCameras ?? []).some((camera) => camera.id === id)
                 ? { ...previous, activeWorkCameraId: id }
                 : previous
         ));
         setCameraPoseRevision((value) => value + 1);
-    }, [activeWorkCameraId, setSettings]);
+    }, [setSettings]);
 
     const addWorkCamera = useCallback(() => {
         const pose = cameraRigApiRef.current?.capturePose?.();

@@ -443,12 +443,15 @@ export default function HomeSeagullFlock({
       if (floating.length > 0) {
         const agent = floating[waterProbeCursor.current % floating.length];
         waterProbeCursor.current += 1;
-        const surface = runtime.sampleWaterSurface(agent.position);
-        if (surface) {
-          agent.shotWaterSurfaceY = surface.worldY;
-          agent.shotWaterNormal ??= new THREE.Vector3(0, 1, 0);
-          agent.shotWaterNormal.copy(surface.normal);
-        }
+        // Resolves one fence later with the water under this agent, not
+        // under whoever asked last.
+        runtime.sampleWaterSurface(agent.position).then((surface) => {
+          if (surface) {
+            agent.shotWaterSurfaceY = surface.worldY;
+            agent.shotWaterNormal ??= new THREE.Vector3(0, 1, 0);
+            agent.shotWaterNormal.copy(surface.normal);
+          }
+        });
       }
     }
 
