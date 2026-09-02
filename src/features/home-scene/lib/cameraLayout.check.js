@@ -9,6 +9,7 @@ import {
 import {
   getPlayableSceneCameras,
   normalizeSceneCameras,
+  normalizeWorkCameras,
 } from './sceneCameras.js';
 
 const closeTo = (actual, expected, epsilon = 1e-10) => (
@@ -49,5 +50,17 @@ assert.deepEqual(playable.map((camera) => camera.id), ['one', 'three'],
   'enabled cameras must retain their authored order');
 assert.equal(playable[(playable.length - 1 + 1) % playable.length].id, 'one',
   'the final enabled camera must wrap back to the first camera');
+
+const workCameras = normalizeWorkCameras([
+  { id: 'look', name: ' Overview ', cameraPosition: { x: 1, y: 2, z: 3 }, cameraTarget: { x: 0, y: 0, z: 0 }, cameraFov: 500 },
+  { id: 'look', cameraPosition: { x: 'nope' }, cameraTarget: { x: 0, y: 0, z: 0 } },
+  { id: 'look', cameraPosition: { x: 4, y: 5, z: 6 }, cameraTarget: { x: 1, y: 1, z: 1 } },
+]);
+assert.deepEqual(workCameras.map((camera) => camera.id), ['look', 'look-2'],
+  'a work camera without a pose is dropped and ids stay unique');
+assert.equal(workCameras[0].name, 'Overview');
+assert.equal(workCameras[0].cameraFov, 75, 'a work camera fov is clamped to the slider range');
+assert.equal(workCameras[1].name, 'Рабочая 3', 'an unnamed work camera is named by its slot');
+assert.deepEqual(workCameras[1].cameraTarget, { x: 1, y: 1, z: 1 });
 
 console.log('cameraLayout: all checks passed');

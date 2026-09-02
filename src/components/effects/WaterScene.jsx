@@ -252,6 +252,19 @@ function WaterRuntimeScene({
       hasWindow ? window.innerHeight : size.height,
     );
   const activeLayout = resolveLayout(settings.layouts, activeLayoutKey);
+  // Editor-only viewport bookmark: only the rig looks from it. The boat, the
+  // sculpture and the frame stay on the authored layout.
+  const workCamera = mode === 'editor'
+    ? settings.workCameras?.find((camera) => camera.id === settings.activeWorkCameraId)
+    : null;
+  const rigLayout = workCamera
+    ? {
+      ...activeLayout,
+      cameraPosition: workCamera.cameraPosition,
+      cameraTarget: workCamera.cameraTarget,
+      cameraFov: workCamera.cameraFov,
+    }
+    : activeLayout;
   const updateBoatAudioPosition = useMemo(() => (
     audioRuntime?.updateEmitter
       ? (x, y, z) => audioRuntime.updateEmitter('boat', x, y, z)
@@ -324,7 +337,7 @@ function WaterRuntimeScene({
       <color attach="background" args={['#040507']} />
       <WaterCameraRig
         mode={mode}
-        layout={activeLayout}
+        layout={rigLayout}
         layoutKey={activeLayoutKey}
         onCameraRigApi={onCameraRigApi}
         orbitRef={orbitRef}

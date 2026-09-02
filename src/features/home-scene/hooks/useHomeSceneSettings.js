@@ -10,6 +10,7 @@ import {
   createSceneSnapshot,
   normalizeSceneCameras,
   normalizeSlideshow,
+  normalizeWorkCameras,
 } from '../lib/sceneCameras';
 import {
   DEFAULT_SOUNDSCAPE_SETTINGS,
@@ -1132,11 +1133,22 @@ const normalizeHomeSceneSettings = (savedSettings = {}, includeCameraSystem = tr
     ? requestedActiveCameraId
     : sceneCameras[0].id;
 
+  // Editor-local: viewport bookmarks live in the draft only. They are outside
+  // the published key list, so publish and camera snapshots drop them.
+  const workCameras = normalizeWorkCameras(savedSettings.workCameras);
+  const activeWorkCameraId = workCameras.some(
+    (camera) => camera.id === savedSettings.activeWorkCameraId,
+  )
+    ? savedSettings.activeWorkCameraId
+    : null;
+
   return {
     ...normalizedScene,
     sceneCameras,
     slideshow: normalizeSlideshow(savedSettings.slideshow),
     activeCameraId,
+    workCameras,
+    activeWorkCameraId,
   };
 };
 

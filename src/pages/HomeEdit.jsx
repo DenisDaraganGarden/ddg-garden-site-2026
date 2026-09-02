@@ -91,17 +91,30 @@ const updateLayoutInSettings = (settings, key, patch) => {
     };
 };
 
-const makeCameraId = (cameras) => {
+const makeCameraId = (cameras, prefix = 'camera') => {
     const used = new Set(cameras.map((camera) => camera.id));
     let index = cameras.length + 1;
-    let candidate = `camera-${index}`;
+    let candidate = `${prefix}-${index}`;
 
     while (used.has(candidate)) {
         index += 1;
-        candidate = `camera-${index}`;
+        candidate = `${prefix}-${index}`;
     }
 
     return candidate;
+};
+
+const swapById = (list, id, direction) => {
+    const items = [...list];
+    const from = items.findIndex((item) => item.id === id);
+    const to = from + direction;
+
+    if (from < 0 || to < 0 || to >= items.length) {
+        return list;
+    }
+
+    [items[from], items[to]] = [items[to], items[from]];
+    return items;
 };
 
 const HomeEdit = () => {
@@ -194,11 +207,14 @@ const HomeEdit = () => {
             ? applyHomeSceneSnapshot(published, firstCamera.scene)
             : published;
 
-        setSettings({
+        setSettings((previous) => ({
             ...next,
             activeCameraId: firstCamera?.id ?? published.activeCameraId,
             freeCamera: true,
-        });
+            // Work cameras are the author's viewport bookmarks, not scene content.
+            workCameras: previous.workCameras ?? [],
+            activeWorkCameraId: previous.activeWorkCameraId ?? null,
+        }));
         setCameraPoseRevision((value) => value + 1);
     }, [setSettings]);
 
@@ -250,7 +266,16 @@ const HomeEdit = () => {
 
     const selectCamera = useCallback((id) => {
         if (id === settings.activeCameraId) {
-            setSettings((previous) => syncActiveCameraScene(previous));
+            // Re-selecting the active scene camera only moves the viewport when it
+            // is leaving a work camera; focusing its name field must not snap it.
+            const leavingWorkCamera = Boolean(settings.activeWorkCameraId);
+            setSettings((previous) => ({
+                ...syncActiveCameraScene(previous),
+                activeWorkCameraId: null,
+            }));
+            if (leavingWorkCamera) {
+                setCameraPoseRevision((value) => value + 1);
+            }
             return;
         }
 
@@ -265,11 +290,12 @@ const HomeEdit = () => {
             return {
                 ...applyHomeSceneSnapshot(prepared, target.scene),
                 activeCameraId: target.id,
+                activeWorkCameraId: null,
                 freeCamera: true,
             };
         });
         setCameraPoseRevision((value) => value + 1);
-    }, [setSettings, settings.activeCameraId]);
+    }, [setSettings, settings.activeCameraId, settings.activeWorkCameraId]);
 
     const addCamera = useCallback(() => {
         const pose = cameraRigApiRef.current?.capturePose?.();
@@ -301,6 +327,7 @@ const HomeEdit = () => {
                 ...prepared,
                 sceneCameras: [...(prepared.sceneCameras ?? []), camera],
                 activeCameraId: id,
+                activeWorkCameraId: null,
                 freeCamera: true,
             };
         });
@@ -327,6 +354,7 @@ const HomeEdit = () => {
             return {
                 ...applyHomeSceneSnapshot({ ...prepared, sceneCameras }, target.scene),
                 activeCameraId: target.id,
+                activeWorkCameraId: null,
                 freeCamera: true,
             };
         });
@@ -341,18 +369,10 @@ const HomeEdit = () => {
     }, []);
 
     const moveCamera = useCallback((id, direction) => {
-        setSettings((previous) => {
-            const cameras = [...(previous.sceneCameras ?? [])];
-            const from = cameras.findIndex((camera) => camera.id === id);
-            const to = from + direction;
-
-            if (from < 0 || to < 0 || to >= cameras.length) {
-                return previous;
-            }
-
-            [cameras[from], cameras[to]] = [cameras[to], cameras[from]];
-            return { ...previous, sceneCameras: cameras };
-        });
+        setSettings((previous) => ({
+            ...previous,
+            sceneCameras: swapById(previous.sceneCameras ?? [], id, direction),
+        }));
     }, [setSettings]);
 
     const updateCamera = useCallback((id, patch) => {
@@ -375,6 +395,83 @@ const HomeEdit = () => {
     const setCameraHoldSeconds = useCallback((id, holdSeconds) => {
         updateCamera(id, { holdSeconds: Math.min(3600, Math.max(1, holdSeconds)) });
     }, [updateCamera]);
+
+    // Work cameras: named viewport poses for the author's own use. Selecting
+    // one looks from it without touching the active scene camera; the scene
+    // keeps its authored composition and nothing here is published.
+    const activeWorkCameraId = settings.activeWorkCameraId ?? null;
+
+    const updateWorkCamera = useCallback((id, patch) => {
+        setSettings((previous) => ({
+            ...previous,
+            workCameras: (previous.workCameras ?? []).map((camera) => (
+                camera.id === id ? { ...camera, ...patch } : camera
+            )),
+        }));
+    }, [setSettings]);
+
+    const selectWorkCamera = useCallback((id) => {
+        if (id === activeWorkCameraId) {
+            return;
+        }
+
+        setSettings((previous) => (
+            (previous.workCameras ?? []).some((camera) => camera.id === id)
+                ? { ...previous, activeWorkCameraId: id }
+                : previous
+        ));
+        setCameraPoseRevision((value) => value + 1);
+    }, [activeWorkCameraId, setSettings]);
+
+    const addWorkCamera = useCallback(() => {
+        const pose = cameraRigApiRef.current?.capturePose?.();
+
+        if (!pose) {
+            return;
+        }
+
+        setSettings((previous) => {
+            const cameras = previous.workCameras ?? [];
+            const id = makeCameraId(cameras, 'work');
+
+            return {
+                ...previous,
+                workCameras: [...cameras, { id, name: `Рабочая ${cameras.length + 1}`, ...pose }],
+                activeWorkCameraId: id,
+            };
+        });
+    }, [setSettings]);
+
+    const removeWorkCamera = useCallback((id) => {
+        setSettings((previous) => ({
+            ...previous,
+            workCameras: (previous.workCameras ?? []).filter((camera) => camera.id !== id),
+            activeWorkCameraId: previous.activeWorkCameraId === id ? null : previous.activeWorkCameraId,
+        }));
+    }, [setSettings]);
+
+    const moveWorkCamera = useCallback((id, direction) => {
+        setSettings((previous) => ({
+            ...previous,
+            workCameras: swapById(previous.workCameras ?? [], id, direction),
+        }));
+    }, [setSettings]);
+
+    const renameWorkCamera = useCallback((id, name) => {
+        updateWorkCamera(id, { name: name.slice(0, 80) });
+    }, [updateWorkCamera]);
+
+    const captureWorkCamera = useCallback((id) => {
+        const pose = cameraRigApiRef.current?.capturePose?.();
+
+        if (pose) {
+            updateWorkCamera(id, pose);
+        }
+    }, [updateWorkCamera]);
+
+    const setWorkCameraFov = useCallback((id, cameraFov) => {
+        updateWorkCamera(id, { cameraFov });
+    }, [updateWorkCamera]);
 
     const updateSlideshow = useCallback((patch) => {
         setSettings((previous) => ({
@@ -487,6 +584,15 @@ const HomeEdit = () => {
         onFrameInsetChange: handleFrameInsetChange,
         slideshow: settings.slideshow,
         updateSlideshow,
+        workCameras: settings.workCameras ?? [],
+        activeWorkCameraId,
+        selectWorkCamera,
+        addWorkCamera,
+        removeWorkCamera,
+        moveWorkCamera,
+        renameWorkCamera,
+        captureWorkCamera,
+        setWorkCameraFov,
     }), [
         settings,
         selectedLayoutKey,
@@ -505,6 +611,14 @@ const HomeEdit = () => {
         handleLayoutFovChange,
         handleFrameInsetChange,
         updateSlideshow,
+        activeWorkCameraId,
+        selectWorkCamera,
+        addWorkCamera,
+        removeWorkCamera,
+        moveWorkCamera,
+        renameWorkCamera,
+        captureWorkCamera,
+        setWorkCameraFov,
     ]);
 
     const selectedFrameInset = resolveLayoutFrameInset(settings.layouts, selectedLayoutKey);

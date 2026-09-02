@@ -102,14 +102,53 @@ const makeUniqueCameraId = (rawId, usedIds, index) => {
   return candidate;
 };
 
-const normalizeName = (value, index) => {
+const normalizeName = (value, index, prefix = 'Камера') => {
   if (typeof value !== 'string') {
-    return `Камера ${index + 1}`;
+    return `${prefix} ${index + 1}`;
   }
 
   const name = value.trim().slice(0, CAMERA_NAME_MAX_LENGTH);
-  return name || `Камера ${index + 1}`;
+  return name || `${prefix} ${index + 1}`;
 };
+
+const normalizeVector = (value) => {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const axes = [value.x, value.y, value.z].map(Number);
+  return axes.every(Number.isFinite) ? { x: axes[0], y: axes[1], z: axes[2] } : null;
+};
+
+/**
+ * Work cameras are the editor's viewport bookmarks: a named pose, nothing
+ * else. They are never published and never part of a scene snapshot. An entry
+ * without a usable pose is dropped rather than repaired - there is no
+ * composition to inherit from.
+ */
+export function normalizeWorkCameras(raw) {
+  const source = Array.isArray(raw) ? raw : [];
+  const usedIds = new Set();
+
+  return source.reduce((cameras, entry, index) => {
+    const cameraPosition = normalizeVector(entry?.cameraPosition);
+    const cameraTarget = normalizeVector(entry?.cameraTarget);
+
+    if (!cameraPosition || !cameraTarget) {
+      return cameras;
+    }
+
+    cameras.push({
+      id: makeUniqueCameraId(entry.id, usedIds, index),
+      name: normalizeName(entry.name, index, 'Рабочая'),
+      cameraPosition,
+      cameraTarget,
+      // Same bounds as the editor's FOV slider (HOME_SCENE_CAMERA_FOV_MIN/MAX).
+      cameraFov: clampNumber(entry.cameraFov, 1, 75, 36),
+    });
+    return cameras;
+  }, []);
+}
 
 /**
  * Copies only scene keys into a snapshot. Metadata that controls the camera

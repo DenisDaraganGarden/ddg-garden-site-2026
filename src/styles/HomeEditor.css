@@ -606,7 +606,8 @@
   color: rgba(255, 255, 255, 0.64);
 }
 
-.home-editor-camera-row.active {
+.home-editor-camera-row.active,
+.home-editor-work-camera-row.active {
   color: #fff;
   background: linear-gradient(90deg, rgba(255, 255, 255, 0.1), transparent 60%);
 }
@@ -642,7 +643,8 @@
   letter-spacing: 0.08em;
 }
 
-.home-editor-camera-row.active .home-editor-camera-number {
+.home-editor-camera-row.active .home-editor-camera-number,
+.home-editor-work-camera-row.active .home-editor-camera-number {
   color: rgba(255, 255, 255, 0.9);
 }
 
@@ -843,4 +845,26 @@
   margin-left: auto;
   padding-left: 0.4rem;
   border-left: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Work cameras: the author's viewport bookmarks under their own divider. */
+.home-editor-work-cameras {
+  margin-top: 0.35rem;
+  padding-top: 0.4rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.14);
+}
+.home-editor-work-camera-row {
+  display: grid;
+  grid-template-columns: auto minmax(5rem, 1fr) auto;
+  align-items: center;
+  min-height: 1.72rem;
+  gap: 0.32rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.075);
+  color: rgba(255, 255, 255, 0.64);
+}
+.home-editor-work-cameras-empty {
+  margin: 0.15rem 0 0;
+  font-size: 0.66rem;
+  line-height: 1.35;
+  color: rgba(255, 255, 255, 0.4);
 }
