@@ -16,9 +16,12 @@ import { createUnderwaterAlgaeGeometry } from './vegetationGeometry';
 
 export function UnderwaterAlgae({ settings, qualityProfile, lighting }) {
   const maxInstances = qualityProfile?.underwaterAlgaeMaxInstances ?? 240;
+  // Density multiplies the tier's count; the tier also says how far it may go.
+  const densityCap = qualityProfile?.underwaterAlgaeDensityCap ?? 1;
+  const capacity = Math.round(maxInstances * densityCap);
   const geometry = useMemo(
-    () => createUnderwaterAlgaeGeometry(maxInstances),
-    [maxInstances],
+    () => createUnderwaterAlgaeGeometry(capacity),
+    [capacity],
   );
   const lightDirection = useMemo(
     () => new THREE.Vector3().fromArray(lighting.key.direction),
@@ -33,6 +36,7 @@ export function UnderwaterAlgae({ settings, qualityProfile, lighting }) {
     uSpeciesMix: { value: 0.5 },
     uFlowDirection: { value: new THREE.Vector2(1, 0) },
     uFlowStrength: { value: 0.7 },
+    uWidthScale: { value: 1 },
     uWaterDepth: { value: 5 },
     uWaterExtent: { value: 24 },
     uReliefStrength: { value: 0.4 },
@@ -54,10 +58,11 @@ export function UnderwaterAlgae({ settings, qualityProfile, lighting }) {
   useEffect(() => () => geometry.dispose(), [geometry]);
 
   useLayoutEffect(() => {
-    geometry.instanceCount = Math.round(
-      THREE.MathUtils.clamp(settings.underwaterAlgaeAmount, 0, 1) * maxInstances,
-    );
-  }, [geometry, maxInstances, settings.underwaterAlgaeAmount]);
+    const density = THREE.MathUtils.clamp(settings.underwaterAlgaeDensity ?? 1, 1, densityCap);
+    geometry.instanceCount = Math.min(capacity, Math.round(
+      THREE.MathUtils.clamp(settings.underwaterAlgaeAmount, 0, 1) * maxInstances * density,
+    ));
+  }, [capacity, densityCap, geometry, maxInstances, settings.underwaterAlgaeAmount, settings.underwaterAlgaeDensity]);
 
   useEffect(() => {
     uniforms.uCenter.value.set(settings.underwaterAlgaeCenterX, settings.underwaterAlgaeCenterZ);
@@ -71,6 +76,7 @@ export function UnderwaterAlgae({ settings, qualityProfile, lighting }) {
       Math.sin(THREE.MathUtils.degToRad(settings.underwaterAlgaeFlowDirection)),
     );
     uniforms.uFlowStrength.value = settings.underwaterAlgaeFlowStrength;
+    uniforms.uWidthScale.value = settings.underwaterAlgaeWidth ?? 1;
     uniforms.uWaterDepth.value = settings.waterDepthMeters;
     uniforms.uWaterExtent.value = settings.waterExtent;
     uniforms.uReliefStrength.value = settings.seabedReliefStrength;
@@ -92,7 +98,7 @@ export function UnderwaterAlgae({ settings, qualityProfile, lighting }) {
     uniforms.uTime.value = clock.elapsedTime;
   }, -2);
 
-  if (maxInstances <= 0) {
+  if (capacity <= 0) {
     return null;
   }
 

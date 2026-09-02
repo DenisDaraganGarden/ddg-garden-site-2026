@@ -354,6 +354,7 @@ export const underwaterAlgaeVertexShader = `
   uniform float uSpeciesMix;
   uniform vec2 uFlowDirection;
   uniform float uFlowStrength;
+  uniform float uWidthScale;
   uniform float uWaterDepth;
   uniform float uWaterExtent;
   uniform float uReliefStrength;
@@ -414,7 +415,8 @@ export const underwaterAlgaeVertexShader = `
     widthProfile = mix(widthProfile, 0.014, filamentSpecies);
     float tipProfile = mix(1.0 - t * 0.74, sin((1.0 - t) * 1.57079632679), broadSpecies);
     tipProfile = mix(tipProfile, 1.0 - t * 0.58, filamentSpecies);
-    float taperedWidth = position.x * widthProfile * aWidth * max(tipProfile, 0.08);
+    float taperedWidth = position.x * widthProfile * aWidth * max(tipProfile, 0.08)
+      * max(uWidthScale, 0.05);
     float ribbonAngle = aYaw + aRibbonPlane * 1.57079632679;
     vec2 ribbonRight = vec2(cos(ribbonAngle), sin(ribbonAngle));
 
@@ -428,11 +430,17 @@ export const underwaterAlgaeVertexShader = `
     // A strong current gives the meadow a shared gesture, but individual
     // blades keep enough heading and stiffness variation not to collapse into
     // one camera-facing carpet of parallel black strokes.
-    float flow = clamp(uFlowStrength, 0.0, 2.0) * 0.5;
-    float steadyLean = mix(0.12, 0.48, flow) * mix(0.82, 1.16, broadSpecies);
-    float bend = (steadyLean + swayWave * 0.2 * clamp(uSway, 0.0, 1.5))
-      * bladeLength
-      * pow(t, mix(1.22, 1.48, filamentSpecies));
+    // The lean is an angle, and the blade keeps its length as it takes it: the
+    // tip comes down as it goes across, so a strong current lays the meadow
+    // over instead of stretching it sideways at full height, which is what the
+    // old offset did and why the slider never looked like much.
+    float flow = clamp(uFlowStrength, 0.0, 4.0);
+    float tipAngle = (flow * 0.55 + swayWave * 0.2 * clamp(uSway, 0.0, 1.5))
+      * mix(0.82, 1.16, broadSpecies);
+    // The tangent angle grows as a power of t from a vertical root; the chord
+    // from the root to a point sits at roughly half that point's tangent angle.
+    float chordAngle = tipAngle * pow(t, mix(0.85, 1.05, filamentSpecies)) * 0.54;
+    float chordLength = bladeLength * t;
     vec2 crossCurrent = vec2(-currentDirection.y, currentDirection.x);
     float sideFlutter = sin(uTime * 0.9 + aPhase * 1.8 + t * 4.7)
       * 0.045
@@ -443,9 +451,9 @@ export const underwaterAlgaeVertexShader = `
 
     vec2 worldXZ = bladeCenter
       + ribbonRight * taperedWidth
-      + currentDirection * bend
+      + currentDirection * sin(chordAngle) * chordLength
       + crossCurrent * sideFlutter;
-    float worldY = -uWaterDepth + relief + 0.018 + bladeLength * t;
+    float worldY = -uWaterDepth + relief + 0.018 + chordLength * cos(chordAngle);
 
     vec3 normal = normalize(vec3(-ribbonRight.y, 0.16, ribbonRight.x));
     vRibbonUv = uv;

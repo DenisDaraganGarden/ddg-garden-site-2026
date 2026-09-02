@@ -364,10 +364,13 @@ export const getBaseHomeSceneSettings = () => ({
   surfacePlantTranslucency: 0.62,
   surfacePlantReflection: 0.72,
   underwaterAlgaeAmount: 0.72,
+  // Multiplies the amount; the quality tier caps how far it goes.
+  underwaterAlgaeDensity: 1,
   underwaterAlgaeCenterX: 2.6,
   underwaterAlgaeCenterZ: 1.6,
   underwaterAlgaeRadius: 11,
   underwaterAlgaeLength: 1.65,
+  underwaterAlgaeWidth: 1,
   underwaterAlgaeSway: 0.75,
   underwaterAlgaeColor: '#29462a',
   underwaterAlgaeSaturation: 0.88,
@@ -898,6 +901,8 @@ const normalizeHomeSceneSettings = (savedSettings = {}, includeCameraSystem = tr
       1,
       defaults.underwaterAlgaeAmount,
     ),
+    underwaterAlgaeDensity: clampFloat(merged.underwaterAlgaeDensity, 1, 4, defaults.underwaterAlgaeDensity),
+    underwaterAlgaeWidth: clampFloat(merged.underwaterAlgaeWidth, 0.5, 3, defaults.underwaterAlgaeWidth),
     underwaterAlgaeCenterX: clampFloat(
       merged.underwaterAlgaeCenterX,
       -40,
@@ -944,7 +949,7 @@ const normalizeHomeSceneSettings = (savedSettings = {}, includeCameraSystem = tr
     underwaterAlgaeFlowStrength: clampFloat(
       merged.underwaterAlgaeFlowStrength,
       0,
-      2,
+      4,
       defaults.underwaterAlgaeFlowStrength,
     ),
     underwaterAlgaeSpeciesMix: clampFloat(

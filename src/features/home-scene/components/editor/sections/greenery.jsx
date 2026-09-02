@@ -160,6 +160,16 @@ export const AlgaeSection = ({ settings, handleSettingChange }) => {
                 onChange={(event) => handleSettingChange(event, 'underwaterAlgaeAmount')}
             />
             <RangeControl
+                label={t('homeEditor.controls.underwaterAlgaeDensity')}
+                value={settings.underwaterAlgaeDensity}
+                min={1}
+                max={4}
+                step={0.1}
+                unit="x"
+                formatValue={(value) => formatFloat(value, 1)}
+                onChange={(event) => handleSettingChange(event, 'underwaterAlgaeDensity')}
+            />
+            <RangeControl
                 label={t('homeEditor.controls.underwaterAlgaeCenterX')}
                 value={settings.underwaterAlgaeCenterX}
                 min={-20}
@@ -201,6 +211,16 @@ export const AlgaeSection = ({ settings, handleSettingChange }) => {
                 onChange={(event) => handleSettingChange(event, 'underwaterAlgaeLength')}
             />
             <RangeControl
+                label={t('homeEditor.controls.underwaterAlgaeWidth')}
+                value={settings.underwaterAlgaeWidth}
+                min={0.5}
+                max={3}
+                step={0.05}
+                unit="x"
+                formatValue={(value) => formatFloat(value)}
+                onChange={(event) => handleSettingChange(event, 'underwaterAlgaeWidth')}
+            />
+            <RangeControl
                 label={t('homeEditor.controls.underwaterAlgaeSway')}
                 value={settings.underwaterAlgaeSway}
                 min={0}
@@ -223,7 +243,7 @@ export const AlgaeSection = ({ settings, handleSettingChange }) => {
                 label={t('homeEditor.controls.underwaterAlgaeFlowStrength')}
                 value={settings.underwaterAlgaeFlowStrength}
                 min={0}
-                max={2}
+                max={4}
                 step={0.01}
                 formatValue={(value) => formatFloat(value)}
                 onChange={(event) => handleSettingChange(event, 'underwaterAlgaeFlowStrength')}

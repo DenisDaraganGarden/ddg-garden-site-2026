@@ -128,6 +128,7 @@ export function buildRuntimeQualityProfile(mode, viewportWidth, capabilities = n
       useGpuBoatProbes: false,
       surfacePlantMaxInstances: 180,
       underwaterAlgaeMaxInstances: 220,
+      underwaterAlgaeDensityCap: 1,
       fishMaxInstances: 14,
       fishBehaviorFps: 15,
     }, capabilities);
@@ -155,6 +156,7 @@ export function buildRuntimeQualityProfile(mode, viewportWidth, capabilities = n
       useGpuBoatProbes: true,
       surfacePlantMaxInstances: 560,
       underwaterAlgaeMaxInstances: 720,
+      underwaterAlgaeDensityCap: 2,
       fishMaxInstances: 30,
       fishBehaviorFps: 24,
     }, isMobileDevice), capabilities);
@@ -181,6 +183,8 @@ export function buildRuntimeQualityProfile(mode, viewportWidth, capabilities = n
     useGpuBoatProbes: true,
     surfacePlantMaxInstances: 900,
     underwaterAlgaeMaxInstances: 1100,
+    // Measured: eight times the strands cost about a millisecond at retina.
+    underwaterAlgaeDensityCap: 4,
     fishMaxInstances: 50,
     fishBehaviorFps: 30,
   }, isMobileDevice), capabilities);
