@@ -1014,7 +1014,9 @@ async function runLongSessionMemoryChecks(browser) {
 
   const runSeries = async (urlPath, sceneId, label, tolerance) => {
     const samples = [];
-    await page.goto(`${baseUrl}${urlPath}`, { waitUntil: 'domcontentloaded' });
+    // The CI runner renders in software; a route change there can take longer
+    // than the default 30 s, as the stability checks already allow for.
+    await page.goto(`${baseUrl}${urlPath}`, { waitUntil: 'domcontentloaded', timeout: 60000 });
     samples.push(await waitForSettledRuntimeMetrics(page, sceneId, 30000));
 
     for (let index = 0; index < 5; index += 1) {
