@@ -318,7 +318,12 @@ export default function WaterReflections({
     // frame apart, and no frame carries both. At 60 Hz the display has no
     // spare frame, so both render together exactly as before.
     const pendingReflection = reflectionTiming.pendingPass === 'reflection';
-    if (!pendingReflection && (now - reflectionTiming.lastRenderTime) < minInterval) {
+    // Paused editor: the clock stands still, so this interval would never
+    // expire and a camera switched under the pause kept sampling the capture
+    // from before it - a ghost of the previous view floating in the water.
+    // A demand frame is deliberate; the optics follow it.
+    const clockStopped = !clock.running;
+    if (!clockStopped && !pendingReflection && (now - reflectionTiming.lastRenderTime) < minInterval) {
       return;
     }
     const stagger = !pendingReflection
