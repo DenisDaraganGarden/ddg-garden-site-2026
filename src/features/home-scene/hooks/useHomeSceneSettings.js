@@ -183,6 +183,8 @@ const pickLayout = (value, fallback) => {
 
 export const getBaseHomeSceneSettings = () => ({
   waterExtent: 24,
+  // Metres over which the pond's look hands over to the far field at its edge.
+  farWaterBlendWidth: 2.5,
   simulationResolution: 128,
   waterMeshDensity: 288,
   waveAmplitude: 0.055,
@@ -668,6 +670,7 @@ const normalizeHomeSceneSettings = (savedSettings = {}, includeCameraSystem = tr
 
   const normalizedScene = {
     waterExtent: clampFloat(merged.waterExtent, 12, 200, defaults.waterExtent),
+    farWaterBlendWidth: clampFloat(merged.farWaterBlendWidth, 0.4, 8, defaults.farWaterBlendWidth),
     simulationResolution: clampResolution(merged.simulationResolution),
     waterMeshDensity: clampInt(merged.waterMeshDensity, 96, 384, defaults.waterMeshDensity),
     waveAmplitude: clampFloat(merged.waveAmplitude, 0, 0.2, defaults.waveAmplitude),

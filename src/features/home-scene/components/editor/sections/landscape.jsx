@@ -23,6 +23,16 @@ export const WaterGeometrySection = ({ settings, handleSettingChange }) => {
                 formatValue={(value) => formatFloat(value, 1)}
                 onChange={(event) => handleSettingChange(event, 'waterExtent')}
             />
+            <RangeControl
+                label={t('homeEditor.controls.farWaterBlendWidth')}
+                value={settings.farWaterBlendWidth}
+                min={0.4}
+                max={8}
+                step={0.1}
+                unit="m"
+                formatValue={(value) => formatFloat(value, 1)}
+                onChange={(event) => handleSettingChange(event, 'farWaterBlendWidth')}
+            />
         </>
     );
 };

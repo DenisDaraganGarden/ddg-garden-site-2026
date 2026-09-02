@@ -173,7 +173,7 @@ export default function FarWaterSurface({ settings, lighting, sky, qualityProfil
     uWaveSpeed: { value: 1 },
     uInnerHalfExtent: { value: geometry.userData.innerHalfExtent },
     uPondHalfExtent: { value: geometry.userData.pondHalfExtent },
-    uSurfaceBlendWidth: { value: geometry.userData.surfaceBlendWidth },
+    uSurfaceBlendWidth: { value: 2.5 },
     uTime: { value: 0 },
     uSkyLut: { value: null },
     uSkyLutTexel: { value: new THREE.Vector2(1 / 256, 1 / 128) },
@@ -199,6 +199,8 @@ export default function FarWaterSurface({ settings, lighting, sky, qualityProfil
       0.12,
     );
     uniforms.uWaveSpeed.value = Math.max(settings.ambientWaveSpeed, 0.05);
+    // The same hand-over width the pond fades over on its side of the edge.
+    uniforms.uSurfaceBlendWidth.value = settings.farWaterBlendWidth;
     uniforms.uKeyDirection.value.fromArray(lighting.sky.keyDirection);
     uniforms.uKeyRadiance.value.fromArray(lighting.sky.discRadiance);
     uniforms.uKeyCosRadius.value = lighting.sky.keyCosRadius;

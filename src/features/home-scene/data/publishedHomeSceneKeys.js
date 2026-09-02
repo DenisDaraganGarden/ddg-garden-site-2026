@@ -1,5 +1,6 @@
 const keys = [
   'waterExtent',
+  'farWaterBlendWidth',
   'simulationResolution',
   'waterMeshDensity',
   'waveAmplitude',

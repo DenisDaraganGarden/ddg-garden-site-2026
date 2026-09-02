@@ -32,12 +32,14 @@ export const waterV2VertexShader = `
     float smoothHeight = texture2D(uNormalMap, uv).a * 2.0 - 1.0;
     float heightSample = mix(rawHeight, smoothHeight, 0.84);
     vec3 simulationNormal = decodeNormal(texture2D(uNormalMap, uv).rgb);
-    vec2 edgeLower = smoothstep(vec2(0.0), vec2(uSurfaceEdgeBlendUv), uv);
-    vec2 edgeUpper = 1.0 - smoothstep(
-      vec2(1.0 - uSurfaceEdgeBlendUv),
-      vec2(1.0),
-      uv
-    );
+    // The far field overlaps the outer uSurfaceEdgeBlendUv of the pond at
+    // height zero. The wave has to be gone before that rim, not fading through
+    // it: a trough inside the rim dips under the far field, which then shows
+    // through and flickers with the swell. So the rim stays flat and coplanar
+    // with the far field, and the fade sits just inside it.
+    vec2 rim = vec2(uSurfaceEdgeBlendUv);
+    vec2 edgeLower = smoothstep(rim, rim * 2.0, uv);
+    vec2 edgeUpper = 1.0 - smoothstep(1.0 - rim * 2.0, 1.0 - rim, uv);
     float surfaceEdgeFade = clamp(
       edgeLower.x * edgeLower.y * edgeUpper.x * edgeUpper.y,
       0.0,
@@ -102,7 +104,10 @@ export const waterV2FragmentShader = `
   uniform float uCameraNear;
   uniform float uCameraFar;
   uniform float uWaveAmplitude;
-  uniform float uSurfaceEdgeBlendUv;
+  // Where the pond's own look hands over to the far field, in UV. Wider than
+  // the geometric rim: the hand-over is a gradient the eye reads from afar,
+  // the rim is a coplanar strip the depth buffer needs.
+  uniform float uSurfaceOpticalBlendUv;
   uniform vec3 uWaterTint;
   uniform vec3 uDistantSurfaceColor;
   uniform vec3 uMoonDirection;
@@ -217,9 +222,9 @@ export const waterV2FragmentShader = `
   }
 
   float surfaceEdgeMask(vec2 uv) {
-    vec2 lower = smoothstep(vec2(0.0), vec2(uSurfaceEdgeBlendUv), uv);
+    vec2 lower = smoothstep(vec2(0.0), vec2(uSurfaceOpticalBlendUv), uv);
     vec2 upper = 1.0 - smoothstep(
-      vec2(1.0 - uSurfaceEdgeBlendUv),
+      vec2(1.0 - uSurfaceOpticalBlendUv),
       vec2(1.0),
       uv
     );

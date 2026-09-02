@@ -16,8 +16,9 @@ export function buildFarWaterFieldData(
   const radius = Math.max(finite(outerRadius, FAR_WATER_RADIUS), innerHalfExtent + 100);
   // One camera-centred quad is cheaper than a world-sized shell and cannot be
   // outrun by the unrestricted editor camera. The fragment shader cuts the
-  // fixed, simulated pond out in world space; its overlap matches the core
-  // water's optical and displacement blend width.
+  // fixed, simulated pond out in world space; the overlap is the pond's flat
+  // rim, where its waves are already gone. The optical hand-over between the
+  // two looks is authored separately (farWaterBlendWidth) and is wider.
   const positions = [
     -radius, 0, -radius,
     radius, 0, -radius,

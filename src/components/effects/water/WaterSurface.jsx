@@ -19,6 +19,11 @@ export default function WaterSurfaceV2({ settings, runtime, qualityProfile, ligh
     () => buildFarWaterFieldData(settings.waterExtent).surfaceEdgeBlendUv,
     [settings.waterExtent],
   );
+  // The authored hand-over to the far field, in UV of the pond.
+  const surfaceOpticalBlendUv = Math.min(
+    settings.farWaterBlendWidth / Math.max(settings.waterExtent, 1),
+    0.45,
+  );
   const materialRef = useRef();
   const reflectionDataRef = React.useContext(reflectionContext);
   const debugView = DEBUG_VIEW_IDS[settings.debugView] ?? 0;
@@ -45,6 +50,7 @@ export default function WaterSurfaceV2({ settings, runtime, qualityProfile, ligh
     uWaveAmplitude: { value: settings.waveAmplitude },
     uWaveChoppiness: { value: settings.waveChoppiness },
     uSurfaceEdgeBlendUv: { value: surfaceEdgeBlendUv },
+    uSurfaceOpticalBlendUv: { value: surfaceOpticalBlendUv },
     uWaterTint: { value: new THREE.Color(settings.envTint) },
     uDistantSurfaceColor: { value: new THREE.Color(settings.distantSurfaceColor) },
     uMoonDirection: { value: lightDirection.clone() },
@@ -110,12 +116,14 @@ export default function WaterSurfaceV2({ settings, runtime, qualityProfile, ligh
     settings.waveAmplitude,
     settings.waveChoppiness,
     surfaceEdgeBlendUv,
+    surfaceOpticalBlendUv,
   ]);
 
   useEffect(() => {
     uniforms.uWaveAmplitude.value = settings.waveAmplitude;
     uniforms.uWaveChoppiness.value = settings.waveChoppiness;
     uniforms.uSurfaceEdgeBlendUv.value = surfaceEdgeBlendUv;
+    uniforms.uSurfaceOpticalBlendUv.value = surfaceOpticalBlendUv;
     uniforms.uWaterTint.value.set(settings.envTint);
     uniforms.uDistantSurfaceColor.value.set(settings.distantSurfaceColor);
     uniforms.uMoonDirection.value.copy(lightDirection);
@@ -164,6 +172,7 @@ export default function WaterSurfaceV2({ settings, runtime, qualityProfile, ligh
     settings.waveAmplitude,
     settings.waveChoppiness,
     surfaceEdgeBlendUv,
+    surfaceOpticalBlendUv,
     uniforms,
   ]);
 

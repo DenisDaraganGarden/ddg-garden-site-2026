@@ -1,5 +1,6 @@
 export const publishedHomeSceneSettings = {
   "waterExtent": 34,
+  "farWaterBlendWidth": 2.5,
   "simulationResolution": 512,
   "waterMeshDensity": 352,
   "waveAmplitude": 0.045,
@@ -24,18 +25,18 @@ export const publishedHomeSceneSettings = {
   "moonElevation": 14,
   "moonSpecularStrength": 0.21,
   "moonSpecularPower": 75,
-  "timeOfDay": 6.85,
+  "timeOfDay": 7.9,
   "sunBearing": 354,
-  "sunNoonElevation": 45,
-  "sunTint": "#ae7a32",
+  "sunNoonElevation": 48,
+  "sunTint": "#d68229",
   "sunIntensity": 5.6,
   "sunAngularSize": 3.45,
   "skyTurbidity": 2.8,
-  "cloudPreset": "storm-deck",
-  "cloudCover": 0.52,
-  "cloudHorizon": 0.39,
-  "cloudDensity": 0.67,
-  "cloudScale": 2,
+  "cloudPreset": "red-horizon",
+  "cloudCover": 0,
+  "cloudHorizon": 0.42,
+  "cloudDensity": 0.66,
+  "cloudScale": 1.15,
   "cloudSunOcclusion": 0.72,
   "distantSurfaceColor": "#70716d",
   "moonPhase": 0.3,
@@ -48,7 +49,7 @@ export const publishedHomeSceneSettings = {
   "shadowRadius": 4.25,
   "light1Enabled": false,
   "light1Color": "#ffd9a0",
-  "light1Intensity": 45.5,
+  "light1Intensity": 33.5,
   "light1X": 3,
   "light1Y": 2.5,
   "light1Z": -2,
@@ -123,20 +124,20 @@ export const publishedHomeSceneSettings = {
     "portrait": {
       "customized": true,
       "cameraPosition": {
-        "x": 5.7016,
-        "y": 0.9883,
-        "z": -0.1892
+        "x": -3.9722,
+        "y": 6.1734,
+        "z": 11.5637
       },
       "cameraTarget": {
-        "x": -1.7012,
-        "y": 0.0554,
-        "z": 0.7961
+        "x": -1.0713,
+        "y": -0.1523,
+        "z": 1.0959
       },
-      "cameraFov": 27,
+      "cameraFov": 30,
       "frameInset": 0.18,
       "boatPosition": {
-        "x": -4.6187,
-        "z": 4.7841
+        "x": -5.9,
+        "z": 2.09
       },
       "sculpturePosition": {
         "x": 1.97,
@@ -146,16 +147,16 @@ export const publishedHomeSceneSettings = {
     "desktop": {
       "customized": true,
       "cameraPosition": {
-        "x": 2.3881,
-        "y": 3.2351,
-        "z": 14.5122
+        "x": -3.6718,
+        "y": 6.0163,
+        "z": 8.0807
       },
       "cameraTarget": {
-        "x": 0.5983,
-        "y": 0.3765,
-        "z": 4.8453
+        "x": -0.2438,
+        "y": 0.8325,
+        "z": -0.0556
       },
-      "cameraFov": 21,
+      "cameraFov": 24,
       "frameInset": 0.18,
       "boatPosition": {
         "x": -3.37,
@@ -184,7 +185,7 @@ export const publishedHomeSceneSettings = {
   "boatCutoutFitWidth": 0.72,
   "boatCutoutFitLength": 0.92,
   "boatCutoutDebug": false,
-  "sculptureColor": "#0a0a0a",
+  "sculptureColor": "#2c2d30",
   "sculptureMetalness": 0,
   "sculptureRoughness": 0.43,
   "sculptureClearcoat": 0.14,
@@ -246,7 +247,6 @@ export const publishedHomeSceneSettings = {
   "underwaterAlgaeSpeciesMix": 0.68,
   "underwaterAlgaePatchiness": 0.82,
   "renderScale": 2,
-  "renderScaleMobile": 2,
   "uiBrandVisible": true,
   "uiSubtitleVisible": true,
   "uiMenuVisible": true,
@@ -256,9 +256,9 @@ export const publishedHomeSceneSettings = {
   "cursorEnabled": true,
   "cursorPointSize": 6,
   "cursorLightEnabled": true,
-  "cursorLightBeamAngle": 48,
-  "cursorLightIntensity": 1.71,
-  "cursorLightSoftness": 0.06,
+  "cursorLightBeamAngle": 34,
+  "cursorLightIntensity": 1,
+  "cursorLightSoftness": 0.72,
   "waterVisible": true,
   "farWaterVisible": true,
   "skyVisible": true,
@@ -280,7 +280,7 @@ export const publishedHomeSceneSettings = {
   "fishActivity": 0.55,
   "fishDepthBand": 0.72,
   "reflectionsEnabled": true,
-  "postProcessingEnabled": true,
+  "postProcessingEnabled": false,
   "filmEnabled": false,
   "filmStock": "neutral",
   "filmGrainAmount": 0.99,
@@ -405,6 +405,7 @@ export const publishedHomeSceneSettings = {
       "holdSeconds": 10,
       "scene": {
         "waterExtent": 34,
+        "farWaterBlendWidth": 2.5,
         "simulationResolution": 512,
         "waterMeshDensity": 352,
         "waveAmplitude": 0.045,
@@ -685,7 +686,7 @@ export const publishedHomeSceneSettings = {
         "fishActivity": 0.55,
         "fishDepthBand": 0.72,
         "reflectionsEnabled": true,
-        "postProcessingEnabled": true,
+        "postProcessingEnabled": false,
         "filmEnabled": false,
         "filmStock": "neutral",
         "filmGrainAmount": 0.99,
@@ -731,6 +732,7 @@ export const publishedHomeSceneSettings = {
       "holdSeconds": 10,
       "scene": {
         "waterExtent": 34,
+        "farWaterBlendWidth": 2.5,
         "simulationResolution": 512,
         "waterMeshDensity": 352,
         "waveAmplitude": 0.045,
@@ -1011,7 +1013,7 @@ export const publishedHomeSceneSettings = {
         "fishActivity": 0.55,
         "fishDepthBand": 0.72,
         "reflectionsEnabled": true,
-        "postProcessingEnabled": true,
+        "postProcessingEnabled": false,
         "filmEnabled": false,
         "filmStock": "neutral",
         "filmGrainAmount": 0.99,
@@ -1057,6 +1059,7 @@ export const publishedHomeSceneSettings = {
       "holdSeconds": 10,
       "scene": {
         "waterExtent": 34,
+        "farWaterBlendWidth": 2.5,
         "simulationResolution": 512,
         "waterMeshDensity": 352,
         "waveAmplitude": 0.045,
@@ -1180,16 +1183,16 @@ export const publishedHomeSceneSettings = {
           "portrait": {
             "customized": true,
             "cameraPosition": {
-              "x": -1.7694,
-              "y": 0.0272,
-              "z": 0.764
+              "x": -0.0069,
+              "y": 0.3761,
+              "z": -2.3077
             },
             "cameraTarget": {
-              "x": -1.7516,
-              "y": 0.033,
-              "z": 0.7585
+              "x": 0.0088,
+              "y": 0.383,
+              "z": -2.2985
             },
-            "cameraFov": 27,
+            "cameraFov": 59,
             "frameInset": 0.18,
             "boatPosition": {
               "x": -5.9,
@@ -1383,6 +1386,7 @@ export const publishedHomeSceneSettings = {
       "holdSeconds": 10,
       "scene": {
         "waterExtent": 34,
+        "farWaterBlendWidth": 2.5,
         "simulationResolution": 512,
         "waterMeshDensity": 352,
         "waveAmplitude": 0.045,
@@ -1506,14 +1510,14 @@ export const publishedHomeSceneSettings = {
           "portrait": {
             "customized": true,
             "cameraPosition": {
-              "x": -1.7694,
-              "y": 0.0272,
-              "z": 0.764
+              "x": -6.9679,
+              "y": 0.1796,
+              "z": -7.2534
             },
             "cameraTarget": {
-              "x": -1.7516,
-              "y": 0.033,
-              "z": 0.7585
+              "x": -6.9572,
+              "y": 0.1821,
+              "z": -7.2373
             },
             "cameraFov": 27,
             "frameInset": 0.18,
