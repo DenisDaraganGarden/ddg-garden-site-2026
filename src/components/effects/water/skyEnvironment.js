@@ -116,6 +116,30 @@ const downsampleRgb = (source, sourceWidth, sourceHeight, targetWidth, targetHei
   return target;
 };
 
+// Nearest-neighbour resample of an RGB float table. Used once, to spread the
+// coarse placeholder over the full-size texture so that texture can exist
+// from the first frame and be refilled in place when the real table lands.
+const resampleRgbNearest = (source, sourceWidth, sourceHeight, targetWidth, targetHeight) => {
+  if (sourceWidth === targetWidth && sourceHeight === targetHeight) {
+    return source;
+  }
+
+  const target = new Float32Array(targetWidth * targetHeight * 3);
+  for (let y = 0; y < targetHeight; y += 1) {
+    const sourceY = Math.min(sourceHeight - 1, Math.floor(y * sourceHeight / targetHeight));
+    for (let x = 0; x < targetWidth; x += 1) {
+      const sourceX = Math.min(sourceWidth - 1, Math.floor(x * sourceWidth / targetWidth));
+      const sourceIndex = (sourceY * sourceWidth + sourceX) * 3;
+      const targetIndex = (y * targetWidth + x) * 3;
+      target[targetIndex] = source[sourceIndex];
+      target[targetIndex + 1] = source[sourceIndex + 1];
+      target[targetIndex + 2] = source[sourceIndex + 2];
+    }
+  }
+
+  return target;
+};
+
 const configureSkyTexture = (texture) => {
   texture.mapping = THREE.EquirectangularReflectionMapping;
   texture.colorSpace = THREE.LinearSRGBColorSpace;
@@ -151,8 +175,10 @@ export function useSkyEnvironment(state, {
   const [texture, setTexture] = useState(null);
   const [environment, setEnvironment] = useState(null);
   const textureRef = useRef(null);
+  const environmentTextureRef = useRef(null);
   const pmremRef = useRef(null);
   const targetRef = useRef(null);
+  const targetSizeRef = useRef({ width: 0, height: 0 });
   const staleTargetsRef = useRef([]);
 
   // Rebuilding is the expensive half, so it keys on the sky's own inputs rather
@@ -295,56 +321,88 @@ export function useSkyEnvironment(state, {
     };
   }, [lutRequest]);
 
+  // The GPU objects are allocated once, at the requested size, and refilled
+  // after that. A camera cut to a different sky used to create a texture and
+  // a PMREM target and drop the old pair; with four skies in the slideshow the
+  // resource counts never settled, and on a software renderer the cut was
+  // mostly that churn. Now the table is written into the same texture, and
+  // PMREM renders into the same target.
   useEffect(() => {
     if (!enabled) {
       return undefined;
     }
 
-    const nextTexture = configureSkyTexture(new THREE.DataTexture(
-      toHalfFloatRgba(lut.data, lut.width, lut.height),
-      lut.width,
-      lut.height,
-      THREE.RGBAFormat,
-      THREE.HalfFloatType,
-    ));
+    const rgb = resampleRgbNearest(lut.data, lut.width, lut.height, width, height);
+    const rgba = toHalfFloatRgba(rgb, width, height);
+    let skyTexture = textureRef.current;
 
-    const environmentWidth = Math.min(lut.width, 256);
-    const environmentHeight = Math.min(lut.height, 128);
-    const environmentRgb = downsampleRgb(
-      lut.data,
-      lut.width,
-      lut.height,
-      environmentWidth,
-      environmentHeight,
-    );
-    const environmentTexture = configureSkyTexture(new THREE.DataTexture(
-      toHalfFloatRgba(environmentRgb, environmentWidth, environmentHeight),
-      environmentWidth,
-      environmentHeight,
-      THREE.RGBAFormat,
-      THREE.HalfFloatType,
-    ));
+    if (!skyTexture || skyTexture.image.width !== width || skyTexture.image.height !== height) {
+      const previousTexture = skyTexture;
+      skyTexture = configureSkyTexture(new THREE.DataTexture(
+        rgba,
+        width,
+        height,
+        THREE.RGBAFormat,
+        THREE.HalfFloatType,
+      ));
+      textureRef.current = skyTexture;
+      setTexture(skyTexture);
+      previousTexture?.dispose();
+    } else {
+      skyTexture.image.data.set(rgba);
+      skyTexture.needsUpdate = true;
+    }
+
+    const environmentWidth = Math.min(width, 256);
+    const environmentHeight = Math.min(height, 128);
+    const environmentRgb = downsampleRgb(rgb, width, height, environmentWidth, environmentHeight);
+    const environmentRgba = toHalfFloatRgba(environmentRgb, environmentWidth, environmentHeight);
+    let environmentTexture = environmentTextureRef.current;
+
+    if (
+      !environmentTexture
+      || environmentTexture.image.width !== environmentWidth
+      || environmentTexture.image.height !== environmentHeight
+    ) {
+      environmentTexture?.dispose();
+      environmentTexture = configureSkyTexture(new THREE.DataTexture(
+        environmentRgba,
+        environmentWidth,
+        environmentHeight,
+        THREE.RGBAFormat,
+        THREE.HalfFloatType,
+      ));
+      environmentTextureRef.current = environmentTexture;
+    } else {
+      environmentTexture.image.data.set(environmentRgba);
+      environmentTexture.needsUpdate = true;
+    }
 
     if (!pmremRef.current) {
       pmremRef.current = new THREE.PMREMGenerator(gl);
       pmremRef.current.compileEquirectangularShader();
     }
 
-    const previousTexture = textureRef.current;
-    textureRef.current = nextTexture;
-    setTexture(nextTexture);
+    const target = targetRef.current;
+    const targetFits = target
+      && targetSizeRef.current.width === environmentWidth
+      && targetSizeRef.current.height === environmentHeight;
 
-    const nextTarget = pmremRef.current.fromEquirectangular(environmentTexture);
-    environmentTexture.dispose();
-    if (targetRef.current) {
-      staleTargetsRef.current.push(targetRef.current);
+    if (targetFits) {
+      // Same target, new contents: whoever holds its texture keeps it.
+      pmremRef.current.fromEquirectangular(environmentTexture, target);
+    } else {
+      const nextTarget = pmremRef.current.fromEquirectangular(environmentTexture);
+      targetSizeRef.current = { width: environmentWidth, height: environmentHeight };
+      if (target) {
+        staleTargetsRef.current.push(target);
+      }
+      targetRef.current = nextTarget;
+      setEnvironment(nextTarget.texture);
     }
-    targetRef.current = nextTarget;
-    setEnvironment(nextTarget.texture);
-    previousTexture?.dispose();
 
     return undefined;
-  }, [enabled, gl, lut]);
+  }, [enabled, gl, height, lut, width]);
 
   // The Environment owner switches to the new PMREM during the layout phase of
   // this render. Dispose old targets only afterwards, never while the scene may
@@ -357,6 +415,8 @@ export function useSkyEnvironment(state, {
   useEffect(() => () => {
     targetRef.current?.dispose();
     textureRef.current?.dispose();
+    environmentTextureRef.current?.dispose();
+    environmentTextureRef.current = null;
     pmremRef.current?.dispose();
     staleTargetsRef.current.forEach((target) => target.dispose());
     staleTargetsRef.current = [];
@@ -374,8 +434,8 @@ export function useSkyEnvironment(state, {
     isPlaceholder: lut.width < lutRequest.width,
     width: lut.width,
     height: lut.height,
-    environmentWidth: Math.min(lut.width, 256),
-    environmentHeight: Math.min(lut.height, 128),
+    environmentWidth: Math.min(width, 256),
+    environmentHeight: Math.min(height, 128),
     skyIrradiance: lut.skyIrradiance,
     directShare: lut.directShare,
     sunElevationDeg: lut.sunElevationDeg,

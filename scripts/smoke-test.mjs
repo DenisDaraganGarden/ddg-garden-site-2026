@@ -367,6 +367,7 @@ async function waitForSettledRuntimeMetrics(page, sceneId, timeoutMs = 30000) {
     const timestamp = Number(sample.timestamp);
     const geometries = Number(sample.renderer?.geometries);
     const textures = Number(sample.renderer?.textures);
+    if (process.env.SMOKE_SETTLE_DEBUG) console.log(`[settle ${sceneId}] wall=${((Date.now() - startedAt) / 1000).toFixed(1)}s ts=${Math.round(timestamp)} g=${geometries} t=${textures} fps=${Number(sample.performance?.fps).toFixed(1)} stable=${stableForMs}`);
 
     if (
       previous
