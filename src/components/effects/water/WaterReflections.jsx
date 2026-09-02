@@ -147,6 +147,7 @@ export default function WaterReflections({
   const reflectionTimingRef = useRef({
     initialized: false,
     lastRenderTime: -Infinity,
+    pendingPass: null,
     cameraPosition: new THREE.Vector3(),
     cameraQuaternion: new THREE.Quaternion(),
     boatPosition: new THREE.Vector3(),
@@ -201,7 +202,7 @@ export default function WaterReflections({
     reflectionTimingRef.current.lastRenderTime = -Infinity;
   }, [reflectionEnabled, refractionEnabled]);
 
-  useFrame(({ clock }) => {
+  useFrame(({ clock }, frameDelta) => {
     if (!enabled || !reflectionCamera || !reflectionTarget || !isDocumentCurrentlyVisible()) {
       return;
     }
@@ -308,10 +309,34 @@ export default function WaterReflections({
     }
 
     const minInterval = 1 / Math.max(isMoving ? activeFps : idleFps, 1);
-    if ((now - reflectionTiming.lastRenderTime) < minInterval) {
+    // Both captures re-render the scene, and together they are about two thirds
+    // of a frame's GPU time. On a display faster than the capture rate they
+    // used to land in the same frame every other frame - 12 ms in an 8.3 ms
+    // budget at 120 Hz, a judder every second frame - while the frames between
+    // did nothing. When the display has room, refraction takes the due frame
+    // and reflection the one after: each still updates at its own rate, one
+    // frame apart, and no frame carries both. At 60 Hz the display has no
+    // spare frame, so both render together exactly as before.
+    const pendingReflection = reflectionTiming.pendingPass === 'reflection';
+    if (!pendingReflection && (now - reflectionTiming.lastRenderTime) < minInterval) {
       return;
     }
+    const stagger = !pendingReflection
+      && reflectionEnabled
+      && refractionEnabled
+      && Boolean(refractionTarget)
+      && frameDelta > 0
+      // "Room" means the display refreshes at least ~1.8x faster than the
+      // capture rate, so the deferred pass still lands inside the same capture
+      // interval. 120 Hz against 60 Hz captures qualifies; 60 Hz does not.
+      && frameDelta <= minInterval * 0.55;
+    const doRefraction = !pendingReflection;
+    const doReflection = pendingReflection || !stagger;
+    reflectionTiming.pendingPass = stagger ? 'reflection' : null;
 
+    if (pendingReflection) {
+      // The bookkeeping below was done on the frame that scheduled this one.
+    } else {
     reflectionTiming.initialized = true;
     reflectionTiming.lastRenderTime = now;
     reflectionTiming.cameraPosition.copy(camera.position);
@@ -323,6 +348,7 @@ export default function WaterReflections({
     if (sculptureAnchor) {
       reflectionTiming.sculpturePosition.copy(reflectionSculpturePosition);
       reflectionTiming.sculptureQuaternion.copy(reflectionSculptureQuaternion);
+    }
     }
 
     waterSurface.getWorldPosition(waterSurfaceWorldPosition);
@@ -390,7 +416,7 @@ export default function WaterReflections({
     scene.background = null;
 
     try {
-      if (refractionEnabled && refractionTarget) {
+      if (doRefraction && refractionEnabled && refractionTarget) {
         // Keep only geometry below the waterline. Rendering the complete boat
         // and sculpture here created a camera-dependent dark duplicate that
         // looked like a shadow travelling out of the objects.
@@ -412,7 +438,7 @@ export default function WaterReflections({
         reflectionData.current.cameraFar = camera.far;
       }
 
-      if (reflectionEnabled) {
+      if (doReflection && reflectionEnabled) {
         // Keep the reflection target transparent outside rendered objects.
         // The water shader already draws its own sky; capturing the scene
         // background here creates a dark, low-resolution duplicate of it.
