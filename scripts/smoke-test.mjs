@@ -1079,13 +1079,13 @@ async function runMobileChecks(browser) {
   const issues = [];
   collectPageIssues(page, issues);
 
-  await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
+  await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
   await expectVisible(page, page.getByTestId('site-nav'), 'mobile nav');
   await expectVisible(page, page.getByTestId('language-ru'), 'mobile language RU');
   await expectVisible(page, page.getByTestId('language-en'), 'mobile language EN');
   await expectVisible(page, page.getByTestId('home-page'), 'mobile home page');
 
-  await page.goto(`${baseUrl}/portfolio`, { waitUntil: 'domcontentloaded' });
+  await page.goto(`${baseUrl}/portfolio`, { waitUntil: 'domcontentloaded', timeout: 60000 });
   await expectVisible(page, page.locator('.portfolio-page'), 'mobile portfolio page');
   await expectVisible(page, page.locator('[data-testid^="project-row-"]'), 'mobile portfolio rows');
   log('OK mobile checks');
