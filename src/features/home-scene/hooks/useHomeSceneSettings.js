@@ -409,6 +409,8 @@ export const getBaseHomeSceneSettings = () => ({
   // 1 = the automatic pixel budget. Raise for a sharper frame, lower to buy
   // back GPU time; the budget still adapts to the window on top of this.
   renderScale: 1,
+  // Phones: the pixel ratio itself, capped by the display. 2 = full retina.
+  renderScaleMobile: 2,
   // Site chrome shown over the scene. Authored per published scene so the frame
   // can be cleared for a screenshot or a bare cinematic view.
   uiBrandVisible: true,
@@ -1035,6 +1037,7 @@ const normalizeHomeSceneSettings = (savedSettings = {}, includeCameraSystem = tr
       defaults.filmGateWeaveRate,
     ),
     renderScale: clampFloat(merged.renderScale, 0.5, 2, defaults.renderScale),
+    renderScaleMobile: clampFloat(merged.renderScaleMobile, 0.5, 2, defaults.renderScaleMobile),
     uiBrandVisible: pickBoolean(merged.uiBrandVisible, defaults.uiBrandVisible),
     uiSubtitleVisible: pickBoolean(merged.uiSubtitleVisible, defaults.uiSubtitleVisible),
     uiMenuVisible: pickBoolean(merged.uiMenuVisible, defaults.uiMenuVisible),

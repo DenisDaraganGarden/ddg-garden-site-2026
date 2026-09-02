@@ -1,6 +1,10 @@
 // The camera is authored against exactly two stable frames. Runtime projection expands
 // when a viewport is narrower than its reference frame, so the saved composition is
 // always contained instead of being cropped.
+//
+// 'portrait' is the mobile bucket; the key is historical. A phone keeps it in
+// either orientation - one capture per camera, held sideways or upright - and
+// the FOV fit absorbs the aspect difference.
 export const LAYOUT_KEYS = ['desktop', 'portrait'];
 export const LAYOUT_FRAME_ASPECTS = Object.freeze({
   desktop: 16 / 9,
@@ -27,10 +31,20 @@ export const LAYOUT_REFERENCE_ASPECTS = Object.freeze({
 });
 export const LAYOUT_PORTRAIT_MAX_ASPECT = 1;
 
-export function resolveLayoutKey(viewportWidth, viewportHeight) {
+export function isTouchPrimaryViewport() {
+  return typeof window !== 'undefined'
+    && typeof window.matchMedia === 'function'
+    && window.matchMedia('(hover: none) and (pointer: coarse)').matches;
+}
+
+export function resolveLayoutKey(
+  viewportWidth,
+  viewportHeight,
+  touchPrimary = isTouchPrimaryViewport(),
+) {
   const viewportAspect = viewportHeight > 0 ? viewportWidth / viewportHeight : 1;
 
-  if (viewportAspect < LAYOUT_PORTRAIT_MAX_ASPECT) {
+  if (touchPrimary || viewportAspect < LAYOUT_PORTRAIT_MAX_ASPECT) {
     return 'portrait';
   }
   return 'desktop';

@@ -27,6 +27,8 @@ assert.ok(closeTo(fractionalDesktopFov, 1.25),
   'a fractional FOV must stay exact when the viewport already contains the frame');
 assert.equal(resolveLayoutKey(390, 844), 'portrait');
 assert.equal(resolveLayoutKey(844, 390), 'desktop');
+assert.equal(resolveLayoutKey(844, 390, true), 'portrait',
+  'a phone held sideways must keep the mobile capture');
 
 const inheritedPortrait = resolveLayout({
   desktop: { customized: true, cameraFov: 1.25, frameInset: 0.18 },

@@ -8,6 +8,7 @@ import {
   readRuntimeDevicePerformanceTier,
 } from './deviceCapabilityProfile';
 import { getRenderTargetCapabilities } from './renderTargetCapabilities';
+import { isTouchPrimaryViewport } from '../../features/home-scene/lib/layout';
 
 let webglSupportCache;
 const SHADOWS_CONFIG = { type: THREE.PCFShadowMap };
@@ -45,8 +46,7 @@ function getCanvasProfile(mode, renderScale = 1) {
 
   const isEditor = mode === 'editor';
   const isWeakDevice = readRuntimeDevicePerformanceTier() === DEVICE_PERFORMANCE_TIER.low;
-  const isTouchPrimary = typeof window.matchMedia === 'function'
-    && window.matchMedia('(hover: none) and (pointer: coarse)').matches;
+  const isTouchPrimary = isTouchPrimaryViewport();
 
   // Budget the shaded pixels instead of branching on viewport width. The frame is
   // a short 2.78:1 band, so its area grows as width^2 / 2.78 - a phone can afford
@@ -62,7 +62,11 @@ function getCanvasProfile(mode, renderScale = 1) {
   // multiplier on top of it, so the scene can be pushed to native sharpness or
   // pulled back to buy GPU time without touching code. r3f still clamps the
   // result to the display's own devicePixelRatio.
-  const automaticDpr = Math.min(isWeakDevice ? 1 : 2, Math.max(1, budgetedDpr));
+  // On a phone the budget always allows 2x, so a multiplier had nothing to
+  // scale: there the authored value is the pixel ratio itself.
+  const automaticDpr = isTouchPrimary
+    ? 1
+    : Math.min(isWeakDevice ? 1 : 2, Math.max(1, budgetedDpr));
   // Never ask for more pixels than the display can show. Above the device ratio
   // the browser just scales the result back down, so the cost is quadratic and
   // the gain is marginal.
@@ -442,7 +446,8 @@ const SceneCanvas = ({
 }) => {
   const { t } = useLanguage();
   const hudRequestedByUrl = useMemo(isHudRequestedByUrl, []);
-  const renderScale = typeof settings?.renderScale === 'number' ? settings.renderScale : 1;
+  const renderScaleKey = isTouchPrimaryViewport() ? 'renderScaleMobile' : 'renderScale';
+  const renderScale = typeof settings?.[renderScaleKey] === 'number' ? settings[renderScaleKey] : 1;
   const [runtimeError, setRuntimeError] = useState(false);
   const supportsWebgl = useMemo(() => detectWebGLSupport(), []);
   const [profile, setProfile] = useState(() => getCanvasProfile(mode, renderScale));

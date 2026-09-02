@@ -3,6 +3,7 @@ import {
   DEVICE_PERFORMANCE_TIER,
   readRuntimeDevicePerformanceTier,
 } from './deviceCapabilityProfile.js';
+import { isTouchPrimaryViewport } from '../../features/home-scene/lib/layout.js';
 
 // How much of the scene a given device is asked to draw.
 //
@@ -35,14 +36,6 @@ export function detectQualityTier() {
       ? QUALITY_TIER.medium
       : QUALITY_TIER.high;
   return qualityTierCache;
-}
-
-function isTouchPrimaryDevice() {
-  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
-    return false;
-  }
-
-  return window.matchMedia('(hover: none) and (pointer: coarse)').matches;
 }
 
 // A phone is a small screen, not a lesser version of the scene. Only temporary
@@ -108,14 +101,14 @@ export function buildRuntimeQualityProfile(mode, viewportWidth, capabilities = n
   // earns the mobile trim, otherwise resizing the authoring window quietly halved
   // the simulation and the author was judging a downgraded scene.
   const isMobileDevice = isEditor
-    ? isTouchPrimaryDevice()
-    : (viewportWidth < 768 || isTouchPrimaryDevice());
+    ? isTouchPrimaryViewport()
+    : (viewportWidth < 768 || isTouchPrimaryViewport());
 
   if (tier === QUALITY_TIER.low) {
     return applyRenderTargetCapabilities({
       qualityTier: tier,
       isMobileDevice,
-      isTouchPrimary: isTouchPrimaryDevice(),
+      isTouchPrimary: isTouchPrimaryViewport(),
       isLowPower: true,
       simulationTargetFps: isEditor ? 24 : 30,
       simulationMaxResolution: 128,
@@ -144,7 +137,7 @@ export function buildRuntimeQualityProfile(mode, viewportWidth, capabilities = n
     return applyRenderTargetCapabilities(trimProfileForMobile({
       qualityTier: tier,
       isMobileDevice,
-      isTouchPrimary: isTouchPrimaryDevice(),
+      isTouchPrimary: isTouchPrimaryViewport(),
       isLowPower: false,
       simulationTargetFps: isEditor ? 45 : 54,
       simulationMaxResolution: isEditor ? 384 : 512,
@@ -170,7 +163,7 @@ export function buildRuntimeQualityProfile(mode, viewportWidth, capabilities = n
   return applyRenderTargetCapabilities(trimProfileForMobile({
     qualityTier: tier,
     isMobileDevice,
-    isTouchPrimary: isTouchPrimaryDevice(),
+    isTouchPrimary: isTouchPrimaryViewport(),
     isLowPower: false,
     simulationTargetFps: isEditor ? 50 : 60,
     simulationMaxResolution: 512,

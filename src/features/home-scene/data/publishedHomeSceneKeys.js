@@ -169,6 +169,7 @@ const keys = [
   'underwaterAlgaeSpeciesMix',
   'underwaterAlgaePatchiness',
   'renderScale',
+  'renderScaleMobile',
   'uiBrandVisible',
   'uiSubtitleVisible',
   'uiMenuVisible',

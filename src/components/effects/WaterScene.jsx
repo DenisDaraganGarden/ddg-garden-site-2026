@@ -242,9 +242,9 @@ function WaterRuntimeScene({
   // keeps the meadow visible and avoids incomplete half-float FBOs in WebViews.
   const refractionEnabled = settings.debugView === 'beauty';
   const opticsEnabled = reflectionsEnabled || refractionEnabled;
-  // Editor forces the authored frame. Public layout follows the outer browser
-  // orientation, while camera fitting uses the actual render band between the
-  // cinematic bars.
+  // Editor forces the authored frame. Public layout follows the device (a phone
+  // keeps its bucket in either orientation), while camera fitting uses the
+  // actual render band between the cinematic bars.
   const hasWindow = typeof window !== 'undefined';
   const activeLayoutKey = layoutOverride
     ?? resolveLayoutKey(

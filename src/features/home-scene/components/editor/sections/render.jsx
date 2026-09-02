@@ -280,7 +280,16 @@ export const ResolutionSection = ({ settings, handleSettingChange }) => {
                 formatValue={(value) => formatFloat(value, 2)}
                 onChange={(event) => handleSettingChange(event, 'renderScale')}
             />
-
+            <RangeControl
+                label={t('homeEditor.controls.renderScaleMobile')}
+                value={settings.renderScaleMobile}
+                min={0.5}
+                max={2}
+                step={0.05}
+                unit="x"
+                formatValue={(value) => formatFloat(value, 2)}
+                onChange={(event) => handleSettingChange(event, 'renderScaleMobile')}
+            />
         </>
     );
 };
