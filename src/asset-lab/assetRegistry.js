@@ -1,10 +1,16 @@
 import FishLab from '../fish-lab/FishLab';
 import SeagullLab from '../seagull-lab/SeagullLab';
 import BlackStoneLab from '../black-stone-lab/BlackStoneLab';
+import TankerLab from '../tanker-lab/TankerLab';
 
 export const DEFAULT_ASSET_COLLECTION = 'river-fish';
 
 export const ASSET_COLLECTIONS = Object.freeze({
+  tanker: {
+    id: 'tanker',
+    label: 'Речной танкер',
+    component: TankerLab,
+  },
   'river-fish': {
     id: 'river-fish',
     label: 'Речные рыбы',

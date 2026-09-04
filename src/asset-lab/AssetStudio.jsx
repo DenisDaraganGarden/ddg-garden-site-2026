@@ -62,14 +62,14 @@ function StudioEnvironment() {
   return null;
 }
 
-function StudioCamera({ view }) {
+function StudioCamera({ view, cameraViews = CAMERA_VIEWS, limits }) {
   const { camera, size } = useThree();
   const controls = useRef();
   const flightView = view.startsWith('flight') || view === 'landing';
   const stoneView = view.startsWith('stone');
 
   useEffect(() => {
-    const preset = CAMERA_VIEWS[view] ?? CAMERA_VIEWS.specimens;
+    const preset = cameraViews[view] ?? CAMERA_VIEWS.specimens;
     const viewport = size.width < size.height ? preset.portrait : preset.landscape;
     const position = new THREE.Vector3(...viewport.position);
     const target = new THREE.Vector3(...viewport.target);
@@ -77,17 +77,17 @@ function StudioCamera({ view }) {
     camera.lookAt(target);
     controls.current?.target.copy(target);
     controls.current?.update();
-  }, [camera, size.height, size.width, view]);
+  }, [camera, cameraViews, size.height, size.width, view]);
 
   return (
     <OrbitControls
       ref={controls}
       makeDefault
       enablePan={false}
-      minDistance={stoneView ? 0.72 : 1.2}
-      maxDistance={flightView ? 35 : (stoneView ? 11 : 8.5)}
-      minPolarAngle={stoneView ? 0.08 : 0.45}
-      maxPolarAngle={Math.PI - 0.5}
+      minDistance={limits?.minDistance ?? (stoneView ? 0.72 : 1.2)}
+      maxDistance={limits?.maxDistance ?? (flightView ? 35 : (stoneView ? 11 : 8.5))}
+      minPolarAngle={limits?.minPolarAngle ?? (stoneView ? 0.08 : 0.45)}
+      maxPolarAngle={limits?.maxPolarAngle ?? (Math.PI - 0.5)}
     />
   );
 }
@@ -97,12 +97,22 @@ export default function AssetStudio({
   view = 'specimens',
   waterReflection = false,
   lightingPreset = 'default',
+  cameraViews,
+  cameraLimits,
+  floorY = -1.14,
+  floorVisible = true,
+  waterY = -1.14,
+  lighting,
+  exposure = 1.04,
+  environmentIntensity = 1,
+  paused = false,
 }) {
   const flightView = view.startsWith('flight') || view === 'landing';
   const stoneLighting = lightingPreset === 'black-stone';
 
   return (
     <Canvas
+      frameloop={paused ? 'demand' : 'always'}
       shadows={STUDIO_SHADOWS}
       dpr={[1, 1.5]}
       camera={{ position: [3.65, 1.42, 4.9], fov: 32, near: 0.02, far: 40 }}
@@ -114,13 +124,14 @@ export default function AssetStudio({
       }}
     >
       <color attach="background" args={[STUDIO_BACKGROUND]} />
-      <fog attach="fog" args={[STUDIO_BACKGROUND, flightView ? 32 : 6.2, flightView ? 48 : 10.5]} />
+      <fog attach="fog" args={[STUDIO_BACKGROUND, cameraViews ? 28 : (flightView ? 32 : 6.2), cameraViews ? 40 : (flightView ? 48 : 10.5)]} />
       <StudioEnvironment />
-      <hemisphereLight args={['#f9fbff', '#b8afa1', stoneLighting ? 0.34 : 1.35]} />
+      <StudioExposure exposure={exposure} environmentIntensity={environmentIntensity} />
+      <hemisphereLight args={['#f9fbff', '#b8afa1', lighting ? (0.35 + lighting.fill.intensity) : (stoneLighting ? 0.34 : 1.35)]} />
       <directionalLight
-        position={[3.4, 5.5, 4]}
-        intensity={stoneLighting ? 1.7 : 2.1}
-        color="#fff7e9"
+        position={lighting ? lighting.key.direction.map((v) => v * 8) : [3.4, 5.5, 4]}
+        intensity={lighting ? lighting.key.sceneIntensity : (stoneLighting ? 1.7 : 2.1)}
+        color={lighting ? new THREE.Color(...lighting.key.colorLinear) : '#fff7e9'}
         castShadow
         shadow-mapSize-width={1024}
         shadow-mapSize-height={1024}
@@ -136,26 +147,36 @@ export default function AssetStudio({
       />
       <directionalLight
         position={[-4, 0.7, -3]}
-        intensity={stoneLighting ? 0.26 : 1.05}
+        intensity={lighting ? 0.32 : (stoneLighting ? 0.26 : 1.05)}
         color="#c4dbdf"
       />
       {children}
       {waterReflection ? (
         <StudioWaterReflection
+          waterY={waterY}
           width={flightView ? 18 : 8}
           depth={flightView ? 12 : 6}
         />
-      ) : (
+      ) : floorVisible ? (
         <mesh
-          position={[0, -1.14, 0]}
+          position={[0, floorY, 0]}
           rotation={[-Math.PI / 2, 0, 0]}
           receiveShadow
         >
           <planeGeometry args={flightView ? [18, 12] : [8, 6]} />
           <meshStandardMaterial color="#f0eee9" roughness={0.96} metalness={0} />
         </mesh>
-      )}
-      <StudioCamera view={view} />
+      ) : null}
+      <StudioCamera view={view} cameraViews={cameraViews} limits={cameraLimits} />
     </Canvas>
   );
+}
+
+function StudioExposure({ exposure, environmentIntensity }) {
+  const { gl, scene } = useThree();
+  useEffect(() => {
+    gl.toneMappingExposure = exposure;
+    scene.environmentIntensity = environmentIntensity;
+  }, [environmentIntensity, exposure, gl, scene]);
+  return null;
 }
