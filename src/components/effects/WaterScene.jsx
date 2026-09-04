@@ -1,3 +1,4 @@
+import HomeTanker from '../../tanker/HomeTanker.jsx';
 import React, {
   useCallback,
   useEffect,
@@ -403,6 +404,7 @@ function WaterRuntimeScene({
             useOpticsLod={qualityProfile.isMobileDevice}
           />
         ) : null}
+        {settings.tankerVisible ? <HomeTanker settings={settings} lighting={lighting} audioRuntime={audioRuntime} /> : null}
         {settings.sculptureVisible ? (
           <StaticSculpture
             settings={settings}

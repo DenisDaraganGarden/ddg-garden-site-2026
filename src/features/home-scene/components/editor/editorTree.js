@@ -1,3 +1,4 @@
+import { TankerSection } from './sections/tanker';
 import {
     SeabedSection,
     WaterGeometrySection,
@@ -71,6 +72,7 @@ export const EDITOR_TREE = [
     {
         id: 'objects',
         nodes: [
+            { id: 'tanker', aspects: [{ id: 'transform', Section: TankerSection }] },
             { id: 'boat', aspects: [{ id: 'transform', Section: BoatSection }] },
             { id: 'sculpture', aspects: [{ id: 'transform', Section: SculptureSection }] },
         ],

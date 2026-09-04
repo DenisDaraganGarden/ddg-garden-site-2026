@@ -322,7 +322,8 @@ export default function WaterReflections({
         )
         : false;
 
-      return cameraMoved || boatMoved || sculptureMoved || seagullReflectionActivity.dynamic;
+      return cameraMoved || boatMoved || sculptureMoved || seagullReflectionActivity.dynamic
+        || scene.getObjectByName('tanker-anchor')?.userData.ddgDynamicReflection === true;
     };
     const saveSceneMotion = (snapshot) => {
       snapshot.initialized = true;
@@ -426,6 +427,9 @@ export default function WaterReflections({
     const underwaterAlgaeWasVisible = underwaterAlgae?.visible ?? false;
     const celestialDiscWasVisible = celestialDisc?.visible ?? false;
     const skyDomeWasVisible = skyDome?.visible ?? false;
+    const tankerWake = scene.getObjectByName('tanker-wake');
+    const tankerWakeWasVisible = tankerWake?.visible;
+    if (tankerWake) tankerWake.visible = false;
     const farWaterSurfaceWasVisible = farWaterSurface?.visible ?? false;
     const fishSchoolWasVisible = fishSchool?.visible ?? false;
 
@@ -523,6 +527,7 @@ export default function WaterReflections({
         reflectionTiming.lastReflectionRenderTime = performance.now() / 1000;
       }
     } finally {
+      if (tankerWake) tankerWake.visible = tankerWakeWasVisible;
       scene.background = previousSceneBackground;
       opticsLods.restore();
       gl.clippingPlanes = previousClippingPlanes;

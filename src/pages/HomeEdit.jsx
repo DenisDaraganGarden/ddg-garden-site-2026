@@ -457,7 +457,7 @@ const HomeEdit = () => {
 
     const { group: gizmoGroup, node: gizmoNode } = resolveEditorPath(activeTab, { includeDevOnly: true });
     const editorGizmo = useMemo(() => ({
-        selection: (!gizmoSuppressed && (gizmoGroup.id === 'objects' || gizmoGroup.id === 'lights'))
+        selection: (!gizmoSuppressed && ((gizmoGroup.id === 'objects' && gizmoNode.id !== 'tanker') || gizmoGroup.id === 'lights'))
             ? gizmoNode.id
             : null,
         mode: gizmoMode,

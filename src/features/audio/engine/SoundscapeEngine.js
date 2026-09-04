@@ -1,3 +1,4 @@
+import { TankerSound } from '../../../tanker/audio.js';
 import { SOUNDSCAPE_ASSETS, SOUNDSCAPE_TRACK_IDS } from '../data/soundscapeManifest.js';
 import { normalizeSoundscapeSettings } from '../data/soundscapeSettings.js';
 
@@ -104,6 +105,8 @@ export class SoundscapeEngine {
     this.fetchImpl = fetchImpl ?? ((...args) => fetch(...args));
     this.random = random;
     this.settings = normalizeSoundscapeSettings();
+    this.tankerSound = null;
+    this.tankerState = null;
     this.context = null;
     this.nodes = null;
     this.buffers = new Map();
@@ -371,7 +374,7 @@ export class SoundscapeEngine {
   }
 
   setSoloTrack(trackId) {
-    this.soloTrackId = SOUNDSCAPE_TRACK_IDS.includes(trackId) ? trackId : null;
+    this.soloTrackId = (trackId === 'tanker' || SOUNDSCAPE_TRACK_IDS.includes(trackId)) ? trackId : null;
     this.refreshTrackGains();
     this.emitState();
   }
@@ -906,7 +909,32 @@ export class SoundscapeEngine {
     return duration;
   }
 
+  updateTanker(state) {
+    this.tankerState = state;
+    if (!this.tankerSound && this.context && this.nodes && this.isSpatialTrackingActive()) {
+      this.tankerSound = new TankerSound({ context: this.context, destination: this.nodes.world, sharedWorldBus: true });
+    }
+    this.tankerSound?.update({
+      ...state, listener: this.listenerPose?.slice(0, 3) ?? [0, 0, 0],
+      settings: this.settings,
+      userEnabled: this.isSpatialTrackingActive() && (!this.soloTrackId || this.soloTrackId === 'tanker'),
+    });
+  }
+
+  releaseTanker() {
+    this.tankerSound?.dispose();
+    this.tankerSound = null;
+    this.tankerState = null;
+  }
+
   async playPreview(trackId) {
+    if (trackId === 'tanker') {
+      if (!this.tankerState || !await this.unlock()) return false;
+      this.updateTanker(this.tankerState);
+      this.tankerSound?.horn();
+      return Boolean(this.tankerSound);
+    }
+
     const asset = SOUNDSCAPE_ASSETS[trackId];
     if (!asset) {
       return false;
@@ -1023,6 +1051,7 @@ export class SoundscapeEngine {
   }
 
   destroy() {
+    this.releaseTanker();
     this.generation += 1;
     this.tracks.forEach((track) => this.stopTrack(track));
     this.tracks.clear();

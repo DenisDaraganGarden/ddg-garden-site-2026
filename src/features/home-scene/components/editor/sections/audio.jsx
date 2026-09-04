@@ -11,7 +11,7 @@ const gainFormatter = (value) => `${Math.round(Number(value) * 100)}%`;
 const secondsFormatter = (value) => Number(value).toFixed(1);
 const coordinateFormatter = (value) => Number(value).toFixed(1);
 
-const TRACK_IDS = ['water', 'shore', 'boat', 'birds', 'wind', 'thunder', 'ui'];
+const TRACK_IDS = ['tanker', 'water', 'shore', 'boat', 'birds', 'wind', 'thunder', 'ui'];
 const EMITTER_IDS = ['shore', 'birds', 'wind', 'thunder'];
 
 export const AudioMixerSection = ({ settings, handleSettingChange, audioLab }) => {

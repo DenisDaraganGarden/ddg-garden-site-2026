@@ -1,3 +1,4 @@
+import { reflectionContext } from './reflectionContext';
 import React, { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
@@ -19,6 +20,9 @@ const farWaterFragmentShader = /* glsl */`
 
   varying vec3 vWorldPosition;
 
+  uniform sampler2D uPlanarReflection;
+  uniform mat4 uReflectionMatrix;
+  uniform float uHasReflection;
   uniform vec3 uSurfaceColor;
   uniform vec3 uWaterTint;
   uniform vec3 uWaterScatteringColor;
@@ -124,6 +128,12 @@ const farWaterFragmentShader = /* glsl */`
       clamp(slope * 1.7 + fresnel * 0.28, 0.0, 0.72)
     );
 
+    vec4 projected = uReflectionMatrix * vec4(vWorldPosition, 1.0);
+    vec2 reflectionUv = projected.xy / max(projected.w, 0.0001);
+    if (uHasReflection > 0.5 && projected.w > 0.0 && all(greaterThan(reflectionUv, vec2(0.002))) && all(lessThan(reflectionUv, vec2(0.998)))) {
+      vec4 reflectedWorld = texture2D(uPlanarReflection, reflectionUv + normal.xz * 0.002);
+      reflection = mix(reflection, reflectedWorld.rgb, reflectedWorld.a);
+    }
     float reflectionWeight = clamp(fresnel, 0.02, 0.96);
     vec3 color = mix(refraction, reflection, reflectionWeight);
 #if FAR_WATER_LOW_POWER == 0
@@ -145,6 +155,7 @@ const farWaterFragmentShader = /* glsl */`
 `;
 
 export default function FarWaterSurface({ settings, lighting, sky, qualityProfile }) {
+  const reflectionDataRef = React.useContext(reflectionContext);
   const meshRef = useRef();
   const materialRef = useRef();
   const geometry = useMemo(() => {
@@ -161,6 +172,9 @@ export default function FarWaterSurface({ settings, lighting, sky, qualityProfil
     FAR_WATER_LOW_POWER: qualityProfile?.isLowPower ? 1 : 0,
   }), [qualityProfile?.isLowPower]);
   const uniforms = useMemo(() => ({
+    uPlanarReflection: { value: null },
+    uReflectionMatrix: { value: new THREE.Matrix4() },
+    uHasReflection: { value: 0 },
     uSurfaceColor: { value: new THREE.Color('#70716d') },
     uWaterTint: { value: new THREE.Color(1, 1, 1) },
     uWaterScatteringColor: { value: new THREE.Color(0.05, 0.08, 0.09) },
@@ -208,6 +222,10 @@ export default function FarWaterSurface({ settings, lighting, sky, qualityProfil
       meshRef.current.position.x = camera.position.x;
       meshRef.current.position.z = camera.position.z;
     }
+    const reflection = reflectionDataRef?.current;
+    uniforms.uPlanarReflection.value = reflection?.texture ?? null;
+    uniforms.uHasReflection.value = reflection?.texture ? 1 : 0;
+    if (reflection) uniforms.uReflectionMatrix.value.copy(reflection.matrix);
     uniforms.uSkyLut.value = sky?.texture ?? null;
     uniforms.uTime.value = clock.elapsedTime;
   }, -2);

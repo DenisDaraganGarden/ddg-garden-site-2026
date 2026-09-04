@@ -1,3 +1,4 @@
+import { DEFAULT_TANKER_SETTINGS, normalizeTankerSettings } from '../../../tanker/settings.js';
 import { useEffect, useState } from 'react';
 import { publishedHomeSceneSettings } from '../data/publishedHomeSceneSettings';
 import { publishedHomeSceneKeys } from '../data/publishedHomeSceneKeys';
@@ -173,6 +174,7 @@ const pickLayout = (value, fallback) => {
 };
 
 export const getBaseHomeSceneSettings = () => ({
+  ...DEFAULT_TANKER_SETTINGS,
   waterExtent: 24,
   simulationResolution: 128,
   waterMeshDensity: 288,
@@ -1033,6 +1035,7 @@ const normalizeHomeSceneSettings = (savedSettings = {}, includeCameraSystem = tr
       defaults.cursorLightSoftness,
     ),
     audio: normalizeSoundscapeSettings(merged.audio),
+    ...normalizeTankerSettings(merged),
     bloomEnabled: pickBoolean(merged.bloomEnabled, defaults.bloomEnabled),
     bloomStrength: clampFloat(merged.bloomStrength, 0, 2.5, defaults.bloomStrength),
     bloomThreshold: clampFloat(merged.bloomThreshold, 0, 2, defaults.bloomThreshold),

@@ -1,0 +1,27 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Tanker integration checks</title><style>body{background:#f5f4f0;color:#242424;font:15px monospace;padding:40px}pre{white-space:pre-wrap}</style></head><body><h1>Tanker · common audio bus</h1><pre id="result">Rendering…</pre><script type="module">
+import { SoundscapeEngine } from '/src/features/audio/engine/SoundscapeEngine.js';
+import { normalizeSoundscapeSettings } from '/src/features/audio/data/soundscapeSettings.js';
+import { normalizePublishedHomeSceneSettings } from '/src/features/home-scene/hooks/useHomeSceneSettings.js';
+import { publishedHomeSceneKeys } from '/src/features/home-scene/data/publishedHomeSceneKeys.js';
+import { DEFAULT_TANKER_SETTINGS } from '/src/tanker/settings.js';
+const result=document.querySelector('#result');
+try {
+  const rows=[];
+  for(const [name,master,mode,solo,track] of [['normal',1,'soundscape',null,true],['half master',.5,'soundscape',null,true],['mute',0,'soundscape',null,true],['music only',1,'music',null,true],['solo birds',1,'soundscape','birds',true],['track off',1,'soundscape',null,false]]) {
+    const context=new OfflineAudioContext(2,48000*2,48000);
+    const engine=new SoundscapeEngine({contextFactory:()=>context});
+    engine.ensureContext();engine.unlocked=true;engine.userEnabled=true;engine.routeActive=true;
+    engine.settings=normalizeSoundscapeSettings({mode,masterGain:master,tracks:{tanker:{enabled:track,gain:.65}}});
+    engine.soloTrackId=solo;engine.applySettingsToGraph(true);engine.applyUserGain(0);engine.nodes.home.gain.value=1;
+    engine.updateListener({x:0,y:2,z:0},{x:0,y:0,z:-1},{x:0,y:1,z:0});
+    engine.updateTanker({source:[-10,2,-50],distance:51,speedKnots:8});
+    const buffer=await context.startRendering();let sum=0;for(const v of buffer.getChannelData(0))sum+=v*v;
+    rows.push({name,rms:Math.sqrt(sum/buffer.length)});engine.releaseTanker();
+  }
+  if(!(rows[0].rms>0.001 && rows[1].rms<rows[0].rms*.55 && rows[1].rms>rows[0].rms*.45 && rows.slice(2).every(r=>r.rms===0)))throw new Error(JSON.stringify(rows));
+  for(const key of Object.keys(DEFAULT_TANKER_SETTINGS))if(!publishedHomeSceneKeys.includes(key))throw new Error('Missing snapshot key '+key);
+  const normalized=normalizePublishedHomeSceneSettings({tankerSpeed:999,tankerX:Infinity,audio:{mode:'hybrid'}});
+  if(normalized.tankerSpeed!==14 || normalized.tankerX!==DEFAULT_TANKER_SETTINGS.tankerX || normalized.audio.mode!=='hybrid')throw new Error('Normalization');
+  result.textContent='PASS · normalization / published keys / real shared bus / master / mute / modes / solo / release\n'+JSON.stringify(rows,null,2);document.body.dataset.passed='true';
+}catch(error){result.textContent=String(error.stack);document.body.dataset.passed='false';}
+</script></body></html>

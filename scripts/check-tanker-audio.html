@@ -1,0 +1,41 @@
+<!doctype html><html lang="en"><head><meta charset="UTF-8"><title>Tanker audio acceptance</title><style>body{background:#f5f4f0;color:#242820;padding:28px;font:14px system-ui}pre{white-space:pre-wrap}audio{display:block;margin:20px 0}</style></head><body><h1>Tanker · offline audio acceptance</h1><pre id="result">Rendering the production TankerSound graph…</pre><script type="module">
+import { TankerSound } from '/src/tanker/audio.js';
+// Open through the asset-lab Vite server. This runs the actual audio source
+// through OfflineAudioContext without autoplay or an external sample service.
+const base = { enabled:true,mode:'soundscape',masterGain:.72,ambienceGain:.78,spatialGain:.92,spatialEnabled:true,tracks:{tanker:{enabled:true,gain:.65}} };
+async function render(name,{distance=45,x=0,horn=false,settings=base,shared=false}={}){
+ const context=new OfflineAudioContext(2,48000*5,48000);
+ context.listener.positionX.value=shared?7:0;
+ const sound=new TankerSound({context,destination:context.destination,sharedWorldBus:shared});
+ sound.update({source:[x,0,-distance],listener:[0,0,0],forward:[0,0,-1],up:[0,1,0],distance,speedKnots:8,settings});
+ if(shared && context.listener.positionX.value!==7) throw new Error('Shared source changed listener');
+ if(horn)sound.horn(.6,1);
+ const buffer=await context.startRendering();
+ const a=buffer.getChannelData(0),b=buffer.getChannelData(1);
+ let sum=0,peak=0,left=0,right=0,engine=0,hornEnergy=0;
+ for(let i=24000;i<a.length;i++){
+  const l=a[i]*a[i],r=b[i]*b[i];sum+=l+r;left+=l;right+=r;peak=Math.max(peak,Math.abs(a[i]),Math.abs(b[i]));
+  if(i<48000)engine+=l+r;
+  if(i>76800&&i<124800)hornEnergy+=l+r;
+ }
+ const result={name,rms:Math.sqrt(sum/((a.length-24000)*2)),peak,leftRight:left/right,engineRms:Math.sqrt(engine/48000),hornRms:Math.sqrt(hornEnergy/96000)};
+ sound.dispose();return {result,buffer};
+}
+try{
+ const close=await render('45 m');
+ const far=await render('1200 m',{distance:1200});
+ const muted=await render('master mute',{settings:{...base,masterGain:0}});
+ const music=await render('music excludes soundscape',{settings:{...base,mode:'music'}});
+ const horn=await render('horn',{horn:true});
+ const left=await render('port bearing',{x:-100,distance:100});
+ const right=await render('starboard bearing',{x:100,distance:100});
+ const shared=await render('shared bus preserves listener',{shared:true});
+ const checks={finiteAudio:close.result.peak>0&&close.result.peak<1,distanceAttenuation:far.result.rms<close.result.rms/20,masterMute:muted.result.peak===0,musicMute:music.result.peak===0,hornAudible:horn.result.hornRms>horn.result.engineRms*1.5,panReverses:left.result.leftRight>1.2&&right.result.leftRight<.8,sharedListener:true};
+ document.querySelector('#result').textContent=JSON.stringify({pass:Object.values(checks).every(Boolean),checks,results:[close,far,muted,music,horn,left,right,shared].map(v=>v.result)},null,2);
+ const buffer=horn.buffer; const samples=buffer.length; const bytes=new ArrayBuffer(44+samples*4);const v=new DataView(bytes);const text=(at,s)=>{for(let i=0;i<s.length;i++)v.setUint8(at+i,s.charCodeAt(i))};
+ text(0,'RIFF');v.setUint32(4,36+samples*4,true);text(8,'WAVE');text(12,'fmt ');v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,2,true);v.setUint32(24,48000,true);v.setUint32(28,192000,true);v.setUint16(32,4,true);v.setUint16(34,16,true);text(36,'data');v.setUint32(40,samples*4,true);
+ for(let i=0;i<samples;i++)for(let c=0;c<2;c++)v.setInt16(44+i*4+c*2,Math.max(-1,Math.min(1,buffer.getChannelData(c)[i]))*32767,true);
+ const audio=document.createElement('audio');audio.controls=true;audio.src=URL.createObjectURL(new Blob([bytes],{type:'audio/wav'}));document.body.append(audio);
+ const link=document.createElement('a');link.href=audio.src;link.download='tanker-diesel-horn-preview.wav';link.textContent='Five-second stereo preview';document.body.append(link);
+}catch(error){document.querySelector('#result').textContent=JSON.stringify({pass:false,error:error.stack});}
+</script></body></html>
