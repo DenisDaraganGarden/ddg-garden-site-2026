@@ -29,6 +29,7 @@ import {
   stepBoatDynamics,
 } from './boatDynamics';
 import { resolveBoatCockpitSeal } from './boatCockpitSeal';
+import { installOpticsGeometryLod } from './opticsGeometryLod';
 
 // The boat floats: buoyancy probes read the height field, the hull follows it in
 // pitch, roll and heave, and a stencil cutout keeps the cockpit dry.
@@ -48,6 +49,7 @@ export default function FloatingBoat({
   onWorldPositionChange,
   isWorldPositionReportingActive,
   onLandingSurfaceReady,
+  useOpticsLod = false,
 }) {
   const anchorRef = useRef();
   const boatRef = useRef();
@@ -439,6 +441,15 @@ export default function FloatingBoat({
     clone.rotateY(Math.PI); // bow orientation — fine-tune via boatYaw if needed
     return clone;
   }, [obj, woodMaterial, metalMaterial, settings.boatScale]);
+
+  useEffect(
+    () => installOpticsGeometryLod(
+      clonedObj,
+      'models/boat/boat-optics.rlod',
+      useOpticsLod,
+    ),
+    [clonedObj, useOpticsLod],
+  );
 
   useLayoutEffect(() => {
     if (typeof onLandingSurfaceReady !== 'function' || !boatRef.current) {

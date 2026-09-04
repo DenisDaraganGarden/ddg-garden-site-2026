@@ -208,6 +208,7 @@ export default function HomeSeagullFlock({
     object.name = `seagull-${index + 1}`;
     object.userData.ddgSeagullRoot = true;
     object.userData.ddgReflectInWater = false;
+    object.userData.ddgRefractInWater = false;
     object.userData.ddgReflectionDynamic = false;
     object.traverse((child) => {
       if (!child.isMesh && !child.isSkinnedMesh) return;
@@ -540,6 +541,7 @@ export default function HomeSeagullFlock({
         });
       }
       instance.object.userData.ddgReflectInWater = reflectsInWater;
+      instance.object.userData.ddgRefractInWater = agent.shotState === SEAGULL_DOWNED_STATE.WATER;
       instance.object.userData.ddgReflectionDynamic = reflectsInWater;
       instance.object.visible = agent.shotState !== SEAGULL_DOWNED_STATE.REMOVED;
       instance.object.position.copy(agent.position);

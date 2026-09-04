@@ -11,11 +11,6 @@ import { seabedFragmentShader, seabedVertexShader } from '../shaders/waterRuntim
 export default function Seabed({ settings, runtime, qualityProfile, lighting }) {
   const materialRef = useRef();
   const { gl } = useThree();
-  const debugView = DEBUG_VIEW_IDS[settings.debugView] ?? 0;
-  const lightDirection = useMemo(
-    () => new THREE.Vector3().fromArray(lighting.key.direction),
-    [lighting],
-  );
   const texture = useLoader(THREE.TextureLoader, '/textures/seabed/seabed_texture.webp');
 
   useLayoutEffect(() => {
@@ -30,56 +25,34 @@ export default function Seabed({ settings, runtime, qualityProfile, lighting }) 
 
   const uniforms = useMemo(() => ({
     uNormalMap: { value: null },
-    uStateResolution: { value: new THREE.Vector2(settings.simulationResolution, settings.simulationResolution) },
-    uMoonDirection: { value: lightDirection.clone() },
-    uMoonColor: { value: new THREE.Color().fromArray(lighting.key.colorLinear) },
-    uMoonIntensity: { value: lighting.key.intensity },
-    uEnvironmentAmbientColor: {
-      value: new THREE.Color().fromArray(lighting.fill.colorLinear),
-    },
-    uEnvironmentDiffuse: { value: lighting.fill.intensity },
-    uWaterScatteringColor: {
-      value: new THREE.Color().fromArray(lighting.water.scatteringColor),
-    },
-    uWaterScatteringStrength: { value: settings.waterScatteringStrength },
+    uStateResolution: { value: new THREE.Vector2(1, 1) },
+    uMoonDirection: { value: new THREE.Vector3(0, 1, 0) },
+    uMoonColor: { value: new THREE.Color('#ffffff') },
+    uMoonIntensity: { value: 1 },
+    uEnvironmentAmbientColor: { value: new THREE.Color('#000000') },
+    uEnvironmentDiffuse: { value: 1 },
+    uWaterScatteringColor: { value: new THREE.Color('#000000') },
+    uWaterScatteringStrength: { value: 0 },
     uTime: { value: 0 },
-    uWaterDepth: { value: settings.waterDepthMeters },
-    uCausticsIntensity: { value: settings.causticsIntensity },
-    uCausticsScale: { value: settings.causticsScale },
-    uCausticsSharpness: { value: settings.causticsSharpness },
-    uReliefStrength: { value: settings.seabedReliefStrength },
-    uReliefScale: { value: settings.seabedReliefScale },
+    uWaterDepth: { value: 1 },
+    uCausticsIntensity: { value: 0 },
+    uCausticsScale: { value: 1 },
+    uCausticsSharpness: { value: 1 },
+    uReliefStrength: { value: 0 },
+    uReliefScale: { value: 1 },
     uSeabedTexture: { value: null },
-    uSeabedTextureScale: { value: settings.seabedTextureScale },
-    uSeabedSaturation: { value: settings.seabedSaturation },
-    uSeabedBrightness: { value: settings.seabedBrightness },
-    uSeabedVariation: { value: settings.seabedVariation },
-    uSeabedAoStrength: { value: settings.seabedAoStrength },
-    uWaterTurbidity: { value: settings.waterTurbidity },
+    uSeabedTextureScale: { value: 1 },
+    uSeabedSaturation: { value: 1 },
+    uSeabedBrightness: { value: 1 },
+    uSeabedVariation: { value: 0 },
+    uSeabedAoStrength: { value: 0 },
+    uWaterTurbidity: { value: 0 },
     uWaterEngine: { value: 1 },
-    uDebugView: { value: debugView },
-  }), [
-    debugView,
-    lightDirection,
-    lighting,
-    settings.causticsIntensity,
-    settings.causticsScale,
-    settings.causticsSharpness,
-    settings.seabedReliefScale,
-    settings.seabedReliefStrength,
-    settings.seabedSaturation,
-    settings.seabedBrightness,
-    settings.seabedAoStrength,
-    settings.seabedTextureScale,
-    settings.seabedVariation,
-    settings.simulationResolution,
-    settings.waterDepthMeters,
-    settings.waterScatteringStrength,
-    settings.waterTurbidity,
-  ]);
+    uDebugView: { value: 0 },
+  }), []);
 
   useEffect(() => {
-    uniforms.uMoonDirection.value.copy(lightDirection);
+    uniforms.uMoonDirection.value.fromArray(lighting.key.direction);
     uniforms.uMoonColor.value.fromArray(lighting.key.colorLinear);
     uniforms.uMoonIntensity.value = lighting.key.intensity;
     uniforms.uEnvironmentAmbientColor.value.fromArray(lighting.fill.colorLinear);
@@ -102,8 +75,6 @@ export default function Seabed({ settings, runtime, qualityProfile, lighting }) 
     uniforms.uWaterEngine.value = 1;
     uniforms.uDebugView.value = DEBUG_VIEW_IDS[settings.debugView] ?? 0;
   }, [
-    debugView,
-    lightDirection,
     lighting,
     settings.causticsIntensity,
     settings.causticsScale,

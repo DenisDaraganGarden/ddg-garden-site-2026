@@ -232,12 +232,16 @@ function WaterRuntimeScene({
   // orientation, while camera fitting uses the actual render band between the
   // cinematic bars.
   const hasWindow = typeof window !== 'undefined';
-  const activeLayoutKey = layoutOverride
-    ?? resolveLayoutKey(
+  const explicitLayout = layoutOverride && typeof layoutOverride === 'object'
+    ? layoutOverride
+    : null;
+  const activeLayoutKey = typeof layoutOverride === 'string'
+    ? layoutOverride
+    : resolveLayoutKey(
       hasWindow ? window.innerWidth : size.width,
       hasWindow ? window.innerHeight : size.height,
     );
-  const activeLayout = resolveLayout(settings.layouts, activeLayoutKey);
+  const activeLayout = explicitLayout ?? resolveLayout(settings.layouts, activeLayoutKey);
   const updateBoatAudioPosition = useMemo(() => (
     audioRuntime?.updateEmitter
       ? (x, y, z) => audioRuntime.updateEmitter('boat', x, y, z)
@@ -320,6 +324,8 @@ function WaterRuntimeScene({
         textureSize={qualityProfile.reflectionTextureSize}
         activeFps={qualityProfile.reflectionActiveFps}
         idleFps={qualityProfile.reflectionIdleFps}
+        refractionActiveFps={qualityProfile.refractionActiveFps}
+        refractionIdleFps={qualityProfile.refractionIdleFps}
       >
         <WaterLights
           settings={settings}
@@ -394,6 +400,7 @@ function WaterRuntimeScene({
             onWorldPositionChange={updateBoatAudioPosition}
             isWorldPositionReportingActive={audioRuntime?.isActive}
             onLandingSurfaceReady={handleLandingSurfaceReady}
+            useOpticsLod={qualityProfile.isMobileDevice}
           />
         ) : null}
         {settings.sculptureVisible ? (
@@ -405,6 +412,7 @@ function WaterRuntimeScene({
             orbitRef={orbitRef}
             onSculpturePositionChange={onSculpturePositionChange}
             onLandingSurfaceReady={handleLandingSurfaceReady}
+            useOpticsLod={qualityProfile.isMobileDevice}
           />
         ) : null}
         {settings.seagullsEnabled ? (

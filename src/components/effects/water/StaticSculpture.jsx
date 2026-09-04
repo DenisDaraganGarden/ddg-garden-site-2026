@@ -10,6 +10,7 @@ import {
   updateBlackStoneUniforms,
 } from './blackStoneMaterial';
 import { DEFAULT_SCULPTURE_ANCHOR, SCULPTURE_DRAG_EDGE_MARGIN, clamp } from './constants';
+import { installOpticsGeometryLod } from './opticsGeometryLod';
 
 // The sculpture stands on the seabed. It does not float, so its height is the base
 // offset rather than anything the simulation decides.
@@ -22,6 +23,7 @@ export default function StaticSculpture({
   orbitRef,
   onSculpturePositionChange,
   onLandingSurfaceReady,
+  useOpticsLod = false,
 }) {
   const anchorRef = useRef();
   const sculptureAnchorRef = useRef(new THREE.Vector3(
@@ -165,6 +167,15 @@ export default function StaticSculpture({
 
     return clone;
   }, [normalizedObj, sculptureMaterial]);
+
+  useEffect(
+    () => installOpticsGeometryLod(
+      clonedObj,
+      'models/sculpture/sculpture-optics.rlod',
+      useOpticsLod,
+    ),
+    [clonedObj, useOpticsLod],
+  );
 
   useEffect(() => {
     if (typeof onLandingSurfaceReady !== 'function' || !anchorRef.current) {
