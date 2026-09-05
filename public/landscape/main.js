@@ -50,25 +50,62 @@
     settleTimer = setTimeout(remember, 160);
   }, {passive: true});
 
-  // A wheel gesture owns one turn, including its trackpad inertia.
+  // Keep inertia in its gesture, but let a fresh flick interrupt the animation.
   const wheelPager = (element, turn, enabled = () => true) => {
-    let last = -Infinity, lockedUntil = 0, used = false, distance = 0;
+    let last = -Infinity, turnedAt = -Infinity, direction = 0;
+    let used = false, distance = 0, opposite = 0, peak = 0, previous = 0, tail = 0, rebound = null;
+    const begin = next => {
+      direction = next;
+      used = false;
+      distance = opposite = peak = previous = tail = 0;
+      rebound = null;
+    };
     element.addEventListener('wheel', event => {
       if (event.ctrlKey || event.metaKey || !enabled()) return;
       event.preventDefault();
+      const delta = (Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY)
+        * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? folio.clientHeight : 1);
+      if (!delta) return;
       const now = performance.now();
-      if (now - last > 220 && now > lockedUntil) {used = false; distance = 0;}
+      const sign = Math.sign(delta), magnitude = Math.abs(delta);
+      if (now - last > 110) begin(sign);
       last = now;
+
+      if (sign !== direction) {
+        // Tiny sign changes can be noise; an intentional reversal needs no lockout.
+        opposite += magnitude;
+        if (opposite < 24) return;
+        const carried = opposite - magnitude;
+        begin(sign);
+        distance = carried;
+      } else opposite = 0;
+
+      if (used) {
+        if (rebound && magnitude >= rebound.floor) {
+          const carried = rebound.distance;
+          begin(sign);
+          distance = carried;
+        } else {
+          rebound = null;
+          // Require a decayed tail and two renewed samples, not the initial ramp
+          // or a single irregular momentum sample, before accepting another flick.
+          if (tail >= 2 && now - turnedAt > 100 && magnitude >= Math.max(16, previous * 2)) {
+            rebound = {distance: magnitude, floor: Math.max(8, previous * 1.5)};
+          }
+        }
+      }
+      peak = Math.max(peak, magnitude);
+      tail = magnitude <= peak * .35 ? tail + 1 : 0;
+      previous = magnitude;
       if (used) return;
-      const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
-      distance += delta * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? folio.clientHeight : 1);
-      if (Math.abs(distance) < 24) return;
+      distance += magnitude;
+      if (distance < 24) return;
       used = true;
-      lockedUntil = now + 600;
-      turn(Math.sign(distance));
+      turnedAt = now;
+      turn(direction);
     }, {passive: false});
   };
-  wheelPager(folio, direction => go(current + direction), () => !document.querySelector('dialog[open]'));
+  wheelPager(folio, direction => go(destination + direction), () => !document.querySelector('dialog[open]'));
   wheelPager(viewer, direction => changeImage(imageIndex + direction));
 
   const closeDialog = dialog => new Promise(resolve => {
@@ -175,7 +212,7 @@
     element.addEventListener('pointercancel', event => {pointers.delete(event.pointerId);start = null;});
     return () => performance.now() < movedUntil;
   };
-  const folioSwiped = swipe(folio, direction => go(current + direction));
+  const folioSwiped = swipe(folio, direction => go(destination + direction));
   const viewerSwiped = swipe(viewer, direction => changeImage(imageIndex + direction), true);
   imageButtons.forEach((button, index) => button.addEventListener('click', () => {
     if (!folioSwiped()) openImage(index, button);
@@ -198,7 +235,7 @@
     const direction = ['ArrowDown','ArrowRight','PageDown',' '].includes(event.key) ? 1 : ['ArrowUp','ArrowLeft','PageUp'].includes(event.key) ? -1 : 0;
     if (direction || ['Home','End'].includes(event.key)) {
       event.preventDefault();
-      go(event.key === 'Home' ? 0 : event.key === 'End' ? sheets.length - 1 : current + direction);
+      go(event.key === 'Home' ? 0 : event.key === 'End' ? sheets.length - 1 : destination + direction);
     }
   });
   let lastHeight = folio.clientHeight, lastWidth = folio.clientWidth;
