@@ -1110,8 +1110,10 @@ const normalizeHomeSceneSettings = (savedSettings = {}, includeCameraSystem = tr
     fogMode: VALID_FOG_MODES.has(merged.fogMode) ? merged.fogMode : defaults.fogMode,
     fogColor: pickColor(merged.fogColor, defaults.fogColor),
     fogDensity: clampFloat(merged.fogDensity, 0, 1, defaults.fogDensity),
-    fogNear: clampFloat(merged.fogNear, 0, 100, defaults.fogNear),
-    fogFar: clampFloat(merged.fogFar, 0.1, 200, defaults.fogFar),
+    // Metres. The coast runs to 1.6 km and the tanker sails at 1.7 km; the old
+    // pond ceiling of 200 m put the whole shore in full fog, a veil and not a depth.
+    fogNear: clampFloat(merged.fogNear, 0, 2000, defaults.fogNear),
+    fogFar: clampFloat(merged.fogFar, 0.1, 4000, defaults.fogFar),
     fogNoiseScale: clampFloat(merged.fogNoiseScale, 0.1, 12, defaults.fogNoiseScale),
     fogSpeed: clampFloat(merged.fogSpeed, 0, 2, defaults.fogSpeed),
     fogScattering: clampFloat(merged.fogScattering, 0, 2, defaults.fogScattering),

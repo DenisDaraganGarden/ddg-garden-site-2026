@@ -333,8 +333,8 @@ export const FogSection = ({ settings, handleSettingChange }) => {
                 label={t('homeEditor.controls.fogNear')}
                 value={settings.fogNear}
                 min={0}
-                max={100}
-                step={0.5}
+                max={2000}
+                step={1}
                 unit="m"
                 formatValue={(value) => formatFloat(value, 1)}
                 onChange={(event) => handleSettingChange(event, 'fogNear')}
@@ -343,8 +343,8 @@ export const FogSection = ({ settings, handleSettingChange }) => {
                 label={t('homeEditor.controls.fogFar')}
                 value={settings.fogFar}
                 min={0.1}
-                max={200}
-                step={0.5}
+                max={4000}
+                step={1}
                 unit="m"
                 formatValue={(value) => formatFloat(value, 1)}
                 onChange={(event) => handleSettingChange(event, 'fogFar')}
