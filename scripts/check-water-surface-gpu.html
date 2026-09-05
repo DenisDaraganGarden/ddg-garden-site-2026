@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Unified water vertex GPU contract</title>
+<style>body{background:#f5f3ee;color:#222;font:14px monospace;padding:24px;white-space:pre-wrap}</style>
+<body>Checking unified WaterV2 vertex coordinates on the GPU…
+<script type="module">
+import * as THREE from 'three';
+import { waterV2VertexShader } from '/src/components/effects/shaders/waterV2Shaders.js';
+import { createCoastUniforms, syncCoastUniforms } from '/src/terrain/terrainShader.js';
+import { coastCoordinates, coastPondWeight, createTerrainDefinition, sampleCoastWave, shorePosition } from '/src/terrain/terrainModel.js';
+
+const assert=(ok,message)=>{if(!ok)throw new Error(message)};
+const smooth=(a,b,x)=>{const t=Math.max(0,Math.min(1,(x-a)/(b-a)));return t*t*(3-2*t)};
+const pondSurfaceEdgeFade=(uv,edge)=>{
+ const lower=[smooth(0,edge,uv[0]),smooth(0,edge,uv[1])];
+ const upper=[1-smooth(1-edge,1,uv[0]),1-smooth(1-edge,1,uv[1])];
+ return Math.max(0,Math.min(1,lower[0]*lower[1]*upper[0]*upper[1]));
+};
+const finitePixel=(pixel)=>pixel.every(Number.isFinite);
+const same=(left,right,tolerance=.0005)=>Math.abs(left-right)<tolerance;
+
+try {
+ const extent=34,edge=1.5/34,time=7.23,waveAmplitude=.045;
+ const terrain=createTerrainDefinition({terrainEnabled:true,terrainBearing:90,terrainOffset:12,terrainLength:1600,waterDepthMeters:1.25});
+ const stateTexture=new THREE.DataTexture(new Float32Array([.5,0,0,1]),1,1,THREE.RGBAFormat,THREE.FloatType);
+ const normalTexture=new THREE.DataTexture(new Float32Array([.5,1,.5,.75]),1,1,THREE.RGBAFormat,THREE.FloatType);
+ for(const texture of [stateTexture,normalTexture]){
+  texture.needsUpdate=true;texture.minFilter=THREE.NearestFilter;texture.magFilter=THREE.NearestFilter;
+  texture.colorSpace=THREE.NoColorSpace;
+ }
+ const uniforms={
+  ...createCoastUniforms(),
+  uState:{value:stateTexture},uNormalMap:{value:normalTexture},uKeyShadowMatrix:{value:new THREE.Matrix4()},
+  uWaveAmplitude:{value:waveAmplitude},uWaveChoppiness:{value:0},uSurfaceEdgeBlendUv:{value:edge},
+  uWaterExtent:{value:extent},uShoreMode:{value:0},uTime:{value:time},
+ };
+ syncCoastUniforms(uniforms,terrain);
+ const vertexShader=waterV2VertexShader.replace(
+  'gl_Position = vClipPosition;',
+  'gl_Position = vec4(0.0, 0.0, 0.0, 1.0); gl_PointSize = 1.0;',
+ );
+ const fragmentShader=`
+  precision highp float;
+  varying vec2 vUv;
+  varying vec3 vSurfaceWorldPosition;
+  varying float vHeightSample;
+  void main(){gl_FragColor=vec4(vSurfaceWorldPosition.y,vUv.x,vUv.y,vHeightSample);}
+ `;
+ const normalFragmentShader=`
+  precision highp float;
+  varying vec3 vWaterNormal;
+  varying vec3 vViewNormal;
+  void main(){gl_FragColor=vec4(vWaterNormal*.5+.5,vViewNormal.y*.5+.5);}
+ `;
+ const renderer=new THREE.WebGLRenderer({antialias:false,logarithmicDepthBuffer:false});
+ const gl=renderer.getContext();
+ assert(renderer.capabilities.isWebGL2||renderer.extensions.has('WEBGL_color_buffer_float'),'Float render target is unavailable');
+ renderer.setSize(1,1,false);
+ const target=new THREE.WebGLRenderTarget(1,1,{type:THREE.FloatType,format:THREE.RGBAFormat,depthBuffer:false,stencilBuffer:false,minFilter:THREE.NearestFilter,magFilter:THREE.NearestFilter});
+ const material=new THREE.ShaderMaterial({uniforms,vertexShader,fragmentShader,depthTest:false,depthWrite:false});
+ const normalMaterial=new THREE.ShaderMaterial({uniforms,vertexShader,fragmentShader:normalFragmentShader,depthTest:false,depthWrite:false});
+ const scene=new THREE.Scene(),camera=new THREE.Camera();
+ const geometry=new THREE.BufferGeometry();
+ geometry.setAttribute('position',new THREE.BufferAttribute(new Float32Array(3),3));
+ geometry.setAttribute('uv',new THREE.BufferAttribute(new Float32Array(2),2));
+ const point=new THREE.Points(geometry,material);scene.add(point);
+ const pixel=new Float32Array(4);
+ const render=(mode,x,z,output='surface')=>{
+  const uv=[x/extent+.5,.5-z/extent];
+  const position=geometry.getAttribute('position');
+  const uvAttribute=geometry.getAttribute('uv');
+  if(mode==='shore'){
+   position.setXYZ(0,x,0,z);uvAttribute.setXY(0,uv[0],uv[1]);point.rotation.set(0,0,0);
+   uniforms.uShoreMode.value=1;
+  }else{
+   position.setXYZ(0,x,-z,0);uvAttribute.setXY(0,uv[0],uv[1]);point.rotation.set(-Math.PI/2,0,0);
+   uniforms.uShoreMode.value=0;
+  }
+  position.needsUpdate=true;uvAttribute.needsUpdate=true;
+  point.material=output==='normal'?normalMaterial:material;
+  renderer.setRenderTarget(target);renderer.clear();renderer.render(scene,camera);
+  renderer.readRenderTargetPixels(target,0,0,1,1,pixel);
+  assert(finitePixel(pixel),`${mode} GPU output must be finite at ${x},${z}`);
+  return output==='normal'
+   ? {world:[pixel[0]*2-1,pixel[1]*2-1,pixel[2]*2-1],viewY:pixel[3]*2-1}
+   : {y:pixel[0],uv:[pixel[1],pixel[2]],heightSample:pixel[3]};
+ };
+ const samples=[
+  {x:0,z:0,label:'pond interior'},
+  {x:11.8,z:3.4,label:'shore seam'},
+  {x:-15.8,z:10.6,label:'left edge'},
+  {x:16.55,z:-15.9,label:'corner edge'},
+ ];
+ const results=[];
+ for(const sample of samples){
+  const uv=[sample.x/extent+.5,.5-sample.z/extent];
+  const local=coastCoordinates(sample.x,sample.z,terrain);
+  const q=local.u-shorePosition(local.s,terrain);
+  const pondWeight=coastPondWeight(q,local.s,terrain);
+  const fade=pondSurfaceEdgeFade(uv,edge)*pondWeight;
+  const expectedHeightSample=.5*fade;
+  const expectedY=sampleCoastWave(q,local.s,time,terrain)+expectedHeightSample*waveAmplitude;
+  const shore=render('shore',sample.x,sample.z);
+  const pond=render('pond',sample.x,sample.z);
+  const shoreNormal=render('shore',sample.x,sample.z,'normal');
+  const pondNormal=render('pond',sample.x,sample.z,'normal');
+  const waveAt=(x,z)=>{const next=coastCoordinates(x,z,terrain);return sampleCoastWave(next.u-shorePosition(next.s,terrain),next.s,time,terrain)};
+  const normalStep=.08,baseWave=waveAt(sample.x,sample.z);
+  const normalDx=(waveAt(sample.x+normalStep,sample.z)-baseWave)/normalStep;
+  const normalDz=(waveAt(sample.x,sample.z+normalStep)-baseWave)/normalStep;
+  const normalLength=Math.hypot(normalDx,1,normalDz);
+  const expectedNormal=[-normalDx/normalLength,1/normalLength,-normalDz/normalLength];
+  assert(same(shore.uv[0],uv[0],.00002)&&same(shore.uv[1],uv[1],.00002),`shore UV mismatch at ${sample.label}`);
+  assert(same(pond.uv[0],uv[0],.00002)&&same(pond.uv[1],uv[1],.00002),`pond UV mismatch at ${sample.label}`);
+  assert(same(shore.y,expectedY),`shore world Y mismatch at ${sample.label}: ${shore.y} vs ${expectedY}`);
+  assert(same(pond.y,expectedY),`pond world Y mismatch at ${sample.label}: ${pond.y} vs ${expectedY}`);
+  assert(same(shore.heightSample,expectedHeightSample),`shore height sample mismatch at ${sample.label}`);
+  assert(same(pond.heightSample,expectedHeightSample),`pond height sample mismatch at ${sample.label}`);
+  assert(same(shore.y,pond.y),`shore/pond boundary height mismatch at ${sample.label}: ${shore.y} vs ${pond.y}`);
+  for(const [index,axis] of ['x','y','z'].entries()){
+   assert(same(shoreNormal.world[index],expectedNormal[index],.002),`shore normal ${axis} mismatch at ${sample.label}`);
+   assert(same(pondNormal.world[index],expectedNormal[index],.002),`pond normal ${axis} mismatch at ${sample.label}`);
+   assert(same(shoreNormal.world[index],pondNormal.world[index],.002),`shore/pond normal ${axis} mismatch at ${sample.label}`);
+  }
+  assert(same(shoreNormal.viewY,expectedNormal[1],.002),`shore view normal mismatch at ${sample.label}`);
+  assert(same(pondNormal.viewY,expectedNormal[1],.002),`pond view normal mismatch at ${sample.label}`);
+  results.push({label:sample.label,uv,expectedY,expectedNormal,shore,pond,shoreNormal,pondNormal});
+ }
+ // Three caches a ShaderMaterial's uniform map on first program creation. This
+ // proves the exact renderer contract behind the day/night regression: replacing
+ // the map is ignored by the cached upload list, whereas mutating that first map
+ // and requesting an upload reaches the real GPU program.
+ const probeInitial={uProbe:{value:new THREE.Vector3(.13,.04,.01)}};
+ const probeReplacement={uProbe:{value:new THREE.Vector3(.01,.31,.07)}};
+ const probeMaterial=new THREE.ShaderMaterial({
+  uniforms:probeInitial,
+  vertexShader:'void main(){gl_Position=vec4(0.0,0.0,0.0,1.0);gl_PointSize=1.0;}',
+  fragmentShader:'uniform vec3 uProbe;void main(){gl_FragColor=vec4(uProbe,1.0);}',
+  depthTest:false,depthWrite:false,
+ });
+ const probeGeometry=new THREE.BufferGeometry();
+ probeGeometry.setAttribute('position',new THREE.BufferAttribute(new Float32Array([0,0,0]),3));
+ const probeScene=new THREE.Scene();probeScene.add(new THREE.Points(probeGeometry,probeMaterial));
+ const readProbe=()=>{
+  renderer.setRenderTarget(target);renderer.clear();renderer.render(probeScene,camera);renderer.readRenderTargetPixels(target,0,0,1,1,pixel);
+  assert(finitePixel(pixel),'Uniform replacement probe must be finite');return [pixel[0],pixel[1],pixel[2]];
+ };
+ const probeInitialPixel=readProbe();
+ probeMaterial.uniforms=probeReplacement;probeMaterial.uniformsNeedUpdate=true;
+ const probeReplacementPixel=readProbe();
+ assert(same(probeReplacementPixel[0],probeInitialPixel[0],.002)&&same(probeReplacementPixel[1],probeInitialPixel[1],.002)&&same(probeReplacementPixel[2],probeInitialPixel[2],.002),'Three renderer no longer caches the initial ShaderMaterial uniform map');
+ probeInitial.uProbe.value.set(.04,.22,.11);probeMaterial.uniformsNeedUpdate=true;
+ const probeMutatedPixel=readProbe();
+ assert(same(probeMutatedPixel[0],.04,.002)&&same(probeMutatedPixel[1],.22,.002)&&same(probeMutatedPixel[2],.11,.002),'In-place uniforms update did not reach the GPU');
+ const uniformMapContract={initial:probeInitialPixel,replacementAttempt:probeReplacementPixel,inPlaceMutation:probeMutatedPixel,replacementCached:true};
+ renderer.setRenderTarget(null);target.dispose();geometry.dispose();material.dispose();normalMaterial.dispose();probeGeometry.dispose();probeMaterial.dispose();stateTexture.dispose();normalTexture.dispose();renderer.dispose();renderer.forceContextLoss();renderer.domElement.remove();
+ document.body.dataset.status='pass';
+ document.body.textContent=JSON.stringify({status:'PASS',check:'actual unified WaterV2 vertex GPU coordinate and UV contract',samples:results,toleranceMetres:.0005,uniformMapContract},null,2);
+}catch(error){
+ document.body.dataset.status='fail';document.body.textContent=error.stack;throw error;
+}
+</script></body></html>

@@ -5,6 +5,7 @@ import { useHomeChromeVisibility } from '../features/home-scene/hooks/useHomeChr
 import { useSiteAudio } from '../features/audio/SiteAudioContext';
 import {
     getLayoutVisibleAspect,
+    resolveLayout,
     resolveLayoutFrameInset,
     resolveLayoutKey,
 } from '../features/home-scene/lib/layout';
@@ -150,17 +151,18 @@ function useHomeSceneSlideshow(settings, isSceneReady) {
             return undefined;
         }
 
-        let settleTimerId;
-        const animationFrameId = window.requestAnimationFrame(() => {
-            settleTimerId = window.setTimeout(() => setPhase('fade-in'), BLACK_FRAME_SETTLE_MS);
-        });
+        // Mobile Safari throttles animation frames once the opaque black layer
+        // fully occludes WebGL. Waiting for one of those frames therefore held
+        // the cut for several seconds on a real iPhone. The camera settings are
+        // already committed in the same React update; a short task is enough to
+        // let the reconciler settle without making progress depend on WebGL
+        // remaining visible behind an opaque layer.
+        const settleTimerId = window.setTimeout(
+            () => setPhase('fade-in'),
+            BLACK_FRAME_SETTLE_MS,
+        );
 
-        return () => {
-            window.cancelAnimationFrame(animationFrameId);
-            if (settleTimerId !== undefined) {
-                window.clearTimeout(settleTimerId);
-            }
-        };
+        return () => window.clearTimeout(settleTimerId);
     }, [canAdvance, isDocumentVisible, phase]);
 
     useEffect(() => {
@@ -207,6 +209,17 @@ const Home = () => {
     const [showLoaderOverlay, setShowLoaderOverlay] = useState(true);
     const slideshow = useHomeSceneSlideshow(settings, isSceneReady);
     const activeSettings = slideshow.activeSettings;
+    // Layouts own camera/object composition. Keep them out of the scene-wide
+    // settings identity so a pure camera cut does not restart every lighting,
+    // water, creature and material effect on mobile. When a snapshot really
+    // changes one of those values, its fingerprint changes and the full scene
+    // state is still applied atomically with the new layout.
+    const { layouts: activeLayouts, ...activeSceneSettings } = activeSettings;
+    const activeSceneFingerprint = JSON.stringify(activeSceneSettings);
+    const stableSceneSettings = useMemo(
+        () => JSON.parse(activeSceneFingerprint),
+        [activeSceneFingerprint],
+    );
     const audioSettingsFingerprint = JSON.stringify(settings.audio);
     const [viewport, setViewport] = useState(() => {
         const width = typeof window === 'undefined' ? 16 : window.innerWidth;
@@ -304,7 +317,8 @@ const Home = () => {
         setIsSceneReady(true);
     }, []);
 
-    const frameInset = resolveLayoutFrameInset(activeSettings.layouts, viewport.layoutKey);
+    const activeLayout = resolveLayout(activeLayouts, viewport.layoutKey);
+    const frameInset = resolveLayoutFrameInset(activeLayouts, viewport.layoutKey);
     const visibleAspect = getLayoutVisibleAspect(viewport.layoutKey, frameInset);
     const viewportAspect = viewport.height > 0 ? viewport.width / viewport.height : visibleAspect;
     const viewportFrameInset = Math.min(
@@ -351,7 +365,9 @@ const Home = () => {
                 className={`home-water-container ${isSceneReady ? 'home-water-container--visible' : ''}`}
             >
                 <WaterScene
-                    settings={activeSettings}
+                    settings={stableSceneSettings}
+                    layoutOverride={activeLayout}
+                    cameraPoseKey={slideshow.activeCamera?.id}
                     sceneId="water-scene"
                     onSceneReady={handleSceneReady}
                     audioRuntime={audioRuntime}

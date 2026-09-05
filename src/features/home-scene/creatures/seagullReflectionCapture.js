@@ -30,3 +30,21 @@ export function hideExcludedSeagullReflections(root) {
     for (const object of hiddenObjects) object.visible = true;
   };
 }
+
+export function hideExcludedSeagullRefractions(root) {
+  const hiddenObjects = [];
+  if (!root?.traverse) return () => {};
+
+  root.traverse((object) => {
+    if (!object.visible) return;
+    const excludedBird = object.userData?.ddgSeagullRoot
+      && object.userData.ddgRefractInWater !== true;
+    if (!excludedBird && !object.userData?.ddgNoWaterReflection) return;
+    hiddenObjects.push(object);
+    object.visible = false;
+  });
+
+  return () => {
+    for (const object of hiddenObjects) object.visible = true;
+  };
+}

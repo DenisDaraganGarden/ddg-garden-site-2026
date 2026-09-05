@@ -220,6 +220,8 @@ export function SiteAudioProvider({ children }) {
 
   const runtime = React.useMemo(() => ({
     isActive: () => siteAudioEngine.isSpatialTrackingActive(),
+    updateTanker: state => siteAudioEngine.updateTanker(state),
+    releaseTanker: () => siteAudioEngine.releaseTanker(),
     updateListener: (position, forward, up) => siteAudioEngine.updateListener(position, forward, up),
     updateEmitter: (emitterId, x, y, z, immediate) => (
       siteAudioEngine.updateEmitter(emitterId, x, y, z, immediate)

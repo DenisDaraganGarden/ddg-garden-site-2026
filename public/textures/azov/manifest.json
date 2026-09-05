@@ -1,0 +1,43 @@
+{
+  "generator": "scripts/terrain/generate-pbr.py",
+  "seed": 37091,
+  "resolution": 1024,
+  "format": "WebP, color quality 92; lossless data",
+  "license": "project-generated procedural maps",
+  "encoding": {
+    "color": "sRGB",
+    "normal": "linear, tangent +Y",
+    "surface": "linear: R roughness, G AO, B height centred at 0.5"
+  },
+  "materials": {
+    "sand": {
+      "tileMetres": 1.2,
+      "heightRangeMetres": 0.018
+    },
+    "shells": {
+      "tileMetres": 1.2,
+      "heightRangeMetres": 0.024
+    },
+    "sandstone": {
+      "tileMetres": 2.8,
+      "heightRangeMetres": 0.05
+    },
+    "ground-fresh": {
+      "tileMetres": 1.6,
+      "heightRangeMetres": 0.016
+    },
+    "ground-dry": {
+      "tileMetres": 1.6,
+      "heightRangeMetres": 0.016
+    },
+    "loam": {
+      "tileMetres": 1.8,
+      "heightRangeMetres": 0.04
+    }
+  },
+  "groundGenerator": {
+    "script": "scripts/terrain/generate-ground-pbr.py",
+    "seed": 37912
+  },
+  "mobileResolution": 512
+}

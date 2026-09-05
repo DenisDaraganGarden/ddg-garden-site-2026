@@ -1,3 +1,13 @@
+import CoastShrubs from '../../plants/CoastShrubs.jsx';
+import {createCoastPlanting} from '../../plants/coastPlanting.js';
+import {shrubAssetSettings} from '../../plants/settings.js';
+import {createPlantCover} from '../../plants/plantCover.js';
+import {coastWeather,terrainGeometryKey} from '../../terrain/settings.js';
+import { createTerrainCollider } from '../../terrain/terrainCollider.js';
+import { buildCoastRocks, attachRockCollisions } from '../../terrain/terrainRocks.js';
+import AzovTerrain from '../../terrain/AzovTerrain.jsx';
+import { createTerrainDefinition, createTerrainQuery } from '../../terrain/terrainModel.js';
+import HomeTanker from '../../tanker/HomeTanker.jsx';
 import React, {
   useCallback,
   useEffect,
@@ -171,6 +181,25 @@ function WaterRuntimeScene({
     () => buildRuntimeQualityProfile(mode, size.width, renderTargetCapabilities),
     [mode, renderTargetCapabilities, size.width],
   );
+  const terrainKey = JSON.stringify(Object.fromEntries(Object.entries(settings).filter(([key]) => key.startsWith('terrain') || key === 'waterDepthMeters')));
+  const terrainDefinition = useMemo(() => createTerrainDefinition(JSON.parse(terrainKey)), [terrainKey]);
+  const rockKey=JSON.stringify({...JSON.parse(terrainGeometryKey(terrainDefinition)),terrainRocks:terrainDefinition.terrainRocks});
+  const rockDefinition=useMemo(()=>createTerrainDefinition(JSON.parse(rockKey)),[rockKey]);
+  const terrainRocks=useMemo(()=>buildCoastRocks(rockDefinition),[rockDefinition]);
+  const queryKey=JSON.stringify(Object.fromEntries(Object.entries(terrainDefinition).filter(([key])=>!['terrainTextureScale','terrainParallax','terrainGroundCover','terrainBloom'].includes(key))));
+  const queryDefinition=useMemo(()=>createTerrainDefinition(JSON.parse(queryKey)),[queryKey]);
+  const terrainQuery = useMemo(() => {
+    if(!settings.terrainEnabled)return null;
+    const query=attachRockCollisions(createTerrainQuery(queryDefinition),terrainRocks);
+    query.collisionObject=createTerrainCollider(query);
+    return query;
+  }, [queryDefinition, terrainRocks, settings.terrainEnabled]);
+  const shrubKey=JSON.stringify(Object.fromEntries(Object.entries(settings).filter(([key])=>key.startsWith('shrubs'))));
+  const shrubSettings=useMemo(()=>JSON.parse(shrubKey),[shrubKey]);
+  const shrubAsset=useMemo(()=>shrubAssetSettings(shrubSettings,{speed:coastWeather(terrainDefinition).wind,bearing:terrainDefinition.terrainWindBearing}),[shrubSettings,terrainDefinition]);
+  const shrubPlants=useMemo(()=>createCoastPlanting(terrainQuery,queryDefinition,shrubSettings),[terrainQuery,queryDefinition,shrubSettings]);
+  const shrubCover=useMemo(()=>createPlantCover(shrubPlants,256),[shrubPlants]);
+  useEffect(()=>()=>shrubCover.dispose(),[shrubCover]);
   const lighting = useMemo(() => buildHomeSceneLighting(settings), [settings]);
   // One sky, built once, handed to everything that has to agree about it: the
   // visible dome, the water that reflects it, and (from Phase 2) the image-based
@@ -198,10 +227,11 @@ function WaterRuntimeScene({
   const [landingSurfaces, setLandingSurfaces] = useState({
     boat: null,
     sculpture: null,
+    terrain: null,
   });
   const handleLandingSurfaceReady = useCallback((surface) => {
     const key = surface?.surface;
-    if (key !== 'boat' && key !== 'sculpture') return;
+    if (!['boat','sculpture','terrain'].includes(key)) return;
     setLandingSurfaces((current) => {
       const nextSurface = surface.root ? surface : null;
       if (
@@ -246,12 +276,16 @@ function WaterRuntimeScene({
   // keeps its bucket in either orientation), while camera fitting uses the
   // actual render band between the cinematic bars.
   const hasWindow = typeof window !== 'undefined';
-  const activeLayoutKey = layoutOverride
-    ?? resolveLayoutKey(
+  const explicitLayout = layoutOverride && typeof layoutOverride === 'object'
+    ? layoutOverride
+    : null;
+  const activeLayoutKey = typeof layoutOverride === 'string'
+    ? layoutOverride
+    : resolveLayoutKey(
       hasWindow ? window.innerWidth : size.width,
       hasWindow ? window.innerHeight : size.height,
     );
-  const activeLayout = resolveLayout(settings.layouts, activeLayoutKey);
+  const activeLayout = explicitLayout ?? resolveLayout(settings.layouts, activeLayoutKey);
   // Editor-only viewport bookmark: only the rig looks from it. The boat, the
   // sculpture and the frame stay on the authored layout.
   const workCamera = mode === 'editor'
@@ -355,8 +389,11 @@ function WaterRuntimeScene({
         textureSize={qualityProfile.reflectionTextureSize}
         activeFps={qualityProfile.reflectionActiveFps}
         idleFps={qualityProfile.reflectionIdleFps}
+        refractionActiveFps={qualityProfile.refractionActiveFps}
+        refractionIdleFps={qualityProfile.refractionIdleFps}
       >
         <WaterLights
+          terrainQuery={terrainQuery}
           settings={settings}
           mode={mode}
           qualityProfile={qualityProfile}
@@ -364,6 +401,9 @@ function WaterRuntimeScene({
           sky={sky}
           layout={activeLayout}
         />
+        {terrainQuery ? <primitive object={terrainQuery.collisionObject}/> : null}
+        {terrainQuery&&settings.shrubsEnabled ? <CoastShrubs settings={shrubAsset} plants={shrubPlants} qualityProfile={qualityProfile}/> : null}
+        {settings.terrainEnabled ? <AzovTerrain plantCover={shrubCover} rocks={terrainRocks} onTerrainReady={handleLandingSurfaceReady} audioRuntime={audioRuntime} runtime={runtime} definition={terrainDefinition} settings={settings} qualityProfile={qualityProfile} lighting={lighting} sky={sky} /> : null}
         {settings.seabedVisible ? (
           <Seabed
             settings={settings}
@@ -384,6 +424,7 @@ function WaterRuntimeScene({
         && settings.fishEnabled
         && settings.fishCount > 0 ? (
           <HomeFishSchool
+            terrainQuery={terrainQuery}
             settings={settings}
             runtime={runtime}
             qualityProfile={qualityProfile}
@@ -409,6 +450,7 @@ function WaterRuntimeScene({
         ) : null}
         {settings.liliesVisible ? (
           <SurfaceVegetation
+            terrainQuery={terrainQuery}
             settings={settings}
             runtime={runtime}
             qualityProfile={qualityProfile}
@@ -429,10 +471,13 @@ function WaterRuntimeScene({
             onWorldPositionChange={updateBoatAudioPosition}
             isWorldPositionReportingActive={audioRuntime?.isActive}
             onLandingSurfaceReady={handleLandingSurfaceReady}
+            useOpticsLod
           />
         ) : null}
+        {settings.tankerVisible ? <HomeTanker settings={settings} lighting={lighting} audioRuntime={audioRuntime} /> : null}
         {settings.sculptureVisible ? (
           <StaticSculpture
+            terrainQuery={terrainQuery}
             settings={settings}
             lighting={lighting}
             layout={activeLayout}
@@ -440,12 +485,15 @@ function WaterRuntimeScene({
             orbitRef={orbitRef}
             onSculpturePositionChange={onSculpturePositionChange}
             onLandingSurfaceReady={handleLandingSurfaceReady}
+            useOpticsLod
           />
         ) : null}
         {settings.seagullsEnabled ? (
           <SeagullLandingHabitat
             boatSurface={landingSurfaces.boat}
             sculptureSurface={landingSurfaces.sculpture}
+            terrainSurface={landingSurfaces.terrain}
+            terrainQuery={terrainQuery}
             landingSitesRef={landingSitesRef}
           />
         ) : null}
@@ -455,12 +503,14 @@ function WaterRuntimeScene({
             runtime={runtime}
             qualityProfile={qualityProfile}
             landingSitesRef={landingSitesRef}
+            terrainQuery={terrainQuery}
             mode={mode}
           />
         ) : null}
         <SceneLightObjects settings={settings} />
         {cursorFlashlight.available ? <CursorSpotlight /> : null}
         <WaterInteractionPlane
+            terrainQuery={terrainQuery}
           debug={Boolean(settings.showPointerDebug)}
           settings={settings}
           pointerStateRef={runtime.pointerStateRef}

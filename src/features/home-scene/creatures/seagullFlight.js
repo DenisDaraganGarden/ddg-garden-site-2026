@@ -353,6 +353,7 @@ export function updateFlightAgents(
   mode,
   landingSites = [],
   interactionTime = time,
+  terrainQuery = null,
 ) {
   const specimen = mode === 'specimen';
   if (specimen) {
@@ -400,6 +401,9 @@ export function updateFlightAgents(
   for (const agent of agents) {
     if (agent.shotState) continue;
     if (landingMode && updateLandingMotion(agent, time, delta, landingSites)) {
+      if(terrainQuery && (agent.landingState===LANDING_STATE.APPROACH || agent.landingState===LANDING_STATE.TAKEOFF)){
+        agent.position.y=Math.max(agent.position.y,terrainQuery.heightAt(agent.position.x,agent.position.z)+.17);
+      }
       if (agent.state === 'flap') agent.phase += delta * agent.flapFrequency * Math.PI * 2;
       else agent.phase += delta * Math.PI * 0.25;
       continue;
@@ -414,6 +418,11 @@ export function updateFlightAgents(
       agent.phase += delta * Math.PI * 0.25;
     }
     writeTarget(agent, time, mode);
+    if (terrainQuery) {
+      const aheadX=agent.position.x+agent.velocity.x*1.1,aheadZ=agent.position.z+agent.velocity.z*1.1;
+      const ground=Math.max(terrainQuery.heightAt(agent.target.x,agent.target.z),terrainQuery.heightAt(aheadX,aheadZ));
+      agent.target.y=Math.max(agent.target.y,ground+.8);
+    }
     freeAgents.push(agent);
   }
 
@@ -422,8 +431,10 @@ export function updateFlightAgents(
   for (const agent of freeAgents) {
     const response = 1 - Math.exp(-delta * (agent.formation ? 3.4 : 2.15));
     agent.position.lerp(agent.target, response);
+    if(terrainQuery)agent.position.y=Math.max(agent.position.y,terrainQuery.heightAt(agent.position.x,agent.position.z)+.32);
   }
   solveSeparation(freeAgents, 'position', 5);
+  if(terrainQuery)for(const agent of freeAgents)agent.position.y=Math.max(agent.position.y,terrainQuery.heightAt(agent.position.x,agent.position.z)+.32);
 
   const safeDelta = Math.max(delta, 1 / 240);
   for (const agent of freeAgents) {

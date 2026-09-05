@@ -40,7 +40,7 @@ export function detectQualityTier() {
 
 // A phone is a small screen, not a lesser version of the scene. Only temporary
 // GPU allocations shrink here; flora, fauna and mesh density stay authored.
-function trimProfileForMobile(profile, isMobileDevice) {
+export function trimProfileForMobile(profile, isMobileDevice) {
   if (!isMobileDevice) {
     return profile;
   }
@@ -57,7 +57,19 @@ function trimProfileForMobile(profile, isMobileDevice) {
     // film gate. At DPR 2, a 512px long edge keeps refracted reeds and fish
     // coherent while the main canvas saves far more shaded pixels than it costs.
     reflectionTextureSize: 512,
-    postSamples: Math.min(profile.postSamples, 2),
+    // Continuous fish motion used to force both full optics passes on every
+    // 25-30 FPS phone frame. Holding the capture at a cinematic 20 FPS keeps
+    // the water alive while leaving real frames for the main scene.
+    reflectionActiveFps: Math.min(profile.reflectionActiveFps, 20),
+    reflectionIdleFps: Math.min(profile.reflectionIdleFps, 12),
+    refractionActiveFps: Math.min(profile.refractionActiveFps ?? profile.reflectionActiveFps, 12),
+    refractionIdleFps: Math.min(profile.refractionIdleFps ?? profile.reflectionIdleFps, 8),
+    // At DPR 2 the post target already has four physical pixels per CSS pixel.
+    // Resolving another multisampled HDR target was expensive on iOS and made
+    // a smaller visual difference than restoring stable motion.
+    postSamples: 0,
+    sunRaySampleCount: Math.min(profile.sunRaySampleCount ?? 18, 12),
+    fogSampleCount: Math.min(profile.fogSampleCount ?? 8, 4),
     shadowMapSize: Math.min(profile.shadowMapSize, 512),
   };
 }
@@ -116,11 +128,14 @@ export function buildRuntimeQualityProfile(mode, viewportWidth, capabilities = n
       // weakest tier needs the reflection to move with the water, not step.
       reflectionActiveFps: 20,
       reflectionIdleFps: 10,
+      refractionActiveFps: 20,
+      refractionIdleFps: 10,
       reflectionTextureSize: 160,
       refractionTextureType: THREE.UnsignedByteType,
       refractionDepthEnabled: false,
       postRenderScale: 0.75,
       postSamples: 0,
+      fogSampleCount: 8,
       waterMeshDensityCap: 104,
       seabedMeshDensity: 96,
       shadowMapSize: 384,
@@ -144,11 +159,14 @@ export function buildRuntimeQualityProfile(mode, viewportWidth, capabilities = n
       simulationMaxResolution: isEditor ? 384 : 512,
       reflectionActiveFps: isEditor ? 30 : 30,
       reflectionIdleFps: isEditor ? 20 : 15,
+      refractionActiveFps: isEditor ? 30 : 30,
+      refractionIdleFps: isEditor ? 20 : 15,
       reflectionTextureSize: isEditor ? 768 : 384,
       refractionTextureType: THREE.HalfFloatType,
       refractionDepthEnabled: true,
       postRenderScale: 1,
       postSamples: 2,
+      fogSampleCount: 8,
       waterMeshDensityCap: isEditor ? 224 : 176,
       seabedMeshDensity: 144,
       shadowMapSize: isEditor ? 1024 : 768,
@@ -171,11 +189,14 @@ export function buildRuntimeQualityProfile(mode, viewportWidth, capabilities = n
     simulationMaxResolution: 512,
     reflectionActiveFps: isEditor ? 60 : 60,
     reflectionIdleFps: isEditor ? 30 : 20,
+    refractionActiveFps: isEditor ? 60 : 60,
+    refractionIdleFps: isEditor ? 30 : 20,
     reflectionTextureSize: isEditor ? 1024 : 768,
     refractionTextureType: THREE.HalfFloatType,
     refractionDepthEnabled: true,
     postRenderScale: 1,
     postSamples: 4,
+    fogSampleCount: 8,
     waterMeshDensityCap: isEditor ? 352 : 224,
     seabedMeshDensity: 176,
     shadowMapSize: isEditor ? 2048 : 1024,

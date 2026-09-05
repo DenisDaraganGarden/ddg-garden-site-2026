@@ -1,3 +1,6 @@
+import { createCoastUniforms, syncCoastUniforms } from '../../../terrain/terrainShader.js';
+import { createTerrainDefinition,coastCoordinates,shorePosition,sampleCoastWave,coastPondWeight } from '../../../terrain/terrainModel.js';
+import { buildFarWaterFieldData } from './farWaterGeometry';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
@@ -38,8 +41,13 @@ const createProbeResults = () => Array.from({ length: 5 }, () => ({
   normal: new THREE.Vector3(0, 1, 0),
 }));
 
+const PROBE_UP = new THREE.Vector3(0, 1, 0);
+
 const createProbeSlot = () => ({
   buffer: new Uint8Array(5 * 4),
+  // The points the pending read was rendered for. The coast terms below are
+  // evaluated at these, not at whatever the caller asks for when the fence lands.
+  points: Array.from({ length: 5 }, () => new THREE.Vector3()),
   results: createProbeResults(),
   hasData: false,
   pending: false,
@@ -61,6 +69,12 @@ const decodeProbeBuffer = (buffer, results) => {
 
 export function useWaterRuntime(settings, qualityProfile, mode) {
   const { gl } = useThree();
+  const coastDefinitionRef=useRef();coastDefinitionRef.current=createTerrainDefinition(settings);
+  const coastTimeRef=useRef(0);
+  const sampleCoastWaveAt=useCallback((x,z)=>{
+    const p=coastDefinitionRef.current;if(!p.terrainEnabled)return 0;
+    const {u,s}=coastCoordinates(x,z,p);return sampleCoastWave(u-shorePosition(s,p),s,coastTimeRef.current,p);
+  },[]);
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
   const stateRef = useRef(null);
@@ -168,6 +182,9 @@ export function useWaterRuntime(settings, qualityProfile, mode) {
       magFilter: THREE.NearestFilter,
     });
     const simulationPass = createPass(simulationFragmentShader, {
+      ...createCoastUniforms(),
+      uWaterExtent: {value:runtimeSettings.waterExtent},
+      uBoundaryBlendUv: { value: buildFarWaterFieldData(runtimeSettings.waterExtent).surfaceEdgeBlendUv },
       uState: { value: read.texture },
       uResolution: { value: new THREE.Vector2(effectiveResolution, effectiveResolution) },
       uPointerUv: { value: new THREE.Vector2(0.5, 0.5) },
@@ -251,6 +268,7 @@ export function useWaterRuntime(settings, qualityProfile, mode) {
   }, [gl, renderState]);
 
   useFrame((_, delta) => {
+    coastTimeRef.current=_.clock.elapsedTime;
     if (!isDocumentCurrentlyVisible()) {
       simulationAccumulatorRef.current = 0;
       return;
@@ -292,6 +310,9 @@ export function useWaterRuntime(settings, qualityProfile, mode) {
       pointerState.recentImpulseSource = activeImpulse.source ?? 'external';
     }
 
+    syncCoastUniforms(renderState.simulationPass.material.uniforms,settings);
+    renderState.simulationPass.material.uniforms.uWaterExtent.value=settings.waterExtent;
+    renderState.simulationPass.material.uniforms.uBoundaryBlendUv.value=buildFarWaterFieldData(settings.waterExtent).surfaceEdgeBlendUv;
     renderState.simulationPass.material.uniforms.uState.value = renderState.read.texture;
     renderState.simulationPass.material.uniforms.uResolution.value.set(effectiveResolution, effectiveResolution);
     renderState.simulationPass.material.uniforms.uPointerUv.value.copy(activeImpulse?.uv ?? pointerState.impulseUv);
@@ -338,6 +359,29 @@ export function useWaterRuntime(settings, qualityProfile, mode) {
   // A fenced read costs the CPU nothing. Three issues the readPixels into a
   // buffer object at once and only waits on the fence, so each read holds the
   // render that preceded it even with several in flight.
+  // The simulation is only water where the coast says so: past the shoreline
+  // its height fades to nothing and the analytic swell takes over, so a probe
+  // answer is the pond wave weighted by the shore plus the coast wave at that
+  // point. worldHeight is that sum in metres; height stays the raw pond sample.
+  const applyCoastToProbes = useCallback((points, results) => {
+    const definition = coastDefinitionRef.current;
+    const waveAmplitude = settingsRef.current.waveAmplitude;
+    const e = 0.08;
+    for (let index = 0; index < 5; index += 1) {
+      const point = points[index];
+      const result = results[index];
+      const { u, s } = coastCoordinates(point.x, point.z, definition);
+      const pondWeight = coastPondWeight(u - shorePosition(s, definition), s, definition);
+      const wave = sampleCoastWaveAt(point.x, point.z);
+      result.height *= pondWeight;
+      result.normal.lerp(PROBE_UP, 1 - pondWeight).normalize();
+      result.worldHeight = result.height * waveAmplitude + wave;
+      result.normal.x -= (sampleCoastWaveAt(point.x + e, point.z) - wave) / e;
+      result.normal.z -= (sampleCoastWaveAt(point.x, point.z + e) - wave) / e;
+      result.normal.normalize();
+    }
+  }, [sampleCoastWaveAt]);
+
   const probeSlotsRef = useRef(new Map());
   const getProbeSlot = useCallback((key) => {
     let slot = probeSlotsRef.current.get(key);
@@ -379,9 +423,13 @@ export function useWaterRuntime(settings, qualityProfile, mode) {
     if (gl.capabilities.isWebGL2) {
       if (!slot.pending) {
         slot.pending = true;
+        for (let index = 0; index < 5; index += 1) {
+          slot.points[index].copy(worldPoints[index]);
+        }
         gl.readRenderTargetPixelsAsync(renderState.probe, 0, 0, 5, 1, slot.buffer)
           .then(() => {
             decodeProbeBuffer(slot.buffer, slot.results);
+            applyCoastToProbes(slot.points, slot.results);
             slot.hasData = true;
           })
           .catch(() => {})
@@ -399,9 +447,10 @@ export function useWaterRuntime(settings, qualityProfile, mode) {
     gl.readRenderTargetPixels(renderState.probe, 0, 0, 5, 1, slot.buffer);
     restoreDefaultFramebuffer(gl);
     decodeProbeBuffer(slot.buffer, slot.results);
+    applyCoastToProbes(worldPoints, slot.results);
     slot.hasData = true;
     return slot.results;
-  }, [getProbeSlot, gl, renderProbes, renderState]);
+  }, [applyCoastToProbes, getProbeSlot, gl, renderProbes, renderState]);
 
   // A one-off sample of a point that changes every call (a fish, a downed
   // gull) resolves with the answer for exactly that point, when its fence
@@ -435,16 +484,20 @@ export function useWaterRuntime(settings, qualityProfile, mode) {
 
     const x = worldPoint.x;
     const z = worldPoint.z;
-    const waveAmplitude = settings.waveAmplitude;
+    // Captured now: the shared sample points are reused by the next caller
+    // before this fence lands.
+    const samplePoint = new THREE.Vector3(x, 0, z);
+    const samplePoints = [samplePoint, samplePoint, samplePoint, samplePoint, samplePoint];
     const buffer = new Uint8Array(5 * 4);
     const finish = () => {
       const results = createProbeResults();
       decodeProbeBuffer(buffer, results);
+      applyCoastToProbes(samplePoints, results);
       const result = {
         height: results[0].height,
-        // The visible water mesh applies this same vertical scale. Its base
-        // plane is world y=0; a future translated surface can add its origin.
-        worldY: results[0].height * waveAmplitude,
+        // Pond wave in metres plus the coast swell. The water mesh applies the
+        // same vertical scale; its base plane is world y=0.
+        worldY: results[0].worldHeight,
         normal: results[0].normal,
       };
       cache.x = x;
@@ -464,7 +517,7 @@ export function useWaterRuntime(settings, qualityProfile, mode) {
     gl.readRenderTargetPixels(renderState.probe, 0, 0, 5, 1, buffer);
     restoreDefaultFramebuffer(gl);
     return Promise.resolve(finish());
-  }, [gl, renderProbes, renderState, settings.waterExtent, settings.waveAmplitude]);
+  }, [applyCoastToProbes, gl, renderProbes, renderState, settings.waterExtent]);
 
   return {
     currentStateTargetRef: stateRef,
@@ -472,6 +525,7 @@ export function useWaterRuntime(settings, qualityProfile, mode) {
     pointerStateRef,
     emitWaterImpulse,
     sampleBoatProbes,
+    sampleCoastWaveAt,
     sampleWaterSurface,
     effectiveResolution,
   };

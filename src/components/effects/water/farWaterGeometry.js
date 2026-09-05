@@ -1,5 +1,8 @@
 export const FAR_WATER_RADIUS = 40000;
-export const FAR_WATER_BLEND_WIDTH = 0.4;
+// The overlap is deliberately wide enough to dissipate a cursor ripple before
+// it reaches the finite simulation edge. A sub-metre fade made that edge read
+// as a square outline in close shore views.
+export const FAR_WATER_BLEND_WIDTH = 1.5;
 
 const finite = (value, fallback) => {
   const next = Number(value);
@@ -36,6 +39,23 @@ export function buildFarWaterFieldData(
     innerHalfExtent,
     outerRadius: radius,
     surfaceBlendWidth: FAR_WATER_BLEND_WIDTH,
-    surfaceEdgeBlendUv: Math.min(FAR_WATER_BLEND_WIDTH / extent, 0.08),
+    // Settings constrain the rendered pond to at least 12 m, so this remains
+    // comfortably below one UV half while staying metrically identical to the
+    // far-water overlap at every supported extent.
+    surfaceEdgeBlendUv: FAR_WATER_BLEND_WIDTH / extent,
   };
+}
+
+// Mirrors the vertex shader's finite-pond mask. Keeping it here makes the
+// numerical seam contract testable without asking a GPU to render a frame.
+export function pondSurfaceEdgeFade(uv, edgeBlendUv) {
+  const smoothstep = (from, to, value) => {
+    const t = Math.max(0, Math.min(1, (value - from) / Math.max(to - from, 1e-9)));
+    return t * t * (3 - 2 * t);
+  };
+  const width = Math.max(Number(edgeBlendUv) || 0, 1e-9);
+  return smoothstep(0, width, uv.x)
+    * smoothstep(0, width, uv.y)
+    * (1 - smoothstep(1 - width, 1, uv.x))
+    * (1 - smoothstep(1 - width, 1, uv.y));
 }

@@ -21,7 +21,7 @@ assert.ok(
   Math.abs(field.pondHalfExtent - field.innerHalfExtent - field.surfaceBlendWidth) < 1e-9,
   'the geometric overlap must equal the optical blend width',
 );
-assert.ok(field.surfaceEdgeBlendUv < 0.012, 'the transition must remain below 1.2% of the pond');
+assert.ok(field.surfaceEdgeBlendUv > 0.04 && field.surfaceEdgeBlendUv < 0.08, 'the ripple seam must span a visible but bounded part of the pond');
 assert.ok(field.outerRadius >= FAR_WATER_RADIUS, 'the field must exceed the camera far plane');
 assert.ok(
   Array.from(field.positions).every(Number.isFinite),

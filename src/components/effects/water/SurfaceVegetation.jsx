@@ -1,3 +1,5 @@
+import { coastShader,createCoastUniforms,syncCoastUniforms } from '../../../terrain/terrainShader.js';
+import { sceneDepthVertex, sceneDepthFragment } from '../shaders/sceneDepth';
 import React, { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { useFrame, useLoader } from '@react-three/fiber';
 import * as THREE from 'three';
@@ -20,6 +22,9 @@ import {
 } from './surfaceVegetationAnchors';
 
 const stemWaveVertexChunk = `
+  ${coastShader}
+  uniform float uStemTime;
+  uniform float uStemExtent;
   uniform sampler2D uStemState;
   uniform sampler2D uStemNormalMap;
   uniform float uStemWaveAmplitude;
@@ -38,7 +43,7 @@ const stemWaveVertexChunk = `
 // Lily pads riding the surface. They read the same height field the water does,
 // so a pad sits on the wave rather than through it.
 
-export function SurfaceVegetation({ settings, runtime, qualityProfile, lighting }) {
+export function SurfaceVegetation({ settings, runtime, qualityProfile, lighting, terrainQuery }) {
   const materialRef = useRef();
   const stemMeshRef = useRef();
   const contactMeshRef = useRef();
@@ -67,6 +72,7 @@ export function SurfaceVegetation({ settings, runtime, qualityProfile, lighting 
     [maxInstances],
   );
   const anchorSettings = useMemo(() => ({
+    terrainQuery,
     surfacePlantAmount: settings.surfacePlantAmount,
     surfacePlantCenterX: settings.surfacePlantCenterX,
     surfacePlantCenterZ: settings.surfacePlantCenterZ,
@@ -80,6 +86,7 @@ export function SurfaceVegetation({ settings, runtime, qualityProfile, lighting 
     waterExtent: settings.waterExtent,
     waveAmplitude: settings.waveAmplitude,
   }), [
+    terrainQuery,
     settings.surfacePlantAmount,
     settings.surfacePlantCenterX,
     settings.surfacePlantCenterZ,
@@ -100,6 +107,9 @@ export function SurfaceVegetation({ settings, runtime, qualityProfile, lighting 
   );
   const contactMap = useMemo(() => createSurfacePlantContactMap(), []);
   const stemWaveUniforms = useMemo(() => ({
+    ...createCoastUniforms(),
+    uStemTime:{value:0},
+    uStemExtent:{value:34},
     uStemState: { value: null },
     uStemNormalMap: { value: null },
     uStemWaveAmplitude: { value: 0.05 },
@@ -121,7 +131,7 @@ export function SurfaceVegetation({ settings, runtime, qualityProfile, lighting 
         .replace(
           '#include <begin_vertex>',
           `
-            float stemTopY = stemWaterHeightAt(aStemWaterUv)
+            float stemTopY = coastWave(coastLocal(vec2((aStemWaterUv.x-.5)*uStemExtent,(.5-aStemWaterUv.y)*uStemExtent)),uStemTime) + stemWaterHeightAt(aStemWaterUv)
               + uStemFloatOffset
               - uStemClearance;
             float stemHeight = max(0.03, stemTopY - aStemBaseY);
@@ -150,6 +160,7 @@ export function SurfaceVegetation({ settings, runtime, qualityProfile, lighting 
     [lighting],
   );
   const uniforms = useMemo(() => ({
+    ...createCoastUniforms(),
     uLeafAlbedoMap: { value: leafAlbedoMap },
     uLeafNormalMap: { value: leafNormalMap },
     uLeafMaterialMap: { value: leafMaterialMap },
@@ -210,6 +221,9 @@ export function SurfaceVegetation({ settings, runtime, qualityProfile, lighting 
   }, [anchorSettings, geometry, maxInstances, stemGeometry]);
 
   useEffect(() => {
+    syncCoastUniforms(uniforms, settings);
+    syncCoastUniforms(stemWaveUniforms,settings);
+    stemWaveUniforms.uStemExtent.value=settings.waterExtent;
     uniforms.uCenter.value.set(settings.surfacePlantCenterX, settings.surfacePlantCenterZ);
     uniforms.uRadius.value = settings.surfacePlantRadius;
     uniforms.uClustering.value = settings.surfacePlantClustering;
@@ -241,6 +255,7 @@ export function SurfaceVegetation({ settings, runtime, qualityProfile, lighting 
     stemWaveUniforms.uStemState.value = runtime.currentStateTargetRef.current?.texture ?? null;
     stemWaveUniforms.uStemNormalMap.value = runtime.normalTargetRef.current?.texture ?? null;
     uniforms.uTime.value = clock.elapsedTime;
+    stemWaveUniforms.uStemTime.value=clock.elapsedTime;
     const reflectionTexture = reflectionDataRef.current.texture;
     uniforms.uReflectionTexture.value = reflectionTexture;
     uniforms.uReflectionActive.value = reflectionTexture ? 1 : 0;
@@ -273,8 +288,8 @@ export function SurfaceVegetation({ settings, runtime, qualityProfile, lighting 
     >
       <shaderMaterial
         ref={materialRef}
-        vertexShader={surfaceVegetationVertexShader}
-        fragmentShader={surfaceVegetationFragmentShader}
+        vertexShader={sceneDepthVertex(surfaceVegetationVertexShader)}
+        fragmentShader={sceneDepthFragment(surfaceVegetationFragmentShader)}
         uniforms={uniforms}
         transparent={false}
         depthWrite

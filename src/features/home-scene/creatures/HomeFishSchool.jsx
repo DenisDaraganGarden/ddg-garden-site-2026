@@ -1,3 +1,4 @@
+import { syncCoastUniforms } from '../../../terrain/terrainShader.js';
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { useGLTF, useTexture } from '@react-three/drei';
@@ -54,7 +55,7 @@ function buildTextureSets(textures) {
   ]));
 }
 
-function buildHabitat(settings, sampleSurfaceY) {
+function buildHabitat(settings, sampleSurfaceY, sampleBottomY) {
   const surfaceCeiling = -Math.abs(settings.waveAmplitude ?? 0.04);
   const crestCeiling = Math.abs(settings.waveAmplitude ?? 0.04);
   const bottomEnvelope = -(settings.waterDepthMeters ?? 1.25)
@@ -73,6 +74,7 @@ function buildHabitat(settings, sampleSurfaceY) {
     margin: [0.62, 0.15, 0.5],
     waterY: surfaceCeiling,
     sampleSurfaceY,
+    sampleBottomY,
     surfaceClearance: 0.035,
     bottomClearance: 0.055,
   });
@@ -95,6 +97,7 @@ function captureObstacle(scene, name, id, bounds) {
 
 export default function HomeFishSchool({
   settings,
+  terrainQuery,
   runtime,
   qualityProfile,
   mode = 'public',
@@ -144,7 +147,8 @@ export default function HomeFishSchool({
     waterDepthMeters,
     waterExtent,
     waveAmplitude,
-  }, sampleSurfaceY), [
+  }, sampleSurfaceY, terrainQuery?.heightAt), [
+    terrainQuery,
     fishDepthBand,
     seabedReliefStrength,
     waterDepthMeters,
@@ -388,7 +392,7 @@ export default function HomeFishSchool({
         );
         batchMatrix.position.copy(agent.renderPosition);
         batchMatrix.quaternion.copy(agent.renderOrientation);
-        batchMatrix.scale.setScalar(agent.scale);
+        batchMatrix.scale.setScalar(agent.hasWater===false?0:agent.scale);
         batchMatrix.updateMatrix();
         batch.mesh.setMatrixAt(index, batchMatrix.matrix);
 
@@ -400,6 +404,7 @@ export default function HomeFishSchool({
     }
 
     const shadowUniforms = contactShadows.material.userData.ddgFishContactShadowUniforms;
+    syncCoastUniforms(shadowUniforms,settings);
     shadowUniforms.uWaterExtent.value = settings.waterExtent;
     shadowUniforms.uWaterDepth.value = settings.waterDepthMeters;
     shadowUniforms.uReliefStrength.value = settings.seabedReliefStrength;
@@ -415,6 +420,7 @@ export default function HomeFishSchool({
         const catalog = FISH_CATALOG[agent.species];
         shadowForward.set(1, 0, 0).applyQuaternion(agent.renderOrientation);
         const shadow = resolveFishContactShadow({
+          sampleBottomY: terrainQuery?.heightAt,
           position: agent.renderPosition,
           forward: shadowForward,
           catalog,
@@ -430,7 +436,7 @@ export default function HomeFishSchool({
         shadowMatrix.scale.set(shadow.length, 1, shadow.width);
         shadowMatrix.updateMatrix();
         contactShadows.mesh.setMatrixAt(index, shadowMatrix.matrix);
-        contactShadows.opacity.setX(index, shadow.opacity);
+        contactShadows.opacity.setX(index, agent.hasWater===false?0:shadow.opacity);
       });
       contactShadows.mesh.instanceMatrix.needsUpdate = true;
       contactShadows.opacity.needsUpdate = true;

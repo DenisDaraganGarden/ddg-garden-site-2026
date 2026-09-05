@@ -143,11 +143,12 @@ export function updateSurfaceVegetationAnchors({
     const anchor = getSurfaceVegetationAnchor(geometry, index, settings);
     const waterUv = getSurfaceVegetationSeabedUv(anchor.x, anchor.z, settings);
     const relief = sampleSurfaceVegetationSeabedRelief(anchor.x, anchor.z, settings);
-    const seabedY = -waterDepth + relief;
+    const seabedY = settings.terrainQuery?.heightAt(anchor.x,anchor.z) ?? (-waterDepth + relief);
     const insideWater = waterUv.x >= 0.012
       && waterUv.x <= 0.988
       && waterUv.y >= 0.012
-      && waterUv.y <= 0.988;
+      && waterUv.y <= 0.988
+      && seabedY<-.06;
     const stemRadius = THREE.MathUtils.lerp(0.0024, 0.0052, anchor.sizeVariation);
     const contactRadius = Math.max(0.028, settings.surfacePlantSize * anchor.sizeVariation * 0.31);
     stemBaseY.setX(index, seabedY);
@@ -168,7 +169,8 @@ export function updateSurfaceVegetationAnchors({
     stemMatrix.compose(stemPosition, identityRotation, stemScale);
     stemMesh.setMatrixAt(index, stemMatrix);
 
-    sampleSurfaceVegetationSeabedNormal(anchor.x, anchor.z, settings, contactNormal);
+    if(settings.terrainQuery){const n=settings.terrainQuery.normalAt(anchor.x,anchor.z);contactNormal.set(n.x,n.y,n.z);}
+    else sampleSurfaceVegetationSeabedNormal(anchor.x, anchor.z, settings, contactNormal);
     contactPosition.set(anchor.x, seabedY, anchor.z).addScaledVector(contactNormal, 0.006);
     contactScale.set(contactRadius, contactRadius, 1);
     contactRotation.setFromUnitVectors(contactBaseNormal, contactNormal);

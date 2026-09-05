@@ -1,0 +1,42 @@
+{
+  "id": "river-sea-tanker",
+  "version": 1,
+  "units": "metres",
+  "up": "+Y",
+  "forward": "+X",
+  "port": "-Z",
+  "waterline": 0,
+  "dimensions": {
+    "length": 138,
+    "beam": 16.6,
+    "draft": 4.5,
+    "deck": 3.3,
+    "mast": 28
+  },
+  "authoring": "src/tanker/model.js",
+  "generator": "node scripts/generate-tanker.mjs",
+  "material": "PBR metallic-roughness; runtime procedural weathering in src/tanker/materials.js; no external textures",
+  "audio": "Procedural diesel, propeller wash and air horn; Web Audio source attaches to shared world bus",
+  "variants": [
+    {
+      "lod": "near",
+      "meshes": 12,
+      "triangles": 8348,
+      "length": 138,
+      "height": 32.5,
+      "beam": 18.272747039794922,
+      "filename": "river-sea-tanker-near.glb",
+      "bytes": 611312
+    },
+    {
+      "lod": "horizon",
+      "meshes": 10,
+      "triangles": 860,
+      "length": 138,
+      "height": 32.5,
+      "beam": 16.600000381469727,
+      "filename": "river-sea-tanker-horizon.glb",
+      "bytes": 70416
+    }
+  ]
+}

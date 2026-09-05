@@ -1,4 +1,4 @@
-import React, { Component, useEffect, useMemo, useRef, useState } from 'react';
+import React, { Component, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { useLanguage } from '../../i18n/useLanguage';
@@ -9,6 +9,7 @@ import {
 } from './deviceCapabilityProfile';
 import { getRenderTargetCapabilities } from './renderTargetCapabilities';
 import { isTouchPrimaryViewport } from '../../features/home-scene/lib/layout';
+import { createSceneTimeline } from './sceneTimeline';
 
 let webglSupportCache;
 const SHADOWS_CONFIG = { type: THREE.PCFShadowMap };
@@ -436,6 +437,63 @@ const AnimationPause = ({ paused, frameloop, settings }) => {
   return null;
 };
 
+const VisibilityTimeline = ({ isActive }) => {
+  const gl = useThree((state) => state.gl);
+  const timeline = useRef(createSceneTimeline(0, isActive));
+  const telemetry = useRef({ active: isActive, frames: 0, lastWrite: -Infinity, visibilityEvents: [] });
+
+  const writeTelemetry = useCallback(() => {
+    if (!import.meta.env.DEV) return;
+    gl.domElement.dataset.ddgSceneTimeline = JSON.stringify({
+      elapsed: timeline.current.elapsed,
+      frames: telemetry.current.frames,
+      active: telemetry.current.active,
+    });
+  }, [gl]);
+
+  // Run before the resumed frame: Canvas switches `frameloop` in the same
+  // React commit, while R3F may have reset its Clock in the interim.
+  useLayoutEffect(() => {
+    timeline.current.setActive(isActive);
+    telemetry.current.active = isActive;
+    if (import.meta.env.DEV) {
+      telemetry.current.visibilityEvents = [
+        ...telemetry.current.visibilityEvents,
+        {
+          active: isActive,
+          elapsed: timeline.current.elapsed,
+          wallTime: performance.now(),
+          frames: telemetry.current.frames,
+        },
+      ].slice(-4);
+      gl.domElement.dataset.ddgVisibilityEvents = JSON.stringify(telemetry.current.visibilityEvents);
+    }
+    writeTelemetry();
+  }, [gl, isActive, writeTelemetry]);
+
+  useEffect(() => () => {
+    if (import.meta.env.DEV) {
+      delete gl.domElement.dataset.ddgSceneTimeline;
+      delete gl.domElement.dataset.ddgVisibilityEvents;
+    }
+  }, [gl]);
+
+  useFrame((state, delta) => {
+    state.clock.elapsedTime = timeline.current.advance(delta);
+    if (!import.meta.env.DEV) return;
+    telemetry.current.frames += 1;
+    const now = performance.now();
+    // Throttle by wall time rather than scene time: a paused scene must retain
+    // its frozen elapsed value, while a resumed scene reports promptly.
+    if (now - telemetry.current.lastWrite >= 100) {
+      telemetry.current.lastWrite = now;
+      writeTelemetry();
+    }
+  }, -10000);
+
+  return null;
+};
+
 // The HUD switch lives in the editor panel, which is not something you can
 // operate on a phone. `?hud=1` turns it on wherever the scene renders, so a real
 // device can be measured on the page it actually ships. Dev builds only.
@@ -546,6 +604,7 @@ const SceneCanvas = ({
           dpr={profile.dpr}
           camera={camera}
           gl={{
+            logarithmicDepthBuffer: true,
             alpha: true,
             antialias: profile.antialias,
             powerPreference: profile.powerPreference,
@@ -553,6 +612,7 @@ const SceneCanvas = ({
             stencil: true,
           }}
         >
+          <VisibilityTimeline isActive={isTabVisible} />
           <VisibilityResume isActive={isTabVisible} />
           <AnimationPause
             paused={animationPaused}

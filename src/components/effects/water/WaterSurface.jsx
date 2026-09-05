@@ -1,4 +1,6 @@
-import React, { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { createCoastUniforms, syncCoastUniforms } from '../../../terrain/terrainShader.js';
+import { sceneDepthVertex, sceneDepthFragment } from '../shaders/sceneDepth';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { buildFarWaterFieldData } from './farWaterGeometry';
@@ -14,7 +16,7 @@ import {
 // the reflection and refraction textures, and the mesh that writes the stencil the
 // boat's dry cockpit is cut from.
 
-export default function WaterSurfaceV2({ settings, runtime, qualityProfile, lighting, sky }) {
+export default function WaterSurfaceV2({ settings, runtime, qualityProfile, lighting, sky, geometryOverride, shoreMode = false }) {
   const surfaceEdgeBlendUv = useMemo(
     () => buildFarWaterFieldData(settings.waterExtent).surfaceEdgeBlendUv,
     [settings.waterExtent],
@@ -25,6 +27,11 @@ export default function WaterSurfaceV2({ settings, runtime, qualityProfile, ligh
     0.45,
   );
   const materialRef = useRef();
+  // WebKit validates every active sampler even when uKeyShadowActive is zero.
+  // A null sampler2DShadow can bind three's unallocated placeholder before the
+  // first shadow pass, so provide an explicitly uploaded comparison texture.
+  const [emptyShadow]=useState(()=>{const texture=new THREE.DepthTexture(1,1,THREE.UnsignedIntType);texture.compareFunction=THREE.LessEqualCompare;texture.needsUpdate=true;return texture;});
+  useEffect(()=>()=>emptyShadow.dispose(),[emptyShadow]);
   const reflectionDataRef = React.useContext(reflectionContext);
   const debugView = DEBUG_VIEW_IDS[settings.debugView] ?? 0;
   const meshDensity = Math.min(
@@ -35,7 +42,9 @@ export default function WaterSurfaceV2({ settings, runtime, qualityProfile, ligh
     () => new THREE.Vector3().fromArray(lighting.key.direction),
     [lighting],
   );
-  const uniforms = useMemo(() => ({
+  // Three retains the compiled uniform map. Keep its identity across slider edits.
+  const [uniforms] = useState(() => ({
+    ...createCoastUniforms(),
     uState: { value: null },
     uNormalMap: { value: null },
     uReflectionTexture: { value: null },
@@ -51,11 +60,15 @@ export default function WaterSurfaceV2({ settings, runtime, qualityProfile, ligh
     uWaveChoppiness: { value: settings.waveChoppiness },
     uSurfaceEdgeBlendUv: { value: surfaceEdgeBlendUv },
     uSurfaceOpticalBlendUv: { value: surfaceOpticalBlendUv },
+    uWaterExtent: { value: settings.waterExtent },
+    uShoreMode: { value: shoreMode ? 1 : 0 },
     uWaterTint: { value: new THREE.Color(settings.envTint) },
     uDistantSurfaceColor: { value: new THREE.Color(settings.distantSurfaceColor) },
     uMoonDirection: { value: lightDirection.clone() },
     uMoonColor: { value: new THREE.Color().fromArray(lighting.key.colorLinear) },
     uMoonIntensity: { value: lighting.key.intensity },
+    uFoamKeyRadiance: { value: new THREE.Vector3().fromArray(lighting.key.sceneRadiance) },
+    uFoamFillRadiance: { value: new THREE.Vector3().fromArray(lighting.fill.irradiance) },
     uMoonSpecularStrength: { value: settings.moonSpecularStrength },
     uMoonSpecularPower: { value: settings.moonSpecularPower },
     uReflectionIntensity: { value: settings.boatReflectionIntensity },
@@ -83,7 +96,7 @@ export default function WaterSurfaceV2({ settings, runtime, qualityProfile, ligh
     // a different sky than the one above it.
     uSkyLut: { value: null },
     uSkyLutTexel: { value: new THREE.Vector2(1 / 256, 1 / 128) },
-    uKeyShadowMap: { value: null },
+    uKeyShadowMap: { value: emptyShadow },
     uKeyShadowMatrix: { value: new THREE.Matrix4() },
     uKeyShadowActive: { value: 0 },
     uKeyShadowBias: { value: lighting.shadow.waterBias },
@@ -98,37 +111,23 @@ export default function WaterSurfaceV2({ settings, runtime, qualityProfile, ligh
     uKeyGlowPower: { value: 2000 },
     uKeyGlowStrength: { value: 0.35 },
     ...createCursorFlashlightUniforms(),
-  }), [
-    debugView,
-    lightDirection,
-    lighting,
-    settings.boatReflectionIntensity,
-    settings.distantSurfaceColor,
-    settings.envTint,
-    settings.moonSpecularPower,
-    settings.moonSpecularStrength,
-    settings.waterDepthMeters,
-    settings.waterGlintDensity,
-    settings.waterGlintSharpness,
-    settings.waterGlintStrength,
-    settings.waterScatteringStrength,
-    settings.waterTurbidity,
-    settings.waveAmplitude,
-    settings.waveChoppiness,
-    surfaceEdgeBlendUv,
-    surfaceOpticalBlendUv,
-  ]);
+  }));
 
   useEffect(() => {
     uniforms.uWaveAmplitude.value = settings.waveAmplitude;
     uniforms.uWaveChoppiness.value = settings.waveChoppiness;
     uniforms.uSurfaceEdgeBlendUv.value = surfaceEdgeBlendUv;
     uniforms.uSurfaceOpticalBlendUv.value = surfaceOpticalBlendUv;
+    uniforms.uWaterExtent.value = settings.waterExtent;
+    uniforms.uShoreMode.value = shoreMode ? 1 : 0;
     uniforms.uWaterTint.value.set(settings.envTint);
     uniforms.uDistantSurfaceColor.value.set(settings.distantSurfaceColor);
+    syncCoastUniforms(uniforms, settings);
     uniforms.uMoonDirection.value.copy(lightDirection);
     uniforms.uMoonColor.value.fromArray(lighting.key.colorLinear);
     uniforms.uMoonIntensity.value = lighting.key.intensity;
+    uniforms.uFoamKeyRadiance.value.fromArray(lighting.key.sceneRadiance);
+    uniforms.uFoamFillRadiance.value.fromArray(lighting.fill.irradiance);
     uniforms.uMoonSpecularStrength.value = settings.moonSpecularStrength;
     uniforms.uMoonSpecularPower.value = settings.moonSpecularPower;
     uniforms.uReflectionIntensity.value = settings.boatReflectionIntensity;
@@ -157,20 +156,8 @@ export default function WaterSurfaceV2({ settings, runtime, qualityProfile, ligh
   }, [
     lightDirection,
     lighting,
-    settings.boatReflectionIntensity,
-    settings.debugView,
-    settings.distantSurfaceColor,
-    settings.envTint,
-    settings.moonSpecularPower,
-    settings.moonSpecularStrength,
-    settings.waterDepthMeters,
-    settings.waterGlintDensity,
-    settings.waterGlintSharpness,
-    settings.waterGlintStrength,
-    settings.waterScatteringStrength,
-    settings.waterTurbidity,
-    settings.waveAmplitude,
-    settings.waveChoppiness,
+    settings,
+    shoreMode,
     surfaceEdgeBlendUv,
     surfaceOpticalBlendUv,
     uniforms,
@@ -191,7 +178,7 @@ export default function WaterSurfaceV2({ settings, runtime, qualityProfile, ligh
     // render, and three recreates it whenever the map size changes.
     const shadowMap = reflectionDataRef.current.keyShadowMap ?? null;
     const shadowMatrix = reflectionDataRef.current.keyShadowMatrix ?? null;
-    uniforms.uKeyShadowMap.value = shadowMap;
+    uniforms.uKeyShadowMap.value = shadowMap ?? emptyShadow;
     uniforms.uKeyShadowActive.value = shadowMap && shadowMatrix ? 1 : 0;
     if (shadowMatrix) {
       uniforms.uKeyShadowMatrix.value.copy(shadowMatrix);
@@ -241,16 +228,18 @@ export default function WaterSurfaceV2({ settings, runtime, qualityProfile, ligh
     // covers the thing the mode exists to show. Height and normals still need
     // the surface, so the cut is at 3, not at 4.
     <mesh
-      name="water-surface"
-      rotation={[-Math.PI / 2, 0, 0]}
+      name={shoreMode ? "shore-water-surface" : "water-surface"}
+      geometry={geometryOverride}
+      rotation={shoreMode ? undefined : [-Math.PI / 2, 0, 0]}
       renderOrder={1}
+      frustumCulled={shoreMode}
       visible={debugView < 3}
     >
-      <planeGeometry args={[settings.waterExtent, settings.waterExtent, meshDensity, meshDensity]} />
+      {!geometryOverride ? <planeGeometry args={[settings.waterExtent, settings.waterExtent, meshDensity, meshDensity]} /> : null}
       <shaderMaterial
         ref={materialRef}
-        vertexShader={waterV2VertexShader}
-        fragmentShader={waterV2FragmentShader}
+        vertexShader={sceneDepthVertex(waterV2VertexShader)}
+        fragmentShader={sceneDepthFragment(waterV2FragmentShader)}
         uniforms={uniforms}
         transparent={false}
         depthWrite

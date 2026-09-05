@@ -156,6 +156,7 @@ const postFragmentShader = `
   uniform float uFogNoiseScale;
   uniform float uFogSpeed;
   uniform float uFogScattering;
+  uniform float uFogSampleCount;
 
   uniform float uCursorLightActive;
   uniform vec2 uCursorLightUv;
@@ -168,9 +169,13 @@ const postFragmentShader = `
   #include <dithering_pars_fragment>
 
   float getViewDistance(float depth) {
+#ifdef USE_LOGARITHMIC_DEPTH_BUFFER
+    return max(exp2(depth * log2(uCameraFar + 1.0)) - 1.0, 0.0);
+#else
     float viewZ = (uCameraNear * uCameraFar)
       / ((uCameraFar - uCameraNear) * depth - uCameraFar);
     return max(-viewZ, 0.0);
+#endif
   }
 
   float ddgLuminance(vec3 color) {
@@ -249,7 +254,8 @@ const postFragmentShader = `
       float volume = 0.0;
       float weight = 0.0;
       for (int index = 0; index < 8; index += 1) {
-        float layer = (float(index) + 0.5) / 8.0;
+        if (float(index) >= uFogSampleCount) break;
+        float layer = (float(index) + 0.5) / max(uFogSampleCount, 1.0);
         vec2 layerUv = baseUv
           * (1.0 + layer * 0.72)
           + vec2(layer * 0.31, -layer * 0.19)
@@ -637,6 +643,14 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
   const isLowPower = qualityProfile?.isLowPower === true;
   const renderScale = qualityProfile?.postRenderScale ?? 1;
   const requestedSamples = qualityProfile?.postSamples ?? 0;
+  const sunRaySampleCount = Math.max(
+    1,
+    Math.min(18, Math.round(qualityProfile?.sunRaySampleCount ?? (isLowPower ? 8 : 18))),
+  );
+  const fogSampleCount = Math.max(
+    1,
+    Math.min(8, Math.round(qualityProfile?.fogSampleCount ?? 8)),
+  );
   const postProcessingSupported = qualityProfile?.postProcessingSupported !== false
     && qualityProfile?.postDepthStencilEnabled !== false;
   const postColorType = qualityProfile?.postColorType === 'rgba8'
@@ -715,9 +729,9 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
     uResolution: { value: new THREE.Vector2(1, 1) },
     uSunUv: { value: new THREE.Vector2(0.5, 0.5) },
     uSunVisible: { value: 0 },
-    uSunColor: { value: new THREE.Color().fromArray(lighting.key.colorLinear) },
-    uCameraNear: { value: camera.near },
-    uCameraFar: { value: camera.far },
+    uSunColor: { value: new THREE.Color('#ffffff') },
+    uCameraNear: { value: 0.1 },
+    uCameraFar: { value: 1000 },
     uTime: { value: 0 },
     uGrainEnabled: { value: 0 },
     uGrainIntensity: { value: 0 },
@@ -748,20 +762,21 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
     uSunRaySampleCount: { value: 18 },
     uSunRadius: { value: 0.01 },
     uFogMode: { value: 0 },
-    uFogColor: { value: new THREE.Color(settings.fogColor) },
+    uFogColor: { value: new THREE.Color('#000000') },
     uFogDensity: { value: 0 },
     uFogNear: { value: 1 },
     uFogFar: { value: 24 },
     uFogNoiseScale: { value: 1 },
     uFogSpeed: { value: 0 },
     uFogScattering: { value: 0 },
+    uFogSampleCount: { value: 8 },
     uCursorLightActive: { value: 0 },
     uCursorLightUv: { value: new THREE.Vector2(0.5, 0.5) },
     uCursorLightRadius: { value: 0.1 },
     uCursorLightAspect: { value: 1 },
     uCursorLightSoftness: { value: 0.72 },
     uCursorLightFogRelief: { value: 0 },
-  }), [bloomTargets, camera.far, camera.near, filmNoiseTexture, isLowPower, lighting.key.colorLinear, noiseTexture, renderTarget, settings.fogColor]);
+  }), [bloomTargets, filmNoiseTexture, isLowPower, noiseTexture, renderTarget]);
   const postMaterial = useMemo(() => new THREE.ShaderMaterial({
     uniforms,
     vertexShader: postVertexShader,
@@ -857,7 +872,7 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
     uniforms.uSunRaysIntensity.value = settings.sunRaysIntensity;
     uniforms.uSunRaysDecay.value = settings.sunRaysDecay;
     uniforms.uSunRaysDensity.value = settings.sunRaysDensity;
-    uniforms.uSunRaySampleCount.value = isLowPower ? 8 : 18;
+    uniforms.uSunRaySampleCount.value = sunRaySampleCount;
     uniforms.uFogMode.value = fogModes[fogMode] ?? 0;
     uniforms.uFogColor.value.set(settings.fogColor);
     uniforms.uFogDensity.value = settings.fogDensity;
@@ -866,48 +881,49 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
     uniforms.uFogNoiseScale.value = settings.fogNoiseScale;
     uniforms.uFogSpeed.value = settings.fogSpeed;
     uniforms.uFogScattering.value = settings.fogScattering;
+    uniforms.uFogSampleCount.value = fogSampleCount;
     uniforms.uSunColor.value.fromArray(lighting.key.colorLinear);
-  }, [bloomPrefilterUniforms, isLowPower, lighting.key.colorLinear, settings, uniforms]);
+  }, [bloomPrefilterUniforms, fogSampleCount, isLowPower, lighting.key.colorLinear, settings, sunRaySampleCount, uniforms]);
 
   useEffect(() => () => {
-    const quad = postScene.children[0];
-    quad?.geometry?.dispose();
-    bloomPrefilterScene.children[0]?.geometry?.dispose();
-    bloomBlurScene.children[0]?.geometry?.dispose();
+    postScene.children[0]?.geometry?.dispose();
     postMaterial.dispose();
+  }, [postMaterial, postScene]);
+
+  useEffect(() => () => {
+    bloomPrefilterScene.children[0]?.geometry?.dispose();
     bloomPrefilterMaterial.dispose();
+  }, [bloomPrefilterMaterial, bloomPrefilterScene]);
+
+  useEffect(() => () => {
+    bloomBlurScene.children[0]?.geometry?.dispose();
     bloomBlurMaterial.dispose();
-    renderTarget.dispose();
-    bloomTargets.forEach((target) => target.dispose());
-    noiseTexture.dispose();
-    filmNoiseTexture.dispose();
-  }, [
-    bloomBlurMaterial,
-    bloomBlurScene,
-    bloomPrefilterMaterial,
-    bloomPrefilterScene,
-    bloomTargets,
-    filmNoiseTexture,
-    noiseTexture,
-    postMaterial,
-    postScene,
-    renderTarget,
-  ]);
+  }, [bloomBlurMaterial, bloomBlurScene]);
+
+  useEffect(() => () => renderTarget.dispose(), [renderTarget]);
+  useEffect(
+    () => () => bloomTargets.forEach((target) => target.dispose()),
+    [bloomTargets],
+  );
+  useEffect(() => () => noiseTexture.dispose(), [noiseTexture]);
+  useEffect(() => () => filmNoiseTexture.dispose(), [filmNoiseTexture]);
 
   useEffect(() => {
     gl.domElement.dataset.ddgPostSamples = String(renderTarget.samples);
     gl.domElement.dataset.ddgPostStatus = postProcessingSupported ? 'ready' : 'default-framebuffer';
     gl.domElement.dataset.ddgBloomPipeline = isLowPower ? 'quarter-tent-1' : 'quarter-tent-2';
-    gl.domElement.dataset.ddgSunRays = isLowPower ? 'sun-occlusion-8' : 'sun-occlusion-18';
+    gl.domElement.dataset.ddgSunRays = `sun-occlusion-${sunRaySampleCount}`;
+    gl.domElement.dataset.ddgFogSamples = String(fogSampleCount);
     gl.domElement.dataset.ddgCursorFlashlightFog = 'local-relief';
     return () => {
       delete gl.domElement.dataset.ddgPostSamples;
       delete gl.domElement.dataset.ddgPostStatus;
       delete gl.domElement.dataset.ddgBloomPipeline;
       delete gl.domElement.dataset.ddgSunRays;
+      delete gl.domElement.dataset.ddgFogSamples;
       delete gl.domElement.dataset.ddgCursorFlashlightFog;
     };
-  }, [gl, isLowPower, postProcessingSupported, renderTarget.samples]);
+  }, [fogSampleCount, gl, isLowPower, postProcessingSupported, renderTarget.samples, sunRaySampleCount]);
 
   useEffect(() => {
     const { dataset } = gl.domElement;
@@ -918,13 +934,28 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
       : 'neutral';
     dataset.ddgFilmFlicker = String(finiteSetting(settings.filmFlickerAmount, 0));
     dataset.ddgFilmGateWeave = String(finiteSetting(settings.filmGateWeaveAmount, 0));
+    dataset.ddgPostActive = settings.postProcessingEnabled ? 'on' : 'off';
+    dataset.ddgBloomActive = settings.bloomEnabled ? 'on' : 'off';
+    dataset.ddgFogMode = settings.fogMode;
     return () => {
       delete dataset.ddgFilm;
       delete dataset.ddgFilmStock;
       delete dataset.ddgFilmFlicker;
       delete dataset.ddgFilmGateWeave;
+      delete dataset.ddgPostActive;
+      delete dataset.ddgBloomActive;
+      delete dataset.ddgFogMode;
     };
-  }, [gl, settings.filmEnabled, settings.filmFlickerAmount, settings.filmGateWeaveAmount, settings.filmStock]);
+  }, [
+    gl,
+    settings.bloomEnabled,
+    settings.filmEnabled,
+    settings.filmFlickerAmount,
+    settings.filmGateWeaveAmount,
+    settings.filmStock,
+    settings.fogMode,
+    settings.postProcessingEnabled,
+  ]);
 
   useFrame(({ clock }) => {
     const enabled = postProcessingSupported

@@ -22,6 +22,7 @@ export function createFishHabitat({
   surfaceClearance = 0.12,
   bottomClearance = 0.11,
   sampleSurfaceY,
+  sampleBottomY,
   obstacles = [],
 } = {}) {
   const habitatMin = vector3(min, DEFAULT_MIN);
@@ -38,6 +39,7 @@ export function createFishHabitat({
     surfaceClearance: Math.max(0, surfaceClearance),
     bottomClearance: Math.max(0, bottomClearance),
     sampleSurfaceY: typeof sampleSurfaceY === 'function' ? sampleSurfaceY : null,
+    sampleBottomY: typeof sampleBottomY === 'function' ? sampleBottomY : null,
     obstacles: obstacles.map(normalizeFishObstacle).filter(Boolean),
   };
 }
@@ -62,10 +64,33 @@ export function fishSurfaceY(habitat, x, z) {
 
 export function fishVerticalBounds(agent, habitat) {
   const radius = Math.max(0.03, (agent.radius ?? 0.08) * (agent.scale ?? 1));
-  const lower = habitat.min.y + habitat.bottomClearance + radius;
+  const bed=habitat.sampleBottomY?.(agent.position.x,agent.position.z);
+  const lower = Math.max(habitat.min.y,Number.isFinite(bed)?bed:-Infinity) + habitat.bottomClearance + radius;
   const upper = Math.min(
     habitat.max.y - radius,
     fishSurfaceY(habitat, agent.position.x, agent.position.z) - habitat.surfaceClearance - radius,
   );
-  return { lower, upper: Math.max(lower, upper) };
+  return { lower, upper: Math.max(lower, upper), viable: upper>=lower };
+}
+
+// Project away from dry or too-shallow cells only when needed. This bounded
+// search also handles a user moving the shoreline across the entire school.
+export function constrainFishToWater(agent,habitat) {
+  if(agent.hasWater===false)return false;
+  let bounds=fishVerticalBounds(agent,habitat);
+  if(!bounds.viable && habitat.sampleBottomY){
+    const ox=agent.position.x,oz=agent.position.z;
+    let found=false;
+    for(let ring=1;ring<=12&&!found;ring++)for(let i=0;i<16;i++){
+      const a=i*Math.PI/8;
+      agent.position.x=THREE.MathUtils.clamp(ox+Math.sin(a)*ring*.75,habitat.min.x+.02,habitat.max.x-.02);
+      agent.position.z=THREE.MathUtils.clamp(oz+Math.cos(a)*ring*.75,habitat.min.z+.02,habitat.max.z-.02);
+      bounds=fishVerticalBounds(agent,habitat);
+      if(bounds.viable){found=true;break;}
+    }
+    if(!found){agent.position.x=ox;agent.position.z=oz;}
+  }
+  agent.hasWater=bounds.viable;
+  if(bounds.viable)agent.position.y=THREE.MathUtils.clamp(agent.position.y,bounds.lower,bounds.upper);
+  return bounds.viable;
 }

@@ -1,0 +1,13 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Coast vegetation contract</title><body><pre>Checking…</pre><script type="module">
+import {normalizePublishedHomeSceneSettings,createHomeSceneSnapshot,HOME_SCENE_SNAPSHOT_KEYS} from '/src/features/home-scene/hooks/useHomeSceneSettings.js';
+import {publishedHomeSceneKeys} from '/src/features/home-scene/data/publishedHomeSceneKeys.js';
+import {DEFAULT_SHRUB_SETTINGS} from '/src/plants/settings.js';
+try{
+ const settings=normalizePublishedHomeSceneSettings({shrubsCount:731,shrubsDryness:.67,shrubsPatchScale:12,shrubsAlong:55,shrubsFieldSeed:94}),snapshot=createHomeSceneSnapshot(settings);
+ const restored=normalizePublishedHomeSceneSettings(JSON.parse(JSON.stringify(snapshot)));
+ for(const key of Object.keys(DEFAULT_SHRUB_SETTINGS)){
+  if(!HOME_SCENE_SNAPSHOT_KEYS.includes(key)||!publishedHomeSceneKeys.includes(key)||snapshot[key]!==settings[key]||restored[key]!==settings[key])throw Error('Plant snapshot roundtrip: '+key);
+ }
+ document.body.dataset.status='pass';document.querySelector('pre').textContent=JSON.stringify({passed:true,keys:Object.keys(DEFAULT_SHRUB_SETTINGS).length,contract:'scene settings, publication and camera snapshot roundtrip'},null,2);
+}catch(error){document.body.dataset.status='fail';document.querySelector('pre').textContent=error.stack;throw error;}
+</script></body></html>

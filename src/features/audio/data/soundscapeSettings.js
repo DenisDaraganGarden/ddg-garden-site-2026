@@ -16,6 +16,7 @@ export const DEFAULT_SOUNDSCAPE_SETTINGS = Object.freeze({
   duckOnCameraCut: true,
   cameraCutDuck: 0.72,
   tracks: {
+    tanker: { enabled: true, gain: 0.65 },
     water: { enabled: true, gain: 0.28 },
     shore: { enabled: true, gain: 0.12 },
     boat: { enabled: true, gain: 0.58 },

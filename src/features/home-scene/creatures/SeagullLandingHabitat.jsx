@@ -1,3 +1,4 @@
+import { createTerrainLandingSites } from '../../../terrain/terrainLanding.js';
 import React, { useLayoutEffect, useMemo } from 'react';
 import {
   BOAT_LANDING_SPECS,
@@ -22,6 +23,8 @@ function resolveRigcheck(requested) {
 export default function SeagullLandingHabitat({
   boatSurface,
   sculptureSurface,
+  terrainSurface,
+  terrainQuery,
   landingSitesRef,
   rigcheck,
   onSitesChange,
@@ -36,6 +39,7 @@ export default function SeagullLandingHabitat({
 
   useLayoutEffect(() => {
     const sites = [
+      ...createTerrainLandingSites(terrainSurface?.root,terrainQuery),
       ...createLandingHabitatSites({
         root: boatRoot,
         collisionObject: boatCollisionObject,
@@ -67,6 +71,8 @@ export default function SeagullLandingHabitat({
     sculptureRevision,
     sculptureRoot,
     showRigcheck,
+    terrainSurface,
+    terrainQuery,
   ]);
 
   return null;

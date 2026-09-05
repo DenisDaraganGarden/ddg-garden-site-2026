@@ -11,18 +11,22 @@ import {
   updateBlackStoneUniforms,
 } from './blackStoneMaterial';
 import { DEFAULT_SCULPTURE_ANCHOR, SCULPTURE_DRAG_EDGE_MARGIN, clamp } from './constants';
+import { installOpticsGeometryLod } from './opticsGeometryLod';
+import { useVisibleGeometryLod } from './visibleGeometryLod';
 
 // The sculpture stands on the seabed. It does not float, so its height is the base
 // offset rather than anything the simulation decides.
 
 export default function StaticSculpture({
   settings,
+  terrainQuery,
   lighting,
   layout,
   mode,
   orbitRef,
   onSculpturePositionChange,
   onLandingSurfaceReady,
+  useOpticsLod = false,
 }) {
   const anchorRef = useRef();
   const sculptureAnchorRef = useRef(new THREE.Vector3(
@@ -54,9 +58,9 @@ export default function StaticSculpture({
     sculptureAnchorRef.current.set(nextX, 0, nextZ);
 
     if (anchorRef.current) {
-      anchorRef.current.position.set(nextX, seabedY, nextZ);
+      anchorRef.current.position.set(nextX, terrainQuery ? terrainQuery.heightAt(nextX,nextZ)+settings.sculptureBottomOffset : seabedY, nextZ);
     }
-  }, [settings.waterExtent, seabedY]);
+  }, [settings.waterExtent, settings.sculptureBottomOffset, seabedY, terrainQuery]);
 
   const { isDraggingRef, dragHandlers } = useDragOnPlane({
     mode,
@@ -134,13 +138,6 @@ export default function StaticSculpture({
     applySculptureAnchor(anchorX, anchorZ);
   }, [applySculptureAnchor, isDraggingRef, layout?.sculpturePosition?.x, layout?.sculpturePosition?.z, settings?.sculpturePosition?.x, settings?.sculpturePosition?.z]);
 
-  useEffect(() => {
-    if (!anchorRef.current) {
-      return;
-    }
-
-    anchorRef.current.position.y = seabedY;
-  }, [seabedY]);
 
   const obj = useLoader(GLTFLoader, '/models/sculpture/sculpture.glb').scene;
   const normalizedObj = useMemo(() => {
@@ -166,6 +163,17 @@ export default function StaticSculpture({
 
     return clone;
   }, [normalizedObj, sculptureMaterial]);
+
+  useEffect(
+    () => installOpticsGeometryLod(
+      clonedObj,
+      'models/sculpture/sculpture-optics.rlod',
+      useOpticsLod,
+    ),
+    [clonedObj, useOpticsLod],
+  );
+
+  useVisibleGeometryLod(anchorRef, { enabled: useOpticsLod, kind: 'sculpture' });
 
   useEffect(() => {
     if (typeof onLandingSurfaceReady !== 'function' || !anchorRef.current) {
