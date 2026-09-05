@@ -168,7 +168,7 @@ export function createTerrainMaterial(textures,p,rockOnly=false){
    diffuseColor.rgb=mix(terrainColor*mix(1.0,.53,wet),vec3(.82,.84,.78),foamTrace*.22)*macroVariation;
    diffuseColor.rgb*=1.0+caustic*.5;
   `);
-  shader.fragmentShader=shader.fragmentShader.replace('#include <roughnessmap_fragment>','#include <roughnessmap_fragment>\nroughnessFactor=mix(surfaceData.r,.27,wet);');
+  shader.fragmentShader=shader.fragmentShader.replace('#include <roughnessmap_fragment>','#include <roughnessmap_fragment>\nroughnessFactor=mix(surfaceData.r,.4,wet);');
   shader.fragmentShader=shader.fragmentShader.replace('#include <normal_fragment_maps>',`#include <normal_fragment_maps>
    vec3 groundViewN=terrainNormal(normal,-vViewPosition,sandNormalUv,ground.normal);
    vec3 rockViewN=normal;

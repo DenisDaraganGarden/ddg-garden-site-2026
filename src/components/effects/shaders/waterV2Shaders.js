@@ -390,6 +390,10 @@ export const waterV2FragmentShader = `
       0.7
     );
     deepTint=coastBloomTint(deepTint,coastQS,uTime);
+    // Sand stirred by the break: the water goes brown a few metres either
+    // side of it, more in a storm.
+    float stir=uCoastShape.x*smoothstep(-12.0,-2.0,coastQS.x)*(1.0-smoothstep(1.0,4.0,coastQS.x))*(.4+.6*uCoastSwell.w);
+    deepTint=mix(deepTint,vec3(.16,.12,.06),stir*.6);
     float scatterAmount = 1.0 - exp(-scatteringCoefficient * opticalPath);
     float scatterLight = mix(
       0.48,

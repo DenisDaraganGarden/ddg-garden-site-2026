@@ -74,14 +74,20 @@ export function sampleTerrainNormal(x,z,p) {
   const dz=(sampleTerrainHeight(x,z+e,p)-sampleTerrainHeight(x,z-e,p))/(2*e);
   const inv=1/Math.hypot(dx,1,dz);return {x:-dx*inv,y:inv,z:-dz*inv};
 }
+// The CPU twin of coastWave in terrainShader.js: keep the two identical.
 export function sampleCoastWave(q,s,time,p) {
-  const weather=coastWeather(p),phase=q*1.15-time*Math.PI*2/weather.period+s*.015;
-  return Math.sin(phase)*weather.height*(1-smooth(0,4,q))*(.76+.24*Math.sin(s*.071+time*.23))*smooth(-32,-22,q)*terrainCoverage(q,s,p);
+  const weather=coastWeather(p);
+  const jitter=Math.sin(s*.041+time*.03)*.55+Math.sin(s*.017-time*.021+1.7)*.35+Math.sin(s*.093+time*.05+.6)*.2;
+  const phase=q*1.15-time*Math.PI*2/weather.period+s*.015+jitter*1.3;
+  const amp=.78+.22*Math.sin(s*.071+time*.23)+.18*Math.sin(s*.029-time*.017+2.4)+(.12*Math.sin(s*.31+time*.4)+.08*Math.sin(s*.53-time*.27))*smooth(-8,0,q);
+  const skew=smooth(-18,-4,q),w=Math.sin(phase)+.3*skew*Math.sin(2*phase-1.25);
+  const shoal=1+.55*smooth(-14,-4,q);
+  return w*weather.height*amp*shoal*(1-smooth(0,4.5,q))*smooth(-32,-22,q)*terrainCoverage(q,s,p);
 }
 export function sampleCoastWetness(q,s,time,p) {
   const recent=Math.max(sampleCoastWave(q,s,time,p),sampleCoastWave(q,s,time-.7,p)*.85,sampleCoastWave(q,s,time-1.4,p)*.65);
   const margin=Math.max(.04,p.terrainWetBand*.035);
-  return (1-smooth(Math.max(margin,recent),Math.max(margin,recent)+.055,coastHeight(q,s,p)))*terrainCoverage(q,s,p);
+  return (1-smooth(Math.max(margin,recent),Math.max(margin,recent)+.1,coastHeight(q,s,p)))*terrainCoverage(q,s,p);
 }
 export function sampleTerrainSurface(x,z,p,time=0) {
   const {u,s}=coastCoordinates(x,z,p),q=u-shorePosition(s,p),height=coastHeight(q,s,p),normal=sampleTerrainNormal(x,z,p);
