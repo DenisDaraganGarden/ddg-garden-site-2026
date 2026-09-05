@@ -8,7 +8,7 @@ try{
  await page.goto(`${origin}/scripts/check-plant-gpu.html`);await page.waitForFunction(()=>window.plantGpuResult,undefined,{timeout:90000});
  const result=await page.evaluate(()=>window.plantGpuResult);
  if(!result.passed||errors.length)throw Error(JSON.stringify({error:result.error,errors}));
- const textures=new URL('../public/textures/plants/',import.meta.url),models=new URL('../public/models/oleaster/',import.meta.url),qa=new URL('../output/playwright/oleaster/',import.meta.url);
+ const textures=new URL('../public/textures/plants/',import.meta.url),models=new URL('../assets-source/models/oleaster/',import.meta.url),qa=new URL('../output/playwright/oleaster/',import.meta.url);
  for(const path of [textures,models,qa])await fs.mkdir(path,{recursive:true});
  for(const [name,data]of Object.entries(result.files))await fs.writeFile(new URL(name,name.endsWith('.glb')?models:textures),Buffer.from(data,'base64'));
  for(let i=0;i<result.previews.length;i++)await fs.writeFile(new URL(`gpu-preview-${i}.png`,qa),Buffer.from(result.previews[i].data.split(',')[1],'base64'));

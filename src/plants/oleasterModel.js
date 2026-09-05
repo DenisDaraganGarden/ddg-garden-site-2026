@@ -6,16 +6,22 @@ export function randomSequence(seed) {
   return () => { value+=0x6D2B79F5; let t=value; t=Math.imul(t^t>>>15,t|1); t^=t+Math.imul(t^t>>>7,t|61); return ((t^t>>>14)>>>0)/4294967296; };
 }
 const point = (x,y,z) => new THREE.Vector3(x,y,z);
-export function makeOleaster(input={}) {
-  const p={...OLEASTER_DEFAULTS,...input}, rand=randomSequence(p.seed), branches=[], leaves=[];
-  const h=Math.max(.3,p.height), radius=Math.max(.3,p.spread)*.5;
-  const branch = (start,end,bend,r0,parent=-1,parentT=0) => {
-    const curve=new THREE.QuadraticBezierCurve3(start.clone(),start.clone().lerp(end,.5).add(bend),end.clone());
-    const record={id:branches.length,parent,parentT,curve,radius:r0,length:curve.getLength(),phase:rand()*Math.PI*2};
+// One deterministic stream of randomness and the two primitives every form of
+// the species is built from: a bent branch and a leaf on it. The mature tree
+// (treeModel.js) shares them, so a leaf on a six-metre limb attaches, tints
+// and flutters exactly like a leaf on a shrub twig. The order of rand() calls
+// is the shape: keep it when editing, or every authored seed regrows.
+export function createPlantBuilder(seed,{density=.8,leafSize=1,leafAspect=1,crownRadius=1}={}) {
+  const rand=randomSequence(seed), branches=[], leaves=[];
+  const addBranch = (curve,r0,parent=-1,parentT=0,extra) => {
+    const record={id:branches.length,parent,parentT,curve,radius:r0,length:curve.getLength(),phase:rand()*Math.PI*2,...extra};
     branches.push(record); return record;
   };
+  const branch = (start,end,bend,r0,parent=-1,parentT=0,extra) => addBranch(
+    new THREE.QuadraticBezierCurve3(start.clone(),start.clone().lerp(end,.5).add(bend),end.clone()),r0,parent,parentT,extra,
+  );
   const leaf = (stem,t,index) => {
-    if(rand()>.3+.7*p.density)return;
+    if(rand()>.3+.7*density)return;
     const pivot=stem.curve.getPoint(t), tangent=stem.curve.getTangent(t).normalize();
     const az=index*2.39996+stem.phase;
     const out=point(Math.cos(az),.2+rand()*.5,Math.sin(az)).addScaledVector(tangent,.3).normalize();
@@ -24,8 +30,14 @@ export function makeOleaster(input={}) {
     const normal=point().crossVectors(x,out).normalize();
     const roll=(rand()-.5)*1.5;
     x.applyAxisAngle(out,roll);normal.applyAxisAngle(out,roll);
-    leaves.push({parent:stem.id,t,pivot,axis:out,x,normal,length:(.055+rand()*.03)*p.leafSize,width:(.012+rand()*.006)*p.leafSize,variant:Math.floor(rand()*4),phase:rand()*6.28,tint:(.64+rand()*.28)*(.62+.38*Math.min(1,Math.hypot(pivot.x,pivot.z)/(radius*.9)))});
+    leaves.push({parent:stem.id,t,pivot,axis:out,x,normal,length:(.055+rand()*.03)*leafSize,width:(.012+rand()*.006)*leafSize*leafAspect,variant:Math.floor(rand()*4),phase:rand()*6.28,tint:(.64+rand()*.28)*(.62+.38*Math.min(1,Math.hypot(pivot.x,pivot.z)/(crownRadius*.9)))});
   };
+  return {rand,branches,leaves,addBranch,branch,leaf};
+}
+export function makeOleaster(input={}) {
+  const p={...OLEASTER_DEFAULTS,...input};
+  const h=Math.max(.3,p.height), radius=Math.max(.3,p.spread)*.5;
+  const {rand,branches,leaves,branch,leaf}=createPlantBuilder(p.seed,{density:p.density,leafSize:p.leafSize,crownRadius:radius});
   const stems=9;
   for(let i=0;i<stems;i++){
     const angle=i/stems*Math.PI*2+(rand()-.5)*.45, reach=radius*(i<7 ? .35+rand()*.4 : .12+rand()*.18);
@@ -58,17 +70,24 @@ function finish(data) {
 function data() {return {attributes:{position:[],uv:[],leafPivot:[],leafAxis:[],leafWeight:[],phase:[],color:[]},indices:[]};}
 function vertex(d,pos,uv,pivot,axis,weight,phase,tint) {d.attributes.position.push(...pos);d.attributes.uv.push(...uv);d.attributes.leafPivot.push(...pivot);d.attributes.leafAxis.push(...axis);d.attributes.leafWeight.push(weight);d.attributes.phase.push(phase);d.attributes.color.push(tint,tint,tint);}
 export function makeBranchGeometry(model,lod=0) {
-  const d=data(), radial=lod===0?7:4;
+  const d=data(), thinRadius=model.branchDetail?.thinRadius??0;
   for(const b of model.branches){
+    // A phone in the middle distance draws no twigs at all: their leaves stay.
+    if(lod===1&&model.branchDetail?.midSkipsThin&&b.radius<thinRadius)continue;
+    // A twig thinner than the species' threshold is a line, not a tube: it
+    // keeps four sides up close and three in the middle distance.
+    const radial=b.radius<thinRadius?(lod===0?4:3):(lod===0?7:4);
     const segments=lod===0?Math.max(3,Math.ceil(b.length/.07)):Math.max(2,Math.ceil(b.length/.2)),base=d.attributes.position.length/3;
     for(let j=0;j<=segments;j++){
       const t=j/segments,center=b.curve.getPoint(t),axis=b.curve.getTangent(t),x=point().crossVectors(axis,point(0,0,1));
       if(x.lengthSq()<1e-8)x.crossVectors(axis,point(0,1,0));x.normalize();
       const z=point().crossVectors(axis,x).normalize();
+      // A twig tapers to nothing; a trunk hands its radius on to the limbs.
+      const radiusEnd=b.radiusEnd??b.radius*.06;
       for(let k=0;k<=radial;k++){
-        const a=k/radial*Math.PI*2,r=Math.max(.0005,b.radius*(1-t*.94));
+        const a=k/radial*Math.PI*2,r=Math.max(.0005,b.radius+(radiusEnd-b.radius)*t);
         const pos=center.clone().addScaledVector(x,Math.cos(a)*r).addScaledVector(z,Math.sin(a)*r);
-        vertex(d,pos.toArray(),[k/radial,t*b.length*6],[0,0,0],[1,0,0],0,b.phase,.75+b.radius*4);
+        vertex(d,pos.toArray(),[k/radial,t*b.length*6],[0,0,0],[1,0,0],0,b.phase,Math.min(1.05,.75+b.radius*4));
       }
     }
     for(let j=0;j<segments;j++)for(let k=0;k<radial;k++){const a=base+j*(radial+1)+k,c=a+radial+1;d.indices.push(a,a+1,c,a+1,c+1,c);}
@@ -76,13 +95,19 @@ export function makeBranchGeometry(model,lod=0) {
   return finish(d);
 }
 // The petiole is at local y=0 at every LOD. Atlas vertices use the same pivot.
+// A species may ask for a cheaper near leaf: a tree carries ten thousand of
+// them and reads as mass, where a shrub's few hundred read as shape.
 export function makeLeafGeometry(model,lod=0) {
-  const d=data(),rows=lod===0?4:1,cols=lod===0?2:1;
-  for(const leaf of model.leaves){
-    const base=d.attributes.position.length/3;
+  const d=data(),rows=lod===0?(model.leafDetail?.rows??4):1,cols=lod===0?(model.leafDetail?.cols??2):1;
+  // In the middle distance a species may keep every n-th leaf and grow it to
+  // cover for the ones it dropped: the same green from afar, a fraction of it.
+  const every=lod===1?(model.leafDetail?.midEvery??1):1,grow=Math.sqrt(every);
+  for(const [index,leaf] of model.leaves.entries()){
+    if(index%every)continue;
+    const base=d.attributes.position.length/3,length=leaf.length*grow,width=leaf.width*grow;
     for(let j=0;j<=rows;j++)for(let k=0;k<=cols;k++){
       const t=j/rows,side=k/cols*2-1;
-      const pos=leaf.pivot.clone().addScaledVector(leaf.axis,t*leaf.length).addScaledVector(leaf.x,side*leaf.width*.5).addScaledVector(leaf.normal,Math.sin(t*Math.PI)*leaf.length*.075+side*side*leaf.width*.06*Math.sin(t*Math.PI));
+      const pos=leaf.pivot.clone().addScaledVector(leaf.axis,t*length).addScaledVector(leaf.x,side*width*.5).addScaledVector(leaf.normal,Math.sin(t*Math.PI)*length*.075+side*side*width*.06*Math.sin(t*Math.PI));
       vertex(d,pos.toArray(),[(leaf.variant+(side+1)*.5)/4,t],leaf.pivot.toArray(),leaf.x.toArray(),t,leaf.phase,leaf.tint);
     }
     for(let j=0;j<rows;j++)for(let k=0;k<cols;k++){const a=base+j*(cols+1)+k,c=a+cols+1;d.indices.push(a,a+1,c,a+1,c+1,c);}

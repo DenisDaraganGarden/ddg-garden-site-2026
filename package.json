@@ -31,7 +31,7 @@
     "optimize:portfolio": "node scripts/optimize-portfolio-images.mjs --prune-originals",
     "preview": "node ./node_modules/vite/bin/vite.js preview",
     "smoke": "node scripts/smoke-test.mjs",
-    "check:plants": "node scripts/check-plants.mjs && node scripts/check-coast-plants.mjs",
+    "check:plants": "node scripts/check-plants.mjs && node scripts/check-coast-plants.mjs && node scripts/check-trees.mjs",
     "check:terrain": "node scripts/check-terrain.mjs && node scripts/check-terrain-features.mjs",
     "check:coast-contracts": "node scripts/check-terrain.mjs && node scripts/check-terrain-features.mjs && node scripts/check-water-seam.mjs && node src/components/effects/sceneTimeline.check.js && node scripts/check-seagull-render-lod.mjs && node scripts/check-seagull-distant-silhouette.mjs && node src/components/effects/water/opticsGeometryLod.check.js"
   },

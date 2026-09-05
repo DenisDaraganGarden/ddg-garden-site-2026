@@ -1,4 +1,4 @@
-import {DEFAULT_SHRUB_SETTINGS,normalizeShrubSettings} from '../../../plants/settings.js';
+import {DEFAULT_SHRUB_SETTINGS,DEFAULT_TREE_SETTINGS,normalizeShrubSettings,normalizeTreeSettings} from '../../../plants/settings.js';
 import { DEFAULT_TERRAIN_SETTINGS, normalizeTerrainSettings } from '../../../terrain/settings.js';
 import { DEFAULT_TANKER_SETTINGS, normalizeTankerSettings } from '../../../tanker/settings.js';
 import { useEffect, useState } from 'react';
@@ -188,6 +188,7 @@ export const getBaseHomeSceneSettings = () => ({
   ...DEFAULT_TANKER_SETTINGS,
   ...DEFAULT_TERRAIN_SETTINGS,
   ...DEFAULT_SHRUB_SETTINGS,
+  ...DEFAULT_TREE_SETTINGS,
   waterExtent: 24,
   // Metres over which the pond's look hands over to the far field at its edge.
   farWaterBlendWidth: 2.5,
@@ -1084,6 +1085,7 @@ const normalizeHomeSceneSettings = (savedSettings = {}, includeCameraSystem = tr
     ...normalizeTankerSettings(merged),
     ...normalizeTerrainSettings(merged),
     ...normalizeShrubSettings(merged),
+    ...normalizeTreeSettings(merged),
     bloomEnabled: pickBoolean(merged.bloomEnabled, defaults.bloomEnabled),
     bloomStrength: clampFloat(merged.bloomStrength, 0, 2.5, defaults.bloomStrength),
     bloomThreshold: clampFloat(merged.bloomThreshold, 0, 2, defaults.bloomThreshold),

@@ -22,7 +22,7 @@ node scripts/generate-tanker.mjs
 node scripts/check-tanker.mjs
 ```
 
-Exports live in `public/models/tanker/` with a machine-readable manifest:
+Exports live in `assets-source/models/tanker/` with a machine-readable manifest (the scene builds the ship procedurally and never requests them, so they stay out of `public/`):
 
 | Variant | Triangles | Material batches | GLB |
 | --- | ---: | ---: | ---: |

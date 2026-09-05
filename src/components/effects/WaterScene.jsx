@@ -1,6 +1,7 @@
 import CoastShrubs from '../../plants/CoastShrubs.jsx';
-import {createCoastPlanting} from '../../plants/coastPlanting.js';
-import {shrubAssetSettings} from '../../plants/settings.js';
+import CoastTrees from '../../plants/CoastTrees.jsx';
+import {createCoastPlanting,createCoastTreePlanting} from '../../plants/coastPlanting.js';
+import {shrubAssetSettings,treeAssetSettings} from '../../plants/settings.js';
 import {createPlantCover} from '../../plants/plantCover.js';
 import {coastWeather,terrainGeometryKey} from '../../terrain/settings.js';
 import { createTerrainCollider } from '../../terrain/terrainCollider.js';
@@ -198,7 +199,14 @@ function WaterRuntimeScene({
   const shrubSettings=useMemo(()=>JSON.parse(shrubKey),[shrubKey]);
   const shrubAsset=useMemo(()=>shrubAssetSettings(shrubSettings,{speed:coastWeather(terrainDefinition).wind,bearing:terrainDefinition.terrainWindBearing}),[shrubSettings,terrainDefinition]);
   const shrubPlants=useMemo(()=>createCoastPlanting(terrainQuery,queryDefinition,shrubSettings),[terrainQuery,queryDefinition,shrubSettings]);
-  const shrubCover=useMemo(()=>createPlantCover(shrubPlants,256),[shrubPlants]);
+  // The grove reads the same colour ecology as the shrubs (the landscape's),
+  // so its keys ride along with them; only the tree keys are its own.
+  const treeKey=JSON.stringify(Object.fromEntries(Object.entries(settings).filter(([key])=>key.startsWith('trees')||key.startsWith('shrubs'))));
+  const treeSettings=useMemo(()=>JSON.parse(treeKey),[treeKey]);
+  const treeAsset=useMemo(()=>treeAssetSettings(treeSettings,{speed:coastWeather(terrainDefinition).wind,bearing:terrainDefinition.terrainWindBearing}),[treeSettings,terrainDefinition]);
+  const treePlants=useMemo(()=>createCoastTreePlanting(terrainQuery,queryDefinition,treeSettings),[terrainQuery,queryDefinition,treeSettings]);
+  const coverPlants=useMemo(()=>[...shrubPlants,...treePlants],[shrubPlants,treePlants]);
+  const shrubCover=useMemo(()=>createPlantCover(coverPlants,256),[coverPlants]);
   useEffect(()=>()=>shrubCover.dispose(),[shrubCover]);
   const lighting = useMemo(() => buildHomeSceneLighting(settings), [settings]);
   // One sky, built once, handed to everything that has to agree about it: the
@@ -403,6 +411,7 @@ function WaterRuntimeScene({
         />
         {terrainQuery ? <primitive object={terrainQuery.collisionObject}/> : null}
         {terrainQuery&&settings.shrubsEnabled ? <CoastShrubs settings={shrubAsset} plants={shrubPlants} qualityProfile={qualityProfile}/> : null}
+        {terrainQuery&&settings.treesEnabled ? <CoastTrees settings={treeAsset} plants={treePlants} qualityProfile={qualityProfile}/> : null}
         {settings.terrainEnabled ? <AzovTerrain plantCover={shrubCover} rocks={terrainRocks} onTerrainReady={handleLandingSurfaceReady} audioRuntime={audioRuntime} runtime={runtime} definition={terrainDefinition} settings={settings} qualityProfile={qualityProfile} lighting={lighting} sky={sky} /> : null}
         {settings.seabedVisible ? (
           <Seabed

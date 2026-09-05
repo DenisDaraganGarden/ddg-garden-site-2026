@@ -1,4 +1,5 @@
 import {ShrubsSection} from './sections/shrubs';
+import {TreesSection} from './sections/trees';
 import { TerrainSection } from './sections/terrain';
 import { TankerSection } from './sections/tanker';
 import {
@@ -67,7 +68,7 @@ export const EDITOR_TREE = [
         nodes: [
             { id: 'lilies', aspects: [{ id: 'scatter', Section: LiliesSection }] },
             { id: 'algae', aspects: [{ id: 'scatter', Section: AlgaeSection }] },
-            { id: 'trees', aspects: [{ id: 'empty', Section: EmptySection }] },
+            { id: 'trees', aspects: [{ id: 'scatter', Section: TreesSection }] },
             { id: 'shrubs', aspects: [{ id: 'scatter', Section: ShrubsSection }] },
             { id: 'grass', aspects: [{ id: 'empty', Section: EmptySection }] },
         ],

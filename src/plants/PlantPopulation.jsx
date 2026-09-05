@@ -5,7 +5,7 @@ import {makeBranchGeometry,makeLeafGeometry,selectPlantLod} from './oleasterMode
 import {makePlantMaterials,plantUniforms,updatePlantUniforms} from './plantMaterials.js';
 import {bakePlantImpostor,makeImpostorMaterial} from './plantAtlases.js';
 
-export default function PlantPopulation({model,settings,atlas,placements,paused=false,onStats,lowPower=false,sceneTime=false}){
+export default function PlantPopulation({model,settings,atlas,placements,paused=false,onStats,lowPower=false,sceneTime=false,statsKey='plantStats',impostorFrame}){
  const {gl,camera,size,invalidate}=useThree();
  const capacity=Math.max(1,2**Math.ceil(Math.log2(Math.max(1,placements.length))));
  const uniforms=useMemo(plantUniforms,[]),time=useRef(0),lastReport=useRef(-Infinity),lastLod=useRef(0);
@@ -19,7 +19,7 @@ export default function PlantPopulation({model,settings,atlas,placements,paused=
  useLayoutEffect(()=>{
   const meshes=[0,1].map(lod=>({bark:makeBranchGeometry(model,lod),leaf:makeLeafGeometry(model,lod)}));
   const materials=makePlantMaterials(atlas,uniforms);
-  const impostor=bakePlantImpostor(gl,model,meshes[0],atlas,lowPower?128:256);
+  const impostor=bakePlantImpostor(gl,model,meshes[0],atlas,impostorFrame??(lowPower?128:256));
   const farMaterial=makeImpostorMaterial(impostor,uniforms);
   const farGeometry=new THREE.PlaneGeometry(impostor.width,impostor.height,1,4);
   farGeometry.translate(...impostor.center.toArray());
@@ -31,7 +31,7 @@ export default function PlantPopulation({model,settings,atlas,placements,paused=
    for(const m of meshes){m.bark.dispose();m.leaf.dispose();}
    materials.dispose();impostor.dispose();farMaterial.dispose();farGeometry.dispose();
   };
- },[gl,model,atlas,uniforms,lowPower]);
+ },[gl,model,atlas,uniforms,lowPower,impostorFrame]);
  useLayoutEffect(()=>{
   if(!resources)return;
   for(const geometry of [...resources.meshes.flatMap(m=>[m.bark,m.leaf]),resources.farGeometry]){
@@ -80,7 +80,7 @@ export default function PlantPopulation({model,settings,atlas,placements,paused=
   const metresPerPixel=2*Math.tan(camera.fov*Math.PI/360)*camera.position.distanceTo(focusPoint)/size.height;
   const metres=[.01,.02,.05,.1,.2,.5,1,2,5,10,20,50].reduce((best,n)=>Math.abs(n/metresPerPixel-64)<Math.abs(best/metresPerPixel-64)?n:best,.01);
   const info={paused,lowPower,atlas:[resources.impostor.color.width,resources.impostor.color.height],frame:gl.info.render.frame,focus:focus?[focus.x,focus.y,focus.z]:[0,0,0],scale:{metres,pixels:metres/metresPerPixel},plants:placements.length,culled,leaves:model.leaves.length,branches:model.branches.length,lods:counts,budgets,triangles:counts.reduce((sum,n,i)=>sum+n*budgets[i],0),calls:gl.info.render.calls,frameTriangles:gl.info.render.triangles,seconds:Number(time.current.toFixed(2))};
-  gl.domElement.dataset.plantStats=JSON.stringify(info);onStats?.(info);
+  gl.domElement.dataset[statsKey]=JSON.stringify(info);onStats?.(info);
  });
  if(!resources||resources.model!==model)return null;
  const {meshes,materials,farMaterial,farGeometry}=resources;

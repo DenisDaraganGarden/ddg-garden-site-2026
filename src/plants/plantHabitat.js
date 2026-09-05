@@ -2,15 +2,15 @@ import { randomSequence } from './oleasterModel.js';
 import {ecologyPatch,plantDrynessAt} from './plantEcology.js';
 const clamp = x => Math.max(0,Math.min(1,x));
 // Adapter contract matches the terrain query in the coast branch; no terrain mesh dependency.
-export function scatterPlants(query,{seed=23,count=32,extent=10,spacing=1.15,dryness=.2,pathMask=()=>0,pointAt=(x,z)=>({x,z}),ecology={}}={}) {
+export function scatterPlants(query,{seed=23,count=32,extent=10,spacing=1.15,dryness=.2,pathMask=()=>0,pointAt=(x,z)=>({x,z}),ecology={},suitability=s=>s.vegetation?.shrubs??1}={}) {
   const random=randomSequence(seed),plants=[],grid=new Map(),cell=Math.max(.1,spacing);
   const [width,depth]=Array.isArray(extent)?extent:[extent,extent];
   const key=(x,z)=>`${x},${z}`;
   for(let attempt=0;attempt<count*100&&plants.length<count;attempt++){
     const {x,z}=pointAt((random()-.5)*width,(random()-.5)*depth),s=query.surfaceAt(x,z,0);
     const colonies=.35+.65*ecologyPatch(x,z,Math.max(3,Math.min(width,depth)*.16),seed+89);
-    const suitability=clamp(s.vegetation?.shrubs??1)*(1-clamp(s.wetness??0))*clamp((s.normal.y-.64)/.28)*(1-clamp(pathMask(x,z)))*colonies;
-    if(s.height<0||random()>suitability)continue;
+    const chance=clamp(suitability(s))*(1-clamp(s.wetness??0))*clamp((s.normal.y-.64)/.28)*(1-clamp(pathMask(x,z)))*colonies;
+    if(s.height<0||random()>chance)continue;
     const gx=Math.floor(x/cell),gz=Math.floor(z/cell);let crowded=false;
     for(let i=-1;i<=1;i++)for(let j=-1;j<=1;j++)for(const p of grid.get(key(gx+i,gz+j))??[])if(Math.hypot(p.x-x,p.z-z)<spacing)crowded=true;
     if(crowded)continue;

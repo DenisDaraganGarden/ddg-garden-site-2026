@@ -15,7 +15,7 @@ globalThis.FileReader ??= class FileReader {
   }
 };
 
-const output = new URL('../public/models/tanker/', import.meta.url);
+const output = new URL('../assets-source/models/tanker/', import.meta.url);
 await fs.mkdir(output, { recursive: true });
 const variants = [];
 for (const lod of ['near', 'horizon']) {
