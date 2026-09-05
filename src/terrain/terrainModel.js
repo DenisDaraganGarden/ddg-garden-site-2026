@@ -48,6 +48,18 @@ export function coastHeight(q,s,p) {
   const height=shelf+beach+cliff*f.bank*(1-slump)+talus+erosion+dryNoise+upland;
   return mix(-p.waterDepth,height,terrainCoverage(q,s,p));
 }
+// The old flat bed discards itself inside the coast band, where the terrain's
+// shelf is the bed. When the whole pond square lies in that band the plane
+// would draw nothing at all, so the scene need not mount it.
+export function coastBandCoversPond(p,extent) {
+  if(!p.terrainEnabled)return false;
+  const half=extent*.5;
+  for(const x of [-half,0,half])for(const z of [-half,0,half]){
+    const {u,s}=coastCoordinates(x,z,p),q=u-shorePosition(s,p);
+    if(!(Math.abs(s)<p.terrainLength*.5&&q>-96&&q<p.terrainLandWidth))return false;
+  }
+  return true;
+}
 export function coastPondWeight(q,s,p) {
   const coverage=terrainCoverage(q,s,p);
   return smooth(.4,.8,-coastHeight(q,s,p))*coverage+(1-coverage);

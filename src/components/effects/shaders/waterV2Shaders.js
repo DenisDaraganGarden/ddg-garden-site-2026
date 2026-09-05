@@ -275,7 +275,9 @@ export const waterV2FragmentShader = `
 
   void main() {
     vec2 coastQS=coastLocal(vSurfaceWorldPosition.xz);
-    if(uCoastShape.x>.5 && coastMask(coastQS)>.001 && coastHeight(coastQS)>vSurfaceWorldPosition.y+.004)discard;
+    // The bluff profile is forty transcendentals; every use below reads this one.
+    float coastGround=uCoastShape.x>.5?coastHeight(coastQS):-uCoastSurface.y;
+    if(uCoastShape.x>.5 && coastMask(coastQS)>.001 && coastGround>vSurfaceWorldPosition.y+.004)discard;
     // Shore strips use this exact shader and own the entire coast band.  It is
     // an analytical interval, not a screen-space/dithered handoff, so a pond
     // fragment can never leave a hole between the two water meshes.
@@ -340,7 +342,7 @@ export const waterV2FragmentShader = `
     float shadow = keyShadow();
     float turbidity = clamp(uWaterTurbidity, 0.0, 1.0);
     float analyticPath = min(
-      mix(uWaterDepth,max(0.0,vSurfaceWorldPosition.y-coastHeight(coastQS)),uCoastShape.x) / max(normalDotView, 0.22),
+      mix(uWaterDepth,max(0.0,vSurfaceWorldPosition.y-coastGround),uCoastShape.x) / max(normalDotView, 0.22),
       uWaterDepth * 4.0
     );
     float opticalPath = analyticPath;
@@ -572,7 +574,7 @@ export const waterV2FragmentShader = `
     }
 
     if(uCoastShape.x>.5){
-      float contact=uRefractionDepthActive*smoothstep(.18,.4,-coastHeight(coastQS))*exp(-opticalPath*25.0)*uCoastSurf.z*.55;
+      float contact=uRefractionDepthActive*smoothstep(.18,.4,-coastGround)*exp(-opticalPath*25.0)*uCoastSurf.z*.55;
       float foam=max(coastFoam(coastQS,vSurfaceWorldPosition,uTime),contact*coastNoise(vSurfaceWorldPosition.xz*19.0));
       vec3 foamLight=vec3(.82,.84,.78)*(uFoamFillRadiance+uFoamKeyRadiance*max(dot(normal,lightDirection),0.0)*shadow)/3.14159265;
       color=mix(color,foamLight,foam);

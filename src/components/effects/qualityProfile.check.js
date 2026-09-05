@@ -15,6 +15,7 @@ const desktopProfile = {
   fogSampleCount: 8,
   shadowMapSize: 768,
   boatProbeInterval: 1 / 20,
+  waterMeshDensityCap: 224,
 };
 
 assert.equal(
@@ -39,6 +40,7 @@ assert.deepEqual(
     shadowMapSize: 512,
     // A tile GPU flushes on every synchronous probe readback: 12 Hz floor.
     boatProbeInterval: 1 / 12,
+    waterMeshDensityCap: 160,
   },
   'capable phones should trade duplicate transient work for clean optics and stable motion',
 );

@@ -27,7 +27,9 @@ export default function StaticSculpture({
   onSculpturePositionChange,
   onLandingSurfaceReady,
   useOpticsLod = false,
+  qualityProfile,
 }) {
+  const liteStone = Boolean(qualityProfile?.isLowPower || qualityProfile?.isMobileDevice);
   const anchorRef = useRef();
   const sculptureAnchorRef = useRef(new THREE.Vector3(
     layout?.sculpturePosition?.x ?? settings?.sculpturePosition?.x ?? DEFAULT_SCULPTURE_ANCHOR.x,
@@ -74,8 +76,8 @@ export default function StaticSculpture({
 
   const blackStoneUniforms = useMemo(() => createBlackStoneUniforms(), []);
   const sculptureMaterial = useMemo(
-    () => createBlackStoneMaterial(blackStoneUniforms),
-    [blackStoneUniforms],
+    () => createBlackStoneMaterial(blackStoneUniforms, { lite: liteStone }),
+    [blackStoneUniforms, liteStone],
   );
 
   useEffect(() => {

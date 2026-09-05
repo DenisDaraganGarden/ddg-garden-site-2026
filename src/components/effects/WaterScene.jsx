@@ -7,7 +7,7 @@ import {coastWeather,terrainGeometryKey} from '../../terrain/settings.js';
 import { createTerrainCollider } from '../../terrain/terrainCollider.js';
 import { buildCoastRocks, attachRockCollisions } from '../../terrain/terrainRocks.js';
 import AzovTerrain from '../../terrain/AzovTerrain.jsx';
-import { createTerrainDefinition, createTerrainQuery } from '../../terrain/terrainModel.js';
+import { coastBandCoversPond, createTerrainDefinition, createTerrainQuery } from '../../terrain/terrainModel.js';
 import HomeTanker from '../../tanker/HomeTanker.jsx';
 import React, {
   useCallback,
@@ -208,6 +208,9 @@ function WaterRuntimeScene({
   const coverPlants=useMemo(()=>[...shrubPlants,...treePlants],[shrubPlants,treePlants]);
   const shrubCover=useMemo(()=>createPlantCover(coverPlants,256),[coverPlants]);
   useEffect(()=>()=>shrubCover.dispose(),[shrubCover]);
+  // Under the coast the terrain shelf is the bed; the old plane would only be
+  // rasterized to discard every pixel, in the frame and in the refraction.
+  const seabedCovered = useMemo(() => coastBandCoversPond(terrainDefinition, settings.waterExtent), [terrainDefinition, settings.waterExtent]);
   const lighting = useMemo(() => buildHomeSceneLighting(settings), [settings]);
   // One sky, built once, handed to everything that has to agree about it: the
   // visible dome, the water that reflects it, and (from Phase 2) the image-based
@@ -413,7 +416,7 @@ function WaterRuntimeScene({
         {terrainQuery&&settings.shrubsEnabled ? <CoastShrubs settings={shrubAsset} plants={shrubPlants} qualityProfile={qualityProfile}/> : null}
         {terrainQuery&&settings.treesEnabled ? <CoastTrees settings={treeAsset} plants={treePlants} qualityProfile={qualityProfile}/> : null}
         {settings.terrainEnabled ? <AzovTerrain plantCover={shrubCover} rocks={terrainRocks} onTerrainReady={handleLandingSurfaceReady} audioRuntime={audioRuntime} runtime={runtime} definition={terrainDefinition} settings={settings} qualityProfile={qualityProfile} lighting={lighting} sky={sky} /> : null}
-        {settings.seabedVisible ? (
+        {settings.seabedVisible && !seabedCovered ? (
           <Seabed
             settings={settings}
             runtime={runtime}
@@ -487,6 +490,7 @@ function WaterRuntimeScene({
         {settings.sculptureVisible ? (
           <StaticSculpture
             terrainQuery={terrainQuery}
+            qualityProfile={qualityProfile}
             settings={settings}
             lighting={lighting}
             layout={activeLayout}

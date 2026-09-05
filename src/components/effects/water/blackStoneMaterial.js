@@ -94,8 +94,14 @@ const BLACK_STONE_FRAGMENT_PARS = /* glsl */ `
     float value = stoneNoise(p) * 0.56;
     p = p * 2.03 + vec3(17.1, 3.7, 11.9);
     value += stoneNoise(p) * 0.29;
+#ifdef STONE_LITE
+    // A phone reads the stone at a quarter of the desktop's pixels per
+    // centimetre; the third octave is below what it can show.
+    return value + 0.075;
+#else
     p = p * 2.01 + vec3(5.4, 19.3, 2.8);
     return value + stoneNoise(p) * 0.15;
+#endif
   }
 
   vec3 perturbStoneNormal(vec3 surfacePosition, vec3 surfaceNormal, float height, float strength) {
@@ -138,7 +144,11 @@ const BLACK_STONE_FRAGMENT_BODY = /* glsl */ `
   float stoneCleavageFacing = smoothstep(0.32, 0.92, abs(dot(stoneObjectNormal, stoneLayerDirection)));
   float stoneLayerExposure = mix(0.5, 1.0, smoothstep(0.08, 0.82, 1.0 - abs(dot(stoneObjectNormal, stoneLayerDirection))));
   float stoneLayerSheen = stoneLayerRidge * stoneLayerBreakMask * uLayering;
+#ifdef STONE_LITE
+  float stoneLayerChipCluster = smoothstep(0.58, 0.82, stoneBroad);
+#else
   float stoneLayerChipCluster = smoothstep(0.58, 0.82, stoneFbm(stoneLayerP * 2.9 + vec3(5.1, -7.4, 2.6)));
+#endif
   float stoneLayerChipCell = stoneNoise(stoneLayerP * 9.0 + vec3(stoneBroad * 3.0, 11.2, -4.7));
   float stoneLayerChipMask = smoothstep(0.79, 0.93, stoneLayerChipCell) * stoneLayerChipCluster * stoneLayerEdge * stoneLayerExposure * uLayerEdgeChips * uLayering;
   float stoneLayerHeight = (((stoneLayerRidge - 0.3) * 0.55 - stoneLayerValley * 0.95) * stoneLayerBreakMask * stoneLayerExposure * uLayering) - stoneLayerChipMask * 1.15;
@@ -147,10 +157,18 @@ const BLACK_STONE_FRAGMENT_BODY = /* glsl */ `
   float stoneFractureField = stoneFbm(stoneFractureP * 1.86 + vec3(stoneFractureWarp * 2.1, -8.3, stoneBroad * 1.7));
   float stoneFractureRidge = 1.0 - smoothstep(0.018, 0.092, abs(stoneFractureField - 0.58));
   float stoneGlassFacet = smoothstep(0.63, 0.78, stoneFractureField) * mix(0.28, 1.0, stoneCleavageFacing) * uFracture;
+#ifdef STONE_LITE
+  float stoneChipCluster = smoothstep(0.5, 0.74, stoneFractureField);
+#else
   float stoneChipCluster = smoothstep(0.5, 0.74, stoneFbm(stoneFractureP * 2.7 + vec3(-3.7, stoneFractureField * 2.8, 8.4)));
+#endif
   float stoneChipField = stoneNoise(stoneFractureP * 10.5 + vec3(stoneFractureField * 3.0, 14.2, -9.1));
   float stoneChipMask = smoothstep(0.78, 0.93, stoneChipField) * mix(0.28, 1.0, stoneChipCluster) * mix(0.48, 1.0, stoneFractureRidge) * uFracture;
 
+#ifdef STONE_LITE
+  // Veins are a few millimetres wide: on a phone they are one noisy pixel.
+  float stoneVeinMask = 0.0;
+#else
   vec3 stoneVeinWarp = vec3(
     stoneNoise(stoneVeinP * 0.62 + vec3(7.2, 0.4, 2.1)),
     stoneNoise(stoneVeinP * 0.62 + vec3(-3.5, 9.1, 5.8)),
@@ -159,11 +177,16 @@ const BLACK_STONE_FRAGMENT_BODY = /* glsl */ `
   float stoneVeinField = stoneNoise(stoneVeinP * 0.88 + stoneVeinWarp * 2.25);
   stoneVeinField += sin(dot(stoneVeinP, vec3(1.2, 3.8, -0.9)) + stoneBroad * 4.0) * 0.055;
   float stoneVeinMask = (1.0 - smoothstep(0.014, 0.056, abs(stoneVeinField - 0.56))) * smoothstep(0.28, 0.76, stoneBroad) * uVeins;
+#endif
 
   float stoneWearField = stoneFbm(stoneWearP * 1.15 + vec3(6.2, -4.1, 12.8));
   float stoneWearBreak = stoneNoise(stoneWearP * 2.7 + vec3(-8.4, stoneBroad * 2.0, 3.6));
   float stoneWearMask = smoothstep(0.56, 0.8, stoneWearField) * mix(0.35, 1.0, stoneCleavageFacing) * mix(0.45, 1.0, stoneWearBreak);
+#ifdef STONE_LITE
+  float stoneRoughPatch = smoothstep(0.42, 0.74, stoneWearField);
+#else
   float stoneRoughPatch = smoothstep(0.42, 0.74, stoneFbm(stoneWearP * 3.2 + vec3(11.6, -7.3, stoneFractureField * 1.8)));
+#endif
   float stoneFineGrain = stoneNoise(stoneWearP * 14.5 + vec3(-5.2, 13.1, 2.9));
   float stonePoreMask = smoothstep(0.84, 0.96, stoneFineGrain) * stoneRoughPatch;
 
@@ -208,7 +231,9 @@ const BLACK_STONE_FRAGMENT_BODY = /* glsl */ `
   stoneMicroHeight += stoneVeinMask * 0.01;
   stoneMicroHeight *= stoneDryMicroMask;
   vec3 stoneNormal = perturbStoneNormal(vStoneViewPosition, normalize(vStoneViewNormal), stoneLayerRelief, uLayerRelief * 0.28);
+#ifndef STONE_LITE
   stoneNormal = perturbStoneNormal(vStoneViewPosition, stoneNormal, stoneMicroHeight, mix(0.045, 0.28, uMicroRelief));
+#endif
 `;
 
 const BLACK_STONE_DEBUG_OUTPUT = /* glsl */ `
@@ -268,6 +293,13 @@ export function createBlackStoneMaterial(uniforms, options = {}) {
     side: options.side ?? THREE.DoubleSide,
   });
 
+  // The lite stone is the phone's: two fbm octaves instead of three, no
+  // veins, no micro-relief pass, the cluster masks read fields already paid
+  // for. About 18 noise evaluations a pixel instead of 42. The desktop keeps
+  // the approved look-dev material untouched.
+  if (options.lite) {
+    material.defines = { ...(material.defines ?? {}), STONE_LITE: '' };
+  }
   material.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, uniforms);
     shader.vertexShader = shader.vertexShader
@@ -286,7 +318,7 @@ export function createBlackStoneMaterial(uniforms, options = {}) {
       .replace('#include <opaque_fragment>', `#include <opaque_fragment>\n${BLACK_STONE_DEBUG_OUTPUT}`);
     material.userData.shader = shader;
   };
-  material.customProgramCacheKey = () => 'ddg-black-stone-production-v1';
+  material.customProgramCacheKey = () => (options.lite ? 'ddg-black-stone-lite-v1' : 'ddg-black-stone-production-v1');
   return material;
 }
 

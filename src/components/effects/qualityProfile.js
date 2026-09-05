@@ -48,6 +48,9 @@ export function trimProfileForMobile(profile, isMobileDevice) {
   return {
     ...profile,
     simulationMaxResolution: Math.min(profile.simulationMaxResolution, 256),
+    // 34 m of pond on a 780 px frame: 160 cells is 3.5 px a cell, and the
+    // ripple detail lives in the normal map, not in the polygons.
+    waterMeshDensityCap: Math.min(profile.waterMeshDensityCap, 160),
     // Every probe tick is a synchronous readback, and a tile GPU flushes the
     // whole pipeline for one. 12 Hz is the floor, not a knob: below it the hold
     // aliases the scene's own 4.79 Hz ambient drive into the hull's band
