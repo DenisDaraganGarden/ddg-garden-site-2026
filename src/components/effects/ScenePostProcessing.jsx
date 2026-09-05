@@ -150,6 +150,8 @@ const postFragmentShader = `
 
   uniform float uFogMode;
   uniform vec3 uFogColor;
+  uniform vec3 uFogHorizonColor;
+  uniform float uFogSkyTint;
   uniform float uFogDensity;
   uniform float uFogNear;
   uniform float uFogFar;
@@ -486,7 +488,8 @@ const postFragmentShader = `
       // Scaled by the ray intensity like the direct term below it. Without that
       // the slider was discontinuous at zero: with fog on, turning the rays off
       // still left them at full strength inside the fog.
-      vec3 scatteredFog = uFogColor
+      // The horizon's own colour, so a veil over the far water meets the sky.
+      vec3 scatteredFog = mix(uFogColor, uFogHorizonColor, uFogSkyTint)
         + uSunColor * (rays * 0.82 + sunHalo * 0.12)
           * uFogScattering * clamp(uSunRaysIntensity, 0.0, 2.0);
       // The fog pass runs after all PBR lighting. Without a local allowance it
@@ -763,6 +766,8 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
     uSunRadius: { value: 0.01 },
     uFogMode: { value: 0 },
     uFogColor: { value: new THREE.Color('#000000') },
+    uFogHorizonColor: { value: new THREE.Color('#000000') },
+    uFogSkyTint: { value: 0 },
     uFogDensity: { value: 0 },
     uFogNear: { value: 1 },
     uFogFar: { value: 24 },
@@ -875,6 +880,8 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
     uniforms.uSunRaySampleCount.value = sunRaySampleCount;
     uniforms.uFogMode.value = fogModes[fogMode] ?? 0;
     uniforms.uFogColor.value.set(settings.fogColor);
+    uniforms.uFogHorizonColor.value.fromArray(lighting.environment.horizon.linear);
+    uniforms.uFogSkyTint.value = settings.fogSkyTint;
     uniforms.uFogDensity.value = settings.fogDensity;
     uniforms.uFogNear.value = settings.fogNear;
     uniforms.uFogFar.value = settings.fogFar;
@@ -883,7 +890,7 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
     uniforms.uFogScattering.value = settings.fogScattering;
     uniforms.uFogSampleCount.value = fogSampleCount;
     uniforms.uSunColor.value.fromArray(lighting.key.colorLinear);
-  }, [bloomPrefilterUniforms, fogSampleCount, isLowPower, lighting.key.colorLinear, settings, sunRaySampleCount, uniforms]);
+  }, [bloomPrefilterUniforms, fogSampleCount, isLowPower, lighting.environment.horizon.linear, lighting.key.colorLinear, settings, sunRaySampleCount, uniforms]);
 
   useEffect(() => () => {
     postScene.children[0]?.geometry?.dispose();

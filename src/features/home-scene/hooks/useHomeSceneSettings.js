@@ -463,6 +463,8 @@ export const getBaseHomeSceneSettings = () => ({
   fogNoiseScale: 2.1,
   fogSpeed: 0.05,
   fogScattering: 0.25,
+  // How much the fog takes the sky's horizon colour instead of its own.
+  fogSkyTint: 0,
   ambientWaveIntensity: 0.12,
   ambientWaveSpeed: 0.85,
   animationPaused: false,
@@ -1117,6 +1119,7 @@ const normalizeHomeSceneSettings = (savedSettings = {}, includeCameraSystem = tr
     fogNoiseScale: clampFloat(merged.fogNoiseScale, 0.1, 12, defaults.fogNoiseScale),
     fogSpeed: clampFloat(merged.fogSpeed, 0, 2, defaults.fogSpeed),
     fogScattering: clampFloat(merged.fogScattering, 0, 2, defaults.fogScattering),
+    fogSkyTint: clampFloat(merged.fogSkyTint, 0, 1, defaults.fogSkyTint),
     ambientWaveIntensity: clampFloat(merged.ambientWaveIntensity, 0, 1, defaults.ambientWaveIntensity),
     ambientWaveSpeed: clampFloat(merged.ambientWaveSpeed, 0, 10, defaults.ambientWaveSpeed),
     animationPaused: pickBoolean(merged.animationPaused, defaults.animationPaused),

@@ -36,9 +36,12 @@ export function normalizeTerrainSettings(source={}) {
 }
 // Artist-controlled weather envelope shared by CPU probes and GPU uniforms.
 export function coastWeather(p) {
-  const storm=p.terrainStorm??0;
+  const storm=p.terrainStorm??0,wind=p.terrainWindSpeed+storm*8;
   return {height:p.terrainWaveHeight*(1+storm*.6),period:p.terrainWavePeriod*(1-storm*.22),
-    foam:p.terrainFoam*(1+storm*.45),wind:p.terrainWindSpeed+storm*8};
+    foam:p.terrainFoam*(1+storm*.45),wind,
+    // Open-water swell, one number the far field, the pond's drift and the
+    // tanker's roll all read: 1 at the default 4 m/s, more in wind and storm.
+    swell:Math.min(3,.4+wind*.15+storm*1.2),swellBearing:p.terrainWindBearing};
 }
 
 export const TERRAIN_GEOMETRY_KEYS=['terrainEnabled','terrainSeed','terrainBearing','terrainOffset','terrainLength','terrainLandWidth','terrainBeachWidth','terrainCliffHeight','terrainCliffSlope','terrainCurve','terrainCapeDepth','terrainCapePosition','terrainCapeWidth','terrainRelief','terrainErosion','terrainFeatureScale','terrainLandslides','terrainPaths'];

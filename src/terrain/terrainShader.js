@@ -8,6 +8,8 @@ uniform vec4 uCoastDetail;
 uniform vec4 uCoastSurface;
 uniform vec4 uCoastSurf;
 uniform vec4 uCoastGeology;
+// xy: downwind direction in world xz, z: swell strength, w: storm.
+uniform vec4 uCoastSwell;
 ${landformsShader}
 vec2 coastLand() { return vec2(sin(uCoastShape.y),-cos(uCoastShape.y)); }
 vec2 coastAlong() { return vec2(cos(uCoastShape.y),sin(uCoastShape.y)); }
@@ -86,7 +88,7 @@ float coastFoamAtHeight(vec2 qs,vec3 world,float time,float ground) {
 float coastFoam(vec2 qs,vec3 world,float time){return coastFoamAtHeight(qs,world,time,coastHeight(qs));}
 `;
 export function createCoastUniforms() {
- return {uCoastLandforms:{value:new THREE.Vector4()},uCoastShape:{value:new THREE.Vector4()},uCoastDimensions:{value:new THREE.Vector4()},uCoastDetail:{value:new THREE.Vector4()},uCoastSurface:{value:new THREE.Vector4()},uCoastSurf:{value:new THREE.Vector4()},uCoastGeology:{value:new THREE.Vector4()}};
+ return {uCoastLandforms:{value:new THREE.Vector4()},uCoastShape:{value:new THREE.Vector4()},uCoastDimensions:{value:new THREE.Vector4()},uCoastDetail:{value:new THREE.Vector4()},uCoastSurface:{value:new THREE.Vector4()},uCoastSurf:{value:new THREE.Vector4()},uCoastGeology:{value:new THREE.Vector4()},uCoastSwell:{value:new THREE.Vector4(0,-1,1,0)}};
 }
 export function syncCoastUniforms(uniforms,p) {
  uniforms.uCoastShape.value.set(p.terrainEnabled?1:0,p.terrainBearing*Math.PI/180,p.terrainOffset,p.terrainSeed);
@@ -97,4 +99,6 @@ export function syncCoastUniforms(uniforms,p) {
  const weather=coastWeather(p);
  uniforms.uCoastSurf.value.set(weather.height,weather.period,weather.foam,p.terrainShells);
  uniforms.uCoastGeology.value.set(p.terrainErosion,p.terrainSoil,p.terrainWeathering,p.terrainBloom);
+ const bearing=(p.terrainWindBearing??0)*Math.PI/180;
+ uniforms.uCoastSwell.value.set(Math.sin(bearing),-Math.cos(bearing),weather.swell,p.terrainStorm??0);
 }

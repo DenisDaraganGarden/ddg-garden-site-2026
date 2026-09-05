@@ -248,6 +248,7 @@ const keys = [
   'fogNoiseScale',
   'fogSpeed',
   'fogScattering',
+  'fogSkyTint',
   'ambientWaveIntensity',
   'ambientWaveSpeed',
   'audio',

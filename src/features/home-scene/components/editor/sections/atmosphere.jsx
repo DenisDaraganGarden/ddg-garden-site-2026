@@ -377,6 +377,15 @@ export const FogSection = ({ settings, handleSettingChange }) => {
                 formatValue={(value) => formatFloat(value)}
                 onChange={(event) => handleSettingChange(event, 'fogScattering')}
             />
+            <RangeControl
+                label={t('homeEditor.controls.fogSkyTint')}
+                value={settings.fogSkyTint}
+                min={0}
+                max={1}
+                step={0.01}
+                formatValue={(value) => formatFloat(value)}
+                onChange={(event) => handleSettingChange(event, 'fogSkyTint')}
+            />
         </>
     );
 };

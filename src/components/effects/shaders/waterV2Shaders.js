@@ -576,6 +576,11 @@ export const waterV2FragmentShader = `
     if(uCoastShape.x>.5){
       float contact=uRefractionDepthActive*smoothstep(.18,.4,-coastGround)*exp(-opticalPath*25.0)*uCoastSurf.z*.55;
       float foam=max(coastFoam(coastQS,vSurfaceWorldPosition,uTime),contact*coastNoise(vSurfaceWorldPosition.xz*19.0));
+      // Storm streaks offshore of the surf: the wind's foam lines, growing with
+      // the storm and the surf-foam slider, gone in calm weather.
+      float streaks=smoothstep(.12,.7,uCoastSwell.w)*uCoastSurf.z*smoothstep(-16.0,-40.0,coastQS.x)
+        *smoothstep(.6,.86,coastNoise(vSurfaceWorldPosition.xz*.35+uCoastSwell.xy*uTime*.35+uCoastSwell.yx*vec2(.31,-.31)));
+      foam=max(foam,streaks*.7);
       vec3 foamLight=vec3(.82,.84,.78)*(uFoamFillRadiance+uFoamKeyRadiance*max(dot(normal,lightDirection),0.0)*shadow)/3.14159265;
       color=mix(color,foamLight,foam);
     }

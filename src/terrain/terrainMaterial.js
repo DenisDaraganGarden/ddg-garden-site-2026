@@ -11,7 +11,35 @@ uniform highp sampler2DArray uTerrainNormal;
 uniform highp sampler2DArray uTerrainSurface;
 uniform sampler2D uPlantCover;uniform vec4 uPlantCoverBounds;uniform float uPlantCoverEnabled;
 uniform float uRockLayer;uniform float uTerrainTime;uniform float uTerrainScale;uniform float uTerrainParallax;uniform float uRockOnly;uniform float uTerrainGroundCover;
+uniform sampler2D uPondNormalMap;uniform vec2 uPondTexel;uniform float uPondExtent;uniform vec4 uCausticsParams;uniform vec3 uCausticsLight;uniform float uCausticsKey;
 struct TerrainSample{vec3 color;vec3 surface;vec3 normal;};
+vec3 pondNormalAt(vec2 uv){return normalize(texture2D(uPondNormalMap,uv).rgb*2.0-1.0);}
+// The pond's caustics, cast onto the shelf that took over as its bed. The
+// same differential-area focus the old bed used: a refracted patch is bright
+// only where rays truly converge. uCausticsParams: intensity, scale,
+// sharpness, turbidity.
+float shelfCaustics(vec2 world,float depth){
+ if(uCausticsParams.x<=0.0||depth<=0.0)return 0.0;
+ vec2 uv=vec2(world.x/uPondExtent+.5,.5-world.y/uPondExtent);
+ float inside=smoothstep(0.0,.04,min(min(uv.x,uv.y),min(1.0-uv.x,1.0-uv.y)));
+ if(inside<=0.0)return 0.0;
+ vec2 texel=uPondTexel;vec3 light=normalize(uCausticsLight);float scale=.06*uCausticsParams.y;
+ vec3 n=pondNormalAt(uv);
+ vec3 rL=refract(-light,pondNormalAt(uv-vec2(texel.x,0.0)),.75),rR=refract(-light,pondNormalAt(uv+vec2(texel.x,0.0)),.75);
+ vec3 rD=refract(-light,pondNormalAt(uv-vec2(0.0,texel.y)),.75),rU=refract(-light,pondNormalAt(uv+vec2(0.0,texel.y)),.75);
+ vec2 pL=(uv-vec2(texel.x,0.0))+rL.xz*(depth/max(-rL.y,.2))*scale,pR=(uv+vec2(texel.x,0.0))+rR.xz*(depth/max(-rR.y,.2))*scale;
+ vec2 pD=(uv-vec2(0.0,texel.y))+rD.xz*(depth/max(-rD.y,.2))*scale,pU=(uv+vec2(0.0,texel.y))+rU.xz*(depth/max(-rU.y,.2))*scale;
+ vec2 dX=(pR-pL)*.5,dY=(pU-pD)*.5;
+ float area=abs(dX.x*dY.y-dX.y*dY.x),flatArea=max(texel.x*texel.y,1e-8);
+ float sharp=clamp(uCausticsParams.z,0.0,1.0),compression=clamp(flatArea/max(area,flatArea*.12),0.0,7.0);
+ float threshold=mix(1.02,1.34,sharp),veins=smoothstep(threshold,threshold+mix(.5,.16,sharp),compression);
+ float slope=clamp(1.0-n.y,0.0,1.0);
+ float c=(veins*.72+max(compression-1.0,0.0)*.16)*(.5+clamp(slope*6.5,0.0,1.6)*.72)*uCausticsParams.x;
+ float turbidity=clamp(uCausticsParams.w,0.0,1.0),density=turbidity*(.45+.55*turbidity);
+ vec3 r=refract(-light,n,.75);
+ c*=clamp(-r.y*1.2,0.0,1.0)*exp(-depth*(.015+density*.55))*clamp(uCausticsKey,0.0,4.0);
+ return c*inside;
+}
 vec2 terrainDomainWarp(vec2 world){
  vec2 p=world*.075+vec2(uCoastShape.w*.017,19.37);
  return (vec2(coastNoise(p),coastNoise(p.yx+vec2(43.11,7.29)))-.5)*.46;
@@ -60,7 +88,8 @@ export function createTerrainMaterial(textures,p,rockOnly=false){
  const uniforms={...createCoastUniforms(),...ecologyUniforms(),
   uTerrainColor:{value:textures.color},uTerrainNormal:{value:textures.normal},uTerrainSurface:{value:textures.surface},
   uPlantCover:{value:null},uPlantCoverBounds:{value:new THREE.Vector4(0,0,1,1)},uPlantCoverEnabled:{value:0},
-  uTerrainTime:{value:0},uTerrainScale:{value:p.terrainTextureScale},uTerrainParallax:{value:p.terrainParallax},uTerrainGroundCover:{value:p.terrainGroundCover},uRockLayer:{value:rockOnly?2:3},uRockOnly:{value:rockOnly?1:0}};
+  uTerrainTime:{value:0},uTerrainScale:{value:p.terrainTextureScale},uTerrainParallax:{value:p.terrainParallax},uTerrainGroundCover:{value:p.terrainGroundCover},uRockLayer:{value:rockOnly?2:3},uRockOnly:{value:rockOnly?1:0},
+  uPondNormalMap:{value:null},uPondTexel:{value:new THREE.Vector2(1/256,1/256)},uPondExtent:{value:34},uCausticsParams:{value:new THREE.Vector4(0,1,1,0)},uCausticsLight:{value:new THREE.Vector3(0,1,0)},uCausticsKey:{value:1}};
  syncCoastUniforms(uniforms,p);
  const material=new THREE.MeshStandardMaterial({color:'#ffffff',roughness:.85,metalness:0,side:THREE.FrontSide});
  material.name=rockOnly?'azov-sandstone-boulders':'azov-coast-pbr';material.userData.coastUniforms=uniforms;
@@ -82,6 +111,7 @@ export function createTerrainMaterial(textures,p,rockOnly=false){
    vec3 forms=coastLandforms(qs.y);vec4 profile=coastProfile(qs.y,forms);
    float rockWeight=max(uRockOnly,1.0-smoothstep(.70,.965,abs(terrainN.y)));
    float wet=coastWetnessAtHeight(qs,uTerrainTime,groundY);
+   float caustic=groundY<-.02?shelfCaustics(vTerrainWorld.xz,-groundY-.02):0.0;
    float foamTrace=coastFoamAtHeight(qs,vTerrainWorld,uTerrainTime,groundY)*smoothstep(.28,.88,terrainN.y)*(1.0-rockWeight*.32);
    float path=coastPathMask(qs)*(1.0-uRockOnly);
    float shellMask=uCoastSurf.w*smoothstep(-.4,1.0,qs.x)*(1.0-smoothstep(4.0,max(7.0,uCoastDimensions.z*.8),qs.x));
@@ -133,6 +163,7 @@ export function createTerrainMaterial(textures,p,rockOnly=false){
    vec3 terrainColor=mix(ground.color,rockColor,rockWeight);
    float macroVariation=.88+.22*coastNoise(vTerrainWorld.xz*.21+vec2(5.2,42.9));
    diffuseColor.rgb=mix(terrainColor*mix(1.0,.53,wet),vec3(.82,.84,.78),foamTrace*.22)*macroVariation;
+   diffuseColor.rgb*=1.0+caustic*1.2;
   `);
   shader.fragmentShader=shader.fragmentShader.replace('#include <roughnessmap_fragment>','#include <roughnessmap_fragment>\nroughnessFactor=mix(surfaceData.r,.27,wet);');
   shader.fragmentShader=shader.fragmentShader.replace('#include <normal_fragment_maps>',`#include <normal_fragment_maps>

@@ -85,9 +85,13 @@ export const simulationFragmentShader = `
 
     if (uAmbientWaveIntensity > 0.0) {
       float t = uTime * uAmbientWaveSpeed;
-      float noiseVal = noise(vUv * 8.0 + t);
-      noiseVal += noise(vUv * 16.0 - t * 0.5) * 0.5;
-      velocity += (noiseVal - 0.75) * uAmbientWaveIntensity * 0.02;
+      // The pond's drift follows the coast wind: the downwind direction in
+      // the pond's UV frame (v runs north to south), and the swell's strength.
+      vec2 drift = uCoastShape.x > 0.5 ? normalize(vec2(uCoastSwell.x, -uCoastSwell.y)) : vec2(1.0);
+      float swell = mix(1.0, uCoastSwell.z, uCoastShape.x);
+      float noiseVal = noise(vUv * 8.0 + drift * t);
+      noiseVal += noise(vUv * 16.0 - drift * t * 0.5) * 0.5;
+      velocity += (noiseVal - 0.75) * uAmbientWaveIntensity * swell * 0.02;
     }
 
     // Do not saturate ordinary crests toward a shared height: that creates the

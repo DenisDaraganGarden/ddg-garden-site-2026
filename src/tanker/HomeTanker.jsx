@@ -5,6 +5,7 @@ import { createTanker, disposeTanker } from './model.js';
 import { updateTankerMaterials } from './materials.js';
 import { KNOTS_TO_METERS_PER_SECOND, sampleTankerMotion } from './motion.js';
 import TankerWake from './TankerWake.jsx';
+import { coastWeather } from '../terrain/settings.js';
 
 export default function HomeTanker({ settings, lighting, audioRuntime }) {
   const { camera, gl } = useThree();
@@ -37,7 +38,8 @@ export default function HomeTanker({ settings, lighting, audioRuntime }) {
     // Site bearings are clockwise from north (-Z). The authored bow is +X.
     const motion = sampleTankerMotion(elapsed.current, {
       speedKnots: settings.tankerSpeed, heading: 90 - settings.tankerBearing,
-      seaState: settings.tankerSeaState * (0.4 + settings.waveAmplitude * 12), travel: false,
+      // The open-water swell of the coast weather; a pond ripple is no sea state.
+      seaState: settings.tankerSeaState * (0.4 + 0.6 * coastWeather(settings).swell), travel: false,
     });
     position.set(settings.tankerX + Math.cos(motion.yaw) * along, motion.y,
       settings.tankerZ - Math.sin(motion.yaw) * along);

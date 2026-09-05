@@ -74,10 +74,20 @@ const farWaterFragmentShader = /* glsl */`
     return chroma * value;
   }
 
+  vec2 rotateSwell(vec2 v, float angle) {
+    float c = cos(angle);
+    float s = sin(angle);
+    return vec2(v.x * c - v.y * s, v.x * s + v.y * c);
+  }
+
   vec2 distantWaveGradient(vec2 point) {
-    vec2 directionA = normalize(vec2(0.86, 0.51));
-    vec2 directionB = normalize(vec2(-0.36, 0.93));
-    vec2 directionC = normalize(vec2(0.18, -0.98));
+    // Crests travel toward -direction, so downwind is minus the wind. The
+    // two crossing trains keep their authored angles to the primary one.
+    vec2 directionA = uCoastShape.x > 0.5
+      ? -normalize(uCoastSwell.xy)
+      : normalize(vec2(0.86, 0.51));
+    vec2 directionB = rotateSwell(directionA, 1.405);
+    vec2 directionC = rotateSwell(directionA, -1.925);
     float phaseA = dot(point, directionA) * 0.24 + uTime * uWaveSpeed * 0.31;
     float phaseB = dot(point, directionB) * 0.41 - uTime * uWaveSpeed * 0.22;
     float phaseC = dot(point, directionC) * 0.13 + uTime * uWaveSpeed * 0.14;
@@ -107,11 +117,22 @@ const farWaterFragmentShader = /* glsl */`
     float distanceOutsidePond = max(abs(vWorldPosition.x), abs(vWorldPosition.z))
       - uPondHalfExtent;
     float pondEdgeBlend = smoothstep(0.0, uSurfaceBlendWidth, distanceOutsidePond);
+    float swellStrength = uWaveStrength * mix(1.0, uCoastSwell.z, uCoastShape.x);
     vec2 gradient = distantWaveGradient(vWorldPosition.xz)
-      * uWaveStrength
+      * swellStrength
       * distanceCalm
       * pondEdgeBlend;
     vec3 normal = normalize(vec3(-gradient.x, 1.0, -gradient.y));
+    // Whitecaps: a crest steeper than the swell's own scale breaks. Only wind
+    // and storm make them; the surf foam slider says how much.
+    float crestSlope = length(gradient) * 2.0 / max(swellStrength * distanceCalm * pondEdgeBlend, 1e-4);
+    float whitecap = smoothstep(0.42, 0.9, crestSlope)
+      * smoothstep(0.12, 0.7, uCoastSwell.w) * uCoastSurf.z
+      * smoothstep(0.35, 0.8, coastNoise(vWorldPosition.xz * 0.11 + vec2(uTime * 0.07, -uTime * 0.05)))
+      * distanceCalm * pondEdgeBlend;
+#endif
+#if FAR_WATER_LOW_POWER == 1
+    float whitecap = 0.0;
 #endif
     if(uShoreMode>.5){
       float e=.08,h=coastWave(qs,uTime);
@@ -203,7 +224,7 @@ const farWaterFragmentShader = /* glsl */`
 #endif
 
     if(uCoastShape.x>.5){
-      float foam=max(coastFoam(qs,vWorldPosition,uTime),contactFoam*coastNoise(vWorldPosition.xz*19.0));
+      float foam=max(max(coastFoam(qs,vWorldPosition,uTime),contactFoam*coastNoise(vWorldPosition.xz*19.0)),whitecap);
       vec3 foamLight=vec3(.82,.84,.78)*(uFoamFillRadiance+uFoamKeyRadiance*max(dot(normal,uKeyDirection),0.0))/3.14159265;
       color=mix(color,foamLight,foam);
     }

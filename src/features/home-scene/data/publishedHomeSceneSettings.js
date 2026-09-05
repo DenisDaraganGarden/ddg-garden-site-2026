@@ -403,6 +403,7 @@ export const publishedHomeSceneSettings = {
   "fogNoiseScale": 0.1,
   "fogSpeed": 0.05,
   "fogScattering": 0.96,
+  "fogSkyTint": 0,
   "ambientWaveIntensity": 0.49,
   "ambientWaveSpeed": 4.79,
   "audio": {
@@ -900,6 +901,7 @@ export const publishedHomeSceneSettings = {
         "fogNoiseScale": 0.1,
         "fogSpeed": 0.05,
         "fogScattering": 0.96,
+        "fogSkyTint": 0,
         "ambientWaveIntensity": 0.49,
         "ambientWaveSpeed": 4.79
       }
@@ -1314,6 +1316,7 @@ export const publishedHomeSceneSettings = {
         "fogNoiseScale": 0.1,
         "fogSpeed": 0.05,
         "fogScattering": 0.96,
+        "fogSkyTint": 0,
         "ambientWaveIntensity": 0.49,
         "ambientWaveSpeed": 4.79
       }
@@ -1728,6 +1731,7 @@ export const publishedHomeSceneSettings = {
         "fogNoiseScale": 0.1,
         "fogSpeed": 0.05,
         "fogScattering": 0.96,
+        "fogSkyTint": 0,
         "ambientWaveIntensity": 0.49,
         "ambientWaveSpeed": 4.79
       }
