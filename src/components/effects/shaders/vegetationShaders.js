@@ -1,9 +1,11 @@
+import { coastShader } from '../../../terrain/terrainShader.js';
 // Instanced pond vegetation. Surface leaves use a compact hand-derived PBR
 // atlas; underwater blades remain procedural so large meadows stay cheap.
 
 import { cursorFlashlightShaderChunk } from './cursorFlashlightShader';
 
 export const surfaceVegetationVertexShader = `
+${coastShader}
   attribute vec2 aScatter;
   attribute vec2 aCluster;
   attribute float aScale;
@@ -82,7 +84,8 @@ export const surfaceVegetationVertexShader = `
     // The sideways shove of a choppy wave moves the whole pad, so it is read
     // once at the centre. Riding the wave is per-vertex; drifting is not.
     vec3 centerNormal = decodeNormal(texture2D(uNormalMap, centerUv).rgb);
-    float centerHeight = waterHeightAt(centerUv);
+    float centerHeight = waterHeightAt(centerUv)+coastWave(coastLocal(leafCenter),uTime);
+    if(uCoastShape.x>.5 && coastHeight(coastLocal(leafCenter))>-.06)vInsideWater=0.0;
     vec2 worldXZ = leafCenter + rotatedLocal
       + centerNormal.xz * centerHeight * clamp(uWaveChoppiness, 0.0, 1.25) * 0.34;
 
@@ -92,7 +95,7 @@ export const surfaceVegetationVertexShader = `
     // not - one edge in the air, the opposite edge submerged.
     vec2 vertexUv = clamp(simulationUvFor(worldXZ), vec2(0.001), vec2(0.999));
     vec3 waterNormal = decodeNormal(texture2D(uNormalMap, vertexUv).rgb);
-    float waterY = waterHeightAt(vertexUv);
+    float waterY = waterHeightAt(vertexUv)+coastWave(coastLocal(worldXZ),uTime);
 
     // A pad is a stiff disc, not a cloth. Fully supple it takes the shape of the
     // water under it and can never be washed over; fully rigid it stays a flat
@@ -325,6 +328,7 @@ export const surfaceVegetationFragmentShader = `
 `;
 
 export const underwaterAlgaeVertexShader = `
+${coastShader}
   attribute float aRibbonPlane;
   attribute vec2 aScatter;
   attribute vec2 aCluster;
@@ -399,6 +403,7 @@ export const underwaterAlgaeVertexShader = `
     seabedUv = clamp(seabedUv, vec2(0.001), vec2(0.999));
 
     float relief = (fbm(seabedUv * uReliefScale) - 0.5) * uReliefStrength;
+    if(uCoastShape.x>.5){relief=coastHeight(coastLocal(bladeCenter))+uWaterDepth;if(relief>uWaterDepth-.08)vInsideWater=0.0;}
     float species = mix(0.16, aSpecies, clamp(uSpeciesMix, 0.0, 1.0));
     float broadSpecies = smoothstep(0.28, 0.38, species)
       * (1.0 - smoothstep(0.66, 0.76, species));

@@ -1,3 +1,5 @@
+import { createCoastUniforms,syncCoastUniforms } from '../../../terrain/terrainShader.js';
+import { sceneDepthVertex, sceneDepthFragment } from '../shaders/sceneDepth';
 import React, { useEffect, useLayoutEffect, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
@@ -25,6 +27,7 @@ export function UnderwaterAlgae({ settings, qualityProfile, lighting }) {
     [lighting],
   );
   const uniforms = useMemo(() => ({
+    ...createCoastUniforms(),
     uCenter: { value: new THREE.Vector2() },
     uRadius: { value: 1 },
     uLength: { value: 1 },
@@ -60,6 +63,7 @@ export function UnderwaterAlgae({ settings, qualityProfile, lighting }) {
   }, [geometry, maxInstances, settings.underwaterAlgaeAmount]);
 
   useEffect(() => {
+    syncCoastUniforms(uniforms,settings);
     uniforms.uCenter.value.set(settings.underwaterAlgaeCenterX, settings.underwaterAlgaeCenterZ);
     uniforms.uRadius.value = settings.underwaterAlgaeRadius;
     uniforms.uLength.value = settings.underwaterAlgaeLength;
@@ -104,8 +108,8 @@ export function UnderwaterAlgae({ settings, qualityProfile, lighting }) {
       frustumCulled={false}
     >
       <shaderMaterial
-        vertexShader={underwaterAlgaeVertexShader}
-        fragmentShader={underwaterAlgaeFragmentShader}
+        vertexShader={sceneDepthVertex(underwaterAlgaeVertexShader)}
+        fragmentShader={sceneDepthFragment(underwaterAlgaeFragmentShader)}
         uniforms={uniforms}
         transparent={false}
         depthWrite

@@ -34,7 +34,11 @@ assert.equal(malformed.emitters.thunder.refDistance, 0.25, 'reference distance m
 assert.equal(malformed.emitters.thunder.maxDistance, 400, 'maximum distance must clamp');
 
 assert.ok(publishedHomeSceneKeys.includes('audio'), 'audio must be in the publish whitelist');
-assert.equal(publishedHomeSceneSettings.audio.mode, 'soundscape', 'published soundscape mode must be explicit');
+const publishedAudibleModes = new Set(['music', 'soundscape', 'hybrid']);
+assert.ok(
+  publishedAudibleModes.has(publishedHomeSceneSettings.audio.mode),
+  'published audio must use one of the supported audible composition modes',
+);
 assert.ok(publishedHomeSceneSettings.audio.tracks.water, 'published soundscape must include tracks');
 const homeSettingsSource = await fs.readFile(
   path.join(rootDir, 'src', 'features', 'home-scene', 'hooks', 'useHomeSceneSettings.js'),

@@ -66,6 +66,7 @@ export function resolveFishContactShadow({
   seabedReliefStrength,
   seabedReliefScale,
   scale = 1,
+  sampleBottomY,
 }, output = {}) {
   const sourcePosition = position ?? {};
   const sourceForward = forward ?? {};
@@ -96,7 +97,7 @@ export function resolveFishContactShadow({
   // Two fixed samples are enough for the shallow relief envelope, while
   // keeping every fish projection allocation-free and deterministic.
   for (let sample = 0; sample < 2; sample += 1) {
-    seabedY = -depth + sampleFishShadowSeabedRelief({
+    seabedY = sampleBottomY ? sampleBottomY(projectedX,projectedZ) : -depth + sampleFishShadowSeabedRelief({
       x: projectedX,
       z: projectedZ,
       waterExtent,
@@ -109,7 +110,7 @@ export function resolveFishContactShadow({
     projectedZ = fishZ - (lightZ * projection);
   }
 
-  seabedY = -depth + sampleFishShadowSeabedRelief({
+  seabedY = sampleBottomY ? sampleBottomY(projectedX,projectedZ) : -depth + sampleFishShadowSeabedRelief({
     x: projectedX,
     z: projectedZ,
     waterExtent,

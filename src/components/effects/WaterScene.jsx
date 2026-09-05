@@ -1,3 +1,7 @@
+import { createTerrainCollider } from '../../terrain/terrainCollider.js';
+import { buildCoastRocks, attachRockCollisions } from '../../terrain/terrainRocks.js';
+import AzovTerrain from '../../terrain/AzovTerrain.jsx';
+import { createTerrainDefinition, createTerrainQuery } from '../../terrain/terrainModel.js';
 import HomeTanker from '../../tanker/HomeTanker.jsx';
 import React, {
   useCallback,
@@ -172,6 +176,15 @@ function WaterRuntimeScene({
     () => buildRuntimeQualityProfile(mode, size.width, renderTargetCapabilities),
     [mode, renderTargetCapabilities, size.width],
   );
+  const terrainKey = JSON.stringify(Object.fromEntries(Object.entries(settings).filter(([key]) => key.startsWith('terrain') || key === 'waterDepthMeters')));
+  const terrainDefinition = useMemo(() => createTerrainDefinition(JSON.parse(terrainKey)), [terrainKey]);
+  const terrainRocks = useMemo(() => buildCoastRocks(terrainDefinition), [terrainDefinition]);
+  const terrainQuery = useMemo(() => {
+    if(!settings.terrainEnabled)return null;
+    const query=attachRockCollisions(createTerrainQuery(terrainDefinition),terrainRocks);
+    query.collisionObject=createTerrainCollider(query);
+    return query;
+  }, [terrainDefinition, terrainRocks, settings.terrainEnabled]);
   const lighting = useMemo(() => buildHomeSceneLighting(settings), [settings]);
   // One sky, built once, handed to everything that has to agree about it: the
   // visible dome, the water that reflects it, and (from Phase 2) the image-based
@@ -185,10 +198,11 @@ function WaterRuntimeScene({
   const [landingSurfaces, setLandingSurfaces] = useState({
     boat: null,
     sculpture: null,
+    terrain: null,
   });
   const handleLandingSurfaceReady = useCallback((surface) => {
     const key = surface?.surface;
-    if (key !== 'boat' && key !== 'sculpture') return;
+    if (!['boat','sculpture','terrain'].includes(key)) return;
     setLandingSurfaces((current) => {
       const nextSurface = surface.root ? surface : null;
       if (
@@ -336,6 +350,8 @@ function WaterRuntimeScene({
           sky={sky}
           layout={activeLayout}
         />
+        {terrainQuery ? <primitive object={terrainQuery.collisionObject}/> : null}
+        {settings.terrainEnabled ? <AzovTerrain rocks={terrainRocks} onTerrainReady={handleLandingSurfaceReady} audioRuntime={audioRuntime} runtime={runtime} definition={terrainDefinition} settings={settings} qualityProfile={qualityProfile} lighting={lighting} sky={sky} /> : null}
         {settings.seabedVisible ? (
           <Seabed
             settings={settings}
@@ -356,6 +372,7 @@ function WaterRuntimeScene({
         && settings.fishEnabled
         && settings.fishCount > 0 ? (
           <HomeFishSchool
+            terrainQuery={terrainQuery}
             settings={settings}
             runtime={runtime}
             qualityProfile={qualityProfile}
@@ -381,6 +398,7 @@ function WaterRuntimeScene({
         ) : null}
         {settings.liliesVisible ? (
           <SurfaceVegetation
+            terrainQuery={terrainQuery}
             settings={settings}
             runtime={runtime}
             qualityProfile={qualityProfile}
@@ -401,12 +419,13 @@ function WaterRuntimeScene({
             onWorldPositionChange={updateBoatAudioPosition}
             isWorldPositionReportingActive={audioRuntime?.isActive}
             onLandingSurfaceReady={handleLandingSurfaceReady}
-            useOpticsLod={qualityProfile.isMobileDevice}
+            useOpticsLod
           />
         ) : null}
         {settings.tankerVisible ? <HomeTanker settings={settings} lighting={lighting} audioRuntime={audioRuntime} /> : null}
         {settings.sculptureVisible ? (
           <StaticSculpture
+            terrainQuery={terrainQuery}
             settings={settings}
             lighting={lighting}
             layout={activeLayout}
@@ -414,13 +433,15 @@ function WaterRuntimeScene({
             orbitRef={orbitRef}
             onSculpturePositionChange={onSculpturePositionChange}
             onLandingSurfaceReady={handleLandingSurfaceReady}
-            useOpticsLod={qualityProfile.isMobileDevice}
+            useOpticsLod
           />
         ) : null}
         {settings.seagullsEnabled ? (
           <SeagullLandingHabitat
             boatSurface={landingSurfaces.boat}
             sculptureSurface={landingSurfaces.sculpture}
+            terrainSurface={landingSurfaces.terrain}
+            terrainQuery={terrainQuery}
             landingSitesRef={landingSitesRef}
           />
         ) : null}
@@ -430,12 +451,14 @@ function WaterRuntimeScene({
             runtime={runtime}
             qualityProfile={qualityProfile}
             landingSitesRef={landingSitesRef}
+            terrainQuery={terrainQuery}
             mode={mode}
           />
         ) : null}
         <SceneLightObjects settings={settings} />
         {cursorFlashlight.available ? <CursorSpotlight /> : null}
         <WaterInteractionPlane
+            terrainQuery={terrainQuery}
           debug={Boolean(settings.showPointerDebug)}
           settings={settings}
           pointerStateRef={runtime.pointerStateRef}

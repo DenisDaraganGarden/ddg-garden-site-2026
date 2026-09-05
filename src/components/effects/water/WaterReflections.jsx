@@ -427,6 +427,9 @@ export default function WaterReflections({
     const underwaterAlgaeWasVisible = underwaterAlgae?.visible ?? false;
     const celestialDiscWasVisible = celestialDisc?.visible ?? false;
     const skyDomeWasVisible = skyDome?.visible ?? false;
+    const coastWater = scene.getObjectByName('coast-water');
+    const coastWaterWasVisible = coastWater?.visible;
+    if (coastWater) coastWater.visible = false;
     const tankerWake = scene.getObjectByName('tanker-wake');
     const tankerWakeWasVisible = tankerWake?.visible;
     if (tankerWake) tankerWake.visible = false;
@@ -527,6 +530,7 @@ export default function WaterReflections({
         reflectionTiming.lastReflectionRenderTime = performance.now() / 1000;
       }
     } finally {
+      if (coastWater) coastWater.visible = coastWaterWasVisible;
       if (tankerWake) tankerWake.visible = tankerWakeWasVisible;
       scene.background = previousSceneBackground;
       opticsLods.restore();

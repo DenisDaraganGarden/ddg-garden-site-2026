@@ -1,3 +1,4 @@
+import { sceneDepthVertex, sceneDepthFragment } from '../components/effects/shaders/sceneDepth.js';
 import React, { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 
@@ -31,7 +32,7 @@ const fragmentShader = `
 
 export default function TankerWake({ uniforms }) {
   const material = useMemo(() => new THREE.ShaderMaterial({
-    uniforms, vertexShader, fragmentShader, transparent: true,
+    uniforms, vertexShader: sceneDepthVertex(vertexShader), fragmentShader: sceneDepthFragment(fragmentShader), transparent: true,
     depthWrite: false, side: THREE.DoubleSide,
   }), [uniforms]);
   useEffect(() => () => material.dispose(), [material]);

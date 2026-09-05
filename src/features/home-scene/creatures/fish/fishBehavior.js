@@ -6,7 +6,7 @@ import {
   FISH_MIN_AGENTS,
   FISH_SPECIES_ORDER,
 } from './fishCatalog.js';
-import { createFishHabitat, fishVerticalBounds } from './fishHabitat.js';
+import { createFishHabitat, fishVerticalBounds, constrainFishToWater } from './fishHabitat.js';
 
 export const FISH_STATE = Object.freeze({
   CRUISE: 'cruise', SURFACE: 'surface', BOTTOM: 'bottom', AMBUSH: 'ambush', BURST: 'burst',
@@ -216,6 +216,7 @@ export function createFishAgents(options = {}) {
       agent.routeTempo = 0.998 + random(agent) * 0.004;
       agent.surfaceCooldown = 2 + random(agent) * 15;
       agent.position.copy(initialPosition(agent, habitat));
+      constrainFishToWater(agent,habitat);
       const direction = new THREE.Vector3(species === 'pike' ? 1 : 0.8 + random(agent) * 0.2, signedRandom(agent) * 0.06, signedRandom(agent) * 0.3).normalize();
       agent.velocity.copy(direction).multiplyScalar(physics.cruiseSpeed);
       agent.orientation.setFromUnitVectors(X_AXIS, direction);
@@ -453,6 +454,7 @@ function integrate(agent, delta, habitat, activity, elapsed) {
   agent.position.x = THREE.MathUtils.clamp(agent.position.x, habitat.min.x + 0.015, habitat.max.x - 0.015);
   agent.position.y = THREE.MathUtils.clamp(agent.position.y, vertical.lower, vertical.upper);
   agent.position.z = THREE.MathUtils.clamp(agent.position.z, habitat.min.z + 0.015, habitat.max.z - 0.015);
+  constrainFishToWater(agent,habitat);
   agent.phase += delta * (physics.waveFrequency + agent.velocity.length() * 3.7) * motor;
 }
 

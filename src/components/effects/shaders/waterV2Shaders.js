@@ -1,11 +1,15 @@
+import { coastShader } from '../../../terrain/terrainShader.js';
 import { skyShaderChunk } from './skyShader';
 import { cursorFlashlightShaderChunk } from './cursorFlashlightShader';
+import { farWaterBodyShader } from './farWaterOptics';
 
 // Water V2 optics. The wave state still comes from the existing DDG ping-pong
 // simulation; the optical model follows the Fresnel/refraction approach used by
 // Evan Wallace's WebGL water demo and Yong Su's Three.js adaptation.
 
 export const waterV2VertexShader = `
+  ${coastShader}
+  uniform float uTime;
   varying vec2 vUv;
   varying vec3 vSurfaceWorldPosition;
   varying vec4 vKeyShadowCoord;
@@ -20,54 +24,83 @@ export const waterV2VertexShader = `
   uniform float uWaveAmplitude;
   uniform float uWaveChoppiness;
   uniform float uSurfaceEdgeBlendUv;
+  uniform float uWaterExtent;
+  uniform float uShoreMode;
 
   vec3 decodeNormal(vec3 packedNormal) {
     return normalize((packedNormal * 2.0) - 1.0);
   }
 
   void main() {
-    vUv = uv;
+    vec2 baseWorldXZ = uShoreMode > .5
+      ? position.xz
+      : (modelMatrix * vec4(position, 1.0)).xz;
+    // Coast strips are world-space geometry; the pond is its original rotated
+    // XY plane.  Both therefore read the same state and normal targets in the
+    // pond's world-space UV frame.
+    vUv = uShoreMode > .5
+      ? clamp(vec2(baseWorldXZ.x / uWaterExtent + .5, .5 - baseWorldXZ.y / uWaterExtent), 0.0, 1.0)
+      : uv;
 
-    float rawHeight = texture2D(uState, uv).r;
-    float smoothHeight = texture2D(uNormalMap, uv).a * 2.0 - 1.0;
+    float rawHeight = texture2D(uState, vUv).r;
+    float smoothHeight = texture2D(uNormalMap, vUv).a * 2.0 - 1.0;
     float heightSample = mix(rawHeight, smoothHeight, 0.84);
-    vec3 simulationNormal = decodeNormal(texture2D(uNormalMap, uv).rgb);
-    vec2 edgeLower = smoothstep(vec2(0.0), vec2(uSurfaceEdgeBlendUv), uv);
+    vec3 simulationNormal = decodeNormal(texture2D(uNormalMap, vUv).rgb);
+    vec2 edgeLower = smoothstep(vec2(0.0), vec2(uSurfaceEdgeBlendUv), vUv);
     vec2 edgeUpper = 1.0 - smoothstep(
       vec2(1.0 - uSurfaceEdgeBlendUv),
       vec2(1.0),
-      uv
+      vUv
     );
     float surfaceEdgeFade = clamp(
       edgeLower.x * edgeLower.y * edgeUpper.x * edgeUpper.y,
       0.0,
       1.0
     );
+    float shoalFade=uCoastShape.x>.5 ? coastPondWeight(coastLocal(baseWorldXZ)) : 1.0;
+    surfaceEdgeFade*=shoalFade;
     float displacement = heightSample * uWaveAmplitude * surfaceEdgeFade;
     simulationNormal = normalize(mix(vec3(0.0, 1.0, 0.0), simulationNormal, surfaceEdgeFade));
     vec3 displacedPosition = position;
     float choppiness = clamp(uWaveChoppiness, 0.0, 1.25);
-
-    displacedPosition.x += simulationNormal.x * displacement * choppiness * 0.34;
-    displacedPosition.y -= simulationNormal.z * displacement * choppiness * 0.34;
-    displacedPosition.z += displacement;
-
-    // PlaneGeometry is rotated -90 degrees around X in the scene. This maps the
-    // simulation's Y-up normal to the mesh's local Z-up normal.
-    vec3 localNormal = normalize(vec3(
-      simulationNormal.x,
-      -simulationNormal.z,
-      simulationNormal.y
-    ));
-
-    vec4 worldPosition = modelMatrix * vec4(displacedPosition, 1.0);
+    vec4 worldPosition;
+    vec3 worldSimulationNormal;
+    if (uShoreMode > .5) {
+      displacedPosition.x += simulationNormal.x * displacement * choppiness * 0.34;
+      displacedPosition.z += simulationNormal.z * displacement * choppiness * 0.34;
+      displacedPosition.y += displacement;
+      worldPosition = modelMatrix * vec4(displacedPosition, 1.0);
+      worldSimulationNormal = simulationNormal;
+    } else {
+      displacedPosition.x += simulationNormal.x * displacement * choppiness * 0.34;
+      displacedPosition.y -= simulationNormal.z * displacement * choppiness * 0.34;
+      displacedPosition.z += displacement;
+      worldPosition = modelMatrix * vec4(displacedPosition, 1.0);
+      // PlaneGeometry is rotated -90 degrees around X in the scene. This maps
+      // the simulation's Y-up normal to the mesh's local Z-up normal.
+      vec3 localNormal = normalize(vec3(
+        simulationNormal.x,
+        -simulationNormal.z,
+        simulationNormal.y
+      ));
+      worldSimulationNormal = normalize(mat3(modelMatrix) * localNormal);
+    }
+    vec2 qs = coastLocal(worldPosition.xz);
+    worldPosition.y += coastWave(qs,uTime);
     vec4 viewPosition = viewMatrix * worldPosition;
 
     vSurfaceWorldPosition = worldPosition.xyz;
     // From the wave, not from the plane it started as.
     vKeyShadowCoord = uKeyShadowMatrix * vec4(worldPosition.xyz, 1.0);
-    vWaterNormal = normalize(mat3(modelMatrix) * localNormal);
-    vViewNormal = normalize(normalMatrix * localNormal);
+    vWaterNormal = worldSimulationNormal;
+    if(uCoastShape.x>.5)vWaterNormal=normalize(mix(vec3(0,1,0),vWaterNormal,clamp(uWaveAmplitude/.08,0.0,1.0)));
+    if(uCoastShape.x>.5){
+      float h=coastWave(qs,uTime),e=.08;
+      float dx=(coastWave(coastLocal(worldPosition.xz+vec2(e,0)),uTime)-h)/e;
+      float dz=(coastWave(coastLocal(worldPosition.xz+vec2(0,e)),uTime)-h)/e;
+      vWaterNormal=normalize(vWaterNormal+vec3(-dx,0,-dz));
+    }
+    vViewNormal = normalize(mat3(viewMatrix) * vWaterNormal);
     vHeightSample = heightSample * surfaceEdgeFade;
     vClipPosition = projectionMatrix * viewPosition;
     gl_Position = vClipPosition;
@@ -76,6 +109,8 @@ export const waterV2VertexShader = `
 
 export const waterV2FragmentShader = `
   ${skyShaderChunk}
+  ${coastShader}
+  ${farWaterBodyShader}
   varying vec2 vUv;
   varying vec3 vSurfaceWorldPosition;
   varying vec4 vKeyShadowCoord;
@@ -103,11 +138,14 @@ export const waterV2FragmentShader = `
   uniform float uCameraFar;
   uniform float uWaveAmplitude;
   uniform float uSurfaceEdgeBlendUv;
+  uniform float uShoreMode;
   uniform vec3 uWaterTint;
   uniform vec3 uDistantSurfaceColor;
   uniform vec3 uMoonDirection;
   uniform vec3 uMoonColor;
   uniform float uMoonIntensity;
+  uniform vec3 uFoamKeyRadiance;
+  uniform vec3 uFoamFillRadiance;
   uniform float uMoonSpecularStrength;
   uniform float uMoonSpecularPower;
   uniform float uReflectionIntensity;
@@ -132,7 +170,11 @@ export const waterV2FragmentShader = `
   #include <dithering_pars_fragment>
 
   float perspectiveDepthToViewZLocal(float depth, float nearPlane, float farPlane) {
+#ifdef USE_LOGARITHMIC_DEPTH_BUFFER
+    return 1.0 - exp2(depth * log2(farPlane + 1.0));
+#else
     return (nearPlane * farPlane) / ((farPlane - nearPlane) * depth - farPlane);
+#endif
   }
 
   vec3 reflectionTone() {
@@ -227,9 +269,15 @@ export const waterV2FragmentShader = `
   }
 
   void main() {
+    vec2 coastQS=coastLocal(vSurfaceWorldPosition.xz);
+    if(uCoastShape.x>.5 && coastMask(coastQS)>.001 && coastHeight(coastQS)>vSurfaceWorldPosition.y+.004)discard;
+    // Shore strips use this exact shader and own the entire coast band.  It is
+    // an analytical interval, not a screen-space/dithered handoff, so a pond
+    // fragment can never leave a hole between the two water meshes.
+    if(uShoreMode<.5 && uCoastShape.x>.5 && abs(coastQS.y)<uCoastDimensions.x*.5 && coastQS.x>-96.0 && coastQS.x<8.0)discard;
     float waveInfluence = clamp(uWaveAmplitude / 0.08, 0.0, 1.0);
     float surfaceTransition = surfaceEdgeMask(vUv);
-    vec3 normal = normalize(mix(vec3(0.0, 1.0, 0.0), normalize(vWaterNormal), waveInfluence));
+    vec3 normal = normalize(mix(vec3(0.0, 1.0, 0.0), normalize(vWaterNormal), mix(waveInfluence,1.0,uCoastShape.x)));
     if (!gl_FrontFacing) {
       normal = -normal;
     }
@@ -278,6 +326,7 @@ export const waterV2FragmentShader = `
       * (0.7 + abs(vHeightSample) * 0.45)
       * waveInfluence;
     vec2 refractUv = screenUv + normalize(vViewNormal.xy + vec2(0.0001)) * refractionDistortion;
+    refractUv = mix(refractUv,screenUv+normal.xz*.001,uCoastShape.x*(1.0-surfaceTransition));
     refractUv = clamp(refractUv, vec2(0.002), vec2(0.998));
 
     // The refraction target contains linear HDR lighting. Keep it in that
@@ -296,7 +345,7 @@ export const waterV2FragmentShader = `
     float shadow = keyShadow();
     float turbidity = clamp(uWaterTurbidity, 0.0, 1.0);
     float analyticPath = min(
-      uWaterDepth / max(normalDotView, 0.22),
+      mix(uWaterDepth,max(0.0,vSurfaceWorldPosition.y-coastHeight(coastQS)),uCoastShape.x) / max(normalDotView, 0.22),
       uWaterDepth * 4.0
     );
     float opticalPath = analyticPath;
@@ -313,7 +362,7 @@ export const waterV2FragmentShader = `
           (abs(sceneViewZ) - abs(surfaceViewPosition.z)) / viewRayCosine,
           0.0
         );
-        if (measuredPath > 0.001) {
+        if (measuredPath > 0.001 || uCoastShape.x>.5) {
           opticalPath = min(measuredPath, uWaterDepth * 4.0);
         }
       }
@@ -343,6 +392,7 @@ export const waterV2FragmentShader = `
       max(uWaterScatteringColor, vec3(0.001)),
       0.7
     );
+    deepTint=coastBloomTint(deepTint,coastQS,uTime);
     float scatterAmount = 1.0 - exp(-scatteringCoefficient * opticalPath);
     float scatterLight = mix(
       0.48,
@@ -376,7 +426,7 @@ export const waterV2FragmentShader = `
     refraction = mix(
       analyticRefraction,
       refraction,
-      clamp(uRefractionActive * refractionCoverage * surfaceTransition, 0.0, 1.0)
+      clamp(uRefractionActive * refractionCoverage * mix(surfaceTransition, 1.0, uCoastShape.x), 0.0, 1.0)
     );
 
     vec3 reflectedRay = reflect(-viewDirection, normal);
@@ -419,7 +469,7 @@ export const waterV2FragmentShader = `
     // hard shadows when the camera looks down at the water.
     float reflectionStrength = clamp(uReflectionIntensity * 0.24, 0.0, 0.48);
     float reflectionMask = edgeMask(reflectUv)
-      * surfaceTransition
+      * mix(surfaceTransition,1.0,uCoastShape.x)
       * uReflectionActive
       * reflectionStrength
       * clamp(reflectedScene.a, 0.0, 1.0);
@@ -517,6 +567,21 @@ export const waterV2FragmentShader = `
       + cursorSpecular * (0.38 + fresnel * 0.82);
     color += cursorLight.radiance * cursorSurfaceResponse * surfaceTransition;
 
+    // The coast mesh continues offshore for the analytical terrain band. Fade
+    // its near-water optics to FarWater's shared body term before the meshes
+    // meet, with no alpha/depth handoff.
+    if (uShoreMode > .5) {
+      float offshoreV2Weight=smoothstep(-96.0,-88.0,coastQS.x);
+      vec3 farColor=mix(farWaterBody(deepTint,uDistantSurfaceColor,uEnvironmentHorizonColor,uEnvironmentExposure,normal,fresnel),reflection,clamp(fresnel,.02,.96));
+      color=mix(farColor,color,offshoreV2Weight);
+    }
+
+    if(uCoastShape.x>.5){
+      float contact=uRefractionDepthActive*smoothstep(.18,.4,-coastHeight(coastQS))*exp(-opticalPath*25.0)*uCoastSurf.z*.55;
+      float foam=max(coastFoam(coastQS,vSurfaceWorldPosition,uTime),contact*coastNoise(vSurfaceWorldPosition.xz*19.0));
+      vec3 foamLight=vec3(.82,.84,.78)*(uFoamFillRadiance+uFoamKeyRadiance*max(dot(normal,lightDirection),0.0)*shadow)/3.14159265;
+      color=mix(color,foamLight,foam);
+    }
     gl_FragColor = vec4(color, 1.0);
     #include <tonemapping_fragment>
     #include <colorspace_fragment>

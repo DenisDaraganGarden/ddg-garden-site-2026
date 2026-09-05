@@ -1,3 +1,4 @@
+import { createCoastUniforms, syncCoastUniforms } from '../../../terrain/terrainShader.js';
 import React, { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { useFrame, useLoader, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
@@ -24,6 +25,8 @@ export default function Seabed({ settings, runtime, qualityProfile, lighting }) 
   }, [gl, texture]);
 
   const uniforms = useMemo(() => ({
+    ...createCoastUniforms(),
+    uWaterExtent: { value: 34 },
     uNormalMap: { value: null },
     uStateResolution: { value: new THREE.Vector2(1, 1) },
     uMoonDirection: { value: new THREE.Vector3(0, 1, 0) },
@@ -52,6 +55,8 @@ export default function Seabed({ settings, runtime, qualityProfile, lighting }) 
   }), []);
 
   useEffect(() => {
+    syncCoastUniforms(uniforms, settings);
+    uniforms.uWaterExtent.value = settings.waterExtent;
     uniforms.uMoonDirection.value.fromArray(lighting.key.direction);
     uniforms.uMoonColor.value.fromArray(lighting.key.colorLinear);
     uniforms.uMoonIntensity.value = lighting.key.intensity;
@@ -76,6 +81,7 @@ export default function Seabed({ settings, runtime, qualityProfile, lighting }) 
     uniforms.uDebugView.value = DEBUG_VIEW_IDS[settings.debugView] ?? 0;
   }, [
     lighting,
+    settings,
     settings.causticsIntensity,
     settings.causticsScale,
     settings.causticsSharpness,

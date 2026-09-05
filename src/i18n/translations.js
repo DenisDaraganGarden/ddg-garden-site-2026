@@ -106,6 +106,7 @@ export const translations = {
         cursor: 'Курсор',
       },
       nodes: {
+        terrain: 'Суша',
         water: 'Вода',
         seabed: 'Дно',
         lilies: 'Кувшинки',
@@ -206,6 +207,7 @@ export const translations = {
         scaleHint: 'Масштаб — S',
       },
       tabs: {
+        terrain: 'Суша',
         water: 'Вода',
         lighting: 'Освещение',
         depth: 'Глубина / Каустика',
@@ -681,6 +683,7 @@ export const translations = {
         cursor: 'Cursor',
       },
       nodes: {
+        terrain: 'Land',
         water: 'Water',
         seabed: 'Seabed',
         lilies: 'Lily Pads',
@@ -777,6 +780,7 @@ export const translations = {
         scaleHint: 'Scale — S',
       },
       tabs: {
+        terrain: 'Land',
         water: 'Water',
         lighting: 'Lighting',
         depth: 'Depth / Caustics',

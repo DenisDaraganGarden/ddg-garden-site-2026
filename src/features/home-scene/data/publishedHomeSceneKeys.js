@@ -1,6 +1,8 @@
+import { DEFAULT_TERRAIN_SETTINGS } from '../../../terrain/settings.js';
 import { DEFAULT_TANKER_SETTINGS } from '../../../tanker/settings.js';
 const keys = [
   ...Object.keys(DEFAULT_TANKER_SETTINGS),
+  ...Object.keys(DEFAULT_TERRAIN_SETTINGS),
   'waterExtent',
   'simulationResolution',
   'waterMeshDensity',

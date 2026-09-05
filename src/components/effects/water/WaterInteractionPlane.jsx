@@ -9,6 +9,7 @@ import { clamp, effectiveImpulseRadius } from './constants';
 
 export default function WaterInteractionPlane({
   settings,
+  terrainQuery,
   pointerStateRef,
   sampleBoatProbes,
   enableSurfaceRefine = true,
@@ -49,7 +50,7 @@ export default function WaterInteractionPlane({
   }, [pointerStateRef]);
 
   const worldPointToUv = useCallback((point) => {
-    if (!point) {
+    if (!point || (terrainQuery && terrainQuery.heightAt(point.x,point.z)>point.y+.005)) {
       return null;
     }
 
@@ -64,7 +65,7 @@ export default function WaterInteractionPlane({
     );
 
     return projectedUvRef.current;
-  }, [settings.waterExtent]);
+  }, [settings.waterExtent, terrainQuery]);
 
   const screenPointToHit = useCallback((clientX, clientY) => {
     const domElement = gl.domElement;
@@ -120,7 +121,7 @@ export default function WaterInteractionPlane({
           break;
         }
 
-        surfacePlaneRef.current.constant = -(probes[0].height * settings.waveAmplitude);
+        surfacePlaneRef.current.constant = -(probes[0].worldHeight ?? probes[0].height * settings.waveAmplitude);
         if (!ray.intersectPlane(surfacePlaneRef.current, rayHitPointRef.current)) {
           break;
         }

@@ -30,6 +30,7 @@ import {
 } from './boatDynamics';
 import { resolveBoatCockpitSeal } from './boatCockpitSeal';
 import { installOpticsGeometryLod } from './opticsGeometryLod';
+import { useVisibleGeometryLod } from './visibleGeometryLod';
 
 // The boat floats: buoyancy probes read the height field, the hull follows it in
 // pitch, roll and heave, and a stencil cutout keeps the cockpit dry.
@@ -229,6 +230,7 @@ export default function FloatingBoat({
       );
       targetPose.pitch = Math.sin(phase * 0.71 + 0.6) * amplitude * 0.58;
       targetPose.roll = Math.sin(phase * 0.94 - 0.8) * amplitude * 0.72;
+      targetPose.heave += runtime.sampleCoastWaveAt?.(boatAnchor.x,boatAnchor.z) ?? 0;
     } else {
       // GPU readback is intentionally slower than the render loop. Filtering its
       // target before the spring prevents the 8-bit samples from becoming steps.
@@ -250,12 +252,12 @@ export default function FloatingBoat({
       } else {
         // Use the same height scale as the visible water. The old 3.8x multiplier
         // made the hull move ahead of the surface and read as delayed animation.
-        const buoyancyGain = settings.waveAmplitude * 1.15;
-        const centerHeight = probes[0].height * buoyancyGain;
-        const bowHeight = probes[1].height * buoyancyGain;
-        const sternHeight = probes[2].height * buoyancyGain;
-        const leftHeight = probes[3].height * buoyancyGain;
-        const rightHeight = probes[4].height * buoyancyGain;
+        const heightAt = index => (probes[index].worldHeight ?? probes[index].height * settings.waveAmplitude) * 1.15;
+        const centerHeight = heightAt(0);
+        const bowHeight = heightAt(1);
+        const sternHeight = heightAt(2);
+        const leftHeight = heightAt(3);
+        const rightHeight = heightAt(4);
         averageNormalRef.current.set(0, 0, 0);
         for (let index = 0; index < probes.length; index += 1) {
           averageNormalRef.current.add(probes[index].normal);
@@ -450,6 +452,8 @@ export default function FloatingBoat({
     ),
     [clonedObj, useOpticsLod],
   );
+
+  useVisibleGeometryLod(boatRef, { enabled: useOpticsLod, kind: 'boat' });
 
   useLayoutEffect(() => {
     if (typeof onLandingSurfaceReady !== 'function' || !boatRef.current) {

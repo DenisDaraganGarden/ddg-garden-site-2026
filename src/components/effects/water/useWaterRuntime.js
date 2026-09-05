@@ -1,3 +1,6 @@
+import { createCoastUniforms, syncCoastUniforms } from '../../../terrain/terrainShader.js';
+import { createTerrainDefinition,coastCoordinates,shorePosition,sampleCoastWave,coastPondWeight } from '../../../terrain/terrainModel.js';
+import { buildFarWaterFieldData } from './farWaterGeometry';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
@@ -31,6 +34,12 @@ const WATER_SURFACE_SAMPLE_CACHE_MS = 50;
 
 export function useWaterRuntime(settings, qualityProfile, mode) {
   const { gl } = useThree();
+  const coastDefinitionRef=useRef();coastDefinitionRef.current=createTerrainDefinition(settings);
+  const coastTimeRef=useRef(0);
+  const sampleCoastWaveAt=useCallback((x,z)=>{
+    const p=coastDefinitionRef.current;if(!p.terrainEnabled)return 0;
+    const {u,s}=coastCoordinates(x,z,p);return sampleCoastWave(u-shorePosition(s,p),s,coastTimeRef.current,p);
+  },[]);
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
   const stateRef = useRef(null);
@@ -143,6 +152,9 @@ export function useWaterRuntime(settings, qualityProfile, mode) {
       magFilter: THREE.NearestFilter,
     });
     const simulationPass = createPass(simulationFragmentShader, {
+      ...createCoastUniforms(),
+      uWaterExtent: {value:runtimeSettings.waterExtent},
+      uBoundaryBlendUv: { value: buildFarWaterFieldData(runtimeSettings.waterExtent).surfaceEdgeBlendUv },
       uState: { value: read.texture },
       uResolution: { value: new THREE.Vector2(effectiveResolution, effectiveResolution) },
       uPointerUv: { value: new THREE.Vector2(0.5, 0.5) },
@@ -226,6 +238,7 @@ export function useWaterRuntime(settings, qualityProfile, mode) {
   }, [gl, renderState]);
 
   useFrame((_, delta) => {
+    coastTimeRef.current=_.clock.elapsedTime;
     if (!isDocumentCurrentlyVisible()) {
       simulationAccumulatorRef.current = 0;
       return;
@@ -267,6 +280,9 @@ export function useWaterRuntime(settings, qualityProfile, mode) {
       pointerState.recentImpulseSource = activeImpulse.source ?? 'external';
     }
 
+    syncCoastUniforms(renderState.simulationPass.material.uniforms,settings);
+    renderState.simulationPass.material.uniforms.uWaterExtent.value=settings.waterExtent;
+    renderState.simulationPass.material.uniforms.uBoundaryBlendUv.value=buildFarWaterFieldData(settings.waterExtent).surfaceEdgeBlendUv;
     renderState.simulationPass.material.uniforms.uState.value = renderState.read.texture;
     renderState.simulationPass.material.uniforms.uResolution.value.set(effectiveResolution, effectiveResolution);
     renderState.simulationPass.material.uniforms.uPointerUv.value.copy(activeImpulse?.uv ?? pointerState.impulseUv);
@@ -333,10 +349,17 @@ export function useWaterRuntime(settings, qualityProfile, mode) {
         ((probeBufferRef.current[offset + 3] / 255) * 2) - 1,
         ((probeBufferRef.current[offset + 2] / 255) * 2) - 1,
       ).normalize();
+      const point=worldPoints[index],definition=coastDefinitionRef.current,{u,s}=coastCoordinates(point.x,point.z,definition),q=u-shorePosition(s,definition),pondWeight=coastPondWeight(q,s,definition),wave=sampleCoastWaveAt(point.x,point.z),e=.08;
+      probeResult.height*=pondWeight;
+      probeResult.normal.lerp(new THREE.Vector3(0,1,0),1-pondWeight).normalize();
+      probeResult.worldHeight=probeResult.height*settingsRef.current.waveAmplitude+wave;
+      probeResult.normal.x-=(sampleCoastWaveAt(point.x+e,point.z)-wave)/e;
+      probeResult.normal.z-=(sampleCoastWaveAt(point.x,point.z+e)-wave)/e;
+      probeResult.normal.normalize();
     }
 
     return probeResultsRef.current;
-  }, [gl, renderState, worldToUv]);
+  }, [gl, renderState, worldToUv, sampleCoastWaveAt]);
 
   const sampleWaterSurface = useCallback((worldPoint) => {
     if (!worldPoint || !Number.isFinite(worldPoint.x) || !Number.isFinite(worldPoint.z)) {
@@ -373,10 +396,10 @@ export function useWaterRuntime(settings, qualityProfile, mode) {
     cache.result.height = probes[0].height;
     // The visible water mesh applies this same vertical scale. Its base plane is
     // currently world y=0; a future translated surface can add its world origin.
-    cache.result.worldY = probes[0].height * settings.waveAmplitude;
+    cache.result.worldY = probes[0].worldHeight;
     cache.result.normal.copy(probes[0].normal);
     return cache.result;
-  }, [sampleBoatProbes, settings.waterExtent, settings.waveAmplitude]);
+  }, [sampleBoatProbes, settings.waterExtent]);
 
   return {
     currentStateTargetRef: stateRef,
@@ -384,6 +407,7 @@ export function useWaterRuntime(settings, qualityProfile, mode) {
     pointerStateRef,
     emitWaterImpulse,
     sampleBoatProbes,
+    sampleCoastWaveAt,
     sampleWaterSurface,
     effectiveResolution,
   };

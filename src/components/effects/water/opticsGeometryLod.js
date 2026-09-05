@@ -73,7 +73,11 @@ export function installOpticsGeometryLod(root, assetPath, enabled) {
       geometry.setIndex(new THREE.BufferAttribute(indices, 1));
       geometry.computeBoundingSphere();
       object.userData.ddgOpticsGeometry = geometry;
-      installed.push({ object, geometry });
+      // Keep the original geometry on the mesh. A visible-object LOD can now
+      // switch this exact mesh without replacing its parent: buoyancy, drag
+      // anchors and bird landing/collision roots retain their coordinate space.
+      object.userData.ddgOpticsBaseGeometry = object.geometry;
+      installed.push({ object, geometry, baseGeometry: object.geometry });
     });
   }).catch((error) => {
     if (import.meta.env.DEV) {
@@ -83,13 +87,38 @@ export function installOpticsGeometryLod(root, assetPath, enabled) {
 
   return () => {
     cancelled = true;
-    installed.forEach(({ object, geometry }) => {
+    installed.forEach(({ object, geometry, baseGeometry }) => {
+      if (object.geometry === geometry) {
+        object.geometry = baseGeometry;
+      }
       if (object.userData.ddgOpticsGeometry === geometry) {
         delete object.userData.ddgOpticsGeometry;
+      }
+      if (object.userData.ddgOpticsBaseGeometry === baseGeometry) {
+        delete object.userData.ddgOpticsBaseGeometry;
       }
       geometry.dispose();
     });
   };
+}
+
+// This only swaps index buffers. It deliberately leaves Mesh instances,
+// transforms and materials intact, so it is safe for animated/interactive
+// objects and for the short, temporary swaps used by the optical capture.
+export function setOpticsGeometryLod(root, useReducedGeometry) {
+  if (!root) return 0;
+
+  let changed = 0;
+  root.traverse((object) => {
+    if (!object.isMesh) return;
+    const reducedGeometry = object.userData?.ddgOpticsGeometry;
+    const baseGeometry = object.userData?.ddgOpticsBaseGeometry;
+    const nextGeometry = useReducedGeometry ? reducedGeometry : baseGeometry;
+    if (!nextGeometry || object.geometry === nextGeometry) return;
+    object.geometry = nextGeometry;
+    changed += 1;
+  });
+  return changed;
 }
 
 export function applyOpticsGeometryLods(...roots) {

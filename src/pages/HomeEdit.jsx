@@ -466,6 +466,7 @@ const HomeEdit = () => {
 
 
     const layoutEditor = useMemo(() => ({
+        previewPose: pose => cameraRigApiRef.current?.previewPose?.(pose),
         cameras: settings.sceneCameras,
         activeCameraId: settings.activeCameraId,
         selectCamera,

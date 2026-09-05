@@ -327,7 +327,16 @@ export default function WaterCameraRig({
 
     const restorePose = () => applyLayoutPose(!freeCamera);
 
-    onCameraRigApi({ capturePose, restorePose });
+    // Inspection poses do not edit the authored camera or its scene snapshot.
+    const previewPose = ({ cameraPosition, cameraTarget, cameraFov: previewFov }) => {
+      camera.position.set(cameraPosition.x,cameraPosition.y,cameraPosition.z);
+      CAMERA_POSE_TARGET.set(cameraTarget.x,cameraTarget.y,cameraTarget.z);
+      camera.lookAt(CAMERA_POSE_TARGET);
+      if(Number.isFinite(previewFov))camera.fov=previewFov;
+      camera.updateProjectionMatrix();camera.updateMatrixWorld();
+      if(controlsRef.current){controlsRef.current.target.copy(CAMERA_POSE_TARGET);controlsRef.current.update();}
+    };
+    onCameraRigApi({ capturePose, restorePose, previewPose });
 
     return () => {
       onCameraRigApi(null);

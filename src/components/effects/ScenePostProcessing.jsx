@@ -145,9 +145,13 @@ const postFragmentShader = `
   #include <dithering_pars_fragment>
 
   float getViewDistance(float depth) {
+#ifdef USE_LOGARITHMIC_DEPTH_BUFFER
+    return max(exp2(depth * log2(uCameraFar + 1.0)) - 1.0, 0.0);
+#else
     float viewZ = (uCameraNear * uCameraFar)
       / ((uCameraFar - uCameraNear) * depth - uCameraFar);
     return max(-viewZ, 0.0);
+#endif
   }
 
   float ddgLuminance(vec3 color) {

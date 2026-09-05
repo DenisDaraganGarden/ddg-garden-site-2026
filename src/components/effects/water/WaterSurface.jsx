@@ -1,4 +1,6 @@
-import React, { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { createCoastUniforms, syncCoastUniforms } from '../../../terrain/terrainShader.js';
+import { sceneDepthVertex, sceneDepthFragment } from '../shaders/sceneDepth';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { buildFarWaterFieldData } from './farWaterGeometry';
@@ -14,7 +16,7 @@ import {
 // the reflection and refraction textures, and the mesh that writes the stencil the
 // boat's dry cockpit is cut from.
 
-export default function WaterSurfaceV2({ settings, runtime, qualityProfile, lighting, sky }) {
+export default function WaterSurfaceV2({ settings, runtime, qualityProfile, lighting, sky, geometryOverride, shoreMode = false }) {
   const surfaceEdgeBlendUv = useMemo(
     () => buildFarWaterFieldData(settings.waterExtent).surfaceEdgeBlendUv,
     [settings.waterExtent],
@@ -30,7 +32,9 @@ export default function WaterSurfaceV2({ settings, runtime, qualityProfile, ligh
     () => new THREE.Vector3().fromArray(lighting.key.direction),
     [lighting],
   );
-  const uniforms = useMemo(() => ({
+  // Three retains the compiled uniform map. Keep its identity across slider edits.
+  const [uniforms] = useState(() => ({
+    ...createCoastUniforms(),
     uState: { value: null },
     uNormalMap: { value: null },
     uReflectionTexture: { value: null },
@@ -45,11 +49,15 @@ export default function WaterSurfaceV2({ settings, runtime, qualityProfile, ligh
     uWaveAmplitude: { value: settings.waveAmplitude },
     uWaveChoppiness: { value: settings.waveChoppiness },
     uSurfaceEdgeBlendUv: { value: surfaceEdgeBlendUv },
+    uWaterExtent: { value: settings.waterExtent },
+    uShoreMode: { value: shoreMode ? 1 : 0 },
     uWaterTint: { value: new THREE.Color(settings.envTint) },
     uDistantSurfaceColor: { value: new THREE.Color(settings.distantSurfaceColor) },
     uMoonDirection: { value: lightDirection.clone() },
     uMoonColor: { value: new THREE.Color().fromArray(lighting.key.colorLinear) },
     uMoonIntensity: { value: lighting.key.intensity },
+    uFoamKeyRadiance: { value: new THREE.Vector3().fromArray(lighting.key.sceneRadiance) },
+    uFoamFillRadiance: { value: new THREE.Vector3().fromArray(lighting.fill.irradiance) },
     uMoonSpecularStrength: { value: settings.moonSpecularStrength },
     uMoonSpecularPower: { value: settings.moonSpecularPower },
     uReflectionIntensity: { value: settings.boatReflectionIntensity },
@@ -91,35 +99,22 @@ export default function WaterSurfaceV2({ settings, runtime, qualityProfile, ligh
     uKeyGlowPower: { value: 2000 },
     uKeyGlowStrength: { value: 0.35 },
     ...createCursorFlashlightUniforms(),
-  }), [
-    debugView,
-    lightDirection,
-    lighting,
-    settings.boatReflectionIntensity,
-    settings.distantSurfaceColor,
-    settings.envTint,
-    settings.moonSpecularPower,
-    settings.moonSpecularStrength,
-    settings.waterDepthMeters,
-    settings.waterGlintDensity,
-    settings.waterGlintSharpness,
-    settings.waterGlintStrength,
-    settings.waterScatteringStrength,
-    settings.waterTurbidity,
-    settings.waveAmplitude,
-    settings.waveChoppiness,
-    surfaceEdgeBlendUv,
-  ]);
+  }));
 
   useEffect(() => {
     uniforms.uWaveAmplitude.value = settings.waveAmplitude;
     uniforms.uWaveChoppiness.value = settings.waveChoppiness;
     uniforms.uSurfaceEdgeBlendUv.value = surfaceEdgeBlendUv;
+    uniforms.uWaterExtent.value = settings.waterExtent;
+    uniforms.uShoreMode.value = shoreMode ? 1 : 0;
     uniforms.uWaterTint.value.set(settings.envTint);
     uniforms.uDistantSurfaceColor.value.set(settings.distantSurfaceColor);
+    syncCoastUniforms(uniforms, settings);
     uniforms.uMoonDirection.value.copy(lightDirection);
     uniforms.uMoonColor.value.fromArray(lighting.key.colorLinear);
     uniforms.uMoonIntensity.value = lighting.key.intensity;
+    uniforms.uFoamKeyRadiance.value.fromArray(lighting.key.sceneRadiance);
+    uniforms.uFoamFillRadiance.value.fromArray(lighting.fill.irradiance);
     uniforms.uMoonSpecularStrength.value = settings.moonSpecularStrength;
     uniforms.uMoonSpecularPower.value = settings.moonSpecularPower;
     uniforms.uReflectionIntensity.value = settings.boatReflectionIntensity;
@@ -148,20 +143,8 @@ export default function WaterSurfaceV2({ settings, runtime, qualityProfile, ligh
   }, [
     lightDirection,
     lighting,
-    settings.boatReflectionIntensity,
-    settings.debugView,
-    settings.distantSurfaceColor,
-    settings.envTint,
-    settings.moonSpecularPower,
-    settings.moonSpecularStrength,
-    settings.waterDepthMeters,
-    settings.waterGlintDensity,
-    settings.waterGlintSharpness,
-    settings.waterGlintStrength,
-    settings.waterScatteringStrength,
-    settings.waterTurbidity,
-    settings.waveAmplitude,
-    settings.waveChoppiness,
+    settings,
+    shoreMode,
     surfaceEdgeBlendUv,
     uniforms,
   ]);
@@ -218,12 +201,18 @@ export default function WaterSurfaceV2({ settings, runtime, qualityProfile, ligh
   }, [settings.debugView]);
 
   return (
-    <mesh name="water-surface" rotation={[-Math.PI / 2, 0, 0]} renderOrder={1}>
-      <planeGeometry args={[settings.waterExtent, settings.waterExtent, meshDensity, meshDensity]} />
+    <mesh
+      name={shoreMode ? "shore-water-surface" : "water-surface"}
+      geometry={geometryOverride}
+      rotation={shoreMode ? undefined : [-Math.PI / 2, 0, 0]}
+      renderOrder={1}
+      frustumCulled={shoreMode}
+    >
+      {!geometryOverride ? <planeGeometry args={[settings.waterExtent, settings.waterExtent, meshDensity, meshDensity]} /> : null}
       <shaderMaterial
         ref={materialRef}
-        vertexShader={waterV2VertexShader}
-        fragmentShader={waterV2FragmentShader}
+        vertexShader={sceneDepthVertex(waterV2VertexShader)}
+        fragmentShader={sceneDepthFragment(waterV2FragmentShader)}
         uniforms={uniforms}
         transparent={false}
         depthWrite

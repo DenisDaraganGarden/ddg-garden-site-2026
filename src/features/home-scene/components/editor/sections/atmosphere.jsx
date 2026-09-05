@@ -33,12 +33,12 @@ export const LightSection = ({ settings, handleSettingChange }) => {
             />
             <RangeControl
                 label={t('homeEditor.controls.sunBearing')}
-                value={settings.sunBearing}
+                value={(180-settings.sunBearing+360)%360}
                 min={0}
                 max={360}
                 step={1}
                 unit="°"
-                onChange={(event) => handleSettingChange(event, 'sunBearing')}
+                onChange={(event) => handleSettingChange({target:{value:(180-Number(event.target.value)+360)%360}}, 'sunBearing')}
             />
             <RangeControl
                 label={t('homeEditor.controls.sunNoonElevation')}

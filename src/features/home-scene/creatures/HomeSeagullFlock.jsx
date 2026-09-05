@@ -28,6 +28,11 @@ import {
   resolveSeagullReflectionParticipants,
   SEAGULL_REFLECTION_LOD,
 } from './seagullReflectionLod.js';
+import {
+  resolveSeagullRenderLods,
+  SEAGULL_RENDER_LOD,
+} from './seagullRenderLod.js';
+import SeagullDistantSprites from './SeagullDistantSprites.jsx';
 
 const ROTATION_AXIS_X = new THREE.Vector3(1, 0, 0);
 const ROTATION_AXIS_Y = new THREE.Vector3(0, 1, 0);
@@ -118,11 +123,16 @@ function applyRigPose(instance, wing) {
   applyParentSpaceBoneRotation(instance.bones.head, instance.bind.head, ROTATION_AXIS_Y, wing.headLook);
 }
 
+function withTerrainCollision(sites,query) {
+  return query?.collisionObject ? [...sites,{collisionObject:query.collisionObject}] : sites;
+}
+
 export default function HomeSeagullFlock({
   settings,
   runtime,
   qualityProfile,
   landingSitesRef,
+  terrainQuery,
   mode = 'public',
 }) {
   const gltf = useGLTF(SEAGULL_ASSET.model);
@@ -140,6 +150,8 @@ export default function HomeSeagullFlock({
   const statsClock = useRef(0);
   const shadowClock = useRef(SEAGULL_SHADOW_LOD.updateIntervalSeconds);
   const reflectionClock = useRef(SEAGULL_REFLECTION_LOD.updateIntervalSeconds);
+  const renderLodClock = useRef(SEAGULL_RENDER_LOD.updateIntervalSeconds);
+  const renderModes = useRef(new Map());
   const waterProbeClock = useRef(0);
   const waterProbeCursor = useRef(0);
   const shadowCasterIds = useRef(new Set());
@@ -316,7 +328,7 @@ export default function HomeSeagullFlock({
         camera,
         size,
         pointerState.current.ndc,
-        landingSitesRef?.current ?? [],
+        withTerrainCollision(landingSitesRef?.current ?? [],terrainQuery),
       );
       if (!target) return;
       const shot = fireSeagullShot(
@@ -345,7 +357,7 @@ export default function HomeSeagullFlock({
       domElement.removeEventListener('pointerleave', resetPointer);
       resetPointer();
     };
-  }, [agents, camera, gl, landingSitesRef, settings.seagullShootingEnabled, shootingRuntime, size]);
+  }, [agents, camera, gl, landingSitesRef, settings.seagullShootingEnabled, shootingRuntime, size, terrainQuery]);
 
   useEffect(() => {
     const domElement = gl.domElement;
@@ -379,6 +391,7 @@ export default function HomeSeagullFlock({
     agents.landingDensity = settings.seagullLandingDensity ?? 0.38;
 
     const sites = landingSitesRef?.current ?? [];
+    const collisionSites=withTerrainCollision(sites,terrainQuery);
     const points = habitatPoints.current;
     let pointCount = 0;
     for (const site of sites) {
@@ -429,7 +442,7 @@ export default function HomeSeagullFlock({
         camera,
         size,
         pointerState.current.ndc,
-        sites,
+        collisionSites,
       );
     shotTargetIndex.current = shotTarget?.index ?? -1;
     if (shotTarget) gl.domElement.dataset.seagullShotTarget = String(shotTarget.index);
@@ -458,7 +471,7 @@ export default function HomeSeagullFlock({
       agents,
       interactionElapsed.current,
       safeDelta,
-      sites,
+      collisionSites,
       0,
     );
     for (const event of impactEvents) {
@@ -498,6 +511,7 @@ export default function HomeSeagullFlock({
       landingMode,
       sites,
       interactionElapsed.current,
+      terrainQuery,
     );
 
     shadowClock.current += safeDelta;
@@ -513,19 +527,32 @@ export default function HomeSeagullFlock({
       });
     }
 
+    renderLodClock.current += safeDelta;
+    if (renderLodClock.current >= SEAGULL_RENDER_LOD.updateIntervalSeconds) {
+      renderLodClock.current = 0;
+      renderModes.current = resolveSeagullRenderLods(agents, {
+        camera: describeReflectionCamera(camera),
+        viewport: size,
+        previousModes: renderModes.current,
+      }).modes;
+    }
+
     reflectionClock.current += safeDelta;
     if (reflectionClock.current >= SEAGULL_REFLECTION_LOD.updateIntervalSeconds) {
       reflectionClock.current = 0;
-      const reflection = resolveSeagullReflectionParticipants(agents, {
-        enabled: settings.reflectionsEnabled !== false,
-        quality: qualityProfile.reflectionTextureSize >= 700 ? 'high' : 'medium',
-        isLowPower: qualityProfile.isLowPower,
-        isMobile: mobile,
-        camera: describeReflectionCamera(camera),
-        viewport: size,
-        waterY: 0,
-        previousParticipantIds: reflectionParticipantIds.current,
-      });
+      const reflection = resolveSeagullReflectionParticipants(
+        agents.filter((agent) => renderModes.current.get(agent.index) !== 'sprite'),
+        {
+          enabled: settings.reflectionsEnabled !== false,
+          quality: qualityProfile.reflectionTextureSize >= 700 ? 'high' : 'medium',
+          isLowPower: qualityProfile.isLowPower,
+          isMobile: mobile,
+          camera: describeReflectionCamera(camera),
+          viewport: size,
+          waterY: 0,
+          previousParticipantIds: reflectionParticipantIds.current,
+        },
+      );
       reflectionParticipantIds.current = reflection.participantIds;
     }
 
@@ -543,7 +570,8 @@ export default function HomeSeagullFlock({
       instance.object.userData.ddgReflectInWater = reflectsInWater;
       instance.object.userData.ddgRefractInWater = agent.shotState === SEAGULL_DOWNED_STATE.WATER;
       instance.object.userData.ddgReflectionDynamic = reflectsInWater;
-      instance.object.visible = agent.shotState !== SEAGULL_DOWNED_STATE.REMOVED;
+      instance.object.visible = agent.shotState !== SEAGULL_DOWNED_STATE.REMOVED
+        && renderModes.current.get(agent.index) !== 'sprite';
       instance.object.position.copy(agent.position);
       instance.object.quaternion.copy(agent.quaternion);
       applyRigPose(instance, getWingPose(agent));
@@ -574,6 +602,7 @@ export default function HomeSeagullFlock({
       landingSites: sites.map((site) => site.id),
       shadowCasters: [...shadowCasterIds.current],
       reflectionParticipants: [...reflectionParticipantIds.current],
+      renderLod: Object.fromEntries(renderModes.current),
       floating,
       lastWaterImpact: lastWaterImpact.current,
       ...shooting,
@@ -604,6 +633,7 @@ export default function HomeSeagullFlock({
       {instances.map((instance) => (
         <primitive key={instance.object.uuid} object={instance.object} />
       ))}
+      <SeagullDistantSprites agents={agents} spriteIds={renderModes} />
       <group userData={{ ddgNoWaterReflection: true }}>
         <SeagullFeathers ref={featherField} />
       </group>

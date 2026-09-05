@@ -2,7 +2,13 @@
 
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { parseOpticsGeometryLod } from './opticsGeometryLod.js';
+import * as THREE from 'three';
+import { parseOpticsGeometryLod, setOpticsGeometryLod } from './opticsGeometryLod.js';
+import {
+  projectedSphereDiameterPixels,
+  shouldUseVisibleGeometryLod,
+  VISIBLE_GEOMETRY_LOD,
+} from './visibleGeometryLod.js';
 
 const readLod = (path) => {
   const file = fs.readFileSync(path);
@@ -21,5 +27,65 @@ assert.equal(
   true,
   'every optics LOD must remain a triangle list',
 );
+
+const boatThresholds = VISIBLE_GEOMETRY_LOD.boat;
+assert.equal(
+  shouldUseVisibleGeometryLod({
+    wasReduced: false,
+    distance: boatThresholds.enterDistance,
+    screenPixels: boatThresholds.enterPixels,
+    thresholds: boatThresholds,
+  }),
+  true,
+  'far, small boat enters its reduced mesh',
+);
+assert.equal(
+  shouldUseVisibleGeometryLod({
+    wasReduced: false,
+    distance: boatThresholds.enterDistance - 0.01,
+    screenPixels: 40,
+    thresholds: boatThresholds,
+  }),
+  false,
+  'a close-up never trades its authored geometry for the reduced mesh',
+);
+assert.equal(
+  shouldUseVisibleGeometryLod({
+    wasReduced: true,
+    distance: boatThresholds.exitDistance,
+    screenPixels: 80,
+    thresholds: boatThresholds,
+  }),
+  false,
+  'distance hysteresis restores the close mesh before the camera reaches it',
+);
+assert.equal(
+  shouldUseVisibleGeometryLod({
+    wasReduced: true,
+    distance: 120,
+    screenPixels: boatThresholds.exitPixels,
+    thresholds: boatThresholds,
+  }),
+  false,
+  'screen-size hysteresis restores detail before a visible silhouette changes',
+);
+assert.ok(
+  projectedSphereDiameterPixels({ radius: 1, distance: 10, fovDegrees: 60, viewportHeight: 1000 }) > 170,
+  'projection uses the current camera field of view and viewport',
+);
+
+const lodRoot = new THREE.Group();
+const baseGeometry = new THREE.BoxGeometry(1, 1, 1);
+const reducedGeometry = new THREE.BufferGeometry();
+const lodMesh = new THREE.Mesh(baseGeometry);
+lodMesh.userData.ddgOpticsBaseGeometry = baseGeometry;
+lodMesh.userData.ddgOpticsGeometry = reducedGeometry;
+lodRoot.add(lodMesh);
+assert.equal(setOpticsGeometryLod(lodRoot, true), 1, 'a loaded mesh switches to its reduced indices');
+assert.equal(lodMesh.geometry, reducedGeometry);
+assert.equal(setOpticsGeometryLod(lodRoot, false), 1, 'the close-up source geometry is restored exactly');
+assert.equal(lodMesh.geometry, baseGeometry);
+baseGeometry.dispose();
+reducedGeometry.dispose();
 
 console.log('opticsGeometryLod: all checks passed');

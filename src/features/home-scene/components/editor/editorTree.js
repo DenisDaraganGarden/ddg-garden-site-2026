@@ -1,3 +1,4 @@
+import { TerrainSection } from './sections/terrain';
 import { TankerSection } from './sections/tanker';
 import {
     SeabedSection,
@@ -45,6 +46,7 @@ export const EDITOR_TREE = [
     {
         id: 'landscape',
         nodes: [
+            { id: 'terrain', aspects: [{ id: 'geometry', Section: TerrainSection }] },
             {
                 id: 'water',
                 aspects: [

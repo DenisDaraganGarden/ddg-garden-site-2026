@@ -1,3 +1,5 @@
+import { coastShader } from '../../../terrain/terrainShader.js';
+export const POND_SEAM_EDGE_DAMPING = 0.68;
 export const fullScreenVertexShader = `
   varying vec2 vUv;
 
@@ -8,6 +10,9 @@ export const fullScreenVertexShader = `
 `;
 
 export const simulationFragmentShader = `
+  ${coastShader}
+  uniform float uWaterExtent;
+  uniform float uBoundaryBlendUv;
   varying vec2 vUv;
 
   uniform sampler2D uState;
@@ -95,6 +100,17 @@ export const simulationFragmentShader = `
     height = clamp(height, -2.4, 2.4);
     velocity = clamp(velocity, -2.2, 2.2);
 
+    if(uCoastShape.x>.5){
+      vec2 worldXZ=vec2(vUv.x-.5,.5-vUv.y)*uWaterExtent;
+      float wet=smoothstep(0.0,.35,-coastHeight(coastLocal(worldXZ)))*coastPondWeight(coastLocal(worldXZ));
+      height*=wet;velocity*=wet;
+    }
+    // The render target clamps at its finite border. A shared sponge removes
+    // outgoing cursor-wave energy before it can reflect from that invisible
+    // square, while WaterSurface/FarWater crossfade over the same width.
+    float edgeDistance=min(min(vUv.x,vUv.y),min(1.0-vUv.x,1.0-vUv.y));
+    float edgeFade=smoothstep(0.0,uBoundaryBlendUv,edgeDistance);
+    velocity*=pow(mix(${POND_SEAM_EDGE_DAMPING.toFixed(2)},1.0,edgeFade),frameScale);
     gl_FragColor = vec4(height, velocity, laplacian, 1.0);
   }
 `;
@@ -179,6 +195,7 @@ export const probeFragmentShader = `
 
 
 export const seabedVertexShader = `
+  uniform float uWaterExtent;
   varying vec2 vUv;
   varying vec3 vSeabedWorldPosition;
   varying float vRelief;
@@ -229,7 +246,7 @@ export const seabedVertexShader = `
     vec3 displacedPosition = csm_Position;
     displacedPosition.z += relief;
     csm_Position = displacedPosition;
-    csm_Normal = normalize(vec3(-dx, -dy, 1.0));
+    csm_Normal = normalize(vec3(-dx / (e * uWaterExtent), -dy / (e * uWaterExtent), 1.0));
 
     vRelief = relief;
     vSeabedWorldPosition = (modelMatrix * vec4(displacedPosition, 1.0)).xyz;
@@ -237,6 +254,7 @@ export const seabedVertexShader = `
 `;
 
 export const seabedFragmentShader = `
+  ${coastShader}
   varying vec2 vUv;
   varying vec3 vSeabedWorldPosition;
   varying float vRelief;
@@ -389,6 +407,8 @@ export const seabedFragmentShader = `
 
     vec3 baseColor = mix(vec3(0.06, 0.08, 0.1), vec3(0.1, 0.12, 0.15), clamp(vRelief + 0.5, 0.0, 1.0));
     baseColor = mix(baseColor, seabedTexture, 0.68);
+    vec2 qs=coastLocal(vSeabedWorldPosition.xz);
+    if(uCoastShape.x>.5 && abs(qs.y)<uCoastDimensions.x*.5 && qs.x>-96.0 && qs.x<uCoastDimensions.y)discard;
     float reliefRange = max(abs(uReliefStrength), 0.001);
     float normalizedRelief = clamp(vRelief / reliefRange + 0.5, 0.0, 1.0);
     float reliefCavity = 1.0 - smoothstep(0.14, 0.58, normalizedRelief);

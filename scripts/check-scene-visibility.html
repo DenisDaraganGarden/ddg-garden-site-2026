@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Scene visibility integration check</title>
+  <style>
+    body { margin: 0; padding: 24px; background: #f5f3ee; color: #202321; font: 14px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; }
+    button { margin-bottom: 16px; padding: 8px 12px; border: 1px solid #363936; background: #202321; color: #f5f3ee; font: inherit; cursor: pointer; }
+    button:disabled { opacity: .5; cursor: wait; }
+    pre { margin: 0; white-space: pre-wrap; }
+    #scene-check-root { width: 320px; height: 180px; margin-top: 16px; }
+  </style>
+</head>
+<body>
+  <button id="run" type="button">Run visibility integration check</button>
+  <pre id="result">Ready. This check mounts a real SceneCanvas only when run.</pre>
+  <div id="scene-check-root"></div>
+  <script type="module">
+    import { runSceneVisibilityCheck } from '/scripts/check-scene-visibility.jsx';
+
+    const button = document.querySelector('#run');
+    const result = document.querySelector('#result');
+    const root = document.querySelector('#scene-check-root');
+
+    button.addEventListener('click', async () => {
+      button.disabled = true;
+      result.textContent = 'Running synthetic visibility event + real R3F frame loop…';
+      try {
+        const report = await runSceneVisibilityCheck(root);
+        result.textContent = JSON.stringify(report, null, 2);
+        result.dataset.status = 'pass';
+      } catch (error) {
+        result.textContent = JSON.stringify({
+          status: 'FAIL',
+          check: 'synthetic visibility event + real R3F frame loop',
+          message: error instanceof Error ? error.message : String(error),
+        }, null, 2);
+        result.dataset.status = 'fail';
+      } finally {
+        button.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

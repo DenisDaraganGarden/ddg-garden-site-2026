@@ -1,8 +1,11 @@
+import { coastShader, createCoastUniforms } from '../../../../terrain/terrainShader.js';
+import { sceneDepthVertex, sceneDepthFragment } from '../../../../components/effects/shaders/sceneDepth.js';
 import * as THREE from 'three';
 
 const FISH_SHADER_REVISION = 'ddg-instanced-fish-rig-v1';
 
 const fishContactShadowVertexShader = /* glsl */ `
+  ${coastShader}
   attribute float aFishShadowOpacity;
 
   varying vec2 vFishShadowUv;
@@ -51,7 +54,7 @@ const fishContactShadowVertexShader = /* glsl */ `
 
   void main() {
     vec4 worldPosition = modelMatrix * instanceMatrix * vec4(position, 1.0);
-    worldPosition.y = -uWaterDepth + sampleRelief(worldPosition.xz) + 0.012;
+    worldPosition.y = (uCoastShape.x>.5 && coastMask(coastLocal(worldPosition.xz))>.001 ? coastHeight(coastLocal(worldPosition.xz)) : -uWaterDepth + sampleRelief(worldPosition.xz)) + 0.012;
     vFishShadowUv = uv;
     vFishShadowOpacity = aFishShadowOpacity;
     gl_Position = projectionMatrix * viewMatrix * worldPosition;
@@ -260,6 +263,7 @@ export function createFishContactShadowBatch(instanceCount) {
   const opacity = new THREE.InstancedBufferAttribute(new Float32Array(capacity), 1);
   geometry.setAttribute('aFishShadowOpacity', opacity);
   const uniforms = {
+    ...createCoastUniforms(),
     uWaterExtent: { value: 24 },
     uWaterDepth: { value: 1.25 },
     uReliefStrength: { value: 0.6 },
@@ -268,8 +272,8 @@ export function createFishContactShadowBatch(instanceCount) {
   const material = new THREE.ShaderMaterial({
     name: 'fish-contact-shadows',
     uniforms,
-    vertexShader: fishContactShadowVertexShader,
-    fragmentShader: fishContactShadowFragmentShader,
+    vertexShader: sceneDepthVertex(fishContactShadowVertexShader),
+    fragmentShader: sceneDepthFragment(fishContactShadowFragmentShader),
     transparent: true,
     depthTest: true,
     depthWrite: false,
