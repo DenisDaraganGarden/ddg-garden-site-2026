@@ -98,6 +98,6 @@ export default function AzovTerrain({ definition, settings, qualityProfile, ligh
   const shared={definition:meshDefinition,settings,qualityProfile,lighting,sky,runtime};
   return <>
     <group ref={land} name="azov-terrain">{strips.map(s0=><TerrainStrip key={s0} {...shared} s0={s0} material={materials.land}/>)}<CoastRocks rocks={boulders} material={materials.rock}/><CoastRocks rocks={fragments} material={materials.debris}/><CoastShells definition={definition} qualityProfile={qualityProfile} lighting={lighting}/></group>
-    {settings.waterVisible && settings.debugView==='beauty' ? <group name="coast-water">{strips.map(s0=><TerrainStrip key={s0} {...shared} s0={s0} water/>)}</group> : null}
+    {settings.waterVisible ? <group name="coast-water">{strips.map(s0=><TerrainStrip key={s0} {...shared} s0={s0} water/>)}</group> : null}
   </>;
 }

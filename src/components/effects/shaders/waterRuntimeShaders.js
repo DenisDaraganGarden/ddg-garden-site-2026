@@ -298,6 +298,11 @@ export const seabedFragmentShader = `
   }
 
   void main() {
+    // Inside the coast band the terrain's own shelf is the bed. This plane
+    // steps aside there in every view: a debug mode that drew it painted a
+    // black plate over the shelf the mode was meant to measure.
+    vec2 qs=coastLocal(vSeabedWorldPosition.xz);
+    if(uCoastShape.x>.5 && abs(qs.y)<uCoastDimensions.x*.5 && qs.x>-96.0 && qs.x<uCoastDimensions.y)discard;
     vec2 texel = 1.0 / uStateResolution;
     float h = sampleSmoothHeight(vUv);
     float hL = sampleSmoothHeight(vUv - vec2(texel.x, 0.0));
@@ -407,8 +412,6 @@ export const seabedFragmentShader = `
 
     vec3 baseColor = mix(vec3(0.06, 0.08, 0.1), vec3(0.1, 0.12, 0.15), clamp(vRelief + 0.5, 0.0, 1.0));
     baseColor = mix(baseColor, seabedTexture, 0.68);
-    vec2 qs=coastLocal(vSeabedWorldPosition.xz);
-    if(uCoastShape.x>.5 && abs(qs.y)<uCoastDimensions.x*.5 && qs.x>-96.0 && qs.x<uCoastDimensions.y)discard;
     float reliefRange = max(abs(uReliefStrength), 0.001);
     float normalizedRelief = clamp(vRelief / reliefRange + 0.5, 0.0, 1.0);
     float reliefCavity = 1.0 - smoothstep(0.14, 0.58, normalizedRelief);
