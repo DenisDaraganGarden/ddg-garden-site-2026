@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { ConvexGeometry } from 'three/addons/geometries/ConvexGeometry.js';
 import { coastPoint,coastHeight,sampleTerrainHeight } from './terrainModel.js';
+import { coastProfile } from './terrainLandforms.js';
 export function makeRockGeometry() {
   const points=[];
   // Bevelled, fractured slabs: broad bedding faces instead of rounded pebbles.
@@ -15,10 +16,18 @@ export function buildCoastRocks(p) {
   const rocks=[];const count=Math.floor(p.terrainLength*.2*p.terrainRocks);
   for(let i=0;i<count;i++){
     const s=(random()-.5)*(p.terrainLength-80);const nearWater=random()<.3;
-    const cliffStart=Math.max(1.8,p.terrainBeachWidth*(1+.12*Math.sin(s*.021))+1.5*Math.sin(s*.067+p.terrainSeed*.137)+p.terrainRelief*(.75*Math.sin(s*.29+p.terrainSeed*.137)+.38*Math.sin(s*.83)));
-    const q=nearWater?-1+random()*4:cliffStart-1.2-random()*4;
+    const profile=coastProfile(s,p);
+    const q=nearWater?-1+random()*4:profile.foot-.5-random()*(2.5+profile.slide*4);
     const point=coastPoint(q,s,p),size=.18+Math.pow(random(),3)*3.2;
     rocks.push({x:point.x,y:coastHeight(q,s,p)+size*.24,z:point.z,s,q,scale:[size*(1+random()),size*(.4+random()*.35),size*(.75+random())],rotation:[(random()-.5)*.5,random()*Math.PI*2,(random()-.5)*.3]});
+  }
+  // Small angular fragments collect below failures and drainage mouths.
+  // A bounded instanced batch shares the same rock collision adapter.
+  for(let i=0;i<Math.floor(p.terrainLength*2*p.terrainRocks);i++){
+    const s=(random()-.5)*(p.terrainLength-80),f=coastProfile(s,p);
+    if(random()>Math.min(.85,f.slide*.9+f.ravine*.55))continue;
+    const q=f.foot-3.5+random()*(4+f.width*.26),point=coastPoint(q,s,p),size=.07+Math.pow(random(),2)*.66;
+    rocks.push({x:point.x,y:coastHeight(q,s,p),z:point.z,s,q,debris:true,scale:[size*(1+random()*.6),size*(.55+random()*.5),size*(.7+random()*.5)],rotation:[(random()-.5)*1.1,random()*Math.PI*2,(random()-.5)*.7]});
   }
   const geometry=makeRockGeometry(),vertices=geometry.attributes.position,transform=new THREE.Matrix4(),rotation=new THREE.Quaternion(),point=new THREE.Vector3();
   for(const rock of rocks){

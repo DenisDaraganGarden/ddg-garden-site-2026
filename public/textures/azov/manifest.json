@@ -21,6 +21,23 @@
     "sandstone": {
       "tileMetres": 2.8,
       "heightRangeMetres": 0.05
+    },
+    "ground-fresh": {
+      "tileMetres": 1.6,
+      "heightRangeMetres": 0.016
+    },
+    "ground-dry": {
+      "tileMetres": 1.6,
+      "heightRangeMetres": 0.016
+    },
+    "loam": {
+      "tileMetres": 1.8,
+      "heightRangeMetres": 0.04
     }
-  }
+  },
+  "groundGenerator": {
+    "script": "scripts/terrain/generate-ground-pbr.py",
+    "seed": 37912
+  },
+  "mobileResolution": 512
 }

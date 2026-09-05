@@ -2,7 +2,7 @@ import CoastShrubs from '../../plants/CoastShrubs.jsx';
 import {createCoastPlanting} from '../../plants/coastPlanting.js';
 import {shrubAssetSettings} from '../../plants/settings.js';
 import {createPlantCover} from '../../plants/plantCover.js';
-import {coastWeather} from '../../terrain/settings.js';
+import {coastWeather,terrainGeometryKey} from '../../terrain/settings.js';
 import { createTerrainCollider } from '../../terrain/terrainCollider.js';
 import { buildCoastRocks, attachRockCollisions } from '../../terrain/terrainRocks.js';
 import AzovTerrain from '../../terrain/AzovTerrain.jsx';
@@ -183,17 +183,21 @@ function WaterRuntimeScene({
   );
   const terrainKey = JSON.stringify(Object.fromEntries(Object.entries(settings).filter(([key]) => key.startsWith('terrain') || key === 'waterDepthMeters')));
   const terrainDefinition = useMemo(() => createTerrainDefinition(JSON.parse(terrainKey)), [terrainKey]);
-  const terrainRocks = useMemo(() => buildCoastRocks(terrainDefinition), [terrainDefinition]);
+  const rockKey=JSON.stringify({...JSON.parse(terrainGeometryKey(terrainDefinition)),terrainRocks:terrainDefinition.terrainRocks});
+  const rockDefinition=useMemo(()=>createTerrainDefinition(JSON.parse(rockKey)),[rockKey]);
+  const terrainRocks=useMemo(()=>buildCoastRocks(rockDefinition),[rockDefinition]);
+  const queryKey=JSON.stringify(Object.fromEntries(Object.entries(terrainDefinition).filter(([key])=>!['terrainTextureScale','terrainParallax','terrainGroundCover','terrainBloom'].includes(key))));
+  const queryDefinition=useMemo(()=>createTerrainDefinition(JSON.parse(queryKey)),[queryKey]);
   const terrainQuery = useMemo(() => {
     if(!settings.terrainEnabled)return null;
-    const query=attachRockCollisions(createTerrainQuery(terrainDefinition),terrainRocks);
+    const query=attachRockCollisions(createTerrainQuery(queryDefinition),terrainRocks);
     query.collisionObject=createTerrainCollider(query);
     return query;
-  }, [terrainDefinition, terrainRocks, settings.terrainEnabled]);
+  }, [queryDefinition, terrainRocks, settings.terrainEnabled]);
   const shrubKey=JSON.stringify(Object.fromEntries(Object.entries(settings).filter(([key])=>key.startsWith('shrubs'))));
   const shrubSettings=useMemo(()=>JSON.parse(shrubKey),[shrubKey]);
   const shrubAsset=useMemo(()=>shrubAssetSettings(shrubSettings,{speed:coastWeather(terrainDefinition).wind,bearing:terrainDefinition.terrainWindBearing}),[shrubSettings,terrainDefinition]);
-  const shrubPlants=useMemo(()=>createCoastPlanting(terrainQuery,terrainDefinition,shrubSettings),[terrainQuery,terrainDefinition,shrubSettings]);
+  const shrubPlants=useMemo(()=>createCoastPlanting(terrainQuery,queryDefinition,shrubSettings),[terrainQuery,queryDefinition,shrubSettings]);
   const shrubCover=useMemo(()=>createPlantCover(shrubPlants,256),[shrubPlants]);
   useEffect(()=>()=>shrubCover.dispose(),[shrubCover]);
   const lighting = useMemo(() => buildHomeSceneLighting(settings), [settings]);
@@ -354,6 +358,7 @@ function WaterRuntimeScene({
         refractionIdleFps={qualityProfile.refractionIdleFps}
       >
         <WaterLights
+          terrainQuery={terrainQuery}
           settings={settings}
           mode={mode}
           qualityProfile={qualityProfile}

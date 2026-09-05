@@ -22,6 +22,11 @@ export default function WaterSurfaceV2({ settings, runtime, qualityProfile, ligh
     [settings.waterExtent],
   );
   const materialRef = useRef();
+  // WebKit validates every active sampler even when uKeyShadowActive is zero.
+  // A null sampler2DShadow can bind three's unallocated placeholder before the
+  // first shadow pass, so provide an explicitly uploaded comparison texture.
+  const [emptyShadow]=useState(()=>{const texture=new THREE.DepthTexture(1,1,THREE.UnsignedIntType);texture.compareFunction=THREE.LessEqualCompare;texture.needsUpdate=true;return texture;});
+  useEffect(()=>()=>emptyShadow.dispose(),[emptyShadow]);
   const reflectionDataRef = React.useContext(reflectionContext);
   const debugView = DEBUG_VIEW_IDS[settings.debugView] ?? 0;
   const meshDensity = Math.min(
@@ -84,7 +89,7 @@ export default function WaterSurfaceV2({ settings, runtime, qualityProfile, ligh
     // The shared sky. Same table the dome samples, so the water cannot reflect
     // a different sky than the one above it.
     uSkyLut: { value: null },
-    uKeyShadowMap: { value: null },
+    uKeyShadowMap: { value: emptyShadow },
     uKeyShadowMatrix: { value: new THREE.Matrix4() },
     uKeyShadowActive: { value: 0 },
     uKeyShadowBias: { value: lighting.shadow.waterBias },
@@ -156,7 +161,7 @@ export default function WaterSurfaceV2({ settings, runtime, qualityProfile, ligh
     // render, and three recreates it whenever the map size changes.
     const shadowMap = reflectionDataRef.current.keyShadowMap ?? null;
     const shadowMatrix = reflectionDataRef.current.keyShadowMatrix ?? null;
-    uniforms.uKeyShadowMap.value = shadowMap;
+    uniforms.uKeyShadowMap.value = shadowMap ?? emptyShadow;
     uniforms.uKeyShadowActive.value = shadowMap && shadowMatrix ? 1 : 0;
     if (shadowMatrix) {
       uniforms.uKeyShadowMatrix.value.copy(shadowMatrix);

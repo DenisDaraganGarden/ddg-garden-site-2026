@@ -8,6 +8,8 @@ export const DEFAULT_TERRAIN_SETTINGS = Object.freeze({
   terrainFoam: 0.75, terrainWaveHeight: 0.12, terrainWavePeriod: 6,
   terrainWindBearing: 290, terrainWindSpeed: 4,
   terrainErosion: .55, terrainSoil: .45, terrainWeathering: .5, terrainBloom: 0, terrainStorm: 0,
+  terrainFeatureScale: 64, terrainLandslides: .85, terrainPaths: .4, terrainPathWidth: 1.3,
+  terrainGroundCover: .85,
 });
 export const TERRAIN_RANGES = {
   terrainSeed: [1,9999,1], terrainBearing: [0,360,1], terrainOffset: [-200,200,.5],
@@ -19,6 +21,7 @@ export const TERRAIN_RANGES = {
   terrainFoam:[0,1.5,.01], terrainWaveHeight:[0,.3,.01], terrainWavePeriod:[3,12,.1],
   terrainWindBearing:[0,360,1], terrainWindSpeed:[0,18,.1],
   terrainErosion:[0,1,.01], terrainSoil:[0,1,.01], terrainWeathering:[0,1,.01], terrainBloom:[0,1,.01], terrainStorm:[0,1,.01],
+  terrainFeatureScale:[24,160,1], terrainLandslides:[0,1,.01], terrainPaths:[0,1,.01], terrainPathWidth:[.6,4,.1], terrainGroundCover:[0,1,.01],
 };
 export function normalizeTerrainSettings(source={}) {
   const out = {};
@@ -28,7 +31,7 @@ export function normalizeTerrainSettings(source={}) {
     out[key] = source[key] != null && Number.isFinite(number) ? Math.max(min,Math.min(max,number)) : fallback;
   }
   out.terrainSeed=Math.round(out.terrainSeed);
-  out.terrainLandWidth=Math.max(out.terrainLandWidth,out.terrainBeachWidth*1.12+out.terrainCliffSlope*1.18+76);
+  out.terrainLandWidth=Math.max(out.terrainLandWidth,out.terrainBeachWidth*1.12+out.terrainCliffSlope*1.18+out.terrainCliffHeight*6.6+76);
   return out;
 }
 // Artist-controlled weather envelope shared by CPU probes and GPU uniforms.
@@ -37,3 +40,6 @@ export function coastWeather(p) {
   return {height:p.terrainWaveHeight*(1+storm*.6),period:p.terrainWavePeriod*(1-storm*.22),
     foam:p.terrainFoam*(1+storm*.45),wind:p.terrainWindSpeed+storm*8};
 }
+
+export const TERRAIN_GEOMETRY_KEYS=['terrainEnabled','terrainSeed','terrainBearing','terrainOffset','terrainLength','terrainLandWidth','terrainBeachWidth','terrainCliffHeight','terrainCliffSlope','terrainCurve','terrainCapeDepth','terrainCapePosition','terrainCapeWidth','terrainRelief','terrainErosion','terrainFeatureScale','terrainLandslides','terrainPaths'];
+export function terrainGeometryKey(p){return JSON.stringify(Object.fromEntries(TERRAIN_GEOMETRY_KEYS.map(key=>[key,p[key]]).concat([['waterDepthMeters',p.waterDepthMeters??p.waterDepth]])));}

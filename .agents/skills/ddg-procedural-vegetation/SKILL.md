@@ -27,8 +27,10 @@ normal, wetness, shrub suitability, rock exclusion and path mask. `pointAt` adap
 sampling to curved coast coordinates. Use a spatial hash for spacing. Keep roots
 anchored to the analytic query; displayed terrain LOD is not the habitat or physics
 source. `plantCover.js` packs root litter and vigor for the ground shader. It is
-visual cover, not a collision surface. Future paths should supply one exclusion
-mask to scatter and ground cover together.
+visual cover, not a collision surface. The coast now supplies `coastPathMask` to both physical habitat and the ground
+material; future paths must preserve that single exclusion contract. Terrain cover
+blends fresh/dry PBR layers through the same broad ecology field and root deposits.
+Read `TERRAIN.md` for the texture arrays, contact tolerances and smooth terrain LODs.
 
 Keep appearance edits independent of shape generation. Avoid regrowing a population
 when changing lighting, wind or patch contrast. Reuse immutable geometry and batched

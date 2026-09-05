@@ -1,4 +1,5 @@
 import { normalizeTerrainSettings, coastWeather } from './settings.js';
+import { coastProfile, coastPathMask } from './terrainLandforms.js';
 export const COAST_OFFSHORE = 96;
 export const COAST_STRIP_LENGTH = 64;
 export const WORLD_AXES = Object.freeze({ up: '+Y', north: '-Z', east: '+X', south: '+Z', west: '-X', waterline: 0, units: 'metres' });
@@ -7,7 +8,7 @@ export const smooth = (a,b,n) => { const t=clamp01((n-a)/(b-a)); return t*t*(3-2
 const mix=(a,b,t)=>a+(b-a)*t;
 export function createTerrainDefinition(settings={}) {
   const p=normalizeTerrainSettings(settings), bearing=p.terrainBearing*Math.PI/180;
-  return {...p, waterDepth: Math.max(.1,settings.waterDepthMeters??1.25), landX:Math.sin(bearing),landZ:-Math.cos(bearing),alongX:Math.cos(bearing),alongZ:Math.sin(bearing)};
+  return {...p, waterDepth: Math.max(.1,settings.waterDepthMeters??settings.waterDepth??1.25), landX:Math.sin(bearing),landZ:-Math.cos(bearing),alongX:Math.cos(bearing),alongZ:Math.sin(bearing)};
 }
 export function coastCoordinates(x,z,p) {
   return {u:x*p.landX+z*p.landZ,s:x*p.alongX+z*p.alongZ};
@@ -28,19 +29,23 @@ export function terrainCoverage(q,s,p) {
 }
 export function coastHeight(q,s,p) {
   const seed=p.terrainSeed*.137;
-  const beachWidth=p.terrainBeachWidth*(1+.12*Math.sin(s*.021));
-  const cliffStart=Math.max(1.8,beachWidth + 1.5*Math.sin(s*.067+seed) + p.terrainRelief*(.75*Math.sin(s*.29+seed)+.38*Math.sin(s*.83)));
-  const cliffWidth=p.terrainCliffSlope*(1+.18*Math.sin(s*.051+seed));
-  const cliff=smooth(cliffStart,cliffStart+cliffWidth,q);
-  const bankHeight=p.terrainCliffHeight*(.82+.18*Math.sin(s*.012+1.1))*(1-.42*Math.exp(-Math.pow((s-p.terrainCapePosition)/p.terrainCapeWidth,2)));
-  // Continuous shallow shelf, low swash ramp and a broad, almost flat beach.
   const shelf=-p.waterDepth*(1-Math.exp(Math.min(q,0)/12));
-  const beach=Math.min(Math.max(q,0),beachWidth)*.035;
-  const gullies=(Math.sin(s*.49+Math.sin(s*.13))*Math.sin(s*.19+seed))*.3;
-  const channel=Math.pow(Math.max(0,Math.sin(s*.31+Math.sin(s*.077+seed))),6);
-  const cliffErosion=((gullies+Math.sin(q*3.1+s*.17)*.07)*p.terrainRelief-channel*Math.min(1.2,bankHeight*.16)*p.terrainErosion)*Math.sin(cliff*Math.PI);
+  if(q<=0)return mix(-p.waterDepth,shelf,terrainCoverage(q,s,p));
+  const f=coastProfile(s,p),t=smooth(f.foot,f.top,q);
+  const bench=.4*smooth(f.foot,f.foot+f.width*.58,q)+.6*smooth(f.foot+f.width*.76,f.top,q);
+  const scarp=.18*smooth(f.foot,f.foot+f.width*.6,q)+.82*smooth(f.foot+f.width*.5,f.top,q);
+  const cliff=mix(mix(scarp,bench,f.slide),t,f.descent);
+  const recovery=smooth(f.top,f.top+Math.max(6,f.bank*3),q);
+  const slump=(f.slide*.16+f.ravine*.58)*(1-recovery);
+  const beach=Math.min(q,f.beach)*.035;
+  // A scarp, displaced bench and deposited toe share one continuous field.
+  const talus=f.slide*f.bank*.1*Math.sin(t*Math.PI)*(1-f.descent);
+  const flow=Math.sin(s*.72+Math.sin(s*.131+seed)+q*.075);
+  const rill=Math.exp(-Math.pow(flow/.24,2));
+  const erosion=-rill*Math.min(.42,f.bank*.07)*p.terrainErosion*Math.sin(t*Math.PI)*(1-f.descent*.8);
   const dryNoise=(Math.sin(q*.71+s*.19+seed)*.025+Math.sin(s*.41-q*.27)*.04)*p.terrainRelief*smooth(1,6,q);
-  const height=shelf+beach+cliff*bankHeight+cliffErosion+dryNoise;
+  const upland=(Math.sin(s*.081+q*.067+seed)*.18+Math.sin(s*.027-q*.103)*.12)*p.terrainRelief*smooth(f.top,f.top+8,q);
+  const height=shelf+beach+cliff*f.bank*(1-slump)+talus+erosion+dryNoise+upland;
   return mix(-p.waterDepth,height,terrainCoverage(q,s,p));
 }
 export function coastPondWeight(q,s,p) {
@@ -74,9 +79,10 @@ export function sampleTerrainSurface(x,z,p,time=0) {
   const windAngle=p.terrainWindBearing*Math.PI/180;
   const exposure=clamp01(.45+height/Math.max(1,p.terrainCliffHeight)*.55);
   const gust=.85+.1*Math.sin(time*.73+x*.018-z*.013)+.05*Math.sin(time*1.91+s*.037);
+  const path=coastPathMask(q,s,p),stable=1-smooth(.12,.65,path);
   const habitat=height>0.25 && slope<.55 ? (q>p.terrainBeachWidth+p.terrainCliffSlope?'plateau':'beach') : height<0?'submerged':'swash';
-  return {height,normal,slope,wetness,shells:shellBand,material:normal.y<.88?'sandstone':shellBand>.3?'shell-sand':'sand',friction:mix(.85,.48,wetness),habitat,
-    vegetation:{grass:habitat==='plateau'?exposure:0,shrubs:height>.28&&wetness<.15&&q>p.terrainBeachWidth*.85 ? smooth(.67,.94,normal.y)*(1-exposure*.45)*(.3+.7*p.terrainSoil):0,trees:habitat==='plateau'&&q>p.terrainBeachWidth+15?.5:0,dryness:p.terrainWeathering,soil:p.terrainSoil},
+  return {height,normal,slope,wetness,path,shells:shellBand,material:normal.y<.88?'sandstone':shellBand>.3?'shell-sand':'sand',friction:mix(.85,.48,wetness),habitat,
+    vegetation:{grass:habitat==='plateau'?exposure*stable:0,shrubs:height>.28&&wetness<.15&&q>p.terrainBeachWidth*.85 ? smooth(.67,.94,normal.y)*(1-exposure*.45)*(.3+.7*p.terrainSoil)*stable:0,trees:habitat==='plateau'&&q>p.terrainBeachWidth+15?.5*stable:0,dryness:p.terrainWeathering,soil:p.terrainSoil},
     wind:{x:Math.sin(windAngle)*coastWeather(p).wind*exposure*gust,z:-Math.cos(windAngle)*coastWeather(p).wind*exposure*gust,exposure,gust}};
 }
 export function createTerrainQuery(p) {

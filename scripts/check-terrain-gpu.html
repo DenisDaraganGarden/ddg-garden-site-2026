@@ -3,34 +3,40 @@
 <body>Checking analytical terrain on the GPU…<script type="module">
 import * as THREE from 'three';
 import { coastShader, createCoastUniforms, syncCoastUniforms } from '/src/terrain/terrainShader.js';
-import { createTerrainDefinition, coastPoint, coastCoordinates, shorePosition, sampleTerrainHeight, sampleCoastWave, sampleCoastWetness } from '/src/terrain/terrainModel.js';
+import { createTerrainDefinition, coastPoint, coastCoordinates, shorePosition, sampleTerrainHeight, sampleCoastWave, sampleCoastWetness, sampleTerrainNormal } from '/src/terrain/terrainModel.js';
 import { normalizePublishedHomeSceneSettings as normalizeHomeSceneSettings, createHomeSceneSnapshot, HOME_SCENE_SNAPSHOT_KEYS } from '/src/features/home-scene/hooks/useHomeSceneSettings.js';
 import { publishedHomeSceneKeys as HOME_SCENE_PUBLISHED_KEYS } from '/src/features/home-scene/data/publishedHomeSceneKeys.js';
+import {coastPathMask,coastProfile} from '/src/terrain/terrainLandforms.js';
 import { DEFAULT_TERRAIN_SETTINGS } from '/src/terrain/settings.js';
 const assert=(ok,message)=>{if(!ok)throw new Error(message)};
 try {
  const gl=new THREE.WebGLRenderer({antialias:false});
  const camera=new THREE.OrthographicCamera(-1,1,1,-1,.1,10);camera.position.z=1;
- const scene=new THREE.Scene(),uniforms={...createCoastUniforms(),uSample:{value:new THREE.Vector2()},uTime:{value:7.23}};
- const material=new THREE.ShaderMaterial({uniforms,vertexShader:'void main(){gl_Position=vec4(position.xy,0.0,1.0);}',fragmentShader:`${coastShader}\nuniform vec2 uSample;uniform float uTime;void main(){vec2 qs=coastLocal(uSample);gl_FragColor=vec4(coastHeight(qs),coastWave(qs,uTime),coastWetness(qs,uTime),coastFoam(qs,vec3(uSample.x,0.0,uSample.y),uTime));}`});
+ const scene=new THREE.Scene(),uniforms={...createCoastUniforms(),uSample:{value:new THREE.Vector2()},uTime:{value:7.23},uMode:{value:0}};
+ const material=new THREE.ShaderMaterial({uniforms,vertexShader:'void main(){gl_Position=vec4(position.xy,0.0,1.0);}',fragmentShader:`${coastShader}\nuniform vec2 uSample;uniform float uTime;uniform float uMode;void main(){vec2 qs=coastLocal(uSample);if(uMode>.5){float dx=(coastHeight(coastLocal(uSample+vec2(.06,0)))-coastHeight(coastLocal(uSample-vec2(.06,0))))/.12;float dz=(coastHeight(coastLocal(uSample+vec2(0,.06)))-coastHeight(coastLocal(uSample-vec2(0,.06))))/.12;gl_FragColor=vec4(normalize(vec3(-dx,1,-dz)),coastPathMask(qs));return;}gl_FragColor=vec4(coastHeight(qs),coastWave(qs,uTime),coastWetness(qs,uTime),coastFoam(qs,vec3(uSample.x,0.0,uSample.y),uTime));}`});
  const geometry=new THREE.PlaneGeometry(2,2);scene.add(new THREE.Mesh(geometry,material));
  const target=new THREE.WebGLRenderTarget(1,1,{type:THREE.FloatType,minFilter:THREE.NearestFilter,magFilter:THREE.NearestFilter,depthBuffer:false});
- let heightError=0,waveError=0,wetnessError=0,samples=0;const pixel=new Float32Array(4);
+ let heightError=0,waveError=0,wetnessError=0,normalError=0,pathError=0,samples=0;const pixel=new Float32Array(4);
  for(const overrides of [{},{terrainBearing:273,terrainSeed:99},{terrainLength:4096,terrainCliffHeight:22,terrainBearing:183,terrainStorm:1,terrainErosion:1,terrainBloom:1},{terrainEnabled:false}]){
   const p=createTerrainDefinition(overrides);syncCoastUniforms(uniforms,p);
-  for(const s of [-p.terrainLength/2,-705,-32,0,93,p.terrainLength/2-17])for(const q of [-96,-75,-32,-12,0,2,17,19,22,36,70,p.terrainLandWidth]){
+  for(const s of [-p.terrainLength/2,-705,-64.0001,-64,-32,-.001,0,39.23,93,p.terrainLength/2-17])for(const q of [-96,-75,-32,-12,0,2,17,19,22,36,70,p.terrainLandWidth,coastProfile(s,p).foot,coastProfile(s,p).top]){
    const world=coastPoint(q,s,p);uniforms.uSample.value.set(world.x,world.z);
-   gl.setRenderTarget(target);gl.render(scene,camera);gl.readRenderTargetPixels(target,0,0,1,1,pixel);
+   uniforms.uMode.value=0;gl.setRenderTarget(target);gl.render(scene,camera);gl.readRenderTargetPixels(target,0,0,1,1,pixel);
    const local=coastCoordinates(world.x,world.z,p),cq=local.u-shorePosition(local.s,p);
    heightError=Math.max(heightError,Math.abs(pixel[0]-sampleTerrainHeight(world.x,world.z,p)));
    waveError=Math.max(waveError,Math.abs(pixel[1]-sampleCoastWave(cq,local.s,uniforms.uTime.value,p)));
    wetnessError=Math.max(wetnessError,Math.abs(pixel[2]-sampleCoastWetness(cq,local.s,uniforms.uTime.value,p)));
    assert(Number.isFinite(pixel[3])&&pixel[3]>=0&&pixel[3]<=.901,"Finite foam coverage");samples++;
+   uniforms.uMode.value=1;gl.render(scene,camera);gl.readRenderTargetPixels(target,0,0,1,1,pixel);
+   const n=sampleTerrainNormal(world.x,world.z,p);
+   normalError=Math.max(normalError,Math.hypot(pixel[0]-n.x,pixel[1]-n.y,pixel[2]-n.z));
+   pathError=Math.max(pathError,Math.abs(pixel[3]-coastPathMask(cq,local.s,p)));
   }
  }
  assert(heightError<.003,`CPU/GPU height error: ${heightError}m`);
  assert(waveError<.0002,`CPU/GPU wave error: ${waveError}m`);
  assert(wetnessError<.005,`CPU/GPU wetness error: ${wetnessError}`);
+ assert(normalError<.02,`CPU/GPU normals: ${normalError}`);assert(pathError<.001,`CPU/GPU paths: ${pathError}`);
  const settings=normalizeHomeSceneSettings({...DEFAULT_TERRAIN_SETTINGS,terrainCliffHeight:11.2,terrainBearing:233,tankerSpeed:11});
  const snapshot=createHomeSceneSnapshot(settings);
  for(const key of Object.keys(DEFAULT_TERRAIN_SETTINGS))assert(HOME_SCENE_SNAPSHOT_KEYS.includes(key)&&snapshot[key]===settings[key],'Camera snapshot '+key);
@@ -38,6 +44,6 @@ try {
  const restored=normalizeHomeSceneSettings(stored);
  for(const key of Object.keys(DEFAULT_TERRAIN_SETTINGS)){assert(HOME_SCENE_PUBLISHED_KEYS.includes(key),'Missing persistence key '+key);assert(restored[key]===settings[key],'Roundtrip '+key);}
  target.dispose();geometry.dispose();material.dispose();gl.dispose();gl.forceContextLoss();
- document.body.dataset.status='pass';document.body.textContent=JSON.stringify({status:'PASS',samples,heightErrorMetres:heightError,waveErrorMetres:waveError,wetnessError,persistence:'terrain keys roundtrip'},null,2);
+ document.body.dataset.status='pass';document.body.textContent=JSON.stringify({status:'PASS',samples,heightErrorMetres:heightError,waveErrorMetres:waveError,wetnessError,normalError,pathError,persistence:'terrain keys roundtrip'},null,2);
 }catch(error){document.body.dataset.status='fail';document.body.textContent=error.stack;throw error}
 </script></body></html>

@@ -5,15 +5,18 @@ import { SELF_HOSTED_HDRI } from './constants';
 import { useFrame } from '@react-three/fiber';
 import { reflectionContext } from './reflectionContext';
 import SkyDome from './SkyDome';
+import {fitTerrainShadow} from '../../../terrain/terrainShadow.js';
 
 // Every light in the scene, plus the sky. The key light and the visible disc are
 // the same direction by construction now: the disc is a dot product against the
 // light vector inside the sky shader, not a sprite parked at a finite distance
 // that missed it by 12.6 degrees.
 
-export default function WaterLights({ settings, mode, qualityProfile, lighting, sky, layout }) {
+export default function WaterLights({ settings, mode, qualityProfile, lighting, sky, layout, terrainQuery }) {
   const reflectionDataRef = useContext(reflectionContext);
   const keyLightRef = useRef();
+  const keyTarget=useMemo(()=>new THREE.Object3D(),[]),shadowTimer=useRef(1);
+  const cameraDirection=useMemo(()=>new THREE.Vector3(),[]);
   const layoutBoat = layout?.boatPosition ?? settings.boatPosition ?? { x: 0, z: 0 };
   const layoutSculpture = layout?.sculpturePosition ?? settings.sculpturePosition ?? { x: 0, z: 0 };
   // The key's hue is the sunlight that survived the air; three wants it as a
@@ -50,7 +53,17 @@ export default function WaterLights({ settings, mode, qualityProfile, lighting, 
   // already reads each frame is the whole plumbing - no second shadow map, no
   // lights:true recompile. Read every frame: the map is null until the first
   // shadow render and is recreated when its size changes.
-  useFrame(() => {
+  useFrame(({camera,gl},delta) => {
+    shadowTimer.current+=delta;
+    const light=keyLightRef.current;
+    if(light&&shadowTimer.current>.08){
+      shadowTimer.current=0;camera.getWorldDirection(cameraDirection);
+      const fit=fitTerrainShadow(camera.position,cameraDirection,lightDirection,terrainQuery,shadowFrustum,shadowMapSize);
+      keyTarget.position.copy(fit.centre);keyTarget.updateMatrixWorld();
+      light.position.copy(fit.centre).addScaledVector(lightDirection,fit.standoff);light.updateMatrixWorld();
+      const c=light.shadow.camera;c.left=c.bottom=-fit.radius;c.right=c.top=fit.radius;c.near=fit.near;c.far=fit.far;c.updateProjectionMatrix();
+      if(import.meta.env.DEV)gl.domElement.dataset.ddgTerrainShadow=JSON.stringify({enabled:shadowsEnabled,mapReady:!!light.shadow.map,rendererEnabled:gl.shadowMap.enabled,target:fit.centre.toArray(),radius:fit.radius,weight:fit.weight});
+    }
     const shadow = keyLightRef.current?.shadow;
     reflectionDataRef.current.keyShadowMap = shadow?.map?.depthTexture ?? null;
     reflectionDataRef.current.keyShadowMatrix = shadow?.matrix ?? null;
@@ -78,7 +91,9 @@ export default function WaterLights({ settings, mode, qualityProfile, lighting, 
 
   return (
     <>
+      <primitive object={keyTarget}/>
       <directionalLight
+        target={keyTarget}
         ref={keyLightRef}
         position={lightDirection.clone().multiplyScalar(standoff).toArray()}
         intensity={lighting.key.sceneIntensity}
