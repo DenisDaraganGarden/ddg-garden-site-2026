@@ -53,7 +53,7 @@ function finish(data) {
   const g=new THREE.BufferGeometry();
   for(const [name,values]of Object.entries(data.attributes))g.setAttribute(name,new THREE.Float32BufferAttribute(values,name==='uv'?2:name==='leafWeight'||name==='phase'?1:3));
   g.setIndex(data.indices);g.computeVertexNormals();g.computeBoundingBox();g.computeBoundingSphere();
-  g.boundingSphere.radius+=.14*Math.max(g.boundingBox.max.y,0)**2+.08;g.userData.baseBounds=g.boundingBox.clone();return g;
+  g.boundingSphere.radius+=.75*Math.max(g.boundingBox.max.y,0)**2+.08;g.userData.baseBounds=g.boundingBox.clone();return g;
 }
 function data() {return {attributes:{position:[],uv:[],leafPivot:[],leafAxis:[],leafWeight:[],phase:[],color:[]},indices:[]};}
 function vertex(d,pos,uv,pivot,axis,weight,phase,tint) {d.attributes.position.push(...pos);d.attributes.uv.push(...uv);d.attributes.leafPivot.push(...pivot);d.attributes.leafAxis.push(...axis);d.attributes.leafWeight.push(weight);d.attributes.phase.push(phase);d.attributes.color.push(tint,tint,tint);}
@@ -92,8 +92,8 @@ export function makeLeafGeometry(model,lod=0) {
 export function selectPlantLod(distance,projectedPixels,previous=0,lowPower=false,viewElevation=0) {
   if(distance<2)return 0;
   if(distance<5)return lowPower?1:0;
-  if(Math.abs(viewElevation)<.35&&previous===2&&distance>16&&projectedPixels<105)return 2;
-  if(Math.abs(viewElevation)<.35&&distance>24&&projectedPixels<75)return 2;
+  if(viewElevation>-.35&&previous===2&&distance>16&&projectedPixels<105)return 2;
+  if(viewElevation>-.35&&distance>24&&projectedPixels<75)return 2;
   if(lowPower)return 1;
   return previous===0 ? (distance>11&&projectedPixels<190?1:0) : (distance<8||projectedPixels>240?0:1);
 }

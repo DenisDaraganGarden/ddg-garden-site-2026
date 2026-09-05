@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import {plantDrynessAt,ecologyPatch} from '../src/plants/plantEcology.js';
+import {createPlantCover} from '../src/plants/plantCover.js';
 import * as THREE from 'three';
 import {makeOleaster,makeBranchGeometry,makeLeafGeometry,selectPlantLod} from '../src/plants/oleasterModel.js';
 import {scatterPlants,createPlantLabTerrain,plantGroundCover} from '../src/plants/plantHabitat.js';
@@ -39,7 +41,8 @@ for(const options of [{},{seed:1,height:.45,spread:2.5},{seed:200,height:2.4,spr
 assert.equal(selectPlantLod(1,700,1,true),0,'mobile close-ups retain curved leaves');
 assert.equal(selectPlantLod(6,200,0,true),1);
 assert.equal(selectPlantLod(50,60,1),2);
-assert.equal(selectPlantLod(50,60,2,true,.7),1,'aerial views retain 3D foliage instead of vertical billboards');
+assert.equal(selectPlantLod(50,60,2,true,.7),2,'aerial views use the upper canopy projection');
+assert.equal(selectPlantLod(50,60,2,true,-.7),1,'underside views retain 3D foliage');
 assert.equal(selectPlantLod(45,90,2),2,'far hysteresis');
 assert.equal(selectPlantLod(30,110,2),1,'return from far');
 const query=createPlantLabTerrain(.12,.3,1),options={seed:7,count:64,pathMask:query.pathMask},plants=scatterPlants(query,options);
@@ -53,3 +56,16 @@ assert.equal(createPlantLabTerrain(0,0,0).pathMask(0,0),0,'zero path width disab
 const dry=plantGroundCover(0,0,[{x:0,z:0,scale:1,dryness:1}]),green=plantGroundCover(0,0,[{x:0,z:0,scale:1,dryness:0}]);
 assert.ok(dry.litter>green.litter&&green.vigor>dry.vigor,'ground cover follows plant health');
 console.log(JSON.stringify({passed:true,geometries:geometryCount,attachments:attachmentCount,habitatPlants:plants.length}));
+
+let neighbourDelta=0,distantDelta=0;
+for(let i=0;i<120;i++){
+ const x=i*.73,z=Math.sin(i*.6)*20;
+ for(const dryness of [0,1])assert.equal(plantDrynessAt(x,1,z,{dryness},.7),dryness,'dryness endpoints remain literal');
+ const value=ecologyPatch(x,z,7,23);neighbourDelta+=Math.abs(value-ecologyPatch(x+.12,z+.12,7,23));distantDelta+=Math.abs(value-ecologyPatch(x+9,z+9,7,23));
+}
+assert.ok(neighbourDelta<distantDelta*.06,'nearby foliage belongs to correlated colonies');
+const large=scatterPlants(createPlantLabTerrain(.12,.4,.7,64),{count:512,extent:63});assert.equal(large.length,512);
+const changed=scatterPlants(createPlantLabTerrain(.12,.4,.7,64),{count:512,extent:63,ecology:{dryness:.8,patchContrast:1}});
+assert.deepEqual(large.map(p=>[p.x,p.y,p.z,p.yaw,p.scale]),changed.map(p=>[p.x,p.y,p.z,p.yaw,p.scale]),'colour edits preserve root identities');
+const cover=createPlantCover(large);assert.ok(cover.texture.image.data.some(v=>v>0));cover.dispose();
+console.log(JSON.stringify({largePopulation:large.length,neighbourCorrelation:neighbourDelta/distantDelta}));

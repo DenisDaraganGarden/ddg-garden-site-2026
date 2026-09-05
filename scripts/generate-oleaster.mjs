@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises';
 import {chromium} from 'playwright';
 const origin=process.env.PLANT_LAB_URL||'http://127.0.0.1:7313';
-const browser=await chromium.launch({headless:true,args:['--use-angle=swiftshader','--enable-unsafe-swiftshader']});
+const browser=await chromium.launch({headless:true,args:process.env.PLANT_GPU_BACKEND==='metal'?['--use-angle=metal']:['--use-angle=swiftshader','--enable-unsafe-swiftshader']});
 try{
  const page=await browser.newPage({viewport:{width:1000,height:900},deviceScaleFactor:2});
  const errors=[];page.on('pageerror',e=>{errors.push(e.message);console.error(e.message);});page.on('console',m=>{if(m.type()==='error'){errors.push(m.text());console.error(m.text());}});

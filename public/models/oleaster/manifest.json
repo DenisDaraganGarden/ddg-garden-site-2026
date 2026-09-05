@@ -43,21 +43,25 @@
       "lod": 0,
       "runtimeTriangles": 82050,
       "exportTriangles": 139138,
-      "bytes": 8584208
+      "bytes": 8578216
     },
     {
       "lod": 1,
       "runtimeTriangles": 13760,
       "exportTriangles": 20896,
-      "bytes": 3241688
+      "bytes": 3235696
     }
   ],
   "distant": {
     "runtimeTriangles": 8,
-    "views": 8,
+    "views": 24,
     "atlas": [
       1024,
-      512
+      1536
+    ],
+    "mobileAtlas": [
+      512,
+      768
     ]
   },
   "generator": "node scripts/generate-oleaster.mjs",
