@@ -21,7 +21,8 @@ vec3 pondNormalAt(vec2 uv){return normalize(texture2D(uPondNormalMap,uv).rgb*2.0
 float shelfCaustics(vec2 world,float depth){
  if(uCausticsParams.x<=0.0||depth<=0.0)return 0.0;
  vec2 uv=vec2(world.x/uPondExtent+.5,.5-world.y/uPondExtent);
- float inside=smoothstep(0.0,.04,min(min(uv.x,uv.y),min(1.0-uv.x,1.0-uv.y)));
+ // The simulation ends at the pond square; the light must not. Four metres of fade.
+ float inside=smoothstep(0.0,.12,min(min(uv.x,uv.y),min(1.0-uv.x,1.0-uv.y)));
  if(inside<=0.0)return 0.0;
  vec2 texel=uPondTexel;vec3 light=normalize(uCausticsLight);float scale=.06*uCausticsParams.y;
  vec3 n=pondNormalAt(uv);
@@ -38,7 +39,9 @@ float shelfCaustics(vec2 world,float depth){
  float turbidity=clamp(uCausticsParams.w,0.0,1.0),density=turbidity*(.45+.55*turbidity);
  vec3 r=refract(-light,n,.75);
  c*=clamp(-r.y*1.2,0.0,1.0)*exp(-depth*(.015+density*.55))*clamp(uCausticsKey,0.0,4.0);
- return c*inside;
+ // The old bed was dark and took this as added light; pale sand takes it as a
+ // multiplier, so the veins are capped before they can whiten the shelf.
+ return min(c,1.2)*inside;
 }
 vec2 terrainDomainWarp(vec2 world){
  vec2 p=world*.075+vec2(uCoastShape.w*.017,19.37);
@@ -163,7 +166,7 @@ export function createTerrainMaterial(textures,p,rockOnly=false){
    vec3 terrainColor=mix(ground.color,rockColor,rockWeight);
    float macroVariation=.88+.22*coastNoise(vTerrainWorld.xz*.21+vec2(5.2,42.9));
    diffuseColor.rgb=mix(terrainColor*mix(1.0,.53,wet),vec3(.82,.84,.78),foamTrace*.22)*macroVariation;
-   diffuseColor.rgb*=1.0+caustic*1.2;
+   diffuseColor.rgb*=1.0+caustic*.5;
   `);
   shader.fragmentShader=shader.fragmentShader.replace('#include <roughnessmap_fragment>','#include <roughnessmap_fragment>\nroughnessFactor=mix(surfaceData.r,.27,wet);');
   shader.fragmentShader=shader.fragmentShader.replace('#include <normal_fragment_maps>',`#include <normal_fragment_maps>
