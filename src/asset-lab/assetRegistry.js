@@ -2,10 +2,12 @@ import FishLab from '../fish-lab/FishLab';
 import SeagullLab from '../seagull-lab/SeagullLab';
 import BlackStoneLab from '../black-stone-lab/BlackStoneLab';
 import TankerLab from '../tanker-lab/TankerLab';
+import PlantLab from '../plant-lab/PlantLab';
 
 export const DEFAULT_ASSET_COLLECTION = 'river-fish';
 
 export const ASSET_COLLECTIONS = Object.freeze({
+  oleaster: { id: 'oleaster', label: 'Лох узколистный', component: PlantLab },
   tanker: {
     id: 'tanker',
     label: 'Речной танкер',

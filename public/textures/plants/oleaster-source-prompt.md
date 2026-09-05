@@ -1,0 +1,7 @@
+# Imagegen source prompt
+
+Use case: photorealistic-natural.
+Asset type: physically based 3D foliage albedo/opacity atlas, transparent RGBA PNG.
+Create a square atlas of eight separate Elaeagnus angustifolia (Russian olive / narrow-leaf oleaster) leaves in a strict 4 columns x 2 rows grid, one isolated leaf per identical cell, no grid lines. Every leaf upright with its petiole attachment at the bottom centre of its cell and pointed tip at the top centre; complete petiole and tip visible. The leaf must fit the inner 86% height and 62% width of each cell. The eight leaves share exactly the same size and axis; subtly vary edges, mottling and vein details only.
+Narrow lanceolate smooth entire leaf edges, length about 6cm and width about 1.4cm. Four muted olive sage green tops on the upper row, four pale silvery slightly fuzzy undersides on the lower row. Fine realistic silvery scales, delicate central vein and subdued side veins. Neutral diffuse cross-polarized albedo, no shadows, no directional illumination, no highlights, no rim light, no glossy wax. Natural photographic botanical detail for close 3D inspection.
+Actually transparent background and negative spaces with alpha channel, not white, not checkerboard. Sharp clean alpha silhouettes, no halo. Nothing other than the eight leaves, no branches, no roots, no labels, no text, no watermark, no scene. This is a functional texture atlas, not a decorative botanical composition.

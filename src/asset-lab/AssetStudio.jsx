@@ -106,16 +106,20 @@ export default function AssetStudio({
   exposure = 1.04,
   environmentIntensity = 1,
   paused = false,
+  inactive = false,
+  cameraFar = 40,
+  fogRange,
+  pixelRatio = [1, 1.5],
 }) {
   const flightView = view.startsWith('flight') || view === 'landing';
   const stoneLighting = lightingPreset === 'black-stone';
 
   return (
     <Canvas
-      frameloop={paused ? 'demand' : 'always'}
+      frameloop={inactive ? 'never' : paused ? 'demand' : 'always'}
       shadows={STUDIO_SHADOWS}
-      dpr={[1, 1.5]}
-      camera={{ position: [3.65, 1.42, 4.9], fov: 32, near: 0.02, far: 40 }}
+      dpr={pixelRatio}
+      camera={{ position: [3.65, 1.42, 4.9], fov: 32, near: 0.02, far: cameraFar }}
       gl={{ antialias: true, alpha: false, powerPreference: 'high-performance' }}
       onCreated={({ gl }) => {
         gl.outputColorSpace = THREE.SRGBColorSpace;
@@ -124,7 +128,7 @@ export default function AssetStudio({
       }}
     >
       <color attach="background" args={[STUDIO_BACKGROUND]} />
-      <fog attach="fog" args={[STUDIO_BACKGROUND, cameraViews ? 28 : (flightView ? 32 : 6.2), cameraViews ? 40 : (flightView ? 48 : 10.5)]} />
+      <fog attach="fog" args={[STUDIO_BACKGROUND, fogRange?.[0] ?? (cameraViews ? 28 : (flightView ? 32 : 6.2)), fogRange?.[1] ?? (cameraViews ? 40 : (flightView ? 48 : 10.5))]} />
       <StudioEnvironment />
       <StudioExposure exposure={exposure} environmentIntensity={environmentIntensity} />
       <hemisphereLight args={['#f9fbff', '#b8afa1', lighting ? (0.35 + lighting.fill.intensity) : (stoneLighting ? 0.34 : 1.35)]} />
