@@ -1,3 +1,8 @@
+import CoastShrubs from '../../plants/CoastShrubs.jsx';
+import {createCoastPlanting} from '../../plants/coastPlanting.js';
+import {shrubAssetSettings} from '../../plants/settings.js';
+import {createPlantCover} from '../../plants/plantCover.js';
+import {coastWeather} from '../../terrain/settings.js';
 import { createTerrainCollider } from '../../terrain/terrainCollider.js';
 import { buildCoastRocks, attachRockCollisions } from '../../terrain/terrainRocks.js';
 import AzovTerrain from '../../terrain/AzovTerrain.jsx';
@@ -185,6 +190,12 @@ function WaterRuntimeScene({
     query.collisionObject=createTerrainCollider(query);
     return query;
   }, [terrainDefinition, terrainRocks, settings.terrainEnabled]);
+  const shrubKey=JSON.stringify(Object.fromEntries(Object.entries(settings).filter(([key])=>key.startsWith('shrubs'))));
+  const shrubSettings=useMemo(()=>JSON.parse(shrubKey),[shrubKey]);
+  const shrubAsset=useMemo(()=>shrubAssetSettings(shrubSettings,{speed:coastWeather(terrainDefinition).wind,bearing:terrainDefinition.terrainWindBearing}),[shrubSettings,terrainDefinition]);
+  const shrubPlants=useMemo(()=>createCoastPlanting(terrainQuery,terrainDefinition,shrubSettings),[terrainQuery,terrainDefinition,shrubSettings]);
+  const shrubCover=useMemo(()=>createPlantCover(shrubPlants,256),[shrubPlants]);
+  useEffect(()=>()=>shrubCover.dispose(),[shrubCover]);
   const lighting = useMemo(() => buildHomeSceneLighting(settings), [settings]);
   // One sky, built once, handed to everything that has to agree about it: the
   // visible dome, the water that reflects it, and (from Phase 2) the image-based
@@ -351,7 +362,8 @@ function WaterRuntimeScene({
           layout={activeLayout}
         />
         {terrainQuery ? <primitive object={terrainQuery.collisionObject}/> : null}
-        {settings.terrainEnabled ? <AzovTerrain rocks={terrainRocks} onTerrainReady={handleLandingSurfaceReady} audioRuntime={audioRuntime} runtime={runtime} definition={terrainDefinition} settings={settings} qualityProfile={qualityProfile} lighting={lighting} sky={sky} /> : null}
+        {terrainQuery&&settings.shrubsEnabled ? <CoastShrubs settings={shrubAsset} plants={shrubPlants} qualityProfile={qualityProfile}/> : null}
+        {settings.terrainEnabled ? <AzovTerrain plantCover={shrubCover} rocks={terrainRocks} onTerrainReady={handleLandingSurfaceReady} audioRuntime={audioRuntime} runtime={runtime} definition={terrainDefinition} settings={settings} qualityProfile={qualityProfile} lighting={lighting} sky={sky} /> : null}
         {settings.seabedVisible ? (
           <Seabed
             settings={settings}

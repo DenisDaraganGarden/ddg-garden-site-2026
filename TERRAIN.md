@@ -28,7 +28,7 @@ Near water and the extended shore use the same WaterSurfaceV2 shader, GPU state,
 
 `createTerrainQuery(definition)` provides `heightAt`, `normalAt`, `surfaceAt` and `raycast`. `attachRockCollisions` overlays the actual instanced rock triangles through a spatial hash. `createTerrainCollider` adapts this to the existing creature raycaster, including ground impacts and occlusion, with a bounding slab before marching.
 
-Flying birds anticipate terrain height; landing sites use dry, low-slope ground. `surfaceAt(x,z,time)` returns material, slope, friction, wetness, habitat, grass/shrub/tree suitability and a deterministic wind vector, gust and exposure. No terrestrial plants are created yet. Consumers should use these queries rather than intersect the current display LOD or copy terrain formulas.
+Flying birds anticipate terrain height; landing sites use dry, low-slope ground. `surfaceAt(x,z,time)` returns material, slope, friction, wetness, habitat, grass/shrub/tree suitability and a deterministic wind vector, gust and exposure. The coastal oleaster now consumes these queries through `src/plants/coastPlanting.js`; future species should use them rather than intersect the current display LOD or copy terrain formulas.
 
 This is a single-valued height field: caves and overhangs need separate colliders. Rock tops are resolved from triangles. Slabs embed into the bluff instead of being lifted by a single uphill corner; the contact check prevents floating above their beach footing. Parallax and shell fragments are visual microrelief, not navigation obstacles. The analytic field is independent of the displayed triangle approximation; default close geometry was checked within 3.6 cm at sampled triangle centres. Very steep settings and distant LODs have a larger approximation error.
 
@@ -59,3 +59,42 @@ Additional browser checks:
 - `/scripts/check-water-surface-gpu.html` renders the actual V2 vertex shader with known state textures, checking world-space strips against the rotated pond geometry and CPU surface probes, including world/view normals. Its renderer regression reproduces cached uniform-map replacement and verifies that in-place edits reach the GPU.
 - `/scripts/check-scene-visibility.html` exercises real R3F frames with a synthetic document visibility event. In the recorded 1.2 s hidden interval, frames and elapsed time stayed exactly fixed; resume advanced by 0.2017 s after a 0.2 s active interval. This is an integration test, not a physical iOS backgrounding test.
 - Narrow preview at 390 px exercised low-power terrain LOD (53,720 land triangles), 128² water simulation and parallax-off material path on the desktop GPU. It does not establish iPhone/iPad frame rate or Safari compatibility; those require the actual device. The actual editor panel and shoreline camera were also inspected at 390 and 768 px, including scrolling to the final controls.
+
+## Coastal shrubs
+
+`WaterScene` creates one deterministic shrub population and its ground-cover map.
+**Озеленение → Кустарники / Greenery → Shrubs** controls population, coastal region,
+shape, dry/fresh colonies, crown patches, gust response and render distance. Default
+planting is 512 shrubs over a 120 × 24 m curved coastal region. The count is a target:
+unsuitable or crowded land can yield fewer plants. Changing colour or wind retains
+root positions. Habitat permits soil on gentle bluff shoulders and excludes water,
+steep faces and the actual rock colliders. A `pathMask` contract is ready for future paths.
+
+`CoastShrubs` uses the reviewed portable lab geometry, PBR leaf textures and the shared
+scene clock/light/fog. Speed and bearing come from terrain weather, including storm;
+shader bending saturates at strong wind to keep geometry inside its declared bounds.
+Litter/vigor masks blend into the terrain's existing PBR shading under each crown.
+Shrubs do not create another light, water reflection target or audio context. Their
+visual LOD and ground cover do not replace the analytic terrain/collision query.
+
+Near and mid leaves share petiole anchors. Far LOD samples 24 projections (8 azimuths
+at 0/45/90° elevation), with an extra coordinate atlas to reconstruct the same ecology
+field. Atlas frames are 256² on desktop and 128² for touch/low-power profiles. Roots
+and counts stay authored on mobile; only visual detail and temporary GPU textures
+shrink. Close views below 2 m retain curved leaves. The planting/close-up buttons
+change the free camera only; authored camera snapshots are not rewritten.
+
+- `node scripts/check-coast-plants.mjs`: anchoring, rock/water/slope/path exclusion,
+  deterministic identities, settings bounds and the ground-cover buffer.
+- `/scripts/check-coast-plant-settings.html`: all shrub controls survive publication
+  serialization and camera snapshots.
+- `node scripts/check-coast-plant-ui.mjs`: actual editor, preview poses, live dryness,
+  touch phone/tablet profile, shader errors and layout. Its isolated storage enables
+  colour for inspection and blocks publication requests. `PLANT_GPU_BACKEND=metal`
+  uses native macOS graphics for QA; default is portable SwiftShader. Neither proves
+  physical iOS Safari frame rate.
+
+The reusable workflow is `.agents/skills/ddg-procedural-vegetation/SKILL.md`.
+The laboratory remains in its own worktree/port; the product branch carries portable
+assets and scene integration. The pre-existing mutable published-scene file is excluded
+from vegetation commits.

@@ -1,3 +1,4 @@
+import {DEFAULT_SHRUB_SETTINGS,normalizeShrubSettings} from '../../../plants/settings.js';
 import { DEFAULT_TERRAIN_SETTINGS, normalizeTerrainSettings } from '../../../terrain/settings.js';
 import { DEFAULT_TANKER_SETTINGS, normalizeTankerSettings } from '../../../tanker/settings.js';
 import { useEffect, useState } from 'react';
@@ -177,6 +178,7 @@ const pickLayout = (value, fallback) => {
 export const getBaseHomeSceneSettings = () => ({
   ...DEFAULT_TANKER_SETTINGS,
   ...DEFAULT_TERRAIN_SETTINGS,
+  ...DEFAULT_SHRUB_SETTINGS,
   waterExtent: 24,
   simulationResolution: 128,
   waterMeshDensity: 288,
@@ -1039,6 +1041,7 @@ const normalizeHomeSceneSettings = (savedSettings = {}, includeCameraSystem = tr
     audio: normalizeSoundscapeSettings(merged.audio),
     ...normalizeTankerSettings(merged),
     ...normalizeTerrainSettings(merged),
+    ...normalizeShrubSettings(merged),
     bloomEnabled: pickBoolean(merged.bloomEnabled, defaults.bloomEnabled),
     bloomStrength: clampFloat(merged.bloomStrength, 0, 2.5, defaults.bloomStrength),
     bloomThreshold: clampFloat(merged.bloomThreshold, 0, 2, defaults.bloomThreshold),

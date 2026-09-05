@@ -7,6 +7,7 @@ varying vec3 vTerrainNormal;
 uniform sampler2D uSandColor;uniform sampler2D uSandNormal;uniform sampler2D uSandSurface;
 uniform sampler2D uShellColor;uniform sampler2D uShellNormal;uniform sampler2D uShellSurface;
 uniform sampler2D uRockColor;uniform sampler2D uRockNormal;uniform sampler2D uRockSurface;
+uniform sampler2D uPlantCover;uniform vec4 uPlantCoverBounds;uniform float uPlantCoverEnabled;
 uniform float uTerrainTime;uniform float uTerrainScale;uniform float uTerrainParallax;uniform float uRockOnly;
 vec2 terrainParallaxUv(vec2 uv,vec2 viewAcross,float viewUp,sampler2D heightMap,float relief) {
  if(uTerrainParallax<.01||distance(cameraPosition,vTerrainWorld)>22.0)return uv;
@@ -40,7 +41,7 @@ float terrainLocalSummit(vec2 qs) {
 }
 `;
 export function createTerrainMaterial(textures,p,rockOnly=false) {
- const uniforms={...createCoastUniforms(),uTerrainTime:{value:0},uTerrainScale:{value:p.terrainTextureScale},uTerrainParallax:{value:p.terrainParallax},uRockOnly:{value:rockOnly?1:0}};
+ const uniforms={...createCoastUniforms(),uPlantCover:{value:null},uPlantCoverBounds:{value:new THREE.Vector4(0,0,1,1)},uPlantCoverEnabled:{value:0},uTerrainTime:{value:0},uTerrainScale:{value:p.terrainTextureScale},uTerrainParallax:{value:p.terrainParallax},uRockOnly:{value:rockOnly?1:0}};
  for(const [type,name] of [['Sand','sand'],['Shell','shells'],['Rock','sandstone']])for(const channel of ['Color','Normal','Surface'])uniforms['u'+type+channel]={value:textures[name+'-'+channel.toLowerCase()]};
  syncCoastUniforms(uniforms,p);
  const material=new THREE.MeshStandardMaterial({color:'#ffffff',roughness:.85,metalness:0,side:THREE.FrontSide});
@@ -102,6 +103,12 @@ export function createTerrainMaterial(textures,p,rockOnly=false) {
    terrainColor=mix(terrainColor,terrainColor*ochreTint,exposed*(.18+.42*strata)*uCoastGeology.x);
    terrainColor=mix(terrainColor,terrainColor*limestoneTint,exposed*(.10+.34*strata)*uCoastGeology.z);
    terrainColor=mix(terrainColor,terrainColor*vec3(.44,.30,.16),soilCap);
+   vec2 coverUv=(vTerrainWorld.xz-uPlantCoverBounds.xy)/uPlantCoverBounds.zw;
+   if(uPlantCoverEnabled>.5&&uRockOnly<.5&&all(greaterThanEqual(coverUv,vec2(0)))&&all(lessThanEqual(coverUv,vec2(1)))){
+     vec2 cover=texture2D(uPlantCover,coverUv).rg*(1.0-wet)*smoothstep(.64,.9,terrainN.y);
+     terrainColor=mix(terrainColor,terrainColor*vec3(.68,.57,.34),cover.r*.55);
+     terrainColor=mix(terrainColor,terrainColor*vec3(.54,.67,.38),cover.g*.5);
+   }
    float macroVariation=.93+.14*(sandWarp.x+sandWarp.y);
    vec3 wetColor=terrainColor*mix(1.0,.53,wet);
    diffuseColor.rgb=mix(wetColor,vec3(.82,.84,.78),foamTrace*.22)*macroVariation;
@@ -117,5 +124,5 @@ export function createTerrainMaterial(textures,p,rockOnly=false) {
   `);
   shader.fragmentShader=shader.fragmentShader.replace('#include <aomap_fragment>','#include <aomap_fragment>\nreflectedLight.indirectDiffuse*=surfaceData.g;');
  };
- material.customProgramCacheKey=()=> 'azov-coast-pbr-v1';return material;
+ material.customProgramCacheKey=()=> 'azov-coast-pbr-v2';return material;
 }

@@ -76,7 +76,7 @@ export function sampleTerrainSurface(x,z,p,time=0) {
   const gust=.85+.1*Math.sin(time*.73+x*.018-z*.013)+.05*Math.sin(time*1.91+s*.037);
   const habitat=height>0.25 && slope<.55 ? (q>p.terrainBeachWidth+p.terrainCliffSlope?'plateau':'beach') : height<0?'submerged':'swash';
   return {height,normal,slope,wetness,shells:shellBand,material:normal.y<.88?'sandstone':shellBand>.3?'shell-sand':'sand',friction:mix(.85,.48,wetness),habitat,
-    vegetation:{grass:habitat==='plateau'?exposure:0,shrubs:habitat==='plateau'?(1-exposure*.5):0,trees:habitat==='plateau'&&q>p.terrainBeachWidth+15?.5:0,dryness:p.terrainWeathering,soil:p.terrainSoil},
+    vegetation:{grass:habitat==='plateau'?exposure:0,shrubs:height>.28&&wetness<.15&&q>p.terrainBeachWidth*.85 ? smooth(.67,.94,normal.y)*(1-exposure*.45)*(.3+.7*p.terrainSoil):0,trees:habitat==='plateau'&&q>p.terrainBeachWidth+15?.5:0,dryness:p.terrainWeathering,soil:p.terrainSoil},
     wind:{x:Math.sin(windAngle)*coastWeather(p).wind*exposure*gust,z:-Math.cos(windAngle)*coastWeather(p).wind*exposure*gust,exposure,gust}};
 }
 export function createTerrainQuery(p) {

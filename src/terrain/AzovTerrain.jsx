@@ -35,7 +35,7 @@ function CoastRocks({rocks,material}) {
   useLayoutEffect(()=>{if(!ref.current)return;const transform=new THREE.Object3D();rocks.forEach((rock,i)=>{transform.position.set(rock.x,rock.y,rock.z);transform.rotation.set(...rock.rotation);transform.scale.set(...rock.scale);transform.updateMatrix();ref.current.setMatrixAt(i,transform.matrix);});ref.current.instanceMatrix.needsUpdate=true;ref.current.computeBoundingSphere();},[rocks]);
   return <instancedMesh ref={ref} name="coast-rocks" args={[geometry,material,Math.max(1,rocks.length)]} count={rocks.length} castShadow receiveShadow/>;
 }
-export default function AzovTerrain({ definition, settings, qualityProfile, lighting, sky, runtime, rocks, onTerrainReady, audioRuntime }) {
+export default function AzovTerrain({ definition, settings, qualityProfile, lighting, sky, runtime, rocks, onTerrainReady, audioRuntime, plantCover }) {
   const {gl}=useThree();const land=useRef();
   const shoreEmitter=useRef(settings.audio?.emitters?.shore);shoreEmitter.current=settings.audio?.emitters?.shore;
   useEffect(()=>()=>{const emitter=shoreEmitter.current;if(emitter)audioRuntime?.updateEmitter?.('shore',emitter.x,emitter.y,emitter.z);},[audioRuntime]);
@@ -44,6 +44,7 @@ export default function AzovTerrain({ definition, settings, qualityProfile, ligh
   useLayoutEffect(()=>{for(const [name,texture]of Object.entries(textures)){texture.wrapS=texture.wrapT=THREE.RepeatWrapping;texture.colorSpace=name.endsWith('-color')?THREE.SRGBColorSpace:THREE.NoColorSpace;texture.anisotropy=Math.min(qualityProfile.isLowPower?4:8,gl.capabilities.getMaxAnisotropy());texture.needsUpdate=true;}},[textures,gl,qualityProfile.isLowPower]);
   const materials=useMemo(()=>({land:createTerrainMaterial(textures,createTerrainDefinition()),rock:createTerrainMaterial(textures,createTerrainDefinition(),true)}),[textures]);
   useEffect(()=>()=>Object.values(materials).forEach(m=>m.dispose()),[materials]);
+  useLayoutEffect(()=>{const u=materials.land.userData.coastUniforms;u.uPlantCover.value=plantCover?.texture??null;u.uPlantCoverBounds.value.copy(plantCover?.bounds??new THREE.Vector4(0,0,1,1));u.uPlantCoverEnabled.value=plantCover?1:0;},[materials,plantCover]);
   const strips=useMemo(()=>{const out=[];for(let s=-definition.terrainLength*.5;s<definition.terrainLength*.5;s+=COAST_STRIP_LENGTH)out.push(s);return out;},[definition.terrainLength]);
   useLayoutEffect(()=>{
     onTerrainReady?.({surface:'terrain',root:land.current,revision:definition});

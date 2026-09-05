@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {checkPlantEcologyGpu} from './plantEcologyGpuChecks.js';
 import {GLTFExporter} from 'three/examples/jsm/exporters/GLTFExporter.js';
 import {GLTFLoader} from 'three/examples/jsm/loaders/GLTFLoader.js';
 import {mergeGeometries} from 'three/examples/jsm/utils/BufferGeometryUtils.js';
@@ -55,16 +56,18 @@ try{
  const hashes=[],bakes=[];
  for(const dpr of [1,1.5,2]){
   renderer.setPixelRatio(dpr);const baked=bakePlantImpostor(renderer,model,near,atlas);bakes.push(baked);hashes.push(hash(read(baked.color)));
-  const p=read(baked.color);for(let cell=0;cell<8;cell++){let n=0;for(let y=0;y<256;y++)for(let x=0;x<256;x++)if(p[(((cell>>2)*256+y)*1024+(cell%4)*256+x)*4+3]>128)n++;check(n>3000&&n<30000,`view ${cell} has a bounded plant silhouette`);}
+  const p=read(baked.color);for(let cell=0;cell<24;cell++){let n=0;for(let y=0;y<256;y++)for(let x=0;x<256;x++)if(p[(((cell>>2)*256+y)*1024+(cell%4)*256+x)*4+3]>128)n++;check(n>3000&&n<30000,`view ${cell} has a bounded plant silhouette`);}
  }
  check(hashes.every(h=>h===hashes[0]),'impostor bake is identical at DPR 1, 1.5 and 2');result.dprHashes=hashes;
  windContracts();
+ result.ecology=checkPlantEcologyGpu(renderer,near,atlas,bakes[0],check);
  const camera=new THREE.PerspectiveCamera(32,1,.02,300);camera.position.set(2.8,1.7,3.5);camera.lookAt(0,.7,0);
- const far=bakes[0],farGeometry=new THREE.PlaneGeometry(far.width,far.height,1,4);farGeometry.translate(0,far.center.y,0);farGeometry.setAttribute('plantExposure',new THREE.InstancedBufferAttribute(new Float32Array([1]),1));
+ const far=bakes[0],farGeometry=new THREE.PlaneGeometry(far.width,far.height,1,4);farGeometry.translate(...far.center.toArray());farGeometry.setAttribute('plantExposure',new THREE.InstancedBufferAttribute(new Float32Array([1]),1));
  const farMaterial=makeImpostorMaterial(far),farMesh=new THREE.InstancedMesh(farGeometry,farMaterial,1);farMesh.setMatrixAt(0,new THREE.Matrix4());farMesh.setColorAt(0,new THREE.Color(1,1,1));
  const scene=new THREE.Scene();scene.add(new THREE.HemisphereLight('#ffffff','#6a6754',1.1));const sun=new THREE.DirectionalLight('#ffffff',2);sun.position.set(3,4,5);scene.add(sun,farMesh);
  const probeRT=new THREE.WebGLRenderTarget(256,256);renderer.setRenderTarget(probeRT);renderer.setClearColor(0,0);renderer.render(scene,camera);const probe=read(probeRT);let green=0,count=0;for(let i=0;i<probe.length;i+=4)if(probe[i+3]>128){green+=probe[i+1];count++;}
- check(count>1000&&green/count>25,'far material remains lit without a vertex-colour attribute');result.farMeanGreen=green/count;probeRT.dispose();renderPreview(scene,camera,'Distant projection enlarged for inspection');scene.remove(farMesh);
+ check(count>1000&&green/count>25,'far material remains lit without a vertex-colour attribute');result.farMeanGreen=green/count;probeRT.dispose();renderPreview(scene,camera,'Distant projection enlarged for inspection');
+ const eye=camera.position.clone();camera.position.set(.01,6,.01);camera.lookAt(0,.7,0);renderPreview(scene,camera,'Top canopy projection');camera.position.copy(eye);camera.lookAt(0,.7,0);scene.remove(farMesh);
  const albedoCanvas=canvasFrom(atlas.color,true),normalCanvas=canvasFrom(atlas.normal),albedo=new THREE.CanvasTexture(albedoCanvas),normal=new THREE.CanvasTexture(normalCanvas);albedo.colorSpace=THREE.SRGBColorSpace;
  result.files['leaf-albedo.png']=albedoCanvas.toDataURL('image/png').split(',')[1];result.files['leaf-normal.png']=normalCanvas.toDataURL('image/png').split(',')[1];
  const variants=[];
@@ -77,6 +80,6 @@ try{
   scene.add(loaded.scene);renderPreview(scene,camera,`GLB LOD ${lod} round trip`);scene.remove(loaded.scene);
   for(const root of [group,loaded.scene])root.traverse(o=>{if(o.isMesh){o.geometry.dispose();o.material.dispose();}});bark.dispose();leaf.dispose();
  }
- result.manifest={id:'oleaster',version:1,units:'metres',up:'+Y',north:'-Z',east:'+X',root:[0,0,0],seed:model.settings.seed,settings:model.settings,leaves:model.leaves.length,branches:model.branches.length,bounds:{min:near.bark.boundingBox.clone().union(near.leaf.boundingBox).min.toArray(),max:near.bark.boundingBox.clone().union(near.leaf.boundingBox).max.toArray()},variants,distant:{runtimeTriangles:8,views:8,atlas:[1024,512]},generator:'node scripts/generate-oleaster.mjs',authoring:'src/plants/oleasterModel.js',material:'RGBA colour + tangent normal; explicit front/back in GLB. Runtime adds wind, bark grain and leaf translucency.'};
+ result.manifest={id:'oleaster',version:1,units:'metres',up:'+Y',north:'-Z',east:'+X',root:[0,0,0],seed:model.settings.seed,settings:model.settings,leaves:model.leaves.length,branches:model.branches.length,bounds:{min:near.bark.boundingBox.clone().union(near.leaf.boundingBox).min.toArray(),max:near.bark.boundingBox.clone().union(near.leaf.boundingBox).max.toArray()},variants,distant:{runtimeTriangles:8,views:24,atlas:[1024,1536],mobileAtlas:[512,768]},generator:'node scripts/generate-oleaster.mjs',authoring:'src/plants/oleasterModel.js',material:'RGBA colour + tangent normal; explicit front/back in GLB. Runtime adds wind, bark grain and leaf translucency.'};
  albedo.dispose();normal.dispose();for(const b of bakes)b.dispose();farGeometry.dispose();farMaterial.dispose();near.bark.dispose();near.leaf.dispose();atlas.dispose();source.dispose();result.passed=true;
 }catch(error){result.error=error.stack;}finally{renderer.dispose();window.plantGpuResult=result;document.querySelector('#result').textContent=JSON.stringify({...result,files:Object.keys(result.files),previews:result.previews.map(p=>p.name)},null,2);}
