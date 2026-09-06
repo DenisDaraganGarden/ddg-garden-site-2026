@@ -5,3 +5,6 @@
 .lab-nav a b { font-weight: 400; font-variant-numeric: tabular-nums; color: #b3b4a8; }
 .lab-nav a[aria-current], .lab-nav a[aria-current] b { color: #3e4d3d; }
 .lab-nav a:focus-visible { outline: 1px solid #71816e; outline-offset: 3px; }
+.lab-nav button { color: #9c9c91; background: none; border: 0; padding: 0; font: inherit; cursor: pointer; white-space: nowrap; }
+.lab-nav button[aria-pressed="true"] { color: #3e4d3d; }
+.lab-nav button:focus-visible { outline: 1px solid #71816e; outline-offset: 3px; }

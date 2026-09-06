@@ -38,7 +38,7 @@ const DEFAULTS = {
   mode: 'water', lod: 'full', wireframe: false,
   color: PUBLISHED.boatColor, roughness: PUBLISHED.boatRoughness, metalness: PUBLISHED.boatMetalness,
   clearcoat: PUBLISHED.boatClearcoat, clearcoatRoughness: PUBLISHED.boatClearcoatRoughness,
-  lightMode: 'studio', timeOfDay: PUBLISHED.timeOfDay, cloudCover: PUBLISHED.cloudCover, exposure: 1.04, environmentIntensity: 0.7,
+  timeOfDay: PUBLISHED.timeOfDay, cloudCover: PUBLISHED.cloudCover, exposure: 1.04, environmentIntensity: 0.7,
 };
 const TEXT = {
   ru: { title: 'Лодка', subtitle: 'Деревянная гребная лодка · GLB из 3ds Max · дерево и чёрный металл', studio: 'Студия', water: 'На воде', material: 'Материал', geometry: 'Геометрия', light: 'Свет', full: 'Общий', side: 'Борт', bow: 'Нос', stern: 'Корма', macro: 'Крупно', top: 'Сверху', underside: 'Снизу', color: 'Тон дерева', rough: 'Шероховатость', metal: 'Металличность', clearcoat: 'Лак', clearcoatRough: 'Шероховатость лака', detail: 'Детализация', fullGeometry: 'Полная', optics: 'Оптика · LOD', wire: 'Каркас', length: 'Длина', beam: 'Ширина', height: 'Высота', download: 'Скачать GLB', lighting: 'Освещение', scene: 'Свет сцены', hour: 'Время суток', clouds: 'Облачность', exposure: 'Экспозиция', environment: 'Отражения среды', reset: 'Как в сцене', model: 'модель', draws: 'вызовы', rendered: 'кадр', metres: 'м', assets: 'Коллекции', h: 'ч' },
@@ -170,7 +170,7 @@ export default function BoatLab() {
             view={view} cameraViews={CAMERA_VIEWS} cameraLimits={CAMERA_LIMITS}
             waterReflection={afloat} waterY={WATER_Y} floorY={WATER_Y}
             floorVisible={view !== 'underside'}
-            lighting={settings.lightMode === 'scene' ? lighting : undefined}
+            sceneOverrides={{ timeOfDay: settings.timeOfDay, cloudCover: settings.cloudCover }}
             exposure={settings.exposure} environmentIntensity={settings.environmentIntensity}
             paused={hidden}
           >
@@ -194,7 +194,7 @@ export default function BoatLab() {
               <dl><div><dt>{t.length}</dt><dd>{stats.length.toFixed(2)} {t.metres}</dd></div><div><dt>{t.beam}</dt><dd>{stats.beam.toFixed(2)} {t.metres}</dd></div><div><dt>{t.height}</dt><dd>{stats.height.toFixed(2)} {t.metres}</dd></div><div><dt>LOD</dt><dd>{stats.triangles.toLocaleString(language)} tri</dd></div></dl>
               <a className="tanker-lab__download" href={BOAT_MODEL_URL} download>{t.download} ↗</a>
             </>}
-            {tab === 'light' && <><label className="tanker-lab__select"><span>{t.lighting}</span><select aria-label={t.lighting} value={settings.lightMode} onChange={(e) => set('lightMode', e.target.value)}><option value="studio">{t.studio}</option><option value="scene">{t.scene}</option></select></label>{range('timeOfDay', t.hour, 0, 24, 0.1, t.h)}{range('cloudCover', t.clouds)}{range('exposure', t.exposure, 0.2, 2.4)}{range('environmentIntensity', t.environment, 0, 2)}</>}
+            {tab === 'light' && <>{range('timeOfDay', t.hour, 0, 24, 0.1, t.h)}{range('cloudCover', t.clouds)}{range('exposure', t.exposure, 0.2, 2.4)}{range('environmentIntensity', t.environment, 0, 2)}</>}
           </div>
           <div className="tanker-lab__transport">
             <button onClick={() => { setSettings(DEFAULTS); setView('full'); }}>{t.reset}</button>

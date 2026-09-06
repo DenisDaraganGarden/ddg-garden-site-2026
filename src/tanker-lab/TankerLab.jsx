@@ -21,7 +21,7 @@ const DEFAULTS = {
   mode: 'studio', lod: 'near', count: 1, speed: 8, seaState: 0.35, heading: 0,
   timeScale: 1, travel: true, wake: 0.75, distance: 180,
   wear: 0.28, wetness: 0.35, roughness: 0.66, color: '#a62f23', wireframe: false,
-  lightMode: 'studio', timeOfDay: 16.3, cloudCover: 0.2, exposure: 1.04, environmentIntensity: 0.7,
+  timeOfDay: 16.3, cloudCover: 0.2, exposure: 1.04, environmentIntensity: 0.7,
   engineGain: 0.65, wakeGain: 0.4,
   lights: true, lightsIntensity: 1, lightsDay: 0.35, beaconPeriod: 4, lightsSize: 1, previewNight: false,
   audio: { enabled: true, mode: 'soundscape', masterGain: 0.72, ambienceGain: 0.78, spatialGain: 0.92, spatialEnabled: true, tracks: { tanker: { enabled: true, gain: 0.65 } } },
@@ -67,7 +67,7 @@ export default function TankerLab() {
     hemisphereSkyColor: '#d4deec', hemisphereGroundColor: '#655950',
   }), []);
   const previewNight = settings.previewNight;
-  const night = previewNight ? 1 : settings.lightMode === 'scene' ? lighting.sky.night : 0;
+  const night = previewNight ? 1 : lighting.sky.night;
 
   const chooseMode = (mode) => {
     setSettings((current) => ({ ...current, mode, count: 1, lod: mode === 'horizon' ? 'horizon' : 'near', distance: mode === 'horizon' ? 1200 : 180 }));
@@ -132,7 +132,8 @@ export default function TankerLab() {
             view={view} cameraViews={CAMERA_VIEWS} cameraLimits={CAMERA_LIMITS}
             waterReflection={settings.mode !== 'studio' && view !== 'underside'} waterY={-0.78}
             floorVisible={view !== 'underside'}
-            lighting={previewNight ? nightLighting : settings.lightMode === 'scene' ? lighting : undefined}
+            lighting={previewNight ? nightLighting : undefined}
+            sceneOverrides={{ timeOfDay: settings.timeOfDay, cloudCover: settings.cloudCover }}
             background={previewNight ? '#1b1f24' : undefined}
             exposure={settings.exposure} environmentIntensity={previewNight ? 0.06 : settings.environmentIntensity}
             paused={hidden}
@@ -158,7 +159,7 @@ export default function TankerLab() {
             {tab === 'motion' && <>{range('speed', t.speed, 0, 14, 0.1, t.knots)}{range('seaState', t.waves)}{range('heading', t.course, -180, 180, 1, '°')}{range('timeScale', t.time, 0.25, 4, 0.25, '×')}{range('wake', t.wake)}{range('distance', t.distance, 45, 3000, 5, t.metres)}<Toggle label={t.travel} value={settings.travel} onChange={(value) => set('travel', value)} /></>}
             {tab === 'material' && <><label className="tanker-lab__toggle"><span>{t.hull}</span><input type="color" aria-label={t.hull} value={settings.color} onChange={(e) => set('color', e.target.value)} /></label>{range('wear', t.wear)}{range('wetness', t.wet)}{range('roughness', t.rough, 0.18, 0.95)}</>}
             {tab === 'lights' && <><Toggle label={t.lightsOn} value={settings.lights} onChange={(value) => set('lights', value)} /><Toggle label={t.previewNight} value={settings.previewNight} onChange={(value) => set('previewNight', value)} />{range('lightsIntensity', t.intensity, 0, 3, 0.05)}{range('lightsDay', t.lightsDay, 0, 1, 0.05)}{range('beaconPeriod', t.beacon, 1, 12, 0.5, t.s)}{range('lightsSize', t.lightsSize, 0.5, 3, 0.1, '×')}</>}
-            {tab === 'light' && <><label className="tanker-lab__select"><span>{t.lighting}</span><select aria-label={t.lighting} value={settings.lightMode} onChange={(e) => set('lightMode', e.target.value)}><option value="studio">{t.studio}</option><option value="scene">{t.scene}</option></select></label>{range('timeOfDay', t.hour, 0, 24, 0.1, 'h')}{range('cloudCover', t.clouds)}{range('exposure', t.exposure, 0.2, 2.4)}{range('environmentIntensity', t.environment, 0, 2)}</>}
+            {tab === 'light' && <>{range('timeOfDay', t.hour, 0, 24, 0.1, 'h')}{range('cloudCover', t.clouds)}{range('exposure', t.exposure, 0.2, 2.4)}{range('environmentIntensity', t.environment, 0, 2)}</>}
             {tab === 'sound' && <><label className="tanker-lab__select"><span>{t.mode}</span><select aria-label={t.mode} value={settings.audio.mode} onChange={(e) => setAudio('mode', e.target.value)}>{['off', 'music', 'soundscape', 'hybrid'].map((id) => <option key={id} value={id}>{t[id]}</option>)}</select></label>{audioRange('masterGain', t.master)}{audioRange('ambienceGain', t.ambience)}{audioRange('spatialGain', t.spatial)}<Range label={t.track} value={settings.audio.tracks.tanker.gain} onChange={(gain) => setAudio('tracks', { tanker: { enabled: true, gain } })} />{range('engineGain', t.diesel)}{range('wakeGain', t.wash)}{range('distance', t.distance, 45, 3000, 5, t.metres)}<Toggle label={t.spatialize} value={settings.audio.spatialEnabled} onChange={(value) => setAudio('spatialEnabled', value)} /><p className="tanker-lab__audio-note">{t.synthetic}</p></>}
           </div>
           <div className="tanker-lab__transport">

@@ -86,7 +86,7 @@ const TEXT = {
   ru: { studio: 'Студия', scene: 'Свет сцены', form: 'Форма', flow: 'Течение', material: 'Материал', light: 'Свет', full: 'Общий', macro: 'Крупно', low: 'Низко', top: 'Сверху', lighting: 'Освещение', hour: 'Время суток', clouds: 'Облачность', exposure: 'Экспозиция', environment: 'Отражения среды', reset: 'Как в сцене', draws: 'вызовы', rendered: 'кадр', assets: 'Коллекции', h: 'ч', m: 'м' },
   en: { studio: 'Studio', scene: 'Scene light', form: 'Form', flow: 'Flow', material: 'Material', light: 'Light', full: 'Overview', macro: 'Close-up', low: 'Low', top: 'Top', lighting: 'Lighting', hour: 'Time of day', clouds: 'Cloud cover', exposure: 'Exposure', environment: 'Environment reflections', reset: 'As in the scene', draws: 'draw calls', rendered: 'frame', assets: 'Collections', h: 'h', m: 'm' },
 };
-const LAB_DEFAULTS = { lightMode: 'studio', timeOfDay: PUBLISHED.timeOfDay, cloudCover: PUBLISHED.cloudCover, exposure: 1.04, environmentIntensity: 0.7 };
+const LAB_DEFAULTS = { timeOfDay: PUBLISHED.timeOfDay, cloudCover: PUBLISHED.cloudCover, exposure: 1.04, environmentIntensity: 0.7 };
 
 function Range({ label, value, min = 0, max = 1, step = 0.01, unit = '', onChange }) {
   return <label className="tanker-lab__range"><span>{label}</span><output>{Number(value).toFixed(step >= 1 ? 0 : step >= 0.01 ? 2 : 3)}{unit && ` ${unit}`}</output><input type="range" aria-label={label} min={min} max={max} step={step} value={value} onChange={(e) => onChange(Number(e.target.value))} /></label>;
@@ -142,7 +142,7 @@ function WaterPlantLab({ species }) {
           <AssetStudio
             view={view} cameraViews={species.views} cameraLimits={CAMERA_LIMITS}
             waterReflection={species.water} waterY={WATER_Y} floorY={species.floorY}
-            lighting={lab.lightMode === 'scene' ? lighting : undefined}
+            sceneOverrides={{ timeOfDay: lab.timeOfDay, cloudCover: lab.cloudCover }}
             exposure={lab.exposure} environmentIntensity={lab.environmentIntensity}
             paused={hidden}
           >
@@ -158,7 +158,7 @@ function WaterPlantLab({ species }) {
           <div className="tanker-lab__controls" role="tabpanel" aria-label={t[tab]}>
             {tab === 'material' && <label className="tanker-lab__toggle"><span>{controlLabel(species.color)}</span><input type="color" aria-label={controlLabel(species.color)} value={scene[species.color]} onChange={(e) => setScene1(species.color, e.target.value)} /></label>}
             {species.tabs[tab]?.map(range)}
-            {tab === 'light' && <><label className="tanker-lab__select"><span>{t.lighting}</span><select aria-label={t.lighting} value={lab.lightMode} onChange={(e) => setLab1('lightMode', e.target.value)}><option value="studio">{t.studio}</option><option value="scene">{t.scene}</option></select></label><Range label={t.hour} value={lab.timeOfDay} min={0} max={24} step={0.1} unit={t.h} onChange={(value) => setLab1('timeOfDay', value)} /><Range label={t.clouds} value={lab.cloudCover} onChange={(value) => setLab1('cloudCover', value)} /><Range label={t.exposure} value={lab.exposure} min={0.2} max={2.4} onChange={(value) => setLab1('exposure', value)} /><Range label={t.environment} value={lab.environmentIntensity} min={0} max={2} onChange={(value) => setLab1('environmentIntensity', value)} /></>}
+            {tab === 'light' && <><Range label={t.hour} value={lab.timeOfDay} min={0} max={24} step={0.1} unit={t.h} onChange={(value) => setLab1('timeOfDay', value)} /><Range label={t.clouds} value={lab.cloudCover} onChange={(value) => setLab1('cloudCover', value)} /><Range label={t.exposure} value={lab.exposure} min={0.2} max={2.4} onChange={(value) => setLab1('exposure', value)} /><Range label={t.environment} value={lab.environmentIntensity} min={0} max={2} onChange={(value) => setLab1('environmentIntensity', value)} /></>}
           </div>
           <div className="tanker-lab__transport">
             <button onClick={() => { setScene({ ...PUBLISHED, ...species.overrides }); setLab(LAB_DEFAULTS); setView('full'); }}>{t.reset}</button>

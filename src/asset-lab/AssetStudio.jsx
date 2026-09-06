@@ -1,9 +1,11 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { Canvas, useThree } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import StudioWaterReflection from './StudioWaterReflection';
+import SceneLight from './SceneLight';
+import { useLabLightMode } from './labLighting';
 
 const STUDIO_BACKGROUND = '#f5f4f0';
 const STUDIO_SHADOWS = { type: THREE.PCFShadowMap };
@@ -111,9 +113,18 @@ export default function AssetStudio({
   fogRange,
   pixelRatio = [1, 1.5],
   background = STUDIO_BACKGROUND,
+  // The collection's own knobs on the scene light (time of day, cloud cover).
+  sceneOverrides,
+  shadowRadius = 9,
 }) {
   const flightView = view.startsWith('flight') || view === 'landing';
   const stoneLighting = lightingPreset === 'black-stone';
+  // One switch for the whole laboratory (LabNav): the home scene's sky, sun
+  // and image-based light, or the white studio. A collection that hands in a
+  // whole lighting solution (the tanker at night) is shown under it either way.
+  const sceneMode = useLabLightMode() === 'scene' || Boolean(lighting);
+  const overridesKey = JSON.stringify(sceneOverrides ?? null);
+  const overrides = useMemo(() => (overridesKey === 'null' ? undefined : JSON.parse(overridesKey)), [overridesKey]);
 
   return (
     <Canvas
@@ -130,31 +141,33 @@ export default function AssetStudio({
     >
       <color attach="background" args={[background]} />
       <fog attach="fog" args={[background, fogRange?.[0] ?? (cameraViews ? 28 : (flightView ? 32 : 6.2)), fogRange?.[1] ?? (cameraViews ? 40 : (flightView ? 48 : 10.5))]} />
-      <StudioEnvironment />
-      <StudioExposure exposure={exposure} environmentIntensity={environmentIntensity} />
-      <hemisphereLight args={['#f9fbff', '#b8afa1', lighting ? (0.35 + lighting.fill.intensity) : (stoneLighting ? 0.34 : 1.35)]} />
-      <directionalLight
-        position={lighting ? lighting.key.direction.map((v) => v * 8) : [3.4, 5.5, 4]}
-        intensity={lighting ? lighting.key.sceneIntensity : (stoneLighting ? 1.7 : 2.1)}
-        color={lighting ? new THREE.Color(...lighting.key.colorLinear) : '#fff7e9'}
-        castShadow
-        shadow-mapSize-width={1024}
-        shadow-mapSize-height={1024}
-        shadow-camera-near={0.5}
-        shadow-camera-far={30}
-        shadow-camera-left={-9}
-        shadow-camera-right={9}
-        shadow-camera-top={9}
-        shadow-camera-bottom={-9}
-        shadow-bias={-0.00035}
-        shadow-normalBias={0.01}
-        shadow-radius={2.5}
-      />
-      <directionalLight
-        position={[-4, 0.7, -3]}
-        intensity={lighting ? 0.32 : (stoneLighting ? 0.26 : 1.05)}
-        color="#c4dbdf"
-      />
+      <StudioExposure exposure={exposure} environmentIntensity={sceneMode ? undefined : environmentIntensity} />
+      {sceneMode ? (
+        <SceneLight lighting={lighting} overrides={overrides} shadowRadius={shadowRadius} environmentIntensity={environmentIntensity} />
+      ) : (
+        <>
+          <StudioEnvironment />
+          <hemisphereLight args={['#f9fbff', '#b8afa1', stoneLighting ? 0.34 : 1.35]} />
+          <directionalLight
+            position={[3.4, 5.5, 4]}
+            intensity={stoneLighting ? 1.7 : 2.1}
+            color="#fff7e9"
+            castShadow
+            shadow-mapSize-width={1024}
+            shadow-mapSize-height={1024}
+            shadow-camera-near={0.5}
+            shadow-camera-far={30}
+            shadow-camera-left={-shadowRadius}
+            shadow-camera-right={shadowRadius}
+            shadow-camera-top={shadowRadius}
+            shadow-camera-bottom={-shadowRadius}
+            shadow-bias={-0.00035}
+            shadow-normalBias={0.01}
+            shadow-radius={2.5}
+          />
+          <directionalLight position={[-4, 0.7, -3]} intensity={stoneLighting ? 0.26 : 1.05} color="#c4dbdf" />
+        </>
+      )}
       {children}
       {waterReflection ? (
         <StudioWaterReflection
@@ -168,7 +181,9 @@ export default function AssetStudio({
           rotation={[-Math.PI / 2, 0, 0]}
           receiveShadow
         >
-          <planeGeometry args={flightView ? [18, 12] : [8, 6]} />
+          {/* Under the scene's sky the ground runs to the horizon and fades into
+              the fog; the studio keeps its small plate. */}
+          <planeGeometry args={sceneMode ? [3000, 3000] : flightView ? [18, 12] : [8, 6]} />
           <meshStandardMaterial color="#f0eee9" roughness={0.96} metalness={0} />
         </mesh>
       ) : null}
@@ -181,7 +196,8 @@ function StudioExposure({ exposure, environmentIntensity }) {
   const { gl, scene } = useThree();
   useEffect(() => {
     gl.toneMappingExposure = exposure;
-    scene.environmentIntensity = environmentIntensity;
+    // Under the scene light the sky's own level sets the environment (SceneLight).
+    if (environmentIntensity !== undefined) scene.environmentIntensity = environmentIntensity;
   }, [environmentIntensity, exposure, gl, scene]);
   return null;
 }
