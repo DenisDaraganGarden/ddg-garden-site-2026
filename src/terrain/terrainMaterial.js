@@ -184,6 +184,12 @@ export function createTerrainMaterial(textures,p,rockOnly=false){
      meadow.color+=fieldTint*sheen*.18;
      ground=terrainBlend(ground,meadow,field);
     }
+    // A path through the meadow is trampled turf, not darkened sand.
+    float trampled=smoothstep(.15,.6,coastPathMask(qs))*uGrassField.x*plateauField(qs,profile,terrainN)*coastMask(qs);
+    if(trampled>.01){
+     vec2 wornUv=vTerrainWorld.xz/2.0*uTerrainScale+terrainDomainWarp(vTerrainWorld.xz);
+     ground=terrainBlend(ground,terrainSample(8.0,wornUv,dFdx(wornUv),dFdy(wornUv)),trampled);
+    }
     ground.color=mix(ground.color,ground.color*vec3(.72,.66,.53),path*.38);
    }
    vec3 rockColor=vec3(0),rockSurface=vec3(0),rockMapX=vec3(0,0,1),rockMapY=vec3(0,0,1),rockMapZ=vec3(0,0,1);

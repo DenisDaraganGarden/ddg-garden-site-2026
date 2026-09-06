@@ -11,8 +11,9 @@ uniform vec4 uGrassField;      // coverage, cluster contrast, wave strength, she
 uniform vec4 uGrassFieldScale; // band scale (m), blend distance (m), root darkening, seed
 uniform vec3 uGrassFieldFresh;uniform vec3 uGrassFieldDry;
 uniform vec4 uGrassWind;       // downwind xz, speed, storm
+float plateauField(vec2 qs,vec4 profile,vec3 n){return smoothstep(profile.y+1.0,profile.y+6.0,qs.x)*smoothstep(.86,.95,abs(n.y));}
 float grassFieldWeight(vec2 qs,vec4 profile,vec3 n,float path,vec2 world,float dist){
- float plateau=smoothstep(profile.y+1.0,profile.y+6.0,qs.x)*smoothstep(.86,.95,abs(n.y));
+ float plateau=plateauField(qs,profile,n);
  float clusters=mix(1.0,ecologyPatch(world,32.0,uGrassFieldScale.w),uGrassField.y);
  float fine=mix(1.0,coastNoise(world*.11+vec2(3.0,uGrassFieldScale.w)),uGrassField.y*.6);
  float reach=mix(.35,1.0,smoothstep(uGrassFieldScale.y*.4,uGrassFieldScale.y,dist));

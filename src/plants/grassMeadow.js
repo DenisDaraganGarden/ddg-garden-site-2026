@@ -66,7 +66,7 @@ export function grassCell(cx,cz,{definition:p,query,settings}){
    const colonies=.3+.7*ecologyPatch(x,z,32,settings.grassSeed+kind.length*7);
    if(chance>suitability(kind,surface,q,local.s,p,f)*colonies/1.6)continue;
    // Height: the meadow field, the site and a little per tuft (plan §6).
-   const scale=(.82+.36*ecologyPatch(x,z,45,settings.grassSeed+3))*micro*(kind==='phragmites'?1+.25*clamp01(surface.wetness):1);
+   const scale=(.82+.36*ecologyPatch(x,z,45,settings.grassSeed+3))*micro*(kind==='phragmites'?1+.25*clamp01(surface.wetness):1)*(1-.5*clamp01(surface.path));
    out[kind].push({x,y:surface.height,z,rootDepth:.02,scale,yaw,habitat:surface.vegetation?.dryness??.5,exposure:(surface.wind?.exposure??1)*settings.grassFlex});
   }
  }
