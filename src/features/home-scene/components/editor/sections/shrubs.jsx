@@ -1,6 +1,6 @@
 import React from 'react';
 import {useLanguage} from '../../../../../i18n/useLanguage';
-import {RangeControl,CheckboxControl,SectionHeading} from '../../HomeEditorControls';
+import {RangeControl,SectionHeading} from '../../HomeEditorControls';
 import {SHRUB_RANGES} from '../../../../../plants/settings.js';
 import {createCoastPlanting} from '../../../../../plants/coastPlanting.js';
 import {createTerrainDefinition,createTerrainQuery} from '../../../../../terrain/terrainModel.js';
@@ -29,7 +29,6 @@ export function ShrubsSection({settings,handleSettingChange,layoutEditor}){
   layoutEditor?.previewPose?.({cameraPosition:{x,y:Math.max(p.y+(close?.95:6),query.heightAt(x,z)+.7),z},cameraTarget:{x:p.x,y:p.y+settings.shrubsHeight*.45,z:p.z},cameraFov:close?48:54});
  };
  return <>
-  <CheckboxControl label={ru?'Кустарники':'Shrubs'} checked={settings.shrubsEnabled} onChange={e=>handleSettingChange(e,'shrubsEnabled','boolean')}/>
   <div className="home-editor-tabs">{[[false,'Посадка','Planting'],[true,'Куст вблизи','Shrub close-up']].map(([close,r,e])=><button type="button" key={r} className="home-editor-tab" onClick={()=>preview(close)}>{ru?r:e}</button>)}</div>
   {groups.map(([r,e,controls])=><React.Fragment key={r}><SectionHeading label={ru?r:e} subtle/>{controls.map(([key,r,e,unit])=>{const[min,max,step]=SHRUB_RANGES[key];return <RangeControl key={key} label={ru?r:e} value={settings[key]} min={min} max={max} step={step} unit={unit} formatValue={n=>Number(n.toFixed(2))} onChange={event=>handleSettingChange(event,key)}/>;})}</React.Fragment>)}
  </>;

@@ -9,12 +9,6 @@ export const SeagullsSection = ({ settings, handleSettingChange }) => {
 
     return (
         <>
-            <CheckboxControl
-                label={t('homeEditor.controls.seagullsEnabled')}
-                checked={Boolean(settings.seagullsEnabled)}
-                onChange={(event) => handleSettingChange(event, 'seagullsEnabled', 'boolean')}
-                testId="home-editor-seagulls-enabled"
-            />
             <RangeControl
                 label={t('homeEditor.controls.seagullCount')}
                 value={settings.seagullCount}
@@ -67,12 +61,6 @@ export const FishSection = ({ settings, handleSettingChange }) => {
 
     return (
         <>
-            <CheckboxControl
-                label={t('homeEditor.controls.fishEnabled')}
-                checked={Boolean(settings.fishEnabled)}
-                onChange={(event) => handleSettingChange(event, 'fishEnabled', 'boolean')}
-                testId="home-editor-fish-enabled"
-            />
             <CheckboxControl
                 label={t('homeEditor.controls.fishPointerInteraction')}
                 checked={Boolean(settings.fishPointerInteraction)}

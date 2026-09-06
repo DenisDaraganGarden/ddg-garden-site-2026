@@ -17,38 +17,40 @@ import {
     resolveLayout,
     resolveLayoutFrameInset,
 } from '../../../lib/layout';
+import { SCENE_OBJECTS, SCENE_OBJECT_GROUPS } from '../../../lib/sceneObjects';
 
 const LAYOUT_LABEL_KEYS = {
     portrait: 'homeEditor.controls.layoutPortrait',
     desktop: 'homeEditor.controls.layoutDesktop',
 };
 
-// The show flags. Shadows, post and sun rays already own a switch inside their
-// own section - duplicating them here would put one value behind two checkboxes.
+// The show flags, drawn from the scene object registry group by group. Shadows,
+// post and sun rays already own a switch inside their own section - duplicating
+// them here would put one value behind two checkboxes.
 export const VisibilitySection = ({ settings, handleSettingChange }) => {
     const { t } = useLanguage();
-    const flags = [
-        'waterVisible',
-        'farWaterVisible',
-        'skyVisible',
-        'seabedVisible',
-        'liliesVisible',
-        'algaeVisible',
-        'boatVisible',
-        'sculptureVisible',
-        'reflectionsEnabled',
-    ];
 
     return (
         <>
-            {flags.map((key) => (
-                <CheckboxControl
-                    key={key}
-                    label={t(`homeEditor.controls.${key}`)}
-                    checked={Boolean(settings[key])}
-                    onChange={(event) => handleSettingChange(event, key, 'boolean')}
-                />
-            ))}
+            {SCENE_OBJECT_GROUPS.map((group) => {
+                const objects = SCENE_OBJECTS.filter((object) => object.group === group);
+                if (objects.length === 0) {
+                    return null;
+                }
+                return (
+                    <React.Fragment key={group}>
+                        <SectionHeading label={t(`homeEditor.groups.${group}`)} subtle />
+                        {objects.map(({ key }) => (
+                            <CheckboxControl
+                                key={key}
+                                label={t(`homeEditor.controls.${key}`)}
+                                checked={Boolean(settings[key])}
+                                onChange={(event) => handleSettingChange(event, key, 'boolean')}
+                            />
+                        ))}
+                    </React.Fragment>
+                );
+            })}
         </>
     );
 };

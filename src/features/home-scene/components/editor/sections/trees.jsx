@@ -1,6 +1,6 @@
 import React from 'react';
 import {useLanguage} from '../../../../../i18n/useLanguage';
-import {RangeControl,CheckboxControl,SectionHeading} from '../../HomeEditorControls';
+import {RangeControl,SectionHeading} from '../../HomeEditorControls';
 import {TREE_RANGES} from '../../../../../plants/settings.js';
 import {createCoastTreePlanting} from '../../../../../plants/coastPlanting.js';
 import {createTerrainDefinition,createTerrainQuery} from '../../../../../terrain/terrainModel.js';
@@ -27,7 +27,6 @@ export function TreesSection({settings,handleSettingChange,layoutEditor}){
   layoutEditor?.previewPose?.({cameraPosition:{x,y:query.heightAt(x,z)+(close?1.7:7),z},cameraTarget:{x:p.x,y:p.y+crown*(close?.5:.55),z:p.z},cameraFov:close?55:50});
  };
  return <>
-  <CheckboxControl label={ru?'Деревья':'Trees'} checked={settings.treesEnabled} onChange={e=>handleSettingChange(e,'treesEnabled','boolean')}/>
   <div className="home-editor-tabs">{[[false,'Роща','Grove'],[true,'Дерево вблизи','Tree close-up']].map(([close,r,e])=><button type="button" key={r} className="home-editor-tab" onClick={()=>preview(close)}>{ru?r:e}</button>)}</div>
   <div className="home-editor-status">{ru?'Окраска, порывы и трепет листьев — общие с кустарниками.':'Colour, gusts and leaf flutter are shared with the shrubs.'}</div>
   {groups.map(([r,e,controls])=><React.Fragment key={r}><SectionHeading label={ru?r:e} subtle/>{controls.map(([key,r,e,unit])=>{const[min,max,step]=TREE_RANGES[key];return <RangeControl key={key} label={ru?r:e} value={settings[key]} min={min} max={max} step={step} unit={unit} formatValue={n=>Number(n.toFixed(2))} onChange={event=>handleSettingChange(event,key)}/>;})}</React.Fragment>)}

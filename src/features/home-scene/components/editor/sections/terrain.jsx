@@ -1,6 +1,6 @@
 import React from 'react';
 import { useLanguage } from '../../../../../i18n/useLanguage';
-import { RangeControl,CheckboxControl,SectionHeading } from '../../HomeEditorControls';
+import { RangeControl,SectionHeading } from '../../HomeEditorControls';
 import { TERRAIN_RANGES } from '../../../../../terrain/settings.js';
 import { coastProfile } from '../../../../../terrain/terrainLandforms.js';
 import { createTerrainDefinition,coastPoint,sampleTerrainHeight } from '../../../../../terrain/terrainModel.js';
@@ -35,7 +35,6 @@ export function TerrainSection({settings,handleSettingChange,layoutEditor}) {
   layoutEditor?.previewPose?.({cameraPosition:{...position,y:Math.max(sampleTerrainHeight(position.x,position.z,p),0)+y},cameraTarget:{...target,y:Math.max(sampleTerrainHeight(target.x,target.z,p),0)+ty},cameraFov:fov});
  };
  return <>
-  <CheckboxControl label={ru?'Суша':'Land'} checked={settings.terrainEnabled} onChange={event=>handleSettingChange(event,'terrainEnabled','boolean')}/>
   <div className="home-editor-tabs">{[['coast','Вдоль берега','Along coast'],['sea','К морю','Seaward'],['shells','Ракушки','Shell close-up'],['overview','Обзор','Overview'],['bluff','Обвал','Landslide'],['descent','Спуск','Descent'],['cover','Покров','Ground cover']].map(([key,r,e])=><button type="button" className="home-editor-tab" key={key} onClick={()=>preview(key)}>{ru?r:e}</button>)}</div>
   <div className="home-editor-status">{ru?'С −Z · В +X · Ю +Z · З −X · высота +Y':'N −Z · E +X · S +Z · W −X · up +Y'}</div>
   {groups.map(([r,e,controls])=><React.Fragment key={r}><SectionHeading label={ru?r:e} subtle/>{controls.map(([key,r,e,unit])=>{

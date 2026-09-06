@@ -5,6 +5,8 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { ASSET_CATALOG, ASSET_GROUPS } from '../src/asset-lab/assetCatalog.js';
+import { SCENE_OBJECTS, SCENE_OBJECT_GROUPS } from '../src/features/home-scene/lib/sceneObjects.js';
+import { publishedHomeSceneKeys } from '../src/features/home-scene/data/publishedHomeSceneKeys.js';
 
 const root = new URL('../src/', import.meta.url).pathname;
 const walk = (dir) => readdirSync(dir).flatMap((name) => {
@@ -52,8 +54,17 @@ ASSET_CATALOG.forEach((entry, position) => {
   if (!ASSET_GROUPS.some((group) => group.id === entry.group)) failures.push(`catalog "${entry.id}" has unknown group "${entry.group}"`);
 });
 
+// 4. Scene object registry: every switch is a published key and sits on a real editor node.
+const editorTree = readFileSync(join(root, 'features/home-scene/components/editor/editorTree.js'), 'utf8');
+const published = new Set(publishedHomeSceneKeys);
+for (const object of SCENE_OBJECTS) {
+  if (!published.has(object.key)) failures.push(`scene object "${object.id}" switch ${object.key} is not a published key`);
+  if (!SCENE_OBJECT_GROUPS.includes(object.group)) failures.push(`scene object "${object.id}" has unknown group "${object.group}"`);
+  if (object.node && !new RegExp(`id: '${object.node.split('/')[1]}'`).test(editorTree)) failures.push(`scene object "${object.id}" points at a missing editor node ${object.node}`);
+}
+
 if (failures.length) {
   console.error(`lab links: ${failures.length} problem(s)\n  ${failures.join('\n  ')}`);
   process.exit(1);
 }
-console.log(`lab links: ${labDirs.length} collections directories, ${ASSET_CATALOG.length} catalog entries, all linked to product modules and the published scene.`);
+console.log(`lab links: ${labDirs.length} collections directories, ${ASSET_CATALOG.length} catalog entries, ${SCENE_OBJECTS.length} scene objects, all linked to product modules and the published scene.`);

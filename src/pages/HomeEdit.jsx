@@ -23,6 +23,7 @@ import { useHomeSceneEditor } from '../features/home-scene/hooks/useHomeSceneEdi
 import { useHomeChromeVisibility } from '../features/home-scene/hooks/useHomeChromeVisibility';
 import { useEditorTool } from '../features/home-scene/hooks/useEditorTool';
 import { resolveEditorPath } from '../features/home-scene/components/editor/editorTree';
+import { sceneObjectsForNode } from '../features/home-scene/lib/sceneObjects';
 import HomeEditorPanel from '../features/home-scene/components/HomeEditorPanel';
 import { publishHomeSceneSettings } from '../features/home-scene/lib/homeScenePublishClient';
 import { useLanguage } from '../i18n/useLanguage';
@@ -549,13 +550,15 @@ const HomeEdit = () => {
     }, [handleBoatPositionChange, handleSculpturePositionChange, setSettings]);
 
     const { group: gizmoGroup, node: gizmoNode } = resolveEditorPath(activeTab, { includeDevOnly: true });
+    // An object switched off has left the scene graph; the gizmo has nothing to hold.
+    const gizmoTargetShown = sceneObjectsForNode(`${gizmoGroup.id}/${gizmoNode.id}`).every(({ key }) => settings[key] !== false);
     const editorGizmo = useMemo(() => ({
-        selection: (!gizmoSuppressed && ((gizmoGroup.id === 'objects' && gizmoNode.id !== 'tanker') || gizmoGroup.id === 'lights'))
+        selection: (!gizmoSuppressed && gizmoTargetShown && ((gizmoGroup.id === 'objects' && gizmoNode.id !== 'tanker') || gizmoGroup.id === 'lights'))
             ? gizmoNode.id
             : null,
         mode: gizmoMode,
         onTransform: handleGizmoTransform,
-    }), [gizmoSuppressed, gizmoGroup.id, gizmoNode.id, gizmoMode, handleGizmoTransform]);
+    }), [gizmoSuppressed, gizmoTargetShown, gizmoGroup.id, gizmoNode.id, gizmoMode, handleGizmoTransform]);
 
 
     const layoutEditor = useMemo(() => ({

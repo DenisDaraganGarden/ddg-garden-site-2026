@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useLanguage } from '../../../i18n/useLanguage';
 import { DEFAULT_EDITOR_PATH, resolveEditorPath } from './editor/editorTree';
-import { SectionHeading } from './HomeEditorControls';
+import { CheckboxControl, SectionHeading } from './HomeEditorControls';
+import { sceneObjectsForNode } from '../lib/sceneObjects';
 
 const PANEL_STATE_KEY = 'ddg_home_editor_panel_v1';
 const MIN_PANEL_HEIGHT = 150;
@@ -328,6 +329,17 @@ const HomeEditorPanel = ({
 
                     <div className="home-editor-section" ref={sectionRef}>
                         <div className="home-editor-controls">
+                            {/* The object's own switch, from the registry: the same value the
+                                visibility sheet shows, drawn once, above the object's controls. */}
+                            {sceneObjectsForNode(`${group.id}/${node.id}`).map(({ key }) => (
+                                <CheckboxControl
+                                    key={key}
+                                    label={t(`homeEditor.controls.${key}`)}
+                                    checked={Boolean(settings?.[key])}
+                                    onChange={(event) => handleSettingChange(event, key, 'boolean')}
+                                    testId={`home-editor-object-${key}`}
+                                />
+                            ))}
                             {node.aspects.map(({ id, Section }) => (
                                 <React.Fragment key={id}>
                                     {node.aspects.length > 1 ? (
