@@ -1,4 +1,5 @@
 import { coastProfile } from '../../../terrain/terrainLandforms.js';
+import { buildCoastRocks } from '../../../terrain/terrainRocks.js';
 import { createTerrainDefinition, coastPoint, sampleTerrainHeight, sampleCoastWaveGain } from '../../../terrain/terrainModel.js';
 
 // Technical frames: fixed inspection views for the author and for scripted
@@ -44,24 +45,45 @@ const landformView = (kind) => (settings) => {
 
 // The grass niches at eye level: the steppe on the plateau behind the bluff,
 // the dune grass on the back beach, the reed where the wave is calmest.
+// A boulder in front of the lens is no frame: the along-shore position is
+// taken where no scattered rock stands within four metres of the camera.
+const clearOfRocks = (p, q, from, to, score = () => 0, cameraAt = (s) => coastPoint(q, s, p)) => {
+  const rocks = buildCoastRocks(p).filter((rock) => !rock.debris);
+  let best = null;
+  for (let s = from; s <= to; s += 2) {
+    const eye = cameraAt(s);
+    const near = rocks.some((rock) => Math.hypot(rock.x - eye.x, rock.z - eye.z) < 5);
+    if (near) continue;
+    const value = score(s);
+    if (!best || value > best.value) best = { s, value };
+  }
+  return best?.s ?? from;
+};
+// The steppe behind the grove: fifty metres past the bluff edge, looking along it.
 const steppeView = (settings) => {
   const p = createTerrainDefinition(settings);
   const f = coastProfile(20, p);
-  const position = coastPoint(f.top + 10, 20, p);
-  const target = coastPoint(f.top + 14, 60, p);
-  return { cameraPosition: { ...position, y: ground(position.x, position.z, p, .55) }, cameraTarget: { ...target, y: ground(target.x, target.z, p, .45) }, cameraFov: 50 };
+  const position = coastPoint(f.top + 48, 20, p);
+  const target = coastPoint(f.top + 44, 70, p);
+  return { cameraPosition: { ...position, y: ground(position.x, position.z, p, .5) }, cameraTarget: { ...target, y: ground(target.x, target.z, p, .4) }, cameraFov: 52 };
 };
+const duneView = (settings) => {
+  const p = createTerrainDefinition(settings);
+  const q = p.terrainBeachWidth * .55;
+  const s = clearOfRocks(p, q, -60, 60, () => 0, (at) => coastPoint(q, at - 6, p));
+  const position = coastPoint(q, s - 6, p);
+  const target = coastPoint(q + 4, s + 24, p);
+  return { cameraPosition: { ...position, y: ground(position.x, position.z, p, .65) }, cameraTarget: { ...target, y: ground(target.x, target.z, p, .4) }, cameraFov: 50 };
+};
+// The reed stands where the wave is calmest; the camera on the beach behind it.
 const reedView = (settings) => {
   const p = createTerrainDefinition(settings);
   const height = Math.max(.02, p.terrainWaveHeight);
-  let best = { s: 0, calm: -1 };
-  for (let s = -Math.min(200, p.terrainLength * .3); s < Math.min(200, p.terrainLength * .3); s += 2) {
-    const calm = 1 - sampleCoastWaveGain(-2, s, 0, p) / height;
-    if (calm > best.calm) best = { s, calm };
-  }
-  const position = coastPoint(4, best.s - 9, p);
-  const target = coastPoint(-2, best.s, p);
-  return { cameraPosition: { ...position, y: ground(position.x, position.z, p, 1.3) }, cameraTarget: { ...target, y: .9 }, cameraFov: 48 };
+  const span = Math.min(200, p.terrainLength * .3);
+  const s = clearOfRocks(p, 4, -span, span, (at) => 1 - sampleCoastWaveGain(-2, at, 0, p) / height, (at) => coastPoint(5, at - 10, p));
+  const position = coastPoint(5, s - 10, p);
+  const target = coastPoint(-2, s, p);
+  return { cameraPosition: { ...position, y: ground(position.x, position.z, p, 1.4) }, cameraTarget: { ...target, y: .9 }, cameraFov: 48 };
 };
 
 export const TECHNICAL_FRAMES = Object.freeze([
@@ -74,7 +96,7 @@ export const TECHNICAL_FRAMES = Object.freeze([
   { id: 'descent', ru: 'Спуск', en: 'Descent', pose: landformView('descent') },
   { id: 'cover', ru: 'Покров', en: 'Ground cover', pose: landformView('cover') },
   { id: 'steppe', ru: 'Степь', en: 'Steppe', pose: steppeView },
-  { id: 'dune', ru: 'Дюна', en: 'Dune grass', pose: coastView([9, -6, .6, 13, 24, .4, 50]) },
+  { id: 'dune', ru: 'Дюна', en: 'Dune grass', pose: duneView },
   { id: 'reed', ru: 'Камыш', en: 'Reed', pose: reedView },
   { id: 'tanker', ru: 'Танкер', en: 'Tanker', object: 'tanker-anchor' },
   { id: 'boat', ru: 'Лодка', en: 'Boat', object: 'boat-anchor' },
