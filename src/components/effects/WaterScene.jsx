@@ -85,8 +85,11 @@ function DebugWireframe({ enabled }) {
   const { scene } = useThree();
   const touchedRef = useRef(new Set());
 
+  const skirtedRef = useRef(new Set());
+
   useFrame(() => {
     const touched = touchedRef.current;
+    const skirted = skirtedRef.current;
 
     if (!enabled) {
       if (touched.size === 0) {
@@ -97,10 +100,19 @@ function DebugWireframe({ enabled }) {
         material.wireframe = false;
       });
       touched.clear();
+      skirted.forEach((geometry) => geometry.setDrawRange(0, Infinity));
+      skirted.clear();
       return;
     }
 
     scene.traverse((object) => {
+      // The terrain's skirts hang under the ground to hide strip cracks; the
+      // topology view is about the surface, so they stay out of the wireframe.
+      const geometry = object.geometry;
+      if (geometry?.userData?.topTriangles && !skirted.has(geometry)) {
+        geometry.setDrawRange(0, geometry.userData.topTriangles * 3);
+        skirted.add(geometry);
+      }
       const materials = Array.isArray(object.material) ? object.material : [object.material];
 
       materials.forEach((material) => {
@@ -119,6 +131,8 @@ function DebugWireframe({ enabled }) {
       material.wireframe = false;
     });
     touchedRef.current.clear();
+    skirtedRef.current.forEach((geometry) => geometry.setDrawRange(0, Infinity));
+    skirtedRef.current.clear();
   }, []);
 
   return null;

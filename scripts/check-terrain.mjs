@@ -46,11 +46,14 @@ for(const lod of [0,1,2])for(const water of [false,true]) {
     maxNormalError=Math.max(maxNormalError,Math.hypot(normals.getX(i)-n.x,normals.getY(i)-n.y,normals.getZ(i)-n.z));
     assert.ok(a.boundingBox.containsPoint(new THREE.Vector3(x,y,z)));
   }
-  const width=a.userData.width;
-  for(let i=0;i<width;i++)for(let c=0;c<3;c++){
-    close(vertices.array[(a.userData.topVertices-width+i)*3+c],b.attributes.position.array[i*3+c]);
-    close(normals.array[(a.userData.topVertices-width+i)*3+c],b.attributes.normal.array[i*3+c]);
-  }
+  // Each zone's last row in one strip is the next strip's first row of the same zone.
+  a.userData.zones.forEach((zone,z)=>{
+    const next=b.userData.zones[z];
+    for(let i=0;i<zone.cols;i++)for(let c=0;c<3;c++){
+      close(vertices.array[(zone.offset+zone.rows*zone.cols+i)*3+c],b.attributes.position.array[(next.offset+i)*3+c]);
+      close(normals.array[(zone.offset+zone.rows*zone.cols+i)*3+c],b.attributes.normal.array[(next.offset+i)*3+c]);
+    }
+  });
   triangles+=index.count/3;a.dispose();b.dispose();
 }
 assert.ok(maxNormalError<.001);
