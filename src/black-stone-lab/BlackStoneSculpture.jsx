@@ -6,7 +6,7 @@ import {
   createBlackStoneMaterial,
   createBlackStoneUniforms,
   updateBlackStoneUniforms,
-} from './blackStoneMaterial';
+} from '../components/effects/water/blackStoneMaterial';
 
 const FLOOR_Y = -1.14;
 const DISPLAY_HEIGHT_METERS = 2.35;

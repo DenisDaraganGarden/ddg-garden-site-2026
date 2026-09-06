@@ -1,0 +1,4 @@
+.lab-nav { display: flex; gap: 12px; pointer-events: auto; }
+.lab-nav a { color: #9c9c91; font-size: 9px; text-decoration: none; }
+.lab-nav a[aria-current] { color: #3e4d3d; }
+.lab-nav a:focus-visible { outline: 1px solid #71816e; outline-offset: 3px; }

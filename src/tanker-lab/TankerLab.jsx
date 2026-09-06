@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import AssetStudio from '../asset-lab/AssetStudio';
+import LabNav from '../asset-lab/LabNav';
 import { buildHomeSceneLighting } from '../components/effects/homeSceneLighting';
 import { TankerSound } from '../tanker/audio';
 import TankerStage from './TankerStage';
@@ -110,7 +111,7 @@ export default function TankerLab() {
         <div><p>DDG / ASSET LAB / 004</p><h1>{t.title}</h1><span>{t.subtitle}</span></div>
         <div className="tanker-lab__header-actions">
           <div className="tanker-lab__languages">{['ru', 'en'].map((lang) => <button key={lang} aria-pressed={language === lang} onClick={() => setLanguage(lang)}>{lang.toUpperCase()}</button>)}</div>
-          <nav aria-label={t.assets}><a href="?collection=river-fish">01</a><a href="?collection=seagulls">02</a><a href="?collection=black-stone-sculpture">03</a><a href="?collection=tanker" aria-current="page">04</a><a href="?collection=oleaster">05</a></nav>
+          <LabNav current="tanker" lang={language} label={t.assets} />
         </div>
       </header>
       <div className="tanker-lab__workspace">

@@ -77,6 +77,12 @@ button {
   letter-spacing: 0.035em;
 }
 
+.fish-lab__header-actions {
+  display: grid;
+  gap: 10px;
+  justify-items: end;
+}
+
 .fish-lab__controls {
   display: flex;
   gap: 5px;
@@ -211,6 +217,10 @@ button {
     display: grid;
     gap: 14px;
     padding: 18px;
+  }
+
+  .fish-lab__header-actions {
+    justify-items: start;
   }
 
   .fish-lab__controls {

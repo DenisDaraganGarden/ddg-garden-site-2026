@@ -4,14 +4,19 @@ import { useFrame, useThree } from '@react-three/fiber';
 import { useGLTF, useTexture } from '@react-three/drei';
 import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { MODE_COUNTS, SEAGULL_ASSET } from './seagullCatalog';
-import { createFlightAgents, getWingPose, updateFlightAgents } from './seagullFlight';
-import { scareLandingAgent } from './seagullLanding';
-import SeagullFeathers from './SeagullFeathers';
+import {
+  createFlightAgents,
+  getWingPose,
+  HOME_SEAGULL_WATER_Y,
+  updateFlightAgents,
+} from '../features/home-scene/creatures/seagullFlight.js';
+import { scareLandingAgent } from '../features/home-scene/creatures/seagullLanding.js';
+import SeagullFeathers from '../features/home-scene/creatures/SeagullFeathers.jsx';
 import {
   advancePointerResponse,
   createPointerSample,
   measurePointerInteraction,
-} from './seagullPointerInteraction';
+} from '../features/home-scene/creatures/seagullPointerInteraction.js';
 import {
   advanceDownedSeagulls,
   createSeagullShootingRuntime,
@@ -19,15 +24,15 @@ import {
   fireSeagullShot,
   SEAGULL_DOWNED_STATE,
   seagullShootingStats,
-} from './seagullShooting';
+} from '../features/home-scene/creatures/seagullShooting.js';
 import {
   resolveSeagullShadowCasters,
   SEAGULL_SHADOW_LOD,
-} from './seagullShadowLod';
+} from '../features/home-scene/creatures/seagullShadowLod.js';
 import {
   resolveSeagullReflectionParticipants,
   SEAGULL_REFLECTION_LOD,
-} from './seagullReflectionLod';
+} from '../features/home-scene/creatures/seagullReflectionLod.js';
 
 const ROTATION_AXIS_X = new THREE.Vector3(1, 0, 0);
 const ROTATION_AXIS_Y = new THREE.Vector3(0, 1, 0);
@@ -506,7 +511,7 @@ export default function SeagullFlock({ mode, paused, showRig, landingSitesRef, o
       if (shadowClock.current >= SEAGULL_SHADOW_LOD.updateIntervalSeconds) {
         shadowClock.current = 0;
         shadowCasterIds.current = resolveSeagullShadowCasters(agents, {
-          waterY: -1.14,
+          waterY: HOME_SEAGULL_WATER_Y,
           maxCasters: mode === 'specimen' ? 1 : SEAGULL_SHADOW_LOD.maximumLabCasters,
           receiverPoints: points,
           previousCasterIds: shadowCasterIds.current,
@@ -519,7 +524,7 @@ export default function SeagullFlock({ mode, paused, showRig, landingSitesRef, o
         const reflection = resolveSeagullReflectionParticipants(agents, {
           camera: describeReflectionCamera(camera),
           viewport: size,
-          waterY: -1.14,
+          waterY: HOME_SEAGULL_WATER_Y,
           isMobile: Math.min(size.width, size.height) < 540,
           maxParticipants: mode === 'specimen'
             ? 1

@@ -2,14 +2,17 @@ import React, { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import { useGLTF } from '@react-three/drei';
+import { BOAT_MODEL_URL } from '../components/effects/water/boatModel';
 import {
   BOAT_LANDING_SPECS,
   createNormalizedSurfaceClone,
   projectLandingSites,
   SCULPTURE_LANDING_SPECS,
-} from './seagullLandingSurfaces';
+} from '../features/home-scene/creatures/seagullLandingSurfaces.js';
+import { HOME_SEAGULL_WATER_Y } from '../features/home-scene/creatures/seagullFlight.js';
 
-const FLOOR_Y = -1.14;
+// The lab water is the scene's datum, so routes and downed physics need no offset.
+const FLOOR_Y = HOME_SEAGULL_WATER_Y;
 
 const SHOW_LANDING_MARKERS = typeof window !== 'undefined'
   && new URLSearchParams(window.location.search).get('rigcheck') === '1';
@@ -58,7 +61,7 @@ function LandingSite({ spec, register, showMarker }) {
 }
 
 export default function SeagullLandingStage({ landingSitesRef }) {
-  const boatSource = useGLTF('/models/boat/OBJ_boat2.0.glb').scene;
+  const boatSource = useGLTF(BOAT_MODEL_URL).scene;
   const sculptureSource = useGLTF('/models/sculpture/sculpture.glb').scene;
   const boatGroup = useRef();
   const sculptureGroup = useRef();
@@ -172,5 +175,5 @@ export default function SeagullLandingStage({ landingSitesRef }) {
   );
 }
 
-useGLTF.preload('/models/boat/OBJ_boat2.0.glb');
+useGLTF.preload(BOAT_MODEL_URL);
 useGLTF.preload('/models/sculpture/sculpture.glb');

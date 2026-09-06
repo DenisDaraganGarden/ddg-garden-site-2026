@@ -1,9 +1,23 @@
 import React, { Suspense, useRef, useState } from 'react';
 import AssetStudio from '../asset-lab/AssetStudio';
+import LabNav from '../asset-lab/LabNav';
 import SeagullFlock from './SeagullFlock';
 import SeagullLandingStage from './SeagullLandingStage';
 import { SEAGULL_ASSET } from './seagullCatalog';
+import { HOME_SEAGULL_WATER_Y } from '../features/home-scene/creatures/seagullFlight.js';
 import './seagullLab.css';
+
+// The flock runs on the product modules, whose routes are authored around the
+// scene water at y=0. The studio water therefore sits at that datum and the
+// camera presets are the old ones lifted by the former floor depth.
+const LIFT = HOME_SEAGULL_WATER_Y + 1.14;
+const lift = ({ position: [x, y, z], target: [tx, ty, tz] }) => ({ position: [x, y + LIFT, z], target: [tx, ty + LIFT, tz] });
+const CAMERA_VIEWS = {
+  flight: { landscape: lift({ position: [7.2, 3.1, 8.8], target: [0, 0.5, 0] }), portrait: lift({ position: [15.5, 6.6, 18.8], target: [0, 0.5, 0] }) },
+  landing: { landscape: lift({ position: [8.6, 4.2, 10.4], target: [0, 0.35, 0] }), portrait: lift({ position: [13.8, 7.2, 17.2], target: [0, 0.45, 0] }) },
+  'flight-specimen': { landscape: lift({ position: [1.6, 0.9, 3.4], target: [0, 0.02, 0] }), portrait: lift({ position: [2.3, 1.45, 4.45], target: [0, 0.04, 0] }) },
+};
+const CAMERA_LIMITS = { minDistance: 1.2, maxDistance: 35, minPolarAngle: 0.45, maxPolarAngle: Math.PI - 0.5 };
 
 function LoadingBird() {
   return (
@@ -70,7 +84,8 @@ export default function SeagullLab() {
     <div className="fish-lab seagull-lab" data-testid="seagull-lab" data-asset-collection="seagulls">
       <AssetStudio
         view={mode === 'specimen' ? 'flight-specimen' : mode === 'landing' ? 'landing' : 'flight'}
-        waterReflection
+        cameraViews={CAMERA_VIEWS} cameraLimits={CAMERA_LIMITS} fogRange={[32, 48]}
+        waterReflection waterY={HOME_SEAGULL_WATER_Y}
       >
         <Suspense fallback={<LoadingBird />}>
           {mode === 'landing' && <SeagullLandingStage landingSitesRef={landingSitesRef} />}
@@ -90,6 +105,7 @@ export default function SeagullLab() {
           <h1>Чайки в воздухе</h1>
           <span>Компактный web-риг · PBR-перья · flap / glide / thermal</span>
         </div>
+        <div className="fish-lab__header-actions">
         <div className="fish-lab__controls" role="group" aria-label="Режим полёта чаек">
           <button type="button" className={mode === 'flight' ? 'is-active' : ''} aria-pressed={mode === 'flight'} onClick={() => chooseMode('flight')}>
             Небо · 9
@@ -120,6 +136,8 @@ export default function SeagullLab() {
           <button type="button" className={paused ? 'is-active' : ''} aria-pressed={paused} onClick={() => setPaused((value) => !value)}>
             {paused ? 'Продолжить' : 'Пауза'}
           </button>
+        </div>
+        <LabNav current="seagulls" />
         </div>
       </header>
 

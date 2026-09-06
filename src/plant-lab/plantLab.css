@@ -11,9 +11,6 @@
 .plant-lab__header span { display: block; margin-top: 6px; font-size: 10px; color: #828478; }
 .plant-lab__header-actions { display: grid; gap: 10px; justify-items: end; }
 .plant-lab__languages { display: flex; gap: 3px; }
-.plant-lab__header nav { display: flex; gap: 12px; }
-.plant-lab__header a { color: #9c9c91; font-size: 9px; text-decoration: none; }
-.plant-lab__header a[aria-current] { color: #3e4d3d; }
 .plant-lab__workspace { min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 264px; }
 .plant-lab__viewer { position: relative; min-width: 0; min-height: 0; }
 .plant-lab__viewer canvas { outline: none; }

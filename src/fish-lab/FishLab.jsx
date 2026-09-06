@@ -1,5 +1,6 @@
 import React, { Suspense, useMemo, useState } from 'react';
 import AssetStudio from '../asset-lab/AssetStudio';
+import LabNav from '../asset-lab/LabNav';
 import FishSchool from './FishSchool';
 import { FISH_CATALOG } from './fishCatalog';
 
@@ -65,6 +66,7 @@ export default function FishLab() {
           <h1>Процедурные речные рыбы</h1>
           <span>Отдельная белая сцена · физический размер в метрах · PBR</span>
         </div>
+        <div className="fish-lab__header-actions">
         <div className="fish-lab__controls" role="group" aria-label="Режим лаборатории">
           <button
             type="button"
@@ -98,6 +100,8 @@ export default function FishLab() {
           >
             {paused ? 'Продолжить' : 'Пауза'}
           </button>
+        </div>
+        <LabNav current="river-fish" />
         </div>
       </header>
 

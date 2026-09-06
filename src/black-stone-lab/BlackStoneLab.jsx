@@ -7,8 +7,9 @@ import React, {
 } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import AssetStudio from '../asset-lab/AssetStudio';
+import LabNav from '../asset-lab/LabNav';
 import BlackStoneSculpture from './BlackStoneSculpture';
-import { BLACK_STONE_PRESETS } from './blackStoneMaterial';
+import { BLACK_STONE_PRESETS } from './blackStonePresets';
 
 const VIEW_OPTIONS = Object.freeze([
   { id: 'stone-full', label: 'Общий' },
@@ -229,6 +230,7 @@ export default function BlackStoneLab() {
             onChange={setDiagnostic}
             label="Режим материала"
           />
+          <LabNav current="black-stone-sculpture" />
         </div>
       </header>
 

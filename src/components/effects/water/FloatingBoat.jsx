@@ -20,7 +20,14 @@ import {
   isDocumentCurrentlyVisible,
 } from './constants';
 import { useDragOnPlane } from './useDragOnPlane';
-import { ENV_REFLECTION_SCALE, configureMaps, createLiftedTextureTint } from './pbrMaterial';
+import { ENV_REFLECTION_SCALE } from './pbrMaterial';
+import {
+  BOAT_MODEL_URL,
+  BOAT_OPTICS_LOD_URL,
+  BOAT_TEXTURE_URLS,
+  createBoatMaterials,
+  dressBoat,
+} from './boatModel';
 import {
   applyBoatDynamicsImpulse,
   BOAT_WAKE_INTERVAL,
@@ -121,44 +128,15 @@ export default function FloatingBoat({
   });
 
   const { gl } = useThree();
-  const boatTextures = useLoader(THREE.TextureLoader, [
-    '/models/boat/boat_basecolor.webp',
-    '/models/boat/boat_roughness.webp',
-    '/models/boat/boat_bump.webp',
-  ]);
+  const boatTextures = useLoader(THREE.TextureLoader, BOAT_TEXTURE_URLS);
 
-  const { woodMaterial, metalMaterial } = useMemo(() => {
-    const [baseColorMap, roughnessMap, bumpMap] = boatTextures;
-    const envReflection = lighting.environment.reflection * ENV_REFLECTION_SCALE.boat;
-
-    configureMaps(gl, { color: [baseColorMap], data: [roughnessMap, bumpMap] });
-
-    // Wood hull/oars: PBR maps authored in 3ds Max (no more flat-graphite override).
-    const wood = new THREE.MeshPhysicalMaterial({
-      map: baseColorMap,
-      color: createLiftedTextureTint(settings.boatColor),
-      roughnessMap,
-      roughness: settings.boatRoughness,
-      metalness: THREE.MathUtils.clamp(settings.boatMetalness, 0, 0.3),
-      bumpMap,
-      bumpScale: 0.4,
-      clearcoat: settings.boatClearcoat,
-      clearcoatRoughness: settings.boatClearcoatRoughness,
-      envMapIntensity: envReflection,
-      side: THREE.DoubleSide,
-    });
-
-    // Black metal: oar fittings / brackets (OBJ_wire_metall).
-    const metal = new THREE.MeshStandardMaterial({
-      color: new THREE.Color('#0b0b0d'),
-      metalness: 0.85,
-      roughness: 0.42,
-      envMapIntensity: envReflection,
-      side: THREE.DoubleSide,
-    });
-
-    return { woodMaterial: wood, metalMaterial: metal };
-  }, [
+  const { woodMaterial, metalMaterial } = useMemo(() => createBoatMaterials(gl, boatTextures, {
+    color: settings.boatColor,
+    roughness: settings.boatRoughness,
+    metalness: settings.boatMetalness,
+    clearcoat: settings.boatClearcoat,
+    clearcoatRoughness: settings.boatClearcoatRoughness,
+  }, lighting.environment.reflection * ENV_REFLECTION_SCALE.boat), [
     boatTextures,
     gl,
     lighting,
@@ -422,35 +400,15 @@ export default function FloatingBoat({
     );
   }, -4);
 
-  const obj = useLoader(GLTFLoader, '/models/boat/OBJ_boat2.0.glb').scene;
+  const obj = useLoader(GLTFLoader, BOAT_MODEL_URL).scene;
 
-  const clonedObj = useMemo(() => {
-    const clone = obj.clone();
-    const pickMaterial = (material) => (
-      material && material.name === 'OBJ_wire_metall' ? metalMaterial : woodMaterial
-    );
-    clone.traverse((child) => {
-      if (!child.isMesh) {
-        return;
-      }
-      // Keep the model's own (custom) normals — do NOT recompute.
-      child.material = Array.isArray(child.material)
-        ? child.material.map(pickMaterial)
-        : pickMaterial(child.material);
-      child.castShadow = true;
-      child.receiveShadow = true;
-    });
-    clone.scale.setScalar(settings.boatScale);
-    clone.rotateY(Math.PI); // bow orientation — fine-tune via boatYaw if needed
-    return clone;
-  }, [obj, woodMaterial, metalMaterial, settings.boatScale]);
+  const clonedObj = useMemo(
+    () => dressBoat(obj.clone(), { woodMaterial, metalMaterial }, settings.boatScale),
+    [obj, woodMaterial, metalMaterial, settings.boatScale],
+  );
 
   useEffect(
-    () => installOpticsGeometryLod(
-      clonedObj,
-      'models/boat/boat-optics.rlod',
-      useOpticsLod,
-    ),
+    () => installOpticsGeometryLod(clonedObj, BOAT_OPTICS_LOD_URL, useOpticsLod),
     [clonedObj, useOpticsLod],
   );
 
