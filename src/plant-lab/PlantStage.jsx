@@ -18,7 +18,7 @@ function GroundPlot({query,plants,extent}){
  return <mesh geometry={geometry} receiveShadow><meshStandardMaterial vertexColors roughness={.98}/></mesh>;
 }
 export default function PlantStage({species,settings,mode,paused,onStats,lowPower}){
- const atlas=usePlantAtlas();
+ const atlas=usePlantAtlas(species.atlas);
  const shapeKey=JSON.stringify(Object.fromEntries(species.shape.map(key=>[key,settings[key]])));
  const [shape,setShape]=useState(()=>JSON.parse(shapeKey));
  useEffect(()=>{const timer=setTimeout(()=>setShape(JSON.parse(shapeKey)),120);return()=>clearTimeout(timer);},[shapeKey]);
@@ -27,7 +27,7 @@ export default function PlantStage({species,settings,mode,paused,onStats,lowPowe
  const placementKey=JSON.stringify(Object.fromEntries(['seed','count','extent','dryness','patchScale','patchContrast','crownScale','crownVariation','fieldSeed'].map(key=>[key,settings[key]])));
  const planting=useMemo(()=>JSON.parse(placementKey),[placementKey]);
  // A trunk is not a twig: the species says how much of the wind it takes.
- const placements=useMemo(()=>(mode==='patch'?scatterPlants(query,{seed:planting.seed,count:planting.count,extent:planting.extent-1,spacing:species.planting.spacing,dryness:planting.dryness,pathMask:query.pathMask,ecology:planting}):[{x:0,y:0,z:0,scale:1,yaw:0,dryness:planting.dryness,exposure:1}]).map(p=>({...p,exposure:(p.exposure??1)*settings.flex})), [mode,query,planting,species,settings.flex]);
+ const placements=useMemo(()=>(mode==='patch'?scatterPlants(query,{seed:planting.seed,count:planting.count,extent:planting.extent-1,spacing:species.planting.spacing,dryness:planting.dryness,pathMask:query.pathMask,ecology:planting,suitability:species.planting.suitability}):[{x:0,y:0,z:0,scale:1,yaw:0,dryness:planting.dryness,exposure:1}]).map(p=>({...p,exposure:(p.exposure??1)*settings.flex})), [mode,query,planting,species,settings.flex]);
  const impostorFrame=species.impostorFrame?(lowPower?species.impostorFrame.lowPower:species.impostorFrame.desktop):undefined;
  return <>{mode==='patch'&&<GroundPlot query={query} plants={placements} extent={settings.extent}/>}{atlas&&<PlantPopulation model={model} atlas={atlas} settings={settings} placements={placements} paused={paused} onStats={onStats} lowPower={lowPower} impostorFrame={impostorFrame}/>}</>;
 }

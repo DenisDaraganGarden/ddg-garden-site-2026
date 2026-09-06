@@ -4,7 +4,7 @@ import SeagullLab from '../seagull-lab/SeagullLab';
 import BlackStoneLab from '../black-stone-lab/BlackStoneLab';
 import TankerLab from '../tanker-lab/TankerLab';
 import BoatLab from '../boat-lab/BoatLab';
-import { OleasterLab, TreeLab } from '../plant-lab/PlantLab';
+import { GrassLab, OleasterLab, TreeLab } from '../plant-lab/PlantLab';
 import { AlgaeLab, LiliesLab } from '../water-plant-lab/WaterPlantLab';
 import RockLab from '../rock-lab/RockLab';
 
@@ -18,6 +18,7 @@ const COMPONENTS = {
   tree: TreeLab,
   lilies: LiliesLab,
   algae: AlgaeLab,
+  grass: GrassLab,
   rocks: RockLab,
 };
 

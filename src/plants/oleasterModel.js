@@ -122,3 +122,5 @@ export function selectPlantLod(distance,projectedPixels,previous=0,lowPower=fals
   if(lowPower)return 1;
   return previous===0 ? (distance>11&&projectedPixels<190?1:0) : (distance<8||projectedPixels>240?0:1);
 }
+// The geometry writer, for species built outside this file (grassModel.js).
+export {data as plantGeometryData,vertex as plantGeometryVertex,finish as plantGeometryFinish};

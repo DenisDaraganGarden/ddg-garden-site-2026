@@ -17,7 +17,8 @@ export default function PlantPopulation({model,settings,atlas,placements,paused=
  // Render targets must be created in an effect. A render-time memo can be
  // discarded by StrictMode/Suspense, leaving an empty or leaked GPU bake.
  useLayoutEffect(()=>{
-  const meshes=[0,1].map(lod=>({bark:makeBranchGeometry(model,lod),leaf:makeLeafGeometry(model,lod)}));
+  // A species may build its own geometry (grass); the oleaster builders are the default.
+  const meshes=[0,1].map(lod=>model.geometry?model.geometry(lod):{bark:makeBranchGeometry(model,lod),leaf:makeLeafGeometry(model,lod)});
   const materials=makePlantMaterials(atlas,uniforms);
   const impostor=bakePlantImpostor(gl,model,meshes[0],atlas,impostorFrame??(lowPower?128:256));
   const farMaterial=makeImpostorMaterial(impostor,uniforms);
@@ -63,7 +64,7 @@ export default function PlantPopulation({model,settings,atlas,placements,paused=
   for(const p of placements){
    const distance=camera.position.distanceTo(new THREE.Vector3(p.x,p.y+heights*p.scale*.5,p.z)),pixels=heights*p.scale*size.height/(2*Math.tan(camera.fov*Math.PI/360)*Math.max(.1,distance));
    if(settings.lod==='auto'&&distance>(settings.renderDistance??(lowPower?100:180))){culled++;continue;}
-   const level=settings.skeleton?0:settings.lod==='auto'?selectPlantLod(distance,pixels,p.lod??lastLod.current,lowPower,(camera.position.y-p.y-heights*p.scale*.5)/Math.max(.1,distance)):Number(settings.lod);
+   const level=settings.skeleton?0:settings.lod==='auto'?(model.selectLod??selectPlantLod)(distance,pixels,p.lod??lastLod.current,lowPower,(camera.position.y-p.y-heights*p.scale*.5)/Math.max(.1,distance)):Number(settings.lod);
    p.lod=level;lastLod.current=level;
    const slot=counts[level]++;transform.position.set(p.x,p.y-(p.rootDepth??0)*p.scale,p.z);transform.rotation.set(0,p.yaw,0);transform.scale.setScalar(p.scale);transform.updateMatrix();
    const refs=level===2?[meshRefs[4]]:meshRefs.slice(level*2,level*2+2);

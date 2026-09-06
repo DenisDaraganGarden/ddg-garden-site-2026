@@ -18,7 +18,8 @@ export const ASSET_CATALOG = Object.freeze([
   { index: '07', id: 'tree', group: 'greenery', ru: 'Дерево', en: 'Tree', title: { ru: 'Лох узколистный · дерево', en: 'Oleaster tree' } },
   { index: '08', id: 'lilies', group: 'greenery', ru: 'Кувшинки', en: 'Lilies', title: { ru: 'Кувшинки', en: 'Water lilies' } },
   { index: '09', id: 'algae', group: 'greenery', ru: 'Водоросли', en: 'Algae', title: { ru: 'Водоросли', en: 'Algae' } },
-  { index: '10', id: 'rocks', group: 'landscape', ru: 'Камни', en: 'Rocks', title: { ru: 'Камни · валуны, осыпь, галька', en: 'Rocks · boulders, debris, pebbles' } },
+  { index: '10', id: 'grass', group: 'greenery', ru: 'Травы', en: 'Grasses', title: { ru: 'Травы Азовского берега', en: 'Azov coast grasses' } },
+  { index: '11', id: 'rocks', group: 'landscape', ru: 'Камни', en: 'Rocks', title: { ru: 'Камни · валуны, осыпь, галька', en: 'Rocks · boulders, debris, pebbles' } },
 ]);
 
 export const DEFAULT_ASSET_COLLECTION = 'river-fish';

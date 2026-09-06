@@ -5,6 +5,7 @@ import {assetIndex} from '../asset-lab/assetCatalog';
 import {buildHomeSceneLighting} from '../components/effects/homeSceneLighting';
 import {ECOLOGY_DEFAULTS} from '../plants/plantEcology.js';
 import {PLANT_SPECIES} from './plantSpecies.js';
+import {GRASS_SPECIES,GRASS_VARIANTS} from './grassSpecies.js';
 import PlantStage from './PlantStage';
 import './plantLab.css';
 const labDefaults=species=>({...ECOLOGY_DEFAULTS,...species.defaults,lod:'auto',wireframe:false,skeleton:false,slope:.12,pathWidth:.7,light:'studio',timeOfDay:16,exposure:1.04});
@@ -14,7 +15,7 @@ const COPY={
 };
 function Range({label,value,min=0,max=1,step=.01,unit='',onChange}){return <label className="plant-lab__range"><span>{label}</span><output>{Number(value).toFixed(step>=1?0:step>=.1?1:2)} {unit}</output><input aria-label={label} type="range" value={value} min={min} max={max} step={step} onChange={e=>onChange(+e.target.value)}/></label>;}
 function Toggle({label,value,onChange}){return <label className="plant-lab__toggle"><span>{label}</span><input aria-label={label} type="checkbox" checked={value} onChange={e=>onChange(e.target.checked)}/></label>;}
-export default function PlantLab({species=PLANT_SPECIES.oleaster}){
+export default function PlantLab({species=PLANT_SPECIES.oleaster,variants,onVariant}){
  const VIEWS=species.views,LIMITS=species.cameraLimits,DEFAULTS=useMemo(()=>labDefaults(species),[species]);
  const[lang,setLang]=useState('ru'),[settings,setSettings]=useState(DEFAULTS),[tab,setTab]=useState('plant'),[view,setView]=useState('full'),[mode,setMode]=useState('specimen'),[paused,setPaused]=useState(()=>matchMedia('(prefers-reduced-motion: reduce)').matches),[hidden,setHidden]=useState(document.hidden),[lowPower,setLowPower]=useState(()=>navigator.hardwareConcurrency<=4||matchMedia('(max-width:600px)').matches||(navigator.maxTouchPoints>0&&matchMedia('(pointer:coarse)').matches)),[stats,setStats]=useState({lods:[1,0,0],budgets:[0,0,0],calls:0,triangles:0,branches:0,leaves:0});
  const [focusX,focusY,focusZ]=stats.focus??[0,0,0];
@@ -26,13 +27,17 @@ export default function PlantLab({species=PLANT_SPECIES.oleaster}){
   const [cx,cy,cz]=species.planting.camera;
   return {...VIEWS,patch:{landscape:{position:[extent*cx,y+extent*cy,extent*cz],target:[0,y+eye,0]},portrait:{position:[extent*cx*1.25,y+extent*cy*1.3,extent*cz*1.2],target:[0,y+eye,0]}},base:{landscape:rootView,portrait:rootView},far:{landscape:{position:[0,y+2,Math.max(65,extent*1.6)],target:[0,y+eye,0]},portrait:{position:[0,y+2,Math.max(80,extent*1.9)],target:[0,y+eye,0]}}};
  },[mode,settings.slope,settings.extent,settings.height,focusX,focusY,focusZ,VIEWS,species]);
- const t={...COPY[lang],...species.copy[lang]},set=(key,value)=>setSettings(s=>({...s,[key]:value}));
+ const t={...COPY[lang],...species.copy[lang]},set=(key,value)=>setSettings(s=>({...s,[key]:value})),collection=species.collection??species.id;
+ // Another species means its own defaults, in the same render so no slider
+ // ever sees a value it does not have.
+ const [shown,setShown]=useState(species);
+ if(shown!==species){setShown(species);setSettings(DEFAULTS);}
  useEffect(()=>{const changed=()=>setHidden(document.hidden);document.addEventListener('visibilitychange',changed);return()=>document.removeEventListener('visibilitychange',changed);},[]);
  const lighting=useMemo(()=>buildHomeSceneLighting({timeOfDay:settings.timeOfDay,sunBearing:155,sunNoonElevation:55,sunIntensity:1.15,ambientIntensity:.2,hemisphereIntensity:.65,hemisphereSkyColor:'#ced9e4',hemisphereGroundColor:'#77705b'}),[settings.timeOfDay]);
  const range=(key,label,min=0,max=1,step=.01,unit='')=><Range key={key} label={label} value={settings[key]} min={min} max={max} step={step} unit={unit} onChange={v=>set(key,v)}/>;
  const selectMode=next=>{setMode(next);setView(next==='patch'?'patch':'full');};
- return <main className="plant-lab" data-asset-collection={species.id} lang={lang}>
-  <header className="plant-lab__header"><div><p>DDG / ASSET LAB / {assetIndex(species.id)}</p><h1>{t.title}</h1><span>{t.subtitle}</span></div><div className="plant-lab__header-actions"><div>{['ru','en'].map(l=><button key={l} aria-pressed={l===lang} onClick={()=>setLang(l)}>{l.toUpperCase()}</button>)}</div><LabNav current={species.id} lang={lang}/></div></header>
+ return <main className="plant-lab" data-asset-collection={collection} data-asset-species={species.id} lang={lang}>
+  <header className="plant-lab__header"><div><p>DDG / ASSET LAB / {assetIndex(collection)}</p><h1>{t.title}</h1><span>{t.subtitle}</span></div><div className="plant-lab__header-actions"><div>{['ru','en'].map(l=><button key={l} aria-pressed={l===lang} onClick={()=>setLang(l)}>{l.toUpperCase()}</button>)}</div><LabNav current={collection} lang={lang}/></div></header>
   <div className="plant-lab__workspace"><section className="plant-lab__viewer" aria-label="3D plant viewport">
    <AssetStudio view={view} cameraViews={cameraViews} cameraLimits={LIMITS} cameraFar={species.cameraFar} fogRange={species.fogRange} floorY={-.014} floorVisible={mode==='specimen'} lighting={settings.light==='scene'?lighting:undefined} exposure={settings.exposure} environmentIntensity={.65} paused={paused} inactive={hidden} pixelRatio={lowPower?1:[1,1.5]}>
     <Suspense fallback={null}><PlantStage species={species} settings={settings} mode={mode} paused={paused||hidden} onStats={setStats} lowPower={lowPower}/></Suspense>
@@ -40,6 +45,7 @@ export default function PlantLab({species=PLANT_SPECIES.oleaster}){
    <div className="plant-lab__views" role="group" aria-label="Ракурс">{(mode==='patch'?['patch','base','far']:['full','macro','base','top','far']).map(v=><button key={v} aria-pressed={view===v} onClick={()=>setView(v)}>{t[v]}</button>)}</div>
    <div className="plant-lab__scale"><span>{stats.scale?.metres??.25} {t.units}</span><i style={{width:stats.scale?.pixels??64}}/></div>
   </section><aside className="plant-lab__inspector">
+   {variants&&<div className="plant-lab__modes plant-lab__variants" role="group" aria-label="Вид">{variants.map(v=><button key={v.id} aria-pressed={v.id===species.id} onClick={()=>onVariant(v.id)}>{v[lang]}</button>)}</div>}
    <div className="plant-lab__modes">{['specimen','patch'].map(m=><button key={m} aria-pressed={mode===m} onClick={()=>selectMode(m)}>{t[m]}</button>)}</div>
    <div className="plant-lab__tabs" role="tablist">{['plant','wind','surface','ground','light'].map(id=><button key={id} role="tab" aria-selected={tab===id} onClick={()=>setTab(id)}>{t[id]}</button>)}</div>
    <div className="plant-lab__controls" role="tabpanel" aria-label={t[tab]}>
@@ -58,3 +64,5 @@ export default function PlantLab({species=PLANT_SPECIES.oleaster}){
 // the species gets its own door.
 export const OleasterLab=()=><PlantLab species={PLANT_SPECIES.oleaster}/>;
 export const TreeLab=()=><PlantLab species={PLANT_SPECIES.tree}/>;
+// Four grasses behind one door: the species row switches the whole lab.
+export const GrassLab=()=>{const [id,setId]=useState('stipa');return <PlantLab species={GRASS_SPECIES[id]} variants={GRASS_VARIANTS} onVariant={setId}/>;};

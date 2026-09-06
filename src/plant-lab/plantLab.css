@@ -71,3 +71,4 @@
 }
 
 .plant-lab__modes{padding-right:0}.plant-lab__header h1{font-size:clamp(24px,2.8vw,34px)}.plant-lab__footer{justify-content:flex-start;gap:26px}.plant-lab__controls h2{font-size:10px;font-weight:400;margin:4px 0;color:#68755e}.plant-lab__transport{justify-content:space-between}
+.plant-lab__variants { flex-wrap: wrap; border-bottom: none; padding-bottom: 6px; }

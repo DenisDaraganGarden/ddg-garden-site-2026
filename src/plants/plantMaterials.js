@@ -43,14 +43,17 @@ function patchWind(shader,uniforms){
  shader.vertexShader=shader.vertexShader.replace('#include <common>', '#include <common>\nattribute float plantHabitat;varying float vPlantHabitat;varying vec3 vPlantRestWorld;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvec4 plantRest=vec4(position,1.0);\n#ifdef USE_INSTANCING\nplantRest=instanceMatrix*plantRest;\n#endif\nvPlantRestWorld=(modelMatrix*plantRest).xyz;vPlantHabitat=plantHabitat;');
  shader.vertexShader=shader.vertexShader.replace('#include <common>','#include <common>\n'+PLANT_WIND_GLSL).replace('#include <beginnormal_vertex>','#include <beginnormal_vertex>\nobjectNormal=plantWindNormal(objectNormal);').replace('#include <begin_vertex>','vec3 transformed=plantWindPoint(position);');
 }
-const frontUv='vec2(vMapUv.x,vMapUv.y*.5+(gl_FrontFacing?0.0:.5))';
 export function plantUniforms(){return {...ecologyUniforms(),uPlantTime:{value:0},uPlantWind:{value:new THREE.Vector2()},uPlantFlutter:{value:.55},uPlantTransmission:{value:.65}};}
 export function makePlantMaterials(atlas,uniforms,{bake=false}={}) {
+ // The leaf atlas keeps its back face in the lower half; a single-sided
+ // species atlas shows the same cutout from both faces.
+ const split=!atlas.singleSided,frontUv=split?'vec2(vMapUv.x,vMapUv.y*.5+(gl_FrontFacing?0.0:.5))':'vMapUv',cutout=atlas.alphaTest??.43,scale=atlas.normalScale??.22;
  const bark=new THREE.MeshStandardMaterial({color:'#685b44',roughness:.95,vertexColors:true});
  bark.defines={USE_UV:''};
- const leaves=new THREE.MeshStandardMaterial({map:atlas.color.texture,normalMap:atlas.normal.texture,normalScale:new THREE.Vector2(.22,.22),roughness:.73,metalness:0,side:THREE.DoubleSide,alphaTest:.43,alphaToCoverage:true,vertexColors:true});
+ const leaves=new THREE.MeshStandardMaterial({map:atlas.color.texture,normalMap:atlas.normal.texture,normalScale:new THREE.Vector2(scale,scale),roughness:.73,metalness:0,side:THREE.DoubleSide,alphaTest:cutout,alphaToCoverage:true,vertexColors:true,
+  roughnessMap:atlas.surface?.texture??null,aoMap:atlas.surface?.texture??null,aoMapIntensity:.75});
  const barkDepth=new THREE.MeshDepthMaterial({depthPacking:THREE.RGBADepthPacking});
- const leafDepth=new THREE.MeshDepthMaterial({map:atlas.color.texture,alphaTest:.43,depthPacking:THREE.RGBADepthPacking,side:THREE.DoubleSide});
+ const leafDepth=new THREE.MeshDepthMaterial({map:atlas.color.texture,alphaTest:cutout,depthPacking:THREE.RGBADepthPacking,side:THREE.DoubleSide});
  for(const m of [bark,leaves,barkDepth,leafDepth]){
   m.onBeforeCompile=shader=>{
    patchWind(shader,uniforms);
@@ -68,17 +71,23 @@ export function makePlantMaterials(atlas,uniforms,{bake=false}={}) {
    if(m===leaves){
     shader.fragmentShader=shader.fragmentShader.replace('#include <common>','#include <common>\nvarying vec3 vPlantRestWorld;varying float vPlantHabitat;uniform float uPlantTransmission;\n'+PLANT_FIELD_GLSL);
     shader.fragmentShader=shader.fragmentShader.replace('#include <color_fragment>','#include <color_fragment>\ndiffuseColor.rgb=plantFoliageColor(diffuseColor.rgb,vPlantRestWorld,vPlantHabitat);');
-    shader.fragmentShader=shader.fragmentShader.replace('#include <normal_fragment_maps>',THREE.ShaderChunk.normal_fragment_maps.replaceAll('vNormalMapUv','vec2(vNormalMapUv.x,vNormalMapUv.y*.5+(gl_FrontFacing?0.0:.5))'));
+    if(split)shader.fragmentShader=shader.fragmentShader.replace('#include <normal_fragment_maps>',THREE.ShaderChunk.normal_fragment_maps.replaceAll('vNormalMapUv','vec2(vNormalMapUv.x,vNormalMapUv.y*.5+(gl_FrontFacing?0.0:.5))'));
+    // Backlight through a thin leaf; a surface map says per pixel how thin
+    // (awn plumes and panicle hairs glow, stem bases do not).
     if(!bake)shader.fragmentShader=shader.fragmentShader.replace('#include <lights_fragment_end>',`#include <lights_fragment_end>
+      float plantThin=1.0;
+      #ifdef USE_ROUGHNESSMAP
+      plantThin=texture2D(roughnessMap,vRoughnessMapUv).b*1.7;
+      #endif
       #if NUM_DIR_LIGHTS > 0
       for(int i=0;i<NUM_DIR_LIGHTS;i++){
         float through=max(dot(-normal,directionalLights[i].direction),0.0);
-        reflectedLight.directDiffuse+=diffuseColor.rgb*directionalLights[i].color*through*uPlantTransmission*.12;
+        reflectedLight.directDiffuse+=diffuseColor.rgb*directionalLights[i].color*through*uPlantTransmission*plantThin*.12;
       }
       #endif`);
    }
   };
-  m.customProgramCacheKey=()=>`oleaster-${m.type}-${m===leaves?'leaf':m===leafDepth?'cutout':'bark'}-5`;
+  m.customProgramCacheKey=()=>`oleaster-${m.type}-${m===leaves?'leaf':m===leafDepth?'cutout':'bark'}-${split?'split':'single'}-${atlas.surface?'surface':'plain'}-6`;
  }
  return {bark,leaves,barkDepth,leafDepth,dispose(){for(const m of [bark,leaves,barkDepth,leafDepth])m.dispose();}};
 }

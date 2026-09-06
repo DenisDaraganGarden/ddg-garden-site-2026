@@ -40,22 +40,26 @@ export function bakeLeafAtlas(renderer,source){
 export function bakePlantImpostor(renderer,model,geometries,atlas,frameSize=256){
  const atlasWidth=frameSize*4,atlasHeight=frameSize*6;
  const color=target(atlasWidth,atlasHeight),normal=target(atlasWidth,atlasHeight),position=target(atlasWidth,atlasHeight),scene=new THREE.Scene();
+ // The same cutout rules as the near material: a split leaf atlas or a
+ // single-sided species atlas, with that atlas' alpha threshold.
+ const split=!atlas.singleSided,cutout=(atlas.alphaTest??.43).toFixed(2),leafUv=split?'vec2(vLeafUv.x,vLeafUv.y*.5)':'vLeafUv';
  const bark=new THREE.MeshBasicMaterial({color:'#7e735d',vertexColors:true});
- const leaf=new THREE.MeshBasicMaterial({map:atlas.color.texture,side:THREE.DoubleSide,alphaTest:.43,vertexColors:true});
- leaf.onBeforeCompile=shader=>{shader.fragmentShader=shader.fragmentShader.replace('#include <map_fragment>',THREE.ShaderChunk.map_fragment.replaceAll('vMapUv','vec2(vMapUv.x,vMapUv.y*.5+(gl_FrontFacing?0.0:.5))'));};
+ const leaf=new THREE.MeshBasicMaterial({map:atlas.color.texture,side:THREE.DoubleSide,alphaTest:Number(cutout),vertexColors:true});
+ if(split)leaf.onBeforeCompile=shader=>{shader.fragmentShader=shader.fragmentShader.replace('#include <map_fragment>',THREE.ShaderChunk.map_fragment.replaceAll('vMapUv','vec2(vMapUv.x,vMapUv.y*.5+(gl_FrontFacing?0.0:.5))'));};
  const tree=new THREE.Mesh(geometries.bark,bark),canopy=new THREE.Mesh(geometries.leaf,leaf);scene.add(tree,canopy);
  const box=geometries.bark.userData.baseBounds.clone().union(geometries.leaf.userData.baseBounds),center=box.getCenter(new THREE.Vector3()),size=box.getSize(new THREE.Vector3());
  const width=Math.max(size.x,size.z)*1.15,height=Math.max(size.x,size.y,size.z)*1.15;
  const positionMaterial=leafPass=>new THREE.ShaderMaterial({
   uniforms:{uMin:{value:box.min},uSize:{value:size},uAtlas:{value:atlas.color.texture},uLeaf:{value:leafPass?1:0}},side:leafPass?THREE.DoubleSide:THREE.FrontSide,
   vertexShader:'varying vec3 vRest;varying vec2 vLeafUv;void main(){vRest=position;vLeafUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1);}',
-  fragmentShader:'uniform vec3 uMin;uniform vec3 uSize;uniform sampler2D uAtlas;uniform float uLeaf;varying vec3 vRest;varying vec2 vLeafUv;void main(){if(uLeaf>.5&&texture2D(uAtlas,vec2(vLeafUv.x,vLeafUv.y*.5)).a<.43)discard;gl_FragColor=vec4((vRest-uMin)/uSize,uLeaf);}'
+  fragmentShader:`uniform vec3 uMin;uniform vec3 uSize;uniform sampler2D uAtlas;uniform float uLeaf;varying vec3 vRest;varying vec2 vLeafUv;void main(){if(uLeaf>.5&&texture2D(uAtlas,${leafUv}).a<${cutout})discard;gl_FragColor=vec4((vRest-uMin)/uSize,uLeaf);}`
  });
  const positionBark=positionMaterial(false),positionLeaf=positionMaterial(true);
  const camera=new THREE.OrthographicCamera(-width/2,width/2,height/2,-height/2,.01,20);
  const normalBark=new THREE.MeshNormalMaterial(),normalLeaf=new THREE.MeshNormalMaterial({side:THREE.DoubleSide});
  // MeshNormalMaterial has no map/alphaTest path; preserve the exact leaf cutout.
- normalLeaf.onBeforeCompile=shader=>{shader.uniforms.uLeafAtlas={value:atlas.color.texture};shader.vertexShader=shader.vertexShader.replace('void main() {','varying vec2 vLeafUv;\nvoid main() {\nvLeafUv=uv;');shader.fragmentShader=shader.fragmentShader.replace('void main() {','varying vec2 vLeafUv;uniform sampler2D uLeafAtlas;\nvoid main() {\nif(texture2D(uLeafAtlas,vec2(vLeafUv.x,vLeafUv.y*.5)).a<.43)discard;');};
+ normalLeaf.onBeforeCompile=shader=>{shader.uniforms.uLeafAtlas={value:atlas.color.texture};shader.vertexShader=shader.vertexShader.replace('void main() {','varying vec2 vLeafUv;\nvoid main() {\nvLeafUv=uv;');shader.fragmentShader=shader.fragmentShader.replace('void main() {',`varying vec2 vLeafUv;uniform sampler2D uLeafAtlas;\nvoid main() {\nif(texture2D(uLeafAtlas,${leafUv}).a<${cutout})discard;`);};
+ normalLeaf.customProgramCacheKey=()=>`plant-impostor-normal-${leafUv}-${cutout}`;
  preserveRenderer(renderer,()=>{
   for(const [rt,barkPass,leafPass]of [[color,bark,leaf],[normal,normalBark,normalLeaf],[position,positionBark,positionLeaf]]){
    tree.material=barkPass;canopy.material=leafPass;

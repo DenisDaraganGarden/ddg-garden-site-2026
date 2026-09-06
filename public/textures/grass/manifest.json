@@ -1,0 +1,308 @@
+{
+  "generator": "scripts/grass/build-textures.mjs",
+  "source": "public/textures/grass/source (Denis, imagegen; prompts.md beside them)",
+  "format": "WebP quality 92 (species normal and surface lossless); mobile/ at half size",
+  "encoding": {
+    "albedo": "sRGB, straight alpha, colour bled into transparent pixels",
+    "normal": "linear, tangent-space, OpenGL +Y up",
+    "surface": "linear, packed per entry (species atlases: R AO, G roughness, B translucency; tiles: R roughness, G AO, B height)"
+  },
+  "entries": {
+    "stipa": {
+      "id": "stipa",
+      "kind": "species-atlas",
+      "width": 1024,
+      "height": 1024,
+      "parts": {
+        "blades": [
+          [
+            0,
+            0,
+            256,
+            512
+          ],
+          [
+            256,
+            0,
+            256,
+            512
+          ],
+          [
+            512,
+            0,
+            256,
+            512
+          ],
+          [
+            768,
+            0,
+            256,
+            512
+          ]
+        ],
+        "awns": [
+          [
+            0,
+            512,
+            256,
+            512
+          ],
+          [
+            256,
+            512,
+            256,
+            512
+          ],
+          [
+            512,
+            512,
+            256,
+            512
+          ],
+          [
+            768,
+            512,
+            256,
+            512
+          ]
+        ]
+      },
+      "surface": "R AO, G roughness, B translucency"
+    },
+    "festuca": {
+      "id": "festuca",
+      "kind": "species-atlas",
+      "width": 1024,
+      "height": 512,
+      "parts": {
+        "blades": [
+          [
+            0,
+            0,
+            256,
+            512
+          ],
+          [
+            256,
+            0,
+            256,
+            512
+          ],
+          [
+            512,
+            0,
+            256,
+            512
+          ],
+          [
+            768,
+            0,
+            256,
+            512
+          ]
+        ]
+      },
+      "surface": "R AO, G roughness, B translucency"
+    },
+    "leymus": {
+      "id": "leymus",
+      "kind": "species-atlas",
+      "width": 2048,
+      "height": 1536,
+      "parts": {
+        "blades": [
+          [
+            0,
+            0,
+            170.66666666666666,
+            1536
+          ],
+          [
+            170.66666666666666,
+            0,
+            170.66666666666666,
+            1536
+          ],
+          [
+            341.3333333333333,
+            0,
+            170.66666666666666,
+            1536
+          ],
+          [
+            512,
+            0,
+            170.66666666666666,
+            1536
+          ],
+          [
+            682.6666666666666,
+            0,
+            170.66666666666666,
+            1536
+          ],
+          [
+            853.3333333333333,
+            0,
+            170.66666666666666,
+            1536
+          ]
+        ],
+        "spikes": [
+          [
+            1024,
+            0,
+            256,
+            1536
+          ],
+          [
+            1280,
+            0,
+            256,
+            1536
+          ],
+          [
+            1536,
+            0,
+            256,
+            1536
+          ],
+          [
+            1792,
+            0,
+            256,
+            1536
+          ]
+        ]
+      },
+      "surface": "R AO, G roughness, B translucency"
+    },
+    "phragmites": {
+      "id": "phragmites",
+      "kind": "species-atlas",
+      "width": 2048,
+      "height": 1792,
+      "parts": {
+        "leaves": [
+          [
+            0,
+            0,
+            170.66666666666666,
+            1536
+          ],
+          [
+            170.66666666666666,
+            0,
+            170.66666666666666,
+            1536
+          ],
+          [
+            341.3333333333333,
+            0,
+            170.66666666666666,
+            1536
+          ],
+          [
+            512,
+            0,
+            170.66666666666666,
+            1536
+          ],
+          [
+            682.6666666666666,
+            0,
+            170.66666666666666,
+            1536
+          ],
+          [
+            853.3333333333333,
+            0,
+            170.66666666666666,
+            1536
+          ]
+        ],
+        "panicles": [
+          [
+            1024,
+            0,
+            512,
+            512
+          ],
+          [
+            1536,
+            0,
+            512,
+            512
+          ],
+          [
+            1024,
+            512,
+            512,
+            512
+          ],
+          [
+            1536,
+            512,
+            512,
+            512
+          ]
+        ],
+        "stems": [
+          [
+            1024,
+            1024,
+            128,
+            768
+          ],
+          [
+            1152,
+            1024,
+            128,
+            768
+          ],
+          [
+            1280,
+            1024,
+            128,
+            768
+          ],
+          [
+            1408,
+            1024,
+            128,
+            768
+          ]
+        ]
+      },
+      "surface": "R AO, G roughness, B translucency"
+    },
+    "turf-dry": {
+      "id": "turf-dry",
+      "kind": "tile",
+      "width": 1024,
+      "height": 1024,
+      "tileMetres": 2,
+      "heightRangeMetres": 0.05,
+      "surface": "R roughness, G AO, B height"
+    },
+    "turf-trampled": {
+      "id": "turf-trampled",
+      "kind": "tile",
+      "width": 1024,
+      "height": 1024,
+      "tileMetres": 2,
+      "heightRangeMetres": 0.03,
+      "surface": "R roughness, G AO, B height"
+    },
+    "turf-fresh": {
+      "id": "turf-fresh",
+      "kind": "tile",
+      "width": 1024,
+      "height": 1024,
+      "tileMetres": 2,
+      "heightRangeMetres": 0.06,
+      "surface": "R roughness, G AO, B height",
+      "derivedFrom": "turf-dry, straw recoloured to leaf green"
+    }
+  }
+}
