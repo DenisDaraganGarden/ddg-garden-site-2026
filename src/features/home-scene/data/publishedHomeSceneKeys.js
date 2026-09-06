@@ -1,4 +1,4 @@
-import {DEFAULT_SHRUB_SETTINGS,DEFAULT_TREE_SETTINGS} from '../../../plants/settings.js';
+import {DEFAULT_GRASS_SETTINGS,DEFAULT_SHRUB_SETTINGS,DEFAULT_TREE_SETTINGS} from '../../../plants/settings.js';
 import { DEFAULT_TERRAIN_SETTINGS } from '../../../terrain/settings.js';
 import { DEFAULT_TANKER_SETTINGS } from '../../../tanker/settings.js';
 const keys = [
@@ -6,6 +6,7 @@ const keys = [
   ...Object.keys(DEFAULT_TERRAIN_SETTINGS),
   ...Object.keys(DEFAULT_SHRUB_SETTINGS),
   ...Object.keys(DEFAULT_TREE_SETTINGS),
+  ...Object.keys(DEFAULT_GRASS_SETTINGS),
   'waterExtent',
   'farWaterBlendWidth',
   'simulationResolution',

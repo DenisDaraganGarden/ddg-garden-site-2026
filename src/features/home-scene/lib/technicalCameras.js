@@ -1,5 +1,5 @@
 import { coastProfile } from '../../../terrain/terrainLandforms.js';
-import { createTerrainDefinition, coastPoint, sampleTerrainHeight } from '../../../terrain/terrainModel.js';
+import { createTerrainDefinition, coastPoint, sampleTerrainHeight, sampleCoastWaveGain } from '../../../terrain/terrainModel.js';
 
 // Technical frames: fixed inspection views for the author and for scripted
 // agent checks. A frame only moves the viewport - no camera is edited.
@@ -42,6 +42,28 @@ const landformView = (kind) => (settings) => {
   };
 };
 
+// The grass niches at eye level: the steppe on the plateau behind the bluff,
+// the dune grass on the back beach, the reed where the wave is calmest.
+const steppeView = (settings) => {
+  const p = createTerrainDefinition(settings);
+  const f = coastProfile(20, p);
+  const position = coastPoint(f.top + 10, 20, p);
+  const target = coastPoint(f.top + 14, 60, p);
+  return { cameraPosition: { ...position, y: ground(position.x, position.z, p, .55) }, cameraTarget: { ...target, y: ground(target.x, target.z, p, .45) }, cameraFov: 50 };
+};
+const reedView = (settings) => {
+  const p = createTerrainDefinition(settings);
+  const height = Math.max(.02, p.terrainWaveHeight);
+  let best = { s: 0, calm: -1 };
+  for (let s = -Math.min(200, p.terrainLength * .3); s < Math.min(200, p.terrainLength * .3); s += 2) {
+    const calm = 1 - sampleCoastWaveGain(-2, s, 0, p) / height;
+    if (calm > best.calm) best = { s, calm };
+  }
+  const position = coastPoint(4, best.s - 9, p);
+  const target = coastPoint(-2, best.s, p);
+  return { cameraPosition: { ...position, y: ground(position.x, position.z, p, 1.3) }, cameraTarget: { ...target, y: .9 }, cameraFov: 48 };
+};
+
 export const TECHNICAL_FRAMES = Object.freeze([
   { id: 'surf', ru: 'Кромка прибоя', en: 'Surf edge', pose: coastView([2.2, -4, 1, -1.5, 30, 0.1, 50]) },
   { id: 'coast', ru: 'Вдоль берега', en: 'Along coast', pose: coastView([3, -35, 1.65, 1, 65, 1.1, 58]) },
@@ -51,6 +73,9 @@ export const TECHNICAL_FRAMES = Object.freeze([
   { id: 'bluff', ru: 'Обвал', en: 'Landslide', pose: landformView('bluff') },
   { id: 'descent', ru: 'Спуск', en: 'Descent', pose: landformView('descent') },
   { id: 'cover', ru: 'Покров', en: 'Ground cover', pose: landformView('cover') },
+  { id: 'steppe', ru: 'Степь', en: 'Steppe', pose: steppeView },
+  { id: 'dune', ru: 'Дюна', en: 'Dune grass', pose: coastView([9, -6, .6, 13, 24, .4, 50]) },
+  { id: 'reed', ru: 'Камыш', en: 'Reed', pose: reedView },
   { id: 'tanker', ru: 'Танкер', en: 'Tanker', object: 'tanker-anchor' },
   { id: 'boat', ru: 'Лодка', en: 'Boat', object: 'boat-anchor' },
   { id: 'sculpture', ru: 'Скульптура', en: 'Sculpture', object: 'sculpture-anchor' },

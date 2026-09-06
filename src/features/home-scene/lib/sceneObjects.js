@@ -16,6 +16,7 @@ export const SCENE_OBJECTS = Object.freeze([
   { id: 'algae', key: 'algaeVisible', node: 'greenery/algae', group: 'greenery' },
   { id: 'shrubs', key: 'shrubsEnabled', node: 'greenery/shrubs', group: 'greenery' },
   { id: 'trees', key: 'treesEnabled', node: 'greenery/trees', group: 'greenery' },
+  { id: 'grass', key: 'grassEnabled', node: 'greenery/grass', group: 'greenery' },
   { id: 'tanker', key: 'tankerVisible', node: 'objects/tanker', group: 'objects' },
   { id: 'boat', key: 'boatVisible', node: 'objects/boat', group: 'objects' },
   { id: 'sculpture', key: 'sculptureVisible', node: 'objects/sculpture', group: 'objects' },

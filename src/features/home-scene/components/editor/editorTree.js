@@ -8,7 +8,8 @@ import {
     WaterShaderSection,
     WaterWavesSection,
 } from './sections/landscape';
-import { AlgaeSection, EmptySection, LiliesSection } from './sections/greenery';
+import { AlgaeSection, LiliesSection } from './sections/greenery';
+import { GrassSection } from './sections/grass';
 import { BoatSection, SculptureSection } from './sections/objects';
 import {
     FogSection,
@@ -74,7 +75,7 @@ export const EDITOR_TREE = [
             { id: 'algae', aspects: [{ id: 'scatter', Section: AlgaeSection }] },
             { id: 'trees', aspects: [{ id: 'scatter', Section: TreesSection }] },
             { id: 'shrubs', aspects: [{ id: 'scatter', Section: ShrubsSection }] },
-            { id: 'grass', aspects: [{ id: 'empty', Section: EmptySection }] },
+            { id: 'grass', aspects: [{ id: 'meadow', Section: GrassSection }] },
         ],
     },
     {

@@ -26,6 +26,16 @@ export const TREE_RANGES={
  treesHeight:[2.5,12,.1],treesSpread:[1.5,12,.1],treesLean:[0,1,.01],treesTwist:[0,1,.01],treesDensity:[.1,1,.01],treesLeafSize:[.8,2.4,.05],treesDeadwood:[0,1,.01],
  treesFlex:[0,1,.01],treesRenderDistance:[60,1200,10],
 };
+// The meadow: four kinds by share, one density, height and flexibility; its
+// colour rides the landscape's ecology with an offset from the shrubs' dryness.
+export const DEFAULT_GRASS_SETTINGS=Object.freeze({
+ grassEnabled:true,grassSeed:23,grassDensity:1,grassStipa:1,grassFestuca:1,grassLeymus:1,grassPhragmites:1,
+ grassHeight:1,grassFlex:2.2,grassDryness:0,grassRenderDistance:150,
+});
+export const GRASS_RANGES={
+ grassSeed:[1,200,1],grassDensity:[0,2,.05],grassStipa:[0,1,.05],grassFestuca:[0,1,.05],grassLeymus:[0,1,.05],grassPhragmites:[0,1,.05],
+ grassHeight:[.5,1.6,.05],grassFlex:[.3,4,.1],grassDryness:[-.5,.5,.05],grassRenderDistance:[40,300,5],
+};
 function normalizeRanged(defaults,ranges,source={}){
  const out={};
  for(const [key,fallback]of Object.entries(defaults)){
@@ -38,6 +48,7 @@ function normalizeRanged(defaults,ranges,source={}){
 }
 export const normalizeShrubSettings=source=>normalizeRanged(DEFAULT_SHRUB_SETTINGS,SHRUB_RANGES,source);
 export const normalizeTreeSettings=source=>normalizeRanged(DEFAULT_TREE_SETTINGS,TREE_RANGES,source);
+export const normalizeGrassSettings=source=>normalizeRanged(DEFAULT_GRASS_SETTINGS,GRASS_RANGES,source);
 // The landscape's ecology and wind response, shared by every form of the species.
 function landscapeAssetSettings(source){
  const s=normalizeShrubSettings(source);
@@ -54,4 +65,9 @@ export function treeAssetSettings(source,wind){
  return {...OLEASTER_DEFAULTS,...ECOLOGY_DEFAULTS,...TREE_DEFAULTS,...landscapeAssetSettings(source),seed:t.treesSeed,height:t.treesHeight,spread:t.treesSpread,lean:t.treesLean,twist:t.treesTwist,
  density:t.treesDensity,leafSize:t.treesLeafSize,deadwood:t.treesDeadwood,flex:t.treesFlex,
  wind:Math.min(26,Math.max(0,wind.speed)),windBearing:wind.bearing,lod:'auto',renderDistance:t.treesRenderDistance};
+}
+export function grassAssetSettings(source,wind){
+ const g=normalizeGrassSettings(source),landscape=landscapeAssetSettings(source);
+ return {...OLEASTER_DEFAULTS,...ECOLOGY_DEFAULTS,...landscape,dryness:Math.max(0,Math.min(1,landscape.dryness+g.grassDryness)),translucency:.9,roughness:.8,
+ wind:Math.min(26,Math.max(0,wind.speed)),windBearing:wind.bearing,lod:'auto',renderDistance:g.grassRenderDistance,wireframe:false,skeleton:false};
 }

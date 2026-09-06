@@ -1,7 +1,8 @@
 import CoastShrubs from '../../plants/CoastShrubs.jsx';
 import CoastTrees from '../../plants/CoastTrees.jsx';
+import CoastGrass from '../../plants/CoastGrass.jsx';
 import {createCoastPlanting,createCoastTreePlanting} from '../../plants/coastPlanting.js';
-import {shrubAssetSettings,treeAssetSettings} from '../../plants/settings.js';
+import {shrubAssetSettings,treeAssetSettings,grassAssetSettings} from '../../plants/settings.js';
 import {createPlantCover} from '../../plants/plantCover.js';
 import {coastWeather,terrainGeometryKey} from '../../terrain/settings.js';
 import { createTerrainCollider } from '../../terrain/terrainCollider.js';
@@ -219,6 +220,10 @@ function WaterRuntimeScene({
   const treeSettings=useMemo(()=>JSON.parse(treeKey),[treeKey]);
   const treeAsset=useMemo(()=>treeAssetSettings(treeSettings,{speed:coastWeather(terrainDefinition).wind,bearing:terrainDefinition.terrainWindBearing}),[treeSettings,terrainDefinition]);
   const treePlants=useMemo(()=>createCoastTreePlanting(terrainQuery,queryDefinition,treeSettings),[terrainQuery,queryDefinition,treeSettings]);
+  // The meadow reads the shrubs' colour ecology too; it plants itself around the camera.
+  const grassKey=JSON.stringify(Object.fromEntries(Object.entries(settings).filter(([key])=>key.startsWith('grass')||key.startsWith('shrubs'))));
+  const grassSettings=useMemo(()=>JSON.parse(grassKey),[grassKey]);
+  const grassAsset=useMemo(()=>grassAssetSettings(grassSettings,{speed:coastWeather(terrainDefinition).wind,bearing:terrainDefinition.terrainWindBearing}),[grassSettings,terrainDefinition]);
   const coverPlants=useMemo(()=>[...shrubPlants,...treePlants],[shrubPlants,treePlants]);
   const shrubCover=useMemo(()=>createPlantCover(coverPlants,256),[coverPlants]);
   useEffect(()=>()=>shrubCover.dispose(),[shrubCover]);
@@ -435,6 +440,7 @@ function WaterRuntimeScene({
         {terrainQuery ? <primitive object={terrainQuery.collisionObject}/> : null}
         {terrainQuery&&settings.shrubsEnabled ? <CoastShrubs settings={shrubAsset} plants={shrubPlants} qualityProfile={qualityProfile}/> : null}
         {terrainQuery&&settings.treesEnabled ? <CoastTrees settings={treeAsset} plants={treePlants} qualityProfile={qualityProfile}/> : null}
+        {terrainQuery&&settings.grassEnabled ? <CoastGrass query={terrainQuery} definition={queryDefinition} settings={grassSettings} asset={grassAsset} qualityProfile={qualityProfile}/> : null}
         {settings.terrainEnabled ? <AzovTerrain plantCover={shrubCover} rocks={terrainRocks} onTerrainReady={handleLandingSurfaceReady} audioRuntime={audioRuntime} runtime={runtime} definition={terrainDefinition} settings={settings} qualityProfile={qualityProfile} lighting={lighting} sky={sky} /> : null}
         {settings.seabedVisible && !seabedCovered ? (
           <Seabed

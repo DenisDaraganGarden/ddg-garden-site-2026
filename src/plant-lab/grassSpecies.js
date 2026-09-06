@@ -1,4 +1,4 @@
-import {makeGrassTuft,GRASS_SPECIES_DEFAULTS} from '../plants/grassModel.js';
+import {makeGrassTuft,GRASS_SPECIES_DEFAULTS,grassAtlasSpec} from '../plants/grassModel.js';
 import {OLEASTER_DEFAULTS} from '../plants/oleasterModel.js';
 
 // Four grasses of the Azov coast in the plant laboratory. A species says how to
@@ -12,7 +12,6 @@ const views=h=>({
  far:{landscape:{position:[0,1.6,60],target:[0,h*.4,0]},portrait:{position:[0,1.8,75],target:[0,h*.4,0]}},
  patch:{landscape:{position:[12,7,15],target:[0,.4,0]},portrait:{position:[16,10,21],target:[0,.4,0]}},
 });
-const atlas=kind=>({color:`/textures/grass/${kind}-albedo.webp`,normal:`/textures/grass/${kind}-normal.webp`,surface:`/textures/grass/${kind}-surface.webp`,singleSided:true,alphaTest:.12,normalScale:.7});
 const common={
  dryness:.35,roughness:.8,translucency:.9,extent:32,flex:2.2,
  cameraLimits:{minDistance:.05,maxDistance:150,minPolarAngle:.03,maxPolarAngle:Math.PI-.1},cameraFar:300,fogRange:[180,260],
@@ -30,7 +29,7 @@ const species=(id,defaults,shape,sliders,planting,title)=>({
  shape,sliders:[['seed',1,200,1],...sliders],
  planting:{count:[1,20000,1],extent:[8,64,1],spacing:planting.spacing,camera:[.55,.3,.7],suitability:s=>s.vegetation?.shrubs??1},
  views:views(GRASS_SPECIES_DEFAULTS[id].height*FRAME_HEIGHT[id]),cameraLimits:common.cameraLimits,cameraFar:common.cameraFar,fogRange:common.fogRange,impostorFrame:common.impostorFrame,
- atlas:atlas(id),
+ atlas:grassAtlasSpec(id),
  copy:{ru:{...copy.ru,...title.ru},en:{...copy.en,...title.en}},
 });
 export const GRASS_SPECIES={

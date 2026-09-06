@@ -13,6 +13,8 @@ export const GRASS_SPECIES_DEFAULTS=Object.freeze({
  leymus:{seed:5,height:.8,blades:8,spread:.3,curl:.32,spikes:1},
  phragmites:{seed:5,height:2.1,stems:3,spread:.35,curl:.5,leaves:3},
 });
+export const GRASS_KINDS=Object.freeze(['stipa','festuca','leymus','phragmites']);
+export const grassAtlasSpec=(kind,lowPower=false)=>{const base=`/textures/grass/${lowPower?'mobile/':''}${kind}`;return {color:`${base}-albedo.webp`,normal:`${base}-normal.webp`,surface:`${base}-surface.webp`,singleSided:true,alphaTest:.12,normalScale:.7};};
 export const GRASS_SPECIES_NAMES=Object.freeze({stipa:'Stipa lessingiana',festuca:'Festuca valesiaca',leymus:'Leymus racemosus',phragmites:'Phragmites australis'});
 const point=(x,y,z)=>new THREE.Vector3(x,y,z);
 const UP=point(0,1,0);
