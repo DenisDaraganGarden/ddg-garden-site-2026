@@ -8,6 +8,7 @@ import React, {
 import { useFrame, useThree } from '@react-three/fiber';
 import AssetStudio from '../asset-lab/AssetStudio';
 import LabNav from '../asset-lab/LabNav';
+import { assetIndex } from '../asset-lab/assetCatalog';
 import BlackStoneSculpture from './BlackStoneSculpture';
 import { BLACK_STONE_PRESETS } from './blackStonePresets';
 
@@ -25,7 +26,7 @@ const DIAGNOSTIC_OPTIONS = Object.freeze([
 ]);
 
 const PRESET_OPTIONS = Object.freeze([
-  { id: 'hybrid', label: 'Гибрид' },
+  { id: 'scene', label: 'Как в сцене' },
   { id: 'slate', label: 'Сланец' },
   { id: 'obsidian', label: 'Обсидиан' },
   { id: 'wet', label: 'Влажный' },
@@ -132,8 +133,8 @@ function formatMeters(value) {
 export default function BlackStoneLab() {
   const [view, setView] = useState('stone-full');
   const [diagnostic, setDiagnostic] = useState('beauty');
-  const [preset, setPreset] = useState('hybrid');
-  const [parameters, setParameters] = useState({ ...BLACK_STONE_PRESETS.hybrid });
+  const [preset, setPreset] = useState('scene');
+  const [parameters, setParameters] = useState({ ...BLACK_STONE_PRESETS.scene });
   const [lightSweep, setLightSweep] = useState(true);
   const [lightPhase, setLightPhase] = useState(0);
   const [modelMetrics, setModelMetrics] = useState({
@@ -212,7 +213,7 @@ export default function BlackStoneLab() {
 
       <header className="stone-lab__header">
         <div className="stone-lab__title">
-          <p>ASSET LAB / BLACK STONE</p>
+          <p>ASSET LAB / {assetIndex('black-stone-sculpture')} / BLACK STONE</p>
           <h1>Скульптура из чёрного камня</h1>
           <span>Слоистая масса · стеклянный излом · локальная влажная полировка</span>
         </div>

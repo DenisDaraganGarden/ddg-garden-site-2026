@@ -23,7 +23,7 @@ const treeViews={
 };
 export const PLANT_SPECIES={
  oleaster:{
-  id:'oleaster',index:'005',makeModel:makeOleaster,
+  id:'oleaster',makeModel:makeOleaster,
   defaults:{...OLEASTER_DEFAULTS,dryness:.42,count:160,extent:24,spacing:1.05,flex:1},
   shape:['seed','height','spread','density','leafSize'],
   sliders:[['seed',1,200,1],['height',.45,2.4,.05,'m'],['spread',.6,2.5,.05,'m'],['density',.1,1,.01],['leafSize',.65,1.6,.05]],
@@ -34,7 +34,7 @@ export const PLANT_SPECIES={
         en:{title:'Narrow-leaf oleaster',subtitle:'Elaeagnus angustifolia · coastal shrub',specimen:'Specimen',count:'Shrub count',distant:'Shrub projections'}},
  },
  tree:{
-  id:'tree',index:'006',makeModel:makeCoastTree,
+  id:'tree',makeModel:makeCoastTree,
   defaults:{...OLEASTER_DEFAULTS,...TREE_DEFAULTS,dryness:.42,count:14,extent:80,spacing:7,flex:.15},
   shape:['seed','height','spread','lean','twist','density','leafSize','deadwood','windBearing'],
   sliders:[['seed',1,200,1],['height',2.5,12,.1,'m'],['spread',1.5,12,.1,'m'],['lean',0,1,.01],['twist',0,1,.01],['density',.1,1,.01],['leafSize',.8,2.4,.05],['deadwood',0,1,.01]],

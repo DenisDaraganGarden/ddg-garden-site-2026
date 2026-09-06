@@ -1,8 +1,12 @@
 import React, { Suspense, useMemo, useState } from 'react';
 import AssetStudio from '../asset-lab/AssetStudio';
 import LabNav from '../asset-lab/LabNav';
+import { assetIndex } from '../asset-lab/assetCatalog';
 import FishSchool from './FishSchool';
-import { FISH_CATALOG } from './fishCatalog';
+import { FISH_CATALOG, FISH_DEFAULT_COUNTS, FISH_SPECIES_ORDER } from '../features/home-scene/creatures/fish/fishCatalog.js';
+import { getPublishedHomeSceneSettings } from '../features/home-scene/hooks/useHomeSceneSettings';
+
+const PUBLISHED = getPublishedHomeSceneSettings();
 
 function LoadingFish() {
   return (
@@ -32,18 +36,15 @@ export default function FishLab() {
   const [paused, setPaused] = useState(false);
   const [showRig, setShowRig] = useState(false);
   const [stats, setStats] = useState({
-    fish: 50,
-    meshes: 0,
-    visibleMeshes: 0,
+    fish: PUBLISHED.fishCount,
+    batches: 0,
     calls: 0,
     triangles: 0,
     surface: 0,
     bottom: 0,
   });
   const totalTriangles = useMemo(
-    () => FISH_CATALOG.pike.triangles
-      + FISH_CATALOG.perch.triangles * 11
-      + FISH_CATALOG.roach.triangles * 38,
+    () => FISH_SPECIES_ORDER.reduce((sum, species) => sum + FISH_CATALOG[species].triangles * FISH_DEFAULT_COUNTS[species], 0),
     [],
   );
 
@@ -62,7 +63,7 @@ export default function FishLab() {
 
       <header className="fish-lab__header">
         <div>
-          <p>ASSET LAB / RIVER FISH</p>
+          <p>ASSET LAB / {assetIndex('river-fish')} / RIVER FISH</p>
           <h1>Процедурные речные рыбы</h1>
           <span>Отдельная белая сцена · физический размер в метрах · PBR</span>
         </div>
@@ -74,7 +75,7 @@ export default function FishLab() {
             aria-pressed={mode === 'school'}
             onClick={() => setMode('school')}
           >
-            Косяк · 50
+            Косяк · {PUBLISHED.fishCount}
           </button>
           <button
             type="button"
@@ -106,14 +107,14 @@ export default function FishLab() {
       </header>
 
       <aside className="fish-lab__catalog" aria-label="Три вида рыб">
-        {Object.keys(FISH_CATALOG).map((species) => (
+        {FISH_SPECIES_ORDER.map((species) => (
           <CatalogCard key={species} species={species} />
         ))}
       </aside>
 
       <footer className="fish-lab__telemetry" aria-live="polite">
         <span><b>{stats.fish}</b> рыб</span>
-        <span><b>{stats.visibleMeshes}/{stats.meshes}</b> мешей</span>
+        <span><b>{stats.batches}</b> батча · инстансы</span>
         <span><b>{stats.calls}</b> draw calls</span>
         <span><b>{Math.round(stats.triangles / 1000)}k</b> трис / кадр</span>
         <span><b>{stats.surface}</b> у поверхности</span>

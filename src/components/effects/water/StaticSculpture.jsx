@@ -6,6 +6,7 @@ import { Bvh } from '@react-three/drei';
 import { useDragOnPlane } from './useDragOnPlane';
 import { createLiftedTextureTint, ENV_REFLECTION_SCALE } from './pbrMaterial';
 import {
+  blackStoneParametersFromSettings,
   createBlackStoneMaterial,
   createBlackStoneUniforms,
   updateBlackStoneUniforms,
@@ -80,25 +81,12 @@ export default function StaticSculpture({
     [blackStoneUniforms, liteStone],
   );
 
+  const stoneParameters = useMemo(() => blackStoneParametersFromSettings(settings), [settings]);
+
   useEffect(() => {
     updateBlackStoneUniforms(
       blackStoneUniforms,
-      {
-        layering: settings.sculptureLayering,
-        layerScale: settings.sculptureLayerScale,
-        layerRelief: settings.sculptureLayerRelief,
-        layerSharpness: settings.sculptureLayerSharpness,
-        layerEdgeChips: settings.sculptureLayerEdgeChips,
-        fracture: settings.sculptureFracture,
-        fractureScale: settings.sculptureFractureScale,
-        veins: settings.sculptureVeins,
-        veinScale: settings.sculptureVeinScale,
-        polish: settings.sculpturePolish,
-        wearScale: settings.sculptureWearScale,
-        wetness: settings.sculptureWetness,
-        dryRoughness: settings.sculptureDryRoughness,
-        microRelief: settings.sculptureMicroRelief,
-      },
+      stoneParameters,
       'beauty',
       createLiftedTextureTint(settings.sculptureColor, 1),
     );
@@ -109,20 +97,7 @@ export default function StaticSculpture({
     lighting.environment.reflection,
     sculptureMaterial,
     settings.sculptureColor,
-    settings.sculptureDryRoughness,
-    settings.sculptureFracture,
-    settings.sculptureFractureScale,
-    settings.sculptureLayerEdgeChips,
-    settings.sculptureLayerRelief,
-    settings.sculptureLayerScale,
-    settings.sculptureLayerSharpness,
-    settings.sculptureLayering,
-    settings.sculptureMicroRelief,
-    settings.sculpturePolish,
-    settings.sculptureVeinScale,
-    settings.sculptureVeins,
-    settings.sculptureWearScale,
-    settings.sculptureWetness,
+    stoneParameters,
   ]);
 
   useEffect(() => () => {

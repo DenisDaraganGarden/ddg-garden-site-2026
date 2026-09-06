@@ -7,6 +7,7 @@ import {
   createBlackStoneUniforms,
   updateBlackStoneUniforms,
 } from '../components/effects/water/blackStoneMaterial';
+import { BLACK_STONE_SCENE_TINT } from './blackStonePresets';
 
 const FLOOR_Y = -1.14;
 const DISPLAY_HEIGHT_METERS = 2.35;
@@ -94,7 +95,7 @@ export default function BlackStoneSculpture({ parameters, diagnostic, onMetrics 
   const prepared = useMemo(() => prepareSculpture(source, material), [material, source]);
 
   useEffect(() => {
-    updateBlackStoneUniforms(uniforms, parameters, diagnostic);
+    updateBlackStoneUniforms(uniforms, parameters, diagnostic, BLACK_STONE_SCENE_TINT);
   }, [diagnostic, parameters, uniforms]);
 
   useEffect(() => {

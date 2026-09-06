@@ -1,6 +1,7 @@
 import React, { Suspense, useRef, useState } from 'react';
 import AssetStudio from '../asset-lab/AssetStudio';
 import LabNav from '../asset-lab/LabNav';
+import { assetIndex } from '../asset-lab/assetCatalog';
 import SeagullFlock from './SeagullFlock';
 import SeagullLandingStage from './SeagullLandingStage';
 import { SEAGULL_ASSET } from './seagullCatalog';
@@ -101,7 +102,7 @@ export default function SeagullLab() {
 
       <header className="fish-lab__header">
         <div>
-          <p>ASSET LAB / PROCEDURAL SEAGULL FLIGHT</p>
+          <p>ASSET LAB / {assetIndex('seagulls')} / PROCEDURAL SEAGULL FLIGHT</p>
           <h1>Чайки в воздухе</h1>
           <span>Компактный web-риг · PBR-перья · flap / glide / thermal</span>
         </div>

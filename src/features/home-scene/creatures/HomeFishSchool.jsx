@@ -6,7 +6,6 @@ import * as THREE from 'three';
 import {
   createFishAgents,
   measureFishRuntime,
-  orientationForFish,
   resolveFishQuality,
   stepFishAgents,
 } from './fish/fishBehavior.js';
@@ -22,6 +21,7 @@ import {
   createFishContactShadowBatch,
   disposeFishBatch,
   disposeFishContactShadowBatch,
+  updateFishBatch,
 } from './fish/fishRendering.js';
 import { resolveFishContactShadow } from './fish/fishContactShadows.js';
 import {
@@ -114,9 +114,7 @@ export default function HomeFishSchool({
     waterExtent,
     waveAmplitude,
   } = settings;
-  const batchMatrix = useMemo(() => new THREE.Object3D(), []);
   const shadowMatrix = useMemo(() => new THREE.Object3D(), []);
-  const targetOrientation = useMemo(() => new THREE.Quaternion(), []);
   const shadowForward = useMemo(() => new THREE.Vector3(), []);
   const obstacleBounds = useMemo(() => new THREE.Box3(), []);
   const surfaceProbePoint = useMemo(() => new THREE.Vector3(), []);
@@ -373,34 +371,12 @@ export default function HomeFishSchool({
       behaviorSteps += 1;
     }
 
-    const smoothing = 1 - Math.exp(-safeDelta * 12);
     for (const batch of batches) {
-      const catalog = FISH_CATALOG[batch.mesh.userData.ddgFishBatch];
-      batch.material.userData.ddgFishUniforms.uFishTime.value = clock.elapsedTime;
-      batch.material.userData.ddgFishUniforms.uFishActivity.value = THREE.MathUtils.clamp(
-        settings.fishActivity ?? 0.55,
-        0,
-        1,
-      );
-
-      batch.agents.forEach((agent, index) => {
-        agent.renderPosition.lerp(agent.position, smoothing);
-        orientationForFish(agent, targetOrientation);
-        agent.renderOrientation.slerp(
-          targetOrientation,
-          1 - Math.exp(-safeDelta * catalog.physics.turnRate),
-        );
-        batchMatrix.position.copy(agent.renderPosition);
-        batchMatrix.quaternion.copy(agent.renderOrientation);
-        batchMatrix.scale.setScalar(agent.hasWater===false?0:agent.scale);
-        batchMatrix.updateMatrix();
-        batch.mesh.setMatrixAt(index, batchMatrix.matrix);
-
-        const speedRatio = Math.min(1.35, agent.velocity.length() / catalog.physics.maxSpeed);
-        batch.flex.setX(index, 0.62 + speedRatio * 0.62);
+      updateFishBatch(batch, FISH_CATALOG[batch.mesh.userData.ddgFishBatch], {
+        elapsed: clock.elapsedTime,
+        delta: safeDelta,
+        activity: settings.fishActivity,
       });
-      batch.mesh.instanceMatrix.needsUpdate = true;
-      batch.flex.needsUpdate = true;
     }
 
     const shadowUniforms = contactShadows.material.userData.ddgFishContactShadowUniforms;

@@ -4,6 +4,7 @@ import { useFrame, useLoader, useThree } from '@react-three/fiber';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import AssetStudio from '../asset-lab/AssetStudio';
 import LabNav from '../asset-lab/LabNav';
+import { assetIndex } from '../asset-lab/assetCatalog';
 import { buildHomeSceneLighting } from '../components/effects/homeSceneLighting';
 import { ENV_REFLECTION_SCALE } from '../components/effects/water/pbrMaterial';
 import { BOAT_NEUTRAL_Y } from '../components/effects/water/constants';
@@ -157,7 +158,7 @@ export default function BoatLab() {
   return (
     <main className="tanker-lab" data-testid="boat-lab" data-asset-collection="boat" lang={language}>
       <header className="tanker-lab__header">
-        <div><p>DDG / ASSET LAB / 007</p><h1>{t.title}</h1><span>{t.subtitle}</span></div>
+        <div><p>DDG / ASSET LAB / {assetIndex('boat')}</p><h1>{t.title}</h1><span>{t.subtitle}</span></div>
         <div className="tanker-lab__header-actions">
           <div className="tanker-lab__languages">{['ru', 'en'].map((lang) => <button key={lang} aria-pressed={language === lang} onClick={() => setLanguage(lang)}>{lang.toUpperCase()}</button>)}</div>
           <LabNav current="boat" lang={language} label={t.assets} />

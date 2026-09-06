@@ -1,4 +1,7 @@
-.lab-nav { display: flex; gap: 12px; pointer-events: auto; }
-.lab-nav a { color: #9c9c91; font-size: 9px; text-decoration: none; }
-.lab-nav a[aria-current] { color: #3e4d3d; }
+.lab-nav { display: grid; grid-template-columns: max-content max-content; gap: 5px 14px; align-items: baseline; pointer-events: auto; font-size: 9px; }
+.lab-nav__group { margin: 0; color: #a9aa9e; font-size: 8px; letter-spacing: .15em; text-transform: uppercase; white-space: nowrap; }
+.lab-nav__items { margin: 0; display: flex; flex-wrap: wrap; gap: 4px 12px; }
+.lab-nav a { color: #9c9c91; text-decoration: none; white-space: nowrap; }
+.lab-nav a b { font-weight: 400; font-variant-numeric: tabular-nums; color: #b3b4a8; }
+.lab-nav a[aria-current], .lab-nav a[aria-current] b { color: #3e4d3d; }
 .lab-nav a:focus-visible { outline: 1px solid #71816e; outline-offset: 3px; }

@@ -1,22 +1,16 @@
+import { blackStoneParametersFromSettings } from '../components/effects/water/blackStoneMaterial';
+import { createLiftedTextureTint } from '../components/effects/water/pbrMaterial';
+import { getPublishedHomeSceneSettings } from '../features/home-scene/hooks/useHomeSceneSettings';
+
 // Look-dev presets of the laboratory. The material itself is the product's
-// (components/effects/water/blackStoneMaterial.js); 'hybrid' equals its defaults.
+// (components/effects/water/blackStoneMaterial.js); 'scene' is the published
+// editor state, the tint too, so the lab opens on the sculpture as on the site.
+const PUBLISHED = getPublishedHomeSceneSettings();
+
+export const BLACK_STONE_SCENE_TINT = createLiftedTextureTint(PUBLISHED.sculptureColor, 1);
+
 export const BLACK_STONE_PRESETS = Object.freeze({
-  hybrid: Object.freeze({
-    layering: 0.99,
-    layerScale: 2.2,
-    layerRelief: 1,
-    layerSharpness: 1,
-    layerEdgeChips: 0.78,
-    fracture: 0.85,
-    fractureScale: 3.15,
-    veins: 0.19,
-    veinScale: 3.9,
-    polish: 0.71,
-    wearScale: 2.3,
-    wetness: 0.98,
-    dryRoughness: 0.78,
-    microRelief: 0.78,
-  }),
+  scene: Object.freeze(blackStoneParametersFromSettings(PUBLISHED)),
   slate: Object.freeze({
     layering: 0.94,
     layerScale: 2.65,

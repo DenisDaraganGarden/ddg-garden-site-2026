@@ -1,6 +1,7 @@
 import { coastShader, createCoastUniforms } from '../../../../terrain/terrainShader.js';
 import { sceneDepthVertex, sceneDepthFragment } from '../../../../components/effects/shaders/sceneDepth.js';
 import * as THREE from 'three';
+import { orientationForFish } from './fishBehavior.js';
 
 const FISH_SHADER_REVISION = 'ddg-instanced-fish-rig-v1';
 
@@ -251,6 +252,38 @@ export function createFishBatch(catalog, template, textures, agents) {
   flex.needsUpdate = true;
 
   return { mesh, geometry, material, agents, flex };
+}
+
+const renderPose = new THREE.Object3D();
+const renderTarget = new THREE.Quaternion();
+
+// One frame of a species batch: the agents ease towards their simulated pose,
+// the instance matrices and the flex attribute follow; the shader swims.
+export function updateFishBatch(batch, catalog, { elapsed, delta, activity }) {
+  const uniforms = batch.material.userData.ddgFishUniforms;
+  uniforms.uFishTime.value = elapsed;
+  uniforms.uFishActivity.value = THREE.MathUtils.clamp(activity ?? 0.55, 0, 1);
+  const smoothing = 1 - Math.exp(-delta * 12);
+  batch.agents.forEach((agent, index) => {
+    agent.renderPosition ??= agent.position.clone();
+    agent.renderOrientation ??= agent.orientation.clone();
+    agent.renderPosition.lerp(agent.position, smoothing);
+    orientationForFish(agent, renderTarget);
+    agent.renderOrientation.slerp(
+      renderTarget,
+      1 - Math.exp(-delta * catalog.physics.turnRate),
+    );
+    renderPose.position.copy(agent.renderPosition);
+    renderPose.quaternion.copy(agent.renderOrientation);
+    renderPose.scale.setScalar(agent.hasWater === false ? 0 : agent.scale);
+    renderPose.updateMatrix();
+    batch.mesh.setMatrixAt(index, renderPose.matrix);
+
+    const speedRatio = Math.min(1.35, agent.velocity.length() / catalog.physics.maxSpeed);
+    batch.flex.setX(index, 0.62 + speedRatio * 0.62);
+  });
+  batch.mesh.instanceMatrix.needsUpdate = true;
+  batch.flex.needsUpdate = true;
 }
 
 export function createFishContactShadowBatch(instanceCount) {

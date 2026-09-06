@@ -21,6 +21,27 @@ export const BLACK_STONE_DEFAULTS = Object.freeze({
   microRelief: 0.78,
 });
 
+// The editor's sculpture keys as material parameters. The scene and the
+// laboratory both read the published file through this one mapping.
+export function blackStoneParametersFromSettings(settings) {
+  return {
+    layering: settings.sculptureLayering,
+    layerScale: settings.sculptureLayerScale,
+    layerRelief: settings.sculptureLayerRelief,
+    layerSharpness: settings.sculptureLayerSharpness,
+    layerEdgeChips: settings.sculptureLayerEdgeChips,
+    fracture: settings.sculptureFracture,
+    fractureScale: settings.sculptureFractureScale,
+    veins: settings.sculptureVeins,
+    veinScale: settings.sculptureVeinScale,
+    polish: settings.sculpturePolish,
+    wearScale: settings.sculptureWearScale,
+    wetness: settings.sculptureWetness,
+    dryRoughness: settings.sculptureDryRoughness,
+    microRelief: settings.sculptureMicroRelief,
+  };
+}
+
 export const BLACK_STONE_DIAGNOSTICS = Object.freeze({
   beauty: 0,
   roughness: 1,

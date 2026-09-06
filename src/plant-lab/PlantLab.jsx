@@ -1,6 +1,7 @@
 import React,{Suspense,useEffect,useMemo,useState} from 'react';
 import AssetStudio from '../asset-lab/AssetStudio';
 import LabNav from '../asset-lab/LabNav';
+import {assetIndex} from '../asset-lab/assetCatalog';
 import {buildHomeSceneLighting} from '../components/effects/homeSceneLighting';
 import {ECOLOGY_DEFAULTS} from '../plants/plantEcology.js';
 import {PLANT_SPECIES} from './plantSpecies.js';
@@ -31,7 +32,7 @@ export default function PlantLab({species=PLANT_SPECIES.oleaster}){
  const range=(key,label,min=0,max=1,step=.01,unit='')=><Range key={key} label={label} value={settings[key]} min={min} max={max} step={step} unit={unit} onChange={v=>set(key,v)}/>;
  const selectMode=next=>{setMode(next);setView(next==='patch'?'patch':'full');};
  return <main className="plant-lab" data-asset-collection={species.id} lang={lang}>
-  <header className="plant-lab__header"><div><p>DDG / ASSET LAB / {species.index}</p><h1>{t.title}</h1><span>{t.subtitle}</span></div><div className="plant-lab__header-actions"><div>{['ru','en'].map(l=><button key={l} aria-pressed={l===lang} onClick={()=>setLang(l)}>{l.toUpperCase()}</button>)}</div><LabNav current={species.id} lang={lang}/></div></header>
+  <header className="plant-lab__header"><div><p>DDG / ASSET LAB / {assetIndex(species.id)}</p><h1>{t.title}</h1><span>{t.subtitle}</span></div><div className="plant-lab__header-actions"><div>{['ru','en'].map(l=><button key={l} aria-pressed={l===lang} onClick={()=>setLang(l)}>{l.toUpperCase()}</button>)}</div><LabNav current={species.id} lang={lang}/></div></header>
   <div className="plant-lab__workspace"><section className="plant-lab__viewer" aria-label="3D plant viewport">
    <AssetStudio view={view} cameraViews={cameraViews} cameraLimits={LIMITS} cameraFar={species.cameraFar} fogRange={species.fogRange} floorY={-.014} floorVisible={mode==='specimen'} lighting={settings.light==='scene'?lighting:undefined} exposure={settings.exposure} environmentIntensity={.65} paused={paused} inactive={hidden} pixelRatio={lowPower?1:[1,1.5]}>
     <Suspense fallback={null}><PlantStage species={species} settings={settings} mode={mode} paused={paused||hidden} onStats={setStats} lowPower={lowPower}/></Suspense>
