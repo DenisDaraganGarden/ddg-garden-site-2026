@@ -53,7 +53,7 @@ function buildStrip(p,s0,lod=2,water=false) {
   const edgeIndex=q=>columns.findIndex(c=>Math.abs(c-q)<1e-6);
   const cuts=[0,...zoneEdges.map(edgeIndex),width-1];
   const steps=water?[4,1]:[4,1,4];
-  const positions=[],normals=[],uvs=[],indices=[],zones=[];
+  const positions=[],normals=[],uvs=[],indices=[],optics=[],zones=[];
   for(let z=0;z<steps.length;z++){
     const c0=cuts[z],c1=cuts[z+1],cols=c1-c0+1,rows=along/Math.min(steps[z],along),offset=positions.length/3;
     for(let r=0;r<=rows;r++){
@@ -62,9 +62,13 @@ function buildStrip(p,s0,lod=2,water=false) {
         positions.push(x,y,zz);normals.push(n.x,n.y,n.z);uvs.push(x,zz);}
     }
     for(let r=0;r<rows;r++)for(let i=0;i<cols-1;i++){const a=offset+r*cols+i,b=a+1,c=a+cols;indices.push(a,c,b,b,c,c+1);}
+    // The same vertices, every other row and column: the parent grid, for the
+    // reflection and refraction passes whose targets cannot resolve more.
+    const rs=rows>=2?2:1,cs=cols>=3?2:1;
+    for(let r=0;r<rows;r+=rs)for(let i=0;i+cs<cols;i+=cs){const a=offset+r*cols+i,b=a+cs,c=offset+Math.min(rows,r+rs)*cols+i;optics.push(a,c,b,b,c,c+cs);}
     zones.push({offset,rows,cols,step:steps[z],q0:columns[c0],q1:columns[c1]});
   }
-  const topVertices=positions.length/3,topTriangles=indices.length/3;
+  const topVertices=positions.length/3,topTriangles=indices.length/3,opticsTriangles=optics.length/3;
   // Skirts hide only cracks: between strips along the shore, and between the
   // zones of one strip. They hang as deep as the crack can be - a hand on the
   // flat shelf, beach and plateau, the bluff's own scale on the bluff.
@@ -105,7 +109,9 @@ function buildStrip(p,s0,lod=2,water=false) {
   geometry.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));geometry.setAttribute('normal',new THREE.Float32BufferAttribute(normals,3));geometry.setAttribute('uv',new THREE.Float32BufferAttribute(uvs,2));geometry.setIndex(indices);
   geometry.computeBoundingBox();geometry.computeBoundingSphere();
   if(water){geometry.boundingBox.min.y=-.5;geometry.boundingBox.max.y=.5;geometry.boundingSphere.radius+=.5;}
-  geometry.userData={lod,water,width,along,zones,skirt,topVertices,topTriangles};return geometry;
+  // Skirts come along unchanged: the coarse rim and the fine skirt top differ by a chord no optics target resolves.
+  const opticsIndex=water?null:new THREE.BufferAttribute(new (positions.length/3>65535?Uint32Array:Uint16Array)([...optics,...indices.slice(topTriangles*3)]),1);
+  geometry.userData={lod,water,width,along,zones,skirt,topVertices,topTriangles,opticsTriangles,opticsIndex};return geometry;
 }
 export function terrainLod(distance,lowPower=false) { return distance<85?(lowPower?1:0):distance<280?1:2; }
 

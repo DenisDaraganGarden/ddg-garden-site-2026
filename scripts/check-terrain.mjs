@@ -46,6 +46,18 @@ for(const lod of [0,1,2])for(const water of [false,true]) {
     maxNormalError=Math.max(maxNormalError,Math.hypot(normals.getX(i)-n.x,normals.getY(i)-n.y,normals.getZ(i)-n.z));
     assert.ok(a.boundingBox.containsPoint(new THREE.Vector3(x,y,z)));
   }
+  // The optics twin indexes every other row and column of the same vertices: a
+  // quarter of the surface, the same winding, the same skirts.
+  if(!water){
+    const optics=a.userData.opticsIndex;
+    assert.ok(optics&&a.userData.opticsTriangles*4<=a.userData.topTriangles+64,'Optics index is a quarter of the surface');
+    for(let i=0;i<a.userData.opticsTriangles*3;i+=3){
+      v.forEach((point,k)=>point.fromBufferAttribute(vertices,optics.getX(i+k)));
+      const face=v[1].clone().sub(v[0]).cross(v[2].clone().sub(v[0]));
+      assert.ok(face.y>0,'Optics winding must face +Y');
+    }
+    assert.equal(optics.count-a.userData.opticsTriangles*3,index.count-a.userData.topTriangles*3,'Optics index carries the same skirts');
+  }
   // Each zone's last row in one strip is the next strip's first row of the same zone.
   a.userData.zones.forEach((zone,z)=>{
     const next=b.userData.zones[z];

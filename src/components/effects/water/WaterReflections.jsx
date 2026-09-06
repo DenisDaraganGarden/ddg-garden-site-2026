@@ -295,6 +295,9 @@ export default function WaterReflections({
     if (!sceneObjects.fishSchool || !sceneObjects.fishSchool.parent) {
       sceneObjects.fishSchool = scene.getObjectByName('river-fish-school');
     }
+    if (!sceneObjects.terrain || !sceneObjects.terrain.parent) {
+      sceneObjects.terrain = scene.getObjectByName('azov-terrain');
+    }
 
     const waterSurface = sceneObjects.waterSurface;
     const seabed = sceneObjects.seabed;
@@ -482,7 +485,9 @@ export default function WaterReflections({
     const previousShadowAutoUpdate = gl.shadowMap.autoUpdate;
     const previousSceneBackground = scene.background;
     const previousClippingPlanes = gl.clippingPlanes;
-    const opticsLods = applyOpticsGeometryLods(boat, sculptureAnchor);
+    // The coast draws its optics twin here: the same buffers, a quarter of the triangles.
+    const terrain = sceneObjects.terrain;
+    const opticsLods = applyOpticsGeometryLods(boat, sculptureAnchor, terrain);
     gl.domElement.dataset.ddgOpticsLod = `${opticsLods.count}-meshes`;
     gl.shadowMap.autoUpdate = false;
     // Both optical targets need transparent empty pixels. The scene background
@@ -507,7 +512,7 @@ export default function WaterReflections({
         gl.setRenderTarget(refractionTarget);
         gl.clear(true, true, true);
         const restoreSeagullVisibility = hideExcludedSeagullRefractions(seagullFlock);
-        const restoreTerrainRefraction = setTerrainOptics(scene.getObjectByName('azov-terrain'), 1);
+        const restoreTerrainRefraction = setTerrainOptics(terrain, 1);
         try {
           gl.render(scene, camera);
         } finally {
@@ -548,7 +553,7 @@ export default function WaterReflections({
         gl.setRenderTarget(reflectionTarget);
         gl.clear(true, true, true);
         const restoreSeagullVisibility = hideExcludedSeagullReflections(seagullFlock);
-        const restoreTerrainReflection = setTerrainOptics(scene.getObjectByName('azov-terrain'), 2);
+        const restoreTerrainReflection = setTerrainOptics(terrain, 2);
         try {
           gl.render(scene, reflectionCamera);
         } finally {

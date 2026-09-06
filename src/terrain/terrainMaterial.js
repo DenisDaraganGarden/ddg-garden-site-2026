@@ -121,12 +121,17 @@ export function createTerrainMaterial(textures,p,rockOnly=false){
    }`);
   shader.fragmentShader=shader.fragmentShader.replace('#include <map_fragment>',`
    vec3 terrainN=normalize(vTerrainNormal),viewWorld=cameraPosition-vTerrainWorld;
-   vec2 qs=coastLocal(vTerrainWorld.xz);float groundY=coastHeight(qs);
+   // The mesh is the analytic height at its vertices, so the drawn surface is
+   // the ground here to within the display error - millimetres on the beach,
+   // where wetness and foam read it - and forty transcendentals a pixel cheaper.
+   vec2 qs=coastLocal(vTerrainWorld.xz);float groundY=vTerrainWorld.y;
    vec3 forms=coastLandforms(qs.y);vec4 profile=coastProfile(qs.y,forms);
    float rockWeight=max(uRockOnly,1.0-smoothstep(.70,.965,abs(terrainN.y)));
-   float wet=coastWetnessAtHeight(qs,uTerrainTime,groundY);
+   // The swash lives in a band around the waterline; the bluff and plateau skip it.
+   bool surfBand=qs.x>-26.0&&qs.x<12.0;
+   float wet=surfBand?coastWetnessAtHeight(qs,uTerrainTime,groundY):0.0;
    float caustic=groundY<-.02?shelfCaustics(vTerrainWorld.xz,-groundY-.02):0.0;
-   float foamTrace=coastSandFoamAtHeight(qs,vTerrainWorld,uTerrainTime,groundY)*smoothstep(.28,.88,terrainN.y)*(1.0-rockWeight*.32);
+   float foamTrace=surfBand?coastSandFoamAtHeight(qs,vTerrainWorld,uTerrainTime,groundY)*smoothstep(.28,.88,terrainN.y)*(1.0-rockWeight*.32):0.0;
    float path=coastPathMask(qs)*(1.0-uRockOnly);
    float shellMask=uCoastSurf.w*smoothstep(-.4,1.0,qs.x)*(1.0-smoothstep(4.0,max(7.0,uCoastDimensions.z*.8),qs.x));
    shellMask*=mix(.56,1.0,coastNoise(qs*.24+vec2(17.3,uCoastShape.w*.031)));
@@ -188,5 +193,5 @@ export function createTerrainMaterial(textures,p,rockOnly=false){
   `);
   shader.fragmentShader=shader.fragmentShader.replace('#include <aomap_fragment>','#include <aomap_fragment>\nreflectedLight.indirectDiffuse*=surfaceData.g;');
  };
- material.customProgramCacheKey=()=> 'azov-coast-layered-pbr-v4';return material;
+ material.customProgramCacheKey=()=> 'azov-coast-layered-pbr-v5';return material;
 }

@@ -13,12 +13,26 @@ import {terrainGeometryKey} from './settings.js';
 import {updateEcologyUniforms} from '../plants/plantEcology.js';
 
 const mapNames=TERRAIN_MAP_NAMES;
+// The optics twin shares the strip's buffers, so it goes first: its dispose
+// frees the shared attributes and its own index, the strip's then only its own.
+function disposeStrip(geometry){geometry.userData.optics?.dispose();geometry.dispose();}
 function TerrainStrip({ definition:p,s0,material,water,qualityProfile,settings,lighting,sky,runtime }) {
   const {camera}=useThree();
   const [lod,setLod]=useState(2); const timer=useRef(0),mesh=useRef(),transition=useRef({target:2,refining:false,morph:0});
   const geometryCache=useMemo(()=>({definition:p,s0,water,levels:new Map()}),[p,s0,water]);
   const geometry=useMemo(()=>{const {definition,s0,water,levels}=geometryCache;if(!levels.has(lod))levels.set(lod,buildTerrainStrip(definition,s0,lod,water));return levels.get(lod);},[geometryCache,lod]);
-  useEffect(()=>()=>{geometryCache.levels.forEach(g=>g.dispose());geometryCache.levels.clear();},[geometryCache]);
+  // The reflection and refraction passes draw this strip through a twin that
+  // shares every buffer and morph target but indexes every other row and
+  // column: a quarter of the triangles for targets that cannot resolve more.
+  const optics=useMemo(()=>{
+    if(!geometry.userData.opticsIndex||geometry.userData.optics)return geometry.userData.optics??null;
+    const twin=new THREE.BufferGeometry();
+    for(const [name,attribute] of Object.entries(geometry.attributes))twin.setAttribute(name,attribute);
+    twin.morphAttributes=geometry.morphAttributes;twin.setIndex(geometry.userData.opticsIndex);
+    twin.boundingBox=geometry.boundingBox;twin.boundingSphere=geometry.boundingSphere;
+    geometry.userData.optics=twin;return twin;
+  },[geometry]);
+  useEffect(()=>()=>{geometryCache.levels.forEach(g=>disposeStrip(g));geometryCache.levels.clear();},[geometryCache]);
   useLayoutEffect(()=>{
     // Reclaim the displayed geometry after StrictMode replays effect cleanup.
     geometryCache.levels.set(lod,geometry);
@@ -45,7 +59,7 @@ function TerrainStrip({ definition:p,s0,material,water,qualityProfile,settings,l
     // Retain nearby resolutions when crossing a threshold repeatedly. Release
     // unused fine buffers after leaving the area; a 4 km coast cannot keep all
     // visited high-detail strips resident on a phone.
-    if(distance>360)for(const [level,cached]of geometryCache.levels){if(level<lod){cached.dispose();geometryCache.levels.delete(level);}}
+    if(distance>360)for(const [level,cached]of geometryCache.levels){if(level<lod){disposeStrip(cached);geometryCache.levels.delete(level);}}
     const desired=terrainLod(distance,qualityProfile.isLowPower||qualityProfile.isMobileDevice);
     const threshold=desired<lod?(desired===0?70:250):(lod===0?100:300);
     if(desired!==lod&&(desired<lod?distance<threshold:distance>threshold)){
@@ -55,7 +69,7 @@ function TerrainStrip({ definition:p,s0,material,water,qualityProfile,settings,l
     }else if(desired===lod)state.target=lod;
   });
   if(water)return <WaterSurfaceV2 geometryOverride={geometry} shoreMode runtime={runtime} settings={settings} lighting={lighting} sky={sky} qualityProfile={qualityProfile}/>;
-  return <mesh ref={mesh} geometry={geometry} material={material} castShadow receiveShadow userData={{terrainLod:lod}} />;
+  return <mesh ref={mesh} geometry={geometry} material={material} castShadow receiveShadow userData={{terrainLod:lod,ddgOpticsGeometry:optics}} />;
 }
 function CoastRocks({rocks,material}) {
   const ref=useRef();const geometry=useMemo(makeRockGeometry,[]);

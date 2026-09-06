@@ -579,7 +579,9 @@ export const waterV2FragmentShader = `
 
     if(uCoastShape.x>.5){
       float contact=uRefractionDepthActive*smoothstep(.18,.4,-coastGround)*exp(-opticalPath*25.0)*uCoastSurf.z*.55;
-      float foam=max(coastFoam(coastQS,vSurfaceWorldPosition,uTime),contact*coastNoise(vSurfaceWorldPosition.xz*19.0));
+      // The swash is a band around the waterline; the open water keeps only the wind streaks below.
+      float foam=coastQS.x>-26.0?coastFoam(coastQS,vSurfaceWorldPosition,uTime):0.0;
+      foam=max(foam,contact*coastNoise(vSurfaceWorldPosition.xz*19.0));
       // Storm streaks offshore of the surf: the wind's foam lines, growing with
       // the storm and the surf-foam slider, gone in calm weather.
       float streaks=smoothstep(.12,.7,uCoastSwell.w)*uCoastSurf.z*smoothstep(-16.0,-40.0,coastQS.x)
