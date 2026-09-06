@@ -39,10 +39,16 @@ export function colorPickerToArtisticAlbedo(value, fallback = '#ffffff') {
   return color.convertLinearToSRGB();
 }
 
-// The boat's supplied base-colour map is intentionally very dark charcoal.
-// Multiplying it by another dark picker value erased the grain completely. For
-// a textured material the picker therefore acts as a tint, and this explicit
-// map gain restores the authored wood values before tone mapping.
+// A picker that multiplies the map as it is: white shows the authored map at
+// the lift, a darker swatch darkens it, a hue tints it. `lift` normalises a
+// map that was authored dark (the boat's charcoal wood) before tone mapping.
+export function createTextureTint(value, lift = 1) {
+  return colorPickerToArtisticAlbedo(value).multiplyScalar(lift);
+}
+
+// A hue-only tint for the sculpture: the swatch's value is mostly discarded
+// (normalised by its peak, pulled toward white) so a dark picker cannot erase
+// the stone's own shading; `gain` lifts a dark map before tone mapping.
 export function createLiftedTextureTint(value, gain = 7.5) {
   const tint = colorPickerToArtisticAlbedo(value);
   const peak = Math.max(tint.r, tint.g, tint.b);

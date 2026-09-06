@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { configureMaps, createLiftedTextureTint } from './pbrMaterial';
+import { configureMaps, createTextureTint } from './pbrMaterial';
 
 // The rowing boat as one asset. The home scene (FloatingBoat) and the
 // laboratory (boat-lab) load the same GLB and maps and build the same two
@@ -13,6 +13,9 @@ export const BOAT_TEXTURE_URLS = Object.freeze([
 export const BOAT_OPTICS_LOD_URL = 'models/boat/boat-optics.rlod';
 // Black metal in the GLB: oar fittings / brackets. Everything else is wood.
 export const BOAT_METAL_MATERIAL_NAME = 'OBJ_wire_metall';
+// The supplied base-colour map is very dark charcoal (peak 0.29 in sRGB); this
+// lift restores the authored wood values. The picker multiplies on top of it.
+export const BOAT_MAP_LIFT = 7.5;
 
 export function createBoatMaterials(gl, boatTextures, look, envReflection) {
   const [baseColorMap, roughnessMap, bumpMap] = boatTextures;
@@ -32,7 +35,7 @@ export function createBoatMaterials(gl, boatTextures, look, envReflection) {
   // Wood hull/oars: PBR maps authored in 3ds Max (no more flat-graphite override).
   const woodMaterial = new THREE.MeshPhysicalMaterial({
     map: baseColorMap,
-    color: createLiftedTextureTint(look.color),
+    color: createTextureTint(look.color, BOAT_MAP_LIFT),
     roughnessMap,
     roughness: look.roughness,
     metalness: THREE.MathUtils.clamp(look.metalness, 0, 0.3),

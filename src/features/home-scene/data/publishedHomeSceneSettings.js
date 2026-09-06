@@ -257,7 +257,7 @@ export const publishedHomeSceneSettings = {
     }
   },
   "debugView": "beauty",
-  "boatColor": "#595c69",
+  "boatColor": "#cfd2e2",
   "boatMetalness": 0,
   "boatRoughness": 0.45,
   "boatClearcoat": 0.33,
@@ -758,7 +758,7 @@ export const publishedHomeSceneSettings = {
           }
         },
         "debugView": "beauty",
-        "boatColor": "#595c69",
+        "boatColor": "#cfd2e2",
         "boatMetalness": 0,
         "boatRoughness": 0.45,
         "boatClearcoat": 0.33,
@@ -1176,7 +1176,7 @@ export const publishedHomeSceneSettings = {
           }
         },
         "debugView": "beauty",
-        "boatColor": "#595c69",
+        "boatColor": "#cfd2e2",
         "boatMetalness": 0,
         "boatRoughness": 0.45,
         "boatClearcoat": 0.33,
@@ -1594,7 +1594,7 @@ export const publishedHomeSceneSettings = {
           }
         },
         "debugView": "beauty",
-        "boatColor": "#595c69",
+        "boatColor": "#cfd2e2",
         "boatMetalness": 0,
         "boatRoughness": 0.45,
         "boatClearcoat": 0.33,
