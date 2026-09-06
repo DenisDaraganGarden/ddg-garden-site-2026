@@ -21,8 +21,9 @@ export default function PlantLab({species=PLANT_SPECIES.oleaster}){
   const extent=settings.extent,y=settings.slope*extent*.5+.28;
   const rootView={position:[focusX-1.1,focusY+.7,focusZ+1.5],target:[focusX,focusY+.32,focusZ]};
   const eye=settings.height*.45;
-  return {...VIEWS,patch:{landscape:{position:[extent*.65,y+extent*.42,extent*.87],target:[0,y+eye,0]},portrait:{position:[extent*.8,y+extent*.55,extent*1.05],target:[0,y+eye,0]}},base:{landscape:rootView,portrait:rootView},far:{landscape:{position:[0,y+2,Math.max(65,extent*1.6)],target:[0,y+eye,0]},portrait:{position:[0,y+2,Math.max(80,extent*1.9)],target:[0,y+eye,0]}}};
- },[mode,settings.slope,settings.extent,settings.height,focusX,focusY,focusZ,VIEWS]);
+  const [cx,cy,cz]=species.planting.camera;
+  return {...VIEWS,patch:{landscape:{position:[extent*cx,y+extent*cy,extent*cz],target:[0,y+eye,0]},portrait:{position:[extent*cx*1.25,y+extent*cy*1.3,extent*cz*1.2],target:[0,y+eye,0]}},base:{landscape:rootView,portrait:rootView},far:{landscape:{position:[0,y+2,Math.max(65,extent*1.6)],target:[0,y+eye,0]},portrait:{position:[0,y+2,Math.max(80,extent*1.9)],target:[0,y+eye,0]}}};
+ },[mode,settings.slope,settings.extent,settings.height,focusX,focusY,focusZ,VIEWS,species]);
  const t={...COPY[lang],...species.copy[lang]},set=(key,value)=>setSettings(s=>({...s,[key]:value}));
  useEffect(()=>{const changed=()=>setHidden(document.hidden);document.addEventListener('visibilitychange',changed);return()=>document.removeEventListener('visibilitychange',changed);},[]);
  const lighting=useMemo(()=>buildHomeSceneLighting({timeOfDay:settings.timeOfDay,sunBearing:155,sunNoonElevation:55,sunIntensity:1.15,ambientIntensity:.2,hemisphereIntensity:.65,hemisphereSkyColor:'#ced9e4',hemisphereGroundColor:'#77705b'}),[settings.timeOfDay]);
