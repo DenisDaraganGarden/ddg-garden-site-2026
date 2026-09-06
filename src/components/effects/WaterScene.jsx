@@ -273,7 +273,11 @@ function WaterRuntimeScene({
   );
   useEffect(() => {
     syncCursorFlashlightConfiguration({
-      cursorEnabled: settings.cursorEnabled,
+      // In the editor the cursor is an editor preference (off by default);
+      // the published switch alone decides on the site.
+      cursorEnabled: mode === 'editor'
+        ? Boolean(settings.editorCursor) && settings.cursorEnabled !== false
+        : settings.cursorEnabled,
       cursorLightBeamAngle: settings.cursorLightBeamAngle,
       cursorLightEnabled: settings.cursorLightEnabled,
       cursorLightIntensity: settings.cursorLightIntensity,
@@ -281,7 +285,9 @@ function WaterRuntimeScene({
       cursorPointSize: settings.cursorPointSize,
     });
   }, [
+    mode,
     settings.cursorEnabled,
+    settings.editorCursor,
     settings.cursorLightBeamAngle,
     settings.cursorLightEnabled,
     settings.cursorLightIntensity,

@@ -265,6 +265,9 @@ const HomeEdit = () => {
             // Work cameras are the author's viewport bookmarks, not scene content.
             workCameras: previous.workCameras ?? [],
             activeWorkCameraId: previous.activeWorkCameraId ?? null,
+            animationPaused: previous.animationPaused,
+            editorHeadingColor: previous.editorHeadingColor,
+            editorCursor: previous.editorCursor,
         }));
         setCameraPoseRevision((value) => value + 1);
     }, [setSettings]);

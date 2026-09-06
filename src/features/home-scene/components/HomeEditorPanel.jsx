@@ -3,10 +3,13 @@ import { useLanguage } from '../../../i18n/useLanguage';
 import { DEFAULT_EDITOR_PATH, resolveEditorPath } from './editor/editorTree';
 import { CheckboxControl, SectionHeading } from './HomeEditorControls';
 import { sceneObjectsForNode } from '../lib/sceneObjects';
+import { version } from '../../../../package.json';
 
-const PANEL_STATE_KEY = 'ddg_home_editor_panel_v1';
+// v2: the default became half the window; a stored v1 height is left behind.
+const PANEL_STATE_KEY = 'ddg_home_editor_panel_v2';
 const MIN_PANEL_HEIGHT = 150;
-const DEFAULT_PANEL_HEIGHT = 320;
+// Half viewport, half panel by default.
+const defaultPanelHeight = () => (typeof window !== 'undefined' ? Math.round(window.innerHeight * 0.5) : 320);
 
 const readPanelState = () => {
     if (typeof window === 'undefined') {
@@ -53,7 +56,7 @@ const HomeEditorPanel = ({
     const [storedState] = useState(readPanelState);
     const [collapsed, setCollapsed] = useState(() => Boolean(storedState.collapsed));
     const [panelHeight, setPanelHeight] = useState(() => (
-        typeof storedState.height === 'number' ? storedState.height : DEFAULT_PANEL_HEIGHT
+        typeof storedState.height === 'number' ? storedState.height : defaultPanelHeight()
     ));
     // The editor itself is already dev-only. Keeping diagnostics behind an
     // additional query flag made the performance tools effectively invisible.
@@ -171,7 +174,10 @@ const HomeEditorPanel = ({
     }, []);
 
     const animationPaused = Boolean(settings?.animationPaused);
-    const panelStyle = collapsed ? undefined : { height: `${panelHeight}px` };
+    const panelStyle = {
+        ...(collapsed ? {} : { height: `${panelHeight}px` }),
+        '--home-editor-heading-color': settings?.editorHeadingColor,
+    };
     const panelClassName = [
         'home-editor-panel',
         collapsed ? 'home-editor-panel--collapsed' : '',
@@ -188,10 +194,61 @@ const HomeEditorPanel = ({
                 onLostPointerCapture={endResize}
                 title={collapsed ? undefined : t('homeEditor.panel.resizeHint')}
             >
-                <span className="home-editor-panel-grip" aria-hidden="true">⠿</span>
-                <span className="home-editor-panel-title">{t('homeEditor.panel.title')}</span>
+                <span className="home-editor-panel-grip" aria-hidden="true">⇕</span>
+                <span className="home-editor-panel-title">
+                    {t('homeEditor.panel.title')}
+                    <span className="home-editor-panel-version" data-testid="home-editor-version">{version}</span>
+                </span>
                 {!collapsed && hasPublishChanges ? (
                     <span className="home-editor-panel-dot" title={t('common.unsaved')} aria-hidden="true" />
+                ) : null}
+                {/* The three ways out of the draft, compact and always in the
+                    same place: revert to the project, write to the project,
+                    push to the site. */}
+                {!collapsed ? (
+                    <div className="home-editor-panel-actions">
+                        <button
+                            type="button"
+                            className="home-editor-panel-action"
+                            onClick={() => {
+                                if (!confirmAdopt) {
+                                    setConfirmAdopt(true);
+                                    return;
+                                }
+
+                                setConfirmAdopt(false);
+                                onAdoptPublished?.();
+                            }}
+                            onBlur={() => setConfirmAdopt(false)}
+                            disabled={typeof onAdoptPublished !== 'function'}
+                            data-testid="home-editor-adopt-published"
+                            title={t('homeEditor.publish.adoptHint')}
+                        >
+                            {confirmAdopt
+                                ? t('homeEditor.publish.adoptConfirm')
+                                : t('homeEditor.publish.adopt')}
+                        </button>
+                        <button
+                            type="button"
+                            className="home-editor-panel-action home-editor-tab--publish"
+                            onClick={canPublish ? onPublish : undefined}
+                            disabled={isPublishDisabled}
+                            data-testid="home-editor-publish"
+                            title={publishHint || t('homeEditor.publish.publishHint')}
+                        >
+                            {publishState?.busy ? t('homeEditor.publish.publishing') : t('homeEditor.publish.publish')}
+                        </button>
+                        <button
+                            type="button"
+                            className="home-editor-panel-action home-editor-tab--publish home-editor-tab--deploy"
+                            onClick={canDeploy ? onDeploy : undefined}
+                            disabled={publishState?.busy || !canDeploy}
+                            data-testid="home-editor-deploy"
+                            title={t('homeEditor.publish.deployHint')}
+                        >
+                            {t('homeEditor.publish.deploy')}
+                        </button>
+                    </div>
                 ) : null}
                 {/* Lives in the header rather than in a tab: it is wanted
                     while working inside Light, Atmosphere or Render, and a
@@ -242,48 +299,6 @@ const HomeEditorPanel = ({
                                 {t(`homeEditor.groups.${item.id}`)}
                             </button>
                         ))}
-                        <button
-                            type="button"
-                            className="home-editor-tab"
-                            style={{ marginLeft: 'auto' }}
-                            onClick={() => {
-                                if (!confirmAdopt) {
-                                    setConfirmAdopt(true);
-                                    return;
-                                }
-
-                                setConfirmAdopt(false);
-                                onAdoptPublished?.();
-                            }}
-                            onBlur={() => setConfirmAdopt(false)}
-                            disabled={typeof onAdoptPublished !== 'function'}
-                            data-testid="home-editor-adopt-published"
-                            title={t('homeEditor.publish.adoptHint')}
-                        >
-                            {confirmAdopt
-                                ? t('homeEditor.publish.adoptConfirm')
-                                : t('homeEditor.publish.adopt')}
-                        </button>
-                        <button
-                            type="button"
-                            className="home-editor-tab home-editor-tab--publish"
-                            onClick={canPublish ? onPublish : undefined}
-                            disabled={isPublishDisabled}
-                            data-testid="home-editor-publish"
-                            title={publishHint || undefined}
-                        >
-                            {publishState?.busy ? t('homeEditor.publish.publishing') : t('homeEditor.publish.publish')}
-                        </button>
-                        <button
-                            type="button"
-                            className="home-editor-tab home-editor-tab--publish home-editor-tab--deploy"
-                            onClick={canDeploy ? onDeploy : undefined}
-                            disabled={publishState?.busy || !canDeploy}
-                            data-testid="home-editor-deploy"
-                            title={t('homeEditor.publish.deployHint')}
-                        >
-                            {t('homeEditor.publish.deploy')}
-                        </button>
                     </div>
 
                     {publishHint ? (

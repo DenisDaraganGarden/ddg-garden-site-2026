@@ -472,6 +472,8 @@ export const getBaseHomeSceneSettings = () => ({
   showPointerDebug: false,
   freeCamera: false,
   debugWireframe: false,
+  editorHeadingColor: '#8d8d8d',
+  editorCursor: false,
 });
 
 const normalizeLegacySettings = (savedSettings, defaults) => {
@@ -1127,6 +1129,8 @@ const normalizeHomeSceneSettings = (savedSettings = {}, includeCameraSystem = tr
     showPointerDebug: pickBoolean(merged.showPointerDebug, defaults.showPointerDebug),
     freeCamera: pickBoolean(merged.freeCamera, defaults.freeCamera),
     debugWireframe: pickBoolean(merged.debugWireframe, defaults.debugWireframe),
+    editorHeadingColor: pickColor(merged.editorHeadingColor, defaults.editorHeadingColor),
+    editorCursor: pickBoolean(merged.editorCursor, defaults.editorCursor),
   };
 
   if (!includeCameraSystem) {

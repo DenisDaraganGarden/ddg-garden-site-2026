@@ -31,6 +31,7 @@ import {
 } from './sections/lights';
 import { InterfaceSection } from './sections/interfaceSection';
 import { CursorSection } from './sections/cursorSection';
+import { EditorSettingsSection } from './sections/editorSettings';
 import { FishSection, SeagullsSection } from './sections/creatures';
 import {
     AudioMixerSection,
@@ -139,6 +140,12 @@ export const EDITOR_TREE = [
         id: 'cursor',
         nodes: [
             { id: 'cursor', aspects: [{ id: 'cursor', Section: CursorSection }] },
+        ],
+    },
+    {
+        id: 'editor',
+        nodes: [
+            { id: 'settings', aspects: [{ id: 'settings', Section: EditorSettingsSection }] },
         ],
     },
 ];

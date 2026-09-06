@@ -13,6 +13,11 @@ export const CursorSection = ({ settings, handleSettingChange }) => {
 
     return (
         <>
+            {settings.editorCursor ? null : (
+                <div className="home-editor-status" data-testid="home-editor-cursor-editor-off">
+                    {t('homeEditor.controls.cursorEditorOff')}
+                </div>
+            )}
             <CheckboxControl
                 label={t('homeEditor.controls.cursorEnabled')}
                 checked={Boolean(settings.cursorEnabled)}
