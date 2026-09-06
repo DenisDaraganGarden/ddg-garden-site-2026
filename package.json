@@ -34,6 +34,7 @@
     "lab": "node ./node_modules/vite/bin/vite.js --config vite.asset-lab.config.js --host 127.0.0.1 --port 41215 --strictPort",
     "handoff": "node scripts/handoff.mjs",
     "grass:textures": "node scripts/grass/build-textures.mjs",
+    "check:grass": "node scripts/check-grass.mjs",
     "check:lab-links": "node scripts/check-lab-links.mjs",
     "check:plants": "node scripts/check-plants.mjs && node scripts/check-coast-plants.mjs && node scripts/check-trees.mjs",
     "check:terrain": "node scripts/check-terrain.mjs && node scripts/check-terrain-features.mjs",

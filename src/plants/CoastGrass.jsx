@@ -9,7 +9,7 @@ import PlantPopulation from './PlantPopulation.jsx';
 function GrassKind({kind,placements,asset,settings,lowPower}){
  const atlas=usePlantAtlas(useMemo(()=>grassAtlasSpec(kind,lowPower),[kind,lowPower]));
  const model=useMemo(()=>makeGrassTuft(kind,{seed:settings.grassSeed,height:GRASS_SPECIES_DEFAULTS[kind].height*settings.grassHeight}),[kind,settings.grassSeed,settings.grassHeight]);
- const renderSettings=useMemo(()=>({...asset,renderDistance:Math.min(asset.renderDistance,lowPower?90:300)}),[asset,lowPower]);
+ const renderSettings=useMemo(()=>({...asset,renderDistance:Math.min(asset.renderDistance,lowPower?80:300)}),[asset,lowPower]);
  return atlas&&placements.length?<group name={`coastal-grass-${kind}`}><PlantPopulation model={model} atlas={atlas} settings={renderSettings} placements={placements} sceneTime lowPower={lowPower} statsKey={`grassStats_${kind}`} impostorFrame={lowPower?64:128}/></group>:null;
 }
 export default function CoastGrass({query,definition,settings,asset,qualityProfile}){
@@ -18,7 +18,7 @@ export default function CoastGrass({query,definition,settings,asset,qualityProfi
  const cache=useRef(new Map()),timer=useRef(1);
  const [placements,setPlacements]=useState(()=>Object.fromEntries(GRASS_KINDS.map(kind=>[kind,[]])));
  const context=useMemo(()=>({definition,query,settings}),[definition,query,settings]);
- const radius=Math.min(settings.grassRenderDistance,lowPower?90:300);
+ const radius=Math.min(settings.grassRenderDistance,lowPower?80:300);
  useEffect(()=>{cache.current=new Map();timer.current=1;},[context]);
  useFrame((_,delta)=>{
   timer.current+=delta;

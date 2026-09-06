@@ -84,3 +84,15 @@ Use one visible graphics tab, pause it during headless GPU QA, close QA browsers
 and verify hide/resume and paused parameter/camera edits. Inspect full plants,
 leaf/branch close-ups, a large mixed-LOD patch and phone/tablet viewports. Desktop
 Chromium emulation does not establish physical iPhone/iPad Safari performance.
+
+## Grasses (2026-09-07)
+
+Four Azov grasses share the pipeline above: `grassModel.js` builds a tuft with
+the leaf vertex contract and its own `geometry(lod)` / `selectLod`, so
+`PlantPopulation`, `makePlantMaterials` and the impostor bake need no copy.
+Species atlases are Denis's maps packed by `npm run grass:textures` (single-sided,
+surface map R AO / G roughness / B translucency, cell rectangles generated into
+`grassAtlas.js`). The meadow is planted per 8 m cell around the camera
+(`grassMeadow.js`, niches by the coast profile, `npm run check:grass`), and the far
+level is the terrain shader (`grassField.js`, turf tiles as terrain layers 6-8).
+Wind, gusts and colour ecology stay the shrubs' sliders; the grass adds only its own.

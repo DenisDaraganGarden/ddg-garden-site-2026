@@ -56,7 +56,7 @@ function writePiece(d,piece,rows){
 function lodSelector(height){
  const k=Math.max(.6,Math.min(3,height/.6));
  return (distance,pixels,previous=0,lowPower=false)=>{
-  const near=(lowPower?6:11)*k,mid=(lowPower?22:38)*k;
+  const near=(lowPower?5:11)*k,mid=(lowPower?14:38)*k;
   if(distance<near*(previous===0?1.15:.85))return 0;
   if(distance<mid*(previous===2?.85:1.15))return 1;
   return 2;
