@@ -139,7 +139,7 @@ export default function TankerLab() {
               <label className="tanker-lab__select"><span>{t.count}</span><select aria-label={t.count} value={settings.count} onChange={(e) => { set('count', Number(e.target.value)); if (Number(e.target.value) > 1) { set('lod', 'horizon'); set('mode', 'studio'); setView('full'); } }}><option value="1">1</option><option value="8">8</option></select></label>
               <Toggle label={t.wire} value={settings.wireframe} onChange={(value) => set('wireframe', value)} />
               <dl><div><dt>LOA</dt><dd>138.0 m</dd></div><div><dt>Beam</dt><dd>16.6 m</dd></div><div><dt>Draft</dt><dd>4.5 m</dd></div><div><dt>LOD 0 / 1</dt><dd>8 348 / 860 tri</dd></div></dl>
-              <a className="tanker-lab__download" href={`/models/tanker/river-sea-tanker-${settings.lod}.glb`} download>{t.download} ↗</a>
+              <a className="tanker-lab__download" href={new URL(`../../assets-source/models/tanker/river-sea-tanker-${settings.lod}.glb`, import.meta.url).href} download>{t.download} ↗</a>
             </>}
             {tab === 'motion' && <>{range('speed', t.speed, 0, 14, 0.1, t.knots)}{range('seaState', t.waves)}{range('heading', t.course, -180, 180, 1, '°')}{range('timeScale', t.time, 0.25, 4, 0.25, '×')}{range('wake', t.wake)}{range('distance', t.distance, 45, 3000, 5, t.metres)}<Toggle label={t.travel} value={settings.travel} onChange={(value) => set('travel', value)} /></>}
             {tab === 'material' && <><label className="tanker-lab__toggle"><span>{t.hull}</span><input type="color" aria-label={t.hull} value={settings.color} onChange={(e) => set('color', e.target.value)} /></label>{range('wear', t.wear)}{range('wetness', t.wet)}{range('roughness', t.rough, 0.18, 0.95)}</>}
