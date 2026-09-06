@@ -31,15 +31,18 @@ export const TREE_RANGES={
 export const DEFAULT_GRASS_SETTINGS=Object.freeze({
  grassEnabled:true,grassSeed:23,grassDensity:1,grassStipa:1,grassFestuca:1,grassLeymus:1,grassPhragmites:1,
  grassHeight:1,grassFlex:2.2,grassDryness:0,grassRenderDistance:150,
+ grassFieldCoverage:.85,grassFieldContrast:.6,grassFieldWaves:.6,grassFieldSheen:.35,grassFieldScale:9,grassFieldBlend:60,grassFieldHeight:.5,grassFieldFresh:'#ffffff',grassFieldDry:'#ffffff',
 });
 export const GRASS_RANGES={
  grassSeed:[1,200,1],grassDensity:[0,2,.05],grassStipa:[0,1,.05],grassFestuca:[0,1,.05],grassLeymus:[0,1,.05],grassPhragmites:[0,1,.05],
  grassHeight:[.5,1.6,.05],grassFlex:[.3,4,.1],grassDryness:[-.5,.5,.05],grassRenderDistance:[40,300,5],
+ grassFieldCoverage:[0,1,.05],grassFieldContrast:[0,1,.05],grassFieldWaves:[0,1,.05],grassFieldSheen:[0,1,.05],grassFieldScale:[3,30,.5],grassFieldBlend:[20,300,5],grassFieldHeight:[0,1,.05],grassFieldFresh:null,grassFieldDry:null,
 };
 function normalizeRanged(defaults,ranges,source={}){
  const out={};
  for(const [key,fallback]of Object.entries(defaults)){
   if(typeof fallback==='boolean'){out[key]=typeof source[key]==='boolean'?source[key]:fallback;continue;}
+  if(typeof fallback==='string'){out[key]=/^#[0-9a-f]{6}$/i.test(source[key]??'')?source[key]:fallback;continue;}
   const value=Number(source[key]),[min,max,step]=ranges[key];
   out[key]=source[key]!=null&&Number.isFinite(value)?Math.max(min,Math.min(max,value)):fallback;
   if(step>=1)out[key]=Math.round(out[key]);

@@ -1,9 +1,11 @@
 import * as THREE from 'three';
 import { coastShader, createCoastUniforms, syncCoastUniforms } from './terrainShader.js';
 import { PLANT_FIELD_GLSL,ecologyUniforms } from '../plants/plantEcology.js';
+import { GRASS_FIELD_GLSL,grassFieldUniforms } from '../plants/grassField.js';
 const fragment=/* glsl */`
 ${coastShader}
 ${PLANT_FIELD_GLSL}
+${GRASS_FIELD_GLSL}
 varying vec3 vTerrainWorld;
 varying vec3 vTerrainNormal;
 uniform highp sampler2DArray uTerrainColor;
@@ -88,7 +90,7 @@ vec3 terrainNormal(vec3 n,vec3 pos,vec2 uv,vec3 mapN){
 }
 `;
 export function createTerrainMaterial(textures,p,rockOnly=false){
- const uniforms={...createCoastUniforms(),...ecologyUniforms(),
+ const uniforms={...createCoastUniforms(),...ecologyUniforms(),...grassFieldUniforms(),
   uTerrainColor:{value:textures.color},uTerrainNormal:{value:textures.normal},uTerrainSurface:{value:textures.surface},
   uPlantCover:{value:null},uPlantCoverBounds:{value:new THREE.Vector4(0,0,1,1)},uPlantCoverEnabled:{value:0},
   uTerrainTime:{value:0},uTerrainOptics:{value:0},uTerrainScale:{value:p.terrainTextureScale},uTerrainParallax:{value:p.terrainParallax},uTerrainGroundCover:{value:p.terrainGroundCover},uRockLayer:{value:rockOnly?2:3},uRockOnly:{value:rockOnly?1:0},
@@ -166,6 +168,22 @@ export function createTerrainMaterial(textures,p,rockOnly=false){
      turf=terrainBlend(turf,terrainSample(5.0,grassUv,groundDx,groundDy),dryness);
      ground=terrainBlend(ground,turf,coverWeight);
     }
+    // The steppe from afar: the grass field level (plants/grassField.js),
+    // Denis's turf under the tufts near by and the whole meadow beyond reach.
+    float field=grassFieldWeight(qs,profile,terrainN,path,vTerrainWorld.xz,distance(cameraPosition,vTerrainWorld));
+    if(field>.01){
+     vec2 fieldUv=vTerrainWorld.xz/2.0*uTerrainScale+terrainDomainWarp(vTerrainWorld.xz);
+     vec2 fieldDx=dFdx(fieldUv),fieldDy=dFdy(fieldUv);
+     TerrainSample meadow=terrainSample(6.0,fieldUv,fieldDx,fieldDy);
+     meadow=terrainBlend(meadow,terrainSample(7.0,fieldUv,fieldDx,fieldDy),dryness);
+     float gust=grassGust(vTerrainWorld.xz,uTerrainTime);
+     vec3 fieldTint=mix(uGrassFieldFresh,uGrassFieldDry,dryness);
+     meadow.color*=fieldTint*(1.0-uGrassField.z*gust*.35)*mix(1.0,mix(.7,1.0,meadow.surface.b),uGrassFieldScale.z);
+     meadow.normal=normalize(vec3(meadow.normal.xy+uGrassWind.xy*gust*uGrassField.z*.3,meadow.normal.z));
+     float sheen=pow(max(dot(normalize(viewWorld.xz),-uGrassWind.xy),0.0),3.0)*gust*uGrassField.w;
+     meadow.color+=fieldTint*sheen*.18;
+     ground=terrainBlend(ground,meadow,field);
+    }
     ground.color=mix(ground.color,ground.color*vec3(.72,.66,.53),path*.38);
    }
    vec3 rockColor=vec3(0),rockSurface=vec3(0),rockMapX=vec3(0,0,1),rockMapY=vec3(0,0,1),rockMapZ=vec3(0,0,1);
@@ -193,5 +211,5 @@ export function createTerrainMaterial(textures,p,rockOnly=false){
   `);
   shader.fragmentShader=shader.fragmentShader.replace('#include <aomap_fragment>','#include <aomap_fragment>\nreflectedLight.indirectDiffuse*=surfaceData.g;');
  };
- material.customProgramCacheKey=()=> 'azov-coast-layered-pbr-v5';return material;
+ material.customProgramCacheKey=()=> 'azov-coast-layered-pbr-v6';return material;
 }

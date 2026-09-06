@@ -9,7 +9,7 @@ import { makeRockGeometry, makePebbleGeometry, createPebbleMaterial, PEBBLE_PALE
 import { createTerrainDefinition } from '../terrain/terrainModel.js';
 import { createTerrainMaterial } from '../terrain/terrainMaterial.js';
 import { syncCoastUniforms } from '../terrain/terrainShader.js';
-import { TERRAIN_MAP_NAMES, createTerrainTextureArrays } from '../terrain/terrainTextures.js';
+import { TERRAIN_MAP_NAMES, createTerrainTextureArrays, terrainMapUrl } from '../terrain/terrainTextures.js';
 import { TERRAIN_RANGES } from '../terrain/settings.js';
 import '../tanker-lab/tankerLab.css';
 
@@ -109,7 +109,7 @@ function Batch({ geometry, material, items, name, palette, castShadow = false })
 
 function RockStage({ settings }) {
   const { gl } = useThree();
-  const loaded = useLoader(THREE.TextureLoader, TERRAIN_MAP_NAMES.map((name) => '/textures/azov/' + name + '.webp'));
+  const loaded = useLoader(THREE.TextureLoader, TERRAIN_MAP_NAMES.map((name) => terrainMapUrl(name)));
   const images = useMemo(() => Object.fromEntries(TERRAIN_MAP_NAMES.map((name, i) => [name, loaded[i]])), [loaded]);
   const textures = useMemo(() => createTerrainTextureArrays(images, false, Math.min(8, gl.capabilities.getMaxAnisotropy())), [images, gl]);
   useEffect(() => () => textures.dispose(), [textures]);

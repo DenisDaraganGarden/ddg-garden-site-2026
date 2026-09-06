@@ -1,6 +1,10 @@
 import * as THREE from 'three';
-export const TERRAIN_MATERIAL_LAYERS=['sand','shells','sandstone','loam','ground-fresh','ground-dry'];
+// Six procedural coast layers and Denis's turf tiles: the grass field fresh and dry, and trampled for the paths through it.
+export const TERRAIN_MATERIAL_LAYERS=['sand','shells','sandstone','loam','ground-fresh','ground-dry','turf-fresh','turf-dry','turf-trampled'];
+const LAYER_DIR=name=>name.startsWith('turf-')?'grass':'azov';
 export const TERRAIN_MAP_NAMES=TERRAIN_MATERIAL_LAYERS.flatMap(name=>['color','normal','surface'].map(channel=>name+'-'+channel));
+// Turf tiles are named -albedo in the grass folder; every layer has a mobile half.
+export const terrainMapUrl=(name,lowPower=false)=>{const layer=name.replace(/-(color|normal|surface)$/,''),channel=name.slice(layer.length+1);return `/textures/${LAYER_DIR(layer)}/${lowPower?'mobile/':''}${layer}-${LAYER_DIR(layer)==='grass'&&channel==='color'?'albedo':channel}.webp`;};
 
 // WebGL2 arrays use three samplers for six complete PBR materials. Individual
 // layers have independent repeat/mips: no atlas gutters or tile-edge bleeding.

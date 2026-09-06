@@ -8,7 +8,8 @@ import { createTerrainMaterial } from './terrainMaterial.js';
 import { syncCoastUniforms } from './terrainShader.js';
 import WaterSurfaceV2 from '../components/effects/water/WaterSurface';
 import { CoastShells, CoastPebbles } from './CoastScatter.jsx';
-import { TERRAIN_MAP_NAMES,createTerrainTextureArrays } from './terrainTextures.js';
+import { TERRAIN_MAP_NAMES,createTerrainTextureArrays,terrainMapUrl } from './terrainTextures.js';
+import { syncGrassFieldUniforms } from '../plants/grassField.js';
 import {terrainGeometryKey} from './settings.js';
 import {updateEcologyUniforms} from '../plants/plantEcology.js';
 
@@ -82,7 +83,7 @@ export default function AzovTerrain({ definition, settings, qualityProfile, ligh
   const shoreEmitter=useRef(settings.audio?.emitters?.shore);shoreEmitter.current=settings.audio?.emitters?.shore;
   useEffect(()=>()=>{const emitter=shoreEmitter.current;if(emitter)audioRuntime?.updateEmitter?.('shore',emitter.x,emitter.y,emitter.z);},[audioRuntime]);
   const lowPower=qualityProfile.isLowPower||qualityProfile.isMobileDevice;
-  const loaded=useLoader(THREE.TextureLoader,mapNames.map(name=>'/textures/azov/'+(lowPower?'mobile/':'')+name+'.webp'));
+  const loaded=useLoader(THREE.TextureLoader,mapNames.map(name=>terrainMapUrl(name,lowPower)));
   const images=useMemo(()=>Object.fromEntries(mapNames.map((name,i)=>[name,loaded[i]])),[loaded]);
   const textures=useMemo(()=>createTerrainTextureArrays(images,lowPower,Math.min(lowPower?4:8,gl.capabilities.getMaxAnisotropy())),[images,lowPower,gl]);
   useEffect(()=>()=>textures.dispose(),[textures]);
@@ -102,7 +103,7 @@ export default function AzovTerrain({ definition, settings, qualityProfile, ligh
       const source=coastPoint(0,s,definition);audioRuntime.updateEmitter('shore',source.x,.15,source.z);
     }
     const pondNormals=runtime?.normalTargetRef?.current?.texture??null,pondTexel=1/Math.max(1,runtime?.effectiveResolution??256);
-    for(const m of Object.values(materials)){const u=m.userData.coastUniforms;syncCoastUniforms(u,definition);
+    for(const m of Object.values(materials)){const u=m.userData.coastUniforms;syncCoastUniforms(u,definition);syncGrassFieldUniforms(u,settings,definition);
       u.uPondNormalMap.value=pondNormals;u.uPondTexel.value.set(pondTexel,pondTexel);u.uPondExtent.value=settings.waterExtent;
       u.uCausticsParams.value.set(pondNormals?settings.causticsIntensity:0,settings.causticsScale,settings.causticsSharpness,settings.waterTurbidity);
       u.uCausticsLight.value.fromArray(lighting.key.direction);u.uCausticsKey.value=lighting.key.intensity;u.uTerrainTime.value=clock.elapsedTime;u.uTerrainScale.value=definition.terrainTextureScale;u.uTerrainParallax.value=lowPower?0:definition.terrainParallax;u.uTerrainGroundCover.value=definition.terrainGroundCover;updateEcologyUniforms(u,{dryness:settings.shrubsDryness??definition.terrainWeathering,fieldSeed:settings.shrubsFieldSeed,patchScale:settings.shrubsPatchScale,patchContrast:settings.shrubsPatchContrast});m.envMapIntensity=lighting.environment.reflection;}
