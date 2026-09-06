@@ -18,6 +18,8 @@ import {
     resolveLayoutFrameInset,
 } from '../../../lib/layout';
 import { SCENE_OBJECTS, SCENE_OBJECT_GROUPS } from '../../../lib/sceneObjects';
+import { WORK_CAMERA_MAIN_ID } from '../../../lib/sceneCameras';
+import { TECHNICAL_FRAMES } from '../../../lib/technicalCameras';
 
 const LAYOUT_LABEL_KEYS = {
     portrait: 'homeEditor.controls.layoutPortrait',
@@ -56,7 +58,7 @@ export const VisibilitySection = ({ settings, handleSettingChange }) => {
 };
 
 export const CameraSection = ({ settings, layoutEditor }) => {
-    const { t } = useLanguage();
+    const { t, language } = useLanguage();
 
     if (!layoutEditor) {
         return null;
@@ -91,7 +93,12 @@ export const CameraSection = ({ settings, layoutEditor }) => {
         renameWorkCamera,
         captureWorkCamera,
         setWorkCameraFov,
+        previewPose,
+        frameObject,
     } = layoutEditor;
+    const previewTechnicalFrame = (frame) => (
+        frame.object ? frameObject?.(frame.object, frame.options) : previewPose?.(frame.pose(settings))
+    );
     const activeCamera = cameras.find((camera) => camera.id === activeCameraId) ?? cameras[0];
     const activeWorkCamera = workCameras.find((camera) => camera.id === activeWorkCameraId) ?? null;
     const layouts = currentScene?.layouts ?? activeCamera?.scene?.layouts ?? {};
@@ -238,7 +245,7 @@ export const CameraSection = ({ settings, layoutEditor }) => {
                                     type="button"
                                     className="home-editor-camera-icon-button"
                                     onClick={() => moveWorkCamera(camera.id, -1)}
-                                    disabled={index === 0}
+                                    disabled={index === 0 || (index === 1 && workCameras[0]?.id === WORK_CAMERA_MAIN_ID)}
                                     aria-label={t('homeEditor.controls.cameraMoveUp')}
                                 >
                                     ↑
@@ -247,7 +254,7 @@ export const CameraSection = ({ settings, layoutEditor }) => {
                                     type="button"
                                     className="home-editor-camera-icon-button"
                                     onClick={() => moveWorkCamera(camera.id, 1)}
-                                    disabled={index === workCameras.length - 1}
+                                    disabled={camera.id === WORK_CAMERA_MAIN_ID || index === workCameras.length - 1}
                                     aria-label={t('homeEditor.controls.cameraMoveDown')}
                                 >
                                     ↓
@@ -256,7 +263,9 @@ export const CameraSection = ({ settings, layoutEditor }) => {
                                     type="button"
                                     className="home-editor-camera-icon-button home-editor-camera-icon-button--danger"
                                     onClick={() => removeWorkCamera(camera.id)}
+                                    disabled={camera.id === WORK_CAMERA_MAIN_ID}
                                     aria-label={t('homeEditor.controls.cameraDelete')}
+                                    title={camera.id === WORK_CAMERA_MAIN_ID ? t('homeEditor.controls.workCameraMainHint') : undefined}
                                     data-testid={`home-editor-work-camera-delete-${camera.id}`}
                                 >
                                     ×
@@ -267,6 +276,24 @@ export const CameraSection = ({ settings, layoutEditor }) => {
                     {workCameras.length === 0 ? (
                         <p className="home-editor-work-cameras-empty">{t('homeEditor.controls.workCamerasEmpty')}</p>
                     ) : null}
+                </div>
+            </section>
+            <section className="home-editor-cameras home-editor-work-cameras" aria-label={t('homeEditor.controls.technicalFrames')}>
+                <div className="home-editor-cameras-header" title={t('homeEditor.controls.technicalFramesHint')}>
+                    <span>{t('homeEditor.controls.technicalFrames')}</span>
+                </div>
+                <div className="home-editor-tabs">
+                    {TECHNICAL_FRAMES.map((frame) => (
+                        <button
+                            type="button"
+                            key={frame.id}
+                            className="home-editor-tab"
+                            onClick={() => previewTechnicalFrame(frame)}
+                            data-testid={`home-editor-frame-${frame.id}`}
+                        >
+                            {language === 'ru' ? frame.ru : frame.en}
+                        </button>
+                    ))}
                 </div>
             </section>
             <div className="home-editor-camera-variants" role="tablist" aria-label={t('homeEditor.controls.layoutBucket')}>

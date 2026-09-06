@@ -126,6 +126,10 @@ const normalizeVector = (value) => {
  * without a usable pose is dropped rather than repaired - there is no
  * composition to inherit from.
  */
+// The main viewport camera: always present and first, active when the editor
+// opens, never deleted. The others are ordinary bookmarks.
+export const WORK_CAMERA_MAIN_ID = 'work-main';
+
 export function normalizeWorkCameras(raw) {
   const source = Array.isArray(raw) ? raw : [];
   const usedIds = new Set();

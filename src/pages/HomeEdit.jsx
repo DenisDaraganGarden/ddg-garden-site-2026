@@ -13,9 +13,10 @@ import {
     getPublishedHomeSceneSettings,
     sanitizeHomeSceneSettingsForPublish,
 } from '../features/home-scene/hooks/useHomeSceneSettings';
-import { DEFAULT_SCENE_CAMERA_HOLD_SECONDS } from '../features/home-scene/lib/sceneCameras';
+import { DEFAULT_SCENE_CAMERA_HOLD_SECONDS, WORK_CAMERA_MAIN_ID } from '../features/home-scene/lib/sceneCameras';
 import {
     DEFAULT_LAYOUT_FRAME_INSETS,
+    resolveLayout,
     resolveLayoutFrameInset,
     resolveLayoutKey,
 } from '../features/home-scene/lib/layout';
@@ -184,6 +185,55 @@ const HomeEdit = () => {
     useEffect(() => {
         setHasPublishChanges(serializedPublishSettings !== lastPublishedSnapshotRef.current);
     }, [serializedPublishSettings]);
+
+    // The editor opens looking from the main work camera. A draft from before
+    // it existed keeps its first bookmark as the main one; an empty draft gets
+    // one from the authored layout.
+    useEffect(() => {
+        setSettings((previous) => {
+            const cameras = previous.workCameras ?? [];
+            if (cameras.some((camera) => camera.id === WORK_CAMERA_MAIN_ID)) {
+                return previous.activeWorkCameraId === WORK_CAMERA_MAIN_ID
+                    ? previous
+                    : { ...previous, activeWorkCameraId: WORK_CAMERA_MAIN_ID };
+            }
+            const layout = resolveLayout(previous.layouts, getCurrentLayoutKey()) ?? {};
+            const main = cameras.length > 0
+                ? { ...cameras[0], id: WORK_CAMERA_MAIN_ID }
+                : {
+                    id: WORK_CAMERA_MAIN_ID,
+                    name: 'Рабочая 1',
+                    cameraPosition: { ...(layout.cameraPosition ?? previous.cameraPosition) },
+                    cameraTarget: { ...(layout.cameraTarget ?? previous.cameraTarget) },
+                    cameraFov: layout.cameraFov ?? previous.cameraFov ?? 36,
+                };
+            return {
+                ...previous,
+                workCameras: [main, ...cameras.slice(cameras.length > 0 ? 1 : 0)],
+                activeWorkCameraId: WORK_CAMERA_MAIN_ID,
+            };
+        });
+        setCameraPoseRevision((value) => value + 1);
+    }, [setSettings]);
+
+    // Space pauses and resumes the animation from anywhere but a text field.
+    useEffect(() => {
+        const isTextTarget = (target) => target instanceof HTMLElement && (
+            target.isContentEditable
+            || target.tagName === 'TEXTAREA'
+            || target.tagName === 'SELECT'
+            || (target.tagName === 'INPUT' && !['checkbox', 'range', 'button'].includes(target.type))
+        );
+        const handleKeyDown = (event) => {
+            if (event.code !== 'Space' || event.repeat || event.metaKey || event.ctrlKey || event.altKey || isTextTarget(event.target)) {
+                return;
+            }
+            event.preventDefault();
+            setSettings((previous) => ({ ...previous, animationPaused: !previous.animationPaused }));
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [setSettings]);
 
     // Track which bucket the live window falls into (for the "current" badge in the UI).
     useEffect(() => {
@@ -440,6 +490,9 @@ const HomeEdit = () => {
     }, [setSettings]);
 
     const removeWorkCamera = useCallback((id) => {
+        if (id === WORK_CAMERA_MAIN_ID) {
+            return;
+        }
         setSettings((previous) => ({
             ...previous,
             workCameras: (previous.workCameras ?? []).filter((camera) => camera.id !== id),
@@ -448,10 +501,14 @@ const HomeEdit = () => {
     }, [setSettings]);
 
     const moveWorkCamera = useCallback((id, direction) => {
-        setSettings((previous) => ({
-            ...previous,
-            workCameras: swapById(previous.workCameras ?? [], id, direction),
-        }));
+        setSettings((previous) => {
+            const cameras = previous.workCameras ?? [];
+            const next = swapById(cameras, id, direction);
+            // The main camera stays first.
+            return cameras[0]?.id === WORK_CAMERA_MAIN_ID && next[0]?.id !== WORK_CAMERA_MAIN_ID
+                ? previous
+                : { ...previous, workCameras: next };
+        });
     }, [setSettings]);
 
     const renameWorkCamera = useCallback((id, name) => {
@@ -563,6 +620,7 @@ const HomeEdit = () => {
 
     const layoutEditor = useMemo(() => ({
         previewPose: pose => cameraRigApiRef.current?.previewPose?.(pose),
+        frameObject: (name, options) => cameraRigApiRef.current?.frameObject?.(name, options),
         cameras: settings.sceneCameras,
         activeCameraId: settings.activeCameraId,
         selectCamera,

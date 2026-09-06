@@ -40,7 +40,7 @@ export default function WaterCameraRig({
   freeCamera = false,
   poseKey,
 }) {
-  const { camera, gl, size } = useThree();
+  const { camera, gl, size, scene, invalidate } = useThree();
   const internalControlsRef = useRef();
   const controlsRef = orbitRef ?? internalControlsRef;
   const cameraInitializedRef = useRef(false);
@@ -202,6 +202,24 @@ export default function WaterCameraRig({
     const handlePointerDown = () => {
       domElement.focus({ preventScroll: true });
     };
+    // Flight runs on its own clock. With animation paused the canvas renders
+    // on demand and useFrame never ticks, so each step asks for its own frame.
+    let flightFrame = 0;
+    let flightLast = 0;
+    const flightStep = (now) => {
+      const delta = flightLast ? (now - flightLast) / 1000 : 1 / 60;
+      flightLast = now;
+      if (moveFreeCamera(delta)) {
+        invalidate();
+      }
+      flightFrame = pressedKeys.size > 0 ? requestAnimationFrame(flightStep) : 0;
+    };
+    const startFlight = () => {
+      if (!flightFrame) {
+        flightLast = performance.now();
+        flightFrame = requestAnimationFrame(flightStep);
+      }
+    };
     const handleKeyDown = (event) => {
       if (!FREE_CAMERA_KEYS.has(event.code)) {
         return;
@@ -211,8 +229,11 @@ export default function WaterCameraRig({
       domElement.dataset.ddgCameraLastKey = event.code;
       if (!event.repeat) {
         // A quick tap can begin and end between two 120 Hz frames. Give it one
-        // deterministic step; a held key continues smoothly in useFrame below.
-        moveFreeCamera(1 / 60);
+        // deterministic step; a held key continues in the flight loop.
+        if (moveFreeCamera(1 / 60)) {
+          invalidate();
+        }
+        startFlight();
       }
       event.preventDefault();
     };
@@ -230,6 +251,7 @@ export default function WaterCameraRig({
     window.addEventListener('blur', clearPressedKeys);
 
     return () => {
+      cancelAnimationFrame(flightFrame);
       pressedKeys.clear();
       domElement.removeEventListener('pointerdown', handlePointerDown);
       domElement.removeEventListener('keydown', handleKeyDown);
@@ -249,9 +271,9 @@ export default function WaterCameraRig({
       delete domElement.dataset.ddgCameraLastKey;
       delete domElement.dataset.ddgCameraMode;
     };
-  }, [freeCamera, gl, mode, moveFreeCamera]);
+  }, [freeCamera, gl, invalidate, mode, moveFreeCamera]);
 
-  useFrame((_, delta) => {
+  useFrame(() => {
     const controls = controlsRef.current;
 
     if (controls && pendingControlsTargetRef.current) {
@@ -259,8 +281,6 @@ export default function WaterCameraRig({
       controls.update();
       pendingControlsTargetRef.current = false;
     }
-
-    moveFreeCamera(delta);
   });
 
   useEffect(() => {
@@ -335,8 +355,39 @@ export default function WaterCameraRig({
       if(Number.isFinite(previewFov))camera.fov=previewFov;
       camera.updateProjectionMatrix();camera.updateMatrixWorld();
       if(controlsRef.current){controlsRef.current.target.copy(CAMERA_POSE_TARGET);controlsRef.current.update();}
+      gl.domElement.dataset.ddgCameraPose = JSON.stringify(capturePose());
+      invalidate();
     };
-    onCameraRigApi({ capturePose, restorePose, previewPose });
+    // Frames a scene object by name where it is right now: from the shore side
+    // with the sea behind it, or straight down. Nothing happens if it is hidden.
+    const frameObject = (name, { above = false } = {}) => {
+      const object = scene.getObjectByName(name);
+      if (!object) {
+        return false;
+      }
+      const box = new THREE.Box3().setFromObject(object);
+      if (box.isEmpty()) {
+        return false;
+      }
+      const center = box.getCenter(new THREE.Vector3());
+      const size = box.getSize(new THREE.Vector3());
+      const radius = Math.max(size.x, size.y, size.z, 0.5) * 0.5;
+      const distance = (radius * 1.6) / Math.tan(THREE.MathUtils.degToRad(camera.fov) * 0.5);
+      const offset = new THREE.Vector3(-center.x, 0, -center.z);
+      if (offset.lengthSq() < 1e-6) {
+        offset.set(1, 0, 1);
+      }
+      offset.normalize();
+      if (above) {
+        offset.set(0.001, 1, 0);
+      } else {
+        offset.y = 0.35;
+      }
+      offset.normalize().multiplyScalar(distance);
+      previewPose({ cameraPosition: center.clone().add(offset), cameraTarget: center, cameraFov: camera.fov });
+      return true;
+    };
+    onCameraRigApi({ capturePose, restorePose, previewPose, frameObject });
 
     return () => {
       onCameraRigApi(null);
@@ -351,7 +402,10 @@ export default function WaterCameraRig({
     controlsRef,
     formatAxis,
     freeCamera,
+    gl,
+    invalidate,
     onCameraRigApi,
+    scene,
   ]);
 
   if (mode !== 'editor') {

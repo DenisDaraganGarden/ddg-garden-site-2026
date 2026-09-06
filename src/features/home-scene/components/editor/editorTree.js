@@ -115,10 +115,15 @@ export const EDITOR_TREE = [
         ],
     },
     {
+        id: 'cameras',
+        nodes: [
+            { id: 'camera', aspects: [{ id: 'camera', Section: CameraSection }] },
+        ],
+    },
+    {
         id: 'render',
         nodes: [
             { id: 'visibility', aspects: [{ id: 'visibility', Section: VisibilitySection }] },
-            { id: 'camera', aspects: [{ id: 'camera', Section: CameraSection }] },
             { id: 'resolution', aspects: [{ id: 'resolution', Section: ResolutionSection }] },
             { id: 'post', aspects: [{ id: 'post', Section: PostSection }] },
             { id: 'debug', devOnly: true, aspects: [{ id: 'debug', Section: DebugSection }] },
