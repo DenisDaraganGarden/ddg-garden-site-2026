@@ -277,7 +277,7 @@ export const waterV2FragmentShader = `
     vec2 coastQS=coastLocal(vSurfaceWorldPosition.xz);
     // The bluff profile is forty transcendentals; every use below reads this one.
     float coastGround=uCoastShape.x>.5?coastHeight(coastQS):-uCoastSurface.y;
-    if(uCoastShape.x>.5 && coastMask(coastQS)>.001 && coastGround>vSurfaceWorldPosition.y+.004)discard;
+    if(uCoastShape.x>.5 && coastMask(coastQS)>.001 && coastGround+coastEdgeRag(coastQS,uTime)>vSurfaceWorldPosition.y+.004)discard;
     // Shore strips use this exact shader and own the entire coast band.  It is
     // an analytical interval, not a screen-space/dithered handoff, so a pond
     // fragment can never leave a hole between the two water meshes.

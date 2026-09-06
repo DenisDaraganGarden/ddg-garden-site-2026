@@ -10,7 +10,7 @@ uniform highp sampler2DArray uTerrainColor;
 uniform highp sampler2DArray uTerrainNormal;
 uniform highp sampler2DArray uTerrainSurface;
 uniform sampler2D uPlantCover;uniform vec4 uPlantCoverBounds;uniform float uPlantCoverEnabled;
-uniform float uRockLayer;uniform float uTerrainTime;uniform float uTerrainScale;uniform float uTerrainParallax;uniform float uRockOnly;uniform float uTerrainGroundCover;
+uniform float uRockLayer;uniform float uTerrainTime;uniform float uTerrainOptics;uniform float uTerrainScale;uniform float uTerrainParallax;uniform float uRockOnly;uniform float uTerrainGroundCover;
 uniform sampler2D uPondNormalMap;uniform vec2 uPondTexel;uniform float uPondExtent;uniform vec4 uCausticsParams;uniform vec3 uCausticsLight;uniform float uCausticsKey;
 struct TerrainSample{vec3 color;vec3 surface;vec3 normal;};
 vec3 pondNormalAt(vec2 uv){return normalize(texture2D(uPondNormalMap,uv).rgb*2.0-1.0);}
@@ -91,7 +91,7 @@ export function createTerrainMaterial(textures,p,rockOnly=false){
  const uniforms={...createCoastUniforms(),...ecologyUniforms(),
   uTerrainColor:{value:textures.color},uTerrainNormal:{value:textures.normal},uTerrainSurface:{value:textures.surface},
   uPlantCover:{value:null},uPlantCoverBounds:{value:new THREE.Vector4(0,0,1,1)},uPlantCoverEnabled:{value:0},
-  uTerrainTime:{value:0},uTerrainScale:{value:p.terrainTextureScale},uTerrainParallax:{value:p.terrainParallax},uTerrainGroundCover:{value:p.terrainGroundCover},uRockLayer:{value:rockOnly?2:3},uRockOnly:{value:rockOnly?1:0},
+  uTerrainTime:{value:0},uTerrainOptics:{value:0},uTerrainScale:{value:p.terrainTextureScale},uTerrainParallax:{value:p.terrainParallax},uTerrainGroundCover:{value:p.terrainGroundCover},uRockLayer:{value:rockOnly?2:3},uRockOnly:{value:rockOnly?1:0},
   uPondNormalMap:{value:null},uPondTexel:{value:new THREE.Vector2(1/256,1/256)},uPondExtent:{value:34},uCausticsParams:{value:new THREE.Vector4(0,1,1,0)},uCausticsLight:{value:new THREE.Vector3(0,1,0)},uCausticsKey:{value:1}};
  syncCoastUniforms(uniforms,p);
  const material=new THREE.MeshStandardMaterial({color:'#ffffff',roughness:.85,metalness:0,side:THREE.FrontSide});
@@ -108,6 +108,17 @@ export function createTerrainMaterial(textures,p,rockOnly=false){
    vTerrainNormal=inverseTransformDirection(transformedNormal,viewMatrix);
   `);
   shader.fragmentShader=fragment+shader.fragmentShader;
+  // The optics passes cut the beach on the run-up water itself, not on the flat
+  // clip plane at the still line: refraction keeps what the sheet covers (the
+  // sand the swash shows through itself), reflection the rest. Replacing the
+  // chunk also frees the terrain from the renderer's global planes.
+  shader.fragmentShader=shader.fragmentShader.replace('#include <clipping_planes_fragment>',`
+   if(uTerrainOptics>.5){
+    vec2 opticsQS=coastLocal(vTerrainWorld.xz);
+    float opticsWater=coastMask(opticsQS)>.001?coastWave(opticsQS,uTerrainTime)+coastEdgeRag(opticsQS,uTerrainTime):0.0;
+    if(uTerrainOptics<1.5){if(vTerrainWorld.y>opticsWater+.08)discard;}
+    else if(vTerrainWorld.y<opticsWater-.02)discard;
+   }`);
   shader.fragmentShader=shader.fragmentShader.replace('#include <map_fragment>',`
    vec3 terrainN=normalize(vTerrainNormal),viewWorld=cameraPosition-vTerrainWorld;
    vec2 qs=coastLocal(vTerrainWorld.xz);float groundY=coastHeight(qs);
@@ -115,7 +126,7 @@ export function createTerrainMaterial(textures,p,rockOnly=false){
    float rockWeight=max(uRockOnly,1.0-smoothstep(.70,.965,abs(terrainN.y)));
    float wet=coastWetnessAtHeight(qs,uTerrainTime,groundY);
    float caustic=groundY<-.02?shelfCaustics(vTerrainWorld.xz,-groundY-.02):0.0;
-   float foamTrace=coastFoamAtHeight(qs,vTerrainWorld,uTerrainTime,groundY)*smoothstep(.28,.88,terrainN.y)*(1.0-rockWeight*.32);
+   float foamTrace=coastSandFoamAtHeight(qs,vTerrainWorld,uTerrainTime,groundY)*smoothstep(.28,.88,terrainN.y)*(1.0-rockWeight*.32);
    float path=coastPathMask(qs)*(1.0-uRockOnly);
    float shellMask=uCoastSurf.w*smoothstep(-.4,1.0,qs.x)*(1.0-smoothstep(4.0,max(7.0,uCoastDimensions.z*.8),qs.x));
    shellMask*=mix(.56,1.0,coastNoise(qs*.24+vec2(17.3,uCoastShape.w*.031)));
@@ -165,7 +176,7 @@ export function createTerrainMaterial(textures,p,rockOnly=false){
    vec3 surfaceData=mix(ground.surface,rockSurface,rockWeight);
    vec3 terrainColor=mix(ground.color,rockColor,rockWeight);
    float macroVariation=.88+.22*coastNoise(vTerrainWorld.xz*.21+vec2(5.2,42.9));
-   diffuseColor.rgb=mix(terrainColor*mix(1.0,.53,wet),vec3(.82,.84,.78),foamTrace*.22)*macroVariation;
+   diffuseColor.rgb=mix(terrainColor*mix(1.0,.53,wet),vec3(.86,.87,.82),foamTrace)*macroVariation;
    diffuseColor.rgb*=1.0+caustic*.5;
   `);
   shader.fragmentShader=shader.fragmentShader.replace('#include <roughnessmap_fragment>','#include <roughnessmap_fragment>\nroughnessFactor=mix(surfaceData.r,.4,wet);');
@@ -177,5 +188,5 @@ export function createTerrainMaterial(textures,p,rockOnly=false){
   `);
   shader.fragmentShader=shader.fragmentShader.replace('#include <aomap_fragment>','#include <aomap_fragment>\nreflectedLight.indirectDiffuse*=surfaceData.g;');
  };
- material.customProgramCacheKey=()=> 'azov-coast-layered-pbr-v3';return material;
+ material.customProgramCacheKey=()=> 'azov-coast-layered-pbr-v4';return material;
 }

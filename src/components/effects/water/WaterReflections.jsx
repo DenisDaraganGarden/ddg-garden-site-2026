@@ -42,6 +42,20 @@ const REFLECTION_CLIP_PLANES = [reflectionClipPlane];
 const REFRACTION_CLIP_PLANES = [refractionClipPlane];
 const WATER_CLIP_OVERLAP = 0.015;
 
+// The beach cuts itself on the run-up water (terrainMaterial.js): 1 keeps the
+// submerged part for refraction, 2 the emerged part for reflection.
+function setTerrainOptics(terrain, value) {
+  const touched = [];
+  terrain?.traverse((object) => {
+    const uniform = object.material?.userData?.coastUniforms?.uTerrainOptics;
+    if (uniform && !touched.includes(uniform)) {
+      touched.push(uniform);
+      uniform.value = value;
+    }
+  });
+  return () => touched.forEach((uniform) => { uniform.value = 0; });
+}
+
 // The lily shader cuts itself against the wave it floats on rather than against
 // a flat plane, so the refraction capture asks it for the submerged part only.
 const setSubmergedOnly = (mesh, value) => {
@@ -493,10 +507,12 @@ export default function WaterReflections({
         gl.setRenderTarget(refractionTarget);
         gl.clear(true, true, true);
         const restoreSeagullVisibility = hideExcludedSeagullRefractions(seagullFlock);
+        const restoreTerrainRefraction = setTerrainOptics(scene.getObjectByName('azov-terrain'), 1);
         try {
           gl.render(scene, camera);
         } finally {
           restoreSeagullVisibility();
+          restoreTerrainRefraction();
         }
         reflectionData.current.refractionTexture = refractionTarget.texture;
         reflectionData.current.refractionDepthTexture = refractionTarget.depthTexture;
@@ -532,10 +548,12 @@ export default function WaterReflections({
         gl.setRenderTarget(reflectionTarget);
         gl.clear(true, true, true);
         const restoreSeagullVisibility = hideExcludedSeagullReflections(seagullFlock);
+        const restoreTerrainReflection = setTerrainOptics(scene.getObjectByName('azov-terrain'), 2);
         try {
           gl.render(scene, reflectionCamera);
         } finally {
           restoreSeagullVisibility();
+          restoreTerrainReflection();
         }
         reflectionData.current.texture = reflectionTarget.texture;
         saveSceneMotion(reflectionTiming.reflectionMotion);
