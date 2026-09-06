@@ -1,0 +1,388 @@
+.stone-lab {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  color: #171916;
+  background: #f5f4f0;
+  isolation: isolate;
+}
+
+.stone-lab canvas {
+  position: absolute;
+  inset: 0;
+  width: 100% !important;
+  height: 100% !important;
+  outline: none;
+}
+
+.stone-lab button,
+.stone-lab input {
+  font: inherit;
+}
+
+.stone-lab__header {
+  position: absolute;
+  z-index: 3;
+  inset: 0 0 auto 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 28px;
+  padding: 25px 28px;
+  pointer-events: none;
+}
+
+.stone-lab__title p {
+  margin: 0 0 7px;
+  color: rgba(23, 25, 22, 0.46);
+  font-size: 9px;
+  font-weight: 680;
+  letter-spacing: 0.2em;
+}
+
+.stone-lab__title h1 {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(27px, 3.1vw, 44px);
+  font-weight: 400;
+  letter-spacing: -0.032em;
+  line-height: 0.98;
+}
+
+.stone-lab__title > span {
+  display: block;
+  margin-top: 10px;
+  color: rgba(23, 25, 22, 0.56);
+  font-size: 10px;
+  letter-spacing: 0.035em;
+}
+
+.stone-lab__toolbar {
+  display: grid;
+  justify-items: end;
+  gap: 6px;
+  pointer-events: auto;
+}
+
+.stone-lab__control-group {
+  display: flex;
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid rgba(24, 27, 24, 0.12);
+  border-radius: 999px;
+  background: rgba(250, 249, 246, 0.8);
+  box-shadow: 0 9px 28px rgba(29, 31, 26, 0.055);
+  backdrop-filter: blur(16px);
+}
+
+.stone-lab__control-group button {
+  min-height: 27px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 999px;
+  color: rgba(23, 25, 22, 0.62);
+  background: transparent;
+  cursor: pointer;
+  font-size: 9px;
+  transition: color 140ms ease, background 140ms ease, box-shadow 140ms ease;
+}
+
+.stone-lab__control-group button:hover {
+  color: #161815;
+}
+
+.stone-lab__control-group button.is-active {
+  color: #f6f5f1;
+  background: #1b1e1c;
+  box-shadow: 0 3px 9px rgba(10, 12, 10, 0.17);
+}
+
+.stone-lab__inspector {
+  position: absolute;
+  z-index: 3;
+  top: 126px;
+  left: 28px;
+  width: 250px;
+  max-height: calc(100vh - 166px);
+  overflow-y: auto;
+  padding: 11px;
+  border: 1px solid rgba(23, 25, 22, 0.1);
+  border-radius: 5px;
+  background: rgba(248, 247, 243, 0.76);
+  box-shadow: 0 12px 40px rgba(30, 31, 27, 0.055);
+  backdrop-filter: blur(15px);
+}
+
+.stone-lab__section {
+  display: grid;
+  gap: 7px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(23, 25, 22, 0.09);
+}
+
+.stone-lab__section-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.stone-lab__section-title span {
+  color: rgba(23, 25, 22, 0.52);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.stone-lab__section-title em {
+  color: rgba(23, 25, 22, 0.38);
+  font-size: 8px;
+  font-style: normal;
+  letter-spacing: 0.04em;
+}
+
+.stone-lab__section .stone-lab__control-group {
+  width: 100%;
+  border: 0;
+  border-radius: 3px;
+  background: rgba(23, 25, 22, 0.045);
+  box-shadow: none;
+}
+
+.stone-lab__section .stone-lab__control-group button {
+  min-width: 0;
+  flex: 1;
+  padding: 0 6px;
+  border-radius: 2px;
+}
+
+.stone-lab__sliders {
+  display: grid;
+  gap: 10px;
+  padding: 11px 1px 10px;
+}
+
+.stone-lab__slider {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 5px 12px;
+  color: rgba(23, 25, 22, 0.68);
+  font-size: 9px;
+  letter-spacing: 0.018em;
+}
+
+.stone-lab__slider output {
+  color: rgba(23, 25, 22, 0.48);
+  font-variant-numeric: tabular-nums;
+  font-size: 8px;
+}
+
+.stone-lab__slider input {
+  grid-column: 1 / -1;
+  width: 100%;
+  height: 2px;
+  margin: 3px 0 1px;
+  border: 0;
+  border-radius: 99px;
+  accent-color: #1b1e1c;
+  background: rgba(23, 25, 22, 0.16);
+  cursor: pointer;
+}
+
+.stone-lab__sweep {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  min-height: 31px;
+  padding: 0 9px;
+  border: 1px solid rgba(23, 25, 22, 0.1);
+  border-radius: 3px;
+  color: rgba(23, 25, 22, 0.62);
+  background: rgba(245, 244, 240, 0.4);
+  cursor: pointer;
+  font-size: 9px;
+}
+
+.stone-lab__sweep::before {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgba(23, 25, 22, 0.22);
+  content: "";
+}
+
+.stone-lab__sweep.is-active::before {
+  background: #57493c;
+  box-shadow: 0 0 0 3px rgba(87, 73, 60, 0.1);
+}
+
+.stone-lab__sweep span {
+  margin-right: auto;
+}
+
+.stone-lab__sweep i {
+  color: rgba(23, 25, 22, 0.34);
+  font-size: 8px;
+  font-style: normal;
+}
+
+.stone-lab__legend {
+  display: flex;
+  gap: 11px;
+  padding: 9px 2px 0;
+  color: rgba(23, 25, 22, 0.4);
+  font-size: 8px;
+}
+
+.stone-lab__legend span {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.stone-lab__legend i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+}
+
+.stone-lab__legend .is-red {
+  background: #b65252;
+}
+
+.stone-lab__legend .is-green {
+  background: #5c9d6a;
+}
+
+.stone-lab__legend .is-blue {
+  background: #506f9b;
+}
+
+.stone-lab__telemetry {
+  position: absolute;
+  z-index: 3;
+  right: 28px;
+  bottom: 25px;
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 8px 11px;
+  border: 1px solid rgba(23, 25, 22, 0.1);
+  border-radius: 4px;
+  color: rgba(23, 25, 22, 0.46);
+  background: rgba(248, 247, 243, 0.75);
+  backdrop-filter: blur(13px);
+  font-size: 8px;
+  letter-spacing: 0.03em;
+  pointer-events: none;
+}
+
+.stone-lab__telemetry b {
+  color: rgba(23, 25, 22, 0.82);
+  font-weight: 680;
+  font-variant-numeric: tabular-nums;
+}
+
+.stone-lab__budget {
+  padding-left: 13px;
+  border-left: 1px solid rgba(23, 25, 22, 0.11);
+}
+
+.stone-lab__note {
+  position: absolute;
+  z-index: 3;
+  left: 29px;
+  bottom: 27px;
+  display: flex;
+  gap: 12px;
+  color: rgba(23, 25, 22, 0.36);
+  font-size: 8px;
+  letter-spacing: 0.035em;
+  pointer-events: none;
+}
+
+@media (max-width: 820px) {
+  .stone-lab__header {
+    display: grid;
+    gap: 12px;
+    padding: 17px;
+  }
+
+  .stone-lab__title h1 {
+    max-width: 78vw;
+    font-size: clamp(24px, 7.5vw, 34px);
+  }
+
+  .stone-lab__title > span {
+    max-width: 86vw;
+    margin-top: 7px;
+    font-size: 8px;
+  }
+
+  .stone-lab__toolbar {
+    width: max-content;
+    max-width: calc(100vw - 34px);
+    justify-items: start;
+  }
+
+  .stone-lab__control-group {
+    max-width: calc(100vw - 34px);
+    overflow-x: auto;
+  }
+
+  .stone-lab__inspector {
+    top: auto;
+    right: 12px;
+    bottom: 52px;
+    left: 12px;
+    width: auto;
+    max-height: 29vh;
+    overflow-y: auto;
+    padding: 9px;
+  }
+
+  .stone-lab__sliders {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 14px;
+    padding: 9px 1px;
+  }
+
+  .stone-lab__telemetry {
+    right: 12px;
+    bottom: 10px;
+    left: 12px;
+    justify-content: flex-end;
+    gap: 7px 10px;
+    padding: 7px 9px;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+
+  .stone-lab__telemetry span:nth-child(2),
+  .stone-lab__telemetry span:nth-child(4),
+  .stone-lab__budget {
+    display: none;
+  }
+
+  .stone-lab__note {
+    display: none;
+  }
+}
+
+@media (max-height: 620px) and (min-width: 821px) {
+  .stone-lab__inspector {
+    top: 112px;
+    max-height: calc(100vh - 165px);
+    overflow-y: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stone-lab__control-group button {
+    transition: none;
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "id": "black-stone-sculpture",
+  "sourceModel": "assets-source/models/sculpture/sculpture.obj",
+  "webModel": "public/models/sculpture/sculpture.glb",
+  "displayDimensionsMeters": {
+    "width": 1.8241,
+    "height": 2.35,
+    "depth": 2.2974
+  },
+  "geometry": {
+    "meshes": 1,
+    "vertices": 30759,
+    "triangles": 59972
+  },
+  "material": {
+    "drawMaterials": 1,
+    "pbrMaps": 0,
+    "metalness": 0,
+    "transmission": 0,
+    "coordinateSpace": "object",
+    "noiseOctaves": 3
+  },
+  "productIntegrated": false
+}

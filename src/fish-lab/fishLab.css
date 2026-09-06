@@ -1,0 +1,246 @@
+:root {
+  color: #171916;
+  background: #f5f4f0;
+  font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-synthesis: none;
+  text-rendering: geometricPrecision;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#fish-lab-root,
+#asset-lab-root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+button {
+  font: inherit;
+}
+
+.fish-lab {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: #f5f4f0;
+  isolation: isolate;
+}
+
+.fish-lab canvas {
+  position: absolute;
+  inset: 0;
+  width: 100% !important;
+  height: 100% !important;
+  outline: none;
+}
+
+.fish-lab__header {
+  position: absolute;
+  z-index: 3;
+  inset: 0 0 auto 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 2rem;
+  padding: 28px 30px;
+  pointer-events: none;
+}
+
+.fish-lab__header p {
+  margin: 0 0 8px;
+  color: rgba(23, 25, 22, 0.48);
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.18em;
+}
+
+.fish-lab__header h1 {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(26px, 3vw, 43px);
+  font-weight: 400;
+  letter-spacing: -0.028em;
+  line-height: 0.98;
+}
+
+.fish-lab__header span {
+  display: block;
+  margin-top: 10px;
+  color: rgba(23, 25, 22, 0.58);
+  font-size: 11px;
+  letter-spacing: 0.035em;
+}
+
+.fish-lab__controls {
+  display: flex;
+  gap: 5px;
+  padding: 4px;
+  border: 1px solid rgba(24, 27, 24, 0.12);
+  border-radius: 999px;
+  background: rgba(250, 249, 246, 0.78);
+  box-shadow: 0 10px 30px rgba(29, 31, 26, 0.06);
+  backdrop-filter: blur(16px);
+  pointer-events: auto;
+}
+
+.fish-lab__controls button {
+  min-height: 31px;
+  padding: 0 13px;
+  border: 0;
+  border-radius: 999px;
+  color: rgba(23, 25, 22, 0.66);
+  background: transparent;
+  cursor: pointer;
+  font-size: 11px;
+  transition: color 150ms ease, background 150ms ease, box-shadow 150ms ease;
+}
+
+.fish-lab__controls button:hover {
+  color: #161815;
+}
+
+.fish-lab__controls button.is-active {
+  color: #f6f5f1;
+  background: #1c211d;
+  box-shadow: 0 3px 9px rgba(10, 12, 10, 0.18);
+}
+
+.fish-lab__catalog {
+  position: absolute;
+  z-index: 3;
+  top: 128px;
+  left: 30px;
+  width: min(260px, calc(100vw - 60px));
+  display: grid;
+  gap: 6px;
+  pointer-events: none;
+}
+
+.fish-lab__species-card {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 4px 14px;
+  padding: 10px 12px;
+  border-left: 1px solid rgba(23, 25, 22, 0.2);
+  background: linear-gradient(90deg, rgba(245, 244, 240, 0.88), rgba(245, 244, 240, 0));
+}
+
+.fish-lab__species-card div {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+}
+
+.fish-lab__species-card strong {
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.fish-lab__species-card em {
+  color: rgba(23, 25, 22, 0.43);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 10px;
+}
+
+.fish-lab__species-card > span {
+  margin: 0;
+  color: rgba(23, 25, 22, 0.72);
+  font-variant-numeric: tabular-nums;
+  font-size: 10px;
+}
+
+.fish-lab__species-card small {
+  grid-column: 1 / -1;
+  color: rgba(23, 25, 22, 0.4);
+  font-size: 9px;
+  letter-spacing: 0.025em;
+}
+
+.fish-lab__telemetry {
+  position: absolute;
+  z-index: 3;
+  right: 30px;
+  bottom: 27px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 9px 12px;
+  border: 1px solid rgba(23, 25, 22, 0.1);
+  border-radius: 4px;
+  color: rgba(23, 25, 22, 0.48);
+  background: rgba(248, 247, 243, 0.72);
+  backdrop-filter: blur(13px);
+  font-size: 9px;
+  letter-spacing: 0.035em;
+  pointer-events: none;
+}
+
+.fish-lab__telemetry b {
+  color: rgba(23, 25, 22, 0.82);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.fish-lab__budget {
+  padding-left: 14px;
+  border-left: 1px solid rgba(23, 25, 22, 0.12);
+}
+
+.fish-lab__note {
+  position: absolute;
+  z-index: 3;
+  left: 30px;
+  bottom: 29px;
+  display: flex;
+  gap: 12px;
+  color: rgba(23, 25, 22, 0.38);
+  font-size: 9px;
+  letter-spacing: 0.035em;
+  pointer-events: none;
+}
+
+@media (max-width: 820px) {
+  .fish-lab__header {
+    display: grid;
+    gap: 14px;
+    padding: 18px;
+  }
+
+  .fish-lab__controls {
+    width: max-content;
+    max-width: calc(100vw - 36px);
+    overflow-x: auto;
+  }
+
+  .fish-lab__catalog {
+    top: 160px;
+    left: 18px;
+    width: 220px;
+  }
+
+  .fish-lab__telemetry {
+    right: 14px;
+    bottom: 14px;
+    max-width: calc(100vw - 28px);
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 7px 11px;
+  }
+
+  .fish-lab__note {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fish-lab__controls button {
+    transition: none;
+  }
+}
