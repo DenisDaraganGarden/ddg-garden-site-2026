@@ -198,7 +198,7 @@ function WaterRuntimeScene({
   );
   const terrainKey = JSON.stringify(Object.fromEntries(Object.entries(settings).filter(([key]) => key.startsWith('terrain') || key === 'waterDepthMeters')));
   const terrainDefinition = useMemo(() => createTerrainDefinition(JSON.parse(terrainKey)), [terrainKey]);
-  const rockKey=JSON.stringify({...JSON.parse(terrainGeometryKey(terrainDefinition)),terrainRocks:terrainDefinition.terrainRocks});
+  const rockKey=JSON.stringify({...JSON.parse(terrainGeometryKey(terrainDefinition)),terrainRocks:terrainDefinition.terrainRocks,terrainRocksEnabled:terrainDefinition.terrainRocksEnabled,terrainRockSize:terrainDefinition.terrainRockSize,terrainDebris:terrainDefinition.terrainDebris});
   const rockDefinition=useMemo(()=>createTerrainDefinition(JSON.parse(rockKey)),[rockKey]);
   const terrainRocks=useMemo(()=>buildCoastRocks(rockDefinition),[rockDefinition]);
   const queryKey=JSON.stringify(Object.fromEntries(Object.entries(terrainDefinition).filter(([key])=>!['terrainTextureScale','terrainParallax','terrainGroundCover','terrainBloom'].includes(key))));

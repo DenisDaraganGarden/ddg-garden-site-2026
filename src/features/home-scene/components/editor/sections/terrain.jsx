@@ -6,7 +6,7 @@ const groups=[
  ['Береговая линия','Coastline',[
   ['terrainBearing','Направление суши от севера','Landward bearing','°'],['terrainOffset','Смещение берега','Shore offset',' m'],['terrainLength','Длина побережья','Coast length',' m'],['terrainLandWidth','Глубина суши','Inland extent',' m'],['terrainCurve','Изгибы берега','Shore curvature',' m'],['terrainSeed','Вариант рельефа','Terrain seed','']]],
  ['Пляж и обрыв','Beach and bluff',[
-  ['terrainBeachWidth','Ширина пляжа','Beach width',' m'],['terrainCliffHeight','Высота обрыва','Bluff height',' m'],['terrainCliffSlope','Ширина склона','Bluff slope width',' m'],['terrainCapeDepth','Выступ мыса','Cape projection',' m'],['terrainCapePosition','Положение мыса вдоль берега','Cape along coast',' m'],['terrainCapeWidth','Ширина мыса','Cape width',' m'],['terrainRocks','Каменные осыпи','Rock scatter','']]],
+  ['terrainBeachWidth','Ширина пляжа','Beach width',' m'],['terrainCliffHeight','Высота обрыва','Bluff height',' m'],['terrainCliffSlope','Ширина склона','Bluff slope width',' m'],['terrainCapeDepth','Выступ мыса','Cape projection',' m'],['terrainCapePosition','Положение мыса вдоль берега','Cape along coast',' m'],['terrainCapeWidth','Ширина мыса','Cape width',' m']]],
  ['Эрозия и спуски','Erosion and access',[
   ['terrainFeatureScale','Масштаб участков','Landform spacing',' m'],['terrainLandslides','Оползни и обвалы','Landslides',''],['terrainErosion','Промоины и расщелины','Ravines and rills',''],['terrainPaths','Частота спусков','Descent frequency',''],['terrainPathWidth','Ширина тропы','Path width',' m']]],
  ['Поверхность','Surface',[

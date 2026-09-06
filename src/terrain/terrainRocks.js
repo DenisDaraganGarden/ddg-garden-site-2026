@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { ConvexGeometry } from 'three/addons/geometries/ConvexGeometry.js';
+import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { coastPoint,coastHeight,sampleTerrainHeight } from './terrainModel.js';
 import { coastProfile } from './terrainLandforms.js';
 export function makeRockGeometry() {
@@ -11,19 +12,30 @@ export function makeRockGeometry() {
   }
   const geometry=new ConvexGeometry(points);geometry.computeBoundingBox();return geometry;
 }
+export const PEBBLE_PALETTE=Object.freeze(['#b3aa9a','#c4b9a4','#9a9286','#d3c8b5','#8e8779','#bfae95','#a8a49b','#e0d6c3']);
+export const createPebbleMaterial=()=>new THREE.MeshStandardMaterial({color:'#ffffff',roughness:.82});
+// A rounded pebble: a subdivided icosahedron with its vertices welded so it
+// shades smooth, each pushed in or out a little so no facet reads as a crystal.
+export function makePebbleGeometry() {
+  const geometry=mergeVertices(new THREE.IcosahedronGeometry(1,1)),position=geometry.attributes.position;
+  let seed=7;const random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
+  for(let i=0;i<position.count;i++){const k=.88+random()*.24;position.setXYZ(i,position.getX(i)*k,position.getY(i)*k,position.getZ(i)*k);}
+  geometry.computeVertexNormals();geometry.computeBoundingBox();return geometry;
+}
 export function buildCoastRocks(p) {
+  if(p.terrainRocksEnabled===false)return [];
   let seed=p.terrainSeed;const random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
   const rocks=[];const count=Math.floor(p.terrainLength*.2*p.terrainRocks);
   for(let i=0;i<count;i++){
     const s=(random()-.5)*(p.terrainLength-80);const nearWater=random()<.3;
     const profile=coastProfile(s,p);
     const q=nearWater?-1+random()*4:profile.foot-.5-random()*(2.5+profile.slide*4);
-    const point=coastPoint(q,s,p),size=.18+Math.pow(random(),3)*3.2;
+    const point=coastPoint(q,s,p),size=(.18+Math.pow(random(),3)*3.2)*(p.terrainRockSize??1);
     rocks.push({x:point.x,y:coastHeight(q,s,p)+size*.24,z:point.z,s,q,scale:[size*(1+random()),size*(.4+random()*.35),size*(.75+random())],rotation:[(random()-.5)*.5,random()*Math.PI*2,(random()-.5)*.3]});
   }
   // Small angular fragments collect below failures and drainage mouths.
   // A bounded instanced batch shares the same rock collision adapter.
-  for(let i=0;i<Math.floor(p.terrainLength*2*p.terrainRocks);i++){
+  for(let i=0;i<Math.floor(p.terrainLength*2*(p.terrainDebris??p.terrainRocks));i++){
     const s=(random()-.5)*(p.terrainLength-80),f=coastProfile(s,p);
     if(random()>Math.min(.85,f.slide*.9+f.ravine*.55))continue;
     const q=f.foot-3.5+random()*(4+f.width*.26),point=coastPoint(q,s,p),size=.07+Math.pow(random(),2)*.66;

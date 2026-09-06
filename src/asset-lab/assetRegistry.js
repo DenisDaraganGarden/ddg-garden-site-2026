@@ -6,6 +6,7 @@ import TankerLab from '../tanker-lab/TankerLab';
 import BoatLab from '../boat-lab/BoatLab';
 import { OleasterLab, TreeLab } from '../plant-lab/PlantLab';
 import { AlgaeLab, LiliesLab } from '../water-plant-lab/WaterPlantLab';
+import RockLab from '../rock-lab/RockLab';
 
 const COMPONENTS = {
   'river-fish': FishLab,
@@ -17,6 +18,7 @@ const COMPONENTS = {
   tree: TreeLab,
   lilies: LiliesLab,
   algae: AlgaeLab,
+  rocks: RockLab,
 };
 
 export { DEFAULT_ASSET_COLLECTION };

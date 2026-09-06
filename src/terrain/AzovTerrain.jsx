@@ -7,7 +7,7 @@ import { createTerrainDefinition, coastCoordinates, shorePosition, coastPoint, C
 import { createTerrainMaterial } from './terrainMaterial.js';
 import { syncCoastUniforms } from './terrainShader.js';
 import WaterSurfaceV2 from '../components/effects/water/WaterSurface';
-import CoastShells from './CoastShells.jsx';
+import { CoastShells, CoastPebbles } from './CoastScatter.jsx';
 import { TERRAIN_MAP_NAMES,createTerrainTextureArrays } from './terrainTextures.js';
 import {terrainGeometryKey} from './settings.js';
 import {updateEcologyUniforms} from '../plants/plantEcology.js';
@@ -115,7 +115,7 @@ export default function AzovTerrain({ definition, settings, qualityProfile, ligh
   const meshDefinition=useMemo(()=>createTerrainDefinition(JSON.parse(meshKey)),[meshKey]);
   const shared={definition:meshDefinition,settings,qualityProfile,lighting,sky,runtime};
   return <>
-    <group ref={land} name="azov-terrain">{strips.map(s0=><TerrainStrip key={s0} {...shared} s0={s0} material={materials.land}/>)}<CoastRocks rocks={boulders} material={materials.rock}/><CoastRocks rocks={fragments} material={materials.debris}/><CoastShells definition={definition} qualityProfile={qualityProfile} lighting={lighting}/></group>
+    <group ref={land} name="azov-terrain">{strips.map(s0=><TerrainStrip key={s0} {...shared} s0={s0} material={materials.land}/>)}<CoastRocks rocks={boulders} material={materials.rock}/><CoastRocks rocks={fragments} material={materials.debris}/><CoastShells definition={definition} qualityProfile={qualityProfile} lighting={lighting}/><CoastPebbles definition={definition} qualityProfile={qualityProfile} lighting={lighting}/></group>
     {settings.waterVisible ? <group name="coast-water">{strips.map(s0=><TerrainStrip key={s0} {...shared} s0={s0} water/>)}</group> : null}
   </>;
 }
