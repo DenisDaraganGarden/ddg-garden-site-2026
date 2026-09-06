@@ -43,6 +43,12 @@ then leaves shadowing, environment reflection, fog and tone mapping to Three.js.
 `updateTankerMaterials` accepts hull colour, wear, wetness, roughness, wireframe
 and night weight. Night weight controls the port, starboard and mast emissives.
 
+`lights.js` adds the navigation and deck lights as point sprites: one `Points`
+draw call, a pixel floor so the ship keeps its lights at the horizon, patterns
+per lamp (steady, strobe, lighthouse-style beacon, mains flicker). The caller
+drives `updateTankerLights` every frame with time, night weight, intensity,
+beacon period and the drawing-buffer height; the reference GLB export hides them.
+
 The lab's **Scene light** option consumes `buildHomeSceneLighting`, including its
 sun direction, atmospheric colour, cloud response and night weight. Studio
 background remains warm white. Time/cloud controls affect Scene light; exposure

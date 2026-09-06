@@ -4,11 +4,13 @@ export const DEFAULT_TANKER_SETTINGS = Object.freeze({
   tankerRouteLength: 8000, tankerSeaState: 0.35,
   tankerWear: 0.45, tankerWetness: 0.6, tankerRoughness: 0.65,
   tankerWake: true,
+  tankerLights: true, tankerLightsIntensity: 1, tankerBeaconPeriod: 4,
 });
 const ranges = {
   tankerX: [-8000, 8000], tankerZ: [-8000, 8000], tankerBearing: [0, 360],
   tankerSpeed: [0, 14], tankerRouteLength: [500, 16000], tankerSeaState: [0, 1],
   tankerWear: [0, 1], tankerWetness: [0, 1], tankerRoughness: [0.1, 1],
+  tankerLightsIntensity: [0, 3], tankerBeaconPeriod: [1, 12],
 };
 export function normalizeTankerSettings(source = {}) {
   return Object.fromEntries(Object.entries(DEFAULT_TANKER_SETTINGS).map(([key, fallback]) => {

@@ -20,6 +20,8 @@ await fs.mkdir(output, { recursive: true });
 const variants = [];
 for (const lod of ['near', 'horizon']) {
   const asset = createTanker({ lod, procedural: false });
+  // The light sprites are runtime-only; the reference GLB keeps the hull.
+  asset.lights.points.visible = false;
   const data = await new GLTFExporter().parseAsync(asset.group, { binary: true, onlyVisible: true });
   const filename = `river-sea-tanker-${lod}.glb`;
   await fs.writeFile(new URL(filename, output), Buffer.from(data));

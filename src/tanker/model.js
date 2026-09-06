@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { createTankerMaterials } from './materials.js';
+import { createTankerLights, disposeTankerLights } from './lights.js';
 
 export const TANKER_DIMENSIONS = Object.freeze({ length: 138, beam: 16.6, draft: 4.5, deck: 3.3, mast: 28 });
 
@@ -202,10 +203,16 @@ export function createTanker({ lod = 'near', procedural = true } = {}) {
   const bounds = new THREE.Box3().setFromObject(group);
   const size = bounds.getSize(new THREE.Vector3());
   const triangles = group.children.reduce((count, mesh) => count + mesh.geometry.attributes.position.count / 3, 0);
-  return { group, materials, metrics: { lod, meshes: group.children.length, triangles, length: size.x, height: size.y, beam: size.z } };
+  const metrics = { lod, meshes: group.children.length, triangles, length: size.x, height: size.y, beam: size.z };
+  // The lights are sprites, not geometry: they join after the metrics so the
+  // mesh and triangle budgets keep describing the hull.
+  const lights = createTankerLights();
+  group.add(lights.points);
+  return { group, materials, lights, metrics };
 }
 
 export function disposeTanker(asset) {
-  asset.group.traverse((object) => object.geometry?.dispose());
+  asset.group.traverse((object) => { if (object.isMesh) object.geometry?.dispose(); });
   Object.values(asset.materials).forEach((material) => material.dispose());
+  disposeTankerLights(asset.lights);
 }

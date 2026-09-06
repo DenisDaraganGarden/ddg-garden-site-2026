@@ -110,6 +110,7 @@ export default function AssetStudio({
   cameraFar = 40,
   fogRange,
   pixelRatio = [1, 1.5],
+  background = STUDIO_BACKGROUND,
 }) {
   const flightView = view.startsWith('flight') || view === 'landing';
   const stoneLighting = lightingPreset === 'black-stone';
@@ -127,8 +128,8 @@ export default function AssetStudio({
         gl.toneMappingExposure = 1.04;
       }}
     >
-      <color attach="background" args={[STUDIO_BACKGROUND]} />
-      <fog attach="fog" args={[STUDIO_BACKGROUND, fogRange?.[0] ?? (cameraViews ? 28 : (flightView ? 32 : 6.2)), fogRange?.[1] ?? (cameraViews ? 40 : (flightView ? 48 : 10.5))]} />
+      <color attach="background" args={[background]} />
+      <fog attach="fog" args={[background, fogRange?.[0] ?? (cameraViews ? 28 : (flightView ? 32 : 6.2)), fogRange?.[1] ?? (cameraViews ? 40 : (flightView ? 48 : 10.5))]} />
       <StudioEnvironment />
       <StudioExposure exposure={exposure} environmentIntensity={environmentIntensity} />
       <hemisphereLight args={['#f9fbff', '#b8afa1', lighting ? (0.35 + lighting.fill.intensity) : (stoneLighting ? 0.34 : 1.35)]} />

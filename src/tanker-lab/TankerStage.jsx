@@ -4,6 +4,7 @@ import { useFrame, useThree } from '@react-three/fiber';
 import { createTanker, disposeTanker } from '../tanker/model';
 import { updateTankerMaterials } from '../tanker/materials';
 import { sampleTankerMotion } from '../tanker/motion';
+import { updateTankerLights } from '../tanker/lights.js';
 import TankerWake from '../tanker/TankerWake';
 
 export default function TankerStage({ settings, night, audioRef, onStats, paused }) {
@@ -25,6 +26,7 @@ export default function TankerStage({ settings, night, audioRef, onStats, paused
   }), [asset, lod, settings.count]);
   const vectors = useMemo(() => ({ position: new THREE.Vector3(), forward: new THREE.Vector3(), up: new THREE.Vector3(), direction: new THREE.Vector3() }), []);
   const uniforms = useMemo(() => ({ uTime: { value: 0 }, uSpeed: { value: 0.7 }, uColor: { value: new THREE.Color('#c0cdc4') } }), []);
+  const drawingBuffer = useMemo(() => new THREE.Vector2(), []);
   const isWater = settings.mode !== 'studio';
   const scale = settings.mode === 'horizon' ? 0.045 * 220 / settings.distance : settings.count > 1 ? 0.01 : 0.045;
   const waterY = -0.78;
@@ -59,6 +61,13 @@ export default function TankerStage({ settings, night, audioRef, onStats, paused
     }
     uniforms.uTime.value = timer.current;
     uniforms.uSpeed.value = motion.wake * settings.wake;
+    gl.getDrawingBufferSize(drawingBuffer);
+    updateTankerLights(asset.lights, {
+      time: timer.current, night,
+      intensity: settings.lights ? settings.lightsIntensity : 0, dayLevel: settings.lightsDay,
+      beaconPeriod: settings.beaconPeriod, sizeScale: settings.lightsSize,
+      pixelRatio: gl.getPixelRatio(), viewportHeight: drawingBuffer.y,
+    });
 
     if (audioRef.current?.sound && state.clock.elapsedTime - lastAudio.current > 0.045) {
       const audioDelta = state.clock.elapsedTime - lastAudio.current;

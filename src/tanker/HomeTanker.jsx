@@ -3,6 +3,7 @@ import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { createTanker, disposeTanker } from './model.js';
 import { updateTankerMaterials } from './materials.js';
+import { updateTankerLights } from './lights.js';
 import { KNOTS_TO_METERS_PER_SECOND, sampleTankerMotion } from './motion.js';
 import TankerWake from './TankerWake.jsx';
 import { coastWeather } from '../terrain/settings.js';
@@ -14,6 +15,7 @@ export default function HomeTanker({ settings, lighting, audioRuntime }) {
   const models = useMemo(() => ({ near: createTanker(), far: createTanker({ lod: 'horizon' }) }), []);
   const wake = useMemo(() => ({ uTime: { value: 0 }, uSpeed: { value: 0 }, uColor: { value: new THREE.Color() } }), []);
   const position = useMemo(() => new THREE.Vector3(), []);
+  const drawingBuffer = useMemo(() => new THREE.Vector2(), []);
   useEffect(() => () => {
     disposeTanker(models.near); disposeTanker(models.far);
   }, [models]);
@@ -56,6 +58,16 @@ export default function HomeTanker({ settings, lighting, audioRuntime }) {
     }
     wake.uTime.value = elapsed.current;
     wake.uSpeed.value = motion.wake;
+    gl.getDrawingBufferSize(drawingBuffer);
+    const night = lighting.sky.nightFactor ?? lighting.sky.night ?? (lighting.key.direction[1] < 0.04 ? 1 : 0);
+    for (const model of Object.values(models)) {
+      updateTankerLights(model.lights, {
+        time: elapsed.current, night,
+        intensity: settings.tankerLights ? settings.tankerLightsIntensity : 0,
+        beaconPeriod: settings.tankerBeaconPeriod,
+        pixelRatio: gl.getPixelRatio(), viewportHeight: drawingBuffer.y,
+      });
+    }
     audioRuntime?.updateTanker?.({
       source: [position.x, position.y + 8, position.z], distance,
       speedKnots: settings.tankerSpeed,

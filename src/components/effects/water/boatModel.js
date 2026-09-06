@@ -18,6 +18,16 @@ export function createBoatMaterials(gl, boatTextures, look, envReflection) {
   const [baseColorMap, roughnessMap, bumpMap] = boatTextures;
 
   configureMaps(gl, { color: [baseColorMap], data: [roughnessMap, bumpMap] });
+  // The planks are unwrapped with tiling coordinates (u runs to 5.9, v to 4.4),
+  // so the maps must repeat. TextureLoader clamps by default, and a clamped map
+  // smears every plank past the first tile into streaks that read as grain
+  // running the wrong way.
+  boatTextures.forEach((texture) => {
+    if (texture.wrapS === THREE.RepeatWrapping) return;
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.needsUpdate = true;
+  });
 
   // Wood hull/oars: PBR maps authored in 3ds Max (no more flat-graphite override).
   const woodMaterial = new THREE.MeshPhysicalMaterial({
