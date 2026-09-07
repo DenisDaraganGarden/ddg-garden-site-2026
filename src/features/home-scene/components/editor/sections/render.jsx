@@ -48,6 +48,7 @@ export const VisibilitySection = ({ settings, handleSettingChange }) => {
                                 label={t(`homeEditor.controls.${key}`)}
                                 checked={Boolean(settings[key])}
                                 onChange={(event) => handleSettingChange(event, key, 'boolean')}
+                                testId={`home-editor-visible-${key}`}
                             />
                         ))}
                     </React.Fragment>

@@ -25,18 +25,14 @@ const HOME_SCENE_SETTINGS_STORAGE_KEY = 'ddg_home_scene_settings_v1';
 const LEGACY_HOME_SCENE_KEYS = ['ddg_snake_settings_v4', 'ddg_snake_settings_v3'];
 // Editor-only aids. They are deliberately not published: they belong to whoever is
 // authoring the scene, not to the scene itself.
-// Position of the boat switch in the Visibility list, which this check drives by
-// index. It must track the `flags` array in editor/sections/render.jsx - water,
-// far water, sky, seabed, lilies, algae, boat, sculpture, reflections - so
-// adding a switch above the boat moves this number.
-const BOAT_VISIBILITY_INDEX = 6;
-
 const DEV_LOCAL_EDITOR_KEYS = new Set([
   'animationPaused',
   'showPerformanceHud',
   'showPointerDebug',
   'freeCamera',
   'debugWireframe',
+  'editorHeadingColor',
+  'editorCursor',
 ]);
 const FILM_CONTROL_IDS = [
   'home-editor-film-enabled',
@@ -439,6 +435,11 @@ async function setRangeValue(locator, value) {
   }, value);
 }
 
+async function openEditorSection(page, group, node) {
+  await page.getByTestId(`home-editor-group-${group}`).click();
+  await page.getByTestId(`home-editor-tab-${node}`).click();
+}
+
 async function importFresh(modulePath) {
   const fileUrl = new URL(pathToFileURL(modulePath).href);
   fileUrl.searchParams.set('t', `${Date.now()}-${Math.random()}`);
@@ -750,6 +751,9 @@ async function runEditorPublishCoverageChecks() {
   const missingKeys = editorKeys.filter(
     (key) => !publishedKeySet.has(key) && !DEV_LOCAL_EDITOR_KEYS.has(key),
   );
+  const leakedLocalKeys = [...DEV_LOCAL_EDITOR_KEYS].filter(key => publishedKeySet.has(key));
+
+  assert(leakedLocalKeys.length === 0, `Editor preferences must remain local: ${leakedLocalKeys.join(', ')}`);
 
   assert(
     missingKeys.length === 0,
@@ -774,12 +778,11 @@ async function runCameraSystemChecks(browser) {
 
   await page.goto(`${baseUrl}/home/edit`, { waitUntil: 'domcontentloaded' });
   await expectVisible(page, page.getByTestId('home-editor-page'), 'camera editor');
-  await page.getByTestId('home-editor-group-render').click();
-  await page.getByTestId('home-editor-tab-post').click();
+  await openEditorSection(page, 'render', 'post');
   for (const testId of FILM_CONTROL_IDS) {
     await expectVisible(page, page.getByTestId(testId), `film control ${testId}`);
   }
-  await page.getByTestId('home-editor-tab-camera').click();
+  await openEditorSection(page, 'cameras', 'camera');
   await expectVisible(page, page.getByTestId('home-editor-camera-list'), 'camera list');
   assert(await page.getByTestId('home-editor-free-camera-badge').count() === 0, 'Free-camera badge should stay removed');
   assert(await page.locator('.home-editor-camera-row').count() === 1, 'Legacy scene should migrate to one camera');
@@ -790,7 +793,7 @@ async function runCameraSystemChecks(browser) {
     'Adding a camera should create a second row',
   );
 
-  await page.getByTestId('home-editor-tab-post').click();
+  await openEditorSection(page, 'render', 'post');
   await page.getByTestId('home-editor-film-enabled').check();
   await waitForCondition(
     async () => (await page.locator('canvas[data-ddg-film="on"]').count()) === 1,
@@ -806,9 +809,9 @@ async function runCameraSystemChecks(browser) {
   await setRangeValue(page.getByTestId('home-editor-film-gate-weave-amount'), 1.25);
   await setRangeValue(page.getByTestId('home-editor-film-gate-weave-rate'), 7.5);
 
-  await page.getByTestId('home-editor-tab-camera').click();
+  await openEditorSection(page, 'cameras', 'camera');
   await page.getByTestId('home-editor-camera-select-camera-1').click();
-  await page.getByTestId('home-editor-tab-post').click();
+  await openEditorSection(page, 'render', 'post');
   assert(!(await page.getByTestId('home-editor-film-enabled').isChecked()), 'Camera 1 film toggle should remain independent');
   await waitForCondition(
     async () => (await page.locator('canvas[data-ddg-film="off"]').count()) === 1,
@@ -817,9 +820,9 @@ async function runCameraSystemChecks(browser) {
   assert(await page.getByTestId('home-editor-film-stock').inputValue() === '16mm', 'Camera 1 film stock should remain independent');
   assert(Number(await page.getByTestId('home-editor-film-grain-amount').inputValue()) === 0.28, 'Camera 1 grain should remain independent');
 
-  await page.getByTestId('home-editor-tab-camera').click();
+  await openEditorSection(page, 'cameras', 'camera');
   await page.getByTestId('home-editor-camera-select-camera-2').click();
-  await page.getByTestId('home-editor-tab-post').click();
+  await openEditorSection(page, 'render', 'post');
   assert(await page.getByTestId('home-editor-film-enabled').isChecked(), 'Camera 2 film toggle should persist');
   await waitForCondition(
     async () => (await page.locator('canvas[data-ddg-film="on"]').count()) === 1,
@@ -834,7 +837,7 @@ async function runCameraSystemChecks(browser) {
   assert(Number(await page.getByTestId('home-editor-film-gate-weave-amount').inputValue()) === 1.25, 'Camera 2 weave should persist');
   assert(Number(await page.getByTestId('home-editor-film-gate-weave-rate').inputValue()) === 7.5, 'Camera 2 weave rate should persist');
 
-  await page.getByTestId('home-editor-tab-camera').click();
+  await openEditorSection(page, 'cameras', 'camera');
 
   let ranges = page.locator('.home-editor-controls input[type="range"]');
   assert(Number(await ranges.nth(0).getAttribute('min')) === 1, 'Camera FOV slider should allow 1 degree');
@@ -846,31 +849,31 @@ async function runCameraSystemChecks(browser) {
   ranges = page.locator('.home-editor-controls input[type="range"]');
   assert(Number(await ranges.nth(0).inputValue()) === 1, 'Desktop camera FOV should retain the 1 degree minimum');
 
-  await page.getByTestId('home-editor-tab-visibility').click();
-  const visibilityChecks = page.locator('.home-editor-controls input[type="checkbox"]');
-  await visibilityChecks.nth(BOAT_VISIBILITY_INDEX).uncheck();
+  await openEditorSection(page, 'render', 'visibility');
+  const boatVisibility = page.getByTestId('home-editor-visible-boatVisible');
+  await boatVisibility.uncheck();
   assert(
-    !(await visibilityChecks.nth(BOAT_VISIBILITY_INDEX).isChecked()),
+    !(await boatVisibility.isChecked()),
     'Camera 2 should hide the boat',
   );
 
-  await page.getByTestId('home-editor-tab-camera').click();
+  await openEditorSection(page, 'cameras', 'camera');
   await page.getByTestId('home-editor-camera-select-camera-1').click();
-  await page.getByTestId('home-editor-tab-visibility').click();
+  await openEditorSection(page, 'render', 'visibility');
   assert(
-    await page.locator('.home-editor-controls input[type="checkbox"]').nth(BOAT_VISIBILITY_INDEX).isChecked(),
+    await page.getByTestId('home-editor-visible-boatVisible').isChecked(),
     'Camera 1 should retain its independent boat visibility',
   );
 
-  await page.getByTestId('home-editor-tab-camera').click();
+  await openEditorSection(page, 'cameras', 'camera');
   await page.getByTestId('home-editor-camera-select-camera-2').click();
-  await page.getByTestId('home-editor-tab-visibility').click();
+  await openEditorSection(page, 'render', 'visibility');
   assert(
-    !(await page.locator('.home-editor-controls input[type="checkbox"]').nth(BOAT_VISIBILITY_INDEX).isChecked()),
+    !(await page.getByTestId('home-editor-visible-boatVisible').isChecked()),
     'Camera 2 should restore its hidden boat',
   );
 
-  await page.getByTestId('home-editor-tab-camera').click();
+  await openEditorSection(page, 'cameras', 'camera');
   await page.getByTestId('home-editor-camera-name-camera-2').fill('Second shot');
   await page.getByTestId('home-editor-camera-duration-camera-2').fill('1');
   await page.getByTestId('home-editor-camera-up-camera-2').click();
@@ -936,7 +939,7 @@ async function runPublishChecks(browser) {
       'Publish button should be disabled when there are no unsaved changes',
     );
 
-    await page.getByTestId('home-editor-tab-water').click();
+    await openEditorSection(page, 'landscape', 'water');
     const ranges = page.locator('.home-editor-controls input[type="range"]');
     await expectVisible(page, ranges.nth(1), 'water tab sliders');
 
@@ -944,8 +947,7 @@ async function runPublishChecks(browser) {
     await setRangeValue(ranges.nth(1), 0.08); // waveAmplitude
     await settlePage(page, 200);
 
-    await page.getByTestId('home-editor-group-objects').click();
-    await page.getByTestId('home-editor-tab-boat').click();
+    await openEditorSection(page, 'objects', 'boat');
     // Sliders are addressed positionally, so this list mirrors BoatSection's order:
     // 0 position.x, 1 position.z, 2 yaw, 3 height, 4 scale, 5 roughness, 6 reflection.
     const boatRanges = page.locator('.home-editor-controls input[type="range"]');
@@ -955,8 +957,7 @@ async function runPublishChecks(browser) {
     await setRangeValue(boatRanges.nth(5), 0.41); // boatRoughness
     await settlePage(page, 220);
 
-    await page.getByTestId('home-editor-group-render').click();
-    await page.getByTestId('home-editor-tab-post').click();
+    await openEditorSection(page, 'render', 'post');
     await page.getByTestId('home-editor-film-enabled').check();
     await page.getByTestId('home-editor-film-stock').selectOption('sepia');
     await setRangeValue(page.getByTestId('home-editor-film-grain-amount'), 0.37);
@@ -1128,6 +1129,8 @@ async function runMobileChecks(browser) {
 
 async function main() {
   try {
+    // This contract is pure filesystem work: fail before launching a browser.
+    if (smokePhase === 'all' || smokePhase === 'scene') await runEditorPublishCoverageChecks();
     installProcessGuards();
     startSmokeWatchdog();
 
@@ -1170,7 +1173,6 @@ async function main() {
         ...(await runRouteChecks(sceneBrowser)),
         ...(await runAudioLifecycleChecks(sceneBrowser)),
         ...(await runWebglFallbackChecks(sceneBrowser)),
-        ...(await runEditorPublishCoverageChecks()),
         ...(await runDraftMigrationChecks(sceneBrowser)),
         ...(await runCameraSystemChecks(sceneBrowser)),
       );
@@ -1212,4 +1214,6 @@ async function main() {
   }
 }
 
-await main();
+// A quick local check that starts no server/browser and runs no process cleanup.
+if (smokePhase === 'coverage') await runEditorPublishCoverageChecks();
+else await main();
