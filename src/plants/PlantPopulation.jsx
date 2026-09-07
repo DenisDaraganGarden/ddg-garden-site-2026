@@ -61,7 +61,10 @@ export default function PlantPopulation({model,settings,atlas,placements,paused=
   if(settings.blossom>0)tint.lerp(blossomTint.set(settings.blossomColor??'#f7f0e8'),Math.min(1,settings.blossom));
   materials.leaves.color.copy(tint).multiplyScalar(tone);farMaterial.color.setScalar(tone);
   const bark=materials.bark.color.set(settings.barkColor??model.barkColor??'#685b44'),far=farMaterial.userData.uniforms;
-  far.uPlantLeafTint.value.copy(tint);far.uPlantBarkColor.value.copy(bark).multiplyScalar(1.5);
+  // The near bark carries a procedural grain that averages .86 of its colour (plantMaterials.js); the
+  // card bakes bark white, so it gets the same mean. The audit measured the old x1.5 as far trunks
+  // 1.7x brighter than near ones (docs/tree-lab-plan.md, аудит 7 сентября).
+  far.uPlantLeafTint.value.copy(tint);far.uPlantBarkColor.value.copy(bark).multiplyScalar(.86);
   for(const m of [materials.bark,materials.leaves,farMaterial])m.wireframe=settings.wireframe;
   farMaterial.roughness=settings.roughness;
   // One specimen uses true camera distance. Population partitions instances by
