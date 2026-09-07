@@ -8,6 +8,7 @@ import { GrassLab, OleasterLab, TreeLab } from '../plant-lab/PlantLab';
 import { AlgaeLab, LiliesLab } from '../water-plant-lab/WaterPlantLab';
 import RockLab from '../rock-lab/RockLab';
 import DriftwoodLab from '../driftwood-lab/DriftwoodLab';
+import CloudLab from '../cloud-lab/CloudLab';
 
 const COMPONENTS = {
   'river-fish': FishLab,
@@ -22,6 +23,7 @@ const COMPONENTS = {
   grass: GrassLab,
   rocks: RockLab,
   driftwood: DriftwoodLab,
+  clouds: CloudLab,
 };
 
 export { DEFAULT_ASSET_COLLECTION };

@@ -6,6 +6,7 @@ export const ASSET_GROUPS = Object.freeze([
   { id: 'objects', ru: 'Объекты', en: 'Objects' },
   { id: 'greenery', ru: 'Озеленение', en: 'Greenery' },
   { id: 'landscape', ru: 'Ландшафт', en: 'Landscape' },
+  { id: 'atmosphere', ru: 'Атмосфера', en: 'Atmosphere' },
 ]);
 
 export const ASSET_CATALOG = Object.freeze([
@@ -21,6 +22,7 @@ export const ASSET_CATALOG = Object.freeze([
   { index: '10', id: 'grass', group: 'greenery', ru: 'Травы', en: 'Grasses', title: { ru: 'Травы Азовского берега', en: 'Azov coast grasses' } },
   { index: '11', id: 'rocks', group: 'landscape', ru: 'Камни', en: 'Rocks', title: { ru: 'Камни · валуны, осыпь, галька', en: 'Rocks · boulders, debris, pebbles' } },
   { index: '12', id: 'driftwood', group: 'landscape', ru: 'Коряги', en: 'Driftwood', title: { ru: 'Коряги и камни', en: 'Driftwood & stones' } },
+  { index: '13', id: 'clouds', group: 'atmosphere', ru: 'Облака', en: 'Clouds', title: { ru: 'Живописные облака', en: 'Painterly clouds' } },
 ]);
 
 export const DEFAULT_ASSET_COLLECTION = 'river-fish';
