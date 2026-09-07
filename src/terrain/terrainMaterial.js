@@ -140,11 +140,11 @@ export function createTerrainMaterial(textures,p,rockOnly=false){
    // The mesh is the analytic height at its vertices, so the drawn surface is
    // the ground here to within the display error - millimetres on the beach,
    // where wetness and foam read it - and forty transcendentals a pixel cheaper.
-   vec2 qs=coastLocal(vTerrainWorld.xz);float groundY=vTerrainWorld.y;
+   vec2 qs=coastLocal(vTerrainWorld.xz),surfQS=coastSurfLocal(qs);float groundY=vTerrainWorld.y;
    vec3 forms=coastLandforms(qs.y);vec4 profile=coastProfile(qs.y,forms);
    float rockWeight=max(uRockOnly,1.0-smoothstep(.70,.965,abs(terrainN.y)));
    // The swash lives in a band around the waterline; the bluff and plateau skip it.
-   bool surfBand=qs.x>-26.0&&qs.x<12.0;
+   bool surfBand=surfQS.x>-26.0&&surfQS.x<12.0;
    float wet=surfBand?coastWetnessAtHeight(qs,uTerrainTime,groundY):(groundY<0.0?coastMask(qs):0.0);
    float caustic=groundY<-.02?shelfCaustics(vTerrainWorld.xz,-groundY-.02):0.0;
    float foamTrace=surfBand?coastSandFoamAtHeight(qs,vTerrainWorld,uTerrainTime,groundY)*smoothstep(.28,.88,terrainN.y)*(1.0-rockWeight*.32):0.0;
@@ -152,12 +152,12 @@ export function createTerrainMaterial(textures,p,rockOnly=false){
    // Height above the run-up envelope the wet sand dries by, frozen in time so
    // what the sea leaves along that line does not float with the tide.
    float sandSeed=uCoastShape.w*.031,margin=max(.04,uCoastSurface.w*.035);
-   float runup=(surfBand&&qs.x>0.0)?max(margin,coastWaveGain(qs,0.0)):margin,above=groundY-runup;
+   float runup=(surfBand&&surfQS.x>0.0)?max(margin,coastWaveGain(qs,0.0)):margin,above=groundY-runup;
    float dist=distance(cameraPosition,vTerrainWorld);
    // The dry beach: from just above the run-up to the foot of the bluff, flat.
    float dryBeach=(1.0-wet)*smoothstep(.01,.06,above)*(1.0-smoothstep(profile.x-3.0,profile.x+1.0,qs.x))*smoothstep(.9,.97,terrainN.y)*coastMask(qs)*(1.0-uRockOnly);
    float variety=uCoastSand.x*dryBeach,loose=variety*(1.0-smoothstep(14.0,30.0,dist));
-   float shellMask=uCoastSurf.w*smoothstep(-.4,1.0,qs.x)*(1.0-smoothstep(4.0,max(7.0,uCoastDimensions.z*.8),qs.x));
+   float shellMask=uCoastSurf.w*smoothstep(-.4,1.0,surfQS.x)*(1.0-smoothstep(4.0,max(7.0,uCoastDimensions.z*.8),surfQS.x));
    shellMask*=mix(.56,1.0,coastNoise(qs*.24+vec2(17.3,uCoastShape.w*.031)));
    // Coarse shell hash also lies where the storm sea left it, a line above the
    // run-up along some stretches, and in patches over the dry beach.
@@ -303,7 +303,7 @@ export function createTerrainMaterial(textures,p,rockOnly=false){
     // some stretches of the shore, fed by the meadows of the shelf and by
     // storms. Last storm's line lies a little up the beach, dried brown.
     // Parallax on the cover layer gives the clumps their body.
-    if(uCoastWrack.x>.01&&surfBand&&qs.x>0.0&&groundY>-.02){
+    if(uCoastWrack.x>.01&&surfBand&&surfQS.x>0.0&&groundY>-.02){
      float seed=uCoastShape.w*.031;
      float stretch=smoothstep(.28,.6,coastNoise(vec2(qs.y*.03,9.0)+seed));
      float freshLine=exp(-pow((above-.02)/.05,2.0)),oldLine=exp(-pow((above-.18)/.06,2.0))*.6;

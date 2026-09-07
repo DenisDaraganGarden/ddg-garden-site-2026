@@ -92,7 +92,7 @@ export const waterV2VertexShader = `
     // The far field overlaps the outer half metre of the strip (FarWaterSurface.jsx);
     // the strip dips a centimetre there so the depth test hands that band to the
     // far field instead of fighting for it.
-    if (uShoreMode > .5) worldPosition.y -= .01 * (1.0 - smoothstep(-96.0, -95.0, qs.x));
+    if (uShoreMode > .5) worldPosition.y -= .01 * (1.0 - smoothstep(-coastOffshore(), -coastOffshore()+1.0, qs.x));
     vec4 viewPosition = viewMatrix * worldPosition;
 
     vSurfaceWorldPosition = worldPosition.xyz;
@@ -189,6 +189,35 @@ export const waterV2FragmentShader = `
 #endif
   }
 
+  float refractionViewZ(vec2 uv, float nearestDepth) {
+    // The optical target is smaller than the viewport. Nearest depth minus a
+    // full-resolution water position produces metre-wide steps from above.
+    // Interpolate reciprocal view depth (planar in screen space), decoding
+    // logarithmic depth first. Keep nearest coverage at silhouettes.
+    vec2 size = vec2(textureSize(uRefractionDepthTexture, 0));
+    vec2 pixel = uv * size - 0.5;
+    vec2 base = (floor(pixel) + 0.5) / size;
+    vec2 texel = 1.0 / size;
+    vec4 depths = vec4(
+      texture2D(uRefractionDepthTexture, base).x,
+      texture2D(uRefractionDepthTexture, base + vec2(texel.x, 0.0)).x,
+      texture2D(uRefractionDepthTexture, base + vec2(0.0, texel.y)).x,
+      texture2D(uRefractionDepthTexture, base + texel).x
+    );
+    if (min(min(depths.x, depths.y), min(depths.z, depths.w)) <= 0.000001
+      || max(max(depths.x, depths.y), max(depths.z, depths.w)) >= 0.999999) {
+      return perspectiveDepthToViewZLocal(nearestDepth, uCameraNear, uCameraFar);
+    }
+    vec4 inverseZ = 1.0 / vec4(
+      perspectiveDepthToViewZLocal(depths.x, uCameraNear, uCameraFar),
+      perspectiveDepthToViewZLocal(depths.y, uCameraNear, uCameraFar),
+      perspectiveDepthToViewZLocal(depths.z, uCameraNear, uCameraFar),
+      perspectiveDepthToViewZLocal(depths.w, uCameraNear, uCameraFar)
+    );
+    vec2 f = fract(pixel);
+    return 1.0 / mix(mix(inverseZ.x, inverseZ.y, f.x), mix(inverseZ.z, inverseZ.w, f.x), f.y);
+  }
+
   vec3 reflectionTone() {
     vec3 tint = max(uWaterTint, vec3(0.0));
     float luminance = dot(tint, vec3(0.2126, 0.7152, 0.0722));
@@ -282,13 +311,14 @@ export const waterV2FragmentShader = `
 
   void main() {
     vec2 coastQS=coastLocal(vSurfaceWorldPosition.xz);
+    vec2 surfQS=coastSurfLocal(coastQS);
     // The bluff profile is forty transcendentals; every use below reads this one.
     float coastGround=uCoastShape.x>.5?coastHeight(coastQS):-uCoastSurface.y;
     if(uCoastShape.x>.5 && coastMask(coastQS)>.001 && coastGround+coastEdgeRag(coastQS,uTime)>vSurfaceWorldPosition.y+.004)discard;
     // Shore strips use this exact shader and own the entire coast band.  It is
     // an analytical interval, not a screen-space/dithered handoff, so a pond
     // fragment can never leave a hole between the two water meshes.
-    if(uShoreMode<.5 && uCoastShape.x>.5 && abs(coastQS.y)<uCoastDimensions.x*.5 && coastQS.x>-96.0 && coastQS.x<8.0)discard;
+    if(uShoreMode<.5 && uCoastShape.x>.5 && abs(coastQS.y)<uCoastDimensions.x*.5 && coastQS.x>-coastOffshore() && coastQS.x<8.0)discard;
     float waveInfluence = clamp(uWaveAmplitude / 0.08, 0.0, 1.0);
     float surfaceTransition = surfaceEdgeMask(vUv);
     vec3 normal = normalize(mix(vec3(0.0, 1.0, 0.0), normalize(vWaterNormal), mix(waveInfluence,1.0,uCoastShape.x)));
@@ -298,7 +328,7 @@ export const waterV2FragmentShader = `
     if (uShoreMode > .5) {
       // The open-water swell the far field carries (farWaterOptics.js), grown
       // in over the outer strip so the two surfaces agree where they meet.
-      float swellWeight = 1.0 - smoothstep(-96.0, -40.0, coastQS.x);
+      float swellWeight = 1.0 - smoothstep(-96.0, -40.0, surfQS.x);
       float distanceCalm = mix(1.0, 0.18, smoothstep(90.0, 2400.0, distance(cameraPosition.xz, vSurfaceWorldPosition.xz)));
       vec2 swell = farWaterSwellGradient(vSurfaceWorldPosition.xz, uTime, uFarWaveSpeed)
         * uFarWaveStrength * mix(1.0, uCoastSwell.z, uCoastShape.x) * distanceCalm * swellWeight;
@@ -360,9 +390,12 @@ export const waterV2FragmentShader = `
     // The bloom, read once: it tints the body, thickens the haze and eats the
     // red and blue the way chlorophyll does, and lays scum lines on the surface.
     float bloom=coastBloom(coastQS,uTime,uCoastShape.x>.5?max(vSurfaceWorldPosition.y-coastGround,0.0):1e3);
+    // An extended shelf can be deeper than the original pond. Its optical
+    // path must reach the actual bed rather than plateau at four pond depths.
+    float maxOpticalPath=coastOffshore()>96.5?max(uWaterDepth*4.0,-coastGround*4.0):uWaterDepth*4.0;
     float analyticPath = min(
       mix(uWaterDepth,max(0.0,vSurfaceWorldPosition.y-coastGround),uCoastShape.x) / max(normalDotView, 0.22),
-      uWaterDepth * 4.0
+      maxOpticalPath
     );
     float opticalPath = analyticPath;
     float sceneDepth = 1.0;
@@ -372,14 +405,14 @@ export const waterV2FragmentShader = `
         * (1.0 - step(0.999999, sceneDepth));
       if (sceneDepth > 0.000001 && sceneDepth < 0.999999) {
         vec3 surfaceViewPosition = (viewMatrix * vec4(vSurfaceWorldPosition, 1.0)).xyz;
-        float sceneViewZ = perspectiveDepthToViewZLocal(sceneDepth, uCameraNear, uCameraFar);
+        float sceneViewZ = refractionViewZ(refractUv, sceneDepth);
         float viewRayCosine = max(abs(normalize(surfaceViewPosition).z), 0.08);
         float measuredPath = max(
           (abs(sceneViewZ) - abs(surfaceViewPosition.z)) / viewRayCosine,
           0.0
         );
         if (measuredPath > 0.001 || uCoastShape.x>.5) {
-          opticalPath = min(measuredPath, uWaterDepth * 4.0);
+          opticalPath = min(measuredPath, maxOpticalPath);
         }
       }
     }
@@ -413,7 +446,7 @@ export const waterV2FragmentShader = `
     deepTint=coastBloomColor(deepTint,bloom);
     // Sand stirred by the break: the water goes brown a few metres either
     // side of it, more in a storm.
-    float stir=uCoastShape.x*smoothstep(-12.0,-2.0,coastQS.x)*(1.0-smoothstep(1.0,4.0,coastQS.x))*(.4+.6*uCoastSwell.w);
+    float stir=uCoastShape.x*smoothstep(-12.0,-2.0,surfQS.x)*(1.0-smoothstep(1.0,4.0,surfQS.x))*(.4+.6*uCoastSwell.w);
     deepTint=mix(deepTint,vec3(.16,.12,.06),stir*.6);
     float scatterAmount = 1.0 - exp(-scatteringCoefficient * opticalPath);
     float scatterLight = mix(
@@ -593,7 +626,9 @@ export const waterV2FragmentShader = `
     // its near-water optics to FarWater's shared body term before the meshes
     // meet, with no alpha/depth handoff.
     if (uShoreMode > .5) {
-      float offshoreV2Weight=smoothstep(-96.0,-64.0,coastQS.x);
+      float blendWidth=coastOffshore()>96.5?min(220.0,coastOffshore()*.38):32.0;
+      float offshoreV2Weight=smoothstep(-coastOffshore(),-coastOffshore()+blendWidth,coastQS.x);
+      if(coastOffshore()>96.5)offshoreV2Weight*=1.0-smoothstep(uCoastDimensions.x*.5-96.0,uCoastDimensions.x*.5,abs(coastQS.y));
       vec3 farColor=mix(farWaterBody(deepTint,uDistantSurfaceColor,uEnvironmentHorizonColor,uEnvironmentExposure,normal,fresnel),reflection,clamp(fresnel,.02,.96));
       color=mix(farColor,color,offshoreV2Weight);
     }
@@ -601,11 +636,11 @@ export const waterV2FragmentShader = `
     if(uCoastShape.x>.5){
       float contact=uRefractionDepthActive*smoothstep(.18,.4,-coastGround)*exp(-opticalPath*25.0)*uCoastSurf.z*.55;
       // The swash is a band around the waterline; the open water keeps only the wind streaks below.
-      float foam=coastQS.x>-26.0?coastFoam(coastQS,vSurfaceWorldPosition,uTime):0.0;
+      float foam=surfQS.x>-26.0?coastFoam(coastQS,vSurfaceWorldPosition,uTime):0.0;
       foam=max(foam,contact*coastNoise(vSurfaceWorldPosition.xz*19.0));
       // Storm streaks offshore of the surf: the wind's foam lines, growing with
       // the storm and the surf-foam slider, gone in calm weather.
-      float streaks=smoothstep(.12,.7,uCoastSwell.w)*uCoastSurf.z*smoothstep(-16.0,-40.0,coastQS.x)
+      float streaks=smoothstep(.12,.7,uCoastSwell.w)*uCoastSurf.z*(1.0-smoothstep(-40.0,-16.0,surfQS.x))
         *smoothstep(.6,.86,coastNoise(vSurfaceWorldPosition.xz*.35+uCoastSwell.xy*uTime*.35+uCoastSwell.yx*vec2(.31,-.31)));
       foam=max(foam,streaks*.7);
       vec3 foamLight=vec3(.82,.84,.78)*(uFoamFillRadiance+uFoamKeyRadiance*max(dot(normal,lightDirection),0.0)*shadow)/3.14159265;

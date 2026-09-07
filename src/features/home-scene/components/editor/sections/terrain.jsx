@@ -1,12 +1,14 @@
 import React from 'react';
 import { useLanguage } from '../../../../../i18n/useLanguage';
-import { RangeControl,ColorControl,SectionHeading } from '../../HomeEditorControls';
+import { RangeControl,ColorControl,SectionHeading,CheckboxControl } from '../../HomeEditorControls';
 import { TERRAIN_RANGES } from '../../../../../terrain/settings.js';
 const groups=[
  ['Береговая линия','Coastline',[
   ['terrainBearing','Направление суши от севера','Landward bearing','°'],['terrainOffset','Смещение берега','Shore offset',' m'],['terrainLength','Длина побережья','Coast length',' m'],['terrainLandWidth','Глубина суши','Inland extent',' m'],['terrainCurve','Изгибы берега','Shore curvature',' m'],['terrainSeed','Вариант рельефа','Terrain seed','']]],
  ['Пляж и обрыв','Beach and bluff',[
   ['terrainBeachWidth','Ширина пляжа','Beach width',' m'],['terrainCliffHeight','Высота обрыва','Bluff height',' m'],['terrainCliffSlope','Ширина склона','Bluff slope width',' m'],['terrainCapeDepth','Выступ мыса','Cape projection',' m'],['terrainCapePosition','Положение мыса вдоль берега','Cape along coast',' m'],['terrainCapeWidth','Ширина мыса','Cape width',' m']]],
+ ['Песчаная коса','Sand spit',[
+  ['terrainSpitEnabled','Коса','Spit',''],['terrainSpitPosition','Положение вдоль берега','Position along coast',' m'],['terrainSpitLength','Длина косы','Spit length',' m'],['terrainSpitWidth','Ширина косы','Spit width',' m'],['terrainSpitHeight','Высота гребня','Crest height',' m'],['terrainSpitBend','Загиб оконечности','Tip bend',''],['terrainSpitShoal','Подводная отмель','Submerged shoal',' m']]],
  ['Эрозия и спуски','Erosion and access',[
   ['terrainFeatureScale','Масштаб участков','Landform spacing',' m'],['terrainLandslides','Оползни и обвалы','Landslides',''],['terrainErosion','Промоины и расщелины','Ravines and rills',''],['terrainPaths','Частота спусков','Descent frequency',''],['terrainPathWidth','Ширина тропы','Path width',' m']]],
  ['Поверхность','Surface',[
@@ -29,6 +31,7 @@ export function TerrainSection({settings,handleSettingChange}) {
  return <>
   <div className="home-editor-status">{ru?'С −Z · В +X · Ю +Z · З −X · высота +Y':'N −Z · E +X · S +Z · W −X · up +Y'}</div>
   {groups.map(([r,e,controls])=><React.Fragment key={r}><SectionHeading label={ru?r:e} subtle/>{controls.map(([key,r,e,unit])=>{
+    if(key==='terrainSpitEnabled')return <CheckboxControl key={key} label={ru?r:e} checked={settings[key]} onChange={event=>handleSettingChange(event,key,'boolean')}/>;
     if(!TERRAIN_RANGES[key])return <ColorControl key={key} label={ru?r:e} value={settings[key]} onChange={event=>handleSettingChange(event,key,'color')}/>;
     const [min,max,step]=TERRAIN_RANGES[key];return <RangeControl key={key} label={ru?r:e} value={settings[key]} min={min} max={max} step={step} unit={unit} formatValue={n=>Number(n.toFixed(2))} onChange={event=>handleSettingChange(event,key)}/>;
   })}</React.Fragment>)}

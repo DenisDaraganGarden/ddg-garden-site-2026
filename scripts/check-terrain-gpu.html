@@ -17,9 +17,10 @@ try {
  const geometry=new THREE.PlaneGeometry(2,2);scene.add(new THREE.Mesh(geometry,material));
  const target=new THREE.WebGLRenderTarget(1,1,{type:THREE.FloatType,minFilter:THREE.NearestFilter,magFilter:THREE.NearestFilter,depthBuffer:false});
  let heightError=0,waveError=0,wetnessError=0,normalError=0,pathError=0,bedError=0,samples=0;const pixel=new Float32Array(4);
- for(const overrides of [{},{terrainBearing:273,terrainSeed:99},{terrainLength:4096,terrainCliffHeight:22,terrainBearing:183,terrainStorm:1,terrainErosion:1,terrainBloom:1},{terrainEnabled:false}]){
+ for(const overrides of [{},{terrainBearing:273,terrainSeed:99},{terrainLength:4096,terrainCliffHeight:22,terrainBearing:183,terrainStorm:1,terrainErosion:1,terrainBloom:1},{terrainEnabled:false},{terrainSpitEnabled:true},{terrainSpitEnabled:true,terrainSpitBend:-1.2,terrainBearing:233,terrainSpitWidth:8},{terrainSpitEnabled:true,terrainSpitLength:800,terrainShelfExtent:1408}]){
   const p=createTerrainDefinition(overrides);syncCoastUniforms(uniforms,p);
-  for(const s of [-p.terrainLength/2,-705,-64.0001,-64,-32,-.001,0,39.23,93,p.terrainLength/2-17])for(const q of [-96,-75,-32,-12,0,2,17,19,22,36,70,p.terrainLandWidth,coastProfile(s,p).foot,coastProfile(s,p).top]){
+  const spitS=p.terrainSpitEnabled?p.spit.nodes.filter((_,i)=>i%4===0).map(n=>n.s):[];
+  for(const s of [...spitS,-p.terrainLength/2,-705,-64.0001,-64,-32,-.001,0,39.23,93,p.terrainLength/2-17])for(const q of [-p.coastOffshore,-p.coastOffshore+24,-p.terrainSpitLength*.95,-p.terrainSpitLength*.7,-p.terrainSpitLength*.4,-96,-75,-32,-12,0,2,17,19,22,36,70,p.terrainLandWidth,coastProfile(s,p).foot,coastProfile(s,p).top]){
    const world=coastPoint(q,s,p);uniforms.uSample.value.set(world.x,world.z);
    uniforms.uMode.value=0;gl.setRenderTarget(target);gl.render(scene,camera);gl.readRenderTargetPixels(target,0,0,1,1,pixel);
    const local=coastCoordinates(world.x,world.z,p),cq=local.u-shorePosition(local.s,p);

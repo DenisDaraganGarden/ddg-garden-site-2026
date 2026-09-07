@@ -8,9 +8,9 @@ export function createTerrainCollider(query) {
   const p = query.definition;
   const extra = p.terrainCurve * 1.5 + p.terrainCapeDepth;
   const bounds = new THREE.Box3();
-  for (const u of [p.terrainOffset - extra - 96, p.terrainOffset + extra + p.terrainLandWidth]) {
+  for (const u of [p.terrainOffset - extra - p.coastOffshore, p.terrainOffset + extra + p.terrainLandWidth]) {
     for (const s of [-p.terrainLength / 2, p.terrainLength / 2]) {
-      bounds.expandByPoint(new THREE.Vector3(u * p.landX + s * p.alongX, -p.waterDepth - .5, u * p.landZ + s * p.alongZ));
+      bounds.expandByPoint(new THREE.Vector3(u * p.landX + s * p.alongX, -p.waterDepth - p.terrainShelfSlope*.01*p.coastOffshore - .5, u * p.landZ + s * p.alongZ));
       bounds.expandByPoint(new THREE.Vector3(u * p.landX + s * p.alongX, p.terrainCliffHeight + p.terrainBeachWidth * .035 + 6, u * p.landZ + s * p.alongZ));
     }
   }

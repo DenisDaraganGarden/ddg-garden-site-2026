@@ -88,7 +88,7 @@ const farWaterFragmentShader = /* glsl */`
       // quad's interpolated position, which jitters by millimetres, and a cut
       // exactly on the edge left a dotted line of uncovered pixels along the
       // coast. The strip dips a centimetre under this band (waterV2Shaders.js).
-      if(uShoreMode<.5 && abs(qs.y)<uCoastDimensions.x*.5 && qs.x>-95.5 && qs.x<8.0)discard;
+      if(uShoreMode<.5 && abs(qs.y)<uCoastDimensions.x*.5 && qs.x>-coastOffshore()+.5 && qs.x<8.0)discard;
     }
     vec3 viewDirection = normalize(cameraPosition - vWorldPosition);
     float cameraDistance = distance(cameraPosition.xz, vWorldPosition.xz);
@@ -160,7 +160,7 @@ const farWaterFragmentShader = /* glsl */`
     vec3 refraction = farWaterBody(deepTint,uSurfaceColor,uEnvironmentHorizonColor,uEnvironmentExposure,normal,fresnel);
 
     float contactFoam=0.0;
-    if(uCoastShape.x>.5 && uCoastRefractionActive>.5 && qs.x>-96.0 && qs.x<8.0){
+    if(uCoastShape.x>.5 && uCoastRefractionActive>.5 && qs.x>-coastOffshore() && qs.x<8.0){
       vec2 screenUv=vCoastClip.xy/vCoastClip.w*.5+.5;
       vec4 bed=texture2D(uCoastRefraction,screenUv+normal.xz*.001);
       float depth=max(0.0,vWorldPosition.y-ground);
@@ -181,7 +181,7 @@ const farWaterFragmentShader = /* glsl */`
       vec3 scatterColor=mix(deepTint,uCoastKeyColor,forwardScatter*.46);
       float scatterLight=mix(.48,1.0,sqrt(clamp(uEnvironmentExposure*uEnvironmentReflection,0.0,1.0)));
       vec3 shallow=bed.rgb*exp(-(absorption+vec3(scattering))*opticalPath)+scatterColor*(1.0-exp(-scattering*opticalPath))*scatterLight*(.82+forwardScatter*clamp(uCoastKeyIntensity,0.0,4.0)*.2);
-      refraction=mix(refraction,shallow,bed.a*smoothstep(-96.0,-70.0,qs.x));
+      refraction=mix(refraction,shallow,bed.a*smoothstep(-coastOffshore(),-coastOffshore()+26.0,qs.x));
     }
     vec4 projected = uReflectionMatrix * vec4(vWorldPosition, 1.0);
     vec2 reflectionUv = projected.xy / max(projected.w, 0.0001) * .5 + .5;

@@ -3,6 +3,9 @@ export const DEFAULT_TERRAIN_SETTINGS = Object.freeze({
   terrainLength: 1600, terrainLandWidth: 280, terrainBeachWidth: 18,
   terrainCliffHeight: 7, terrainCliffSlope: 3.5, terrainCurve: 12,
   terrainCapeDepth: 28, terrainCapePosition: -180, terrainCapeWidth: 100,
+  terrainSpitEnabled: false, terrainSpitPosition: -320, terrainSpitLength: 320,
+  terrainSpitWidth: 28, terrainSpitHeight: .85, terrainSpitBend: .85, terrainSpitShoal: 72,
+  terrainShelfExtent: 96,
   terrainShells: 0.75, terrainRocks: 0.55, terrainTextureScale: 1,
   terrainRocksEnabled: true, terrainRockSize: 1, terrainDebris: 0.55,
   terrainPebblesEnabled: true, terrainPebbles: 0.6, terrainPebbleSize: 1,
@@ -31,6 +34,8 @@ export const TERRAIN_RANGES = {
   terrainLength: [128,4096,64], terrainLandWidth: [80,800,10], terrainBeachWidth: [4,60,.5],
   terrainCliffHeight: [0,22,.1], terrainCliffSlope: [2,24,.5], terrainCurve: [0,45,.5],
   terrainCapeDepth: [0,90,1], terrainCapePosition: [-1200,1200,5], terrainCapeWidth: [30,300,5],
+  terrainSpitPosition:[-1600,1600,5], terrainSpitLength:[40,800,5], terrainSpitWidth:[6,80,1],
+  terrainSpitHeight:[.15,2.5,.05], terrainSpitBend:[-1.3,1.3,.05], terrainSpitShoal:[16,160,2], terrainShelfExtent:[96,1600,32],
   terrainShells:[0,1,.01], terrainRocks:[0,1,.01], terrainTextureScale:[.4,3,.05],
   terrainRockSize:[.4,2.5,.05], terrainDebris:[0,1,.01], terrainPebbles:[0,1,.01], terrainPebbleSize:[.5,2,.05],
   terrainRelief:[0,1.5,.01], terrainParallax:[0,1,.01], terrainWetBand:[.5,6,.1],
@@ -51,6 +56,15 @@ export function normalizeTerrainSettings(source={}) {
   }
   out.terrainSeed=Math.round(out.terrainSeed);
   out.terrainLandWidth=Math.max(out.terrainLandWidth,out.terrainBeachWidth*1.12+out.terrainCliffSlope*1.18+out.terrainCliffHeight*6.6+76);
+  if(out.terrainSpitEnabled){
+    out.terrainLength=Math.max(384,out.terrainLength);
+    out.terrainSpitLength=Math.min(out.terrainSpitLength,out.terrainLength*.65);
+    const reach=out.terrainSpitLength*out.terrainSpitBend*.68;
+    const pad=64+out.terrainSpitWidth+out.terrainSpitShoal;
+    out.terrainLength=Math.max(out.terrainLength,Math.ceil((pad*2+Math.abs(reach))/64)*64);
+    const lo=-out.terrainLength*.5+pad-Math.min(0,reach),hi=out.terrainLength*.5-pad-Math.max(0,reach);
+    out.terrainSpitPosition=lo<=hi?Math.max(lo,Math.min(hi,out.terrainSpitPosition)):-reach*.5;
+  }
   return out;
 }
 // Artist-controlled weather envelope shared by CPU probes and GPU uniforms.
@@ -63,5 +77,5 @@ export function coastWeather(p) {
     swell:Math.min(3,.4+wind*.15+storm*1.2),swellBearing:p.terrainWindBearing};
 }
 
-export const TERRAIN_GEOMETRY_KEYS=['terrainEnabled','terrainSeed','terrainBearing','terrainOffset','terrainLength','terrainLandWidth','terrainBeachWidth','terrainCliffHeight','terrainCliffSlope','terrainCurve','terrainCapeDepth','terrainCapePosition','terrainCapeWidth','terrainRelief','terrainErosion','terrainFeatureScale','terrainLandslides','terrainPaths','terrainShelfSlope','terrainTalus'];
+export const TERRAIN_GEOMETRY_KEYS=['terrainEnabled','terrainSeed','terrainBearing','terrainOffset','terrainLength','terrainLandWidth','terrainBeachWidth','terrainCliffHeight','terrainCliffSlope','terrainCurve','terrainCapeDepth','terrainCapePosition','terrainCapeWidth','terrainRelief','terrainErosion','terrainFeatureScale','terrainLandslides','terrainPaths','terrainShelfSlope','terrainTalus','terrainShelfExtent','terrainSpitEnabled','terrainSpitPosition','terrainSpitLength','terrainSpitWidth','terrainSpitHeight','terrainSpitBend','terrainSpitShoal'];
 export function terrainGeometryKey(p){return JSON.stringify(Object.fromEntries(TERRAIN_GEOMETRY_KEYS.map(key=>[key,p[key]]).concat([['waterDepthMeters',p.waterDepthMeters??p.waterDepth]])));}

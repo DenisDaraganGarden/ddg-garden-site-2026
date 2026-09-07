@@ -354,16 +354,16 @@ const HomeEdit = () => {
 
         setSettings((previous) => {
             const cameras = Array.isArray(previous.sceneCameras) ? previous.sceneCameras : [];
+            const prepared = syncActiveCameraScene(previous);
             const withPose = pose
-                ? updateLayoutInSettings(previous, selectedLayoutKey, {
+                ? updateLayoutInSettings(prepared, selectedLayoutKey, {
                     cameraPosition: pose.cameraPosition,
                     cameraTarget: pose.cameraTarget,
                     cameraFov: pose.cameraFov,
                 })
-                : previous;
-            const prepared = syncActiveCameraScene(withPose);
+                : prepared;
             const id = makeCameraId(cameras);
-            const scene = createHomeSceneSnapshot(prepared);
+            const scene = createHomeSceneSnapshot(withPose);
             const activeCamera = prepared.sceneCameras?.find(
                 (camera) => camera.id === prepared.activeCameraId,
             );
@@ -376,7 +376,7 @@ const HomeEdit = () => {
             };
 
             return {
-                ...prepared,
+                ...withPose,
                 sceneCameras: [...(prepared.sceneCameras ?? []), camera],
                 activeCameraId: id,
                 activeWorkCameraId: null,
