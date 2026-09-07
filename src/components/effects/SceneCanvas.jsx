@@ -10,6 +10,7 @@ import {
 import { getRenderTargetCapabilities } from './renderTargetCapabilities';
 import { isTouchPrimaryViewport } from '../../features/home-scene/lib/layout';
 import { createSceneTimeline } from './sceneTimeline';
+import { createFramePacer, normalizeFrameRateLimit } from './framePacing';
 
 let webglSupportCache;
 const SHADOWS_CONFIG = { type: THREE.PCFShadowMap };
@@ -25,10 +26,12 @@ function detectWebGLSupport() {
 
   try {
     const canvas = document.createElement('canvas');
-    const context = canvas.getContext('webgl2')
-      || canvas.getContext('webgl')
-      || canvas.getContext('experimental-webgl');
+    const context = canvas.getContext('webgl2');
     webglSupportCache = Boolean(context);
+    // The renderer relies on WebGL2 features (including the water shadow path),
+    // so a WebGL1 probe is no longer an honest support signal. Release the
+    // throwaway context immediately instead of retaining a browser GPU slot.
+    context?.getExtension('WEBGL_lose_context')?.loseContext();
   } catch {
     webglSupportCache = false;
   }
@@ -379,6 +382,50 @@ const VisibilityResume = ({ isActive }) => {
   return null;
 };
 
+// `advance()` in Fiber 8 treats timestamps in frameloop="never" as seconds
+// and derives delta from `timestamp - clock.elapsedTime`. Temporarily suppress
+// Clock.getDelta so its wall clock cannot advance first, then present exactly
+// one active-time delta to Fiber. During subscribers the clock remains running:
+// WaterReflections uses that signal to distinguish a paced frame from an editor
+// pause, where it deliberately refreshes both optical targets on demand.
+const FramePacing = ({ active, paused, frameRateLimit }) => {
+  const advance = useThree((state) => state.advance);
+  const clock = useThree((state) => state.clock);
+  const limit = normalizeFrameRateLimit(frameRateLimit);
+
+  useEffect(() => {
+    if (!active || paused || limit === 0 || typeof window === 'undefined') {
+      return undefined;
+    }
+
+    const pacer = createFramePacer({
+      limit,
+      requestFrame: window.requestAnimationFrame.bind(window),
+      cancelFrame: window.cancelAnimationFrame.bind(window),
+      onFrame: ({ deltaSeconds }) => {
+        const originalGetDelta = clock.getDelta;
+        const wasRunning = clock.running;
+        const oldAutoStart = clock.autoStart;
+        // Fiber calls getDelta before its never-loop timestamp branch.
+        clock.getDelta = () => 0;
+        clock.autoStart = false;
+        clock.running = true;
+        try {
+          advance(clock.elapsedTime + deltaSeconds, true);
+        } finally {
+          clock.getDelta = originalGetDelta;
+          clock.autoStart = oldAutoStart;
+          clock.running = wasRunning;
+        }
+      },
+    });
+    pacer.start();
+    return () => pacer.stop();
+  }, [active, advance, clock, limit, paused]);
+
+  return null;
+};
+
 // Pausing the editor's animation is two things, not one. The loop drops to
 // on-demand, so a still scene costs nothing until something asks for a frame;
 // and the clock stops, so the frame a slider does ask for advances no
@@ -526,8 +573,11 @@ const SceneCanvas = ({
   const [isTabVisible, setIsTabVisible] = useState(() => isDocumentVisible());
   // Editor-only: the public scene has no switch for this and never sees it.
   const animationPaused = mode === 'editor' && Boolean(settings?.animationPaused);
+  // Omitted settings preserve the legacy uncapped renderer. The editor can
+  // explicitly publish 30 / 40 / 60 / 120, while 0 means unlimited.
+  const frameRateLimit = normalizeFrameRateLimit(settings?.frameRateLimit);
   const frameloop = isTabVisible
-    ? (animationPaused ? 'demand' : 'always')
+    ? (animationPaused ? 'demand' : (frameRateLimit > 0 ? 'never' : 'always'))
     : 'never';
   const fallback = (
     <SceneFallback
@@ -614,6 +664,11 @@ const SceneCanvas = ({
         >
           <VisibilityTimeline isActive={isTabVisible} />
           <VisibilityResume isActive={isTabVisible} />
+          <FramePacing
+            active={isTabVisible}
+            paused={animationPaused}
+            frameRateLimit={frameRateLimit}
+          />
           <AnimationPause
             paused={animationPaused}
             frameloop={frameloop}

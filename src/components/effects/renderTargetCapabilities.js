@@ -158,6 +158,65 @@ function createDepthStencilTexture(gl) {
   return texture;
 }
 
+// A post target with `.samples` is not the same FBO as the single-sample
+// colour+depth probe above. Three renders into multisample renderbuffers, then
+// resolves colour and depth/stencil into the textures sampled by post. Some
+// mobile drivers accept each half independently but reject that resolve pair.
+// Probe the complete shape once, rather than discovering it in the first frame.
+function probeMultisamplePostResolve(gl, colorType, samples) {
+  if (!isWebGl2(gl) || samples < 1) return false;
+  let source = null;
+  let destination = null;
+  let colorBuffer = null;
+  let depthStencilBuffer = null;
+  let colorTexture = null;
+  let depthStencilTexture = null;
+  try {
+    const maximum = gl.getParameter(gl.MAX_SAMPLES) || 0;
+    const count = Math.min(samples, maximum);
+    if (count < 1) return false;
+    source = gl.createFramebuffer();
+    destination = gl.createFramebuffer();
+    colorBuffer = gl.createRenderbuffer();
+    depthStencilBuffer = gl.createRenderbuffer();
+    if (!source || !destination || !colorBuffer || !depthStencilBuffer) return false;
+
+    const internalColor = colorType === 'half-float' ? gl.RGBA16F : gl.RGBA8;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, source);
+    gl.bindRenderbuffer(gl.RENDERBUFFER, colorBuffer);
+    gl.renderbufferStorageMultisample(gl.RENDERBUFFER, count, internalColor, PROBE_SIZE, PROBE_SIZE);
+    gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.RENDERBUFFER, colorBuffer);
+    gl.bindRenderbuffer(gl.RENDERBUFFER, depthStencilBuffer);
+    gl.renderbufferStorageMultisample(gl.RENDERBUFFER, count, gl.DEPTH24_STENCIL8, PROBE_SIZE, PROBE_SIZE);
+    gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_STENCIL_ATTACHMENT, gl.RENDERBUFFER, depthStencilBuffer);
+    if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) return false;
+
+    colorTexture = createColorAttachment(gl, colorType);
+    depthStencilTexture = createDepthStencilTexture(gl);
+    if (!colorTexture || !depthStencilTexture) return false;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, destination);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, colorTexture, 0);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_STENCIL_ATTACHMENT, gl.TEXTURE_2D, depthStencilTexture, 0);
+    if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) return false;
+
+    gl.bindFramebuffer(gl.READ_FRAMEBUFFER, source);
+    gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, destination);
+    gl.blitFramebuffer(0, 0, PROBE_SIZE, PROBE_SIZE, 0, 0, PROBE_SIZE, PROBE_SIZE,
+      gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT, gl.NEAREST);
+    return gl.getError() === gl.NO_ERROR;
+  } catch {
+    return false;
+  } finally {
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    if (colorBuffer) gl.deleteRenderbuffer(colorBuffer);
+    if (depthStencilBuffer) gl.deleteRenderbuffer(depthStencilBuffer);
+    if (colorTexture) gl.deleteTexture(colorTexture);
+    if (depthStencilTexture) gl.deleteTexture(depthStencilTexture);
+    if (source) gl.deleteFramebuffer(source);
+    if (destination) gl.deleteFramebuffer(destination);
+  }
+}
+
 function createDepthRenderbuffer(gl, depthStencil) {
   const buffer = gl.createRenderbuffer();
   if (!buffer) return null;
@@ -266,7 +325,12 @@ export function formatRenderTargetCapabilities(capabilities) {
     : capabilities.optics.depthMode === 'renderbuffer'
       ? 'depth buffer'
       : 'analytic depth';
-  return `post: ${post}; optics: ${opticsFormat} + ${opticsDepth}`;
+  const postMsaa = capabilities.post.msaaHalfFloatResolve
+    ? 'MSAA HDR'
+    : capabilities.post.msaaRgba8Resolve
+      ? 'MSAA RGBA8'
+      : 'no MSAA resolve';
+  return `post: ${post} (${postMsaa}); optics: ${opticsFormat} + ${opticsDepth}`;
 }
 
 export function probeRenderTargetCapabilities(rendererOrContext) {
@@ -276,7 +340,7 @@ export function probeRenderTargetCapabilities(rendererOrContext) {
   const gl = getContext(rendererOrContext);
   if (!gl || typeof gl.createFramebuffer !== 'function') {
     const unsupported = {
-      post: { halfFloatDepthStencil: false, rgba8DepthStencil: false },
+      post: { halfFloatDepthStencil: false, rgba8DepthStencil: false, msaaHalfFloatResolve: false, msaaRgba8Resolve: false },
       optics: { colorType: 'rgba8', depthMode: 'none' },
       webgl2: false,
       softwareRenderer: false,
@@ -292,6 +356,10 @@ export function probeRenderTargetCapabilities(rendererOrContext) {
     colorType: 'rgba8',
     depthMode: 'depth-stencil-texture',
   });
+  const msaaHalfFloatResolve = halfFloatDepthStencil
+    && probeMultisamplePostResolve(gl, 'half-float', 4);
+  const msaaRgba8Resolve = rgba8DepthStencil
+    && probeMultisamplePostResolve(gl, 'rgba8', 4);
   const opticsProbes = {
     'half-float': {
       depthTexture: probeFramebuffer(gl, { colorType: 'half-float', depthMode: 'texture' }),
@@ -303,7 +371,7 @@ export function probeRenderTargetCapabilities(rendererOrContext) {
     },
   };
   const capabilities = {
-    post: { halfFloatDepthStencil, rgba8DepthStencil },
+    post: { halfFloatDepthStencil, rgba8DepthStencil, msaaHalfFloatResolve, msaaRgba8Resolve },
     optics: selectOpticsTarget(opticsProbes),
     webgl2: isWebGl2(gl),
     softwareRenderer: isSoftwareRendererName(readRendererName(gl)),

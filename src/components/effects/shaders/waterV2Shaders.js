@@ -13,6 +13,8 @@ export const waterV2VertexShader = `
   varying vec2 vUv;
   varying vec3 vSurfaceWorldPosition;
   varying vec4 vKeyShadowCoord;
+  varying vec4 vKeyShadowCoordFar;
+  varying float vKeyShadowViewDepth;
   varying vec3 vWaterNormal;
   varying vec3 vViewNormal;
   varying vec4 vClipPosition;
@@ -21,6 +23,7 @@ export const waterV2VertexShader = `
   uniform sampler2D uState;
   uniform sampler2D uNormalMap;
   uniform mat4 uKeyShadowMatrix;
+  uniform mat4 uKeyShadowMatrixFar;
   uniform float uWaveAmplitude;
   uniform float uWaveChoppiness;
   uniform float uSurfaceEdgeBlendUv;
@@ -98,6 +101,8 @@ export const waterV2VertexShader = `
     vSurfaceWorldPosition = worldPosition.xyz;
     // From the wave, not from the plane it started as.
     vKeyShadowCoord = uKeyShadowMatrix * vec4(worldPosition.xyz, 1.0);
+    vKeyShadowCoordFar = uKeyShadowMatrixFar * vec4(worldPosition.xyz, 1.0);
+    vKeyShadowViewDepth = -viewPosition.z;
     vWaterNormal = worldSimulationNormal;
     if(uCoastShape.x>.5)vWaterNormal=normalize(mix(vec3(0,1,0),vWaterNormal,clamp(uWaveAmplitude/.08,0.0,1.0)));
     if(uCoastShape.x>.5){
@@ -121,16 +126,24 @@ export const waterV2FragmentShader = `
   varying vec2 vUv;
   varying vec3 vSurfaceWorldPosition;
   varying vec4 vKeyShadowCoord;
+  varying vec4 vKeyShadowCoordFar;
+  varying float vKeyShadowViewDepth;
   varying vec3 vWaterNormal;
   varying vec3 vViewNormal;
   varying vec4 vClipPosition;
   varying float vHeightSample;
 
   uniform highp sampler2DShadow uKeyShadowMap;
+  uniform highp sampler2DShadow uKeyShadowMapFar;
   uniform float uKeyShadowActive;
+  uniform float uKeyShadowFarActive;
   uniform float uKeyShadowBias;
+  uniform float uKeyShadowFarBias;
   uniform vec2 uKeyShadowTexelSize;
+  uniform vec2 uKeyShadowFarTexelSize;
   uniform float uKeyShadowRadius;
+  uniform float uKeyShadowFarRadius;
+  uniform float uKeyShadowSplit;
   uniform float uKeyDirectShare;
   uniform float uShadowIntensity;
   uniform float uWaterShadowStrength;
@@ -263,29 +276,35 @@ export const waterV2FragmentShader = `
   // second shadow map. The water could never receive a shadow before - it is a
   // hand-written material, so three's lighting chunks never touched it, and the
   // boat cast nothing onto the water it floats in.
-  float keyShadow() {
-    if (uKeyShadowActive < 0.5) {
+  float sampleKeyShadow(sampler2DShadow shadowMap, vec4 shadowCoord, float isActive, float bias, vec2 texelSize, float radius) {
+    if (isActive < 0.5) {
       return 1.0;
     }
 
-    vec3 coord = vKeyShadowCoord.xyz / max(vKeyShadowCoord.w, 1e-5);
+    vec3 coord = shadowCoord.xyz / max(shadowCoord.w, 1e-5);
     if (coord.z > 1.0
       || any(lessThan(coord.xy, vec2(0.0)))
       || any(greaterThan(coord.xy, vec2(1.0)))) {
       return 1.0;
     }
 
-    float compareDepth = coord.z + uKeyShadowBias;
-    vec2 filterStep = uKeyShadowTexelSize * clamp(uKeyShadowRadius, 0.5, 4.0);
+    float compareDepth = coord.z + bias;
+    vec2 filterStep = texelSize * max(radius, 0.5);
     // Five hardware-PCF samples give the custom water material the same soft,
     // cloud-sized source as three's standard materials. One central fetch made
     // water shadows visibly harder even though every object used the same sun.
-    float lit = texture(uKeyShadowMap, vec3(coord.xy, compareDepth)) * 0.28;
-    lit += texture(uKeyShadowMap, vec3(coord.xy + vec2(filterStep.x, 0.0), compareDepth)) * 0.18;
-    lit += texture(uKeyShadowMap, vec3(coord.xy - vec2(filterStep.x, 0.0), compareDepth)) * 0.18;
-    lit += texture(uKeyShadowMap, vec3(coord.xy + vec2(0.0, filterStep.y), compareDepth)) * 0.18;
-    lit += texture(uKeyShadowMap, vec3(coord.xy - vec2(0.0, filterStep.y), compareDepth)) * 0.18;
+    float lit = texture(shadowMap, vec3(coord.xy, compareDepth)) * 0.28;
+    lit += texture(shadowMap, vec3(coord.xy + vec2(filterStep.x, 0.0), compareDepth)) * 0.18;
+    lit += texture(shadowMap, vec3(coord.xy - vec2(filterStep.x, 0.0), compareDepth)) * 0.18;
+    lit += texture(shadowMap, vec3(coord.xy + vec2(0.0, filterStep.y), compareDepth)) * 0.18;
+    lit += texture(shadowMap, vec3(coord.xy - vec2(0.0, filterStep.y), compareDepth)) * 0.18;
     return mix(1.0, lit, clamp(uShadowIntensity, 0.0, 1.0));
+  }
+  float keyShadow() {
+    float nearShadow = sampleKeyShadow(uKeyShadowMap, vKeyShadowCoord, uKeyShadowActive, uKeyShadowBias, uKeyShadowTexelSize, uKeyShadowRadius);
+    float farShadow = sampleKeyShadow(uKeyShadowMapFar, vKeyShadowCoordFar, uKeyShadowFarActive, uKeyShadowFarBias, uKeyShadowFarTexelSize, uKeyShadowFarRadius);
+    float cascadeBlend = smoothstep(uKeyShadowSplit - 2.0, uKeyShadowSplit + 2.0, vKeyShadowViewDepth) * step(0.5, uKeyShadowFarActive);
+    return mix(nearShadow, farShadow, cascadeBlend);
   }
 
   float hash12(vec2 p) {

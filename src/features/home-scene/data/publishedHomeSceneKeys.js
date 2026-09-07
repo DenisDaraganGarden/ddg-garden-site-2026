@@ -2,6 +2,7 @@ import {DEFAULT_GRASS_SETTINGS,DEFAULT_SHRUB_SETTINGS,DEFAULT_TREE_SETTINGS} fro
 import { DEFAULT_TERRAIN_SETTINGS } from '../../../terrain/settings.js';
 import { DEFAULT_TANKER_SETTINGS } from '../../../tanker/settings.js';
 import { DEFAULT_SHORE_SETTINGS } from '../../../shore/settings.js';
+import { DEFAULT_RENDER_QUALITY_SETTINGS } from '../../../components/effects/renderQualitySettings.js';
 const keys = [
   ...Object.keys(DEFAULT_TANKER_SETTINGS),
   ...Object.keys(DEFAULT_TERRAIN_SETTINGS),
@@ -9,6 +10,7 @@ const keys = [
   ...Object.keys(DEFAULT_TREE_SETTINGS),
   ...Object.keys(DEFAULT_GRASS_SETTINGS),
   ...Object.keys(DEFAULT_SHORE_SETTINGS),
+  ...Object.keys(DEFAULT_RENDER_QUALITY_SETTINGS),
   'waterExtent',
   'farWaterBlendWidth',
   'simulationResolution',

@@ -100,11 +100,18 @@ export default function WaterSurfaceV2({ settings, runtime, qualityProfile, ligh
     uSkyLut: { value: null },
     uSkyLutTexel: { value: new THREE.Vector2(1 / 256, 1 / 128) },
     uKeyShadowMap: { value: emptyShadow },
+    uKeyShadowMapFar: { value: emptyShadow },
     uKeyShadowMatrix: { value: new THREE.Matrix4() },
+    uKeyShadowMatrixFar: { value: new THREE.Matrix4() },
     uKeyShadowActive: { value: 0 },
+    uKeyShadowFarActive: { value: 0 },
     uKeyShadowBias: { value: lighting.shadow.waterBias },
+    uKeyShadowFarBias: { value: lighting.shadow.waterBias },
     uKeyShadowTexelSize: { value: new THREE.Vector2(1 / 1024, 1 / 1024) },
+    uKeyShadowFarTexelSize: { value: new THREE.Vector2(1 / 1024, 1 / 1024) },
     uKeyShadowRadius: { value: lighting.shadow.radius },
+    uKeyShadowFarRadius: { value: lighting.shadow.radius },
+    uKeyShadowSplit: { value: 25 },
     uKeyDirectShare: { value: 0 },
     uShadowIntensity: { value: lighting.shadow.intensity },
     uWaterShadowStrength: { value: lighting.shadow.waterStrength },
@@ -194,6 +201,20 @@ export default function WaterSurfaceV2({ settings, runtime, qualityProfile, ligh
         reflectionDataRef.current.keyShadowTexelSize,
       );
     }
+    if (Number.isFinite(reflectionDataRef.current.keyShadowBias)) {
+      uniforms.uKeyShadowBias.value = reflectionDataRef.current.keyShadowBias;
+    }
+    if (Number.isFinite(reflectionDataRef.current.keyShadowRadius)) {
+      uniforms.uKeyShadowRadius.value = reflectionDataRef.current.keyShadowRadius;
+    }
+    const farCascade = reflectionDataRef.current.keyShadowCascades?.[1] ?? null;
+    uniforms.uKeyShadowMapFar.value = farCascade?.map ?? emptyShadow;
+    uniforms.uKeyShadowFarActive.value = farCascade?.map && farCascade?.matrix ? 1 : 0;
+    if (farCascade?.matrix) uniforms.uKeyShadowMatrixFar.value.copy(farCascade.matrix);
+    if (farCascade?.mapSize) uniforms.uKeyShadowFarTexelSize.value.set(1 / farCascade.mapSize.x, 1 / farCascade.mapSize.y);
+    uniforms.uKeyShadowFarBias.value = farCascade?.waterBias ?? uniforms.uKeyShadowBias.value;
+    uniforms.uKeyShadowFarRadius.value = farCascade?.radius ?? uniforms.uKeyShadowRadius.value;
+    uniforms.uKeyShadowSplit.value = reflectionDataRef.current.keyShadowSplit ?? 25;
     uniforms.uKeyDirectShare.value = reflectionDataRef.current.keyDirectShare ?? 0;
     uniforms.uState.value = runtime.currentStateTargetRef.current?.texture ?? null;
     uniforms.uNormalMap.value = runtime.normalTargetRef.current?.texture ?? null;

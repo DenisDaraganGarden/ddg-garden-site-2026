@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import {preserveRenderer} from './plantAtlases.js';
+import {getBaseMaterialHooks} from '../components/effects/csmAdapter.js';
+import {readRenderTargetPixelsWithPboGuard} from '../components/effects/safeRenderTargetReadback.js';
 
 // One light on every level. On the first frame the card is rendered beside the
 // geometry it stands for - under the scene's own environment and key light, the
@@ -34,10 +36,18 @@ function aces(r,g,b,exposure){
 // ambient come along as they are; the point lights of the editor do not.
 function transplantLights(scene,stage,height,centre){
  const lights=[];let key=null;
+ // CSM updates its targets during the frame. A card bake is an independent
+ // render later in that same frame, so take an explicit world-space snapshot
+ // instead of reading a stale target matrix or summing its two cascade lights.
+ scene?.updateMatrixWorld(true);
  scene?.traverse(o=>{if(!o.isLight||!o.visible)return;if(o.isDirectionalLight){if(!key||o.intensity>key.intensity)key=o;}else if(o.isHemisphereLight||o.isAmbientLight)lights.push(o.clone());});
  const sun=new THREE.DirectionalLight(key?key.color:0xffffff,key?key.intensity:1.8);
  const direction=new THREE.Vector3(Math.sin(2.2)*Math.cos(.9),Math.sin(.9),Math.cos(2.2)*Math.cos(.9));
- if(key){key.getWorldPosition(direction).sub(key.target.getWorldPosition(new THREE.Vector3()));if(direction.lengthSq()<1e-8)direction.set(0,1,0);direction.normalize();}
+ if(key){
+  key.updateWorldMatrix(true,false);key.target.updateWorldMatrix(true,false);
+  key.getWorldPosition(direction).sub(key.target.getWorldPosition(new THREE.Vector3()));
+  if(direction.lengthSq()<1e-8)direction.set(0,1,0);direction.normalize();
+ }
  sun.position.copy(centre).addScaledVector(direction,height*6);sun.target.position.copy(centre);
  sun.castShadow=true;sun.shadow.mapSize.set(1024,1024);sun.shadow.bias=-.0004;sun.shadow.normalBias=.02;
  const sc=sun.shadow.camera;sc.left=-height;sc.right=height;sc.bottom=-height;sc.top=height;sc.near=.1;sc.far=height*12;
@@ -49,21 +59,50 @@ function transplantLights(scene,stage,height,centre){
 
 export function* calibratePlantCard(renderer,scene,geometry,materials,farGeometry,farMaterial,impostor,model){
  const frame=impostor.frameSize,size=Math.min(1024,Math.ceil(frame*1.2)),height=Math.max(.2,model.height),centre=impostor.center,exposure=renderer.toneMappingExposure;
- const rt=new THREE.WebGLRenderTarget(size,size,{format:THREE.RGBAFormat,type:THREE.UnsignedByteType,depthBuffer:true,samples:4});rt.texture.colorSpace=THREE.NoColorSpace;
+ const rt=new THREE.WebGLRenderTarget(size,size,{format:THREE.RGBAFormat,type:THREE.UnsignedByteType,depthBuffer:true,samples:4});rt.resolveDepthBuffer=false;rt.texture.colorSpace=THREE.NoColorSpace;
  const pixels=new Uint8Array(size*size*4),white=new Uint8Array(size*size*4),stage=new THREE.Scene(),BLACK=new THREE.Color(0,0,0),WHITE=new THREE.Color(1,1,1);
  const {lights,direction}=transplantLights(scene,stage,height,centre);
+ // Calibration renders into a separate stage with one transplanted sun. The
+ // live material may be CSM-enhanced, but its cascades belong to the viewport
+ // camera and would suppress this stage's direct light. Clones retain the
+ // authored plant shader/uniforms while opting out of the live CSM contract.
+ const withoutCsm=(source)=>{
+  // Material.copy serializes userData. The live impostor stores textures and
+  // shared uniforms there, so use an inherited read-only source with empty
+  // userData, then intentionally share the original references afterwards.
+  const copySource=Object.create(source);copySource.userData={};
+  const clone=new source.constructor().copy(copySource);
+  const base=getBaseMaterialHooks(source);
+  // Material.clone deliberately does not copy these callbacks. Restore the
+  // authored plant hook explicitly, skipping CSM's viewport-camera wrapper.
+  clone.onBeforeCompile=base.onBeforeCompile;
+  clone.customProgramCacheKey=base.customProgramCacheKey;
+  clone.defines={...(source.defines??{})};
+  delete clone.defines.USE_CSM;delete clone.defines.CSM_CASCADES;delete clone.defines.CSM_FADE;
+  clone.userData=source.userData;
+  clone.needsUpdate=true;return clone;
+ };
+ const stageMaterials={
+  bark:withoutCsm(materials.bark),leaf:withoutCsm(materials.leaves),
+  barkDepth:withoutCsm(materials.barkDepth),leafDepth:withoutCsm(materials.leafDepth),
+  // The card is also a MeshStandardMaterial in the live CSM registry. Its
+  // base hook closes over farMaterial.userData.uniforms, deliberately shared
+  // below so fitted gains update the live card rather than a JSON clone.
+  far:withoutCsm(farMaterial),farDepth:withoutCsm(farMaterial.userData.depth),
+ };
  // Two views: the sun behind the camera, and the sun in front of it.
  const sunAzimuth=Math.atan2(direction.x,direction.z),VIEWS=[sunAzimuth,sunAzimuth+Math.PI];
  const identity=new THREE.Matrix4();
- const near=[new THREE.InstancedMesh(geometry.bark,materials.bark,1),new THREE.InstancedMesh(geometry.leaf,materials.leaves,1)];
- near[0].customDepthMaterial=materials.barkDepth;near[1].customDepthMaterial=materials.leafDepth;
- const far=new THREE.InstancedMesh(farGeometry,farMaterial,1);far.customDepthMaterial=farMaterial.userData.depth;
+ const near=[new THREE.InstancedMesh(geometry.bark,stageMaterials.bark,1),new THREE.InstancedMesh(geometry.leaf,stageMaterials.leaf,1)];
+ near[0].customDepthMaterial=stageMaterials.barkDepth;near[1].customDepthMaterial=stageMaterials.leafDepth;
+ const far=new THREE.InstancedMesh(farGeometry,stageMaterials.far,1);far.customDepthMaterial=stageMaterials.farDepth;
  for(const m of [...near,far]){m.setMatrixAt(0,identity);m.instanceMatrix.needsUpdate=true;m.castShadow=true;m.receiveShadow=true;m.frustumCulled=false;}
  const camera=new THREE.OrthographicCamera(-1,1,1,-1,.1,height*40),dir=new THREE.Vector3();
  const u=farMaterial.userData.uniforms,gain=u.uPlantCardGain.value,gainBack=u.uPlantCardGainBack.value,chroma=u.uPlantCardChroma.value,cut=u.uPlantCardCut.value;
  gain.fill(1);gainBack.fill(1);chroma.fill(1);cut.set(1,0);
  // Coverage-weighted mean tone-mapped luminance and saturation, and the
  // covered area, of the plant seen from `azimuth` at the window the mip asks for.
+ let lastReadback=null;
  const measure=(meshes,mip,azimuth)=>{
   const s=Math.max(24,Math.min(size,Math.ceil(frame/2**mip*1.2))),sum={n:0,solid:0,lum:0,sat:0};
   dir.set(Math.sin(azimuth)*Math.cos(ELEVATION),Math.sin(ELEVATION),Math.cos(azimuth)*Math.cos(ELEVATION));
@@ -72,12 +111,21 @@ export function* calibratePlantCard(renderer,scene,geometry,materials,farGeometr
   for(const o of stage.children.filter(o=>o.isMesh))stage.remove(o);for(const m of meshes)stage.add(m);
   preserveRenderer(renderer,()=>{
    const shadows={enabled:renderer.shadowMap.enabled,auto:renderer.shadowMap.autoUpdate};renderer.shadowMap.enabled=true;renderer.shadowMap.autoUpdate=true;
+   const gl=renderer.getContext();
+   const diagnose=!lastReadback;
    try{
     // The window lives on the target itself: the shadow pass inside render()
     // re-applies it, a renderer viewport it would reset (and scale by DPR).
-    rt.viewport.set(0,0,s,s);rt.scissor.set(0,0,s,s);rt.scissorTest=true;renderer.setRenderTarget(rt);
-    renderer.setClearColor(BLACK,0);renderer.clear();renderer.render(stage,camera);renderer.readRenderTargetPixels(rt,0,0,s,s,pixels);
-    renderer.setClearColor(WHITE,1);renderer.clear();renderer.render(stage,camera);renderer.readRenderTargetPixels(rt,0,0,s,s,white);
+    rt.viewport.set(0,0,s,s);rt.scissor.set(0,0,s,s);rt.scissorTest=true;
+    renderer.setRenderTarget(rt);renderer.setClearColor(BLACK,0);renderer.clear();renderer.render(stage,camera);
+    const blackRenderError=diagnose?gl.getError():0;
+    const pixelPackBufferBoundBlack=readRenderTargetPixelsWithPboGuard(renderer,rt,0,0,s,s,pixels);
+    const blackReadError=diagnose?gl.getError():0;
+    renderer.setRenderTarget(rt);renderer.setClearColor(WHITE,1);renderer.clear();renderer.render(stage,camera);
+    const whiteRenderError=diagnose?gl.getError():0;
+    const pixelPackBufferBoundWhite=readRenderTargetPixelsWithPboGuard(renderer,rt,0,0,s,s,white);
+    const whiteReadError=diagnose?gl.getError():0;
+    if(diagnose)lastReadback={cornerBlackRGB:[pixels[0],pixels[1],pixels[2]],cornerWhiteRGB:[white[0],white[1],white[2]],pixelPackBufferBoundBlack,pixelPackBufferBoundWhite,blackRenderError,blackReadError,whiteRenderError,whiteReadError};
    }finally{renderer.shadowMap.enabled=shadows.enabled;renderer.shadowMap.autoUpdate=shadows.auto;}
   });
   for(let i=0,end=s*s*4;i<end;i+=4){
@@ -92,9 +140,23 @@ export function* calibratePlantCard(renderer,scene,geometry,materials,farGeometr
   const geo=[[],[]];
   for(let view=0;view<2;view++)for(let i=0;i<CARD_MIPS.length;i++){
    geo[view][i]=measure(near,CARD_MIPS[i],VIEWS[view]);
+   if(view===0&&i===0)result.readback=lastReadback;
    // A stage that reads back black over the whole window is not measuring the
    // plant (a renderer with a pass of its own in the way): leave the card as it is.
-   if(view===0&&i===0&&(geo[0][0].lum<.02||geo[0][0].n>.9*size*size)){result.light='invalid';return result;}
+   if(view===0&&i===0&&(geo[0][0].lum<.02||geo[0][0].n>.9*size*size)){
+    const flags=(material)=>({
+     type:material.type,opacity:material.opacity,transparent:material.transparent,
+     colorWrite:material.colorWrite,depthWrite:material.depthWrite,alphaTest:material.alphaTest,
+     visible:material.visible,defines:{...(material.defines??{})},hasMap:Boolean(material.map),
+    });
+    result.invalidSample={
+     firstGeoLum:geo[0][0].lum,firstGeoCoverage:geo[0][0].n/(size*size),
+     firstGeoPixels:geo[0][0].n,firstGeoSolid:geo[0][0].solid,size,
+     materialFlags:{bark:flags(stageMaterials.bark),leaf:flags(stageMaterials.leaf),far:flags(stageMaterials.far)},
+     readback:lastReadback,
+    };
+    result.light='invalid';return result;
+   }
    yield;
   }
   // Luminance: the correction acts before tone mapping, so each gain is fitted
@@ -133,6 +195,7 @@ export function* calibratePlantCard(renderer,scene,geometry,materials,farGeometr
   return result;
  }finally{
   for(const m of [...near,far])m.dispose();
+  Object.values(stageMaterials).forEach((material)=>material.dispose());
   for(const l of lights)l.dispose?.();
   rt.dispose();
  }

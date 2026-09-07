@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { publishedHomeSceneSettings } from '../../features/home-scene/data/publishedHomeSceneSettings.js';
 import { SKY, buildSkyLut } from './sky/skyModel.js';
 import { buildHomeSceneLighting } from './homeSceneLighting.js';
+import { resolveDirectionalShadowContact } from './shadowContactContract.js';
 
 const closeTo = (actual, expected, epsilon = 1e-10) => (
   Math.abs(actual - expected) <= epsilon
@@ -70,10 +71,19 @@ const closeTo = (actual, expected, epsilon = 1e-10) => (
     closeTo(cloudyLut.sunVisibility, cloudyLighting.sky.sunVisibility),
     'visible sky, PMREM and direct light must sample one sun visibility',
   );
-  assert.ok(
-    Math.abs(lighting.shadow.waterBias) < Math.abs(lighting.shadow.bias),
-    'water depth comparisons need a normalized, calibrated shadow bias',
-  );
+  assert.equal(lighting.shadow.waterBias, 0, 'unfitted water maps must start with a neutral bias');
+  const contacts = [16, 160, 320].map((span) => resolveDirectionalShadowContact({
+    contactOffsetMeters: lighting.shadow.contactOffsetMeters, near: 0.5, far: span + 0.5,
+  }));
+  contacts.forEach((contact) => {
+    assert.ok(closeTo(contact.bias * contact.depthRange, lighting.shadow.contactOffsetMeters),
+      'the same physical contact must survive near and distant shadow volumes');
+    assert.ok(closeTo(contact.waterBias, contact.bias * 0.55),
+      'water applies its smaller physical offset after fitting the map');
+  });
+  assert.equal(buildHomeSceneLighting({ shadowRadius: 0 }).shadow.radius, 0);
+  assert.equal(buildHomeSceneLighting({ shadowRadius: 8 }).shadow.radius, 8,
+    'the full editor softness range must reach the renderer');
 }
 
 {

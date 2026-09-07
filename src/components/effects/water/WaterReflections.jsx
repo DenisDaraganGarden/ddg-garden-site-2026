@@ -158,6 +158,9 @@ export default function WaterReflections({
     refractionViewMatrix: new THREE.Matrix4(),
     refractionCameraRange: new THREE.Vector2(camera.near, camera.far),
     keyShadowTexelSize: new THREE.Vector2(1 / 1024, 1 / 1024),
+    keyShadowBias: 0,
+    keyShadowRadius: 1,
+    keyShadowSplit: 25,
   });
   const sceneObjectsRef = useRef({
     waterSurface: null,

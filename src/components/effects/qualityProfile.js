@@ -190,10 +190,13 @@ export function buildRuntimeQualityProfile(mode, viewportWidth, capabilities = n
     isLowPower: false,
     simulationTargetFps: isEditor ? 50 : 60,
     simulationMaxResolution: 512,
-    reflectionActiveFps: isEditor ? 60 : 60,
-    reflectionIdleFps: isEditor ? 30 : 20,
-    refractionActiveFps: isEditor ? 60 : 60,
-    refractionIdleFps: isEditor ? 30 : 20,
+    // High quality no longer means two full scene captures every 60 Hz.
+    // Thirty mirrored updates and twenty-four refracted updates preserve the
+    // moving water while leaving enough frame budget for the main image.
+    reflectionActiveFps: 30,
+    reflectionIdleFps: 20,
+    refractionActiveFps: 24,
+    refractionIdleFps: 16,
     reflectionTextureSize: isEditor ? 1024 : 768,
     refractionTextureType: THREE.HalfFloatType,
     refractionDepthEnabled: true,

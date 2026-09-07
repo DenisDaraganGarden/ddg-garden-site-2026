@@ -1,11 +1,14 @@
-import React, { useContext, useMemo, useRef } from 'react';
+import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Environment } from '@react-three/drei';
 import * as THREE from 'three';
 import { SELF_HOSTED_HDRI } from './constants';
-import { useFrame } from '@react-three/fiber';
+import { useFrame, useThree } from '@react-three/fiber';
 import { reflectionContext } from './reflectionContext';
 import SkyDome from './SkyDome';
 import {fitTerrainShadow} from '../../../terrain/terrainShadow.js';
+import { resolveDirectionalShadowContact } from '../shadowContactContract.js';
+import { resolveShadowCascadeCount } from '../shadowCascadePolicy.js';
+import { createCsmAdapter } from '../csmAdapter.js';
 
 // Every light in the scene, plus the sky. The key light and the visible disc are
 // the same direction by construction now: the disc is a dot product against the
@@ -13,6 +16,7 @@ import {fitTerrainShadow} from '../../../terrain/terrainShadow.js';
 // that missed it by 12.6 degrees.
 
 export default function WaterLights({ settings, mode, qualityProfile, lighting, sky, layout, terrainQuery }) {
+  const { scene, camera } = useThree();
   const reflectionDataRef = useContext(reflectionContext);
   const keyLightRef = useRef();
   const keyTarget=useMemo(()=>new THREE.Object3D(),[]),shadowTimer=useRef(1);
@@ -30,11 +34,52 @@ export default function WaterLights({ settings, mode, qualityProfile, lighting, 
     () => new THREE.Vector3().fromArray(lighting.key.direction),
     [lighting],
   );
+  const shadowMapSize = qualityProfile?.shadowMapSize ?? (mode === 'editor' ? 1024 : 768);
+  const cascadeCount = resolveShadowCascadeCount({
+    requested: settings.shadowCascades ?? 'auto',
+    isLowPower: qualityProfile?.isLowPower,
+    isMobileDevice: qualityProfile?.isMobileDevice,
+    // This adapter owns the material registry and is therefore a real CSM path,
+    // not a feature flag that silently creates duplicate direct lights.
+    csmReady: true,
+  });
+  const [csmAdapter, setCsmAdapter] = useState(null);
+  useEffect(() => {
+    if (cascadeCount !== 2 || !lighting.shadow.enabled) return undefined;
+    const reflectionData = reflectionDataRef.current;
+    // Only topology changes recreate CSM. Artistic light values are applied by
+    // configure() below, so moving the sun does not thrash maps or materials.
+    const adapter = createCsmAdapter({
+      scene,
+      camera,
+      cascades: 2,
+      // Runtime configure() applies the authored values before CSM lights render.
+      // Keep construction structural so slider movement never reallocates maps.
+      maxFar: 160,
+      nearDistance: 25,
+      shadowMapSize,
+      lightDirection: new THREE.Vector3(0, -1, 0),
+      lightColor: new THREE.Color(0xffffff),
+      lightIntensity: 0,
+      shadowRadius: 1,
+      shadowIntensity: 1,
+      contactOffsetMeters: 0,
+      legacyBias: 0,
+    });
+    setCsmAdapter(adapter);
+    return () => {
+      setCsmAdapter(null);
+      adapter.dispose();
+      // Water keeps its uniforms stable, but must not retain a released far map
+      // for the render between a CSM cleanup and the single-light fallback.
+      reflectionData.keyShadowCascades = [];
+      reflectionData.keyShadowSplit = 1e9;
+    };
+  }, [camera, cascadeCount, lighting.shadow.enabled, reflectionDataRef, scene, shadowMapSize]);
   // The 640-texel gate is gone. It silently switched shadows off on every phone
   // while the editor bypassed it, so the scene was authored in a view the
   // visitor never got. What made it affordable is the frustum refit below.
   const shadowsEnabled = lighting.shadow.enabled && settings.debugView === 'beauty';
-  const shadowMapSize = qualityProfile?.shadowMapSize ?? (mode === 'editor' ? 1024 : 768);
   // Fit the box to what actually casts, not to the pond. The old box was ~4x
   // larger than the casters, so most of the map resolved empty water: 47 mm per
   // texel at 1024. Fitted, it is ~13 mm - sharper on a 512 phone map than the
@@ -54,15 +99,69 @@ export default function WaterLights({ settings, mode, qualityProfile, lighting, 
   // lights:true recompile. Read every frame: the map is null until the first
   // shadow render and is recreated when its size changes.
   useFrame(({camera,gl},delta) => {
+    if (csmAdapter) {
+      csmAdapter.configure({
+        maxFar: settings.shadowDistance ?? 160,
+        nearDistance: settings.shadowNearDistance ?? 25,
+        lightDirection: lightDirection.clone().negate(),
+        lightColor: keyColor,
+        lightIntensity: lighting.key.sceneIntensity,
+        shadowRadius: lighting.shadow.radius,
+        shadowIntensity: lighting.shadow.intensity,
+        contactOffsetMeters: lighting.shadow.contactOffsetMeters,
+        legacyBias: lighting.shadow.bias,
+      });
+      // CSM creates its own DirectionalLights, so this mirrors the single
+      // light's castShadow/debug contract without rebuilding its maps.
+      csmAdapter.csm.lights.forEach((light) => { light.castShadow = shadowsEnabled; });
+      csmAdapter.update();
+      const [nearCascade, farCascade] = csmAdapter.getShadowHandles();
+      const active = nearCascade ?? farCascade;
+      reflectionDataRef.current.keyShadowMap = active?.map ?? null;
+      reflectionDataRef.current.keyShadowMatrix = active?.matrix ?? null;
+      reflectionDataRef.current.keyShadowBias = active?.waterBias ?? 0;
+      reflectionDataRef.current.keyShadowRadius = active?.radius ?? lighting.shadow.radius;
+      reflectionDataRef.current.keyShadowCascades = [nearCascade, farCascade].filter(Boolean);
+      reflectionDataRef.current.keyShadowSplit = csmAdapter.getSplitDistance();
+      if (active?.mapSize) reflectionDataRef.current.keyShadowTexelSize.set(1 / active.mapSize.x, 1 / active.mapSize.y);
+      reflectionDataRef.current.keyDirectShare = sky?.directShare ?? 0;
+      if (import.meta.env.DEV) gl.domElement.dataset.ddgTerrainShadow = JSON.stringify({
+        enabled: shadowsEnabled,
+        csm: true,
+        mapReady: Boolean(nearCascade?.map || farCascade?.map),
+        mapsReady: [Boolean(nearCascade?.map), Boolean(farCascade?.map)],
+        split: csmAdapter.getSplitDistance(),
+        contacts: [nearCascade, farCascade].filter(Boolean).map(({ bias, waterBias }) => ({ bias, waterBias })),
+      });
+      return;
+    }
+    // A previous CSM effect may have published a second map. Clear it before
+    // the single directional light publishes its first new handle.
+    reflectionDataRef.current.keyShadowCascades = [];
+    reflectionDataRef.current.keyShadowSplit = 1e9;
     shadowTimer.current+=delta;
     const light=keyLightRef.current;
-    if(light&&shadowTimer.current>.08){
+    // A paused frame has delta=0 but can still be an editor slider/camera
+    // invalidation. Refit immediately so contact bias never lags that view.
+    if(light&&(shadowTimer.current>.08||delta<=0)){
       shadowTimer.current=0;camera.getWorldDirection(cameraDirection);
       const fit=fitTerrainShadow(camera.position,cameraDirection,lightDirection,terrainQuery,shadowFrustum,shadowMapSize);
       keyTarget.position.copy(fit.centre);keyTarget.updateMatrixWorld();
       light.position.copy(fit.centre).addScaledVector(lightDirection,fit.standoff);light.updateMatrixWorld();
       const c=light.shadow.camera;c.left=c.bottom=-fit.radius;c.right=c.top=fit.radius;c.near=fit.near;c.far=fit.far;c.updateProjectionMatrix();
-      if(import.meta.env.DEV)gl.domElement.dataset.ddgTerrainShadow=JSON.stringify({enabled:shadowsEnabled,mapReady:!!light.shadow.map,rendererEnabled:gl.shadowMap.enabled,target:fit.centre.toArray(),radius:fit.radius,weight:fit.weight});
+      const contact=resolveDirectionalShadowContact({
+        legacyBias: lighting.shadow.bias,
+        contactOffsetMeters: lighting.shadow.contactOffsetMeters,
+        near: fit.near,
+        far: fit.far,
+        radius: fit.radius,
+        mapSize: shadowMapSize,
+      });
+      light.shadow.bias=contact.bias;
+      light.shadow.normalBias=contact.normalBias;
+      reflectionDataRef.current.keyShadowBias=contact.waterBias;
+      reflectionDataRef.current.keyShadowRadius=lighting.shadow.radius;
+      if(import.meta.env.DEV)gl.domElement.dataset.ddgTerrainShadow=JSON.stringify({enabled:shadowsEnabled,mapReady:!!light.shadow.map,rendererEnabled:gl.shadowMap.enabled,target:fit.centre.toArray(),radius:fit.radius,weight:fit.weight,contactOffsetMeters:contact.offsetMeters,worldTexelSize:contact.worldTexelSize,bias:contact.bias,normalBias:contact.normalBias});
     }
     const shadow = keyLightRef.current?.shadow;
     reflectionDataRef.current.keyShadowMap = shadow?.map?.depthTexture ?? null;
@@ -92,7 +191,7 @@ export default function WaterLights({ settings, mode, qualityProfile, lighting, 
   return (
     <>
       <primitive object={keyTarget}/>
-      <directionalLight
+      {!csmAdapter ? <directionalLight
         target={keyTarget}
         ref={keyLightRef}
         position={lightDirection.clone().multiplyScalar(standoff).toArray()}
@@ -107,11 +206,11 @@ export default function WaterLights({ settings, mode, qualityProfile, lighting, 
         shadow-camera-right={shadowFrustum}
         shadow-camera-top={shadowFrustum}
         shadow-camera-bottom={-shadowFrustum}
-        shadow-bias={lighting.shadow.bias}
-        shadow-normalBias={0.007}
+        shadow-bias={0}
+        shadow-normalBias={0.0015}
         shadow-radius={lighting.shadow.radius}
         shadow-intensity={lighting.shadow.intensity}
-      />
+      /> : null}
       <ambientLight
         color={lighting.fill.ambient.color.hex}
         intensity={lighting.fill.ambient.intensity}

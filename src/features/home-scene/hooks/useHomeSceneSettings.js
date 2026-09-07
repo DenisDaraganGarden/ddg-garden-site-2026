@@ -2,6 +2,7 @@ import {DEFAULT_GRASS_SETTINGS,DEFAULT_SHRUB_SETTINGS,DEFAULT_TREE_SETTINGS,norm
 import { DEFAULT_TERRAIN_SETTINGS, normalizeTerrainSettings } from '../../../terrain/settings.js';
 import { DEFAULT_TANKER_SETTINGS, normalizeTankerSettings } from '../../../tanker/settings.js';
 import { DEFAULT_SHORE_SETTINGS, normalizeShoreSettings } from '../../../shore/settings.js';
+import { DEFAULT_RENDER_QUALITY_SETTINGS, normalizeRenderQualitySettings } from '../../../components/effects/renderQualitySettings.js';
 import { useEffect, useState } from 'react';
 import { publishedHomeSceneSettings } from '../data/publishedHomeSceneSettings';
 import { publishedHomeSceneKeys } from '../data/publishedHomeSceneKeys';
@@ -241,6 +242,7 @@ export const getBaseHomeSceneSettings = () => ({
   hdriIntensity: 1,
   showHdriBackground: false,
   shadowsEnabled: true,
+  ...DEFAULT_RENDER_QUALITY_SETTINGS,
   shadowIntensity: 1,
   shadowRadius: 3,
   // Two light objects. Flat keys rather than an array: publishing, clamping and
@@ -1095,6 +1097,7 @@ const normalizeHomeSceneSettings = (savedSettings = {}, includeCameraSystem = tr
     ...normalizeTreeSettings(merged),
     ...normalizeGrassSettings(merged),
     ...normalizeShoreSettings(merged),
+    ...normalizeRenderQualitySettings(merged),
     bloomEnabled: pickBoolean(merged.bloomEnabled, defaults.bloomEnabled),
     bloomStrength: clampFloat(merged.bloomStrength, 0, 2.5, defaults.bloomStrength),
     bloomThreshold: clampFloat(merged.bloomThreshold, 0, 2, defaults.bloomThreshold),
@@ -1230,6 +1233,11 @@ function removeLegacyHomeSceneKeys() {
   OBSOLETE_PUBLISHED_HOME_SCENE_STORAGE_KEYS.forEach((key) => window.localStorage.removeItem(key));
 }
 
+// Development review reads the current composition but never writes the draft.
+// This keeps camera/light QA on the sandbox origin reversible across reloads.
+const isScenePreview = () => Boolean(import.meta.env?.DEV && typeof window !== 'undefined'
+  && new URLSearchParams(window.location.search).get('preview') === '1');
+
 export function readHomeSceneDraftSettings() {
   if (typeof window === 'undefined') {
     return null;
@@ -1277,7 +1285,7 @@ export function readHomeSceneDraftSettings() {
       };
     }
 
-    if (!hasAppliedWaterDefault) {
+    if (!hasAppliedWaterDefault && !isScenePreview()) {
       window.localStorage.setItem(HOME_SCENE_WATER_DEFAULT_MIGRATION_KEY, '1');
     }
 
@@ -1298,7 +1306,7 @@ export const useHomeSceneDraftSettings = () => {
   const [settings, setSettings] = useState(() => readHomeSceneDraftSettings() ?? getPublishedHomeSceneSettings());
 
   useEffect(() => {
-    if (typeof window === 'undefined') {
+    if (typeof window === 'undefined' || isScenePreview()) {
       return;
     }
 

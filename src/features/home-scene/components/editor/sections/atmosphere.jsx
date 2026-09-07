@@ -1,5 +1,6 @@
 import React from 'react';
 import { useLanguage } from '../../../../../i18n/useLanguage';
+import { resolveShadowContactOffsetMeters } from '../../../../../components/effects/shadowContactContract.js';
 import {
     CheckboxControl,
     ColorControl,
@@ -206,14 +207,36 @@ export const LightSection = ({ settings, handleSettingChange }) => {
                 onChange={(event) => handleSettingChange(event, 'shadowRadius')}
             />
             <RangeControl
-                label={t('homeEditor.controls.shadowBias')}
-                value={settings.shadowBias}
-                min={-0.005}
-                max={0.005}
-                step={0.0001}
-                formatValue={(value) => Number(value).toFixed(4)}
-                onChange={(event) => handleSettingChange(event, 'shadowBias')}
+                label={t('homeEditor.controls.shadowContactOffset')}
+                value={resolveShadowContactOffsetMeters({ legacyBias: settings.shadowBias, contactOffsetMeters: settings.shadowContactOffset })}
+                min={-0.06}
+                max={0.06}
+                step={0.001}
+                unit="mm"
+                formatValue={(value) => Math.round(Number(value) * 1000)}
+                onChange={(event) => handleSettingChange(event, 'shadowContactOffset')}
             />
+            <SelectControl
+                label={t('homeEditor.controls.shadowCascades')}
+                value={settings.shadowCascades ?? 'auto'}
+                options={['auto', '1', '2'].map((value) => ({ value, label: t(`homeEditor.shadowZones.${value}`) }))}
+                onChange={(event) => handleSettingChange(event, 'shadowCascades', 'string')}
+                testId="home-editor-shadow-zones"
+            />
+            {settings.shadowCascades === '2' && <>
+            <RangeControl
+                label={t('homeEditor.controls.shadowNearDistance')}
+                value={settings.shadowNearDistance ?? 25}
+                min={5} max={Math.min(100, (settings.shadowDistance ?? 160) * 0.8)} step={1} unit="m"
+                onChange={(event) => handleSettingChange(event, 'shadowNearDistance')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.shadowDistance')}
+                value={settings.shadowDistance ?? 160}
+                min={20} max={500} step={5} unit="m"
+                onChange={(event) => handleSettingChange(event, 'shadowDistance')}
+            />
+            </>}
             <RangeControl
                 label={t('homeEditor.controls.waterShadowStrength')}
                 value={settings.waterShadowStrength}

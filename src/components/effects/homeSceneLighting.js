@@ -16,6 +16,7 @@ import {
   resolveCloudState,
   solveCloudSunVisibility,
 } from './sky/cloudField.js';
+import { resolveShadowContactOffsetMeters } from './shadowContactContract.js';
 
 // Re-exported so existing importers keep working; the formula itself now lives
 // beside the sun path that has to agree with it.
@@ -165,6 +166,10 @@ export const buildHomeSceneLighting = (settings = {}) => {
   const authoredShadowIntensity = clamp(finiteNumber(settings.shadowIntensity, 0.8), 0, 1);
   const authoredShadowRadius = clamp(finiteNumber(settings.shadowRadius, 1.5), 0, 8);
   const authoredShadowBias = clamp(finiteNumber(settings.shadowBias, -0.0006), -0.005, 0.005);
+  const shadowContactOffsetMeters = resolveShadowContactOffsetMeters({
+    legacyBias: authoredShadowBias,
+    contactOffsetMeters: settings.shadowContactOffset,
+  });
   const sunAngularSize = clamp(finiteNumber(settings.sunAngularSize, 1), 0.2, 6);
   const skyTurbidity = clamp(finiteNumber(settings.skyTurbidity, 2.6), 1, 10);
   const sunTint = hexToLightingColor(settings.sunTint, '#fff5ea');
@@ -272,12 +277,14 @@ export const buildHomeSceneLighting = (settings = {}) => {
       // standard material path and the custom water path consume these solved
       // values instead of applying separate cloud rules.
       intensity: authoredShadowIntensity * (1 - 0.75 * cloudSoftness),
-      radius: clamp(authoredShadowRadius * (1 + cloudSoftness * 2.4), 0.5, 4),
+      radius: clamp(authoredShadowRadius * (1 + cloudSoftness * 2.4), 0, 8),
+      // Kept for published settings and diagnostics. WaterLights converts this
+      // historical normalized value into a fixed physical offset per map.
       bias: authoredShadowBias,
-      // The custom sampler works in normalized shadow depth, where the legacy
-      // directional-light bias is too large. Keep its sign but calibrate it to
-      // the sampler's coordinate domain.
-      waterBias: clamp(authoredShadowBias * 0.35, -0.0015, 0.0015),
+      contactOffsetMeters: shadowContactOffsetMeters,
+      // A safe seed before the first map exists. The actual normalized water
+      // offset depends on its shadow camera and is published by WaterLights.
+      waterBias: 0,
       waterStrength: clamp(finiteNumber(settings.waterShadowStrength, 1), 0, 1),
     },
     sky: {

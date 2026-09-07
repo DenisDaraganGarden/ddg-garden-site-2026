@@ -65,8 +65,8 @@ assert.equal(
     post: { halfFloatDepthStencil: false, rgba8DepthStencil: true },
     optics: { colorType: 'rgba8', depthMode: 'none' },
   }),
-  'post: RGBA8 + D24S8; optics: RGBA8 + analytic depth',
-  'diagnostics must expose the exact fallback selected by the probe',
+  'post: RGBA8 + D24S8 (no MSAA resolve); optics: RGBA8 + analytic depth',
+  'diagnostics must expose that single-sample attachment support is not proof of a multisample resolve',
 );
 
 assert.equal(
@@ -74,8 +74,17 @@ assert.equal(
     post: { halfFloatDepthStencil: false, rgba8DepthStencil: false },
     optics: { colorType: 'rgba8', depthMode: 'none' },
   }),
-  'post: disabled; optics: RGBA8 + analytic depth',
+  'post: disabled (no MSAA resolve); optics: RGBA8 + analytic depth',
   'diagnostics must not claim a depth-stencil fallback that the probe rejected',
+);
+
+assert.equal(
+  formatRenderTargetCapabilities({
+    post: { halfFloatDepthStencil: true, rgba8DepthStencil: true, msaaHalfFloatResolve: true, msaaRgba8Resolve: true },
+    optics: { colorType: 'half-float', depthMode: 'texture' },
+  }),
+  'post: RGBA16F + D24S8 (MSAA HDR); optics: RGBA16F + depth texture',
+  'diagnostics must distinguish a verified HDR multisample resolve from an untested attachment pair',
 );
 
 console.log('renderTargetCapabilities: all checks passed');

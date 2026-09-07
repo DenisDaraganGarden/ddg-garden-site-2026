@@ -31,6 +31,7 @@ import {
 } from '../../features/home-scene/lib/layout';
 import SceneCanvas from './SceneCanvas';
 import { buildRuntimeQualityProfile, QUALITY_TIER } from './qualityProfile';
+import { useRenderBudget } from './useRenderBudget';
 import { getRenderTargetCapabilities } from './renderTargetCapabilities';
 import WaterCameraRig from './water/WaterCameraRig';
 import { useWaterRuntime } from './water/useWaterRuntime';
@@ -194,10 +195,19 @@ function WaterRuntimeScene({
     () => getRenderTargetCapabilities(gl),
     [gl],
   );
-  const qualityProfile = useMemo(
+  const baseQualityProfile = useMemo(
     () => buildRuntimeQualityProfile(mode, size.width, renderTargetCapabilities),
     [mode, renderTargetCapabilities, size.width],
   );
+  const postEnabled = baseQualityProfile.postProcessingSupported !== false
+    && baseQualityProfile.postDepthStencilEnabled !== false
+    && settings.postProcessingEnabled
+    && settings.debugView === 'beauty';
+  const qualityProfile = useRenderBudget({
+    baseProfile: baseQualityProfile,
+    enabled: settings.adaptiveQuality !== false,
+    postEnabled,
+  });
   const terrainKey = JSON.stringify(Object.fromEntries(Object.entries(settings).filter(([key]) => key.startsWith('terrain') || key === 'waterDepthMeters')));
   const terrainDefinition = useMemo(() => createTerrainDefinition(JSON.parse(terrainKey)), [terrainKey]);
   const rockKey=JSON.stringify({...JSON.parse(terrainGeometryKey(terrainDefinition)),terrainRocks:terrainDefinition.terrainRocks,terrainRocksEnabled:terrainDefinition.terrainRocksEnabled,terrainRockSize:terrainDefinition.terrainRockSize,terrainDebris:terrainDefinition.terrainDebris});

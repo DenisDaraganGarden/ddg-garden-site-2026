@@ -84,20 +84,57 @@ export function makePlantMaterials(atlas,uniforms,{bake=false}={}) {
     if(split)shader.fragmentShader=shader.fragmentShader.replace('#include <normal_fragment_maps>',THREE.ShaderChunk.normal_fragment_maps.replaceAll('vNormalMapUv','vec2(vNormalMapUv.x,vNormalMapUv.y*.5+(gl_FrontFacing?0.0:.5))'));
     // Backlight through a thin leaf; a surface map says per pixel how thin
     // (awn plumes and panicle hairs glow, stem bases do not).
-    if(!bake)shader.fragmentShader=shader.fragmentShader.replace('#include <lights_fragment_end>',`#include <lights_fragment_end>
+    if(!bake){
+     // MeshStandardMaterial includes the shadow-map declarations, but not the
+     // aggregate helper used by Three's shadow material. The added leaf
+     // transmission is direct sunlight too, so it has to use the exact same
+     // visibility as the standard direct-diffuse term. Otherwise a leaf kept
+     // glowing through its own canopy or another caster after its lit face had
+     // correctly entered shadow.
+     shader.fragmentShader=shader.fragmentShader.replace(
+       '#include <shadowmap_pars_fragment>',
+       `#include <shadowmap_pars_fragment>\n${THREE.ShaderChunk.shadowmask_pars_fragment}`,
+     );
+     shader.fragmentShader=shader.fragmentShader.replace('#include <lights_fragment_end>',`#include <lights_fragment_end>
       float plantThin=1.0;
       #ifdef USE_ROUGHNESSMAP
       plantThin=texture2D(roughnessMap,vRoughnessMapUv).b*1.7;
       #endif
       #if NUM_DIR_LIGHTS > 0
-      for(int i=0;i<NUM_DIR_LIGHTS;i++){
-        float through=max(dot(-normal,directionalLights[i].direction),0.0);
-        reflectedLight.directDiffuse+=diffuseColor.rgb*directionalLights[i].color*through*uPlantTransmission*plantThin*.12;
-      }
+      // CSM represents one sun with several DirectionalLights. getShadowMask()
+      // multiplies all maps and would turn a leaf dark where any non-selected
+      // cascade is out of bounds. Match CSMShader: sample and add exactly the
+      // one directional light which owns this main-camera depth.
+      #ifdef USE_CSM
+        float plantLinearDepth=(vViewPosition.z)/(shadowFar-cameraNear);
+        #if NUM_DIR_LIGHT_SHADOWS > 0
+          #pragma unroll_loop_start
+          for ( int i = 0; i < NUM_DIR_LIGHT_SHADOWS; i ++ ) {
+            #if ( UNROLLED_LOOP_INDEX < NUM_DIR_LIGHT_SHADOWS )
+              if(plantLinearDepth>=CSM_cascades[UNROLLED_LOOP_INDEX].x && (plantLinearDepth<CSM_cascades[UNROLLED_LOOP_INDEX].y || UNROLLED_LOOP_INDEX==CSM_CASCADES-1)){
+                DirectionalLightShadow plantShadow=directionalLightShadows[i];
+                float plantShadowVisibility=getShadow(directionalShadowMap[i],plantShadow.shadowMapSize,plantShadow.shadowIntensity,plantShadow.shadowBias,plantShadow.shadowRadius,vDirectionalShadowCoord[i]);
+                float through=max(dot(-normal,directionalLights[i].direction),0.0);
+                reflectedLight.directDiffuse+=diffuseColor.rgb*directionalLights[i].color*through*uPlantTransmission*plantThin*.12*plantShadowVisibility;
+              }
+            #endif
+          }
+          #pragma unroll_loop_end
+        #endif
+      #else
+        float plantShadowVisibility=getShadowMask();
+        #pragma unroll_loop_start
+        for ( int i = 0; i < NUM_DIR_LIGHTS; i ++ ) {
+          float through=max(dot(-normal,directionalLights[i].direction),0.0);
+          reflectedLight.directDiffuse+=diffuseColor.rgb*directionalLights[i].color*through*uPlantTransmission*plantThin*.12*plantShadowVisibility;
+        }
+        #pragma unroll_loop_end
+      #endif
       #endif`);
+    }
    }
   };
-  m.customProgramCacheKey=()=>`oleaster-${m.type}-${m===leaves?'leaf':m===leafDepth?'cutout':'bark'}-${split?'split':'single'}-${atlas.surface?'surface':'plain'}-${tile?'barktile':'barkgrain'}-7`;
+  m.customProgramCacheKey=()=>`oleaster-${m.type}-${m===leaves?'leaf':m===leafDepth?'cutout':'bark'}-${split?'split':'single'}-${atlas.surface?'surface':'plain'}-${tile?'barktile':'barkgrain'}-8`;
  }
  return {bark,leaves,barkDepth,leafDepth,dispose(){for(const m of [bark,leaves,barkDepth,leafDepth])m.dispose();}};
 }

@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
+import { getRenderTargetCapabilities } from './renderTargetCapabilities';
+import { captureContactAoDepth, contactAoFragmentShader, contactAoVertexShader, createContactAoTargets } from './contactAO';
 import {
   getCursorFlashlightRuntime,
   getCursorFlashlightWorldRuntime,
@@ -108,6 +110,11 @@ const postFragmentShader = `
   uniform sampler2D uNoiseTexture;
   uniform sampler2D uFilmNoiseTexture;
   uniform vec2 uResolution;
+  uniform float uFxaaEnabled;
+  uniform sampler2D uContactAoTexture;
+  uniform sampler2D uContactAoDepthTexture;
+  uniform vec2 uContactAoResolution;
+  uniform float uContactAoEnabled;
   uniform vec2 uSunUv;
   uniform float uSunVisible;
   uniform vec3 uSunColor;
@@ -182,6 +189,59 @@ const postFragmentShader = `
 
   float ddgLuminance(vec3 color) {
     return dot(color, vec3(0.2126, 0.7152, 0.0722));
+  }
+
+  // Namespaced adaptation of Three r183's FXAAShader. It stays in this grading
+  // draw so fallback AA adds no target or draw; edge detection uses perceptual
+  // luma while the sampled/result colour remains linear HDR.
+  float ddgFxaaLuma(vec3 linearColor) {
+    vec3 perceptual = pow(max(linearColor, vec3(0.0)), vec3(1.0 / 2.2));
+    return dot(perceptual, vec3(0.3, 0.59, 0.11));
+  }
+  vec3 sampleAntiAliasedScene(vec2 uv) {
+    vec3 center = texture2D(uColorTexture, uv).rgb;
+    if (uFxaaEnabled < 0.5) return center;
+    vec2 texel = 1.0 / max(uResolution, vec2(1.0));
+    vec3 north = texture2D(uColorTexture, uv + vec2(0.0, texel.y)).rgb;
+    vec3 south = texture2D(uColorTexture, uv - vec2(0.0, texel.y)).rgb;
+    vec3 east = texture2D(uColorTexture, uv + vec2(texel.x, 0.0)).rgb;
+    vec3 west = texture2D(uColorTexture, uv - vec2(texel.x, 0.0)).rgb;
+    float m = ddgFxaaLuma(center), n = ddgFxaaLuma(north), s = ddgFxaaLuma(south), e = ddgFxaaLuma(east), w = ddgFxaaLuma(west);
+    float ne = ddgFxaaLuma(texture2D(uColorTexture, uv + texel).rgb);
+    float nw = ddgFxaaLuma(texture2D(uColorTexture, uv + vec2(-texel.x, texel.y)).rgb);
+    float se = ddgFxaaLuma(texture2D(uColorTexture, uv + vec2(texel.x, -texel.y)).rgb);
+    float sw = ddgFxaaLuma(texture2D(uColorTexture, uv - texel).rgb);
+    float highest = max(max(max(n, e), max(s, w)), m);
+    float lowest = min(min(min(n, e), min(s, w)), m);
+    float contrast = highest - lowest;
+    if (contrast < max(0.0312, highest * 0.063)) return center;
+    float horizontal = abs(n + s - 2.0 * m) * 2.0 + abs(ne + se - 2.0 * e) + abs(nw + sw - 2.0 * w);
+    float vertical = abs(e + w - 2.0 * m) * 2.0 + abs(ne + nw - 2.0 * n) + abs(se + sw - 2.0 * s);
+    bool isHorizontal = horizontal >= vertical;
+    float positive = isHorizontal ? n : e;
+    float negative = isHorizontal ? s : w;
+    float positiveGradient = abs(positive - m), negativeGradient = abs(negative - m);
+    float pixelStep = isHorizontal ? texel.y : texel.x;
+    float opposite = negative;
+    float gradient = negativeGradient;
+    if (positiveGradient < negativeGradient) { pixelStep = -pixelStep; opposite = positive; gradient = positiveGradient; }
+    vec2 edgeUv = uv + (isHorizontal ? vec2(0.0, pixelStep * 0.5) : vec2(pixelStep * 0.5, 0.0));
+    vec2 edgeStep = isHorizontal ? vec2(texel.x, 0.0) : vec2(0.0, texel.y);
+    float edgeLuma = (m + opposite) * 0.5;
+    float threshold = gradient * 0.25;
+    vec2 plusUv = edgeUv, minusUv = edgeUv;
+    float plusDistance = 0.0, minusDistance = 0.0;
+    for (int i = 0; i < 6; i++) {
+      float stepSize = i == 0 ? 1.0 : i == 1 ? 1.5 : i < 5 ? 2.0 : 4.0;
+      if (abs(ddgFxaaLuma(texture2D(uColorTexture, plusUv).rgb) - edgeLuma) < threshold) { plusUv += edgeStep * stepSize; plusDistance += stepSize; }
+      if (abs(ddgFxaaLuma(texture2D(uColorTexture, minusUv).rgb) - edgeLuma) < threshold) { minusUv -= edgeStep * stepSize; minusDistance += stepSize; }
+    }
+    float edgeBlend = 0.5 - min(plusDistance, minusDistance) / max(plusDistance + minusDistance, 0.0001);
+    float filtered = abs((2.0 * (n + e + s + w) + ne + nw + se + sw) / 12.0 - m) / max(contrast, 0.0001);
+    float subpixel = smoothstep(0.0, 1.0, clamp(filtered, 0.0, 1.0)); subpixel *= subpixel;
+    float blend = max(subpixel, edgeBlend);
+    vec2 resolvedUv = uv + (isHorizontal ? vec2(0.0, pixelStep * blend) : vec2(pixelStep * blend, 0.0));
+    return texture2D(uColorTexture, resolvedUv).rgb;
   }
 
   // Eighteen steps along a ray, taken at the same fractional offsets by every
@@ -453,7 +513,31 @@ const postFragmentShader = `
     // component together. DOM chrome is outside this pass and stays perfectly still.
     vec2 filmUv = vUv - gateOffset;
     vec2 filmSunUv = uSunUv + gateOffset;
-    vec3 color = finiteColor(texture2D(uColorTexture, filmUv).rgb);
+    vec3 color = finiteColor(sampleAntiAliasedScene(filmUv));
+    if (uContactAoEnabled > 0.5) {
+      float mainDepth = texture2D(uDepthTexture, filmUv).r;
+      float mainDistance = getViewDistance(mainDepth);
+      vec2 cell = filmUv * uContactAoResolution - 0.5;
+      vec2 base = floor(cell);
+      vec2 fraction = fract(cell);
+      vec2 texel = 1.0 / max(uContactAoResolution, vec2(1.0));
+      vec2 uv00 = (base + vec2(0.5)) * texel;
+      vec2 uv10 = uv00 + vec2(texel.x, 0.0);
+      vec2 uv01 = uv00 + vec2(0.0, texel.y);
+      vec2 uv11 = uv00 + texel;
+      float d00 = abs(mainDistance - getViewDistance(texture2D(uContactAoDepthTexture, uv00).r));
+      float d10 = abs(mainDistance - getViewDistance(texture2D(uContactAoDepthTexture, uv10).r));
+      float d01 = abs(mainDistance - getViewDistance(texture2D(uContactAoDepthTexture, uv01).r));
+      float d11 = abs(mainDistance - getViewDistance(texture2D(uContactAoDepthTexture, uv11).r));
+      float tolerance = max(0.035, mainDistance * 0.006);
+      float w00 = (1.0 - fraction.x) * (1.0 - fraction.y) * (1.0 - smoothstep(tolerance, tolerance * 2.0, d00));
+      float w10 = fraction.x * (1.0 - fraction.y) * (1.0 - smoothstep(tolerance, tolerance * 2.0, d10));
+      float w01 = (1.0 - fraction.x) * fraction.y * (1.0 - smoothstep(tolerance, tolerance * 2.0, d01));
+      float w11 = fraction.x * fraction.y * (1.0 - smoothstep(tolerance, tolerance * 2.0, d11));
+      float weight = w00 + w10 + w01 + w11;
+      float contact = (texture2D(uContactAoTexture, uv00).r * w00 + texture2D(uContactAoTexture, uv10).r * w10 + texture2D(uContactAoTexture, uv01).r * w01 + texture2D(uContactAoTexture, uv11).r * w11) / max(weight, 0.0001);
+      color *= mix(1.0, contact, step(0.0001, weight));
+    }
 
     if (uBloomEnabled > 0.5 && uBloomStrength > 0.0001) {
       color += finiteColor(texture2D(uBloomTexture, filmUv).rgb) * uBloomStrength;
@@ -644,6 +728,7 @@ const finiteSetting = (value, fallback) => (Number.isFinite(value) ? value : fal
 export default function ScenePostProcessing({ settings, qualityProfile, lighting }) {
   const { gl, scene, camera } = useThree();
   const isLowPower = qualityProfile?.isLowPower === true;
+  const capabilities = useMemo(() => getRenderTargetCapabilities(gl), [gl]);
   const renderScale = qualityProfile?.postRenderScale ?? 1;
   const requestedSamples = qualityProfile?.postSamples ?? 0;
   const sunRaySampleCount = Math.max(
@@ -663,6 +748,19 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
       : isLowPower
         ? THREE.UnsignedByteType
         : THREE.HalfFloatType;
+  const aaPreference = settings.postAntiAliasing ?? 'auto';
+  const canResolveMsaa = postColorType === THREE.HalfFloatType
+    ? capabilities.post?.msaaHalfFloatResolve === true
+    : capabilities.post?.msaaRgba8Resolve === true;
+  const effectiveSamples = postProcessingSupported && canResolveMsaa && aaPreference !== 'fxaa' && aaPreference !== 'off'
+    // The raw capability probe verifies the resolve at 4 samples. Do not claim
+    // an untested 8x path merely because the context advertises it.
+    ? Math.min(requestedSamples, 4, gl.capabilities.maxSamples ?? requestedSamples)
+    : 0;
+  const effectiveFxaa = postProcessingSupported
+    && effectiveSamples === 0
+    && aaPreference !== 'off';
+  const contactAoEnabled = settings.contactAoEnabled === true && postProcessingSupported;
   const drawingBufferSize = useRef(new THREE.Vector2());
   const lastTargetSize = useRef(new THREE.Vector2());
   const sunPoint = useRef(new THREE.Vector3());
@@ -699,11 +797,9 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
     // entire scene is drawn into this target first, so vegetation's
     // alphaToCoverage needs samples here as well or its thin edges turn into
     // hard black sawteeth despite a DPR-2 canvas.
-    target.samples = isLowPower || !postProcessingSupported
-      ? 0
-      : Math.min(requestedSamples, gl.capabilities.maxSamples ?? requestedSamples);
+    target.samples = effectiveSamples;
     return target;
-  }, [gl.capabilities.maxSamples, isLowPower, postColorType, postProcessingSupported, requestedSamples]);
+  }, [effectiveSamples, postColorType, postProcessingSupported]);
   const bloomTargets = useMemo(() => {
     const createTarget = (name) => {
       const target = new THREE.WebGLRenderTarget(1, 1, {
@@ -723,6 +819,17 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
       createTarget('home-scene-bloom-b'),
     ];
   }, [postColorType]);
+  const contactAo = useMemo(() => createContactAoTargets(), []);
+  const contactAoUniforms = useMemo(() => ({
+    uDepth: { value: contactAo.depthTarget.depthTexture },
+    uResolution: { value: new THREE.Vector2(1, 1) },
+    uNear: { value: 0.1 }, uFar: { value: 1000 },
+    uRadius: { value: 0.5 }, uIntensity: { value: 0.35 }, uLogDepth: { value: 1 },
+    uProjectionInverse: { value: new THREE.Matrix4() }, uProjection: { value: new THREE.Matrix4() },
+  }), [contactAo]);
+  const contactAoMaterial = useMemo(() => new THREE.ShaderMaterial({ uniforms: contactAoUniforms, vertexShader: contactAoVertexShader, fragmentShader: contactAoFragmentShader, depthTest: false, depthWrite: false }), [contactAoUniforms]);
+  const contactAoScene = useMemo(() => { const next = new THREE.Scene(); next.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), contactAoMaterial)); return next; }, [contactAoMaterial]);
+  const contactAoCamera = useMemo(() => new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1), []);
   const uniforms = useMemo(() => ({
     uColorTexture: { value: renderTarget.texture },
     uBloomTexture: { value: bloomTargets[0].texture },
@@ -730,6 +837,14 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
     uNoiseTexture: { value: noiseTexture },
     uFilmNoiseTexture: { value: filmNoiseTexture },
     uResolution: { value: new THREE.Vector2(1, 1) },
+    // Feature toggles update these mutable uniforms below. Keeping them out of
+    // this memo is essential: rebuilding uResolution at 1x1 while the already
+    // sized target stays alive makes every FXAA offset span the whole image.
+    uFxaaEnabled: { value: 0 },
+    uContactAoTexture: { value: contactAo.aoTarget.texture },
+    uContactAoDepthTexture: { value: contactAo.depthTarget.depthTexture },
+    uContactAoResolution: { value: new THREE.Vector2(1, 1) },
+    uContactAoEnabled: { value: 0 },
     uSunUv: { value: new THREE.Vector2(0.5, 0.5) },
     uSunVisible: { value: 0 },
     uSunColor: { value: new THREE.Color('#ffffff') },
@@ -781,7 +896,7 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
     uCursorLightAspect: { value: 1 },
     uCursorLightSoftness: { value: 0.72 },
     uCursorLightFogRelief: { value: 0 },
-  }), [bloomTargets, filmNoiseTexture, isLowPower, noiseTexture, renderTarget]);
+  }), [bloomTargets, contactAo, filmNoiseTexture, isLowPower, noiseTexture, renderTarget]);
   const postMaterial = useMemo(() => new THREE.ShaderMaterial({
     uniforms,
     vertexShader: postVertexShader,
@@ -865,6 +980,8 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
     uniforms.uFilmGateWeaveAmount.value = finiteSetting(settings.filmGateWeaveAmount, 0);
     uniforms.uFilmGateWeaveRate.value = finiteSetting(settings.filmGateWeaveRate, 2);
     uniforms.uFilmLowPower.value = toEnabledFloat(isLowPower);
+    uniforms.uFxaaEnabled.value = effectiveFxaa ? 1 : 0;
+    uniforms.uContactAoEnabled.value = contactAoEnabled ? 1 : 0;
     uniforms.uBloomEnabled.value = toEnabledFloat(settings.bloomEnabled);
     uniforms.uBloomStrength.value = settings.bloomStrength;
     bloomPrefilterUniforms.uThreshold.value = settings.bloomThreshold;
@@ -890,7 +1007,7 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
     uniforms.uFogScattering.value = settings.fogScattering;
     uniforms.uFogSampleCount.value = fogSampleCount;
     uniforms.uSunColor.value.fromArray(lighting.key.colorLinear);
-  }, [bloomPrefilterUniforms, fogSampleCount, isLowPower, lighting.environment.horizon.linear, lighting.key.colorLinear, settings, sunRaySampleCount, uniforms]);
+  }, [bloomPrefilterUniforms, contactAoEnabled, effectiveFxaa, fogSampleCount, isLowPower, lighting.environment.horizon.linear, lighting.key.colorLinear, settings, sunRaySampleCount, uniforms]);
 
   useEffect(() => () => {
     postScene.children[0]?.geometry?.dispose();
@@ -914,9 +1031,14 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
   );
   useEffect(() => () => noiseTexture.dispose(), [noiseTexture]);
   useEffect(() => () => filmNoiseTexture.dispose(), [filmNoiseTexture]);
+  useEffect(() => () => { contactAo.depthTarget.dispose(); contactAo.aoTarget.dispose(); contactAoScene.children[0]?.geometry?.dispose(); contactAoMaterial.dispose(); }, [contactAo, contactAoMaterial, contactAoScene]);
 
   useEffect(() => {
     gl.domElement.dataset.ddgPostSamples = String(renderTarget.samples);
+    gl.domElement.dataset.ddgEffectiveAa = renderTarget.samples > 0
+      ? `msaa-${renderTarget.samples}`
+      : effectiveFxaa ? 'fxaa' : 'off';
+    gl.domElement.dataset.ddgContactAo = contactAoEnabled ? 'half-opaque-depth' : 'off';
     gl.domElement.dataset.ddgPostStatus = postProcessingSupported ? 'ready' : 'default-framebuffer';
     gl.domElement.dataset.ddgBloomPipeline = isLowPower ? 'quarter-tent-1' : 'quarter-tent-2';
     gl.domElement.dataset.ddgSunRays = `sun-occlusion-${sunRaySampleCount}`;
@@ -924,13 +1046,17 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
     gl.domElement.dataset.ddgCursorFlashlightFog = 'local-relief';
     return () => {
       delete gl.domElement.dataset.ddgPostSamples;
+      delete gl.domElement.dataset.ddgEffectiveAa;
+      delete gl.domElement.dataset.ddgContactAo;
+      delete gl.domElement.dataset.ddgContactAoDimensions;
+      delete gl.domElement.dataset.ddgPostDimensions;
       delete gl.domElement.dataset.ddgPostStatus;
       delete gl.domElement.dataset.ddgBloomPipeline;
       delete gl.domElement.dataset.ddgSunRays;
       delete gl.domElement.dataset.ddgFogSamples;
       delete gl.domElement.dataset.ddgCursorFlashlightFog;
     };
-  }, [fogSampleCount, gl, isLowPower, postProcessingSupported, renderTarget.samples, sunRaySampleCount]);
+  }, [contactAoEnabled, effectiveFxaa, fogSampleCount, gl, isLowPower, postProcessingSupported, renderTarget.samples, sunRaySampleCount]);
 
   useEffect(() => {
     const { dataset } = gl.domElement;
@@ -994,6 +1120,37 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
       uniforms.uResolution.value.set(width, height);
       bloomPrefilterUniforms.uTexelSize.value.set(1 / width, 1 / height);
       bloomBlurUniforms.uTexelSize.value.set(1 / bloomWidth, 1 / bloomHeight);
+    }
+    // Keep diagnostics present across feature toggles; those do not resize the
+    // main target and therefore must not be coupled to the resize branch.
+    // Set dimensions every frame as a lifecycle guard too. A future material
+    // rebuild must never inherit its 1x1 construction value while a correctly
+    // sized target is retained.
+    uniforms.uResolution.value.set(width, height);
+    gl.domElement.dataset.ddgPostDimensions = `${width}x${height}`;
+
+    if (contactAoEnabled) {
+      const aoWidth = Math.max(1, Math.ceil(width * 0.5));
+      const aoHeight = Math.max(1, Math.ceil(height * 0.5));
+      if (contactAo.depthTarget.width !== aoWidth || contactAo.depthTarget.height !== aoHeight) {
+        contactAo.depthTarget.setSize(aoWidth, aoHeight);
+        contactAo.aoTarget.setSize(aoWidth, aoHeight);
+        contactAoUniforms.uResolution.value.set(aoWidth, aoHeight);
+      }
+      uniforms.uContactAoResolution.value.set(aoWidth, aoHeight);
+      contactAoUniforms.uResolution.value.set(aoWidth, aoHeight);
+      contactAoUniforms.uNear.value = camera.near;
+      contactAoUniforms.uFar.value = camera.far;
+      contactAoUniforms.uProjectionInverse.value.copy(camera.projectionMatrixInverse);
+      contactAoUniforms.uProjection.value.copy(camera.projectionMatrix);
+      contactAoUniforms.uRadius.value = settings.contactAoRadius ?? 0.5;
+      contactAoUniforms.uIntensity.value = settings.contactAoIntensity ?? 0.35;
+      contactAoUniforms.uLogDepth.value = gl.capabilities.logarithmicDepthBuffer ? 1 : 0;
+      captureContactAoDepth({ gl, scene, camera, target: contactAo.depthTarget });
+      gl.setRenderTarget(contactAo.aoTarget);
+      gl.clear(true, false, false);
+      gl.render(contactAoScene, contactAoCamera);
+      gl.domElement.dataset.ddgContactAoDimensions = `${aoWidth}x${aoHeight}`;
     }
 
     // The direction comes from the lighting contract, not from a second copy of

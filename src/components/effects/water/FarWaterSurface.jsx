@@ -12,13 +12,22 @@ const farWaterVertexShader = /* glsl */`
   ${coastShader}
   uniform float uTime;
   uniform float uShoreMode;
+  uniform mat4 uKeyShadowMatrix;
+  uniform mat4 uKeyShadowMatrixFar;
   varying vec3 vWorldPosition;
+  varying vec4 vKeyShadowCoord;
+  varying vec4 vKeyShadowCoordFar;
+  varying float vKeyShadowViewDepth;
 
   void main() {
     vec4 worldPosition = modelMatrix * vec4(position, 1.0);
     if (uShoreMode > 0.5) worldPosition.y += coastWave(coastLocal(worldPosition.xz), uTime);
     vWorldPosition = worldPosition.xyz;
-    gl_Position = projectionMatrix * viewMatrix * worldPosition;
+    vKeyShadowCoord = uKeyShadowMatrix * worldPosition;
+    vKeyShadowCoordFar = uKeyShadowMatrixFar * worldPosition;
+    vec4 viewPosition = viewMatrix * worldPosition;
+    vKeyShadowViewDepth = -viewPosition.z;
+    gl_Position = projectionMatrix * viewPosition;
   }
 `;
 
@@ -39,10 +48,28 @@ export const farWaterFragmentShader = /* glsl */`
   uniform float uCoastScattering;
   uniform vec3 uCoastKeyColor;
   uniform float uCoastKeyIntensity;
+  uniform highp sampler2DShadow uKeyShadowMap;
+  uniform highp sampler2DShadow uKeyShadowMapFar;
+  uniform mat4 uKeyShadowMatrix;
+  uniform float uKeyShadowFarActive;
+  uniform float uKeyShadowFarBias;
+  uniform vec2 uKeyShadowFarTexelSize;
+  uniform float uKeyShadowFarRadius;
+  uniform float uKeyShadowSplit;
+  uniform float uKeyShadowActive;
+  uniform float uKeyShadowBias;
+  uniform vec2 uKeyShadowTexelSize;
+  uniform float uKeyShadowRadius;
+  uniform float uKeyDirectShare;
+  uniform float uShadowIntensity;
+  uniform float uWaterShadowStrength;
   uniform vec3 uFoamKeyRadiance;
   uniform vec3 uFoamFillRadiance;
 
   varying vec3 vWorldPosition;
+  varying vec4 vKeyShadowCoord;
+  varying vec4 vKeyShadowCoordFar;
+  varying float vKeyShadowViewDepth;
 
   uniform sampler2D uPlanarReflection;
   uniform mat4 uReflectionMatrix;
@@ -72,6 +99,26 @@ export const farWaterFragmentShader = /* glsl */`
       : vec3(1.0);
     float value = mix(0.45, 1.0, sqrt(clamp(luminance, 0.0, 1.0)));
     return chroma * value;
+  }
+
+  float sampleKeyShadow(sampler2DShadow shadowMap, vec4 shadowCoord, float isActive, float bias, vec2 texelSize, float radius) {
+    if (isActive < 0.5) return 1.0;
+    vec3 coord = shadowCoord.xyz / max(shadowCoord.w, 1e-5);
+    if (coord.z > 1.0 || any(lessThan(coord.xy, vec2(0.0))) || any(greaterThan(coord.xy, vec2(1.0)))) return 1.0;
+    float depth = coord.z + bias;
+    vec2 stepSize = texelSize * max(0.5, radius);
+    float lit = texture(shadowMap, vec3(coord.xy, depth)) * .28;
+    lit += texture(shadowMap, vec3(coord.xy + vec2(stepSize.x, 0.0), depth)) * .18;
+    lit += texture(shadowMap, vec3(coord.xy - vec2(stepSize.x, 0.0), depth)) * .18;
+    lit += texture(shadowMap, vec3(coord.xy + vec2(0.0, stepSize.y), depth)) * .18;
+    lit += texture(shadowMap, vec3(coord.xy - vec2(0.0, stepSize.y), depth)) * .18;
+    return mix(1.0, lit, clamp(uShadowIntensity, 0.0, 1.0));
+  }
+  float keyShadow() {
+    float nearShadow = sampleKeyShadow(uKeyShadowMap, vKeyShadowCoord, uKeyShadowActive, uKeyShadowBias, uKeyShadowTexelSize, uKeyShadowRadius);
+    float farShadow = sampleKeyShadow(uKeyShadowMapFar, vKeyShadowCoordFar, uKeyShadowFarActive, uKeyShadowFarBias, uKeyShadowFarTexelSize, uKeyShadowFarRadius);
+    float cascadeBlend = smoothstep(uKeyShadowSplit - 2.0, uKeyShadowSplit + 2.0, vKeyShadowViewDepth) * step(0.5, uKeyShadowFarActive);
+    return mix(nearShadow, farShadow, cascadeBlend);
   }
 
   float coastDepthToViewZ(float depth) {
@@ -134,6 +181,7 @@ export const farWaterFragmentShader = /* glsl */`
     if (!gl_FrontFacing) {
       normal = -normal;
     }
+    float keyVisibility = keyShadow();
 
     float normalDotView = clamp(dot(normal, viewDirection), 0.0, 1.0);
     float fresnel = 0.02037 + 0.97963 * pow(1.0 - normalDotView, 5.0);
@@ -199,7 +247,8 @@ export const farWaterFragmentShader = /* glsl */`
       float forwardScatter=pow(max(dot(viewDirection,uKeyDirection),0.0),5.0);
       vec3 scatterColor=mix(deepTint,uCoastKeyColor,forwardScatter*.46);
       float scatterLight=mix(.48,1.0,sqrt(clamp(uEnvironmentExposure*uEnvironmentReflection,0.0,1.0)));
-      vec3 shallow=bed.rgb*exp(-(absorption+vec3(scattering))*opticalPath)+scatterColor*(1.0-exp(-scattering*opticalPath))*scatterLight*(.82+forwardScatter*clamp(uCoastKeyIntensity,0.0,4.0)*.2);
+      float shadowedDirect = mix(1.0, keyVisibility, clamp(uKeyDirectShare * uWaterShadowStrength, 0.0, 1.0));
+      vec3 shallow=bed.rgb*exp(-(absorption+vec3(scattering))*opticalPath)+scatterColor*(1.0-exp(-scattering*opticalPath))*scatterLight*shadowedDirect*(.82+forwardScatter*clamp(uCoastKeyIntensity,0.0,4.0)*.2);
       refraction=mix(refraction,shallow,bed.a*captureCoverage*smoothstep(-coastOffshore(),-coastOffshore()+26.0,qs.x));
     }
     vec4 projected = uReflectionMatrix * vec4(vWorldPosition, 1.0);
@@ -226,7 +275,7 @@ export const farWaterFragmentShader = /* glsl */`
 
     if(uCoastShape.x>.5){
       float foam=max(max(coastFoam(qs,vWorldPosition,uTime),contactFoam*coastNoise(vWorldPosition.xz*19.0)),whitecap);
-      vec3 foamLight=vec3(.82,.84,.78)*(uFoamFillRadiance+uFoamKeyRadiance*max(dot(normal,uKeyDirection),0.0))/3.14159265;
+      vec3 foamLight=vec3(.82,.84,.78)*(uFoamFillRadiance+uFoamKeyRadiance*max(dot(normal,uKeyDirection),0.0)*keyVisibility)/3.14159265;
       color=mix(color,foamLight,foam);
     }
     gl_FragColor = vec4(max(color, vec3(0.0)), 1.0);
@@ -238,6 +287,12 @@ export const farWaterFragmentShader = /* glsl */`
 
 export default function FarWaterSurface({ settings, lighting, sky, qualityProfile, geometryOverride, shoreMode = false }) {
   const reflectionDataRef = React.useContext(reflectionContext);
+  const [emptyShadow] = useState(() => {
+    const texture = new THREE.DepthTexture(1, 1, THREE.UnsignedIntType);
+    texture.compareFunction = THREE.LessEqualCompare;
+    texture.needsUpdate = true;
+    return texture;
+  });
   const meshRef = useRef();
   const materialRef = useRef();
   const geometry = useMemo(() => {
@@ -270,6 +325,22 @@ export default function FarWaterSurface({ settings, lighting, sky, qualityProfil
     uCoastRefractionCameraRange: { value: new THREE.Vector2(0.1, 1000) },
     uCoastTurbidity: { value: .4 },uCoastScattering: { value: .2 },
     uCoastKeyColor: { value: new THREE.Color() },uCoastKeyIntensity: { value: 1 },
+    uKeyShadowMap: { value: emptyShadow },
+    uKeyShadowMapFar: { value: emptyShadow },
+    uKeyShadowMatrix: { value: new THREE.Matrix4() },
+    uKeyShadowMatrixFar: { value: new THREE.Matrix4() },
+    uKeyShadowActive: { value: 0 },
+    uKeyShadowBias: { value: lighting.shadow.waterBias },
+    uKeyShadowTexelSize: { value: new THREE.Vector2(1 / 1024, 1 / 1024) },
+    uKeyShadowRadius: { value: lighting.shadow.radius },
+    uKeyShadowFarActive: { value: 0 },
+    uKeyShadowFarBias: { value: lighting.shadow.waterBias },
+    uKeyShadowFarTexelSize: { value: new THREE.Vector2(1 / 1024, 1 / 1024) },
+    uKeyShadowFarRadius: { value: lighting.shadow.radius },
+    uKeyShadowSplit: { value: 25 },
+    uKeyDirectShare: { value: 0 },
+    uShadowIntensity: { value: lighting.shadow.intensity },
+    uWaterShadowStrength: { value: lighting.shadow.waterStrength },
     uFoamKeyRadiance: { value: new THREE.Vector3() },uFoamFillRadiance: { value: new THREE.Vector3() },
     uSurfaceColor: { value: new THREE.Color('#70716d') },
     uWaterTint: { value: new THREE.Color(1, 1, 1) },
@@ -294,6 +365,7 @@ export default function FarWaterSurface({ settings, lighting, sky, qualityProfil
   }));
 
   useEffect(() => () => { if (!geometryOverride) geometry.dispose(); }, [geometry, geometryOverride]);
+  useEffect(() => () => emptyShadow.dispose(), [emptyShadow]);
 
   useEffect(() => {
     syncCoastUniforms(uniforms, settings);
@@ -343,6 +415,23 @@ export default function FarWaterSurface({ settings, lighting, sky, qualityProfil
       );
     }
     uniforms.uTime.value = clock.elapsedTime;
+    const shadowMap = reflectionDataRef.current.keyShadowMap ?? null;
+    const shadowMatrix = reflectionDataRef.current.keyShadowMatrix ?? null;
+    uniforms.uKeyShadowMap.value = shadowMap ?? emptyShadow;
+    uniforms.uKeyShadowActive.value = shadowMap && shadowMatrix ? 1 : 0;
+    if (shadowMatrix) uniforms.uKeyShadowMatrix.value.copy(shadowMatrix);
+    if (reflectionDataRef.current.keyShadowTexelSize) uniforms.uKeyShadowTexelSize.value.copy(reflectionDataRef.current.keyShadowTexelSize);
+    uniforms.uKeyShadowBias.value = reflectionDataRef.current.keyShadowBias ?? lighting.shadow.waterBias;
+    uniforms.uKeyShadowRadius.value = reflectionDataRef.current.keyShadowRadius ?? lighting.shadow.radius;
+    const farCascade = reflectionDataRef.current.keyShadowCascades?.[1] ?? null;
+    uniforms.uKeyShadowMapFar.value = farCascade?.map ?? emptyShadow;
+    uniforms.uKeyShadowFarActive.value = farCascade?.map && farCascade?.matrix ? 1 : 0;
+    if (farCascade?.matrix) uniforms.uKeyShadowMatrixFar.value.copy(farCascade.matrix);
+    if (farCascade?.mapSize) uniforms.uKeyShadowFarTexelSize.value.set(1 / farCascade.mapSize.x, 1 / farCascade.mapSize.y);
+    uniforms.uKeyShadowFarBias.value = farCascade?.waterBias ?? uniforms.uKeyShadowBias.value;
+    uniforms.uKeyShadowFarRadius.value = farCascade?.radius ?? uniforms.uKeyShadowRadius.value;
+    uniforms.uKeyShadowSplit.value = reflectionDataRef.current.keyShadowSplit ?? 25;
+    uniforms.uKeyDirectShare.value = reflectionDataRef.current.keyDirectShare ?? 0;
   }, -2);
 
   const bindCapture = () => {

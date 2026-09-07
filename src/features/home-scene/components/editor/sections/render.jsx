@@ -402,6 +402,19 @@ export const ResolutionSection = ({ settings, handleSettingChange }) => {
 
     return (
         <>
+            <SelectControl
+                label={t('homeEditor.controls.frameRateLimit')}
+                value={String(settings.frameRateLimit ?? 0)}
+                options={[{ value: '0', label: t('homeEditor.controls.frameRateUnlimited') }, ...[30, 40, 60, 120].map((fps) => ({ value: String(fps), label: `${fps} FPS` }))]}
+                onChange={(event) => handleSettingChange(event, 'frameRateLimit')}
+                testId="home-editor-frame-rate-limit"
+            />
+            <CheckboxControl
+                label={t('homeEditor.controls.adaptiveQuality')}
+                checked={settings.adaptiveQuality !== false}
+                onChange={(event) => handleSettingChange(event, 'adaptiveQuality', 'boolean')}
+                testId="home-editor-adaptive-quality"
+            />
             <RangeControl
                 label={t('homeEditor.controls.renderScale')}
                 value={settings.renderScale}
@@ -440,6 +453,34 @@ export const PostSection = ({ settings, handleSettingChange }) => {
                 label={t('homeEditor.controls.postProcessingEnabled')}
                 checked={Boolean(settings.postProcessingEnabled)}
                 onChange={(event) => handleSettingChange(event, 'postProcessingEnabled', 'boolean')}
+            />
+
+            <SelectControl
+                label={t('homeEditor.controls.postAntiAliasing')}
+                value={settings.postAntiAliasing ?? 'auto'}
+                options={['auto', 'msaa', 'fxaa', 'off'].map((value) => ({ value, label: t(`homeEditor.antiAliasing.${value}`) }))}
+                onChange={(event) => handleSettingChange(event, 'postAntiAliasing', 'string')}
+                testId="home-editor-post-aa"
+            />
+            <CheckboxControl
+                label={t('homeEditor.controls.contactAoEnabled')}
+                checked={Boolean(settings.contactAoEnabled)}
+                onChange={(event) => handleSettingChange(event, 'contactAoEnabled', 'boolean')}
+                testId="home-editor-contact-ao"
+            />
+            <RangeControl
+                label={t('homeEditor.controls.contactAoIntensity')}
+                value={settings.contactAoIntensity ?? 0.35}
+                min={0} max={1} step={0.05}
+                formatValue={(value) => formatFloat(value, 2)}
+                onChange={(event) => handleSettingChange(event, 'contactAoIntensity')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.contactAoRadius')}
+                value={settings.contactAoRadius ?? 0.5}
+                min={0.05} max={3} step={0.05} unit="m"
+                formatValue={(value) => formatFloat(value, 2)}
+                onChange={(event) => handleSettingChange(event, 'contactAoRadius')}
             />
 
             <SectionHeading label={t('homeEditor.blocks.film')} subtle />

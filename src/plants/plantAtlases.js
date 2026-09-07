@@ -156,18 +156,45 @@ export function makeImpostorMaterial(atlas,sharedUniforms){
   // The near leaf glows where the sun is behind it (plantMaterials); without
   // the same term the projection went dark on every leaf turned away, and the
   // far half of a meadow read as another, darker plant.
+  // This is still direct sunlight. A billboard cannot be allowed to transmit
+  // through a blocker that shadows the geometric canopy beside it.
+  shader.fragmentShader=shader.fragmentShader.replace('#include <shadowmap_pars_fragment>',`#include <shadowmap_pars_fragment>
+   ${THREE.ShaderChunk.shadowmask_pars_fragment}`);
   shader.fragmentShader=shader.fragmentShader.replace('#include <common>','#include <common>\nuniform float uPlantTransmission;');
   shader.fragmentShader=shader.fragmentShader.replace('#include <lights_fragment_end>',`#include <lights_fragment_end>
    #if NUM_DIR_LIGHTS > 0
-   for(int i=0;i<NUM_DIR_LIGHTS;i++){
+   // CSM's two directional entries are one sun. Use only the cascade that
+   // owns this fragment; getShadowMask() would multiply unrelated maps.
+   #ifdef USE_CSM
+    float plantLinearDepth=(vViewPosition.z)/(shadowFar-cameraNear);
+    #if NUM_DIR_LIGHT_SHADOWS > 0
+     #pragma unroll_loop_start
+     for ( int i = 0; i < NUM_DIR_LIGHT_SHADOWS; i ++ ) {
+      #if ( UNROLLED_LOOP_INDEX < NUM_DIR_LIGHT_SHADOWS )
+       if(plantLinearDepth>=CSM_cascades[UNROLLED_LOOP_INDEX].x && (plantLinearDepth<CSM_cascades[UNROLLED_LOOP_INDEX].y || UNROLLED_LOOP_INDEX==CSM_CASCADES-1)){
+        DirectionalLightShadow plantShadow=directionalLightShadows[i];
+        float plantShadowVisibility=getShadow(directionalShadowMap[i],plantShadow.shadowMapSize,plantShadow.shadowIntensity,plantShadow.shadowBias,plantShadow.shadowRadius,vDirectionalShadowCoord[i]);
+        float through=max(dot(-normal,directionalLights[i].direction),0.0);
+        reflectedLight.directDiffuse+=diffuseColor.rgb*directionalLights[i].color*through*uPlantTransmission*.12*plantShadowVisibility;
+       }
+      #endif
+     }
+     #pragma unroll_loop_end
+    #endif
+   #else
+    float plantShadowVisibility=getShadowMask();
+    #pragma unroll_loop_start
+    for ( int i = 0; i < NUM_DIR_LIGHTS; i ++ ) {
      float through=max(dot(-normal,directionalLights[i].direction),0.0);
-     reflectedLight.directDiffuse+=diffuseColor.rgb*directionalLights[i].color*through*uPlantTransmission*.12;
-   }
+     reflectedLight.directDiffuse+=diffuseColor.rgb*directionalLights[i].color*through*uPlantTransmission*.12*plantShadowVisibility;
+    }
+    #pragma unroll_loop_end
+   #endif
    #endif`);
   shader.fragmentShader=shader.fragmentShader.replace('#include <map_fragment>',THREE.ShaderChunk.map_fragment.replaceAll('vMapUv','plantAtlasUv(vMapUv)').replace('diffuseColor *= sampledDiffuseColor;', 'sampledDiffuseColor.rgb /= max(sampledDiffuseColor.a, .001); diffuseColor *= sampledDiffuseColor; float cardAlphaMip=plantCardMip(plantAtlasUv(vMapUv)); diffuseColor.a=min(1.0,diffuseColor.a*mix(uPlantCardCut.x,1.0,clamp(cardAlphaMip,0.0,1.0))*(1.0+uPlantCardCut.y*max(0.0,cardAlphaMip-.5)));')).replace('#include <normal_fragment_maps>',THREE.ShaderChunk.normal_fragment_maps.replaceAll('texture2D( normalMap, vNormalMapUv ).xyz', '(texture2D(normalMap,plantAtlasUv(vNormalMapUv)).xyz / max(texture2D(normalMap,plantAtlasUv(vNormalMapUv)).a,.001))'));
  };
  const depth=new THREE.MeshDepthMaterial({map:atlas.color.texture,alphaTest:.22,depthPacking:THREE.RGBADepthPacking,side:THREE.DoubleSide});
- depth.onBeforeCompile=material.onBeforeCompile;depth.customProgramCacheKey=()=> 'oleaster-24-view-depth-v13';
+ depth.onBeforeCompile=material.onBeforeCompile;depth.customProgramCacheKey=()=> 'oleaster-24-view-depth-v14';
  material.addEventListener('dispose',()=>depth.dispose());material.userData.depth=depth;
- material.customProgramCacheKey=()=> 'oleaster-24-view-impostor-v13';material.userData.uniforms=uniforms;return material;
+ material.customProgramCacheKey=()=> 'oleaster-24-view-impostor-v15';material.userData.uniforms=uniforms;return material;
 }
