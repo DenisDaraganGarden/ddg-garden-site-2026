@@ -125,7 +125,7 @@ SurfPoint surfProfile(float t, float dn, float H) {
     vec2 jet = root + vec2(uJet * a, uLift * a - 0.5 * SURF_G * a * a);
     vec2 tangent = vec2(uJet, uLift - SURF_G * a);
     vec2 down = normalize(vec2(tangent.y, -tangent.x));
-    float th = uSheet * H * emerge * (1.0 - 0.9 * u);
+    float th = uSheet * H * emerge * (1.0 - 0.82 * u);
     o.p = top ? jet : jet + down * th;
     // Landed: the sheet is foam now; it hands over to the roller and goes.
     o.alpha = 1.0 - spent;

@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { createPass, createTarget, disposePass, restoreDefaultFramebuffer } from './renderTargets';
 import { createGerstnerUniforms, gerstnerShader, syncGerstnerUniforms } from './gerstnerWaves';
 import { windVector } from './waterShading';
+import { coastWaterShader, createCoastWaterUniforms, syncCoastWaterUniforms } from './coastFrame';
 
 // Foam as a state with memory instead of a function of the wave's phase. An RG
 // field in a window that follows the camera: R is density, G is age. Every tick
@@ -17,8 +18,8 @@ export const FOAM_BORE_SLOTS = 4;
 const FOAM_RESOLUTION = 768;
 const FORWARD = new THREE.Vector3();
 
-// The bores the breaking waves deposit: distance along the shore normal,
-// strength, half width. Owned by whoever draws both surfaces, so the ribbons
+// The bores the breaking waves deposit: q across the shore (metres from the
+// waterline), strength, half width. Owned by whoever draws both surfaces, so the ribbons
 // write straight into the uniform the foam pass reads.
 export const createFoamBores = () => Array.from({ length: FOAM_BORE_SLOTS }, () => new THREE.Vector4());
 
@@ -52,6 +53,7 @@ vec3 sampleFoamField(vec2 p) {
 const updateFragmentShader = /* glsl */`
   #define FOAM_BORES ${FOAM_BORE_SLOTS}
   ${gerstnerShader}
+  ${coastWaterShader}
   precision highp sampler3D;
   varying vec2 vUv;
   uniform sampler2D uPrev;
@@ -68,7 +70,6 @@ const updateFragmentShader = /* glsl */`
   uniform float uThreshold;
   uniform float uSoftness;
   uniform float uDeposit;
-  uniform vec4 uShore;       // origin.xz, shore direction.xz
   uniform vec4 uBore[FOAM_BORES];
   void main() {
     vec2 world = uWindow.xy + (vUv - 0.5) * 2.0 * uWindow.z;
@@ -91,12 +92,12 @@ const updateFragmentShader = /* glsl */`
     state.y = min(state.y + uAgeStep, 1.0);
     // Crests fold in patches, not along their whole length: a broad mask
     // drifting with the wind gates where a fold makes foam.
-    float patchy = uNoiseReady > 0.5 ? smoothstep(0.38, 0.6, texture(uNoise, vec3(world * 0.011 + uDrift * uGerstnerTime * 0.02, 0.73)).r) : 1.0;
+    float patchy = uNoiseReady > 0.5 ? smoothstep(0.44, 0.6, texture(uNoise, vec3(world * 0.03 + uDrift * uGerstnerTime * 0.02, 0.73)).r) : 1.0;
     float fresh = smoothstep(uThreshold + uSoftness, uThreshold - uSoftness, jacobian) * uDeposit * 0.65 * patchy;
-    float along = dot(world - uShore.xy, uShore.zw);
+    float q = coastLocal(world).x;
     for (int i = 0; i < FOAM_BORES; i++) {
       vec4 bore = uBore[i];
-      fresh = max(fresh, bore.y * uDeposit * (1.0 - smoothstep(bore.z * 0.3, bore.z, abs(along - bore.x))));
+      fresh = max(fresh, bore.y * uDeposit * (1.0 - smoothstep(bore.z * 0.3, bore.z, abs(q - bore.x))));
     }
     // Fresh foam wins and is young again; what it does not cover keeps its age.
     state.y = mix(state.y, 0.0, step(state.x, fresh));
@@ -115,7 +116,7 @@ export function createFoamFieldUniforms() {
 
 // Advances the field and points `targetUniforms` (a water surface's) at it.
 // `bores` is the array the breaking waves write into, or null.
-export function useFoamField(targetUniforms, { settings, bores, shore, noise = null }) {
+export function useFoamField(targetUniforms, { settings, bores, coast = null, noise = null }) {
   const { gl } = useThree();
   const field = useMemo(() => {
     const options = { type: THREE.HalfFloatType, format: THREE.RGFormat, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter };
@@ -135,7 +136,7 @@ export function useFoamField(targetUniforms, { settings, bores, shore, noise = n
       uThreshold: { value: 0.5 },
       uSoftness: { value: 0.15 },
       uDeposit: { value: 1 },
-      uShore: { value: new THREE.Vector4(0, 0, 0, 1) },
+      ...createCoastWaterUniforms(),
       uBore: { value: createFoamBores() },
       uNoise: { value: null },
       uNoiseReady: { value: 0 },
@@ -188,7 +189,7 @@ export function useFoamField(targetUniforms, { settings, bores, shore, noise = n
     uniforms.uSoftness.value = settings.foamSoftness;
     uniforms.uDeposit.value = settings.foamDeposit;
     uniforms.uDrift.value.fromArray(windVector(settings.windDirection)).multiplyScalar(Number(settings.foamDrift) || 0);
-    if (shore) uniforms.uShore.value.set(shore.origin[0], shore.origin[1], shore.shoreDir[0], shore.shoreDir[1]);
+    syncCoastWaterUniforms(uniforms, coast, coast?.breakQ ?? -10, 0);
     if (bores) uniforms.uBore.value = bores;
     else uniforms.uBore.value.forEach((bore) => bore.set(0, 0, 1, 0));
 

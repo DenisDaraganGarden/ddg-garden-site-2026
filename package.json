@@ -38,7 +38,7 @@
     "bark:textures": "node scripts/plants/build-bark-textures.mjs",
     "check:grass": "node scripts/check-grass.mjs",
     "check:lab-links": "node scripts/check-lab-links.mjs",
-    "check:water": "node src/components/effects/water/gerstnerWaves.check.js && node src/components/effects/water/foamField.check.js && node src/components/effects/water/surfProfile.check.js",
+    "check:water": "node src/components/effects/water/gerstnerWaves.check.js && node src/components/effects/water/foamField.check.js && node src/components/effects/water/surfProfile.check.js && node src/components/effects/water/coastFrame.check.js",
     "check:plants": "node scripts/check-plants.mjs && node scripts/check-coast-plants.mjs && node scripts/check-trees.mjs",
     "check:plants-parity": "node scripts/check-plant-parity.mjs --assert",
     "check:terrain": "node scripts/check-terrain.mjs && node scripts/check-terrain-features.mjs",

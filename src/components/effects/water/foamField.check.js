@@ -12,7 +12,7 @@ const foam = read('./foamField.js');
 const surface = read('./GerstnerWaterSurface.jsx');
 const shading = read('./waterShading.js');
 const breaking = read('./BreakingWaves.jsx');
-const surf = read('./surfProfile.js');
+const surf = read('./surfProfile.js') + read('./coastFrame.js');
 
 // Arguments of every call/declaration of `call`: top-level commas between the
 // matching parentheses, so a nested call inside an argument still counts as one.
@@ -58,6 +58,7 @@ const surfDeclared = [...(surf + breaking).matchAll(/^\s*uniform\s+\w+\s+(u\w+)\
 const surfCreated = new Set([
   ...[...breaking.matchAll(/^\s{6}(u\w+):\s*\{/gm)].map((match) => match[1]),
   ...[...shading.matchAll(/^\s{4}(u\w+):\s*\{/gm)].map((match) => match[1]),
+  ...[...surf.matchAll(/(u\w+):\s*\{\s*value/g)].map((match) => match[1]),
 ]);
 assert.ok(surfDeclared.length >= 15, `expected the surf shaders to declare uniforms, found ${surfDeclared.length}`);
 surfDeclared.forEach((name) => assert.ok(surfCreated.has(name), `uniform ${name} is declared in a surf shader but never created`));
