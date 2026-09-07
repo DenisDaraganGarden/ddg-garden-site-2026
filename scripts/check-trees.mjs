@@ -4,7 +4,8 @@ import * as THREE from 'three';
 import {makeCoastTree} from '../src/plants/treeModel.js';
 import {TREE_KINDS,TREE_SPECIES} from '../src/plants/treeSpecies.js';
 import {makeBranchGeometry,makeLeafGeometry} from '../src/plants/oleasterModel.js';
-import {createTerrainDefinition,createTerrainQuery} from '../src/terrain/terrainModel.js';
+import {createTerrainDefinition,createTerrainQuery,coastCoordinates,shorePosition} from '../src/terrain/terrainModel.js';
+import {coastProfile} from '../src/terrain/terrainLandforms.js';
 import {buildCoastRocks,attachRockCollisions} from '../src/terrain/terrainRocks.js';
 import {createCoastTreePlanting} from '../src/plants/coastPlanting.js';
 import {DEFAULT_SHRUB_SETTINGS,DEFAULT_TREE_SETTINGS,normalizeTreeSettings,treeAssetSettings} from '../src/plants/settings.js';
@@ -50,9 +51,23 @@ const definition=createTerrainDefinition({}),query=attachRockCollisions(createTe
 const options={...DEFAULT_SHRUB_SETTINGS,...DEFAULT_TREE_SETTINGS};
 const plants=createCoastTreePlanting(query,definition,options);
 assert.deepEqual(plants,createCoastTreePlanting(query,definition,options),'planting is deterministic');
-assert.ok(plants.length>=8,`the default grove has trees (${plants.length})`);
-for(const p of plants){const s=query.surfaceAt(p.x,p.z,0);assert.equal(p.y,s.height);assert.ok(s.vegetation.trees>0&&s.habitat==='plateau','trees stand on the plateau');assert.ok(p.dryness>=0&&p.dryness<=1);}
-for(let i=0;i<plants.length;i++)for(let j=i+1;j<plants.length;j++)assert.ok(Math.hypot(plants[i].x-plants[j].x,plants[i].z-plants[j].z)>=DEFAULT_TREE_SETTINGS.treesSpacing,'trunks keep their spacing');
+// Niches (coastPlanting.js): every tree stands on dry ground off the rocks, in
+// the niche it was planted for, measured from the local crest or foot; trunks
+// keep the niche's spacing; kinds come from the species table, some dead.
+const niches={};for(const p of plants)(niches[p.niche]??=[]).push(p);
+assert.ok((niches.belt?.length??0)>=8,`the default belt has trees (${niches.belt?.length})`);
+assert.ok((niches.bluff?.length??0)>=3&&(niches.ravine?.length??0)>=1&&(niches.beach?.length??0)>=1,`the other niches are planted (${JSON.stringify(Object.fromEntries(Object.entries(niches).map(([k,v])=>[k,v.length])))})`);
+for(const p of plants){
+ const s=query.surfaceAt(p.x,p.z,0);assert.equal(p.y,s.height);assert.ok(s.habitat!=='rock'&&s.height>.1,'trees stand on ground');assert.ok(p.dryness>=0&&p.dryness<=1);assert.ok(TREE_KINDS.includes(p.kind),'a tree has a species');
+ const local=coastCoordinates(p.x,p.z,definition),q=local.u-shorePosition(local.s,definition),f=coastProfile(local.s,definition);
+ if(p.niche==='bluff')assert.ok(q>f.top-3&&q<f.top+9,`bluff trees stand at the crest (${q.toFixed(1)} vs top ${f.top.toFixed(1)})`);
+ if(p.niche==='belt')assert.ok(q>=f.top+options.treesInland-.01&&q<=f.top+options.treesInland+options.treesWidth+.01,'belt trees stand behind the crest');
+ if(p.niche==='beach')assert.ok(q<f.foot&&s.wetness<.1,'beach trees stand on dry sand below the bluff');
+ if(p.niche==='ravine')assert.ok(Math.max(f.slide,f.ravine)>.3&&q<f.top,'ravine trees stand on slides and ravine mouths');
+}
+for(const [name,list] of Object.entries(niches)){const spacing=name==='belt'?DEFAULT_TREE_SETTINGS.treesSpacing:name==='bluff'?9:name==='ravine'?4:8;for(let i=0;i<list.length;i++)for(let j=i+1;j<list.length;j++)assert.ok(Math.hypot(list[i].x-list[j].x,list[i].z-list[j].z)>=spacing-1e-9,`${name}: trunks keep their spacing`);}
+assert.ok(plants.some(p=>p.kind==='snag'),'some trees stand dead');assert.ok(!createCoastTreePlanting(query,definition,{...options,treesSnags:0}).some(p=>p.kind==='snag'),'no snags when asked');
+assert.equal(createCoastTreePlanting(query,definition,{...options,treesBluff:0,treesRavines:0,treesBeach:0}).filter(p=>p.niche!=='belt').length,0,'niches switch off');
 assert.equal(createCoastTreePlanting(query,definition,{...options,treesEnabled:false}).length,0);
 assert.deepEqual(createCoastTreePlanting(query,definition,{...options,shrubsDryness:.9}).map(p=>[p.x,p.z]),plants.map(p=>[p.x,p.z]),'colour edits keep the grove where it is');
 assert.equal(normalizeTreeSettings({treesCount:99999}).treesCount,256);assert.equal(normalizeTreeSettings({treesLean:-2}).treesLean,0);

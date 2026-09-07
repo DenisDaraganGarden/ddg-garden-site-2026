@@ -14,15 +14,19 @@ export const SHRUB_RANGES={
  shrubsPatchScale:[1,30,.5],shrubsPatchContrast:[0,1,.01],shrubsCrownVariation:[0,1,.01],shrubsCrownScale:[.2,2,.1],shrubsFieldSeed:[1,200,1],
  shrubsGusts:[0,1,.01],shrubsLodging:[0,1,.01],shrubsFlutter:[0,1,.01],shrubsTranslucency:[0,1.4,.05],shrubsRoughness:[.35,1,.01],shrubsRenderDistance:[40,300,5],
 };
-// The grove stands on the plateau behind the shrubs. Colour, gusts and leaf
-// motion are the landscape's, set once under the shrubs; here only the tree.
+// The trees stand in the niches of the coast (coastPlanting.js): the belt
+// behind the crest is the strip below, the bluff edge, the ravines and the back
+// beach are densities of their own; species by share, some standing dead.
+// Colour, gusts and leaf motion are the landscape's, set once under the shrubs.
 export const DEFAULT_TREE_SETTINGS=Object.freeze({
  treesEnabled:true,treesCount:14,treesSeed:7,treesLength:220,treesWidth:36,treesAlong:40,treesInland:14,treesSpacing:7,
+ treesOleaster:1,treesElm:.7,treesPlum:.5,treesTamarisk:.6,treesWillow:.5,treesSnags:.2,treesBluff:.6,treesRavines:.7,treesBeach:.4,
  treesHeight:6,treesSpread:5.5,treesLean:.55,treesTwist:.4,treesDensity:.8,treesLeafSize:1.8,treesDeadwood:.3,
  treesFlex:.15,treesTranslucency:1.1,treesRenderDistance:600,
 });
 export const TREE_RANGES={
  treesCount:[0,256,1],treesSeed:[1,200,1],treesLength:[12,1024,4],treesWidth:[6,160,1],treesAlong:[-1200,1200,2],treesInland:[-10,160,.5],treesSpacing:[3,20,.5],
+ treesOleaster:[0,1,.05],treesElm:[0,1,.05],treesPlum:[0,1,.05],treesTamarisk:[0,1,.05],treesWillow:[0,1,.05],treesSnags:[0,1,.05],treesBluff:[0,1,.05],treesRavines:[0,1,.05],treesBeach:[0,1,.05],
  treesHeight:[2.5,12,.1],treesSpread:[1.5,12,.1],treesLean:[0,1,.01],treesTwist:[0,1,.01],treesDensity:[.1,1,.01],treesLeafSize:[.8,2.4,.05],treesDeadwood:[0,1,.01],
  treesFlex:[0,1,.01],treesTranslucency:[0,1.4,.05],treesRenderDistance:[60,1200,10],
 };

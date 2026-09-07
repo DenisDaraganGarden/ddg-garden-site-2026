@@ -9,7 +9,7 @@ export function scatterPlants(query,{seed=23,count=32,extent=10,spacing=1.15,dry
   for(let attempt=0;attempt<count*100&&plants.length<count;attempt++){
     const {x,z}=pointAt((random()-.5)*width,(random()-.5)*depth),s=query.surfaceAt(x,z,0);
     const colonies=.35+.65*ecologyPatch(x,z,Math.max(3,Math.min(width,depth)*.16),seed+89);
-    const chance=clamp(suitability(s))*(1-clamp(s.wetness??0))*clamp((s.normal.y-.64)/.28)*(1-clamp(pathMask(x,z)))*colonies;
+    const chance=clamp(suitability(s,x,z))*(1-clamp(s.wetness??0))*clamp((s.normal.y-.64)/.28)*(1-clamp(pathMask(x,z)))*colonies;
     if(s.height<0||random()>chance)continue;
     const gx=Math.floor(x/cell),gz=Math.floor(z/cell);let crowded=false;
     for(let i=-1;i<=1;i++)for(let j=-1;j<=1;j++)for(const p of grid.get(key(gx+i,gz+j))??[])if(Math.hypot(p.x-x,p.z-z)<spacing)crowded=true;
