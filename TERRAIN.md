@@ -42,6 +42,8 @@ The rim of the bluff (Суша → Бровка) is turf to the very edge of the
 
 Moist islands (Суша → Влажные островки, `terrainOasis`, `terrainOasisColor`): where water gathers and shade keeps it, the sand greens with fresh turf in patches and the litter under the crowns is fresher. The moisture is the seep of the bluff, the calm back of the swash (low run-up, 2–7 m from the waterline) and the blue channel of the plant cover map, a halo of shade around every shrub, tree and boulder (`createPlantCover` takes the boulders as extra halos; sources outside the plants' bounds paint nothing). Material only: the tufts do not read this field yet.
 
+Wrack (Суша → Прибой → «Выброшенная тина», `terrainWrack`): the weed the sea throws up lies along the run-up line, the same envelope the wet sand dries by, frozen at time zero so the line does not float with the tide; strands and clumps along some stretches of the shore, more where the shelf's meadows (`terrainWeed`) and the storm are stronger, last storm's line dried brown a little up the beach. The cover layer with parallax gives the clumps their body; fresh wrack is glossy, old wrack matte. Material only.
+
 ## Physics and future vegetation
 
 `createTerrainQuery(definition)` provides `heightAt`, `normalAt`, `surfaceAt` and `raycast`. `attachRockCollisions` overlays the actual instanced rock triangles through a spatial hash. `createTerrainCollider` adapts this to the existing creature raycaster, including ground impacts and occlusion, with a bounding slab before marching.

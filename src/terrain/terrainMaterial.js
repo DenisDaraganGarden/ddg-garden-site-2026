@@ -259,6 +259,33 @@ export function createTerrainMaterial(textures,p,rockOnly=false){
      moss.color=gradeCover(moss.color,0.0)*uCoastOasisTint;
      ground=terrainBlend(ground,moss,oasis);
     }
+    // Wrack (Denis's photo of the Azov strand): the weed the sea throws up
+    // and leaves along the run-up line - the envelope the wet sand dries by,
+    // frozen in time so the line does not float - in strands and clumps along
+    // some stretches of the shore, fed by the meadows of the shelf and by
+    // storms. Last storm's line lies a little up the beach, dried brown.
+    // Parallax on the cover layer gives the clumps their body.
+    if(uCoastWrack.x>.01&&surfBand&&qs.x>0.0&&groundY>-.02){
+     float seed=uCoastShape.w*.031;
+     float above=groundY-max(max(.04,uCoastSurface.w*.035),coastWaveGain(qs,0.0));
+     float stretch=smoothstep(.28,.6,coastNoise(vec2(qs.y*.03,9.0)+seed));
+     float freshLine=exp(-pow((above-.02)/.05,2.0)),oldLine=exp(-pow((above-.18)/.06,2.0))*.6;
+     float strands=coastNoise(vec2(qs.y*1.4,qs.x*4.0)+seed*7.0),clumps=coastNoise(vTerrainWorld.xz*2.6+vec2(3.0,seed));
+     float amount=uCoastWrack.x*(.35+.65*uCoastShelf.y)*(1.0+uCoastSwell.w*.8)*stretch;
+     // Discrete clumps with crisp edges: the line sets how many, the slider how dense.
+     float line=freshLine+oldLine,t=.66-amount*.3;
+     float wrack=smoothstep(t,t+.1,strands*.5+clumps*.5+(line-1.0)*.35)*step(.05,line)*(1.0-path)*(1.0-uRockOnly)*min(1.0,amount*2.5);
+     if(wrack>.01){
+      float age=oldLine/(line+1e-3);
+      vec2 wrackUv=terrainParallaxUv(groundNormalUv,viewWorld.xz,viewWorld.y,6.0,.05/2.0);
+      TerrainSample weed=terrainSample(6.0,wrackUv,groundDx,groundDy);
+      weed.color*=mix(vec3(.62,.8,.3),vec3(.32,.28,.18),age)*(1.0-wrack*(1.0-wrack)*1.2);
+      weed.surface.r=mix(.35,.85,age);
+      ground=terrainBlend(ground,weed,wrack);
+      // Lying on the wet sand, the clumps themselves are not darkened as sand is.
+      wet*=1.0-wrack*.6;
+     }
+    }
     // The steppe from afar: the grass field level (plants/grassField.js),
     // Denis's turf under the tufts near by and the whole meadow beyond reach.
     float field=grassFieldWeight(qs,profile,terrainN,path,vTerrainWorld.xz,dist);
@@ -356,5 +383,5 @@ export function createTerrainMaterial(textures,p,rockOnly=false){
   `);
   shader.fragmentShader=shader.fragmentShader.replace('#include <aomap_fragment>','#include <aomap_fragment>\nreflectedLight.indirectDiffuse*=surfaceData.g;');
  };
- material.customProgramCacheKey=()=> 'azov-coast-layered-pbr-v11';return material;
+ material.customProgramCacheKey=()=> 'azov-coast-layered-pbr-v12';return material;
 }
