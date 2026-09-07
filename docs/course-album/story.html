@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="theme-color" content="#f5f4f0" />
+<title>Шесть треугольников</title>
+<style>
+  :root {
+    --paper: #f5f4f0;
+    --ink: #1e211c;
+    --ink-soft: #4f5649;
+    --muted: #9a9c8f;
+    --line: #dfdfd6;
+    --green: #3e4d3d;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font: 400 20px/1.6 -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+  .col { max-width: 760px; margin: 0 auto; padding: 0 clamp(20px, 6vw, 40px); }
+  h1, h2 { font-family: Georgia, 'Times New Roman', serif; font-weight: 400; letter-spacing: -.025em; }
+
+  /* Cover */
+  .cover { min-height: 88vh; display: flex; flex-direction: column; justify-content: center; padding: 14vh 0 10vh; }
+  .cover h1 { margin: 0; font-size: clamp(52px, 12vw, 132px); line-height: .95; letter-spacing: -.045em; }
+  .cover p { margin: 34px 0 0; font-size: clamp(20px, 2.6vw, 27px); line-height: 1.45; color: var(--ink-soft); max-width: 20ch; }
+  .cover .tag { margin-bottom: 26px; color: var(--muted); font-size: 12px; letter-spacing: .2em; text-transform: uppercase; }
+
+  /* Chapters */
+  .ch { padding: clamp(70px, 14vh, 150px) 0 0; }
+  .ch .n { color: var(--muted); font-size: 12px; letter-spacing: .2em; text-transform: uppercase; margin-bottom: 22px; }
+  .ch h2 { margin: 0; font-size: clamp(34px, 6.2vw, 62px); line-height: 1.05; }
+  .ch p { margin: 30px 0 0; font-size: clamp(19px, 2.1vw, 24px); line-height: 1.62; color: var(--ink-soft); }
+  .ch p + p { margin-top: 20px; }
+  .ch p b, .ch p strong { color: var(--ink); font-weight: 500; }
+  .beat { font-family: Georgia, serif; font-size: clamp(23px, 3vw, 33px) !important; line-height: 1.35 !important; color: var(--ink) !important; margin-top: 34px !important; }
+
+  /* Full-bleed images */
+  figure { margin: clamp(44px, 7vh, 84px) 0 0; width: 100vw; margin-left: calc(50% - 50vw); }
+  figure img { display: block; max-width: min(100%, 1500px); max-height: 86vh; width: auto; height: auto; margin: 0 auto; }
+  figcaption { max-width: 760px; margin: 14px auto 0; padding: 0 clamp(20px, 6vw, 40px); color: var(--muted); font-size: 14px; line-height: 1.55; }
+
+  /* Side-by-side pair */
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; margin: clamp(44px, 7vh, 84px) auto 0; width: min(100vw, 1500px); }
+  .pair img { display: block; width: 100%; height: auto; }
+
+  /* Ending list */
+  .menu { margin: 44px 0 0; padding: 0; list-style: none; }
+  .menu li { padding: 22px 0; border-top: 1px solid var(--line); font-family: Georgia, serif; font-size: clamp(22px, 3vw, 30px); }
+  .menu li span { display: block; margin-top: 6px; font-family: inherit; font-size: 17px; line-height: 1.55; color: var(--ink-soft); font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
+  .menu li:last-child { border-bottom: 1px solid var(--line); }
+
+  .end { padding: clamp(80px, 16vh, 170px) 0 clamp(60px, 12vh, 120px); }
+  .end p { font-family: Georgia, serif; font-size: clamp(26px, 3.6vw, 40px); line-height: 1.3; margin: 0; }
+  .sign { margin-top: 60px !important; font-family: -apple-system, sans-serif !important; font-size: 13px !important; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); line-height: 1.9 !important; }
+
+  @media (max-width: 640px) {
+    .pair { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="col cover">
+  <div class="tag">DDG · рассказ, не инструкция</div>
+  <h1>Шесть<br />треугольников</h1>
+  <p>Как художник полез в трёхмерную графику и узнал о себе много нового.</p>
+</div>
+
+<section class="ch">
+  <div class="col">
+    <div class="n">01</div>
+    <h2>Мне сказали: поставь видео</h2>
+    <p>Видео весит сорок мегабайт, показывает одно и то же и умирает на четвёртой секунде на чужом телефоне. Зато безопасно.</p>
+    <p class="beat">Я поставил мир. Он считается заново, пока вы на него смотрите, и никогда не выглядит дважды одинаково.</p>
+  </div>
+  <figure>
+    <img src="img/scene-desktop-1.jpg" alt="Главная страница сайта: лодка, кувшинки, чайки" />
+    <figcaption>Это не кадр из ролика. Это то, что происходит прямо сейчас в браузере — лодка качается, чайки летят, вода отражает небо.</figcaption>
+  </figure>
+</section>
+
+<section class="ch">
+  <div class="col">
+    <div class="n">02</div>
+    <h2>Тень не касалась земли</h2>
+    <p>Лодка висела над водой. Не всегда — только когда камера отъезжала подальше. Я двигал ползунок, тень садилась на место, я отъезжал — и она снова взлетала.</p>
+    <p>Так продолжалось долго. Достаточно долго, чтобы я начал сомневаться в своём зрении, а потом и в выборе профессии.</p>
+    <p class="beat">Оказалось, зазор мерился не в миллиметрах, а «в долях того, что видит фонарь». Вблизи это были миллиметры. Вдали — почти метр.</p>
+    <p>Теперь ползунок называется «Смещение контакта» и измеряется в миллиметрах. Одна подпись. Полгода жизни.</p>
+  </div>
+  <figure>
+    <img src="img/editor-light.jpg" alt="Редактор: вкладка света" />
+    <figcaption>Внизу справа: «Смещение контакта −6 мм». Самая дорогая надпись в проекте.</figcaption>
+  </figure>
+</section>
+
+<section class="ch">
+  <div class="col">
+    <div class="n">03</div>
+    <h2>Художник, который просит подвинуть солнце</h2>
+    <p>Обычно это выглядит так: ты пишешь письмо, ждёшь два дня, получаешь солнце не там, пишешь второе письмо. К третьему письму тебе уже всё равно, где солнце.</p>
+    <p class="beat">Поэтому редактор живёт внутри самого сайта. 444 ползунка, кнопка «В проект» и кнопка «На сайт». Между мной и небом больше никого нет.</p>
+  </div>
+  <figure>
+    <img src="img/editor-cameras.jpg" alt="Редактор: вкладка камер" />
+    <figcaption>Семь камер, у каждой свой свет и своя длительность. Как планы в фильме, только фильм считается на лету.</figcaption>
+  </figure>
+</section>
+
+<section class="ch">
+  <div class="col">
+    <div class="n">04</div>
+    <h2>Белая комната</h2>
+    <p>Ни один камень не попадает в кадр сразу. Сначала он стоит здесь: белый фон, ровный свет, линейка в метрах и счётчик внизу.</p>
+    <p class="beat">В белой комнате нет тумана, заката и красивого ракурса. Всё, что там прощают, здесь видно сразу.</p>
+  </div>
+  <figure>
+    <img src="img/lab-rocks.jpg" alt="Лаборатория: камни" />
+    <figcaption>Пять валунов, шестьдесят осколков, триста шестьдесят галек. Считает не совесть, а программа.</figcaption>
+  </figure>
+</section>
+
+<section class="ch">
+  <div class="col">
+    <div class="n">05</div>
+    <h2>Трава — самое дорогое, что можно посадить</h2>
+    <p>Одна травинка стоит копейки. Проблема в том, что одна травинка выглядит как одна травинка.</p>
+    <p class="beat">Вдали трава превращается в плоские карточки. Хитрость в том, чтобы никто не заметил момент подмены — и вот тут начинается настоящая работа.</p>
+  </div>
+  <figure>
+    <img src="img/lab-grass.jpg" alt="Лаборатория: травы" />
+    <figcaption>Ковыль, типчак, колосняк, тростник. Внизу — 520 треугольников и 11 вызовов на весь этот пучок.</figcaption>
+  </figure>
+</section>
+
+<section class="ch">
+  <div class="col">
+    <div class="n">06</div>
+    <h2>Шесть треугольников</h2>
+    <p>Настоящие облака бесплатны, но их нельзя подвинуть, и они не приходят по расписанию.</p>
+    <p class="beat">Эти — стоят шесть треугольников и 0,65 миллисекунды. За эти деньги они дают тень на воду, попадают в отражение и умеют собираться в грозу.</p>
+  </div>
+  <figure>
+    <img src="img/lab-clouds.jpg" alt="Лаборатория: облака" />
+    <figcaption>Внизу кадра — честный чек: 6 треугольников, 5 вызовов, 120 кадров в секунду, 4,8 МБ текстур.</figcaption>
+  </figure>
+</section>
+
+<section class="ch">
+  <div class="col">
+    <div class="n">07</div>
+    <h2>Вода знает, сколько у вас денег</h2>
+    <p>Она отражает всё, что над ней, преломляет всё, что под ней, и делает это каждый кадр. Любая экономия на воде видна мгновенно — она сразу начинает выглядеть как целлофан.</p>
+    <p class="beat">Здесь по ней ещё и можно провести пальцем. Круги настоящие — это симуляция, а не текстура с картинкой волн.</p>
+  </div>
+  <figure>
+    <img src="img/editor-water.jpg" alt="Редактор: вода" />
+    <figcaption>Сетка симуляции 512 × 512. Радиус импульса — 0,35 метра. Ровно столько занимает палец.</figcaption>
+  </figure>
+</section>
+
+<section class="ch">
+  <div class="col">
+    <div class="n">08</div>
+    <h2>«А на моём телефоне не будет тормозить?»</h2>
+    <p>Обычный ответ на этот вопрос — «нет» и скрещённые пальцы. Иногда — заранее выключить половину мира для всех телефонов сразу, включая те, которые справились бы.</p>
+    <p class="beat">Здесь движок меряет сам себя. Стало тяжело — тихо убавил служебную работу. Стало легче через десять спокойных секунд — вернул. Как хороший официант: вы не заметили, что он подходил.</p>
+    <p>Ни одно авторское решение он при этом не трогает. Растения, расстановка, камеры — не его дело.</p>
+  </div>
+  <figure>
+    <img src="img/scene-phone.jpg" alt="Сцена на телефоне" />
+    <figcaption>Тот же мир на телефоне. Не «мобильная версия», а второй кадр той же камеры — вертикальный.</figcaption>
+  </figure>
+</section>
+
+<section class="ch">
+  <div class="col">
+    <div class="n">09</div>
+    <h2>Я не написал ни строчки кода</h2>
+    <p>Код здесь пишут машины. Это модно и звучит легко — ровно до того момента, когда они начинают писать его каждый раз по-новому, а сцена разваливается по вторникам.</p>
+    <p class="beat">Поэтому у проекта есть свод правил, куча проверок, которые считают тени и камеры настоящими числами, — и один файл, который нельзя трогать никому. Тот, где живёт художник.</p>
+  </div>
+  <figure>
+    <img src="img/scene-desktop-3.jpg" alt="Сцена: коса" />
+    <figcaption>Всё, что вы видели выше, собрано именно так.</figcaption>
+  </figure>
+</section>
+
+<section class="ch">
+  <div class="col">
+    <div class="n">10</div>
+    <h2>Что я теперь умею рассказывать</h2>
+    <p>Я не собирался разбираться в шейдерах. Но так вышло, что теперь я знаю, где закопаны грабли, и могу показать, на какие наступать не обязательно.</p>
+    <ul class="menu">
+      <li>Свет<span>Почему сцена выглядит дёшево, и почему текстуры тут ни при чём.</span></li>
+      <li>Тени<span>Откуда берётся зазор под предметом и полосатая рябь.</span></li>
+      <li>Вода и небо<span>Самое дорогое и самое дешёвое в кадре. Угадайте, что из них — облака.</span></li>
+      <li>Бюджет кадра<span>Сколько у вас миллисекунд и кто их съел.</span></li>
+      <li>Свой инструмент<span>Как перестать просить и начать крутить ползунки самому.</span></li>
+    </ul>
+  </div>
+</section>
+
+<div class="col end">
+  <p>Всё, что здесь показано, работает. Это не концепт и не рендер — это сайт, который открывается по ссылке и живёт.</p>
+  <p class="sign"><a href="index.html" style="color:inherit">Подробная версия альбома →</a><br /><br />Denis Daragan · Бюро<br />Ouroboros Engine 1.4.0</p>
+</div>
+
+</body>
+</html>
