@@ -28,11 +28,12 @@ export function resolveGerstnerTrains({ wavelength, amplitude, steepness, windDi
     const bearing = THREE.MathUtils.degToRad((Number(windDirection) || 0) + shape.bearing);
     return { direction: [Math.sin(bearing), -Math.cos(bearing)], k, amplitude: a, omega: Math.sqrt(GRAVITY * k), sets: shape.sets };
   });
-  // Σ Q_i k_i A_i = budget by construction; a silent train gets no share.
-  const live = trains.filter((train) => train.k * train.amplitude > 1e-6);
-  trains.forEach((train) => {
-    train.q = train.k * train.amplitude > 1e-6 ? budget / (train.k * train.amplitude * live.length) : 0;
-  });
+  // One Q for every train, sized so that Σ Q·k_i·A_i = budget: the steepest
+  // train (the primary swell) takes the largest share of the folding, which is
+  // where the whitecaps have to be. A silent train contributes nothing.
+  const total = trains.reduce((sum, train) => sum + train.k * train.amplitude, 0);
+  const q = total > 1e-6 ? budget / total : 0;
+  trains.forEach((train) => { train.q = q; });
   return trains;
 }
 
@@ -74,9 +75,17 @@ float gerstnerEnvelope(float phase, float weight) {
   return 1.0 - uGerstnerSets * weight * 0.5 * (1.0 - sin(phase * 0.1667));
 }
 
+// How well the mesh resolves a train here: 1 with twelve or more vertices per
+// wavelength, 0 with three or fewer. The unresolved share moves to the pixel
+// normal (gerstnerPixelShader), so nothing aliases and nothing goes flat.
+float gerstnerResolve(float k, float cell) {
+  return 1.0 - smoothstep(0.08, 0.3, cell * k * 0.15915494);
+}
+
 // Displaced world position; writes the analytic normal and the Jacobian of the
 // horizontal displacement (1 = flat, small = the crest is folding, <0 never).
-vec3 gerstnerDisplace(vec2 p, float fade, out vec3 normal, out float jacobian) {
+// cell is the vertex spacing here in metres.
+vec3 gerstnerDisplace(vec2 p, float fade, float cell, out vec3 normal, out float jacobian) {
   vec3 offset = vec3(0.0);
   vec3 slope = vec3(0.0);
   float dxx = 0.0, dzz = 0.0, dxz = 0.0;
@@ -86,7 +95,7 @@ vec3 gerstnerDisplace(vec2 p, float fade, out vec3 normal, out float jacobian) {
     vec2 d = train.xy;
     float k = train.z;
     float phase = k * dot(d, p) - motion.x * uGerstnerTime + motion.z;
-    float a = train.w * fade * gerstnerEnvelope(phase, motion.w);
+    float a = train.w * fade * gerstnerResolve(k, cell) * gerstnerEnvelope(phase, motion.w);
     float q = motion.y;
     float s = sin(phase), c = cos(phase);
     offset.xz += q * a * d * c;
@@ -102,5 +111,29 @@ vec3 gerstnerDisplace(vec2 p, float fade, out vec3 normal, out float jacobian) {
   normal = normalize(vec3(-slope.x, 1.0 - slope.y, -slope.z));
   jacobian = (1.0 + dxx) * (1.0 + dzz) - dxz * dxz;
   return vec3(p.x, 0.0, p.y) + offset;
+}
+`;
+
+// Fragment-only (fwidth): the share of every train the mesh could not carry,
+// as a slope per pixel plus its folding term, so far waves keep their shading
+// and whitecaps from above. A crest that spans a pixel or more of phase is
+// averaged out instead of shimmering as the camera moves.
+export const gerstnerPixelShader = /* glsl */`
+vec2 gerstnerPixelSlope(vec2 p, float fade, float cell, out float fold) {
+  vec2 slope = vec2(0.0);
+  fold = 0.0;
+  for (int i = 0; i < GERSTNER_TRAINS; i++) {
+    vec4 train = uGerstnerTrain[i];
+    vec4 motion = uGerstnerMotion[i];
+    float k = train.z;
+    float share = 1.0 - gerstnerResolve(k, cell);
+    float phase = k * dot(train.xy, p) - motion.x * uGerstnerTime + motion.z;
+    float a = train.w * fade * share * gerstnerEnvelope(phase, motion.w);
+    float aa = 1.0 - smoothstep(0.35, 1.5, fwidth(phase));
+    float wa = k * a * aa;
+    slope += train.xy * wa * cos(phase);
+    fold += motion.y * wa * sin(phase);
+  }
+  return slope;
 }
 `;

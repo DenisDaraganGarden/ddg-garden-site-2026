@@ -39,5 +39,9 @@ export function buildRadialWaterGeometry({ innerRadius = 1, outerRadius = 3000, 
   geometry.setIndex(indices);
   geometry.boundingSphere = new THREE.Sphere(new THREE.Vector3(), outerRadius);
   geometry.userData.triangles = indices.length / 3;
+  // Metres of vertex spacing per metre of distance from the centre: the larger
+  // of the radial growth and the angular step. The shader uses it to hand
+  // waves the mesh can no longer resolve over to the per-pixel normal.
+  geometry.userData.cellFactor = Math.max(growth - 1, (Math.PI * 2) / segmentCount);
   return geometry;
 }

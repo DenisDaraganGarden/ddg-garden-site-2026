@@ -11,18 +11,18 @@ import './waterLab.css';
 
 const PUBLISHED = getPublishedHomeSceneSettings();
 const DEFAULTS = Object.freeze({
-  wavelength: 14, amplitude: 0.42, steepness: 0.55, speed: 1, windDirection: 205, sets: 0.6, crossWaves: 0.5, fadeStart: 120, fadeEnd: 320,
+  wavelength: 18, amplitude: 0.55, steepness: 0.7, speed: 1, windDirection: 205, sets: 0.6, crossWaves: 0.2, fadeStart: 400, fadeEnd: 2500,
   ripple: 0.35, rippleScale: 0.09,
-  foamThreshold: 0.45, foamSoftness: 0.08, laceScale: 0.14, foamBrightness: 1,
+  foamThreshold: 0.55, foamSoftness: 0.15, laceScale: 0.14, foamBrightness: 1,
   waterColor: '#2c7a64', deepColor: '#143a40', crestGlow: 0.7, glint: 1, skyReflection: 0.7,
   meshRings: 112, meshSegments: 144, wireframe: false,
   timeOfDay: PUBLISHED.timeOfDay ?? 9.4, sunBearing: PUBLISHED.sunBearing ?? 338, sunNoonElevation: PUBLISHED.sunNoonElevation ?? 50, exposure: 1,
 });
 const PRESETS = {
   calm: { wavelength: 9, amplitude: 0.12, steepness: 0.25, sets: 0.3, crossWaves: 0.3, ripple: 0.5, foamThreshold: 0.3 },
-  breeze: { wavelength: 14, amplitude: 0.42, steepness: 0.55, sets: 0.6, crossWaves: 0.5, ripple: 0.35, foamThreshold: 0.45 },
-  rough: { wavelength: 18, amplitude: 0.75, steepness: 0.7, sets: 0.7, crossWaves: 0.6, ripple: 0.35, foamThreshold: 0.5 },
-  storm: { wavelength: 26, amplitude: 1.3, steepness: 0.8, sets: 0.5, crossWaves: 0.85, ripple: 0.4, foamThreshold: 0.55 },
+  breeze: { wavelength: 14, amplitude: 0.42, steepness: 0.55, sets: 0.6, crossWaves: 0.5, ripple: 0.35, foamThreshold: 0.55 },
+  rough: { wavelength: 18, amplitude: 0.75, steepness: 0.7, sets: 0.7, crossWaves: 0.6, ripple: 0.35, foamThreshold: 0.6 },
+  storm: { wavelength: 26, amplitude: 1.3, steepness: 0.8, sets: 0.5, crossWaves: 0.85, ripple: 0.4, foamThreshold: 0.65 },
 };
 const VIEWS = {
   shore: { landscape: { position: [0, 3.2, 14], target: [0, 0.4, -40] }, portrait: { position: [0, 4, 18], target: [0, 0.4, -40] } },

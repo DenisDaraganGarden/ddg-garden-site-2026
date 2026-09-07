@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { buildCloudNoise } from '../sky/painterly/cloudNoise';
-import { createGerstnerUniforms, gerstnerShader, syncGerstnerUniforms } from './gerstnerWaves';
+import { createGerstnerUniforms, gerstnerPixelShader, gerstnerShader, syncGerstnerUniforms } from './gerstnerWaves';
 import { buildRadialWaterGeometry } from './radialWaterGeometry';
 
 // The open-water surface: one radial mesh under the camera, Gerstner trains in
@@ -13,20 +13,25 @@ import { buildRadialWaterGeometry } from './radialWaterGeometry';
 const vertexShader = /* glsl */`
   #include <fog_pars_vertex>
   ${gerstnerShader}
+  uniform float uCellFactor;
   varying vec3 vWorld;
   varying vec3 vWaveNormal;
   varying float vJacobian;
   varying float vFade;
+  varying float vCell;
   void main() {
     vec2 p = (modelMatrix * vec4(position, 1.0)).xz;
-    float fade = 1.0 - smoothstep(uGerstnerFade.x, uGerstnerFade.y, distance(p, cameraPosition.xz));
+    float dist = distance(p, cameraPosition.xz);
+    float fade = 1.0 - smoothstep(uGerstnerFade.x, uGerstnerFade.y, dist);
+    float cell = dist * uCellFactor;
     vec3 waveNormal;
     float jacobian;
-    vec3 world = gerstnerDisplace(p, fade, waveNormal, jacobian);
+    vec3 world = gerstnerDisplace(p, fade, cell, waveNormal, jacobian);
     vWorld = world;
     vWaveNormal = waveNormal;
     vJacobian = jacobian;
     vFade = fade;
+    vCell = cell;
     vec4 mvPosition = viewMatrix * vec4(world, 1.0);
     gl_Position = projectionMatrix * mvPosition;
     #include <fog_vertex>
@@ -60,6 +65,9 @@ const fragmentShader = /* glsl */`
   varying vec3 vWaveNormal;
   varying float vJacobian;
   varying float vFade;
+  varying float vCell;
+  ${gerstnerShader}
+  ${gerstnerPixelShader}
 
   vec3 skyColor(vec3 ray) {
     return mix(uSkyHorizon, uSkyZenith, pow(clamp(ray.y, 0.0, 1.0), 0.55)) * uSkyLevel;
@@ -73,8 +81,15 @@ const fragmentShader = /* glsl */`
 
   void main() {
     vec3 view = normalize(cameraPosition - vWorld);
+    // Metres per pixel here: every detail layer fades out before it can alias.
+    float pixel = length(vec2(fwidth(vWorld.x), fwidth(vWorld.z)));
     vec3 n = normalize(vWaveNormal);
-    float rippleWeight = uRipple * vFade * uNoiseReady;
+    float fold;
+    vec2 farSlope = gerstnerPixelSlope(vWorld.xz, vFade, vCell, fold);
+    n = normalize(vec3(n.x - farSlope.x * n.y, n.y, n.z - farSlope.y * n.y));
+    float jacobian = vJacobian - fold;
+    float rippleFeature = 0.125 / max(uRippleScale, 0.001);
+    float rippleWeight = uRipple * vFade * uNoiseReady * (1.0 - smoothstep(rippleFeature * 0.12, rippleFeature * 0.5, pixel));
     if (rippleWeight > 0.001) {
       float e = 0.02 / max(uRippleScale, 0.001);
       float h = rippleHeight(vWorld.xz);
@@ -96,22 +111,29 @@ const fragmentShader = /* glsl */`
     // The wall of a wave lit from behind glows green: crest height above the
     // mean level times the sun behind the crest.
     float backlight = pow(max(dot(view, -uSunDirection), 0.0), 3.0);
-    float lift = clamp(vWorld.y * 1.5, 0.0, 1.0) * (1.0 - vJacobian * 0.5);
+    float lift = clamp(vWorld.y * 1.5, 0.0, 1.0) * (1.0 - jacobian * 0.5);
     body += uWaterColor * uSunRadiance / 3.14159265 * backlight * lift * uCrestGlow * 1.6;
     vec3 color = mix(body, reflection, clamp(fresnel, 0.02, 0.96));
 
     // Foam where the crest folds (small Jacobian). Coverage comes from the
     // fold, shape from the cloud noise: Worley cell edges give the lace, and
     // the fine octave erodes the thin parts exactly like a cloud edge.
-    float crest = smoothstep(uFoamThreshold + uFoamSoftness, uFoamThreshold - uFoamSoftness, vJacobian);
+    float crest = smoothstep(uFoamThreshold + uFoamSoftness, uFoamThreshold - uFoamSoftness, jacobian);
     float foam = 0.0;
     if (crest > 0.001 && uNoiseReady > 0.5) {
-      vec2 lp = vWorld.xz * uLaceScale + uWind * uTime * 0.02;
+      // Foam patches lie along the crest: the lace is stretched across the
+      // wind and compressed along it, and drifts downwind.
+      vec2 acrossWind = vec2(-uWind.y, uWind.x);
+      vec2 lp = vec2(dot(vWorld.xz, acrossWind) * 0.7, dot(vWorld.xz, uWind) * 1.25 - uTime * 0.25) * uLaceScale;
       vec3 lace = texture(uNoise, vec3(lp, 0.12)).rgb;
-      float fine = texture(uNoise, vec3(lp * 2.7 - uWind * uTime * 0.01, 0.52)).b;
+      float laceFeature = 0.125 / max(uLaceScale, 0.001);
+      float fineFade = 1.0 - smoothstep(laceFeature * 0.05, laceFeature * 0.25, pixel);
+      float fine = mix(0.6, texture(uNoise, vec3(lp * 2.7, 0.52)).b, fineFade);
       float pattern = mix(lace.r, 1.0 - lace.g, 0.6);
       float coverage = crest * 0.9;
-      foam = smoothstep(1.0 - coverage - 0.12, 1.0 - coverage + 0.12, pattern);
+      // The edge widens with the pixel so distant lace blurs instead of sparkling.
+      float width = 0.18 + smoothstep(laceFeature * 0.1, laceFeature * 0.6, pixel) * 0.25;
+      foam = smoothstep(1.0 - coverage - width, 1.0 - coverage + width, pattern);
       foam *= smoothstep(0.2, 0.55, fine + coverage * 0.6);
     }
     // Beer/powder from the clouds: a thick patch is lit flat white, a thin one
@@ -152,6 +174,7 @@ export default function GerstnerWaterSurface({ settings, lighting, noise = null,
   const [uniforms] = useState(() => ({
     ...THREE.UniformsUtils.clone(THREE.UniformsLib.fog),
     ...createGerstnerUniforms(),
+    uCellFactor: { value: 0.05 },
     uNoise: { value: null },
     uNoiseReady: { value: 0 },
     uTime: { value: 0 },
@@ -175,6 +198,7 @@ export default function GerstnerWaterSurface({ settings, lighting, noise = null,
   }));
 
   useEffect(() => {
+    uniforms.uCellFactor.value = geometry.userData.cellFactor;
     syncGerstnerUniforms(uniforms, settings);
     const bearing = THREE.MathUtils.degToRad(Number(settings.windDirection) || 0);
     uniforms.uWind.value.set(Math.sin(bearing), -Math.cos(bearing));
@@ -194,7 +218,7 @@ export default function GerstnerWaterSurface({ settings, lighting, noise = null,
     uniforms.uSkyHorizon.value.fromArray(lighting?.environment?.horizon?.linear ?? [0.55, 0.65, 0.75]);
     uniforms.uSkyZenith.value.fromArray(lighting?.environment?.zenith?.linear ?? [0.15, 0.3, 0.55]);
     uniforms.uSkyLevel.value = (settings.skyReflection ?? 1) * (lighting?.sky?.skyLevel ?? 1);
-  }, [lighting, settings, uniforms]);
+  }, [geometry, lighting, settings, uniforms]);
 
   useFrame(({ clock, camera }) => {
     uniforms.uTime.value = clock.elapsedTime;

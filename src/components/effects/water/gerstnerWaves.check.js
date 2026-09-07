@@ -15,7 +15,7 @@ for (const steepness of [0, 0.3, 0.8, 1.5, 40, -3, 'x']) {
 assert.ok(Math.abs(gerstnerSteepnessBudget(resolveGerstnerTrains({ wavelength: 10, amplitude: 0.4, steepness: 0.5, windDirection: 0, crossWaves: 1 })) - 0.5) < 1e-9);
 // Silent crossing trains leave the budget to the live ones.
 const noCross = resolveGerstnerTrains({ wavelength: 10, amplitude: 0.4, steepness: 0.6, windDirection: 0, crossWaves: 0 });
-assert.equal(noCross.filter((train) => train.q > 0).length, 2);
+assert.equal(noCross.filter((train) => train.q * train.k * train.amplitude > 0).length, 2);
 assert.ok(Math.abs(gerstnerSteepnessBudget(noCross) - 0.6) < 1e-9);
 
 // The mesh: expected triangle count, and every face wound to face +Y.
