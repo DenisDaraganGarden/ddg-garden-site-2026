@@ -1,4 +1,4 @@
-import { createSpitDefinition, sampleSpit, spitHeight } from './terrainSpit.js';
+import { createSpitDefinition, sampleSpit, spitHeight, spitJoin } from './terrainSpit.js';
 import { normalizeTerrainSettings, coastWeather } from './settings.js';
 import { coastProfile, coastPathMask } from './terrainLandforms.js';
 export const COAST_OFFSHORE = 96;
@@ -38,7 +38,7 @@ export function coastShelfDrop(q,s,p) {
 export function coastHeight(q,s,p) {
   const seed=p.terrainSeed*.137;
   const shelf=-p.waterDepth*(1-Math.exp(Math.min(q,0)/12));
-  if(q<=0)return spitHeight(mix(-p.waterDepth,shelf,terrainCoverage(q,s,p))+coastShelfDrop(q,s,p),sampleSpit(q+shorePosition(s,p),s,p),terrainCoverage(q,s,p),p);
+  if(q<=0)return spitHeight(mix(-p.waterDepth,shelf,terrainCoverage(q,s,p))+coastShelfDrop(q,s,p),sampleSpit(q+shorePosition(s,p),s,p),terrainCoverage(q,s,p),p,q);
   const f=coastProfile(s,p),t=smooth(f.foot,f.top,q);
   const bench=.4*smooth(f.foot,f.foot+f.width*.58,q)+.6*smooth(f.foot+f.width*.76,f.top,q);
   const scarp=.18*smooth(f.foot,f.foot+f.width*.6,q)+.82*smooth(f.foot+f.width*.5,f.top,q);
@@ -56,7 +56,7 @@ export function coastHeight(q,s,p) {
   const dryNoise=(Math.sin(q*.71+s*.19+seed)*.025+Math.sin(s*.41-q*.27)*.04)*p.terrainRelief*smooth(1,6,q);
   const upland=(Math.sin(s*.081+q*.067+seed)*.18+Math.sin(s*.027-q*.103)*.12)*p.terrainRelief*smooth(f.top,f.top+8,q);
   const height=shelf+beach+cliff*f.bank*(1-slump)+talus+erosion+dryNoise+upland;
-  return spitHeight(mix(-p.waterDepth,height,terrainCoverage(q,s,p)),sampleSpit(q+shorePosition(s,p),s,p),terrainCoverage(q,s,p),p);
+  return spitHeight(mix(-p.waterDepth,height,terrainCoverage(q,s,p)),sampleSpit(q+shorePosition(s,p),s,p),terrainCoverage(q,s,p),p,q);
 }
 // The old flat bed discards itself inside the coast band, where the terrain's
 // shelf is the bed. When the whole pond square lies in that band the plane
@@ -86,7 +86,9 @@ export function sampleTerrainNormal(x,z,p) {
 }
 export function coastSurfCoordinates(q,s,p) {
   const spit=sampleSpit(q+shorePosition(s,p),s,p);
-  return spit&&spit.edge>q?{q:spit.edge,s:spit.along+p.terrainSpitPosition,spit}: {q,s,spit:null};
+  if(!spit)return {q,s,spit:null};
+  const join=spitJoin(q,spit,p),along=mix(s,spit.along+p.terrainSpitPosition,join.blend);
+  return {q:join.edge,s:mix(spit.edge>q?spit.along+p.terrainSpitPosition:s,along,join.weight),spit:spit.edge>q||join.weight>.01?spit:null};
 }
 // The CPU twin of coastWave in terrainShader.js: keep the two identical.
 // The envelope of the run-up (GLSL coastWaveGain): how high the water can climb here.

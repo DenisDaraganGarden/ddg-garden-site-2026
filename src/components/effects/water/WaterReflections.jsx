@@ -145,6 +145,9 @@ export default function WaterReflections({
     cameraNear: camera.near,
     cameraFar: camera.far,
     matrix: new THREE.Matrix4(),
+    refractionMatrix: new THREE.Matrix4(),
+    refractionViewMatrix: new THREE.Matrix4(),
+    refractionCameraRange: new THREE.Vector2(camera.near, camera.far),
     keyShadowTexelSize: new THREE.Vector2(1 / 1024, 1 / 1024),
   });
   const sceneObjectsRef = useRef({
@@ -523,6 +526,11 @@ export default function WaterReflections({
         reflectionData.current.refractionDepthTexture = refractionTarget.depthTexture;
         reflectionData.current.cameraNear = camera.near;
         reflectionData.current.cameraFar = camera.far;
+        // Keep colour, depth and the camera that recorded them together. The
+        // next display frame can move before this rate-limited pass runs again.
+        reflectionData.current.refractionViewMatrix.copy(camera.matrixWorldInverse);
+        reflectionData.current.refractionMatrix.copy(camera.projectionMatrix).multiply(camera.matrixWorldInverse);
+        reflectionData.current.refractionCameraRange.set(camera.near, camera.far);
         saveSceneMotion(reflectionTiming.refractionMotion);
         // The capture cost itself is not idle time. Starting the cooldown after
         // the render prevents an over-budget phone from immediately scheduling

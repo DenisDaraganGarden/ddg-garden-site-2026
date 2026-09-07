@@ -12,6 +12,9 @@ export const reflectionContext = React.createContext({
     cameraNear: 0.1,
     cameraFar: 1000,
     matrix: new THREE.Matrix4(),
+    refractionMatrix: new THREE.Matrix4(),
+    refractionViewMatrix: new THREE.Matrix4(),
+    refractionCameraRange: new THREE.Vector2(0.1, 1000),
     keyShadowTexelSize: new THREE.Vector2(1 / 1024, 1 / 1024),
   },
 });

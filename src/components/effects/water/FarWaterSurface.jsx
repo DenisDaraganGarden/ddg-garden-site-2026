@@ -318,7 +318,7 @@ export default function FarWaterSurface({ settings, lighting, sky, qualityProfil
     uniforms.uCoastRefractionActive.value = reflection?.refractionTexture ? 1 : 0;
     uniforms.uPlanarReflection.value = reflection?.texture ?? null;
     uniforms.uHasReflection.value = reflection?.texture ? 1 : 0;
-    if (reflection) uniforms.uReflectionMatrix.value.copy(reflection.matrix);
+    if (reflection) uniforms.uReflectionMatrix.value = reflection.matrix;
     uniforms.uSkyLut.value = sky?.texture ?? null;
     // The bicubic tap pattern needs the table's own size; read it off the
     // texture so nothing has to thread the resolution through props.

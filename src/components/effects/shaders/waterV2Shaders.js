@@ -138,11 +138,12 @@ export const waterV2FragmentShader = `
   uniform sampler2D uRefractionTexture;
   uniform sampler2D uRefractionDepthTexture;
   uniform mat4 uReflectionMatrix;
+  uniform mat4 uRefractionMatrix;
+  uniform mat4 uRefractionViewMatrix;
+  uniform vec2 uRefractionCameraRange;
   uniform float uReflectionActive;
   uniform float uRefractionActive;
   uniform float uRefractionDepthActive;
-  uniform float uCameraNear;
-  uniform float uCameraFar;
   uniform float uWaveAmplitude;
   // Where the pond's own look hands over to the far field, in UV. Wider than
   // the geometric rim: the hand-over is a gradient the eye reads from afar,
@@ -206,13 +207,13 @@ export const waterV2FragmentShader = `
     );
     if (min(min(depths.x, depths.y), min(depths.z, depths.w)) <= 0.000001
       || max(max(depths.x, depths.y), max(depths.z, depths.w)) >= 0.999999) {
-      return perspectiveDepthToViewZLocal(nearestDepth, uCameraNear, uCameraFar);
+      return perspectiveDepthToViewZLocal(nearestDepth, uRefractionCameraRange.x, uRefractionCameraRange.y);
     }
     vec4 inverseZ = 1.0 / vec4(
-      perspectiveDepthToViewZLocal(depths.x, uCameraNear, uCameraFar),
-      perspectiveDepthToViewZLocal(depths.y, uCameraNear, uCameraFar),
-      perspectiveDepthToViewZLocal(depths.z, uCameraNear, uCameraFar),
-      perspectiveDepthToViewZLocal(depths.w, uCameraNear, uCameraFar)
+      perspectiveDepthToViewZLocal(depths.x, uRefractionCameraRange.x, uRefractionCameraRange.y),
+      perspectiveDepthToViewZLocal(depths.y, uRefractionCameraRange.x, uRefractionCameraRange.y),
+      perspectiveDepthToViewZLocal(depths.z, uRefractionCameraRange.x, uRefractionCameraRange.y),
+      perspectiveDepthToViewZLocal(depths.w, uRefractionCameraRange.x, uRefractionCameraRange.y)
     );
     vec2 f = fract(pixel);
     return 1.0 / mix(mix(inverseZ.x, inverseZ.y, f.x), mix(inverseZ.z, inverseZ.w, f.x), f.y);
@@ -364,12 +365,16 @@ export const waterV2FragmentShader = `
     float f0 = 0.02037;
     float fresnel = f0 + (1.0 - f0) * pow(1.0 - normalDotView, 5.0);
 
-    vec2 screenUv = (vClipPosition.xy / max(vClipPosition.w, 0.0001)) * 0.5 + 0.5;
+    vec4 capturedPosition = uRefractionMatrix * vec4(vSurfaceWorldPosition, 1.0);
+    vec2 screenUv = (capturedPosition.xy / max(capturedPosition.w, 0.0001)) * 0.5 + 0.5;
+    vec3 captureNormal = normalize(mat3(uRefractionViewMatrix) * vWaterNormal);
     float refractionDistortion = mix(0.0035, 0.014, slope)
       * (0.7 + abs(vHeightSample) * 0.45)
       * waveInfluence;
-    vec2 refractUv = screenUv + normalize(vViewNormal.xy + vec2(0.0001)) * refractionDistortion;
+    vec2 refractUv = screenUv + normalize(captureNormal.xy + vec2(0.0001)) * refractionDistortion;
     refractUv = mix(refractUv,screenUv+normal.xz*.001,uCoastShape.x*(1.0-surfaceTransition));
+    float captureCoverage = step(0.002, refractUv.x) * step(0.002, refractUv.y)
+      * step(refractUv.x, 0.998) * step(refractUv.y, 0.998) * step(0.0001, capturedPosition.w);
     refractUv = clamp(refractUv, vec2(0.002), vec2(0.998));
 
     // The refraction target contains linear HDR lighting. Keep it in that
@@ -381,7 +386,7 @@ export const waterV2FragmentShader = `
     // low-power RGBA8 targets; desktop depth replaces it with an exact geometry
     // test. Without this distinction the opaque scene background became a black
     // underwater wall outside the finite seabed.
-    float refractionCoverage = clamp(refractionCapture.a, 0.0, 1.0);
+    float refractionCoverage = clamp(refractionCapture.a, 0.0, 1.0) * captureCoverage;
     // Measure the actual water thickness to the first submerged surface from
     // the existing refraction depth buffer. This separates a nearby hull from
     // the deeper seabed without another render pass.
@@ -399,12 +404,12 @@ export const waterV2FragmentShader = `
     );
     float opticalPath = analyticPath;
     float sceneDepth = 1.0;
-    if (uRefractionDepthActive > 0.5) {
+    if (uRefractionDepthActive > 0.5 && captureCoverage > 0.5) {
       sceneDepth = texture2D(uRefractionDepthTexture, refractUv).x;
       refractionCoverage = step(0.000001, sceneDepth)
-        * (1.0 - step(0.999999, sceneDepth));
+        * (1.0 - step(0.999999, sceneDepth)) * captureCoverage;
       if (sceneDepth > 0.000001 && sceneDepth < 0.999999) {
-        vec3 surfaceViewPosition = (viewMatrix * vec4(vSurfaceWorldPosition, 1.0)).xyz;
+        vec3 surfaceViewPosition = (uRefractionViewMatrix * vec4(vSurfaceWorldPosition, 1.0)).xyz;
         float sceneViewZ = refractionViewZ(refractUv, sceneDepth);
         float viewRayCosine = max(abs(normalize(surfaceViewPosition).z), 0.08);
         float measuredPath = max(

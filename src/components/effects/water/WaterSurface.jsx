@@ -51,11 +51,12 @@ export default function WaterSurfaceV2({ settings, runtime, qualityProfile, ligh
     uRefractionTexture: { value: null },
     uRefractionDepthTexture: { value: null },
     uReflectionMatrix: { value: new THREE.Matrix4() },
+    uRefractionMatrix: { value: new THREE.Matrix4() },
+    uRefractionViewMatrix: { value: new THREE.Matrix4() },
+    uRefractionCameraRange: { value: new THREE.Vector2(0.1, 1000) },
     uReflectionActive: { value: 0 },
     uRefractionActive: { value: 0 },
     uRefractionDepthActive: { value: 0 },
-    uCameraNear: { value: 0.1 },
-    uCameraFar: { value: 1000 },
     uWaveAmplitude: { value: settings.waveAmplitude },
     uWaveChoppiness: { value: settings.waveChoppiness },
     uSurfaceEdgeBlendUv: { value: surfaceEdgeBlendUv },
@@ -206,9 +207,12 @@ export default function WaterSurfaceV2({ settings, runtime, qualityProfile, ligh
     uniforms.uReflectionActive.value = reflectionTexture ? 1 : 0;
     uniforms.uRefractionActive.value = refractionTexture ? 1 : 0;
     uniforms.uRefractionDepthActive.value = refractionDepthTexture ? 1 : 0;
-    uniforms.uCameraNear.value = reflectionDataRef.current.cameraNear;
-    uniforms.uCameraFar.value = reflectionDataRef.current.cameraFar;
-    uniforms.uReflectionMatrix.value.copy(reflectionDataRef.current.matrix);
+    // The capture runs after this callback. Share its stable matrix objects:
+    // copying here would pair a newly rendered texture with last frame's view.
+    uniforms.uReflectionMatrix.value = reflectionDataRef.current.matrix;
+    uniforms.uRefractionMatrix.value = reflectionDataRef.current.refractionMatrix;
+    uniforms.uRefractionViewMatrix.value = reflectionDataRef.current.refractionViewMatrix;
+    uniforms.uRefractionCameraRange.value = reflectionDataRef.current.refractionCameraRange;
     uniforms.uTime.value = clock.elapsedTime;
   }, -2);
 

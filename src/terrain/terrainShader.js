@@ -247,7 +247,7 @@ float coastSandFoamAtHeight(vec2 qs,vec3 world,float time,float ground){return c
 float coastFoam(vec2 qs,vec3 world,float time){return coastFoamAtHeight(qs,world,time,coastHeight(qs));}
 `;
 export function createCoastUniforms() {
- return {uCoastSpit:{value:new THREE.Vector4()},uCoastSpitBounds:{value:new THREE.Vector4()},uCoastSpitNodes:{value:Array.from({length:SPIT_SEGMENTS+1},()=>new THREE.Vector4())},uCoastLandforms:{value:new THREE.Vector4()},uCoastShape:{value:new THREE.Vector4()},uCoastDimensions:{value:new THREE.Vector4()},uCoastDetail:{value:new THREE.Vector4()},uCoastSurface:{value:new THREE.Vector4()},uCoastSurf:{value:new THREE.Vector4()},uCoastGeology:{value:new THREE.Vector4()},uCoastSwell:{value:new THREE.Vector4(0,-1,1,0)},uCoastShelf:{value:new THREE.Vector4()},uCoastBed:{value:new THREE.Vector4(42,0,0,0)},uCoastSoil:{value:new THREE.Vector4(.6,.6,8,0)},uCoastRimTint:{value:new THREE.Color('#86ad55')},uCoastOasisTint:{value:new THREE.Color('#7f9c58')},uCoastWrack:{value:new THREE.Vector4(.6,0,0,0)},uCoastSand:{value:new THREE.Vector4(.6,0,0,0)}};
+ return {uCoastSpit:{value:new THREE.Vector4()},uCoastSpitProfile:{value:new THREE.Vector4(1,12,1,0)},uCoastSpitBounds:{value:new THREE.Vector4()},uCoastSpitNodes:{value:Array.from({length:SPIT_SEGMENTS+1},()=>new THREE.Vector4())},uCoastLandforms:{value:new THREE.Vector4()},uCoastShape:{value:new THREE.Vector4()},uCoastDimensions:{value:new THREE.Vector4()},uCoastDetail:{value:new THREE.Vector4()},uCoastSurface:{value:new THREE.Vector4()},uCoastSurf:{value:new THREE.Vector4()},uCoastGeology:{value:new THREE.Vector4()},uCoastSwell:{value:new THREE.Vector4(0,-1,1,0)},uCoastShelf:{value:new THREE.Vector4()},uCoastBed:{value:new THREE.Vector4(42,0,0,0)},uCoastSoil:{value:new THREE.Vector4(.6,.6,8,0)},uCoastRimTint:{value:new THREE.Color('#86ad55')},uCoastOasisTint:{value:new THREE.Color('#7f9c58')},uCoastWrack:{value:new THREE.Vector4(.6,0,0,0)},uCoastSand:{value:new THREE.Vector4(.6,0,0,0)}};
 }
 export function syncCoastUniforms(uniforms,p) {
  uniforms.uCoastShape.value.set(p.terrainEnabled?1:0,p.terrainBearing*Math.PI/180,p.terrainOffset,p.terrainSeed);
@@ -262,6 +262,7 @@ export function syncCoastUniforms(uniforms,p) {
  const definition=p.spit?p:createTerrainDefinition(p);
  uniforms.uCoastBed?.value.set(p.terrainBedScale??42,p.terrainRipples??0,definition.coastOffshore,0);
  uniforms.uCoastSpit?.value.set(p.terrainSpitEnabled?1:0,definition.terrainSpitShoal,definition.terrainSpitPosition,0);
+ uniforms.uCoastSpitProfile?.value.set(definition.spit.length,definition.spit.rootRadius,definition.terrainSpitBend<0?-1:1,0);
  const bounds=definition.spit.bounds;
  uniforms.uCoastSpitBounds?.value.set(bounds.minU,bounds.maxU,bounds.minS,bounds.maxS);
  definition.spit.nodes.forEach((node,i)=>uniforms.uCoastSpitNodes?.value[i].set(node.u,node.s,node.width,node.height));

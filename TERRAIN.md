@@ -15,7 +15,9 @@ shell-sand ridge to the same height field. Its reference is the recurved alluvia
 [Pavlo-Ochakovskaya spit in Taganrog Bay](https://azovskiy.donland.ru/district/places/18/).
 This is an adjustable interpretation of its landform, not a surveyed reconstruction.
 The mainland bluff stays in place; a broad beach root narrows into a hooked tip,
-with water and a shallow submerged apron on both sides.
+with water on both sides. The short submerged shoulders drop to the surrounding
+bed, with alternating steeper banks and a sharper terminal drop. A smooth union
+rounds the two mainland junctions without moving the bluff.
 
 `terrainSpit.js` builds 20 tapered segments from a cubic centreline in world metres.
 The CPU and GLSL use the same segment nodes, signed shore distance, ridge height
@@ -27,16 +29,16 @@ and procedural swash, not a sediment transport or wave-refraction simulation.
 
 The spit starts disabled so existing published scenes keep their composition.
 Defaults when enabled: position −320 m along the coast, reach 320 m, width 28 m,
-crest 0.85 m, bend 0.85 and submerged apron 72 m. Controls cover position, reach,
+crest 0.85 m, bend 0.85 and submerged apron 28 m. Controls cover position, reach,
 width, height, bend in either direction and apron width. Normalization keeps the
 whole feature inside the coastal ends. All keys participate in publication and
 camera snapshots through the terrain settings contract.
 
 `terrainShelfExtent` (**Дно → Дальность дна / Bed → Seabed extent**) sets a minimum
 offshore extent, 96–1,600 m. Enabling the spit automatically extends it farther
-when needed: 512 m for the default spit. Ground, shore water, far-water cutout,
+when needed: 480 m for the default spit. Ground, shore water, far-water cutout,
 pond cutout, collider bounds and optical blending share this actual extent.
-Strips crossing the spit keep 4 m offshore columns at every LOD and denser rows;
+Strips crossing the spit keep nested 1/2/4 m offshore columns by LOD and denser rows;
 the optics twin retains those columns. This resolves the shallow ridge even from
 afar. The original coast keeps its original grid when the spit is disabled and
 the extent is 96 m.
@@ -45,6 +47,15 @@ High aerial views exposed steps from nearest sampling of the smaller refraction
 depth target. The water shader now decodes depth and interpolates reciprocal view
 depth between four covered texels. It retains measured submerged-object depth and
 nearest coverage at silhouettes, while removing the horizontal bands on the shoal.
+
+Camera motion exposed a second optical bug: rate-limited refraction textures were
+sampled and decoded using the current display camera. A small pitch or translation
+could therefore turn metres of water into zero optical thickness and flash the
+bright bed. Each capture now retains its projection, view and near/far range;
+colour, depth and normal distortion use that captured frame. Water uniforms share
+the stable capture matrix objects so a capture later in the same frame cannot
+leave the new texture paired with an older matrix. Planar reflection uses the
+same sharing rule. Offscreen capture coordinates reject clamped edge pixels.
 
 **Камеры / Cameras** includes technical views **Коса сверху / Spit overview** and
 **На косе / On the spit**. They follow the current spit parameters and only move
@@ -60,6 +71,14 @@ a rotated coast and an 800 m spit: height error <0.41 mm, wave error <0.023 mm,
 normal-vector error <0.00085, exact path agreement, and settings/snapshot roundtrip.
 These are analytic agreement measurements, not display-mesh error or physical
 iPhone performance measurements.
+
+After narrowing the banks, the 1,672-sample GPU contract passes again (height
+error <0.41 mm). The actual refraction shader block is exercised by
+`scripts/check-water-capture-gpu.mjs`, included in `check-water-surface-gpu.html`:
+12 cases cover display-camera movement, capture replacement, both depth encodings
+and offscreen colour/depth rejection; maximum depth error <0.1 mm. Live overhead
+and walking views, rotation, W movement and camera changes on pause were inspected
+on 41213. Denis also confirmed that sharp rotation no longer produces the flicker.
 
 ## Geometry and visibility
 

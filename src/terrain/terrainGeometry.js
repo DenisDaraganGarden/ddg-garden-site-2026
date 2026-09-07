@@ -18,9 +18,9 @@ function buildStrip(p,s0,lod=2,water=false) {
   const spit=p.terrainSpitEnabled&&s0+COAST_STRIP_LENGTH>=p.spit.bounds.minS&&s0<=p.spit.bounds.maxS;
   const along=(water?(spit?[64,32,16]:[64,32,8]):[128,64,32])[lod],detail=[1,.5,.25][lod];
   // Offshore detail is set by the shoal's metre scale, not by its distance
-  // from the old waterline. Keep 4 m columns at every land LOD; the independent
-  // shelf zone still halves along-shore rows, so parent morphs remain exact.
-  const shelfColumns=Math.max(8,Math.ceil((p.coastOffshore-32)/(spit?4:8)/8)*8);
+  // from the old waterline. The steep spit banks keep nested 1/2/4 m columns;
+  // parent morphs remain exact as the shelf also halves along-shore rows.
+  const shelfColumns=Math.max(8,Math.ceil((p.coastOffshore-32)/(spit?4:8)/8)*8)*(spit?[4,2,1][lod]:1);
   const s1=Math.min(p.terrainLength*.5,s0+COAST_STRIP_LENGTH);
   const plateauFixed=plateauCut(p);
   let zoneEdges=[];
