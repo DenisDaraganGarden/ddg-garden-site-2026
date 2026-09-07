@@ -1,0 +1,13 @@
+/* Keep the existing lab layout within the actual viewport. The shared nav's
+   max-content track otherwise makes this collection 527px wide on a phone. */
+.tanker-lab[data-asset-collection="rocks"] { grid-template-columns: minmax(0, 1fr); }
+@media (max-width: 820px) {
+  [data-asset-collection="rocks"] .tanker-lab__header { gap: 12px; }
+  [data-asset-collection="rocks"] .tanker-lab__header > div:first-child { min-width: 0; flex: 0 0 88px; }
+  [data-asset-collection="rocks"] .tanker-lab__header-actions { min-width: 0; flex: 1; }
+  [data-asset-collection="rocks"] .lab-nav { width: 100%; grid-template-columns: max-content minmax(0, 1fr); column-gap: 8px; }
+  [data-asset-collection="rocks"] .tanker-lab__controls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  [data-asset-collection="rocks"] .tanker-lab__range,
+  [data-asset-collection="rocks"] .tanker-lab__range input { min-width: 0; }
+  [data-asset-collection="rocks"] .tanker-lab__select select { min-width: 0; max-width: 120px; }
+}

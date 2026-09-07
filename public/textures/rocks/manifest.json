@@ -1,0 +1,121 @@
+{
+  "generator": "node scripts/terrain/build-rock-textures.mjs",
+  "source": "assets-source/textures/rocks (built-in imagegen; full prompts in README.md)",
+  "tileMetres": 0.6,
+  "encoding": {
+    "color": "sRGB reflectance reference",
+    "normal": "linear OpenGL +Y",
+    "surface": "linear: R roughness, G occlusion, B height"
+  },
+  "method": "Periodic multiscale local-detail height; broad mineral colour does not become displacement. Roughness and cavity occlusion estimated from the same field. Not a measured scan.",
+  "sets": {
+    "limestone-1024": {
+      "size": 1024,
+      "estimatedReliefMetres": 0.0035,
+      "entries": {
+        "color": {
+          "file": "public/textures/rocks/limestone-color.webp",
+          "size": 1024,
+          "bytes": 405418,
+          "maxOppositeEdgeDelta": 10,
+          "compression": "WebP quality 92"
+        },
+        "normal": {
+          "file": "public/textures/rocks/limestone-normal.webp",
+          "size": 512,
+          "bytes": 498292,
+          "maxOppositeEdgeDelta": 0,
+          "compression": "WebP lossless"
+        },
+        "surface": {
+          "file": "public/textures/rocks/limestone-surface.webp",
+          "size": 512,
+          "bytes": 439890,
+          "maxOppositeEdgeDelta": 0,
+          "compression": "WebP lossless"
+        }
+      }
+    },
+    "limestone-512": {
+      "size": 512,
+      "estimatedReliefMetres": 0.0035,
+      "entries": {
+        "color": {
+          "file": "public/textures/rocks/mobile/limestone-color.webp",
+          "size": 512,
+          "bytes": 97354,
+          "maxOppositeEdgeDelta": 9,
+          "compression": "WebP quality 92"
+        },
+        "normal": {
+          "file": "public/textures/rocks/mobile/limestone-normal.webp",
+          "size": 256,
+          "bytes": 85548,
+          "maxOppositeEdgeDelta": 0,
+          "compression": "WebP lossless"
+        },
+        "surface": {
+          "file": "public/textures/rocks/mobile/limestone-surface.webp",
+          "size": 256,
+          "bytes": 97286,
+          "maxOppositeEdgeDelta": 0,
+          "compression": "WebP lossless"
+        }
+      }
+    },
+    "coquina-1024": {
+      "size": 1024,
+      "estimatedReliefMetres": 0.007,
+      "entries": {
+        "color": {
+          "file": "public/textures/rocks/coquina-color.webp",
+          "size": 1024,
+          "bytes": 594322,
+          "maxOppositeEdgeDelta": 11,
+          "compression": "WebP quality 92"
+        },
+        "normal": {
+          "file": "public/textures/rocks/coquina-normal.webp",
+          "size": 512,
+          "bytes": 670266,
+          "maxOppositeEdgeDelta": 0,
+          "compression": "WebP lossless"
+        },
+        "surface": {
+          "file": "public/textures/rocks/coquina-surface.webp",
+          "size": 512,
+          "bytes": 530254,
+          "maxOppositeEdgeDelta": 0,
+          "compression": "WebP lossless"
+        }
+      }
+    },
+    "coquina-512": {
+      "size": 512,
+      "estimatedReliefMetres": 0.007,
+      "entries": {
+        "color": {
+          "file": "public/textures/rocks/mobile/coquina-color.webp",
+          "size": 512,
+          "bytes": 139060,
+          "maxOppositeEdgeDelta": 11,
+          "compression": "WebP quality 92"
+        },
+        "normal": {
+          "file": "public/textures/rocks/mobile/coquina-normal.webp",
+          "size": 256,
+          "bytes": 133888,
+          "maxOppositeEdgeDelta": 0,
+          "compression": "WebP lossless"
+        },
+        "surface": {
+          "file": "public/textures/rocks/mobile/coquina-surface.webp",
+          "size": 256,
+          "bytes": 119926,
+          "maxOppositeEdgeDelta": 0,
+          "compression": "WebP lossless"
+        }
+      }
+    }
+  }
+}
