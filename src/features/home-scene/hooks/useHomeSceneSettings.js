@@ -3,6 +3,7 @@ import { DEFAULT_TERRAIN_SETTINGS, normalizeTerrainSettings } from '../../../ter
 import { DEFAULT_TANKER_SETTINGS, normalizeTankerSettings } from '../../../tanker/settings.js';
 import { DEFAULT_SHORE_SETTINGS, normalizeShoreSettings } from '../../../shore/settings.js';
 import { DEFAULT_RENDER_QUALITY_SETTINGS, normalizeRenderQualitySettings } from '../../../components/effects/renderQualitySettings.js';
+import { DEFAULT_PAINTERLY_CLOUD_SETTINGS, normalizePainterlyCloudSettings } from '../lib/painterlyCloudSettings.js';
 import { useEffect, useState } from 'react';
 import { publishedHomeSceneSettings } from '../data/publishedHomeSceneSettings';
 import { publishedHomeSceneKeys } from '../data/publishedHomeSceneKeys';
@@ -235,6 +236,7 @@ export const getBaseHomeSceneSettings = () => ({
   cloudDensity: 0.62,
   cloudScale: 1,
   cloudSunOcclusion: 0.72,
+  ...DEFAULT_PAINTERLY_CLOUD_SETTINGS,
   distantSurfaceColor: '#70716d',
   moonPhase: 0.5,
   moonBrightness: 1,
@@ -752,6 +754,7 @@ const normalizeHomeSceneSettings = (savedSettings = {}, includeCameraSystem = tr
       1,
       defaults.cloudSunOcclusion,
     ),
+    ...normalizePainterlyCloudSettings(merged),
     distantSurfaceColor: pickColor(
       merged.distantSurfaceColor,
       defaults.distantSurfaceColor,

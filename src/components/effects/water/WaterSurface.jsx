@@ -7,6 +7,8 @@ import { buildFarWaterFieldData } from './farWaterGeometry';
 import { BOAT_CUTOUT_STENCIL_REF, DEBUG_VIEW_IDS } from './constants';
 import { reflectionContext } from './reflectionContext';
 import { waterV2FragmentShader, waterV2VertexShader } from '../shaders/waterV2Shaders';
+import { createCloudShadowUniforms, updateCloudShadowUniforms } from '../sky/painterly/cloudShadowRuntime.js';
+import { useCloudScene } from '../sky/painterly/CloudSceneContext.jsx';
 import {
   createCursorFlashlightUniforms,
   syncCursorFlashlightUniforms,
@@ -16,7 +18,9 @@ import {
 // the reflection and refraction textures, and the mesh that writes the stencil the
 // boat's dry cockpit is cut from.
 
-export default function WaterSurfaceV2({ settings, runtime, qualityProfile, lighting, sky, geometryOverride, shoreMode = false }) {
+export default function WaterSurfaceV2({ settings, runtime, qualityProfile, lighting, sky, cloudSceneRef = null, geometryOverride, shoreMode = false }) {
+  const contextCloudScene = useCloudScene();
+  const cloudScene = cloudSceneRef ?? contextCloudScene;
   const surfaceEdgeBlendUv = useMemo(
     () => buildFarWaterFieldData(settings.waterExtent).surfaceEdgeBlendUv,
     [settings.waterExtent],
@@ -120,6 +124,7 @@ export default function WaterSurfaceV2({ settings, runtime, qualityProfile, ligh
     uKeyCosRadius: { value: 1 },
     uKeyGlowPower: { value: 2000 },
     uKeyGlowStrength: { value: 0.35 },
+    ...createCloudShadowUniforms(),
     ...createCursorFlashlightUniforms(),
   }));
 
@@ -178,13 +183,16 @@ export default function WaterSurfaceV2({ settings, runtime, qualityProfile, ligh
 
   useFrame(({ clock }) => {
     syncCursorFlashlightUniforms(uniforms);
-    uniforms.uSkyLut.value = sky?.texture ?? null;
+    const cloudDescriptor = cloudScene?.current;
+    updateCloudShadowUniforms(uniforms, cloudDescriptor);
+    uniforms.uSkyLut.value = cloudDescriptor?.enabled && cloudDescriptor?.skyTexture ? cloudDescriptor.skyTexture : sky?.texture ?? null;
     // The bicubic tap pattern needs the table's own size; read it off the
     // texture so nothing has to thread the resolution through props.
-    if (sky?.texture?.image) {
+    const activeSkyTexture = uniforms.uSkyLut.value;
+    if (activeSkyTexture?.image) {
       uniforms.uSkyLutTexel.value.set(
-        1 / sky?.texture.image.width,
-        1 / sky?.texture.image.height,
+        cloudDescriptor?.enabled && cloudDescriptor?.skyTexel ? cloudDescriptor.skyTexel.x : 1 / activeSkyTexture.image.width,
+        cloudDescriptor?.enabled && cloudDescriptor?.skyTexel ? cloudDescriptor.skyTexel.y : 1 / activeSkyTexture.image.height,
       );
     }
     // Read every frame: the shadow map does not exist until the first shadow

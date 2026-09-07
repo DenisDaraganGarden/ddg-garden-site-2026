@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { rcasShaderChunk } from './spatialUpscale.js';
+import { DDG_CLOUD_SHADOW_GLSL } from './sky/painterly/cloudShadowRuntime.js';
 export const FILM_NOISE_TEXTURE_SIZE = 512;
 
 export const postVertexShader = `
@@ -113,6 +114,9 @@ export const postFragmentShader = `
   uniform vec3 uSunColor;
   uniform float uCameraNear;
   uniform float uCameraFar;
+  uniform mat4 uCameraProjectionInverse;
+  uniform mat4 uCameraWorld;
+  uniform vec3 uCameraWorldPosition;
   uniform float uTime;
 
   uniform float uGrainEnabled;
@@ -147,6 +151,8 @@ export const postFragmentShader = `
   uniform float uSunRaysDensity;
   uniform float uSunRaySampleCount;
   uniform float uSunRadius;
+  uniform float uPainterlyCloudRays;
+  uniform float uPainterlyCloudDay;
 
   uniform float uFogMode;
   uniform vec3 uFogColor;
@@ -170,6 +176,8 @@ export const postFragmentShader = `
   #include <common>
   #include <dithering_pars_fragment>
 
+  ${DDG_CLOUD_SHADOW_GLSL}
+
   ${rcasShaderChunk}
   #ifdef DDG_UPSCALE_PREPASS
     ${THREE.ShaderChunk.tonemapping_pars_fragment.replaceAll('toneMappingExposure', 'uToneMappingExposure')}
@@ -183,6 +191,51 @@ export const postFragmentShader = `
       / ((uCameraFar - uCameraNear) * depth - uCameraFar);
     return max(-viewZ, 0.0);
 #endif
+  }
+
+  vec3 ddgPostViewRay(vec2 uv) {
+    vec4 farView = uCameraProjectionInverse * vec4(uv * 2.0 - 1.0, 1.0, 1.0);
+    return normalize(farView.xyz / max(farView.w, 0.00001));
+  }
+
+  vec3 ddgPostWorldRay(vec2 uv) {
+    return normalize(mat3(uCameraWorld) * ddgPostViewRay(uv));
+  }
+
+  // getViewDistance is a camera-space Z distance. Convert it to distance along
+  // this pixel's ray, then stop under the cloud slab and at opaque geometry.
+  // An empty depth buffer is still allowed an 8 km atmospheric segment, which
+  // keeps shafts visible through sky gaps when the sun is off-screen.
+  float samplePainterlyCloudRays(vec2 uv, float viewDistance, float hasOpaqueDepth) {
+    if (uDdgCloudShadowEnabled < 0.5 || uPainterlyCloudRays <= 0.0001 || uPainterlyCloudDay <= 0.0001) return 0.0;
+    vec3 viewRay = ddgPostViewRay(uv);
+    vec3 ray = normalize(mat3(uCameraWorld) * viewRay);
+    float phase = pow(max(dot(ray, normalize(uDdgCloudShadowSun)), 0.0), 6.0);
+    if (phase <= 0.00001 || uCameraWorldPosition.y >= uDdgCloudShadowAltitude) return 0.0;
+
+    float rayDistance = hasOpaqueDepth > 0.5
+      ? viewDistance / max(-viewRay.z, 0.0001)
+      : 8000.0;
+    float belowCloudDistance = 8000.0;
+    if (ray.y > 0.0001) {
+      belowCloudDistance = (uDdgCloudShadowAltitude - uCameraWorldPosition.y) / ray.y;
+    }
+    float visibleDistance = min(max(rayDistance, 0.0), max(belowCloudDistance, 0.0));
+    if (visibleDistance <= 0.01) return 0.0;
+
+    float transmission = 0.0;
+    for (int index = 0; index < 4; index += 1) {
+      float fraction = (float(index) + 0.5) * 0.25;
+      vec3 worldPosition = uCameraWorldPosition + ray * (visibleDistance * fraction);
+      transmission += ddgCloudTransmission(worldPosition);
+    }
+    // Shafts are only visible in participating air. This Beer term means a
+    // foreground centimetre has effectively no haze while a kilometre does.
+    float extinction = clamp(uFogDensity, 0.0, 1.0) * 0.00016
+      * clamp(uFogScattering, 0.0, 1.0) * step(0.5, uFogMode);
+    float medium = 1.0 - exp(-visibleDistance * extinction);
+    return phase * (transmission * 0.25) * medium
+      * clamp(uPainterlyCloudRays, 0.0, 1.0) * uPainterlyCloudDay;
   }
 
   float ddgLuminance(vec3 color) {
@@ -548,18 +601,25 @@ export const postFragmentShader = `
       color += finiteColor(texture2D(uBloomTexture, filmUv).rgb) * uBloomStrength;
     }
 
+    float depth = texture2D(uDepthTexture, filmUv).r;
+    float hasOpaqueDepth = depth < 0.999999 ? 1.0 : 0.0;
+    float viewDistance = hasOpaqueDepth > 0.5 ? getViewDistance(depth) : 0.0;
+    float cloudSunTransmission = ddgCloudTransmission(uCameraWorldPosition);
     float rays = 0.0;
     // uSunVisible now carries the CPU-side screen mask too. Without that test the
     // loop below ran its 18 dependent texture fetches per pixel and multiplied the
     // result by a zero mask - a guaranteed no-op paid for on every frame whenever
     // the key light sits outside the frame, which the letterboxed band makes common.
     if (uSunRaysEnabled > 0.5 && uSunRaysIntensity > 0.0001 && uSunVisible > 0.5) {
-      rays = sampleSunRays(filmUv, filmSunUv);
+      rays = sampleSunRays(filmUv, filmSunUv) * cloudSunTransmission;
+    }
+    if (uSunRaysEnabled > 0.5 && uSunRaysIntensity > 0.0001) {
+      // The maximum avoids double-brightening when the authored screen-space disc
+      // path is available; the world-space path also covers empty sky depth.
+      rays = max(rays, samplePainterlyCloudRays(filmUv, viewDistance, hasOpaqueDepth));
     }
 
-    float depth = texture2D(uDepthTexture, filmUv).r;
     if (uFogMode > 0.5 && uFogDensity > 0.0001 && depth < 0.999999) {
-      float viewDistance = getViewDistance(depth);
       float distanceRatio = smoothstep(
         uFogNear,
         max(uFogFar, uFogNear + 0.001),
@@ -573,7 +633,8 @@ export const postFragmentShader = `
         * densityShape
         * mix(2.2, 3.4, step(1.5, uFogMode))
       );
-      float sunHalo = pow(max(1.0 - distance(filmUv, filmSunUv), 0.0), 7.0) * uSunVisible;
+      float sunHalo = pow(max(1.0 - distance(filmUv, filmSunUv), 0.0), 7.0)
+        * uSunVisible * cloudSunTransmission;
       // Scaled by the ray intensity like the direct term below it. Without that
       // the slider was discontinuous at zero: with fog on, turning the rays off
       // still left them at full strength inside the fog.

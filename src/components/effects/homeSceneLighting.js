@@ -162,7 +162,9 @@ export const buildHomeSceneLighting = (settings = {}) => {
     sunDirection[1] + (moonDirection[1] - sunDirection[1]) * night,
     sunDirection[2] + (moonDirection[2] - sunDirection[2]) * night,
   ];
-  const cloudCover = clamp(finiteNumber(settings.cloudCover, 0), 0, 1);
+  // The volume projects its own world-space attenuation onto receivers. Keep
+  // the legacy baked mask out of this mode to avoid dimming the same sun twice.
+  const cloudCover = settings.painterlyCloudsEnabled === true ? 0 : clamp(finiteNumber(settings.cloudCover, 0), 0, 1);
   const authoredShadowIntensity = clamp(finiteNumber(settings.shadowIntensity, 0.8), 0, 1);
   const authoredShadowRadius = clamp(finiteNumber(settings.shadowRadius, 1.5), 0, 8);
   const authoredShadowBias = clamp(finiteNumber(settings.shadowBias, -0.0006), -0.005, 0.005);

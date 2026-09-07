@@ -5,6 +5,11 @@ import { postVertexShader, postFragmentShader, bloomPrefilterFragmentShader, blo
 import { getRenderTargetCapabilities } from './renderTargetCapabilities';
 import { createSpatialUpscaler, getSpatialUpscaleSize, UPSCALE_SCALES } from './spatialUpscale';
 import { captureContactAoDepth, contactAoFragmentShader, contactAoVertexShader, createContactAoTargets } from './contactAO';
+import { useCloudScene } from './sky/painterly/CloudSceneContext.jsx';
+import {
+  createCloudShadowUniforms,
+  updateCloudShadowUniforms,
+} from './sky/painterly/cloudShadowRuntime.js';
 import {
   getCursorFlashlightRuntime,
   getCursorFlashlightWorldRuntime,
@@ -79,6 +84,7 @@ const finiteSetting = (value, fallback) => (Number.isFinite(value) ? value : fal
 
 export default function ScenePostProcessing({ settings, qualityProfile, lighting }) {
   const { gl, scene, camera } = useThree();
+  const cloudScene = useCloudScene();
   const isLowPower = qualityProfile?.isLowPower === true;
   const capabilities = useMemo(() => getRenderTargetCapabilities(gl), [gl]);
   const upscaleRequested = settings.upscaleMode === 'fsr1';
@@ -126,6 +132,7 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
   const sunDirection = useMemo(() => new THREE.Vector3(), []);
   const noiseTexture = useMemo(() => createNoiseTexture(), []);
   const filmNoiseTexture = useMemo(() => createFilmNoiseTexture(), []);
+  const cloudShadowUniforms = useMemo(() => createCloudShadowUniforms(), []);
   const renderTarget = useMemo(() => {
     const target = new THREE.WebGLRenderTarget(1, 1, {
       minFilter: THREE.LinearFilter,
@@ -208,6 +215,9 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
     uSunColor: { value: new THREE.Color('#ffffff') },
     uCameraNear: { value: 0.1 },
     uCameraFar: { value: 1000 },
+    uCameraProjectionInverse: { value: new THREE.Matrix4() },
+    uCameraWorld: { value: new THREE.Matrix4() },
+    uCameraWorldPosition: { value: new THREE.Vector3() },
     uTime: { value: 0 },
     uGrainEnabled: { value: 0 },
     uGrainIntensity: { value: 0 },
@@ -237,6 +247,8 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
     uSunRaysDensity: { value: 0.72 },
     uSunRaySampleCount: { value: 18 },
     uSunRadius: { value: 0.01 },
+    uPainterlyCloudRays: { value: 0.35 },
+    uPainterlyCloudDay: { value: 1 },
     uFogMode: { value: 0 },
     uFogColor: { value: new THREE.Color('#000000') },
     uFogHorizonColor: { value: new THREE.Color('#000000') },
@@ -254,7 +266,8 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
     uCursorLightAspect: { value: 1 },
     uCursorLightSoftness: { value: 0.72 },
     uCursorLightFogRelief: { value: 0 },
-  }), [bloomTargets, contactAo, filmNoiseTexture, isLowPower, noiseTexture, renderTarget]);
+    ...cloudShadowUniforms,
+  }), [bloomTargets, cloudShadowUniforms, contactAo, filmNoiseTexture, isLowPower, noiseTexture, renderTarget]);
   const postMaterial = useMemo(() => new THREE.ShaderMaterial({
     uniforms,
     vertexShader: postVertexShader,
@@ -369,6 +382,12 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
     uniforms.uSunRaysDecay.value = settings.sunRaysDecay;
     uniforms.uSunRaysDensity.value = settings.sunRaysDensity;
     uniforms.uSunRaySampleCount.value = sunRaySampleCount;
+    uniforms.uPainterlyCloudRays.value = finiteSetting(settings.painterlyCloudRays, 0.35);
+    uniforms.uPainterlyCloudDay.value = THREE.MathUtils.smoothstep(
+      finiteSetting(lighting.sky?.sunElevationDeg, -90),
+      -4,
+      6,
+    );
     uniforms.uFogMode.value = fogModes[fogMode] ?? 0;
     uniforms.uFogColor.value.set(settings.fogColor);
     uniforms.uFogHorizonColor.value.fromArray(lighting.environment.horizon.linear);
@@ -381,7 +400,7 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
     uniforms.uFogScattering.value = settings.fogScattering;
     uniforms.uFogSampleCount.value = fogSampleCount;
     uniforms.uSunColor.value.fromArray(lighting.key.colorLinear);
-  }, [bloomPrefilterUniforms, contactAoEnabled, effectiveFxaa, fogSampleCount, isLowPower, lighting.environment.horizon.linear, lighting.key.colorLinear, settings, sunRaySampleCount, uniforms]);
+  }, [bloomPrefilterUniforms, contactAoEnabled, effectiveFxaa, fogSampleCount, isLowPower, lighting.environment.horizon.linear, lighting.key.colorLinear, lighting.sky?.sunElevationDeg, settings, sunRaySampleCount, uniforms]);
 
   useEffect(() => () => {
     postScene.children[0]?.geometry?.dispose();
@@ -568,6 +587,10 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
     );
     uniforms.uCameraNear.value = camera.near;
     uniforms.uCameraFar.value = camera.far;
+    uniforms.uCameraProjectionInverse.value.copy(camera.projectionMatrixInverse);
+    uniforms.uCameraWorld.value.copy(camera.matrixWorld);
+    uniforms.uCameraWorldPosition.value.setFromMatrixPosition(camera.matrixWorld);
+    updateCloudShadowUniforms(cloudShadowUniforms, cloudScene?.current);
     uniforms.uTime.value = clock.elapsedTime;
 
     const cursorRuntime = getCursorFlashlightRuntime();

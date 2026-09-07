@@ -1,6 +1,11 @@
 import { CSM } from 'three/addons/csm/CSM.js';
 import { CSMShader } from 'three/addons/csm/CSMShader.js';
 import { resolveDirectionalShadowContact } from './shadowContactContract.js';
+import {
+  applyCloudShadowShader,
+  createCloudShadowUniforms,
+  updateCloudShadowUniforms,
+} from './sky/painterly/cloudShadowRuntime.js';
 
 // CSM replaces Three's shared lighting chunk. Some DDG material patches run in
 // the same fragment scope, so keep the addon's temporary fade variables private.
@@ -69,6 +74,7 @@ export function createCsmAdapter({
   shadowIntensity,
   contactOffsetMeters,
   legacyBias,
+  cloudShadowRef = null,
 }) {
   const csm = new CSM({
     camera,
@@ -128,6 +134,7 @@ export function createCsmAdapter({
     if (!isLitStandardMaterial(material) || MATERIAL_OWNER.has(material)) return;
     const previousCompile = material.onBeforeCompile;
     const previousKey = material.customProgramCacheKey;
+    const cloudShadowUniforms = cloudShadowRef ? createCloudShadowUniforms() : null;
     const csmDefines = ['USE_CSM', 'CSM_CASCADES', 'CSM_FADE'].map((key) => ({
       key,
       had: Object.hasOwn(material.defines ?? {}, key),
@@ -138,12 +145,16 @@ export function createCsmAdapter({
     material.onBeforeCompile = function onBeforeCompile(shader, renderer) {
       previousCompile?.call(material, shader, renderer);
       csmCompile.call(material, shader, renderer);
+      // CSM has replaced the directional-light chunk only now. Applying the
+      // cloud hook afterwards attenuates its one selected cascade, preserving
+      // the adapter's fade and never touching ambient or local lights.
+      if (cloudShadowUniforms) applyCloudShadowShader(shader, cloudShadowUniforms);
     };
     material.customProgramCacheKey = function customProgramCacheKey() {
-      return `${previousKey?.call(material) ?? material.type}|ddg-csm-${csm.cascades}`;
+      return `${previousKey?.call(material) ?? material.type}|ddg-csm-${csm.cascades}${cloudShadowUniforms ? '|ddg-cloud-shadow-v1' : ''}`;
     };
     material.needsUpdate = true;
-    const previous = { previousCompile, previousKey, csmDefines, onDispose: null };
+    const previous = { previousCompile, previousKey, csmDefines, cloudShadowUniforms, onDispose: null };
     previous.onDispose = () => restoreMaterial(material, previous);
     material.addEventListener('dispose', previous.onDispose);
     MATERIAL_OWNER.set(material, owner);
@@ -230,6 +241,9 @@ export function createCsmAdapter({
       refreshFrustums();
       csm.lights.forEach((light) => { light.visible = true; });
       csm.update();
+      if (cloudShadowRef) {
+        materials.forEach((previous) => updateCloudShadowUniforms(previous.cloudShadowUniforms, cloudShadowRef.current));
+      }
     },
     getShadowHandles() {
       return csm.lights.map((light) => ({

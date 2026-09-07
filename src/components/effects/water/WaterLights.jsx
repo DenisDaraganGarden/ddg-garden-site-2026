@@ -9,6 +9,7 @@ import {fitTerrainShadow} from '../../../terrain/terrainShadow.js';
 import { resolveDirectionalShadowContact } from '../shadowContactContract.js';
 import { resolveShadowCascadeCount } from '../shadowCascadePolicy.js';
 import { createCsmAdapter } from '../csmAdapter.js';
+import { useCloudScene } from '../sky/painterly/CloudSceneContext';
 
 // Every light in the scene, plus the sky. The key light and the visible disc are
 // the same direction by construction now: the disc is a dot product against the
@@ -17,6 +18,7 @@ import { createCsmAdapter } from '../csmAdapter.js';
 
 export default function WaterLights({ settings, mode, qualityProfile, lighting, sky, layout, terrainQuery }) {
   const { scene, camera } = useThree();
+  const cloudShadowRef = useCloudScene();
   const reflectionDataRef = useContext(reflectionContext);
   const keyLightRef = useRef();
   const keyTarget=useMemo(()=>new THREE.Object3D(),[]),shadowTimer=useRef(1);
@@ -50,6 +52,7 @@ export default function WaterLights({ settings, mode, qualityProfile, lighting, 
     // Only topology changes recreate CSM. Artistic light values are applied by
     // configure() below, so moving the sun does not thrash maps or materials.
     const adapter = createCsmAdapter({
+      cloudShadowRef,
       scene,
       camera,
       cascades: 2,
@@ -75,7 +78,7 @@ export default function WaterLights({ settings, mode, qualityProfile, lighting, 
       reflectionData.keyShadowCascades = [];
       reflectionData.keyShadowSplit = 1e9;
     };
-  }, [camera, cascadeCount, lighting.shadow.enabled, reflectionDataRef, scene, shadowMapSize]);
+  }, [camera, cascadeCount, cloudShadowRef, lighting.shadow.enabled, reflectionDataRef, scene, shadowMapSize]);
   // The 640-texel gate is gone. It silently switched shadows off on every phone
   // while the editor bypassed it, so the scene was authored in a view the
   // visitor never got. What made it affordable is the frustum refit below.
@@ -99,6 +102,11 @@ export default function WaterLights({ settings, mode, qualityProfile, lighting, 
   // lights:true recompile. Read every frame: the map is null until the first
   // shadow render and is recreated when its size changes.
   useFrame(({camera,gl},delta) => {
+    if ((settings.envMode ?? 'sky') === 'sky') {
+      const cloudEnvironment = cloudShadowRef.current?.enabled && cloudShadowRef.current.environment;
+      scene.environment = cloudEnvironment || sky.environment;
+      scene.environmentIntensity = cloudEnvironment ? 1 : lighting.sky.skyLevel;
+    }
     if (csmAdapter) {
       csmAdapter.configure({
         maxFar: settings.shadowDistance ?? 160,

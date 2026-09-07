@@ -318,6 +318,7 @@ export default function WaterReflections({
     const waterSurface = sceneObjects.waterSurface;
     const seabed = sceneObjects.seabed;
     const skyDome = sceneObjects.skyDome;
+    const cloudSky = scene.getObjectByName('painterly-sky');
     const farWaterSurface = sceneObjects.farWaterSurface;
     const surfaceVegetation = sceneObjects.surfaceVegetation;
     const underwaterAlgae = sceneObjects.underwaterAlgae;
@@ -490,6 +491,7 @@ export default function WaterReflections({
     const underwaterAlgaeWasVisible = underwaterAlgae?.visible ?? false;
     const celestialDiscWasVisible = celestialDisc?.visible ?? false;
     const skyDomeWasVisible = skyDome?.visible ?? false;
+    const cloudSkyWasVisible = cloudSky?.visible ?? false;
     const coastWater = scene.getObjectByName('coast-water');
     const coastWaterWasVisible = coastWater?.visible;
     if (coastWater) coastWater.visible = false;
@@ -509,6 +511,9 @@ export default function WaterReflections({
     // sky over the whole capture. Hidden in both passes, deliberately - the
     // water samples the same table directly, so it loses nothing.
     if (skyDome) skyDome.visible = false;
+    // Clouds provide a direction-space sky atlas to both water surfaces.
+    // Their main-camera screen pass must never enter mirror/refraction color.
+    if (cloudSky) cloudSky.visible = false;
     // The analytic outer surface belongs only to the final scene. Capturing it
     // beneath the detailed pond would hide the real seabed and underwater life.
     if (farWaterSurface) farWaterSurface.visible = false;
@@ -629,6 +634,7 @@ export default function WaterReflections({
       if (interactionPlane) interactionPlane.visible = true;
       if (celestialDisc) celestialDisc.visible = celestialDiscWasVisible;
       if (skyDome) skyDome.visible = skyDomeWasVisible;
+      if (cloudSky) cloudSky.visible = cloudSkyWasVisible;
       if (farWaterSurface) farWaterSurface.visible = farWaterSurfaceWasVisible;
       if (import.meta.env.DEV) {
         gl.domElement.dataset.ddgRefractionCapture = JSON.stringify({

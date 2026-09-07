@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import {PLANT_FIELD_GLSL,PLANT_BEND_GLSL,ecologyUniforms} from './plantEcology.js';
 import {PLANT_BLEACH_GLSL} from './plantMaterials.js';
+import { DDG_CLOUD_SHADOW_GLSL, createCloudShadowUniforms } from '../components/effects/sky/painterly/cloudShadowRuntime.js';
 
 function target(w,h){const rt=new THREE.WebGLRenderTarget(w,h,{format:THREE.RGBAFormat,type:THREE.UnsignedByteType,depthBuffer:true,minFilter:THREE.LinearMipmapLinearFilter,magFilter:THREE.LinearFilter,generateMipmaps:true});rt.texture.colorSpace=THREE.NoColorSpace;return rt;}
 export function preserveRenderer(renderer,fn){
@@ -84,7 +85,7 @@ export function bakePlantImpostor(renderer,model,geometries,atlas,frameSize=256)
  return {color,normal,position,width,height,center,min:box.min,size,frameSize,views:24,dispose(){color.dispose();normal.dispose();position.dispose();}};
 }
 export function makeImpostorMaterial(atlas,sharedUniforms){
- const uniforms={...(sharedUniforms??{...ecologyUniforms(),uPlantTime:{value:0},uPlantWind:{value:new THREE.Vector2()},uPlantTransmission:{value:.65},uPlantNearCut:{value:0},uPlantBarkBleach:{value:0}}),uPlantImpostorCenter:{value:atlas.center},uPlantPositionAtlas:{value:atlas.position.texture},uPlantAtlasMin:{value:atlas.min},uPlantAtlasSize:{value:atlas.size},uPlantLeafTint:{value:new THREE.Color(1,1,1)},uPlantBarkColor:{value:new THREE.Color('#7e735d')},uPlantCardGain:{value:[1,1,1,1,1]},uPlantCardGainBack:{value:[1,1,1,1,1]},uPlantCardChroma:{value:[1,1,1,1,1]},uPlantCardCut:{value:new THREE.Vector2(1,0)},uPlantAtlasDims:{value:new THREE.Vector2(atlas.color.width,atlas.color.height)}};
+ const uniforms={...(sharedUniforms??{...ecologyUniforms(),...createCloudShadowUniforms(),uPlantTime:{value:0},uPlantWind:{value:new THREE.Vector2()},uPlantTransmission:{value:.65},uPlantNearCut:{value:0},uPlantBarkBleach:{value:0}}),uPlantImpostorCenter:{value:atlas.center},uPlantPositionAtlas:{value:atlas.position.texture},uPlantAtlasMin:{value:atlas.min},uPlantAtlasSize:{value:atlas.size},uPlantLeafTint:{value:new THREE.Color(1,1,1)},uPlantBarkColor:{value:new THREE.Color('#7e735d')},uPlantCardGain:{value:[1,1,1,1,1]},uPlantCardGainBack:{value:[1,1,1,1,1]},uPlantCardChroma:{value:[1,1,1,1,1]},uPlantCardCut:{value:new THREE.Vector2(1,0)},uPlantAtlasDims:{value:new THREE.Vector2(atlas.color.width,atlas.color.height)}};
  const material=new THREE.MeshStandardMaterial({map:atlas.color.texture,normalMap:atlas.normal.texture,normalScale:new THREE.Vector2(1,1),roughness:.85,alphaTest:.22,alphaToCoverage:true,side:THREE.DoubleSide});
  material.onBeforeCompile=shader=>{
   Object.assign(shader.uniforms,uniforms);
@@ -136,6 +137,7 @@ export function makeImpostorMaterial(atlas,sharedUniforms){
   shader.fragmentShader=shader.fragmentShader.replace('#include <common>',`#include <common>
    ${PLANT_FIELD_GLSL}
    ${PLANT_BLEACH_GLSL}
+   ${DDG_CLOUD_SHADOW_GLSL}
    varying float vPlantFrame;varying float vPlantHabitat;varying vec3 vPlantRoot;varying vec3 vPlantBasis;
    uniform sampler2D uPlantPositionAtlas;uniform vec3 uPlantAtlasMin;uniform vec3 uPlantAtlasSize;uniform vec3 uPlantLeafTint;uniform vec3 uPlantBarkColor;uniform float uPlantCardGain[5];uniform float uPlantCardGainBack[5];uniform float uPlantCardChroma[5];uniform vec2 uPlantCardCut;uniform vec2 uPlantAtlasDims;
    vec2 plantAtlasUv(vec2 uv){return (uv*.98+.01+vec2(mod(vPlantFrame,4.0),floor(vPlantFrame/4.0)))/vec2(4,6);}
@@ -180,7 +182,7 @@ export function makeImpostorMaterial(atlas,sharedUniforms){
         DirectionalLightShadow plantShadow=directionalLightShadows[i];
         float plantShadowVisibility=getShadow(directionalShadowMap[i],plantShadow.shadowMapSize,plantShadow.shadowIntensity,plantShadow.shadowBias,plantShadow.shadowRadius,vDirectionalShadowCoord[i]);
         float through=max(dot(-normal,directionalLights[i].direction),0.0);
-        reflectedLight.directDiffuse+=diffuseColor.rgb*directionalLights[i].color*through*uPlantTransmission*.12*plantShadowVisibility;
+        reflectedLight.directDiffuse+=diffuseColor.rgb*directionalLights[i].color*through*uPlantTransmission*.12*plantShadowVisibility*ddgCloudTransmission(worldRest);
        }
       #endif
      }
@@ -191,7 +193,7 @@ export function makeImpostorMaterial(atlas,sharedUniforms){
     #pragma unroll_loop_start
     for ( int i = 0; i < NUM_DIR_LIGHTS; i ++ ) {
      float through=max(dot(-normal,directionalLights[i].direction),0.0);
-     reflectedLight.directDiffuse+=diffuseColor.rgb*directionalLights[i].color*through*uPlantTransmission*.12*plantShadowVisibility;
+     reflectedLight.directDiffuse+=diffuseColor.rgb*directionalLights[i].color*through*uPlantTransmission*.12*plantShadowVisibility*ddgCloudTransmission(worldRest);
     }
     #pragma unroll_loop_end
    #endif

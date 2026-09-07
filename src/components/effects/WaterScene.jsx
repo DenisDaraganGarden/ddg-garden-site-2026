@@ -53,6 +53,10 @@ import {
 } from './water/renderTargets';
 import EditorGizmo from '../../features/home-scene/components/editor/EditorGizmo';
 import ScenePostProcessing from './ScenePostProcessing';
+import PainterlyClouds from './sky/painterly/PainterlyClouds';
+import CloudShadowReceivers from './sky/painterly/CloudShadowReceivers';
+import { CloudSceneContext } from './sky/painterly/CloudSceneContext';
+import { resolvePainterlyCloudSettings } from '../../features/home-scene/lib/painterlyCloudSettings';
 import HomeSoundscapeBridge from '../../features/audio/components/HomeSoundscapeBridge';
 import CursorSpotlight from '../../features/cursor/CursorSpotlight';
 import {
@@ -191,6 +195,8 @@ function WaterRuntimeScene({
   audioRuntime,
 }) {
   const { gl, size } = useThree();
+  const cloudSceneRef = useRef(null);
+  const publishCloudRuntime = useCallback(value => { cloudSceneRef.current = value; }, []);
   const renderTargetCapabilities = useMemo(
     () => getRenderTargetCapabilities(gl),
     [gl],
@@ -244,6 +250,10 @@ function WaterRuntimeScene({
   // rasterized to discard every pixel, in the frame and in the refraction.
   const seabedCovered = useMemo(() => coastBandCoversPond(terrainDefinition, settings.waterExtent), [terrainDefinition, settings.waterExtent]);
   const lighting = useMemo(() => buildHomeSceneLighting(settings), [settings]);
+  const cloudSettingsKey = JSON.stringify(Object.fromEntries(Object.entries(settings).filter(([key]) => key.startsWith('painterlyCloud'))));
+  const cloudSettings = useMemo(() => resolvePainterlyCloudSettings(JSON.parse(cloudSettingsKey), qualityProfile), [cloudSettingsKey, qualityProfile]);
+  const cloudLightingKey = JSON.stringify({ sky: lighting.sky, key: lighting.key, environment: { exposure: lighting.environment.exposure } });
+  const cloudLighting = useMemo(() => JSON.parse(cloudLightingKey), [cloudLightingKey]);
   // One sky, built once, handed to everything that has to agree about it: the
   // visible dome, the water that reflects it, and (from Phase 2) the image-based
   // light on every material.
@@ -254,12 +264,12 @@ function WaterRuntimeScene({
   // read cloud instead of the grid the cloud was sampled on; the tiers below
   // still step down, because texture bytes and worker seconds are not free.
   const sky = useSkyEnvironment(lighting.sky, {
-    width: qualityProfile.isLowPower
+    width: cloudSettings.enabled ? 256 : qualityProfile.isLowPower
       ? 512
       : qualityProfile.isMobileDevice
         ? 1024
         : (qualityProfile.qualityTier === QUALITY_TIER.medium ? 1024 : 2048),
-    height: qualityProfile.isLowPower
+    height: cloudSettings.enabled ? 128 : qualityProfile.isLowPower
       ? 256
       : qualityProfile.isMobileDevice
         ? 512
@@ -416,7 +426,7 @@ function WaterRuntimeScene({
   ]);
 
   return (
-    <>
+    <CloudSceneContext.Provider value={cloudSceneRef}>
       <color attach="background" args={['#040507']} />
       <WaterCameraRig
         mode={mode}
@@ -428,6 +438,17 @@ function WaterRuntimeScene({
         poseKey={cameraPoseKey}
       />
       <HomeSoundscapeBridge runtime={audioRuntime} />
+      {cloudSettings.enabled && <PainterlyClouds
+        settings={cloudSettings}
+        lighting={cloudLighting}
+        onShadow={publishCloudRuntime}
+        product
+        environmentEnabled={(settings.envMode ?? 'sky') === 'sky'}
+        sunPower={(settings.sunIntensity ?? 1.4) / 1.4}
+        discVisible={settings.lightDiscEnabled !== false}
+        visible={settings.skyVisible !== false && !((settings.envMode === 'hdri' || settings.envMode === 'sky+hdri') && settings.showHdriBackground)}
+      />}
+      <CloudShadowReceivers />
       <WaterReflections
         enabled={opticsEnabled}
         reflectionEnabled={reflectionsEnabled}
@@ -594,7 +615,7 @@ function WaterRuntimeScene({
           position={[0, -settings.waterDepthMeters, 0]}
         />
       ) : null}
-    </>
+    </CloudSceneContext.Provider>
   );
 }
 

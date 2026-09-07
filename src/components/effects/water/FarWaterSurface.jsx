@@ -7,6 +7,8 @@ import * as THREE from 'three';
 import { skyShaderChunk } from '../shaders/skyShader';
 import { farWaterBodyShader, farWaterSwellShader } from '../shaders/farWaterOptics';
 import { buildFarWaterFieldData } from './farWaterGeometry';
+import { DDG_CLOUD_SHADOW_GLSL, createCloudShadowUniforms, updateCloudShadowUniforms } from '../sky/painterly/cloudShadowRuntime.js';
+import { useCloudScene } from '../sky/painterly/CloudSceneContext.jsx';
 
 const farWaterVertexShader = /* glsl */`
   ${coastShader}
@@ -33,6 +35,7 @@ const farWaterVertexShader = /* glsl */`
 
 export const farWaterFragmentShader = /* glsl */`
   ${skyShaderChunk}
+  ${DDG_CLOUD_SHADOW_GLSL}
   ${coastShader}
   ${farWaterBodyShader}
   ${farWaterSwellShader}
@@ -181,7 +184,7 @@ export const farWaterFragmentShader = /* glsl */`
     if (!gl_FrontFacing) {
       normal = -normal;
     }
-    float keyVisibility = keyShadow();
+    float keyVisibility = keyShadow() * ddgCloudTransmission(vWorldPosition);
 
     float normalDotView = clamp(dot(normal, viewDirection), 0.0, 1.0);
     float fresnel = 0.02037 + 0.97963 * pow(1.0 - normalDotView, 5.0);
@@ -205,7 +208,7 @@ export const farWaterFragmentShader = /* glsl */`
       uKeyRadiance / DISTANT_DISC_SPREAD,
       distantDiscRadius,
       uKeyGlowPower
-    );
+    ) * ddgCloudTransmission(vWorldPosition);
 #endif
 
     vec3 deepTint = mix(
@@ -285,7 +288,9 @@ export const farWaterFragmentShader = /* glsl */`
   }
 `;
 
-export default function FarWaterSurface({ settings, lighting, sky, qualityProfile, geometryOverride, shoreMode = false }) {
+export default function FarWaterSurface({ settings, lighting, sky, cloudSceneRef = null, qualityProfile, geometryOverride, shoreMode = false }) {
+  const contextCloudScene = useCloudScene();
+  const cloudScene = cloudSceneRef ?? contextCloudScene;
   const reflectionDataRef = React.useContext(reflectionContext);
   const [emptyShadow] = useState(() => {
     const texture = new THREE.DepthTexture(1, 1, THREE.UnsignedIntType);
@@ -362,6 +367,7 @@ export default function FarWaterSurface({ settings, lighting, sky, qualityProfil
     uKeyCosRadius: { value: 1 },
     uKeyGlowPower: { value: 2000 },
     uKeyGlowStrength: { value: 0.35 },
+    ...createCloudShadowUniforms(),
   }));
 
   useEffect(() => () => { if (!geometryOverride) geometry.dispose(); }, [geometry, geometryOverride]);
@@ -405,13 +411,16 @@ export default function FarWaterSurface({ settings, lighting, sky, qualityProfil
       meshRef.current.position.x = camera.position.x;
       meshRef.current.position.z = camera.position.z;
     }
-    uniforms.uSkyLut.value = sky?.texture ?? null;
+    const cloudDescriptor = cloudScene?.current;
+    updateCloudShadowUniforms(uniforms, cloudDescriptor);
+    uniforms.uSkyLut.value = cloudDescriptor?.enabled && cloudDescriptor?.skyTexture ? cloudDescriptor.skyTexture : sky?.texture ?? null;
     // The bicubic tap pattern needs the table's own size; read it off the
     // texture so nothing has to thread the resolution through props.
-    if (sky?.texture?.image) {
+    const activeSkyTexture = uniforms.uSkyLut.value;
+    if (activeSkyTexture?.image) {
       uniforms.uSkyLutTexel.value.set(
-        1 / sky?.texture.image.width,
-        1 / sky?.texture.image.height,
+        cloudDescriptor?.enabled && cloudDescriptor?.skyTexel ? cloudDescriptor.skyTexel.x : 1 / activeSkyTexture.image.width,
+        cloudDescriptor?.enabled && cloudDescriptor?.skyTexel ? cloudDescriptor.skyTexel.y : 1 / activeSkyTexture.image.height,
       );
     }
     uniforms.uTime.value = clock.elapsedTime;

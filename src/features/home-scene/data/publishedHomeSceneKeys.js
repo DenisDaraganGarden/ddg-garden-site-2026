@@ -3,6 +3,7 @@ import { DEFAULT_TERRAIN_SETTINGS } from '../../../terrain/settings.js';
 import { DEFAULT_TANKER_SETTINGS } from '../../../tanker/settings.js';
 import { DEFAULT_SHORE_SETTINGS } from '../../../shore/settings.js';
 import { DEFAULT_RENDER_QUALITY_SETTINGS } from '../../../components/effects/renderQualitySettings.js';
+import { DEFAULT_PAINTERLY_CLOUD_SETTINGS } from '../lib/painterlyCloudSettings.js';
 const keys = [
   ...Object.keys(DEFAULT_TANKER_SETTINGS),
   ...Object.keys(DEFAULT_TERRAIN_SETTINGS),
@@ -11,6 +12,7 @@ const keys = [
   ...Object.keys(DEFAULT_GRASS_SETTINGS),
   ...Object.keys(DEFAULT_SHORE_SETTINGS),
   ...Object.keys(DEFAULT_RENDER_QUALITY_SETTINGS),
+  ...Object.keys(DEFAULT_PAINTERLY_CLOUD_SETTINGS),
   'waterExtent',
   'farWaterBlendWidth',
   'simulationResolution',

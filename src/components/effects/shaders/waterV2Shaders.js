@@ -2,6 +2,7 @@ import { coastShader } from '../../../terrain/terrainShader.js';
 import { skyShaderChunk } from './skyShader';
 import { cursorFlashlightShaderChunk } from './cursorFlashlightShader';
 import { farWaterBodyShader, farWaterSwellShader } from './farWaterOptics';
+import { DDG_CLOUD_SHADOW_GLSL } from '../sky/painterly/cloudShadowRuntime.js';
 
 // Water V2 optics. The wave state still comes from the existing DDG ping-pong
 // simulation; the optical model follows the Fresnel/refraction approach used by
@@ -120,6 +121,7 @@ export const waterV2VertexShader = `
 
 export const waterV2FragmentShader = `
   ${skyShaderChunk}
+  ${DDG_CLOUD_SHADOW_GLSL}
   ${coastShader}
   ${farWaterBodyShader}
   ${farWaterSwellShader}
@@ -409,7 +411,7 @@ export const waterV2FragmentShader = `
     // Measure the actual water thickness to the first submerged surface from
     // the existing refraction depth buffer. This separates a nearby hull from
     // the deeper seabed without another render pass.
-    float shadow = keyShadow();
+    float shadow = keyShadow() * ddgCloudTransmission(vSurfaceWorldPosition);
     float turbidity = clamp(uWaterTurbidity, 0.0, 1.0);
     // The bloom, read once: it tints the body, thickens the haze and eats the
     // red and blue the way chlorophyll does, and lays scum lines on the surface.

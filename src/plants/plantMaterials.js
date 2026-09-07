@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import {PLANT_FIELD_GLSL,PLANT_BEND_GLSL,ecologyUniforms,updateEcologyUniforms} from './plantEcology.js';
+import { DDG_CLOUD_SHADOW_GLSL, createCloudShadowUniforms } from '../components/effects/sky/painterly/cloudShadowRuntime.js';
 
 export const PLANT_WIND_GLSL = /* glsl */`
 ${PLANT_BEND_GLSL}
@@ -43,7 +44,7 @@ function patchWind(shader,uniforms){
  shader.vertexShader=shader.vertexShader.replace('#include <common>', '#include <common>\nattribute float plantHabitat;varying float vPlantHabitat;varying vec3 vPlantRestWorld;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvec4 plantRest=vec4(position,1.0);\n#ifdef USE_INSTANCING\nplantRest=instanceMatrix*plantRest;\n#endif\nvPlantRestWorld=(modelMatrix*plantRest).xyz;vPlantHabitat=plantHabitat;');
  shader.vertexShader=shader.vertexShader.replace('#include <common>','#include <common>\n'+PLANT_WIND_GLSL).replace('#include <beginnormal_vertex>','#include <beginnormal_vertex>\nobjectNormal=plantWindNormal(objectNormal);').replace('#include <begin_vertex>','vec3 transformed=plantWindPoint(position);');
 }
-export function plantUniforms(){return {...ecologyUniforms(),uPlantTime:{value:0},uPlantWind:{value:new THREE.Vector2()},uPlantFlutter:{value:.55},uPlantTransmission:{value:.65},uPlantNearCut:{value:0},uPlantBarkBleach:{value:0}};}
+export function plantUniforms(){return {...ecologyUniforms(),...createCloudShadowUniforms(),uPlantTime:{value:0},uPlantWind:{value:new THREE.Vector2()},uPlantFlutter:{value:.55},uPlantTransmission:{value:.65},uPlantNearCut:{value:0},uPlantBarkBleach:{value:0}};}
 // Weathered wood: the bark's colour pulled toward a lighter grey of itself.
 export const PLANT_BLEACH_GLSL=/* glsl */`
 uniform float uPlantBarkBleach;
@@ -79,7 +80,7 @@ export function makePlantMaterials(atlas,uniforms,{bake=false}={}) {
     shader.fragmentShader=shader.fragmentShader.replace('#include <map_fragment>',THREE.ShaderChunk.map_fragment.replaceAll('vMapUv',frontUv));
    }
    if(m===leaves){
-    shader.fragmentShader=shader.fragmentShader.replace('#include <common>','#include <common>\nvarying vec3 vPlantRestWorld;varying float vPlantHabitat;uniform float uPlantTransmission;\n'+PLANT_FIELD_GLSL);
+    shader.fragmentShader=shader.fragmentShader.replace('#include <common>','#include <common>\nvarying vec3 vPlantRestWorld;varying float vPlantHabitat;uniform float uPlantTransmission;\n'+PLANT_FIELD_GLSL+'\n'+DDG_CLOUD_SHADOW_GLSL);
     shader.fragmentShader=shader.fragmentShader.replace('#include <color_fragment>','#include <color_fragment>\ndiffuseColor.rgb=plantFoliageColor(diffuseColor.rgb,vPlantRestWorld,vPlantHabitat);');
     if(split)shader.fragmentShader=shader.fragmentShader.replace('#include <normal_fragment_maps>',THREE.ShaderChunk.normal_fragment_maps.replaceAll('vNormalMapUv','vec2(vNormalMapUv.x,vNormalMapUv.y*.5+(gl_FrontFacing?0.0:.5))'));
     // Backlight through a thin leaf; a surface map says per pixel how thin
@@ -115,7 +116,7 @@ export function makePlantMaterials(atlas,uniforms,{bake=false}={}) {
                 DirectionalLightShadow plantShadow=directionalLightShadows[i];
                 float plantShadowVisibility=getShadow(directionalShadowMap[i],plantShadow.shadowMapSize,plantShadow.shadowIntensity,plantShadow.shadowBias,plantShadow.shadowRadius,vDirectionalShadowCoord[i]);
                 float through=max(dot(-normal,directionalLights[i].direction),0.0);
-                reflectedLight.directDiffuse+=diffuseColor.rgb*directionalLights[i].color*through*uPlantTransmission*plantThin*.12*plantShadowVisibility;
+                reflectedLight.directDiffuse+=diffuseColor.rgb*directionalLights[i].color*through*uPlantTransmission*plantThin*.12*plantShadowVisibility*ddgCloudTransmission(vPlantRestWorld);
               }
             #endif
           }
@@ -126,7 +127,7 @@ export function makePlantMaterials(atlas,uniforms,{bake=false}={}) {
         #pragma unroll_loop_start
         for ( int i = 0; i < NUM_DIR_LIGHTS; i ++ ) {
           float through=max(dot(-normal,directionalLights[i].direction),0.0);
-          reflectedLight.directDiffuse+=diffuseColor.rgb*directionalLights[i].color*through*uPlantTransmission*plantThin*.12*plantShadowVisibility;
+          reflectedLight.directDiffuse+=diffuseColor.rgb*directionalLights[i].color*through*uPlantTransmission*plantThin*.12*plantShadowVisibility*ddgCloudTransmission(vPlantRestWorld);
         }
         #pragma unroll_loop_end
       #endif
@@ -136,6 +137,7 @@ export function makePlantMaterials(atlas,uniforms,{bake=false}={}) {
   };
   m.customProgramCacheKey=()=>`oleaster-${m.type}-${m===leaves?'leaf':m===leafDepth?'cutout':'bark'}-${split?'split':'single'}-${atlas.surface?'surface':'plain'}-${tile?'barktile':'barkgrain'}-8`;
  }
+ for(const m of [bark,leaves,barkDepth,leafDepth])m.userData.ddgCloudShadowUniforms=uniforms;
  return {bark,leaves,barkDepth,leafDepth,dispose(){for(const m of [bark,leaves,barkDepth,leafDepth])m.dispose();}};
 }
 export function updatePlantUniforms(uniforms,settings,time){
