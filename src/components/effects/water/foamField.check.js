@@ -12,7 +12,7 @@ const foam = read('./foamField.js');
 const surface = read('./GerstnerWaterSurface.jsx');
 const shading = read('./waterShading.js');
 const breaking = read('./BreakingWaves.jsx');
-const surf = read('./surfProfile.js') + read('./coastFrame.js');
+const surf = read('./surfProfile.js') + read('./coastFrame.js') + read('./coastBreakLine.js');
 
 // Arguments of every call/declaration of `call`: top-level commas between the
 // matching parentheses, so a nested call inside an argument still counts as one.

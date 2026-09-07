@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { breakLineMean, coastBreakLine } from './coastFrame.js';
+import { breakLineMean, coastBreakLine } from './coastBreakLine.js';
 import { createTerrainDefinition } from '../../../terrain/terrainModel.js';
 
 // The break line follows the coast's own depth: a bigger wave breaks farther

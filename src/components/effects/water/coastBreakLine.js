@@ -1,0 +1,40 @@
+import { coastHeight } from '../../../terrain/terrainModel.js';
+
+// Pure maths of the break line, apart from the GPU plumbing in coastFrame.js
+// so a node check can run it against the real coast.
+
+export const BREAK_SAMPLES = 48;
+
+// Where a wave of this height breaks along the coast: for each section of the
+// crest, the first place coming in from offshore where the water is shallower
+// than H / 0.78 (the depth-induced breaking criterion, γ = 0.78). Returns q per
+// section; a spit or shoal in the way pulls the line out to sea there, which
+// is what bends the crest around it.
+export function coastBreakLine(definition, height, along0, length, samples = BREAK_SAMPLES, gamma = 0.78) {
+  const depthAtBreak = Math.max(height, 0.05) / gamma;
+  const line = new Float32Array(samples + 1);
+  // No wave this lab draws breaks farther out than this; the shelf beyond only deepens.
+  const start = -160;
+  for (let i = 0; i <= samples; i += 1) {
+    const s = along0 + (i / samples) * length;
+    // A crossing from deeper to shallower water; a coast that is shallow all
+    // the way out has no unbroken wave to offer, and gets the waterline.
+    let found = -1.5;
+    let deep = -coastHeight(start, s, definition) > depthAtBreak;
+    for (let q = start + 2; q <= 0; q += 2) {
+      const shallow = -coastHeight(q, s, definition) <= depthAtBreak;
+      if (!(deep && shallow)) { deep = !shallow; continue; }
+      let lo = q - 2, hi = q;
+      for (let k = 0; k < 8; k += 1) {
+        const mid = (lo + hi) / 2;
+        if (-coastHeight(mid, s, definition) <= depthAtBreak) hi = mid; else lo = mid;
+      }
+      found = hi;
+      break;
+    }
+    line[i] = found;
+  }
+  return line;
+}
+
+export const breakLineMean = (line) => line.reduce((sum, q) => sum + q, 0) / line.length;

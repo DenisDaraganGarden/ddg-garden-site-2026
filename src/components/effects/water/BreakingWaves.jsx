@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { createGerstnerUniforms, gerstnerShader, syncGerstnerUniforms } from './gerstnerWaves';
-import { BREAK_SAMPLES, breakLineMean, coastBreakLine, coastWaterShader, createCoastWaterUniforms, syncCoastWaterUniforms } from './coastFrame';
+import { BREAK_SAMPLES, breakLineMean, coastBreakLine, coastWaterShader, createCoastWaterUniforms, syncCoastWaterUniforms, tickShoreDepth } from './coastFrame';
 import { SURF_SHAPE, surfPlungeTime, surfProfileShader } from './surfProfile';
 import { createWaterShadingUniforms, syncWaterShadingUniforms, tickWaterShadingUniforms, useWaterNoise, waterShadingShader } from './waterShading';
 
@@ -94,8 +94,7 @@ const loftShader = /* glsl */`
   }
   vec3 surfSwell(vec2 p) {
     float dist = distance(p, cameraPosition.xz);
-    vec2 qs = coastLocal(p);
-    float fade = (1.0 - smoothstep(uGerstnerFade.x, uGerstnerFade.y, dist)) * coastSwellFade(qs.x) * smoothstep(0.05, 0.9, -coastHeight(qs));
+    float fade = (1.0 - smoothstep(uGerstnerFade.x, uGerstnerFade.y, dist)) * coastSwellFade(coastLocal(p));
     vec3 normal;
     float jacobian;
     vec2 drift;
@@ -307,7 +306,8 @@ export default function BreakingWaves({ settings, lighting, noise = null, coast,
       uRoller: { value: 0.5 },
       uRollerDensity: { value: 1 },
     };
-    const sheet = new THREE.ShaderMaterial({ uniforms, vertexShader: sheetVertexShader, fragmentShader: sheetFragmentShader, fog: true, transparent: true, side: THREE.DoubleSide });
+    // The loft's edges lie on the swell; the offset keeps them from fighting it for depth.
+    const sheet = new THREE.ShaderMaterial({ uniforms, vertexShader: sheetVertexShader, fragmentShader: sheetFragmentShader, fog: true, transparent: true, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
     const shell = new THREE.ShaderMaterial({ uniforms, vertexShader: shellVertexShader, fragmentShader: shellFragmentShader, fog: true, transparent: true, depthWrite: false, premultipliedAlpha: true, side: THREE.DoubleSide });
     return { index, uniforms, sheet, shell, spawn: -index * 9, height: 1, lineFor: NaN };
   }), [shading]);
@@ -358,6 +358,7 @@ export default function BreakingWaves({ settings, lighting, noise = null, coast,
     ribbons.forEach((ribbon) => {
       let travel = frozen ? (ribbon.index === 0 ? frozenTravel : -1000) : start + speed * (time - ribbon.spawn);
       ribbon.uniforms.uGerstnerTime.value = time;
+      tickShoreDepth(ribbon.uniforms, coast);
       ribbon.uniforms.uPeel.value = frozen ? 0 : settings.surfPeel;
       if (frozen) ribbon.spawn = time - (travel - start) / speed;
       if (!frozen && travel > end) {

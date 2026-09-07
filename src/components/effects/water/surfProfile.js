@@ -95,7 +95,10 @@ SurfPoint surfProfile(float t, float dn, float H) {
   float aMax = min(tau, tauImp);
   // After landing the body sinks into a bore and the lean relaxes.
   float psi = clamp((dn - uSpeed * tauImp) / max(uBore, 0.1), 0.0, 1.0);
-  float Hb = H * (1.0 - 0.6 * psi);
+  float Hb = H * (1.0 - 0.45 * psi);
+  // The lip hits the trough: the water bursts up ahead of the wave, then the
+  // roller settles onto the bore's face and rides it to the sand.
+  float splash = smoothstep(0.0, 0.1, psi) * (1.0 - smoothstep(0.1, 0.45, psi));
   float lean = uLean * rearing * (1.0 - psi);
   // The lip leaves from the crest; once landed, the crest sinks with the body.
   vec2 root = vec2(surfLean(SURF_CREST * Hb, Hb, lean), SURF_CREST * Hb);
@@ -144,10 +147,12 @@ SurfPoint surfProfile(float t, float dn, float H) {
     vec2 rootUnder = root + normalize(vec2(uLift, -uJet)) * uSheet * H * emerge * (1.0 - spent);
     o.p = mix(rootUnder, body, smoothstep(0.0, 0.15, u));
     o.thickness = 3.0;
-    // The roller: after landing the upper face boils; before, crumbs slide down.
-    float roller = smoothstep(0.0, 0.25, psi) * (1.0 - 0.5 * psi) * smoothstep(0.7, 0.05, u);
-    o.foam = max(roller, 0.35 * rearing * smoothstep(0.5, 0.0, u));
-    o.puff = roller;
+    // The roller: after landing the whole face boils and keeps boiling as the
+    // bore runs; the splash-up stands highest where the lip came down.
+    float roller = smoothstep(0.0, 0.25, psi) * (1.0 - 0.35 * psi) * smoothstep(0.85, 0.05, u);
+    float burst = splash * smoothstep(0.9, 0.2, u) * 1.4;
+    o.foam = max(max(roller, burst), 0.35 * rearing * smoothstep(0.5, 0.0, u));
+    o.puff = roller * (0.7 + 0.5 * (1.0 - psi)) + burst;
     o.shade = 1.0 - 0.45 * jetOut * smoothstep(0.55, 0.0, u);
     o.arc = 0.5 * uWidth + 2.0 * jetLen + 0.5 * uWidth * u;
   }

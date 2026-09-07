@@ -47,6 +47,7 @@ export function createGerstnerUniforms() {
     uGerstnerMotion: { value: Array.from({ length: GERSTNER_TRAIN_COUNT }, () => new THREE.Vector4()) },
     uGerstnerTime: { value: 0 },
     uGerstnerSets: { value: 0 },
+    uGerstnerGusts: { value: 0 },
     uGerstnerFade: { value: new THREE.Vector2(100, 250) },
   };
 }
@@ -57,6 +58,7 @@ export function syncGerstnerUniforms(uniforms, settings) {
     uniforms.uGerstnerMotion.value[index].set(train.omega * Math.max(Number(settings.speed) || 0, 0), train.q, index * 1.7, train.sets);
   });
   uniforms.uGerstnerSets.value = Math.min(Math.max(Number(settings.sets) || 0, 0), 1);
+  uniforms.uGerstnerGusts.value = Math.min(Math.max(Number(settings.gusts) || 0, 0), 1);
   uniforms.uGerstnerFade.value.set(Math.max(Number(settings.fadeStart) || 0, 1), Math.max(Number(settings.fadeEnd) || 0, Number(settings.fadeStart) + 1));
 }
 
@@ -66,7 +68,18 @@ uniform vec4 uGerstnerTrain[GERSTNER_TRAINS];   // direction.xy, k, amplitude
 uniform vec4 uGerstnerMotion[GERSTNER_TRAINS];  // omega, Q, phase offset, sets weight
 uniform float uGerstnerTime;
 uniform float uGerstnerSets;
+uniform float uGerstnerGusts;
 uniform vec2 uGerstnerFade;
+
+// The sea is never one clean train: a slow field over the water bends every
+// train's phase, so crests wander instead of running as ruled lines, and
+// scales the amplitude in patches, the gusts. The envelope never exceeds 1,
+// so the steepness budget holds.
+vec2 gerstnerWeather(vec2 p) {
+  float a = sin(p.x * 0.0113 + p.y * 0.0071) + 0.7 * sin(p.x * 0.0047 - p.y * 0.0129 + 1.7) + 0.4 * sin(p.x * 0.0231 + p.y * 0.0187 + 0.4);
+  float b = sin(p.x * 0.0083 - p.y * 0.0097 + 2.1) + 0.6 * sin(p.x * 0.0173 + p.y * 0.0059 + 0.9);
+  return vec2(1.0 - uGerstnerGusts * 0.35 * (1.0 - a / 2.1), b * 1.6 * uGerstnerGusts);
+}
 
 // Waves arrive in groups: the envelope runs at a sixth of the train's own
 // frequency, so every ~6 waves is a big one. It never exceeds 1, which keeps
@@ -91,13 +104,14 @@ vec3 gerstnerDisplace(vec2 p, float fade, float cell, out vec3 normal, out float
   vec3 slope = vec3(0.0);
   drift = vec2(0.0);
   float dxx = 0.0, dzz = 0.0, dxz = 0.0;
+  vec2 weather = gerstnerWeather(p);
   for (int i = 0; i < GERSTNER_TRAINS; i++) {
     vec4 train = uGerstnerTrain[i];
     vec4 motion = uGerstnerMotion[i];
     vec2 d = train.xy;
     float k = train.z;
-    float phase = k * dot(d, p) - motion.x * uGerstnerTime + motion.z;
-    float a = train.w * fade * gerstnerResolve(k, cell) * gerstnerEnvelope(phase, motion.w);
+    float phase = k * dot(d, p) - motion.x * uGerstnerTime + motion.z + weather.y;
+    float a = train.w * fade * weather.x * gerstnerResolve(k, cell) * gerstnerEnvelope(phase, motion.w);
     float q = motion.y;
     float s = sin(phase), c = cos(phase);
     offset.xz += q * a * d * c;
@@ -125,13 +139,14 @@ export const gerstnerPixelShader = /* glsl */`
 vec2 gerstnerPixelSlope(vec2 p, float fade, float cell, out float fold) {
   vec2 slope = vec2(0.0);
   fold = 0.0;
+  vec2 weather = gerstnerWeather(p);
   for (int i = 0; i < GERSTNER_TRAINS; i++) {
     vec4 train = uGerstnerTrain[i];
     vec4 motion = uGerstnerMotion[i];
     float k = train.z;
     float share = 1.0 - gerstnerResolve(k, cell);
-    float phase = k * dot(train.xy, p) - motion.x * uGerstnerTime + motion.z;
-    float a = train.w * fade * share * gerstnerEnvelope(phase, motion.w);
+    float phase = k * dot(train.xy, p) - motion.x * uGerstnerTime + motion.z + weather.y;
+    float a = train.w * fade * weather.x * share * gerstnerEnvelope(phase, motion.w);
     float aa = 1.0 - smoothstep(0.35, 1.5, fwidth(phase));
     float wa = k * a * aa;
     slope += train.xy * wa * cos(phase);
