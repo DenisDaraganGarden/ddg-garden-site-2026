@@ -13,18 +13,16 @@ const farWaterVertexShader = /* glsl */`
   uniform float uTime;
   uniform float uShoreMode;
   varying vec3 vWorldPosition;
-  varying vec4 vCoastClip;
 
   void main() {
     vec4 worldPosition = modelMatrix * vec4(position, 1.0);
     if (uShoreMode > 0.5) worldPosition.y += coastWave(coastLocal(worldPosition.xz), uTime);
     vWorldPosition = worldPosition.xyz;
     gl_Position = projectionMatrix * viewMatrix * worldPosition;
-    vCoastClip = gl_Position;
   }
 `;
 
-const farWaterFragmentShader = /* glsl */`
+export const farWaterFragmentShader = /* glsl */`
   ${skyShaderChunk}
   ${coastShader}
   ${farWaterBodyShader}
@@ -34,7 +32,9 @@ const farWaterFragmentShader = /* glsl */`
   uniform float uCoastRefractionActive;
   uniform sampler2D uCoastDepth;
   uniform float uCoastDepthActive;
-  uniform float uCoastCameraFar;
+  uniform mat4 uCoastRefractionMatrix;
+  uniform mat4 uCoastRefractionViewMatrix;
+  uniform vec2 uCoastRefractionCameraRange;
   uniform float uCoastTurbidity;
   uniform float uCoastScattering;
   uniform vec3 uCoastKeyColor;
@@ -43,7 +43,6 @@ const farWaterFragmentShader = /* glsl */`
   uniform vec3 uFoamFillRadiance;
 
   varying vec3 vWorldPosition;
-  varying vec4 vCoastClip;
 
   uniform sampler2D uPlanarReflection;
   uniform mat4 uReflectionMatrix;
@@ -73,6 +72,16 @@ const farWaterFragmentShader = /* glsl */`
       : vec3(1.0);
     float value = mix(0.45, 1.0, sqrt(clamp(luminance, 0.0, 1.0)));
     return chroma * value;
+  }
+
+  float coastDepthToViewZ(float depth) {
+#ifdef USE_LOGARITHMIC_DEPTH_BUFFER
+    return 1.0 - exp2(depth * log2(uCoastRefractionCameraRange.y + 1.0));
+#else
+    float nearPlane = uCoastRefractionCameraRange.x;
+    float farPlane = uCoastRefractionCameraRange.y;
+    return (nearPlane * farPlane) / ((farPlane - nearPlane) * depth - farPlane);
+#endif
   }
 
   void main() {
@@ -161,19 +170,29 @@ const farWaterFragmentShader = /* glsl */`
 
     float contactFoam=0.0;
     if(uCoastShape.x>.5 && uCoastRefractionActive>.5 && qs.x>-coastOffshore() && qs.x<8.0){
-      vec2 screenUv=vCoastClip.xy/vCoastClip.w*.5+.5;
-      vec4 bed=texture2D(uCoastRefraction,screenUv+normal.xz*.001);
+      // The colour and depth target belong to the capture camera, which can be
+      // one frame behind the display camera during a fast orbit. Projecting
+      // through the display matrix made the finite target turn into a screen
+      // aligned wedge at the ends of the shoreline.
+      vec4 capturedPosition=uCoastRefractionMatrix*vec4(vWorldPosition,1.0);
+      vec2 screenUv=capturedPosition.xy/max(capturedPosition.w,.0001)*.5+.5;
+      vec3 captureNormal=normalize(mat3(uCoastRefractionViewMatrix)*normal);
+      vec2 refractUv=screenUv+captureNormal.xy*.001;
+      float captureCoverage=step(.002,refractUv.x)*step(.002,refractUv.y)
+        *step(refractUv.x,.998)*step(refractUv.y,.998)*step(.0001,capturedPosition.w);
+      refractUv=clamp(refractUv,vec2(.002),vec2(.998));
+      vec4 bed=texture2D(uCoastRefraction,refractUv);
       float depth=max(0.0,vWorldPosition.y-ground);
       float opticalPath=min(depth/max(abs(viewDirection.y),.22),uCoastSurface.y*4.0);
-      if(uCoastDepthActive>.5){
-        float capturedDepth=texture2D(uCoastDepth,screenUv+normal.xz*.001).r;
+      if(uCoastDepthActive>.5 && captureCoverage>.5){
+        float capturedDepth=texture2D(uCoastDepth,refractUv).r;
         if(capturedDepth>.000001 && capturedDepth<.999999){
-          float sceneZ=exp2(capturedDepth*log2(uCoastCameraFar+1.0))-1.0;
-          vec3 surfaceView=(viewMatrix*vec4(vWorldPosition,1.0)).xyz;
-          opticalPath=min(max(0.0,(sceneZ-abs(surfaceView.z))/max(abs(normalize(surfaceView).z),.08)),uCoastSurface.y*4.0);
+          float sceneZ=coastDepthToViewZ(capturedDepth);
+          vec3 surfaceView=(uCoastRefractionViewMatrix*vec4(vWorldPosition,1.0)).xyz;
+          opticalPath=min(max(0.0,(abs(sceneZ)-abs(surfaceView.z))/max(abs(normalize(surfaceView).z),.08)),uCoastSurface.y*4.0);
         }
       }
-      contactFoam=uCoastDepthActive*smoothstep(.18,.4,-ground)*exp(-opticalPath*25.0)*uCoastSurf.z*.55;
+      contactFoam=uCoastDepthActive*captureCoverage*smoothstep(.18,.4,-ground)*exp(-opticalPath*25.0)*uCoastSurf.z*.55;
       float density=uCoastTurbidity*(.45+.55*uCoastTurbidity),depthScale=5.0/max(uCoastSurface.y,.25);
       vec3 absorption=(vec3(.008,.003,.001)+density*vec3(.13,.055,.018))*depthScale;
       float scattering=density*.62*depthScale*uCoastScattering;
@@ -181,7 +200,7 @@ const farWaterFragmentShader = /* glsl */`
       vec3 scatterColor=mix(deepTint,uCoastKeyColor,forwardScatter*.46);
       float scatterLight=mix(.48,1.0,sqrt(clamp(uEnvironmentExposure*uEnvironmentReflection,0.0,1.0)));
       vec3 shallow=bed.rgb*exp(-(absorption+vec3(scattering))*opticalPath)+scatterColor*(1.0-exp(-scattering*opticalPath))*scatterLight*(.82+forwardScatter*clamp(uCoastKeyIntensity,0.0,4.0)*.2);
-      refraction=mix(refraction,shallow,bed.a*smoothstep(-coastOffshore(),-coastOffshore()+26.0,qs.x));
+      refraction=mix(refraction,shallow,bed.a*captureCoverage*smoothstep(-coastOffshore(),-coastOffshore()+26.0,qs.x));
     }
     vec4 projected = uReflectionMatrix * vec4(vWorldPosition, 1.0);
     vec2 reflectionUv = projected.xy / max(projected.w, 0.0001) * .5 + .5;
@@ -244,7 +263,11 @@ export default function FarWaterSurface({ settings, lighting, sky, qualityProfil
     uShoreMode: { value: shoreMode ? 1 : 0 },
     uCoastRefraction: { value: null },
     uCoastRefractionActive: { value: 0 },
-    uCoastDepth: { value: null }, uCoastDepthActive: { value: 0 }, uCoastCameraFar: { value: 10000 },
+    uCoastDepth: { value: null },
+    uCoastDepthActive: { value: 0 },
+    uCoastRefractionMatrix: { value: new THREE.Matrix4() },
+    uCoastRefractionViewMatrix: { value: new THREE.Matrix4() },
+    uCoastRefractionCameraRange: { value: new THREE.Vector2(0.1, 1000) },
     uCoastTurbidity: { value: .4 },uCoastScattering: { value: .2 },
     uCoastKeyColor: { value: new THREE.Color() },uCoastKeyIntensity: { value: 1 },
     uFoamKeyRadiance: { value: new THREE.Vector3() },uFoamFillRadiance: { value: new THREE.Vector3() },
@@ -310,15 +333,6 @@ export default function FarWaterSurface({ settings, lighting, sky, qualityProfil
       meshRef.current.position.x = camera.position.x;
       meshRef.current.position.z = camera.position.z;
     }
-    const reflection = reflectionDataRef?.current;
-    uniforms.uCoastDepth.value=reflection?.refractionDepthTexture ?? null;
-    uniforms.uCoastDepthActive.value=reflection?.refractionDepthTexture?1:0;
-    uniforms.uCoastCameraFar.value=reflection?.cameraFar ?? 10000;
-    uniforms.uCoastRefraction.value = reflection?.refractionTexture ?? null;
-    uniforms.uCoastRefractionActive.value = reflection?.refractionTexture ? 1 : 0;
-    uniforms.uPlanarReflection.value = reflection?.texture ?? null;
-    uniforms.uHasReflection.value = reflection?.texture ? 1 : 0;
-    if (reflection) uniforms.uReflectionMatrix.value = reflection.matrix;
     uniforms.uSkyLut.value = sky?.texture ?? null;
     // The bicubic tap pattern needs the table's own size; read it off the
     // texture so nothing has to thread the resolution through props.
@@ -331,6 +345,20 @@ export default function FarWaterSurface({ settings, lighting, sky, qualityProfil
     uniforms.uTime.value = clock.elapsedTime;
   }, -2);
 
+  const bindCapture = () => {
+    const reflection = reflectionDataRef?.current;
+    uniforms.uCoastDepth.value=reflection?.refractionDepthTexture ?? null;
+    uniforms.uCoastDepthActive.value=reflection?.refractionDepthTexture?1:0;
+    uniforms.uCoastRefraction.value = reflection?.refractionTexture ?? null;
+    uniforms.uCoastRefractionActive.value = reflection?.refractionTexture ? 1 : 0;
+    uniforms.uCoastRefractionMatrix.value = reflection?.refractionMatrix ?? uniforms.uCoastRefractionMatrix.value;
+    uniforms.uCoastRefractionViewMatrix.value = reflection?.refractionViewMatrix ?? uniforms.uCoastRefractionViewMatrix.value;
+    uniforms.uCoastRefractionCameraRange.value = reflection?.refractionCameraRange ?? uniforms.uCoastRefractionCameraRange.value;
+    uniforms.uPlanarReflection.value = reflection?.texture ?? null;
+    uniforms.uHasReflection.value = reflection?.texture ? 1 : 0;
+    if (reflection) uniforms.uReflectionMatrix.value = reflection.matrix;
+  };
+
   if (!sky?.texture) {
     return null;
   }
@@ -341,6 +369,7 @@ export default function FarWaterSurface({ settings, lighting, sky, qualityProfil
       name={shoreMode ? "shore-water-strip" : "far-water-surface"}
       geometry={geometry}
       renderOrder={0.5}
+      onBeforeRender={bindCapture}
       frustumCulled={shoreMode}
     >
       <shaderMaterial

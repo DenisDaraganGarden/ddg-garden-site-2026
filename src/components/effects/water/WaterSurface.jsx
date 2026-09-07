@@ -198,6 +198,12 @@ export default function WaterSurfaceV2({ settings, runtime, qualityProfile, ligh
     uniforms.uState.value = runtime.currentStateTargetRef.current?.texture ?? null;
     uniforms.uNormalMap.value = runtime.normalTargetRef.current?.texture ?? null;
 
+    uniforms.uTime.value = clock.elapsedTime;
+  }, -2);
+
+  // Bind the completed capture immediately before drawing. Frame callbacks run
+  // before captures; a resized target can replace the texture in between.
+  const bindCapture = () => {
     const reflectionTexture = reflectionDataRef.current.texture;
     const refractionTexture = reflectionDataRef.current.refractionTexture;
     const refractionDepthTexture = reflectionDataRef.current.refractionDepthTexture;
@@ -207,14 +213,11 @@ export default function WaterSurfaceV2({ settings, runtime, qualityProfile, ligh
     uniforms.uReflectionActive.value = reflectionTexture ? 1 : 0;
     uniforms.uRefractionActive.value = refractionTexture ? 1 : 0;
     uniforms.uRefractionDepthActive.value = refractionDepthTexture ? 1 : 0;
-    // The capture runs after this callback. Share its stable matrix objects:
-    // copying here would pair a newly rendered texture with last frame's view.
     uniforms.uReflectionMatrix.value = reflectionDataRef.current.matrix;
     uniforms.uRefractionMatrix.value = reflectionDataRef.current.refractionMatrix;
     uniforms.uRefractionViewMatrix.value = reflectionDataRef.current.refractionViewMatrix;
     uniforms.uRefractionCameraRange.value = reflectionDataRef.current.refractionCameraRange;
-    uniforms.uTime.value = clock.elapsedTime;
-  }, -2);
+  };
 
   useLayoutEffect(() => {
     const material = materialRef.current;
@@ -241,6 +244,7 @@ export default function WaterSurfaceV2({ settings, runtime, qualityProfile, ligh
       geometry={geometryOverride}
       rotation={shoreMode ? undefined : [-Math.PI / 2, 0, 0]}
       renderOrder={1}
+      onBeforeRender={bindCapture}
       frustumCulled={shoreMode}
       visible={debugView < 3}
     >

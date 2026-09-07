@@ -57,6 +57,33 @@ the stable capture matrix objects so a capture later in the same frame cannot
 leave the new texture paired with an older matrix. Planar reflection uses the
 same sharing rule. Offscreen capture coordinates reject clamped edge pixels.
 
+Extreme zoom and rotation then exposed the finite footprint of that older capture
+as straight grey wedges. `water/refractionCapture.js` now clips the live camera
+frustum against the water's vertical displacement envelope and checks that whole
+convex footprint against the saved capture. Captures use 20% projection overscan
+at the existing target resolution; ordinary movement reuses the margin. A view
+leaving that coverage, a lens change or a replaced target gets a fresh capture
+before the water draw. During animation it takes the existing optical-pass slot,
+deferring reflection rather than adding a second scene pass. The scratch geometry
+is reused; texture memory and normal capture cadence are unchanged. Overscan
+trades some texel density for reusable coverage. The envelope includes both the
+bounded simulation wave and the storm-scaled coastal wave.
+
+Near and far water bind capture textures and matrices in `onBeforeRender`, after
+any target replacement in the frame. Far water uses the same saved-camera contract
+and negative view-Z depth decode for perspective and logarithmic depth, including
+colour and contact-foam coverage. No camera clipping limits or wave meshes were
+changed for this repair.
+
+This follow-up was checked in the main checkout on 41213 with repeated steep
+rotation, wheel zoom, FOV 18–75 degrees, camera switches and paused animation.
+The main-draw coverage probe reported no uncovered frame and at most one optical
+scene pass per animated frame during the probe. The CPU capture-policy check has
+25 cases; actual near/far shader checks each have 12 GPU cases for both depth
+encodings. `scripts/check-far-water-capture-gpu.mjs` is included in the shared
+`check-water-surface-gpu.html` harness. These desktop checks are not a physical
+mobile-device performance guarantee.
+
 **Камеры / Cameras** includes technical views **Коса сверху / Spit overview** and
 **На косе / On the spit**. They follow the current spit parameters and only move
 the viewport. A saved camera is still created explicitly in the editor. Adding

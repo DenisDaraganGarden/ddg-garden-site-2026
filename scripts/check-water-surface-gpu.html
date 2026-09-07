@@ -7,6 +7,7 @@
 <script type="module">
 import * as THREE from 'three';
 import { checkWaterCaptureGpu } from './check-water-capture-gpu.mjs';
+import { checkFarWaterCaptureGpu } from './check-far-water-capture-gpu.mjs';
 import { waterV2VertexShader } from '/src/components/effects/shaders/waterV2Shaders.js';
 import { createCoastUniforms, syncCoastUniforms } from '/src/terrain/terrainShader.js';
 import { coastCoordinates, coastPondWeight, createTerrainDefinition, sampleCoastWave, shorePosition } from '/src/terrain/terrainModel.js';
@@ -157,8 +158,9 @@ try {
  const uniformMapContract={initial:probeInitialPixel,replacementAttempt:probeReplacementPixel,inPlaceMutation:probeMutatedPixel,replacementCached:true};
  renderer.setRenderTarget(null);target.dispose();geometry.dispose();material.dispose();normalMaterial.dispose();probeGeometry.dispose();probeMaterial.dispose();stateTexture.dispose();normalTexture.dispose();renderer.dispose();renderer.forceContextLoss();renderer.domElement.remove();
  const captureContract=await checkWaterCaptureGpu();
+ const farCaptureContract=await checkFarWaterCaptureGpu();
  document.body.dataset.status='pass';
- document.body.textContent=JSON.stringify({status:'PASS',check:'actual unified WaterV2 vertex GPU coordinate and UV contract',samples:results,toleranceMetres:.0005,uniformMapContract,captureContract},null,2);
+ document.body.textContent=JSON.stringify({status:'PASS',check:'actual unified WaterV2 vertex GPU coordinate and UV contract',samples:results,toleranceMetres:.0005,uniformMapContract,captureContract,farCaptureContract},null,2);
 }catch(error){
  document.body.dataset.status='fail';document.body.textContent=error.stack;throw error;
 }

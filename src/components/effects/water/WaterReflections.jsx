@@ -15,6 +15,12 @@ import { reflectionContext } from './reflectionContext';
 import { NO_REFLECTION_LAYER } from './SceneLightObjects';
 import { applyOpticsGeometryLods } from './opticsGeometryLod';
 import {
+  createRefractionCapturePolicy,
+  syncRefractionCaptureCamera,
+  commitRefractionCapture,
+  refractionCaptureNeedsUrgentUpdate,
+} from './refractionCapture.js';
+import {
   hideExcludedSeagullRefractions,
   hideExcludedSeagullReflections,
   readSeagullReflectionActivity,
@@ -138,6 +144,9 @@ export default function WaterReflections({
     camera.layers.disable(NO_REFLECTION_LAYER);
     return camera;
   }, []);
+  const refractionCamera = useMemo(() => new THREE.PerspectiveCamera(), []);
+  const refractionPolicy = useMemo(() => createRefractionCapturePolicy(), []);
+  const captureStats = useRef({ frames: 0, refractions: 0, urgent: 0, reflections: 0, lastCaptureMs: 0 });
   const reflectionData = useRef({
     texture: null,
     refractionTexture: null,
@@ -209,6 +218,7 @@ export default function WaterReflections({
       delete gl.domElement.dataset.ddgOpticsDepth;
       delete gl.domElement.dataset.ddgOpticsFps;
       delete gl.domElement.dataset.ddgOpticsLod;
+      delete gl.domElement.dataset.ddgRefractionCapture;
     };
   }, [
     activeFps,
@@ -321,6 +331,23 @@ export default function WaterReflections({
       return;
     }
 
+    // OrbitControls changes the pose before this pass, but the renderer has not
+    // updated its world matrix yet. Validate the final view, not last frame's.
+    camera.updateMatrixWorld(true);
+    waterSurface.getWorldPosition(waterSurfaceWorldPosition);
+    const mirrorY = waterSurfaceWorldPosition.y;
+    // Simulation height is clamped to 2.4; the coastal carrier/harmonic/shoal
+    // product is bounded by 2.781. The storm is already in uCoastSurf.x.
+    const waveUniforms = waterSurface.material?.uniforms;
+    refractionPolicy.waveEnvelope = Math.max(.5,
+      2.4 * Math.abs(waveUniforms?.uWaveAmplitude?.value ?? 0)
+      + 2.8 * Math.max(0, waveUniforms?.uCoastSurf?.value?.x ?? 0) + .03);
+    const refractionUrgent = refractionEnabled && refractionTarget && (
+      reflectionData.current.refractionTexture !== refractionTarget.texture
+      || refractionCaptureNeedsUrgentUpdate(refractionPolicy, camera, mirrorY)
+    );
+    captureStats.current.frames++;
+
     const now = performance.now() / 1000;
     const hasSceneMotion = (snapshot) => {
       if (!snapshot.initialized) {
@@ -386,7 +413,7 @@ export default function WaterReflections({
       && (now - reflectionTiming.lastReflectionRenderTime) >= reflectionInterval;
     let shouldRenderRefraction = refractionEnabled
       && refractionTarget
-      && (now - reflectionTiming.lastRefractionRenderTime) >= refractionInterval;
+      && (refractionUrgent || (now - reflectionTiming.lastRefractionRenderTime) >= refractionInterval);
 
     // Paused editor: the loop is on demand, so a camera switched (or a lens
     // changed) under the pause gets one or two frames and no more. If the
@@ -406,7 +433,11 @@ export default function WaterReflections({
     // animation frame. The more overdue pass wins; the other keeps its old
     // timestamp and therefore wins a following frame instead of starving.
     // Under the pause there is no following frame, so both render.
-    if (
+    if (!clockStopped && refractionUrgent) {
+      // A newly visible piece of water has no pixels in the old capture. Give
+      // refraction this frame's existing optical-pass slot; reflection waits.
+      shouldRenderReflection = false;
+    } else if (
       !clockStopped
       && reflectionTiming.reflectionMotion.initialized
       && reflectionTiming.refractionMotion.initialized
@@ -421,9 +452,6 @@ export default function WaterReflections({
         shouldRenderReflection = false;
       }
     }
-
-    waterSurface.getWorldPosition(waterSurfaceWorldPosition);
-    const mirrorY = waterSurfaceWorldPosition.y;
 
     if (shouldRenderReflection) {
       // 1. Sync mirror camera with main camera.
@@ -500,6 +528,8 @@ export default function WaterReflections({
 
     try {
       if (shouldRenderRefraction) {
+        const captureStarted = performance.now();
+        syncRefractionCaptureCamera(refractionCamera, camera, refractionPolicy);
         // Keep only geometry below the waterline. Rendering the complete boat
         // and sculpture here created a camera-dependent dark duplicate that
         // looked like a shadow travelling out of the objects.
@@ -517,20 +547,24 @@ export default function WaterReflections({
         const restoreSeagullVisibility = hideExcludedSeagullRefractions(seagullFlock);
         const restoreTerrainRefraction = setTerrainOptics(terrain, 1);
         try {
-          gl.render(scene, camera);
+          gl.render(scene, refractionCamera);
         } finally {
           restoreSeagullVisibility();
           restoreTerrainRefraction();
         }
         reflectionData.current.refractionTexture = refractionTarget.texture;
         reflectionData.current.refractionDepthTexture = refractionTarget.depthTexture;
-        reflectionData.current.cameraNear = camera.near;
-        reflectionData.current.cameraFar = camera.far;
+        reflectionData.current.cameraNear = refractionCamera.near;
+        reflectionData.current.cameraFar = refractionCamera.far;
         // Keep colour, depth and the camera that recorded them together. The
         // next display frame can move before this rate-limited pass runs again.
-        reflectionData.current.refractionViewMatrix.copy(camera.matrixWorldInverse);
-        reflectionData.current.refractionMatrix.copy(camera.projectionMatrix).multiply(camera.matrixWorldInverse);
-        reflectionData.current.refractionCameraRange.set(camera.near, camera.far);
+        reflectionData.current.refractionViewMatrix.copy(refractionCamera.matrixWorldInverse);
+        reflectionData.current.refractionMatrix.copy(refractionCamera.projectionMatrix).multiply(refractionCamera.matrixWorldInverse);
+        reflectionData.current.refractionCameraRange.set(refractionCamera.near, refractionCamera.far);
+        commitRefractionCapture(refractionPolicy, camera, refractionCamera);
+        captureStats.current.refractions++;
+        if (refractionUrgent) captureStats.current.urgent++;
+        captureStats.current.lastCaptureMs = performance.now() - captureStarted;
         saveSceneMotion(reflectionTiming.refractionMotion);
         // The capture cost itself is not idle time. Starting the cooldown after
         // the render prevents an over-budget phone from immediately scheduling
@@ -569,6 +603,7 @@ export default function WaterReflections({
           restoreTerrainReflection();
         }
         reflectionData.current.texture = reflectionTarget.texture;
+        captureStats.current.reflections++;
         saveSceneMotion(reflectionTiming.reflectionMotion);
         reflectionTiming.lastReflectionRenderTime = performance.now() / 1000;
       }
@@ -592,6 +627,12 @@ export default function WaterReflections({
       if (celestialDisc) celestialDisc.visible = celestialDiscWasVisible;
       if (skyDome) skyDome.visible = skyDomeWasVisible;
       if (farWaterSurface) farWaterSurface.visible = farWaterSurfaceWasVisible;
+      if (import.meta.env.DEV) {
+        gl.domElement.dataset.ddgRefractionCapture = JSON.stringify({
+          ...captureStats.current, overscan: refractionPolicy.overscan,
+          covered: !refractionCaptureNeedsUrgentUpdate(refractionPolicy, camera, mirrorY),
+        });
+      }
     }
   });
 
