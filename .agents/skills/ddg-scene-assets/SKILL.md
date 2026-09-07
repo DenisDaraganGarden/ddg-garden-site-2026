@@ -7,6 +7,8 @@ description: Build, review, and integrate procedural 3D assets in the DDG/Syte s
 
 Inspect the running surface before deciding the source of truth: listener port and cwd, Git branch and worktree, browser origin, editor draft, and `publishedHomeSceneSettings.js`. A draft is origin-bound. Camera snapshots carry scene settings; a scene-only change can disappear on a camera cut if its key is not published and normalized.
 
+The main development editor is `http://localhost:41212/home/edit`; 41213 is the agent sandbox. Keep the exact hostname: localhost and 127.0.0.1 have separate storage. Integrating a reviewed asset includes its approved scene settings, not only its code. Check the published root and every relevant camera snapshot; features defaulting to off will otherwise disappear outside the sandbox. Merge only approved settings and new cameras through the publish sanitizer/client, preserving existing camera ids, poses and unrelated scene settings. Before adopting that publication in the main editor, compare its current settings with the pre-integration baseline so newer author edits survive. Do not copy whole localStorage between origins.
+
 The main scene is `WaterScene.jsx` inside `SceneCanvas`; `useHomeSceneSettings.js` owns defaults/normalization and `publishedHomeSceneKeys.js` owns persistence and camera snapshots. Use those contracts rather than a parallel settings store. The editor tree is `features/home-scene/components/editor/editorTree.js`. Match its compact RU/EN controls.
 
 Use short labels and procedural sliders. Do not add tutorial text, helper badges or repeated hints to the tool panel. Prefer a single meaningful control over duplicated settings. Explain implementation choices in the task or technical documentation.
@@ -24,6 +26,8 @@ World distances are metres. Y is up, waterline is Y=0, north is -Z and east is +
 Keep global world motion independent from display scale. Integrate speed over time so a speed edit does not jump the object. Cap resumed frame deltas. For long routes, define repeat behavior and check it from the camera, with frame clipping and reflections.
 
 Use MeshStandardMaterial or the existing PBR extension points so scene lights, shadows, fog, exposure and tone mapping remain common. Do not bake the laboratory's lighting into materials. Dispose generated geometry, maps, materials and sources on unmount. Share immutable geometry for repeated objects.
+
+For shadow/material hooks, AO, antialiasing, FSR and quality budgets, read [ddg-render-runtime](../ddg-render-runtime/SKILL.md). Asset deformation and alpha cutout must also match its depth material; automatic CSM binding does not implement a custom ShaderMaterial's shadow receiver.
 
 Keep a ShaderMaterial's uniforms map stable after compilation and edit its values in place. Three.js caches the initial map; replacing it can leave GPU lighting and animation on old values even when material.uniforms reports the new settings. Check a live night-to-day edit, not only a fresh load. The water GPU contract in `scripts/check-water-surface-gpu.html` reproduces this binding behavior and also checks world/view normals and simulation UVs.
 
