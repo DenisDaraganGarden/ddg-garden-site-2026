@@ -14,9 +14,9 @@ uniform vec4 uCoastSwell;
 uniform vec4 uCoastShelf;
 // x: scale of the bed patches (m), y: ripple marks on the sand.
 uniform vec4 uCoastBed;
-// x: talus run out of the bluff onto the beach, y: beds and rain rills of the face, z: width of the turf rim of the crest (m).
+// x: talus run out of the bluff onto the beach, y: beds and rain rills of the face, z: width of the turf rim of the crest (m), w: moist islands.
 uniform vec4 uCoastSoil;
-uniform vec3 uCoastRimTint;
+uniform vec3 uCoastRimTint;uniform vec3 uCoastOasisTint;
 ${landformsShader}
 vec2 coastLand() { return vec2(sin(uCoastShape.y),-cos(uCoastShape.y)); }
 vec2 coastAlong() { return vec2(cos(uCoastShape.y),sin(uCoastShape.y)); }
@@ -235,7 +235,7 @@ float coastSandFoamAtHeight(vec2 qs,vec3 world,float time,float ground){return c
 float coastFoam(vec2 qs,vec3 world,float time){return coastFoamAtHeight(qs,world,time,coastHeight(qs));}
 `;
 export function createCoastUniforms() {
- return {uCoastLandforms:{value:new THREE.Vector4()},uCoastShape:{value:new THREE.Vector4()},uCoastDimensions:{value:new THREE.Vector4()},uCoastDetail:{value:new THREE.Vector4()},uCoastSurface:{value:new THREE.Vector4()},uCoastSurf:{value:new THREE.Vector4()},uCoastGeology:{value:new THREE.Vector4()},uCoastSwell:{value:new THREE.Vector4(0,-1,1,0)},uCoastShelf:{value:new THREE.Vector4()},uCoastBed:{value:new THREE.Vector4(42,0,0,0)},uCoastSoil:{value:new THREE.Vector4(.6,.6,8,0)},uCoastRimTint:{value:new THREE.Color('#86ad55')}};
+ return {uCoastLandforms:{value:new THREE.Vector4()},uCoastShape:{value:new THREE.Vector4()},uCoastDimensions:{value:new THREE.Vector4()},uCoastDetail:{value:new THREE.Vector4()},uCoastSurface:{value:new THREE.Vector4()},uCoastSurf:{value:new THREE.Vector4()},uCoastGeology:{value:new THREE.Vector4()},uCoastSwell:{value:new THREE.Vector4(0,-1,1,0)},uCoastShelf:{value:new THREE.Vector4()},uCoastBed:{value:new THREE.Vector4(42,0,0,0)},uCoastSoil:{value:new THREE.Vector4(.6,.6,8,0)},uCoastRimTint:{value:new THREE.Color('#86ad55')},uCoastOasisTint:{value:new THREE.Color('#7f9c58')}};
 }
 export function syncCoastUniforms(uniforms,p) {
  uniforms.uCoastShape.value.set(p.terrainEnabled?1:0,p.terrainBearing*Math.PI/180,p.terrainOffset,p.terrainSeed);
@@ -248,8 +248,8 @@ export function syncCoastUniforms(uniforms,p) {
  uniforms.uCoastGeology.value.set(p.terrainErosion,p.terrainSoil,p.terrainWeathering,p.terrainBloom);
  uniforms.uCoastShelf?.value.set(p.terrainShelfSlope??0,p.terrainWeed??0,p.terrainSilt??0,p.terrainMussels??0);
  uniforms.uCoastBed?.value.set(p.terrainBedScale??42,p.terrainRipples??0,0,0);
- uniforms.uCoastSoil?.value.set(p.terrainTalus??.6,p.terrainStrata??.6,p.terrainRimWidth??8,0);
- uniforms.uCoastRimTint?.value.set(p.terrainRimColor??'#86ad55');
+ uniforms.uCoastSoil?.value.set(p.terrainTalus??.6,p.terrainStrata??.6,p.terrainRimWidth??8,p.terrainOasis??.6);
+ uniforms.uCoastRimTint?.value.set(p.terrainRimColor??'#86ad55');uniforms.uCoastOasisTint?.value.set(p.terrainOasisColor??'#7f9c58');
  if(uniforms.uTerrainGrade){uniforms.uTerrainGrade.value.set(p.terrainSaturation??1,p.terrainContrast??1,p.terrainBrightness??1,p.terrainGreen??1);uniforms.uTerrainGradeDry.value=p.terrainDry??1;}
  const bearing=(p.terrainWindBearing??0)*Math.PI/180;
  uniforms.uCoastSwell.value.set(Math.sin(bearing),-Math.cos(bearing),weather.swell,p.terrainStorm??0);

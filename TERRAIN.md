@@ -38,6 +38,8 @@ The ground at the foot is one field the material and the plants share: `coastSoi
 
 The rim of the bluff (Суша → Бровка) is turf to the very edge of the crest, as on the shore itself: Denis's turf tiles at full weight however near the camera, a ragged band `terrainRimWidth` metres inland from the crown, greener than the steppe, with its own tint `terrainRimColor` in place of the field tints; the paths cut through it and the face below takes over by slope.
 
+Moist islands (Суша → Влажные островки, `terrainOasis`, `terrainOasisColor`): where water gathers and shade keeps it, the sand greens with fresh turf in patches and the litter under the crowns is fresher. The moisture is the seep of the bluff, the calm back of the swash (low run-up, 2–7 m from the waterline) and the blue channel of the plant cover map, a halo of shade around every shrub, tree and boulder (`createPlantCover` takes the boulders as extra halos; sources outside the plants' bounds paint nothing). Material only: the tufts do not read this field yet.
+
 ## Physics and future vegetation
 
 `createTerrainQuery(definition)` provides `heightAt`, `normalAt`, `surfaceAt` and `raycast`. `attachRockCollisions` overlays the actual instanced rock triangles through a spatial hash. `createTerrainCollider` adapts this to the existing creature raycaster, including ground impacts and occlusion, with a bounding slab before marching.

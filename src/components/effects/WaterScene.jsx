@@ -225,7 +225,9 @@ function WaterRuntimeScene({
   const grassSettings=useMemo(()=>JSON.parse(grassKey),[grassKey]);
   const grassAsset=useMemo(()=>grassAssetSettings(grassSettings,{speed:coastWeather(terrainDefinition).wind,bearing:terrainDefinition.terrainWindBearing}),[grassSettings,terrainDefinition]);
   const coverPlants=useMemo(()=>[...shrubPlants,...treePlants],[shrubPlants,treePlants]);
-  const shrubCover=useMemo(()=>createPlantCover(coverPlants,256),[coverPlants]);
+  // The boulders shade the sand too: their halos join the cover map where it reaches.
+  const boulderHalos=useMemo(()=>terrainRocks.filter(r=>!r.debris).map(r=>({x:r.x,z:r.z,radius:1.2+Math.max(...r.scale)*1.2})),[terrainRocks]);
+  const shrubCover=useMemo(()=>createPlantCover(coverPlants,256,boulderHalos),[coverPlants,boulderHalos]);
   useEffect(()=>()=>shrubCover.dispose(),[shrubCover]);
   // Under the coast the terrain shelf is the bed; the old plane would only be
   // rasterized to discard every pixel, in the frame and in the refraction.

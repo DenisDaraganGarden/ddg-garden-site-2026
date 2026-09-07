@@ -149,8 +149,8 @@ export function createTerrainMaterial(textures,p,rockOnly=false){
    float path=coastPathMask(qs)*(1.0-uRockOnly);
    float shellMask=uCoastSurf.w*smoothstep(-.4,1.0,qs.x)*(1.0-smoothstep(4.0,max(7.0,uCoastDimensions.z*.8),qs.x));
    shellMask*=mix(.56,1.0,coastNoise(qs*.24+vec2(17.3,uCoastShape.w*.031)));
-   vec2 coverUv=(vTerrainWorld.xz-uPlantCoverBounds.xy)/uPlantCoverBounds.zw,cover=vec2(0.0);
-   if(uPlantCoverEnabled>.5&&all(greaterThanEqual(coverUv,vec2(0)))&&all(lessThanEqual(coverUv,vec2(1))))cover=texture2D(uPlantCover,coverUv).rg;
+   vec2 coverUv=(vTerrainWorld.xz-uPlantCoverBounds.xy)/uPlantCoverBounds.zw;vec3 cover=vec3(0.0);
+   if(uPlantCoverEnabled>.5&&all(greaterThanEqual(coverUv,vec2(0)))&&all(lessThanEqual(coverUv,vec2(1))))cover=texture2D(uPlantCover,coverUv).rgb;
    float soilCap=smoothstep(profile.x+max(.1,(profile.y-profile.x)*.4),profile.y+max(.2,profile.z*.3),qs.x)*smoothstep(.55,.93,terrainN.y)*(1.0-uRockOnly);
    float colony=ecologyPatch(vTerrainWorld.xz,uPlantEcology.y,uPlantField.x);
    float moisture=coastNoise(vTerrainWorld.xz*.085+vec2(11.3,28.1));
@@ -216,12 +216,41 @@ export function createTerrainMaterial(textures,p,rockOnly=false){
       ground.normal=normalize(vec3(ground.normal.xy-coastLand()*cos(qs.x*44.88+wobble)*.45*ripples,ground.normal.z));
      }
     }
+    // Moist islands (Denis: the Azov shore, not a desert): where water gathers
+    // and shade keeps it - the seep of the bluff, the calm back of the swash,
+    // the halos of shrubs, trees and boulders (uPlantCover.b) - the sand
+    // greens with fresh turf in patches, and the litter under the crowns is
+    // fresher too. The material only; the tufts do not read this yet.
+    float oasis=0.0;
+    if(uCoastSoil.w>.01&&groundY>.05){
+     // The damp back of the beach just past the wet band the swash leaves (the
+     // same envelope coastWetnessAtHeight dries by): a ragged strip a quarter
+     // metre up the beach, only along some stretches of the shore.
+     float seed=uCoastShape.w*.031,shoreRag=(coastNoise(vec2(qs.y*.2,5.0)+seed)-.5)*.1,calm=0.0;
+     if(surfBand&&qs.x>0.0){
+      float above=groundY-max(max(.04,uCoastSurface.w*.035),coastWaveGain(qs,uTerrainTime))-.1+shoreRag;
+      calm=smoothstep(0.0,.04,above)*(1.0-smoothstep(.16,.3,above))*smoothstep(.25,.5,coastNoise(vec2(qs.y*.04,2.0)+seed));
+     }
+     float moist=max(max(seep,calm),cover.b);
+     float islands=smoothstep(.38,.62,coastPatch(vTerrainWorld.xz,4.5,uCoastShape.w*.37+71.0));
+     // The strip along the water is continuous where it is at all; the other islands are patches.
+     float core=max(moist*mix(.45,1.0,islands),calm*.85)*(1.0-wet)*(1.0-path)*smoothstep(.75,.9,terrainN.y)*coastMask(qs);
+     // The slider scales the islands: a soft knee, so the cores are full turf and the fringe fades; the sand shows through the clumps.
+     oasis=smoothstep(.05,.5,core*1.6*uCoastSoil.w)*mix(.6,1.0,coastNoise(vTerrainWorld.xz*1.3+vec2(4.0,1.0)))*.85;
+    }
     if(coverWeight>.01){
+     float coverDry=dryness*(1.0-oasis*.6);
      vec2 grassUv=terrainParallaxUv(groundNormalUv,viewWorld.xz,viewWorld.y,4.0,.012/1.6);
      TerrainSample turf=terrainSample(4.0,grassUv,groundDx,groundDy);
-     turf=terrainBlend(turf,terrainSample(5.0,grassUv,groundDx,groundDy),dryness);
-     turf.color=gradeCover(turf.color,dryness);
+     turf=terrainBlend(turf,terrainSample(5.0,grassUv,groundDx,groundDy),coverDry);
+     turf.color=gradeCover(turf.color,coverDry);
      ground=terrainBlend(ground,turf,coverWeight);
+    }
+    if(oasis>.01){
+     vec2 oasisUv=vTerrainWorld.xz/2.0*uTerrainScale+terrainDomainWarp(vTerrainWorld.xz);
+     TerrainSample moss=terrainSample(6.0,oasisUv,dFdx(oasisUv),dFdy(oasisUv));
+     moss.color=gradeCover(moss.color,0.0)*uCoastOasisTint;
+     ground=terrainBlend(ground,moss,oasis);
     }
     // The steppe from afar: the grass field level (plants/grassField.js),
     // Denis's turf under the tufts near by and the whole meadow beyond reach.
@@ -320,5 +349,5 @@ export function createTerrainMaterial(textures,p,rockOnly=false){
   `);
   shader.fragmentShader=shader.fragmentShader.replace('#include <aomap_fragment>','#include <aomap_fragment>\nreflectedLight.indirectDiffuse*=surfaceData.g;');
  };
- material.customProgramCacheKey=()=> 'azov-coast-layered-pbr-v10';return material;
+ material.customProgramCacheKey=()=> 'azov-coast-layered-pbr-v11';return material;
 }

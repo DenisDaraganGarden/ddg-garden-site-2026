@@ -13,6 +13,8 @@ const groups=[
   ['terrainShells','Ракушечник','Shell coverage',''],['terrainTextureScale','Масштаб фактуры','Texture frequency',''],['terrainRelief','Рельеф поверхности','Surface relief',''],['terrainParallax','Параллакс','Parallax',''],['terrainGroundCover','Растительный покров грунта','Ground vegetation cover',''],['terrainSoil','Почвенный слой','Soil cap',''],['terrainWeathering','Выветривание','Weathering',''],['terrainTalus','Осыпь и языки грунта','Talus and run-out',''],['terrainStrata','Пласты и потёки','Beds and rills','']]],
  ['Бровка','Crest rim',[
   ['terrainRimWidth','Ширина дёрна бровки','Rim turf width',' m'],['terrainRimColor','Цвет дёрна бровки','Rim turf colour','']]],
+ ['Влажные островки','Moist patches',[
+  ['terrainOasis','Сила островков','Patch amount',''],['terrainOasisColor','Цвет островков','Patch colour','']]],
  ['Цвет','Colour',[
   ['terrainSaturation','Насыщенность','Saturation','×'],['terrainContrast','Контраст','Contrast','×'],['terrainBrightness','Яркость','Brightness','×'],['terrainGreen','Зелень покрова','Cover green','×'],['terrainDry','Жухлость покрова','Cover straw','×']]],
  ['Прибой','Surf',[
