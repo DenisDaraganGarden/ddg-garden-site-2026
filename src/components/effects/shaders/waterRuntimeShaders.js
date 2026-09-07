@@ -306,7 +306,7 @@ export const seabedFragmentShader = `
     // steps aside there in every view: a debug mode that drew it painted a
     // black plate over the shelf the mode was meant to measure.
     vec2 qs=coastLocal(vSeabedWorldPosition.xz);
-    if(uCoastShape.x>.5 && abs(qs.y)<uCoastDimensions.x*.5 && qs.x>-96.0 && qs.x<uCoastDimensions.y)discard;
+    if(uCoastShape.x>.5 && abs(qs.y)<uCoastDimensions.x*.5 && qs.x>-coastOffshore() && qs.x<uCoastDimensions.y)discard;
     vec2 texel = 1.0 / uStateResolution;
     float h = sampleSmoothHeight(vUv);
     float hL = sampleSmoothHeight(vUv - vec2(texel.x, 0.0));

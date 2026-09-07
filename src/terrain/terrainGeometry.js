@@ -15,7 +15,12 @@ function plateauCut(p){
   return plateauCuts.get(p);
 }
 function buildStrip(p,s0,lod=2,water=false) {
-  const along=(water?[64,32,8]:[128,64,32])[lod],detail=[1,.5,.25][lod];
+  const spit=p.terrainSpitEnabled&&s0+COAST_STRIP_LENGTH>=p.spit.bounds.minS&&s0<=p.spit.bounds.maxS;
+  const along=(water?(spit?[64,32,16]:[64,32,8]):[128,64,32])[lod],detail=[1,.5,.25][lod];
+  // Offshore detail is set by the shoal's metre scale, not by its distance
+  // from the old waterline. Keep 4 m columns at every land LOD; the independent
+  // shelf zone still halves along-shore rows, so parent morphs remain exact.
+  const shelfColumns=Math.max(8,Math.ceil((p.coastOffshore-32)/(spit?4:8)/8)*8);
   const s1=Math.min(p.terrainLength*.5,s0+COAST_STRIP_LENGTH);
   const plateauFixed=plateauCut(p);
   let zoneEdges=[];
@@ -27,7 +32,7 @@ function buildStrip(p,s0,lod=2,water=false) {
     // Its offshore edge is therefore outside the visible surf band rather than
     // a material boundary at q=-32.
     if(water) {
-      subdivisions(-96,-32,[24,12,8][lod],qs);
+      subdivisions(-p.coastOffshore,-32,p.coastOffshore===96&&!spit?[24,12,8][lod]:(spit?shelfColumns:Math.max(8,Math.round(shelfColumns*detail))),qs);
       subdivisions(-32,8,[80,40,24][lod],qs);
       zoneEdges=[-32];
     }
@@ -35,11 +40,11 @@ function buildStrip(p,s0,lod=2,water=false) {
       const f=coastProfile(s,p),start=f.foot,top=f.top;
       const wet=Math.min(1.4,start*.4),edge=p.terrainLandWidth-48;
       const plateau=plateauAt(s,p);
-      const bands=[[-96,-32,8],[-32,-4,16],[-4,wet,20],[wet,start,12],
+      const bands=[[-p.coastOffshore,-32,p.coastOffshore===96&&!spit?8:(spit?shelfColumns/detail:shelfColumns)],[-32,-4,16],[-4,wet,20],[wet,start,12],
         [start,start+f.width*.5,12],[start+f.width*.5,start+f.width*.58,8],[start+f.width*.58,start+f.width*.76,8],
         [start+f.width*.76,top,16],[top,plateau,20],[plateau,plateauFixed,16],[plateauFixed,edge,16],[edge,p.terrainLandWidth,16]];
       for(const [a,b,n] of bands)subdivisions(a,b,Math.max(2,Math.round(n*detail)),qs);
-      zoneEdges=[-4,plateauFixed];
+      zoneEdges=spit?[-32,-4,plateauFixed]:[-4,plateauFixed];
     }
     qs.push(water?8:p.terrainLandWidth);return qs;
   };
@@ -52,7 +57,7 @@ function buildStrip(p,s0,lod=2,water=false) {
   const columns=columnsAt(s0),width=columns.length;
   const edgeIndex=q=>columns.findIndex(c=>Math.abs(c-q)<1e-6);
   const cuts=[0,...zoneEdges.map(edgeIndex),width-1];
-  const steps=water?[4,1]:[4,1,4];
+  const steps=water?[spit?1:4,1]:(spit?[1,1,1,4]:[4,1,4]);
   const positions=[],normals=[],uvs=[],indices=[],optics=[],zones=[];
   for(let z=0;z<steps.length;z++){
     const c0=cuts[z],c1=cuts[z+1],cols=c1-c0+1,rows=along/Math.min(steps[z],along),offset=positions.length/3;
@@ -64,7 +69,7 @@ function buildStrip(p,s0,lod=2,water=false) {
     for(let r=0;r<rows;r++)for(let i=0;i<cols-1;i++){const a=offset+r*cols+i,b=a+1,c=a+cols;indices.push(a,c,b,b,c,c+1);}
     // The same vertices, every other row and column: the parent grid, for the
     // reflection and refraction passes whose targets cannot resolve more.
-    const rs=rows>=2?2:1,cs=cols>=3?2:1;
+    const rs=rows>=2?2:1,cs=spit&&z===0?1:cols>=3?2:1;
     for(let r=0;r<rows;r+=rs)for(let i=0;i+cs<cols;i+=cs){const a=offset+r*cols+i,b=a+cs,c=offset+Math.min(rows,r+rs)*cols+i;optics.push(a,c,b,b,c,c+cs);}
     zones.push({offset,rows,cols,step:steps[z],q0:columns[c0],q1:columns[c1]});
   }

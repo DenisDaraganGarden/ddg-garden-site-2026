@@ -86,12 +86,24 @@ const reedView = (settings) => {
   return { cameraPosition: { ...position, y: ground(position.x, position.z, p, 1.4) }, cameraTarget: { ...target, y: .9 }, cameraFov: 48 };
 };
 
+const spitView = (close = false) => (settings) => {
+  const p = createTerrainDefinition(settings), nodes = p.spit.nodes;
+  const at = nodes[close ? 12 : 9], forward = nodes[close ? 15 : 13];
+  const world = (u, s) => ({ x: u*p.landX+s*p.alongX, z:u*p.landZ+s*p.alongZ });
+  const position = close ? world(at.u, at.s) : world(at.u+p.terrainSpitLength*.62,at.s+p.terrainSpitLength*.86);
+  const target = close ? world(forward.u,forward.s) : world(at.u,at.s);
+  return { cameraPosition:{...position,y:close?ground(position.x,position.z,p,1.65):p.terrainSpitLength*.74},
+    cameraTarget:{...target,y:close?ground(target.x,target.z,p,1.1):0},cameraFov:close?55:54 };
+};
+
 export const TECHNICAL_FRAMES = Object.freeze([
   { id: 'surf', ru: 'Кромка прибоя', en: 'Surf edge', pose: coastView([2.2, -4, 1, -1.5, 30, 0.1, 50]) },
   { id: 'coast', ru: 'Вдоль берега', en: 'Along coast', pose: coastView([3, -35, 1.65, 1, 65, 1.1, 58]) },
   { id: 'sea', ru: 'К морю', en: 'Seaward', pose: coastView([7, 0, 1.65, -900, -350, 0, 52]) },
   { id: 'shells', ru: 'Ракушки', en: 'Shell close-up', pose: coastView([2, -2, 0.28, 3, 0, 0.02, 48]) },
   { id: 'overview', ru: 'Обзор', en: 'Overview', pose: coastView([-42, 95, 48, 18, -20, 3, 54]) },
+  { id: 'spit', ru: 'Коса сверху', en: 'Spit overview', pose: spitView() },
+  { id: 'spit-walk', ru: 'На косе', en: 'On the spit', pose: spitView(true) },
   { id: 'bluff', ru: 'Обвал', en: 'Landslide', pose: landformView('bluff') },
   { id: 'descent', ru: 'Спуск', en: 'Descent', pose: landformView('descent') },
   { id: 'cover', ru: 'Покров', en: 'Ground cover', pose: landformView('cover') },

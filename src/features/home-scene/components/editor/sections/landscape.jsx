@@ -12,6 +12,7 @@ import { TERRAIN_RANGES } from '../../../../../terrain/settings.js';
 // The bed of the Azov shelf lives in the terrain (terrainShader.js coastBedCover):
 // the offshore slope, then what lies on the sand. Labels inline, as in terrain.jsx.
 const SHELF_CONTROLS = [
+    ['terrainShelfExtent', 'Дальность дна', 'Seabed extent', ' m'],
     ['terrainShelfSlope', 'Уклон шельфа', 'Shelf slope', '%'],
     ['terrainWeed', 'Луга водорослей', 'Weed meadows', ''],
     ['terrainSilt', 'Ил', 'Silt', ''],

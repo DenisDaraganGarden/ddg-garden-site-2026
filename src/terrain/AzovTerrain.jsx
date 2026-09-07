@@ -3,7 +3,7 @@ import { useFrame, useLoader, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { makeRockGeometry } from './terrainRocks.js';
 import { buildTerrainStrip, terrainLod } from './terrainGeometry.js';
-import { createTerrainDefinition, coastCoordinates, shorePosition, coastPoint, COAST_STRIP_LENGTH } from './terrainModel.js';
+import { createTerrainDefinition, coastCoordinates, shorePosition, coastPoint, coastSurfCoordinates, COAST_STRIP_LENGTH } from './terrainModel.js';
 import { createTerrainMaterial } from './terrainMaterial.js';
 import { syncCoastUniforms } from './terrainShader.js';
 import WaterSurfaceV2 from '../components/effects/water/WaterSurface';
@@ -55,7 +55,7 @@ function TerrainStrip({ definition:p,s0,material,water,qualityProfile,settings,l
     const local=coastCoordinates(camera.position.x,camera.position.z,p);
     const ds=Math.max(s0-local.s,local.s-(s0+COAST_STRIP_LENGTH),0);
     const q=local.u-shorePosition(local.s,p);
-    const crossDistance=Math.max((water?-32:-96)-q,q-(water?8:p.terrainLandWidth),0);
+    const crossDistance=Math.max(-p.coastOffshore-q,q-(water?8:p.terrainLandWidth),0);
     const distance=Math.hypot(ds,crossDistance,Math.max(0,camera.position.y-p.terrainCliffHeight));
     // Retain nearby resolutions when crossing a threshold repeatedly. Release
     // unused fine buffers after leaving the area; a 4 km coast cannot keep all
@@ -100,7 +100,8 @@ export default function AzovTerrain({ definition, settings, qualityProfile, ligh
     if(audioRuntime?.isActive?.()){
       const local=coastCoordinates(camera.position.x,camera.position.z,definition);
       const s=Math.max(-definition.terrainLength/2+60,Math.min(definition.terrainLength/2-60,local.s));
-      const source=coastPoint(0,s,definition);audioRuntime.updateEmitter('shore',source.x,.15,source.z);
+      const surf=coastSurfCoordinates(local.u-shorePosition(s,definition),s,definition);
+      const source=surf.spit?{x:surf.spit.shoreU*definition.landX+surf.spit.shoreS*definition.alongX,z:surf.spit.shoreU*definition.landZ+surf.spit.shoreS*definition.alongZ}:coastPoint(0,s,definition);audioRuntime.updateEmitter('shore',source.x,.15,source.z);
     }
     const pondNormals=runtime?.normalTargetRef?.current?.texture??null,pondTexel=1/Math.max(1,runtime?.effectiveResolution??256);
     for(const m of Object.values(materials)){const u=m.userData.coastUniforms;syncCoastUniforms(u,definition);syncGrassFieldUniforms(u,settings,definition);
@@ -109,7 +110,7 @@ export default function AzovTerrain({ definition, settings, qualityProfile, ligh
       u.uCausticsLight.value.fromArray(lighting.key.direction);u.uCausticsKey.value=lighting.key.intensity;u.uTerrainTime.value=clock.elapsedTime;u.uTerrainScale.value=definition.terrainTextureScale;u.uTerrainParallax.value=lowPower?0:definition.terrainParallax;u.uTerrainGroundCover.value=definition.terrainGroundCover;updateEcologyUniforms(u,{dryness:settings.shrubsDryness??definition.terrainWeathering,fieldSeed:settings.shrubsFieldSeed,patchScale:settings.shrubsPatchScale,patchContrast:settings.shrubsPatchContrast});m.envMapIntensity=lighting.environment.reflection;}
     if(import.meta.env.DEV && Math.floor(clock.elapsedTime*2)%2===0){
       const lods=[0,0,0];let triangles=0,morphing=0;land.current?.traverse(o=>{if(o.userData.terrainLod!=null){lods[o.userData.terrainLod]++;if(o.userData.terrainMorph>0&&o.userData.terrainMorph<1)morphing++;triangles+=o.geometry.index.count/3;}});
-      gl.domElement.dataset.ddgTerrain=JSON.stringify({axes:'N -Z · E +X · up +Y',length:definition.terrainLength,textureSize:textures.size,textureLayers:textures.layers,textureBytes:textures.bytes,geomorph:true,morphing,strips:strips.length,lods,triangles,waterline:0,depth:'logarithmic',physics:'analytic height / normal / surface / raycast'});
+      gl.domElement.dataset.ddgTerrain=JSON.stringify({axes:'N -Z · E +X · up +Y',length:definition.terrainLength,offshore:definition.coastOffshore,spit:definition.terrainSpitEnabled,textureSize:textures.size,textureLayers:textures.layers,textureBytes:textures.bytes,geomorph:true,morphing,strips:strips.length,lods,triangles,waterline:0,depth:'logarithmic',physics:'analytic height / normal / surface / raycast'});
     }
   },-3);
   const meshKey=terrainGeometryKey(definition);

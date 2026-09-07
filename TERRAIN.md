@@ -1,12 +1,65 @@
 # Azov coast
 
-The coast is part of `WaterScene`, with controls in **Ландшафт → Суша / Landscape → Land**. It starts on the eastern side of the existing composition. The original draft and published camera poses are not rewritten. The seven inspection buttons move the editor camera; save a camera explicitly to retain a view.
+The coast is part of `WaterScene`, with controls in **Ландшафт → Суша / Landscape → Land**. It starts on the eastern side of the existing composition. The original draft and published camera poses are not rewritten. The inspection buttons move the editor camera; save a camera explicitly to retain a view.
 
 ## Coordinates and scale
 
 All distances are metres: +Y up, sea level Y=0, north −Z, east +X, south +Z, west −X. Geographic headings run clockwise from north. `terrainBearing` points inland; at 90° land is east and the shoreline runs north–south. `coastPoint(q,s,definition)` converts distance inland from the curved shoreline and distance along it to world X/Z. The cape and curvature move the shoreline, while its origin stays at `terrainOffset`.
 
 The existing solar field stores its legacy azimuth with 0° at +Z. The light panel converts this to geographic bearing (`180 − legacy`, wrapped to 360°), preserving the authored light direction. Do not reinterpret old persisted values or rotate the scene.
+
+## Curved sand spit
+
+**Ландшафт → Суша → Песчаная коса / Landscape → Land → Sand spit** adds a low
+shell-sand ridge to the same height field. Its reference is the recurved alluvial
+[Pavlo-Ochakovskaya spit in Taganrog Bay](https://azovskiy.donland.ru/district/places/18/).
+This is an adjustable interpretation of its landform, not a surveyed reconstruction.
+The mainland bluff stays in place; a broad beach root narrows into a hooked tip,
+with water and a shallow submerged apron on both sides.
+
+`terrainSpit.js` builds 20 tapered segments from a cubic centreline in world metres.
+The CPU and GLSL use the same segment nodes, signed shore distance, ridge height
+and shoal profile. Water clipping, surf, wet sand, shells, queries and the shore
+audio emitter follow the nearer of the mainland and spit banks. `surfaceAt`
+also reports `landform` and `shoreDistance` for future shore-object placement.
+Physical queries remain independent of the display mesh. This is a static landform
+and procedural swash, not a sediment transport or wave-refraction simulation.
+
+The spit starts disabled so existing published scenes keep their composition.
+Defaults when enabled: position −320 m along the coast, reach 320 m, width 28 m,
+crest 0.85 m, bend 0.85 and submerged apron 72 m. Controls cover position, reach,
+width, height, bend in either direction and apron width. Normalization keeps the
+whole feature inside the coastal ends. All keys participate in publication and
+camera snapshots through the terrain settings contract.
+
+`terrainShelfExtent` (**Дно → Дальность дна / Bed → Seabed extent**) sets a minimum
+offshore extent, 96–1,600 m. Enabling the spit automatically extends it farther
+when needed: 512 m for the default spit. Ground, shore water, far-water cutout,
+pond cutout, collider bounds and optical blending share this actual extent.
+Strips crossing the spit keep 4 m offshore columns at every LOD and denser rows;
+the optics twin retains those columns. This resolves the shallow ridge even from
+afar. The original coast keeps its original grid when the spit is disabled and
+the extent is 96 m.
+
+High aerial views exposed steps from nearest sampling of the smaller refraction
+depth target. The water shader now decodes depth and interpolates reciprocal view
+depth between four covered texels. It retains measured submerged-object depth and
+nearest coverage at silhouettes, while removing the horizontal bands on the shoal.
+
+**Камеры / Cameras** includes technical views **Коса сверху / Spit overview** and
+**На косе / On the spit**. They follow the current spit parameters and only move
+the viewport. A saved camera is still created explicitly in the editor. Adding
+one captures the new pose after synchronizing the previous camera's scene, so the
+previous camera's pose is preserved.
+
+Verified in the Codex in-app browser on port 41213: daylight aerial and walking
+views, the original boat composition, 390 px and 1,024 px layouts, and switching
+back to the saved **Коса** camera. Scoped lint and the production build pass.
+The GPU contract covers 1,672 samples including both bend directions,
+a rotated coast and an 800 m spit: height error <0.41 mm, wave error <0.023 mm,
+normal-vector error <0.00085, exact path agreement, and settings/snapshot roundtrip.
+These are analytic agreement measurements, not display-mesh error or physical
+iPhone performance measurements.
 
 ## Geometry and visibility
 
