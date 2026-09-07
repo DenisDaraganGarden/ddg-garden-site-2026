@@ -14,7 +14,7 @@ export default function PlantPopulation({model,settings,atlas,placements,paused=
  const [resources,setResources]=useState(null);
  const lastCamera=useRef({position:new THREE.Vector3(),height:0,fov:0});
  useLayoutEffect(()=>{lastReport.current=-Infinity;invalidate();},[invalidate,settings,lowPower,paused]);
- const transform=useMemo(()=>new THREE.Object3D(),[]);
+ const transform=useMemo(()=>new THREE.Object3D(),[]),leafTint=useMemo(()=>new THREE.Color(),[]),blossomTint=useMemo(()=>new THREE.Color(),[]);
  // Render targets must be created in an effect. A render-time memo can be
  // discarded by StrictMode/Suspense, leaving an empty or leaked GPU bake.
  useLayoutEffect(()=>{
@@ -54,7 +54,14 @@ export default function PlantPopulation({model,settings,atlas,placements,paused=
   if(!paused)time.current=sceneTime?clock.elapsedTime:time.current+Math.min(Math.max(delta,0),.04);
   updatePlantUniforms(uniforms,settings,time.current);materials.leaves.roughness=settings.roughness;
   // The artist's tone for the whole species: near ribbons and far cards alike.
-  const tone=settings.tone??1;materials.leaves.color.setScalar(tone);farMaterial.color.setScalar(tone);
+  const tone=settings.tone??1,tint=leafTint.set(settings.leafTint??'#ffffff');
+  // A species tints the shared leaf atlas and colours the bark (treeSpecies.js);
+  // blossom is the same tint pulled toward the flower colour. The far cards
+  // read the same two colours through their leaf/bark mask.
+  if(settings.blossom>0)tint.lerp(blossomTint.set(settings.blossomColor??'#f7f0e8'),Math.min(1,settings.blossom));
+  materials.leaves.color.copy(tint).multiplyScalar(tone);farMaterial.color.setScalar(tone);
+  const bark=materials.bark.color.set(settings.barkColor??model.barkColor??'#685b44'),far=farMaterial.userData.uniforms;
+  far.uPlantLeafTint.value.copy(tint);far.uPlantBarkColor.value.copy(bark).multiplyScalar(1.5);
   for(const m of [materials.bark,materials.leaves,farMaterial])m.wireframe=settings.wireframe;
   farMaterial.roughness=settings.roughness;
   // One specimen uses true camera distance. Population partitions instances by

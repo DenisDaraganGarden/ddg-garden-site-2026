@@ -3,7 +3,7 @@ import AssetStudio from '../asset-lab/AssetStudio';
 import LabNav from '../asset-lab/LabNav';
 import {assetIndex} from '../asset-lab/assetCatalog';
 import {ECOLOGY_DEFAULTS} from '../plants/plantEcology.js';
-import {PLANT_SPECIES} from './plantSpecies.js';
+import {PLANT_SPECIES,TREE_LAB_SPECIES,TREE_VARIANTS} from './plantSpecies.js';
 import {GRASS_SPECIES,GRASS_VARIANTS} from './grassSpecies.js';
 import PlantStage from './PlantStage';
 import './plantLab.css';
@@ -14,6 +14,7 @@ const COPY={
 };
 function Range({label,value,min=0,max=1,step=.01,unit='',onChange}){return <label className="plant-lab__range"><span>{label}</span><output>{Number(value).toFixed(step>=1?0:step>=.1?1:2)} {unit}</output><input aria-label={label} type="range" value={value} min={min} max={max} step={step} onChange={e=>onChange(+e.target.value)}/></label>;}
 function Toggle({label,value,onChange}){return <label className="plant-lab__toggle"><span>{label}</span><input aria-label={label} type="checkbox" checked={value} onChange={e=>onChange(e.target.checked)}/></label>;}
+function Color({label,value,onChange}){return <label className="plant-lab__toggle"><span>{label}</span><input aria-label={label} type="color" value={value} onChange={e=>onChange(e.target.value)}/></label>;}
 export default function PlantLab({species=PLANT_SPECIES.oleaster,variants,onVariant}){
  const VIEWS=species.views,LIMITS=species.cameraLimits,DEFAULTS=useMemo(()=>labDefaults(species),[species]);
  const[lang,setLang]=useState('ru'),[settings,setSettings]=useState(DEFAULTS),[tab,setTab]=useState('plant'),[view,setView]=useState('full'),[mode,setMode]=useState('specimen'),[paused,setPaused]=useState(()=>matchMedia('(prefers-reduced-motion: reduce)').matches),[hidden,setHidden]=useState(document.hidden),[lowPower,setLowPower]=useState(()=>navigator.hardwareConcurrency<=4||matchMedia('(max-width:600px)').matches||(navigator.maxTouchPoints>0&&matchMedia('(pointer:coarse)').matches)),[stats,setStats]=useState({lods:[1,0,0],budgets:[0,0,0],calls:0,triangles:0,branches:0,leaves:0});
@@ -48,8 +49,8 @@ export default function PlantLab({species=PLANT_SPECIES.oleaster,variants,onVari
    <div className="plant-lab__tabs" role="tablist">{['plant','wind','surface','ground','light'].map(id=><button key={id} role="tab" aria-selected={tab===id} onClick={()=>setTab(id)}>{t[id]}</button>)}</div>
    <div className="plant-lab__controls" role="tabpanel" aria-label={t[tab]}>
     {tab==='plant'&&<>{species.sliders.map(([key,min,max,step,unit])=>range(key,t[key],min,max,step,unit==='m'?t.units:''))}<label className="plant-lab__select"><span>{t.lod}</span><select aria-label={t.lod} value={settings.lod} onChange={e=>set('lod',e.target.value)}>{['auto','0','1','2'].map((id,i)=><option key={id} value={id}>{[t.auto,t.near,t.middle,t.distant][i]}</option>)}</select></label><Toggle label={t.skeleton} value={settings.skeleton} onChange={v=>set('skeleton',v)}/><Toggle label={t.wire} value={settings.wireframe} onChange={v=>set('wireframe',v)}/><Toggle label={t.mobile} value={lowPower} onChange={setLowPower}/></>}
-    {tab==='wind'&&<>{range('wind',t.windSpeed,0,14,.1,lang==='ru'?'м/с':'m/s')}{range('windBearing',t.bearing,0,360,1,'°')}{species.id==='tree'&&range('flex',t.flex,0,1,.01)}{range('flutter',t.flutter,0,1,.05)}{range('gustStrength',t.gustStrength,0,1,.05)}{range('lodging',t.lodging,0,1,.05)}</>}
-    {tab==='surface'&&<>{range('dryness',t.dryness,0,1,.05)}{range('patchScale',t.patchScale,1,30,.5,t.units)}{range('patchContrast',t.patchContrast,0,1,.05)}{range('crownVariation',t.crownVariation,0,1,.05)}{range('crownScale',t.crownScale,.2,2,.1,t.units)}{range('translucency',t.sss,0,1.4,.05)}{range('roughness',t.roughness,.35,1,.05)}{range('tone',t.tone,.5,2,.05)}</>}
+    {tab==='wind'&&<>{range('wind',t.windSpeed,0,14,.1,lang==='ru'?'м/с':'m/s')}{range('windBearing',t.bearing,0,360,1,'°')}{species.collection==='tree'&&range('flex',t.flex,0,1,.01)}{range('flutter',t.flutter,0,1,.05)}{range('gustStrength',t.gustStrength,0,1,.05)}{range('lodging',t.lodging,0,1,.05)}</>}
+    {tab==='surface'&&<>{range('dryness',t.dryness,0,1,.05)}{range('patchScale',t.patchScale,1,30,.5,t.units)}{range('patchContrast',t.patchContrast,0,1,.05)}{range('crownVariation',t.crownVariation,0,1,.05)}{range('crownScale',t.crownScale,.2,2,.1,t.units)}{range('translucency',t.sss,0,1.4,.05)}{range('roughness',t.roughness,.35,1,.05)}{range('tone',t.tone,.5,2,.05)}{species.collection==='tree'&&<>{range('blossom',t.blossom,0,1,.05)}<Color label={t.leafTint} value={settings.leafTint} onChange={v=>set('leafTint',v)}/><Color label={t.barkColor} value={settings.barkColor} onChange={v=>set('barkColor',v)}/></>}</>}
     {tab==='ground'&&<>{range('count',t.count,...species.planting.count)}{range('extent',t.extent,...species.planting.extent,t.units)}{range('fieldSeed',t.fieldSeed,1,200,1)}{range('slope',t.slope,0,.45,.01)}{range('pathWidth',t.path,0,2,.1,t.units)}{range('moisture',t.moisture,0,1,.05)}</>}
     {tab==='light'&&<>{range('timeOfDay',t.hour,0,24,.1,lang==='ru'?'ч':'h')}{range('exposure',t.exposure,.3,2,.05)}</>}
    </div><div className="plant-lab__transport"><button onClick={()=>setPaused(p=>!p)}>{paused?'▶':'Ⅱ'} {paused?t.play:t.pause}</button><button onClick={()=>{setSettings(DEFAULTS);setView('full');setMode('specimen');}}>{t.reset}</button></div>
@@ -61,6 +62,7 @@ export default function PlantLab({species=PLANT_SPECIES.oleaster,variants,onVari
 // The registry maps a collection to a component without props; each form of
 // the species gets its own door.
 export const OleasterLab=()=><PlantLab species={PLANT_SPECIES.oleaster}/>;
-export const TreeLab=()=><PlantLab species={PLANT_SPECIES.tree}/>;
+// The trees of the coast behind one door, like the grasses: the species row switches the lab.
+export const TreeLab=()=>{const [id,setId]=useState('tree');return <PlantLab species={TREE_LAB_SPECIES[id]} variants={TREE_VARIANTS} onVariant={setId}/>;};
 // Four grasses behind one door: the species row switches the whole lab.
 export const GrassLab=()=>{const [id,setId]=useState('mix');return <PlantLab species={GRASS_SPECIES[id]} variants={GRASS_VARIANTS} onVariant={setId}/>;};

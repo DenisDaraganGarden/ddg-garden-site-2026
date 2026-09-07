@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
+import {createHash} from 'node:crypto';
 import * as THREE from 'three';
 import {makeCoastTree} from '../src/plants/treeModel.js';
+import {TREE_KINDS,TREE_SPECIES} from '../src/plants/treeSpecies.js';
 import {makeBranchGeometry,makeLeafGeometry} from '../src/plants/oleasterModel.js';
 import {createTerrainDefinition,createTerrainQuery} from '../src/terrain/terrainModel.js';
 import {buildCoastRocks,attachRockCollisions} from '../src/terrain/terrainRocks.js';
@@ -56,4 +58,21 @@ assert.deepEqual(createCoastTreePlanting(query,definition,{...options,shrubsDryn
 assert.equal(normalizeTreeSettings({treesCount:99999}).treesCount,256);assert.equal(normalizeTreeSettings({treesLean:-2}).treesLean,0);
 const asset=treeAssetSettings({...options,shrubsDryness:.7},{speed:9,bearing:200});
 assert.equal(asset.dryness,.7);assert.equal(asset.windBearing,200);assert.equal(asset.flex,DEFAULT_TREE_SETTINGS.treesFlex);
-console.log(JSON.stringify({passed:true,attachments,budgets,grove:plants.length}));
+// Species (treeSpecies.js): each form regrows exactly and attaches, a snag
+// carries no leaves, a sheaf has its trunks, budgets stay near the oleaster's.
+// The default oleaster is pinned by fingerprint: the species knobs at their
+// defaults must not move a single authored leaf.
+const fingerprint=m=>createHash('sha1').update(JSON.stringify([m.leaves.map(l=>[...l.pivot.toArray(),...l.axis.toArray(),l.length,l.width,l.variant,l.tint]),m.branches.map(b=>[b.parent,b.parentT,b.radius,b.radiusEnd??null,...b.curve.getPoint(0).toArray(),...b.curve.getPoint(.5).toArray(),...b.curve.getPoint(1).toArray(),!!b.root])])).digest('hex').slice(0,16);
+assert.equal(fingerprint(makeCoastTree({})),'59a651d9a78b4f18','the authored oleaster (seed 7) regrows exactly');
+const species={};
+for(const kind of TREE_KINDS){
+ const s=TREE_SPECIES[kind],m=makeCoastTree(s.form),again=makeCoastTree(s.form);
+ assert.deepEqual(m.leaves.map(l=>l.pivot.toArray()),again.leaves.map(l=>l.pivot.toArray()),`${kind} regrows exactly`);
+ for(const b of m.branches)if(b.parent>=0)assert.ok(b.curve.getPoint(0).distanceTo(m.branches[b.parent].curve.getPoint(b.parentT))<1e-6,`${kind}: every branch starts on its parent`);
+ for(const l of m.leaves)assert.ok(!m.branches[l.parent].dead,`${kind}: dead wood carries no leaves`);
+ assert.equal(m.branches.filter(b=>b.trunk).length,Math.max(1,Math.round(s.form.stems??1)),`${kind}: stems are trunks`);
+ const bark=makeBranchGeometry(m,0),leaf=makeLeafGeometry(m,0),tri=(bark.index.count+leaf.index.count)/3;bark.dispose();leaf.dispose();
+ assert.ok(tri<130000,`${kind}: near budget ${tri}`);species[kind]={leaves:m.leaves.length,branches:m.branches.length,tri,height:Number(m.height.toFixed(2))};
+}
+assert.equal(species.snag.leaves,0,'a snag carries no leaves');
+console.log(JSON.stringify({passed:true,attachments,budgets,grove:plants.length,species}));
