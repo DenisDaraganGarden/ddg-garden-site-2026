@@ -32,12 +32,12 @@ const OBSOLETE_PUBLISHED_HOME_SCENE_STORAGE_KEYS = [
 ];
 
 export const HOME_SCENE_HDRI_PRESETS = [
-  { value: 'night', label: 'Night' },
-  { value: 'dawn', label: 'Dawn' },
-  { value: 'sunset', label: 'Sunset' },
-  { value: 'city', label: 'City' },
-  { value: 'warehouse', label: 'Warehouse' },
-  { value: 'studio', label: 'Studio' },
+  { value: 'night', labelKey: 'hdriNight' },
+  { value: 'studio', labelKey: 'hdriOvercast' },
+  { value: 'warehouse', labelKey: 'hdriClearSun' },
+  { value: 'city', labelKey: 'hdriCloudySun' },
+  { value: 'sunset', labelKey: 'hdriSunset' },
+  { value: 'dawn', labelKey: 'hdriPinkSun' },
 ];
 
 export const HOME_SCENE_DEBUG_VIEWS = [

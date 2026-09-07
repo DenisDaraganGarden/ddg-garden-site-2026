@@ -26,10 +26,16 @@ export const DEBUG_VIEW_IDS = {
   caustics: 3,
   'seabed-depth': 4,
 };
-// HDRI presets we ship locally (no runtime CDN dependency in production). The published
-// look uses `night`; other presets still fall back to drei's CDN for in-editor experiments.
+// Local 2K HDRIs. Keep persisted preset IDs so authored cameras retain their
+// selections; the editor labels describe the replacement outdoor lighting.
+// Sources and CC0 credits: public/hdri/README.md.
 export const SELF_HOSTED_HDRI = {
-  night: 'hdri/dikhololo_night_1k.hdr',
+  night: 'hdri/kloppenheim_02_puresky_2k.hdr',
+  studio: 'hdri/kloofendal_overcast_puresky_2k.hdr',
+  warehouse: 'hdri/kloofendal_43d_clear_puresky_2k.hdr',
+  city: 'hdri/kloofendal_48d_partly_cloudy_puresky_2k.hdr',
+  sunset: 'hdri/qwantani_sunset_puresky_2k.hdr',
+  dawn: 'hdri/pink_sunrise_2k.hdr',
 };
 export const SIMULATION_RESOLUTION_STEPS = Object.freeze([128, 256, 384, 512]);
 export const REFLECTION_CAMERA_POSITION_EPSILON_SQ = 0.00006;

@@ -191,10 +191,7 @@ export default function WaterLights({ settings, mode, qualityProfile, lighting, 
   const showHdriBackground = useHdri && Boolean(settings.showHdriBackground);
   const hdriEnvironmentIntensity = (settings.hdriIntensity ?? 1)
     * lighting.environment.exposure;
-  const localHdriFile = SELF_HOSTED_HDRI[settings.hdrPreset];
-  const environmentSource = localHdriFile
-    ? { files: `${import.meta.env.BASE_URL}${localHdriFile}` }
-    : { preset: settings.hdrPreset };
+  const localHdriFile = SELF_HOSTED_HDRI[settings.hdrPreset] ?? SELF_HOSTED_HDRI.night;
 
   return (
     <>
@@ -249,7 +246,7 @@ export default function WaterLights({ settings, mode, qualityProfile, lighting, 
       )}
       {useHdri ? (
         <Environment
-          {...environmentSource}
+          files={`${import.meta.env.BASE_URL}${localHdriFile}`}
           background={showHdriBackground}
           backgroundIntensity={settings.hdriIntensity ?? 1}
           environmentIntensity={hdriEnvironmentIntensity}

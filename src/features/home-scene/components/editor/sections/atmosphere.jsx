@@ -300,6 +300,10 @@ export const CloudsSection = ({ settings, handleSettingChange }) => {
 
 export const HdriSection = ({ settings, handleSettingChange }) => {
     const { t } = useLanguage();
+    const hdriPresetOptions = HOME_SCENE_HDRI_PRESETS.map((option) => ({
+        value: option.value,
+        label: t(`homeEditor.controls.${option.labelKey}`),
+    }));
 
     return (
         <>
@@ -326,7 +330,7 @@ export const HdriSection = ({ settings, handleSettingChange }) => {
             <SelectControl
                 label={t('homeEditor.controls.hdrPreset')}
                 value={settings.hdrPreset}
-                options={HOME_SCENE_HDRI_PRESETS}
+                options={hdriPresetOptions}
                 onChange={(event) => handleSettingChange(event, 'hdrPreset', 'string')}
             />
             <RangeControl
