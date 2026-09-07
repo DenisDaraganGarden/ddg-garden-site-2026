@@ -23,15 +23,6 @@ const formatHour = (value) => {
 
 export const LightSection = ({ settings, handleSettingChange }) => {
     const { t } = useLanguage();
-    const cloudPresetOptions = HOME_SCENE_CLOUD_PRESETS.map((option) => ({
-        value: option.value,
-        label: t(`homeEditor.controls.${option.labelKey}`),
-    }));
-    const applyPainterlyPreset = (preset) => {
-        Object.entries(PAINTERLY_CLOUD_PRESETS[preset]).forEach(([key, value]) => {
-            handleSettingChange({ target: { value } }, key);
-        });
-    };
 
     return (
         <>
@@ -99,95 +90,6 @@ export const LightSection = ({ settings, handleSettingChange }) => {
                 onChange={(event) => handleSettingChange(event, 'skyTurbidity')}
             />
 
-            {settings.painterlyCloudsEnabled ? null : <>
-            <SectionHeading label={t('homeEditor.blocks.clouds')} subtle />
-            <SelectControl
-                label={t('homeEditor.controls.cloudPreset')}
-                value={settings.cloudPreset}
-                options={cloudPresetOptions}
-                onChange={(event) => handleSettingChange(event, 'cloudPreset', 'string')}
-            />
-            <RangeControl
-                label={t('homeEditor.controls.cloudCover')}
-                value={settings.cloudCover}
-                min={0}
-                max={1}
-                step={0.01}
-                unit="%"
-                formatValue={(value) => Math.round(Number(value) * 100)}
-                onChange={(event) => handleSettingChange(event, 'cloudCover')}
-            />
-            <RangeControl
-                label={t('homeEditor.controls.cloudHorizon')}
-                value={settings.cloudHorizon}
-                min={0}
-                max={1}
-                step={0.01}
-                unit="%"
-                formatValue={(value) => Math.round(Number(value) * 100)}
-                onChange={(event) => handleSettingChange(event, 'cloudHorizon')}
-            />
-            <RangeControl
-                label={t('homeEditor.controls.cloudDensity')}
-                value={settings.cloudDensity}
-                min={0}
-                max={1}
-                step={0.01}
-                unit="%"
-                formatValue={(value) => Math.round(Number(value) * 100)}
-                onChange={(event) => handleSettingChange(event, 'cloudDensity')}
-            />
-            <RangeControl
-                label={t('homeEditor.controls.cloudScale')}
-                value={settings.cloudScale}
-                min={0.5}
-                max={4}
-                step={0.05}
-                unit="x"
-                formatValue={(value) => formatFloat(value)}
-                onChange={(event) => handleSettingChange(event, 'cloudScale')}
-            />
-            <RangeControl
-                label={t('homeEditor.controls.cloudSunOcclusion')}
-                value={settings.cloudSunOcclusion}
-                min={0}
-                max={1}
-                step={0.01}
-                unit="%"
-                formatValue={(value) => Math.round(Number(value) * 100)}
-                onChange={(event) => handleSettingChange(event, 'cloudSunOcclusion')}
-            />
-            </>}
-            <SectionHeading label={t('homeEditor.blocks.painterlyClouds')} subtle />
-            <div className="home-editor-control-group">
-                <label>{t('homeEditor.controls.painterlyCloudPreset')}</label>
-                <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-                    {Object.keys(PAINTERLY_CLOUD_PRESETS).map((preset) => <button key={preset} type="button" className="home-editor-action-button" onClick={() => applyPainterlyPreset(preset)}>{t(`homeEditor.controls.painterlyCloudPreset${preset[0].toUpperCase()}${preset.slice(1)}`)}</button>)}
-                </div>
-            </div>
-            <CheckboxControl
-                label={t('homeEditor.controls.painterlyCloudsEnabled')}
-                checked={Boolean(settings.painterlyCloudsEnabled)}
-                onChange={(event) => handleSettingChange(event, 'painterlyCloudsEnabled', 'boolean')}
-            />
-            <RangeControl label={t('homeEditor.controls.painterlyCloudSeed')} value={settings.painterlyCloudSeed} min={1} max={99} step={1} onChange={(event) => handleSettingChange(event, 'painterlyCloudSeed')} />
-            <RangeControl label={t('homeEditor.controls.painterlyCloudCoverage')} value={settings.painterlyCloudCoverage} min={0} max={1} step={0.01} unit="%" formatValue={(value) => Math.round(Number(value) * 100)} onChange={(event) => handleSettingChange(event, 'painterlyCloudCoverage')} />
-            <RangeControl label={t('homeEditor.controls.painterlyCloudDensity')} value={settings.painterlyCloudDensity} min={0.2} max={2.5} step={0.05} formatValue={(value) => formatFloat(value)} onChange={(event) => handleSettingChange(event, 'painterlyCloudDensity')} />
-            <RangeControl label={t('homeEditor.controls.painterlyCloudAltitude')} value={settings.painterlyCloudAltitude} min={300} max={5000} step={25} unit="m" onChange={(event) => handleSettingChange(event, 'painterlyCloudAltitude')} />
-            <RangeControl label={t('homeEditor.controls.painterlyCloudHeight')} value={settings.painterlyCloudHeight} min={0.2} max={2} step={0.05} formatValue={(value) => formatFloat(value)} onChange={(event) => handleSettingChange(event, 'painterlyCloudHeight')} />
-            <RangeControl label={t('homeEditor.controls.painterlyCloudScale')} value={settings.painterlyCloudScale} min={0.35} max={2.5} step={0.05} unit="x" formatValue={(value) => formatFloat(value)} onChange={(event) => handleSettingChange(event, 'painterlyCloudScale')} />
-            <RangeControl label={t('homeEditor.controls.painterlyCloudWindSpeed')} value={settings.painterlyCloudWindSpeed} min={0} max={40} step={0.5} unit="m/s" onChange={(event) => handleSettingChange(event, 'painterlyCloudWindSpeed')} />
-            <RangeControl label={t('homeEditor.controls.painterlyCloudWindDirection')} value={settings.painterlyCloudWindDirection} min={0} max={360} step={1} unit="°" onChange={(event) => handleSettingChange(event, 'painterlyCloudWindDirection')} />
-            <RangeControl label={t('homeEditor.controls.painterlyCloudShadowStrength')} value={settings.painterlyCloudShadowStrength} min={0} max={1} step={0.01} unit="%" formatValue={(value) => Math.round(Number(value) * 100)} onChange={(event) => handleSettingChange(event, 'painterlyCloudShadowStrength')} />
-            <RangeControl label={t('homeEditor.controls.painterlyCloudShadowSoftness')} value={settings.painterlyCloudShadowSoftness} min={0} max={1} step={0.01} unit="%" formatValue={(value) => Math.round(Number(value) * 100)} onChange={(event) => handleSettingChange(event, 'painterlyCloudShadowSoftness')} />
-            <RangeControl label={t('homeEditor.controls.painterlyCloudHaze')} value={settings.painterlyCloudHaze} min={0} max={1} step={0.01} unit="%" formatValue={(value) => Math.round(Number(value) * 100)} onChange={(event) => handleSettingChange(event, 'painterlyCloudHaze')} />
-            <RangeControl label={t('homeEditor.controls.painterlyCloudRays')} value={settings.painterlyCloudRays} min={0} max={1} step={0.01} unit="%" formatValue={(value) => Math.round(Number(value) * 100)} onChange={(event) => handleSettingChange(event, 'painterlyCloudRays')} />
-            <SelectControl
-                label={t('homeEditor.controls.painterlyCloudQuality')}
-                value={settings.painterlyCloudQuality}
-                options={['auto', 'low', 'balanced', 'high'].map((value) => ({ value, label: t(`homeEditor.controls.painterlyCloudQuality${value[0].toUpperCase()}${value.slice(1)}`) }))}
-                onChange={(event) => handleSettingChange(event, 'painterlyCloudQuality', 'string')}
-            />
             <ColorControl
                 label={t('homeEditor.controls.distantSurfaceColor')}
                 value={settings.distantSurfaceColor}
@@ -284,6 +186,113 @@ export const LightSection = ({ settings, handleSettingChange }) => {
                 unit="%"
                 formatValue={(value) => Math.round(Number(value) * 100)}
                 onChange={(event) => handleSettingChange(event, 'waterShadowStrength')}
+            />
+        </>
+    );
+};
+
+export const CloudsSection = ({ settings, handleSettingChange }) => {
+    const { t } = useLanguage();
+    const cloudPresetOptions = HOME_SCENE_CLOUD_PRESETS.map((option) => ({
+        value: option.value,
+        label: t(`homeEditor.controls.${option.labelKey}`),
+    }));
+    const applyPainterlyPreset = (preset) => {
+        Object.entries(PAINTERLY_CLOUD_PRESETS[preset]).forEach(([key, value]) => {
+            handleSettingChange({ target: { value } }, key);
+        });
+    };
+
+    return (
+        <>
+            {settings.painterlyCloudsEnabled ? null : <>
+            <SectionHeading label={t('homeEditor.blocks.clouds')} subtle />
+            <SelectControl
+                label={t('homeEditor.controls.cloudPreset')}
+                value={settings.cloudPreset}
+                options={cloudPresetOptions}
+                onChange={(event) => handleSettingChange(event, 'cloudPreset', 'string')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.cloudCover')}
+                value={settings.cloudCover}
+                min={0}
+                max={1}
+                step={0.01}
+                unit="%"
+                formatValue={(value) => Math.round(Number(value) * 100)}
+                onChange={(event) => handleSettingChange(event, 'cloudCover')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.cloudHorizon')}
+                value={settings.cloudHorizon}
+                min={0}
+                max={1}
+                step={0.01}
+                unit="%"
+                formatValue={(value) => Math.round(Number(value) * 100)}
+                onChange={(event) => handleSettingChange(event, 'cloudHorizon')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.cloudDensity')}
+                value={settings.cloudDensity}
+                min={0}
+                max={1}
+                step={0.01}
+                unit="%"
+                formatValue={(value) => Math.round(Number(value) * 100)}
+                onChange={(event) => handleSettingChange(event, 'cloudDensity')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.cloudScale')}
+                value={settings.cloudScale}
+                min={0.5}
+                max={4}
+                step={0.05}
+                unit="x"
+                formatValue={(value) => formatFloat(value)}
+                onChange={(event) => handleSettingChange(event, 'cloudScale')}
+            />
+            <RangeControl
+                label={t('homeEditor.controls.cloudSunOcclusion')}
+                value={settings.cloudSunOcclusion}
+                min={0}
+                max={1}
+                step={0.01}
+                unit="%"
+                formatValue={(value) => Math.round(Number(value) * 100)}
+                onChange={(event) => handleSettingChange(event, 'cloudSunOcclusion')}
+            />
+            </>}
+            <SectionHeading label={t('homeEditor.blocks.painterlyClouds')} subtle />
+            <div className="home-editor-control-group">
+                <label>{t('homeEditor.controls.painterlyCloudPreset')}</label>
+                <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                    {Object.keys(PAINTERLY_CLOUD_PRESETS).map((preset) => <button key={preset} type="button" className="home-editor-action-button" onClick={() => applyPainterlyPreset(preset)}>{t(`homeEditor.controls.painterlyCloudPreset${preset[0].toUpperCase()}${preset.slice(1)}`)}</button>)}
+                </div>
+            </div>
+            <CheckboxControl
+                label={t('homeEditor.controls.painterlyCloudsEnabled')}
+                checked={Boolean(settings.painterlyCloudsEnabled)}
+                onChange={(event) => handleSettingChange(event, 'painterlyCloudsEnabled', 'boolean')}
+            />
+            <RangeControl label={t('homeEditor.controls.painterlyCloudSeed')} value={settings.painterlyCloudSeed} min={1} max={99} step={1} onChange={(event) => handleSettingChange(event, 'painterlyCloudSeed')} />
+            <RangeControl label={t('homeEditor.controls.painterlyCloudCoverage')} value={settings.painterlyCloudCoverage} min={0} max={1} step={0.01} unit="%" formatValue={(value) => Math.round(Number(value) * 100)} onChange={(event) => handleSettingChange(event, 'painterlyCloudCoverage')} />
+            <RangeControl label={t('homeEditor.controls.painterlyCloudDensity')} value={settings.painterlyCloudDensity} min={0.2} max={2.5} step={0.05} formatValue={(value) => formatFloat(value)} onChange={(event) => handleSettingChange(event, 'painterlyCloudDensity')} />
+            <RangeControl label={t('homeEditor.controls.painterlyCloudAltitude')} value={settings.painterlyCloudAltitude} min={300} max={5000} step={25} unit="m" onChange={(event) => handleSettingChange(event, 'painterlyCloudAltitude')} />
+            <RangeControl label={t('homeEditor.controls.painterlyCloudHeight')} value={settings.painterlyCloudHeight} min={0.2} max={2} step={0.05} formatValue={(value) => formatFloat(value)} onChange={(event) => handleSettingChange(event, 'painterlyCloudHeight')} />
+            <RangeControl label={t('homeEditor.controls.painterlyCloudScale')} value={settings.painterlyCloudScale} min={0.35} max={2.5} step={0.05} unit="x" formatValue={(value) => formatFloat(value)} onChange={(event) => handleSettingChange(event, 'painterlyCloudScale')} />
+            <RangeControl label={t('homeEditor.controls.painterlyCloudWindSpeed')} value={settings.painterlyCloudWindSpeed} min={0} max={40} step={0.5} unit="m/s" onChange={(event) => handleSettingChange(event, 'painterlyCloudWindSpeed')} />
+            <RangeControl label={t('homeEditor.controls.painterlyCloudWindDirection')} value={settings.painterlyCloudWindDirection} min={0} max={360} step={1} unit="°" onChange={(event) => handleSettingChange(event, 'painterlyCloudWindDirection')} />
+            <RangeControl label={t('homeEditor.controls.painterlyCloudShadowStrength')} value={settings.painterlyCloudShadowStrength} min={0} max={1} step={0.01} unit="%" formatValue={(value) => Math.round(Number(value) * 100)} onChange={(event) => handleSettingChange(event, 'painterlyCloudShadowStrength')} />
+            <RangeControl label={t('homeEditor.controls.painterlyCloudShadowSoftness')} value={settings.painterlyCloudShadowSoftness} min={0} max={1} step={0.01} unit="%" formatValue={(value) => Math.round(Number(value) * 100)} onChange={(event) => handleSettingChange(event, 'painterlyCloudShadowSoftness')} />
+            <RangeControl label={t('homeEditor.controls.painterlyCloudHaze')} value={settings.painterlyCloudHaze} min={0} max={1} step={0.01} unit="%" formatValue={(value) => Math.round(Number(value) * 100)} onChange={(event) => handleSettingChange(event, 'painterlyCloudHaze')} />
+            <RangeControl label={t('homeEditor.controls.painterlyCloudRays')} value={settings.painterlyCloudRays} min={0} max={1} step={0.01} unit="%" formatValue={(value) => Math.round(Number(value) * 100)} onChange={(event) => handleSettingChange(event, 'painterlyCloudRays')} />
+            <SelectControl
+                label={t('homeEditor.controls.painterlyCloudQuality')}
+                value={settings.painterlyCloudQuality}
+                options={['auto', 'low', 'balanced', 'high'].map((value) => ({ value, label: t(`homeEditor.controls.painterlyCloudQuality${value[0].toUpperCase()}${value.slice(1)}`) }))}
+                onChange={(event) => handleSettingChange(event, 'painterlyCloudQuality', 'string')}
             />
         </>
     );

@@ -12,6 +12,7 @@ import { AlgaeSection, LiliesSection } from './sections/greenery';
 import { GrassSection } from './sections/grass';
 import { BoatSection, SculptureSection } from './sections/objects';
 import {
+    CloudsSection,
     FogSection,
     HdriSection,
     LightSection,
@@ -111,6 +112,7 @@ export const EDITOR_TREE = [
             { id: 'hdri', aspects: [{ id: 'hdri', Section: HdriSection }] },
             { id: 'fog', aspects: [{ id: 'fog', Section: FogSection }] },
             { id: 'rays', aspects: [{ id: 'rays', Section: RaysSection }] },
+            { id: 'clouds', aspects: [{ id: 'clouds', Section: CloudsSection }] },
         ],
     },
     {
