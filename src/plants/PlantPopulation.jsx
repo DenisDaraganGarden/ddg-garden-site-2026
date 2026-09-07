@@ -5,10 +5,12 @@ import {makeBranchGeometry,makeLeafGeometry,selectPlantLod} from './oleasterMode
 import {makePlantMaterials,plantUniforms,updatePlantUniforms} from './plantMaterials.js';
 import {bakePlantImpostor,makeImpostorMaterial} from './plantAtlases.js';
 import {calibratePlantCard} from './plantParity.js';
+import {useCalibrationQueue} from './useCalibrationQueue.js';
 const WHITE=new THREE.Color(1,1,1);
 
 export default function PlantPopulation({model,settings,atlas,placements,paused=false,onStats,lowPower=false,sceneTime=false,statsKey='plantStats',impostorFrame,envMapIntensity=1}){
  const {gl,scene,camera,size,invalidate}=useThree();
+ const calibrationQueue=useCalibrationQueue();
  const capacity=Math.max(1,2**Math.ceil(Math.log2(Math.max(1,placements.length))));
  const uniforms=useMemo(plantUniforms,[]),time=useRef(0),lastReport=useRef(-Infinity),lastLod=useRef(0);
  const groups=useMemo(()=>Array.from({length:3},()=>React.createRef()),[]),meshRefs=useMemo(()=>Array.from({length:5},()=>React.createRef()),[]);
@@ -28,11 +30,12 @@ export default function PlantPopulation({model,settings,atlas,placements,paused=
   farGeometry.translate(...impostor.center.toArray());
   farGeometry.computeBoundingSphere();farGeometry.boundingSphere.radius+=.75*impostor.height**2+.08;
 
-  const next={meshes,materials,impostor,farMaterial,farGeometry,model,parity:null,calibration:null,frames:0};
+  const next={meshes,materials,impostor,farMaterial,farGeometry,model,parity:null,calibration:null,cancelCalibration:null,frames:0};
   setResources(next);lastReport.current=-Infinity;
   return()=>{
+   next.cancelCalibration?.();
    for(const m of meshes){m.bark.dispose();m.leaf.dispose();}
-   next.calibration?.return();materials.dispose();impostor.dispose();farMaterial.dispose();farGeometry.dispose();
+   materials.dispose();impostor.dispose();farMaterial.dispose();farGeometry.dispose();
   };
  },[gl,model,atlas,uniforms,lowPower,impostorFrame]);
  useLayoutEffect(()=>{
@@ -75,8 +78,13 @@ export default function PlantPopulation({model,settings,atlas,placements,paused=
   // geometry under that light, one measurement a frame, and corrected by mip
   // and by the sun's side (plantParity.js).
   if(!resources.parity){
-   if(!resources.calibration&&(scene.environment||++resources.frames>30))resources.calibration=calibratePlantCard(gl,scene,meshes[0],materials,farGeometry,farMaterial,resources.impostor,model);
-   if(resources.calibration){const step=resources.calibration.next();if(step.done){resources.parity=step.value;resources.calibration=null;lastReport.current=-Infinity;}invalidate();}
+   if(!resources.calibration&&(scene.environment||++resources.frames>30)){
+    resources.calibration=calibratePlantCard(gl,scene,meshes[0],materials,farGeometry,farMaterial,resources.impostor,model);
+    resources.cancelCalibration=calibrationQueue.enqueue(resources.calibration,value=>{
+     resources.parity=value;resources.calibration=null;resources.cancelCalibration=null;lastReport.current=-Infinity;invalidate();
+    });
+    invalidate();
+   }
   }
   // One specimen uses true camera distance. Population partitions instances by
   // distance - at most every quarter second, and only when the camera moved or

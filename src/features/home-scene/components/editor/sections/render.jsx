@@ -462,6 +462,29 @@ export const PostSection = ({ settings, handleSettingChange }) => {
                 onChange={(event) => handleSettingChange(event, 'postAntiAliasing', 'string')}
                 testId="home-editor-post-aa"
             />
+            <SelectControl
+                label={t('homeEditor.controls.upscaleMode')}
+                value={settings.upscaleMode ?? 'off'}
+                options={[{ value: 'off', label: t('homeEditor.antiAliasing.off') }, { value: 'fsr1', label: 'FSR 1 · EASU / RCAS' }]}
+                onChange={(event) => handleSettingChange(event, 'upscaleMode', 'string')}
+                testId="home-editor-upscale-mode"
+            />
+            {settings.upscaleMode === 'fsr1' && <>
+                <SelectControl
+                    label={t('homeEditor.controls.upscaleQuality')}
+                    value={settings.upscaleQuality ?? 'quality'}
+                    options={['ultra', 'quality', 'balanced'].map((value) => ({ value, label: t(`homeEditor.controls.upscale_${value}`) }))}
+                    onChange={(event) => handleSettingChange(event, 'upscaleQuality', 'string')}
+                    testId="home-editor-upscale-quality"
+                />
+                <RangeControl
+                    label={t('homeEditor.controls.upscaleSharpness')}
+                    value={settings.upscaleSharpness ?? 0.25}
+                    min={0} max={1} step={0.05}
+                    formatValue={(value) => formatFloat(value, 2)}
+                    onChange={(event) => handleSettingChange(event, 'upscaleSharpness')}
+                />
+            </>}
             <CheckboxControl
                 label={t('homeEditor.controls.contactAoEnabled')}
                 checked={Boolean(settings.contactAoEnabled)}

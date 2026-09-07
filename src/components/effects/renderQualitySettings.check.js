@@ -36,6 +36,12 @@ const finite = normalizeRenderQualitySettings({
   shadowContactOffset: .02,
 });
 assert.equal(finite.shadowNearDistance, 80, 'near is always at most 80% of far');
+const upscale = normalizeRenderQualitySettings({ upscaleMode: 'fsr1', upscaleQuality: 'balanced', upscaleSharpness: 9 });
+assert.equal(upscale.upscaleMode, 'fsr1');
+assert.equal(upscale.upscaleQuality, 'balanced');
+assert.equal(upscale.upscaleSharpness, 1);
+assert.equal(normalizeRenderQualitySettings({ upscaleMode: 'unknown', upscaleSharpness: -1 }).upscaleMode, 'off');
+assert.equal(normalizeRenderQualitySettings({ upscaleSharpness: -1 }).upscaleSharpness, 0);
 assert.deepEqual(
   Object.keys(DEFAULT_RENDER_QUALITY_SETTINGS).filter((key) => !publishedHomeSceneKeys.includes(key)),
   [],

@@ -84,6 +84,7 @@ let cleanupPromise = null;
 let watchdogTimer = null;
 let isShuttingDown = false;
 let guardsInstalled = false;
+const pageIssueLogs = new WeakMap();
 
 function log(message) {
   process.stdout.write(`${message}\n`);
@@ -96,6 +97,7 @@ function assert(condition, message) {
 }
 
 function collectPageIssues(page, issues) {
+  pageIssueLogs.set(page, issues);
   page.on('pageerror', (error) => {
     issues.push(`pageerror: ${error.message}`);
   });
@@ -344,11 +346,32 @@ async function waitForCondition(check, message, timeoutMs = 12000, intervalMs = 
 }
 
 async function waitForRuntimeMetrics(page, sceneId, timeoutMs = 20000) {
-  await page.waitForFunction(
-    (id) => Boolean(window.__DDG_RUNTIME_METRICS__?.[id]),
-    sceneId,
-    { timeout: timeoutMs },
-  );
+  try {
+    await page.waitForFunction(
+      (id) => Boolean(window.__DDG_RUNTIME_METRICS__?.[id]),
+      sceneId,
+      { timeout: timeoutMs },
+    );
+  } catch (error) {
+    // Keep the same acceptance deadline, but distinguish a WebGL fallback,
+    // hidden tab and blocked startup when a remote software renderer times out.
+    const snapshot = await Promise.race([
+      page.evaluate(() => ({
+        visibility: document.visibilityState,
+        readyState: document.readyState,
+        fallback: document.querySelector('.scene-fallback')?.textContent?.slice(0, 400) ?? null,
+        canvases: [...document.querySelectorAll('canvas')].map(canvas => ({
+          width: canvas.width, height: canvas.height,
+          water: canvas.dataset.ddgWaterEngine, post: canvas.dataset.ddgPostStatus,
+          warmup: canvas.dataset.ddgPlantWarmup,
+        })),
+        metricScenes: Object.keys(window.__DDG_RUNTIME_METRICS__ ?? {}),
+      })).catch(() => ({ unavailable: 'page closed or disconnected' })),
+      delay(2500).then(() => ({ unavailable: 'page main thread did not respond' })),
+    ]);
+    log(`Runtime metrics timeout (${sceneId}): ${JSON.stringify({ ...snapshot, issues: pageIssueLogs.get(page)?.slice(-12) ?? [] })}`);
+    throw error;
+  }
   return page.evaluate((id) => window.__DDG_RUNTIME_METRICS__[id], sceneId);
 }
 
