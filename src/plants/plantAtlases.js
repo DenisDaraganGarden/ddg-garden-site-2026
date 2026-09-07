@@ -66,12 +66,17 @@ export function bakePlantImpostor(renderer,model,geometries,atlas,frameSize=256)
  preserveRenderer(renderer,()=>{
   for(const [rt,barkPass,leafPass]of [[color,bark,leaf],[normal,normalBark,normalLeaf],[position,positionBark,positionLeaf]]){
    tree.material=barkPass;canopy.material=leafPass;
+   // Three regenerates the whole target's mip chain after every render().
+   // All 24 views write one atlas; none samples it until this bake finishes.
+   // Defer mip generation until its last tile, instead of rebuilding all levels
+   // 24 times per colour/normal/position atlas during synchronous startup.
+   rt.texture.generateMipmaps=false;
    rt.viewport.set(0,0,atlasWidth,atlasHeight);renderer.setRenderTarget(rt);renderer.clear();renderer.autoClear=false;
    for(let i=0;i<24;i++){
     const angle=(i%8)*Math.PI/4,elevation=Math.floor(i/8)*Math.PI/4;
     camera.position.set(center.x+Math.sin(angle)*Math.cos(elevation)*6,center.y+Math.sin(elevation)*6,center.z+Math.cos(angle)*Math.cos(elevation)*6);
     camera.up.set(-Math.sin(angle)*Math.sin(elevation),Math.cos(elevation),-Math.cos(angle)*Math.sin(elevation));camera.lookAt(center);camera.updateMatrixWorld();
-    rt.viewport.set((i%4)*frameSize,Math.floor(i/4)*frameSize,frameSize,frameSize);renderer.setRenderTarget(rt);renderer.render(scene,camera);
+    rt.viewport.set((i%4)*frameSize,Math.floor(i/4)*frameSize,frameSize,frameSize);renderer.setRenderTarget(rt);rt.texture.generateMipmaps=i===23;renderer.render(scene,camera);
    }
   }
  });

@@ -465,7 +465,7 @@ export const PostSection = ({ settings, handleSettingChange }) => {
             <SelectControl
                 label={t('homeEditor.controls.upscaleMode')}
                 value={settings.upscaleMode ?? 'off'}
-                options={[{ value: 'off', label: t('homeEditor.antiAliasing.off') }, { value: 'fsr1', label: 'FSR 1 · EASU / RCAS' }]}
+                options={[{ value: 'off', label: t('homeEditor.antiAliasing.off') }, { value: 'fsr1', label: 'FSR 1' }]}
                 onChange={(event) => handleSettingChange(event, 'upscaleMode', 'string')}
                 testId="home-editor-upscale-mode"
             />
