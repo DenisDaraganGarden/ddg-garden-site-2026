@@ -72,7 +72,7 @@ const fragmentShader = /* glsl */`
     // keeps the lace the same on both sides of the window's edge.
     float age = mix(0.35, memory.y, memory.z);
     float lift = clamp(vWorld.y * 1.5, 0.0, 1.0) * (1.0 - jacobian * 0.5);
-    vec3 color = shadeWater(vWorld, n, view, pixel, coverage, age, 10.0, lift);
+    vec3 color = shadeWater(vWorld, n, view, pixel, waterFlowUv(vWorld.xz), coverage, age, 10.0, lift);
     gl_FragColor = vec4(color, 1.0);
     #include <fog_fragment>
     #include <tonemapping_fragment>
@@ -113,7 +113,7 @@ export default function GerstnerWaterSurface({ settings, lighting, noise = null,
     } else uniforms.uShoreFade.value.set(0, 0);
   }, [geometry, lighting, settings, shore, uniforms]);
 
-  useFoamField(uniforms, { settings, bores: foamBores, shore });
+  useFoamField(uniforms, { settings, bores: foamBores, shore, noise: activeNoise });
 
   useFrame(({ clock, camera }) => {
     uniforms.uGerstnerTime.value = clock.elapsedTime;

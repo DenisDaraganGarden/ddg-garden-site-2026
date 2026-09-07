@@ -12,9 +12,20 @@ const foam = read('./foamField.js');
 const surface = read('./GerstnerWaterSurface.jsx');
 const shading = read('./waterShading.js');
 const breaking = read('./BreakingWaves.jsx');
+const surf = read('./surfProfile.js');
 
-const argumentCount = (source, call) => [...source.matchAll(new RegExp(`${call}\\(([^)]*)\\)`, 'g'))]
-  .map((match) => match[1].split(',').length);
+// Arguments of every call/declaration of `call`: top-level commas between the
+// matching parentheses, so a nested call inside an argument still counts as one.
+const argumentCount = (source, call) => [...source.matchAll(new RegExp(`${call}\\(`, 'g'))].map((match) => {
+  let depth = 1, count = 1;
+  for (let i = match.index + match[0].length; i < source.length && depth > 0; i += 1) {
+    const char = source[i];
+    if (char === '(') depth += 1;
+    else if (char === ')') depth -= 1;
+    else if (char === ',' && depth === 1) count += 1;
+  }
+  return count;
+});
 
 // gerstnerDisplace hands out the orbital velocity the foam rides on: every
 // caller has to take it, or the shader will not compile.
@@ -25,9 +36,9 @@ for (const [name, source] of [['foamField', foam], ['GerstnerWaterSurface', surf
   assert.ok(calls.length > 0, `${name} calls gerstnerDisplace with the wrong number of arguments`);
 }
 // Foam age reaches the lace through shadeWater, in the same slot everywhere.
-assert.equal(argumentCount(shading, 'vec3 shadeWater')[0], 8);
+assert.equal(argumentCount(shading, 'vec3 shadeWater')[0], 9);
 for (const [name, source] of [['GerstnerWaterSurface', surface], ['BreakingWaves', breaking]]) {
-  argumentCount(source, '\\bshadeWater').forEach((count) => assert.equal(count, 8, `${name} calls shadeWater with ${count} arguments`));
+  argumentCount(source, '\\bshadeWater').forEach((count) => assert.equal(count, 9, `${name} calls shadeWater with ${count} arguments`));
 }
 
 // Every uniform the foam pass declares has to be created in JS: an unbound one
@@ -41,4 +52,14 @@ const created = new Set([
 assert.ok(declared.length >= 15, `expected the foam shaders to declare uniforms, found ${declared.length}`);
 declared.forEach((name) => assert.ok(created.has(name), `uniform ${name} is declared in a foam shader but never created`));
 
-console.log(`foamField: ${declared.length} uniforms bound, gerstnerDisplace/shadeWater call sites agree`);
+// The surf loft declares its uniforms across two files; all of them have to be
+// created by the ribbons.
+const surfDeclared = [...(surf + breaking).matchAll(/^\s*uniform\s+\w+\s+(u\w+)\s*;/gm)].map((match) => match[1]);
+const surfCreated = new Set([
+  ...[...breaking.matchAll(/^\s{6}(u\w+):\s*\{/gm)].map((match) => match[1]),
+  ...[...shading.matchAll(/^\s{4}(u\w+):\s*\{/gm)].map((match) => match[1]),
+]);
+assert.ok(surfDeclared.length >= 15, `expected the surf shaders to declare uniforms, found ${surfDeclared.length}`);
+surfDeclared.forEach((name) => assert.ok(surfCreated.has(name), `uniform ${name} is declared in a surf shader but never created`));
+
+console.log(`foamField: ${declared.length} foam and ${surfDeclared.length} surf uniforms bound, gerstnerDisplace/shadeWater call sites agree`);

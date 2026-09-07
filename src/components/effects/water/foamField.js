@@ -14,7 +14,7 @@ import { windVector } from './waterShading';
 // which is all a horizon needs.
 
 export const FOAM_BORE_SLOTS = 4;
-const FOAM_RESOLUTION = 512;
+const FOAM_RESOLUTION = 768;
 const FORWARD = new THREE.Vector3();
 
 // The bores the breaking waves deposit: distance along the shore normal,
@@ -52,8 +52,11 @@ vec3 sampleFoamField(vec2 p) {
 const updateFragmentShader = /* glsl */`
   #define FOAM_BORES ${FOAM_BORE_SLOTS}
   ${gerstnerShader}
+  precision highp sampler3D;
   varying vec2 vUv;
   uniform sampler2D uPrev;
+  uniform sampler3D uNoise;
+  uniform float uNoiseReady;
   uniform vec3 uWindow;      // centre.xz, half size
   uniform vec3 uPrevWindow;
   uniform float uHasPrev;
@@ -86,7 +89,10 @@ const updateFragmentShader = /* glsl */`
     }
     state.x *= uDecay;
     state.y = min(state.y + uAgeStep, 1.0);
-    float fresh = smoothstep(uThreshold + uSoftness, uThreshold - uSoftness, jacobian) * uDeposit;
+    // Crests fold in patches, not along their whole length: a broad mask
+    // drifting with the wind gates where a fold makes foam.
+    float patchy = uNoiseReady > 0.5 ? smoothstep(0.38, 0.6, texture(uNoise, vec3(world * 0.011 + uDrift * uGerstnerTime * 0.02, 0.73)).r) : 1.0;
+    float fresh = smoothstep(uThreshold + uSoftness, uThreshold - uSoftness, jacobian) * uDeposit * 0.65 * patchy;
     float along = dot(world - uShore.xy, uShore.zw);
     for (int i = 0; i < FOAM_BORES; i++) {
       vec4 bore = uBore[i];
@@ -109,7 +115,7 @@ export function createFoamFieldUniforms() {
 
 // Advances the field and points `targetUniforms` (a water surface's) at it.
 // `bores` is the array the breaking waves write into, or null.
-export function useFoamField(targetUniforms, { settings, bores, shore }) {
+export function useFoamField(targetUniforms, { settings, bores, shore, noise = null }) {
   const { gl } = useThree();
   const field = useMemo(() => {
     const options = { type: THREE.HalfFloatType, format: THREE.RGFormat, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter };
@@ -131,6 +137,8 @@ export function useFoamField(targetUniforms, { settings, bores, shore }) {
       uDeposit: { value: 1 },
       uShore: { value: new THREE.Vector4(0, 0, 0, 1) },
       uBore: { value: createFoamBores() },
+      uNoise: { value: null },
+      uNoiseReady: { value: 0 },
     });
     return { read, write, pass };
   }, []);
@@ -169,6 +177,8 @@ export function useFoamField(targetUniforms, { settings, bores, shore }) {
     foamWindowCenter(uniforms.uWindow.value, camera.position.x + FORWARD.x * reach, camera.position.z + FORWARD.z * reach, half);
     syncGerstnerUniforms(uniforms, settings);
     uniforms.uGerstnerTime.value = clock.elapsedTime;
+    uniforms.uNoise.value = noise?.volume ?? null;
+    uniforms.uNoiseReady.value = noise ? 1 : 0;
     uniforms.uPrev.value = field.read.texture;
     uniforms.uDelta.value = step;
     uniforms.uDecay.value = foamDecay(settings.foamLife, step);

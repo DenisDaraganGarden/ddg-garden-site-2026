@@ -50,33 +50,49 @@ export const waterShadingShader = /* glsl */`
     float relief = 0.06 * w;
     return normalize(n + vec3(-(hx - h) / e * relief, 0.0, -(hz - h) / e * relief));
   }
-  // Foam from a coverage 0..1: the lace lies along the crest (stretched across
-  // the wind), the fine octave erodes the thin parts like a cloud edge, and
-  // the edge widens with the pixel so distant lace blurs instead of sparkling.
-  // age 0..1 comes from the foam field: old foam survives only where the fine
-  // octave is strong, so a patch breaks into filaments and holes as it dies.
-  float waterFoam(vec2 p, float coverage, float pixel, float age) {
+  // Foam coordinates: x across the flow, y along it, in metres. On open water
+  // the flow is the wind; a breaker hands in crest × arc so the streaks run
+  // down its face.
+  vec2 waterFlowUv(vec2 p) {
+    return vec2(dot(p, vec2(-uWind.y, uWind.x)), dot(p, uWind));
+  }
+  // Foam from a coverage 0..1. A dense body with a torn edge (widened only by
+  // the pixel, so distance blurs it instead of sparkling), a low-contrast
+  // milky veil around it where the foam is thin, and small bubbles on the
+  // body (Worley cells: bright domes, dark seams). The detail octave is read
+  // through a rotated, warped coordinate so the volume's tiling never lines
+  // up with the base and shows as a lattice. age 0..1 comes from the foam
+  // field: old foam survives only where the fine octave is strong, so a
+  // patch breaks into rags and holes as it dies.
+  float waterFoam(vec2 fp, float coverage, float pixel, float age, out float bubbles) {
+    bubbles = 0.0;
     if (coverage <= 0.001 || uNoiseReady < 0.5) return 0.0;
-    vec2 acrossWind = vec2(-uWind.y, uWind.x);
-    vec2 lp = vec2(dot(p, acrossWind) * 0.7, dot(p, uWind) * 1.25 - uTime * 0.25) * uLaceScale;
+    vec2 lp = vec2(fp.x * 0.5, fp.y * 1.7 - uTime * 0.25) * uLaceScale;
     vec3 lace = texture(uNoise, vec3(lp, 0.12)).rgb;
     float feature = 0.125 / max(uLaceScale, 0.001);
     float fineFade = 1.0 - smoothstep(feature * 0.05, feature * 0.25, pixel);
-    float fine = mix(0.6, texture(uNoise, vec3(lp * 2.7, 0.52)).b, fineFade);
-    float pattern = mix(lace.r, 1.0 - lace.g, 0.6);
+    vec2 dp = mat2(0.83, -0.56, 0.56, 0.83) * lp * 2.37 + lace.g * 0.35;
+    vec3 detail = texture(uNoise, vec3(dp, 0.52 + lace.r * 0.2)).rgb;
+    float fine = mix(0.5, detail.b, fineFade);
     coverage *= mix(1.0, 0.4 + 0.6 * smoothstep(0.1, 0.7, fine), clamp(age, 0.0, 1.0));
-    float width = 0.18 + smoothstep(feature * 0.1, feature * 0.6, pixel) * 0.25;
-    float foam = smoothstep(1.0 - coverage - width, 1.0 - coverage + width, pattern);
-    return foam * smoothstep(0.2, 0.55, fine + coverage * 0.6);
+    float pattern = lace.r * 0.5 + detail.r * 0.3 + fine * 0.2;
+    float width = 0.05 + smoothstep(feature * 0.1, feature * 0.6, pixel) * 0.22;
+    float body = smoothstep(1.0 - coverage - width, 1.0 - coverage + width, pattern);
+    body *= smoothstep(0.18, 0.4, fine + coverage * 0.6);
+    float veil = smoothstep(1.0 - coverage - 0.4, 1.0 - coverage + 0.08, pattern) * (1.0 - body) * 0.3 * smoothstep(0.05, 0.4, coverage);
+    bubbles = body * mix(0.5, detail.g * detail.g, fineFade);
+    return clamp(body + veil, 0.0, 1.0);
   }
   // thickness: metres of water behind this point toward the light (a lip is
   // centimetres, open water is metres). lift: extra backlight for a crest.
-  vec3 shadeWater(vec3 world, vec3 n, vec3 view, float pixel, float foamCoverage, float foamAge, float thickness, float lift) {
+  vec3 shadeWater(vec3 world, vec3 n, vec3 view, float pixel, vec2 foamUv, float foamCoverage, float foamAge, float thickness, float lift) {
     float facing = clamp(dot(n, view), 0.0, 1.0);
     float fresnel = 0.02 + 0.98 * pow(1.0 - facing, 5.0);
     vec3 reflected = reflect(-view, n);
+    // The underside of a lip looks down at the water, not at a mirrored sky.
+    float below = smoothstep(0.0, -0.25, reflected.y);
     reflected.y = abs(reflected.y);
-    vec3 reflection = waterSkyColor(reflected);
+    vec3 reflection = mix(waterSkyColor(reflected), uDeepColor * uFillIrradiance * 0.6, below);
     reflection += uSunRadiance * pow(max(dot(reflected, uSunDirection), 0.0), 320.0) * uGlint * 0.02;
     float sunDiffuse = max(dot(n, uSunDirection), 0.0);
     vec3 body = mix(uDeepColor, uWaterColor, pow(facing, 0.6));
@@ -86,13 +102,17 @@ export const waterShadingShader = /* glsl */`
     float transmit = exp(-thickness * 1.6);
     float backlight = pow(max(dot(view, -uSunDirection), 0.0), 3.0);
     body += uWaterColor * uSunRadiance / WATER_PI * backlight * (lift + transmit * 1.5) * uCrestGlow * 1.6;
-    body += uWaterColor * uFillIrradiance / WATER_PI * transmit * 0.8;
-    vec3 color = mix(body, reflection, clamp(fresnel, 0.02, 0.85) * (1.0 - transmit * 0.6));
-    float foam = waterFoam(world.xz, foamCoverage, pixel, foamAge);
+    body += uWaterColor * uFillIrradiance / WATER_PI * transmit * 1.8;
+    vec3 color = mix(body, reflection, clamp(fresnel, 0.02, 0.85) * (1.0 - transmit * 0.8));
+    float bubbles;
+    float foam = waterFoam(foamUv, foamCoverage, pixel, foamAge, bubbles);
     // Beer/powder from the clouds: a thick patch is lit flat white, a thin one
-    // keeps some of the water's shading under it.
+    // keeps some of the water's shading under it. The bubble domes catch the
+    // sun as small wet glints.
     float powder = 1.0 - exp(-foam * 2.6);
     vec3 foamLit = vec3(0.9, 0.92, 0.88) * (uFillIrradiance + uSunRadiance * sunDiffuse) / WATER_PI * (0.55 + 0.45 * powder) * uFoamBrightness;
+    foamLit *= 0.7 + 0.5 * bubbles;
+    foamLit += uSunRadiance * pow(max(dot(reflected, uSunDirection), 0.0), 48.0) * uGlint * (0.02 + 0.06 * bubbles);
     return mix(color, foamLit, foam);
   }
 `;
