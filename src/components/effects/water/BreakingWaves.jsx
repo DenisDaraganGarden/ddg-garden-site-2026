@@ -124,7 +124,7 @@ const fragmentShader = /* glsl */`
     vec3 n = normalize(vNormal);
     if (dot(n, view) < 0.0) n = -n;
     n = waterRippleNormal(n, vWorld.xz, pixel, 0.5);
-    vec3 color = shadeWater(vWorld, n, view, pixel, vFoam * 0.95, vThickness, 0.0);
+    vec3 color = shadeWater(vWorld, n, view, pixel, vFoam * 0.95, 0.0, vThickness, 0.0);
     gl_FragColor = vec4(color, vAlpha);
     #include <fog_fragment>
     #include <tonemapping_fragment>
@@ -133,8 +133,9 @@ const fragmentShader = /* glsl */`
 `;
 
 const hash = (n) => ((n * 9301 + 49297) % 233280) / 233280;
+const clamp01 = (value) => Math.min(Math.max(value, 0), 1);
 
-export default function BreakingWaves({ settings, lighting, noise = null, shore }) {
+export default function BreakingWaves({ settings, lighting, noise = null, shore, foamBores = null }) {
   const activeNoise = useWaterNoise(noise);
   const geometry = useMemo(() => buildRibbonGeometry(RIBBON_SEGMENTS, RIBBON_ROWS), []);
   useEffect(() => () => geometry.dispose(), [geometry]);
@@ -202,6 +203,15 @@ export default function BreakingWaves({ settings, lighting, noise = null, shore 
       }
       ribbon.uniforms.uWaveN.value = n;
       ribbon.uniforms.uHeight.value = settings.surfHeight * ribbon.height;
+      // What the ribbon leaves on the water: the same break phase the profile
+      // uses, handed to the foam field so the trail outlives the wave.
+      const bore = foamBores?.[ribbon.index];
+      if (bore) {
+        const raw = (n + settings.surfBreakDistance) / Math.max(settings.surfBreakLength, 0.1);
+        const psi = clamp01((raw - 1) * settings.surfBreakLength / Math.max(settings.surfBoreLength, 0.1));
+        const lip = clamp01((raw - 0.55) / 0.45);
+        bore.set(n, Math.max(lip, psi), settings.surfWidth * (0.5 + psi * 0.5), 0);
+      }
     });
   });
 

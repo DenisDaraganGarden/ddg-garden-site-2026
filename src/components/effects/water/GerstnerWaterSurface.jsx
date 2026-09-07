@@ -3,10 +3,13 @@ import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { createGerstnerUniforms, gerstnerPixelShader, gerstnerShader, syncGerstnerUniforms } from './gerstnerWaves';
 import { buildRadialWaterGeometry } from './radialWaterGeometry';
+import { createFoamFieldUniforms, foamFieldShader, useFoamField } from './foamField';
 import { createWaterShadingUniforms, syncWaterShadingUniforms, tickWaterShadingUniforms, useWaterNoise, waterShadingShader } from './waterShading';
 
 // The open-water surface: one radial mesh under the camera, Gerstner trains in
-// the vertex shader, whitecaps where the Jacobian says the crest folds.
+// the vertex shader, and foam from the field with memory near the camera —
+// beyond its window, whitecaps straight from the Jacobian, which is all the
+// horizon needs.
 
 const vertexShader = /* glsl */`
   #include <fog_pars_vertex>
@@ -27,7 +30,8 @@ const vertexShader = /* glsl */`
     float cell = dist * uCellFactor;
     vec3 waveNormal;
     float jacobian;
-    vec3 world = gerstnerDisplace(p, fade, cell, waveNormal, jacobian);
+    vec2 drift;
+    vec3 world = gerstnerDisplace(p, fade, cell, waveNormal, jacobian, drift);
     vWorld = world;
     vWaveNormal = waveNormal;
     vJacobian = jacobian;
@@ -44,6 +48,7 @@ const fragmentShader = /* glsl */`
   ${waterShadingShader}
   ${gerstnerShader}
   ${gerstnerPixelShader}
+  ${foamFieldShader}
   uniform float uFoamThreshold;
   uniform float uFoamSoftness;
   varying vec3 vWorld;
@@ -61,8 +66,13 @@ const fragmentShader = /* glsl */`
     n = waterRippleNormal(n, vWorld.xz, pixel, vFade);
     float jacobian = vJacobian - fold;
     float crest = smoothstep(uFoamThreshold + uFoamSoftness, uFoamThreshold - uFoamSoftness, jacobian);
+    vec3 memory = sampleFoamField(vWorld.xz);
+    float coverage = mix(crest * 0.9, memory.x, memory.z);
+    // Beyond the window the whitecap has no age of its own; a middling one
+    // keeps the lace the same on both sides of the window's edge.
+    float age = mix(0.35, memory.y, memory.z);
     float lift = clamp(vWorld.y * 1.5, 0.0, 1.0) * (1.0 - jacobian * 0.5);
-    vec3 color = shadeWater(vWorld, n, view, pixel, crest * 0.9, 10.0, lift);
+    vec3 color = shadeWater(vWorld, n, view, pixel, coverage, age, 10.0, lift);
     gl_FragColor = vec4(color, 1.0);
     #include <fog_fragment>
     #include <tonemapping_fragment>
@@ -70,7 +80,7 @@ const fragmentShader = /* glsl */`
   }
 `;
 
-export default function GerstnerWaterSurface({ settings, lighting, noise = null, followCamera = true, wireframe = false, shore = null }) {
+export default function GerstnerWaterSurface({ settings, lighting, noise = null, followCamera = true, wireframe = false, shore = null, foamBores = null }) {
   const meshRef = useRef();
   const activeNoise = useWaterNoise(noise);
   const geometry = useMemo(
@@ -83,6 +93,7 @@ export default function GerstnerWaterSurface({ settings, lighting, noise = null,
     ...THREE.UniformsUtils.clone(THREE.UniformsLib.fog),
     ...createGerstnerUniforms(),
     ...createWaterShadingUniforms(),
+    ...createFoamFieldUniforms(),
     uCellFactor: { value: 0.05 },
     uShore: { value: new THREE.Vector4(0, 0, 0, 1) },
     uShoreFade: { value: new THREE.Vector2(0, 0) },
@@ -101,6 +112,8 @@ export default function GerstnerWaterSurface({ settings, lighting, noise = null,
       uniforms.uShoreFade.value.set(shore.fadeN, shore.fadeWidth);
     } else uniforms.uShoreFade.value.set(0, 0);
   }, [geometry, lighting, settings, shore, uniforms]);
+
+  useFoamField(uniforms, { settings, bores: foamBores, shore });
 
   useFrame(({ clock, camera }) => {
     uniforms.uGerstnerTime.value = clock.elapsedTime;

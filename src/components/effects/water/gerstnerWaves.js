@@ -82,12 +82,14 @@ float gerstnerResolve(float k, float cell) {
   return 1.0 - smoothstep(0.08, 0.3, cell * k * 0.15915494);
 }
 
-// Displaced world position; writes the analytic normal and the Jacobian of the
-// horizontal displacement (1 = flat, small = the crest is folding, <0 never).
-// cell is the vertex spacing here in metres.
-vec3 gerstnerDisplace(vec2 p, float fade, float cell, out vec3 normal, out float jacobian) {
+// Displaced world position; writes the analytic normal, the Jacobian of the
+// horizontal displacement (1 = flat, small = the crest is folding, <0 never)
+// and the horizontal orbital velocity, which is what carries floating foam
+// forward on a crest and back in a trough. cell is the vertex spacing here.
+vec3 gerstnerDisplace(vec2 p, float fade, float cell, out vec3 normal, out float jacobian, out vec2 drift) {
   vec3 offset = vec3(0.0);
   vec3 slope = vec3(0.0);
+  drift = vec2(0.0);
   float dxx = 0.0, dzz = 0.0, dxz = 0.0;
   for (int i = 0; i < GERSTNER_TRAINS; i++) {
     vec4 train = uGerstnerTrain[i];
@@ -100,6 +102,7 @@ vec3 gerstnerDisplace(vec2 p, float fade, float cell, out vec3 normal, out float
     float s = sin(phase), c = cos(phase);
     offset.xz += q * a * d * c;
     offset.y += a * s;
+    drift += q * a * motion.x * d * s;
     float wa = k * a;
     slope.x += d.x * wa * c;
     slope.z += d.y * wa * c;
