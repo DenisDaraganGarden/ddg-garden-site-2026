@@ -16,6 +16,10 @@ uniform vec4 uTerrainGrade;uniform float uTerrainGradeDry;
 uniform float uRockLayer;uniform float uTerrainTime;uniform float uTerrainOptics;uniform float uTerrainScale;uniform float uTerrainParallax;uniform float uRockOnly;uniform float uTerrainGroundCover;
 uniform sampler2D uPondNormalMap;uniform vec2 uPondTexel;uniform float uPondExtent;uniform vec4 uCausticsParams;uniform vec3 uCausticsLight;uniform float uCausticsKey;
 struct TerrainSample{vec3 color;vec3 surface;vec3 normal;};
+// The daylight soils of the Taganrog bluffs (linear): fresh scarp #C4A472,
+// weathered crust #9A7C58, humus #5F4C38, dry talus #C6AC80 - and the loam
+// texture's own mean #91673D, so a tint of target/mean recolours it exactly.
+const vec3 SOIL_FRESH=vec3(.552,.371,.168),SOIL_CRUST=vec3(.323,.202,.098),SOIL_HUMUS=vec3(.114,.072,.040),SOIL_TALUS=vec3(.565,.413,.216),SOIL_LOAM=vec3(.283,.136,.047);
 // The artist's grading of the albedo: saturation around its own luminance,
 // contrast around mid grey, then level. Fresh and dry cover each get their
 // own saturation so the meadow can be greener or strawier than authored.
@@ -152,7 +156,17 @@ export function createTerrainMaterial(textures,p,rockOnly=false){
    float moisture=coastNoise(vTerrainWorld.xz*.085+vec2(11.3,28.1));
    float rootCover=(cover.r*.65+cover.g)*smoothstep(.55,.93,terrainN.y)*(1.0-uRockOnly);
    float coverWeight=clamp(soilCap*(.28+.62*smoothstep(.22,.72,moisture))+rootCover,0.0,1.0)*uTerrainGroundCover*(1.0-wet)*(1.0-path);
-   float dryness=clamp(uPlantEcology.x+4.0*uPlantEcology.x*(1.0-uPlantEcology.x)*((colony-.5)*uPlantEcology.z*1.8+(uCoastGeology.z-.5)*.24),0.0,1.0);
+   float dist=distance(cameraPosition,vTerrainWorld);
+   // The ground at the foot of the bluff (terrainShader.js coastSoil): x the
+   // talus tongue run out onto the beach, y the seep where the bluff drains.
+   // Only the beach and the face can carry either; the shelf and plateau skip it.
+   vec2 soil=qs.x>-2.0&&qs.x<profile.y?coastSoil(qs,forms,profile):vec2(0.0);float seep=soil.y;
+   // Height up the face, 0 at the foot and 1 at the crown as coastHeight
+   // lowers it on slides and ravines: the tiers of the bluff read from this.
+   float footY=min(profile.x,profile.w)*.035,crestY=footY+profile.z*(1.0-forms.x*.16-forms.y*.58);
+   float hN=clamp((groundY-footY)/max(crestY-footY,.5),0.0,1.0);
+   // Seepage keeps the cover green: the plants read the same field (vegetation.dryness).
+   float dryness=clamp(uPlantEcology.x+4.0*uPlantEcology.x*(1.0-uPlantEcology.x)*((colony-.5)*uPlantEcology.z*1.8+(uCoastGeology.z*(1.0-seep*.5)-.5)*.24),0.0,1.0)*(1.0-seep*.5);
    vec2 sandNormalUv=vTerrainWorld.xz/1.2*uTerrainScale+terrainDomainWarp(vTerrainWorld.xz);
    vec2 sandDx=dFdx(sandNormalUv),sandDy=dFdy(sandNormalUv);
    vec2 groundNormalUv=vTerrainWorld.xz/1.6*uTerrainScale+terrainDomainWarp(vTerrainWorld.xz);
@@ -170,6 +184,14 @@ export function createTerrainMaterial(textures,p,rockOnly=false){
     ground=terrainSample(0.0,sandUv,sandDx,sandDy);
     if(shellMask>.01)ground=terrainBlend(ground,terrainSample(1.0,sandUv,sandDx,sandDy),shellMask);
     ground.color*=mix(vec3(1.0),vec3(.66,.56,.41),soilCap*uCoastGeology.y*(1.0-shellMask));
+    // The run-out of the bluff onto the beach: loose loam in lobes, the sand
+    // showing through at the fringe where the sheet thins and stays damp.
+    if(soil.x>.01){
+     TerrainSample talus=terrainSample(3.0,sandUv*.667,sandDx*.667,sandDy*.667);
+     float fringe=smoothstep(0.0,.4,soil.x)*(1.0-smoothstep(.4,.85,soil.x));
+     talus.color*=SOIL_CRUST/SOIL_LOAM*(1.0-fringe*.25);
+     ground=terrainBlend(ground,talus,smoothstep(.02,.55,soil.x));
+    }
     // The bed of the shelf (terrainShader.js coastBedCover): silt in the calm,
     // weed meadows on the middle of the shelf, mussel banks as dark islands -
     // three of the layers already resident, tinted, with ragged edges and
@@ -230,25 +252,60 @@ export function createTerrainMaterial(textures,p,rockOnly=false){
     if(triWeight.x>.002){uvX=terrainParallaxUv(uvX,viewWorld.zy,viewWorld.x,rockLayer,.028/rockTile);TerrainSample m=terrainSample(rockLayer,uvX,dxX,dyX);rockColor+=m.color*triWeight.x;rockSurface+=m.surface*triWeight.x;rockMapX=m.normal;}
     if(triWeight.y>.002){TerrainSample m=terrainSample(rockLayer,uvY,dxY,dyY);rockColor+=m.color*triWeight.y;rockSurface+=m.surface*triWeight.y;rockMapY=m.normal;}
     if(triWeight.z>.002){uvZ=terrainParallaxUv(uvZ,viewWorld.xy,viewWorld.z,rockLayer,.028/rockTile);TerrainSample m=terrainSample(rockLayer,uvZ,dxZ,dyZ);rockColor+=m.color*triWeight.z;rockSurface+=m.surface*triWeight.z;rockMapZ=m.normal;}
-    float strata=coastNoise(vec2(qs.y*.095,groundY*2.4+sin(qs.y*.077)*.26));
-    float cap=smoothstep(profile.z+profile.w*.035-.55,profile.z+profile.w*.035+.06,groundY)*uCoastGeology.y*(1.0-uRockOnly);
-    rockColor*=mix(vec3(1.0),vec3(.39,.34,.25),cap);
-    rockColor*=mix(vec3(.93,.86,.76),vec3(1.13,1.1,.95),strata*.7+uCoastGeology.z*.3);
+    if(uRockLayer>2.5){
+     // The bluff in tiers, by height up the face, as the Taganrog shore reads
+     // in daylight: the cold dark humus cap with the damp band under the turf,
+     // the loess with thin pale beds and rain rills the whole height, the
+     // loose talus at the foot. Fresh scarps are the steep faces, lighter and
+     // warmer; weathering turns them to the darker crust. The beds and rills
+     // fade with distance so they cannot shimmer from afar.
+     float seed=uCoastShape.w*.031,strata=uCoastSoil.y*1.4*(1.0-smoothstep(40.0,120.0,dist));
+     float capEdge=hN+(coastNoise(vec2(qs.y*.09,7.0)+seed)-.5)*.16;
+     float cap=smoothstep(.78,.88,capEdge)*(.55+.45*uCoastGeology.y)*(1.0-uRockOnly),underCap=smoothstep(.62,.78,capEdge)*(1.0-cap)*(1.0-uRockOnly);
+     float talusTier=max(1.0-smoothstep(.2,.42,hN),uRockOnly);
+     float fresh=smoothstep(.6,.3,abs(terrainN.y))*(1.0-uCoastGeology.z*.6)*smoothstep(.5,.8,coastPatch(vec2(qs.y,groundY*2.6),4.0,seed*30.0+9.0));
+     fresh=clamp(fresh,0.0,1.0)*(1.0-talusTier);
+     float bedPhase=groundY*19.0+(coastNoise(vec2(qs.y*.05,groundY*.3)+seed)-.5)*5.0+sin(qs.y*.077)*1.5,beds=sin(bedPhase);
+     float coarse=coastNoise(vec2(qs.y*.03,groundY*.9)+seed)-.5;
+     float steep=smoothstep(.9,.5,abs(terrainN.y))*(1.0-smoothstep(30.0,90.0,dist));
+     vec2 streakUv=vec2(qs.y*1.9+sin(groundY*.9)*.25,groundY*.11)+seed;
+     float streaks=(coastNoise(streakUv)-.5)*2.0,streakSlope=(coastNoise(streakUv+vec2(.15,0.0))-coastNoise(streakUv))*6.0;
+     float flow=sin(qs.y*.72+sin(qs.y*.131+uCoastShape.w*.137)+qs.x*.075);
+     float rill=exp(-pow(flow/.24,2.0))*uCoastGeology.x*smoothstep(.15,.5,hN)*(1.0-smoothstep(.75,.9,hN));
+     float face=(1.0-talusTier)*(1.0-cap);
+     vec3 tone=mix(mix(SOIL_CRUST,SOIL_FRESH,fresh),mix(SOIL_TALUS,SOIL_CRUST,.35),talusTier*.85);
+     tone=mix(tone,SOIL_HUMUS,cap);
+     rockColor*=tone/SOIL_LOAM*(1.0+(.055*beds+.2*coarse)*strata*face)*(1.0-(.14*streaks*steep+.22*rill)*strata*face)*(1.0-underCap*.25);
+     // The harder beds stand out as ridges and the rills cut grooves: a tilt of
+     // the wall's normal in the two vertical projections (map y is world Y in
+     // both; map x is world Z in the X projection and world X in the Z one).
+     float relief=strata*face*steep;
+     vec2 along=coastAlong();
+     rockMapX.xy+=vec2(streakSlope*along.y*.35,cos(bedPhase)*.28)*relief;
+     rockMapZ.xy+=vec2(streakSlope*along.x*.35,cos(bedPhase)*.28)*relief;
+    }else{
+     float strata=coastNoise(vec2(qs.y*.095,groundY*2.4+sin(qs.y*.077)*.26));
+     rockColor*=mix(vec3(.93,.86,.76),vec3(1.13,1.1,.95),strata*.7+uCoastGeology.z*.3);
+    }
    }
-   vec3 surfaceData=mix(ground.surface,rockSurface,rockWeight);
-   vec3 terrainColor=mix(ground.color,rockColor,rockWeight);
+   // Loam over sand by height, not a fade: the lumps stand out of the sand.
+   float rockW=clamp(rockWeight+rockWeight*(1.0-rockWeight)*(rockSurface.b-ground.surface.b)*1.4,0.0,1.0);
+   vec3 surfaceData=mix(ground.surface,rockSurface,rockW);
+   vec3 terrainColor=mix(ground.color,rockColor,rockW);
    float macroVariation=.88+.22*coastNoise(vTerrainWorld.xz*.21+vec2(5.2,42.9));
-   diffuseColor.rgb=mix(gradeTerrain(terrainColor)*mix(1.0,.53,wet),vec3(.86,.87,.82),foamTrace)*macroVariation;
+   // Seepage darkens the ground the way the swash does, without the foam.
+   float damp=max(wet,seep*.8);
+   diffuseColor.rgb=mix(gradeTerrain(terrainColor)*mix(1.0,.53,damp),vec3(.86,.87,.82),foamTrace)*macroVariation;
    diffuseColor.rgb*=1.0+caustic*.5;
   `);
-  shader.fragmentShader=shader.fragmentShader.replace('#include <roughnessmap_fragment>','#include <roughnessmap_fragment>\nroughnessFactor=mix(surfaceData.r,.4,wet);');
+  shader.fragmentShader=shader.fragmentShader.replace('#include <roughnessmap_fragment>','#include <roughnessmap_fragment>\nroughnessFactor=mix(surfaceData.r,.4,damp);');
   shader.fragmentShader=shader.fragmentShader.replace('#include <normal_fragment_maps>',`#include <normal_fragment_maps>
    vec3 groundViewN=terrainNormal(normal,-vViewPosition,sandNormalUv,ground.normal);
    vec3 rockViewN=normal;
    if(rockWeight>.001)rockViewN=normalize(terrainNormal(normal,-vViewPosition,rockNormalUvX,rockMapX)*triWeight.x+terrainNormal(normal,-vViewPosition,rockNormalUvY,rockMapY)*triWeight.y+terrainNormal(normal,-vViewPosition,rockNormalUvZ,rockMapZ)*triWeight.z);
-   normal=normalize(mix(groundViewN,rockViewN,rockWeight));
+   normal=normalize(mix(groundViewN,rockViewN,rockW));
   `);
   shader.fragmentShader=shader.fragmentShader.replace('#include <aomap_fragment>','#include <aomap_fragment>\nreflectedLight.indirectDiffuse*=surfaceData.g;');
  };
- material.customProgramCacheKey=()=> 'azov-coast-layered-pbr-v8';return material;
+ material.customProgramCacheKey=()=> 'azov-coast-layered-pbr-v9';return material;
 }

@@ -44,8 +44,10 @@ export function coastHeight(q,s,p) {
   const recovery=smooth(f.top,f.top+Math.max(6,f.bank*3),q);
   const slump=(f.slide*.16+f.ravine*.58)*(1-recovery);
   const beach=Math.min(q,f.beach)*.035;
-  // A scarp, displaced bench and deposited toe share one continuous field.
-  const talus=f.slide*f.bank*.1*Math.sin(t*Math.PI)*(1-f.descent);
+  // A scarp, displaced bench and deposited toe share one continuous field: the
+  // toe is a cone at the foot of a slide, spilling onto the beach (GLSL twin in coastHeight).
+  const toe=((q-f.foot)/Math.max(f.width,1)-.12)/.26;
+  const talus=f.slide*f.bank*.2*p.terrainTalus*Math.exp(-toe*toe)*(1-f.descent)*smooth(1,4,q);
   const flow=Math.sin(s*.72+Math.sin(s*.131+seed)+q*.075);
   const rill=Math.exp(-Math.pow(flow/.24,2));
   const erosion=-rill*Math.min(.42,f.bank*.07)*p.terrainErosion*Math.sin(t*Math.PI)*(1-f.descent*.8);
@@ -112,6 +114,23 @@ export function sampleSeabedCover(q,s,depth,p) {
     silt:clamp01((p.terrainSilt??0)*smooth(.45,1,f)*smooth(.45,.7,calm))*mask,
     mussels:clamp01((p.terrainMussels??0)*wash*smooth(.3,.8,f)*smooth(.62,.8,bank))*mask};
 }
+// The CPU twin of coastSoil in terrainShader.js: the ground at the foot of the
+// bluff. talus: the tongue of loose loam run out of the bluff onto the beach,
+// lobed along the shore. seep: ground moisture where the bluff drains - its
+// foot, the toes of slides, the mouths of ravines across the beach. Keep the
+// two identical; the material only adds the tiers of the face on top.
+export function sampleCoastSoil(q,s,p) {
+  const f=coastProfile(s,p),seed=p.terrainSeed*.37,amount=p.terrainTalus;
+  const reach=(1.2+f.bank*(.3+f.slide*.7))*(.4+amount);
+  const lobes=coastPatch(s,(q-f.foot)*1.4,3.5+f.slide*5,seed+53);
+  const run=reach*mix(.25,1.35,lobes),d=f.foot-q;
+  const talus=(1-smooth(run*.4,run,d))*(1-smooth(f.foot+f.width*.3,f.foot+f.width*.5,q))*Math.min(1,amount*1.6)*(.7+.3*f.slide);
+  const patch=mix(.5,1,coastPatch(s+77,q*2,5,seed+41));
+  const foot=smooth(f.foot-1.5-reach*.3,f.foot-.2,q)*(1-smooth(f.foot+.5+f.width*.15,f.foot+1.5+f.width*.3,q))*(.3+.7*Math.max(f.slide,f.ravine));
+  const mouth=f.ravine*.6*smooth(-2,0,q)*(1-smooth(f.beach*.8,f.beach*1.2,q));
+  const mask=terrainCoverage(q,s,p);
+  return {talus:clamp01(talus)*mask,seep:clamp01(Math.max(foot,mouth)*patch)*mask};
+}
 export function sampleTerrainSurface(x,z,p,time=0) {
   const {u,s}=coastCoordinates(x,z,p),q=u-shorePosition(s,p),height=coastHeight(q,s,p),normal=sampleTerrainNormal(x,z,p);
   const wetness=sampleCoastWetness(q,s,time,p);
@@ -123,8 +142,9 @@ export function sampleTerrainSurface(x,z,p,time=0) {
   const path=coastPathMask(q,s,p),stable=1-smooth(.12,.65,path);
   const habitat=height>0.25 && slope<.55 ? (q>p.terrainBeachWidth+p.terrainCliffSlope?'plateau':'beach') : height<0?'submerged':'swash';
   const seabed=height<0?sampleSeabedCover(q,s,-height,p):{weed:0,silt:0,mussels:0};
-  return {height,normal,slope,wetness,path,shells:shellBand,seabed,material:normal.y<.88?'sandstone':shellBand>.3?'shell-sand':'sand',friction:mix(.85,.48,wetness),habitat,
-    vegetation:{grass:habitat==='plateau'?exposure*stable:0,shrubs:height>.28&&wetness<.15&&q>p.terrainBeachWidth*.85 ? smooth(.67,.94,normal.y)*(1-exposure*.45)*(.3+.7*p.terrainSoil)*stable:0,trees:habitat==='plateau'&&q>p.terrainBeachWidth+15?.5*stable:0,dryness:p.terrainWeathering,soil:p.terrainSoil},
+  const soil=sampleCoastSoil(q,s,p);
+  return {height,normal,slope,wetness,path,shells:shellBand,seabed,talus:soil.talus,seep:soil.seep,material:normal.y<.88?'sandstone':shellBand>.3?'shell-sand':'sand',friction:mix(.85,.48,wetness),habitat,
+    vegetation:{grass:habitat==='plateau'?exposure*stable:0,shrubs:height>.28&&wetness<.15&&q>p.terrainBeachWidth*.85 ? smooth(.67,.94,normal.y)*(1-exposure*.45)*(.3+.7*p.terrainSoil)*stable:0,trees:habitat==='plateau'&&q>p.terrainBeachWidth+15?.5*stable:0,dryness:p.terrainWeathering*(1-soil.seep*.5),soil:p.terrainSoil},
     wind:{x:Math.sin(windAngle)*coastWeather(p).wind*exposure*gust,z:-Math.cos(windAngle)*coastWeather(p).wind*exposure*gust,exposure,gust}};
 }
 export function createTerrainQuery(p) {

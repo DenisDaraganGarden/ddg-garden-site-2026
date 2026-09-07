@@ -14,6 +14,8 @@ uniform vec4 uCoastSwell;
 uniform vec4 uCoastShelf;
 // x: scale of the bed patches (m), y: ripple marks on the sand.
 uniform vec4 uCoastBed;
+// x: talus run out of the bluff onto the beach, y: beds and rain rills of the face.
+uniform vec4 uCoastSoil;
 ${landformsShader}
 vec2 coastLand() { return vec2(sin(uCoastShape.y),-cos(uCoastShape.y)); }
 vec2 coastAlong() { return vec2(cos(uCoastShape.y),sin(uCoastShape.y)); }
@@ -49,7 +51,8 @@ float coastHeight(vec2 qs) {
  float recovery=smoothstep(top,top+max(6.0,bank*3.0),q);
  float slump=(f.x*.16+f.y*.58)*(1.0-recovery);
  float beach=min(q,profile.w)*.035;
- float talus=f.x*bank*.1*sin(t*3.14159265359)*(1.0-f.z);
+ float toe=((q-foot)/max(width,1.0)-.12)/.26;
+ float talus=f.x*bank*.2*uCoastSoil.x*exp(-toe*toe)*(1.0-f.z)*smoothstep(1.0,4.0,q);
  float flow=sin(s*.72+sin(s*.131+seed)+q*.075);
  float rill=exp(-pow(flow/.24,2.0));
  float erosion=-rill*min(.42,bank*.07)*uCoastGeology.x*sin(t*3.14159265359)*(1.0-f.z*.8);
@@ -125,6 +128,22 @@ vec3 coastBedCover(vec2 qs,float depth) {
  float silt=uCoastShelf.z*smoothstep(.45,1.0,f)*smoothstep(.45,.7,calm);
  float mussels=uCoastShelf.w*wash*smoothstep(.3,.8,f)*smoothstep(.62,.8,bank);
  return clamp(vec3(weed,silt,mussels),0.0,1.0)*coastMask(qs);
+}
+// The ground at the foot of the bluff. x talus: the tongue of loose loam run
+// out of the bluff onto the beach, lobed along the shore. y seep: ground
+// moisture where the bluff drains - its foot, the toes of slides, the mouths
+// of ravines across the beach. The CPU twin is terrainModel.js
+// sampleCoastSoil: keep the two identical.
+vec2 coastSoil(vec2 qs,vec3 f,vec4 profile) {
+ float q=qs.x,s=qs.y,foot=profile.x,width=profile.y-profile.x,bank=profile.z,seed=uCoastShape.w*.37,amount=uCoastSoil.x;
+ float reach=(1.2+bank*(.3+f.x*.7))*(.4+amount);
+ float lobes=coastPatch(vec2(s,(q-foot)*1.4),3.5+f.x*5.0,seed+53.0);
+ float run=reach*mix(.25,1.35,lobes),d=foot-q;
+ float talus=(1.0-smoothstep(run*.4,run,d))*(1.0-smoothstep(foot+width*.3,foot+width*.5,q))*min(1.0,amount*1.6)*(.7+.3*f.x);
+ float spots=mix(.5,1.0,coastPatch(vec2(s+77.0,q*2.0),5.0,seed+41.0));
+ float footSeep=smoothstep(foot-1.5-reach*.3,foot-.2,q)*(1.0-smoothstep(foot+.5+width*.15,foot+1.5+width*.3,q))*(.3+.7*max(f.x,f.y));
+ float mouth=f.y*.6*smoothstep(-2.0,0.0,q)*(1.0-smoothstep(profile.w*.8,profile.w*1.2,q));
+ return clamp(vec2(talus,max(footSeep,mouth)*spots),0.0,1.0)*coastMask(qs);
 }
 // The summer bloom, 0..1 times the slider: giant masses of green water that
 // drift downwind, smaller patches inside them, thicker over the meadows that
@@ -215,7 +234,7 @@ float coastSandFoamAtHeight(vec2 qs,vec3 world,float time,float ground){return c
 float coastFoam(vec2 qs,vec3 world,float time){return coastFoamAtHeight(qs,world,time,coastHeight(qs));}
 `;
 export function createCoastUniforms() {
- return {uCoastLandforms:{value:new THREE.Vector4()},uCoastShape:{value:new THREE.Vector4()},uCoastDimensions:{value:new THREE.Vector4()},uCoastDetail:{value:new THREE.Vector4()},uCoastSurface:{value:new THREE.Vector4()},uCoastSurf:{value:new THREE.Vector4()},uCoastGeology:{value:new THREE.Vector4()},uCoastSwell:{value:new THREE.Vector4(0,-1,1,0)},uCoastShelf:{value:new THREE.Vector4()},uCoastBed:{value:new THREE.Vector4(42,0,0,0)}};
+ return {uCoastLandforms:{value:new THREE.Vector4()},uCoastShape:{value:new THREE.Vector4()},uCoastDimensions:{value:new THREE.Vector4()},uCoastDetail:{value:new THREE.Vector4()},uCoastSurface:{value:new THREE.Vector4()},uCoastSurf:{value:new THREE.Vector4()},uCoastGeology:{value:new THREE.Vector4()},uCoastSwell:{value:new THREE.Vector4(0,-1,1,0)},uCoastShelf:{value:new THREE.Vector4()},uCoastBed:{value:new THREE.Vector4(42,0,0,0)},uCoastSoil:{value:new THREE.Vector4(.6,.6,0,0)}};
 }
 export function syncCoastUniforms(uniforms,p) {
  uniforms.uCoastShape.value.set(p.terrainEnabled?1:0,p.terrainBearing*Math.PI/180,p.terrainOffset,p.terrainSeed);
@@ -228,6 +247,7 @@ export function syncCoastUniforms(uniforms,p) {
  uniforms.uCoastGeology.value.set(p.terrainErosion,p.terrainSoil,p.terrainWeathering,p.terrainBloom);
  uniforms.uCoastShelf?.value.set(p.terrainShelfSlope??0,p.terrainWeed??0,p.terrainSilt??0,p.terrainMussels??0);
  uniforms.uCoastBed?.value.set(p.terrainBedScale??42,p.terrainRipples??0,0,0);
+ uniforms.uCoastSoil?.value.set(p.terrainTalus??.6,p.terrainStrata??.6,0,0);
  if(uniforms.uTerrainGrade){uniforms.uTerrainGrade.value.set(p.terrainSaturation??1,p.terrainContrast??1,p.terrainBrightness??1,p.terrainGreen??1);uniforms.uTerrainGradeDry.value=p.terrainDry??1;}
  const bearing=(p.terrainWindBearing??0)*Math.PI/180;
  uniforms.uCoastSwell.value.set(Math.sin(bearing),-Math.cos(bearing),weather.swell,p.terrainStorm??0);
