@@ -345,19 +345,9 @@ function WaterRuntimeScene({
       hasWindow ? window.innerHeight : size.height,
     );
   const activeLayout = explicitLayout ?? resolveLayout(settings.layouts, activeLayoutKey);
-  // Editor-only viewport bookmark: only the rig looks from it. The boat, the
-  // sculpture and the frame stay on the authored layout.
-  const workCamera = mode === 'editor'
-    ? settings.workCameras?.find((camera) => camera.id === settings.activeWorkCameraId)
-    : null;
-  const rigLayout = workCamera
-    ? {
-      ...activeLayout,
-      cameraPosition: workCamera.cameraPosition,
-      cameraTarget: workCamera.cameraTarget,
-      cameraFov: workCamera.cameraFov,
-    }
-    : activeLayout;
+  // Both work and site cameras apply a complete snapshot to settings. The rig
+  // must use the same selected format as objects, frame and editor controls.
+  const rigLayout = activeLayout;
   const updateBoatAudioPosition = useMemo(() => (
     audioRuntime?.updateEmitter
       ? (x, y, z) => audioRuntime.updateEmitter('boat', x, y, z)

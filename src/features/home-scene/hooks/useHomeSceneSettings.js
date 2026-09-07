@@ -4,13 +4,15 @@ import { DEFAULT_TANKER_SETTINGS, normalizeTankerSettings } from '../../../tanke
 import { DEFAULT_SHORE_SETTINGS, normalizeShoreSettings } from '../../../shore/settings.js';
 import { DEFAULT_RENDER_QUALITY_SETTINGS, normalizeRenderQualitySettings } from '../../../components/effects/renderQualitySettings.js';
 import { DEFAULT_PAINTERLY_CLOUD_SETTINGS, normalizePainterlyCloudSettings } from '../lib/painterlyCloudSettings.js';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { publishedHomeSceneSettings } from '../data/publishedHomeSceneSettings';
 import { publishedHomeSceneKeys } from '../data/publishedHomeSceneKeys';
 import {
   clampLayoutFrameInset,
   DEFAULT_LAYOUT_FRAME_INSETS,
+  resolveLayoutKey,
 } from '../lib/layout';
+import { initializeEditorCameras, syncActiveEditorCamera } from '../lib/editorCameraState.js';
 import {
   applySceneSnapshot,
   createSceneSnapshot,
@@ -175,7 +177,7 @@ const pickLayout = (value, fallback) => {
     customized: pickBoolean(source.customized, fallback.customized),
     cameraPosition: pickVector3(source.cameraPosition, fallback.cameraPosition),
     cameraTarget: pickVector3(source.cameraTarget, fallback.cameraTarget),
-    cameraFov: clampInt(
+    cameraFov: clampFloat(
       source.cameraFov,
       HOME_SCENE_CAMERA_FOV_MIN,
       HOME_SCENE_CAMERA_FOV_MAX,
@@ -635,7 +637,7 @@ const normalizeHomeSceneSettings = (savedSettings = {}, includeCameraSystem = tr
     defaults.cameraTargetPortrait,
   );
 
-  const normalizedCameraFov = clampInt(
+  const normalizedCameraFov = clampFloat(
     merged.cameraFov,
     HOME_SCENE_CAMERA_FOV_MIN,
     HOME_SCENE_CAMERA_FOV_MAX,
@@ -1172,9 +1174,9 @@ const normalizeHomeSceneSettings = (savedSettings = {}, includeCameraSystem = tr
     ? requestedActiveCameraId
     : sceneCameras[0].id;
 
-  // Editor-local: viewport bookmarks live in the draft only. They are outside
-  // the published key list, so publish and camera snapshots drop them.
-  const workCameras = normalizeWorkCameras(savedSettings.workCameras);
+  // Editor-local scene snapshots share normalization with site cameras, but
+  // never enter the published catalogue or another camera's snapshot.
+  const workCameras = normalizeWorkCameras(savedSettings.workCameras, fallbackScene, normalizeSnapshot);
   const activeWorkCameraId = workCameras.some(
     (camera) => camera.id === savedSettings.activeWorkCameraId,
   )
@@ -1188,6 +1190,9 @@ const normalizeHomeSceneSettings = (savedSettings = {}, includeCameraSystem = tr
     activeCameraId,
     workCameras,
     activeWorkCameraId,
+    editorLayoutKey: ['desktop', 'portrait'].includes(savedSettings.editorLayoutKey)
+      ? savedSettings.editorLayoutKey
+      : undefined,
   };
 };
 
@@ -1205,9 +1210,13 @@ export const applyHomeSceneSnapshot = (settings = {}, snapshot = {}) => (
 
 export const sanitizeHomeSceneSettingsForPublish = (settings = {}) => {
   const normalizedSettings = normalizeHomeSceneSettings(settings);
+  // Publication always starts from the first site camera. A local work look
+  // must not become the site's root scene, including before its first cut.
+  const firstCamera = normalizedSettings.sceneCameras[0];
+  const publishedSettings = applySceneSnapshot(normalizedSettings, firstCamera.scene);
 
   return publishedHomeSceneKeys.reduce((accumulator, key) => {
-    accumulator[key] = normalizedSettings[key];
+    accumulator[key] = publishedSettings[key];
     return accumulator;
   }, {});
 };
@@ -1225,7 +1234,13 @@ export const getPublishedHomeSceneSettings = () => {
 
 export const normalizePublishedHomeSceneSettings = (settings = {}) => normalizeHomeSceneSettings(settings);
 
-export const normalizeHomeSceneDraftSettings = (savedSettings = {}) => normalizeHomeSceneSettings(savedSettings);
+export const normalizeHomeSceneDraftSettings = (savedSettings = {}) => {
+  const normalized = normalizeHomeSceneSettings(savedSettings);
+  const layoutKey = normalized.editorLayoutKey ?? (typeof window === 'undefined'
+    ? 'desktop'
+    : resolveLayoutKey(window.innerWidth, window.innerHeight));
+  return initializeEditorCameras(normalized, HOME_SCENE_SNAPSHOT_KEYS, layoutKey);
+};
 
 function removeLegacyHomeSceneKeys() {
   if (typeof window === 'undefined') {
@@ -1306,7 +1321,15 @@ export const usePublishedHomeSceneSettings = () => {
 };
 
 export const useHomeSceneDraftSettings = () => {
-  const [settings, setSettings] = useState(() => readHomeSceneDraftSettings() ?? getPublishedHomeSceneSettings());
+  const [settings, setStoredSettings] = useState(() => (
+    readHomeSceneDraftSettings() ?? normalizeHomeSceneDraftSettings(getPublishedHomeSceneSettings())
+  ));
+  const setSettings = useCallback((update) => {
+    setStoredSettings((previous) => {
+      const next = typeof update === 'function' ? update(previous) : update;
+      return next === previous ? previous : syncActiveEditorCamera(next, HOME_SCENE_SNAPSHOT_KEYS);
+    });
+  }, []);
 
   useEffect(() => {
     if (typeof window === 'undefined' || isScenePreview()) {

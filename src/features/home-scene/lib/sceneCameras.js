@@ -1,11 +1,21 @@
 // Camera variants are intentionally data-only.  The editor, settings migration
 // and public player can share this module without making either of them depend
 // on React or on a particular scene renderer.
+import { createPairedCameraLayouts } from './layout.js';
 
 export const SCENE_CAMERA_SNAPSHOT_EXCLUDED_KEYS = Object.freeze([
   'sceneCameras',
   'slideshow',
   'freeCamera',
+  'workCameras',
+  'activeCameraId',
+  'activeWorkCameraId',
+  'editorLayoutKey',
+  'animationPaused',
+  'editorHeadingColor',
+  'editorCursor',
+  'debugWireframe',
+  'audio',
 ]);
 
 export const DEFAULT_SCENE_CAMERA_HOLD_SECONDS = 8;
@@ -121,34 +131,43 @@ const normalizeVector = (value) => {
 };
 
 /**
- * Work cameras are the editor's viewport bookmarks: a named pose, nothing
- * else. They are never published and never part of a scene snapshot. An entry
- * without a usable pose is dropped rather than repaired - there is no
- * composition to inherit from.
+ * Work cameras own local scene snapshots, including both composition formats.
+ * Legacy pose-only bookmarks inherit the current scene once during migration.
+ * They are never published and never nested in another scene snapshot.
  */
 // The main viewport camera: always present and first, active when the editor
 // opens, never deleted. The others are ordinary bookmarks.
 export const WORK_CAMERA_MAIN_ID = 'work-main';
 
-export function normalizeWorkCameras(raw) {
+export function normalizeWorkCameras(raw, fallbackScene = {}, normalizeSnapshot) {
   const source = Array.isArray(raw) ? raw : [];
   const usedIds = new Set();
 
   return source.reduce((cameras, entry, index) => {
-    const cameraPosition = normalizeVector(entry?.cameraPosition);
-    const cameraTarget = normalizeVector(entry?.cameraTarget);
+    const storedScene = isRecord(entry?.scene) ? entry.scene : null;
+    const desktop = storedScene?.layouts?.desktop;
+    const cameraPosition = normalizeVector(desktop?.cameraPosition ?? entry?.cameraPosition);
+    const cameraTarget = normalizeVector(desktop?.cameraTarget ?? entry?.cameraTarget);
 
     if (!cameraPosition || !cameraTarget) {
       return cameras;
     }
 
+    const legacyScene = storedScene ?? {
+      ...fallbackScene,
+      layouts: createPairedCameraLayouts(fallbackScene, 'desktop', {
+        cameraPosition,
+        cameraTarget,
+        cameraFov: clampNumber(entry.cameraFov, 1, 75, 36),
+      }),
+    };
+    const scene = typeof normalizeSnapshot === 'function'
+      ? normalizeSnapshot(legacyScene, fallbackScene)
+      : legacyScene;
     cameras.push({
       id: makeUniqueCameraId(entry.id, usedIds, index),
       name: normalizeName(entry.name, index, 'Рабочая'),
-      cameraPosition,
-      cameraTarget,
-      // Same bounds as the editor's FOV slider (HOME_SCENE_CAMERA_FOV_MIN/MAX).
-      cameraFov: clampNumber(entry.cameraFov, 1, 75, 36),
+      scene: stripSceneCameraMeta(scene),
     });
     return cameras;
   }, []);

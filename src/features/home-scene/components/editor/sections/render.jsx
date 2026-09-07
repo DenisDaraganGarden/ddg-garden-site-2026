@@ -127,7 +127,7 @@ export const CameraSection = ({ settings, layoutEditor }) => {
                     {cameras.map((camera, index) => (
                         <div
                             key={camera.id}
-                            className={`home-editor-camera-row ${camera.id === activeCamera?.id ? 'active' : ''}`}
+                            className={`home-editor-camera-row ${!activeWorkCameraId && camera.id === activeCamera?.id ? 'active' : ''}`}
                         >
                             <input
                                 type="checkbox"
@@ -140,7 +140,7 @@ export const CameraSection = ({ settings, layoutEditor }) => {
                                 type="button"
                                 className="home-editor-camera-select"
                                 onClick={() => selectCamera(camera.id)}
-                                aria-pressed={camera.id === activeCamera?.id}
+                                aria-pressed={!activeWorkCameraId && camera.id === activeCamera?.id}
                                 data-testid={`home-editor-camera-select-${camera.id}`}
                             >
                                 <span className="home-editor-camera-number">{String(index + 1).padStart(2, '0')}</span>
@@ -149,7 +149,7 @@ export const CameraSection = ({ settings, layoutEditor }) => {
                                 type="text"
                                 className="home-editor-camera-name"
                                 value={camera.name ?? `${t('homeEditor.controls.camera')} ${index + 1}`}
-                                onFocus={() => { if (camera.id !== activeCamera?.id) selectCamera(camera.id); }}
+                                onFocus={() => { if (activeWorkCameraId || camera.id !== activeCamera?.id) selectCamera(camera.id); }}
                                 onChange={(event) => renameCamera(camera.id, event.target.value)}
                                 aria-label={t('homeEditor.controls.cameraName')}
                                 data-testid={`home-editor-camera-name-${camera.id}`}
@@ -161,7 +161,7 @@ export const CameraSection = ({ settings, layoutEditor }) => {
                                     max="3600"
                                     step="0.5"
                                     value={camera.holdSeconds ?? 8}
-                                    onFocus={() => { if (camera.id !== activeCamera?.id) selectCamera(camera.id); }}
+                                    onFocus={() => { if (activeWorkCameraId || camera.id !== activeCamera?.id) selectCamera(camera.id); }}
                                     onChange={(event) => setCameraHoldSeconds(camera.id, parseFloat(event.target.value) || 1)}
                                     aria-label={t('homeEditor.controls.cameraDuration')}
                                     data-testid={`home-editor-camera-duration-${camera.id}`}
@@ -315,7 +315,7 @@ export const CameraSection = ({ settings, layoutEditor }) => {
             </div>
             <RangeControl
                 label={t('homeEditor.controls.cameraFov')}
-                value={activeWorkCamera ? activeWorkCamera.cameraFov : (effective.cameraFov ?? settings.cameraFov)}
+                value={effective.cameraFov ?? settings.cameraFov}
                 min={HOME_SCENE_CAMERA_FOV_MIN}
                 max={HOME_SCENE_CAMERA_FOV_MAX}
                 step={1}

@@ -120,3 +120,19 @@ export function resolveLayout(layouts, key) {
     frameInset: resolveLayoutFrameInset(layouts, key),
   };
 }
+
+// A new camera starts from one composition in both formats. Clone the nested
+// positions separately: capturing Mobile must never mutate Desktop by reference.
+export function createPairedCameraLayouts(settings, key, pose) {
+  const current = resolveLayout(settings.layouts, key) ?? settings;
+  const makeLayout = () => ({
+    customized: true,
+    cameraPosition: { ...(pose?.cameraPosition ?? current.cameraPosition) },
+    cameraTarget: { ...(pose?.cameraTarget ?? current.cameraTarget) },
+    cameraFov: pose?.cameraFov ?? current.cameraFov,
+    frameInset: clampLayoutFrameInset(current.frameInset, key),
+    boatPosition: { ...(current.boatPosition ?? settings.boatPosition) },
+    sculpturePosition: { ...(current.sculpturePosition ?? settings.sculpturePosition) },
+  });
+  return { desktop: makeLayout(), portrait: makeLayout() };
+}

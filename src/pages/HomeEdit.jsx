@@ -9,14 +9,20 @@ import React, {
 import WaterScene from '../components/effects/WaterScene';
 import {
     applyHomeSceneSnapshot,
-    createHomeSceneSnapshot,
+    HOME_SCENE_SNAPSHOT_KEYS,
     getPublishedHomeSceneSettings,
     sanitizeHomeSceneSettingsForPublish,
 } from '../features/home-scene/hooks/useHomeSceneSettings';
-import { DEFAULT_SCENE_CAMERA_HOLD_SECONDS, WORK_CAMERA_MAIN_ID } from '../features/home-scene/lib/sceneCameras';
+import { WORK_CAMERA_MAIN_ID } from '../features/home-scene/lib/sceneCameras';
+import {
+    addEditorCamera,
+    removeEditorCamera,
+    selectEditorCamera,
+    syncActiveEditorCamera,
+    updateEditorLayout,
+} from '../features/home-scene/lib/editorCameraState.js';
 import {
     DEFAULT_LAYOUT_FRAME_INSETS,
-    resolveLayout,
     resolveLayoutFrameInset,
     resolveLayoutKey,
 } from '../features/home-scene/lib/layout';
@@ -44,67 +50,8 @@ const getCurrentLayoutKey = () => {
     return resolveLayoutKey(window.innerWidth, window.innerHeight);
 };
 
-const syncActiveCameraScene = (settings) => {
-    const cameras = Array.isArray(settings.sceneCameras) ? settings.sceneCameras : [];
-    const activeId = settings.activeCameraId ?? cameras[0]?.id;
-
-    if (!activeId) {
-        return settings;
-    }
-
-    const snapshot = createHomeSceneSnapshot(settings);
-    let changed = false;
-    const sceneCameras = cameras.map((camera) => {
-        if (camera.id !== activeId) {
-            return camera;
-        }
-
-        changed = true;
-        return { ...camera, scene: snapshot };
-    });
-
-    return changed ? { ...settings, sceneCameras } : settings;
-};
-
-const updateLayoutInSettings = (settings, key, patch) => {
-    const layouts = settings.layouts ?? {};
-    const current = layouts[key];
-    const inherited = layouts.desktop ?? current ?? {};
-    const source = (current && current.customized)
-        ? current
-        : {
-            ...inherited,
-            frameInset: resolveLayoutFrameInset(layouts, key),
-        };
-    const nextLayout = {
-        customized: true,
-        cameraPosition: { ...source.cameraPosition },
-        cameraTarget: { ...source.cameraTarget },
-        cameraFov: source.cameraFov,
-        frameInset: source.frameInset,
-        boatPosition: { ...source.boatPosition },
-        sculpturePosition: { ...source.sculpturePosition },
-        ...patch,
-    };
-
-    return {
-        ...settings,
-        layouts: { ...layouts, [key]: nextLayout },
-    };
-};
-
-const makeCameraId = (cameras, prefix = 'camera') => {
-    const used = new Set(cameras.map((camera) => camera.id));
-    let index = cameras.length + 1;
-    let candidate = `${prefix}-${index}`;
-
-    while (used.has(candidate)) {
-        index += 1;
-        candidate = `${prefix}-${index}`;
-    }
-
-    return candidate;
-};
+const syncActiveCameraScene = (settings) => syncActiveEditorCamera(settings, HOME_SCENE_SNAPSHOT_KEYS);
+const updateLayoutInSettings = updateEditorLayout;
 
 const swapById = (list, id, direction) => {
     const items = [...list];
@@ -147,15 +94,14 @@ const HomeEdit = () => {
     const publishRequestRef = useRef(0);
     const lastPublishedSnapshotRef = useRef(INITIAL_PUBLISHED_SNAPSHOT);
     const cameraRigApiRef = useRef(null);
-    const [selectedLayoutKey, setSelectedLayoutKey] = useState(getCurrentLayoutKey);
+    const [selectedLayoutKey, setSelectedLayoutKey] = useState(() => settings.editorLayoutKey ?? getCurrentLayoutKey());
     const [currentLayoutKey, setCurrentLayoutKey] = useState(getCurrentLayoutKey);
     const [cameraPoseRevision, setCameraPoseRevision] = useState(0);
     const deferredSettings = useDeferredValue(settings);
     const audioSettingsFingerprint = JSON.stringify(settings.audio);
-    const preparedSettings = useMemo(
-        () => syncActiveCameraScene(deferredSettings),
-        [deferredSettings],
-    );
+    // Snapshots are committed by setSettings; deferred state only drives the
+    // inexpensive publish-dirty indicator, never a camera transition.
+    const preparedSettings = deferredSettings;
     const publishableSettings = useMemo(
         () => sanitizeHomeSceneSettingsForPublish(preparedSettings),
         [preparedSettings],
@@ -185,36 +131,6 @@ const HomeEdit = () => {
     useEffect(() => {
         setHasPublishChanges(serializedPublishSettings !== lastPublishedSnapshotRef.current);
     }, [serializedPublishSettings]);
-
-    // The editor opens looking from the main work camera. A draft from before
-    // it existed keeps its first bookmark as the main one; an empty draft gets
-    // one from the authored layout.
-    useEffect(() => {
-        setSettings((previous) => {
-            const cameras = previous.workCameras ?? [];
-            if (cameras.some((camera) => camera.id === WORK_CAMERA_MAIN_ID)) {
-                return previous.activeWorkCameraId === WORK_CAMERA_MAIN_ID
-                    ? previous
-                    : { ...previous, activeWorkCameraId: WORK_CAMERA_MAIN_ID };
-            }
-            const layout = resolveLayout(previous.layouts, getCurrentLayoutKey()) ?? {};
-            const main = cameras.length > 0
-                ? { ...cameras[0], id: WORK_CAMERA_MAIN_ID }
-                : {
-                    id: WORK_CAMERA_MAIN_ID,
-                    name: 'Рабочая 1',
-                    cameraPosition: { ...(layout.cameraPosition ?? previous.cameraPosition) },
-                    cameraTarget: { ...(layout.cameraTarget ?? previous.cameraTarget) },
-                    cameraFov: layout.cameraFov ?? previous.cameraFov ?? 36,
-                };
-            return {
-                ...previous,
-                workCameras: [main, ...cameras.slice(cameras.length > 0 ? 1 : 0)],
-                activeWorkCameraId: WORK_CAMERA_MAIN_ID,
-            };
-        });
-        setCameraPoseRevision((value) => value + 1);
-    }, [setSettings]);
 
     // Space pauses and resumes the animation from anywhere but a text field.
     useEffect(() => {
@@ -262,9 +178,10 @@ const HomeEdit = () => {
             ...next,
             activeCameraId: firstCamera?.id ?? published.activeCameraId,
             freeCamera: true,
-            // Work cameras are the author's viewport bookmarks, not scene content.
+            // Keep local work scenes when replacing the site's camera catalogue.
             workCameras: previous.workCameras ?? [],
-            activeWorkCameraId: previous.activeWorkCameraId ?? null,
+            activeWorkCameraId: null,
+            editorLayoutKey: previous.editorLayoutKey,
             animationPaused: previous.animationPaused,
             editorHeadingColor: previous.editorHeadingColor,
             editorCursor: previous.editorCursor,
@@ -319,106 +236,30 @@ const HomeEdit = () => {
     }, [setSettings]);
 
     const selectCamera = useCallback((id) => {
-        if (id === settings.activeCameraId) {
-            // Re-selecting the active scene camera returns the viewport to its
-            // authored pose. The name and hold fields guard their own focus so
-            // typing never snaps the camera.
-            setSettings((previous) => ({
-                ...syncActiveCameraScene(previous),
-                activeWorkCameraId: null,
-            }));
-            setCameraPoseRevision((value) => value + 1);
-            return;
-        }
-
-        setSettings((previous) => {
-            const prepared = syncActiveCameraScene(previous);
-            const target = prepared.sceneCameras?.find((camera) => camera.id === id);
-
-            if (!target || target.id === prepared.activeCameraId) {
-                return prepared;
-            }
-
-            return {
-                ...applyHomeSceneSnapshot(prepared, target.scene),
-                activeCameraId: target.id,
-                activeWorkCameraId: null,
-                freeCamera: true,
-            };
-        });
+        setSettings((previous) => selectEditorCamera(previous, id, 'scene', HOME_SCENE_SNAPSHOT_KEYS));
         setCameraPoseRevision((value) => value + 1);
-    }, [setSettings, settings.activeCameraId]);
+    }, [setSettings]);
 
     const addCamera = useCallback(() => {
         const pose = cameraRigApiRef.current?.capturePose?.();
-
-        setSettings((previous) => {
-            const cameras = Array.isArray(previous.sceneCameras) ? previous.sceneCameras : [];
-            const prepared = syncActiveCameraScene(previous);
-            const withPose = pose
-                ? updateLayoutInSettings(prepared, selectedLayoutKey, {
-                    cameraPosition: pose.cameraPosition,
-                    cameraTarget: pose.cameraTarget,
-                    cameraFov: pose.cameraFov,
-                })
-                : prepared;
-            const id = makeCameraId(cameras);
-            const scene = createHomeSceneSnapshot(withPose);
-            const activeCamera = prepared.sceneCameras?.find(
-                (camera) => camera.id === prepared.activeCameraId,
-            );
-            const camera = {
-                id,
-                name: `Камера ${cameras.length + 1}`,
-                enabled: true,
-                holdSeconds: activeCamera?.holdSeconds ?? DEFAULT_SCENE_CAMERA_HOLD_SECONDS,
-                scene,
-            };
-
-            return {
-                ...withPose,
-                sceneCameras: [...(prepared.sceneCameras ?? []), camera],
-                activeCameraId: id,
-                activeWorkCameraId: null,
-                freeCamera: true,
-            };
-        });
+        if (!pose) return;
+        setSettings((previous) => addEditorCamera(previous, {
+            kind: 'scene', layoutKey: selectedLayoutKey, pose,
+        }, HOME_SCENE_SNAPSHOT_KEYS));
     }, [selectedLayoutKey, setSettings]);
 
     const removeCamera = useCallback((id) => {
-        setSettings((previous) => {
-            const prepared = syncActiveCameraScene(previous);
-            const cameras = prepared.sceneCameras ?? [];
-
-            if (cameras.length <= 1) {
-                return prepared;
-            }
-
-            const removedIndex = cameras.findIndex((camera) => camera.id === id);
-            const sceneCameras = cameras.filter((camera) => camera.id !== id);
-
-            if (removedIndex < 0 || id !== prepared.activeCameraId) {
-                return { ...prepared, sceneCameras };
-            }
-
-            const target = sceneCameras[Math.min(removedIndex, sceneCameras.length - 1)];
-
-            return {
-                ...applyHomeSceneSnapshot({ ...prepared, sceneCameras }, target.scene),
-                activeCameraId: target.id,
-                activeWorkCameraId: null,
-                freeCamera: true,
-            };
-        });
-        if (id === settings.activeCameraId) {
+        setSettings((previous) => removeEditorCamera(previous, id, 'scene', HOME_SCENE_SNAPSHOT_KEYS));
+        if (!settings.activeWorkCameraId && id === settings.activeCameraId) {
             setCameraPoseRevision((value) => value + 1);
         }
-    }, [setSettings, settings.activeCameraId]);
+    }, [setSettings, settings.activeCameraId, settings.activeWorkCameraId]);
 
     const selectLayout = useCallback((key) => {
         setSelectedLayoutKey(key);
+        setSettings((previous) => ({ ...previous, editorLayoutKey: key }));
         setCameraPoseRevision((value) => value + 1);
-    }, []);
+    }, [setSettings]);
 
     const moveCamera = useCallback((id, direction) => {
         setSettings((previous) => ({
@@ -448,9 +289,8 @@ const HomeEdit = () => {
         updateCamera(id, { holdSeconds: Math.min(3600, Math.max(1, holdSeconds)) });
     }, [updateCamera]);
 
-    // Work cameras: named viewport poses for the author's own use. Selecting
-    // one looks from it without touching the active scene camera; the scene
-    // keeps its authored composition and nothing here is published.
+    // Work cameras own local scene snapshots and use the same two-format
+    // capture contract as site cameras. Only their catalogue stays editor-local.
     const activeWorkCameraId = settings.activeWorkCameraId ?? null;
 
     const updateWorkCamera = useCallback((id, patch) => {
@@ -465,43 +305,24 @@ const HomeEdit = () => {
     // Always re-applies the pose, so the number button is also the way back
     // to a bookmark after orbiting away. The name field guards its own focus.
     const selectWorkCamera = useCallback((id) => {
-        setSettings((previous) => (
-            (previous.workCameras ?? []).some((camera) => camera.id === id)
-                ? { ...previous, activeWorkCameraId: id }
-                : previous
-        ));
+        setSettings((previous) => selectEditorCamera(previous, id, 'work', HOME_SCENE_SNAPSHOT_KEYS));
         setCameraPoseRevision((value) => value + 1);
     }, [setSettings]);
 
     const addWorkCamera = useCallback(() => {
         const pose = cameraRigApiRef.current?.capturePose?.();
-
-        if (!pose) {
-            return;
-        }
-
-        setSettings((previous) => {
-            const cameras = previous.workCameras ?? [];
-            const id = makeCameraId(cameras, 'work');
-
-            return {
-                ...previous,
-                workCameras: [...cameras, { id, name: `Рабочая ${cameras.length + 1}`, ...pose }],
-                activeWorkCameraId: id,
-            };
-        });
-    }, [setSettings]);
+        if (!pose) return;
+        setSettings((previous) => addEditorCamera(previous, {
+            kind: 'work', layoutKey: selectedLayoutKey, pose,
+        }, HOME_SCENE_SNAPSHOT_KEYS));
+    }, [selectedLayoutKey, setSettings]);
 
     const removeWorkCamera = useCallback((id) => {
-        if (id === WORK_CAMERA_MAIN_ID) {
-            return;
+        setSettings((previous) => removeEditorCamera(previous, id, 'work', HOME_SCENE_SNAPSHOT_KEYS));
+        if (id !== WORK_CAMERA_MAIN_ID && id === settings.activeWorkCameraId) {
+            setCameraPoseRevision((value) => value + 1);
         }
-        setSettings((previous) => ({
-            ...previous,
-            workCameras: (previous.workCameras ?? []).filter((camera) => camera.id !== id),
-            activeWorkCameraId: previous.activeWorkCameraId === id ? null : previous.activeWorkCameraId,
-        }));
-    }, [setSettings]);
+    }, [setSettings, settings.activeWorkCameraId]);
 
     const moveWorkCamera = useCallback((id, direction) => {
         setSettings((previous) => {
@@ -519,16 +340,12 @@ const HomeEdit = () => {
     }, [updateWorkCamera]);
 
     const captureWorkCamera = useCallback((id) => {
-        const pose = cameraRigApiRef.current?.capturePose?.();
-
-        if (pose) {
-            updateWorkCamera(id, pose);
-        }
-    }, [updateWorkCamera]);
+        if (id === settings.activeWorkCameraId) captureLayout(selectedLayoutKey);
+    }, [captureLayout, selectedLayoutKey, settings.activeWorkCameraId]);
 
     const setWorkCameraFov = useCallback((id, cameraFov) => {
-        updateWorkCamera(id, { cameraFov });
-    }, [updateWorkCamera]);
+        if (id === settings.activeWorkCameraId) updateLayout(selectedLayoutKey, { cameraFov });
+    }, [selectedLayoutKey, settings.activeWorkCameraId, updateLayout]);
 
     const updateSlideshow = useCallback((patch) => {
         setSettings((previous) => ({

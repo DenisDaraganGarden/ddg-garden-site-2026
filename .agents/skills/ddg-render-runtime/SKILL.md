@@ -25,6 +25,22 @@ Verify the main dev at `http://localhost:41212/home/edit` and the published site
 The agent sandbox is 41213; it is not the main development editor. Publication
 and adopting it in an editor are separate steps; preserve newer local author edits.
 
+Camera ownership lives in `features/home-scene/lib/editorCameraState.js`.
+Both site and work cameras own full snapshots with `layouts.desktop/portrait`.
+The draft setter commits every change to the selected owner immediately; while
+`activeWorkCameraId` is set, the remembered `activeCameraId` is not an edit target.
+Work snapshots stay local and never appear in the publication payload. Audio
+remains shared across camera cuts. Publishing mirrors the first site snapshot
+into the public root, regardless of the active working look.
+
+The plus button captures the viewed pose and composition into two independent,
+customized layouts. Capture and FOV edit only the selected layout afterwards.
+Preserve fractional FOV through normalization. Legacy flat work poses migrate
+to paired scene layouts once; reload remembers the selected camera and format.
+Do not reintroduce a pose-only work override in WaterScene or commit state in
+render/useDeferredValue. `npm run check:cameras` covers transitions, migration,
+all published snapshot keys and publication without writing authored files.
+
 ## Light and shadow receivers
 
 `homeSceneLighting.js` and `csmAdapter.js` share the sun and shadow maps. Shadow

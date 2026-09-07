@@ -59,8 +59,8 @@ const workCameras = normalizeWorkCameras([
 assert.deepEqual(workCameras.map((camera) => camera.id), ['look', 'look-2'],
   'a work camera without a pose is dropped and ids stay unique');
 assert.equal(workCameras[0].name, 'Overview');
-assert.equal(workCameras[0].cameraFov, 75, 'a work camera fov is clamped to the slider range');
+assert.equal(workCameras[0].scene.layouts.desktop.cameraFov, 75, 'a work camera fov is clamped to the slider range');
 assert.equal(workCameras[1].name, 'Рабочая 3', 'an unnamed work camera is named by its slot');
-assert.deepEqual(workCameras[1].cameraTarget, { x: 1, y: 1, z: 1 });
+assert.deepEqual(workCameras[1].scene.layouts.desktop.cameraTarget, { x: 1, y: 1, z: 1 });
 
 console.log('cameraLayout: all checks passed');
