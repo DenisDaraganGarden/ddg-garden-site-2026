@@ -7,7 +7,7 @@ import { assetIndex } from '../asset-lab/assetCatalog';
 import { getPublishedHomeSceneSettings } from '../features/home-scene/hooks/useHomeSceneSettings';
 import { DEADWOOD_FORMS, makeDeadwood, makeDeadwoodGeometry, scatterDeadwood } from '../plants/deadwoodModel.js';
 import { createDeadwoodMaterials } from '../plants/deadwoodMaterial.js';
-import { makeStoneRing, createStoneRingMaterial } from '../terrain/stoneRingModel.js';
+import { makeStoneRing, createStoneRingMaterial, SHORE_STONE_MAPS } from '../terrain/stoneRingModel.js';
 import { terrainMapUrl } from '../terrain/terrainTextures.js';
 import '../plant-lab/plantLab.css';
 import './driftwoodLab.css';
@@ -47,7 +47,7 @@ function makeReview(settings, selected, mode) {
     const key = `${p.kind}-${p.variant}`;
     if (assets.has(key)) continue;
     if (p.kind === 'ring') {
-      assets.set(key, { kind: p.kind, data: makeStoneRing({ seed: settings.seed, diameter: settings.ringDiameter, stones: settings.stones, irregularity: settings.irregularity }), items: [] });
+      assets.set(key, { kind: p.kind, data: makeStoneRing({ seed: settings.seed, diameter: settings.ringDiameter, stones: settings.stones, irregularity: settings.irregularity, lod: settings.lightDetail ? 1 : 0 }), items: [] });
     } else {
       const shape = { ...DEADWOOD_FORMS[p.kind], seed: settings.seed + KINDS.indexOf(p.kind) * 137 + p.variant * 43,
         kind: p.kind, bend: settings.bend, breakage: settings.breakage };
@@ -59,10 +59,26 @@ function makeReview(settings, selected, mode) {
   const bounds = new THREE.Box3(), matrix = new THREE.Matrix4(), quaternion = new THREE.Quaternion();
   for (const p of layout) {
     const asset = assets.get(`${p.kind}-${p.variant}`);
-    const y = asset.model ? (-asset.data.bounds.min.y - asset.model.radius * 2 * settings.burial) * p.scale : -settings.burial * .09 * p.scale;
+    const tilt = asset.model?.restAngle ?? 0;
+    let bottom = asset.data.bounds.min.y;
+    if (tilt) {
+      bottom = Infinity;
+      for (const geometry of [asset.data.wood, asset.data.endGrain]) {
+        const vertices = geometry.attributes.position;
+        for (let j = 0; j < vertices.count; j++) bottom = Math.min(bottom, vertices.getX(j) * Math.sin(tilt) + vertices.getY(j) * Math.cos(tilt));
+      }
+    }
+    const y = asset.model ? (-bottom - asset.model.radius * 2 * settings.burial) * p.scale : -settings.burial * .09 * p.scale;
     const position = new THREE.Vector3(p.x, y, p.z);
-    matrix.compose(position, quaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), p.yaw), new THREE.Vector3().setScalar(p.scale));
-    asset.items.push(matrix.clone()); bounds.union(asset.data.bounds.clone().applyMatrix4(matrix));
+    quaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), p.yaw).multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), tilt));
+    matrix.compose(position, quaternion, new THREE.Vector3().setScalar(p.scale));
+    asset.items.push(matrix.clone());
+    if (tilt) {
+      const point = new THREE.Vector3();
+      for (const geometry of [asset.data.wood, asset.data.endGrain]) for (let j = 0; j < geometry.attributes.position.count; j++) {
+        bounds.expandByPoint(point.fromBufferAttribute(geometry.attributes.position, j).applyMatrix4(matrix));
+      }
+    } else bounds.union(asset.data.bounds.clone().applyMatrix4(matrix));
   }
   const main = [...assets.values()].find((a) => a.kind === (selected === 'all' || mode === 'patch' ? 'log' : selected)) ?? [...assets.values()][0];
   const focus = main?.data.bounds.getCenter(new THREE.Vector3()).applyMatrix4(main.items[0]) ?? new THREE.Vector3();
@@ -96,16 +112,17 @@ function SandFloor() {
 
 function Stage({ review, settings, floorVisible, onStats }) {
   const { gl, camera, size, invalidate } = useThree();
-  const loaded = useLoader(THREE.TextureLoader, ['/textures/plants/bark/oleaster-albedo.webp', '/textures/plants/bark/oleaster-normal.webp']);
-  const barkMaps = useMemo(() => loaded.map((original, i) => {
+  const loaded = useLoader(THREE.TextureLoader, ['/textures/plants/bark/oleaster-albedo.webp', '/textures/plants/bark/oleaster-normal.webp', ...SHORE_STONE_MAPS]);
+  const allMaps = useMemo(() => loaded.map((original, i) => {
     const map = original.clone(); map.wrapS = map.wrapT = THREE.RepeatWrapping;
-    map.colorSpace = i === 0 ? THREE.SRGBColorSpace : THREE.NoColorSpace; map.anisotropy = 4; map.needsUpdate = true; return map;
+    map.colorSpace = i === 0 || i === 2 ? THREE.SRGBColorSpace : THREE.NoColorSpace; map.anisotropy = 4; map.needsUpdate = true; return map;
   }), [loaded]);
-  useEffect(() => () => barkMaps.forEach((map) => map.dispose()), [barkMaps]);
-  const materials = useMemo(() => createDeadwoodMaterials(barkMaps), [barkMaps]), stone = useMemo(createStoneRingMaterial, []);
+  useEffect(() => () => allMaps.forEach((map) => map.dispose()), [allMaps]);
+  const materials = useMemo(() => createDeadwoodMaterials(allMaps.slice(0, 2)), [allMaps]);
+  const stone = useMemo(() => createStoneRingMaterial(allMaps.slice(2)), [allMaps]);
   const raf = useRef();
   useEffect(() => () => { materials.dispose(); stone.dispose(); cancelAnimationFrame(raf.current); }, [materials, stone]);
-  useLayoutEffect(() => { materials.update(settings); stone.wireframe = settings.wireframe; stone.roughness = .96 - settings.wetness * .35; stone.color.setScalar(.58 * (1 - settings.wetness * .35)); invalidate(); }, [materials, stone, settings, invalidate]);
+  useLayoutEffect(() => { materials.update(settings); stone.wireframe = settings.wireframe; stone.roughness = 1 - settings.wetness * .42; stone.color.setScalar(.72 * (1 - settings.wetness * .35)); invalidate(); }, [materials, stone, settings, invalidate]);
   useFrame(() => {
     // Reading after R3F's draw gives the actual renderer budget. The callback
     // only updates changed values, so an idle demand canvas stays idle.

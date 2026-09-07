@@ -1,0 +1,29 @@
+{
+  "source": "assets-source/textures/shore-stone/limestone-generated.png",
+  "generator": "built-in imagegen; derived PBR data via scripts/terrain/build-shore-stone-textures.mjs",
+  "size": 1024,
+  "tileMetres": 0.6,
+  "estimatedReliefMetres": 0.0018,
+  "encoding": {
+    "albedo": "sRGB",
+    "normal": "linear OpenGL +Y",
+    "surface": "linear: R AO, G roughness, B height"
+  },
+  "entries": {
+    "albedo": {
+      "file": "limestone-albedo.webp",
+      "bytes": 1604054,
+      "maxOppositeEdgeDelta": 0
+    },
+    "normal": {
+      "file": "limestone-normal.webp",
+      "bytes": 1938074,
+      "maxOppositeEdgeDelta": 0
+    },
+    "surface": {
+      "file": "limestone-surface.webp",
+      "bytes": 1553736,
+      "maxOppositeEdgeDelta": 0
+    }
+  }
+}
