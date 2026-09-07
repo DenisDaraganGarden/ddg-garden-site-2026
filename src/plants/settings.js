@@ -19,12 +19,12 @@ export const SHRUB_RANGES={
 export const DEFAULT_TREE_SETTINGS=Object.freeze({
  treesEnabled:true,treesCount:14,treesSeed:7,treesLength:220,treesWidth:36,treesAlong:40,treesInland:14,treesSpacing:7,
  treesHeight:6,treesSpread:5.5,treesLean:.55,treesTwist:.4,treesDensity:.8,treesLeafSize:1.8,treesDeadwood:.3,
- treesFlex:.15,treesRenderDistance:600,
+ treesFlex:.15,treesTranslucency:1.1,treesRenderDistance:600,
 });
 export const TREE_RANGES={
  treesCount:[0,256,1],treesSeed:[1,200,1],treesLength:[12,1024,4],treesWidth:[6,160,1],treesAlong:[-1200,1200,2],treesInland:[-10,160,.5],treesSpacing:[3,20,.5],
  treesHeight:[2.5,12,.1],treesSpread:[1.5,12,.1],treesLean:[0,1,.01],treesTwist:[0,1,.01],treesDensity:[.1,1,.01],treesLeafSize:[.8,2.4,.05],treesDeadwood:[0,1,.01],
- treesFlex:[0,1,.01],treesRenderDistance:[60,1200,10],
+ treesFlex:[0,1,.01],treesTranslucency:[0,1.4,.05],treesRenderDistance:[60,1200,10],
 };
 // The meadow: four kinds by share, one density, height and flexibility; its
 // colour rides the landscape's ecology with an offset from the shrubs' dryness.
@@ -66,7 +66,7 @@ export function shrubAssetSettings(source,wind){
 export function treeAssetSettings(source,wind){
  const t=normalizeTreeSettings(source);
  return {...OLEASTER_DEFAULTS,...ECOLOGY_DEFAULTS,...TREE_DEFAULTS,...landscapeAssetSettings(source),seed:t.treesSeed,height:t.treesHeight,spread:t.treesSpread,lean:t.treesLean,twist:t.treesTwist,
- density:t.treesDensity,leafSize:t.treesLeafSize,deadwood:t.treesDeadwood,flex:t.treesFlex,
+ density:t.treesDensity,leafSize:t.treesLeafSize,deadwood:t.treesDeadwood,flex:t.treesFlex,translucency:t.treesTranslucency,
  wind:Math.min(26,Math.max(0,wind.speed)),windBearing:wind.bearing,lod:'auto',renderDistance:t.treesRenderDistance};
 }
 export function grassAssetSettings(source,wind){

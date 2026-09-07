@@ -1,0 +1,54 @@
+{
+  "generator": "scripts/plants/build-bark-textures.mjs",
+  "source": "assets-source/textures/bark (Denis, generator; albedo first, the other maps derived from it)",
+  "format": "WebP quality 92; mobile/ at half size",
+  "encoding": {
+    "albedo": "sRGB",
+    "normal": "linear, tangent-space, OpenGL +Y up",
+    "surface": "linear, R ambient occlusion, G roughness, B height"
+  },
+  "entries": {
+    "oleaster": {
+      "kind": "bark-tile",
+      "tileMetres": 0.45,
+      "size": 1024,
+      "seam": {
+        "albedo": 1.38,
+        "normal": 1.76
+      },
+      "notes": []
+    },
+    "tamarisk": {
+      "kind": "bark-tile",
+      "tileMetres": 0.4,
+      "size": 1024,
+      "seam": {
+        "albedo": 1.21,
+        "normal": 1.75
+      },
+      "notes": []
+    },
+    "plum": {
+      "kind": "bark-tile",
+      "tileMetres": 0.3,
+      "size": 1024,
+      "seam": {
+        "albedo": 1.5,
+        "normal": 2.06
+      },
+      "notes": []
+    },
+    "elm": {
+      "kind": "bark-tile",
+      "tileMetres": 0.5,
+      "size": 1024,
+      "seam": {
+        "albedo": 1.33,
+        "normal": 1.64
+      },
+      "notes": [
+        "roughness derived from ambient occlusion (source roughness was a copy of height)"
+      ]
+    }
+  }
+}

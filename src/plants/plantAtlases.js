@@ -1,8 +1,9 @@
 import * as THREE from 'three';
 import {PLANT_FIELD_GLSL,PLANT_BEND_GLSL,ecologyUniforms} from './plantEcology.js';
+import {PLANT_BLEACH_GLSL} from './plantMaterials.js';
 
 function target(w,h){const rt=new THREE.WebGLRenderTarget(w,h,{format:THREE.RGBAFormat,type:THREE.UnsignedByteType,depthBuffer:true,minFilter:THREE.LinearMipmapLinearFilter,magFilter:THREE.LinearFilter,generateMipmaps:true});rt.texture.colorSpace=THREE.NoColorSpace;return rt;}
-function preserveRenderer(renderer,fn){
+export function preserveRenderer(renderer,fn){
  const old={target:renderer.getRenderTarget(),tone:renderer.toneMapping,clear:renderer.getClearColor(new THREE.Color()),alpha:renderer.getClearAlpha(),auto:renderer.autoClear,xr:renderer.xr.enabled,viewport:renderer.getViewport(new THREE.Vector4())};
  renderer.xr.enabled=false;renderer.toneMapping=THREE.NoToneMapping;renderer.setClearColor(0,0);renderer.autoClear=true;
  try{return fn();}finally{renderer.setRenderTarget(old.target);renderer.toneMapping=old.tone;renderer.setClearColor(old.clear,old.alpha);renderer.autoClear=old.auto;renderer.xr.enabled=old.xr;renderer.setViewport(old.viewport);}
@@ -43,9 +44,9 @@ export function bakePlantImpostor(renderer,model,geometries,atlas,frameSize=256)
  // The same cutout rules as the near material: a split leaf atlas or a
  // single-sided species atlas, with that atlas' alpha threshold.
  const split=!atlas.singleSided,cutout=(atlas.alphaTest??.43).toFixed(2),leafUv=split?'vec2(vLeafUv.x,vLeafUv.y*.5)':'vLeafUv';
- // Bark bakes white: the species' bark colour is applied by the impostor
- // material, so a live colour edit reaches the far cards too.
- const bark=new THREE.MeshBasicMaterial({color:'#ffffff',vertexColors:true});
+ // Bark bakes its tile under white: the species' bark tint (and bleach) is
+ // applied by the impostor material, so a live colour edit reaches the far cards too.
+ const bark=new THREE.MeshBasicMaterial({color:'#ffffff',vertexColors:true,map:atlas.bark?.color.texture??null});
  const leaf=new THREE.MeshBasicMaterial({map:atlas.color.texture,side:THREE.DoubleSide,alphaTest:Number(cutout),vertexColors:true});
  if(split)leaf.onBeforeCompile=shader=>{shader.fragmentShader=shader.fragmentShader.replace('#include <map_fragment>',THREE.ShaderChunk.map_fragment.replaceAll('vMapUv','vec2(vMapUv.x,vMapUv.y*.5+(gl_FrontFacing?0.0:.5))'));};
  const tree=new THREE.Mesh(geometries.bark,bark),canopy=new THREE.Mesh(geometries.leaf,leaf);scene.add(tree,canopy);
@@ -78,7 +79,7 @@ export function bakePlantImpostor(renderer,model,geometries,atlas,frameSize=256)
  return {color,normal,position,width,height,center,min:box.min,size,frameSize,views:24,dispose(){color.dispose();normal.dispose();position.dispose();}};
 }
 export function makeImpostorMaterial(atlas,sharedUniforms){
- const uniforms={...(sharedUniforms??{...ecologyUniforms(),uPlantTime:{value:0},uPlantWind:{value:new THREE.Vector2()},uPlantTransmission:{value:.65},uPlantNearCut:{value:0}}),uPlantImpostorCenter:{value:atlas.center},uPlantPositionAtlas:{value:atlas.position.texture},uPlantAtlasMin:{value:atlas.min},uPlantAtlasSize:{value:atlas.size},uPlantLeafTint:{value:new THREE.Color(1,1,1)},uPlantBarkColor:{value:new THREE.Color('#7e735d')}};
+ const uniforms={...(sharedUniforms??{...ecologyUniforms(),uPlantTime:{value:0},uPlantWind:{value:new THREE.Vector2()},uPlantTransmission:{value:.65},uPlantNearCut:{value:0},uPlantBarkBleach:{value:0}}),uPlantImpostorCenter:{value:atlas.center},uPlantPositionAtlas:{value:atlas.position.texture},uPlantAtlasMin:{value:atlas.min},uPlantAtlasSize:{value:atlas.size},uPlantLeafTint:{value:new THREE.Color(1,1,1)},uPlantBarkColor:{value:new THREE.Color('#7e735d')},uPlantCardGain:{value:[1,1,1,1,1]},uPlantCardGainBack:{value:[1,1,1,1,1]},uPlantCardChroma:{value:[1,1,1,1,1]},uPlantCardCut:{value:new THREE.Vector2(1,0)},uPlantAtlasDims:{value:new THREE.Vector2(atlas.color.width,atlas.color.height)}};
  const material=new THREE.MeshStandardMaterial({map:atlas.color.texture,normalMap:atlas.normal.texture,normalScale:new THREE.Vector2(1,1),roughness:.85,alphaTest:.22,alphaToCoverage:true,side:THREE.DoubleSide});
  material.onBeforeCompile=shader=>{
   Object.assign(shader.uniforms,uniforms);
@@ -93,9 +94,24 @@ export function makeImpostorMaterial(atlas,sharedUniforms){
       vec3 forward=normalize(viewTo),up=normalize(cross(forward,right));
       mat3 localBasis=mat3(normalize(instanceMatrix[0].xyz),normalize(instanceMatrix[1].xyz),normalize(instanceMatrix[2].xyz));
       return transpose(localBasis)*mat3(right,up,forward);
+    }
+    // The card's lighting basis: the frame it was baked in (0, 45 or 90 degrees
+    // up), never the camera's pitch. A camera looking down must not tilt the
+    // card's normals away from the sun; the geometry it stands for does not tilt.
+    mat3 plantCardLightBasis(){
+      vec4 middle=modelMatrix*instanceMatrix*vec4(uPlantImpostorCenter,1);
+      vec3 viewTo=cameraPosition-middle.xyz;
+      if(length(viewTo.xz)<.0001)viewTo.z=1.0;
+      vec3 level=normalize(vec3(viewTo.x,0,viewTo.z));
+      float row=clamp(floor(asin(clamp(viewTo.y/length(viewTo),-1.0,1.0))/0.78539816+.5),0.0,2.0)*0.78539816;
+      vec3 forward=normalize(level*cos(row)+vec3(0,1,0)*sin(row));
+      vec3 right=normalize(vec3(viewTo.z,0,-viewTo.x));
+      vec3 up=normalize(cross(forward,right));
+      mat3 localBasis=mat3(normalize(instanceMatrix[0].xyz),normalize(instanceMatrix[1].xyz),normalize(instanceMatrix[2].xyz));
+      return transpose(localBasis)*mat3(right,up,forward);
     }`);
   shader.vertexShader=shader.vertexShader.replace('#include <beginnormal_vertex>',`#include <beginnormal_vertex>
-    objectNormal=plantBillboardRotation()*objectNormal;`);
+    objectNormal=plantCardLightBasis()*objectNormal;`);
   shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>',`vec3 transformed=plantBillboardRotation()*(position-uPlantImpostorCenter)+uPlantImpostorCenter;
     vec4 root=modelMatrix*instanceMatrix*vec4(0,0,0,1);
     vec3 viewTo=cameraPosition-(modelMatrix*instanceMatrix*vec4(uPlantImpostorCenter,1)).xyz;
@@ -114,15 +130,29 @@ export function makeImpostorMaterial(atlas,sharedUniforms){
     if(uPlantNearCut>0.0&&distance(root.xyz,cameraPosition)<uPlantNearCut)transformed=vec3(0.0);`);
   shader.fragmentShader=shader.fragmentShader.replace('#include <common>',`#include <common>
    ${PLANT_FIELD_GLSL}
+   ${PLANT_BLEACH_GLSL}
    varying float vPlantFrame;varying float vPlantHabitat;varying vec3 vPlantRoot;varying vec3 vPlantBasis;
-   uniform sampler2D uPlantPositionAtlas;uniform vec3 uPlantAtlasMin;uniform vec3 uPlantAtlasSize;uniform vec3 uPlantLeafTint;uniform vec3 uPlantBarkColor;
-   vec2 plantAtlasUv(vec2 uv){return (uv*.98+.01+vec2(mod(vPlantFrame,4.0),floor(vPlantFrame/4.0)))/vec2(4,6);}`);
+   uniform sampler2D uPlantPositionAtlas;uniform vec3 uPlantAtlasMin;uniform vec3 uPlantAtlasSize;uniform vec3 uPlantLeafTint;uniform vec3 uPlantBarkColor;uniform float uPlantCardGain[5];uniform float uPlantCardGainBack[5];uniform float uPlantCardChroma[5];uniform vec2 uPlantCardCut;uniform vec2 uPlantAtlasDims;
+   vec2 plantAtlasUv(vec2 uv){return (uv*.98+.01+vec2(mod(vPlantFrame,4.0),floor(vPlantFrame/4.0)))/vec2(4,6);}
+   // The mip the card samples, from the atlas-space derivatives; the parity
+   // numbers (plantParity.js) are measured at the five knots below.
+   float plantCardMip(vec2 uv){vec2 t=uv*uPlantAtlasDims;vec2 dx=dFdx(t),dy=dFdy(t);return max(0.0,.5*log2(max(max(dot(dx,dx),dot(dy,dy)),1e-8)));}
+   float plantCardBlend(float mip,float v[5]){float k[5]=float[5](0.0,.6,1.5,2.5,3.5);for(int i=0;i<4;i++)if(mip<k[i+1])return mix(v[i],v[i+1],(mip-k[i])/(k[i+1]-k[i]));return v[4];}`);
   shader.fragmentShader=shader.fragmentShader.replace('#include <color_fragment>',`#include <color_fragment>
    vec4 restSample=texture2D(uPlantPositionAtlas,plantAtlasUv(vMapUv));
    float coverage=max(texture2D(map,plantAtlasUv(vMapUv)).a,.001);
    vec3 rest=uPlantAtlasMin+restSample.rgb/coverage*uPlantAtlasSize;
    vec3 worldRest=vPlantRoot+vec3(rest.x*vPlantBasis.y+rest.z*vPlantBasis.x,rest.y,-rest.x*vPlantBasis.x+rest.z*vPlantBasis.y)*vPlantBasis.z;
-   diffuseColor.rgb=mix(diffuseColor.rgb*uPlantBarkColor,plantFoliageColor(diffuseColor.rgb*uPlantLeafTint,worldRest,vPlantHabitat),clamp(restSample.a/coverage,0.0,1.0));`);
+   diffuseColor.rgb=mix(plantBarkBleach(diffuseColor.rgb)*uPlantBarkColor,plantFoliageColor(diffuseColor.rgb*uPlantLeafTint,worldRest,vPlantHabitat),clamp(restSample.a/coverage,0.0,1.0));
+   // Measured parity with the geometry (plantParity.js): luminance and saturation
+   // by mip, and by how far the sun stands in front of the viewer - a backlit
+   // crown is a dark mass of shadowed leaves, a backlit card would glow through.
+   float cardMip=plantCardMip(plantAtlasUv(vMapUv)),cardLum=dot(diffuseColor.rgb,vec3(.2126,.7152,.0722)),cardBacklit=0.0;
+   #if NUM_DIR_LIGHTS > 0
+   cardBacklit=clamp(-directionalLights[0].direction.z,0.0,1.0);
+   #endif
+   float cardGain=mix(plantCardBlend(cardMip,uPlantCardGain),plantCardBlend(cardMip,uPlantCardGainBack),cardBacklit);
+   diffuseColor.rgb=mix(vec3(cardLum),diffuseColor.rgb,plantCardBlend(cardMip,uPlantCardChroma))*cardGain;`);
   // The near leaf glows where the sun is behind it (plantMaterials); without
   // the same term the projection went dark on every leaf turned away, and the
   // far half of a meadow read as another, darker plant.
@@ -134,10 +164,10 @@ export function makeImpostorMaterial(atlas,sharedUniforms){
      reflectedLight.directDiffuse+=diffuseColor.rgb*directionalLights[i].color*through*uPlantTransmission*.12;
    }
    #endif`);
-  shader.fragmentShader=shader.fragmentShader.replace('#include <map_fragment>',THREE.ShaderChunk.map_fragment.replaceAll('vMapUv','plantAtlasUv(vMapUv)').replace('diffuseColor *= sampledDiffuseColor;', 'sampledDiffuseColor.rgb /= max(sampledDiffuseColor.a, .001); diffuseColor *= sampledDiffuseColor;')).replace('#include <normal_fragment_maps>',THREE.ShaderChunk.normal_fragment_maps.replaceAll('texture2D( normalMap, vNormalMapUv ).xyz', '(texture2D(normalMap,plantAtlasUv(vNormalMapUv)).xyz / max(texture2D(normalMap,plantAtlasUv(vNormalMapUv)).a,.001))'));
+  shader.fragmentShader=shader.fragmentShader.replace('#include <map_fragment>',THREE.ShaderChunk.map_fragment.replaceAll('vMapUv','plantAtlasUv(vMapUv)').replace('diffuseColor *= sampledDiffuseColor;', 'sampledDiffuseColor.rgb /= max(sampledDiffuseColor.a, .001); diffuseColor *= sampledDiffuseColor; float cardAlphaMip=plantCardMip(plantAtlasUv(vMapUv)); diffuseColor.a=min(1.0,diffuseColor.a*mix(uPlantCardCut.x,1.0,clamp(cardAlphaMip,0.0,1.0))*(1.0+uPlantCardCut.y*max(0.0,cardAlphaMip-.5)));')).replace('#include <normal_fragment_maps>',THREE.ShaderChunk.normal_fragment_maps.replaceAll('texture2D( normalMap, vNormalMapUv ).xyz', '(texture2D(normalMap,plantAtlasUv(vNormalMapUv)).xyz / max(texture2D(normalMap,plantAtlasUv(vNormalMapUv)).a,.001))'));
  };
  const depth=new THREE.MeshDepthMaterial({map:atlas.color.texture,alphaTest:.22,depthPacking:THREE.RGBADepthPacking,side:THREE.DoubleSide});
- depth.onBeforeCompile=material.onBeforeCompile;depth.customProgramCacheKey=()=> 'oleaster-24-view-depth-v7';
+ depth.onBeforeCompile=material.onBeforeCompile;depth.customProgramCacheKey=()=> 'oleaster-24-view-depth-v13';
  material.addEventListener('dispose',()=>depth.dispose());material.userData.depth=depth;
- material.customProgramCacheKey=()=> 'oleaster-24-view-impostor-v7';material.userData.uniforms=uniforms;return material;
+ material.customProgramCacheKey=()=> 'oleaster-24-view-impostor-v13';material.userData.uniforms=uniforms;return material;
 }

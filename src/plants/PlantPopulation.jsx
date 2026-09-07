@@ -4,10 +4,11 @@ import * as THREE from 'three';
 import {makeBranchGeometry,makeLeafGeometry,selectPlantLod} from './oleasterModel.js';
 import {makePlantMaterials,plantUniforms,updatePlantUniforms} from './plantMaterials.js';
 import {bakePlantImpostor,makeImpostorMaterial} from './plantAtlases.js';
+import {calibratePlantCard} from './plantParity.js';
 const WHITE=new THREE.Color(1,1,1);
 
-export default function PlantPopulation({model,settings,atlas,placements,paused=false,onStats,lowPower=false,sceneTime=false,statsKey='plantStats',impostorFrame}){
- const {gl,camera,size,invalidate}=useThree();
+export default function PlantPopulation({model,settings,atlas,placements,paused=false,onStats,lowPower=false,sceneTime=false,statsKey='plantStats',impostorFrame,envMapIntensity=1}){
+ const {gl,scene,camera,size,invalidate}=useThree();
  const capacity=Math.max(1,2**Math.ceil(Math.log2(Math.max(1,placements.length))));
  const uniforms=useMemo(plantUniforms,[]),time=useRef(0),lastReport=useRef(-Infinity),lastLod=useRef(0);
  const groups=useMemo(()=>Array.from({length:3},()=>React.createRef()),[]),meshRefs=useMemo(()=>Array.from({length:5},()=>React.createRef()),[]);
@@ -27,11 +28,11 @@ export default function PlantPopulation({model,settings,atlas,placements,paused=
   farGeometry.translate(...impostor.center.toArray());
   farGeometry.computeBoundingSphere();farGeometry.boundingSphere.radius+=.75*impostor.height**2+.08;
 
-  const next={meshes,materials,impostor,farMaterial,farGeometry,model};
+  const next={meshes,materials,impostor,farMaterial,farGeometry,model,parity:null,calibration:null,frames:0};
   setResources(next);lastReport.current=-Infinity;
   return()=>{
    for(const m of meshes){m.bark.dispose();m.leaf.dispose();}
-   materials.dispose();impostor.dispose();farMaterial.dispose();farGeometry.dispose();
+   next.calibration?.return();materials.dispose();impostor.dispose();farMaterial.dispose();farGeometry.dispose();
   };
  },[gl,model,atlas,uniforms,lowPower,impostorFrame]);
  useLayoutEffect(()=>{
@@ -61,12 +62,22 @@ export default function PlantPopulation({model,settings,atlas,placements,paused=
   if(settings.blossom>0)tint.lerp(blossomTint.set(settings.blossomColor??'#f7f0e8'),Math.min(1,settings.blossom));
   materials.leaves.color.copy(tint).multiplyScalar(tone);farMaterial.color.setScalar(tone);
   const bark=materials.bark.color.set(settings.barkColor??model.barkColor??'#685b44'),far=farMaterial.userData.uniforms;
-  // The near bark carries a procedural grain that averages .86 of its colour (plantMaterials.js); the
-  // card bakes bark white, so it gets the same mean. The audit measured the old x1.5 as far trunks
-  // 1.7x brighter than near ones (docs/tree-lab-plan.md, аудит 7 сентября).
-  far.uPlantLeafTint.value.copy(tint);far.uPlantBarkColor.value.copy(bark).multiplyScalar(.86);
+  // A bark without a tile carries a procedural grain that averages .86 of its
+  // colour (plantMaterials.js); the card bakes that bark white, so it gets the
+  // same mean. A tiled bark bakes with its tile and needs no such factor.
+  far.uPlantLeafTint.value.copy(tint);far.uPlantBarkColor.value.copy(bark).multiplyScalar(atlas.bark?1:.86);
   for(const m of [materials.bark,materials.leaves,farMaterial])m.wireframe=settings.wireframe;
   farMaterial.roughness=settings.roughness;
+  // The landscape's environment reaches plants at the terrain's intensity, on every level.
+  materials.bark.envMapIntensity=materials.leaves.envMapIntensity=farMaterial.envMapIntensity=envMapIntensity;
+  // One light on every level: from the first frame that has the scene's
+  // environment (or the thirtieth without it) the card is measured against its
+  // geometry under that light, one measurement a frame, and corrected by mip
+  // and by the sun's side (plantParity.js).
+  if(!resources.parity){
+   if(!resources.calibration&&(scene.environment||++resources.frames>30))resources.calibration=calibratePlantCard(gl,scene,meshes[0],materials,farGeometry,farMaterial,resources.impostor,model);
+   if(resources.calibration){const step=resources.calibration.next();if(step.done){resources.parity=step.value;resources.calibration=null;lastReport.current=-Infinity;}invalidate();}
+  }
   // One specimen uses true camera distance. Population partitions instances by
   // distance - at most every quarter second, and only when the camera moved or
   // the placements or settings changed: a still viewport pays nothing here.
@@ -91,7 +102,7 @@ export default function PlantPopulation({model,settings,atlas,placements,paused=
    const cy=p.y+heights*p.scale*.5,dx=camera.position.x-p.x,dy=camera.position.y-cy,dz=camera.position.z-p.z;
    const distance=Math.sqrt(dx*dx+dy*dy+dz*dz),pixels=heights*p.scale*size.height/(2*Math.tan(camera.fov*Math.PI/360)*Math.max(.1,distance));
    if(settings.lod==='auto'&&(distance>(settings.renderDistance??(lowPower?100:180))||distance<(settings.nearDistance??0))){culled++;continue;}
-   const level=settings.skeleton?0:settings.lod==='auto'?(model.selectLod??selectPlantLod)(distance,pixels,p.lod??lastLod.current,lowPower,(camera.position.y-p.y-heights*p.scale*.5)/Math.max(.1,distance)):Number(settings.lod);
+   const level=settings.skeleton?0:settings.lod==='auto'?(model.selectLod??selectPlantLod)(distance,pixels,p.lod??(placements.length===1?lastLod.current:0),lowPower,(camera.position.y-p.y-heights*p.scale*.5)/Math.max(.1,distance)):Number(settings.lod);
    p.lod=level;lastLod.current=level;
    const slot=counts[level]++;transform.position.set(p.x,p.y-(p.rootDepth??0)*p.scale,p.z);transform.rotation.set(0,p.yaw,0);transform.scale.setScalar(p.scale);transform.updateMatrix();
    const refs=level===2?[meshRefs[4]]:meshRefs.slice(level*2,level*2+2);
@@ -107,7 +118,7 @@ export default function PlantPopulation({model,settings,atlas,placements,paused=
   const focusPoint=new THREE.Vector3(focus?.x??0,(focus?.y??0)+heights*.5,focus?.z??0);
   const metresPerPixel=2*Math.tan(camera.fov*Math.PI/360)*camera.position.distanceTo(focusPoint)/size.height;
   const metres=[.01,.02,.05,.1,.2,.5,1,2,5,10,20,50].reduce((best,n)=>Math.abs(n/metresPerPixel-64)<Math.abs(best/metresPerPixel-64)?n:best,.01);
-  const info={paused,lowPower,atlas:[resources.impostor.color.width,resources.impostor.color.height],frame:gl.info.render.frame,focus:focus?[focus.x,focus.y,focus.z]:[0,0,0],scale:{metres,pixels:metres/metresPerPixel},plants:placements.length,culled,leaves:model.leaves.length,branches:model.branches.length,lods:counts,budgets,triangles:counts.reduce((sum,n,i)=>sum+n*budgets[i],0),calls:gl.info.render.calls,frameTriangles:gl.info.render.triangles,seconds:Number(time.current.toFixed(2))};
+  const info={paused,lowPower,atlas:[resources.impostor.color.width,resources.impostor.color.height],frame:gl.info.render.frame,focus:focus?[focus.x,focus.y,focus.z]:[0,0,0],scale:{metres,pixels:metres/metresPerPixel},plants:placements.length,culled,leaves:model.leaves.length,branches:model.branches.length,lods:counts,budgets,triangles:counts.reduce((sum,n,i)=>sum+n*budgets[i],0),calls:gl.info.render.calls,frameTriangles:gl.info.render.triangles,seconds:Number(time.current.toFixed(2)),parity:resources.parity};
   gl.domElement.dataset[statsKey]=JSON.stringify(info);onStats?.(info);
  });
  if(!resources||resources.model!==model)return null;

@@ -59,7 +59,7 @@ export function makeOleaster(input={}) {
       for(let n=0;n<10;n++)leaf(lateral,.18+n*.09,n);
     }
   }
-  return {species:'Elaeagnus angustifolia',settings:p,branches,leaves,height:h};
+  return {species:'Elaeagnus angustifolia',settings:p,branches,leaves,height:h,barkTile:p.barkTile};
 }
 function finish(data) {
   const g=new THREE.BufferGeometry();
@@ -70,24 +70,33 @@ function finish(data) {
 function data() {return {attributes:{position:[],uv:[],leafPivot:[],leafAxis:[],leafWeight:[],phase:[],color:[]},indices:[]};}
 function vertex(d,pos,uv,pivot,axis,weight,phase,tint) {d.attributes.position.push(...pos);d.attributes.uv.push(...uv);d.attributes.leafPivot.push(...pivot);d.attributes.leafAxis.push(...axis);d.attributes.leafWeight.push(weight);d.attributes.phase.push(phase);d.attributes.color.push(tint,tint,tint);}
 export function makeBranchGeometry(model,lod=0) {
-  const d=data(), thinRadius=model.branchDetail?.thinRadius??0;
+  const d=data(), thinRadius=model.branchDetail?.thinRadius??0, tile=model.barkTile;
   for(const b of model.branches){
+    // With a bark tile the wrap is metric and seamless: a whole number of
+    // repeats around the girth, the same scale along the length, and a frame
+    // that follows the branch without twisting (parallel transport), so the
+    // bark neither spirals nor shows a seam. Without a tile the old scale feeds the grain.
+    const girth=Math.PI*2*Math.max(.0005,b.radius);
+    const around=tile?Math.max(1,Math.round(girth/tile)):1, along=tile?b.length/tile*(around/(girth/tile)):b.length*6;
     // A phone in the middle distance draws no twigs at all: their leaves stay.
     if(lod===1&&model.branchDetail?.midSkipsThin&&b.radius<thinRadius)continue;
     // A twig thinner than the species' threshold is a line, not a tube: it
     // keeps four sides up close and three in the middle distance.
     const radial=b.radius<thinRadius?(lod===0?4:3):(lod===0?7:4);
-    const segments=lod===0?Math.max(3,Math.ceil(b.length/.07)):Math.max(2,Math.ceil(b.length/.2)),base=d.attributes.position.length/3;
+    // A thin branch bends gently: it gets a segment every 12 cm, a thick one every 7.
+    const segments=lod===0?Math.max(3,Math.ceil(b.length/(b.radius<.06?.12:.07))):Math.max(2,Math.ceil(b.length/.2)),base=d.attributes.position.length/3;
+    const frames=tile?b.curve.computeFrenetFrames(segments,false):null;
     for(let j=0;j<=segments;j++){
-      const t=j/segments,center=b.curve.getPoint(t),axis=b.curve.getTangent(t),x=point().crossVectors(axis,point(0,0,1));
-      if(x.lengthSq()<1e-8)x.crossVectors(axis,point(0,1,0));x.normalize();
-      const z=point().crossVectors(axis,x).normalize();
+      const t=j/segments,center=b.curve.getPoint(t);
+      let x,z;
+      if(frames){x=frames.normals[j];z=frames.binormals[j];}
+      else{const axis=b.curve.getTangent(t);x=point().crossVectors(axis,point(0,0,1));if(x.lengthSq()<1e-8)x.crossVectors(axis,point(0,1,0));x.normalize();z=point().crossVectors(axis,x).normalize();}
       // A twig tapers to nothing; a trunk hands its radius on to the limbs.
       const radiusEnd=b.radiusEnd??b.radius*.06;
       for(let k=0;k<=radial;k++){
         const a=k/radial*Math.PI*2,r=Math.max(.0005,b.radius+(radiusEnd-b.radius)*t);
         const pos=center.clone().addScaledVector(x,Math.cos(a)*r).addScaledVector(z,Math.sin(a)*r);
-        vertex(d,pos.toArray(),[k/radial,t*b.length*6],[0,0,0],[1,0,0],0,b.phase,Math.min(1.05,.75+b.radius*4));
+        vertex(d,pos.toArray(),[k/radial*around,t*along],[0,0,0],[1,0,0],0,b.phase,Math.min(1.05,.75+b.radius*4));
       }
     }
     for(let j=0;j<segments;j++)for(let k=0;k<radial;k++){const a=base+j*(radial+1)+k,c=a+radial+1;d.indices.push(a,a+1,c,a+1,c+1,c);}

@@ -1,6 +1,7 @@
 import {makeOleaster,OLEASTER_DEFAULTS} from '../plants/oleasterModel.js';
 import {makeCoastTree,TREE_DEFAULTS} from '../plants/treeModel.js';
 import {TREE_KINDS,TREE_SHAPE_KEYS,TREE_SPECIES} from '../plants/treeSpecies.js';
+import {LEAF_ATLAS,BARK_TILE,barkAtlasSpec} from '../plants/usePlantAtlas.js';
 
 // One laboratory, the forms of the coast's woody plants. A species says how to
 // grow its model, which sliders shape it, where the cameras stand for a plant
@@ -25,8 +26,8 @@ const treeViews=k=>({
  patch:{landscape:{position:[36,22,46],target:scale([0,3,0],k)},portrait:{position:[48,30,64],target:scale([0,3,0],k)}},
 });
 const treeCopy={
- ru:{specimen:'Дерево',count:'Количество деревьев',distant:'Проекции дерева',lean:'Наклон от ветра',twist:'Кручение ствола',deadwood:'Сухие ветви',flex:'Гибкость',stems:'Стволов',droop:'Провис ветвей',gnarl:'Кучерявость',twigs:'Веточки',dead:'Сухостой',leafAspect:'Ширина листа',blossom:'Цветение',leafTint:'Тон листа',barkColor:'Цвет коры'},
- en:{specimen:'Specimen',count:'Tree count',distant:'Tree projections',lean:'Wind lean',twist:'Trunk twist',deadwood:'Deadwood',flex:'Flexibility',stems:'Stems',droop:'Twig droop',gnarl:'Gnarl',twigs:'Twigs',dead:'Drought kill',leafAspect:'Leaf width',blossom:'Blossom',leafTint:'Leaf tint',barkColor:'Bark colour'},
+ ru:{specimen:'Дерево',count:'Количество деревьев',distant:'Проекции дерева',lean:'Наклон от ветра',twist:'Кручение ствола',deadwood:'Сухие ветви',flex:'Гибкость',stems:'Стволов',droop:'Провис ветвей',gnarl:'Кучерявость',twigs:'Веточки',dead:'Сухостой',leafAspect:'Ширина листа',blossom:'Цветение',leafTint:'Тон листа',barkColor:'Тон коры',barkBleach:'Выбеленность коры',trunkShare:'Штамб',limbs:'Сучьев',barkTile:'Масштаб коры'},
+ en:{specimen:'Specimen',count:'Tree count',distant:'Tree projections',lean:'Wind lean',twist:'Trunk twist',deadwood:'Deadwood',flex:'Flexibility',stems:'Stems',droop:'Twig droop',gnarl:'Gnarl',twigs:'Twigs',dead:'Drought kill',leafAspect:'Leaf width',blossom:'Blossom',leafTint:'Leaf tint',barkColor:'Bark tint',barkBleach:'Bark bleach',trunkShare:'Clear trunk',limbs:'Limbs',barkTile:'Bark scale'},
 };
 // A tree species of treeSpecies.js as a laboratory species: the oleaster keeps
 // its old id `tree`, the door of collection 07.
@@ -34,10 +35,11 @@ function treeSpecies(kind){
  const s=TREE_SPECIES[kind],form={...TREE_DEFAULTS,...s.form},k=Math.max(.45,Math.min(1.6,form.height/6));
  return {
   id:kind==='oleaster'?'tree':kind,kind,collection:'tree',
-  makeModel:input=>makeCoastTree({...s.form,...input,species:s.latin||s.ru,barkColor:input.barkColor??s.barkColor}),
-  defaults:{...OLEASTER_DEFAULTS,...form,leafTint:s.leafTint,barkColor:s.barkColor,blossomColor:s.blossomColor,blossom:0,dryness:.42,count:14,extent:80,spacing:Math.max(3,Math.round(form.spread*1.3*2)/2),flex:.15},
+  makeModel:input=>makeCoastTree({...s.form,...input,species:s.latin||s.ru,barkColor:input.barkColor??s.barkColor,barkTile:input.barkTile??BARK_TILE[s.bark]}),
+  atlas:{...LEAF_ATLAS,bark:barkAtlasSpec(s.bark)},
+  defaults:{...OLEASTER_DEFAULTS,...form,barkTile:BARK_TILE[s.bark],leafTint:s.leafTint,barkColor:s.barkColor,barkBleach:s.barkBleach??0,blossomColor:s.blossomColor,blossom:0,translucency:1.1,dryness:.42,count:14,extent:80,spacing:Math.max(3,Math.round(form.spread*1.3*2)/2),flex:.15},
   shape:[...TREE_SHAPE_KEYS,'windBearing'],
-  sliders:[['seed',1,200,1],['height',1.5,12,.1,'m'],['spread',1,12,.1,'m'],['stems',1,6,1],['lean',0,1,.01],['twist',0,1,.01],['gnarl',0,1,.01],['droop',0,1,.01],['twigs',.3,2,.05],['density',0,1,.01],['leafSize',.3,2.4,.05],['leafAspect',.5,2.5,.05],['deadwood',0,1,.01],['dead',0,1,.01]],
+  sliders:[['seed',1,200,1],['height',1.5,12,.1,'m'],['spread',1,12,.1,'m'],['stems',1,6,1],...(form.crown==='dome'?[['trunkShare',.1,.7,.01],['limbs',4,24,1]]:[]),['lean',0,1,.01],['twist',0,1,.01],['gnarl',0,1,.01],['droop',0,1,.01],['twigs',.3,2,.05],['density',0,1,.01],['leafSize',.3,2.4,.05],['leafAspect',.5,2.5,.05],['deadwood',0,1,.01],['dead',0,1,.01],['barkTile',.15,1.5,.05,'m']],
   // The grove camera stands closer than the shrub plot's, in units of the plot.
   planting:{count:[1,64,1],extent:[24,200,4],spacing:Math.max(3,Math.round(form.spread*1.3*2)/2),camera:[.28,.14,.36]},
   views:treeViews(k),cameraLimits:{minDistance:.3,maxDistance:400,minPolarAngle:.03,maxPolarAngle:Math.PI-.1},cameraFar:600,fogRange:[380,560],
@@ -50,10 +52,10 @@ export const TREE_LAB_SPECIES=Object.fromEntries(TREE_KINDS.map(kind=>[kind==='o
 export const TREE_VARIANTS=TREE_KINDS.map(kind=>({id:kind==='oleaster'?'tree':kind,ru:kind==='oleaster'?'Лох':TREE_SPECIES[kind].ru.split(' ')[0],en:kind==='oleaster'?'Oleaster':TREE_SPECIES[kind].en.split(' ').pop()}));
 export const PLANT_SPECIES={
  oleaster:{
-  id:'oleaster',makeModel:makeOleaster,
-  defaults:{...OLEASTER_DEFAULTS,dryness:.42,count:160,extent:24,spacing:1.05,flex:1},
-  shape:['seed','height','spread','density','leafSize'],
-  sliders:[['seed',1,200,1],['height',.45,2.4,.05,'m'],['spread',.6,2.5,.05,'m'],['density',.1,1,.01],['leafSize',.65,1.6,.05]],
+  id:'oleaster',makeModel:input=>makeOleaster({...input,barkTile:input.barkTile??BARK_TILE.oleaster}),atlas:{...LEAF_ATLAS,bark:barkAtlasSpec('oleaster')},
+  defaults:{...OLEASTER_DEFAULTS,barkTile:BARK_TILE.oleaster,barkColor:'#ffffff',barkBleach:0,dryness:.42,count:160,extent:24,spacing:1.05,flex:1},
+  shape:['seed','height','spread','density','leafSize','barkTile'],
+  sliders:[['seed',1,200,1],['height',.45,2.4,.05,'m'],['spread',.6,2.5,.05,'m'],['density',.1,1,.01],['leafSize',.65,1.6,.05],['barkTile',.15,1.5,.05,'m']],
   planting:{count:[1,512,1],extent:[8,64,1],spacing:1.05,camera:[.65,.42,.87]},
   views:oleasterViews,cameraLimits:{minDistance:.16,maxDistance:150,minPolarAngle:.03,maxPolarAngle:Math.PI-.1},cameraFar:300,fogRange:[180,260],
   impostorFrame:null,

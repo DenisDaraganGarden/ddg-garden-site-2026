@@ -43,12 +43,20 @@ function patchWind(shader,uniforms){
  shader.vertexShader=shader.vertexShader.replace('#include <common>', '#include <common>\nattribute float plantHabitat;varying float vPlantHabitat;varying vec3 vPlantRestWorld;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvec4 plantRest=vec4(position,1.0);\n#ifdef USE_INSTANCING\nplantRest=instanceMatrix*plantRest;\n#endif\nvPlantRestWorld=(modelMatrix*plantRest).xyz;vPlantHabitat=plantHabitat;');
  shader.vertexShader=shader.vertexShader.replace('#include <common>','#include <common>\n'+PLANT_WIND_GLSL).replace('#include <beginnormal_vertex>','#include <beginnormal_vertex>\nobjectNormal=plantWindNormal(objectNormal);').replace('#include <begin_vertex>','vec3 transformed=plantWindPoint(position);');
 }
-export function plantUniforms(){return {...ecologyUniforms(),uPlantTime:{value:0},uPlantWind:{value:new THREE.Vector2()},uPlantFlutter:{value:.55},uPlantTransmission:{value:.65},uPlantNearCut:{value:0}};}
+export function plantUniforms(){return {...ecologyUniforms(),uPlantTime:{value:0},uPlantWind:{value:new THREE.Vector2()},uPlantFlutter:{value:.55},uPlantTransmission:{value:.65},uPlantNearCut:{value:0},uPlantBarkBleach:{value:0}};}
+// Weathered wood: the bark's colour pulled toward a lighter grey of itself.
+export const PLANT_BLEACH_GLSL=/* glsl */`
+uniform float uPlantBarkBleach;
+vec3 plantBarkBleach(vec3 c){float l=dot(c,vec3(.2126,.7152,.0722));return mix(c,vec3(l)*1.25+.12,uPlantBarkBleach);}
+`;
 export function makePlantMaterials(atlas,uniforms,{bake=false}={}) {
  // The leaf atlas keeps its back face in the lower half; a single-sided
  // species atlas shows the same cutout from both faces.
  const split=!atlas.singleSided,frontUv=split?'vec2(vMapUv.x,vMapUv.y*.5+(gl_FrontFacing?0.0:.5))':'vMapUv',cutout=atlas.alphaTest??.43,scale=atlas.normalScale??.22;
- const bark=new THREE.MeshStandardMaterial({color:'#685b44',roughness:.95,vertexColors:true});
+ // Bark: Denis's tile (albedo, normal, R AO / G roughness) under the species'
+ // tint, or a flat colour with a procedural grain when the species has no tile.
+ const tile=atlas.bark;
+ const bark=new THREE.MeshStandardMaterial(tile?{color:'#ffffff',map:tile.color.texture,normalMap:tile.normal.texture,normalScale:new THREE.Vector2(.8,.8),roughnessMap:tile.surface.texture,aoMap:tile.surface.texture,aoMapIntensity:1,roughness:1,vertexColors:true}:{color:'#685b44',roughness:.95,vertexColors:true});
  bark.defines={USE_UV:''};
  const leaves=new THREE.MeshStandardMaterial({map:atlas.color.texture,normalMap:atlas.normal.texture,normalScale:new THREE.Vector2(scale,scale),roughness:.73,metalness:0,side:THREE.DoubleSide,alphaTest:cutout,alphaToCoverage:true,vertexColors:true,
   roughnessMap:atlas.surface?.texture??null,aoMap:atlas.surface?.texture??null,aoMapIntensity:.75});
@@ -58,10 +66,12 @@ export function makePlantMaterials(atlas,uniforms,{bake=false}={}) {
   m.onBeforeCompile=shader=>{
    patchWind(shader,uniforms);
    if(m===bark){
-    shader.fragmentShader=shader.fragmentShader.replace('#include <color_fragment>',`#include <color_fragment>
+    shader.fragmentShader=shader.fragmentShader.replace('#include <common>','#include <common>\n'+PLANT_BLEACH_GLSL);
+    shader.fragmentShader=shader.fragmentShader.replace('#include <color_fragment>',tile?`#include <color_fragment>
+      diffuseColor.rgb=plantBarkBleach(diffuseColor.rgb);`:`#include <color_fragment>
       float grain=sin(vUv.x*219.0+sin(vUv.y*3.7)*1.3)*sin(vUv.y*49.0+vUv.x*19.0);
       float fissure=pow(max(sin(vUv.x*91.0+sin(vUv.y*.7)*.6),0.0),12.0);
-      diffuseColor.rgb*=.86+grain*.09-fissure*.17;`);
+      diffuseColor.rgb=plantBarkBleach(diffuseColor.rgb*(.86+grain*.09-fissure*.17));`);
    }
    if(m===leaves||m===leafDepth){
     shader.fragmentShader=shader.fragmentShader.replace('texture2D( map, vMapUv )',`texture2D( map, ${frontUv} )`);
@@ -87,7 +97,7 @@ export function makePlantMaterials(atlas,uniforms,{bake=false}={}) {
       #endif`);
    }
   };
-  m.customProgramCacheKey=()=>`oleaster-${m.type}-${m===leaves?'leaf':m===leafDepth?'cutout':'bark'}-${split?'split':'single'}-${atlas.surface?'surface':'plain'}-6`;
+  m.customProgramCacheKey=()=>`oleaster-${m.type}-${m===leaves?'leaf':m===leafDepth?'cutout':'bark'}-${split?'split':'single'}-${atlas.surface?'surface':'plain'}-${tile?'barktile':'barkgrain'}-7`;
  }
  return {bark,leaves,barkDepth,leafDepth,dispose(){for(const m of [bark,leaves,barkDepth,leafDepth])m.dispose();}};
 }
@@ -95,6 +105,6 @@ export function updatePlantUniforms(uniforms,settings,time){
  updateEcologyUniforms(uniforms,settings);
  const angle=settings.windBearing*Math.PI/180;
  uniforms.uPlantTime.value=time;uniforms.uPlantWind.value.set(Math.sin(angle)*settings.wind,-Math.cos(angle)*settings.wind);
- uniforms.uPlantFlutter.value=settings.flutter;uniforms.uPlantTransmission.value=settings.translucency;
+ uniforms.uPlantFlutter.value=settings.flutter;uniforms.uPlantTransmission.value=settings.translucency;uniforms.uPlantBarkBleach.value=settings.barkBleach??0;
  if(uniforms.uPlantNearCut)uniforms.uPlantNearCut.value=settings.nearDistance??0;
 }

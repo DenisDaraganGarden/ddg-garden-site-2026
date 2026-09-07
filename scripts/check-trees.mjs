@@ -57,7 +57,7 @@ assert.equal(createCoastTreePlanting(query,definition,{...options,treesEnabled:f
 assert.deepEqual(createCoastTreePlanting(query,definition,{...options,shrubsDryness:.9}).map(p=>[p.x,p.z]),plants.map(p=>[p.x,p.z]),'colour edits keep the grove where it is');
 assert.equal(normalizeTreeSettings({treesCount:99999}).treesCount,256);assert.equal(normalizeTreeSettings({treesLean:-2}).treesLean,0);
 const asset=treeAssetSettings({...options,shrubsDryness:.7},{speed:9,bearing:200});
-assert.equal(asset.dryness,.7);assert.equal(asset.windBearing,200);assert.equal(asset.flex,DEFAULT_TREE_SETTINGS.treesFlex);
+assert.equal(asset.dryness,.7);assert.equal(asset.windBearing,200);assert.equal(asset.flex,DEFAULT_TREE_SETTINGS.treesFlex);assert.equal(asset.translucency,DEFAULT_TREE_SETTINGS.treesTranslucency);
 // Species (treeSpecies.js): each form regrows exactly and attaches, a snag
 // carries no leaves, a sheaf has its trunks, budgets stay near the oleaster's.
 // The default oleaster is pinned by fingerprint: the species knobs at their

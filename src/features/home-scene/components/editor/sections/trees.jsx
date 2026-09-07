@@ -12,6 +12,8 @@ const groups=[
  ['treesHeight','Высота','Height',' m'],['treesSpread','Ширина кроны','Crown width',' m'],['treesLean','Наклон от ветра','Wind lean',''],['treesTwist','Кручение ствола','Trunk twist',''],['treesDensity','Облиственность','Leaf density',''],['treesLeafSize','Размер листа','Leaf size',''],['treesDeadwood','Сухие ветви','Deadwood','']]],
  ['Реакция на ветер','Wind response',[
  ['treesFlex','Гибкость','Flexibility','']]],
+ ['Свет','Light',[
+ ['treesTranslucency','Просвечивание листа','Leaf translucency','']]],
  ['Дальность','Distance',[
  ['treesRenderDistance','Дальность отрисовки','Render distance',' m']]],
 ];

@@ -1,4 +1,6 @@
 import React,{useEffect,useMemo,useRef,useState} from 'react';
+import {buildHomeSceneLighting} from '../components/effects/homeSceneLighting';
+import {getPublishedHomeSceneSettings} from '../features/home-scene/hooks/useHomeSceneSettings';
 import {usePlantAtlas} from '../plants/usePlantAtlas.js';
 import * as THREE from 'three';
 import PlantPopulation from '../plants/PlantPopulation.jsx';
@@ -7,6 +9,8 @@ import {randomSequence} from '../plants/oleasterModel.js';
 import {ecologyPatch} from '../plants/plantEcology.js';
 import {GRASS_SPECIES_DEFAULTS,grassAtlasSpec,makeGrassTuft} from '../plants/grassModel.js';
 
+// Plants take the landscape's environment at the published intensity, as on the site.
+const SCENE_ENV=buildHomeSceneLighting(getPublishedHomeSceneSettings()).environment.reflection;
 function GroundPlot({query,plants,extent}){
  const geometry=useMemo(()=>{
   const g=new THREE.PlaneGeometry(extent,extent,96,96);g.rotateX(-Math.PI/2);
@@ -32,14 +36,14 @@ function SingleStage({species,settings,mode,paused,onStats,lowPower}){
  // A trunk is not a twig: the species says how much of the wind it takes.
  const placements=useMemo(()=>(mode==='patch'?scatterPlants(query,{seed:planting.seed,count:planting.count,extent:planting.extent-1,spacing:species.planting.spacing,dryness:planting.dryness,pathMask:query.pathMask,ecology:planting,suitability:species.planting.suitability}):[{x:0,y:0,z:0,scale:1,yaw:0,dryness:planting.dryness,exposure:1}]).map(p=>({...p,exposure:(p.exposure??1)*settings.flex})), [mode,query,planting,species,settings.flex]);
  const impostorFrame=species.impostorFrame?(lowPower?species.impostorFrame.lowPower:species.impostorFrame.desktop):undefined;
- return <>{mode==='patch'&&<GroundPlot query={query} plants={placements} extent={settings.extent}/>}{atlas&&<PlantPopulation model={model} atlas={atlas} settings={settings} placements={placements} paused={paused} onStats={onStats} lowPower={lowPower} impostorFrame={impostorFrame}/>}</>;
+ return <>{mode==='patch'&&<GroundPlot query={query} plants={placements} extent={settings.extent}/>}{atlas&&<PlantPopulation model={model} atlas={atlas} settings={settings} placements={placements} paused={paused} onStats={onStats} lowPower={lowPower} impostorFrame={impostorFrame} envMapIntensity={SCENE_ENV}/>}</>;
 }
 // One kind of the mix: its own atlas, prototype and population.
 function KindPopulation({kind,seed,heightScale,settings,placements,paused,lowPower,onStats,impostorFrame}){
  const atlas=usePlantAtlas(useMemo(()=>grassAtlasSpec(kind,lowPower),[kind,lowPower]));
  const model=useMemo(()=>makeGrassTuft(kind,{seed,height:GRASS_SPECIES_DEFAULTS[kind].height*heightScale}),[kind,seed,heightScale]);
  const kindSettings=useMemo(()=>kind==='carpet'?{...settings,nearDistance:3}:settings,[kind,settings]);
- return atlas&&placements.length?<PlantPopulation model={model} atlas={atlas} settings={kindSettings} placements={placements} paused={paused} onStats={onStats} lowPower={lowPower} statsKey={`plantStats_${kind}`} impostorFrame={impostorFrame}/>:null;
+ return atlas&&placements.length?<PlantPopulation model={model} atlas={atlas} settings={kindSettings} placements={placements} paused={paused} onStats={onStats} lowPower={lowPower} statsKey={`plantStats_${kind}`} impostorFrame={impostorFrame} envMapIntensity={SCENE_ENV}/>:null;
 }
 // Several kinds as one meadow: one scatter, each tuft handed to a kind by the
 // shares and a cluster field, so species stand in patches, not in salt-and-pepper.

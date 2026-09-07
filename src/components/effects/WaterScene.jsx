@@ -440,9 +440,9 @@ function WaterRuntimeScene({
           layout={activeLayout}
         />
         {terrainQuery ? <primitive object={terrainQuery.collisionObject}/> : null}
-        {terrainQuery&&settings.shrubsEnabled ? <CoastShrubs settings={shrubAsset} plants={shrubPlants} qualityProfile={qualityProfile}/> : null}
-        {terrainQuery&&settings.treesEnabled ? <CoastTrees settings={treeAsset} plants={treePlants} qualityProfile={qualityProfile}/> : null}
-        {terrainQuery&&settings.grassEnabled ? <CoastGrass query={terrainQuery} definition={queryDefinition} settings={grassSettings} asset={grassAsset} qualityProfile={qualityProfile}/> : null}
+        {terrainQuery&&settings.shrubsEnabled ? <CoastShrubs settings={shrubAsset} plants={shrubPlants} qualityProfile={qualityProfile} envMapIntensity={lighting.environment.reflection}/> : null}
+        {terrainQuery&&settings.treesEnabled ? <CoastTrees settings={treeAsset} plants={treePlants} qualityProfile={qualityProfile} envMapIntensity={lighting.environment.reflection}/> : null}
+        {terrainQuery&&settings.grassEnabled ? <CoastGrass query={terrainQuery} definition={queryDefinition} settings={grassSettings} asset={grassAsset} qualityProfile={qualityProfile} envMapIntensity={lighting.environment.reflection}/> : null}
         {settings.terrainEnabled ? <AzovTerrain plantCover={shrubCover} rocks={terrainRocks} onTerrainReady={handleLandingSurfaceReady} audioRuntime={audioRuntime} runtime={runtime} definition={terrainDefinition} settings={settings} qualityProfile={qualityProfile} lighting={lighting} sky={sky} /> : null}
         {settings.seabedVisible && !seabedCovered ? (
           <Seabed
