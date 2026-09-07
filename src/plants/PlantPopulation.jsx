@@ -41,14 +41,13 @@ export default function PlantPopulation({model,settings,atlas,placements,paused=
    geometry.setAttribute('plantHabitat',new THREE.InstancedBufferAttribute(new Float32Array(capacity).fill(.5),1));
   }
  },[resources,capacity]);
+ // New placements only ask for a frame: the partition below places every
+ // instance on it, so uploading them here as well was the same work twice -
+ // and the hitch when a meadow of thousands regrew around a moving camera.
  useLayoutEffect(()=>{
-  placements.forEach((p,i)=>{
-   transform.position.set(p.x,p.y-(p.rootDepth??0)*p.scale,p.z);transform.rotation.set(0,p.yaw,0);transform.scale.setScalar(p.scale);transform.updateMatrix();
-   for(const ref of meshRefs){if(!ref.current)continue;ref.current.setMatrixAt(i,transform.matrix);ref.current.setColorAt(i,WHITE);ref.current.geometry.attributes.plantExposure.setX(i,p.exposure??1);}
-  });
-  for(const ref of meshRefs){if(ref.current){ref.current.instanceMatrix.needsUpdate=true;if(ref.current.instanceColor)ref.current.instanceColor.needsUpdate=true;ref.current.computeBoundingSphere();}}
+  for(const ref of meshRefs)if(ref.current)ref.current.count=0;
   lastReport.current=-Infinity;invalidate();
- },[placements,transform,meshRefs,resources,invalidate]);
+ },[placements,meshRefs,resources,invalidate]);
  useFrame(({clock},delta)=>{
   if(!resources||resources.model!==model)return;
   const {meshes,materials,farMaterial,farGeometry}=resources;
@@ -76,7 +75,7 @@ export default function PlantPopulation({model,settings,atlas,placements,paused=
   for(let i=0;i<3;i++){
    if(groups[i].current)groups[i].current.visible=counts[i]>0;
    const refs=i===2?[meshRefs[4]]:meshRefs.slice(i*2,i*2+2);
-   for(const r of refs){if(r.current){r.current.count=counts[i];r.current.visible=!(settings.skeleton&&r===meshRefs[i*2+1]);r.current.instanceMatrix.needsUpdate=true;r.current.instanceColor.needsUpdate=true;r.current.geometry.attributes.plantExposure.needsUpdate=true;r.current.geometry.attributes.plantHabitat.needsUpdate=true;r.current.computeBoundingSphere();}}
+   for(const r of refs){if(r.current){r.current.count=counts[i];r.current.visible=!(settings.skeleton&&r===meshRefs[i*2+1]);r.current.instanceMatrix.needsUpdate=true;if(r.current.instanceColor)r.current.instanceColor.needsUpdate=true;r.current.geometry.attributes.plantExposure.needsUpdate=true;r.current.geometry.attributes.plantHabitat.needsUpdate=true;r.current.computeBoundingSphere();}}
   }
   const budgets=meshes.map(m=>(m.bark.index.count+m.leaf.index.count)/3).concat([farGeometry.index.count/3]);
   const focus=placements.reduce((best,p)=>!best||p.z-p.x>best.z-best.x?p:best,null);

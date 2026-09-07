@@ -74,17 +74,18 @@ export function grassCell(cx,cz,{definition:p,query,settings}){
  }
  return out;
 }
-// Fills the cells within `radius` of the camera, at most `budget` new ones per
-// call, and returns the placements of every filled cell in reach - or null
-// when nothing changed. The cache keeps cells for the way back.
-export function gatherGrass(cache,cameraX,cameraZ,radius,context,budget=24,carpetRadius=radius){
+// Fills the cells within `radius` of the camera, for at most `budgetMs` of
+// work per call, and returns the placements of every filled cell in reach - or
+// null when nothing changed. The cache keeps cells for the way back.
+export function gatherGrass(cache,cameraX,cameraZ,radius,context,budgetMs=12,carpetRadius=radius){
+ const started=performance.now();
  const cx=Math.floor(cameraX/GRASS_CELL),cz=Math.floor(cameraZ/GRASS_CELL),span=Math.ceil(radius/GRASS_CELL),carpetSpan=Math.ceil(carpetRadius/GRASS_CELL);
  let made=0,pending=false;
  for(let dz=-span;dz<=span&&!pending;dz++)for(let dx=-span;dx<=span;dx++){
   if(dx*dx+dz*dz>span*span)continue;
   const key=`${cx+dx}:${cz+dz}`;
   if(cache.has(key))continue;
-  if(made>=budget){pending=true;break;}
+  if(made>0&&performance.now()-started>budgetMs){pending=true;break;}
   cache.set(key,grassCell(cx+dx,cz+dz,context));made++;
  }
  if(cache.size>4000)for(const key of cache.keys()){const [x,z]=key.split(':').map(Number);if((x-cx)**2+(z-cz)**2>span*span*4)cache.delete(key);if(cache.size<=3000)break;}

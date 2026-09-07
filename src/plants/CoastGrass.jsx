@@ -26,12 +26,12 @@ export default function CoastGrass({query,definition,settings,asset,qualityProfi
   timer.current+=delta;
   if(timer.current<.25)return;
   timer.current=0;
-  const next=gatherGrass(cache.current,camera.position.x,camera.position.z,radius,context,24,lowPower?28:45);
+  const next=gatherGrass(cache.current,camera.position.x,camera.position.z,radius,context,lowPower?8:12,lowPower?28:45);
   if(!next)return;
-  // Re-uploading five instance buffers per kind every tick of a long fill is
-  // the hitch; publish when the fill is complete, or once a second meanwhile.
+  // Re-uploading five instance buffers per kind every tick of a fill is the
+  // hitch; publish when the fill is complete, or every 700 ms meanwhile.
   const now=performance.now();
-  if(next.pending&&now-lastPublish.current<1000)return;
+  if(next.pending&&now-lastPublish.current<700)return;
   lastPublish.current=now;setPlacements(next);
  });
  return <>{GRASS_SCENE_KINDS.map(kind=><GrassKind key={kind} kind={kind} placements={placements[kind]??[]} asset={asset} settings={settings} lowPower={lowPower}/>)}</>;
