@@ -111,5 +111,5 @@ export function makeGrassTuft(kind,input={}){
  };
  // Thousands of far cards would shadow the field into mud; the terrain's own
  // grass layer carries the far shading instead.
- return {species:GRASS_SPECIES_NAMES[kind],form:'grass',kind,settings:p,branches:[],leaves:pieces,height,geometry,selectLod:kind===GRASS_UNDERLAY?()=>2:lodSelector(height),farCastsShadow:false};
+ return {species:GRASS_SPECIES_NAMES[kind],form:'grass',kind,settings:p,branches:[],leaves:pieces,height,geometry,selectLod:kind===GRASS_UNDERLAY?()=>2:lodSelector(height),farCastsShadow:false,staticFar:kind===GRASS_UNDERLAY};
 }

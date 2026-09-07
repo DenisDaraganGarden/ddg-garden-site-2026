@@ -58,13 +58,28 @@ export default function PlantPopulation({model,settings,atlas,placements,paused=
   for(const m of [materials.bark,materials.leaves,farMaterial])m.wireframe=settings.wireframe;
   farMaterial.roughness=settings.roughness;
   // One specimen uses true camera distance. Population partitions instances by
-  // distance every quarter second, so distant plants never pay near geometry.
-  const now=performance.now(),cameraChanged=lastCamera.current.position.distanceToSquared(camera.position)>1e-6||lastCamera.current.height!==size.height||lastCamera.current.fov!==camera.fov;
-  if(!cameraChanged&&now-lastReport.current<250)return;
+  // distance - at most every quarter second, and only when the camera moved or
+  // the placements or settings changed: a still viewport pays nothing here.
+  const now=performance.now(),dirty=lastReport.current===-Infinity,cameraChanged=lastCamera.current.position.distanceToSquared(camera.position)>1e-6||lastCamera.current.height!==size.height||lastCamera.current.fov!==camera.fov;
+  if(!dirty&&(!cameraChanged||now-lastReport.current<250))return;
   lastReport.current=now;lastCamera.current.position.copy(camera.position);lastCamera.current.height=size.height;lastCamera.current.fov=camera.fov;
   const counts=[0,0,0],heights=model.height;let culled=0;
-  for(const p of placements){
-   const distance=camera.position.distanceTo(new THREE.Vector3(p.x,p.y+heights*p.scale*.5,p.z)),pixels=heights*p.scale*size.height/(2*Math.tan(camera.fov*Math.PI/360)*Math.max(.1,distance));
+  // A static far population (the grass carpet) is uploaded once per placements
+  // change and never partitioned; its reach is bounded by whoever planted it.
+  if(model.staticFar){
+   if(dirty){
+    const far=meshRefs[4].current;
+    if(far){
+     placements.forEach((p,i)=>{transform.position.set(p.x,p.y-(p.rootDepth??0)*p.scale,p.z);transform.rotation.set(0,p.yaw,0);transform.scale.setScalar(p.scale);transform.updateMatrix();far.setMatrixAt(i,transform.matrix);far.setColorAt(i,WHITE);far.geometry.attributes.plantExposure.setX(i,p.exposure??1);far.geometry.attributes.plantHabitat.setX(i,p.habitat??.5);});
+     far.count=placements.length;far.instanceMatrix.needsUpdate=true;if(far.instanceColor)far.instanceColor.needsUpdate=true;far.geometry.attributes.plantExposure.needsUpdate=true;far.geometry.attributes.plantHabitat.needsUpdate=true;far.computeBoundingSphere();
+    }
+    for(let i=0;i<2;i++)if(groups[i].current)groups[i].current.visible=false;
+    if(groups[2].current)groups[2].current.visible=placements.length>0;
+   }
+   counts[2]=placements.length;
+  } else for(const p of placements){
+   const cy=p.y+heights*p.scale*.5,dx=camera.position.x-p.x,dy=camera.position.y-cy,dz=camera.position.z-p.z;
+   const distance=Math.sqrt(dx*dx+dy*dy+dz*dz),pixels=heights*p.scale*size.height/(2*Math.tan(camera.fov*Math.PI/360)*Math.max(.1,distance));
    if(settings.lod==='auto'&&(distance>(settings.renderDistance??(lowPower?100:180))||distance<(settings.nearDistance??0))){culled++;continue;}
    const level=settings.skeleton?0:settings.lod==='auto'?(model.selectLod??selectPlantLod)(distance,pixels,p.lod??lastLod.current,lowPower,(camera.position.y-p.y-heights*p.scale*.5)/Math.max(.1,distance)):Number(settings.lod);
    p.lod=level;lastLod.current=level;
@@ -72,7 +87,7 @@ export default function PlantPopulation({model,settings,atlas,placements,paused=
    const refs=level===2?[meshRefs[4]]:meshRefs.slice(level*2,level*2+2);
    for(const r of refs){if(r.current){r.current.setMatrixAt(slot,transform.matrix);r.current.geometry.attributes.plantExposure.setX(slot,p.exposure??1);r.current.geometry.attributes.plantHabitat.setX(slot,p.habitat??.5);r.current.setColorAt(slot,WHITE);}}
   }
-  for(let i=0;i<3;i++){
+  if(!model.staticFar)for(let i=0;i<3;i++){
    if(groups[i].current)groups[i].current.visible=counts[i]>0;
    const refs=i===2?[meshRefs[4]]:meshRefs.slice(i*2,i*2+2);
    for(const r of refs){if(r.current){r.current.count=counts[i];r.current.visible=!(settings.skeleton&&r===meshRefs[i*2+1]);r.current.instanceMatrix.needsUpdate=true;if(r.current.instanceColor)r.current.instanceColor.needsUpdate=true;r.current.geometry.attributes.plantExposure.needsUpdate=true;r.current.geometry.attributes.plantHabitat.needsUpdate=true;r.current.computeBoundingSphere();}}

@@ -76,13 +76,13 @@ export function bakePlantImpostor(renderer,model,geometries,atlas,frameSize=256)
  return {color,normal,position,width,height,center,min:box.min,size,frameSize,views:24,dispose(){color.dispose();normal.dispose();position.dispose();}};
 }
 export function makeImpostorMaterial(atlas,sharedUniforms){
- const uniforms={...(sharedUniforms??{...ecologyUniforms(),uPlantTime:{value:0},uPlantWind:{value:new THREE.Vector2()},uPlantTransmission:{value:.65}}),uPlantImpostorCenter:{value:atlas.center},uPlantPositionAtlas:{value:atlas.position.texture},uPlantAtlasMin:{value:atlas.min},uPlantAtlasSize:{value:atlas.size}};
+ const uniforms={...(sharedUniforms??{...ecologyUniforms(),uPlantTime:{value:0},uPlantWind:{value:new THREE.Vector2()},uPlantTransmission:{value:.65},uPlantNearCut:{value:0}}),uPlantImpostorCenter:{value:atlas.center},uPlantPositionAtlas:{value:atlas.position.texture},uPlantAtlasMin:{value:atlas.min},uPlantAtlasSize:{value:atlas.size}};
  const material=new THREE.MeshStandardMaterial({map:atlas.color.texture,normalMap:atlas.normal.texture,normalScale:new THREE.Vector2(1,1),roughness:.85,alphaTest:.22,alphaToCoverage:true,side:THREE.DoubleSide});
  material.onBeforeCompile=shader=>{
   Object.assign(shader.uniforms,uniforms);
   shader.vertexShader=shader.vertexShader.replace('#include <common>',`#include <common>
     ${PLANT_BEND_GLSL}
-    uniform vec3 uPlantImpostorCenter;varying float vPlantFrame;attribute float plantExposure;attribute float plantHabitat;varying float vPlantHabitat;varying vec3 vPlantRoot;varying vec3 vPlantBasis;
+    uniform vec3 uPlantImpostorCenter;uniform float uPlantNearCut;varying float vPlantFrame;attribute float plantExposure;attribute float plantHabitat;varying float vPlantHabitat;varying vec3 vPlantRoot;varying vec3 vPlantBasis;
     mat3 plantBillboardRotation(){
       vec4 middle=modelMatrix*instanceMatrix*vec4(uPlantImpostorCenter,1);
       vec3 viewTo=cameraPosition-middle.xyz;
@@ -106,7 +106,10 @@ export function makeImpostorMaterial(atlas,sharedUniforms){
     float wave=plantBend(root.xz);
     vec2 windLocal=vec2(uPlantWind.x*cos(yaw)-uPlantWind.y*sin(yaw),uPlantWind.x*sin(yaw)+uPlantWind.y*cos(yaw))*plantExposure;
     float h=max(transformed.y,0.0);transformed.xz+=windLocal*wave*h*h;
-    transformed.y/=sqrt(1.0+dot(windLocal,windLocal)*wave*wave*h*h);`);
+    transformed.y/=sqrt(1.0+dot(windLocal,windLocal)*wave*wave*h*h);
+    // A card seen from closer than the cut collapses to its root: the carpet
+    // is never a poster in front of the lens.
+    if(uPlantNearCut>0.0&&distance(root.xyz,cameraPosition)<uPlantNearCut)transformed=vec3(0.0);`);
   shader.fragmentShader=shader.fragmentShader.replace('#include <common>',`#include <common>
    ${PLANT_FIELD_GLSL}
    varying float vPlantFrame;varying float vPlantHabitat;varying vec3 vPlantRoot;varying vec3 vPlantBasis;
@@ -132,7 +135,7 @@ export function makeImpostorMaterial(atlas,sharedUniforms){
   shader.fragmentShader=shader.fragmentShader.replace('#include <map_fragment>',THREE.ShaderChunk.map_fragment.replaceAll('vMapUv','plantAtlasUv(vMapUv)').replace('diffuseColor *= sampledDiffuseColor;', 'sampledDiffuseColor.rgb /= max(sampledDiffuseColor.a, .001); diffuseColor *= sampledDiffuseColor;')).replace('#include <normal_fragment_maps>',THREE.ShaderChunk.normal_fragment_maps.replaceAll('texture2D( normalMap, vNormalMapUv ).xyz', '(texture2D(normalMap,plantAtlasUv(vNormalMapUv)).xyz / max(texture2D(normalMap,plantAtlasUv(vNormalMapUv)).a,.001))'));
  };
  const depth=new THREE.MeshDepthMaterial({map:atlas.color.texture,alphaTest:.22,depthPacking:THREE.RGBADepthPacking,side:THREE.DoubleSide});
- depth.onBeforeCompile=material.onBeforeCompile;depth.customProgramCacheKey=()=> 'oleaster-24-view-depth-v4';
+ depth.onBeforeCompile=material.onBeforeCompile;depth.customProgramCacheKey=()=> 'oleaster-24-view-depth-v6';
  material.addEventListener('dispose',()=>depth.dispose());material.userData.depth=depth;
- material.customProgramCacheKey=()=> 'oleaster-24-view-impostor-v5';material.userData.uniforms=uniforms;return material;
+ material.customProgramCacheKey=()=> 'oleaster-24-view-impostor-v6';material.userData.uniforms=uniforms;return material;
 }

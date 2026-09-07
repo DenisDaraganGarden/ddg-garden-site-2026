@@ -43,7 +43,7 @@ function patchWind(shader,uniforms){
  shader.vertexShader=shader.vertexShader.replace('#include <common>', '#include <common>\nattribute float plantHabitat;varying float vPlantHabitat;varying vec3 vPlantRestWorld;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvec4 plantRest=vec4(position,1.0);\n#ifdef USE_INSTANCING\nplantRest=instanceMatrix*plantRest;\n#endif\nvPlantRestWorld=(modelMatrix*plantRest).xyz;vPlantHabitat=plantHabitat;');
  shader.vertexShader=shader.vertexShader.replace('#include <common>','#include <common>\n'+PLANT_WIND_GLSL).replace('#include <beginnormal_vertex>','#include <beginnormal_vertex>\nobjectNormal=plantWindNormal(objectNormal);').replace('#include <begin_vertex>','vec3 transformed=plantWindPoint(position);');
 }
-export function plantUniforms(){return {...ecologyUniforms(),uPlantTime:{value:0},uPlantWind:{value:new THREE.Vector2()},uPlantFlutter:{value:.55},uPlantTransmission:{value:.65}};}
+export function plantUniforms(){return {...ecologyUniforms(),uPlantTime:{value:0},uPlantWind:{value:new THREE.Vector2()},uPlantFlutter:{value:.55},uPlantTransmission:{value:.65},uPlantNearCut:{value:0}};}
 export function makePlantMaterials(atlas,uniforms,{bake=false}={}) {
  // The leaf atlas keeps its back face in the lower half; a single-sided
  // species atlas shows the same cutout from both faces.
@@ -96,4 +96,5 @@ export function updatePlantUniforms(uniforms,settings,time){
  const angle=settings.windBearing*Math.PI/180;
  uniforms.uPlantTime.value=time;uniforms.uPlantWind.value.set(Math.sin(angle)*settings.wind,-Math.cos(angle)*settings.wind);
  uniforms.uPlantFlutter.value=settings.flutter;uniforms.uPlantTransmission.value=settings.translucency;
+ if(uniforms.uPlantNearCut)uniforms.uPlantNearCut.value=settings.nearDistance??0;
 }
