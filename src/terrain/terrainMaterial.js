@@ -201,11 +201,14 @@ export function createTerrainMaterial(textures,p,rockOnly=false){
      float depth=-groundY;
      vec3 bed=coastBedCover(qs,depth);
      vec2 bedSeed=vec2(uCoastShape.w*.05,0.0);
-     float rag=coastNoise(qs*vec2(.9,.35)+bedSeed);
-     float streak=coastNoise(vec2(qs.y*1.3,qs.x*.25)+bedSeed.yx);
+     // The metre-scale detail shimmers once a pixel spans metres of bed; from
+     // there it settles to its mean and only the field itself remains.
+     float bedDetail=1.0-smoothstep(.15,.8,fwidth(qs.x)+fwidth(qs.y));
+     float rag=mix(.5,coastNoise(qs*vec2(.9,.35)+bedSeed),bedDetail);
+     float streak=mix(.5,coastNoise(vec2(qs.y*1.3,qs.x*.25)+bedSeed.yx),bedDetail);
      bed.x=smoothstep(.08,.55,bed.x*mix(.7,1.3,rag))*mix(.6,1.0,streak);
      bed.y=smoothstep(.05,.6,bed.y*mix(.7,1.2,rag));
-     bed.z=smoothstep(.12,.6,bed.z*mix(.6,1.4,coastNoise(qs*1.7+vec2(9.0,4.0))));
+     bed.z=smoothstep(.12,.6,bed.z*mix(.6,1.4,mix(.5,coastNoise(qs*1.7+vec2(9.0,4.0)),bedDetail)));
      if(bed.y>.01){TerrainSample silt=terrainSample(3.0,sandUv*.667,sandDx*.667,sandDy*.667);silt.color*=vec3(.42,.44,.38);ground=terrainBlend(ground,silt,bed.y);}
      if(bed.x>.01){TerrainSample weed=terrainSample(4.0,sandUv*.75,sandDx*.75,sandDy*.75);weed.color*=vec3(.36,.46,.24);weed.surface.r=max(weed.surface.r,.8);ground=terrainBlend(ground,weed,bed.x);}
      if(bed.z>.01){TerrainSample bank=terrainSample(1.0,sandUv,sandDx,sandDy);bank.color*=vec3(.3,.3,.28);ground=terrainBlend(ground,bank,bed.z);}
@@ -213,7 +216,8 @@ export function createTerrainMaterial(textures,p,rockOnly=false){
      if(ripples>.01){
       // Crests parallel to the shore, 14 cm apart, bending and forking.
       float wobble=(coastNoise(qs*vec2(.25,.7)+vec2(3.0,1.0))-.5)*5.0+coastNoise(qs*vec2(.5,2.0)+vec2(7.0,2.0))*1.5;
-      ground.normal=normalize(vec3(ground.normal.xy-coastLand()*cos(qs.x*44.88+wobble)*.45*ripples,ground.normal.z));
+      float ripplePhase=qs.x*44.88+wobble;
+      ground.normal=normalize(vec3(ground.normal.xy-coastLand()*cos(ripplePhase)*(1.0-smoothstep(1.2,5.0,fwidth(ripplePhase)))*.45*ripples,ground.normal.z));
      }
     }
     // Moist islands (Denis: the Azov shore, not a desert): where water gathers

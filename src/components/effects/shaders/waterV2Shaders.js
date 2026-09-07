@@ -612,7 +612,8 @@ export const waterV2FragmentShader = `
       if(bloom>.001){
         // Scum lines: the bloom gathers into thin streaks along the wind.
         vec2 dir=uCoastSwell.xy,perp=vec2(-dir.y,dir.x),w=vSurfaceWorldPosition.xz;
-        float lines=smoothstep(.8,.96,coastNoise(vec2(dot(w,dir)*.45-uTime*.12,dot(w,perp)*.055)))*smoothstep(.35,.75,coastNoise(w*.07+dir*uTime*.03))*smoothstep(.3,.8,coastNoise(w*.9));
+        float lines=smoothstep(.8,.96,coastNoise(vec2(dot(w,dir)*.45-uTime*.12,dot(w,perp)*.055)))*smoothstep(.35,.75,coastNoise(w*.07+dir*uTime*.03))*smoothstep(.3,.8,coastNoise(w*.9))
+          *(1.0-smoothstep(.5,2.5,fwidth(w.x)+fwidth(w.y)));
         color=mix(color,foamLight*vec3(.46,.56,.18),lines*bloom*.45);
       }
       color=mix(color,foamLight,foam);

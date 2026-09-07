@@ -10,6 +10,12 @@ vec2 rotateSwell(vec2 v, float angle) {
   float c = cos(angle), s = sin(angle);
   return vec2(v.x * c - v.y * s, v.x * s + v.y * c);
 }
+// A crest train seen from afar: once a pixel spans more than a radian or so of
+// phase the cosine is no longer resolved and only shimmers as the camera moves
+// (a moiré over the whole sea), so it is averaged out over the pixel instead.
+float farWaterCrest(float phase) {
+  return cos(phase) * (1.0 - smoothstep(0.35, 1.5, fwidth(phase)));
+}
 vec2 farWaterSwellGradient(vec2 point, float time, float waveSpeed) {
   // Crests travel toward -direction, so downwind is minus the wind. The
   // two crossing trains keep their authored angles to the primary one.
@@ -19,9 +25,9 @@ vec2 farWaterSwellGradient(vec2 point, float time, float waveSpeed) {
   float phaseA = dot(point, directionA) * 0.24 + time * waveSpeed * 0.31;
   float phaseB = dot(point, directionB) * 0.41 - time * waveSpeed * 0.22;
   float phaseC = dot(point, directionC) * 0.13 + time * waveSpeed * 0.14;
-  return directionA * cos(phaseA) * 0.24
-    + directionB * cos(phaseB) * 0.41 * 0.42
-    + directionC * cos(phaseC) * 0.13 * 0.7;
+  return directionA * farWaterCrest(phaseA) * 0.24
+    + directionB * farWaterCrest(phaseB) * 0.41 * 0.42
+    + directionC * farWaterCrest(phaseC) * 0.13 * 0.7;
 }
 `;
 
