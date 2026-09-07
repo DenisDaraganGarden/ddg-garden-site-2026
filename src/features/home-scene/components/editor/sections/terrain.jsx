@@ -1,6 +1,6 @@
 import React from 'react';
 import { useLanguage } from '../../../../../i18n/useLanguage';
-import { RangeControl,SectionHeading } from '../../HomeEditorControls';
+import { RangeControl,ColorControl,SectionHeading } from '../../HomeEditorControls';
 import { TERRAIN_RANGES } from '../../../../../terrain/settings.js';
 const groups=[
  ['Береговая линия','Coastline',[
@@ -11,6 +11,8 @@ const groups=[
   ['terrainFeatureScale','Масштаб участков','Landform spacing',' m'],['terrainLandslides','Оползни и обвалы','Landslides',''],['terrainErosion','Промоины и расщелины','Ravines and rills',''],['terrainPaths','Частота спусков','Descent frequency',''],['terrainPathWidth','Ширина тропы','Path width',' m']]],
  ['Поверхность','Surface',[
   ['terrainShells','Ракушечник','Shell coverage',''],['terrainTextureScale','Масштаб фактуры','Texture frequency',''],['terrainRelief','Рельеф поверхности','Surface relief',''],['terrainParallax','Параллакс','Parallax',''],['terrainGroundCover','Растительный покров грунта','Ground vegetation cover',''],['terrainSoil','Почвенный слой','Soil cap',''],['terrainWeathering','Выветривание','Weathering',''],['terrainTalus','Осыпь и языки грунта','Talus and run-out',''],['terrainStrata','Пласты и потёки','Beds and rills','']]],
+ ['Бровка','Crest rim',[
+  ['terrainRimWidth','Ширина дёрна бровки','Rim turf width',' m'],['terrainRimColor','Цвет дёрна бровки','Rim turf colour','']]],
  ['Цвет','Colour',[
   ['terrainSaturation','Насыщенность','Saturation','×'],['terrainContrast','Контраст','Contrast','×'],['terrainBrightness','Яркость','Brightness','×'],['terrainGreen','Зелень покрова','Cover green','×'],['terrainDry','Жухлость покрова','Cover straw','×']]],
  ['Прибой','Surf',[
@@ -25,6 +27,7 @@ export function TerrainSection({settings,handleSettingChange}) {
  return <>
   <div className="home-editor-status">{ru?'С −Z · В +X · Ю +Z · З −X · высота +Y':'N −Z · E +X · S +Z · W −X · up +Y'}</div>
   {groups.map(([r,e,controls])=><React.Fragment key={r}><SectionHeading label={ru?r:e} subtle/>{controls.map(([key,r,e,unit])=>{
+    if(!TERRAIN_RANGES[key])return <ColorControl key={key} label={ru?r:e} value={settings[key]} onChange={event=>handleSettingChange(event,key,'color')}/>;
     const [min,max,step]=TERRAIN_RANGES[key];return <RangeControl key={key} label={ru?r:e} value={settings[key]} min={min} max={max} step={step} unit={unit} formatValue={n=>Number(n.toFixed(2))} onChange={event=>handleSettingChange(event,key)}/>;
   })}</React.Fragment>)}
  </>;

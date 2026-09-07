@@ -225,15 +225,28 @@ export function createTerrainMaterial(textures,p,rockOnly=false){
     }
     // The steppe from afar: the grass field level (plants/grassField.js),
     // Denis's turf under the tufts near by and the whole meadow beyond reach.
-    float field=grassFieldWeight(qs,profile,terrainN,path,vTerrainWorld.xz,distance(cameraPosition,vTerrainWorld));
+    float field=grassFieldWeight(qs,profile,terrainN,path,vTerrainWorld.xz,dist);
+    // The rim of the bluff: turf to the very edge of the crest, as on the shore
+    // itself - Denis's turf tiles at full weight however near the camera, with
+    // their own tint and greener than the steppe. The inland edge is ragged,
+    // the paths cut through, and the face below takes over by slope.
+    float rim=0.0;
+    if(uCoastSoil.z>.01&&qs.x>profile.y-1.0&&qs.x<profile.y+uCoastSoil.z*1.6){
+     float rag=(coastNoise(vec2(qs.y*.13,3.0)+uCoastShape.w*.031)-.5)*uCoastSoil.z*.9;
+     rim=smoothstep(profile.y-.6,profile.y+.4,qs.x)*(1.0-smoothstep(uCoastSoil.z*.6,uCoastSoil.z*1.3,qs.x-profile.y+rag))*smoothstep(.72,.9,terrainN.y)*(1.0-path)*coastMask(qs);
+     rim*=mix(.75,1.0,coastNoise(vTerrainWorld.xz*.45+vec2(2.0,9.0)));
+    }
+    float rimShare=rim/max(max(field,rim),1e-3);
+    field=max(field,rim);
     if(field>.01){
      vec2 fieldUv=vTerrainWorld.xz/2.0*uTerrainScale+terrainDomainWarp(vTerrainWorld.xz);
      vec2 fieldDx=dFdx(fieldUv),fieldDy=dFdy(fieldUv);
+     float fieldDry=mix(dryness,dryness*.35,rimShare);
      TerrainSample meadow=terrainSample(6.0,fieldUv,fieldDx,fieldDy);
-     meadow=terrainBlend(meadow,terrainSample(7.0,fieldUv,fieldDx,fieldDy),dryness);
+     meadow=terrainBlend(meadow,terrainSample(7.0,fieldUv,fieldDx,fieldDy),fieldDry);
      float gust=grassGust(vTerrainWorld.xz,uTerrainTime);
-     vec3 fieldTint=mix(uGrassFieldFresh,uGrassFieldDry,dryness);
-     meadow.color=gradeCover(meadow.color,dryness)*fieldTint*(1.0-uGrassField.z*gust*.35)*mix(1.0,mix(.7,1.0,meadow.surface.b),uGrassFieldScale.z);
+     vec3 fieldTint=mix(mix(uGrassFieldFresh,uGrassFieldDry,fieldDry),uCoastRimTint,rimShare);
+     meadow.color=gradeCover(meadow.color,fieldDry)*fieldTint*(1.0-uGrassField.z*gust*.35)*mix(1.0,mix(.7,1.0,meadow.surface.b),uGrassFieldScale.z);
      meadow.normal=normalize(vec3(meadow.normal.xy+uGrassWind.xy*gust*uGrassField.z*.3,meadow.normal.z));
      float sheen=pow(max(dot(normalize(viewWorld.xz),-uGrassWind.xy),0.0),3.0)*gust*uGrassField.w;
      meadow.color+=fieldTint*sheen*.18;
@@ -307,5 +320,5 @@ export function createTerrainMaterial(textures,p,rockOnly=false){
   `);
   shader.fragmentShader=shader.fragmentShader.replace('#include <aomap_fragment>','#include <aomap_fragment>\nreflectedLight.indirectDiffuse*=surfaceData.g;');
  };
- material.customProgramCacheKey=()=> 'azov-coast-layered-pbr-v9';return material;
+ material.customProgramCacheKey=()=> 'azov-coast-layered-pbr-v10';return material;
 }
