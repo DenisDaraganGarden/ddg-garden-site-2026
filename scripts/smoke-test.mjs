@@ -99,7 +99,7 @@ function assert(condition, message) {
 function collectPageIssues(page, issues) {
   pageIssueLogs.set(page, issues);
   page.on('pageerror', (error) => {
-    issues.push(`pageerror: ${error.message}`);
+    issues.push(`pageerror: ${error.stack ?? error.message}`);
   });
 
   page.on('console', (message) => {
@@ -296,7 +296,7 @@ async function expectVisible(page, locator, description) {
   try {
     await locator.first().waitFor({ state: 'visible', timeout: 10000 });
   } catch (error) {
-    const geometry = await locator.first().evaluate((node) => {
+    const geometry = await Promise.race([locator.first().evaluate((node) => {
       const chain = [];
       let current = node;
 
@@ -320,9 +320,13 @@ async function expectVisible(page, locator, description) {
           .getPropertyValue('--home-editor-panel-height'),
         viewport: { width: window.innerWidth, height: window.innerHeight },
       };
-    }).catch(() => null);
+    }).catch(() => null), delay(2500).then(() => null)]);
     const details = geometry ? `\nGeometry: ${JSON.stringify(geometry)}` : '';
-    throw new Error(`${description} not visible: ${error.message}${details}`);
+    // A failed scene can unmount this locator in favour of a fallback. Capture
+    // the page too, instead of waiting on the vanished node and losing the
+    // actual shader/runtime error behind a generic visibility timeout.
+    const snapshot = await readFailureSnapshot(page);
+    throw new Error(`${description} not visible: ${error.message}${details}\nPage: ${JSON.stringify(snapshot)}`);
   }
 }
 
@@ -345,6 +349,24 @@ async function waitForCondition(check, message, timeoutMs = 12000, intervalMs = 
   throw new Error(message);
 }
 
+async function readFailureSnapshot(page) {
+  const snapshot = await Promise.race([
+    page.evaluate(() => ({
+      visibility: document.visibilityState,
+      readyState: document.readyState,
+      fallback: document.querySelector('.scene-fallback')?.textContent?.slice(0, 400) ?? null,
+      canvases: [...document.querySelectorAll('canvas')].map(canvas => ({
+        width: canvas.width, height: canvas.height,
+        water: canvas.dataset.ddgWaterEngine, post: canvas.dataset.ddgPostStatus,
+        warmup: canvas.dataset.ddgPlantWarmup,
+      })),
+      metricScenes: Object.keys(window.__DDG_RUNTIME_METRICS__ ?? {}),
+    })).catch(() => ({ unavailable: 'page closed or disconnected' })),
+    delay(2500).then(() => ({ unavailable: 'page main thread did not respond' })),
+  ]);
+  return { ...snapshot, issues: (pageIssueLogs.get(page) ?? []).slice(-12).map(issue => issue.slice(0, 4000)) };
+}
+
 async function waitForRuntimeMetrics(page, sceneId, timeoutMs = 20000) {
   try {
     await page.waitForFunction(
@@ -355,21 +377,8 @@ async function waitForRuntimeMetrics(page, sceneId, timeoutMs = 20000) {
   } catch (error) {
     // Keep the same acceptance deadline, but distinguish a WebGL fallback,
     // hidden tab and blocked startup when a remote software renderer times out.
-    const snapshot = await Promise.race([
-      page.evaluate(() => ({
-        visibility: document.visibilityState,
-        readyState: document.readyState,
-        fallback: document.querySelector('.scene-fallback')?.textContent?.slice(0, 400) ?? null,
-        canvases: [...document.querySelectorAll('canvas')].map(canvas => ({
-          width: canvas.width, height: canvas.height,
-          water: canvas.dataset.ddgWaterEngine, post: canvas.dataset.ddgPostStatus,
-          warmup: canvas.dataset.ddgPlantWarmup,
-        })),
-        metricScenes: Object.keys(window.__DDG_RUNTIME_METRICS__ ?? {}),
-      })).catch(() => ({ unavailable: 'page closed or disconnected' })),
-      delay(2500).then(() => ({ unavailable: 'page main thread did not respond' })),
-    ]);
-    log(`Runtime metrics timeout (${sceneId}): ${JSON.stringify({ ...snapshot, issues: pageIssueLogs.get(page)?.slice(-12) ?? [] })}`);
+    const snapshot = await readFailureSnapshot(page);
+    log(`Runtime metrics timeout (${sceneId}): ${JSON.stringify(snapshot)}`);
     throw error;
   }
   return page.evaluate((id) => window.__DDG_RUNTIME_METRICS__[id], sceneId);
