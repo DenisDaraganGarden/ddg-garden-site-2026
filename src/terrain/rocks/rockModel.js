@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
+import { mergeVertices, toCreasedNormals } from 'three/addons/utils/BufferGeometryUtils.js';
 
 // Portable authoring model. The coast still uses its reviewed collision mesh;
 // this collection is reviewed in the lab before adopting it in the coast.
@@ -13,6 +13,7 @@ export function rockRandom(seed) {
 
 const smooth = (x) => x * x * (3 - 2 * x);
 const mix = (a, b, t) => a + (b - a) * t;
+const saturate = (x) => Math.max(0, Math.min(1, x));
 function hash(x, y, z, seed) {
   let h = Math.imul(x, 374761393) ^ Math.imul(y, 668265263) ^ Math.imul(z, 2147483647) ^ Math.imul(seed, 1274126177);
   h = Math.imul(h ^ (h >>> 13), 1274126177);
@@ -45,15 +46,16 @@ function fracturePlanes(random, rounded) {
  * erosion. Welding before deformation removes the icosphere's UV seam. Detail
  * only changes sampling: the same seed describes the same shape at every LOD.
  * Unit size stays close to one metre; caller transforms own the physical size. */
-export function createCoastalRockGeometry({ seed = 1, type = 'limestone', detail = ROCK_DETAIL.boulder, erosion = .65, roundness = .35, pebble = false } = {}) {
+export function createCoastalRockGeometry({ seed = 1, type = 'limestone', detail = ROCK_DETAIL.boulder, erosion = .65, roundness = .35, fracture = .78, cavities = .65, pebble = false } = {}) {
   const random = rockRandom(seed);
   const source = new THREE.IcosahedronGeometry(1, detail);
   source.deleteAttribute('uv');
   source.deleteAttribute('normal');
-  const geometry = mergeVertices(source, 1e-5);
+  let geometry = mergeVertices(source, 1e-5);
   source.dispose();
   const positions = geometry.attributes.position;
   const cavity = new Float32Array(positions.count);
+  const exposure = new Float32Array(positions.count);
   const rounded = pebble ? .94 : type === 'worn' ? .74 + roundness * .2 : roundness * .18;
   const planes = fracturePlanes(random, rounded);
   const offsets = new THREE.Vector3(random() * 30, random() * 30, random() * 30);
@@ -66,8 +68,34 @@ export function createCoastalRockGeometry({ seed = 1, type = 'limestone', detail
     depth: (.008 + random() * .036) * erosion,
   }));
 
-  for (let i = 0; i < positions.count; i++) {
-    direction.fromBufferAttribute(positions, i).normalize();
+  // A separate stream keeps the original outline and every pebble stable.
+  // Recent fractures clip the weathered body AFTER erosion: an exposed face
+  // stays planar instead of inheriting the crust's rounded noise.
+  const damageRandom = rockRandom(seed + 7151);
+  const cuts = Array.from({ length: 8 }, () => {
+    const normal = new THREE.Vector3(damageRandom() - .5, damageRandom() - .5, damageRandom() - .5).normalize();
+    let distance = .72;
+    for (const plane of planes) {
+      const facing = normal.dot(plane.normal);
+      if (facing > .01) distance = Math.min(distance, plane.distance / facing);
+    }
+    return { normal, distance: mix(distance, .48, rounded) - (.025 + damageRandom() * .075) * fracture };
+  });
+  // Angular, asymmetrical spalls have a flat floor and sloping broken walls.
+  // Their footprint is a convex polygon in a local tangent frame. Unlike a
+  // Gaussian dent this creates an actual rim/face transition in the silhouette.
+  const spalls = Array.from({ length: type === 'coquina' ? 22 : 12 }, () => {
+    const normal = new THREE.Vector3(damageRandom() - .5, damageRandom() - .5, damageRandom() - .5).normalize();
+    const tangent = new THREE.Vector3().crossVectors(normal, Math.abs(normal.y) < .9 ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(1, 0, 0)).normalize();
+    return {
+      normal, tangent, bitangent: new THREE.Vector3().crossVectors(normal, tangent),
+      width: .10 + damageRandom() * .17, depth: .026 + damageRandom() * .07,
+      aspect: .55 + damageRandom() * .7, floor: .22 + damageRandom() * .32,
+      sides: Array.from({ length: 5 }, (_, i) => ({ angle: i * Math.PI * .4 + (damageRandom() - .5) * .3, radius: .72 + damageRandom() * .35 })),
+    };
+  });
+
+  function sampleBody(direction) {
     let nearest = .72;
     for (let j = 0; j < planes.length; j++) {
       const facing = direction.dot(planes[j].normal);
@@ -102,7 +130,50 @@ export function createCoastalRockGeometry({ seed = 1, type = 'limestone', detail
       if (distance < 9) hollow += pit.depth * Math.exp(-distance * 1.5);
     }
     radius -= hollow;
-    cavity[i] = Math.min(.65, hollow * 10 + bedding * .09);
+    return { radius, cavity: hollow * 10 + bedding * .09 };
+  }
+  for (const spall of spalls) {
+    let radius = sampleBody(spall.normal).radius;
+    for (const cut of cuts) {
+      const facing = spall.normal.dot(cut.normal);
+      if (facing > .05) radius = mix(radius, Math.min(radius, cut.distance / facing), smooth(fracture));
+    }
+    spall.floorDistance = radius - spall.depth;
+  }
+
+  for (let i = 0; i < positions.count; i++) {
+    direction.fromBufferAttribute(positions, i).normalize();
+    const weathered = sampleBody(direction);
+    let radius = weathered.radius;
+    let fresh = 0, spallDepth = 0;
+    if (!pebble) {
+      if (fracture > 0) for (const cut of cuts) {
+        const facing = direction.dot(cut.normal);
+        if (facing <= .05) continue;
+        const clipped = cut.distance / facing;
+        if (clipped < radius) {
+          fresh = Math.max(fresh, smooth(saturate((radius - clipped) / .022)) * fracture);
+          radius = mix(radius, clipped, smooth(fracture));
+        }
+      }
+      for (const spall of spalls) {
+        if (direction.dot(spall.normal) < .85) continue;
+        const u = direction.dot(spall.tangent) / spall.width;
+        const v = direction.dot(spall.bitangent) / (spall.width * spall.aspect);
+        let edge = 0;
+        for (const side of spall.sides) edge = Math.max(edge, (u * Math.cos(side.angle) + v * Math.sin(side.angle)) / side.radius);
+        // The broad floor is only slightly tilted. A narrow lip meets a steep
+        // wall; the floor's material exposure follows the removed volume.
+        const wall = saturate((1 - edge) / (1 - spall.floor));
+        const floorRadius = spall.floorDistance / direction.dot(spall.normal) + (u * .009 - v * .007) * cavities;
+        const depth = Math.max(0, radius - floorRadius) * wall * smooth(cavities);
+        spallDepth = Math.max(spallDepth, depth);
+        fresh = Math.max(fresh, smooth(saturate(depth / .018)) * cavities * .9);
+      }
+      radius -= spallDepth;
+    }
+    cavity[i] = Math.min(.7, weathered.cavity + spallDepth * 6);
+    exposure[i] = fresh;
     point.copy(direction).multiplyScalar(radius);
     // Unequal lobes, a tilted bed and a broad base survive all detail levels.
     point.x += point.y * (.10 * Math.sin(seedPhase));
@@ -111,11 +182,19 @@ export function createCoastalRockGeometry({ seed = 1, type = 'limestone', detail
     positions.setXYZ(i, point.x, point.y, point.z);
   }
   geometry.setAttribute('rockCavity', new THREE.BufferAttribute(cavity, 1));
+  geometry.setAttribute('rockFracture', new THREE.BufferAttribute(exposure, 1));
   geometry.computeVertexNormals();
+  if (!pebble && detail >= ROCK_DETAIL.mobileBoulder) {
+    // Preserve real fracture creases while the small weathered undulations
+    // keep smooth normals. Triangle count and closed surface stay unchanged.
+    const creased = toCreasedNormals(geometry, .65);
+    geometry.dispose();
+    geometry = creased;
+  }
   geometry.computeBoundingBox();
   geometry.computeBoundingSphere();
   geometry.name = `azov-${pebble ? 'pebble' : type}-${seed}-d${detail}`;
-  geometry.userData = { seed, type, detail, erosion, roundness, pebble, triangles: geometry.index.count / 3, units: 'metres' };
+  geometry.userData = { seed, type, detail, erosion, roundness, fracture, cavities, pebble, triangles: (geometry.index?.count ?? geometry.attributes.position.count) / 3, units: 'metres' };
   return geometry;
 }
 

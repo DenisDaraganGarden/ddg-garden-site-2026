@@ -6,7 +6,7 @@ import path from 'node:path';
 
 const SOURCE = 'assets-source/textures/rocks';
 const OUT = 'public/textures/rocks';
-const TYPES = { limestone: { relief: .0035, roughness: .82 }, coquina: { relief: .007, roughness: .89 } };
+const TYPES = { limestone: { relief: .0035, roughness: .82 }, coquina: { relief: .007, roughness: .89 }, fracture: { relief: .004, roughness: .77 } };
 const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
 
 function periodic(data, channels, size, band = Math.round(size * .028)) {
@@ -55,7 +55,7 @@ function edgeDelta(data, size, channels) {
 await fs.mkdir(path.join(OUT, 'mobile'), { recursive: true });
 const manifest = {
   generator: 'node scripts/terrain/build-rock-textures.mjs', source: `${SOURCE} (built-in imagegen; full prompts in README.md)`,
-  tileMetres: .6, encoding: { color: 'sRGB reflectance reference', normal: 'linear OpenGL +Y', surface: 'linear: R roughness, G occlusion, B height' },
+  tileMetres: .6, encoding: { color: 'sRGB reflectance reference', normal: 'linear OpenGL +Y', surface: 'linear: R roughness, G occlusion, B height', fractureSurface: 'linear RGBA: R blend mask, G height, B occlusion, A roughness (nonzero alpha preserves data)' },
   method: 'Periodic multiscale local-detail height; broad mineral colour does not become displacement. Roughness and cavity occlusion estimated from the same field. Not a measured scan.',
   sets: {},
 };
@@ -65,10 +65,12 @@ for (const [type, spec] of Object.entries(TYPES)) {
     const { data: color } = await sharp(path.join(SOURCE, `${type}-generated.png`)).removeAlpha().resize(size, size).raw().toBuffer({ resolveWithObject: true });
     periodic(color, 3, size);
     const luma = Float32Array.from({ length: size * size }, (_, i) => (color[i * 3] * .2126 + color[i * 3 + 1] * .7152 + color[i * 3 + 2] * .0722) / 255);
-    const fine = blur(luma, 1, size), broad = blur(blur(luma, Math.round(size * .016), size), Math.round(size * .016), size);
+    const fine = blur(luma, type === 'fracture' ? Math.max(1, Math.round(size * .004)) : 1, size);
+    const broadRadius = Math.round(size * (type === 'fracture' ? .045 : .016));
+    const broad = blur(blur(luma, broadRadius, size), broadRadius, size);
     const height = Float32Array.from(luma, (_, i) => clamp(.52 + (fine[i] - broad[i]) * 2.2 + (luma[i] - fine[i]) * .12, .04, .96));
     periodic(height, 1, size);
-    const relief = blur(height, 3, size), normal = Buffer.alloc(size * size * 3), surface = Buffer.alloc(normal.length);
+    const relief = blur(height, 3, size), normal = Buffer.alloc(size * size * 3), surfaceChannels = type === 'fracture' ? 4 : 3, surface = Buffer.alloc(size * size * surfaceChannels);
     const strength = spec.relief * size / manifest.tileMetres;
     for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
       const i = y * size + x;
@@ -79,16 +81,34 @@ for (const [type, spec] of Object.entries(TYPES)) {
       normal[i * 3 + 1] = Math.round((ny * inv * .5 + .5) * 255);
       normal[i * 3 + 2] = Math.round((inv * .5 + .5) * 255);
       const cavity = Math.max(0, relief[i] - height[i]);
-      surface[i * 3] = Math.round(clamp(spec.roughness + (broad[i] - fine[i]) * .48 + Math.abs(luma[i] - fine[i]) * .3, .66, .98) * 255);
-      surface[i * 3 + 1] = Math.round(clamp(1 - cavity * 1.15, .68, 1) * 255);
-      surface[i * 3 + 2] = Math.round(height[i] * 255);
+      surface[i * surfaceChannels] = Math.round(clamp(spec.roughness + (broad[i] - fine[i]) * .48 + Math.abs(luma[i] - fine[i]) * .3, .66, .98) * 255);
+      surface[i * surfaceChannels + 1] = Math.round(clamp(1 - cavity * 1.15, .68, 1) * 255);
+      surface[i * surfaceChannels + 2] = Math.round(height[i] * 255);
+      if (surfaceChannels === 4) {
+        const roughness = surface[i * 4], occlusion = surface[i * 4 + 1];
+        surface[i * 4] = Math.round(clamp(.48 + (broad[i] - .61) * 2.8 + (fine[i] - broad[i]) * .65, 0, 1) * 255);
+        surface[i * 4 + 1] = Math.round(relief[i] * 255);
+        surface[i * 4 + 2] = occlusion;
+        surface[i * 4 + 3] = roughness;
+      }
     }
-    periodic(normal, 3, size, 6); periodic(surface, 3, size, 6);
+    periodic(normal, 3, size, 6); periodic(surface, surfaceChannels, size, 6);
     const entries = {};
     for (const [channel, data] of Object.entries({ color, normal, surface })) {
       const file = path.join(destination, `${type}-${channel}.webp`);
       const outputSize = channel === 'color' ? size : size / 2;
-      const pixels = await sharp(data, { raw: { width: size, height: size, channels: 3 } }).resize(outputSize, outputSize, { kernel: 'mitchell' }).raw().toBuffer();
+      const channels = channel === 'surface' ? surfaceChannels : 3;
+      let pixels;
+      if (channels === 4) {
+        // These are four independent numerical fields. Ordinary RGBA resize
+        // premultiplies by alpha, incorrectly weighting height by roughness.
+        pixels = Buffer.alloc(outputSize * outputSize * 4);
+        for (let c = 0; c < 4; c++) {
+          const sourceChannel = Buffer.from(Uint8Array.from({ length: size * size }, (_, i) => data[i * 4 + c]));
+          const reduced = await sharp(sourceChannel, { raw: { width: size, height: size, channels: 1 } }).resize(outputSize, outputSize, { kernel: 'mitchell' }).greyscale().raw().toBuffer();
+          for (let i = 0; i < outputSize * outputSize; i++) pixels[i * 4 + c] = reduced[i];
+        }
+      } else pixels = await sharp(data, { raw: { width: size, height: size, channels } }).resize(outputSize, outputSize, { kernel: 'mitchell' }).raw().toBuffer();
       if (channel === 'normal') for (let i = 0; i < pixels.length; i += 3) {
         const nx = pixels[i] / 127.5 - 1, ny = pixels[i + 1] / 127.5 - 1, nz = pixels[i + 2] / 127.5 - 1;
         const inv = 1 / Math.hypot(nx, ny, nz);
@@ -96,11 +116,11 @@ for (const [type, spec] of Object.entries(TYPES)) {
         pixels[i + 1] = Math.round((ny * inv * .5 + .5) * 255);
         pixels[i + 2] = Math.round((nz * inv * .5 + .5) * 255);
       }
-      periodic(pixels, 3, outputSize, 4);
-      await sharp(pixels, { raw: { width: outputSize, height: outputSize, channels: 3 } }).webp(channel === 'color' ? { quality: 92, effort: 5 } : { lossless: true, effort: 5 }).toFile(file);
+      periodic(pixels, channels, outputSize, 4);
+      await sharp(pixels, { raw: { width: outputSize, height: outputSize, channels } }).webp(channel === 'color' ? { quality: 92, effort: 5 } : { lossless: true, effort: 5 }).toFile(file);
       // Validate the actual decoded deliverable, not only the in-memory source.
       const decoded = await sharp(file).raw().toBuffer();
-      const seam = edgeDelta(decoded, outputSize, 3);
+      const seam = edgeDelta(decoded, outputSize, channels);
       // Lossy colour introduces small boundary error; numerical surface/normal
       // channels stay lossless and exactly periodic. Do not demand colour's
       // original precision at the cost of multi-megabyte colour downloads.

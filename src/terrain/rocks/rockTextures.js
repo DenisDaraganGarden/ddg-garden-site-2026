@@ -1,11 +1,11 @@
 import * as THREE from 'three';
 
-export const ROCK_TEXTURE_TYPES = Object.freeze(['limestone', 'coquina']);
+export const ROCK_TEXTURE_TYPES = Object.freeze(['limestone', 'coquina', 'fracture']);
 export const ROCK_MAP_NAMES = Object.freeze(ROCK_TEXTURE_TYPES.flatMap((type) => ['color', 'normal', 'surface'].map((map) => `${type}-${map}`)));
 export const rockMapUrl = (name, lowPower = false) => `/textures/rocks/${lowPower ? 'mobile/' : ''}${name}.webp`;
 
 // TextureLoader's source cache is shared; the collection owns the cloned GPU
-// textures and disposes them on unmount. Six samplers/maps for the whole set.
+// textures and disposes them on unmount. Nine maps shared by the whole set.
 export function createRockTextureSet(loaded, anisotropy = 4) {
   const maps = {};
   ROCK_MAP_NAMES.forEach((name, i) => {

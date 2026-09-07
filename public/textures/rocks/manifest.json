@@ -5,7 +5,8 @@
   "encoding": {
     "color": "sRGB reflectance reference",
     "normal": "linear OpenGL +Y",
-    "surface": "linear: R roughness, G occlusion, B height"
+    "surface": "linear: R roughness, G occlusion, B height",
+    "fractureSurface": "linear RGBA: R blend mask, G height, B occlusion, A roughness (nonzero alpha preserves data)"
   },
   "method": "Periodic multiscale local-detail height; broad mineral colour does not become displacement. Roughness and cavity occlusion estimated from the same field. Not a measured scan.",
   "sets": {
@@ -112,6 +113,60 @@
           "file": "public/textures/rocks/mobile/coquina-surface.webp",
           "size": 256,
           "bytes": 119926,
+          "maxOppositeEdgeDelta": 0,
+          "compression": "WebP lossless"
+        }
+      }
+    },
+    "fracture-1024": {
+      "size": 1024,
+      "estimatedReliefMetres": 0.004,
+      "entries": {
+        "color": {
+          "file": "public/textures/rocks/fracture-color.webp",
+          "size": 1024,
+          "bytes": 547656,
+          "maxOppositeEdgeDelta": 13,
+          "compression": "WebP quality 92"
+        },
+        "normal": {
+          "file": "public/textures/rocks/fracture-normal.webp",
+          "size": 512,
+          "bytes": 371090,
+          "maxOppositeEdgeDelta": 0,
+          "compression": "WebP lossless"
+        },
+        "surface": {
+          "file": "public/textures/rocks/fracture-surface.webp",
+          "size": 512,
+          "bytes": 371034,
+          "maxOppositeEdgeDelta": 0,
+          "compression": "WebP lossless"
+        }
+      }
+    },
+    "fracture-512": {
+      "size": 512,
+      "estimatedReliefMetres": 0.004,
+      "entries": {
+        "color": {
+          "file": "public/textures/rocks/mobile/fracture-color.webp",
+          "size": 512,
+          "bytes": 134216,
+          "maxOppositeEdgeDelta": 11,
+          "compression": "WebP quality 92"
+        },
+        "normal": {
+          "file": "public/textures/rocks/mobile/fracture-normal.webp",
+          "size": 256,
+          "bytes": 92738,
+          "maxOppositeEdgeDelta": 0,
+          "compression": "WebP lossless"
+        },
+        "surface": {
+          "file": "public/textures/rocks/mobile/fracture-surface.webp",
+          "size": 256,
+          "bytes": 107690,
           "maxOppositeEdgeDelta": 0,
           "compression": "WebP lossless"
         }

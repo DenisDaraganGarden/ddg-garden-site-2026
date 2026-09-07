@@ -28,12 +28,12 @@ const LIMITS = { minDistance: .1, maxDistance: 40, minPolarAngle: .04, maxPolarA
 const UNDER_LIMITS = { ...LIMITS, maxPolarAngle: Math.PI - .04 };
 const DEFAULTS = {
   seed: PUBLISHED.terrainSeed, rockSize: PUBLISHED.terrainRockSize, pebbleSize: PUBLISHED.terrainPebbleSize,
-  type: 'mixed', erosion: .65, roundness: .35, relief: 1, wetness: 0, waterline: .36, algae: 0,
+  type: 'mixed', erosion: .65, roundness: .35, fracture: .78, cavities: .65, damage: .8, blend: .85, showBlend: false, relief: 1, wetness: 0, waterline: .36, algae: 0,
   debris: 1, pebbles: 1, wireframe: false, exposure: 1.04, environmentIntensity: .7,
 };
 const TEXT = {
-  ru: { title: 'Камни', subtitle: 'Валуны, осыпь и галька побережья · геометрия и материалы сцены', pieces: 'Камни', material: 'Материал', light: 'Свет', full: 'Общий', boulders: 'Валуны', debris: 'Осыпь', pebbles: 'Галька', top: 'Сверху', macro: 'Крупно', underside: 'Снизу', seed: 'Вариант', rockSize: 'Размер валунов', pebbleSize: 'Размер гальки', debrisAmount: 'Осыпь в куче', pebblesAmount: 'Гальки в россыпи', wire: 'Каркас', exposure: 'Экспозиция', environment: 'Отражения среды', reset: 'Как в сцене', assets: 'Коллекции', metres: 'м', tri: 'треугольников', boulderCount: 'валунов', debrisCount: 'осколков', pebbleCount: 'галек', type: 'Тип', mixed: 'Смесь', limestone: 'Плитчатый известняк', coquina: 'Ракушечник', worn: 'Окатанный камень', erosion: 'Выветривание', roundness: 'Окатанность', relief: 'Микрорельеф', wetness: 'Намокание', waterline: 'Уровень намокания', algae: 'Водорослевый налёт' },
-  en: { title: 'Rocks', subtitle: 'Coast boulders, debris and pebbles · scene geometry and materials', pieces: 'Stones', material: 'Material', light: 'Light', full: 'Overview', boulders: 'Boulders', debris: 'Debris', pebbles: 'Pebbles', top: 'Top', macro: 'Close-up', underside: 'Underside', seed: 'Seed', rockSize: 'Boulder size', pebbleSize: 'Pebble size', debrisAmount: 'Debris in the pile', pebblesAmount: 'Pebbles in the spread', wire: 'Wireframe', exposure: 'Exposure', environment: 'Environment reflections', reset: 'As in the scene', assets: 'Collections', metres: 'm', tri: 'triangles', boulderCount: 'boulders', debrisCount: 'fragments', pebbleCount: 'pebbles', type: 'Type', mixed: 'Mixed', limestone: 'Bedded limestone', coquina: 'Shell limestone', worn: 'Sea-worn stone', erosion: 'Weathering', roundness: 'Roundness', relief: 'Microrelief', wetness: 'Wetness', waterline: 'Wet margin', algae: 'Algal film' },
+  ru: { title: 'Камни', subtitle: 'Валуны, осыпь и галька побережья · геометрия и материалы сцены', pieces: 'Камни', material: 'Материал', light: 'Свет', full: 'Общий', boulders: 'Валуны', debris: 'Осыпь', pebbles: 'Галька', top: 'Сверху', macro: 'Крупно', underside: 'Снизу', seed: 'Вариант', rockSize: 'Размер валунов', pebbleSize: 'Размер гальки', debrisAmount: 'Осыпь в куче', pebblesAmount: 'Гальки в россыпи', wire: 'Каркас', exposure: 'Экспозиция', environment: 'Отражения среды', reset: 'Как в сцене', assets: 'Коллекции', metres: 'м', tri: 'треугольников', boulderCount: 'валунов', debrisCount: 'осколков', pebbleCount: 'галек', type: 'Тип', mixed: 'Смесь', limestone: 'Плитчатый известняк', coquina: 'Ракушечник', worn: 'Окатанный камень', erosion: 'Выветривание', roundness: 'Окатанность', fracture: 'Сколы', cavities: 'Выбоины', damage: 'Рельеф излома', blend: 'Свежий излом', showBlend: 'Маска излома', relief: 'Микрорельеф', wetness: 'Намокание', waterline: 'Уровень намокания', algae: 'Водорослевый налёт' },
+  en: { title: 'Rocks', subtitle: 'Coast boulders, debris and pebbles · scene geometry and materials', pieces: 'Stones', material: 'Material', light: 'Light', full: 'Overview', boulders: 'Boulders', debris: 'Debris', pebbles: 'Pebbles', top: 'Top', macro: 'Close-up', underside: 'Underside', seed: 'Seed', rockSize: 'Boulder size', pebbleSize: 'Pebble size', debrisAmount: 'Debris in the pile', pebblesAmount: 'Pebbles in the spread', wire: 'Wireframe', exposure: 'Exposure', environment: 'Environment reflections', reset: 'As in the scene', assets: 'Collections', metres: 'm', tri: 'triangles', boulderCount: 'boulders', debrisCount: 'fragments', pebbleCount: 'pebbles', type: 'Type', mixed: 'Mixed', limestone: 'Bedded limestone', coquina: 'Shell limestone', worn: 'Sea-worn stone', erosion: 'Weathering', roundness: 'Roundness', fracture: 'Chipping', cavities: 'Pits', damage: 'Fracture relief', blend: 'Fresh fracture', showBlend: 'Fracture mask', relief: 'Microrelief', wetness: 'Wetness', waterline: 'Wet margin', algae: 'Algal film' },
 };
 
 function Range({ label, value, min = 0, max = 1, step = .01, unit = '', onChange }) {
@@ -52,7 +52,7 @@ function buildCollection(settings, lowPower, closePebbles) {
   for (let i = 0; i < 6; i++) specs.push({ name: `debris-${i}`, type: typeAt(i), seed: settings.seed * 53 + i * 79, detail: ROCK_DETAIL.debris });
   const pebbleDetail = closePebbles ? (lowPower ? 3 : 5) : (lowPower ? ROCK_DETAIL.mobilePebble : ROCK_DETAIL.pebble);
   for (let i = 0; i < 6; i++) specs.push({ name: `pebble-${i}`, type: i === 4 ? 'coquina' : 'worn', pebble: true, seed: settings.seed * 29 + i * 67, detail: pebbleDetail });
-  const batches = specs.map((spec) => ({ ...spec, geometry: createCoastalRockGeometry({ ...spec, erosion: settings.erosion, roundness: settings.roundness }), items: [] }));
+  const batches = specs.map((spec) => ({ ...spec, geometry: createCoastalRockGeometry({ ...spec, erosion: settings.erosion, roundness: settings.roundness, fracture: settings.fracture, cavities: settings.cavities }), items: [] }));
   return { batches, dispose() { batches.forEach((batch) => batch.geometry.dispose()); } };
 }
 
@@ -138,17 +138,17 @@ function RockStage({ settings, lowPower, view }) {
   const textures = useMemo(() => createRockTextureSet(loaded, Math.min(8, gl.capabilities.getMaxAnisotropy())), [loaded, gl]);
   useEffect(() => () => textures.dispose(), [textures]);
   const materials = useMemo(() => ({
-    limestone: createCoastalRockMaterial(textures.maps.limestone),
-    coquina: createCoastalRockMaterial(textures.maps.coquina, { type: 'coquina' }),
-    worn: createCoastalRockMaterial(textures.maps.limestone, { type: 'worn' }),
+    limestone: createCoastalRockMaterial(textures.maps.limestone, { fractureMaps: textures.maps.fracture }),
+    coquina: createCoastalRockMaterial(textures.maps.coquina, { type: 'coquina', fractureMaps: textures.maps.fracture }),
+    worn: createCoastalRockMaterial(textures.maps.limestone, { type: 'worn', fractureMaps: textures.maps.fracture }),
     pebble: createCoastalRockMaterial(textures.maps.limestone, { pebble: true }),
     shellPebble: createCoastalRockMaterial(textures.maps.coquina, { type: 'coquina', pebble: true }),
   }), [textures]);
   useEffect(() => () => Object.values(materials).forEach((m) => m.dispose()), [materials]);
   useEffect(() => { Object.values(materials).forEach((m) => updateCoastalRockMaterial(m, settings)); }, [materials, settings]);
-  const { seed, type, erosion, roundness, rockSize, pebbleSize, debris, pebbles } = settings;
+  const { seed, type, erosion, roundness, fracture, cavities, rockSize, pebbleSize, debris, pebbles } = settings;
   const closePebbles = view === 'pebbles';
-  const collection = useMemo(() => buildCollection({ seed, type, erosion, roundness }, lowPower, closePebbles), [seed, type, erosion, roundness, lowPower, closePebbles]);
+  const collection = useMemo(() => buildCollection({ seed, type, erosion, roundness, fracture, cavities }, lowPower, closePebbles), [seed, type, erosion, roundness, fracture, cavities, lowPower, closePebbles]);
   useEffect(() => () => collection.dispose(), [collection]);
   const layout = useMemo(() => buildLayout(collection, { seed, rockSize, pebbleSize, debris, pebbles }), [collection, seed, rockSize, pebbleSize, debris, pebbles]);
   const inspect = view === 'macro' || view === 'underside';
@@ -223,13 +223,14 @@ export default function RockLab() {
               <label className="tanker-lab__select"><span>{t.type}</span><select aria-label={t.type} value={settings.type} onChange={(e) => set('type', e.target.value)}>{['mixed', ...ROCK_TYPES].map((id) => <option key={id} value={id}>{t[id]}</option>)}</select></label>
               {range('seed', t.seed, 1, 999, 1)}
               {range('erosion', t.erosion)}{range('roundness', t.roundness)}
+              {range('fracture', t.fracture)}{range('cavities', t.cavities)}
               {range('rockSize', t.rockSize, ...TERRAIN_RANGES.terrainRockSize, '×')}
               {range('debris', t.debrisAmount, 0, 2, .05)}
               {range('pebbleSize', t.pebbleSize, ...TERRAIN_RANGES.terrainPebbleSize, '×')}
               {range('pebbles', t.pebblesAmount, 0, 2, .05)}
               <Toggle label={t.wire} value={settings.wireframe} onChange={(value) => set('wireframe', value)} />
             </>}
-            {tab === 'material' && <>{range('relief', t.relief, 0, 2)}{range('wetness', t.wetness)}{range('waterline', t.waterline, 0, 2, .01, t.metres)}{range('algae', t.algae)}</>}
+            {tab === 'material' && <>{range('damage', t.damage, 0, 1.5)}{range('blend', t.blend)}{range('relief', t.relief, 0, 2)}{range('wetness', t.wetness)}{range('waterline', t.waterline, 0, 2, .01, t.metres)}{range('algae', t.algae)}<Toggle label={t.showBlend} value={settings.showBlend} onChange={(value) => set('showBlend', value)} /></>}
             {tab === 'light' && <>{range('exposure', t.exposure, .2, 2.4)}{range('environmentIntensity', t.environment, 0, 2)}</>}
           </div>
           <div className="tanker-lab__transport"><button onClick={() => { setSettings(DEFAULTS); setView('full'); }}>{t.reset}</button></div>
