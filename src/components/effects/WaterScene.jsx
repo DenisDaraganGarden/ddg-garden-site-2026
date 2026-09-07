@@ -1,6 +1,7 @@
 import CoastShrubs from '../../plants/CoastShrubs.jsx';
 import CoastTrees from '../../plants/CoastTrees.jsx';
 import CoastGrass from '../../plants/CoastGrass.jsx';
+import CoastDriftwood from '../../shore/CoastDriftwood.jsx';
 import {createCoastPlanting,createCoastTreePlanting} from '../../plants/coastPlanting.js';
 import {shrubAssetSettings,treeAssetSettings,grassAssetSettings} from '../../plants/settings.js';
 import {createPlantCover} from '../../plants/plantCover.js';
@@ -440,6 +441,7 @@ function WaterRuntimeScene({
           layout={activeLayout}
         />
         {terrainQuery ? <primitive object={terrainQuery.collisionObject}/> : null}
+        {terrainQuery && settings.shoreEnabled ? <React.Suspense fallback={null}><CoastDriftwood query={terrainQuery} definition={queryDefinition} settings={settings} qualityProfile={qualityProfile} envMapIntensity={lighting.environment.reflection}/></React.Suspense> : null}
         {terrainQuery&&settings.shrubsEnabled ? <CoastShrubs settings={shrubAsset} plants={shrubPlants} qualityProfile={qualityProfile} envMapIntensity={lighting.environment.reflection}/> : null}
         {terrainQuery&&settings.treesEnabled ? <CoastTrees settings={treeAsset} plants={treePlants} qualityProfile={qualityProfile} envMapIntensity={lighting.environment.reflection}/> : null}
         {terrainQuery&&settings.grassEnabled ? <CoastGrass query={terrainQuery} definition={queryDefinition} settings={grassSettings} asset={grassAsset} qualityProfile={qualityProfile} envMapIntensity={lighting.environment.reflection}/> : null}

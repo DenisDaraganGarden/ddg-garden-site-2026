@@ -13,8 +13,8 @@ import '../plant-lab/plantLab.css';
 import './driftwoodLab.css';
 
 const PUBLISHED = getPublishedHomeSceneSettings();
-const DEFAULTS = { seed: 17, length: 4.3, diameter: .55, limbs: 6, bend: .55, breakage: .7, size: 1,
-  bleach: .78, grain: .65, wetness: 0, bark: .28, burial: .18, sand: false, ringDiameter: 1.9, stones: 14, irregularity: .55,
+const DEFAULTS = { seed: PUBLISHED.shoreSeed, length: 4.3, diameter: .55, limbs: 6, bend: .55, breakage: .7, size: PUBLISHED.shoreSize,
+  bleach: PUBLISHED.shoreBleach, grain: PUBLISHED.shoreGrain, wetness: PUBLISHED.shoreWetness, bark: PUBLISHED.shoreBark, burial: PUBLISHED.shoreBurial, sand: false, ringDiameter: 1.9, stones: 14, irregularity: .55,
   count: 18, extent: 18, lightDetail: false, wireframe: false, exposure: 1.04, timeOfDay: PUBLISHED.timeOfDay ?? 16 };
 const KINDS = Object.keys(DEADWOOD_FORMS);
 const LIMITS = { minDistance: .18, maxDistance: 85, minPolarAngle: .015, maxPolarAngle: Math.PI - .04 };

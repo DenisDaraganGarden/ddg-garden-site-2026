@@ -34,6 +34,7 @@ import { InterfaceSection } from './sections/interfaceSection';
 import { CursorSection } from './sections/cursorSection';
 import { EditorSettingsSection } from './sections/editorSettings';
 import { PebblesSection, RocksSection } from './sections/rocks';
+import { ShoreSection } from './sections/shore';
 import { FishSection, SeagullsSection } from './sections/creatures';
 import {
     AudioMixerSection,
@@ -54,6 +55,7 @@ export const EDITOR_TREE = [
             { id: 'terrain', aspects: [{ id: 'geometry', Section: TerrainSection }] },
             { id: 'rocks', aspects: [{ id: 'rocks', Section: RocksSection }] },
             { id: 'pebbles', aspects: [{ id: 'pebbles', Section: PebblesSection }] },
+            { id: 'shore', aspects: [{ id: 'scatter', Section: ShoreSection }] },
             {
                 id: 'water',
                 aspects: [

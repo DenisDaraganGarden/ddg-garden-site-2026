@@ -8,6 +8,7 @@ export const SCENE_OBJECTS = Object.freeze([
   { id: 'terrain', key: 'terrainEnabled', node: 'landscape/terrain', group: 'landscape' },
   { id: 'rocks', key: 'terrainRocksEnabled', node: 'landscape/rocks', group: 'landscape' },
   { id: 'pebbles', key: 'terrainPebblesEnabled', node: 'landscape/pebbles', group: 'landscape' },
+  { id: 'shore', key: 'shoreEnabled', node: 'landscape/shore', group: 'landscape' },
   { id: 'water', key: 'waterVisible', node: 'landscape/water', group: 'landscape' },
   { id: 'farWater', key: 'farWaterVisible', node: 'landscape/water', group: 'landscape' },
   { id: 'seabed', key: 'seabedVisible', node: 'landscape/seabed', group: 'landscape' },
