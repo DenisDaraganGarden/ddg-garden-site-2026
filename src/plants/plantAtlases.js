@@ -76,7 +76,7 @@ export function bakePlantImpostor(renderer,model,geometries,atlas,frameSize=256)
  return {color,normal,position,width,height,center,min:box.min,size,frameSize,views:24,dispose(){color.dispose();normal.dispose();position.dispose();}};
 }
 export function makeImpostorMaterial(atlas,sharedUniforms){
- const uniforms={...(sharedUniforms??{...ecologyUniforms(),uPlantTime:{value:0},uPlantWind:{value:new THREE.Vector2()}}),uPlantImpostorCenter:{value:atlas.center},uPlantPositionAtlas:{value:atlas.position.texture},uPlantAtlasMin:{value:atlas.min},uPlantAtlasSize:{value:atlas.size}};
+ const uniforms={...(sharedUniforms??{...ecologyUniforms(),uPlantTime:{value:0},uPlantWind:{value:new THREE.Vector2()},uPlantTransmission:{value:.65}}),uPlantImpostorCenter:{value:atlas.center},uPlantPositionAtlas:{value:atlas.position.texture},uPlantAtlasMin:{value:atlas.min},uPlantAtlasSize:{value:atlas.size}};
  const material=new THREE.MeshStandardMaterial({map:atlas.color.texture,normalMap:atlas.normal.texture,normalScale:new THREE.Vector2(1,1),roughness:.85,alphaTest:.22,alphaToCoverage:true,side:THREE.DoubleSide});
  material.onBeforeCompile=shader=>{
   Object.assign(shader.uniforms,uniforms);
@@ -118,10 +118,21 @@ export function makeImpostorMaterial(atlas,sharedUniforms){
    vec3 rest=uPlantAtlasMin+restSample.rgb/coverage*uPlantAtlasSize;
    vec3 worldRest=vPlantRoot+vec3(rest.x*vPlantBasis.y+rest.z*vPlantBasis.x,rest.y,-rest.x*vPlantBasis.x+rest.z*vPlantBasis.y)*vPlantBasis.z;
    diffuseColor.rgb=mix(diffuseColor.rgb,plantFoliageColor(diffuseColor.rgb,worldRest,vPlantHabitat),clamp(restSample.a/coverage,0.0,1.0));`);
+  // The near leaf glows where the sun is behind it (plantMaterials); without
+  // the same term the projection went dark on every leaf turned away, and the
+  // far half of a meadow read as another, darker plant.
+  shader.fragmentShader=shader.fragmentShader.replace('#include <common>','#include <common>\nuniform float uPlantTransmission;');
+  shader.fragmentShader=shader.fragmentShader.replace('#include <lights_fragment_end>',`#include <lights_fragment_end>
+   #if NUM_DIR_LIGHTS > 0
+   for(int i=0;i<NUM_DIR_LIGHTS;i++){
+     float through=max(dot(-normal,directionalLights[i].direction),0.0);
+     reflectedLight.directDiffuse+=diffuseColor.rgb*directionalLights[i].color*through*uPlantTransmission*.12;
+   }
+   #endif`);
   shader.fragmentShader=shader.fragmentShader.replace('#include <map_fragment>',THREE.ShaderChunk.map_fragment.replaceAll('vMapUv','plantAtlasUv(vMapUv)').replace('diffuseColor *= sampledDiffuseColor;', 'sampledDiffuseColor.rgb /= max(sampledDiffuseColor.a, .001); diffuseColor *= sampledDiffuseColor;')).replace('#include <normal_fragment_maps>',THREE.ShaderChunk.normal_fragment_maps.replaceAll('texture2D( normalMap, vNormalMapUv ).xyz', '(texture2D(normalMap,plantAtlasUv(vNormalMapUv)).xyz / max(texture2D(normalMap,plantAtlasUv(vNormalMapUv)).a,.001))'));
  };
  const depth=new THREE.MeshDepthMaterial({map:atlas.color.texture,alphaTest:.22,depthPacking:THREE.RGBADepthPacking,side:THREE.DoubleSide});
  depth.onBeforeCompile=material.onBeforeCompile;depth.customProgramCacheKey=()=> 'oleaster-24-view-depth-v4';
  material.addEventListener('dispose',()=>depth.dispose());material.userData.depth=depth;
- material.customProgramCacheKey=()=> 'oleaster-24-view-impostor-v4';material.userData.uniforms=uniforms;return material;
+ material.customProgramCacheKey=()=> 'oleaster-24-view-impostor-v5';material.userData.uniforms=uniforms;return material;
 }

@@ -13,9 +13,9 @@ const views=h=>({
  patch:{landscape:{position:[12,7,15],target:[0,.4,0]},portrait:{position:[16,10,21],target:[0,.4,0]}},
 });
 const common={
- dryness:.35,roughness:.8,translucency:.9,extent:32,flex:2.2,
+ dryness:.35,roughness:.8,translucency:.9,tone:1.15,extent:32,flex:2.2,
  cameraLimits:{minDistance:.05,maxDistance:150,minPolarAngle:.03,maxPolarAngle:Math.PI-.1},cameraFar:300,fogRange:[180,260],
- impostorFrame:{desktop:128,lowPower:64},
+ impostorFrame:{desktop:192,lowPower:96},
 };
 const copy={
  ru:{specimen:'Пучок',count:'Пучков',distant:'Проекции пучка',blades:'Лезвий',curl:'Изгиб',awns:'Остей',spikes:'Колосьев',stems:'Стеблей',leaves:'листьев',branches:'стеблей',patch:'Луг'},
@@ -25,7 +25,7 @@ const copy={
 const FRAME_HEIGHT={stipa:1.7,festuca:1,leymus:1.35,phragmites:1.15};
 const species=(id,defaults,shape,sliders,planting,title)=>({
  id,collection:'grass',makeModel:input=>makeGrassTuft(id,input),
- defaults:{...OLEASTER_DEFAULTS,...GRASS_SPECIES_DEFAULTS[id],dryness:common.dryness,roughness:common.roughness,translucency:common.translucency,count:planting.count,extent:common.extent,spacing:planting.spacing,flex:common.flex,...defaults},
+ defaults:{...OLEASTER_DEFAULTS,...GRASS_SPECIES_DEFAULTS[id],dryness:common.dryness,roughness:common.roughness,translucency:common.translucency,tone:common.tone,count:planting.count,extent:common.extent,spacing:planting.spacing,flex:common.flex,...defaults},
  shape,sliders:[['seed',1,200,1],...sliders],
  planting:{count:[1,20000,1],extent:[8,64,1],spacing:planting.spacing,camera:[.55,.3,.7],suitability:s=>s.vegetation?.shrubs??1},
  views:views(GRASS_SPECIES_DEFAULTS[id].height*FRAME_HEIGHT[id]),cameraLimits:common.cameraLimits,cameraFar:common.cameraFar,fogRange:common.fogRange,impostorFrame:common.impostorFrame,

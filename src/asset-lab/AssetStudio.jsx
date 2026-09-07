@@ -131,7 +131,7 @@ export default function AssetStudio({
       frameloop={inactive ? 'never' : paused ? 'demand' : 'always'}
       shadows={STUDIO_SHADOWS}
       dpr={pixelRatio}
-      camera={{ position: [3.65, 1.42, 4.9], fov: 32, near: 0.02, far: cameraFar }}
+      camera={{ position: [3.65, 1.42, 4.9], fov: 32, near: 0.02, far: sceneMode ? Math.max(cameraFar, 4000) : cameraFar }}
       gl={{ antialias: true, alpha: false, powerPreference: 'high-performance' }}
       onCreated={({ gl }) => {
         gl.outputColorSpace = THREE.SRGBColorSpace;

@@ -53,6 +53,8 @@ export default function PlantPopulation({model,settings,atlas,placements,paused=
   const {meshes,materials,farMaterial,farGeometry}=resources;
   if(!paused)time.current=sceneTime?clock.elapsedTime:time.current+Math.min(Math.max(delta,0),.04);
   updatePlantUniforms(uniforms,settings,time.current);materials.leaves.roughness=settings.roughness;
+  // The artist's tone for the whole species: near ribbons and far cards alike.
+  const tone=settings.tone??1;materials.leaves.color.setScalar(tone);farMaterial.color.setScalar(tone);
   for(const m of [materials.bark,materials.leaves,farMaterial])m.wireframe=settings.wireframe;
   farMaterial.roughness=settings.roughness;
   // One specimen uses true camera distance. Population partitions instances by
@@ -91,6 +93,6 @@ export default function PlantPopulation({model,settings,atlas,placements,paused=
    <instancedMesh ref={meshRefs[i*2]} args={[meshes[i].bark,materials.bark,count]} customDepthMaterial={materials.barkDepth} castShadow receiveShadow/>
    <instancedMesh ref={meshRefs[i*2+1]} args={[meshes[i].leaf,materials.leaves,count]} customDepthMaterial={materials.leafDepth} castShadow receiveShadow/>
   </group>)}
-  <group ref={groups[2]}><instancedMesh ref={meshRefs[4]} args={[farGeometry,farMaterial,count]} customDepthMaterial={farMaterial.userData.depth} castShadow receiveShadow/></group>
+  <group ref={groups[2]}><instancedMesh ref={meshRefs[4]} args={[farGeometry,farMaterial,count]} customDepthMaterial={farMaterial.userData.depth} castShadow={model.farCastsShadow!==false} receiveShadow/></group>
  </>;
 }

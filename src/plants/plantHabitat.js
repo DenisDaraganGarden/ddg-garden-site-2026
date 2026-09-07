@@ -25,10 +25,11 @@ export function plantGroundCover(x,z,plants,pathMask=()=>0) {
   for(const p of plants){const weight=Math.exp(-((x-p.x)**2+(z-p.z)**2)/(p.scale*p.scale*.5));litter=Math.max(litter,weight*(.3+.7*p.dryness));vigor=Math.max(vigor,weight*(1-p.dryness));}
   const path=clamp(pathMask(x,z));return {litter:litter*(1-path),vigor:vigor*(1-path),path};
 }
-export function createPlantLabTerrain(slope=0,dryness=.2,pathWidth=.7,extent=10) {
+// The test plot has a wet side and a dry side; `moisture` scales that gradient.
+export function createPlantLabTerrain(slope=0,dryness=.2,pathWidth=.7,extent=10,moisture=1) {
   const heightAt=(x,z)=>.12+slope*(x+extent*.5)+.16*(Math.sin(x*.65+z*.28)+1);
   return {heightAt,pathMask:(x,z)=>pathWidth<=0?0:1-clamp((Math.abs(z-Math.sin(x*.45)*.7)-pathWidth*.5)/.3),surfaceAt(x,z){
-    const dx=slope+.104*Math.cos(x*.65+z*.28),dz=.0448*Math.cos(x*.65+z*.28),length=Math.hypot(dx,1,dz),moisture=clamp(.4-z*.07);
-    return {height:heightAt(x,z),normal:{x:-dx/length,y:1/length,z:-dz/length},wetness:0,vegetation:{shrubs:.7+.3*moisture,dryness:clamp(dryness+.18-moisture*.4)},wind:{exposure:.8+clamp(x/(extent*.5))*.2}};
+    const dx=slope+.104*Math.cos(x*.65+z*.28),dz=.0448*Math.cos(x*.65+z*.28),length=Math.hypot(dx,1,dz),wet=clamp(.4-z*.07)*moisture;
+    return {height:heightAt(x,z),normal:{x:-dx/length,y:1/length,z:-dz/length},wetness:0,vegetation:{shrubs:.7+.3*wet,dryness:clamp(dryness+.18-wet*.4)},wind:{exposure:.8+clamp(x/(extent*.5))*.2}};
   }};
 }

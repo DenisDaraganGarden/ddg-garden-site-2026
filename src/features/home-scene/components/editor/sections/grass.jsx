@@ -11,7 +11,7 @@ const groups=[
  ['Форма','Form',[
   ['grassHeight','Высота','Height','×'],['grassFlex','Гибкость','Flexibility','']]],
  ['Окраска','Colour',[
-  ['grassDryness','Сухость относительно кустов','Dryness relative to shrubs','']]],
+  ['grassDryness','Сухость относительно кустов','Dryness relative to shrubs',''],['grassTone','Тон','Tone','×']]],
  ['Дальность','Distance',[
   ['grassRenderDistance','Дальность отрисовки','Render distance',' m']]],
  ['Дальнее поле','Far field',[

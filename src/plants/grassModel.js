@@ -101,5 +101,7 @@ export function makeGrassTuft(kind,input={}){
   for(const piece of pieces)writePiece(d,piece,lod===0?piece.rows:Math.max(1,Math.ceil(piece.rows/2)));
   return {bark:plantGeometryFinish(plantGeometryData()),leaf:plantGeometryFinish(d)};
  };
- return {species:GRASS_SPECIES_NAMES[kind],form:'grass',kind,settings:p,branches:[],leaves:pieces,height,geometry,selectLod:lodSelector(height)};
+ // Thousands of far cards would shadow the field into mud; the terrain's own
+ // grass layer carries the far shading instead.
+ return {species:GRASS_SPECIES_NAMES[kind],form:'grass',kind,settings:p,branches:[],leaves:pieces,height,geometry,selectLod:lodSelector(height),farCastsShadow:false};
 }

@@ -17,14 +17,29 @@ const PUBLISHED = getPublishedHomeSceneSettings();
 export default function SceneLight({ overrides, lighting: given, shadowRadius = 9, environmentIntensity = 1 }) {
   const { scene } = useThree();
   const lighting = useMemo(() => given ?? buildHomeSceneLighting({ ...PUBLISHED, ...overrides }), [given, overrides]);
-  const sky = useSkyEnvironment(lighting.sky, { width: 1024, height: 512 });
+  const sky = useSkyEnvironment(lighting.sky, { width: 2048, height: 1024 });
   const keyColor = useMemo(() => new THREE.Color().fromArray(lighting.key.colorLinear), [lighting]);
   const direction = useMemo(() => new THREE.Vector3().fromArray(lighting.key.direction), [lighting]);
-  // Distant things fade into the sky, not into a white wall.
+  // Distant things fade into the sky at the horizon: the fog takes its colour
+  // from the sky table's own horizon row, so the ground meets the dome seamlessly.
   const fogColor = useMemo(() => {
-    const irradiance = sky.skyIrradiance ?? [0.5, 0.6, 0.8];
-    return new THREE.Color().fromArray(irradiance.map((v) => v * lighting.sky.skyLevel));
-  }, [sky.skyIrradiance, lighting]);
+    const image = sky.texture?.image;
+    const color = new THREE.Color();
+    if (image?.data) {
+      const { width, height, data } = image;
+      const row = Math.min(height - 1, Math.floor(height * 0.515));
+      let r = 0, g = 0, b = 0;
+      for (let x = 0; x < width; x += 8) {
+        const i = (row * width + x) * 4;
+        r += THREE.DataUtils.fromHalfFloat(data[i]); g += THREE.DataUtils.fromHalfFloat(data[i + 1]); b += THREE.DataUtils.fromHalfFloat(data[i + 2]);
+      }
+      const n = Math.ceil(width / 8);
+      color.setRGB(r / n, g / n, b / n).multiplyScalar(lighting.sky.skyLevel);
+    } else {
+      color.fromArray((sky.skyIrradiance ?? [0.5, 0.6, 0.8]).map((v) => v * lighting.sky.skyLevel));
+    }
+    return color;
+  }, [sky.texture, sky.width, sky.height, sky.skyIrradiance, lighting]);
   React.useEffect(() => { if (scene.fog) scene.fog.color.copy(fogColor); }, [scene, fogColor]);
   const standoff = shadowRadius * 2.2;
   return (

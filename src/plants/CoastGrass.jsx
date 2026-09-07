@@ -10,7 +10,7 @@ function GrassKind({kind,placements,asset,settings,lowPower}){
  const atlas=usePlantAtlas(useMemo(()=>grassAtlasSpec(kind,lowPower),[kind,lowPower]));
  const model=useMemo(()=>makeGrassTuft(kind,{seed:settings.grassSeed,height:GRASS_SPECIES_DEFAULTS[kind].height*settings.grassHeight}),[kind,settings.grassSeed,settings.grassHeight]);
  const renderSettings=useMemo(()=>({...asset,renderDistance:Math.min(asset.renderDistance,lowPower?80:300)}),[asset,lowPower]);
- return atlas&&placements.length?<group name={`coastal-grass-${kind}`}><PlantPopulation model={model} atlas={atlas} settings={renderSettings} placements={placements} sceneTime lowPower={lowPower} statsKey={`grassStats_${kind}`} impostorFrame={lowPower?64:128}/></group>:null;
+ return atlas&&placements.length?<group name={`coastal-grass-${kind}`}><PlantPopulation model={model} atlas={atlas} settings={renderSettings} placements={placements} sceneTime lowPower={lowPower} statsKey={`grassStats_${kind}`} impostorFrame={lowPower?96:192}/></group>:null;
 }
 export default function CoastGrass({query,definition,settings,asset,qualityProfile}){
  const {camera}=useThree();

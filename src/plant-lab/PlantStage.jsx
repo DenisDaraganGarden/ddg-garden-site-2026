@@ -23,7 +23,7 @@ export default function PlantStage({species,settings,mode,paused,onStats,lowPowe
  const [shape,setShape]=useState(()=>JSON.parse(shapeKey));
  useEffect(()=>{const timer=setTimeout(()=>setShape(JSON.parse(shapeKey)),120);return()=>clearTimeout(timer);},[shapeKey]);
  const model=useMemo(()=>species.makeModel(shape),[species,shape]);
- const query=useMemo(()=>createPlantLabTerrain(settings.slope,.5,settings.pathWidth,settings.extent),[settings.slope,settings.pathWidth,settings.extent]);
+ const query=useMemo(()=>createPlantLabTerrain(settings.slope,.5,settings.pathWidth,settings.extent,settings.moisture),[settings.slope,settings.pathWidth,settings.extent,settings.moisture]);
  const placementKey=JSON.stringify(Object.fromEntries(['seed','count','extent','dryness','patchScale','patchContrast','crownScale','crownVariation','fieldSeed'].map(key=>[key,settings[key]])));
  const planting=useMemo(()=>JSON.parse(placementKey),[placementKey]);
  // A trunk is not a twig: the species says how much of the wind it takes.
