@@ -226,9 +226,12 @@ export function createTerrainMaterial(textures,p,rockOnly=false){
      // The damp back of the beach just past the wet band the swash leaves (the
      // same envelope coastWetnessAtHeight dries by): a ragged strip a quarter
      // metre up the beach, only along some stretches of the shore.
+     // The run-up envelope is zero past the surf band, so the strip is a height
+     // above the wet margin everywhere on the dry beach - no seam where the band ends.
      float seed=uCoastShape.w*.031,shoreRag=(coastNoise(vec2(qs.y*.2,5.0)+seed)-.5)*.1,calm=0.0;
-     if(surfBand&&qs.x>0.0){
-      float above=groundY-max(max(.04,uCoastSurface.w*.035),coastWaveGain(qs,uTerrainTime))-.1+shoreRag;
+     if(qs.x>0.0){
+      float gain=surfBand?coastWaveGain(qs,uTerrainTime):0.0;
+      float above=groundY-max(max(.04,uCoastSurface.w*.035),gain)-.1+shoreRag;
       calm=smoothstep(0.0,.04,above)*(1.0-smoothstep(.16,.3,above))*smoothstep(.25,.5,coastNoise(vec2(qs.y*.04,2.0)+seed));
      }
      float moist=max(max(seep,calm),cover.b);
