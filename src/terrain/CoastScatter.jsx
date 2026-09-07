@@ -68,13 +68,13 @@ const pebbleSample = (cq, cs, random, p) => {
 // camera enters another cell. Visual relief, not a navigation surface. `sample`
 // decides per candidate whether a piece stands there and how it looks; it must
 // draw its randoms in the same order every time.
-function CoastScatter({ definition, qualityProfile, lighting, name, geometry, material, palette, capacity, shown, sample, castShadow = false }) {
+function CoastScatter({ definition, qualityProfile, lighting, name, geometry, material, palette, capacity, shown, sample, castShadow = false, ownsMaterial = true }) {
   const mesh = useRef(), lastCell = useRef(''), timer = useRef(1);
   const transform = useMemo(() => new THREE.Object3D(), []);
   const normal = useMemo(() => new THREE.Vector3(), []);
   const colors = useMemo(() => palette.map(color => new THREE.Color(color)), [palette]);
   useEffect(() => { lastCell.current = ''; }, [definition]);
-  useEffect(() => () => { geometry.dispose(); material.dispose(); }, [geometry, material]);
+  useEffect(() => () => { geometry.dispose(); if (ownsMaterial) material.dispose(); }, [geometry, material, ownsMaterial]);
 
   useFrame(({ camera }, delta) => {
     if (!mesh.current) return;
@@ -132,7 +132,8 @@ export function CoastShells(props) {
 
 export function CoastPebbles(props) {
   const geometry = useMemo(makePebbleGeometry, []);
-  const material = useMemo(createPebbleMaterial, []);
-  return <CoastScatter {...props} name="coast-pebbles" geometry={geometry} material={material} palette={PEBBLE_PALETTE} capacity={2400} sample={pebbleSample} castShadow
+  const fallback = useMemo(() => props.material ? null : createPebbleMaterial(), [props.material]);
+  const material = props.material ?? fallback;
+  return <CoastScatter {...props} name="coast-pebbles" geometry={geometry} material={material} ownsMaterial={!props.material} palette={PEBBLE_PALETTE} capacity={2400} sample={pebbleSample} castShadow
     shown={(p, q, cameraY) => p.terrainPebblesEnabled && p.terrainPebbles > .01 && onBeach(p, q, cameraY, 7)} />;
 }

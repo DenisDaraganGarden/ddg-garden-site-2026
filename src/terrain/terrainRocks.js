@@ -1,26 +1,20 @@
 import * as THREE from 'three';
-import { ConvexGeometry } from 'three/addons/geometries/ConvexGeometry.js';
-import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
+import { createCoastalRockGeometry } from './rocks/rockModel.js';
+import { COASTAL_PEBBLE_PALETTE } from './rocks/rockMaterial.js';
 import { coastPoint,coastHeight,sampleTerrainHeight } from './terrainModel.js';
 import { coastProfile } from './terrainLandforms.js';
-export function makeRockGeometry() {
-  const points=[];
-  // Bevelled, fractured slabs: broad bedding faces instead of rounded pebbles.
-  for(const sx of [-1,1])for(const sy of [-1,1])for(const sz of [-1,1]){
-    for(const [x,y,z] of [[.5,.36,.33],[.35,.45,.36],[.34,.36,.5]])
-      points.push(new THREE.Vector3(sx*x*(1+.12*sy*sz),sy*y*(1+.13*sx),sz*z*(1+.08*sy)));
-  }
-  const geometry=new ConvexGeometry(points);geometry.computeBoundingBox();return geometry;
+export const COAST_ROCK_TYPES = Object.freeze(['limestone', 'coquina', 'worn', 'limestone', 'coquina', 'limestone']);
+export function makeRockGeometry({variant=0,detail=4}={}) {
+  // Keep welded vertices for seating; triangle indices are shared by physics
+  // and rendering so terrain height is sampled once per unique support point.
+  return createCoastalRockGeometry({seed:101+variant*37,type:COAST_ROCK_TYPES[variant%COAST_ROCK_TYPES.length],detail});
 }
-export const PEBBLE_PALETTE=Object.freeze(['#b3aa9a','#c4b9a4','#9a9286','#d3c8b5','#8e8779','#bfae95','#a8a49b','#e0d6c3']);
+export const PEBBLE_PALETTE=COASTAL_PEBBLE_PALETTE;
 export const createPebbleMaterial=()=>new THREE.MeshStandardMaterial({color:'#ffffff',roughness:.82});
-// A rounded pebble: a subdivided icosahedron with its vertices welded so it
-// shades smooth, each pushed in or out a little so no facet reads as a crystal.
 export function makePebbleGeometry() {
-  const geometry=mergeVertices(new THREE.IcosahedronGeometry(1,1)),position=geometry.attributes.position;
-  let seed=7;const random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
-  for(let i=0;i<position.count;i++){const k=.88+random()*.24;position.setXYZ(i,position.getX(i)*k,position.getY(i)*k,position.getZ(i)*k);}
-  geometry.computeVertexNormals();geometry.computeBoundingBox();return geometry;
+  const geometry=createCoastalRockGeometry({seed:139,type:'worn',pebble:true,detail:2});
+  // Scatter's existing transforms assume a unit radius, the lab a unit diameter.
+  geometry.scale(2,2,2);geometry.computeBoundingBox();geometry.computeBoundingSphere();return geometry;
 }
 export function buildCoastRocks(p) {
   if(p.terrainRocksEnabled===false)return [];
@@ -41,8 +35,10 @@ export function buildCoastRocks(p) {
     const q=f.foot-3.5+random()*(4+f.width*.26),point=coastPoint(q,s,p),size=.07+Math.pow(random(),2)*.66;
     rocks.push({x:point.x,y:coastHeight(q,s,p),z:point.z,s,q,debris:true,scale:[size*(1+random()*.6),size*(.55+random()*.5),size*(.7+random()*.5)],rotation:[(random()-.5)*1.1,random()*Math.PI*2,(random()-.5)*.7]});
   }
-  const geometry=makeRockGeometry(),vertices=geometry.attributes.position,transform=new THREE.Matrix4(),rotation=new THREE.Quaternion(),point=new THREE.Vector3();
-  for(const rock of rocks){
+  const geometries=COAST_ROCK_TYPES.map((_,variant)=>makeRockGeometry({variant})),transform=new THREE.Matrix4(),rotation=new THREE.Quaternion(),point=new THREE.Vector3();
+  for(const [index,rock] of rocks.entries()){
+    rock.variant=index%COAST_ROCK_TYPES.length;
+    const vertices=geometries[rock.variant].attributes.position;
     rotation.setFromEuler(new THREE.Euler(...rock.rotation));
     transform.compose(new THREE.Vector3(),rotation,new THREE.Vector3(...rock.scale));
     let support=-Infinity,lowest=Infinity;
@@ -52,24 +48,25 @@ export function buildCoastRocks(p) {
     const centreSeat=sampleTerrainHeight(rock.x,rock.z,p)-lowest+.06*rock.scale[1];
     rock.y=Math.min(support,centreSeat)-.14*rock.scale[1];
   }
-  geometry.dispose();return rocks;
+  geometries.forEach(geometry=>geometry.dispose());return rocks;
 }
 
 // A spatial hash of upward-facing triangle support planes gives creatures the
 // actual instanced rock surface without testing every rock or depending on LOD.
 export function attachRockCollisions(query,rocks) {
- const geometry=makeRockGeometry(),positions=geometry.attributes.position;
+ const geometries=COAST_ROCK_TYPES.map((_,variant)=>makeRockGeometry({variant}));
  const cells=new Map(),size=12,transform=new THREE.Matrix4(),rotation=new THREE.Quaternion();
  const key=(x,z)=>Math.floor(x/size)+','+Math.floor(z/size);
  for(const rock of rocks){
+  const geometry=geometries[rock.variant??0],positions=geometry.attributes.position,indices=geometry.index?.array;
   rotation.setFromEuler(new THREE.Euler(...rock.rotation));transform.compose(new THREE.Vector3(rock.x,rock.y,rock.z),rotation,new THREE.Vector3(...rock.scale));
   const points=[];for(let i=0;i<positions.count;i++)points.push(new THREE.Vector3().fromBufferAttribute(positions,i).applyMatrix4(transform));
   const bounds=new THREE.Box3().setFromPoints(points),triangles=[];
-  for(let i=0;i<points.length;i+=3){const a=points[i],b=points[i+1],c=points[i+2],n=b.clone().sub(a).cross(c.clone().sub(a)).normalize();if(n.y>.01)triangles.push({a,b,c,n});}
+  for(let i=0;i<(indices?.length??points.length);i+=3){const a=points[indices?indices[i]:i],b=points[indices?indices[i+1]:i+1],c=points[indices?indices[i+2]:i+2],n=b.clone().sub(a).cross(c.clone().sub(a)).normalize();if(n.y>.01)triangles.push({a,b,c,n});}
   const collider={bounds,triangles};
   for(let x=Math.floor(bounds.min.x/size);x<=Math.floor(bounds.max.x/size);x++)for(let z=Math.floor(bounds.min.z/size);z<=Math.floor(bounds.max.z/size);z++){const k=x+','+z;if(!cells.has(k))cells.set(k,[]);cells.get(k).push(collider);}
  }
- geometry.dispose();
+ geometries.forEach(geometry=>geometry.dispose());
  const groundHeight=query.heightAt,groundNormal=query.normalAt,groundSurface=query.surfaceAt;
  const hitAt=(x,z)=>{
   let hit=null;
