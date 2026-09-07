@@ -10,6 +10,10 @@ uniform vec4 uCoastSurf;
 uniform vec4 uCoastGeology;
 // xy: downwind direction in world xz, z: swell strength, w: storm.
 uniform vec4 uCoastSwell;
+// x: shelf slope past the near-shore knee (m per 100 m), y: weed meadows, z: silt, w: mussel beds.
+uniform vec4 uCoastShelf;
+// x: scale of the bed patches (m), y: ripple marks on the sand.
+uniform vec4 uCoastBed;
 ${landformsShader}
 vec2 coastLand() { return vec2(sin(uCoastShape.y),-cos(uCoastShape.y)); }
 vec2 coastAlong() { return vec2(cos(uCoastShape.y),sin(uCoastShape.y)); }
@@ -25,10 +29,17 @@ vec2 coastLocal(vec2 worldXZ) {
 float coastMask(vec2 qs) {
  return uCoastShape.x*smoothstep(-96.0,-72.0,qs.x)*(1.0-smoothstep(uCoastDimensions.y-48.0,uCoastDimensions.y,qs.x))*(1.0-smoothstep(uCoastDimensions.x*.5-64.0,uCoastDimensions.x*.5,abs(qs.y)));
 }
+// The shelf keeps deepening past the knee of the near-shore curve, so the sand
+// fades into the water before the strips end at -96 m instead of stopping on
+// one drawn line. The CPU mirrors this in terrainModel.js coastShelfDrop.
+float coastShelfDrop(vec2 qs) {
+ float ends=1.0-smoothstep(uCoastDimensions.x*.5-64.0,uCoastDimensions.x*.5,abs(qs.y));
+ return -uCoastShelf.x*.01*max(min(-qs.x,96.0)-24.0,0.0)*ends*uCoastShape.x;
+}
 float coastHeight(vec2 qs) {
  float q=qs.x,s=qs.y,seed=uCoastShape.w*.137;
  float shelf=-uCoastSurface.y*(1.0-exp(min(q,0.0)/12.0));
- if(q<=0.0)return mix(-uCoastSurface.y,shelf,coastMask(qs));
+ if(q<=0.0)return mix(-uCoastSurface.y,shelf,coastMask(qs))+coastShelfDrop(qs);
  vec3 f=coastLandforms(s);vec4 profile=coastProfile(s,f);
  float foot=profile.x,top=profile.y,bank=profile.z,width=top-foot;
  float t=smoothstep(foot,top,q);
@@ -87,12 +98,47 @@ float coastWetnessAtHeight(vec2 qs,float time,float ground) {
  return (1.0-smoothstep(level+rag,level+rag+.1,ground))*coastMask(qs);
 }
 float coastWetness(vec2 qs,float time){return coastWetnessAtHeight(qs,time,coastHeight(qs));}
-vec3 coastBloomTint(vec3 color,vec2 qs,float time) {
- // Drifting cyanobacterial patches, mixed into the body of the water.
- float bloomPatch=smoothstep(.27,.76,coastNoise(qs*.028+vec2(time*.004,-time*.002)));
- float bloom=uCoastGeology.w*bloomPatch*uCoastShape.x;
- return mix(color,color*vec3(.64,1.12,.56)+vec3(.003,.008,.001),bloom*.65);
+// The plants' ecology patch (plantEcology.js), repeated here because the water
+// shaders carry the coast chunk without the plant chunk: a smooth metre-space
+// field, 0..1, with the same CPU twin in terrainModel.js.
+float coastPatch(vec2 p,float scale,float seed) {
+ vec2 q=p/max(scale,1.0);float phase=seed*.713;
+ float warp=sin(q.x*1.7-q.y*1.3+phase)*.7;
+ return .5+.25*sin(q.x*2.1+q.y*.9+warp+phase)+.17*sin(q.y*2.7-q.x*.6+phase*1.7)+.08*sin(q.x*4.3+q.y*3.2-phase*.8);
 }
+// What lies on the sand of the shelf, by depth: the surf keeps the first half
+// metre bare, eelgrass and weed take the middle of the shelf, silt settles in
+// the calm deeper water, mussel banks sit as small dark islands. The patches
+// are stretched along the shore the way the currents lay them. depth: water
+// over the bed in metres; the zones read it as a fraction of the authored
+// depth, so the pattern spans the shelf whatever the depth. x: weed, y: silt,
+// z: mussels. The CPU twin is terrainModel.js sampleSeabedCover; the terrain
+// material adds ragged edges and streaks the twin leaves out.
+vec3 coastBedCover(vec2 qs,float depth) {
+ float f=depth/max(uCoastSurface.y,.1),seed=uCoastShape.w*.37,scale=max(uCoastBed.x,4.0);
+ vec2 p=vec2(qs.y,qs.x*2.2);
+ float meadow=coastPatch(p,scale,seed+3.0);
+ float calm=coastPatch(p+vec2(190.0,70.0),scale*1.9,seed+11.0);
+ float bank=coastPatch(p*vec2(1.0,.6)+vec2(41.0,0.0),scale*.45,seed+27.0);
+ float wash=smoothstep(.25,.6,depth);
+ float weed=uCoastShelf.y*wash*smoothstep(.12,.45,f)*(1.0-smoothstep(.9,1.3,f))*smoothstep(.5,.75,meadow);
+ float silt=uCoastShelf.z*smoothstep(.45,1.0,f)*smoothstep(.45,.7,calm);
+ float mussels=uCoastShelf.w*wash*smoothstep(.3,.8,f)*smoothstep(.62,.8,bank);
+ return clamp(vec3(weed,silt,mussels),0.0,1.0)*coastMask(qs);
+}
+// The summer bloom, 0..1 times the slider: giant masses of green water that
+// drift downwind, smaller patches inside them, thicker over the meadows that
+// feed it. depth: water over the bed (a large number where there is no bed).
+float coastBloom(vec2 qs,float time,float depth) {
+ vec2 drift=vec2(dot(uCoastSwell.xy,coastLand()),dot(uCoastSwell.xy,coastAlong()))*time*.04;
+ float masses=smoothstep(.32,.7,coastNoise(qs*.011+drift+vec2(3.0,uCoastShape.w*.01)));
+ float patches=smoothstep(.27,.76,coastNoise(qs*.028+drift*1.5+vec2(uCoastShape.w*.02,0.0)));
+ float meadows=coastBedCover(qs,depth).x;
+ return uCoastGeology.w*uCoastShape.x*clamp(masses*.6+patches*.5+meadows*.35,0.0,1.0);
+}
+// Cyanobacteria in the body of the water: green-yellow, mixed in by the amount.
+vec3 coastBloomColor(vec3 color,float bloom){return mix(color,color*vec3(.64,1.12,.56)+vec3(.003,.008,.001),bloom*.65);}
+vec3 coastBloomTint(vec3 color,vec2 qs,float time){return coastBloomColor(color,coastBloom(qs,time,1e3));}
 // The swash, with no history buffer. At one point of the beach the wave is
 // gain*w(phase), and the phase falls at 2*pi/T per second; a point at height
 // ground is covered while w(phase) > ground/gain. So the moment the water last
@@ -169,7 +215,7 @@ float coastSandFoamAtHeight(vec2 qs,vec3 world,float time,float ground){return c
 float coastFoam(vec2 qs,vec3 world,float time){return coastFoamAtHeight(qs,world,time,coastHeight(qs));}
 `;
 export function createCoastUniforms() {
- return {uCoastLandforms:{value:new THREE.Vector4()},uCoastShape:{value:new THREE.Vector4()},uCoastDimensions:{value:new THREE.Vector4()},uCoastDetail:{value:new THREE.Vector4()},uCoastSurface:{value:new THREE.Vector4()},uCoastSurf:{value:new THREE.Vector4()},uCoastGeology:{value:new THREE.Vector4()},uCoastSwell:{value:new THREE.Vector4(0,-1,1,0)}};
+ return {uCoastLandforms:{value:new THREE.Vector4()},uCoastShape:{value:new THREE.Vector4()},uCoastDimensions:{value:new THREE.Vector4()},uCoastDetail:{value:new THREE.Vector4()},uCoastSurface:{value:new THREE.Vector4()},uCoastSurf:{value:new THREE.Vector4()},uCoastGeology:{value:new THREE.Vector4()},uCoastSwell:{value:new THREE.Vector4(0,-1,1,0)},uCoastShelf:{value:new THREE.Vector4()},uCoastBed:{value:new THREE.Vector4(42,0,0,0)}};
 }
 export function syncCoastUniforms(uniforms,p) {
  uniforms.uCoastShape.value.set(p.terrainEnabled?1:0,p.terrainBearing*Math.PI/180,p.terrainOffset,p.terrainSeed);
@@ -180,6 +226,8 @@ export function syncCoastUniforms(uniforms,p) {
  const weather=coastWeather(p);
  uniforms.uCoastSurf.value.set(weather.height,weather.period,weather.foam,p.terrainShells);
  uniforms.uCoastGeology.value.set(p.terrainErosion,p.terrainSoil,p.terrainWeathering,p.terrainBloom);
+ uniforms.uCoastShelf?.value.set(p.terrainShelfSlope??0,p.terrainWeed??0,p.terrainSilt??0,p.terrainMussels??0);
+ uniforms.uCoastBed?.value.set(p.terrainBedScale??42,p.terrainRipples??0,0,0);
  if(uniforms.uTerrainGrade){uniforms.uTerrainGrade.value.set(p.terrainSaturation??1,p.terrainContrast??1,p.terrainBrightness??1,p.terrainGreen??1);uniforms.uTerrainGradeDry.value=p.terrainDry??1;}
  const bearing=(p.terrainWindBearing??0)*Math.PI/180;
  uniforms.uCoastSwell.value.set(Math.sin(bearing),-Math.cos(bearing),weather.swell,p.terrainStorm??0);

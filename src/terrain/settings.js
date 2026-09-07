@@ -13,6 +13,8 @@ export const DEFAULT_TERRAIN_SETTINGS = Object.freeze({
   terrainFeatureScale: 64, terrainLandslides: .85, terrainPaths: .4, terrainPathWidth: 1.3,
   terrainGroundCover: .85,
   terrainSaturation: 1, terrainContrast: 1, terrainBrightness: 1, terrainGreen: 1, terrainDry: 1,
+  // The bed of the shelf: the offshore slope past the near-shore knee (m per 100 m), then what lies on the sand.
+  terrainShelfSlope: 1.2, terrainWeed: .55, terrainSilt: .4, terrainMussels: .3, terrainBedScale: 42, terrainRipples: .6,
 });
 export const TERRAIN_RANGES = {
   terrainSeed: [1,9999,1], terrainBearing: [0,360,1], terrainOffset: [-200,200,.5],
@@ -27,6 +29,7 @@ export const TERRAIN_RANGES = {
   terrainErosion:[0,1,.01], terrainSoil:[0,1,.01], terrainWeathering:[0,1,.01], terrainBloom:[0,1,.01], terrainStorm:[0,1,.01],
   terrainFeatureScale:[24,160,1], terrainLandslides:[0,1,.01], terrainPaths:[0,1,.01], terrainPathWidth:[.6,4,.1], terrainGroundCover:[0,1,.01],
   terrainSaturation:[0,2,.05], terrainContrast:[.5,1.6,.05], terrainBrightness:[.5,1.6,.05], terrainGreen:[0,2,.05], terrainDry:[0,2,.05],
+  terrainShelfSlope:[0,5,.1], terrainWeed:[0,1,.01], terrainSilt:[0,1,.01], terrainMussels:[0,1,.01], terrainBedScale:[8,120,1], terrainRipples:[0,1,.01],
 };
 export function normalizeTerrainSettings(source={}) {
   const out = {};
@@ -49,5 +52,5 @@ export function coastWeather(p) {
     swell:Math.min(3,.4+wind*.15+storm*1.2),swellBearing:p.terrainWindBearing};
 }
 
-export const TERRAIN_GEOMETRY_KEYS=['terrainEnabled','terrainSeed','terrainBearing','terrainOffset','terrainLength','terrainLandWidth','terrainBeachWidth','terrainCliffHeight','terrainCliffSlope','terrainCurve','terrainCapeDepth','terrainCapePosition','terrainCapeWidth','terrainRelief','terrainErosion','terrainFeatureScale','terrainLandslides','terrainPaths'];
+export const TERRAIN_GEOMETRY_KEYS=['terrainEnabled','terrainSeed','terrainBearing','terrainOffset','terrainLength','terrainLandWidth','terrainBeachWidth','terrainCliffHeight','terrainCliffSlope','terrainCurve','terrainCapeDepth','terrainCapePosition','terrainCapeWidth','terrainRelief','terrainErosion','terrainFeatureScale','terrainLandslides','terrainPaths','terrainShelfSlope'];
 export function terrainGeometryKey(p){return JSON.stringify(Object.fromEntries(TERRAIN_GEOMETRY_KEYS.map(key=>[key,p[key]]).concat([['waterDepthMeters',p.waterDepthMeters??p.waterDepth]])));}

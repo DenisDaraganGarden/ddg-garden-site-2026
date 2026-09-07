@@ -202,7 +202,7 @@ function WaterRuntimeScene({
   const rockKey=JSON.stringify({...JSON.parse(terrainGeometryKey(terrainDefinition)),terrainRocks:terrainDefinition.terrainRocks,terrainRocksEnabled:terrainDefinition.terrainRocksEnabled,terrainRockSize:terrainDefinition.terrainRockSize,terrainDebris:terrainDefinition.terrainDebris});
   const rockDefinition=useMemo(()=>createTerrainDefinition(JSON.parse(rockKey)),[rockKey]);
   const terrainRocks=useMemo(()=>buildCoastRocks(rockDefinition),[rockDefinition]);
-  const queryKey=JSON.stringify(Object.fromEntries(Object.entries(terrainDefinition).filter(([key])=>!['terrainTextureScale','terrainParallax','terrainGroundCover','terrainBloom'].includes(key))));
+  const queryKey=JSON.stringify(Object.fromEntries(Object.entries(terrainDefinition).filter(([key])=>!['terrainTextureScale','terrainParallax','terrainGroundCover','terrainBloom','terrainWeed','terrainSilt','terrainMussels','terrainBedScale','terrainRipples'].includes(key))));
   const queryDefinition=useMemo(()=>createTerrainDefinition(JSON.parse(queryKey)),[queryKey]);
   const terrainQuery = useMemo(() => {
     if(!settings.terrainEnabled)return null;

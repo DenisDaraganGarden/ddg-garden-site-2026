@@ -27,10 +27,16 @@ export function terrainCoverage(q,s,p) {
   const ends=1-smooth(p.terrainLength*.5-64,p.terrainLength*.5,Math.abs(s));
   return smooth(-96,-72,q)*(1-smooth(p.terrainLandWidth-48,p.terrainLandWidth,q))*ends;
 }
+// The CPU twin of coastShelfDrop in terrainShader.js: the shelf keeps
+// deepening past the knee of the near-shore curve. Keep the two identical.
+export function coastShelfDrop(q,s,p) {
+  const ends=1-smooth(p.terrainLength*.5-64,p.terrainLength*.5,Math.abs(s));
+  return -(p.terrainShelfSlope??0)*.01*Math.max(Math.min(-q,96)-24,0)*ends*(p.terrainEnabled?1:0);
+}
 export function coastHeight(q,s,p) {
   const seed=p.terrainSeed*.137;
   const shelf=-p.waterDepth*(1-Math.exp(Math.min(q,0)/12));
-  if(q<=0)return mix(-p.waterDepth,shelf,terrainCoverage(q,s,p));
+  if(q<=0)return mix(-p.waterDepth,shelf,terrainCoverage(q,s,p))+coastShelfDrop(q,s,p);
   const f=coastProfile(s,p),t=smooth(f.foot,f.top,q);
   const bench=.4*smooth(f.foot,f.foot+f.width*.58,q)+.6*smooth(f.foot+f.width*.76,f.top,q);
   const scarp=.18*smooth(f.foot,f.foot+f.width*.6,q)+.82*smooth(f.foot+f.width*.5,f.top,q);
@@ -94,6 +100,18 @@ export function sampleCoastWetness(q,s,time,p) {
   const level=Math.max(Math.max(.04,p.terrainWetBand*.035),sampleCoastWaveGain(q,s,time,p));
   return (1-smooth(level,level+.1,coastHeight(q,s,p)))*terrainCoverage(q,s,p);
 }
+// The CPU twin of coastPatch / coastBedCover in terrainShader.js: weed, silt
+// and mussel cover of the bed, 0..1, at depth metres of water over it. Keep
+// the two identical; the shader only adds ragged edges on top of this field.
+const coastPatch=(x,y,scale,seed)=>{const a=x/Math.max(scale,1),b=y/Math.max(scale,1),phase=seed*.713;const warp=Math.sin(a*1.7-b*1.3+phase)*.7;return .5+.25*Math.sin(a*2.1+b*.9+warp+phase)+.17*Math.sin(b*2.7-a*.6+phase*1.7)+.08*Math.sin(a*4.3+b*3.2-phase*.8);};
+export function sampleSeabedCover(q,s,depth,p) {
+  const f=depth/Math.max(p.waterDepth,.1),seed=p.terrainSeed*.37,scale=Math.max(p.terrainBedScale??42,4),px=s,py=q*2.2;
+  const meadow=coastPatch(px,py,scale,seed+3),calm=coastPatch(px+190,py+70,scale*1.9,seed+11),bank=coastPatch(px+41,py*.6,scale*.45,seed+27);
+  const wash=smooth(.25,.6,depth),mask=terrainCoverage(q,s,p);
+  return {weed:clamp01((p.terrainWeed??0)*wash*smooth(.12,.45,f)*(1-smooth(.9,1.3,f))*smooth(.5,.75,meadow))*mask,
+    silt:clamp01((p.terrainSilt??0)*smooth(.45,1,f)*smooth(.45,.7,calm))*mask,
+    mussels:clamp01((p.terrainMussels??0)*wash*smooth(.3,.8,f)*smooth(.62,.8,bank))*mask};
+}
 export function sampleTerrainSurface(x,z,p,time=0) {
   const {u,s}=coastCoordinates(x,z,p),q=u-shorePosition(s,p),height=coastHeight(q,s,p),normal=sampleTerrainNormal(x,z,p);
   const wetness=sampleCoastWetness(q,s,time,p);
@@ -104,7 +122,8 @@ export function sampleTerrainSurface(x,z,p,time=0) {
   const gust=.85+.1*Math.sin(time*.73+x*.018-z*.013)+.05*Math.sin(time*1.91+s*.037);
   const path=coastPathMask(q,s,p),stable=1-smooth(.12,.65,path);
   const habitat=height>0.25 && slope<.55 ? (q>p.terrainBeachWidth+p.terrainCliffSlope?'plateau':'beach') : height<0?'submerged':'swash';
-  return {height,normal,slope,wetness,path,shells:shellBand,material:normal.y<.88?'sandstone':shellBand>.3?'shell-sand':'sand',friction:mix(.85,.48,wetness),habitat,
+  const seabed=height<0?sampleSeabedCover(q,s,-height,p):{weed:0,silt:0,mussels:0};
+  return {height,normal,slope,wetness,path,shells:shellBand,seabed,material:normal.y<.88?'sandstone':shellBand>.3?'shell-sand':'sand',friction:mix(.85,.48,wetness),habitat,
     vegetation:{grass:habitat==='plateau'?exposure*stable:0,shrubs:height>.28&&wetness<.15&&q>p.terrainBeachWidth*.85 ? smooth(.67,.94,normal.y)*(1-exposure*.45)*(.3+.7*p.terrainSoil)*stable:0,trees:habitat==='plateau'&&q>p.terrainBeachWidth+15?.5*stable:0,dryness:p.terrainWeathering,soil:p.terrainSoil},
     wind:{x:Math.sin(windAngle)*coastWeather(p).wind*exposure*gust,z:-Math.cos(windAngle)*coastWeather(p).wind*exposure*gust,exposure,gust}};
 }

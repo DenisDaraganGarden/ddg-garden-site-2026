@@ -1,7 +1,7 @@
 import { coastShader } from '../../../terrain/terrainShader.js';
 import { skyShaderChunk } from './skyShader';
 import { cursorFlashlightShaderChunk } from './cursorFlashlightShader';
-import { farWaterBodyShader } from './farWaterOptics';
+import { farWaterBodyShader, farWaterSwellShader } from './farWaterOptics';
 
 // Water V2 optics. The wave state still comes from the existing DDG ping-pong
 // simulation; the optical model follows the Fresnel/refraction approach used by
@@ -89,6 +89,10 @@ export const waterV2VertexShader = `
     }
     vec2 qs = coastLocal(worldPosition.xz);
     worldPosition.y += coastWave(qs,uTime);
+    // The far field overlaps the outer half metre of the strip (FarWaterSurface.jsx);
+    // the strip dips a centimetre there so the depth test hands that band to the
+    // far field instead of fighting for it.
+    if (uShoreMode > .5) worldPosition.y -= .01 * (1.0 - smoothstep(-96.0, -95.0, qs.x));
     vec4 viewPosition = viewMatrix * worldPosition;
 
     vSurfaceWorldPosition = worldPosition.xyz;
@@ -113,6 +117,7 @@ export const waterV2FragmentShader = `
   ${skyShaderChunk}
   ${coastShader}
   ${farWaterBodyShader}
+  ${farWaterSwellShader}
   varying vec2 vUv;
   varying vec3 vSurfaceWorldPosition;
   varying vec4 vKeyShadowCoord;
@@ -144,6 +149,8 @@ export const waterV2FragmentShader = `
   // the rim is a coplanar strip the depth buffer needs.
   uniform float uSurfaceOpticalBlendUv;
   uniform float uShoreMode;
+  uniform float uFarWaveStrength;
+  uniform float uFarWaveSpeed;
   uniform vec3 uWaterTint;
   uniform vec3 uDistantSurfaceColor;
   uniform vec3 uMoonDirection;
@@ -288,6 +295,15 @@ export const waterV2FragmentShader = `
     if (!gl_FrontFacing) {
       normal = -normal;
     }
+    if (uShoreMode > .5) {
+      // The open-water swell the far field carries (farWaterOptics.js), grown
+      // in over the outer strip so the two surfaces agree where they meet.
+      float swellWeight = 1.0 - smoothstep(-96.0, -40.0, coastQS.x);
+      float distanceCalm = mix(1.0, 0.18, smoothstep(90.0, 2400.0, distance(cameraPosition.xz, vSurfaceWorldPosition.xz)));
+      vec2 swell = farWaterSwellGradient(vSurfaceWorldPosition.xz, uTime, uFarWaveSpeed)
+        * uFarWaveStrength * mix(1.0, uCoastSwell.z, uCoastShape.x) * distanceCalm * swellWeight;
+      normal = normalize(normal + vec3(-swell.x, 0.0, -swell.y));
+    }
 
     vec3 viewDirection = normalize(cameraPosition - vSurfaceWorldPosition);
     vec3 lightDirection = normalize(uMoonDirection);
@@ -341,6 +357,9 @@ export const waterV2FragmentShader = `
     // the deeper seabed without another render pass.
     float shadow = keyShadow();
     float turbidity = clamp(uWaterTurbidity, 0.0, 1.0);
+    // The bloom, read once: it tints the body, thickens the haze and eats the
+    // red and blue the way chlorophyll does, and lays scum lines on the surface.
+    float bloom=coastBloom(coastQS,uTime,uCoastShape.x>.5?max(vSurfaceWorldPosition.y-coastGround,0.0):1e3);
     float analyticPath = min(
       mix(uWaterDepth,max(0.0,vSurfaceWorldPosition.y-coastGround),uCoastShape.x) / max(normalDotView, 0.22),
       uWaterDepth * 4.0
@@ -377,11 +396,13 @@ export const waterV2FragmentShader = `
     // default 5m it lands exactly where it used to.
     float depthScale = 5.0 / max(uWaterDepth, 0.25);
     vec3 absorptionCoefficient = (vec3(0.008, 0.003, 0.001)
-      + density * vec3(0.13, 0.055, 0.018)) * depthScale;
+      + density * vec3(0.13, 0.055, 0.018)
+      + bloom * vec3(0.05, 0.008, 0.04)) * depthScale;
     float scatteringCoefficient = density
       * 0.62
       * depthScale
-      * clamp(uWaterScatteringStrength, 0.0, 2.0);
+      * clamp(uWaterScatteringStrength, 0.0, 2.0)
+      * (1.0 + bloom * 1.4);
     vec3 extinction = absorptionCoefficient + vec3(scatteringCoefficient);
     vec3 transmittance = exp(-extinction * opticalPath);
     vec3 deepTint = mix(
@@ -389,7 +410,7 @@ export const waterV2FragmentShader = `
       max(uWaterScatteringColor, vec3(0.001)),
       0.7
     );
-    deepTint=coastBloomTint(deepTint,coastQS,uTime);
+    deepTint=coastBloomColor(deepTint,bloom);
     // Sand stirred by the break: the water goes brown a few metres either
     // side of it, more in a storm.
     float stir=uCoastShape.x*smoothstep(-12.0,-2.0,coastQS.x)*(1.0-smoothstep(1.0,4.0,coastQS.x))*(.4+.6*uCoastSwell.w);
@@ -572,7 +593,7 @@ export const waterV2FragmentShader = `
     // its near-water optics to FarWater's shared body term before the meshes
     // meet, with no alpha/depth handoff.
     if (uShoreMode > .5) {
-      float offshoreV2Weight=smoothstep(-96.0,-88.0,coastQS.x);
+      float offshoreV2Weight=smoothstep(-96.0,-64.0,coastQS.x);
       vec3 farColor=mix(farWaterBody(deepTint,uDistantSurfaceColor,uEnvironmentHorizonColor,uEnvironmentExposure,normal,fresnel),reflection,clamp(fresnel,.02,.96));
       color=mix(farColor,color,offshoreV2Weight);
     }
@@ -588,6 +609,12 @@ export const waterV2FragmentShader = `
         *smoothstep(.6,.86,coastNoise(vSurfaceWorldPosition.xz*.35+uCoastSwell.xy*uTime*.35+uCoastSwell.yx*vec2(.31,-.31)));
       foam=max(foam,streaks*.7);
       vec3 foamLight=vec3(.82,.84,.78)*(uFoamFillRadiance+uFoamKeyRadiance*max(dot(normal,lightDirection),0.0)*shadow)/3.14159265;
+      if(bloom>.001){
+        // Scum lines: the bloom gathers into thin streaks along the wind.
+        vec2 dir=uCoastSwell.xy,perp=vec2(-dir.y,dir.x),w=vSurfaceWorldPosition.xz;
+        float lines=smoothstep(.8,.96,coastNoise(vec2(dot(w,dir)*.45-uTime*.12,dot(w,perp)*.055)))*smoothstep(.35,.75,coastNoise(w*.07+dir*uTime*.03))*smoothstep(.3,.8,coastNoise(w*.9));
+        color=mix(color,foamLight*vec3(.46,.56,.18),lines*bloom*.45);
+      }
       color=mix(color,foamLight,foam);
     }
     gl_FragColor = vec4(color, 1.0);

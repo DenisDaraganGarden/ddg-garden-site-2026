@@ -62,6 +62,8 @@ export default function WaterSurfaceV2({ settings, runtime, qualityProfile, ligh
     uSurfaceOpticalBlendUv: { value: surfaceOpticalBlendUv },
     uWaterExtent: { value: settings.waterExtent },
     uShoreMode: { value: shoreMode ? 1 : 0 },
+    uFarWaveStrength: { value: 0.04 },
+    uFarWaveSpeed: { value: 1 },
     uWaterTint: { value: new THREE.Color(settings.envTint) },
     uDistantSurfaceColor: { value: new THREE.Color(settings.distantSurfaceColor) },
     uMoonDirection: { value: lightDirection.clone() },
@@ -120,6 +122,9 @@ export default function WaterSurfaceV2({ settings, runtime, qualityProfile, ligh
     uniforms.uSurfaceOpticalBlendUv.value = surfaceOpticalBlendUv;
     uniforms.uWaterExtent.value = settings.waterExtent;
     uniforms.uShoreMode.value = shoreMode ? 1 : 0;
+    // The far field's swell, by its formula (FarWaterSurface.jsx), so the outer strip carries the same waves.
+    uniforms.uFarWaveStrength.value = THREE.MathUtils.clamp(settings.waveAmplitude * 0.72 + settings.ambientWaveIntensity * 0.028, 0.018, 0.12);
+    uniforms.uFarWaveSpeed.value = Math.max(settings.ambientWaveSpeed, 0.05);
     uniforms.uWaterTint.value.set(settings.envTint);
     uniforms.uDistantSurfaceColor.value.set(settings.distantSurfaceColor);
     syncCoastUniforms(uniforms, settings);

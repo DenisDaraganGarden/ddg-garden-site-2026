@@ -7,6 +7,18 @@ import {
     SectionHeading,
 } from '../../HomeEditorControls';
 import { formatFloat, SIMULATION_RESOLUTION_OPTIONS } from '../editorShared';
+import { TERRAIN_RANGES } from '../../../../../terrain/settings.js';
+
+// The bed of the Azov shelf lives in the terrain (terrainShader.js coastBedCover):
+// the offshore slope, then what lies on the sand. Labels inline, as in terrain.jsx.
+const SHELF_CONTROLS = [
+    ['terrainShelfSlope', 'Уклон шельфа', 'Shelf slope', '%'],
+    ['terrainWeed', 'Луга водорослей', 'Weed meadows', ''],
+    ['terrainSilt', 'Ил', 'Silt', ''],
+    ['terrainMussels', 'Мидиевые банки', 'Mussel beds', ''],
+    ['terrainBedScale', 'Масштаб пятен', 'Patch scale', ' m'],
+    ['terrainRipples', 'Рябь на песке', 'Sand ripples', ''],
+];
 
 export const WaterGeometrySection = ({ settings, handleSettingChange }) => {
     const { t } = useLanguage();
@@ -195,10 +207,28 @@ export const WaterShaderSection = ({ settings, handleSettingChange }) => {
 };
 
 export const SeabedSection = ({ settings, handleSettingChange }) => {
-    const { t } = useLanguage();
+    const { t, language } = useLanguage();
+    const ru = language === 'ru';
 
     return (
         <>
+            <SectionHeading label={ru ? 'Шельф Азова' : 'Azov shelf'} subtle />
+            {SHELF_CONTROLS.map(([key, labelRu, labelEn, unit]) => {
+                const [min, max, step] = TERRAIN_RANGES[key];
+                return (
+                    <RangeControl
+                        key={key}
+                        label={ru ? labelRu : labelEn}
+                        value={settings[key]}
+                        min={min}
+                        max={max}
+                        step={step}
+                        unit={unit}
+                        formatValue={(value) => Number(Number(value).toFixed(2))}
+                        onChange={(event) => handleSettingChange(event, key)}
+                    />
+                );
+            })}
             <SectionHeading label={t('homeEditor.blocks.surface')} subtle />
             <RangeControl
                 label={t('homeEditor.controls.seabedReliefStrength')}

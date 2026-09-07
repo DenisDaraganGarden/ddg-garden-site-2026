@@ -43,7 +43,10 @@ assert.doesNotMatch(waterV2Source, /texture2D\(uState, uv\)/);
 assert.match(waterV2Source, /coastQS\.x>-96\.0 && coastQS\.x<8\.0/);
 assert.doesNotMatch(waterV2Source, /coastPondCoverage/);
 const farWaterSource = await readFile(new URL('../src/components/effects/water/FarWaterSurface.jsx', import.meta.url), 'utf8');
-assert.match(farWaterSource, /uShoreMode<\.5 && abs\(qs\.y\)<uCoastDimensions\.x\*\.5 && qs\.x>-96\.0 && qs\.x<8\.0/);
+// The far field's cut-out stops half a metre short of the strip edge on purpose:
+// the two overlap there and the strip dips under (no uncovered seam pixels).
+assert.match(farWaterSource, /uShoreMode<\.5 && abs\(qs\.y\)<uCoastDimensions\.x\*\.5 && qs\.x>-95\.5 && qs\.x<8\.0/);
+assert.match(waterV2Source, /worldPosition\.y -= \.01 \* \(1\.0 - smoothstep\(-96\.0, -95\.0, qs\.x\)\)/);
 assert.doesNotMatch(farWaterSource, /coastPondCoverage/);
 const coastSurfaceSource = await readFile(new URL('../src/terrain/AzovTerrain.jsx', import.meta.url), 'utf8');
 assert.match(coastSurfaceSource, /WaterSurfaceV2 geometryOverride=\{geometry\} shoreMode runtime=\{runtime\}/);

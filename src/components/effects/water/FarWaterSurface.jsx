@@ -5,7 +5,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { skyShaderChunk } from '../shaders/skyShader';
-import { farWaterBodyShader } from '../shaders/farWaterOptics';
+import { farWaterBodyShader, farWaterSwellShader } from '../shaders/farWaterOptics';
 import { buildFarWaterFieldData } from './farWaterGeometry';
 
 const farWaterVertexShader = /* glsl */`
@@ -28,6 +28,7 @@ const farWaterFragmentShader = /* glsl */`
   ${skyShaderChunk}
   ${coastShader}
   ${farWaterBodyShader}
+  ${farWaterSwellShader}
   uniform float uShoreMode;
   uniform sampler2D uCoastRefraction;
   uniform float uCoastRefractionActive;
@@ -74,29 +75,6 @@ const farWaterFragmentShader = /* glsl */`
     return chroma * value;
   }
 
-  vec2 rotateSwell(vec2 v, float angle) {
-    float c = cos(angle);
-    float s = sin(angle);
-    return vec2(v.x * c - v.y * s, v.x * s + v.y * c);
-  }
-
-  vec2 distantWaveGradient(vec2 point) {
-    // Crests travel toward -direction, so downwind is minus the wind. The
-    // two crossing trains keep their authored angles to the primary one.
-    vec2 directionA = uCoastShape.x > 0.5
-      ? -normalize(uCoastSwell.xy)
-      : normalize(vec2(0.86, 0.51));
-    vec2 directionB = rotateSwell(directionA, 1.405);
-    vec2 directionC = rotateSwell(directionA, -1.925);
-    float phaseA = dot(point, directionA) * 0.24 + uTime * uWaveSpeed * 0.31;
-    float phaseB = dot(point, directionB) * 0.41 - uTime * uWaveSpeed * 0.22;
-    float phaseC = dot(point, directionC) * 0.13 + uTime * uWaveSpeed * 0.14;
-
-    return directionA * cos(phaseA) * 0.24
-      + directionB * cos(phaseB) * 0.41 * 0.42
-      + directionC * cos(phaseC) * 0.13 * 0.7;
-  }
-
   void main() {
     vec2 qs=coastLocal(vWorldPosition.xz);
     if (max(abs(vWorldPosition.x), abs(vWorldPosition.z)) < mix(uInnerHalfExtent,uPondHalfExtent,uCoastShape.x)) {
@@ -106,7 +84,11 @@ const farWaterFragmentShader = /* glsl */`
     float ground=coastHeight(qs);
     if(uCoastShape.x>.5){
       if(coastMask(qs)>.001 && ground>vWorldPosition.y+.004)discard;
-      if(uShoreMode<.5 && abs(qs.y)<uCoastDimensions.x*.5 && qs.x>-96.0 && qs.x<8.0)discard;
+      // Half a metre past the strip edge: the cut is the analytic q of a 40 km
+      // quad's interpolated position, which jitters by millimetres, and a cut
+      // exactly on the edge left a dotted line of uncovered pixels along the
+      // coast. The strip dips a centimetre under this band (waterV2Shaders.js).
+      if(uShoreMode<.5 && abs(qs.y)<uCoastDimensions.x*.5 && qs.x>-95.5 && qs.x<8.0)discard;
     }
     vec3 viewDirection = normalize(cameraPosition - vWorldPosition);
     float cameraDistance = distance(cameraPosition.xz, vWorldPosition.xz);
@@ -118,7 +100,7 @@ const farWaterFragmentShader = /* glsl */`
       - uPondHalfExtent;
     float pondEdgeBlend = smoothstep(0.0, uSurfaceBlendWidth, distanceOutsidePond);
     float swellStrength = uWaveStrength * mix(1.0, uCoastSwell.z, uCoastShape.x);
-    vec2 gradient = distantWaveGradient(vWorldPosition.xz)
+    vec2 gradient = farWaterSwellGradient(vWorldPosition.xz, uTime, uWaveSpeed)
       * swellStrength
       * distanceCalm
       * pondEdgeBlend;

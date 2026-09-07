@@ -139,7 +139,7 @@ export function createTerrainMaterial(textures,p,rockOnly=false){
    float rockWeight=max(uRockOnly,1.0-smoothstep(.70,.965,abs(terrainN.y)));
    // The swash lives in a band around the waterline; the bluff and plateau skip it.
    bool surfBand=qs.x>-26.0&&qs.x<12.0;
-   float wet=surfBand?coastWetnessAtHeight(qs,uTerrainTime,groundY):0.0;
+   float wet=surfBand?coastWetnessAtHeight(qs,uTerrainTime,groundY):(groundY<0.0?coastMask(qs):0.0);
    float caustic=groundY<-.02?shelfCaustics(vTerrainWorld.xz,-groundY-.02):0.0;
    float foamTrace=surfBand?coastSandFoamAtHeight(qs,vTerrainWorld,uTerrainTime,groundY)*smoothstep(.28,.88,terrainN.y)*(1.0-rockWeight*.32):0.0;
    float path=coastPathMask(qs)*(1.0-uRockOnly);
@@ -170,6 +170,30 @@ export function createTerrainMaterial(textures,p,rockOnly=false){
     ground=terrainSample(0.0,sandUv,sandDx,sandDy);
     if(shellMask>.01)ground=terrainBlend(ground,terrainSample(1.0,sandUv,sandDx,sandDy),shellMask);
     ground.color*=mix(vec3(1.0),vec3(.66,.56,.41),soilCap*uCoastGeology.y*(1.0-shellMask));
+    // The bed of the shelf (terrainShader.js coastBedCover): silt in the calm,
+    // weed meadows on the middle of the shelf, mussel banks as dark islands -
+    // three of the layers already resident, tinted, with ragged edges and
+    // streaks from value noise the CPU twin leaves out. Then the ripple marks
+    // the waves comb into the bare sand, as a tilt of the sand normal.
+    if(groundY<-.02&&dot(uCoastShelf.yzw,vec3(1.0))+uCoastBed.y>.001){
+     float depth=-groundY;
+     vec3 bed=coastBedCover(qs,depth);
+     vec2 bedSeed=vec2(uCoastShape.w*.05,0.0);
+     float rag=coastNoise(qs*vec2(.9,.35)+bedSeed);
+     float streak=coastNoise(vec2(qs.y*1.3,qs.x*.25)+bedSeed.yx);
+     bed.x=smoothstep(.08,.55,bed.x*mix(.7,1.3,rag))*mix(.6,1.0,streak);
+     bed.y=smoothstep(.05,.6,bed.y*mix(.7,1.2,rag));
+     bed.z=smoothstep(.12,.6,bed.z*mix(.6,1.4,coastNoise(qs*1.7+vec2(9.0,4.0))));
+     if(bed.y>.01){TerrainSample silt=terrainSample(3.0,sandUv*.667,sandDx*.667,sandDy*.667);silt.color*=vec3(.42,.44,.38);ground=terrainBlend(ground,silt,bed.y);}
+     if(bed.x>.01){TerrainSample weed=terrainSample(4.0,sandUv*.75,sandDx*.75,sandDy*.75);weed.color*=vec3(.36,.46,.24);weed.surface.r=max(weed.surface.r,.8);ground=terrainBlend(ground,weed,bed.x);}
+     if(bed.z>.01){TerrainSample bank=terrainSample(1.0,sandUv,sandDx,sandDy);bank.color*=vec3(.3,.3,.28);ground=terrainBlend(ground,bank,bed.z);}
+     float ripples=uCoastBed.y*smoothstep(.15,.5,depth)*(1.0-smoothstep(2.5,4.0,depth))*(1.0-smoothstep(10.0,28.0,distance(cameraPosition,vTerrainWorld)))*(1.0-bed.x)*(1.0-bed.y*.7);
+     if(ripples>.01){
+      // Crests parallel to the shore, 14 cm apart, bending and forking.
+      float wobble=(coastNoise(qs*vec2(.25,.7)+vec2(3.0,1.0))-.5)*5.0+coastNoise(qs*vec2(.5,2.0)+vec2(7.0,2.0))*1.5;
+      ground.normal=normalize(vec3(ground.normal.xy-coastLand()*cos(qs.x*44.88+wobble)*.45*ripples,ground.normal.z));
+     }
+    }
     if(coverWeight>.01){
      vec2 grassUv=terrainParallaxUv(groundNormalUv,viewWorld.xz,viewWorld.y,4.0,.012/1.6);
      TerrainSample turf=terrainSample(4.0,grassUv,groundDx,groundDy);
@@ -226,5 +250,5 @@ export function createTerrainMaterial(textures,p,rockOnly=false){
   `);
   shader.fragmentShader=shader.fragmentShader.replace('#include <aomap_fragment>','#include <aomap_fragment>\nreflectedLight.indirectDiffuse*=surfaceData.g;');
  };
- material.customProgramCacheKey=()=> 'azov-coast-layered-pbr-v7';return material;
+ material.customProgramCacheKey=()=> 'azov-coast-layered-pbr-v8';return material;
 }

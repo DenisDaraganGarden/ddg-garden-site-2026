@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import * as THREE from 'three';
 import { DEFAULT_TERRAIN_SETTINGS, normalizeTerrainSettings } from '../src/terrain/settings.js';
-import { createTerrainDefinition, createTerrainQuery, coastPoint, coastCoordinates, shorePosition, sampleTerrainHeight, sampleTerrainNormal, sampleCoastWave } from '../src/terrain/terrainModel.js';
+import { createTerrainDefinition, createTerrainQuery, coastPoint, coastCoordinates, shorePosition, sampleTerrainHeight, sampleTerrainNormal, sampleCoastWave, coastShelfDrop, sampleSeabedCover, sampleTerrainSurface } from '../src/terrain/terrainModel.js';
 import { buildTerrainStrip, terrainLod } from '../src/terrain/terrainGeometry.js';
 import { buildCoastRocks, attachRockCollisions, makeRockGeometry } from '../src/terrain/terrainRocks.js';
 import { createTerrainCollider } from '../src/terrain/terrainCollider.js';
@@ -80,6 +80,22 @@ for(const s of [-2048,-2016,0,2016,2048]){
 }
 const disabled=createTerrainDefinition({terrainEnabled:false});
 close(sampleTerrainHeight(25,0,disabled),-disabled.waterDepth);
+// The shelf keeps deepening offshore: nothing inside the near-shore knee, the
+// full drop at the strip edge and no further growth beyond it; off with the coast.
+close(coastShelfDrop(-12,0,p),0);close(coastShelfDrop(-96,0,p),-p.terrainShelfSlope*.01*72);close(coastShelfDrop(-400,0,p),coastShelfDrop(-96,0,p));
+close(coastShelfDrop(-96,0,disabled),0);close(coastShelfDrop(-96,p.terrainLength/2,p),0);
+{const far=coastPoint(-96,0,p),near=coastPoint(-12,0,p);
+ assert.ok(sampleTerrainHeight(far.x,far.z,p)<-p.waterDepth-p.terrainShelfSlope*.01*72+1e-6);
+ assert.ok(sampleTerrainHeight(near.x,near.z,p)>-p.waterDepth);}
+// The bed cover: bounded, deterministic, bare in the surf, gone with the coast.
+{const cover=sampleSeabedCover(-30,10,1.1,p);
+ for(const value of Object.values(cover))assert.ok(value>=0&&value<=1);
+ assert.deepEqual(cover,sampleSeabedCover(-30,10,1.1,createTerrainDefinition()));
+ assert.equal(sampleSeabedCover(-30,10,.1,p).weed,0);assert.equal(sampleSeabedCover(-30,10,.1,p).mussels,0);
+ assert.deepEqual(sampleSeabedCover(-30,10,1.1,disabled),{weed:0,silt:0,mussels:0});
+ const submerged=coastPoint(-30,10,p),surface=sampleTerrainSurface(submerged.x,submerged.z,p);
+ assert.equal(surface.habitat,'submerged');assert.deepEqual(surface.seabed,sampleSeabedCover(-30,10,-surface.height,p));
+ const dry=coastPoint(6,10,p);assert.deepEqual(sampleTerrainSurface(dry.x,dry.z,p).seabed,{weed:0,silt:0,mussels:0});}
 for(const q of [-96,8,100]) close(sampleCoastWave(q,0,3,p),0);
 
 const rocks=buildCoastRocks(p),query=attachRockCollisions(createTerrainQuery(p),rocks);
