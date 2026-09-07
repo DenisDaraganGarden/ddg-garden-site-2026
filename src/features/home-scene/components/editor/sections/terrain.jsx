@@ -10,7 +10,7 @@ const groups=[
  ['Эрозия и спуски','Erosion and access',[
   ['terrainFeatureScale','Масштаб участков','Landform spacing',' m'],['terrainLandslides','Оползни и обвалы','Landslides',''],['terrainErosion','Промоины и расщелины','Ravines and rills',''],['terrainPaths','Частота спусков','Descent frequency',''],['terrainPathWidth','Ширина тропы','Path width',' m']]],
  ['Поверхность','Surface',[
-  ['terrainShells','Ракушечник','Shell coverage',''],['terrainTextureScale','Масштаб фактуры','Texture frequency',''],['terrainRelief','Рельеф поверхности','Surface relief',''],['terrainParallax','Параллакс','Parallax',''],['terrainGroundCover','Растительный покров грунта','Ground vegetation cover',''],['terrainSoil','Почвенный слой','Soil cap',''],['terrainWeathering','Выветривание','Weathering',''],['terrainTalus','Осыпь и языки грунта','Talus and run-out',''],['terrainStrata','Пласты и потёки','Beds and rills','']]],
+  ['terrainShells','Ракушечник','Shell coverage',''],['terrainLooseSand','Рыхлый песок','Loose sand',''],['terrainTextureScale','Масштаб фактуры','Texture frequency',''],['terrainRelief','Рельеф поверхности','Surface relief',''],['terrainParallax','Параллакс','Parallax',''],['terrainGroundCover','Растительный покров грунта','Ground vegetation cover',''],['terrainSoil','Почвенный слой','Soil cap',''],['terrainWeathering','Выветривание','Weathering',''],['terrainTalus','Осыпь и языки грунта','Talus and run-out',''],['terrainStrata','Пласты и потёки','Beds and rills','']]],
  ['Бровка','Crest rim',[
   ['terrainRimWidth','Ширина дёрна бровки','Rim turf width',' m'],['terrainRimColor','Цвет дёрна бровки','Rim turf colour','']]],
  ['Влажные островки','Moist patches',[

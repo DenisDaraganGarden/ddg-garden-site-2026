@@ -56,6 +56,8 @@ float shelfCaustics(vec2 world,float depth){
  // multiplier, so the veins are capped before they can whiten the shelf.
  return min(c,1.2)*inside;
 }
+// The trodden dry beach: dents and hollows at two scales, 0..1 deep.
+float sandDents(vec2 p){return smoothstep(.5,.72,coastNoise(p))*.7+smoothstep(.55,.8,coastNoise(p*2.15+vec2(5.0,2.0)))*.3;}
 vec2 terrainDomainWarp(vec2 world){
  vec2 p=world*.075+vec2(uCoastShape.w*.017,19.37);
  return (vec2(coastNoise(p),coastNoise(p.yx+vec2(43.11,7.29)))-.5)*.46;
@@ -147,8 +149,21 @@ export function createTerrainMaterial(textures,p,rockOnly=false){
    float caustic=groundY<-.02?shelfCaustics(vTerrainWorld.xz,-groundY-.02):0.0;
    float foamTrace=surfBand?coastSandFoamAtHeight(qs,vTerrainWorld,uTerrainTime,groundY)*smoothstep(.28,.88,terrainN.y)*(1.0-rockWeight*.32):0.0;
    float path=coastPathMask(qs)*(1.0-uRockOnly);
+   // Height above the run-up envelope the wet sand dries by, frozen in time so
+   // what the sea leaves along that line does not float with the tide.
+   float sandSeed=uCoastShape.w*.031,margin=max(.04,uCoastSurface.w*.035);
+   float runup=(surfBand&&qs.x>0.0)?max(margin,coastWaveGain(qs,0.0)):margin,above=groundY-runup;
+   float dist=distance(cameraPosition,vTerrainWorld);
+   // The dry beach: from just above the run-up to the foot of the bluff, flat.
+   float dryBeach=(1.0-wet)*smoothstep(.01,.06,above)*(1.0-smoothstep(profile.x-3.0,profile.x+1.0,qs.x))*smoothstep(.9,.97,terrainN.y)*coastMask(qs)*(1.0-uRockOnly);
+   float variety=uCoastSand.x*dryBeach,loose=variety*(1.0-smoothstep(14.0,30.0,dist));
    float shellMask=uCoastSurf.w*smoothstep(-.4,1.0,qs.x)*(1.0-smoothstep(4.0,max(7.0,uCoastDimensions.z*.8),qs.x));
    shellMask*=mix(.56,1.0,coastNoise(qs*.24+vec2(17.3,uCoastShape.w*.031)));
+   // Coarse shell hash also lies where the storm sea left it, a line above the
+   // run-up along some stretches, and in patches over the dry beach.
+   float shellLine=exp(-pow((above-.15)/.06,2.0))*smoothstep(.35,.7,coastNoise(vec2(qs.y*.05,4.0)+sandSeed))*mix(.4,1.0,coastNoise(vec2(qs.y*.8,qs.x*1.5)+sandSeed));
+   float shellPatches=smoothstep(.58,.78,coastPatch(vTerrainWorld.xz,6.0,uCoastShape.w*.37+19.0))*.7;
+   shellMask=max(shellMask,uCoastSurf.w*max(shellLine,shellPatches)*dryBeach);
    vec2 coverUv=(vTerrainWorld.xz-uPlantCoverBounds.xy)/uPlantCoverBounds.zw;vec3 cover=vec3(0.0);
    if(uPlantCoverEnabled>.5&&all(greaterThanEqual(coverUv,vec2(0)))&&all(lessThanEqual(coverUv,vec2(1))))cover=texture2D(uPlantCover,coverUv).rgb;
    float soilCap=smoothstep(profile.x+max(.1,(profile.y-profile.x)*.4),profile.y+max(.2,profile.z*.3),qs.x)*smoothstep(.55,.93,terrainN.y)*(1.0-uRockOnly);
@@ -156,7 +171,6 @@ export function createTerrainMaterial(textures,p,rockOnly=false){
    float moisture=coastNoise(vTerrainWorld.xz*.085+vec2(11.3,28.1));
    float rootCover=(cover.r*.65+cover.g)*smoothstep(.55,.93,terrainN.y)*(1.0-uRockOnly);
    float coverWeight=clamp(soilCap*(.28+.62*smoothstep(.22,.72,moisture))+rootCover,0.0,1.0)*uTerrainGroundCover*(1.0-wet)*(1.0-path);
-   float dist=distance(cameraPosition,vTerrainWorld);
    // The ground at the foot of the bluff (terrainShader.js coastSoil): x the
    // talus tongue run out onto the beach, y the seep where the bluff drains.
    // Only the beach and the face can carry either; the shelf and plateau skip it.
@@ -180,10 +194,34 @@ export function createTerrainMaterial(textures,p,rockOnly=false){
    vec2 dxX=dFdx(uvX),dyX=dFdy(uvX),dxY=dFdx(uvY),dyY=dFdy(uvY),dxZ=dFdx(uvZ),dyZ=dFdy(uvZ);
    TerrainSample ground;ground.color=vec3(.5);ground.surface=vec3(.9,1.0,.5);ground.normal=vec3(0,0,1);
    if(rockWeight<.999){
-    vec2 sandUv=terrainParallaxUv(sandNormalUv,viewWorld.xz,viewWorld.y,shellMask>.25?1.0:0.0,.024/1.2*shellMask+.008);
+    vec2 sandUv=terrainParallaxUv(sandNormalUv,viewWorld.xz,viewWorld.y,shellMask>.25?1.0:0.0,.024/1.2*shellMask+.008+loose*.02);
     ground=terrainSample(0.0,sandUv,sandDx,sandDy);
     if(shellMask>.01)ground=terrainBlend(ground,terrainSample(1.0,sandUv,sandDx,sandDy),shellMask);
     ground.color*=mix(vec3(1.0),vec3(.66,.56,.41),soilCap*uCoastGeology.y*(1.0-shellMask));
+    // Loose sand (Denis's photos of the strand): the dry beach is trodden and
+    // wind-blown into dents and hollows, rougher and puffier than the packed
+    // wet sand. They shape the normal and shade the hollows, and fade before
+    // they could shimmer from afar. Broad pink-grey drifts of heavier grains;
+    // dark streaks of heavy minerals along the strand.
+    if(variety>.01){
+     if(loose>.01){
+      vec2 dp=vTerrainWorld.xz*3.3+sandSeed;float dent=sandDents(dp),e=.2;
+      vec2 grad=vec2(sandDents(dp+vec2(e,0.0))-dent,sandDents(dp+vec2(0.0,e))-dent)/e;
+      ground.normal=normalize(vec3(ground.normal.xy+grad*.22*loose,ground.normal.z));
+      ground.color*=1.0-dent*loose*.2;
+      ground.surface.r=mix(ground.surface.r,.95,loose*.4);
+     }
+     float drift=coastPatch(vTerrainWorld.xz,11.0,uCoastShape.w*.37+5.0);
+     ground.color*=mix(vec3(1.0),mix(vec3(1.0,.93,.88),vec3(.95,.97,1.0),drift),.5*variety);
+     float streaks=smoothstep(.62,.82,coastNoise(vec2(qs.y*.35,qs.x*2.2)+sandSeed))*exp(-pow((above-.1)/.08,2.0))*(1.0-smoothstep(20.0,60.0,dist));
+     ground.color*=1.0-streaks*.35*variety;
+    }
+    // The backwash combs ripples into the wet sand of the swash too, continuing the bed's.
+    float wetRipples=uCoastBed.y*wet*smoothstep(-.02,.03,groundY)*(1.0-smoothstep(10.0,28.0,dist))*(1.0-shellMask*.6);
+    if(wetRipples>.01){
+     float wobble=(coastNoise(qs*vec2(.25,.7)+vec2(3.0,1.0))-.5)*5.0+coastNoise(qs*vec2(.5,2.0)+vec2(7.0,2.0))*1.5;
+     ground.normal=normalize(vec3(ground.normal.xy-coastLand()*cos(qs.x*44.88+wobble)*.3*wetRipples,ground.normal.z));
+    }
     // The run-out of the bluff onto the beach: loose loam in lobes, the sand
     // showing through at the fringe where the sheet thins and stays damp.
     if(soil.x>.01){
@@ -267,7 +305,6 @@ export function createTerrainMaterial(textures,p,rockOnly=false){
     // Parallax on the cover layer gives the clumps their body.
     if(uCoastWrack.x>.01&&surfBand&&qs.x>0.0&&groundY>-.02){
      float seed=uCoastShape.w*.031;
-     float above=groundY-max(max(.04,uCoastSurface.w*.035),coastWaveGain(qs,0.0));
      float stretch=smoothstep(.28,.6,coastNoise(vec2(qs.y*.03,9.0)+seed));
      float freshLine=exp(-pow((above-.02)/.05,2.0)),oldLine=exp(-pow((above-.18)/.06,2.0))*.6;
      float strands=coastNoise(vec2(qs.y*1.4,qs.x*4.0)+seed*7.0),clumps=coastNoise(vTerrainWorld.xz*2.6+vec2(3.0,seed));
@@ -383,5 +420,5 @@ export function createTerrainMaterial(textures,p,rockOnly=false){
   `);
   shader.fragmentShader=shader.fragmentShader.replace('#include <aomap_fragment>','#include <aomap_fragment>\nreflectedLight.indirectDiffuse*=surfaceData.g;');
  };
- material.customProgramCacheKey=()=> 'azov-coast-layered-pbr-v12';return material;
+ material.customProgramCacheKey=()=> 'azov-coast-layered-pbr-v13';return material;
 }

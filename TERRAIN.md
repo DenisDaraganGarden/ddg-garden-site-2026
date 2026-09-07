@@ -44,6 +44,8 @@ Moist islands (Суша → Влажные островки, `terrainOasis`, `te
 
 Wrack (Суша → Прибой → «Выброшенная тина», `terrainWrack`): the weed the sea throws up lies along the run-up line, the same envelope the wet sand dries by, frozen at time zero so the line does not float with the tide; strands and clumps along some stretches of the shore, more where the shelf's meadows (`terrainWeed`) and the storm are stronger, last storm's line dried brown a little up the beach. The cover layer with parallax gives the clumps their body; fresh wrack is glossy, old wrack matte. Material only.
 
+Loose sand (Суша → Поверхность → «Рыхлый песок», `terrainLooseSand`): the dry beach, from just above the run-up envelope to the foot of the bluff, is trodden and wind-blown into dents and hollows at two scales that shape the sand normal, shade the hollows, roughen the surface and deepen the sand parallax, fading before they could shimmer from afar; broad pink-grey drifts of heavier grains; dark streaks of heavy minerals along the strand. Coarse shell hash (`terrainShells`) also lies in a storm line above the run-up along some stretches and in patches over the dry beach, and the backwash ripples (`terrainRipples`) continue from the bed onto the wet sand of the swash. The run-up envelope is computed once, frozen in time, and shared by the shells, the wrack and the loose sand.
+
 ## Physics and future vegetation
 
 `createTerrainQuery(definition)` provides `heightAt`, `normalAt`, `surfaceAt` and `raycast`. `attachRockCollisions` overlays the actual instanced rock triangles through a spatial hash. `createTerrainCollider` adapts this to the existing creature raycaster, including ground impacts and occlusion, with a bounding slab before marching.

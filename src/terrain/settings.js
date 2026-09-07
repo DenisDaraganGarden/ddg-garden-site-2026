@@ -20,6 +20,8 @@ export const DEFAULT_TERRAIN_SETTINGS = Object.freeze({
   terrainOasis: .6, terrainOasisColor: '#7f9c58',
   // Wrack: the weed the sea throws up along the run-up line.
   terrainWrack: .6,
+  // Loose sand: dents and hollows of the trodden dry beach, drifts of heavier grains, dark mineral streaks, shell lines.
+  terrainLooseSand: .6,
   terrainSaturation: 1, terrainContrast: 1, terrainBrightness: 1, terrainGreen: 1, terrainDry: 1,
   // The bed of the shelf: the offshore slope past the near-shore knee (m per 100 m), then what lies on the sand.
   terrainShelfSlope: 1.2, terrainWeed: .55, terrainSilt: .4, terrainMussels: .3, terrainBedScale: 42, terrainRipples: .6,
@@ -35,7 +37,7 @@ export const TERRAIN_RANGES = {
   terrainFoam:[0,1.5,.01], terrainWaveHeight:[0,.3,.01], terrainWavePeriod:[3,12,.1],
   terrainWindBearing:[0,360,1], terrainWindSpeed:[0,18,.1],
   terrainErosion:[0,1,.01], terrainSoil:[0,1,.01], terrainWeathering:[0,1,.01], terrainBloom:[0,1,.01], terrainStorm:[0,1,.01],
-  terrainFeatureScale:[24,160,1], terrainLandslides:[0,1,.01], terrainPaths:[0,1,.01], terrainPathWidth:[.6,4,.1], terrainGroundCover:[0,1,.01], terrainTalus:[0,1,.01], terrainStrata:[0,1,.01], terrainRimWidth:[0,30,.5], terrainRimColor:null, terrainOasis:[0,1,.01], terrainOasisColor:null, terrainWrack:[0,1,.01],
+  terrainFeatureScale:[24,160,1], terrainLandslides:[0,1,.01], terrainPaths:[0,1,.01], terrainPathWidth:[.6,4,.1], terrainGroundCover:[0,1,.01], terrainTalus:[0,1,.01], terrainStrata:[0,1,.01], terrainRimWidth:[0,30,.5], terrainRimColor:null, terrainOasis:[0,1,.01], terrainOasisColor:null, terrainWrack:[0,1,.01], terrainLooseSand:[0,1,.01],
   terrainSaturation:[0,2,.05], terrainContrast:[.5,1.6,.05], terrainBrightness:[.5,1.6,.05], terrainGreen:[0,2,.05], terrainDry:[0,2,.05],
   terrainShelfSlope:[0,5,.1], terrainWeed:[0,1,.01], terrainSilt:[0,1,.01], terrainMussels:[0,1,.01], terrainBedScale:[8,120,1], terrainRipples:[0,1,.01],
 };
