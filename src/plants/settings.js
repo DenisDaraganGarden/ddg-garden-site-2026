@@ -30,12 +30,12 @@ export const TREE_RANGES={
 // colour rides the landscape's ecology with an offset from the shrubs' dryness.
 export const DEFAULT_GRASS_SETTINGS=Object.freeze({
  grassEnabled:true,grassSeed:23,grassDensity:1,grassStipa:1,grassFestuca:1,grassLeymus:1,grassPhragmites:1,
- grassHeight:1,grassFlex:2.2,grassDryness:0,grassTone:1.15,grassRenderDistance:150,
+ grassHeight:1,grassFlex:2.2,grassDryness:0,grassTone:1.15,grassRenderDistance:150,grassCarpet:1,
  grassFieldCoverage:.85,grassFieldContrast:.6,grassFieldWaves:.6,grassFieldSheen:.35,grassFieldScale:9,grassFieldBlend:60,grassFieldHeight:.5,grassFieldFresh:'#ffffff',grassFieldDry:'#ffffff',
 });
 export const GRASS_RANGES={
  grassSeed:[1,200,1],grassDensity:[0,2,.05],grassStipa:[0,1,.05],grassFestuca:[0,1,.05],grassLeymus:[0,1,.05],grassPhragmites:[0,1,.05],
- grassHeight:[.5,1.6,.05],grassFlex:[.3,4,.1],grassDryness:[-.5,.5,.05],grassTone:[.5,2,.05],grassRenderDistance:[40,300,5],
+ grassHeight:[.5,1.6,.05],grassFlex:[.3,4,.1],grassDryness:[-.5,.5,.05],grassTone:[.5,2,.05],grassRenderDistance:[40,300,5],grassCarpet:[0,3,.05],
  grassFieldCoverage:[0,1,.05],grassFieldContrast:[0,1,.05],grassFieldWaves:[0,1,.05],grassFieldSheen:[0,1,.05],grassFieldScale:[3,30,.5],grassFieldBlend:[20,300,5],grassFieldHeight:[0,1,.05],grassFieldFresh:null,grassFieldDry:null,
 };
 function normalizeRanged(defaults,ranges,source={}){

@@ -12,9 +12,16 @@ uniform highp sampler2DArray uTerrainColor;
 uniform highp sampler2DArray uTerrainNormal;
 uniform highp sampler2DArray uTerrainSurface;
 uniform sampler2D uPlantCover;uniform vec4 uPlantCoverBounds;uniform float uPlantCoverEnabled;
+uniform vec4 uTerrainGrade;uniform float uTerrainGradeDry;
 uniform float uRockLayer;uniform float uTerrainTime;uniform float uTerrainOptics;uniform float uTerrainScale;uniform float uTerrainParallax;uniform float uRockOnly;uniform float uTerrainGroundCover;
 uniform sampler2D uPondNormalMap;uniform vec2 uPondTexel;uniform float uPondExtent;uniform vec4 uCausticsParams;uniform vec3 uCausticsLight;uniform float uCausticsKey;
 struct TerrainSample{vec3 color;vec3 surface;vec3 normal;};
+// The artist's grading of the albedo: saturation around its own luminance,
+// contrast around mid grey, then level. Fresh and dry cover each get their
+// own saturation so the meadow can be greener or strawier than authored.
+vec3 gradeSaturation(vec3 c,float s){float l=dot(c,vec3(.2126,.7152,.0722));return max(mix(vec3(l),c,s),0.0);}
+vec3 gradeTerrain(vec3 c){c=gradeSaturation(c,uTerrainGrade.x);c=(c-.18)*uTerrainGrade.y+.18;return max(c*uTerrainGrade.z,0.0);}
+vec3 gradeCover(vec3 c,float dryness){return gradeSaturation(c,mix(uTerrainGrade.w,uTerrainGradeDry,dryness));}
 vec3 pondNormalAt(vec2 uv){return normalize(texture2D(uPondNormalMap,uv).rgb*2.0-1.0);}
 // The pond's caustics, cast onto the shelf that took over as its bed. The
 // same differential-area focus the old bed used: a refracted patch is bright
@@ -93,6 +100,7 @@ export function createTerrainMaterial(textures,p,rockOnly=false){
  const uniforms={...createCoastUniforms(),...ecologyUniforms(),...grassFieldUniforms(),
   uTerrainColor:{value:textures.color},uTerrainNormal:{value:textures.normal},uTerrainSurface:{value:textures.surface},
   uPlantCover:{value:null},uPlantCoverBounds:{value:new THREE.Vector4(0,0,1,1)},uPlantCoverEnabled:{value:0},
+  uTerrainGrade:{value:new THREE.Vector4(1,1,1,1)},uTerrainGradeDry:{value:1},
   uTerrainTime:{value:0},uTerrainOptics:{value:0},uTerrainScale:{value:p.terrainTextureScale},uTerrainParallax:{value:p.terrainParallax},uTerrainGroundCover:{value:p.terrainGroundCover},uRockLayer:{value:rockOnly?2:3},uRockOnly:{value:rockOnly?1:0},
   uPondNormalMap:{value:null},uPondTexel:{value:new THREE.Vector2(1/256,1/256)},uPondExtent:{value:34},uCausticsParams:{value:new THREE.Vector4(0,1,1,0)},uCausticsLight:{value:new THREE.Vector3(0,1,0)},uCausticsKey:{value:1}};
  syncCoastUniforms(uniforms,p);
@@ -166,6 +174,7 @@ export function createTerrainMaterial(textures,p,rockOnly=false){
      vec2 grassUv=terrainParallaxUv(groundNormalUv,viewWorld.xz,viewWorld.y,4.0,.012/1.6);
      TerrainSample turf=terrainSample(4.0,grassUv,groundDx,groundDy);
      turf=terrainBlend(turf,terrainSample(5.0,grassUv,groundDx,groundDy),dryness);
+     turf.color=gradeCover(turf.color,dryness);
      ground=terrainBlend(ground,turf,coverWeight);
     }
     // The steppe from afar: the grass field level (plants/grassField.js),
@@ -178,7 +187,7 @@ export function createTerrainMaterial(textures,p,rockOnly=false){
      meadow=terrainBlend(meadow,terrainSample(7.0,fieldUv,fieldDx,fieldDy),dryness);
      float gust=grassGust(vTerrainWorld.xz,uTerrainTime);
      vec3 fieldTint=mix(uGrassFieldFresh,uGrassFieldDry,dryness);
-     meadow.color*=fieldTint*(1.0-uGrassField.z*gust*.35)*mix(1.0,mix(.7,1.0,meadow.surface.b),uGrassFieldScale.z);
+     meadow.color=gradeCover(meadow.color,dryness)*fieldTint*(1.0-uGrassField.z*gust*.35)*mix(1.0,mix(.7,1.0,meadow.surface.b),uGrassFieldScale.z);
      meadow.normal=normalize(vec3(meadow.normal.xy+uGrassWind.xy*gust*uGrassField.z*.3,meadow.normal.z));
      float sheen=pow(max(dot(normalize(viewWorld.xz),-uGrassWind.xy),0.0),3.0)*gust*uGrassField.w;
      meadow.color+=fieldTint*sheen*.18;
@@ -205,7 +214,7 @@ export function createTerrainMaterial(textures,p,rockOnly=false){
    vec3 surfaceData=mix(ground.surface,rockSurface,rockWeight);
    vec3 terrainColor=mix(ground.color,rockColor,rockWeight);
    float macroVariation=.88+.22*coastNoise(vTerrainWorld.xz*.21+vec2(5.2,42.9));
-   diffuseColor.rgb=mix(terrainColor*mix(1.0,.53,wet),vec3(.86,.87,.82),foamTrace)*macroVariation;
+   diffuseColor.rgb=mix(gradeTerrain(terrainColor)*mix(1.0,.53,wet),vec3(.86,.87,.82),foamTrace)*macroVariation;
    diffuseColor.rgb*=1.0+caustic*.5;
   `);
   shader.fragmentShader=shader.fragmentShader.replace('#include <roughnessmap_fragment>','#include <roughnessmap_fragment>\nroughnessFactor=mix(surfaceData.r,.4,wet);');
@@ -217,5 +226,5 @@ export function createTerrainMaterial(textures,p,rockOnly=false){
   `);
   shader.fragmentShader=shader.fragmentShader.replace('#include <aomap_fragment>','#include <aomap_fragment>\nreflectedLight.indirectDiffuse*=surfaceData.g;');
  };
- material.customProgramCacheKey=()=> 'azov-coast-layered-pbr-v6';return material;
+ material.customProgramCacheKey=()=> 'azov-coast-layered-pbr-v7';return material;
 }

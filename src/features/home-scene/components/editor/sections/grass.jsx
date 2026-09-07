@@ -7,7 +7,7 @@ import {GRASS_RANGES} from '../../../../../plants/settings.js';
 // here only what is the grass's own. The switch above comes from the registry.
 const groups=[
  ['Посадка','Planting',[
-  ['grassSeed','Вариант','Seed',''],['grassDensity','Плотность','Density','×'],['grassStipa','Ковыль','Feather grass',''],['grassFestuca','Типчак','Fescue',''],['grassLeymus','Колосняк','Dune grass',''],['grassPhragmites','Тростник','Reed','']]],
+  ['grassSeed','Вариант','Seed',''],['grassDensity','Плотность','Density','×'],['grassCarpet','Подложка','Underlay','×'],['grassStipa','Ковыль','Feather grass',''],['grassFestuca','Типчак','Fescue',''],['grassLeymus','Колосняк','Dune grass',''],['grassPhragmites','Тростник','Reed','']]],
  ['Форма','Form',[
   ['grassHeight','Высота','Height','×'],['grassFlex','Гибкость','Flexibility','']]],
  ['Окраска','Colour',[

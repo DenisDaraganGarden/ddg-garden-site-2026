@@ -63,4 +63,4 @@ export default function PlantLab({species=PLANT_SPECIES.oleaster,variants,onVari
 export const OleasterLab=()=><PlantLab species={PLANT_SPECIES.oleaster}/>;
 export const TreeLab=()=><PlantLab species={PLANT_SPECIES.tree}/>;
 // Four grasses behind one door: the species row switches the whole lab.
-export const GrassLab=()=>{const [id,setId]=useState('stipa');return <PlantLab species={GRASS_SPECIES[id]} variants={GRASS_VARIANTS} onVariant={setId}/>;};
+export const GrassLab=()=>{const [id,setId]=useState('mix');return <PlantLab species={GRASS_SPECIES[id]} variants={GRASS_VARIANTS} onVariant={setId}/>;};

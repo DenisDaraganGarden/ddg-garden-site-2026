@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import {makeBranchGeometry,makeLeafGeometry,selectPlantLod} from './oleasterModel.js';
 import {makePlantMaterials,plantUniforms,updatePlantUniforms} from './plantMaterials.js';
 import {bakePlantImpostor,makeImpostorMaterial} from './plantAtlases.js';
+const WHITE=new THREE.Color(1,1,1);
 
 export default function PlantPopulation({model,settings,atlas,placements,paused=false,onStats,lowPower=false,sceneTime=false,statsKey='plantStats',impostorFrame}){
  const {gl,camera,size,invalidate}=useThree();
@@ -43,7 +44,7 @@ export default function PlantPopulation({model,settings,atlas,placements,paused=
  useLayoutEffect(()=>{
   placements.forEach((p,i)=>{
    transform.position.set(p.x,p.y-(p.rootDepth??0)*p.scale,p.z);transform.rotation.set(0,p.yaw,0);transform.scale.setScalar(p.scale);transform.updateMatrix();
-   for(const ref of meshRefs){if(!ref.current)continue;ref.current.setMatrixAt(i,transform.matrix);ref.current.setColorAt(i,new THREE.Color(1,1,1));ref.current.geometry.attributes.plantExposure.setX(i,p.exposure??1);}
+   for(const ref of meshRefs){if(!ref.current)continue;ref.current.setMatrixAt(i,transform.matrix);ref.current.setColorAt(i,WHITE);ref.current.geometry.attributes.plantExposure.setX(i,p.exposure??1);}
   });
   for(const ref of meshRefs){if(ref.current){ref.current.instanceMatrix.needsUpdate=true;if(ref.current.instanceColor)ref.current.instanceColor.needsUpdate=true;ref.current.computeBoundingSphere();}}
   lastReport.current=-Infinity;invalidate();
@@ -65,12 +66,12 @@ export default function PlantPopulation({model,settings,atlas,placements,paused=
   const counts=[0,0,0],heights=model.height;let culled=0;
   for(const p of placements){
    const distance=camera.position.distanceTo(new THREE.Vector3(p.x,p.y+heights*p.scale*.5,p.z)),pixels=heights*p.scale*size.height/(2*Math.tan(camera.fov*Math.PI/360)*Math.max(.1,distance));
-   if(settings.lod==='auto'&&distance>(settings.renderDistance??(lowPower?100:180))){culled++;continue;}
+   if(settings.lod==='auto'&&(distance>(settings.renderDistance??(lowPower?100:180))||distance<(settings.nearDistance??0))){culled++;continue;}
    const level=settings.skeleton?0:settings.lod==='auto'?(model.selectLod??selectPlantLod)(distance,pixels,p.lod??lastLod.current,lowPower,(camera.position.y-p.y-heights*p.scale*.5)/Math.max(.1,distance)):Number(settings.lod);
    p.lod=level;lastLod.current=level;
    const slot=counts[level]++;transform.position.set(p.x,p.y-(p.rootDepth??0)*p.scale,p.z);transform.rotation.set(0,p.yaw,0);transform.scale.setScalar(p.scale);transform.updateMatrix();
    const refs=level===2?[meshRefs[4]]:meshRefs.slice(level*2,level*2+2);
-   for(const r of refs){if(r.current){r.current.setMatrixAt(slot,transform.matrix);r.current.geometry.attributes.plantExposure.setX(slot,p.exposure??1);r.current.geometry.attributes.plantHabitat.setX(slot,p.habitat??.5);r.current.setColorAt(slot,new THREE.Color(1,1,1));}}
+   for(const r of refs){if(r.current){r.current.setMatrixAt(slot,transform.matrix);r.current.geometry.attributes.plantExposure.setX(slot,p.exposure??1);r.current.geometry.attributes.plantHabitat.setX(slot,p.habitat??.5);r.current.setColorAt(slot,WHITE);}}
   }
   for(let i=0;i<3;i++){
    if(groups[i].current)groups[i].current.visible=counts[i]>0;

@@ -6,7 +6,7 @@ import { coastProfile } from '../src/terrain/terrainLandforms.js';
 import { buildCoastRocks, attachRockCollisions } from '../src/terrain/terrainRocks.js';
 import { DEFAULT_GRASS_SETTINGS, DEFAULT_SHRUB_SETTINGS, grassAssetSettings } from '../src/plants/settings.js';
 import { grassCell, gatherGrass, GRASS_CELL } from '../src/plants/grassMeadow.js';
-import { makeGrassTuft, GRASS_KINDS, GRASS_SPECIES_DEFAULTS } from '../src/plants/grassModel.js';
+import { makeGrassTuft, GRASS_SCENE_KINDS, GRASS_SPECIES_DEFAULTS, grassAtlasKey } from '../src/plants/grassModel.js';
 import { GRASS_ATLASES } from '../src/plants/grassAtlas.js';
 
 const p = createTerrainDefinition({ terrainSeed: 37 });
@@ -27,12 +27,13 @@ const cache = new Map();
 const shoreCentre = { x: p.terrainOffset * p.landX, z: p.terrainOffset * p.landZ };
 const all = gatherGrass(cache, shoreCentre.x + p.landX * 30, shoreCentre.z + p.landZ * 30, 120, context, 1e9);
 assert.ok(all, 'first gather returns placements');
-const counts = Object.fromEntries(GRASS_KINDS.map((kind) => [kind, all[kind].length]));
+const counts = Object.fromEntries(GRASS_SCENE_KINDS.map((kind) => [kind, all[kind].length]));
 console.log('tufts within 120 m of the shore:', JSON.stringify(counts));
 assert.ok(counts.stipa > 500 && counts.festuca > 500, 'the plateau carries the steppe');
 assert.ok(counts.leymus > 10, 'dune grass on the back beach');
 assert.ok(counts.phragmites > 5, 'reed at the calm edge');
-for (const kind of GRASS_KINDS) for (const t of all[kind]) {
+assert.ok(counts.carpet > counts.festuca, 'the carpet is denser than the tufts');
+for (const kind of GRASS_SCENE_KINDS) for (const t of all[kind]) {
   const s = query.surfaceAt(t.x, t.z, 0), local = coastCoordinates(t.x, t.z, p), q = local.u - shorePosition(local.s, p), f = coastProfile(local.s, p);
   assert.ok(s.path < .3, `${kind} stands on a path`);
   assert.ok(s.normal.y >= .7, `${kind} stands on a rock face`);
@@ -48,19 +49,22 @@ assert.equal(gatherGrass(cache, shoreCentre.x + p.landX * 30, shoreCentre.z + p.
 assert.ok(gatherGrass(cache, shoreCentre.x + p.landX * 30 + GRASS_CELL * 3, shoreCentre.z + p.landZ * 30, 120, context), 'a moved camera rebuilds');
 
 // 3. Tufts: budgets per level, height, atlas cells inside the atlas.
-for (const kind of GRASS_KINDS) {
+for (const kind of GRASS_SCENE_KINDS) {
   const model = makeGrassTuft(kind, { seed: 5 });
   const near = model.geometry(0), mid = model.geometry(1);
   const tri = (g) => g.leaf.index.count / 3;
-  assert.ok(tri(near) <= 220 && tri(near) >= 40, `${kind} near ${tri(near)} triangles`);
+  // The carpet is only ever baked into a card, so its near mesh has no runtime budget.
+  assert.ok(tri(near) <= (kind === 'carpet' ? 400 : 220) && tri(near) >= 40, `${kind} near ${tri(near)} triangles`);
   assert.ok(tri(mid) <= tri(near) * .6, `${kind} middle level ${tri(mid)} is not lighter enough than ${tri(near)}`);
   // Blades arch: the apex sits below the nominal height; plumes and panicles rise above it.
   assert.ok(model.height > GRASS_SPECIES_DEFAULTS[kind].height * .6 && model.height < GRASS_SPECIES_DEFAULTS[kind].height * 2.2, `${kind} height ${model.height}`);
   assert.deepEqual(makeGrassTuft(kind, { seed: 5 }).leaves.length, model.leaves.length, 'a tuft regrows the same');
   const uv = near.leaf.attributes.uv;
   for (let i = 0; i < uv.count; i++) { const u = uv.getX(i), v = uv.getY(i); assert.ok(u >= 0 && u <= 1 && v >= 0 && v <= 1, `${kind} uv out of the atlas`); }
-  assert.equal(model.selectLod(1, 500, 0), 0); assert.equal(model.selectLod(1000, 1, 0), 2);
-  for (const rects of Object.values(GRASS_ATLASES[kind].parts)) for (const [x, y, w, h] of rects) assert.ok(x + w <= GRASS_ATLASES[kind].width + 1e-6 && y + h <= GRASS_ATLASES[kind].height + 1e-6, `${kind} atlas cell outside the image`);
+  if (kind === 'carpet') assert.equal(model.selectLod(1, 500, 0), 2, 'the carpet is always a card'); else assert.equal(model.selectLod(1, 500, 0), 0);
+  assert.equal(model.selectLod(1000, 1, 0), 2);
+  const atlas = GRASS_ATLASES[grassAtlasKey(kind)];
+  for (const rects of Object.values(atlas.parts)) for (const [x, y, w, h] of rects) assert.ok(x + w <= atlas.width + 1e-6 && y + h <= atlas.height + 1e-6, `${kind} atlas cell outside the image`);
   console.log(kind.padEnd(11), 'near', tri(near), 'mid', tri(mid), 'height', model.height.toFixed(2), 'pieces', model.leaves.length);
 }
 // 4. Asset settings: dryness rides the shrubs' with the grass offset, clamped.

@@ -1,4 +1,4 @@
-import {makeGrassTuft,GRASS_SPECIES_DEFAULTS,grassAtlasSpec} from '../plants/grassModel.js';
+import {makeGrassTuft,GRASS_SPECIES_DEFAULTS,GRASS_SCENE_KINDS,grassAtlasSpec} from '../plants/grassModel.js';
 import {OLEASTER_DEFAULTS} from '../plants/oleasterModel.js';
 
 // Four grasses of the Azov coast in the plant laboratory. A species says how to
@@ -42,4 +42,15 @@ export const GRASS_SPECIES={
  phragmites:species('phragmites',{},['seed','height','stems','spread','curl','leaves'],[['height',1,3,.02,'m'],['stems',1,8,1],['spread',.1,.8,.01,'m'],['curl',0,1,.01],['leaves',1,5,1]],{count:600,spacing:.45},
   {ru:{title:'Тростник',subtitle:'Phragmites australis · урез воды в затишьях'},en:{title:'Common reed',subtitle:'Phragmites australis · waterline in the lee'}}),
 };
-export const GRASS_VARIANTS=[{id:'stipa',ru:'Ковыль',en:'Feather grass'},{id:'festuca',ru:'Типчак',en:'Fescue'},{id:'leymus',ru:'Колосняк',en:'Dune grass'},{id:'phragmites',ru:'Тростник',en:'Reed'}];
+// All kinds in one meadow, shares by slider, the carpet under them: the mix
+// Denis tunes as one thing. Kind is assigned per tuft by share and clusters.
+GRASS_SPECIES.mix={
+ id:'mix',collection:'grass',kinds:GRASS_SCENE_KINDS,
+ defaults:{...OLEASTER_DEFAULTS,seed:5,height:1,dryness:common.dryness,roughness:common.roughness,translucency:common.translucency,tone:common.tone,count:8000,extent:32,spacing:.24,flex:common.flex,stipa:1,festuca:1,leymus:.35,phragmites:.2,carpet:1},
+ shape:['seed','height'],sliders:[['seed',1,200,1],['height',.5,1.6,.05,'×'],['stipa',0,1,.05],['festuca',0,1,.05],['leymus',0,1,.05],['phragmites',0,1,.05],['carpet',0,2,.05]],
+ planting:{count:[1,30000,1],extent:[8,64,1],spacing:.24,camera:[.55,.3,.7],suitability:s=>s.vegetation?.shrubs??1},
+ views:views(1.3),cameraLimits:common.cameraLimits,cameraFar:common.cameraFar,fogRange:common.fogRange,impostorFrame:common.impostorFrame,
+ copy:{ru:{...copy.ru,title:'Травы вместе',subtitle:'Ковыль, типчак, колосняк, тростник и подложка одним лугом',specimen:'Пучки',stipa:'Ковыль',festuca:'Типчак',leymus:'Колосняк',phragmites:'Тростник',carpet:'Подложка',height:'Высота'},
+       en:{...copy.en,title:'Grasses together',subtitle:'Feather grass, fescue, dune grass, reed and the carpet as one meadow',specimen:'Tufts',stipa:'Feather grass',festuca:'Fescue',leymus:'Dune grass',phragmites:'Reed',carpet:'Carpet',height:'Height'}},
+};
+export const GRASS_VARIANTS=[{id:'mix',ru:'Все',en:'All'},{id:'stipa',ru:'Ковыль',en:'Feather grass'},{id:'festuca',ru:'Типчак',en:'Fescue'},{id:'leymus',ru:'Колосняк',en:'Dune grass'},{id:'phragmites',ru:'Тростник',en:'Reed'}];

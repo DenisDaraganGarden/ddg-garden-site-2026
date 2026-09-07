@@ -39,7 +39,7 @@ export default function SceneLight({ overrides, lighting: given, shadowRadius = 
       color.fromArray((sky.skyIrradiance ?? [0.5, 0.6, 0.8]).map((v) => v * lighting.sky.skyLevel));
     }
     return color;
-  }, [sky.texture, sky.width, sky.height, sky.skyIrradiance, lighting]);
+  }, [sky.texture, sky.skyIrradiance, lighting]);
   React.useEffect(() => { if (scene.fog) scene.fog.color.copy(fogColor); }, [scene, fogColor]);
   const standoff = shadowRadius * 2.2;
   return (

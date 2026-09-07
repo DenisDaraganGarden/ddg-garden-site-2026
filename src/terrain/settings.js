@@ -12,6 +12,7 @@ export const DEFAULT_TERRAIN_SETTINGS = Object.freeze({
   terrainErosion: .55, terrainSoil: .45, terrainWeathering: .5, terrainBloom: 0, terrainStorm: 0,
   terrainFeatureScale: 64, terrainLandslides: .85, terrainPaths: .4, terrainPathWidth: 1.3,
   terrainGroundCover: .85,
+  terrainSaturation: 1, terrainContrast: 1, terrainBrightness: 1, terrainGreen: 1, terrainDry: 1,
 });
 export const TERRAIN_RANGES = {
   terrainSeed: [1,9999,1], terrainBearing: [0,360,1], terrainOffset: [-200,200,.5],
@@ -25,6 +26,7 @@ export const TERRAIN_RANGES = {
   terrainWindBearing:[0,360,1], terrainWindSpeed:[0,18,.1],
   terrainErosion:[0,1,.01], terrainSoil:[0,1,.01], terrainWeathering:[0,1,.01], terrainBloom:[0,1,.01], terrainStorm:[0,1,.01],
   terrainFeatureScale:[24,160,1], terrainLandslides:[0,1,.01], terrainPaths:[0,1,.01], terrainPathWidth:[.6,4,.1], terrainGroundCover:[0,1,.01],
+  terrainSaturation:[0,2,.05], terrainContrast:[.5,1.6,.05], terrainBrightness:[.5,1.6,.05], terrainGreen:[0,2,.05], terrainDry:[0,2,.05],
 };
 export function normalizeTerrainSettings(source={}) {
   const out = {};

@@ -180,6 +180,7 @@ export function syncCoastUniforms(uniforms,p) {
  const weather=coastWeather(p);
  uniforms.uCoastSurf.value.set(weather.height,weather.period,weather.foam,p.terrainShells);
  uniforms.uCoastGeology.value.set(p.terrainErosion,p.terrainSoil,p.terrainWeathering,p.terrainBloom);
+ if(uniforms.uTerrainGrade){uniforms.uTerrainGrade.value.set(p.terrainSaturation??1,p.terrainContrast??1,p.terrainBrightness??1,p.terrainGreen??1);uniforms.uTerrainGradeDry.value=p.terrainDry??1;}
  const bearing=(p.terrainWindBearing??0)*Math.PI/180;
  uniforms.uCoastSwell.value.set(Math.sin(bearing),-Math.cos(bearing),weather.swell,p.terrainStorm??0);
 }

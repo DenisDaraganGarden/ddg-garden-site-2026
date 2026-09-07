@@ -11,6 +11,8 @@ const groups=[
   ['terrainFeatureScale','Масштаб участков','Landform spacing',' m'],['terrainLandslides','Оползни и обвалы','Landslides',''],['terrainErosion','Промоины и расщелины','Ravines and rills',''],['terrainPaths','Частота спусков','Descent frequency',''],['terrainPathWidth','Ширина тропы','Path width',' m']]],
  ['Поверхность','Surface',[
   ['terrainShells','Ракушечник','Shell coverage',''],['terrainTextureScale','Масштаб фактуры','Texture frequency',''],['terrainRelief','Рельеф поверхности','Surface relief',''],['terrainParallax','Параллакс','Parallax',''],['terrainGroundCover','Растительный покров грунта','Ground vegetation cover',''],['terrainSoil','Почвенный слой','Soil cap',''],['terrainWeathering','Выветривание','Weathering','']]],
+ ['Цвет','Colour',[
+  ['terrainSaturation','Насыщенность','Saturation','×'],['terrainContrast','Контраст','Contrast','×'],['terrainBrightness','Яркость','Brightness','×'],['terrainGreen','Зелень покрова','Cover green','×'],['terrainDry','Жухлость покрова','Cover straw','×']]],
  ['Прибой','Surf',[
   ['terrainWaveHeight','Высота прибрежной волны','Shore wave height',' m'],['terrainWavePeriod','Период волны','Wave period',' s'],['terrainFoam','Пена прибоя','Surf foam',''],['terrainWetBand','Влажная кромка','Wet margin',' m']]],
  ['Ветер и среда','Wind and habitat',[

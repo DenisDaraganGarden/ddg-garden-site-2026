@@ -12,16 +12,24 @@ export const GRASS_SPECIES_DEFAULTS=Object.freeze({
  festuca:{seed:5,height:.22,blades:16,spread:.14,curl:.7},
  leymus:{seed:5,height:.8,blades:8,spread:.3,curl:.32,spikes:1},
  phragmites:{seed:5,height:2.1,stems:3,spread:.35,curl:.5,leaves:3},
+ // The underlay: a dense low clump that is only ever a card, planted thick
+ // under everything else for the mass a meadow has and tufts alone do not.
+ carpet:{seed:5,height:.34,blades:34,spread:.5,curl:.65},
 });
 export const GRASS_KINDS=Object.freeze(['stipa','festuca','leymus','phragmites']);
-export const grassAtlasSpec=(kind,lowPower=false)=>{const base=`/textures/grass/${lowPower?'mobile/':''}${kind}`;return {color:`${base}-albedo.webp`,normal:`${base}-normal.webp`,surface:`${base}-surface.webp`,singleSided:true,alphaTest:.12,normalScale:.7};};
-export const GRASS_SPECIES_NAMES=Object.freeze({stipa:'Stipa lessingiana',festuca:'Festuca valesiaca',leymus:'Leymus racemosus',phragmites:'Phragmites australis'});
+export const GRASS_UNDERLAY='carpet';
+export const GRASS_SCENE_KINDS=Object.freeze([...GRASS_KINDS,GRASS_UNDERLAY]);
+// The carpet borrows the fescue maps.
+const ATLAS_OF={carpet:'festuca'};
+export const grassAtlasKey=kind=>ATLAS_OF[kind]??kind;
+export const grassAtlasSpec=(kind,lowPower=false)=>{const base=`/textures/grass/${lowPower?'mobile/':''}${ATLAS_OF[kind]??kind}`;return {color:`${base}-albedo.webp`,normal:`${base}-normal.webp`,surface:`${base}-surface.webp`,singleSided:true,alphaTest:.12,normalScale:.7};};
+export const GRASS_SPECIES_NAMES=Object.freeze({stipa:'Stipa lessingiana',festuca:'Festuca valesiaca',leymus:'Leymus racemosus',phragmites:'Phragmites australis',carpet:'Festuca valesiaca · carpet'});
 const point=(x,y,z)=>new THREE.Vector3(x,y,z);
 const UP=point(0,1,0);
 
 // uv rectangle of a part cell: image origin top-left, texture v origin bottom.
 function cellUv(kind,part,index){
- const atlas=GRASS_ATLASES[kind],rects=atlas.parts[part],[x,y,w,h]=rects[index%rects.length];
+ const atlas=GRASS_ATLASES[ATLAS_OF[kind]??kind],rects=atlas.parts[part],[x,y,w,h]=rects[index%rects.length];
  return {u0:x/atlas.width,u1:(x+w)/atlas.width,v0:1-(y+h)/atlas.height,v1:1-y/atlas.height,aspect:w/h};
 }
 // The centre line of a piece: `tilt` leans it from vertical toward `out`,
@@ -103,5 +111,5 @@ export function makeGrassTuft(kind,input={}){
  };
  // Thousands of far cards would shadow the field into mud; the terrain's own
  // grass layer carries the far shading instead.
- return {species:GRASS_SPECIES_NAMES[kind],form:'grass',kind,settings:p,branches:[],leaves:pieces,height,geometry,selectLod:lodSelector(height),farCastsShadow:false};
+ return {species:GRASS_SPECIES_NAMES[kind],form:'grass',kind,settings:p,branches:[],leaves:pieces,height,geometry,selectLod:kind===GRASS_UNDERLAY?()=>2:lodSelector(height),farCastsShadow:false};
 }
