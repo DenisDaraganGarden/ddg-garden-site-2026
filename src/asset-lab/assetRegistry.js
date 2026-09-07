@@ -8,6 +8,7 @@ import { GrassLab, OleasterLab, TreeLab } from '../plant-lab/PlantLab';
 import { AlgaeLab, LiliesLab } from '../water-plant-lab/WaterPlantLab';
 import RockLab from '../rock-lab/RockLab';
 import DriftwoodLab from '../driftwood-lab/DriftwoodLab';
+import WaterLab from '../water-lab/WaterLab';
 import CloudLab from '../cloud-lab/CloudLab';
 
 const COMPONENTS = {
@@ -23,6 +24,7 @@ const COMPONENTS = {
   grass: GrassLab,
   rocks: RockLab,
   driftwood: DriftwoodLab,
+  water: WaterLab,
   clouds: CloudLab,
 };
 
