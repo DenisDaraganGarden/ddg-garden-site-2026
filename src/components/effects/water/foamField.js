@@ -140,7 +140,11 @@ const updateFragmentShader = /* glsl */`
     state.z = sand ? wetPrev * uDryDecay : 1.0;
     // The sheet drains from the top of the beach first: a second near the
     // waterline, a fifth of one six metres up.
-    state.w = sand ? state.w * exp(-uDelta / max(0.2, 1.1 - 0.9 * clamp(q / 6.0, 0.0, 1.0))) : 1.0;
+    // The sheet means "a run-up tongue lies on the sand HERE, now". Over water
+    // it is nothing: setting it to one there made the shore band lift a film of
+    // water onto every grain of beach the coarse depth map had mistaken for
+    // sea — which is what flooded the shore and the spit.
+    state.w = sand ? state.w * exp(-uDelta / max(0.2, 1.1 - 0.9 * clamp(q / 6.0, 0.0, 1.0))) : 0.0;
     float fresh = sand ? 0.0 : gerstnerWhitecaps(world, uThreshold, uSoftness) * uDeposit;
     for (int i = 0; i < FOAM_BORES; i++) {
       vec4 bore = uBore[i];
