@@ -43,7 +43,7 @@ export const VisibilitySection = ({ settings, handleSettingChange }) => {
                     <React.Fragment key={group}>
                         <SectionHeading label={t(`homeEditor.groups.${group}`)} subtle />
                         {objects.map(({ key }) => (
-                            <CheckboxControl
+                            <CheckboxControl controlId={key}
                                 key={key}
                                 label={t(`homeEditor.controls.${key}`)}
                                 checked={Boolean(settings[key])}
@@ -403,20 +403,20 @@ export const ResolutionSection = ({ settings, handleSettingChange }) => {
 
     return (
         <>
-            <SelectControl
+            <SelectControl controlId={'frameRateLimit'}
                 label={t('homeEditor.controls.frameRateLimit')}
                 value={String(settings.frameRateLimit ?? 0)}
                 options={[{ value: '0', label: t('homeEditor.controls.frameRateUnlimited') }, ...[30, 40, 60, 120].map((fps) => ({ value: String(fps), label: `${fps} FPS` }))]}
                 onChange={(event) => handleSettingChange(event, 'frameRateLimit')}
                 testId="home-editor-frame-rate-limit"
             />
-            <CheckboxControl
+            <CheckboxControl controlId={'adaptiveQuality'}
                 label={t('homeEditor.controls.adaptiveQuality')}
                 checked={settings.adaptiveQuality !== false}
                 onChange={(event) => handleSettingChange(event, 'adaptiveQuality', 'boolean')}
                 testId="home-editor-adaptive-quality"
             />
-            <RangeControl
+            <RangeControl controlId={'renderScale'}
                 label={t('homeEditor.controls.renderScale')}
                 value={settings.renderScale}
                 min={0.5}
@@ -426,7 +426,7 @@ export const ResolutionSection = ({ settings, handleSettingChange }) => {
                 formatValue={(value) => formatFloat(value, 2)}
                 onChange={(event) => handleSettingChange(event, 'renderScale')}
             />
-            <RangeControl
+            <RangeControl controlId={'renderScaleMobile'}
                 label={t('homeEditor.controls.renderScaleMobile')}
                 value={settings.renderScaleMobile}
                 min={0.5}
@@ -450,20 +450,20 @@ export const PostSection = ({ settings, handleSettingChange }) => {
     return (
         <>
             <SectionHeading label={t('homeEditor.blocks.post')} subtle />
-            <CheckboxControl
+            <CheckboxControl controlId={'postProcessingEnabled'}
                 label={t('homeEditor.controls.postProcessingEnabled')}
                 checked={Boolean(settings.postProcessingEnabled)}
                 onChange={(event) => handleSettingChange(event, 'postProcessingEnabled', 'boolean')}
             />
 
-            <SelectControl
+            <SelectControl controlId={'postAntiAliasing'}
                 label={t('homeEditor.controls.postAntiAliasing')}
                 value={settings.postAntiAliasing ?? 'auto'}
                 options={['auto', 'msaa', 'fxaa', 'off'].map((value) => ({ value, label: t(`homeEditor.antiAliasing.${value}`) }))}
                 onChange={(event) => handleSettingChange(event, 'postAntiAliasing', 'string')}
                 testId="home-editor-post-aa"
             />
-            <SelectControl
+            <SelectControl controlId={'upscaleMode'}
                 label={t('homeEditor.controls.upscaleMode')}
                 value={settings.upscaleMode ?? 'off'}
                 options={[{ value: 'off', label: t('homeEditor.antiAliasing.off') }, { value: 'fsr1', label: 'FSR 1' }]}
@@ -471,14 +471,14 @@ export const PostSection = ({ settings, handleSettingChange }) => {
                 testId="home-editor-upscale-mode"
             />
             {settings.upscaleMode === 'fsr1' && <>
-                <SelectControl
+                <SelectControl controlId={'upscaleQuality'}
                     label={t('homeEditor.controls.upscaleQuality')}
                     value={settings.upscaleQuality ?? 'quality'}
                     options={['ultra', 'quality', 'balanced'].map((value) => ({ value, label: t(`homeEditor.controls.upscale_${value}`) }))}
                     onChange={(event) => handleSettingChange(event, 'upscaleQuality', 'string')}
                     testId="home-editor-upscale-quality"
                 />
-                <RangeControl
+                <RangeControl controlId={'upscaleSharpness'}
                     label={t('homeEditor.controls.upscaleSharpness')}
                     value={settings.upscaleSharpness ?? 0.25}
                     min={0} max={1} step={0.05}
@@ -486,20 +486,20 @@ export const PostSection = ({ settings, handleSettingChange }) => {
                     onChange={(event) => handleSettingChange(event, 'upscaleSharpness')}
                 />
             </>}
-            <CheckboxControl
+            <CheckboxControl controlId={'contactAoEnabled'}
                 label={t('homeEditor.controls.contactAoEnabled')}
                 checked={Boolean(settings.contactAoEnabled)}
                 onChange={(event) => handleSettingChange(event, 'contactAoEnabled', 'boolean')}
                 testId="home-editor-contact-ao"
             />
-            <RangeControl
+            <RangeControl controlId={'contactAoIntensity'}
                 label={t('homeEditor.controls.contactAoIntensity')}
                 value={settings.contactAoIntensity ?? 0.35}
                 min={0} max={1} step={0.05}
                 formatValue={(value) => formatFloat(value, 2)}
                 onChange={(event) => handleSettingChange(event, 'contactAoIntensity')}
             />
-            <RangeControl
+            <RangeControl controlId={'contactAoRadius'}
                 label={t('homeEditor.controls.contactAoRadius')}
                 value={settings.contactAoRadius ?? 0.5}
                 min={0.05} max={3} step={0.05} unit="m"
@@ -508,13 +508,13 @@ export const PostSection = ({ settings, handleSettingChange }) => {
             />
 
             <SectionHeading label={t('homeEditor.blocks.film')} subtle />
-            <CheckboxControl
+            <CheckboxControl controlId={'filmEnabled'}
                 label={t('homeEditor.controls.filmEnabled')}
                 checked={Boolean(settings.filmEnabled)}
                 onChange={(event) => handleSettingChange(event, 'filmEnabled', 'boolean')}
                 testId="home-editor-film-enabled"
             />
-            <SelectControl
+            <SelectControl controlId={'filmStock'}
                 label={t('homeEditor.controls.filmStock')}
                 value={settings.filmStock}
                 options={filmStockOptions}
@@ -523,7 +523,7 @@ export const PostSection = ({ settings, handleSettingChange }) => {
             />
 
             <SectionHeading label={t('homeEditor.blocks.filmGrain')} subtle />
-            <RangeControl
+            <RangeControl controlId={'filmGrainAmount'}
                 label={t('homeEditor.controls.filmGrainAmount')}
                 value={settings.filmGrainAmount}
                 min={0}
@@ -533,7 +533,7 @@ export const PostSection = ({ settings, handleSettingChange }) => {
                 onChange={(event) => handleSettingChange(event, 'filmGrainAmount')}
                 testId="home-editor-film-grain-amount"
             />
-            <RangeControl
+            <RangeControl controlId={'filmGrainSize'}
                 label={t('homeEditor.controls.filmGrainSize')}
                 value={settings.filmGrainSize}
                 min={0.45}
@@ -546,7 +546,7 @@ export const PostSection = ({ settings, handleSettingChange }) => {
             />
 
             <SectionHeading label={t('homeEditor.blocks.filmDamage')} subtle />
-            <RangeControl
+            <RangeControl controlId={'filmDustAmount'}
                 label={t('homeEditor.controls.filmDustAmount')}
                 value={settings.filmDustAmount}
                 min={0}
@@ -556,7 +556,7 @@ export const PostSection = ({ settings, handleSettingChange }) => {
                 onChange={(event) => handleSettingChange(event, 'filmDustAmount')}
                 testId="home-editor-film-dust-amount"
             />
-            <RangeControl
+            <RangeControl controlId={'filmScratchAmount'}
                 label={t('homeEditor.controls.filmScratchAmount')}
                 value={settings.filmScratchAmount}
                 min={0}
@@ -568,7 +568,7 @@ export const PostSection = ({ settings, handleSettingChange }) => {
             />
 
             <SectionHeading label={t('homeEditor.blocks.filmMechanics')} subtle />
-            <RangeControl
+            <RangeControl controlId={'filmFlickerAmount'}
                 label={t('homeEditor.controls.filmFlickerAmount')}
                 value={settings.filmFlickerAmount}
                 min={0}
@@ -579,7 +579,7 @@ export const PostSection = ({ settings, handleSettingChange }) => {
                 onChange={(event) => handleSettingChange(event, 'filmFlickerAmount')}
                 testId="home-editor-film-flicker-amount"
             />
-            <RangeControl
+            <RangeControl controlId={'filmFlickerRate'}
                 label={t('homeEditor.controls.filmFlickerRate')}
                 value={settings.filmFlickerRate}
                 min={0.5}
@@ -590,7 +590,7 @@ export const PostSection = ({ settings, handleSettingChange }) => {
                 onChange={(event) => handleSettingChange(event, 'filmFlickerRate')}
                 testId="home-editor-film-flicker-rate"
             />
-            <RangeControl
+            <RangeControl controlId={'filmGateWeaveAmount'}
                 label={t('homeEditor.controls.filmGateWeaveAmount')}
                 value={settings.filmGateWeaveAmount}
                 min={0}
@@ -601,7 +601,7 @@ export const PostSection = ({ settings, handleSettingChange }) => {
                 onChange={(event) => handleSettingChange(event, 'filmGateWeaveAmount')}
                 testId="home-editor-film-gate-weave-amount"
             />
-            <RangeControl
+            <RangeControl controlId={'filmGateWeaveRate'}
                 label={t('homeEditor.controls.filmGateWeaveRate')}
                 value={settings.filmGateWeaveRate}
                 min={0.25}
@@ -614,12 +614,12 @@ export const PostSection = ({ settings, handleSettingChange }) => {
             />
 
             <SectionHeading label={t('homeEditor.blocks.bloom')} subtle />
-            <CheckboxControl
+            <CheckboxControl controlId={'bloomEnabled'}
                 label={t('homeEditor.controls.bloomEnabled')}
                 checked={Boolean(settings.bloomEnabled)}
                 onChange={(event) => handleSettingChange(event, 'bloomEnabled', 'boolean')}
             />
-            <RangeControl
+            <RangeControl controlId={'bloomStrength'}
                 label={t('homeEditor.controls.bloomStrength')}
                 value={settings.bloomStrength}
                 min={0}
@@ -628,7 +628,7 @@ export const PostSection = ({ settings, handleSettingChange }) => {
                 formatValue={(value) => formatFloat(value)}
                 onChange={(event) => handleSettingChange(event, 'bloomStrength')}
             />
-            <RangeControl
+            <RangeControl controlId={'bloomThreshold'}
                 label={t('homeEditor.controls.bloomThreshold')}
                 value={settings.bloomThreshold}
                 min={0}
@@ -637,7 +637,7 @@ export const PostSection = ({ settings, handleSettingChange }) => {
                 formatValue={(value) => formatFloat(value)}
                 onChange={(event) => handleSettingChange(event, 'bloomThreshold')}
             />
-            <RangeControl
+            <RangeControl controlId={'bloomRadius'}
                 label={t('homeEditor.controls.bloomRadius')}
                 value={settings.bloomRadius}
                 min={0}
@@ -649,7 +649,7 @@ export const PostSection = ({ settings, handleSettingChange }) => {
             />
 
             <SectionHeading label={t('homeEditor.blocks.color')} subtle />
-            <RangeControl
+            <RangeControl controlId={'colorExposure'}
                 label={t('homeEditor.controls.colorExposure')}
                 value={settings.colorExposure}
                 min={-3}
@@ -660,7 +660,7 @@ export const PostSection = ({ settings, handleSettingChange }) => {
                 onChange={(event) => handleSettingChange(event, 'colorExposure')}
             />
 
-            <RangeControl
+            <RangeControl controlId={'colorContrast'}
                 label={t('homeEditor.controls.colorContrast')}
                 value={settings.colorContrast}
                 min={0}
@@ -670,7 +670,7 @@ export const PostSection = ({ settings, handleSettingChange }) => {
                 formatValue={(value) => Math.round(Number(value) * 100)}
                 onChange={(event) => handleSettingChange(event, 'colorContrast')}
             />
-            <RangeControl
+            <RangeControl controlId={'colorSaturation'}
                 label={t('homeEditor.controls.colorSaturation')}
                 value={settings.colorSaturation}
                 min={0}
@@ -680,7 +680,7 @@ export const PostSection = ({ settings, handleSettingChange }) => {
                 formatValue={(value) => Math.round(Number(value) * 100)}
                 onChange={(event) => handleSettingChange(event, 'colorSaturation')}
             />
-            <RangeControl
+            <RangeControl controlId={'colorGamma'}
                 label={t('homeEditor.controls.colorGamma')}
                 value={settings.colorGamma}
                 min={0.35}
@@ -689,7 +689,7 @@ export const PostSection = ({ settings, handleSettingChange }) => {
                 formatValue={(value) => formatFloat(value)}
                 onChange={(event) => handleSettingChange(event, 'colorGamma')}
             />
-            <RangeControl
+            <RangeControl controlId={'colorHue'}
                 label={t('homeEditor.controls.colorHue')}
                 value={settings.colorHue}
                 min={-180}
@@ -707,22 +707,22 @@ export const DebugSection = ({ settings, handleSettingChange }) => {
 
     return (
         <>
-            <CheckboxControl
+            <CheckboxControl controlId={'debugWireframe'}
                 label={t('homeEditor.controls.debugWireframe')}
                 checked={Boolean(settings.debugWireframe)}
                 onChange={(event) => handleSettingChange(event, 'debugWireframe', 'boolean')}
             />
-            <CheckboxControl
+            <CheckboxControl controlId={'showPointerDebug'}
                 label={t('homeEditor.controls.showPointerDebug')}
                 checked={Boolean(settings.showPointerDebug)}
                 onChange={(event) => handleSettingChange(event, 'showPointerDebug', 'boolean')}
             />
-            <CheckboxControl
+            <CheckboxControl controlId={'showPerformanceHud'}
                 label={t('homeEditor.controls.showPerformanceHud')}
                 checked={Boolean(settings.showPerformanceHud)}
                 onChange={(event) => handleSettingChange(event, 'showPerformanceHud', 'boolean')}
             />
-            <SelectControl
+            <SelectControl controlId={'debugView'}
                 label={t('homeEditor.controls.debugView')}
                 value={settings.debugView}
                 options={HOME_SCENE_DEBUG_VIEWS}

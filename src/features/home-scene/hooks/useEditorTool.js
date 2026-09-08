@@ -39,7 +39,7 @@ export function useEditorTool(enabled = true) {
         const handleKeyDown = (event) => {
             // A slider holds focus for most of an editing session, and G/R/S are
             // also ordinary characters - never take them from a field.
-            if (isTypingTarget(event.target) || event.metaKey || event.ctrlKey || event.altKey) {
+            if (event.defaultPrevented || event.target?.closest?.('dialog') || isTypingTarget(event.target) || event.metaKey || event.ctrlKey || event.altKey) {
                 return;
             }
 

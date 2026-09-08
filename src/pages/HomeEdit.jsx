@@ -32,6 +32,7 @@ import { useEditorTool } from '../features/home-scene/hooks/useEditorTool';
 import { resolveEditorPath } from '../features/home-scene/components/editor/editorTree';
 import { sceneObjectsForNode } from '../features/home-scene/lib/sceneObjects';
 import HomeEditorPanel from '../features/home-scene/components/HomeEditorPanel';
+import { useFocusHistory } from '../features/home-scene/components/editor/focus/useFocusHistory';
 import { publishHomeSceneSettings } from '../features/home-scene/lib/homeScenePublishClient';
 import { useLanguage } from '../i18n/useLanguage';
 import { useSiteAudio } from '../features/audio/SiteAudioContext';
@@ -88,7 +89,8 @@ const HomeEdit = () => {
     } = useHomeSceneEditor();
     // Preview the chrome toggles in the editor itself, not only after publishing.
     useHomeChromeVisibility(settings);
-    const { mode: gizmoMode, setMode: setGizmoMode, suppressed: gizmoSuppressed } = useEditorTool();
+    const { mode: gizmoMode, setMode: setGizmoMode, suppressed: gizmoSuppressed, setSuppressed: setGizmoSuppressed } = useEditorTool();
+    const focusHistory = useFocusHistory(settings, setSettings, handleSettingChange, applySettings);
     const isLocalPublishAvailable = typeof window !== 'undefined'
         && LOCAL_EDIT_HOSTS.has(window.location.hostname);
     const [publishState, setPublishState] = useState({ busy: false, message: '' });
@@ -142,7 +144,7 @@ const HomeEdit = () => {
             || (target.tagName === 'INPUT' && !['checkbox', 'range', 'button'].includes(target.type))
         );
         const handleKeyDown = (event) => {
-            if (event.code !== 'Space' || event.repeat || event.metaKey || event.ctrlKey || event.altKey || isTextTarget(event.target)) {
+            if (event.defaultPrevented || event.target.closest?.('button,summary,dialog') || event.code !== 'Space' || event.repeat || event.metaKey || event.ctrlKey || event.altKey || isTextTarget(event.target)) {
                 return;
             }
             event.preventDefault();
@@ -430,13 +432,12 @@ const HomeEdit = () => {
     const { group: gizmoGroup, node: gizmoNode } = resolveEditorPath(activeTab, { includeDevOnly: true });
     // An object switched off has left the scene graph; the gizmo has nothing to hold.
     const gizmoTargetShown = sceneObjectsForNode(`${gizmoGroup.id}/${gizmoNode.id}`).every(({ key }) => settings[key] !== false);
+    const gizmoSelection = gizmoTargetShown && ((gizmoGroup.id === 'objects' && gizmoNode.id !== 'tanker') || gizmoGroup.id === 'lights') ? gizmoNode.id : null;
     const editorGizmo = useMemo(() => ({
-        selection: (!gizmoSuppressed && gizmoTargetShown && ((gizmoGroup.id === 'objects' && gizmoNode.id !== 'tanker') || gizmoGroup.id === 'lights'))
-            ? gizmoNode.id
-            : null,
+        selection: gizmoSuppressed ? null : gizmoSelection,
         mode: gizmoMode,
         onTransform: handleGizmoTransform,
-    }), [gizmoSuppressed, gizmoTargetShown, gizmoGroup.id, gizmoNode.id, gizmoMode, handleGizmoTransform]);
+    }), [gizmoSuppressed, gizmoSelection, gizmoMode, handleGizmoTransform]);
 
 
     const layoutEditor = useMemo(() => ({
@@ -561,7 +562,7 @@ const HomeEdit = () => {
     };
 
     return (
-        <div className="home-editor-page" data-testid="home-editor-page">
+        <div className="home-editor-page home-editor-page--focus" data-testid="home-editor-page">
             <div className="home-editor-stage">
                 <div
                     className={[
@@ -595,10 +596,11 @@ const HomeEdit = () => {
                 activeTab={activeTab}
                 setActiveTab={setActiveTab}
                 settings={settings}
-                handleSettingChange={handleSettingChange}
-                applySettings={applySettings}
+                handleSettingChange={focusHistory.handleSettingChange}
+                applySettings={focusHistory.applySettings}
+                history={focusHistory}
                 layoutEditor={layoutEditor}
-                gizmo={{ mode: gizmoMode, setMode: setGizmoMode, selection: editorGizmo.selection }}
+                gizmo={{ mode: gizmoMode, setMode: setGizmoMode, selection: gizmoSelection, suppressed: gizmoSuppressed, show: () => setGizmoSuppressed(false), hide: () => setGizmoSuppressed(true) }}
                 onPublish={isLocalPublishAvailable ? () => handlePublish() : undefined}
                 onDeploy={isLocalPublishAvailable ? () => handlePublish({ deploy: true }) : undefined}
                 onAdoptPublished={handleAdoptPublished}

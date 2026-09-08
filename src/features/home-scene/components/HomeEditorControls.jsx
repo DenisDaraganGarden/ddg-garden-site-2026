@@ -1,4 +1,11 @@
 import React from 'react';
+import {
+    FocusCheckboxControl,
+    FocusColorControl,
+    FocusRangeControl,
+    FocusSelectControl,
+} from './editor/focus/FocusControlComponents';
+import { useFocusControlScope } from './editor/focus/FocusControlsContext';
 
 const formatControlValue = (value, formatter) => {
     if (typeof formatter === 'function') {
@@ -8,8 +15,8 @@ const formatControlValue = (value, formatter) => {
     return value;
 };
 
-export const RangeControl = ({ label, value, min, max, step = 1, onChange, unit = '', formatValue, testId }) => (
-    <div className="home-editor-control-group">
+export const RangeControl = ({ label, value, min, max, step = 1, onChange, unit = '', formatValue, testId, controlId }) => {
+    const legacy = <div className="home-editor-control-group">
         <label>
             {label}
             <span className="home-editor-value-readout">{formatControlValue(value, formatValue)}{unit}</span>
@@ -25,11 +32,12 @@ export const RangeControl = ({ label, value, min, max, step = 1, onChange, unit 
             className="home-editor-slider"
             data-testid={testId}
         />
-    </div>
-);
+    </div>;
+    return <FocusRangeControl label={label} value={value} min={min} max={max} step={step} onChange={onChange} unit={unit} formatValue={formatValue} testId={testId} controlId={controlId}>{legacy}</FocusRangeControl>;
+};
 
-export const ColorControl = ({ label, value, onChange, testId }) => (
-    <div className="home-editor-control-group">
+export const ColorControl = ({ label, value, onChange, testId, controlId }) => {
+    const legacy = <div className="home-editor-control-group">
         <label>{label}</label>
         <input
             type="color"
@@ -38,11 +46,12 @@ export const ColorControl = ({ label, value, onChange, testId }) => (
             onChange={onChange}
             data-testid={testId}
         />
-    </div>
-);
+    </div>;
+    return <FocusColorControl label={label} value={value} onChange={onChange} testId={testId} controlId={controlId}>{legacy}</FocusColorControl>;
+};
 
-export const SelectControl = ({ label, value, onChange, options, testId }) => (
-    <div className="home-editor-control-group">
+export const SelectControl = ({ label, value, onChange, options, testId, controlId }) => {
+    const legacy = <div className="home-editor-control-group">
         <label>{label}</label>
         <select
             aria-label={label}
@@ -57,20 +66,21 @@ export const SelectControl = ({ label, value, onChange, options, testId }) => (
                 </option>
             ))}
         </select>
-    </div>
-);
+    </div>;
+    return <FocusSelectControl label={label} value={value} onChange={onChange} options={options} testId={testId} controlId={controlId}>{legacy}</FocusSelectControl>;
+};
 
 // `subtle` marks a block inside a section, as opposed to the heading of a whole
 // aspect. Same rule and label, quieter - otherwise two headings in a row read as
 // siblings and the nesting disappears.
-export const SectionHeading = ({ label, subtle = false }) => (
-    <h4 className={`home-editor-section-heading${subtle ? ' home-editor-section-heading--block' : ''}`}>
-        {label}
-    </h4>
-);
+export const SectionHeading = ({ label, subtle = false }) => {
+    const scope = useFocusControlScope();
+    if (scope?.catalogOnly) return null;
+    return <h4 className={`home-editor-section-heading${subtle ? ' home-editor-section-heading--block' : ''}`}>{label}</h4>;
+};
 
-export const CheckboxControl = ({ label, checked, onChange, testId }) => (
-    <div className="home-editor-control-group" style={{ flexDirection: 'row', alignItems: 'center', gap: '12px', justifyContent: 'space-between' }}>
+export const CheckboxControl = ({ label, checked, onChange, testId, controlId }) => {
+    const legacy = <div className="home-editor-control-group" style={{ flexDirection: 'row', alignItems: 'center', gap: '12px', justifyContent: 'space-between' }}>
         <label style={{ marginBottom: 0 }}>{label}</label>
         <input
             type="checkbox"
@@ -80,5 +90,6 @@ export const CheckboxControl = ({ label, checked, onChange, testId }) => (
             style={{ width: '20px', height: '20px', cursor: 'pointer' }}
             data-testid={testId}
         />
-    </div>
-);
+    </div>;
+    return <FocusCheckboxControl label={label} checked={checked} onChange={onChange} testId={testId} controlId={controlId}>{legacy}</FocusCheckboxControl>;
+};

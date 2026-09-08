@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components -- Context consumers are the public Focus-control API. */
 import React, { createContext, useContext, useLayoutEffect, useMemo, useRef, useSyncExternalStore } from 'react';
 import { translations } from '../../../../../i18n/translations';
 
@@ -86,7 +87,7 @@ export function FocusControlScope({ path, groupLabel = '', nodeLabel = '', catal
 export const useFocusControls = () => useContext(ControlsContext);
 export const useFocusControlScope = () => useContext(ScopeContext);
 
-export function useFocusControlRegistration({ kind, label, testId, controlId, ...control }) {
+export function useFocusControlRegistration({ kind, label, testId, controlId, children: _children, ...control }) {
     const controls = useFocusControls();
     const scope = useFocusControlScope();
     const owner = useRef(Symbol('focus-control'));
@@ -94,10 +95,11 @@ export function useFocusControlRegistration({ kind, label, testId, controlId, ..
     onChangeRef.current = control.onChange;
     const stableKey = controlId || testId || translationKeys.get(label) || normalize(label);
     const id = scope ? `${scope.path}:${stableKey}` : null;
+    const semantic = { kind, label, testId, controlId, ...control };
+    delete semantic.onChange;
+    const signature = JSON.stringify(semantic);
     const descriptor = useMemo(() => {
         if (!scope || !id) return null;
-        const semantic = { kind, label, testId, controlId, ...control };
-        delete semantic.onChange;
         return {
             id,
             path: scope.path,
@@ -109,17 +111,18 @@ export function useFocusControlRegistration({ kind, label, testId, controlId, ..
             controlId,
             ...control,
             onChangeRef,
-            signature: JSON.stringify(semantic),
+            signature,
         };
     // Functions are intentionally omitted: latest handler lives in onChangeRef.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [id, scope, kind, label, testId, controlId, control.value, control.checked, control.min, control.max, control.step, control.unit, control.options, control.formatValue]);
+    }, [id, scope, signature]);
 
     useLayoutEffect(() => {
         if (!controls || !descriptor) return undefined;
-        controls.store.upsert(id, owner.current, descriptor);
-        return () => controls.store.remove(id, owner.current);
-    }, [controls, descriptor?.signature, id]);
+        const registrationOwner = owner.current;
+        controls.store.upsert(id, registrationOwner, descriptor);
+        return () => controls.store.remove(id, registrationOwner);
+    }, [controls, descriptor, id]);
     return { controls, scope, id, descriptor, catalogOnly: Boolean(scope?.catalogOnly) };
 }
 

@@ -1,0 +1,28 @@
+// SVG paths from the approved Focus UI study.
+export const focusActionPaths = {
+  "search": "<circle cx=\"10\" cy=\"10\" r=\"6\"/><path d=\"m15 15 6 6\"/>",
+  "chevron": "<path d=\"m7 10 5 5 5-5\"/>",
+  "right": "<path d=\"m9 5 7 7-7 7\"/>",
+  "close": "<path d=\"m6 6 12 12M6 18 18 6\"/>",
+  "plus": "<path d=\"M12 4v16M4 12h16\"/>",
+  "star": "<path d=\"m12 2 3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1Z\"/>",
+  "folder": "<path d=\"M3 6V4h6l3 3h9v13H3Z\"/>",
+  "desktop": "<rect x=\"2\" y=\"3\" width=\"20\" height=\"14\" rx=\"2\"/><path d=\"M8 21h8m-4-4v4\"/>",
+  "mobile": "<rect x=\"6\" y=\"2\" width=\"12\" height=\"20\" rx=\"2\"/><path d=\"M10 18h4\"/>",
+  "pause": "<path d=\"M8 5v14m8-14v14\" stroke-width=\"3\"/>",
+  "play": "<path d=\"m7 4 14 8-14 8Z\"/>",
+  "upload": "<path d=\"M12 16V2m-5 5 5-5 5 5M3 15v6h18v-6\"/>",
+  "undo": "<path d=\"M9 5 3 11l6 6M3 11h11a7 7 0 0 1 7 7\"/>",
+  "redo": "<path d=\"m15 5 6 6-6 6m6-6H10a7 7 0 0 0-7 7\"/>",
+  "check": "<path d=\"m4 12 5 5L20 6\"/>",
+  "help": "<circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M9 9a3 3 0 1 1 4 3l-1 2m0 3v.1\"/>",
+  "move": "<path d=\"M12 2v20M2 12h20M8 6l4-4 4 4M8 18l4 4 4-4M6 8l-4 4 4 4m12-8 4 4-4 4\"/>",
+  "rotate": "<path d=\"M20 8a9 9 0 1 0 1 9M20 2v6h-6\"/>",
+  "scale": "<rect x=\"3\" y=\"11\" width=\"10\" height=\"10\"/><path d=\"m13 11 8-8m-7 0h7v7\"/>",
+  "hand": "<path d=\"M8 12V5a2 2 0 0 1 4 0v6-8a2 2 0 0 1 4 0v8-5a2 2 0 0 1 4 0v9c0 4-3 7-7 7-3 0-5-1-7-4l-4-5a2 2 0 0 1 3-2l3 3Z\"/>",
+  "focus": "<path d=\"M3 9V3h6m6 0h6v6m0 6v6h-6m-6 0H3v-6\"/>",
+  "lock": "<rect x=\"5\" y=\"10\" width=\"14\" height=\"11\" rx=\"2\"/><path d=\"M8 10V6a4 4 0 0 1 8 0v4\"/>",
+  "capture": "<path d=\"M3 8V3h5m8 0h5v5m0 8v5h-5m-8 0H3v-5\"/><circle cx=\"12\" cy=\"12\" r=\"4\"/>",
+  "more": "<circle cx=\"5\" cy=\"12\" r=\"1\"/><circle cx=\"12\" cy=\"12\" r=\"1\"/><circle cx=\"19\" cy=\"12\" r=\"1\"/>",
+  "eyeoff": "<path d=\"m3 3 18 18M10 5a12 12 0 0 1 12 7 19 19 0 0 1-4 4M7 6a19 19 0 0 0-5 6s4 7 10 7a11 11 0 0 0 4-1\"/>"
+};

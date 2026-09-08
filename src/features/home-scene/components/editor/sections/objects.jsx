@@ -45,7 +45,7 @@ export const BoatSection = ({ settings, handleSettingChange, layoutEditor }) => 
                 formatValue={(value) => formatFloat(value)}
                 onChange={(event) => setBoatAxis('z', parseFloat(event.target.value))}
             />
-            <RangeControl
+            <RangeControl controlId={'boatYaw'}
                 label={t('homeEditor.controls.boatYaw')}
                 value={settings.boatYaw}
                 min={-180}
@@ -54,7 +54,7 @@ export const BoatSection = ({ settings, handleSettingChange, layoutEditor }) => 
                 unit="°"
                 onChange={(event) => handleSettingChange(event, 'boatYaw')}
             />
-            <RangeControl
+            <RangeControl controlId={'boatHeightOffset'}
                 label={t('homeEditor.controls.boatHeightOffset')}
                 value={settings.boatHeightOffset}
                 min={-0.6}
@@ -64,7 +64,7 @@ export const BoatSection = ({ settings, handleSettingChange, layoutEditor }) => 
                 formatValue={(value) => formatFloat(value)}
                 onChange={(event) => handleSettingChange(event, 'boatHeightOffset')}
             />
-            <RangeControl
+            <RangeControl controlId={'boatScale'}
                 label={t('homeEditor.controls.boatScale')}
                 value={settings.boatScale}
                 min={0.001}
@@ -74,12 +74,12 @@ export const BoatSection = ({ settings, handleSettingChange, layoutEditor }) => 
                 onChange={(event) => handleSettingChange(event, 'boatScale')}
             />
             <SectionHeading label={t('homeEditor.blocks.material')} subtle />
-            <ColorControl
+            <ColorControl controlId={'boatColor'}
                 label={t('homeEditor.controls.boatColor')}
                 value={settings.boatColor}
                 onChange={(event) => handleSettingChange(event, 'boatColor', 'color')}
             />
-            <RangeControl
+            <RangeControl controlId={'boatRoughness'}
                 label={t('homeEditor.controls.boatRoughness')}
                 value={settings.boatRoughness}
                 min={0}
@@ -88,7 +88,7 @@ export const BoatSection = ({ settings, handleSettingChange, layoutEditor }) => 
                 formatValue={(value) => formatFloat(value)}
                 onChange={(event) => handleSettingChange(event, 'boatRoughness')}
             />
-            <RangeControl
+            <RangeControl controlId={'boatReflectionIntensity'}
                 label={t('homeEditor.controls.boatReflectionIntensity')}
                 value={settings.boatReflectionIntensity}
                 min={0}
@@ -138,7 +138,7 @@ export const SculptureSection = ({ settings, handleSettingChange, layoutEditor }
                 formatValue={(value) => formatFloat(value)}
                 onChange={(event) => setSculptureAxis('z', parseFloat(event.target.value))}
             />
-            <RangeControl
+            <RangeControl controlId={'sculptureRotationY'}
                 label={t('homeEditor.controls.sculptureRotationY')}
                 value={settings.sculptureRotationY}
                 min={-180}
@@ -147,7 +147,7 @@ export const SculptureSection = ({ settings, handleSettingChange, layoutEditor }
                 unit="°"
                 onChange={(event) => handleSettingChange(event, 'sculptureRotationY')}
             />
-            <RangeControl
+            <RangeControl controlId={'sculptureBottomOffset'}
                 label={t('homeEditor.controls.sculptureBottomOffset')}
                 value={settings.sculptureBottomOffset}
                 min={-2}
@@ -157,7 +157,7 @@ export const SculptureSection = ({ settings, handleSettingChange, layoutEditor }
                 formatValue={(value) => formatFloat(value)}
                 onChange={(event) => handleSettingChange(event, 'sculptureBottomOffset')}
             />
-            <RangeControl
+            <RangeControl controlId={'sculptureScale'}
                 label={t('homeEditor.controls.sculptureScale')}
                 value={settings.sculptureScale}
                 min={0.005}
@@ -167,12 +167,12 @@ export const SculptureSection = ({ settings, handleSettingChange, layoutEditor }
                 onChange={(event) => handleSettingChange(event, 'sculptureScale')}
             />
             <SectionHeading label={t('homeEditor.blocks.material')} subtle />
-            <ColorControl
+            <ColorControl controlId={'sculptureColor'}
                 label={t('homeEditor.controls.sculptureColor')}
                 value={settings.sculptureColor}
                 onChange={(event) => handleSettingChange(event, 'sculptureColor', 'color')}
             />
-            <RangeControl
+            <RangeControl controlId={'sculptureLayering'}
                 label={t('homeEditor.controls.sculptureLayering')}
                 value={settings.sculptureLayering}
                 min={0}
@@ -181,7 +181,7 @@ export const SculptureSection = ({ settings, handleSettingChange, layoutEditor }
                 formatValue={(value) => formatFloat(value)}
                 onChange={(event) => handleSettingChange(event, 'sculptureLayering')}
             />
-            <RangeControl
+            <RangeControl controlId={'sculptureLayerScale'}
                 label={t('homeEditor.controls.sculptureLayerScale')}
                 value={settings.sculptureLayerScale}
                 min={0.35}
@@ -190,7 +190,7 @@ export const SculptureSection = ({ settings, handleSettingChange, layoutEditor }
                 formatValue={(value) => `×${formatFloat(value, 2)}`}
                 onChange={(event) => handleSettingChange(event, 'sculptureLayerScale')}
             />
-            <RangeControl
+            <RangeControl controlId={'sculptureLayerRelief'}
                 label={t('homeEditor.controls.sculptureLayerRelief')}
                 value={settings.sculptureLayerRelief}
                 min={0}
@@ -199,7 +199,7 @@ export const SculptureSection = ({ settings, handleSettingChange, layoutEditor }
                 formatValue={(value) => formatFloat(value)}
                 onChange={(event) => handleSettingChange(event, 'sculptureLayerRelief')}
             />
-            <RangeControl
+            <RangeControl controlId={'sculptureLayerSharpness'}
                 label={t('homeEditor.controls.sculptureLayerSharpness')}
                 value={settings.sculptureLayerSharpness}
                 min={0}
@@ -208,7 +208,7 @@ export const SculptureSection = ({ settings, handleSettingChange, layoutEditor }
                 formatValue={(value) => formatFloat(value)}
                 onChange={(event) => handleSettingChange(event, 'sculptureLayerSharpness')}
             />
-            <RangeControl
+            <RangeControl controlId={'sculptureLayerEdgeChips'}
                 label={t('homeEditor.controls.sculptureLayerEdgeChips')}
                 value={settings.sculptureLayerEdgeChips}
                 min={0}
@@ -217,7 +217,7 @@ export const SculptureSection = ({ settings, handleSettingChange, layoutEditor }
                 formatValue={(value) => formatFloat(value)}
                 onChange={(event) => handleSettingChange(event, 'sculptureLayerEdgeChips')}
             />
-            <RangeControl
+            <RangeControl controlId={'sculptureFracture'}
                 label={t('homeEditor.controls.sculptureFracture')}
                 value={settings.sculptureFracture}
                 min={0}
@@ -226,7 +226,7 @@ export const SculptureSection = ({ settings, handleSettingChange, layoutEditor }
                 formatValue={(value) => formatFloat(value)}
                 onChange={(event) => handleSettingChange(event, 'sculptureFracture')}
             />
-            <RangeControl
+            <RangeControl controlId={'sculptureFractureScale'}
                 label={t('homeEditor.controls.sculptureFractureScale')}
                 value={settings.sculptureFractureScale}
                 min={0.35}
@@ -235,7 +235,7 @@ export const SculptureSection = ({ settings, handleSettingChange, layoutEditor }
                 formatValue={(value) => `×${formatFloat(value, 2)}`}
                 onChange={(event) => handleSettingChange(event, 'sculptureFractureScale')}
             />
-            <RangeControl
+            <RangeControl controlId={'sculptureVeins'}
                 label={t('homeEditor.controls.sculptureVeins')}
                 value={settings.sculptureVeins}
                 min={0}
@@ -244,7 +244,7 @@ export const SculptureSection = ({ settings, handleSettingChange, layoutEditor }
                 formatValue={(value) => formatFloat(value)}
                 onChange={(event) => handleSettingChange(event, 'sculptureVeins')}
             />
-            <RangeControl
+            <RangeControl controlId={'sculptureVeinScale'}
                 label={t('homeEditor.controls.sculptureVeinScale')}
                 value={settings.sculptureVeinScale}
                 min={0.35}
@@ -253,7 +253,7 @@ export const SculptureSection = ({ settings, handleSettingChange, layoutEditor }
                 formatValue={(value) => `×${formatFloat(value, 2)}`}
                 onChange={(event) => handleSettingChange(event, 'sculptureVeinScale')}
             />
-            <RangeControl
+            <RangeControl controlId={'sculpturePolish'}
                 label={t('homeEditor.controls.sculpturePolish')}
                 value={settings.sculpturePolish}
                 min={0}
@@ -262,7 +262,7 @@ export const SculptureSection = ({ settings, handleSettingChange, layoutEditor }
                 formatValue={(value) => formatFloat(value)}
                 onChange={(event) => handleSettingChange(event, 'sculpturePolish')}
             />
-            <RangeControl
+            <RangeControl controlId={'sculptureWearScale'}
                 label={t('homeEditor.controls.sculptureWearScale')}
                 value={settings.sculptureWearScale}
                 min={0.35}
@@ -271,7 +271,7 @@ export const SculptureSection = ({ settings, handleSettingChange, layoutEditor }
                 formatValue={(value) => `×${formatFloat(value, 2)}`}
                 onChange={(event) => handleSettingChange(event, 'sculptureWearScale')}
             />
-            <RangeControl
+            <RangeControl controlId={'sculptureWetness'}
                 label={t('homeEditor.controls.sculptureWetness')}
                 value={settings.sculptureWetness}
                 min={0}
@@ -280,7 +280,7 @@ export const SculptureSection = ({ settings, handleSettingChange, layoutEditor }
                 formatValue={(value) => formatFloat(value)}
                 onChange={(event) => handleSettingChange(event, 'sculptureWetness')}
             />
-            <RangeControl
+            <RangeControl controlId={'sculptureDryRoughness'}
                 label={t('homeEditor.controls.sculptureDryRoughness')}
                 value={settings.sculptureDryRoughness}
                 min={0}
@@ -289,7 +289,7 @@ export const SculptureSection = ({ settings, handleSettingChange, layoutEditor }
                 formatValue={(value) => formatFloat(value)}
                 onChange={(event) => handleSettingChange(event, 'sculptureDryRoughness')}
             />
-            <RangeControl
+            <RangeControl controlId={'sculptureMicroRelief'}
                 label={t('homeEditor.controls.sculptureMicroRelief')}
                 value={settings.sculptureMicroRelief}
                 min={0}

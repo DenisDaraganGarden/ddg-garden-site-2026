@@ -22,17 +22,17 @@ const LightBody = ({ settings, handleSettingChange, slot }) => {
 
     return (
         <>
-            <CheckboxControl
+            <CheckboxControl controlId={`${prefix}Enabled`}
                 label={t('homeEditor.controls.lightEnabled')}
                 checked={Boolean(settings[`${prefix}Enabled`])}
                 onChange={(event) => handleSettingChange(event, `${prefix}Enabled`, 'boolean')}
             />
-            <ColorControl
+            <ColorControl controlId={`${prefix}Color`}
                 label={t('homeEditor.controls.lightColor')}
                 value={settings[`${prefix}Color`]}
                 onChange={(event) => handleSettingChange(event, `${prefix}Color`, 'color')}
             />
-            <RangeControl
+            <RangeControl controlId={`${prefix}Intensity`}
                 label={t('homeEditor.controls.lightIntensity')}
                 value={settings[`${prefix}Intensity`]}
                 min={0}
@@ -43,7 +43,7 @@ const LightBody = ({ settings, handleSettingChange, slot }) => {
             />
 
             <SectionHeading label={t('homeEditor.blocks.cone')} subtle />
-            <RangeControl
+            <RangeControl controlId={`${prefix}ConeAngle`}
                 label={t('homeEditor.controls.lightConeAngle')}
                 value={settings[`${prefix}ConeAngle`]}
                 min={4}
@@ -52,7 +52,7 @@ const LightBody = ({ settings, handleSettingChange, slot }) => {
                 unit="°"
                 onChange={(event) => handleSettingChange(event, `${prefix}ConeAngle`)}
             />
-            <RangeControl
+            <RangeControl controlId={`${prefix}Softness`}
                 label={t('homeEditor.controls.lightSoftness')}
                 value={settings[`${prefix}Softness`]}
                 min={0}
@@ -65,7 +65,7 @@ const LightBody = ({ settings, handleSettingChange, slot }) => {
 
             <SectionHeading label={t('homeEditor.blocks.position')} subtle />
             {['X', 'Y', 'Z'].map((axis) => (
-                <RangeControl
+                <RangeControl controlId={`${prefix}${axis}`}
                     key={axis}
                     label={t(`homeEditor.controls.lightPosition${axis}`)}
                     value={settings[`${prefix}${axis}`]}
@@ -79,12 +79,12 @@ const LightBody = ({ settings, handleSettingChange, slot }) => {
             ))}
 
             <SectionHeading label={t('homeEditor.blocks.visibility')} subtle />
-            <CheckboxControl
+            <CheckboxControl controlId={`${prefix}SourceVisible`}
                 label={t('homeEditor.controls.lightSourceVisible')}
                 checked={settings[`${prefix}SourceVisible`] !== false}
                 onChange={(event) => handleSettingChange(event, `${prefix}SourceVisible`, 'boolean')}
             />
-            <CheckboxControl
+            <CheckboxControl controlId={`${prefix}InReflections`}
                 label={t('homeEditor.controls.lightInReflections')}
                 checked={settings[`${prefix}InReflections`] !== false}
                 onChange={(event) => handleSettingChange(event, `${prefix}InReflections`, 'boolean')}
@@ -100,7 +100,7 @@ const LightTarget = ({ settings, handleSettingChange, slot }) => {
     return (
         <>
             {['X', 'Y', 'Z'].map((axis) => (
-                <RangeControl
+                <RangeControl controlId={`${prefix}Target${axis}`}
                     key={axis}
                     label={t(`homeEditor.controls.lightTarget${axis}`)}
                     value={settings[`${prefix}Target${axis}`]}

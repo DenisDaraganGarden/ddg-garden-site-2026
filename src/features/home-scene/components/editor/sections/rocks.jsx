@@ -8,7 +8,7 @@ import { TERRAIN_RANGES } from '../../../../../terrain/settings.js';
 // scene object registry.
 const sliders = (settings, handleSettingChange, ru, rows) => rows.map(([key, r, e, unit]) => {
   const [min, max, step] = TERRAIN_RANGES[key];
-  return <RangeControl key={key} label={ru ? r : e} value={settings[key]} min={min} max={max} step={step} unit={unit} formatValue={(n) => Number(n.toFixed(2))} onChange={(event) => handleSettingChange(event, key)} />;
+  return <RangeControl controlId={key} key={key} label={ru ? r : e} value={settings[key]} min={min} max={max} step={step} unit={unit} formatValue={(n) => Number(n.toFixed(2))} onChange={(event) => handleSettingChange(event, key)} />;
 });
 
 export function RocksSection({ settings, handleSettingChange }) {

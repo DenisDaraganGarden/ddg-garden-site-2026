@@ -14,6 +14,7 @@ import {
   getCursorFlashlightRuntime,
   getCursorFlashlightWorldRuntime,
 } from '../../features/cursor/cursorFlashlightStore';
+import { EDITOR_THUMBNAIL_REQUEST, publishEditorThumbnail } from './editorThumbnailCapture';
 
 function createNoiseTexture(size = 128) {
   const random = (() => {
@@ -133,6 +134,38 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
   const noiseTexture = useMemo(() => createNoiseTexture(), []);
   const filmNoiseTexture = useMemo(() => createFilmNoiseTexture(), []);
   const cloudShadowUniforms = useMemo(() => createCloudShadowUniforms(), []);
+  // Focus asks once per explicit camera capture. Keeping the request here means
+  // the default framebuffer is sampled immediately after the final post pass,
+  // without a permanent preserveDrawingBuffer or an extra render.
+  const thumbnailRequest = useRef(null);
+  useEffect(() => {
+    const receive = (event) => {
+      const key = event.detail?.key;
+      if (typeof key === 'string' && key) thumbnailRequest.current = key;
+    };
+    window.addEventListener(EDITOR_THUMBNAIL_REQUEST, receive);
+    return () => window.removeEventListener(EDITOR_THUMBNAIL_REQUEST, receive);
+  }, []);
+  const publishThumbnail = () => {
+    const key = thumbnailRequest.current;
+    if (!key) return;
+    thumbnailRequest.current = null;
+    try {
+      const source = gl.domElement;
+      const width = Math.min(320, source.width);
+      const height = Math.max(1, Math.round(source.height * (width / source.width)));
+      const thumbnail = document.createElement('canvas');
+      thumbnail.width = width;
+      thumbnail.height = height;
+      const context = thumbnail.getContext('2d');
+      if (!context) return;
+      context.drawImage(source, 0, 0, width, height);
+      publishEditorThumbnail(key, thumbnail.toDataURL('image/webp', 0.68));
+    } catch {
+      // A context loss or a strict canvas may decline a thumbnail; the editor
+      // keeps its neutral tile and the scene render remains untouched.
+    }
+  };
   const renderTarget = useMemo(() => {
     const target = new THREE.WebGLRenderTarget(1, 1, {
       minFilter: THREE.LinearFilter,
@@ -493,6 +526,7 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
       gl.domElement.dataset.ddgUpscale = 'off';
       gl.setRenderTarget(null);
       gl.render(scene, camera);
+      publishThumbnail();
       return;
     }
 
@@ -666,6 +700,7 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
       gl.render(postScene, postCamera);
       gl.domElement.dataset.ddgUpscale = upscaler ? 'native-small-frame' : 'off';
     }
+    publishThumbnail();
   }, 100);
 
   return null;

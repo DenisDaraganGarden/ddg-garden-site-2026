@@ -3,10 +3,16 @@ import { useLanguage } from '../../../../../i18n/useLanguage';
 import { resolveLayoutFrameInset } from '../../../lib/layout';
 import { WORK_CAMERA_MAIN_ID } from '../../../lib/sceneCameras';
 import { TECHNICAL_FRAMES } from '../../../lib/technicalCameras';
+import { EDITOR_THUMBNAIL_READY, requestEditorThumbnail } from '../../../../../components/effects/editorThumbnailCapture';
+import { FocusCheckboxControl, FocusRangeControl } from './FocusControlComponents';
+import { FocusControlNumberInput } from './FocusControlNumberInput';
+import { FocusControlScope } from './FocusControlsContext';
 import './FocusCameras.css';
 
 const THUMBNAILS_KEY = 'ddg_home_editor_camera_thumbnails_v1';
 const DRAG_THRESHOLD = 5;
+const THUMBNAIL_EVENT = EDITOR_THUMBNAIL_READY;
+const thumbnailKey = (id, layoutKey) => `${id}:${layoutKey}`;
 
 function readThumbnails() {
     if (typeof window === 'undefined') return {};
@@ -26,27 +32,19 @@ function writeThumbnails(value) {
     }
 }
 
-function captureViewportImage() {
-    try {
-        const canvas = document.querySelector('.home-editor-render-frame canvas');
-        return canvas?.toDataURL?.('image/webp', 0.68) ?? null;
-    } catch {
-        return null;
-    }
-}
-
 function useCameraThumbnails() {
     const [thumbnails, setThumbnails] = useState(readThumbnails);
-    const capture = useCallback((id) => {
-        window.requestAnimationFrame(() => {
-            const image = captureViewportImage();
-            if (!image) return;
-            setThumbnails((previous) => {
-                const next = { ...previous, [id]: image };
-                writeThumbnails(next);
-                return next;
-            });
+    useEffect(() => {
+        const update = (event) => setThumbnails((previous) => {
+            const next = { ...previous, [event.detail.key]: event.detail.image };
+            writeThumbnails(next);
+            return next;
         });
+        window.addEventListener(THUMBNAIL_EVENT, update);
+        return () => window.removeEventListener(THUMBNAIL_EVENT, update);
+    }, []);
+    const capture = useCallback((id, layoutKey) => {
+        requestEditorThumbnail(thumbnailKey(id, layoutKey));
     }, []);
     return [thumbnails, capture];
 }
@@ -55,122 +53,103 @@ const IconButton = ({ children, label, className = '', ...props }) => (
     <button type="button" className={`focus-camera-icon ${className}`} aria-label={label} title={label} {...props}>{children}</button>
 );
 
-function CameraRow({ camera, index, kind, active, total, layoutEditor, onCapture }) {
-    const { t } = useLanguage();
+function CameraRow({ camera, index, kind, active, layoutEditor, onCapture, onOpenSettings }) {
+    const { t, language } = useLanguage();
     const isWork = kind === 'work';
     const select = isWork ? layoutEditor.selectWorkCamera : layoutEditor.selectCamera;
-    const rename = isWork ? layoutEditor.renameWorkCamera : layoutEditor.renameCamera;
-    const move = isWork ? layoutEditor.moveWorkCamera : layoutEditor.moveCamera;
-    const remove = isWork ? layoutEditor.removeWorkCamera : layoutEditor.removeCamera;
-    const canMoveUp = index > 0 && !(isWork && index === 1 && layoutEditor.workCameras?.[0]?.id === WORK_CAMERA_MAIN_ID);
-    const canMoveDown = index < total - 1 && !(isWork && camera.id === WORK_CAMERA_MAIN_ID);
-    const canRemove = isWork ? camera.id !== WORK_CAMERA_MAIN_ID : total > 1;
-    const selectIfNeeded = () => {
-        if (!active) select(camera.id);
-    };
     const runCapture = () => {
         if (!active) return;
         if (isWork) layoutEditor.captureWorkCamera(camera.id);
         else layoutEditor.captureLayout(layoutEditor.selectedKey);
-        onCapture(camera.id);
+        onCapture(camera.id, layoutEditor.selectedKey);
     };
-
-    return (
-        <div className={`focus-camera-row ${active ? 'is-active' : ''} ${!isWork && camera.enabled === false ? 'is-disabled' : ''}`}>
-            {!isWork ? (
-                <input
-                    className="focus-camera-enabled"
-                    type="checkbox"
-                    checked={Boolean(camera.enabled)}
-                    onChange={(event) => layoutEditor.setCameraEnabled(camera.id, event.target.checked)}
-                    aria-label={t('homeEditor.controls.cameraEnabled')}
-                />
-            ) : <span className="focus-camera-kind" aria-hidden="true">{camera.id === WORK_CAMERA_MAIN_ID ? '⌂' : '◇'}</span>}
-            <button type="button" className="focus-camera-select" onClick={() => select(camera.id)} aria-pressed={active}>
-                <span>{String(index + 1).padStart(2, '0')}</span>
+    return <article className={`focus-camera-card ${active ? 'is-active' : ''} ${!isWork && camera.enabled === false ? 'is-disabled' : ''}`}>
+        <div className="focus-camera-card-top">
+            <button type="button" className="focus-camera-card-select" onClick={() => select(camera.id)} aria-pressed={active}>
+                <span className="focus-camera-card-index">{String(index + 1).padStart(2, '0')}</span>
+                <span>{camera.name || (isWork ? t('homeEditor.controls.workCameras') : t('homeEditor.controls.camera'))}</span>
             </button>
-            <input
-                className="focus-camera-name"
-                value={camera.name ?? ''}
-                onFocus={selectIfNeeded}
-                onChange={(event) => rename(camera.id, event.target.value)}
-                aria-label={t('homeEditor.controls.cameraName')}
-            />
-            {!isWork ? (
-                <label className="focus-camera-delay" title={t('homeEditor.controls.cameraDuration')}>
-                    <input type="number" min="1" max="3600" step="0.5" value={camera.holdSeconds ?? 8} onFocus={selectIfNeeded} onChange={(event) => layoutEditor.setCameraHoldSeconds(camera.id, parseFloat(event.target.value) || 1)} aria-label={t('homeEditor.controls.cameraDuration')} />
-                    <span>{t('homeEditor.controls.seconds')}</span>
-                </label>
-            ) : null}
-            <div className="focus-camera-actions">
-                <IconButton label={t('homeEditor.controls.layoutCapture')} onClick={runCapture} disabled={!active}>⌁</IconButton>
-                <IconButton label={t('homeEditor.controls.cameraMoveUp')} onClick={() => move(camera.id, -1)} disabled={!canMoveUp}>↑</IconButton>
-                <IconButton label={t('homeEditor.controls.cameraMoveDown')} onClick={() => move(camera.id, 1)} disabled={!canMoveDown}>↓</IconButton>
-                <IconButton label={t('homeEditor.controls.cameraDelete')} className="is-danger" onClick={() => remove(camera.id)} disabled={!canRemove}>×</IconButton>
-            </div>
+            {active ? <IconButton label={t('homeEditor.controls.layoutCapture')} onClick={runCapture}>⌁</IconButton> : null}
+            <IconButton label={language === 'ru' ? 'Настройки камеры' : 'Camera settings'} onClick={() => onOpenSettings({ camera, kind, index })}>•••</IconButton>
         </div>
-    );
+        <small>Desktop · Mobile</small>
+    </article>;
 }
 
-function CameraGroup({ kind, layoutEditor, onCapture }) {
+function CameraSettingsDialog({ item, layoutEditor, onCapture, onClose }) {
+    const { t, language } = useLanguage();
+    const dialogRef = useRef(null);
+    const isWork = item?.kind === 'work';
+    const list = isWork ? layoutEditor.workCameras ?? [] : layoutEditor.cameras ?? [];
+    const camera = item ? list.find((candidate) => candidate.id === item.camera.id) : null;
+    const index = camera ? list.findIndex((candidate) => candidate.id === camera.id) : -1;
+    useEffect(() => {
+        const dialog = dialogRef.current;
+        if (item && dialog && !dialog.open) dialog.showModal();
+    }, [item]);
+    if (!item || !camera) return null;
+    const rename = isWork ? layoutEditor.renameWorkCamera : layoutEditor.renameCamera;
+    const move = isWork ? layoutEditor.moveWorkCamera : layoutEditor.moveCamera;
+    const remove = isWork ? layoutEditor.removeWorkCamera : layoutEditor.removeCamera;
+    const active = isWork ? camera.id === layoutEditor.activeWorkCameraId : !layoutEditor.activeWorkCameraId && camera.id === layoutEditor.activeCameraId;
+    const canMoveUp = index > 0 && !(isWork && index === 1 && list[0]?.id === WORK_CAMERA_MAIN_ID);
+    const canMoveDown = index < list.length - 1 && !(isWork && camera.id === WORK_CAMERA_MAIN_ID);
+    const canRemove = isWork ? camera.id !== WORK_CAMERA_MAIN_ID : list.length > 1;
+    const capture = () => {
+        if (!active) return;
+        if (isWork) layoutEditor.captureWorkCamera(camera.id);
+        else layoutEditor.captureLayout(layoutEditor.selectedKey);
+        onCapture(camera.id, layoutEditor.selectedKey);
+    };
+    return <dialog ref={dialogRef} className="focus-camera-dialog" aria-labelledby="focus-camera-dialog-title" onClose={onClose} onClick={(event) => { if (event.target === event.currentTarget) event.currentTarget.close(); }} onKeyDown={(event) => event.stopPropagation()} onKeyUp={(event) => event.stopPropagation()}>
+        <header><strong id="focus-camera-dialog-title">{camera.name}</strong><IconButton label={language === 'ru' ? 'Закрыть' : 'Close'} onClick={() => dialogRef.current?.close()}>×</IconButton></header>
+        <label className="focus-camera-dialog-field"><span>{t('homeEditor.controls.cameraName')}</span><input value={camera.name ?? ''} onChange={(event) => rename(camera.id, event.target.value)} autoFocus /></label>
+        {!isWork ? <><label className="focus-camera-dialog-check"><input type="checkbox" checked={Boolean(camera.enabled)} onChange={(event) => layoutEditor.setCameraEnabled(camera.id, event.target.checked)} /> {t('homeEditor.controls.cameraEnabled')}</label><label className="focus-camera-dialog-field"><span>{t('homeEditor.controls.cameraDuration')}</span><FocusControlNumberInput controlId={`camera-hold-${camera.id}`} value={camera.holdSeconds ?? 8} min={1} max={3600} step={0.5} onChange={(event) => layoutEditor.setCameraHoldSeconds(camera.id, parseFloat(event.target.value) || 1)} aria-label={t('homeEditor.controls.cameraDuration')} /></label></> : null}
+        <div className="focus-camera-dialog-actions"><button type="button" onClick={capture} disabled={!active}>{t('homeEditor.controls.layoutCapture')}</button><button type="button" onClick={() => { move(camera.id, -1); dialogRef.current?.close(); }} disabled={!canMoveUp}>↑</button><button type="button" onClick={() => { move(camera.id, 1); dialogRef.current?.close(); }} disabled={!canMoveDown}>↓</button><button type="button" className="is-danger" onClick={() => { remove(camera.id); dialogRef.current?.close(); }} disabled={!canRemove}>×</button></div>
+    </dialog>;
+}
+function CameraGroup({ kind, layoutEditor, onCapture, onOpenSettings }) {
     const { t, language } = useLanguage();
     const isWork = kind === 'work';
     const cameras = isWork ? layoutEditor.workCameras ?? [] : layoutEditor.cameras ?? [];
-    const activeId = isWork ? layoutEditor.activeWorkCameraId : layoutEditor.activeCameraId;
+    const activeId = isWork ? layoutEditor.activeWorkCameraId : (layoutEditor.activeWorkCameraId ? null : layoutEditor.activeCameraId);
     const add = isWork ? layoutEditor.addWorkCamera : layoutEditor.addCamera;
-    const title = isWork ? t('homeEditor.controls.workCameras') : t('homeEditor.controls.cameras');
-    const note = isWork
-        ? (t('homeEditor.controls.workCamerasEmpty'))
-        : (language === 'ru' ? 'Порядок и включение войдут в проект.' : 'Order and enabled scenes go to the project.');
-    return (
-        <section className={`focus-camera-group focus-camera-group--${kind}`} aria-label={title}>
-            <header>
-                <div><strong>{title}</strong><small>{note}</small></div>
-                <IconButton label={isWork ? t('homeEditor.controls.workCameraAdd') : t('homeEditor.controls.cameraAdd')} onClick={add}>+</IconButton>
-            </header>
-            <div className="focus-camera-list">
-                {cameras.map((camera, index) => <CameraRow key={camera.id} camera={camera} index={index} kind={kind} active={camera.id === activeId} total={cameras.length} layoutEditor={layoutEditor} onCapture={onCapture} />)}
-                {isWork && cameras.length === 0 ? <p className="focus-camera-empty">{t('homeEditor.controls.workCamerasEmpty')}</p> : null}
-            </div>
-        </section>
-    );
+    const title = isWork ? t('homeEditor.controls.workCameras') : (language === 'ru' ? 'Сцены' : 'Scenes');
+    return <section className={`focus-camera-group focus-camera-group--${kind}`} aria-label={title}>
+        <header><strong>{title}</strong><IconButton label={isWork ? t('homeEditor.controls.workCameraAdd') : t('homeEditor.controls.cameraAdd')} onClick={add}>+</IconButton></header>
+        <div className="focus-camera-list">{cameras.map((camera, index) => <CameraRow key={camera.id} camera={camera} index={index} kind={kind} active={camera.id === activeId} layoutEditor={layoutEditor} onCapture={onCapture} onOpenSettings={onOpenSettings} />)}</div>
+    </section>;
 }
 
-function FocusCameraTuning({ settings, layoutEditor, onCapture }) {
+export function FocusCameraParameters({ settings, layoutEditor, catalogOnly = false }) {
     const { t } = useLanguage();
-    const isWork = Boolean(layoutEditor.activeWorkCameraId);
+    if (!layoutEditor) return null;
     const layouts = layoutEditor.currentScene?.layouts ?? settings.layouts ?? {};
     const frameInset = resolveLayoutFrameInset(layouts, layoutEditor.selectedKey);
-    const isCustomized = Boolean(layouts?.[layoutEditor.selectedKey]?.customized);
     const fadeSeconds = layoutEditor.slideshow?.fadeSeconds ?? 1.2;
-    const activeId = isWork ? layoutEditor.activeWorkCameraId : layoutEditor.activeCameraId;
-    const capture = () => {
-        if (isWork) layoutEditor.captureWorkCamera(activeId);
-        else layoutEditor.captureLayout(layoutEditor.selectedKey);
-        onCapture(activeId);
-    };
-    return (
-        <section className="focus-camera-tuning" aria-label={t('homeEditor.controls.layoutBucket')}>
-            <div className="focus-camera-tuning-line">
-                <label><span>{t('homeEditor.controls.frameInset')}</span><input type="range" min="0" max="32" step="0.5" value={frameInset * 100} onChange={(event) => layoutEditor.onFrameInsetChange(parseFloat(event.target.value) / 100)} /></label>
-                <output>{(frameInset * 100).toFixed(1)}%</output>
-            </div>
-            <div className="focus-camera-tuning-actions">
-                <button type="button" onClick={capture}>{t('homeEditor.controls.layoutCapture')}</button>
-                {!isWork ? <button type="button" onClick={() => layoutEditor.resetLayout(layoutEditor.selectedKey)} disabled={!isCustomized}>{t('homeEditor.controls.layoutReset')}</button> : null}
-            </div>
-            <div className="focus-camera-slideshow">
-                <label><input type="checkbox" checked={Boolean(layoutEditor.slideshow?.enabled)} onChange={(event) => layoutEditor.updateSlideshow({ enabled: event.target.checked })} /> {t('homeEditor.controls.slideshow')}</label>
-                <label><span>{t('homeEditor.controls.cameraFade')}</span><input type="number" min="0" max="30" step="0.1" value={fadeSeconds} onChange={(event) => layoutEditor.updateSlideshow({ fadeSeconds: Math.max(0, parseFloat(event.target.value) || 0) })} /></label>
-            </div>
-        </section>
-    );
+    return <FocusControlScope path="cameras/camera" groupLabel={t('homeEditor.controls.cameras')} nodeLabel={t('homeEditor.controls.camera')} catalogOnly={catalogOnly}>
+        <FocusRangeControl controlId="frameInset" label={t('homeEditor.controls.frameInset')} value={frameInset * 100} min={0} max={32} step={0.5} unit="%" formatValue={(value) => Number(value).toFixed(1)} onChange={(event) => layoutEditor.onFrameInsetChange(parseFloat(event.target.value) / 100)} />
+        <FocusCheckboxControl controlId="slideshowEnabled" label={t('homeEditor.controls.slideshow')} checked={Boolean(layoutEditor.slideshow?.enabled)} onChange={(event) => layoutEditor.updateSlideshow({ enabled: event.target.checked })} />
+        <FocusRangeControl controlId="slideshowFade" label={t('homeEditor.controls.cameraFade')} value={fadeSeconds} min={0} max={30} step={0.1} unit={t('homeEditor.controls.seconds')} formatValue={(value) => Number(value).toFixed(1)} onChange={(event) => layoutEditor.updateSlideshow({ fadeSeconds: Math.max(0, parseFloat(event.target.value) || 0) })} />
+    </FocusControlScope>;
 }
 
+function FocusCameraTuning({ settings, layoutEditor }) {
+    const { t, language } = useLanguage();
+    const isWork = Boolean(layoutEditor.activeWorkCameraId);
+    const layouts = layoutEditor.currentScene?.layouts ?? settings.layouts ?? {};
+    const isCustomized = Boolean(layouts?.[layoutEditor.selectedKey]?.customized);
+    return <details className="focus-camera-tuning">
+        <summary>{language === 'ru' ? 'Рамка и показ' : 'Frame and playback'}</summary>
+        <div className="focus-camera-tuning-body"><FocusCameraParameters settings={settings} layoutEditor={layoutEditor} />
+        {!isWork ? <button type="button" className="focus-camera-reset" onClick={() => layoutEditor.resetLayout(layoutEditor.selectedKey)} disabled={!isCustomized}>{t('homeEditor.controls.layoutReset')}</button> : null}</div>
+    </details>;
+}
 export function FocusCameraManager({ settings, layoutEditor }) {
     const [, captureImage] = useCameraThumbnails();
+    const [settingsItem, setSettingsItem] = useState(null);
     if (!layoutEditor) return null;
-    return <div className="focus-camera-manager"><CameraGroup kind="work" layoutEditor={layoutEditor} onCapture={captureImage} /><CameraGroup kind="scene" layoutEditor={layoutEditor} onCapture={captureImage} /><FocusCameraTuning settings={settings} layoutEditor={layoutEditor} onCapture={captureImage} /></div>;
+    return <div className="focus-camera-manager"><CameraGroup kind="work" layoutEditor={layoutEditor} onCapture={captureImage} onOpenSettings={setSettingsItem} /><CameraGroup kind="scene" layoutEditor={layoutEditor} onCapture={captureImage} onOpenSettings={setSettingsItem} /><FocusCameraTuning settings={settings} layoutEditor={layoutEditor} /><CameraSettingsDialog item={settingsItem} layoutEditor={layoutEditor} onCapture={captureImage} onClose={() => setSettingsItem(null)} /></div>;
 }
 
 function FocusCameraTile({ camera, active, onSelect, thumbnail }) {
@@ -192,10 +171,29 @@ export function FocusCameraStrip({ layoutEditor, className = '' }) {
         ...(layoutEditor?.workCameras ?? []).map((camera) => ({ ...camera, kind: 'work' })),
         ...(layoutEditor?.cameras ?? []).map((camera) => ({ ...camera, kind: 'scene' })),
     ], [layoutEditor?.workCameras, layoutEditor?.cameras]);
+    const activeCameraId = layoutEditor?.activeWorkCameraId ?? layoutEditor?.activeCameraId;
+    const activeThumbnailKey = activeCameraId ? thumbnailKey(activeCameraId, layoutEditor?.selectedKey) : null;
+
+    useEffect(() => {
+        if (!activeThumbnailKey || thumbnails[activeThumbnailKey]) return undefined;
+        const timeout = window.setTimeout(() => captureImage(activeCameraId, layoutEditor.selectedKey), 850);
+        return () => window.clearTimeout(timeout);
+    }, [activeCameraId, activeThumbnailKey, captureImage, layoutEditor?.selectedKey, thumbnails]);
 
     useLayoutEffect(() => {
         if (scrollerRef.current) scrollerRef.current.scrollLeft = scrollLeftRef.current;
     }, [all.length, layoutEditor?.activeCameraId, layoutEditor?.activeWorkCameraId]);
+    useEffect(() => {
+        const node = scrollerRef.current;
+        if (!node) return undefined;
+        const wheel = (event) => {
+            if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
+            event.preventDefault();
+            node.scrollLeft += event.deltaY;
+        };
+        node.addEventListener('wheel', wheel, { passive: false });
+        return () => node.removeEventListener('wheel', wheel);
+    }, []);
     useEffect(() => {
         if (!menuOpen) return undefined;
         const close = (event) => { if (!event.target.closest?.('.focus-film-strip')) setMenuOpen(false); };
@@ -209,7 +207,7 @@ export function FocusCameraStrip({ layoutEditor, className = '' }) {
         const id = layoutEditor.activeWorkCameraId ?? layoutEditor.activeCameraId;
         if (layoutEditor.activeWorkCameraId) layoutEditor.captureWorkCamera(id);
         else layoutEditor.captureLayout(layoutEditor.selectedKey);
-        captureImage(id);
+        captureImage(id, layoutEditor.selectedKey);
     };
     const startDrag = (event) => {
         if (event.button !== 0) return;
@@ -236,8 +234,8 @@ export function FocusCameraStrip({ layoutEditor, className = '' }) {
         dragRef.current = null;
     };
     return <div className={`focus-film-strip ${className}`} aria-label={t('homeEditor.controls.cameras')}>
-        <div ref={scrollerRef} className="focus-film-scroll" tabIndex="0" onScroll={(event) => { scrollLeftRef.current = event.currentTarget.scrollLeft; }} onWheel={(event) => { if (Math.abs(event.deltaY) > Math.abs(event.deltaX)) { event.preventDefault(); event.currentTarget.scrollLeft += event.deltaY; } }} onPointerDown={startDrag} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag} onClickCapture={(event) => { if (justDraggedRef.current) { event.preventDefault(); event.stopPropagation(); justDraggedRef.current = false; } }} onKeyDown={(event) => { if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') { event.preventDefault(); event.currentTarget.scrollBy({ left: event.key === 'ArrowLeft' ? -160 : 160, behavior: 'smooth' }); } }}>
-            {all.map((camera, index) => <React.Fragment key={camera.id}>{index === 0 || camera.kind !== all[index - 1].kind ? <span className={`focus-film-label focus-film-label--${camera.kind}`}>{camera.kind === 'work' ? t('homeEditor.controls.workCameras') : t('homeEditor.controls.cameras')}</span> : null}<FocusCameraTile camera={camera} active={active(camera)} onSelect={() => select(camera)} thumbnail={thumbnails[camera.id]} /></React.Fragment>)}
+        <div ref={scrollerRef} className="focus-film-scroll" tabIndex="0" onScroll={(event) => { scrollLeftRef.current = event.currentTarget.scrollLeft; }} onPointerDown={startDrag} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag} onClickCapture={(event) => { if (justDraggedRef.current) { event.preventDefault(); event.stopPropagation(); justDraggedRef.current = false; } }} onKeyDown={(event) => { if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') { event.preventDefault(); event.currentTarget.scrollBy({ left: event.key === 'ArrowLeft' ? -160 : 160, behavior: 'smooth' }); } }}>
+            {all.map((camera, index) => <React.Fragment key={camera.id}>{index === 0 || camera.kind !== all[index - 1].kind ? <span className={`focus-film-label focus-film-label--${camera.kind}`}>{camera.kind === 'work' ? t('homeEditor.controls.workCameras') : t('homeEditor.controls.cameras')}</span> : null}<FocusCameraTile camera={camera} active={active(camera)} onSelect={() => select(camera)} thumbnail={thumbnails[thumbnailKey(camera.id, layoutEditor.selectedKey)]} /></React.Fragment>)}
         </div>
         <div className="focus-film-add"><IconButton label={t('homeEditor.controls.cameraAdd')} onClick={() => setMenuOpen((value) => !value)} aria-expanded={menuOpen}>+</IconButton>{menuOpen ? <div role="menu"><button type="button" role="menuitem" onClick={() => { setMenuOpen(false); layoutEditor.addWorkCamera(); }}>{t('homeEditor.controls.workCameraAdd')}</button><button type="button" role="menuitem" onClick={() => { setMenuOpen(false); layoutEditor.addCamera(); }}>{t('homeEditor.controls.cameraAdd')}</button><button type="button" role="menuitem" onClick={() => { setMenuOpen(false); captureActive(); }}>{t('homeEditor.controls.layoutCapture')}</button></div> : null}</div>
     </div>;

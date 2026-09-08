@@ -35,6 +35,6 @@ export function TreesSection({settings,handleSettingChange,layoutEditor}){
  return <>
   <div className="home-editor-tabs">{[[false,'belt','Роща','Grove'],[true,'belt','Дерево вблизи','Tree close-up'],[false,'bluff','Бровка','Bluff edge'],[false,'ravine','Балка','Ravine'],[false,'beach','Пляж','Beach']].map(([close,niche,r,e])=><button type="button" key={r} className="home-editor-tab" onClick={()=>preview(close,niche)}>{ru?r:e}</button>)}</div>
   <div className="home-editor-status">{ru?'Окраска, порывы и трепет листьев — общие с кустарниками.':'Colour, gusts and leaf flutter are shared with the shrubs.'}</div>
-  {groups.map(([r,e,controls])=><React.Fragment key={r}><SectionHeading label={ru?r:e} subtle/>{controls.map(([key,r,e,unit])=>{const[min,max,step]=TREE_RANGES[key];return <RangeControl key={key} label={ru?r:e} value={settings[key]} min={min} max={max} step={step} unit={unit} formatValue={n=>Number(n.toFixed(2))} onChange={event=>handleSettingChange(event,key)}/>;})}</React.Fragment>)}
+  {groups.map(([r,e,controls])=><React.Fragment key={r}><SectionHeading label={ru?r:e} subtle/>{controls.map(([key,r,e,unit])=>{const[min,max,step]=TREE_RANGES[key];return <RangeControl controlId={key} key={key} label={ru?r:e} value={settings[key]} min={min} max={max} step={step} unit={unit} formatValue={n=>Number(n.toFixed(2))} onChange={event=>handleSettingChange(event,key)}/>;})}</React.Fragment>)}
  </>;
 }

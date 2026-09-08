@@ -4,7 +4,7 @@ import { useHomeSceneDraftSettings } from './useHomeSceneSettings';
 export const useHomeSceneEditor = () => {
     const { settings, setSettings } = useHomeSceneDraftSettings();
 
-    const [activeTab, setActiveTab] = useState('water');
+    const [activeTab, setActiveTab] = useState('landscape/water');
     const applySettings = (patch) => setSettings((prev) => ({ ...prev, ...patch }));
 
     const handleSettingChange = (event, key, valueType = 'float') => {

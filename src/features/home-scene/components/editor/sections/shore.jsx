@@ -39,7 +39,7 @@ export function ShoreSection({ settings, handleSettingChange, layoutEditor }) {
     <div className="home-editor-tabs">{[[null, 'Пляж', 'Beach'], ['log', 'Ствол', 'Log'], ['root', 'Корневище', 'Root'], ['ring', 'Круг', 'Ring']].map(([kind, r, e]) => <button type="button" key={r} className="home-editor-tab" onClick={() => preview(kind)}>{ru ? r : e}</button>)}</div>
     {groups.map(([r, e, controls]) => <React.Fragment key={r}><SectionHeading label={ru ? r : e} subtle/>{controls.map(([key, r, e, unit]) => {
       const [min, max, step] = SHORE_RANGES[key];
-      return <RangeControl key={key} label={ru ? r : e} value={settings[key]} min={min} max={max} step={step} unit={unit} formatValue={(n) => Number(n.toFixed(2))} onChange={(event) => handleSettingChange(event, key)}/>;
+      return <RangeControl controlId={key} key={key} label={ru ? r : e} value={settings[key]} min={min} max={max} step={step} unit={unit} formatValue={(n) => Number(n.toFixed(2))} onChange={(event) => handleSettingChange(event, key)}/>;
     })}</React.Fragment>)}
   </>;
 }

@@ -31,9 +31,9 @@ export function TerrainSection({settings,handleSettingChange}) {
  return <>
   <div className="home-editor-status">{ru?'С −Z · В +X · Ю +Z · З −X · высота +Y':'N −Z · E +X · S +Z · W −X · up +Y'}</div>
   {groups.map(([r,e,controls])=><React.Fragment key={r}><SectionHeading label={ru?r:e} subtle/>{controls.map(([key,r,e,unit])=>{
-    if(key==='terrainSpitEnabled')return <CheckboxControl key={key} label={ru?r:e} checked={settings[key]} onChange={event=>handleSettingChange(event,key,'boolean')}/>;
-    if(!TERRAIN_RANGES[key])return <ColorControl key={key} label={ru?r:e} value={settings[key]} onChange={event=>handleSettingChange(event,key,'color')}/>;
-    const [min,max,step]=TERRAIN_RANGES[key];return <RangeControl key={key} label={ru?r:e} value={settings[key]} min={min} max={max} step={step} unit={unit} formatValue={n=>Number(n.toFixed(2))} onChange={event=>handleSettingChange(event,key)}/>;
+    if(key==='terrainSpitEnabled')return <CheckboxControl controlId={key} key={key} label={ru?r:e} checked={settings[key]} onChange={event=>handleSettingChange(event,key,'boolean')}/>;
+    if(!TERRAIN_RANGES[key])return <ColorControl controlId={key} key={key} label={ru?r:e} value={settings[key]} onChange={event=>handleSettingChange(event,key,'color')}/>;
+    const [min,max,step]=TERRAIN_RANGES[key];return <RangeControl controlId={key} key={key} label={ru?r:e} value={settings[key]} min={min} max={max} step={step} unit={unit} formatValue={n=>Number(n.toFixed(2))} onChange={event=>handleSettingChange(event,key)}/>;
   })}</React.Fragment>)}
  </>;
 }

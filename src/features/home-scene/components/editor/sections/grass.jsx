@@ -21,8 +21,8 @@ const groups=[
 export function GrassSection({settings,handleSettingChange}){
  const ru=useLanguage().language==='ru';
  return <>{groups.map(([r,e,controls])=><React.Fragment key={r}><SectionHeading label={ru?r:e} subtle/>{controls.map(([key,label,en,unit])=>{
-  if(unit==='color')return <ColorControl key={key} label={ru?label:en} value={settings[key]} onChange={event=>handleSettingChange(event,key,'color')}/>;
+  if(unit==='color')return <ColorControl controlId={key} key={key} label={ru?label:en} value={settings[key]} onChange={event=>handleSettingChange(event,key,'color')}/>;
   const [min,max,step]=GRASS_RANGES[key];
-  return <RangeControl key={key} label={ru?label:en} value={settings[key]} min={min} max={max} step={step} unit={unit} formatValue={n=>Number(n.toFixed(2))} onChange={event=>handleSettingChange(event,key)}/>;
+  return <RangeControl controlId={key} key={key} label={ru?label:en} value={settings[key]} min={min} max={max} step={step} unit={unit} formatValue={n=>Number(n.toFixed(2))} onChange={event=>handleSettingChange(event,key)}/>;
  })}</React.Fragment>)}</>;
 }

@@ -18,13 +18,13 @@ export const CursorSection = ({ settings, handleSettingChange }) => {
                     {t('homeEditor.controls.cursorEditorOff')}
                 </div>
             )}
-            <CheckboxControl
+            <CheckboxControl controlId={'cursorEnabled'}
                 label={t('homeEditor.controls.cursorEnabled')}
                 checked={Boolean(settings.cursorEnabled)}
                 onChange={(event) => handleSettingChange(event, 'cursorEnabled', 'boolean')}
                 testId="home-editor-cursor-enabled"
             />
-            <RangeControl
+            <RangeControl controlId={'cursorPointSize'}
                 label={t('homeEditor.controls.cursorPointSize')}
                 value={settings.cursorPointSize}
                 min={3}
@@ -36,13 +36,13 @@ export const CursorSection = ({ settings, handleSettingChange }) => {
             />
 
             <SectionHeading label={t('homeEditor.blocks.cursorLight')} subtle />
-            <CheckboxControl
+            <CheckboxControl controlId={'cursorLightEnabled'}
                 label={t('homeEditor.controls.cursorLightEnabled')}
                 checked={Boolean(settings.cursorLightEnabled)}
                 onChange={(event) => handleSettingChange(event, 'cursorLightEnabled', 'boolean')}
                 testId="home-editor-cursor-light-enabled"
             />
-            <RangeControl
+            <RangeControl controlId={'cursorLightBeamAngle'}
                 label={t('homeEditor.controls.cursorLightBeamAngle')}
                 value={settings.cursorLightBeamAngle}
                 min={12}
@@ -52,7 +52,7 @@ export const CursorSection = ({ settings, handleSettingChange }) => {
                 onChange={(event) => handleSettingChange(event, 'cursorLightBeamAngle', 'float')}
                 testId="home-editor-cursor-light-beam"
             />
-            <RangeControl
+            <RangeControl controlId={'cursorLightIntensity'}
                 label={t('homeEditor.controls.cursorLightIntensity')}
                 value={settings.cursorLightIntensity}
                 min={0}
@@ -63,7 +63,7 @@ export const CursorSection = ({ settings, handleSettingChange }) => {
                 onChange={(event) => handleSettingChange(event, 'cursorLightIntensity', 'float')}
                 testId="home-editor-cursor-light-intensity"
             />
-            <RangeControl
+            <RangeControl controlId={'cursorLightSoftness'}
                 label={t('homeEditor.controls.cursorLightSoftness')}
                 value={settings.cursorLightSoftness}
                 min={0}

@@ -6,6 +6,7 @@ import {
   SectionHeading,
   SelectControl,
 } from '../../HomeEditorControls';
+import { useFocusControlScope, useFocusControls } from '../focus/FocusControlsContext';
 
 const gainFormatter = (value) => `${Math.round(Number(value) * 100)}%`;
 const secondsFormatter = (value) => Number(value).toFixed(1);
@@ -46,12 +47,12 @@ export const AudioMixerSection = ({ settings, handleSettingChange, audioLab }) =
         <p className="home-editor-audio-error" role="status">{audioLab.state.error}</p>
       ) : null}
 
-      <CheckboxControl
+      <CheckboxControl controlId={'audio.enabled'}
         label={t('homeEditor.controls.audioEnabled')}
         checked={audio.enabled}
         onChange={(event) => handleSettingChange(event, 'audio.enabled', 'boolean')}
       />
-      <SelectControl
+      <SelectControl controlId={'audio.mode'}
         label={t('homeEditor.controls.audioMode')}
         value={audio.mode}
         onChange={(event) => handleSettingChange(event, 'audio.mode', 'string')}
@@ -70,7 +71,7 @@ export const AudioMixerSection = ({ settings, handleSettingChange, audioLab }) =
         ['weatherGain', 0, 1],
         ['uiGain', 0, 1],
       ].map(([key, min, max]) => (
-        <RangeControl
+        <RangeControl controlId={`audio.${key}`}
           key={key}
           label={t(`homeEditor.controls.audio${key[0].toUpperCase()}${key.slice(1)}`)}
           value={audio[key]}
@@ -83,7 +84,7 @@ export const AudioMixerSection = ({ settings, handleSettingChange, audioLab }) =
       ))}
 
       <SectionHeading label={t('homeEditor.audio.routeTransitions')} subtle />
-      <RangeControl
+      <RangeControl controlId={'audio.homeFadeSeconds'}
         label={t('homeEditor.controls.audioHomeFadeSeconds')}
         value={audio.homeFadeSeconds}
         min={0}
@@ -93,7 +94,7 @@ export const AudioMixerSection = ({ settings, handleSettingChange, audioLab }) =
         formatValue={secondsFormatter}
         onChange={(event) => handleSettingChange(event, 'audio.homeFadeSeconds')}
       />
-      <RangeControl
+      <RangeControl controlId={'audio.routeFadeSeconds'}
         label={t('homeEditor.controls.audioRouteFadeSeconds')}
         value={audio.routeFadeSeconds}
         min={0}
@@ -105,17 +106,17 @@ export const AudioMixerSection = ({ settings, handleSettingChange, audioLab }) =
       />
 
       <SectionHeading label={t('homeEditor.audio.cameraTransitions')} subtle />
-      <CheckboxControl
+      <CheckboxControl controlId={'audio.spatialEnabled'}
         label={t('homeEditor.controls.audioSpatialEnabled')}
         checked={audio.spatialEnabled}
         onChange={(event) => handleSettingChange(event, 'audio.spatialEnabled', 'boolean')}
       />
-      <CheckboxControl
+      <CheckboxControl controlId={'audio.duckOnCameraCut'}
         label={t('homeEditor.controls.audioDuckOnCameraCut')}
         checked={audio.duckOnCameraCut}
         onChange={(event) => handleSettingChange(event, 'audio.duckOnCameraCut', 'boolean')}
       />
-      <RangeControl
+      <RangeControl controlId={'audio.cameraCutDuck'}
         label={t('homeEditor.controls.audioCameraCutDuck')}
         value={audio.cameraCutDuck}
         min={0.25}
@@ -131,6 +132,57 @@ export const AudioMixerSection = ({ settings, handleSettingChange, audioLab }) =
 const AudioTrackRow = ({ id, audio, handleSettingChange, audioLab, label, t }) => {
   const track = audio.tracks[id];
   const isSolo = audioLab?.state?.soloTrackId === id;
+  const focusControls = useFocusControls();
+  const focusScope = useFocusControlScope();
+
+  if (focusControls && focusScope) {
+    const trackControls = <>
+      <CheckboxControl
+        controlId={`audio.tracks.${id}.enabled`}
+        label={t('homeEditor.audio.trackEnabled', { track: label })}
+        checked={track.enabled}
+        onChange={(event) => handleSettingChange(event, `audio.tracks.${id}.enabled`, 'boolean')}
+      />
+      <RangeControl
+        controlId={`audio.tracks.${id}.gain`}
+        label={`${label} · ${t('homeEditor.blocks.volume')}`}
+        value={track.gain}
+        min={0}
+        max={1.5}
+        step={0.01}
+        formatValue={gainFormatter}
+        onChange={(event) => handleSettingChange(event, `audio.tracks.${id}.gain`)}
+      />
+    </>;
+    if (focusScope.catalogOnly) return trackControls;
+
+    return (
+      <div className="focus-audio-track" data-testid={`home-editor-audio-track-${id}`}>
+        <div className="home-editor-audio-track__identity">
+          <span className={`home-editor-audio-track__lamp ${track.enabled ? 'active' : ''}`} aria-hidden="true" />
+          <span>{label}</span>
+          <button
+            type="button"
+            className={isSolo ? 'active' : ''}
+            onClick={() => audioLab?.setSoloTrack?.(isSolo ? null : id)}
+            title={t('homeEditor.audio.solo')}
+            aria-pressed={isSolo}
+          >
+            S
+          </button>
+          <button
+            type="button"
+            onClick={() => audioLab?.previewTrack?.(id)}
+            title={t('homeEditor.audio.preview')}
+            data-testid={`home-editor-audio-preview-${id}`}
+          >
+            ▶
+          </button>
+        </div>
+        {trackControls}
+      </div>
+    );
+  }
 
   return (
     <div className="home-editor-audio-track" data-testid={`home-editor-audio-track-${id}`}>
@@ -217,7 +269,7 @@ const EmitterControls = ({ id, emitter, handleSettingChange, t }) => (
     </div>
     <div className="home-editor-audio-emitter__controls">
       {['x', 'y', 'z'].map((axis) => (
-        <RangeControl
+        <RangeControl controlId={`audio.emitters.${id}.${axis}`}
           key={axis}
           label={axis.toUpperCase()}
           value={emitter[axis]}
@@ -229,7 +281,7 @@ const EmitterControls = ({ id, emitter, handleSettingChange, t }) => (
           onChange={(event) => handleSettingChange(event, `audio.emitters.${id}.${axis}`)}
         />
       ))}
-      <RangeControl
+      <RangeControl controlId={`audio.emitters.${id}.refDistance`}
         label={t('homeEditor.controls.audioRefDistance')}
         value={emitter.refDistance}
         min={0.25}
@@ -239,7 +291,7 @@ const EmitterControls = ({ id, emitter, handleSettingChange, t }) => (
         formatValue={coordinateFormatter}
         onChange={(event) => handleSettingChange(event, `audio.emitters.${id}.refDistance`)}
       />
-      <RangeControl
+      <RangeControl controlId={`audio.emitters.${id}.maxDistance`}
         label={t('homeEditor.controls.audioMaxDistance')}
         value={emitter.maxDistance}
         min={1}
@@ -248,7 +300,7 @@ const EmitterControls = ({ id, emitter, handleSettingChange, t }) => (
         unit=" m"
         onChange={(event) => handleSettingChange(event, `audio.emitters.${id}.maxDistance`)}
       />
-      <RangeControl
+      <RangeControl controlId={`audio.emitters.${id}.rolloff`}
         label={t('homeEditor.controls.audioRolloff')}
         value={emitter.rolloff}
         min={0}

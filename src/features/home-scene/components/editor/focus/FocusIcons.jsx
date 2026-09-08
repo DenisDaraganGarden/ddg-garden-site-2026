@@ -1,4 +1,5 @@
 import React from 'react';
+import { focusActionPaths } from './focusActionPaths';
 
 const paths = {
     grid: <><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></>,
@@ -37,7 +38,7 @@ export function FocusIcon({ name = 'box', title, className = '', ...props }) {
             {...props}
         >
             {title ? <title>{title}</title> : null}
-            {paths[name] ?? paths.box}
+            {paths[name] ?? (focusActionPaths[name] ? <g dangerouslySetInnerHTML={{ __html: focusActionPaths[name] }} /> : paths.box)}
         </svg>
     );
 }

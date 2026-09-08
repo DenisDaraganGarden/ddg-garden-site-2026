@@ -19,7 +19,7 @@ export function TankerSection({ settings, handleSettingChange }) {
   const ru = language === 'ru';
   return <>
     {[['tankerTravel', 'Движение по маршруту', 'Travel'], ['tankerWake', 'Кильватерный след', 'Wake'], ['tankerLights', 'Огни', 'Lights']].map(([key, r, e]) =>
-      <CheckboxControl key={key} label={ru ? r : e} checked={settings[key]} onChange={event => handleSettingChange(event, key, 'boolean')} />)}
-    {controls.map(([key, r, e, min, max, step, unit]) => <RangeControl key={key} label={ru ? r : e} value={settings[key]} min={min} max={max} step={step} unit={unit} formatValue={n => Number(n.toFixed(2))} onChange={event => handleSettingChange(event, key)} />)}
+      <CheckboxControl controlId={key} key={key} label={ru ? r : e} checked={settings[key]} onChange={event => handleSettingChange(event, key, 'boolean')} />)}
+    {controls.map(([key, r, e, min, max, step, unit]) => <RangeControl controlId={key} key={key} label={ru ? r : e} value={settings[key]} min={min} max={max} step={step} unit={unit} formatValue={n => Number(n.toFixed(2))} onChange={event => handleSettingChange(event, key)} />)}
   </>;
 }

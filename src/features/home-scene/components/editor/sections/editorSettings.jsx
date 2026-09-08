@@ -13,13 +13,13 @@ export const EditorSettingsSection = ({ settings, handleSettingChange }) => {
             <div className="home-editor-status home-editor-signature" data-testid="home-editor-signature">
                 Ouroboros Engine · {version}
             </div>
-            <ColorControl
+            <ColorControl controlId={'editorHeadingColor'}
                 label={t('homeEditor.controls.editorHeadingColor')}
                 value={settings.editorHeadingColor}
                 onChange={(event) => handleSettingChange(event, 'editorHeadingColor', 'color')}
                 testId="home-editor-heading-color"
             />
-            <CheckboxControl
+            <CheckboxControl controlId={'editorCursor'}
                 label={t('homeEditor.controls.editorCursor')}
                 checked={Boolean(settings.editorCursor)}
                 onChange={(event) => handleSettingChange(event, 'editorCursor', 'boolean')}

@@ -17,7 +17,7 @@ export const InterfaceSection = ({ settings, handleSettingChange }) => {
     return (
         <>
             {UI_TOGGLES.map((key) => (
-                <CheckboxControl
+                <CheckboxControl controlId={key}
                     key={key}
                     label={t(`homeEditor.controls.${key}`)}
                     checked={Boolean(settings[key])}

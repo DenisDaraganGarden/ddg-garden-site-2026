@@ -27,7 +27,7 @@ export const LightSection = ({ settings, handleSettingChange }) => {
     return (
         <>
             <SectionHeading label={t('homeEditor.blocks.sun')} subtle />
-            <RangeControl
+            <RangeControl controlId={'timeOfDay'}
                 label={t('homeEditor.controls.timeOfDay')}
                 value={settings.timeOfDay}
                 min={0}
@@ -36,7 +36,7 @@ export const LightSection = ({ settings, handleSettingChange }) => {
                 formatValue={formatHour}
                 onChange={(event) => handleSettingChange(event, 'timeOfDay')}
             />
-            <RangeControl
+            <RangeControl controlId={'sunBearing'}
                 label={t('homeEditor.controls.sunBearing')}
                 value={(180-settings.sunBearing+360)%360}
                 min={0}
@@ -45,7 +45,7 @@ export const LightSection = ({ settings, handleSettingChange }) => {
                 unit="°"
                 onChange={(event) => handleSettingChange({target:{value:(180-Number(event.target.value)+360)%360}}, 'sunBearing')}
             />
-            <RangeControl
+            <RangeControl controlId={'sunNoonElevation'}
                 label={t('homeEditor.controls.sunNoonElevation')}
                 value={settings.sunNoonElevation}
                 min={0}
@@ -54,7 +54,7 @@ export const LightSection = ({ settings, handleSettingChange }) => {
                 unit="°"
                 onChange={(event) => handleSettingChange(event, 'sunNoonElevation')}
             />
-            <RangeControl
+            <RangeControl controlId={'sunIntensity'}
                 label={t('homeEditor.controls.sunIntensity')}
                 value={settings.sunIntensity}
                 min={0}
@@ -63,12 +63,12 @@ export const LightSection = ({ settings, handleSettingChange }) => {
                 formatValue={(value) => formatFloat(value)}
                 onChange={(event) => handleSettingChange(event, 'sunIntensity')}
             />
-            <ColorControl
+            <ColorControl controlId={'sunTint'}
                 label={t('homeEditor.controls.sunTint')}
                 value={settings.sunTint}
                 onChange={(event) => handleSettingChange(event, 'sunTint', 'color')}
             />
-            <RangeControl
+            <RangeControl controlId={'sunAngularSize'}
                 label={t('homeEditor.controls.sunAngularSize')}
                 value={settings.sunAngularSize}
                 min={0.2}
@@ -80,7 +80,7 @@ export const LightSection = ({ settings, handleSettingChange }) => {
             />
 
             <SectionHeading label={t('homeEditor.blocks.air')} subtle />
-            <RangeControl
+            <RangeControl controlId={'skyTurbidity'}
                 label={t('homeEditor.controls.skyTurbidity')}
                 value={settings.skyTurbidity}
                 min={1}
@@ -90,14 +90,14 @@ export const LightSection = ({ settings, handleSettingChange }) => {
                 onChange={(event) => handleSettingChange(event, 'skyTurbidity')}
             />
 
-            <ColorControl
+            <ColorControl controlId={'distantSurfaceColor'}
                 label={t('homeEditor.controls.distantSurfaceColor')}
                 value={settings.distantSurfaceColor}
                 onChange={(event) => handleSettingChange(event, 'distantSurfaceColor', 'color')}
             />
 
             <SectionHeading label={t('homeEditor.blocks.moon')} subtle />
-            <RangeControl
+            <RangeControl controlId={'moonPhase'}
                 label={t('homeEditor.controls.moonPhase')}
                 value={settings.moonPhase}
                 min={0}
@@ -106,7 +106,7 @@ export const LightSection = ({ settings, handleSettingChange }) => {
                 formatValue={(value) => formatFloat(value)}
                 onChange={(event) => handleSettingChange(event, 'moonPhase')}
             />
-            <RangeControl
+            <RangeControl controlId={'moonBrightness'}
                 label={t('homeEditor.controls.moonBrightness')}
                 value={settings.moonBrightness}
                 min={0}
@@ -116,18 +116,18 @@ export const LightSection = ({ settings, handleSettingChange }) => {
                 onChange={(event) => handleSettingChange(event, 'moonBrightness')}
             />
 
-            <CheckboxControl
+            <CheckboxControl controlId={'lightDiscEnabled'}
                 label={t('homeEditor.controls.lightDiscEnabled')}
                 checked={Boolean(settings.lightDiscEnabled)}
                 onChange={(event) => handleSettingChange(event, 'lightDiscEnabled', 'boolean')}
             />
             <SectionHeading label={t('homeEditor.blocks.shadows')} subtle />
-            <CheckboxControl
+            <CheckboxControl controlId={'shadowsEnabled'}
                 label={t('homeEditor.controls.shadowsEnabled')}
                 checked={settings.shadowsEnabled !== false}
                 onChange={(event) => handleSettingChange(event, 'shadowsEnabled', 'boolean')}
             />
-            <RangeControl
+            <RangeControl controlId={'shadowIntensity'}
                 label={t('homeEditor.controls.shadowIntensity')}
                 value={settings.shadowIntensity}
                 min={0}
@@ -137,7 +137,7 @@ export const LightSection = ({ settings, handleSettingChange }) => {
                 formatValue={(value) => Math.round(Number(value) * 100)}
                 onChange={(event) => handleSettingChange(event, 'shadowIntensity')}
             />
-            <RangeControl
+            <RangeControl controlId={'shadowRadius'}
                 label={t('homeEditor.controls.shadowRadius')}
                 value={settings.shadowRadius}
                 min={0}
@@ -146,7 +146,7 @@ export const LightSection = ({ settings, handleSettingChange }) => {
                 formatValue={(value) => formatFloat(value, 1)}
                 onChange={(event) => handleSettingChange(event, 'shadowRadius')}
             />
-            <RangeControl
+            <RangeControl controlId={'shadowContactOffset'}
                 label={t('homeEditor.controls.shadowContactOffset')}
                 value={resolveShadowContactOffsetMeters({ legacyBias: settings.shadowBias, contactOffsetMeters: settings.shadowContactOffset })}
                 min={-0.06}
@@ -156,7 +156,7 @@ export const LightSection = ({ settings, handleSettingChange }) => {
                 formatValue={(value) => Math.round(Number(value) * 1000)}
                 onChange={(event) => handleSettingChange(event, 'shadowContactOffset')}
             />
-            <SelectControl
+            <SelectControl controlId={'shadowCascades'}
                 label={t('homeEditor.controls.shadowCascades')}
                 value={settings.shadowCascades ?? 'auto'}
                 options={['auto', '1', '2'].map((value) => ({ value, label: t(`homeEditor.shadowZones.${value}`) }))}
@@ -164,20 +164,20 @@ export const LightSection = ({ settings, handleSettingChange }) => {
                 testId="home-editor-shadow-zones"
             />
             {settings.shadowCascades === '2' && <>
-            <RangeControl
+            <RangeControl controlId={'shadowNearDistance'}
                 label={t('homeEditor.controls.shadowNearDistance')}
                 value={settings.shadowNearDistance ?? 25}
                 min={5} max={Math.min(100, (settings.shadowDistance ?? 160) * 0.8)} step={1} unit="m"
                 onChange={(event) => handleSettingChange(event, 'shadowNearDistance')}
             />
-            <RangeControl
+            <RangeControl controlId={'shadowDistance'}
                 label={t('homeEditor.controls.shadowDistance')}
                 value={settings.shadowDistance ?? 160}
                 min={20} max={500} step={5} unit="m"
                 onChange={(event) => handleSettingChange(event, 'shadowDistance')}
             />
             </>}
-            <RangeControl
+            <RangeControl controlId={'waterShadowStrength'}
                 label={t('homeEditor.controls.waterShadowStrength')}
                 value={settings.waterShadowStrength}
                 min={0}
@@ -207,13 +207,13 @@ export const CloudsSection = ({ settings, handleSettingChange }) => {
         <>
             {settings.painterlyCloudsEnabled ? null : <>
             <SectionHeading label={t('homeEditor.blocks.clouds')} subtle />
-            <SelectControl
+            <SelectControl controlId={'cloudPreset'}
                 label={t('homeEditor.controls.cloudPreset')}
                 value={settings.cloudPreset}
                 options={cloudPresetOptions}
                 onChange={(event) => handleSettingChange(event, 'cloudPreset', 'string')}
             />
-            <RangeControl
+            <RangeControl controlId={'cloudCover'}
                 label={t('homeEditor.controls.cloudCover')}
                 value={settings.cloudCover}
                 min={0}
@@ -223,7 +223,7 @@ export const CloudsSection = ({ settings, handleSettingChange }) => {
                 formatValue={(value) => Math.round(Number(value) * 100)}
                 onChange={(event) => handleSettingChange(event, 'cloudCover')}
             />
-            <RangeControl
+            <RangeControl controlId={'cloudHorizon'}
                 label={t('homeEditor.controls.cloudHorizon')}
                 value={settings.cloudHorizon}
                 min={0}
@@ -233,7 +233,7 @@ export const CloudsSection = ({ settings, handleSettingChange }) => {
                 formatValue={(value) => Math.round(Number(value) * 100)}
                 onChange={(event) => handleSettingChange(event, 'cloudHorizon')}
             />
-            <RangeControl
+            <RangeControl controlId={'cloudDensity'}
                 label={t('homeEditor.controls.cloudDensity')}
                 value={settings.cloudDensity}
                 min={0}
@@ -243,7 +243,7 @@ export const CloudsSection = ({ settings, handleSettingChange }) => {
                 formatValue={(value) => Math.round(Number(value) * 100)}
                 onChange={(event) => handleSettingChange(event, 'cloudDensity')}
             />
-            <RangeControl
+            <RangeControl controlId={'cloudScale'}
                 label={t('homeEditor.controls.cloudScale')}
                 value={settings.cloudScale}
                 min={0.5}
@@ -253,7 +253,7 @@ export const CloudsSection = ({ settings, handleSettingChange }) => {
                 formatValue={(value) => formatFloat(value)}
                 onChange={(event) => handleSettingChange(event, 'cloudScale')}
             />
-            <RangeControl
+            <RangeControl controlId={'cloudSunOcclusion'}
                 label={t('homeEditor.controls.cloudSunOcclusion')}
                 value={settings.cloudSunOcclusion}
                 min={0}
@@ -271,24 +271,24 @@ export const CloudsSection = ({ settings, handleSettingChange }) => {
                     {Object.keys(PAINTERLY_CLOUD_PRESETS).map((preset) => <button key={preset} type="button" className="home-editor-action-button" onClick={() => applyPainterlyPreset(preset)}>{t(`homeEditor.controls.painterlyCloudPreset${preset[0].toUpperCase()}${preset.slice(1)}`)}</button>)}
                 </div>
             </div>
-            <CheckboxControl
+            <CheckboxControl controlId={'painterlyCloudsEnabled'}
                 label={t('homeEditor.controls.painterlyCloudsEnabled')}
                 checked={Boolean(settings.painterlyCloudsEnabled)}
                 onChange={(event) => handleSettingChange(event, 'painterlyCloudsEnabled', 'boolean')}
             />
-            <RangeControl label={t('homeEditor.controls.painterlyCloudSeed')} value={settings.painterlyCloudSeed} min={1} max={99} step={1} onChange={(event) => handleSettingChange(event, 'painterlyCloudSeed')} />
-            <RangeControl label={t('homeEditor.controls.painterlyCloudCoverage')} value={settings.painterlyCloudCoverage} min={0} max={1} step={0.01} unit="%" formatValue={(value) => Math.round(Number(value) * 100)} onChange={(event) => handleSettingChange(event, 'painterlyCloudCoverage')} />
-            <RangeControl label={t('homeEditor.controls.painterlyCloudDensity')} value={settings.painterlyCloudDensity} min={0.2} max={2.5} step={0.05} formatValue={(value) => formatFloat(value)} onChange={(event) => handleSettingChange(event, 'painterlyCloudDensity')} />
-            <RangeControl label={t('homeEditor.controls.painterlyCloudAltitude')} value={settings.painterlyCloudAltitude} min={300} max={5000} step={25} unit="m" onChange={(event) => handleSettingChange(event, 'painterlyCloudAltitude')} />
-            <RangeControl label={t('homeEditor.controls.painterlyCloudHeight')} value={settings.painterlyCloudHeight} min={0.2} max={2} step={0.05} formatValue={(value) => formatFloat(value)} onChange={(event) => handleSettingChange(event, 'painterlyCloudHeight')} />
-            <RangeControl label={t('homeEditor.controls.painterlyCloudScale')} value={settings.painterlyCloudScale} min={0.35} max={2.5} step={0.05} unit="x" formatValue={(value) => formatFloat(value)} onChange={(event) => handleSettingChange(event, 'painterlyCloudScale')} />
-            <RangeControl label={t('homeEditor.controls.painterlyCloudWindSpeed')} value={settings.painterlyCloudWindSpeed} min={0} max={40} step={0.5} unit="m/s" onChange={(event) => handleSettingChange(event, 'painterlyCloudWindSpeed')} />
-            <RangeControl label={t('homeEditor.controls.painterlyCloudWindDirection')} value={settings.painterlyCloudWindDirection} min={0} max={360} step={1} unit="°" onChange={(event) => handleSettingChange(event, 'painterlyCloudWindDirection')} />
-            <RangeControl label={t('homeEditor.controls.painterlyCloudShadowStrength')} value={settings.painterlyCloudShadowStrength} min={0} max={1} step={0.01} unit="%" formatValue={(value) => Math.round(Number(value) * 100)} onChange={(event) => handleSettingChange(event, 'painterlyCloudShadowStrength')} />
-            <RangeControl label={t('homeEditor.controls.painterlyCloudShadowSoftness')} value={settings.painterlyCloudShadowSoftness} min={0} max={1} step={0.01} unit="%" formatValue={(value) => Math.round(Number(value) * 100)} onChange={(event) => handleSettingChange(event, 'painterlyCloudShadowSoftness')} />
-            <RangeControl label={t('homeEditor.controls.painterlyCloudHaze')} value={settings.painterlyCloudHaze} min={0} max={1} step={0.01} unit="%" formatValue={(value) => Math.round(Number(value) * 100)} onChange={(event) => handleSettingChange(event, 'painterlyCloudHaze')} />
-            <RangeControl label={t('homeEditor.controls.painterlyCloudRays')} value={settings.painterlyCloudRays} min={0} max={1} step={0.01} unit="%" formatValue={(value) => Math.round(Number(value) * 100)} onChange={(event) => handleSettingChange(event, 'painterlyCloudRays')} />
-            <SelectControl
+            <RangeControl controlId={'painterlyCloudSeed'} label={t('homeEditor.controls.painterlyCloudSeed')} value={settings.painterlyCloudSeed} min={1} max={99} step={1} onChange={(event) => handleSettingChange(event, 'painterlyCloudSeed')} />
+            <RangeControl controlId={'painterlyCloudCoverage'} label={t('homeEditor.controls.painterlyCloudCoverage')} value={settings.painterlyCloudCoverage} min={0} max={1} step={0.01} unit="%" formatValue={(value) => Math.round(Number(value) * 100)} onChange={(event) => handleSettingChange(event, 'painterlyCloudCoverage')} />
+            <RangeControl controlId={'painterlyCloudDensity'} label={t('homeEditor.controls.painterlyCloudDensity')} value={settings.painterlyCloudDensity} min={0.2} max={2.5} step={0.05} formatValue={(value) => formatFloat(value)} onChange={(event) => handleSettingChange(event, 'painterlyCloudDensity')} />
+            <RangeControl controlId={'painterlyCloudAltitude'} label={t('homeEditor.controls.painterlyCloudAltitude')} value={settings.painterlyCloudAltitude} min={300} max={5000} step={25} unit="m" onChange={(event) => handleSettingChange(event, 'painterlyCloudAltitude')} />
+            <RangeControl controlId={'painterlyCloudHeight'} label={t('homeEditor.controls.painterlyCloudHeight')} value={settings.painterlyCloudHeight} min={0.2} max={2} step={0.05} formatValue={(value) => formatFloat(value)} onChange={(event) => handleSettingChange(event, 'painterlyCloudHeight')} />
+            <RangeControl controlId={'painterlyCloudScale'} label={t('homeEditor.controls.painterlyCloudScale')} value={settings.painterlyCloudScale} min={0.35} max={2.5} step={0.05} unit="x" formatValue={(value) => formatFloat(value)} onChange={(event) => handleSettingChange(event, 'painterlyCloudScale')} />
+            <RangeControl controlId={'painterlyCloudWindSpeed'} label={t('homeEditor.controls.painterlyCloudWindSpeed')} value={settings.painterlyCloudWindSpeed} min={0} max={40} step={0.5} unit="m/s" onChange={(event) => handleSettingChange(event, 'painterlyCloudWindSpeed')} />
+            <RangeControl controlId={'painterlyCloudWindDirection'} label={t('homeEditor.controls.painterlyCloudWindDirection')} value={settings.painterlyCloudWindDirection} min={0} max={360} step={1} unit="°" onChange={(event) => handleSettingChange(event, 'painterlyCloudWindDirection')} />
+            <RangeControl controlId={'painterlyCloudShadowStrength'} label={t('homeEditor.controls.painterlyCloudShadowStrength')} value={settings.painterlyCloudShadowStrength} min={0} max={1} step={0.01} unit="%" formatValue={(value) => Math.round(Number(value) * 100)} onChange={(event) => handleSettingChange(event, 'painterlyCloudShadowStrength')} />
+            <RangeControl controlId={'painterlyCloudShadowSoftness'} label={t('homeEditor.controls.painterlyCloudShadowSoftness')} value={settings.painterlyCloudShadowSoftness} min={0} max={1} step={0.01} unit="%" formatValue={(value) => Math.round(Number(value) * 100)} onChange={(event) => handleSettingChange(event, 'painterlyCloudShadowSoftness')} />
+            <RangeControl controlId={'painterlyCloudHaze'} label={t('homeEditor.controls.painterlyCloudHaze')} value={settings.painterlyCloudHaze} min={0} max={1} step={0.01} unit="%" formatValue={(value) => Math.round(Number(value) * 100)} onChange={(event) => handleSettingChange(event, 'painterlyCloudHaze')} />
+            <RangeControl controlId={'painterlyCloudRays'} label={t('homeEditor.controls.painterlyCloudRays')} value={settings.painterlyCloudRays} min={0} max={1} step={0.01} unit="%" formatValue={(value) => Math.round(Number(value) * 100)} onChange={(event) => handleSettingChange(event, 'painterlyCloudRays')} />
+            <SelectControl controlId={'painterlyCloudQuality'}
                 label={t('homeEditor.controls.painterlyCloudQuality')}
                 value={settings.painterlyCloudQuality}
                 options={['auto', 'low', 'balanced', 'high'].map((value) => ({ value, label: t(`homeEditor.controls.painterlyCloudQuality${value[0].toUpperCase()}${value.slice(1)}`) }))}
@@ -307,7 +307,7 @@ export const HdriSection = ({ settings, handleSettingChange }) => {
 
     return (
         <>
-            <SelectControl
+            <SelectControl controlId={'envMode'}
                 label={t('homeEditor.controls.envMode')}
                 value={settings.envMode}
                 options={[
@@ -317,7 +317,7 @@ export const HdriSection = ({ settings, handleSettingChange }) => {
                 ]}
                 onChange={(event) => handleSettingChange(event, 'envMode', 'string')}
             />
-            <RangeControl
+            <RangeControl controlId={'hdriIntensity'}
                 label={t('homeEditor.controls.hdriIntensity')}
                 value={settings.hdriIntensity}
                 min={0}
@@ -327,13 +327,13 @@ export const HdriSection = ({ settings, handleSettingChange }) => {
                 formatValue={(value) => formatFloat(value)}
                 onChange={(event) => handleSettingChange(event, 'hdriIntensity')}
             />
-            <SelectControl
+            <SelectControl controlId={'hdrPreset'}
                 label={t('homeEditor.controls.hdrPreset')}
                 value={settings.hdrPreset}
                 options={hdriPresetOptions}
                 onChange={(event) => handleSettingChange(event, 'hdrPreset', 'string')}
             />
-            <RangeControl
+            <RangeControl controlId={'hdrRotation'}
                 label={t('homeEditor.controls.hdrRotation')}
                 value={settings.hdrRotation}
                 min={0}
@@ -342,7 +342,7 @@ export const HdriSection = ({ settings, handleSettingChange }) => {
                 unit="°"
                 onChange={(event) => handleSettingChange(event, 'hdrRotation')}
             />
-            <RangeControl
+            <RangeControl controlId={'hdrExposure'}
                 label={t('homeEditor.controls.hdrExposure')}
                 value={settings.hdrExposure}
                 min={0}
@@ -351,7 +351,7 @@ export const HdriSection = ({ settings, handleSettingChange }) => {
                 unit="%"
                 onChange={(event) => handleSettingChange(event, 'hdrExposure', 'integer')}
             />
-            <RangeControl
+            <RangeControl controlId={'envReflectionIntensity'}
                 label={t('homeEditor.controls.envReflectionIntensity')}
                 value={settings.envReflectionIntensity}
                 min={0}
@@ -360,7 +360,7 @@ export const HdriSection = ({ settings, handleSettingChange }) => {
                 unit="%"
                 onChange={(event) => handleSettingChange(event, 'envReflectionIntensity', 'integer')}
             />
-            <CheckboxControl
+            <CheckboxControl controlId={'showHdriBackground'}
                 label={t('homeEditor.controls.showHdriBackground')}
                 checked={Boolean(settings.showHdriBackground)}
                 onChange={(event) => handleSettingChange(event, 'showHdriBackground', 'boolean')}
@@ -381,18 +381,18 @@ export const FogSection = ({ settings, handleSettingChange }) => {
     return (
         <>
             <SectionHeading label={t('homeEditor.blocks.fog')} subtle />
-            <SelectControl
+            <SelectControl controlId={'fogMode'}
                 label={t('homeEditor.controls.fogMode')}
                 value={settings.fogMode}
                 options={fogOptions}
                 onChange={(event) => handleSettingChange(event, 'fogMode', 'string')}
             />
-            <ColorControl
+            <ColorControl controlId={'fogColor'}
                 label={t('homeEditor.controls.fogColor')}
                 value={settings.fogColor}
                 onChange={(event) => handleSettingChange(event, 'fogColor', 'color')}
             />
-            <RangeControl
+            <RangeControl controlId={'fogDensity'}
                 label={t('homeEditor.controls.fogDensity')}
                 value={settings.fogDensity}
                 min={0}
@@ -403,7 +403,7 @@ export const FogSection = ({ settings, handleSettingChange }) => {
                 onChange={(event) => handleSettingChange(event, 'fogDensity')}
             />
             <SectionHeading label={t('homeEditor.blocks.distance')} subtle />
-            <RangeControl
+            <RangeControl controlId={'fogNear'}
                 label={t('homeEditor.controls.fogNear')}
                 value={settings.fogNear}
                 min={0}
@@ -413,7 +413,7 @@ export const FogSection = ({ settings, handleSettingChange }) => {
                 formatValue={(value) => formatFloat(value, 1)}
                 onChange={(event) => handleSettingChange(event, 'fogNear')}
             />
-            <RangeControl
+            <RangeControl controlId={'fogFar'}
                 label={t('homeEditor.controls.fogFar')}
                 value={settings.fogFar}
                 min={0.1}
@@ -424,7 +424,7 @@ export const FogSection = ({ settings, handleSettingChange }) => {
                 onChange={(event) => handleSettingChange(event, 'fogFar')}
             />
             <SectionHeading label={t('homeEditor.blocks.volume')} subtle />
-            <RangeControl
+            <RangeControl controlId={'fogNoiseScale'}
                 label={t('homeEditor.controls.fogNoiseScale')}
                 value={settings.fogNoiseScale}
                 min={0.1}
@@ -433,7 +433,7 @@ export const FogSection = ({ settings, handleSettingChange }) => {
                 formatValue={(value) => formatFloat(value, 1)}
                 onChange={(event) => handleSettingChange(event, 'fogNoiseScale')}
             />
-            <RangeControl
+            <RangeControl controlId={'fogSpeed'}
                 label={t('homeEditor.controls.fogSpeed')}
                 value={settings.fogSpeed}
                 min={0}
@@ -442,7 +442,7 @@ export const FogSection = ({ settings, handleSettingChange }) => {
                 formatValue={(value) => formatFloat(value)}
                 onChange={(event) => handleSettingChange(event, 'fogSpeed')}
             />
-            <RangeControl
+            <RangeControl controlId={'fogScattering'}
                 label={t('homeEditor.controls.fogScattering')}
                 value={settings.fogScattering}
                 min={0}
@@ -451,7 +451,7 @@ export const FogSection = ({ settings, handleSettingChange }) => {
                 formatValue={(value) => formatFloat(value)}
                 onChange={(event) => handleSettingChange(event, 'fogScattering')}
             />
-            <RangeControl
+            <RangeControl controlId={'fogSkyTint'}
                 label={t('homeEditor.controls.fogSkyTint')}
                 value={settings.fogSkyTint}
                 min={0}
@@ -469,12 +469,12 @@ export const RaysSection = ({ settings, handleSettingChange }) => {
 
     return (
         <>
-            <CheckboxControl
+            <CheckboxControl controlId={'sunRaysEnabled'}
                 label={t('homeEditor.controls.sunRaysEnabled')}
                 checked={Boolean(settings.sunRaysEnabled)}
                 onChange={(event) => handleSettingChange(event, 'sunRaysEnabled', 'boolean')}
             />
-            <RangeControl
+            <RangeControl controlId={'sunRaysIntensity'}
                 label={t('homeEditor.controls.sunRaysIntensity')}
                 value={settings.sunRaysIntensity}
                 min={0}
@@ -483,7 +483,7 @@ export const RaysSection = ({ settings, handleSettingChange }) => {
                 formatValue={(value) => formatFloat(value)}
                 onChange={(event) => handleSettingChange(event, 'sunRaysIntensity')}
             />
-            <RangeControl
+            <RangeControl controlId={'sunRaysDecay'}
                 label={t('homeEditor.controls.sunRaysDecay')}
                 value={settings.sunRaysDecay}
                 min={0.72}
@@ -492,7 +492,7 @@ export const RaysSection = ({ settings, handleSettingChange }) => {
                 formatValue={(value) => formatFloat(value, 3)}
                 onChange={(event) => handleSettingChange(event, 'sunRaysDecay')}
             />
-            <RangeControl
+            <RangeControl controlId={'sunRaysDensity'}
                 label={t('homeEditor.controls.sunRaysDensity')}
                 value={settings.sunRaysDensity}
                 min={0}

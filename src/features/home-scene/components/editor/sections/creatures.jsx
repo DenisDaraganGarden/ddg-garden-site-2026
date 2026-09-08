@@ -9,7 +9,7 @@ export const SeagullsSection = ({ settings, handleSettingChange }) => {
 
     return (
         <>
-            <RangeControl
+            <RangeControl controlId={'seagullCount'}
                 label={t('homeEditor.controls.seagullCount')}
                 value={settings.seagullCount}
                 min={1}
@@ -18,7 +18,7 @@ export const SeagullsSection = ({ settings, handleSettingChange }) => {
                 onChange={(event) => handleSettingChange(event, 'seagullCount', 'integer')}
                 testId="home-editor-seagull-count"
             />
-            <RangeControl
+            <RangeControl controlId={'seagullFlightActivity'}
                 label={t('homeEditor.controls.seagullFlightActivity')}
                 value={settings.seagullFlightActivity}
                 min={0}
@@ -29,7 +29,7 @@ export const SeagullsSection = ({ settings, handleSettingChange }) => {
                 onChange={(event) => handleSettingChange(event, 'seagullFlightActivity', 'float')}
                 testId="home-editor-seagull-flight-activity"
             />
-            <RangeControl
+            <RangeControl controlId={'seagullLandingDensity'}
                 label={t('homeEditor.controls.seagullLandingDensity')}
                 value={settings.seagullLandingDensity}
                 min={0}
@@ -40,13 +40,13 @@ export const SeagullsSection = ({ settings, handleSettingChange }) => {
                 onChange={(event) => handleSettingChange(event, 'seagullLandingDensity', 'float')}
                 testId="home-editor-seagull-landing-density"
             />
-            <CheckboxControl
+            <CheckboxControl controlId={'seagullPointerInteraction'}
                 label={t('homeEditor.controls.seagullPointerInteraction')}
                 checked={Boolean(settings.seagullPointerInteraction)}
                 onChange={(event) => handleSettingChange(event, 'seagullPointerInteraction', 'boolean')}
                 testId="home-editor-seagull-pointer-interaction"
             />
-            <CheckboxControl
+            <CheckboxControl controlId={'seagullShootingEnabled'}
                 label={t('homeEditor.controls.seagullShootingEnabled')}
                 checked={Boolean(settings.seagullShootingEnabled)}
                 onChange={(event) => handleSettingChange(event, 'seagullShootingEnabled', 'boolean')}
@@ -61,13 +61,13 @@ export const FishSection = ({ settings, handleSettingChange }) => {
 
     return (
         <>
-            <CheckboxControl
+            <CheckboxControl controlId={'fishPointerInteraction'}
                 label={t('homeEditor.controls.fishPointerInteraction')}
                 checked={Boolean(settings.fishPointerInteraction)}
                 onChange={(event) => handleSettingChange(event, 'fishPointerInteraction', 'boolean')}
                 testId="home-editor-fish-pointer-interaction"
             />
-            <RangeControl
+            <RangeControl controlId={'fishCount'}
                 label={t('homeEditor.controls.fishCount')}
                 value={settings.fishCount}
                 min={0}
@@ -76,7 +76,7 @@ export const FishSection = ({ settings, handleSettingChange }) => {
                 onChange={(event) => handleSettingChange(event, 'fishCount', 'integer')}
                 testId="home-editor-fish-count"
             />
-            <RangeControl
+            <RangeControl controlId={'fishSchooling'}
                 label={t('homeEditor.controls.fishSchooling')}
                 value={settings.fishSchooling}
                 min={0}
@@ -87,7 +87,7 @@ export const FishSection = ({ settings, handleSettingChange }) => {
                 onChange={(event) => handleSettingChange(event, 'fishSchooling', 'float')}
                 testId="home-editor-fish-schooling"
             />
-            <RangeControl
+            <RangeControl controlId={'fishActivity'}
                 label={t('homeEditor.controls.fishActivity')}
                 value={settings.fishActivity}
                 min={0}
@@ -98,7 +98,7 @@ export const FishSection = ({ settings, handleSettingChange }) => {
                 onChange={(event) => handleSettingChange(event, 'fishActivity', 'float')}
                 testId="home-editor-fish-activity"
             />
-            <RangeControl
+            <RangeControl controlId={'fishDepthBand'}
                 label={t('homeEditor.controls.fishDepthBand')}
                 value={settings.fishDepthBand}
                 min={0}
