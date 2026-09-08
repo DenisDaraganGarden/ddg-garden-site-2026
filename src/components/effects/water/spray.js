@@ -107,6 +107,9 @@ uniform float uSprayFrozen;    // 1 while the laboratory holds the wave still
 uniform vec2 uSprayFar;        // metres where the spray thins out and is gone
 uniform float uSprayNear;      // metres below which a mote is faded, so one quad cannot fill the screen
 uniform float uSprayMinPx;
+uniform float uSprayMistShare;
+uniform float uSprayMistSize;
+uniform float uSpraySpread;
 uniform float uSprayViewport;  // drawing buffer height, pixels
 varying vec2 vQuad;
 varying vec3 vWorld;
@@ -116,6 +119,7 @@ varying vec3 vView;
 varying float vRadius;
 varying float vOpacity;
 varying float vDetail;
+varying float vSoft;
 float sprayHash(float x) { return fract(sin(x * 127.1 + 311.7) * 43758.5453); }
 `;
 
@@ -144,10 +148,17 @@ export const sprayVertexBody = /* glsl */`
   float weight = sp.puff * (lip ? sp.alpha : 1.0) * uSprayAmount;
   if (weight < sprayHash(seed + 4.1) * 0.75) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
 
+  // Two populations. Droplets are thrown and fall; mist is the fine foam that
+  // lifts off the crest and hangs — the steam Denis is after, and the thing
+  // that covers the shell's imperfect silhouette. They differ in everything:
+  // size, weight, life, and how sharply the medium is cut out of the noise.
+  bool mist = sprayHash(seed + 13.1) < uSprayMistShare;
   vec2 jit = (vec2(sprayHash(seed + 6.2), sprayHash(seed + 7.4)) - 0.5) * (lip ? 0.10 : 0.70) * H;
   sp.p += jit;
   vec3 born = surfWorld(s, sp, -travelBack);
   float waterY = born.y - (sp.p.y - sp.base);
+  // Depth across the crest, so the plume is a body and not a curtain.
+  born += vec3(coastAlong().x, 0.0, coastAlong().y) * (sprayHash(seed + 14.6) - 0.5) * uSpraySpread;
 
   // The frame of the crest here: forward is toward the shore along the loft's
   // own normal, so a bent crest throws its spray the way it faces.
@@ -162,8 +173,11 @@ export const sprayVertexBody = /* glsl */`
   vec3 v0 = vec3(fwd.x, 0.0, fwd.y) * (vp.x + uSpeed * (1.0 - uSprayFrozen))
     + vec3(0.0, vp.y, 0.0)
     + vec3(alg.x, 0.0, alg.y) * (sprayHash(seed + 8.8) - 0.5) * (lip ? 0.7 : 1.8);
+  // Mist keeps only a breath of the throw: it lifts and the wind takes it.
+  if (mist) v0 = v0 * 0.22 + vec3(0.0, 0.5 + sprayHash(seed + 15.2) * 0.7, 0.0);
 
-  float tau = mix(0.05, 0.5, sprayHash(seed + 1.9) * sprayHash(seed + 1.9));
+  // Mist barely falls and follows the air; a droplet is thrown and lands.
+  float tau = mist ? mix(0.012, 0.05, sprayHash(seed + 1.9)) : mix(0.05, 0.5, sprayHash(seed + 1.9) * sprayHash(seed + 1.9));
   vec3 wind = vec3(uWind.x, 0.0, uWind.y) * uSprayWind;
   vec3 terminal = wind + vec3(0.0, -${GRAVITY.toFixed(2)} * tau, 0.0);
   vec3 flight = terminal * age + (v0 - terminal) * tau * (1.0 - exp(-age / tau));
@@ -178,8 +192,12 @@ export const sprayVertexBody = /* glsl */`
   float span = age / max(life, 0.01);
   // Motes are not one size: a few heavy gobbets among a haze of fine ones is
   // what separates spray from a string of beads.
-  float radius = (uSprayRadius + uSprayGrow * span) * mix(0.45, 2.1, sprayHash(seed + 11.3) * sprayHash(seed + 11.3));
-  float opacity = weight * smoothstep(0.0, 0.06, age) * (1.0 - smoothstep(0.72, 1.0, span));
+  float radius = (uSprayRadius + uSprayGrow * span) * mix(0.3, 2.6, sprayHash(seed + 11.3) * sprayHash(seed + 11.3));
+  // Mist is far bigger and keeps growing as it disperses — that is what lets
+  // it cover a silhouette instead of decorating one.
+  if (mist) radius *= uSprayMistSize * (0.6 + 1.4 * span);
+  // Vapour is a veil, not a wall: it must never carry the plume's weight.
+  float opacity = weight * smoothstep(0.0, 0.06, age) * (1.0 - smoothstep(0.72, 1.0, span)) * (mist ? 0.30 : 1.0);
   // A mote that has fallen back into the water is gone. The level is known from
   // the profile, so no depth texture is needed — and it fades over its OWN
   // diameter, or the depth test slices the big ones flat on the surface.
@@ -202,8 +220,16 @@ export const sprayVertexBody = /* glsl */`
   // instead of a torn puff, exactly the sprite look this system exists to avoid.
   vDetail = smoothstep(2.5, 8.0, pxRadius);
 
-  vRight = vec3(viewMatrix[0][0], viewMatrix[1][0], viewMatrix[2][0]);
-  vUp = vec3(viewMatrix[0][1], viewMatrix[1][1], viewMatrix[2][1]);
+  // A random roll about the view axis. Without it every mote is torn the same
+  // way and the plume reads as one stamp repeated; with it each is its own
+  // shape from every side.
+  float roll = sprayHash(seed + 12.7) * 6.28318530718;
+  float cr = cos(roll), sr = sin(roll);
+  vec3 right = vec3(viewMatrix[0][0], viewMatrix[1][0], viewMatrix[2][0]);
+  vec3 up = vec3(viewMatrix[0][1], viewMatrix[1][1], viewMatrix[2][1]);
+  vRight = right * cr + up * sr;
+  vUp = up * cr - right * sr;
+  vSoft = mist ? 1.0 : 0.0;
   vView = normalize(cameraPosition - world);
   vWorld = world;
   float draw = radius * grow;
@@ -224,6 +250,7 @@ varying vec3 vView;
 varying float vRadius;
 varying float vOpacity;
 varying float vDetail;
+varying float vSoft;
 `;
 
 export const sprayFragmentBody = /* glsl */`
@@ -248,9 +275,12 @@ export const sprayFragmentBody = /* glsl */`
   // A smooth ball is what a sprite looks like, and a sprite is what this
   // system exists to avoid.
   float raw = nA.r * 0.62 + nA.g * 0.48 + 0.62 * (1.0 - rad2);
-  float dens = smoothstep(0.42 + 0.34 * (1.0 - nA.b), 1.02, raw);
+  // A droplet is cut hard out of the noise; mist is barely cut at all — that
+  // difference is the whole distance between water thrown and vapour hanging.
+  float low = mix(0.42, 0.06, vSoft) + 0.34 * (1.0 - nA.b) * (1.0 - vSoft);
+  float dens = smoothstep(low, mix(1.02, 1.4, vSoft), raw);
   dens = mix(0.30 * (1.0 - rad2), dens, vDetail);               // a distant mote is its own average, not a flicker
-  float alpha = (1.0 - exp(-uSprayExtinction * dens * chord)) * vOpacity;
+  float alpha = (1.0 - exp(-uSprayExtinction * mix(1.0, 0.05, vSoft) * dens * chord)) * vOpacity;
   if (alpha < 0.003) discard;
 
   // The sphere's normal: lit crown, shaded underside, without a second march.
@@ -265,10 +295,13 @@ export const sprayFragmentBody = /* glsl */`
   // Forward scattering is ADDED, never multiplied in: with the sun behind the
   // camera a factor would make the spray darker than the foam it comes from.
   float forward = pow(max(dot(-vView, uSunDirection), 0.0), 6.0);
+  // The same expression the foam volume uses, so one brightness slider governs
+  // the foam and the spray thrown off it and they cannot disagree. The
+  // directional gain is gone: it was what made the spray outshine the foam.
   vec3 lit = vec3(0.94, 0.95, 0.92) * (
       uFillIrradiance * (0.35 + 0.65 * (0.5 + 0.5 * nS.y))
-    + uSunRadiance * sunT * (0.25 + 0.75 * powder) * (0.35 + 0.65 * max(dot(nS, uSunDirection), 0.0))
-    + uSunRadiance * sunT * powder * forward * 1.2) / WATER_PI * uFoamBrightness;
+    + uSunRadiance * sunT * (0.25 + 0.75 * powder)
+    + uSunRadiance * sunT * powder * forward * 0.35) / WATER_PI * uFoamBrightness;
   gl_FragColor = vec4(lit * alpha, alpha);
 `;
 
@@ -289,6 +322,9 @@ export function createSprayUniforms() {
     uSprayFar: { value: new THREE.Vector2(110, 170) },
     uSprayNear: { value: 1.2 },
     uSprayMinPx: { value: 2.5 },
+    uSprayMistShare: { value: 0.4 },
+    uSprayMistSize: { value: 2.2 },
+    uSpraySpread: { value: 1.6 },
     uSprayViewport: { value: 800 },
     // The noise feature must be SMALLER than a mote, or every mote samples one
     // constant and reads as a flat disc. At 8 m^-1 the grain is about 12 cm
@@ -306,5 +342,8 @@ export function syncSprayUniforms(uniforms, settings, tier = SPRAY_TIERS.high) {
   uniforms.uSprayScale.value = Number(settings.sprayGrain ?? 8);
   uniforms.uSprayExtinction.value = Number(settings.sprayDensity ?? 2.4);
   uniforms.uSprayTaps.value = tier.taps;
+  uniforms.uSprayMistShare.value = Number(settings.sprayMist ?? 0.4);
+  uniforms.uSprayMistSize.value = Number(settings.sprayMistSize ?? 2.2);
+  uniforms.uSpraySpread.value = Number(settings.spraySpread ?? 1.6);
   uniforms.uSprayFar.value.set(Number(settings.sprayFar ?? tier.far[1]) * 0.65, Number(settings.sprayFar ?? tier.far[1]));
 }
