@@ -80,7 +80,7 @@ const fragmentShader = /* glsl */`
     float fold;
     vec2 farSlope = gerstnerPixelSlope(vWorld.xz, vFade, vCell, fold);
     n = normalize(vec3(n.x - farSlope.x * n.y, n.y, n.z - farSlope.y * n.y));
-    n = waterRippleNormal(n, vWorld.xz, pixel, vFade);
+    n = waterRippleNormal(n, vWorld.xz, pixel, max(vFade, 0.45));
     float jacobian = vJacobian - fold;
     // Whitecaps from the whole wave field, unfaded, in patches: foam shows to
     // the horizon even where the mesh no longer carries the wave.

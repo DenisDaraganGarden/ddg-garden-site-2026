@@ -91,6 +91,7 @@ const vertexShader = /* glsl */`
   varying float vFade;
   varying float vCell;
   varying float vLevel;
+  varying float vJacobian;
   void main() {
     vec2 p = position.xz;
     float dist = distance(p, cameraPosition.xz);
@@ -118,6 +119,7 @@ const vertexShader = /* glsl */`
     world.y = max(world.y, aGround + uFilm * film);
     vWorld = world;
     vWaveNormal = waveNormal;
+    vJacobian = jacobian;
     vGroundNormal = aGroundNormal;
     vGround = aGround;
     vFilm = film;
@@ -138,6 +140,8 @@ const fragmentShader = /* glsl */`
   ${foamFieldShader}
   uniform float uSeam;
   uniform float uFilm;
+  uniform float uFoamThreshold;
+  uniform float uFoamSoftness;
   varying vec3 vWorld;
   varying vec3 vWaveNormal;
   varying vec3 vGroundNormal;
@@ -146,6 +150,7 @@ const fragmentShader = /* glsl */`
   varying float vFade;
   varying float vCell;
   varying float vLevel;
+  varying float vJacobian;
   void main() {
     // Past the seam the open-water mesh draws this water.
     if (coastLocal(vWorld.xz).x < uSeam) discard;
@@ -169,11 +174,19 @@ const fragmentShader = /* glsl */`
     n = normalize(vec3(n.x - farSlope.x * n.y, n.y, n.z - farSlope.y * n.y));
     // The film lies on the sand: its normal is the sand's, not the swell's.
     n = normalize(mix(n, normalize(vGroundNormal), vFilm));
-    n = waterRippleNormal(n, vWorld.xz, pixel, vFade * (1.0 - vFilm));
+    n = waterRippleNormal(n, vWorld.xz, pixel, max(vFade, 0.45) * (1.0 - vFilm));
+    // Exactly the open water's foam: the same whitecap measure, the same
+    // crossfade into the field's window, the same age and the same crest lift.
+    // Anything else and this band reads as a rectangle of another shader laid
+    // on the sea — which is precisely what it did.
+    float crest = gerstnerWhitecaps(vWorld.xz, uFoamThreshold, uFoamSoftness);
     vec3 memory = sampleFoamField(vWorld.xz);
+    float coverage = mix(crest * 0.9, memory.x, memory.z);
+    float age = mix(0.35, memory.y, memory.z);
+    float lift = clamp((vWorld.y - vLevel + 0.2) * 1.5, 0.0, 1.0) * (1.0 - vJacobian * 0.5) * (1.0 - vFilm);
     // The sand under the water by Beer-Lambert: at the edge the water is the
     // wet sand itself under a gloss, deeper it is the water's own body.
-    vec3 color = shadeWater(vWorld, n, view, pixel, waterFlowUv(vWorld.xz), memory.x, memory.y, 10.0, 0.0, exp(-depth * 3.0));
+    vec3 color = shadeWater(vWorld, n, view, pixel, waterFlowUv(vWorld.xz), coverage, age, 10.0, lift, exp(-depth * 3.0));
     gl_FragColor = vec4(color, 1.0);
     #include <fog_fragment>
     #include <tonemapping_fragment>
@@ -195,6 +208,8 @@ export default function ShoreWater({ settings, lighting, noise = null, coast, ti
     ...createWaterShadingUniforms(),
     uFilm: { value: 0.03 },
     uSeam: { value: -24 },
+    uFoamThreshold: { value: 0.55 },
+    uFoamSoftness: { value: 0.15 },
   }));
 
   useEffect(() => {
@@ -203,6 +218,8 @@ export default function ShoreWater({ settings, lighting, noise = null, coast, ti
     syncCoastWaterUniforms(uniforms, coast, coast.breakQ ?? -10);
     uniforms.uSeam.value = band.seam;
     uniforms.uFilm.value = settings.swashFilm ?? 0.03;
+    uniforms.uFoamThreshold.value = settings.foamThreshold;
+    uniforms.uFoamSoftness.value = settings.foamSoftness;
   }, [band.seam, coast, lighting, settings, uniforms]);
 
   useFrame(({ clock }) => {
