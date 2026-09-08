@@ -24,7 +24,10 @@ import { createWaterShadingUniforms, syncWaterShadingUniforms, tickWaterShadingU
 
 const RIBBON_SEGMENTS = 160;
 const RIBBON_ROWS = 44;
-const RIBBON_COUNT = 4;
+// Seven, not four: a coast shows several lines of surf at once — one just
+// breaking, one running in, one spent — and with four the sea had a single
+// line at a time. Each ribbon is three draws, so this is the honest ceiling.
+const RIBBON_COUNT = 7;
 
 function buildRibbonGeometry(segments, rows) {
   const positions = new Float32Array((segments + 1) * (rows + 1) * 3);
@@ -507,7 +510,11 @@ export default function BreakingWaves({ settings, lighting, noise = null, coast,
         const at = coastPoint(ribbon.uniforms.uBreakMean.value, coast.along0 + coast.length * 0.5, coast.definition);
         const swellPeriod = gerstnerPeriod(trains, settings.speed);
         let next = time + gerstnerCrestDelay(trains, at.x, at.z, time, settings.speed) + Math.abs(start) / speed;
-        while (next < schedule.current.lastSpawn + period && Number.isFinite(swellPeriod)) next += swellPeriod;
+        // Not every crest breaks, and the ones that do are not evenly spaced:
+        // the interval is drawn from the sets, so the lines arrive in groups
+        // the way a sea actually delivers them.
+        const gap = period * (0.45 + 1.1 * hash(schedule.current.spawned * 3 + 11));
+        while (next < schedule.current.lastSpawn + gap && Number.isFinite(swellPeriod)) next += swellPeriod;
         schedule.current.lastSpawn = next;
         schedule.current.spawned += 1;
         ribbon.spawn = next;

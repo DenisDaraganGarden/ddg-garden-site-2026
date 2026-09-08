@@ -22,9 +22,8 @@ export const ASSET_CATALOG = Object.freeze([
   { index: '10', id: 'grass', group: 'greenery', ru: 'Травы', en: 'Grasses', title: { ru: 'Травы Азовского берега', en: 'Azov coast grasses' } },
   { index: '11', id: 'rocks', group: 'landscape', ru: 'Камни', en: 'Rocks', title: { ru: 'Камни · валуны, осыпь, галька', en: 'Rocks · boulders, debris, pebbles' } },
   { index: '12', id: 'driftwood', group: 'landscape', ru: 'Коряги', en: 'Driftwood', title: { ru: 'Коряги и камни', en: 'Driftwood & stones' } },
-  { index: '13', id: 'water', group: 'landscape', ru: 'Вода', en: 'Water', title: { ru: 'Вода · волны и пена', en: 'Water · waves and foam' } },
-  { index: '14', id: 'foam', group: 'landscape', ru: 'Пена', en: 'Foam', title: { ru: 'Пена · объём по принципу облаков', en: 'Foam · volume by the clouds\u2019 principle' } },
-  { index: '15', id: 'clouds', group: 'atmosphere', ru: 'Облака', en: 'Clouds', title: { ru: 'Живописные облака', en: 'Painterly clouds' } },
+  { index: '13', id: 'water', group: 'landscape', ru: 'Море', en: 'Sea', title: { ru: 'Море · волны, прибой и пена', en: 'Sea · waves, surf and foam' } },
+  { index: '14', id: 'clouds', group: 'atmosphere', ru: 'Облака', en: 'Clouds', title: { ru: 'Живописные облака', en: 'Painterly clouds' } },
 ]);
 
 export const DEFAULT_ASSET_COLLECTION = 'river-fish';
