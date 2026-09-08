@@ -373,6 +373,11 @@ const shellFragmentShader = /* glsl */`
     float depth = vShell / facing;
     float stepLength = depth / float(SHELL_STEPS);
     float sunDiffuse = 0.35 + 0.65 * max(dot(n, uSunDirection), 0.0);
+    // The shell has its own volume march, but it belongs to the same sun as
+    // the water below it. Sample the CSM/cloud visibility once at the shell
+    // rather than once per march step: the shell is centimetres thick and the
+    // direct-light field cannot vary across it at a visible scale.
+    float keyVisibility = waterKeyVisibility(vWorld);
     float transmittance = 1.0;
     vec3 light = vec3(0.0);
     for (int i = 0; i < SHELL_STEPS; i++) {
@@ -395,7 +400,7 @@ const shellFragmentShader = /* glsl */`
       // Beer/powder: light comes in from the shell side and fades toward the water.
       float powder = 1.0 - exp(-density * 2.6);
       float shade = exp(-(1.0 - h) * 1.4);
-      vec3 lit = vec3(0.9, 0.92, 0.88) * (uFillIrradiance * (0.5 + 0.5 * h) + uSunRadiance * sunDiffuse * shade * (0.3 + 0.7 * powder)) / WATER_PI * uFoamBrightness;
+      vec3 lit = vec3(0.9, 0.92, 0.88) * (uFillIrradiance * (0.5 + 0.5 * h) + uSunRadiance * keyVisibility * sunDiffuse * shade * (0.3 + 0.7 * powder)) / WATER_PI * uFoamBrightness;
       light += transmittance * alpha * lit;
       transmittance *= 1.0 - alpha;
       if (transmittance < 0.02) break;

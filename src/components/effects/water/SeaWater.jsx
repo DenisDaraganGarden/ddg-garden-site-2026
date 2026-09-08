@@ -5,6 +5,7 @@ import GerstnerWaterSurface from './GerstnerWaterSurface.jsx';
 import ShoreWater from './ShoreWater.jsx';
 import BreakingWaves from './BreakingWaves.jsx';
 import { resolveEffectiveSeaSettings } from './seaSettings.js';
+import { useWaterNoise } from './waterShading.js';
 import {
   createWaterSceneBindingUniforms,
   useWaterSceneBindings,
@@ -18,7 +19,15 @@ import {
 const CREST_LENGTH = 760;
 const BAND_PADDING = 60;
 
-export default function SeaWater({
+// Keep the hook-owning scene below the enabled gate. This matters on camera
+// snapshots where water is hidden: no 3D noise build may begin just because
+// React evaluated the adapter before returning null.
+export default function SeaWater({ enabled = true, ...props }) {
+  if (!enabled) return null;
+  return <SeaWaterActive {...props} />;
+}
+
+function SeaWaterActive({
   settings,
   definition,
   lighting,
@@ -27,8 +36,11 @@ export default function SeaWater({
   sceneSettings = settings,
   qualityProfile = null,
   swash = null,
-  enabled = true,
 }) {
+  // The three product materials shade the same physical sea. Build one noise
+  // volume here and hand its lifecycle-safe handle to all of them; each child
+  // therefore bypasses its own fallback allocation.
+  const noise = useWaterNoise(null);
   const shoreDepth = useMemo(() => createShoreDepth(), []);
   const foamField = useMemo(() => swash ?? createFoamFieldHolder(), [swash]);
   const foamBores = useMemo(() => createFoamBores(), []);
@@ -68,13 +80,13 @@ export default function SeaWater({
     sceneSettings,
   });
 
-  if (!enabled) return null;
   return (
     <>
       {definition.terrainEnabled ? <ShoreDepthMap coast={coast} /> : null}
       <GerstnerWaterSurface
         settings={effectiveSettings}
         lighting={lighting}
+        noise={noise}
         coast={definition.terrainEnabled ? coast : null}
         foamBores={effectiveSettings.surfEnabled && definition.terrainEnabled ? foamBores : null}
         sceneBindings={sceneBindings}
@@ -84,6 +96,7 @@ export default function SeaWater({
       {definition.terrainEnabled ? <ShoreWater
         settings={effectiveSettings}
         lighting={lighting}
+        noise={noise}
         coast={coast}
         sceneBindings={sceneBindings}
       /> : null}
@@ -91,6 +104,7 @@ export default function SeaWater({
         <BreakingWaves
           settings={effectiveSettings}
           lighting={lighting}
+          noise={noise}
           coast={coast}
           foamBores={foamBores}
           sceneBindings={sceneBindings}

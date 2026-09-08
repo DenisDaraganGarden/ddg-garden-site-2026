@@ -311,10 +311,14 @@ export const sprayFragmentBody = /* glsl */`
   // normal and held below the sky's, or a low sun paints the whole plume its
   // own yellow — which is exactly what it did.
   float sunFace = max(dot(nS, uSunDirection), 0.0);
+  // The mote's internal self-shadow (sunT) is distinct from scene shadowing.
+  // Sample the latter once at its centre so CSM/cloud shadow bands cross the
+  // whole plume with the water, without adding a shadow lookup per noise tap.
+  float keyVisibility = waterKeyVisibility(vWorld);
   vec3 lit = vec3(0.94, 0.95, 0.92) * (
       uFillIrradiance * (0.85 + 0.55 * (0.5 + 0.5 * nS.y))
-    + uSunRadiance * sunT * (0.12 + 0.5 * sunFace) * (0.25 + 0.75 * powder)
-    + uSunRadiance * sunT * powder * forward * 0.2) / WATER_PI * uFoamBrightness;
+    + uSunRadiance * keyVisibility * sunT * (0.12 + 0.5 * sunFace) * (0.25 + 0.75 * powder)
+    + uSunRadiance * keyVisibility * sunT * powder * forward * 0.2) / WATER_PI * uFoamBrightness;
   gl_FragColor = vec4(lit * alpha, alpha);
 `;
 

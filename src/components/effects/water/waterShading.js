@@ -402,11 +402,17 @@ export function syncWaterShadingUniforms(uniforms, settings, lighting) {
 export function tickWaterShadingUniforms(uniforms, time, noise) {
   uniforms.uTime.value = time;
   uniforms.uNoise.value = noise?.volume ?? null;
-  uniforms.uNoiseReady.value = noise ? 1 : 0;
+  uniforms.uNoiseReady.value = noise?.volume ? 1 : 0;
 }
 
-// Builds the cloud noise once for every water surface in the scene that does
-// not receive one from the clouds themselves.
+// A truthy pending handle is distinct from an absent external resource. It
+// stops child water materials from interpreting the parent's async start as a
+// request to launch another identical volume build.
+export const EMPTY_WATER_NOISE = Object.freeze({ volume: null });
+
+// Builds the cloud noise once for every water surface root that does not
+// receive one from the clouds themselves. Until it resolves the explicit
+// pending handle is safe for the shader and safe to share with child surfaces.
 export function useWaterNoise(noise) {
   const [ownNoise, setOwnNoise] = useState(null);
   useEffect(() => {
@@ -418,5 +424,5 @@ export function useWaterNoise(noise) {
       .catch(() => {});
     return () => { controller.abort(); built?.dispose(); };
   }, [noise]);
-  return noise ?? ownNoise;
+  return noise ?? ownNoise ?? EMPTY_WATER_NOISE;
 }

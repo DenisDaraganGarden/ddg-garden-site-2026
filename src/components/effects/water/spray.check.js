@@ -77,11 +77,13 @@ assert.ok(sprayInstanceCount({ distance: 9, height: 0.9, ...view, overdraw: SPRA
 assert.match(sprayVertexBody, /vec2 viewQuad/, 'spray keeps a rolled view-space billboard offset');
 assert.doesNotMatch(sprayVertexBody, /mvPosition \+ vec4\(\(vRight/, 'world billboard axes must not be added to a view-space position');
 assert.match(sprayFragmentBody, /gl_FragColor = vec4\(lit \* alpha, alpha\)/, 'spray body remains premultiplied before fog/output conversion');
+assert.match(sprayFragmentBody, /float keyVisibility = waterKeyVisibility\(vWorld\)/, 'spray receives the water CSM/cloud direct-light visibility once per mote');
 const breakingSource = readFileSync(new URL('./BreakingWaves.jsx', import.meta.url), 'utf8');
 assert.equal(
   (breakingSource.match(/\$\{transparentPremultipliedOutput\}/g) ?? []).length,
   2,
   'spray and foam shell share the alpha-preserving fog/output transform',
 );
+assert.match(breakingSource, /float keyVisibility = waterKeyVisibility\(vWorld\);/, 'foam shell receives the water CSM/cloud direct-light visibility once per march');
 
 console.log(`spray: closed-form flight within 2 mm of the integrated trajectory, coverage held to ${view.overdraw.toFixed(1)}x the frame over ${governed} m of the approach`);

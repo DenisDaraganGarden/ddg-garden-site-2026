@@ -178,13 +178,17 @@ export function useWaterSceneBindings(uniforms, { lighting, sky, runtime = null,
 
     uniforms.uReflectionTexture.value = data.texture ?? null;
     uniforms.uReflectionActive.value = data.texture ? 1 : 0;
-    if (data.matrix) uniforms.uReflectionMatrix.value.copy(data.matrix);
+    // The capture target is persistent: WaterReflections overwrites its pixels
+    // and these matrices in the same frame. Keep the uniform pointed at those
+    // live objects instead of copying them earlier in the frame, otherwise a
+    // moving camera samples new pixels with the previous capture projection.
+    uniforms.uReflectionMatrix.value = data.matrix;
     uniforms.uRefractionTexture.value = data.refractionTexture ?? null;
     uniforms.uRefractionDepthTexture.value = data.refractionDepthTexture ?? null;
     uniforms.uRefractionActive.value = data.refractionTexture ? 1 : 0;
     uniforms.uRefractionDepthActive.value = data.refractionDepthTexture ? 1 : 0;
-    if (data.refractionMatrix) uniforms.uRefractionMatrix.value.copy(data.refractionMatrix);
-    if (data.refractionViewMatrix) uniforms.uRefractionViewMatrix.value.copy(data.refractionViewMatrix);
-    if (data.refractionCameraRange) uniforms.uRefractionCameraRange.value.copy(data.refractionCameraRange);
+    uniforms.uRefractionMatrix.value = data.refractionMatrix;
+    uniforms.uRefractionViewMatrix.value = data.refractionViewMatrix;
+    uniforms.uRefractionCameraRange.value = data.refractionCameraRange;
   }, -2);
 }
