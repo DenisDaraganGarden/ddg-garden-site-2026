@@ -8,7 +8,8 @@
 import * as THREE from 'three';
 import { checkWaterCaptureGpu } from './check-water-capture-gpu.mjs';
 import { checkFarWaterCaptureGpu } from './check-far-water-capture-gpu.mjs';
-import { waterV2VertexShader } from '/src/components/effects/shaders/waterV2Shaders.js';
+// Historical GPU tool for the archived finite-pond surface.
+import { waterV2VertexShader } from '/src/components/effects/shaders/legacy/waterV2Shaders.js';
 import { createCoastUniforms, syncCoastUniforms } from '/src/terrain/terrainShader.js';
 import { coastCoordinates, coastPondWeight, createTerrainDefinition, sampleCoastWave, shorePosition } from '/src/terrain/terrainModel.js';
 

@@ -13,6 +13,9 @@ const shore = read('./ShoreWater.jsx');
 const open = read('./GerstnerWaterSurface.jsx');
 const sea = read('./SeaWater.jsx');
 const coastFrame = read('./coastFrame.js');
+const activeScene = read('../WaterScene.jsx');
+const terrainScene = read('../../../terrain/AzovTerrain.jsx');
+const legacyReadme = read('./legacy/README.md');
 
 // 1. One cell for every water surface. Each surface fades the trains its mesh
 // cannot resolve; hand two neighbours different cells and they compute
@@ -36,6 +39,16 @@ assert.ok(sea.includes('{definition.terrainEnabled ? <ShoreDepthMap coast={coast
 assert.ok(shore.includes('float cell = waterCell(p)'), 'ShoreWater derives its cell from waterCell');
 assert.ok(open.includes('float cell = waterCell(p)'), 'GerstnerWaterSurface derives its cell from waterCell');
 
+// The sea is now the sole visual surface. Before this migration AzovTerrain
+// mounted a second, old WaterSurface for every terrain strip whenever water
+// was visible — independently of the sea setting — so it overlapped the new
+// surface at the coast. Keep the retirement structural, not just hidden by a
+// runtime flag; the old modules stay only in the reversible archive.
+assert.ok(activeScene.includes("import SeaWater from './water/SeaWater.jsx';"), 'active scene owns the SeaWater adapter');
+assert.ok(!/WaterSurfaceV2|FarWaterSurface/.test(activeScene), 'active scene imports no retired visual water');
+assert.ok(!/name="coast-water"|WaterSurfaceV2|<TerrainStrip[^>]*\bwater\b/.test(terrainScene), 'terrain mounts land strips only, never a second visual water surface');
+assert.ok(legacyReadme.includes('outside the active import graph'), 'retired visual water has a reversible archive note');
+
 // 2. The loft stands on the bed and is cut by it. Without the first the surf
 // runs at the still line and the beach swallows it; without the second the
 // only thing stopping it is the depth buffer, which cuts a knife-straight line.
@@ -51,6 +64,9 @@ assert.ok(surf.includes('float along = sAlong - k * x;'), 'the section leans alo
 assert.ok(surf.includes('uniform float uBreakVisible[BREAK_SAMPLES + 1]'), 'a discontinuous coast can split the crest');
 assert.ok(surf.includes('* surfBreakVisibleAt(s);'), 'the split fades out before a ruled triangle crosses land');
 assert.ok(surf.includes('vec3 n = cross(ws1 - ws0, wt1 - wt0);'), 'normals are centred within their profile section');
+assert.ok(surf.includes('uniform float uRibbonVisible;'), 'inactive frozen ribbons have an explicit visibility uniform');
+assert.ok(surf.includes('uRibbonVisible * sp.alpha'), 'both surf passes discard frozen ghost ribbons');
+assert.ok(surf.includes('ribbon.uniforms.uRibbonVisible.value = alive ? 1 : 0;'), 'only the inspected frozen ribbon remains visible');
 
 // 4. The shore band cuts its edge per pixel, from the depth map and the sheet,
 // not from its own vertices: a contour of a varying is a straight segment

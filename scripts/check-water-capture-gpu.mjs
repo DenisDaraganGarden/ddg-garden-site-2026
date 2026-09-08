@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { waterV2FragmentShader } from '../src/components/effects/shaders/waterV2Shaders.js';
+// Historical capture tool for the archived finite-pond surface.
+import { waterV2FragmentShader } from '../src/components/effects/shaders/legacy/waterV2Shaders.js';
 
 // Exercise the shipping optical block, with a known constant-view-depth bed.
 // Moving the display camera must not reinterpret a rate-limited capture.

@@ -1,14 +1,14 @@
-import { coastShader, createCoastUniforms, syncCoastUniforms } from '../../../terrain/terrainShader.js';
-import { sceneDepthVertex, sceneDepthFragment } from '../shaders/sceneDepth';
-import { reflectionContext } from './reflectionContext';
+import { coastShader, createCoastUniforms, syncCoastUniforms } from '../../../../terrain/terrainShader.js';
+import { sceneDepthVertex, sceneDepthFragment } from '../../shaders/sceneDepth';
+import { reflectionContext } from '../reflectionContext';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { skyShaderChunk } from '../shaders/skyShader';
-import { farWaterBodyShader, farWaterSwellShader } from '../shaders/farWaterOptics';
+import { skyShaderChunk } from '../../shaders/skyShader';
+import { farWaterBodyShader, farWaterSwellShader } from '../../shaders/legacy/farWaterOptics';
 import { buildFarWaterFieldData } from './farWaterGeometry';
-import { DDG_CLOUD_SHADOW_GLSL, createCloudShadowUniforms, updateCloudShadowUniforms } from '../sky/painterly/cloudShadowRuntime.js';
-import { useCloudScene } from '../sky/painterly/CloudSceneContext.jsx';
+import { DDG_CLOUD_SHADOW_GLSL, createCloudShadowUniforms, updateCloudShadowUniforms } from '../../sky/painterly/cloudShadowRuntime.js';
+import { useCloudScene } from '../../sky/painterly/CloudSceneContext.jsx';
 
 const farWaterVertexShader = /* glsl */`
   ${coastShader}

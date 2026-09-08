@@ -42,54 +42,28 @@ const SHELF_CONTROLS = [
 
 export const WaterGeometrySection = ({ settings, handleSettingChange }) => {
     const { t, language } = useLanguage();
-    const sea = Boolean(settings.seaEnabled);
-
-    return (
-        <>
-            <CheckboxControl label={seaLabel('Новое море', 'New sea', language)} checked={sea} onChange={(event) => handleSettingChange(event, 'seaEnabled', 'boolean')} />
-            {sea ? <>
-                <SectionHeading label={seaLabel('Сетка', 'Mesh', language)} subtle />
-                <SeaRange settings={settings} handleSettingChange={handleSettingChange} setting="seaMeshRings" ru="Кольца сетки" en="Mesh rings" language={language} />
-                <SeaRange settings={settings} handleSettingChange={handleSettingChange} setting="seaMeshSegments" ru="Сегменты сетки" en="Mesh segments" language={language} />
-            </> : <>
-            <RangeControl
-                label={t('homeEditor.controls.waterExtent')}
-                value={settings.waterExtent}
-                min={12}
-                max={200}
-                step={0.5}
-                unit="m"
-                formatValue={(value) => formatFloat(value, 1)}
-                onChange={(event) => handleSettingChange(event, 'waterExtent')}
-            />
-            </>}
-        </>
-    );
+    return <>
+        <SectionHeading label={seaLabel('Сетка', 'Mesh', language)} subtle />
+        <SeaRange settings={settings} handleSettingChange={handleSettingChange} setting="seaMeshRings" ru="Кольца сетки" en="Mesh rings" language={language} />
+        <SeaRange settings={settings} handleSettingChange={handleSettingChange} setting="seaMeshSegments" ru="Сегменты сетки" en="Mesh segments" language={language} />
+        <RangeControl label={seaLabel('Область ряби', 'Ripple area', language)} value={settings.waterExtent} min={12} max={200} step={0.5} unit="m" formatValue={(value) => formatFloat(value, 1)} onChange={(event) => handleSettingChange(event, 'waterExtent')} />
+        <SelectControl label={t('homeEditor.controls.simulationResolution')} value={settings.simulationResolution} options={SIMULATION_RESOLUTION_OPTIONS} onChange={(event) => handleSettingChange(event, 'simulationResolution', 'integer')} />
+    </>;
 };
 
 export const WaterWavesSection = ({ settings, handleSettingChange }) => {
     const { t, language } = useLanguage();
-    const sea = Boolean(settings.seaEnabled);
 
     return (
         <>
-            {sea ? <>
-                {SEA_WAVES.map(([setting, ru, en, unit]) => <SeaRange key={setting} settings={settings} handleSettingChange={handleSettingChange} setting={setting} ru={ru} en={en} language={language} unit={unit} />)}
-                <SectionHeading label={seaLabel('Прибой', 'Surf', language)} subtle />
-                <CheckboxControl label={seaLabel('Прибой включён', 'Surf enabled', language)} checked={Boolean(settings.seaSurfEnabled)} onChange={(event) => handleSettingChange(event, 'seaSurfEnabled', 'boolean')} />
-                <CheckboxControl label={seaLabel('Стоп-кадр', 'Freeze', language)} checked={Boolean(settings.seaSurfFreeze)} onChange={(event) => handleSettingChange(event, 'seaSurfFreeze', 'boolean')} />
-                {SEA_SURF.map(([setting, ru, en, unit]) => <SeaRange key={setting} settings={settings} handleSettingChange={handleSettingChange} setting={setting} ru={ru} en={en} language={language} unit={unit} />)}
-            </> : <>
-            <SectionHeading label={t('homeEditor.blocks.simulation')} subtle />
-            <SelectControl
-                label={t('homeEditor.controls.simulationResolution')}
-                value={settings.simulationResolution}
-                options={SIMULATION_RESOLUTION_OPTIONS}
-                onChange={(event) => handleSettingChange(event, 'simulationResolution', 'integer')}
-            />
-            <SectionHeading label={t('homeEditor.blocks.waveShape')} subtle />
+            {SEA_WAVES.map(([setting, ru, en, unit]) => <SeaRange key={setting} settings={settings} handleSettingChange={handleSettingChange} setting={setting} ru={ru} en={en} language={language} unit={unit} />)}
+            <SectionHeading label={seaLabel('Прибой', 'Surf', language)} subtle />
+            <CheckboxControl label={seaLabel('Прибой включён', 'Surf enabled', language)} checked={Boolean(settings.seaSurfEnabled)} onChange={(event) => handleSettingChange(event, 'seaSurfEnabled', 'boolean')} />
+            <CheckboxControl label={seaLabel('Стоп-кадр', 'Freeze', language)} checked={Boolean(settings.seaSurfFreeze)} onChange={(event) => handleSettingChange(event, 'seaSurfFreeze', 'boolean')} />
+            {SEA_SURF.map(([setting, ru, en, unit]) => <SeaRange key={setting} settings={settings} handleSettingChange={handleSettingChange} setting={setting} ru={ru} en={en} language={language} unit={unit} />)}
+            <SectionHeading label={t('homeEditor.blocks.cursorRipples')} subtle />
             <RangeControl
-                label={t('homeEditor.controls.waveAmplitude')}
+                label={seaLabel('Амплитуда ряби', 'Ripple amplitude', language)}
                 value={settings.waveAmplitude}
                 min={0}
                 max={0.2}
@@ -99,7 +73,7 @@ export const WaterWavesSection = ({ settings, handleSettingChange }) => {
                 onChange={(event) => handleSettingChange(event, 'waveAmplitude')}
             />
             <RangeControl
-                label={t('homeEditor.controls.waveLength')}
+                label={seaLabel('Длина ряби', 'Ripple wavelength', language)}
                 value={settings.waveLength}
                 min={0.4}
                 max={3.2}
@@ -108,17 +82,6 @@ export const WaterWavesSection = ({ settings, handleSettingChange }) => {
                 formatValue={(value) => formatFloat(value)}
                 onChange={(event) => handleSettingChange(event, 'waveLength')}
             />
-            <RangeControl
-                label={t('homeEditor.controls.waveChoppiness')}
-                value={settings.waveChoppiness}
-                min={0}
-                max={1.25}
-                step={0.01}
-                formatValue={(value) => formatFloat(value)}
-                onChange={(event) => handleSettingChange(event, 'waveChoppiness')}
-            />
-            </>}
-            <SectionHeading label={t('homeEditor.blocks.cursorRipples')} subtle />
             <RangeControl
                 label={t('homeEditor.controls.rippleRadius')}
                 value={settings.rippleRadius}
@@ -154,9 +117,8 @@ export const WaterWavesSection = ({ settings, handleSettingChange }) => {
 
 export const WaterShaderSection = ({ settings, handleSettingChange }) => {
     const { t, language } = useLanguage();
-    const sea = Boolean(settings.seaEnabled);
 
-    if (sea) return <>
+    return <>
         <SectionHeading label={seaLabel('Пена и рябь', 'Foam and ripple', language)} subtle />
         <CheckboxControl label={seaLabel('Память пены', 'Foam memory', language)} checked={Boolean(settings.seaFoamMemory)} onChange={(event) => handleSettingChange(event, 'seaFoamMemory', 'boolean')} />
         {SEA_FOAM.map(([setting, ru, en, unit]) => <SeaRange key={setting} settings={settings} handleSettingChange={handleSettingChange} setting={setting} ru={ru} en={en} language={language} unit={unit} />)}
@@ -168,94 +130,33 @@ export const WaterShaderSection = ({ settings, handleSettingChange }) => {
         <SeaRange settings={settings} handleSettingChange={handleSettingChange} setting="seaCrestGlow" ru="Просвет гребня" en="Crest glow" language={language} />
         <SeaRange settings={settings} handleSettingChange={handleSettingChange} setting="seaGlint" ru="Блики солнца" en="Sun glints" language={language} />
         <SeaRange settings={settings} handleSettingChange={handleSettingChange} setting="seaSkyReflection" ru="Отражение неба" en="Sky reflection" language={language} />
+        <SectionHeading label={t('homeEditor.blocks.body')} subtle />
+        <RangeControl
+            label={t('homeEditor.controls.waterDepthMeters')}
+            value={settings.waterDepthMeters}
+            min={0.25}
+            max={12}
+            step={0.25}
+            unit="m"
+            formatValue={(value) => formatFloat(value, 1)}
+            onChange={(event) => handleSettingChange(event, 'waterDepthMeters')}
+        />
+        <SectionHeading label={t('homeEditor.blocks.scattering')} subtle />
+        <RangeControl
+            label={t('homeEditor.controls.waterScatteringStrength')}
+            value={settings.waterScatteringStrength}
+            min={0}
+            max={2}
+            step={0.01}
+            formatValue={(value) => formatFloat(value)}
+            onChange={(event) => handleSettingChange(event, 'waterScatteringStrength')}
+        />
+        <ColorControl
+            label={t('homeEditor.controls.waterScatteringColor')}
+            value={settings.waterScatteringColor}
+            onChange={(event) => handleSettingChange(event, 'waterScatteringColor', 'color')}
+        />
     </>;
-
-    return (
-        <>
-            <SectionHeading label={t('homeEditor.blocks.body')} subtle />
-            <RangeControl
-                label={t('homeEditor.controls.waterDepthMeters')}
-                value={settings.waterDepthMeters}
-                min={0.25}
-                max={12}
-                step={0.25}
-                unit="m"
-                formatValue={(value) => formatFloat(value, 1)}
-                onChange={(event) => handleSettingChange(event, 'waterDepthMeters')}
-            />
-            <ColorControl
-                label={t('homeEditor.controls.envTint')}
-                value={settings.envTint}
-                onChange={(event) => handleSettingChange(event, 'envTint', 'color')}
-            />
-            <RangeControl
-                label={t('homeEditor.controls.waterTurbidity')}
-                value={settings.waterTurbidity}
-                min={0}
-                max={1}
-                step={0.01}
-                unit="%"
-                formatValue={(value) => Math.round(Number(value) * 100)}
-                onChange={(event) => handleSettingChange(event, 'waterTurbidity')}
-            />
-            <SectionHeading label={t('homeEditor.blocks.scattering')} subtle />
-            <RangeControl
-                label={t('homeEditor.controls.waterScatteringStrength')}
-                value={settings.waterScatteringStrength}
-                min={0}
-                max={2}
-                step={0.01}
-                formatValue={(value) => formatFloat(value)}
-                onChange={(event) => handleSettingChange(event, 'waterScatteringStrength')}
-            />
-            <ColorControl
-                label={t('homeEditor.controls.waterScatteringColor')}
-                value={settings.waterScatteringColor}
-                onChange={(event) => handleSettingChange(event, 'waterScatteringColor', 'color')}
-            />
-            <SectionHeading label={t('homeEditor.blocks.glints')} subtle />
-            <RangeControl
-                label={t('homeEditor.controls.waterGlintStrength')}
-                value={settings.waterGlintStrength}
-                min={0}
-                max={2}
-                step={0.01}
-                formatValue={(value) => formatFloat(value)}
-                onChange={(event) => handleSettingChange(event, 'waterGlintStrength')}
-            />
-            <RangeControl
-                label={t('homeEditor.controls.waterGlintDensity')}
-                value={settings.waterGlintDensity}
-                min={0}
-                max={1}
-                step={0.01}
-                unit="%"
-                formatValue={(value) => Math.round(Number(value) * 100)}
-                onChange={(event) => handleSettingChange(event, 'waterGlintDensity')}
-            />
-            <RangeControl
-                label={t('homeEditor.controls.waterGlintSharpness')}
-                value={settings.waterGlintSharpness}
-                min={0}
-                max={1}
-                step={0.01}
-                unit="%"
-                formatValue={(value) => Math.round(Number(value) * 100)}
-                onChange={(event) => handleSettingChange(event, 'waterGlintSharpness')}
-            />
-
-            <RangeControl
-                label={t('homeEditor.controls.farWaterBlendWidth')}
-                value={settings.farWaterBlendWidth}
-                min={0.4}
-                max={8}
-                step={0.1}
-                unit="m"
-                formatValue={(value) => formatFloat(value, 1)}
-                onChange={(event) => handleSettingChange(event, 'farWaterBlendWidth')}
-            />
-        </>
-    );
 };
 
 export const SeabedSection = ({ settings, handleSettingChange }) => {

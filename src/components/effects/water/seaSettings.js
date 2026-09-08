@@ -46,6 +46,9 @@ export function normalizeSeaSettings(flat = {}) {
     else if (key === 'seaMeshRings' || key === 'seaMeshSegments') normalized[key] = integer(flat[key], fallback, SEA_RANGES[key]);
     else normalized[key] = number(flat[key], fallback, SEA_RANGES[key]);
   }
+  // Compatibility with drafts/cameras saved while the old engine switch existed.
+  // Water visibility remains owned by waterVisible; false cannot revive V2.
+  normalized.seaEnabled = true;
   // The distant fade must remain ordered, otherwise smoothstep is undefined.
   normalized.seaFadeEnd = Math.max(normalized.seaFadeEnd, normalized.seaFadeStart + 20);
   return normalized;

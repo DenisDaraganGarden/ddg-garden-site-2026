@@ -1,18 +1,18 @@
-import { createCoastUniforms, syncCoastUniforms } from '../../../terrain/terrainShader.js';
-import { sceneDepthVertex, sceneDepthFragment } from '../shaders/sceneDepth';
+import { createCoastUniforms, syncCoastUniforms } from '../../../../terrain/terrainShader.js';
+import { sceneDepthVertex, sceneDepthFragment } from '../../shaders/sceneDepth';
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { buildFarWaterFieldData } from './farWaterGeometry';
-import { BOAT_CUTOUT_STENCIL_REF, DEBUG_VIEW_IDS } from './constants';
-import { reflectionContext } from './reflectionContext';
-import { waterV2FragmentShader, waterV2VertexShader } from '../shaders/waterV2Shaders';
-import { createCloudShadowUniforms, updateCloudShadowUniforms } from '../sky/painterly/cloudShadowRuntime.js';
-import { useCloudScene } from '../sky/painterly/CloudSceneContext.jsx';
+import { BOAT_CUTOUT_STENCIL_REF, DEBUG_VIEW_IDS } from '../constants';
+import { reflectionContext } from '../reflectionContext';
+import { waterV2FragmentShader, waterV2VertexShader } from '../../shaders/legacy/waterV2Shaders';
+import { createCloudShadowUniforms, updateCloudShadowUniforms } from '../../sky/painterly/cloudShadowRuntime.js';
+import { useCloudScene } from '../../sky/painterly/CloudSceneContext.jsx';
 import {
   createCursorFlashlightUniforms,
   syncCursorFlashlightUniforms,
-} from '../shaders/cursorFlashlightShader';
+} from '../../shaders/cursorFlashlightShader';
 
 // The water surface itself: displaced by the simulation height field, shaded with
 // the reflection and refraction textures, and the mesh that writes the stencil the

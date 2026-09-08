@@ -227,6 +227,8 @@ export const sprayVertexBody = /* glsl */`
   // shape from every side.
   float roll = sprayHash(seed + 12.7) * 6.28318530718;
   float cr = cos(roll), sr = sin(roll);
+  // These are WORLD axes for sampling the volume in the fragment. They must
+  // not be added to mvPosition below: that position is already in VIEW space.
   vec3 right = vec3(viewMatrix[0][0], viewMatrix[1][0], viewMatrix[2][0]);
   vec3 up = vec3(viewMatrix[0][1], viewMatrix[1][1], viewMatrix[2][1]);
   vRight = right * cr + up * sr;
@@ -235,7 +237,11 @@ export const sprayVertexBody = /* glsl */`
   vView = normalize(cameraPosition - world);
   vWorld = world;
   float draw = radius * grow;
-  gl_Position = projectionMatrix * (mvPosition + vec4((vRight * vQuad.x + vUp * vQuad.y) * draw, 0.0));
+  vec2 viewQuad = vec2(
+    cr * vQuad.x - sr * vQuad.y,
+    sr * vQuad.x + cr * vQuad.y
+  );
+  gl_Position = projectionMatrix * (mvPosition + vec4(viewQuad * draw, 0.0, 0.0));
 `;
 
 // The fragment half. It expects gerstnerShader (for the hashed noise) and

@@ -38,8 +38,6 @@ import { useWaterRuntime } from './water/useWaterRuntime';
 import WaterInteractionPlane from './water/WaterInteractionPlane';
 import WaterReflections from './water/WaterReflections';
 import WaterLights from './water/WaterLights';
-import WaterSurfaceV2 from './water/WaterSurface';
-import FarWaterSurface from './water/FarWaterSurface';
 import Seabed from './water/Seabed';
 import { SurfaceVegetation } from './water/SurfaceVegetation';
 import { UnderwaterAlgae } from './water/UnderwaterAlgae';
@@ -73,19 +71,6 @@ import { useSkyEnvironment } from './water/skyEnvironment';
 import HomeSeagullFlock from '../../features/home-scene/creatures/HomeSeagullFlock';
 import SeagullLandingHabitat from '../../features/home-scene/creatures/SeagullLandingHabitat.jsx';
 import HomeFishSchool from '../../features/home-scene/creatures/HomeFishSchool.jsx';
-import {
-} from './shaders/waterRuntimeShaders';
-import {
-} from './shaders/waterV2Shaders';
-import {
-} from './shaders/vegetationShaders';
-
-
-
-
-
-
-
 
 // Wireframe is a material flag, not a shader mode, so it cannot be one more
 // entry in the debug view list. Sweeping the scene rather than threading a prop
@@ -365,7 +350,7 @@ function WaterRuntimeScene({
 
   useEffect(() => {
     const { dataset } = gl.domElement;
-    dataset.ddgWaterEngine = seaSettings.enabled ? 'sea' : 'v2';
+    dataset.ddgWaterEngine = 'sea';
     dataset.ddgQualityTier = qualityProfile.qualityTier ?? (qualityProfile.isLowPower ? 'low' : 'high');
     dataset.ddgMobileProfile = qualityProfile.isMobileDevice ? 'on' : 'off';
     dataset.ddgSkyLut = `${sky.width}x${sky.height}`;
@@ -377,7 +362,7 @@ function WaterRuntimeScene({
       : 'half-float';
     dataset.ddgRefractionMode = `${refractionColor}-${qualityProfile.refractionDepthEnabled ? 'depth-texture' : 'analytic-depth'}`;
     dataset.ddgReflectionMode = reflectionsEnabled ? 'planar-generic' : 'procedural-sky';
-    dataset.ddgWaterMeshDensity = String(Math.min(settings.waterMeshDensity, qualityProfile.waterMeshDensityCap));
+    dataset.ddgWaterMeshDensity = String(effectiveSeaSettings.meshSegments);
     dataset.ddgSeabedMeshDensity = String(qualityProfile.seabedMeshDensity);
     dataset.ddgPostRenderScale = String(qualityProfile.postRenderScale);
     dataset.ddgPostTarget = qualityProfile.postProcessingSupported === false
@@ -415,9 +400,8 @@ function WaterRuntimeScene({
     qualityProfile.waterMeshDensityCap,
     reflectionsEnabled,
     runtime.effectiveResolution,
-    seaSettings.enabled,
+    effectiveSeaSettings.meshSegments,
     settings.simulationResolution,
-    settings.waterMeshDensity,
     settings.shadowsEnabled,
     sky.height,
     sky.environmentHeight,
@@ -476,7 +460,7 @@ function WaterRuntimeScene({
         {terrainQuery&&settings.shrubsEnabled ? <CoastShrubs settings={shrubAsset} plants={shrubPlants} qualityProfile={qualityProfile} envMapIntensity={lighting.environment.reflection}/> : null}
         {terrainQuery&&settings.treesEnabled ? <CoastTrees settings={treeAsset} plants={treePlants} qualityProfile={qualityProfile} envMapIntensity={lighting.environment.reflection}/> : null}
         {terrainQuery&&settings.grassEnabled ? <CoastGrass query={terrainQuery} definition={queryDefinition} settings={grassSettings} asset={grassAsset} qualityProfile={qualityProfile} envMapIntensity={lighting.environment.reflection}/> : null}
-        {settings.terrainEnabled ? <AzovTerrain plantCover={shrubCover} rocks={terrainRocks} onTerrainReady={handleLandingSurfaceReady} audioRuntime={audioRuntime} runtime={runtime} definition={terrainDefinition} settings={settings} qualityProfile={qualityProfile} lighting={lighting} sky={sky} swash={seaSettings.enabled ? seaSwash : null} /> : null}
+        {settings.terrainEnabled ? <AzovTerrain plantCover={shrubCover} rocks={terrainRocks} onTerrainReady={handleLandingSurfaceReady} audioRuntime={audioRuntime} runtime={runtime} definition={terrainDefinition} settings={settings} qualityProfile={qualityProfile} lighting={lighting} swash={seaSwash} /> : null}
         {settings.seabedVisible && !seabedCovered ? (
           <Seabed
             settings={settings}
@@ -504,24 +488,7 @@ function WaterRuntimeScene({
             mode={mode}
           />
         ) : null}
-        {settings.waterVisible && !seaSettings.enabled && settings.farWaterVisible && settings.debugView === 'beauty' ? (
-          <FarWaterSurface
-            settings={settings}
-            lighting={lighting}
-            sky={sky}
-            qualityProfile={qualityProfile}
-          />
-        ) : null}
-        {settings.waterVisible && !seaSettings.enabled ? (
-          <WaterSurfaceV2
-            settings={settings}
-            runtime={runtime}
-            qualityProfile={qualityProfile}
-            lighting={lighting}
-            sky={sky}
-          />
-        ) : null}
-        {settings.waterVisible && seaSettings.enabled ? (
+        {settings.waterVisible ? (
           <SeaWater
             settings={effectiveSeaSettings}
             sceneSettings={settings}

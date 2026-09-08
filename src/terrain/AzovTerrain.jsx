@@ -6,7 +6,6 @@ import { buildTerrainStrip, terrainLod } from './terrainGeometry.js';
 import { createTerrainDefinition, coastCoordinates, shorePosition, coastPoint, coastSurfCoordinates, COAST_STRIP_LENGTH } from './terrainModel.js';
 import { createTerrainMaterial } from './terrainMaterial.js';
 import { syncCoastUniforms } from './terrainShader.js';
-import WaterSurfaceV2 from '../components/effects/water/WaterSurface';
 import { CoastShells, CoastPebbles } from './CoastScatter.jsx';
 import { TERRAIN_MAP_NAMES,createTerrainTextureArrays,terrainMapUrl } from './terrainTextures.js';
 import { syncGrassFieldUniforms } from '../plants/grassField.js';
@@ -17,11 +16,11 @@ const mapNames=TERRAIN_MAP_NAMES;
 // The optics twin shares the strip's buffers, so it goes first: its dispose
 // frees the shared attributes and its own index, the strip's then only its own.
 function disposeStrip(geometry){geometry.userData.optics?.dispose();geometry.dispose();}
-function TerrainStrip({ definition:p,s0,material,water,qualityProfile,settings,lighting,sky,runtime }) {
+function TerrainStrip({ definition:p,s0,material,qualityProfile }) {
   const {camera}=useThree();
   const [lod,setLod]=useState(2); const timer=useRef(0),mesh=useRef(),transition=useRef({target:2,refining:false,morph:0});
-  const geometryCache=useMemo(()=>({definition:p,s0,water,levels:new Map()}),[p,s0,water]);
-  const geometry=useMemo(()=>{const {definition,s0,water,levels}=geometryCache;if(!levels.has(lod))levels.set(lod,buildTerrainStrip(definition,s0,lod,water));return levels.get(lod);},[geometryCache,lod]);
+  const geometryCache=useMemo(()=>({definition:p,s0,levels:new Map()}),[p,s0]);
+  const geometry=useMemo(()=>{const {definition,s0,levels}=geometryCache;if(!levels.has(lod))levels.set(lod,buildTerrainStrip(definition,s0,lod));return levels.get(lod);},[geometryCache,lod]);
   // The reflection and refraction passes draw this strip through a twin that
   // shares every buffer and morph target but indexes every other row and
   // column: a quarter of the triangles for targets that cannot resolve more.
@@ -44,7 +43,7 @@ function TerrainStrip({ definition:p,s0,material,water,qualityProfile,settings,l
   },[geometry,geometryCache,lod]);
   useFrame((_,delta)=>{
     const state=transition.current;
-    if(!water&&mesh.current?.morphTargetInfluences?.length){
+    if(mesh.current?.morphTargetInfluences?.length){
       const goal=state.refining?0:state.target>lod?1:0;
       state.morph=state.morph+Math.sign(goal-state.morph)*Math.min(Math.abs(goal-state.morph),Math.min(delta,.05)/.65);
       mesh.current.morphTargetInfluences[0]=state.morph;mesh.current.userData.terrainMorph=state.morph;
@@ -55,7 +54,7 @@ function TerrainStrip({ definition:p,s0,material,water,qualityProfile,settings,l
     const local=coastCoordinates(camera.position.x,camera.position.z,p);
     const ds=Math.max(s0-local.s,local.s-(s0+COAST_STRIP_LENGTH),0);
     const q=local.u-shorePosition(local.s,p);
-    const crossDistance=Math.max(-p.coastOffshore-q,q-(water?8:p.terrainLandWidth),0);
+    const crossDistance=Math.max(-p.coastOffshore-q,q-p.terrainLandWidth,0);
     const distance=Math.hypot(ds,crossDistance,Math.max(0,camera.position.y-p.terrainCliffHeight));
     // Retain nearby resolutions when crossing a threshold repeatedly. Release
     // unused fine buffers after leaving the area; a 4 km coast cannot keep all
@@ -65,15 +64,13 @@ function TerrainStrip({ definition:p,s0,material,water,qualityProfile,settings,l
     const threshold=desired<lod?(desired===0?70:250):(lod===0?100:300);
     if(desired!==lod&&(desired<lod?distance<threshold:distance>threshold)){
       state.target=desired;
-      if(water)setLod(desired);
-      else if(desired<lod&&!state.refining&&state.morph===0){state.refining=true;setLod(lod-1);}
+      if(desired<lod&&!state.refining&&state.morph===0){state.refining=true;setLod(lod-1);}
     }else if(desired===lod)state.target=lod;
   });
-  if(water)return <WaterSurfaceV2 geometryOverride={geometry} shoreMode runtime={runtime} settings={settings} lighting={lighting} sky={sky} qualityProfile={qualityProfile}/>;
   return <mesh ref={mesh} geometry={geometry} material={material} castShadow receiveShadow userData={{terrainLod:lod,ddgOpticsGeometry:optics}} />;
 }
 // swash: the water's foam field holder ({ texture, window }) the beach reads its wet sand and lace from; null without the new water.
-export default function AzovTerrain({ definition, settings, qualityProfile, lighting, sky, runtime, rocks, onTerrainReady, audioRuntime, plantCover, swash = null }) {
+export default function AzovTerrain({ definition, settings, qualityProfile, lighting, runtime, rocks, onTerrainReady, audioRuntime, plantCover, swash = null }) {
   const {gl}=useThree();const land=useRef();
   const shoreEmitter=useRef(settings.audio?.emitters?.shore);shoreEmitter.current=settings.audio?.emitters?.shore;
   useEffect(()=>()=>{const emitter=shoreEmitter.current;if(emitter)audioRuntime?.updateEmitter?.('shore',emitter.x,emitter.y,emitter.z);},[audioRuntime]);
@@ -111,9 +108,8 @@ export default function AzovTerrain({ definition, settings, qualityProfile, ligh
   },-3);
   const meshKey=terrainGeometryKey(definition);
   const meshDefinition=useMemo(()=>createTerrainDefinition(JSON.parse(meshKey)),[meshKey]);
-  const shared={definition:meshDefinition,settings,qualityProfile,lighting,sky,runtime};
+  const shared={definition:meshDefinition,qualityProfile};
   return <>
     <group ref={land} name="azov-terrain">{strips.map(s0=><TerrainStrip key={s0} {...shared} s0={s0} material={materials.land}/>)}<CoastRocksPBR rocks={rocks} materials={rockMaterials} lowPower={lowPower}/><CoastShells definition={definition} qualityProfile={qualityProfile} lighting={lighting}/><CoastPebbles definition={definition} qualityProfile={qualityProfile} lighting={lighting} material={rockMaterials.pebble}/></group>
-    {settings.waterVisible ? <group name="coast-water">{strips.map(s0=><TerrainStrip key={s0} {...shared} s0={s0} water/>)}</group> : null}
   </>;
 }

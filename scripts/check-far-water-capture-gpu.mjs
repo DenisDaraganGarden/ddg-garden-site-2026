@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { farWaterFragmentShader } from '../src/components/effects/water/FarWaterSurface.jsx';
+// Historical capture tool for the archived far-water surface.
+import { farWaterFragmentShader } from '../src/components/effects/water/legacy/FarWaterSurface.jsx';
 
 // This deliberately extracts the shipping FarWater capture block. It proves
 // that a frozen refraction target still measures the same three-metre optical

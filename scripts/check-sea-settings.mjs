@@ -6,6 +6,7 @@ import { publishedHomeSceneKeys } from '../src/features/home-scene/data/publishe
 const seaKeys = Object.keys(SEA_SETTINGS_DEFAULTS);
 const defaults = normalizeSeaSettings({});
 assert.deepEqual(defaults, SEA_SETTINGS_DEFAULTS, 'an empty scene starts with Denis’s laboratory sea');
+assert.equal(resolveSeaSettings({ seaEnabled: false }).enabled, true, 'legacy engine choices migrate to the only sea runtime');
 const broken = normalizeSeaSettings({ seaAmplitude: 'NaN', seaSteepness: 9, seaMeshRings: 17, seaWaterColor: 'sand', seaFadeStart: 1200, seaFadeEnd: 40 });
 assert.equal(broken.seaAmplitude, SEA_SETTINGS_DEFAULTS.seaAmplitude, 'NaN falls back');
 assert.equal(broken.seaSteepness, 0.8, 'numeric values clamp');
@@ -19,6 +20,7 @@ const server = await createServer({ configFile: false, cacheDir: 'output/sea-set
 try {
   const { createHomeSceneSnapshot, normalizePublishedHomeSceneSettings, sanitizeHomeSceneSettingsForPublish } = await server.ssrLoadModule('/src/features/home-scene/hooks/useHomeSceneSettings.js');
   const source = normalizePublishedHomeSceneSettings({ seaAmplitude: 1.1, seaSurfHeight: 1.3, seaEnabled: false, waterExtent: 73 });
+  assert.equal(source.seaEnabled, true, 'saved V2 drafts migrate without editing the authored source');
   const snapshot = createHomeSceneSnapshot(source);
   const published = sanitizeHomeSceneSettingsForPublish(source);
   for (const key of seaKeys) {

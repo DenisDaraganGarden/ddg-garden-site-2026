@@ -1,6 +1,5 @@
 import { createCoastUniforms, syncCoastUniforms } from '../../../terrain/terrainShader.js';
 import { createTerrainDefinition,coastCoordinates,shorePosition,sampleCoastWave,coastPondWeight } from '../../../terrain/terrainModel.js';
-import { buildFarWaterFieldData } from './farWaterGeometry';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
@@ -34,6 +33,9 @@ import { radialCellFactor } from './radialWaterGeometry.js';
 // derived normal and probe passes the rest of the scene reads from.
 
 const WATER_SURFACE_SAMPLE_CACHE_MS = 50;
+// The retained local simulation still needs a sponge at its finite edge, but
+// it no longer hands pixels to the archived far-water surface.
+const surfaceEdgeBlendUv = (extent) => 1.5 / Math.max(Number(extent) || 24, 1);
 
 // One probe read is five texels: height in R, the normal in GBA. Every reader
 // decodes into its own results, never into a shared array - the boat, the
@@ -218,7 +220,7 @@ export function useWaterRuntime(settings, qualityProfile, mode, seaSettings = nu
     const simulationPass = createPass(simulationFragmentShader, {
       ...createCoastUniforms(),
       uWaterExtent: {value:runtimeSettings.waterExtent},
-      uBoundaryBlendUv: { value: buildFarWaterFieldData(runtimeSettings.waterExtent).surfaceEdgeBlendUv },
+      uBoundaryBlendUv: { value: surfaceEdgeBlendUv(runtimeSettings.waterExtent) },
       uState: { value: read.texture },
       uResolution: { value: new THREE.Vector2(effectiveResolution, effectiveResolution) },
       uPointerUv: { value: new THREE.Vector2(0.5, 0.5) },
@@ -347,7 +349,7 @@ export function useWaterRuntime(settings, qualityProfile, mode, seaSettings = nu
 
     syncCoastUniforms(renderState.simulationPass.material.uniforms,settings);
     renderState.simulationPass.material.uniforms.uWaterExtent.value=settings.waterExtent;
-    renderState.simulationPass.material.uniforms.uBoundaryBlendUv.value=buildFarWaterFieldData(settings.waterExtent).surfaceEdgeBlendUv;
+    renderState.simulationPass.material.uniforms.uBoundaryBlendUv.value=surfaceEdgeBlendUv(settings.waterExtent);
     renderState.simulationPass.material.uniforms.uState.value = renderState.read.texture;
     renderState.simulationPass.material.uniforms.uResolution.value.set(effectiveResolution, effectiveResolution);
     renderState.simulationPass.material.uniforms.uPointerUv.value.copy(activeImpulse?.uv ?? pointerState.impulseUv);

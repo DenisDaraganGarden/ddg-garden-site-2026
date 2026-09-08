@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import { SPRAY_ACCEPTANCE, SPRAY_GROW, SPRAY_RADIUS, SPRAY_TIERS, sprayFlight, sprayInstanceCount } from './spray.js';
+import { readFileSync } from 'node:fs';
+import { SPRAY_ACCEPTANCE, SPRAY_GROW, SPRAY_RADIUS, SPRAY_TIERS, sprayFlight, sprayFragmentBody, sprayInstanceCount, sprayVertexBody } from './spray.js';
 
 // The motes fly in closed form so that nothing has to be simulated or stored.
 // That is only allowed if the closed form IS the trajectory: integrate the
@@ -69,5 +70,18 @@ assert.ok(governed >= 8, `the budget should govern over a real range of distance
 assert.equal(sprayInstanceCount({ distance: 60, height: 0.9, ...view }), SPRAY_TIERS.high.max);
 assert.ok(sprayInstanceCount({ distance: 9, height: 0.9, ...view, overdraw: SPRAY_TIERS.low.overdraw, max: SPRAY_TIERS.low.max })
   < sprayInstanceCount({ distance: 9, height: 0.9, ...view }), 'a lower tier draws fewer motes');
+
+// Billboard vertices are offset in view space; world axes are retained only
+// for the volume's lighting/noise lookup. Mixing them makes camera rotation
+// shear a puff into a flashing screen-aligned square.
+assert.match(sprayVertexBody, /vec2 viewQuad/, 'spray keeps a rolled view-space billboard offset');
+assert.doesNotMatch(sprayVertexBody, /mvPosition \+ vec4\(\(vRight/, 'world billboard axes must not be added to a view-space position');
+assert.match(sprayFragmentBody, /gl_FragColor = vec4\(lit \* alpha, alpha\)/, 'spray body remains premultiplied before fog/output conversion');
+const breakingSource = readFileSync(new URL('./BreakingWaves.jsx', import.meta.url), 'utf8');
+assert.equal(
+  (breakingSource.match(/\$\{transparentPremultipliedOutput\}/g) ?? []).length,
+  2,
+  'spray and foam shell share the alpha-preserving fog/output transform',
+);
 
 console.log(`spray: closed-form flight within 2 mm of the integrated trajectory, coverage held to ${view.overdraw.toFixed(1)}x the frame over ${governed} m of the approach`);

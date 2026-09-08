@@ -79,6 +79,7 @@ const loftShader = /* glsl */`
   uniform float uPeel;
   uniform float uRunup;
   uniform float uSpent;        // metres past its own break after which a section is gone
+  uniform float uRibbonVisible;
   // The crest's height follows the swell's weather at its break point, so a
   // gust's bigger sections break earlier and farther out than the lulls; the
   // ends taper to the swell. The CPU break line uses the same field.
@@ -223,7 +224,7 @@ const sheetVertexShader = /* glsl */`
     vFoamUv = vec2(s * uCrestLength, sp.arc);
     vFoam = sp.foam;
     vThickness = sp.thickness;
-    vAlpha = sp.alpha * surfRunupAlpha(w, s, ground) * surfEdgeAlpha(s, t);
+    vAlpha = uRibbonVisible * sp.alpha * surfRunupAlpha(w, s, ground) * surfEdgeAlpha(s, t);
     vShade = sp.shade;
     vec4 mvPosition = viewMatrix * vec4(w, 1.0);
     gl_Position = projectionMatrix * mvPosition;
@@ -317,11 +318,31 @@ const shellVertexShader = /* glsl */`
     vShell = shell;
     vPuff = sp.puff;
     vGround = coastGround(coastLocal(w.xz));
-    vAlpha = sp.alpha * surfRunupAlpha(w, s, vGround) * surfEdgeAlpha(s, t);
+    vAlpha = uRibbonVisible * sp.alpha * surfRunupAlpha(w, s, vGround) * surfEdgeAlpha(s, t);
     vec4 mvPosition = viewMatrix * vec4(vWorld, 1.0);
     gl_Position = projectionMatrix * mvPosition;
     #include <fog_vertex>
   }
+`;
+
+// Both transparent foam passes use premultiplied blending. Fog, tone mapping
+// and output transfer must operate on the straight colour first; applying a
+// nonlinear transform after premultiplication makes thin fragments brighter
+// than their alpha permits and shows their underlying triangles.
+const transparentPremultipliedOutput = /* glsl */`
+    #ifdef USE_FOG
+      #ifdef FOG_EXP2
+        float transparentFogFactor = 1.0 - exp(-fogDensity * fogDensity * vFogDepth * vFogDepth);
+      #else
+        float transparentFogFactor = smoothstep(fogNear, fogFar, vFogDepth);
+      #endif
+      gl_FragColor.rgb = mix(gl_FragColor.rgb, fogColor * gl_FragColor.a, transparentFogFactor);
+    #endif
+    float transparentAlpha = gl_FragColor.a;
+    gl_FragColor.rgb /= max(transparentAlpha, 0.0001);
+    #include <tonemapping_fragment>
+    #include <colorspace_fragment>
+    gl_FragColor.rgb *= transparentAlpha;
 `;
 
 const shellFragmentShader = /* glsl */`
@@ -377,9 +398,7 @@ const shellFragmentShader = /* glsl */`
     }
     float alpha = (1.0 - transmittance) * vAlpha;
     gl_FragColor = vec4(light * vAlpha, alpha);
-    #include <fog_fragment>
-    #include <tonemapping_fragment>
-    #include <colorspace_fragment>
+${transparentPremultipliedOutput}
   }
 `;
 
@@ -401,9 +420,7 @@ const sprayFragmentShader = /* glsl */`
   ${sprayFragmentVaryings}
   void main() {
 ${sprayFragmentBody}
-    #include <fog_fragment>
-    #include <tonemapping_fragment>
-    #include <colorspace_fragment>
+${transparentPremultipliedOutput}
   }
 `;
 
@@ -457,6 +474,7 @@ export default function BreakingWaves({ settings, lighting, noise = null, coast,
       uPeel: { value: 0 },
       uRunup: { value: 10 },
       uSpent: { value: 60 },
+      uRibbonVisible: { value: 1 },
       uWidth: { value: 9 },
       uSteepen: { value: 16 },
       uLean: { value: 0.45 },
@@ -610,6 +628,11 @@ export default function BreakingWaves({ settings, lighting, noise = null, coast,
       spray.uSprayS0.value = THREE.MathUtils.clamp((local.s - coast.along0) / coast.length, 0, 1);
       spray.uSpraySpan.value = Math.min(Math.max(1.6 * distance / Math.max(projectionX, 0.1), 18), 120) / coast.length;
       const alive = !frozen || ribbon.index === 0;
+      // A frozen inspection keeps one crest. `uTravel` cancels from the
+      // centre-line transform, so parking the other ribbons at -1000 alone
+      // still leaves their sheet and shell exactly on top of the chosen wave.
+      // Their transparent passes then fight in depth and flash under motion.
+      ribbon.uniforms.uRibbonVisible.value = alive ? 1 : 0;
       sprayGeometries[ribbon.index].instanceCount = alive
         ? sprayInstanceCount({ distance, height, viewportHeight: viewport.height, viewportWidth: viewport.width, projectionY, overdraw: tier.overdraw, max: tier.max })
         : 0;
