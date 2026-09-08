@@ -82,6 +82,7 @@ export function createGerstnerUniforms() {
     uGerstnerTime: { value: 0 },
     uGerstnerSets: { value: 0 },
     uGerstnerGusts: { value: 0 },
+    uGerstnerPatches: { value: 0.65 },
     uGerstnerFade: { value: new THREE.Vector2(100, 250) },
     uCellFactor: { value: radialCellFactor() },
   };
@@ -94,6 +95,7 @@ export function syncGerstnerUniforms(uniforms, settings) {
   });
   uniforms.uGerstnerSets.value = Math.min(Math.max(Number(settings.sets) || 0, 0), 1);
   uniforms.uGerstnerGusts.value = Math.min(Math.max(Number(settings.gusts) || 0, 0), 1);
+  uniforms.uGerstnerPatches.value = Math.min(Math.max(Number(settings.windPatches ?? 0.65), 0), 1);
   uniforms.uGerstnerFade.value.set(Math.max(Number(settings.fadeStart) || 0, 1), Math.max(Number(settings.fadeEnd) || 0, Number(settings.fadeStart) + 1));
   // Every water surface resolves the trains by the same cell, whatever its own
   // mesh: the open water, the shore band and the surf ribbons meet at seams,
@@ -124,6 +126,7 @@ uniform vec4 uGerstnerMotion[GERSTNER_TRAINS];  // omega, Q, phase offset, sets 
 uniform float uGerstnerTime;
 uniform float uGerstnerSets;
 uniform float uGerstnerGusts;
+uniform float uGerstnerPatches;
 uniform vec2 uGerstnerFade;
 uniform float uCellFactor;
 
@@ -163,6 +166,18 @@ float gerstnerNoise(vec2 p) {
   return mix(mix(gerstnerHash(i), gerstnerHash(i + vec2(1.0, 0.0)), f.x),
              mix(gerstnerHash(i + vec2(0.0, 1.0)), gerstnerHash(i + vec2(1.0, 1.0)), f.x), f.y);
 }
+// Cat's paws. The wind does not touch the whole sea at once: patches hundreds
+// of metres across where the air is still stay glassy, and there the sun
+// gathers into a path instead of scattering over ripple. Slow, drifting, and
+// without a period — the sea's own variety at distance. It lives here because
+// every water shader includes this chunk, and the foam field needs it too.
+float waterWindPatch(vec2 p) {
+  if (uGerstnerPatches <= 0.001) return 1.0;
+  vec2 q = p * 0.0042 + uGerstnerTrain[0].xy * uGerstnerTime * 0.004;
+  float f = gerstnerNoise(q) * 0.62 + gerstnerNoise(q * 2.37 + 4.1) * 0.38;
+  return mix(1.0, smoothstep(0.28, 0.72, f), uGerstnerPatches);
+}
+
 float gerstnerWhitecapMask(vec2 p) {
   vec2 q = p * 0.018 + uGerstnerTrain[0].xy * uGerstnerTime * 0.02;
   q += (vec2(gerstnerNoise(q * 0.37), gerstnerNoise(q * 0.37 + 7.31)) - 0.5) * 1.8;
@@ -258,7 +273,7 @@ float gerstnerWhitecaps(vec2 p, float threshold, float softness) {
   float r = (1.0 - threshold) / max(sqrt(variance * 0.5), 1e-4);
   float mean = ${WHITECAP_FIT.peak} * pow(1.0 - smoothstep(${WHITECAP_FIT.from}, ${WHITECAP_FIT.to}, r), ${WHITECAP_FIT.shape});
   float share = clamp(blurred / max(energy, 1e-4), 0.0, 1.0);
-  return mix(resolved, mean, share) * gerstnerWhitecapMask(p);
+  return mix(resolved, mean, share) * gerstnerWhitecapMask(p) * mix(0.15, 1.0, waterWindPatch(p));
 }
 vec2 gerstnerPixelSlope(vec2 p, float fade, float cell, out float fold) {
   vec2 slope = vec2(0.0);

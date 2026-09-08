@@ -42,7 +42,10 @@ assert.ok(surf.includes('float along = sAlong - k * x;'), 'the section leans alo
 // 4. The shore band cuts its edge per pixel, from the depth map and the sheet,
 // not from its own vertices: a contour of a varying is a straight segment
 // inside every triangle, which is where the staircase at the waterline came from.
-assert.ok(shore.includes('float bed = uShoreReady > 0.5 ? coastGround(coastLocal(vWorld.xz)) : vGround;'), 'the band reads the bed per pixel');
+// The map is coarse (a third of a metre, clamped to a metre), so the higher of
+// it and the vertex's own ground wins: otherwise water is drawn over sand the
+// map failed to notice. Still per pixel — that is what this guards.
+assert.ok(/float bed = uShoreReady > 0\.5 \? max\(coastGround\(coastLocal\(vWorld\.xz\)\), vGround\) : vGround;/.test(shore), 'the band reads the bed per pixel, and land wins over the map');
 assert.ok(shore.includes('float depth = max(vLevel - bed, sheet);'), 'the water is the deeper of the swell and the swash sheet');
 assert.ok(!/if \(film > 0\.0/.test(shore), 'no threshold on the swash lift');
 

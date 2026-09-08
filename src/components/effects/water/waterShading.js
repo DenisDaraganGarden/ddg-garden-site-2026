@@ -43,7 +43,7 @@ export const waterShadingShader = /* glsl */`
   }
   vec3 waterRippleNormal(vec3 n, vec2 p, float pixel, float weight) {
     float feature = 0.125 / max(uRippleScale, 0.001);
-    float w = uRipple * weight * uNoiseReady * (1.0 - smoothstep(feature * 0.12, feature * 0.5, pixel));
+    float w = uRipple * weight * uNoiseReady * (1.0 - smoothstep(feature * 0.12, feature * 0.5, pixel)) * mix(0.12, 1.0, waterWindPatch(p));
     if (w <= 0.001) return n;
     float e = 0.02 / max(uRippleScale, 0.001);
     float h = waterRippleHeight(p);

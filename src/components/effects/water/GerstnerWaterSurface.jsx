@@ -45,9 +45,9 @@ const vertexShader = /* glsl */`
 
 const fragmentShader = /* glsl */`
   #include <fog_pars_fragment>
-  ${waterShadingShader}
   ${gerstnerShader}
   ${gerstnerPixelShader}
+  ${waterShadingShader}
   ${foamFieldShader}
   ${coastWaterShader}
   uniform float uFoamThreshold;
