@@ -14,7 +14,7 @@ import {
   getCursorFlashlightRuntime,
   getCursorFlashlightWorldRuntime,
 } from '../../features/cursor/cursorFlashlightStore';
-import { EDITOR_THUMBNAIL_REQUEST, publishEditorThumbnail } from './editorThumbnailCapture';
+import { consumeEditorThumbnailRequest, EDITOR_THUMBNAIL_REQUEST, publishEditorThumbnail } from './editorThumbnailCapture';
 
 function createNoiseTexture(size = 128) {
   const random = (() => {
@@ -140,10 +140,13 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
   const thumbnailRequest = useRef(null);
   useEffect(() => {
     const receive = (event) => {
-      const key = event.detail?.key;
+      const requested = consumeEditorThumbnailRequest();
+      const key = requested ?? event.detail?.key;
       if (typeof key === 'string' && key) thumbnailRequest.current = key;
     };
     window.addEventListener(EDITOR_THUMBNAIL_REQUEST, receive);
+    const queued = consumeEditorThumbnailRequest();
+    if (queued) thumbnailRequest.current = queued;
     return () => window.removeEventListener(EDITOR_THUMBNAIL_REQUEST, receive);
   }, []);
   const publishThumbnail = () => {
