@@ -72,7 +72,9 @@ export const waterShadingShader = /* glsl */`
     vec3 lace = texture(uNoise, vec3(lp, 0.12)).rgb;
     float feature = 0.125 / max(uLaceScale, 0.001);
     float fineFade = 1.0 - smoothstep(feature * 0.05, feature * 0.25, pixel);
+    // Rotated and warped between octaves: the noise volume tiles, the foam must not.
     vec2 dp = mat2(0.83, -0.56, 0.56, 0.83) * lp * 2.37 + lace.g * 0.35;
+    lp += (vec2(lace.b, lace.g) - 0.5) * 0.9;
     vec3 detail = texture(uNoise, vec3(dp, 0.52 + lace.r * 0.2)).rgb;
     float fine = mix(0.5, detail.b, fineFade);
     coverage *= mix(1.0, 0.4 + 0.6 * smoothstep(0.1, 0.7, fine), clamp(age, 0.0, 1.0));

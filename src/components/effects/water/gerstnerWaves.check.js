@@ -33,7 +33,7 @@ for (let face = 0; face < index.count; face += 3) {
 // The weather: GLSL and JS read one table (the CPU break line and the loft's
 // crest heights must agree), the envelope never exceeds 1 (the steepness
 // budget holds) and never falls below 1 - 0.7 * gusts.
-for (const [fx, fz] of [...GERSTNER_WEATHER.gusts, ...GERSTNER_WEATHER.wander, ...GERSTNER_WEATHER.caps]) {
+for (const [fx, fz] of [...GERSTNER_WEATHER.gusts, ...GERSTNER_WEATHER.wander]) {
   assert.ok(gerstnerShader.includes(`p.x * ${fx.toFixed(4)} + p.y * ${fz.toFixed(4)}`), `weather term ${fx}/${fz} missing from the GLSL`);
 }
 for (let i = 0; i < 2000; i += 1) {
@@ -41,4 +41,8 @@ for (let i = 0; i < 2000; i += 1) {
   assert.ok(w <= 1 + 1e-9 && w >= 0.3 - 1e-9, `weather envelope ${w}`);
 }
 assert.equal(gerstnerWeatherAt(123, -456, 0), 1);
+// The whitecap patches must not come from a sine field: a lattice on the sea
+// is the one thing Denis will not accept. They are hashed value noise.
+assert.ok(!/caps/.test(gerstnerShader), 'the whitecap mask must not be a sine table');
+assert.ok(gerstnerShader.includes('gerstnerHash'), 'the whitecap patches must be hashed noise');
 console.log(`gerstnerWaves: steepness capped at ${GERSTNER_MAX_STEEPNESS}, radial mesh ${geometry.userData.triangles} triangles facing up`);

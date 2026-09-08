@@ -20,8 +20,6 @@ export const GERSTNER_WEATHER = Object.freeze({
   gusts: [[0.0113, 0.0071, 0, 1], [0.0047, -0.0129, 1.7, 0.7], [0.0231, 0.0187, 0.4, 0.4]],
   // Phase: crests wander instead of running as ruled lines.
   wander: [[0.0083, -0.0097, 2.1, 1], [0.0173, 0.0059, 0.9, 0.6]],
-  // Where crests fold into whitecaps: patches of ~30 m, sum / 1.7 is -1..1.
-  caps: [[0.031, -0.019, 0.6, 1], [0.051, 0.043, 2.3, 0.7]],
 });
 const sineSum = (terms, x, z, drift = 0) => terms.reduce((sum, [fx, fz, phase, weight]) => sum + weight * Math.sin(fx * x + fz * z + phase + drift), 0);
 const sineSumGlsl = (terms, drift = '') => terms.map(([fx, fz, phase, weight]) => `${weight.toFixed(2)} * sin(p.x * ${fx.toFixed(4)} + p.y * ${fz.toFixed(4)} + ${phase.toFixed(2)}${drift})`).join(' + ');
@@ -86,6 +84,7 @@ export function syncGerstnerUniforms(uniforms, settings) {
 
 export const gerstnerShader = /* glsl */`
 #define GERSTNER_TRAINS ${GERSTNER_TRAIN_COUNT}
+#define WATER_PI_G 3.14159265
 uniform vec4 uGerstnerTrain[GERSTNER_TRAINS];   // direction.xy, k, amplitude
 uniform vec4 uGerstnerMotion[GERSTNER_TRAINS];  // omega, Q, phase offset, sets weight
 uniform float uGerstnerTime;
@@ -108,18 +107,40 @@ vec2 gerstnerWeather(vec2 p) {
   float b = ${sineSumGlsl(GERSTNER_WEATHER.wander)};
   return vec2(1.0 - uGerstnerGusts * 0.35 * (1.0 - a / 2.1), b * 1.6 * uGerstnerGusts);
 }
-// Crests fold in patches, not along their whole length: where a fold makes
-// foam, drifting slowly downwind.
-float gerstnerWhitecapMask(vec2 p) {
-  float c = ${sineSumGlsl(GERSTNER_WEATHER.caps, ' + uGerstnerTime * 0.03')};
-  return smoothstep(0.1, 0.55, c / 1.7);
-}
-
 // Waves arrive in groups: the envelope runs at a sixth of the train's own
 // frequency, so every ~6 waves is a big one. It never exceeds 1, which keeps
 // the steepness budget intact.
 float gerstnerEnvelope(float phase, float weight) {
   return 1.0 - uGerstnerSets * weight * 0.5 * (1.0 - sin(phase * 0.1667));
+}
+
+// Patches of whitecapping. Value noise from a hash — no texture and no sine
+// lattice, so nothing can repeat: four octaves on domains rotated between
+// each other and warped by a fifth, drifting downwind. A sea that shows a
+// tile is worse than a sea with no foam at all.
+float gerstnerHash(vec2 p) {
+  p = fract(p * vec2(127.1, 311.7));
+  p += dot(p, p + 34.53);
+  return fract(p.x * p.y);
+}
+float gerstnerNoise(vec2 p) {
+  vec2 i = floor(p), f = fract(p);
+  f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(gerstnerHash(i), gerstnerHash(i + vec2(1.0, 0.0)), f.x),
+             mix(gerstnerHash(i + vec2(0.0, 1.0)), gerstnerHash(i + vec2(1.0, 1.0)), f.x), f.y);
+}
+float gerstnerWhitecapMask(vec2 p) {
+  vec2 q = p * 0.018 + uGerstnerTrain[0].xy * uGerstnerTime * 0.02;
+  q += (vec2(gerstnerNoise(q * 0.37), gerstnerNoise(q * 0.37 + 7.31)) - 0.5) * 1.8;
+  mat2 rot = mat2(0.8, -0.6, 0.6, 0.8);
+  float sum = 0.0, amp = 0.5, total = 0.0;
+  for (int i = 0; i < 4; i++) {
+    sum += amp * gerstnerNoise(q);
+    total += amp;
+    q = rot * q * 2.13 + 11.7;
+    amp *= 0.58;
+  }
+  return sum / total;
 }
 
 // How well the mesh resolves a train here: 1 with twelve or more vertices per
@@ -170,28 +191,38 @@ vec3 gerstnerDisplace(vec2 p, float fade, float cell, out vec3 normal, out float
 // and whitecaps from above. A crest that spans a pixel or more of phase is
 // averaged out instead of shimmering as the camera moves.
 export const gerstnerPixelShader = /* glsl */`
-// The Jacobian of the whole wave field here, unfaded and fully resolved: foam
-// is a property of the surface and shows to the horizon even where the mesh no
-// longer carries the wave. Same determinant as gerstnerDisplace — 1 on flat
-// water, small where the crest folds — so one threshold reads the same near
-// and far, and it is sharply peaked on the crest instead of smeared over the
-// whole wave. A crest that spans a pixel or more of phase is averaged out
-// instead of shimmering.
-float gerstnerCrestFold(vec2 p) {
+// Whitecap coverage here, 0..1, at any distance. Near the camera it is the
+// wave field's own folding — the same determinant gerstnerDisplace computes,
+// 1 on flat water and small where the crest folds. Where a train no longer
+// resolves in a pixel its share does not vanish (that is why the foam used to
+// die halfway to the horizon): it becomes the share of that train's phase
+// that folds past the threshold, which for one train is exact —
+// jacobian = 1 - Q·k·A·sin(phase), so the fraction is acos((1-T)/QkA)/pi.
+// Every scale of the sea therefore keeps its foam, and nothing shimmers.
+float gerstnerWhitecaps(vec2 p, float threshold, float softness) {
   vec2 weather = gerstnerWeather(p);
   float dxx = 0.0, dzz = 0.0, dxz = 0.0;
+  float budget = 0.0, blurred = 0.0;
   for (int i = 0; i < GERSTNER_TRAINS; i++) {
     vec4 train = uGerstnerTrain[i];
     vec4 motion = uGerstnerMotion[i];
     vec2 d = train.xy;
     float phase = train.z * dot(d, p) - motion.x * uGerstnerTime + motion.z + weather.y;
     float aa = 1.0 - smoothstep(0.35, 1.5, fwidth(phase));
-    float wa = motion.y * train.z * train.z * train.w * weather.x * gerstnerEnvelope(phase, motion.w) * aa * sin(phase);
+    float qka = motion.y * train.z * train.w * weather.x * gerstnerEnvelope(phase, motion.w);
+    budget += qka;
+    blurred += qka * (1.0 - aa);
+    float wa = qka * aa * sin(phase);
     dxx -= wa * d.x * d.x;
     dzz -= wa * d.y * d.y;
     dxz -= wa * d.x * d.y;
   }
-  return (1.0 + dxx) * (1.0 + dzz) - dxz * dxz;
+  float jacobian = (1.0 + dxx) * (1.0 + dzz) - dxz * dxz;
+  float resolved = smoothstep(threshold + softness, threshold - softness, jacobian);
+  float reach = (1.0 - threshold) / max(budget, 1e-4);
+  float statistical = reach < 1.0 ? acos(clamp(reach, -1.0, 1.0)) / WATER_PI_G : 0.0;
+  float share = clamp(blurred / max(budget, 1e-4), 0.0, 1.0);
+  return mix(resolved, statistical, share) * gerstnerWhitecapMask(p);
 }
 vec2 gerstnerPixelSlope(vec2 p, float fade, float cell, out float fold) {
   vec2 slope = vec2(0.0);

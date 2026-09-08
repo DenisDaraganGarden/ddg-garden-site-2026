@@ -2,7 +2,7 @@ import { useEffect, useMemo } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { createPass, createTarget, disposePass, restoreDefaultFramebuffer } from './renderTargets';
-import { createGerstnerUniforms, gerstnerShader, syncGerstnerUniforms } from './gerstnerWaves';
+import { createGerstnerUniforms, gerstnerPixelShader, gerstnerShader, syncGerstnerUniforms } from './gerstnerWaves';
 import { windVector } from './waterShading';
 import { coastWaterShader, createCoastWaterUniforms, syncCoastWaterUniforms } from './coastFrame';
 
@@ -62,6 +62,7 @@ vec3 sampleFoamField(vec2 p) {
 const updateFragmentShader = /* glsl */`
   #define FOAM_BORES ${FOAM_BORE_SLOTS}
   ${gerstnerShader}
+  ${gerstnerPixelShader}
   ${coastWaterShader}
   varying vec2 vUv;
   uniform sampler2D uPrev;
@@ -132,7 +133,7 @@ const updateFragmentShader = /* glsl */`
     // The sheet drains from the top of the beach first: a second near the
     // waterline, a fifth of one six metres up.
     state.w = sand ? state.w * exp(-uDelta / max(0.2, 1.1 - 0.9 * clamp(q / 6.0, 0.0, 1.0))) : 1.0;
-    float fresh = sand ? 0.0 : smoothstep(uThreshold + uSoftness, uThreshold - uSoftness, jacobian) * uDeposit * 0.65 * gerstnerWhitecapMask(world);
+    float fresh = sand ? 0.0 : gerstnerWhitecaps(world, uThreshold, uSoftness) * uDeposit;
     for (int i = 0; i < FOAM_BORES; i++) {
       vec4 bore = uBore[i];
       fresh = max(fresh, onCrest * bore.y * uDeposit * (1.0 - smoothstep(bore.z * 0.3, bore.z, abs(qBore - bore.x))));
