@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { GERSTNER_MAX_STEEPNESS, GERSTNER_WEATHER, gerstnerShader, gerstnerSigma, gerstnerSteepnessBudget, gerstnerWeatherAt, gerstnerWhitecapCoverage, resolveGerstnerTrains } from './gerstnerWaves.js';
+import { GERSTNER_MAX_STEEPNESS, GERSTNER_WEATHER, gerstnerCrestDelay, gerstnerPeriod, gerstnerShader, gerstnerSigma, gerstnerSteepnessBudget, gerstnerWeatherAt, gerstnerWhitecapCoverage, resolveGerstnerTrains } from './gerstnerWaves.js';
 import { buildRadialWaterGeometry } from './radialWaterGeometry.js';
 
 // The steepness budget is the no-self-intersection guarantee: whatever the
@@ -82,5 +82,30 @@ for (const steepness of [0.3, 0.5, 0.7, 0.8]) {
 // Calm water does not whitecap; a storm does, and more of it with a higher threshold.
 assert.equal(gerstnerWhitecapCoverage(gerstnerSigma(resolveGerstnerTrains({ wavelength: 9, amplitude: 0.12, steepness: 0.25, windDirection: 0, crossWaves: 0.3 })), 0.55), 0);
 assert.ok(gerstnerWhitecapCoverage(0.38, 0.7) > gerstnerWhitecapCoverage(0.38, 0.5));
+
+// A breaker is born on a swell crest, so the countdown to the next crest must
+// tick down in real seconds and wrap at the train's own period — otherwise the
+// surf drifts across the long wave lines instead of lying on them.
+{
+  const trains = resolveGerstnerTrains({ wavelength: 11.5, amplitude: 0.57, steepness: 0.7, windDirection: 90, crossWaves: 0.3 });
+  const period = gerstnerPeriod(trains, 0.55);
+  assert.ok(period > 3 && period < 8, `swell period ${period}`);
+  let previous = gerstnerCrestDelay(trains, 12, -3, 0, 0.55);
+  for (let i = 1; i <= 40; i += 1) {
+    const delay = gerstnerCrestDelay(trains, 12, -3, i * 0.1, 0.55);
+    const step = previous - delay;
+    assert.ok(Math.abs(step - 0.1) < 1e-6 || Math.abs(step + period - 0.1) < 1e-6, `crest countdown stepped ${step.toFixed(3)} in 0.1 s`);
+    assert.ok(delay >= 0 && delay <= period + 1e-9, `delay ${delay} outside [0, ${period}]`);
+    previous = delay;
+  }
+  // The crest really is where the water is highest: the wave's own displacement
+  // at the predicted moment must be near its maximum.
+  const height = (time) => trains.reduce((sum, train, index) =>
+    sum + train.amplitude * Math.sin(train.k * (train.direction[0] * 12 + train.direction[1] * -3) - train.omega * 0.55 * time + index * 1.7), 0);
+  const delay = gerstnerCrestDelay(trains, 12, -3, 0, 0.55);
+  const atCrest = trains[0].amplitude * Math.sin(trains[0].k * (trains[0].direction[0] * 12 + trains[0].direction[1] * -3) - trains[0].omega * 0.55 * delay);
+  assert.ok(atCrest > trains[0].amplitude * 0.999, `the primary train is not at its crest: ${atCrest} of ${trains[0].amplitude}`);
+  assert.ok(Number.isFinite(height(delay)));
+}
 
 console.log(`gerstnerWaves: steepness capped at ${GERSTNER_MAX_STEEPNESS}, whitecap coverage within ${worst.toFixed(3)} of measured, radial mesh ${geometry.userData.triangles} triangles facing up`);

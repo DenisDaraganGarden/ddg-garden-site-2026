@@ -52,6 +52,25 @@ export function resolveGerstnerTrains({ wavelength, amplitude, steepness, windDi
   return trains;
 }
 
+// When the primary swell's crest next passes a point, in seconds from now.
+// The breakers are not independent waves: a breaker IS the crest of the swell
+// arriving, so its birth has to be locked to that phase or the surf drifts out
+// of step with the sea behind it — which is exactly what reads as wrong.
+// phase = k·(d·p) − ω·t + φ; a crest is where phase ≡ π/2 (mod 2π).
+export function gerstnerCrestDelay(trains, x, z, time, speed = 1, index = 0) {
+  const train = trains[index];
+  const omega = train.omega * Math.max(Number(speed) || 0, 0);
+  if (omega < 1e-6) return Infinity;
+  const phase = train.k * (train.direction[0] * x + train.direction[1] * z) - omega * time + index * 1.7;
+  // The phase falls as time runs, so the crest is reached from above.
+  const wrapped = ((phase - Math.PI / 2) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+  return wrapped / omega;
+}
+export const gerstnerPeriod = (trains, speed = 1, index = 0) => {
+  const omega = trains[index].omega * Math.max(Number(speed) || 0, 0);
+  return omega < 1e-6 ? Infinity : (2 * Math.PI) / omega;
+};
+
 export function gerstnerSteepnessBudget(trains) {
   return trains.reduce((sum, train) => sum + train.q * train.k * train.amplitude, 0);
 }

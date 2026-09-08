@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { createGerstnerUniforms, gerstnerShader, gerstnerWeatherAt, syncGerstnerUniforms } from './gerstnerWaves';
+import { createGerstnerUniforms, gerstnerCrestDelay, gerstnerPeriod, gerstnerShader, gerstnerWeatherAt, resolveGerstnerTrains, syncGerstnerUniforms } from './gerstnerWaves';
 import { coastCoordinates, coastPoint } from '../../../terrain/terrainModel.js';
 import { BREAK_SAMPLES, breakLineMean, coastBreakLine, coastWaterShader, createCoastWaterUniforms, syncCoastWaterUniforms, tickShoreDepth } from './coastFrame';
 import { SPRAY_TIERS, buildSprayGeometry, createSprayUniforms, sprayFragmentBody, sprayFragmentVaryings, sprayInstanceCount, sprayShader, sprayVertexBody, syncSprayUniforms } from './spray';
@@ -443,6 +443,7 @@ export default function BreakingWaves({ settings, lighting, noise = null, coast,
 
   useFrame(({ clock, camera, gl }) => {
     const time = timeline ? timeline.elapsed : clock.elapsedTime;
+    const trains = resolveGerstnerTrains(settings);
     tickWaterShadingUniforms(shading, time, activeNoise);
     const viewport = gl.getDrawingBufferSize(DRAWING_BUFFER);
     // Travel is measured from the mean break line: the wave is born well out
@@ -464,7 +465,15 @@ export default function BreakingWaves({ settings, lighting, noise = null, coast,
       ribbon.uniforms.uPeel.value = frozen ? 0 : settings.surfPeel;
       if (frozen) ribbon.spawn = time - (travel - start) / speed;
       if (!frozen && travel > end) {
-        const next = Math.max(schedule.current.lastSpawn + period, time);
+        // A breaker is the crest of the swell arriving, not a wave of its own:
+        // its birth is locked to the primary train's phase at the break line,
+        // so the surf lies ON the long wave lines instead of drifting across
+        // them. Whole periods are skipped until the spawn interval is met —
+        // not every swell crest breaks, but every breaker is a swell crest.
+        const at = coastPoint(ribbon.uniforms.uBreakMean.value, coast.along0 + coast.length * 0.5, coast.definition);
+        const swellPeriod = gerstnerPeriod(trains, settings.speed);
+        let next = time + gerstnerCrestDelay(trains, at.x, at.z, time, settings.speed) + Math.abs(start) / speed;
+        while (next < schedule.current.lastSpawn + period && Number.isFinite(swellPeriod)) next += swellPeriod;
         schedule.current.lastSpawn = next;
         schedule.current.spawned += 1;
         ribbon.spawn = next;
