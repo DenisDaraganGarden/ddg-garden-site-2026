@@ -22,6 +22,29 @@ assert.ok(breaking.includes('float alpha = clamp(vAlpha, 0.0, 1.0);'), 'breaker 
 assert.ok(foam.includes('alongCrest * uBorePeelSpan * uBoreFrame.y'), 'wet trail uses the local breaker event span');
 assert.ok(foam.includes('uniforms.uBorePeelSpan.value = surfPeelSpan(settings);'), 'foam and loft share the same event-length calculation');
 assert.ok(foam.includes('settings.surfFreeze ? 0 : (settings.surfPeel ?? 0)'), 'frozen inspection removes peel from both the foam and geometry');
+assert.ok(foam.includes('const step = frozen ? 0 :'), 'frozen surf stops foam advection and decay');
+assert.ok(foam.includes('uniforms.uGerstnerTime.value = frozen ? field.freezeTime : time;'), 'frozen surf keeps a fixed foam source seed');
+assert.ok(foam.includes('gerstnerNoise(traceP * 2.37'), 'bore trace breaks in both coast axes rather than repeating one along-crest stripe');
+assert.ok(foam.includes('ragged * 3.2, behind'), 'a bore deposits an offshore tail rather than an equal full-coast band');
+assert.ok(foam.includes('float across = tail * front;'), 'the narrow symmetric cross-mask does not cut the intended tail short');
+assert.ok(foam.includes('float(i) * 17.3'), 'trace seed is a stable bore slot, never its moving position');
+assert.ok(!foam.includes('bore.x * 0.043'), 'trace does not translate its material stamp with the crest');
+assert.ok(surface.includes('mix(crest * 0.9, memory.x, memory.z)'), 'deposited density is not thresholded a second time in open water');
+assert.ok(breaking.includes('max(vFoam * 0.95, max(memory.x * memory.z, crest * 0.9 * (1.0 - memory.z)))'), 'the breaker keeps deposited foam independently of analytic threshold');
+
+assert.ok(foam.includes('export const foamFreezeKey = (settings = {})'), 'frozen phase has a stable settings-derived seed');
+assert.ok(foam.includes('field.freezeKey !== nextFreezeKey'), 'changing frozen phase clears the old trace before reseeding');
+assert.ok(foam.includes('settings.foamDeposit, settings.foamLife'), 'frozen reseed includes foam-density parameters');
+assert.ok(foam.includes('settings.wavelength, settings.amplitude, settings.steepness'), 'frozen reseed includes carrier shape');
+assert.ok(foam.includes('live carrier must not inherit the deliberately static inspection'), 'leaving freeze clears its static trace before live advection');
+assert.ok(foam.includes('uniform sampler2D uBoreLine;'), 'foam pass receives the per-ribbon break-line texture');
+assert.ok(foam.includes('float qBore = qBoreBase - uBoreRefraction * (line.x - line.z);'), 'foam maps each refracted section back into its mean bore frame');
+assert.ok(foam.includes('smoothstep(0.0, 0.04, alongCrest)'), 'foam source uses the loft end taper');
+assert.ok(foam.includes('if (bore.y <= 0.0001) continue;'), 'inactive bore slots skip line texture fetches');
+assert.ok(foam.includes('field.lineTexture.dispose();'), 'foam field owns and disposes its line texture');
+assert.ok(breaking.includes('foamBores.breakLines[ribbon.index].set(line);'), 'breaking waves publish their actual break line to foam');
+assert.ok(breaking.includes('foamBores.breakVisible[ribbon.index].set(visible);'), 'foam receives the same spit-gap mask as the loft');
+assert.ok(foam.includes('Math.round(cameraX / texel) * texel'), 'sub-texel camera motion does not translate a world-space pattern');
 const surf = read('./surfProfile.js') + read('./coastFrame.js') + read('./coastBreakLine.js');
 
 // Arguments of every call/declaration of `call`: top-level commas between the

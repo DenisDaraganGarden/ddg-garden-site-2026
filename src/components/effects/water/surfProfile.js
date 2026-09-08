@@ -75,6 +75,12 @@ export const surfJetDown = ({ jet, lift, elapsed = 0 }) => {
   return length > 1e-6 ? [x / length, z / length] : [0, -1];
 };
 
+// Convert a local coast q into the scalar mean-break frame used by a foam
+// bore. This is the CPU twin of foamField's qBore correction: a refracted
+// ribbon follows L(s), while one bore record is stored at its mean L̄.
+export const surfFoamBoreFrameQ = ({ q, peel = 0, wiggle = 0, refraction = 0, breakAt = 0, breakMean = 0 }) =>
+  Number(q) + Number(peel) - Number(wiggle) - Math.min(Math.max(Number(refraction) || 0, 0), 1) * (Number(breakAt) - Number(breakMean));
+
 export const surfProfileShader = /* glsl */`
 #define SURF_G ${SURF_GRAVITY.toFixed(2)}
 #define SURF_TAU 6.2831853

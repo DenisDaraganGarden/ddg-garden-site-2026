@@ -10,6 +10,7 @@ import BreakingWaves from '../components/effects/water/BreakingWaves';
 import ShoreWater from '../components/effects/water/ShoreWater';
 import { createSceneTimeline } from '../components/effects/sceneTimeline';
 import { GERSTNER_MAX_STEEPNESS, gerstnerWeatherAt } from '../components/effects/water/gerstnerWaves';
+import { SEA_STATE_CUSTOM, SEA_STATE_IDS, SEA_STATE_LABELS, resolveSeaState, seaStatePatch } from '../components/effects/water/seaStatePresets.js';
 import { createFoamBores, createFoamFieldHolder } from '../components/effects/water/foamField';
 import { ShoreDepthMap, breakLineMean, coastBreakLine, createShoreDepth } from '../components/effects/water/coastFrame';
 import { coastBreakVisibility } from '../components/effects/water/coastBreakLine';
@@ -62,12 +63,6 @@ const DEFAULTS = Object.freeze({
   // and the bore has nowhere to run, which is what «Сдвиг обрушения» was for.
   shoreSlope: 50, bars: 0.45,
 });
-const PRESETS = {
-  calm: { wavelength: 9, amplitude: 0.12, steepness: 0.25, sets: 0.3, crossWaves: 0.3, ripple: 0.5, foamThreshold: 0.3, foamLife: 5, foamDeposit: 0.6, surfHeight: 0.4, surfJet: 1.1, surfLift: 0.4 },
-  breeze: { wavelength: 14, amplitude: 0.42, steepness: 0.55, sets: 0.6, crossWaves: 0.5, ripple: 0.35, foamThreshold: 0.55, foamLife: 7, foamDeposit: 0.8, surfHeight: 0.8, surfJet: 1.4, surfLift: 0.5 },
-  rough: { wavelength: 18, amplitude: 0.75, steepness: 0.7, sets: 0.7, crossWaves: 0.6, ripple: 0.35, foamThreshold: 0.6, foamLife: 9, foamDeposit: 0.9, surfHeight: 1.2, surfJet: 1.7, surfLift: 0.6 },
-  storm: { wavelength: 26, amplitude: 1.3, steepness: 0.8, sets: 0.5, crossWaves: 0.85, ripple: 0.4, foamThreshold: 0.65, foamLife: 12, foamDeposit: 1.1, surfHeight: 1.8, surfJet: 2.2, surfLift: 0.8 },
-};
 // The cameras are built around a continuous section of the breaker actually
 // drawn — never the masked join where the line passes around the spit.
 const buildViews = ({ q: BREAK_Q, s: BREAK_S }) => ({
@@ -217,7 +212,8 @@ export default function WaterLab() {
   const foamBores = useMemo(() => createFoamBores(), []);
   const sceneBindings = useMemo(() => createWaterSceneBindingUniforms(), []);
   // A close-up is an inspection aid, not an authored setting change. Its
-  // freeze only reaches the breaker renderer and is discarded on the next view.
+  // freeze reaches both the breaker and its foam-field producer, and is
+  // discarded on the next view or when an authored sea state is selected.
   const breakerSettings = useMemo(
     () => (inspectFreeze ? { ...settings, surfFreeze: true } : settings),
     [inspectFreeze, settings],
@@ -230,6 +226,14 @@ export default function WaterLab() {
     setInspectFreeze(id === 'surfSide' || id === 'lip');
   };
   const range = (key, label, min, max, step, unit = '') => <Range key={key} label={label} value={settings[key]} min={min} max={max} step={step} unit={unit} onChange={(value) => set(key, value)} />;
+  const seaStateLabels = SEA_STATE_LABELS[language];
+  const selectedSeaState = resolveSeaState(settings);
+  const selectSeaState = (event) => {
+    const patch = seaStatePatch(event.target.value);
+    if (!patch) return;
+    setInspectFreeze(false);
+    setSettings((current) => ({ ...current, ...patch }));
+  };
 
   useEffect(() => {
     const update = () => setHidden(document.hidden);
@@ -244,15 +248,15 @@ export default function WaterLab() {
       <AssetStudio view={view} cameraViews={views} cameraLimits={LIMITS} cameraFar={6000} fogRange={[1200, 4500]} floorVisible={false} lighting={lighting} exposure={settings.exposure} environmentIntensity={1} paused={paused} inactive={hidden} pixelRatio={[1, 1.5]} background="#a9c8d9" shadowRadius={40} onSceneSky={setSceneSky} sceneShadowRef={sceneShadowRef}>
         <WaterLabSceneBindings uniforms={sceneBindings} lighting={lighting} sky={sceneSky} shadowDataRef={sceneShadowRef} />
         <ShoreDepthMap coast={coast} />
-        <GerstnerWaterSurface settings={settings} lighting={lighting} noise={noise} wireframe={settings.wireframe} coast={coast} foamBores={settings.surfEnabled ? foamBores : null} timeline={timeline} sceneBindings={sceneBindings} />
+        <GerstnerWaterSurface settings={breakerSettings} lighting={lighting} noise={noise} wireframe={settings.wireframe} coast={coast} foamBores={settings.surfEnabled ? foamBores : null} timeline={timeline} sceneBindings={sceneBindings} />
         <ShoreWater settings={settings} lighting={lighting} noise={noise} coast={coast} timeline={timeline} wireframe={settings.wireframe} sceneBindings={sceneBindings} />
         {settings.surfEnabled ? <BreakingWaves settings={breakerSettings} lighting={lighting} noise={noise} coast={coast} foamBores={foamBores} timeline={timeline} wireframe={settings.wireframe} sceneBindings={sceneBindings} /> : null}
-        <RedrawOnChange of={settings} />
+        <RedrawOnChange of={breakerSettings} />
         <Suspense fallback={null}><AzovTerrain definition={definition} settings={terrainSettings} qualityProfile={qualityProfile} lighting={lighting} sky={null} runtime={null} rocks={rocks} swash={foamField} /></Suspense>
         <LabStats onStats={setStats} />
       </AssetStudio>
       <div className="water-lab__views" role="group" aria-label="Ракурс">{['shore', 'above', 'macro', 'surf', 'surfSide', 'lip', 'surfAbove', 'spit', 'edge'].map((id) => <button key={id} aria-pressed={view === id} onClick={() => selectView(id)}>{viewLabel(id)}</button>)}</div>
-      <div className="water-lab__presets" role="group" aria-label="Presets">{Object.keys(PRESETS).map((id) => <button key={id} onClick={() => setSettings((current) => ({ ...current, ...PRESETS[id] }))}>{t[id]}</button>)}</div>
+      <label className="water-lab__surface water-lab__select"><span>{seaStateLabels.label}</span><select aria-label={seaStateLabels.label} value={selectedSeaState} onChange={selectSeaState}><option value={SEA_STATE_CUSTOM}>{seaStateLabels.custom}</option>{SEA_STATE_IDS.map((id) => <option key={id} value={id}>{seaStateLabels[id]}</option>)}</select></label>
     </section><aside className="water-lab__inspector">
       <div className="water-lab__tabs" role="tablist">{['waves', 'surf', 'foam', 'look', 'light'].map((id) => <button key={id} role="tab" aria-selected={tab === id} onClick={() => setTab(id)}>{t[id]}</button>)}</div>
       <div className="water-lab__controls" role="tabpanel" aria-label={t[tab]}>
@@ -262,7 +266,7 @@ export default function WaterLab() {
         {tab === 'look' && <><ColorField label={t.water} value={settings.waterColor} onChange={(value) => set('waterColor', value)} /><ColorField label={t.deep} value={settings.deepColor} onChange={(value) => set('deepColor', value)} /><ColorField label={t.bed} value={settings.bedColor} onChange={(value) => set('bedColor', value)} />{range('bedTurbidity', t.bedTurbidity, 0, 1, 0.05)}{range('crestGlow', t.glow, 0, 2, 0.05)}{range('glint', t.glint, 0, 3, 0.05)}{range('skyReflection', t.sky, 0, 3, 0.05)}{range('meshRings', t.rings, 32, 192, 8)}{range('meshSegments', t.segments, 48, 256, 8)}<Toggle label={t.wireframe} value={settings.wireframe} onChange={(value) => set('wireframe', value)} /></>}
         {tab === 'light' && <>{range('timeOfDay', t.time, 0, 24, 0.1, t.hours)}{range('sunBearing', t.bearing, -180, 360, 1, '°')}{range('sunNoonElevation', t.elevation, 10, 85, 1, '°')}{range('exposure', t.exposure, 0.3, 2, 0.05)}</>}
       </div>
-      <div className="water-lab__transport"><button onClick={() => setPaused((value) => !value)}>{paused ? '▶' : 'Ⅱ'} {paused ? t.play : t.pause}</button><button onClick={() => { forgetSettings(); setSettings(DEFAULTS); setView('surf'); setTab('waves'); }}>{t.reset}</button></div>
+      <div className="water-lab__transport"><button onClick={() => setPaused((value) => !value)}>{paused ? '▶' : 'Ⅱ'} {paused ? t.play : t.pause}</button><button onClick={() => { forgetSettings(); setInspectFreeze(false); setSettings(DEFAULTS); setView('surf'); setTab('waves'); }}>{t.reset}</button></div>
     </aside></div>
     <footer className="water-lab__footer"><span><b>{stats.triangles.toLocaleString()}</b> {t.tri}</span><span><b>{stats.calls}</b> {t.calls}</span><span><b>{Math.round(stats.fps)}</b> {t.fps}</span><span><b>Σ Q·k·A = {Number(settings.steepness).toFixed(2)}</b> {t.budget}</span></footer>
   </main>;

@@ -84,6 +84,7 @@ const HomeEdit = () => {
         activeTab,
         setActiveTab,
         handleSettingChange,
+        applySettings,
     } = useHomeSceneEditor();
     // Preview the chrome toggles in the editor itself, not only after publishing.
     useHomeChromeVisibility(settings);
@@ -595,6 +596,7 @@ const HomeEdit = () => {
                 setActiveTab={setActiveTab}
                 settings={settings}
                 handleSettingChange={handleSettingChange}
+                applySettings={applySettings}
                 layoutEditor={layoutEditor}
                 gizmo={{ mode: gizmoMode, setMode: setGizmoMode, selection: editorGizmo.selection }}
                 onPublish={isLocalPublishAvailable ? () => handlePublish() : undefined}

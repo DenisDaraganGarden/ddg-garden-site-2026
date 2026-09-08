@@ -191,7 +191,21 @@ float gerstnerWhitecapMask(vec2 p) {
     q = rot * q * 2.13 + 11.7;
     amp *= 0.58;
   }
-  return sum / total;
+  // The weather envelope is tens of metres wide. On a short wind sea that
+  // gave a dozen neighbouring crests the same foam footprint. Break that
+  // footprint at the wavelength scale, in both directions, while retaining
+  // the broad weather patches. These coordinates stay on the water: phase
+  // travels through them and leaves separate whitecaps instead of translating
+  // a repeated strip together with each crest.
+  vec2 wind = uGerstnerTrain[0].xy;
+  float wavelength = WATER_PI_G * 2.0 / max(uGerstnerTrain[0].z, 0.001);
+  vec2 local = vec2(dot(p, vec2(-wind.y, wind.x)), dot(p, wind))
+    / max(wavelength, 2.0);
+  local *= vec2(0.42, 0.85);
+  float breakup = gerstnerNoise(local + 19.31) * 0.62
+    + gerstnerNoise(rot * local * 2.17 - 7.43) * 0.38;
+  float fragments = smoothstep(0.22, 0.76, breakup);
+  return clamp(sum / total * mix(0.18, 1.75, fragments), 0.0, 1.0);
 }
 
 // How well the mesh resolves a train here: 1 with twelve or more vertices per

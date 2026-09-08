@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { createPass, createTarget, disposePass, restoreDefaultFramebuffer } from './renderTargets';
 import { createGerstnerUniforms, gerstnerPixelShader, gerstnerShader, syncGerstnerUniforms } from './gerstnerWaves';
 import { windVector } from './waterShading';
-import { coastWaterShader, createCoastWaterUniforms, syncCoastWaterUniforms } from './coastFrame';
+import { BREAK_SAMPLES, coastWaterShader, createCoastWaterUniforms, syncCoastWaterUniforms } from './coastFrame';
 import { surfPeelSpan } from './surfProfile';
 
 // Foam as a state with memory instead of a function of the wave's phase. A
@@ -21,6 +21,7 @@ import { surfPeelSpan } from './surfProfile';
 // which is all a horizon needs.
 
 export const FOAM_BORE_SLOTS = 7;
+export const FOAM_BORE_LINE_WIDTH = BREAK_SAMPLES + 1;
 const FOAM_RESOLUTION = 768;
 const FORWARD = new THREE.Vector3();
 
@@ -28,13 +29,38 @@ const FORWARD = new THREE.Vector3();
 // waterline), strength, half width, and the run-up front on the sand (q of the
 // water's edge, -100 when the wave has not landed). Owned by whoever draws both surfaces, so the ribbons
 // write straight into the uniform the foam pass reads.
-export const createFoamBores = () => Array.from({ length: FOAM_BORE_SLOTS }, () => new THREE.Vector4(0, 0, 1, -100));
+export const createFoamBores = () => {
+  const bores = Array.from({ length: FOAM_BORE_SLOTS }, () => new THREE.Vector4(0, 0, 1, -100));
+  bores.breakLines = Array.from({ length: FOAM_BORE_SLOTS }, () => new Float32Array(FOAM_BORE_LINE_WIDTH));
+  bores.breakVisible = Array.from({ length: FOAM_BORE_SLOTS }, () => new Float32Array(FOAM_BORE_LINE_WIDTH));
+  bores.breakMeans = new Float32Array(FOAM_BORE_SLOTS);
+  bores.lineRevision = 0;
+  return bores;
+};
 
 // What the terrain reads: the field's texture and window, filled every tick.
 export const createFoamFieldHolder = () => ({ texture: null, window: new THREE.Vector3(0, 0, 1) });
 
 // Density left after dt seconds, given the time it takes to fall to 1/e.
 export const foamDecay = (life, dt) => Math.exp(-Math.max(dt, 0) / Math.max(Number(life) || 0, 0.05));
+
+// A frozen surf view is an inspection of one collapsed wave. Its foam has to
+// be reproducible too: a camera move may re-register the world-space field,
+// but may not keep advancing a new tail behind an immobile lip.
+export const foamFreezeKey = (settings = {}) => [
+  // Carrier and foam-state inputs all change the source. A frozen inspection
+  // must reseed when any one changes, rather than preserving a max-density
+  // trace made by an earlier threshold, deposit, wind, or wave shape.
+  settings.wavelength, settings.amplitude, settings.steepness, settings.speed,
+  settings.windDirection, settings.windPatches, settings.sets, settings.gusts, settings.crossWaves,
+  settings.fadeStart, settings.fadeEnd, settings.foamMemory, settings.foamThreshold,
+  settings.foamSoftness, settings.foamDeposit, settings.foamLife,
+  settings.foamDry, settings.foamDrift, settings.foamSwirl, settings.foamWindow,
+  settings.surfPhase, settings.surfHeight, settings.surfWidth, settings.surfBreakDistance,
+  settings.surfBreakLength, settings.surfBoreLength, settings.surfPeel,
+  settings.surfRefraction, settings.surfRunup, settings.surfSpeed, settings.surfLift,
+  settings.surfJet, settings.surfSheet, settings.surfRoller, settings.surfRollerDensity,
+].map((value) => Number.isFinite(Number(value)) ? Number(value) : 0).join('|');
 
 // The window centre, snapped to the texel grid: a camera creeping forward by
 // less than a texel must not move the field, or every frame resamples it and
@@ -88,7 +114,19 @@ const updateFragmentShader = /* glsl */`
   // crest's frame before it is compared.
   uniform vec4 uBoreFrame;
   uniform float uBorePeelSpan; // local breaker event, independent of coast length
+  uniform sampler2D uBoreLine; // R break q, G visibility, B ribbon mean; 49 x 7
+  uniform float uBoreRefraction;
   uniform float uBoreRunup;   // how far up the beach the water is allowed to go
+  vec3 boreLineAt(int slot, float along) {
+    float x = clamp(along, 0.0, 1.0) * float(${BREAK_SAMPLES});
+    float i0 = floor(x);
+    float i1 = min(i0 + 1.0, float(${BREAK_SAMPLES}));
+    float row = (float(slot) + 0.5) / float(FOAM_BORES);
+    vec3 a = texture2D(uBoreLine, vec2((i0 + 0.5) / float(${FOAM_BORE_LINE_WIDTH}), row)).rgb;
+    vec3 b = texture2D(uBoreLine, vec2((i1 + 0.5) / float(${FOAM_BORE_LINE_WIDTH}), row)).rgb;
+    float t = x - i0;
+    return mix(a, b, t * t * (3.0 - 2.0 * t));
+  }
   void main() {
     vec2 world = uWindow.xy + (vUv - 0.5) * 2.0 * uWindow.z;
     vec3 waveNormal;
@@ -134,7 +172,7 @@ const updateFragmentShader = /* glsl */`
     // same wander scallops it, so the wet line is the line the wave drew.
     float crestLength = max(uBoreFrame.z, 1.0);
     float alongCrest = clamp((qs.y - uBoreFrame.x) / crestLength, 0.0, 1.0);
-    float qBore = q + alongCrest * uBorePeelSpan * uBoreFrame.y - coastCrestWiggle(qs.y, uBoreFrame.w);
+    float qBoreBase = q + alongCrest * uBorePeelSpan * uBoreFrame.y - coastCrestWiggle(qs.y, uBoreFrame.w);
     // Off the ends of the crest there is no bore at all.
     float onCrest = step(uBoreFrame.x - 12.0, qs.y) * step(qs.y, uBoreFrame.x + crestLength + 12.0);
     state.x *= sand ? uSandDecay : uDecay;
@@ -150,18 +188,36 @@ const updateFragmentShader = /* glsl */`
     float fresh = sand ? 0.0 : gerstnerWhitecaps(world, uThreshold, uSoftness) * uDeposit;
     for (int i = 0; i < FOAM_BORES; i++) {
       vec4 bore = uBore[i];
-      // Ragged and trailing, not a drawn line: an even deposit along the
-      // isobath reads as a contour traced on the sea. The width is broken by
-      // the same hashed noise the whitecaps use, and the wake lies BEHIND the
-      // bore rather than centred on it.
-      float ragged = bore.z * (0.7 + 1.9 * gerstnerNoise(vec2(qs.y * 0.09, bore.x * 0.05)));
-      float across = 1.0 - smoothstep(ragged * 0.2, ragged, abs(qBore - bore.x + ragged * 0.4));
-      fresh = max(fresh, onCrest * bore.y * uDeposit * across);
+      if (bore.y <= 0.0001) continue;
+      vec3 line = boreLineAt(i, alongCrest);
+      // The loft centre at this section is refraction*line +
+      // (1-refraction)*mean. Move it back to the scalar mean frame where the
+      // bore record lives; without this, the foam visibly peeled away from a
+      // curved/isobath-following crest.
+      float qBore = qBoreBase - uBoreRefraction * (line.x - line.z);
+      float endTaper = smoothstep(0.0, 0.04, alongCrest) * (1.0 - smoothstep(0.96, 1.0, alongCrest));
+      // A collapse leaves a broken, offshore trail, not a full-coast contour.
+      // Its tear pattern lives in fixed coast coordinates, seeded only by the
+      // slot index. Never include bore.x here: that current crest position
+      // would carry the same material stamp along with every wave.
+      vec2 traceP = vec2(qs.y * 0.071 + float(i) * 17.3, qBore * 0.163 + float(i) * 4.1);
+      float macro = gerstnerNoise(traceP);
+      float detail = gerstnerNoise(traceP * 2.37 + vec2(17.3, 4.1));
+      // The trail is sustained in dense patches, with tears rather than empty
+      // repeated bands. Age and advection then erode it naturally downstream.
+      float trace = mix(0.42, 1.0, smoothstep(0.34, 0.68, macro * 0.68 + detail * 0.32));
+      float ragged = bore.z * (0.52 + 0.96 * macro);
+      float behind = max(bore.x - qBore, 0.0);
+      float ahead = max(qBore - bore.x, 0.0);
+      float tail = 1.0 - smoothstep(ragged * 0.15, ragged * 3.2, behind);
+      float front = 1.0 - smoothstep(0.0, ragged * 0.32, ahead);
+      float across = tail * front;
+      fresh = max(fresh, onCrest * line.y * endTaper * bore.y * uDeposit * across * trace);
       // The run-up sheet: the sand up to the front is under water and wet, the
       // front leaves lace. It is a sheet on the beach, so it starts at the
       // waterline — without that bound every grain of the spit, which has no
       // surf of its own, was wet for ever.
-      if (sand && onCrest > 0.5 && bore.w > -50.0 && qBore < bore.w && qBore > -2.0 && q > -2.0 && q < uBoreRunup) {
+      if (sand && onCrest * line.y * endTaper > 0.5 && bore.w > -50.0 && qBore < bore.w && qBore > -2.0 && q > -2.0 && q < uBoreRunup) {
         state.z = 1.0;
         // The tongue is thin at its edge and thickens behind it: a slab of one
         // constant thickness with a vertical wall is not a run-up.
@@ -214,14 +270,25 @@ export function useFoamField(targetUniforms, { settings, bores, coast = null, ti
       uBore: { value: createFoamBores() },
       uBoreFrame: { value: new THREE.Vector4(0, 0, 1, 9) },
       uBorePeelSpan: { value: 1 },
+      uBoreLine: { value: null },
+      uBoreRefraction: { value: 0 },
       uBoreRunup: { value: 6 },
     });
-    return { read, write, pass, lastTime: null };
+    const lineData = new Float32Array(FOAM_BORE_LINE_WIDTH * FOAM_BORE_SLOTS * 4);
+    const lineTexture = new THREE.DataTexture(lineData, FOAM_BORE_LINE_WIDTH, FOAM_BORE_SLOTS, THREE.RGBAFormat, THREE.FloatType);
+    lineTexture.minFilter = THREE.NearestFilter;
+    lineTexture.magFilter = THREE.NearestFilter;
+    lineTexture.wrapS = THREE.ClampToEdgeWrapping;
+    lineTexture.wrapT = THREE.ClampToEdgeWrapping;
+    lineTexture.needsUpdate = true;
+    pass.material.uniforms.uBoreLine.value = lineTexture;
+    return { read, write, pass, lineData, lineTexture, lineRevision: -1, lastTime: null, freezeKey: null, freezeTime: null };
   }, []);
 
   useEffect(() => () => {
     field.read.dispose();
     field.write.dispose();
+    field.lineTexture.dispose();
     disposePass(field.pass);
   }, [field]);
 
@@ -243,11 +310,40 @@ export function useFoamField(targetUniforms, { settings, bores, coast = null, ti
       return;
     }
     const time = timeline ? timeline.elapsed : clock.elapsedTime;
+    const frozen = Boolean(settings.surfFreeze);
+    // The line can change without a slider change when the coast definition
+    // or the height-derived isobath refreshes. It is part of a frozen source.
+    const nextFreezeKey = frozen ? `${foamFreezeKey(settings)}|${bores?.lineRevision ?? 0}` : null;
+    if (frozen && field.freezeKey !== nextFreezeKey) {
+      // A phase change asks for another still frame, not a residue of the
+      // previous stage. Clear both sides before seeding the new trace.
+      gl.setRenderTarget(field.read);
+      gl.clear(true, false, false);
+      gl.setRenderTarget(field.write);
+      gl.clear(true, false, false);
+      restoreDefaultFramebuffer(gl);
+      uniforms.uHasPrev.value = 0;
+      field.freezeKey = nextFreezeKey;
+      field.freezeTime = time;
+      field.lastTime = time;
+    } else if (!frozen && field.freezeKey !== null) {
+      // A live carrier must not inherit the deliberately static inspection
+      // trace. Restart from this frame's physical source and resume advection.
+      gl.setRenderTarget(field.read);
+      gl.clear(true, false, false);
+      gl.setRenderTarget(field.write);
+      gl.clear(true, false, false);
+      restoreDefaultFramebuffer(gl);
+      uniforms.uHasPrev.value = 0;
+      field.freezeKey = null;
+      field.freezeTime = null;
+      field.lastTime = time;
+    }
     // Demand frames while paused can update a slider or camera. Their wall
     // delta is not simulation time: foam must remain still with the waves.
     const elapsed = field.lastTime === null ? delta : time - field.lastTime;
     field.lastTime = time;
-    const step = Math.min(Math.max(elapsed, 0), 1 / 20);
+    const step = frozen ? 0 : Math.min(Math.max(elapsed, 0), 1 / 20);
     const half = Math.max(Number(settings.foamWindow) || 1, 4) * 0.5;
     // Most of the window belongs in front of the camera: what is behind the
     // eye costs the same and is never seen.
@@ -258,7 +354,7 @@ export function useFoamField(targetUniforms, { settings, bores, coast = null, ti
     uniforms.uPrevWindow.value.copy(uniforms.uWindow.value);
     foamWindowCenter(uniforms.uWindow.value, camera.position.x + FORWARD.x * reach, camera.position.z + FORWARD.z * reach, half);
     syncGerstnerUniforms(uniforms, settings);
-    uniforms.uGerstnerTime.value = time;
+    uniforms.uGerstnerTime.value = frozen ? field.freezeTime : time;
     uniforms.uPrev.value = field.read.texture;
     uniforms.uDelta.value = step;
     uniforms.uDecay.value = foamDecay(settings.foamLife, step);
@@ -278,6 +374,23 @@ export function useFoamField(targetUniforms, { settings, bores, coast = null, ti
     // transform. A full-coast skew made foam slide away from the new local lip.
     uniforms.uBoreFrame.value.set(coast?.along0 ?? 0, settings.surfFreeze ? 0 : (settings.surfPeel ?? 0), coast?.length ?? 1, settings.surfWidth ?? 9);
     uniforms.uBorePeelSpan.value = surfPeelSpan(settings);
+    uniforms.uBoreRefraction.value = THREE.MathUtils.clamp(Number(settings.surfRefraction) || 0, 0, 1);
+    if (bores && field.lineRevision !== bores.lineRevision) {
+      for (let row = 0; row < FOAM_BORE_SLOTS; row += 1) {
+        const line = bores.breakLines?.[row];
+        const visible = bores.breakVisible?.[row];
+        const mean = bores.breakMeans?.[row] ?? 0;
+        for (let column = 0; column < FOAM_BORE_LINE_WIDTH; column += 1) {
+          const index = (row * FOAM_BORE_LINE_WIDTH + column) * 4;
+          field.lineData[index] = line?.[column] ?? 0;
+          field.lineData[index + 1] = visible?.[column] ?? 0;
+          field.lineData[index + 2] = mean;
+          field.lineData[index + 3] = 1;
+        }
+      }
+      field.lineTexture.needsUpdate = true;
+      field.lineRevision = bores.lineRevision;
+    }
     uniforms.uBoreRunup.value = settings.surfRunup ?? 6;
 
     gl.setRenderTarget(field.write);

@@ -10,6 +10,7 @@ import {
 import { formatFloat, SIMULATION_RESOLUTION_OPTIONS } from '../editorShared';
 import { TERRAIN_RANGES } from '../../../../../terrain/settings.js';
 import { SEA_RANGES } from '../../../../../components/effects/water/seaSettings.js';
+import { SEA_STATE_CUSTOM, SEA_STATE_IDS, SEA_STATE_LABELS, resolveSeaState, seaStatePatch } from '../../../../../components/effects/water/seaStatePresets.js';
 
 const seaLabel = (ru, en, language) => language === 'ru' ? ru : en;
 const SeaRange = ({ settings, handleSettingChange, setting, ru, en, language, unit = '' }) => {
@@ -51,11 +52,23 @@ export const WaterGeometrySection = ({ settings, handleSettingChange }) => {
     </>;
 };
 
-export const WaterWavesSection = ({ settings, handleSettingChange }) => {
+export const WaterWavesSection = ({ settings, handleSettingChange, applySettings }) => {
     const { t, language } = useLanguage();
+
+    const stateLabels = SEA_STATE_LABELS[language];
+    const selectedState = resolveSeaState(settings, 'product');
+    const seaStateOptions = [
+        { value: SEA_STATE_CUSTOM, label: stateLabels.custom },
+        ...SEA_STATE_IDS.map((id) => ({ value: id, label: stateLabels[id] })),
+    ];
+    const applySeaState = (event) => {
+        const patch = seaStatePatch(event.target.value, 'product');
+        if (patch) applySettings?.(patch);
+    };
 
     return (
         <>
+            <SelectControl label={stateLabels.label} value={selectedState} options={seaStateOptions} onChange={applySeaState} />
             {SEA_WAVES.map(([setting, ru, en, unit]) => <SeaRange key={setting} settings={settings} handleSettingChange={handleSettingChange} setting={setting} ru={ru} en={en} language={language} unit={unit} />)}
             <SectionHeading label={seaLabel('Прибой', 'Surf', language)} subtle />
             <CheckboxControl label={seaLabel('Прибой включён', 'Surf enabled', language)} checked={Boolean(settings.seaSurfEnabled)} onChange={(event) => handleSettingChange(event, 'seaSurfEnabled', 'boolean')} />

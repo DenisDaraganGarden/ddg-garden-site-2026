@@ -110,7 +110,7 @@ export const waterShadingShader = /* glsl */`
     float shadows = mix(nearShadow, farShadow, cascade) * ddgCloudTransmission(world);
     return mix(1.0, shadows, clamp(uKeyDirectShare * uWaterShadowStrength, 0.0, 1.0));
   }
-  vec3 waterObjectReflection(vec3 world, vec3 n, vec3 fallback) {
+  vec3 waterObjectReflection(vec3 world, vec3 n, vec3 fallback, float roughness) {
     if (uReflectionActive < 0.5) return fallback;
     vec4 projected = uReflectionMatrix * vec4(world, 1.0);
     vec2 uv = projected.xy / max(projected.w, 0.0001) * 0.5 + 0.5;
@@ -118,9 +118,55 @@ export const waterShadingShader = /* glsl */`
     float coverage = step(0.002, distorted.x) * step(0.002, distorted.y)
       * step(distorted.x, 0.998) * step(distorted.y, 0.998) * step(0.0001, projected.w);
     vec4 captured = texture2D(uReflectionTexture, clamp(distorted, vec2(0.002), vec2(0.998)));
+    // A distant wind ripple has no resolvable normal, but it is still a rough
+    // reflector. Four symmetric texel taps are enough for this small planar
+    // object capture; keep the exact centre sample in glassy patches.
+    if (roughness > 0.0001) {
+      vec2 texel = 1.0 / vec2(textureSize(uReflectionTexture, 0));
+      vec2 spread = texel * (1.0 + roughness * 4.0);
+      vec4 filtered = (
+        texture2D(uReflectionTexture, clamp(distorted + vec2(spread.x, 0.0), vec2(0.002), vec2(0.998)))
+        + texture2D(uReflectionTexture, clamp(distorted - vec2(spread.x, 0.0), vec2(0.002), vec2(0.998)))
+        + texture2D(uReflectionTexture, clamp(distorted + vec2(0.0, spread.y), vec2(0.002), vec2(0.998)))
+        + texture2D(uReflectionTexture, clamp(distorted - vec2(0.0, spread.y), vec2(0.002), vec2(0.998)))
+      ) * 0.25;
+      captured = mix(captured, filtered, roughness * 0.8);
+    }
     // The physical sky stays the dominant reflection. Captured objects only
     // occupy their own translucent pixels, avoiding dark mirror silhouettes.
     return mix(fallback, captured.rgb, coverage * captured.a * clamp(uSeaObjectReflectionStrength * 0.24, 0.0, 0.48));
+  }
+  vec3 waterReflectionTangent(vec3 ray) {
+    vec3 tangent = vec3(-ray.z, 0.0, ray.x) + vec3(0.0001, 0.0, 0.0);
+    return tangent * inversesqrt(max(dot(tangent, tangent), 1e-8));
+  }
+  vec3 waterSkyReflection(vec3 ray, float roughness) {
+    vec3 centre = waterSkyColor(ray);
+    if (roughness <= 0.0001) return centre;
+    vec3 tangent = waterReflectionTangent(ray);
+    vec3 bitangent = normalize(cross(ray, tangent));
+    float spread = roughness * 0.12;
+    vec3 filtered = (
+      waterSkyColor(normalize(ray + tangent * spread))
+      + waterSkyColor(normalize(ray - tangent * spread))
+      + waterSkyColor(normalize(ray + bitangent * spread))
+      + waterSkyColor(normalize(ray - bitangent * spread))
+    ) * 0.25;
+    return mix(centre, filtered, smoothstep(0.001, 0.08, roughness));
+  }
+  float waterSunGlint(vec3 reflected, float roughness) {
+    float sharp = pow(max(dot(reflected, uSunDirection), 0.0), 320.0);
+    if (roughness <= 0.0001) return sharp;
+    vec3 tangent = waterReflectionTangent(reflected);
+    vec3 bitangent = normalize(cross(reflected, tangent));
+    float spread = roughness * 0.12;
+    float wide = (
+      pow(max(dot(normalize(reflected + tangent * spread), uSunDirection), 0.0), 320.0)
+      + pow(max(dot(normalize(reflected - tangent * spread), uSunDirection), 0.0), 320.0)
+      + pow(max(dot(normalize(reflected + bitangent * spread), uSunDirection), 0.0), 320.0)
+      + pow(max(dot(normalize(reflected - bitangent * spread), uSunDirection), 0.0), 320.0)
+    ) * 0.25;
+    return clamp(mix(sharp, wide, smoothstep(0.001, 0.08, roughness)), 0.0, 1.0);
   }
   float waterPerspectiveDepthToViewZ(float depth) {
 #ifdef USE_LOGARITHMIC_DEPTH_BUFFER
@@ -202,6 +248,40 @@ export const waterShadingShader = /* glsl */`
     vec2 b = p * uRippleScale * 2.9 - uWind * uTime * 0.03;
     return texture(uNoise, vec3(a, 0.31)).r * 0.65 + texture(uNoise, vec3(b, 0.67)).b * 0.35;
   }
+  // The large wind field says whether a crest can whitecap. This finer field
+  // only distributes its unresolved chop: irregular paws tens of metres wide
+  // between calm mirrors. It is world/carrier based and advances with the
+  // swell, so a paused sea does not crawl under a static camera.
+  float waterRippleWindPatch(vec2 p) {
+    float broad = waterWindPatch(p);
+    if (uGerstnerPatches <= 0.001) return broad;
+    vec2 drift = uGerstnerTrain[0].xy * uGerstnerMotion[0].x * uGerstnerTime;
+    vec2 q = mat2(0.86, -0.51, 0.51, 0.86) * (p * 0.013 + drift * 0.0032);
+    vec2 warp = vec2(
+      gerstnerNoise(p * 0.0037 + drift * 0.0009 + 3.17),
+      gerstnerNoise(mat2(0.63, -0.78, 0.78, 0.63) * p * 0.0031 + drift * 0.0007 + 7.43)
+    ) - 0.5;
+    float medium = gerstnerNoise(q + warp * 0.82);
+    float fine = gerstnerNoise(mat2(0.71, -0.70, 0.70, 0.71) * q * 2.41 + warp * 1.37 + 11.29);
+    float paws = smoothstep(0.32, 0.71, mix(medium, fine, 0.43));
+    return broad * mix(1.0, mix(0.16, 1.0, paws), uGerstnerPatches);
+  }
+  float waterRippleResolvedWeight(float pixel) {
+    // uRippleScale is cycles per metre: .09 means a broad ~11 m slice and a
+    // finer ~3.8 m octave. Filter the latter by the world footprint, rather
+    // than by grid density, so the horizon does not stripe as rings widen.
+    float feature = 0.125 / max(uRippleScale * 2.9, 0.001);
+    return 1.0 - smoothstep(feature * 0.12, feature * 0.5, pixel);
+  }
+  float waterRippleUnresolvedRoughness(vec2 p, float pixel) {
+    if (uRipple <= 0.001 || uNoiseReady < 0.5) return 0.0;
+    float feature = 0.125 / max(uRippleScale * 2.9, 0.001);
+    float unresolved = smoothstep(feature * 0.18, feature * 0.82, pixel);
+    if (unresolved <= 0.001) return 0.0;
+    // At distance the normal is filtered away, but its bounded angular spread
+    // still softens the same reflected directions in windy paws.
+    return clamp(uRipple * waterRippleWindPatch(p) * unresolved * 0.22, 0.0, 0.22);
+  }
   float waterRippleMapWeight(vec2 p) {
     vec2 uv = vec2(p.x / uSeaRippleExtent + 0.5, 0.5 - p.y / uSeaRippleExtent);
     vec2 lo = smoothstep(vec2(0.035), vec2(0.07), uv);
@@ -209,12 +289,11 @@ export const waterShadingShader = /* glsl */`
     return lo.x * lo.y * hi.x * hi.y;
   }
   vec3 waterRippleNormal(vec3 n, vec2 p, float pixel, float weight, float wet) {
-    // waterRippleHeight has a second octave 2.9 times smaller than the
-    // first.  Filtering only against the broad octave left that detail alive
-    // after it crossed a pixel; at a shallow camera angle it turned into dark,
-    // marching bands.  Fade at the shortest represented feature instead.
-    float feature = 0.125 / max(uRippleScale * 2.9, 0.001);
-    float w = uRipple * weight * uNoiseReady * (1.0 - smoothstep(feature * 0.12, feature * 0.5, pixel)) * mix(0.12, 1.0, waterWindPatch(p));
+    float w = 0.0;
+    if (uRipple > 0.001 && weight > 0.001 && uNoiseReady > 0.5) {
+      float resolved = waterRippleResolvedWeight(pixel);
+      if (resolved > 0.001) w = uRipple * weight * resolved * waterRippleWindPatch(p);
+    }
     if (w > 0.001) {
       float e = 0.02 / max(uRippleScale, 0.001);
       float h = waterRippleHeight(p);
@@ -253,6 +332,35 @@ export const waterShadingShader = /* glsl */`
   vec2 waterFlowUv(vec2 p) {
     return vec2(dot(p, vec2(-uWind.y, uWind.x)), dot(p, uWind));
   }
+  vec2 waterFoamCarrierWarp(vec2 fp) {
+    // The volume repeats every 1/uLaceScale metres. A low-frequency carrier
+    // warp shifts each repeat by several metres before it is sampled, without
+    // adding another 3D fetch or an independent clock. Its derivative stays
+    // below one, so the lace is distorted into a film instead of folding.
+    vec2 q = fp * 0.071;
+    vec2 warp = vec2(
+      gerstnerNoise(mat2(0.81, -0.59, 0.59, 0.81) * q + 2.73),
+      gerstnerNoise(mat2(0.62, -0.78, 0.78, 0.62) * q * 0.83 + 8.41)
+    ) - 0.5;
+    return fp + warp * 4.6;
+  }
+  // Empirical inverse CDF of the lace pattern at uLaceScale .34. The field
+  // coverage is the fraction of a patch that should carry visible foam, so
+  // map it to a pattern quantile instead of multiplying every pixel by it.
+  // Linear segments keep the lookup deterministic and inexpensive.
+  float waterFoamPatternQuantile(float probability) {
+    float p = clamp(probability, 0.0, 1.0);
+    if (p < 0.01) return mix(0.29077, 0.35352, p * 100.0);
+    if (p < 0.05) return mix(0.35352, 0.39697, (p - 0.01) * 25.0);
+    if (p < 0.10) return mix(0.39697, 0.42188, (p - 0.05) * 20.0);
+    if (p < 0.25) return mix(0.42188, 0.46460, (p - 0.10) / 0.15);
+    if (p < 0.50) return mix(0.46460, 0.51318, (p - 0.25) * 4.0);
+    if (p < 0.75) return mix(0.51318, 0.56250, (p - 0.50) * 4.0);
+    if (p < 0.90) return mix(0.56250, 0.60596, (p - 0.75) / 0.15);
+    if (p < 0.95) return mix(0.60596, 0.62988, (p - 0.90) * 20.0);
+    if (p < 0.99) return mix(0.62988, 0.67529, (p - 0.95) * 25.0);
+    return mix(0.67529, 0.76807, (p - 0.99) * 100.0);
+  }
   // Foam from a coverage 0..1. On the water this is a porous film: a dense
   // body breaks at its edge into short strands and holes. The only genuinely
   // volumetric foam is the shell at a breaking lip; promoting every Worley
@@ -262,15 +370,19 @@ export const waterShadingShader = /* glsl */`
   // where the fine octave is strong, so a patch breaks into rags and holes.
   float waterFoam(vec2 fp, float coverage, float pixel, float age, out float bubbles) {
     bubbles = 0.0;
-    if (coverage <= 0.001 || uNoiseReady < 0.5) return 0.0;
-    vec2 lp = vec2(fp.x * 0.85, fp.y * 1.25) * uLaceScale;
+    // uNoiseReady is uniform. Do not return on the per-fragment coverage
+    // field before fwidth below: GLSL derivatives become undefined where a
+    // foam edge crosses a pixel quad, which showed up as a dotted inner line.
+    if (uNoiseReady < 0.5) return 0.0;
+    vec2 carrier = waterFoamCarrierWarp(fp);
+    vec2 lp = vec2(carrier.x * 0.85, carrier.y * 1.25) * uLaceScale;
     // The noise volume tiles in all three axes, so a plane through it repeats
     // every 1/scale metres — at a metre-scale lace that lattice is plainly
     // visible on the sea. The slice varies along the foam carrier instead:
     // neighbouring stretches read different depths of the volume, and there
     // is no plane in it left to repeat. The offset is hashed value noise,
     // itself without a period.
-    float slice = fract(0.12 + gerstnerNoise(fp * 0.021) * 3.0);
+    float slice = fract(0.12 + gerstnerNoise(carrier * 0.019) * 3.0);
     vec3 lace = texture(uNoise, vec3(lp, slice)).rgb;
     float feature = 0.125 / max(uLaceScale, 0.001);
     float fineFade = 1.0 - smoothstep(feature * 0.05, feature * 0.25, pixel);
@@ -281,18 +393,28 @@ export const waterShadingShader = /* glsl */`
     float fine = mix(0.5, detail.b, fineFade);
     coverage *= mix(1.0, 0.4 + 0.6 * smoothstep(0.1, 0.7, fine), clamp(age, 0.0, 1.0));
     float pattern = lace.r * 0.5 + detail.r * 0.3 + fine * 0.2;
-    float width = 0.05 + smoothstep(feature * 0.1, feature * 0.6, pixel) * 0.22;
-    float body = smoothstep(1.0 - coverage - width, 1.0 - coverage + width, pattern);
+    // The former threshold used 1 - coverage directly against this biased
+    // distribution. That made .25 empty while .5 covered most of the sea.
+    // The inverse CDF instead makes coverage approximately the island area:
+    // .1/.25 remain lace over clear water and 1 fills the whole carrier.
+    float threshold = waterFoamPatternQuantile(1.0 - coverage);
+    float width = max(fwidth(pattern) * 0.75, 0.008);
+    float coverageActive = smoothstep(0.0005, 0.0025, coverage);
+    float islands = smoothstep(threshold - width, threshold + width, pattern);
     float pores = mix(0.52, detail.g, fineFade);
-    body *= smoothstep(0.20, 0.54, fine + coverage * 0.52) * mix(0.62, 1.0, pores);
+    float porosity = smoothstep(0.20, 0.54, fine + coverage * 0.52) * mix(0.62, 1.0, pores);
+    // Once lace is smaller than a pixel, resolve it to its area-weighted film
+    // density. Thresholding a mean pattern would switch that foam off.
+    float farFilm = coverage * (0.62 + 0.38 * 0.52);
+    float body = mix(farFilm, islands * porosity, fineFade);
     // The sparse rim is a film left as a patch breaks apart, not a cloudy
     // halo around each noise cell. It is deliberately narrower than the body
     // and fades by pixel width before it can sparkle at distance.
-    float strands = smoothstep(1.0 - coverage - width * 0.72, 1.0 - coverage + width * 0.72, pattern)
-      * (1.0 - body) * smoothstep(0.08, 0.38, coverage)
+    float strands = fineFade * smoothstep(threshold - width * 2.5, threshold + width * 0.5, pattern)
+      * (1.0 - body)
       * smoothstep(0.18, 0.56, fine);
-    bubbles = clamp(pores * body + (1.0 - body) * 0.72, 0.0, 1.0);
-    return clamp(body + strands * 0.34, 0.0, 1.0);
+    bubbles = coverageActive * clamp(pores * body + (1.0 - body) * 0.72, 0.0, 1.0);
+    return coverageActive * clamp(body + strands * 0.34, 0.0, 1.0);
   }
   // thickness: metres of water behind this point toward the light (a lip is
   // centimetres, open water is metres). lift: extra backlight for a crest.
@@ -310,13 +432,14 @@ export const waterShadingShader = /* glsl */`
     float facing = clamp(dot(n, view), 0.0, 1.0);
     float fresnel = 0.02 + 0.98 * pow(1.0 - facing, 5.0);
     vec3 reflected = reflect(-view, n);
+    float unresolvedRoughness = waterRippleUnresolvedRoughness(world.xz, pixel);
     // The underside of a lip looks down at the water, not at a mirrored sky.
     float below = 1.0 - smoothstep(-0.25, 0.0, reflected.y);
     reflected.y = abs(reflected.y);
-    vec3 reflection = mix(waterSkyColor(reflected), uDeepColor * uFillIrradiance * 0.6, below);
-    reflection = waterObjectReflection(world, n, reflection);
+    vec3 reflection = mix(waterSkyReflection(reflected, unresolvedRoughness), uDeepColor * uFillIrradiance * 0.6, below);
+    reflection = waterObjectReflection(world, n, reflection, unresolvedRoughness);
     float keyVisibility = waterKeyVisibility(world);
-    reflection += uSunRadiance * pow(max(dot(reflected, uSunDirection), 0.0), 320.0) * uGlint * 0.02 * keyVisibility;
+    reflection += uSunRadiance * waterSunGlint(reflected, unresolvedRoughness) * uGlint * 0.02 * keyVisibility;
     float sunDiffuse = max(dot(n, uSunDirection), 0.0);
     vec3 body = mix(uDeepColor, uWaterColor, pow(facing, 0.6));
     body *= (uFillIrradiance + uSunRadiance * (0.15 + 0.45 * sunDiffuse) * keyVisibility) * 0.55 / WATER_PI;
@@ -335,7 +458,8 @@ export const waterShadingShader = /* glsl */`
     // Fresnel does not know how deep the water is. Damping the reflection by
     // the bed killed the sheen exactly where a real shore has most of it — on
     // the swash film, a millimetre of water over wet sand, which is a mirror.
-    vec3 color = mix(body, reflection, clamp(fresnel, 0.02, 0.85) * (1.0 - transmit * 0.8));
+    float reflectionWeight = clamp(fresnel, 0.02, 0.85) * (1.0 - transmit * 0.8);
+    vec3 color = mix(body, reflection, reflectionWeight);
     // This material has no Three lighting chunks. Keep the cursor spotlight's
     // low diffuse lift and narrow water lobe from the established surface so
     // the interactive light still reveals the Gerstner and runtime ripples.

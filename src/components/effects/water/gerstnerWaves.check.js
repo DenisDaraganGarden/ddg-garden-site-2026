@@ -43,7 +43,8 @@ for (let i = 0; i < 2000; i += 1) {
 assert.equal(gerstnerWeatherAt(123, -456, 0), 1);
 // The whitecap patches must not come from a sine field: a lattice on the sea
 // is the one thing Denis will not accept. They are hashed value noise.
-assert.ok(!/caps/.test(gerstnerShader), 'the whitecap mask must not be a sine table');
+const whitecapMask = gerstnerShader.slice(gerstnerShader.indexOf('float gerstnerWhitecapMask('), gerstnerShader.indexOf('// How well the mesh resolves'));
+assert.ok(!/\bsin\s*\(/.test(whitecapMask), 'the whitecap mask must not be a sine table');
 assert.ok(gerstnerShader.includes('gerstnerHash'), 'the whitecap patches must be hashed noise');
 assert.ok(gerstnerShader.includes('uGerstnerMotion[0].x * uGerstnerTime'), 'patches stop with a zero-speed carrier');
 // The whitecap coverage the shader falls back on where a wave no longer

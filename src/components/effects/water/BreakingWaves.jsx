@@ -619,8 +619,19 @@ export default function BreakingWaves({ settings, lighting, noise = null, coast,
         const line = coastBreakLine(coast.definition, height, coast.along0, coast.length, BREAK_SAMPLES, 0.78, heightAt);
         for (let i = 0; i < line.length; i += 1) line[i] += settings.surfBreakDistance;
         ribbon.uniforms.uBreakLine.value = line;
-        ribbon.uniforms.uBreakVisible.value = coastBreakVisibility(line, coast.length);
-        ribbon.uniforms.uBreakMean.value = breakLineMean(line);
+        const visible = coastBreakVisibility(line, coast.length);
+        const mean = breakLineMean(line);
+        ribbon.uniforms.uBreakVisible.value = visible;
+        ribbon.uniforms.uBreakMean.value = mean;
+        // The foam field is a separate pass, so give it the same refracted
+        // isobath and the same split mask as this loft. One scalar bore centre
+        // alone cannot follow a crest that bends around the spit.
+        if (foamBores?.breakLines?.[ribbon.index]) {
+          foamBores.breakLines[ribbon.index].set(line);
+          foamBores.breakVisible[ribbon.index].set(visible);
+          foamBores.breakMeans[ribbon.index] = mean;
+          foamBores.lineRevision += 1;
+        }
         ribbon.lineFor = lineKey;
       }
       // The band that emits: as wide as the frustum is at this distance, so the

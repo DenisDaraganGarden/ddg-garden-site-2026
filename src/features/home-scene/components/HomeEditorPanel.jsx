@@ -38,6 +38,7 @@ const HomeEditorPanel = ({
     setActiveTab,
     settings,
     handleSettingChange,
+    applySettings,
     layoutEditor,
     gizmo,
     onPublish,
@@ -363,6 +364,7 @@ const HomeEditorPanel = ({
                                     <Section
                                         settings={settings}
                                         handleSettingChange={handleSettingChange}
+                                        applySettings={applySettings}
                                         layoutEditor={layoutEditor}
                                         audioLab={audioLab}
                                     />

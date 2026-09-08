@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { SURF_BORE_HEIGHT_FRACTION, SURF_SHAPE, surfBoreHeightRatio, surfJetDown, surfPeelSpan, surfPeelTravelOffset, surfPlungeTime, surfRearingLength, surfShape, surfSheetThickness } from './surfProfile.js';
+import { SURF_BORE_HEIGHT_FRACTION, SURF_SHAPE, surfBoreHeightRatio, surfFoamBoreFrameQ, surfJetDown, surfPeelSpan, surfPeelTravelOffset, surfPlungeTime, surfRearingLength, surfShape, surfSheetThickness } from './surfProfile.js';
 
 // The shoaling shape must reproduce the reference figures (Bosboom & Stive,
 // Azov surf sheet): crest phase θp ≈ 0.17662 and range ≈ 2.12365.
@@ -53,5 +53,16 @@ assert.deepEqual(surfJetDown({ jet: 0, lift: 0 }), [0, -1], 'zero jet/lift uses 
 for (const elapsed of [0, 0.1, 1]) {
   const [x, z] = surfJetDown({ jet: 1.9, lift: 0.25, elapsed });
   assert.ok(Number.isFinite(x) && Number.isFinite(z) && Math.abs(Math.hypot(x, z) - 1) < 1e-12, 'jet frame remains a unit vector');
+}
+
+// A foam bore stores a mean q, but the visible crest is refracted to L(s).
+// Mapping its section back into that mean frame must agree for every blend of
+// the isobath and straight crest, otherwise foam peels away around the spit.
+for (const refraction of [0, 0.7, 1]) {
+  for (const [breakAt, breakMean, peel, wiggle, travel] of [[-4, -8, 0, 0, 3], [-38, -7, 1.029, 0.24, 5.7], [-1.5, -18, 0.4, -0.17, -2]]) {
+    const crestQ = travel + (1 - refraction) * breakMean + refraction * breakAt - peel + wiggle;
+    const frameQ = surfFoamBoreFrameQ({ q: crestQ, peel, wiggle, refraction, breakAt, breakMean });
+    assert.ok(Math.abs(frameQ - (travel + breakMean)) < 1e-12, `foam frame follows refracted crest at r=${refraction}`);
+  }
 }
 console.log(`surfProfile: θp ${SURF_SHAPE.thetaPeak.toFixed(5)}, range ${SURF_SHAPE.range.toFixed(5)}, 1.1 m lip lands in ${fall.toFixed(2)} s; peel span ${surfPeelSpan(azov).toFixed(2)} m`);

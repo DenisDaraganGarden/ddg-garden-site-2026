@@ -5,6 +5,7 @@ export const useHomeSceneEditor = () => {
     const { settings, setSettings } = useHomeSceneDraftSettings();
 
     const [activeTab, setActiveTab] = useState('water');
+    const applySettings = (patch) => setSettings((prev) => ({ ...prev, ...patch }));
 
     const handleSettingChange = (event, key, valueType = 'float') => {
         let value;
@@ -54,5 +55,6 @@ export const useHomeSceneEditor = () => {
         activeTab,
         setActiveTab,
         handleSettingChange,
+        applySettings,
     };
 };
