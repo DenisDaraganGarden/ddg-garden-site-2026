@@ -72,8 +72,9 @@ const fragmentShader = /* glsl */`
     float ground = uShoreReady > 0.5 ? coastGround(qs) : -1.0;
     bool inBand = uShoreBand.y > uShoreBand.x && qs.y > uShoreBand.x && qs.y < uShoreBand.y;
     if (inBand ? qs.x > uShoreBand.z : ground > -0.05) discard;
-    // Over the last metre and a half of depth the sand shows through.
-    float bed = smoothstep(-1.5, -0.05, ground) * 0.85;
+    // The sand shows through by Beer-Lambert; the map knows the ground to a
+    // metre down, which at this turbidity is where the sand is gone anyway.
+    float bed = uShoreReady > 0.5 ? exp(-max(-ground, 0.0) * 3.0) * (1.0 - smoothstep(0.9, 1.0, -ground)) : 0.0;
     vec3 view = normalize(cameraPosition - vWorld);
     float pixel = length(vec2(fwidth(vWorld.x), fwidth(vWorld.z)));
     vec3 n = normalize(vWaveNormal);

@@ -86,7 +86,8 @@ export const waterShadingShader = /* glsl */`
   }
   // thickness: metres of water behind this point toward the light (a lip is
   // centimetres, open water is metres). lift: extra backlight for a crest.
-  // bed: how much of the sand shows through shallow water here (0..1).
+  // bed: how much of the sand shows through the water here, 0..1 —
+  // exp(-depth * k) down and back up, k about 3 for this turbid sea.
   vec3 shadeWater(vec3 world, vec3 n, vec3 view, float pixel, vec2 foamUv, float foamCoverage, float foamAge, float thickness, float lift, float bed) {
     float facing = clamp(dot(n, view), 0.0, 1.0);
     float fresnel = 0.02 + 0.98 * pow(1.0 - facing, 5.0);
@@ -105,9 +106,11 @@ export const waterShadingShader = /* glsl */`
     float backlight = pow(max(dot(view, -uSunDirection), 0.0), 3.0);
     body += uWaterColor * uSunRadiance / WATER_PI * backlight * (lift + transmit * 1.5) * uCrestGlow * 1.6;
     body += uWaterColor * uFillIrradiance / WATER_PI * transmit * 1.8;
-    // Shallow water: the sand shows through, tinted by the water, and the
-    // surface reads less as a mirror.
-    body = mix(body, uBedColor * uWaterColor * 1.6 * (uFillIrradiance + uSunRadiance * (0.2 + 0.4 * sunDiffuse)) / WATER_PI, bed);
+    // Shallow water: the sand shows through — wet sand, lit as the beach's own
+    // wet band is, by the share the caller took from Beer-Lambert for the
+    // depth — and the surface reads less as a mirror over it.
+    vec3 bedLit = uBedColor * 0.55 * (uFillIrradiance + uSunRadiance * (0.3 + 0.7 * sunDiffuse)) / WATER_PI;
+    body = mix(body, bedLit, bed);
     vec3 color = mix(body, reflection, clamp(fresnel, 0.02, 0.85) * (1.0 - transmit * 0.8) * (1.0 - 0.45 * bed));
     float bubbles;
     float foam = waterFoam(foamUv, foamCoverage, pixel, foamAge, bubbles);

@@ -119,11 +119,10 @@ const fragmentShader = /* glsl */`
     vec3 n = normalize(mix(normalize(vWaveNormal), vec3(0.0, 1.0, 0.0), vFilm));
     n = waterRippleNormal(n, vWorld.xz, pixel, vFade * (1.0 - vFilm));
     vec3 memory = sampleFoamField(vWorld.xz);
-    float bed = smoothstep(1.5, 0.0, depth) * 0.85 + 0.15 * (1.0 - smoothstep(0.0, 0.06, depth));
-    vec3 color = shadeWater(vWorld, n, view, pixel, waterFlowUv(vWorld.xz), memory.x, memory.y, max(depth, 0.01), 0.0, bed);
-    // Millimetres of water over the sand read as the wet sand itself, glossy.
-    vec3 wetSand = uBedColor * 0.5 * (uFillIrradiance + uSunRadiance * 0.45) / WATER_PI;
-    color = mix(color, wetSand, (1.0 - smoothstep(0.0, 0.05, depth)) * 0.7);
+    // The sand under the water by Beer-Lambert: at the edge the water is the
+    // wet sand itself under a gloss, deeper it is the water's own body.
+    float bed = exp(-depth * 3.0);
+    vec3 color = shadeWater(vWorld, n, view, pixel, waterFlowUv(vWorld.xz), memory.x, memory.y, 10.0, 0.0, bed);
     gl_FragColor = vec4(color, 1.0);
     #include <fog_fragment>
     #include <tonemapping_fragment>
