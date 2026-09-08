@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { GERSTNER_MAX_STEEPNESS, GERSTNER_WEATHER, gerstnerShader, gerstnerSteepnessBudget, gerstnerWeatherAt, resolveGerstnerTrains } from './gerstnerWaves.js';
+import { GERSTNER_MAX_STEEPNESS, GERSTNER_WEATHER, gerstnerShader, gerstnerSigma, gerstnerSteepnessBudget, gerstnerWeatherAt, gerstnerWhitecapCoverage, resolveGerstnerTrains } from './gerstnerWaves.js';
 import { buildRadialWaterGeometry } from './radialWaterGeometry.js';
 
 // The steepness budget is the no-self-intersection guarantee: whatever the
@@ -45,4 +45,42 @@ assert.equal(gerstnerWeatherAt(123, -456, 0), 1);
 // is the one thing Denis will not accept. They are hashed value noise.
 assert.ok(!/caps/.test(gerstnerShader), 'the whitecap mask must not be a sine table');
 assert.ok(gerstnerShader.includes('gerstnerHash'), 'the whitecap patches must be hashed noise');
-console.log(`gerstnerWaves: steepness capped at ${GERSTNER_MAX_STEEPNESS}, radial mesh ${geometry.userData.triangles} triangles facing up`);
+// The whitecap coverage the shader falls back on where a wave no longer
+// resolves in a pixel must be the coverage the wave field actually has, or the
+// foam appears and vanishes as the camera moves. Re-measure the Jacobian's
+// distribution and compare with the fit.
+const sampleCoverage = (trains, threshold) => {
+  let hit = 0, total = 0;
+  for (let i = 0; i < 300; i += 1) {
+    for (let j = 0; j < 300; j += 1) {
+      const x = i * 0.37, z = j * 0.41;
+      let dxx = 0, dzz = 0, dxz = 0;
+      trains.forEach((train, index) => {
+        const phase = train.k * (train.direction[0] * x + train.direction[1] * z) + index * 1.7;
+        const wa = train.q * train.k * train.amplitude * Math.sin(phase);
+        dxx -= wa * train.direction[0] ** 2;
+        dzz -= wa * train.direction[1] ** 2;
+        dxz -= wa * train.direction[0] * train.direction[1];
+      });
+      total += 1;
+      if ((1 + dxx) * (1 + dzz) - dxz * dxz < threshold) hit += 1;
+    }
+  }
+  return hit / total;
+};
+let worst = 0;
+for (const steepness of [0.3, 0.5, 0.7, 0.8]) {
+  const trains = resolveGerstnerTrains({ wavelength: 11.5, amplitude: 0.57, steepness, windDirection: 90, crossWaves: 0.3 });
+  const sigma = gerstnerSigma(trains);
+  for (const threshold of [0.4, 0.55, 0.7, 0.85]) {
+    const measured = sampleCoverage(trains, threshold);
+    const fitted = gerstnerWhitecapCoverage(sigma, threshold);
+    worst = Math.max(worst, Math.abs(measured - fitted));
+    assert.ok(Math.abs(measured - fitted) < 0.045, `coverage ${steepness}/${threshold}: measured ${measured.toFixed(3)}, fit ${fitted.toFixed(3)}`);
+  }
+}
+// Calm water does not whitecap; a storm does, and more of it with a higher threshold.
+assert.equal(gerstnerWhitecapCoverage(gerstnerSigma(resolveGerstnerTrains({ wavelength: 9, amplitude: 0.12, steepness: 0.25, windDirection: 0, crossWaves: 0.3 })), 0.55), 0);
+assert.ok(gerstnerWhitecapCoverage(0.38, 0.7) > gerstnerWhitecapCoverage(0.38, 0.5));
+
+console.log(`gerstnerWaves: steepness capped at ${GERSTNER_MAX_STEEPNESS}, whitecap coverage within ${worst.toFixed(3)} of measured, radial mesh ${geometry.userData.triangles} triangles facing up`);

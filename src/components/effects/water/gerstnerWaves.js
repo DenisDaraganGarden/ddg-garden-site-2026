@@ -82,6 +82,21 @@ export function syncGerstnerUniforms(uniforms, settings) {
   if (uniforms.uCellFactor) uniforms.uCellFactor.value = radialCellFactor({ rings: settings.meshRings, segments: settings.meshSegments });
 }
 
+// How much of the sea a wave field of this steepness whitecaps at a given
+// threshold. Measured, not guessed: the Jacobian of the four-train sum was
+// sampled over the plane, and its distribution collapses onto one curve in
+// r = (1 - threshold) / sigma, where sigma = sqrt(Σ (Q·k·A)² / 2) is the
+// spread of the folding. gerstnerWaves.check.js re-measures and asserts the
+// fit. The shader uses the same curve where a wave no longer resolves in a
+// pixel, so the foam neither appears nor vanishes as the camera moves.
+export const WHITECAP_FIT = Object.freeze({ peak: 0.42, from: 0.3, to: 1.9, shape: 1.2 });
+const smooth01 = (a, b, x) => { const u = Math.min(Math.max((x - a) / (b - a), 0), 1); return u * u * (3 - 2 * u); };
+export const gerstnerWhitecapCoverage = (sigma, threshold) => {
+  const r = (1 - threshold) / Math.max(sigma, 1e-4);
+  return WHITECAP_FIT.peak * (1 - smooth01(WHITECAP_FIT.from, WHITECAP_FIT.to, r)) ** WHITECAP_FIT.shape;
+};
+export const gerstnerSigma = (trains) => Math.sqrt(trains.reduce((sum, train) => sum + (train.q * train.k * train.amplitude) ** 2, 0) / 2);
+
 export const gerstnerShader = /* glsl */`
 #define GERSTNER_TRAINS ${GERSTNER_TRAIN_COUNT}
 #define WATER_PI_G 3.14159265
@@ -202,7 +217,7 @@ export const gerstnerPixelShader = /* glsl */`
 float gerstnerWhitecaps(vec2 p, float threshold, float softness) {
   vec2 weather = gerstnerWeather(p);
   float dxx = 0.0, dzz = 0.0, dxz = 0.0;
-  float budget = 0.0, blurred = 0.0;
+  float variance = 0.0, blurred = 0.0, energy = 0.0;
   for (int i = 0; i < GERSTNER_TRAINS; i++) {
     vec4 train = uGerstnerTrain[i];
     vec4 motion = uGerstnerMotion[i];
@@ -210,7 +225,8 @@ float gerstnerWhitecaps(vec2 p, float threshold, float softness) {
     float phase = train.z * dot(d, p) - motion.x * uGerstnerTime + motion.z + weather.y;
     float aa = 1.0 - smoothstep(0.35, 1.5, fwidth(phase));
     float qka = motion.y * train.z * train.w * weather.x * gerstnerEnvelope(phase, motion.w);
-    budget += qka;
+    variance += qka * qka;
+    energy += qka;
     blurred += qka * (1.0 - aa);
     float wa = qka * aa * sin(phase);
     dxx -= wa * d.x * d.x;
@@ -219,10 +235,11 @@ float gerstnerWhitecaps(vec2 p, float threshold, float softness) {
   }
   float jacobian = (1.0 + dxx) * (1.0 + dzz) - dxz * dxz;
   float resolved = smoothstep(threshold + softness, threshold - softness, jacobian);
-  float reach = (1.0 - threshold) / max(budget, 1e-4);
-  float statistical = reach < 1.0 ? acos(clamp(reach, -1.0, 1.0)) / WATER_PI_G : 0.0;
-  float share = clamp(blurred / max(budget, 1e-4), 0.0, 1.0);
-  return mix(resolved, statistical, share) * gerstnerWhitecapMask(p);
+  // The same coverage this field has on average (WHITECAP_FIT, measured).
+  float r = (1.0 - threshold) / max(sqrt(variance * 0.5), 1e-4);
+  float mean = ${WHITECAP_FIT.peak} * pow(1.0 - smoothstep(${WHITECAP_FIT.from}, ${WHITECAP_FIT.to}, r), ${WHITECAP_FIT.shape});
+  float share = clamp(blurred / max(energy, 1e-4), 0.0, 1.0);
+  return mix(resolved, mean, share) * gerstnerWhitecapMask(p);
 }
 vec2 gerstnerPixelSlope(vec2 p, float fade, float cell, out float fold) {
   vec2 slope = vec2(0.0);
