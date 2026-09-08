@@ -1,5 +1,6 @@
 import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
+import { localizePath } from '../../i18n/languageRoutes';
 import { useLanguage } from '../../i18n/useLanguage';
 import { archiveNavigationItems, primaryNavigationItems } from '../../config/siteNavigation';
 import { useSiteMusic } from './SiteMusicController';
@@ -120,7 +121,7 @@ const Navigation = () => {
             data-testid="site-nav"
         >
             <div className="nav-brand">
-                <NavLink to="/" className="nav-brand__link" data-testid="brand-link">
+                <NavLink to={localizePath('/', language)} className="nav-brand__link" data-testid="brand-link">
                     Denis Daragan
                     <span className="brand-subtitle">{t('navigation.brandSubtitle')}</span>
                 </NavLink>
@@ -135,7 +136,7 @@ const Navigation = () => {
                                     {...groupHandlers('portfolio')}
                                 >
                                     <NavLink
-                                        to="/portfolio"
+                                        to={localizePath('/portfolio', language)}
                                         className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}
                                         data-testid="nav-portfolio"
                                         onClick={handleGroupTap('portfolio')}
@@ -148,14 +149,14 @@ const Navigation = () => {
                                         {PORTFOLIO_CATEGORIES.map((cat) => (
                                             <NavLink
                                                 key={cat}
-                                                to={`/portfolio?category=${cat}`}
+                                                to={`${localizePath('/portfolio', language)}?category=${cat}`}
                                                 className="nav-sub__link"
                                             >
                                                 {t(`navigation.portfolio_${cat}`)}
                                             </NavLink>
                                         ))}
                                         <NavLink
-                                            to="/portfolio"
+                                            to={localizePath('/portfolio', language)}
                                             className="nav-sub__link nav-sub__link--all"
                                         >
                                             {t('navigation.portfolio_all')}
@@ -168,7 +169,7 @@ const Navigation = () => {
                         return (
                             <li key={item.key} className="nav-item">
                                 <NavLink
-                                    to={item.path}
+                                    to={localizePath(item.path, language)}
                                     data-testid={`nav-${item.key}`}
                                     className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}
                                 >
@@ -194,7 +195,7 @@ const Navigation = () => {
                             {archiveNavigationItems.map((archiveItem) => (
                                 <NavLink
                                     key={archiveItem.key}
-                                    to={archiveItem.path}
+                                    to={localizePath(archiveItem.path, language)}
                                     data-testid={`nav-${archiveItem.key}`}
                                     className="nav-sub__link"
                                 >

@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useLanguage } from '../i18n/useLanguage';
+import { localizePath } from '../i18n/languageRoutes';
 import { projectRegistry } from '../data/projectRegistry';
 import { localizeField } from '../lib/localizeField';
 import { useSpring, animated, config } from 'react-spring';
@@ -25,7 +26,7 @@ const ProjectDetail = () => {
         return (
             <div className="project-detail-error">
                 <p>{t('app.notFoundTitle')}</p>
-                <button onClick={() => navigate('/portfolio')}>{t('portfolio.backToList') || 'Back to Portfolio'}</button>
+                <button onClick={() => navigate(localizePath('/portfolio', language))}>{t('portfolio.backToList') || 'Back to Portfolio'}</button>
             </div>
         );
     }
@@ -39,7 +40,7 @@ const ProjectDetail = () => {
                     <img src={project.images[0]} alt="" className="project-detail__hero-image" />
                     <div className="project-detail__hero-content">
                         <nav className="project-detail__nav">
-                            <button onClick={() => navigate('/portfolio')} className="project-detail__back">
+                            <button onClick={() => navigate(localizePath('/portfolio', language))} className="project-detail__back">
                                 <span className="arrow">←</span> {t('portfolio.backToList') || 'BACK'}
                             </button>
                         </nav>

@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+
+# Внутренние редакторы: доступны Денису по прямой ссылке, в поиске им нечего делать.
+Disallow: /home/edit
+Disallow: /portfolio/edit
+
+Sitemap: https://denisdaragan.com/sitemap.xml

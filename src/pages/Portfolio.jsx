@@ -1,5 +1,6 @@
 import React from 'react';
 import { useLanguage } from '../i18n/useLanguage';
+import { localizePath } from '../i18n/languageRoutes';
 import { projectRegistry } from '../data/projectRegistry';
 import { localizeField } from '../lib/localizeField';
 import { useTrail, animated, config } from 'react-spring';
@@ -16,7 +17,7 @@ const ProjectRow = ({ project, style }) => {
       style={style}
       data-testid={`project-row-${project.id}`}
     >
-      <Link to={`/portfolio/${project.slug}`} className="project-row__link">
+      <Link to={localizePath(`/portfolio/${project.slug}`, language)} className="project-row__link">
         <div className="project-row__meta">
           <span className="project-row__year">{project.year}</span>
           <span className="project-row__code">{project.fileCode}</span>
