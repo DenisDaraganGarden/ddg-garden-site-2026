@@ -65,6 +65,7 @@ struct SurfPoint {
   float arc;       // distance along the profile, for the foam streaks
   float shade;     // light reaching the point: the tube is in the lip's shadow
   float base;      // level of the profile's edges; the loft stands the wave on the swell from here
+  vec2 vel;        // the water's own velocity here in the profile's plane; only the jet has one
 };
 
 float surfLevel(float x, float H) {
@@ -111,6 +112,7 @@ SurfPoint surfProfile(float t, float dn, float H) {
   o.alpha = 1.0;
   o.puff = 0.0;
   o.shade = 1.0;
+  o.vel = vec2(0.0);
   o.base = surfLevel(0.5 * uWidth, Hb);
   if (t < 0.3) {
     float u = t / 0.3;
@@ -127,6 +129,7 @@ SurfPoint surfProfile(float t, float dn, float H) {
     float a = aMax * u;
     vec2 jet = root + vec2(uJet * a, uLift * a - 0.5 * SURF_G * a * a);
     vec2 tangent = vec2(uJet, uLift - SURF_G * a);
+    o.vel = tangent;
     vec2 down = normalize(vec2(tangent.y, -tangent.x));
     float th = uSheet * H * emerge * (1.0 - 0.82 * u);
     o.p = top ? jet : jet + down * th;

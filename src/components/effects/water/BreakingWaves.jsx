@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { createGerstnerUniforms, gerstnerShader, gerstnerWeatherAt, syncGerstnerUniforms } from './gerstnerWaves';
 import { coastPoint } from '../../../terrain/terrainModel.js';
 import { BREAK_SAMPLES, breakLineMean, coastBreakLine, coastWaterShader, createCoastWaterUniforms, syncCoastWaterUniforms, tickShoreDepth } from './coastFrame';
+import { SPRAY_TIERS, buildSprayGeometry, createSprayUniforms, sprayInstanceCount, sprayShader, sprayVertexBody, syncSprayUniforms } from './spray';
 import { SURF_SHAPE, surfPlungeTime, surfProfileShader } from './surfProfile';
 import { createWaterShadingUniforms, syncWaterShadingUniforms, tickWaterShadingUniforms, useWaterNoise, waterShadingShader } from './waterShading';
 
@@ -121,11 +122,13 @@ const loftShader = /* glsl */`
   // the whole section rides the sand, so the bore runs up the beach instead of
   // through it — and the normal, finite differences of this same function,
   // follows the beach's slope for free.
-  vec3 surfWorld(float s, SurfPoint sp) {
+  // dq: metres to rewind the crest by, so a mote born a moment ago is placed
+  // where the wave stood then instead of riding along with it.
+  vec3 surfWorld(float s, SurfPoint sp, float dq) {
     float sAlong = uAlong0 + s * uCrestLength;
     float h = 0.5 / uCrestLength;                       // half a metre along the crest
     float k = surfCenterU(s + h) - surfCenterU(s - h);  // du/ds, metres per metre
-    float x = sp.p.x * inversesqrt(1.0 + k * k);
+    float x = (sp.p.x + dq) * inversesqrt(1.0 + k * k);
     float along = sAlong - k * x;
     float u = surfCenterU(s) + x;
     vec2 xz = coastLand() * u + coastAlong() * along;
@@ -149,8 +152,8 @@ const loftShader = /* glsl */`
   // no area and gets the up vector rather than a NaN.
   vec3 surfNormal(float s, float t, vec3 w) {
     float ts = t + (fract((t - 0.1) / 0.2) < 0.96 ? 0.008 : -0.008);
-    vec3 ws = surfWorld(s + 0.003, surfAt(s + 0.003, t));
-    vec3 wt = surfWorld(s, surfAt(s, ts));
+    vec3 ws = surfWorld(s + 0.003, surfAt(s + 0.003, t), 0.0);
+    vec3 wt = surfWorld(s, surfAt(s, ts), 0.0);
     vec3 n = cross(ws - w, wt - w) * (ts > t ? 1.0 : -1.0);
     n = dot(n, n) > 1e-10 ? normalize(n) : vec3(0.0, 1.0, 0.0);
     // Toward the rim the section is a sliver and its own normal turns edge-on;
@@ -183,7 +186,7 @@ const sheetVertexShader = /* glsl */`
   void main() {
     float s = position.x, t = position.y;
     SurfPoint sp = surfAt(s, t);
-    vec3 w = surfWorld(s, sp);
+    vec3 w = surfWorld(s, sp, 0.0);
     float ground = coastGround(coastLocal(w.xz));
     vWorld = w;
     vGround = ground;
@@ -248,7 +251,7 @@ const shellVertexShader = /* glsl */`
   void main() {
     float s = position.x, t = position.y;
     SurfPoint sp = surfAt(s, t);
-    vec3 w = surfWorld(s, sp);
+    vec3 w = surfWorld(s, sp, 0.0);
     vec3 n = surfNormal(s, t, w);
     // Foam stands up off the water; under the lip it hangs down. The normal is
     // outward by construction now, so its sign is not guessed from n.y — on the
@@ -326,13 +329,41 @@ const shellFragmentShader = /* glsl */`
   }
 `;
 
+// Step one draws the motes flat white: the medium comes next, and a plain
+// disc is the honest way to see whether they leave the lip on the right arc.
+const sprayVertexShader = /* glsl */`
+  ${loftShader}
+  ${sprayShader}
+  void main() {
+${sprayVertexBody}
+    #include <fog_vertex>
+  }
+`;
+
+const sprayFragmentShader = /* glsl */`
+  #include <fog_pars_fragment>
+  varying vec2 vQuad;
+  varying float vOpacity;
+  void main() {
+    float rad2 = dot(vQuad, vQuad);
+    if (rad2 > 1.0) discard;
+    float alpha = vOpacity * (1.0 - rad2);
+    gl_FragColor = vec4(vec3(0.95, 0.96, 0.94) * alpha, alpha);
+    #include <fog_fragment>
+    #include <tonemapping_fragment>
+    #include <colorspace_fragment>
+  }
+`;
+
+const DRAWING_BUFFER = new THREE.Vector2();
 const hash = (n) => ((n * 9301 + 49297) % 233280) / 233280;
 const clamp01 = (value) => Math.min(Math.max(value, 0), 1);
 const smoothstep = (a, b, x) => { const u = clamp01((x - a) / (b - a)); return u * u * (3 - 2 * u); };
 
 // coast: { definition, along0, length, breakQ } — the terrain's coast frame
 // and the stretch of shore (coast s) the breakers work.
-export default function BreakingWaves({ settings, lighting, noise = null, coast, foamBores = null, timeline = null, wireframe = false }) {
+export default function BreakingWaves({ settings, lighting, noise = null, coast, foamBores = null, timeline = null, wireframe = false, sprayTier = SPRAY_TIERS.high }) {
+  const tier = sprayTier;
   const activeNoise = useWaterNoise(noise);
   const geometry = useMemo(() => buildRibbonGeometry(RIBBON_SEGMENTS, RIBBON_ROWS), []);
   useEffect(() => () => geometry.dispose(), [geometry]);
@@ -345,6 +376,7 @@ export default function BreakingWaves({ settings, lighting, noise = null, coast,
       ...shading,
       ...createGerstnerUniforms(),
       ...createCoastWaterUniforms(),
+      ...createSprayUniforms(),
       uAlong0: { value: 0 },
       uCrestLength: { value: 100 },
       uBreakLine: { value: new Float32Array(BREAK_SAMPLES + 1).fill(-10) },
@@ -368,12 +400,20 @@ export default function BreakingWaves({ settings, lighting, noise = null, coast,
       uRollerDensity: { value: 1 },
     };
     // The loft's edges lie on the swell; the offset keeps them from fighting it for depth.
+    const spray = new THREE.ShaderMaterial({ uniforms, vertexShader: sprayVertexShader, fragmentShader: sprayFragmentShader, fog: true, transparent: true, depthWrite: false, premultipliedAlpha: true, side: THREE.DoubleSide });
     const sheet = new THREE.ShaderMaterial({ uniforms, vertexShader: sheetVertexShader, fragmentShader: sheetFragmentShader, fog: true, transparent: true, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
     const shell = new THREE.ShaderMaterial({ uniforms, vertexShader: shellVertexShader, fragmentShader: shellFragmentShader, fog: true, transparent: true, depthWrite: false, premultipliedAlpha: true, side: THREE.DoubleSide });
-    return { index, uniforms, sheet, shell, spawn: -index * 9, height: 1, lineFor: '' };
+    return { index, uniforms, sheet, shell, spray, spawn: -index * 9, height: 1, lineFor: '' };
   }), [shading]);
-  useEffect(() => () => ribbons.forEach((ribbon) => { ribbon.sheet.dispose(); ribbon.shell.dispose(); }), [ribbons]);
+  useEffect(() => () => ribbons.forEach((ribbon) => { ribbon.sheet.dispose(); ribbon.shell.dispose(); ribbon.spray.dispose(); }), [ribbons]);
   useEffect(() => { ribbons.forEach((ribbon) => { ribbon.sheet.wireframe = wireframe; ribbon.shell.wireframe = wireframe; }); }, [ribbons, wireframe]);
+  // One quad and one id buffer for every ribbon; only instanceCount differs,
+  // and that lives on the geometry rather than on the buffers.
+  const sprayGeometries = useMemo(() => {
+    const first = buildSprayGeometry();
+    return [first, ...Array.from({ length: RIBBON_COUNT - 1 }, () => buildSprayGeometry(undefined, first.userData.sprayBase))];
+  }, []);
+  useEffect(() => () => sprayGeometries.forEach((geometry) => geometry.dispose()), [sprayGeometries]);
   const schedule = useRef({ lastSpawn: 0, spawned: RIBBON_COUNT });
 
   useEffect(() => {
@@ -399,12 +439,14 @@ export default function BreakingWaves({ settings, lighting, noise = null, coast,
       uniforms.uSpeed.value = Math.max(settings.surfSpeed, 0.1);
       uniforms.uRoller.value = settings.surfRoller;
       uniforms.uRollerDensity.value = settings.surfRollerDensity;
+      syncSprayUniforms(uniforms, settings, tier);
     });
-  }, [coast, lighting, ribbons, settings, shading]);
+  }, [coast, lighting, ribbons, settings, shading, tier]);
 
-  useFrame(({ clock }) => {
+  useFrame(({ clock, camera, gl }) => {
     const time = timeline ? timeline.elapsed : clock.elapsedTime;
     tickWaterShadingUniforms(shading, time, activeNoise);
+    const viewport = gl.getDrawingBufferSize(DRAWING_BUFFER);
     // Travel is measured from the mean break line: the wave is born well out
     // to sea and is over once its bore has run its length.
     const start = -settings.surfBreakLength - 45;
@@ -447,6 +489,22 @@ export default function BreakingWaves({ settings, lighting, noise = null, coast,
         ribbon.uniforms.uBreakMean.value = breakLineMean(line);
         ribbon.lineFor = lineKey;
       }
+      // The band that emits: as wide as the frustum is at this distance, so the
+      // pool is spent on crest the camera can see and not behind it.
+      const spray = ribbon.uniforms;
+      spray.uSprayTime.value = time;
+      spray.uSprayFrozen.value = frozen ? 1 : 0;
+      const mid = coastPoint(spray.uBreakMean.value + travel, coast.along0 + coast.length * 0.5, coast.definition);
+      const distance = Math.hypot(camera.position.x - mid.x, camera.position.z - mid.z);
+      const projectionY = camera.projectionMatrix.elements[5];
+      const projectionX = camera.projectionMatrix.elements[0];
+      spray.uSprayViewport.value = viewport.height;
+      spray.uSprayS0.value = 0.5;
+      spray.uSpraySpan.value = Math.min(Math.max(2.4 * distance / Math.max(projectionX, 0.1), 25), 160) / coast.length;
+      const alive = !frozen || ribbon.index === 0;
+      sprayGeometries[ribbon.index].instanceCount = alive
+        ? sprayInstanceCount({ distance, height, viewportHeight: viewport.height, viewportWidth: viewport.width, projectionY, overdraw: tier.overdraw, max: tier.max })
+        : 0;
       ribbon.uniforms.uTravel.value = travel;
       ribbon.uniforms.uPose.value = frozen ? Math.max(1.4, frozenTravel) : travel;
       ribbon.uniforms.uHeight.value = height;
@@ -468,6 +526,7 @@ export default function BreakingWaves({ settings, lighting, noise = null, coast,
   });
 
   return ribbons.flatMap((ribbon) => [
+    <mesh key={`spray-${ribbon.index}`} name={`breaking-spray-${ribbon.index}`} geometry={sprayGeometries[ribbon.index]} material={ribbon.spray} frustumCulled={false} renderOrder={5} />,
     <mesh key={`sheet-${ribbon.index}`} name={`breaking-wave-${ribbon.index}`} geometry={geometry} material={ribbon.sheet} frustumCulled={false} renderOrder={2} />,
     <mesh key={`shell-${ribbon.index}`} name={`breaking-foam-${ribbon.index}`} geometry={geometry} material={ribbon.shell} frustumCulled={false} renderOrder={3} />,
   ]);
