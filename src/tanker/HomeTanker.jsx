@@ -7,8 +7,12 @@ import { updateTankerLights } from './lights.js';
 import { KNOTS_TO_METERS_PER_SECOND, sampleTankerMotion } from './motion.js';
 import TankerWake from './TankerWake.jsx';
 import { coastWeather } from '../terrain/settings.js';
+import { createGerstnerSurfaceSampler } from '../components/effects/water/gerstnerSurfaceSampler.js';
+import { createTerrainDefinition } from '../terrain/terrainModel.js';
+import { createSeaSurfaceFade } from '../components/effects/water/seaCoastFade.js';
+import { radialCellFactor } from '../components/effects/water/radialWaterGeometry.js';
 
-export default function HomeTanker({ settings, lighting, audioRuntime }) {
+export default function HomeTanker({ settings, seaSettings = null, lighting, audioRuntime }) {
   const { camera, gl } = useThree();
   const root = useRef(), wakeRoot = useRef();
   const elapsed = useRef(0), travel = useRef(0), lastDistance = useRef(null);
@@ -16,6 +20,19 @@ export default function HomeTanker({ settings, lighting, audioRuntime }) {
   const wake = useMemo(() => ({ uTime: { value: 0 }, uSpeed: { value: 0 }, uColor: { value: new THREE.Color() } }), []);
   const position = useMemo(() => new THREE.Vector3(), []);
   const drawingBuffer = useMemo(() => new THREE.Vector2(), []);
+  const seaSampler = useMemo(
+    () => seaSettings?.enabled === false || !seaSettings ? null : createGerstnerSurfaceSampler(seaSettings),
+    [seaSettings],
+  );
+  const seaDefinition = useMemo(() => createTerrainDefinition(settings), [settings]);
+  const seaFadeAt = useMemo(
+    () => seaSettings ? createSeaSurfaceFade(seaDefinition, seaSettings, () => camera.position) : null,
+    [camera, seaDefinition, seaSettings],
+  );
+  const seaCellFactor = useMemo(
+    () => seaSettings ? radialCellFactor({ rings: seaSettings.meshRings, segments: seaSettings.meshSegments }) : 0,
+    [seaSettings],
+  );
   useEffect(() => () => {
     disposeTanker(models.near); disposeTanker(models.far);
   }, [models]);
@@ -43,10 +60,20 @@ export default function HomeTanker({ settings, lighting, audioRuntime }) {
       // The open-water swell of the coast weather; a pond ripple is no sea state.
       seaState: settings.tankerSeaState * (0.4 + 0.6 * coastWeather(settings).swell), travel: false,
     });
-    position.set(settings.tankerX + Math.cos(motion.yaw) * along, motion.y,
-      settings.tankerZ - Math.sin(motion.yaw) * along);
+    const x = settings.tankerX + Math.cos(motion.yaw) * along;
+    const z = settings.tankerZ - Math.sin(motion.yaw) * along;
+    const sea = seaSampler?.(x, z, elapsed.current, {}, {
+      fadeAt: seaFadeAt,
+      cellAt: (px, pz) => Math.hypot(px - camera.position.x, pz - camera.position.z) * seaCellFactor,
+    });
+    position.set(x, motion.y + (sea?.worldY ?? 0), z);
     root.current.position.copy(position);
-    root.current.rotation.set(motion.roll, motion.yaw, motion.pitch, 'YXZ');
+    // Keep the authored sea-state motion, then add the analytic water slope
+    // below the hull so the distant ship belongs to the same carrier as the
+    // horizon rather than to the retired pond simulation.
+    const seaPitch = sea ? Math.atan2(-sea.normal.z, Math.max(sea.normal.y, 0.25)) : 0;
+    const seaRoll = sea ? Math.atan2(sea.normal.x, Math.max(sea.normal.y, 0.25)) : 0;
+    root.current.rotation.set(motion.roll + seaPitch * 0.55, motion.yaw, motion.pitch + seaRoll * 0.55, 'YXZ');
     const distance = camera.position.distanceTo(position);
     // Hysteresis prevents detail switching repeatedly during a slow camera orbit.
     if (distance < 620) models.near.group.visible = true;

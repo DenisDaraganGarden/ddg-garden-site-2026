@@ -19,7 +19,7 @@ import { coastWaterShader, createCoastWaterUniforms, syncCoastWaterUniforms } fr
 // breaker. Outside the window the surface falls back to the analytic whitecap,
 // which is all a horizon needs.
 
-export const FOAM_BORE_SLOTS = 4;
+export const FOAM_BORE_SLOTS = 7;
 const FOAM_RESOLUTION = 768;
 const FORWARD = new THREE.Vector3();
 
@@ -159,7 +159,7 @@ const updateFragmentShader = /* glsl */`
       // front leaves lace. It is a sheet on the beach, so it starts at the
       // waterline — without that bound every grain of the spit, which has no
       // surf of its own, was wet for ever.
-      if (sand && onCrest > 0.5 && bore.w > -50.0 && qBore < bore.w && qBore > -2.0 && q < uBoreRunup) {
+      if (sand && onCrest > 0.5 && bore.w > -50.0 && qBore < bore.w && qBore > -2.0 && q > -2.0 && q < uBoreRunup) {
         state.z = 1.0;
         // The tongue is thin at its edge and thickens behind it: a slab of one
         // constant thickness with a vertical wall is not a run-up.
@@ -213,7 +213,7 @@ export function useFoamField(targetUniforms, { settings, bores, coast = null, ti
       uBoreFrame: { value: new THREE.Vector4(0, 0, 1, 9) },
       uBoreRunup: { value: 6 },
     });
-    return { read, write, pass };
+    return { read, write, pass, lastTime: null };
   }, []);
 
   useEffect(() => () => {
@@ -239,7 +239,12 @@ export function useFoamField(targetUniforms, { settings, bores, coast = null, ti
       if (coast?.foamField) coast.foamField.texture = null;
       return;
     }
-    const step = Math.min(Math.max(delta, 1 / 240), 1 / 20);
+    const time = timeline ? timeline.elapsed : clock.elapsedTime;
+    // Demand frames while paused can update a slider or camera. Their wall
+    // delta is not simulation time: foam must remain still with the waves.
+    const elapsed = field.lastTime === null ? delta : time - field.lastTime;
+    field.lastTime = time;
+    const step = Math.min(Math.max(elapsed, 0), 1 / 20);
     const half = Math.max(Number(settings.foamWindow) || 1, 4) * 0.5;
     // Most of the window belongs in front of the camera: what is behind the
     // eye costs the same and is never seen.
@@ -250,7 +255,7 @@ export function useFoamField(targetUniforms, { settings, bores, coast = null, ti
     uniforms.uPrevWindow.value.copy(uniforms.uWindow.value);
     foamWindowCenter(uniforms.uWindow.value, camera.position.x + FORWARD.x * reach, camera.position.z + FORWARD.z * reach, half);
     syncGerstnerUniforms(uniforms, settings);
-    uniforms.uGerstnerTime.value = timeline ? timeline.elapsed : clock.elapsedTime;
+    uniforms.uGerstnerTime.value = time;
     uniforms.uPrev.value = field.read.texture;
     uniforms.uDelta.value = step;
     uniforms.uDecay.value = foamDecay(settings.foamLife, step);

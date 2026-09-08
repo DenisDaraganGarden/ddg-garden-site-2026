@@ -9,14 +9,20 @@ import GerstnerWaterSurface from '../components/effects/water/GerstnerWaterSurfa
 import BreakingWaves from '../components/effects/water/BreakingWaves';
 import ShoreWater from '../components/effects/water/ShoreWater';
 import { createSceneTimeline } from '../components/effects/sceneTimeline';
-import { GERSTNER_MAX_STEEPNESS } from '../components/effects/water/gerstnerWaves';
+import { GERSTNER_MAX_STEEPNESS, gerstnerWeatherAt } from '../components/effects/water/gerstnerWaves';
 import { createFoamBores, createFoamFieldHolder } from '../components/effects/water/foamField';
 import { ShoreDepthMap, breakLineMean, coastBreakLine, createShoreDepth } from '../components/effects/water/coastFrame';
+import { coastBreakVisibility } from '../components/effects/water/coastBreakLine';
 import { useWaterNoise } from '../components/effects/water/waterShading';
+import {
+  createWaterSceneBindingUniforms,
+  useWaterSceneBindings,
+} from '../components/effects/water/waterSceneBindings';
 import { buildRuntimeQualityProfile } from '../components/effects/qualityProfile';
 import AzovTerrain from '../terrain/AzovTerrain.jsx';
 import { coastPoint, createTerrainDefinition } from '../terrain/terrainModel.js';
 import { buildCoastRocks } from '../terrain/terrainRocks.js';
+import { SURF_SHAPE, surfPlungeTime } from '../components/effects/water/surfProfile';
 import './waterLab.css';
 
 const PUBLISHED = getPublishedHomeSceneSettings();
@@ -62,22 +68,54 @@ const PRESETS = {
   rough: { wavelength: 18, amplitude: 0.75, steepness: 0.7, sets: 0.7, crossWaves: 0.6, ripple: 0.35, foamThreshold: 0.6, foamLife: 9, foamDeposit: 0.9, surfHeight: 1.2, surfJet: 1.7, surfLift: 0.6 },
   storm: { wavelength: 26, amplitude: 1.3, steepness: 0.8, sets: 0.5, crossWaves: 0.85, ripple: 0.4, foamThreshold: 0.65, foamLife: 12, foamDeposit: 1.1, surfHeight: 1.8, surfJet: 2.2, surfLift: 0.8 },
 };
-// The cameras are built around the breaker that is actually drawn — the break
-// line plus «Сдвиг обрушения» — so «Труба» and «Губа» look at the wave and not
-// at the water where physics alone would have put it.
-const buildViews = (BREAK_Q) => ({
+// The cameras are built around a continuous section of the breaker actually
+// drawn — never the masked join where the line passes around the spit.
+const buildViews = ({ q: BREAK_Q, s: BREAK_S }) => ({
   shore: { landscape: { position: at(6, ALONG_MID, 3.2), target: at(-45, ALONG_MID, 0.4) }, portrait: { position: at(9, ALONG_MID, 4), target: at(-45, ALONG_MID, 0.4) } },
   above: { landscape: { position: at(-95, ALONG_MID, 42), target: at(-40, ALONG_MID, 0) }, portrait: { position: at(-120, ALONG_MID, 55), target: at(-40, ALONG_MID, 0) } },
   macro: { landscape: { position: at(-48, ALONG_MID + 4.5, 1.7), target: at(-56, ALONG_MID, 0.2) }, portrait: { position: at(-46, ALONG_MID + 6, 2.3), target: at(-56, ALONG_MID, 0.2) } },
-  surf: { landscape: { position: at(BREAK_Q + 26, ALONG_MID + 6, 2.4), target: at(BREAK_Q, ALONG_MID, 0.7) }, portrait: { position: at(BREAK_Q + 32, ALONG_MID + 8, 3), target: at(BREAK_Q, ALONG_MID, 0.7) } },
-  surfSide: { landscape: { position: at(BREAK_Q + 8, ALONG_MID - 12, 1.4), target: at(BREAK_Q + 1, ALONG_MID, 0.6) }, portrait: { position: at(BREAK_Q + 9, ALONG_MID - 15, 1.7), target: at(BREAK_Q + 1, ALONG_MID, 0.6) } },
-  lip: { landscape: { position: at(BREAK_Q + 13, ALONG_MID + 8, 1.4), target: at(BREAK_Q + 2, ALONG_MID, 0.6) }, portrait: { position: at(BREAK_Q + 16, ALONG_MID + 10, 1.7), target: at(BREAK_Q + 2, ALONG_MID, 0.6) } },
-  surfAbove: { landscape: { position: at(BREAK_Q - 46, ALONG_MID, 44), target: at(BREAK_Q + 12, ALONG_MID, 0) }, portrait: { position: at(BREAK_Q - 62, ALONG_MID, 60), target: at(BREAK_Q + 12, ALONG_MID, 0) } },
+  surf: { landscape: { position: at(BREAK_Q + 26, BREAK_S + 6, 2.4), target: at(BREAK_Q, BREAK_S, 0.7) }, portrait: { position: at(BREAK_Q + 32, BREAK_S + 8, 3), target: at(BREAK_Q, BREAK_S, 0.7) } },
+  surfSide: { landscape: { position: at(BREAK_Q + 8, BREAK_S - 12, 1.4), target: at(BREAK_Q + 1, BREAK_S, 0.6) }, portrait: { position: at(BREAK_Q + 9, BREAK_S - 15, 1.7), target: at(BREAK_Q + 1, BREAK_S, 0.6) } },
+  lip: { landscape: { position: at(BREAK_Q + 13, BREAK_S + 8, 1.4), target: at(BREAK_Q + 2, BREAK_S, 0.6) }, portrait: { position: at(BREAK_Q + 16, BREAK_S + 10, 1.7), target: at(BREAK_Q + 2, BREAK_S, 0.6) } },
+  surfAbove: { landscape: { position: at(BREAK_Q - 46, BREAK_S, 44), target: at(BREAK_Q + 12, BREAK_S, 0) }, portrait: { position: at(BREAK_Q - 62, BREAK_S, 60), target: at(BREAK_Q + 12, BREAK_S, 0) } },
   spit: { landscape: { position: at(-260, DEFINITION.terrainSpitPosition + 260, 90), target: at(-110, DEFINITION.terrainSpitPosition + 40, 0) }, portrait: { position: at(-330, DEFINITION.terrainSpitPosition + 330, 120), target: at(-110, DEFINITION.terrainSpitPosition + 40, 0) } },
   // The waterline itself, from a metre above the sand: the swash, the lace and
   // the seam between the water and the beach at the scale they are made at.
   edge: { landscape: { position: at(9, ALONG_MID + 5, 1.25), target: at(-1, ALONG_MID, 0.05) }, portrait: { position: at(11, ALONG_MID + 6, 1.5), target: at(-1, ALONG_MID, 0.05) } },
 });
+function activeBreakCamera(definition, settings) {
+  const plain = coastBreakLine(definition, settings.surfHeight, ALONG0, CREST_LENGTH, 48);
+  const mean = breakLineMean(plain);
+  const heightAt = (s) => {
+    const point = coastPoint(mean, s, definition);
+    return settings.surfHeight * gerstnerWeatherAt(point.x, point.z, settings.gusts);
+  };
+  const line = coastBreakLine(definition, settings.surfHeight, ALONG0, CREST_LENGTH, 48, 0.78, heightAt);
+  for (let i = 0; i < line.length; i += 1) line[i] += settings.surfBreakDistance;
+  const visible = coastBreakVisibility(line, CREST_LENGTH);
+  const step = CREST_LENGTH / 48;
+  let selected = -1;
+  let nearest = Infinity;
+  for (let i = 2; i < line.length - 2; i += 1) {
+    // A close-up needs a short run of ribbon on both sides, not a lone vertex
+    // that is technically visible at the end of a masked spit crossing.
+    if (visible[i - 2] < 0.5 || visible[i - 1] < 0.5 || visible[i] < 0.5 || visible[i + 1] < 0.5 || visible[i + 2] < 0.5) continue;
+    const distance = Math.abs(ALONG0 + i * step - ALONG_MID);
+    if (distance < nearest) { nearest = distance; selected = i; }
+  }
+  if (selected < 0) selected = Math.floor(line.length * 0.5);
+  const plunge = surfPlungeTime(SURF_SHAPE.crest * settings.surfHeight, -0.2 * settings.surfHeight, settings.surfLift);
+  const start = -settings.surfBreakLength - 3;
+  const end = settings.surfSpeed * plunge + settings.surfBoreLength + 3;
+  const pose = Math.max(1.4, start + (end - start) * settings.surfPhase);
+  const crestWiggle = (0.32 * Math.sin((2 * Math.PI * (ALONG0 + selected * step)) / 12.7) + 0.16 * Math.sin((2 * Math.PI * (ALONG0 + selected * step)) / 8.9 + 1.7)) * settings.surfWidth * 0.0795775;
+  return {
+    // Inspection freezes one ribbon: BreakingWaves sets its peel to zero.
+    // Applying the moving peel here aimed the close-up tens of metres away.
+    q: line[selected] + (1 - settings.surfRefraction) * (breakLineMean(line) - line[selected]) + pose + crestWiggle,
+    s: ALONG0 + selected * step,
+  };
+}
 const LIMITS = { minDistance: 1, maxDistance: 900, minPolarAngle: 0.04, maxPolarAngle: Math.PI / 2 - 0.03 };
 // The sliders survive a reload, per origin like the editor's; «Сброс» forgets them.
 const STORAGE_KEY = 'ddg_water_lab_v1';
@@ -126,14 +164,26 @@ function LabStats({ onStats }) {
   return null;
 }
 
+// The outdoor lab has no WaterReflections capture pass, but it still needs the
+// same sampler contract as the product. The binding hook supplies safe empty
+// CSM textures until a product scene publishes maps, which matters on Metal:
+// a sampler2DShadow is validated even while its active flag is false.
+function WaterLabSceneBindings({ uniforms, lighting, sky, shadowDataRef }) {
+  useWaterSceneBindings(uniforms, { lighting, sky, shadowDataRef });
+  return null;
+}
+
 export default function WaterLab() {
   const [language, setLanguage] = useState('ru');
   const [settings, setSettings] = useState(loadSettings);
   const [tab, setTab] = useState('waves');
   const [view, setView] = useState('surf');
+  const [inspectFreeze, setInspectFreeze] = useState(false);
   const [paused, setPaused] = useState(() => globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false);
   const [hidden, setHidden] = useState(() => globalThis.document?.hidden ?? false);
   const [stats, setStats] = useState({ fps: 0, triangles: 0, calls: 0 });
+  const [sceneSky, setSceneSky] = useState(null);
+  const sceneShadowRef = useRef(null);
   const t = COPY[language];
   const noise = useWaterNoise(null);
   // The water's clock stands still with the scene: pausing must not let the
@@ -158,10 +208,27 @@ export default function WaterLab() {
     definition, along0: ALONG0, length: CREST_LENGTH, shoreDepth, foamField, band: BAND,
     breakQ: breakLineMean(coastBreakLine(definition, settings.surfHeight, ALONG0, CREST_LENGTH, 8)) + settings.surfBreakDistance - 6,
   }), [definition, foamField, settings.surfBreakDistance, settings.surfHeight, shoreDepth]);
-  const views = useMemo(() => buildViews(coast.breakQ + 6), [coast.breakQ]);
+  const breakCamera = useMemo(
+    () => activeBreakCamera(definition, settings),
+    [definition, settings],
+  );
+  const views = useMemo(() => buildViews(breakCamera), [breakCamera]);
   // The ribbons write their bores straight into the foam field's uniform.
   const foamBores = useMemo(() => createFoamBores(), []);
+  const sceneBindings = useMemo(() => createWaterSceneBindingUniforms(), []);
+  // A close-up is an inspection aid, not an authored setting change. Its
+  // freeze only reaches the breaker renderer and is discarded on the next view.
+  const breakerSettings = useMemo(
+    () => (inspectFreeze ? { ...settings, surfFreeze: true } : settings),
+    [inspectFreeze, settings],
+  );
   const set = (key, value) => setSettings((current) => ({ ...current, [key]: value }));
+  const selectView = (id) => {
+    setView(id);
+    // These two close-ups explain the shape of one breaker. Pin its phase so
+    // the static preset cannot arrive between periodic ribbons and show sand.
+    setInspectFreeze(id === 'surfSide' || id === 'lip');
+  };
   const range = (key, label, min, max, step, unit = '') => <Range key={key} label={label} value={settings[key]} min={min} max={max} step={step} unit={unit} onChange={(value) => set(key, value)} />;
 
   useEffect(() => {
@@ -174,16 +241,17 @@ export default function WaterLab() {
   return <main className="water-lab" data-asset-collection="water" lang={language}>
     <header className="water-lab__header"><div><p>DDG / ASSET LAB / {assetIndex('water')}</p><h1>{t.title}</h1><span>{t.subtitle}</span></div><div className="water-lab__header-actions"><div>{['ru', 'en'].map((id) => <button key={id} aria-pressed={language === id} onClick={() => setLanguage(id)}>{id.toUpperCase()}</button>)}</div><LabNav current="water" lang={language} label={t.assets} /></div></header>
     <div className="water-lab__workspace"><section className="water-lab__viewer" aria-label="Water viewport">
-      <AssetStudio view={view} cameraViews={views} cameraLimits={LIMITS} cameraFar={6000} fogRange={[1200, 4500]} floorVisible={false} lighting={lighting} exposure={settings.exposure} environmentIntensity={1} paused={paused} inactive={hidden} pixelRatio={[1, 1.5]} background="#a9c8d9" shadowRadius={40}>
+      <AssetStudio view={view} cameraViews={views} cameraLimits={LIMITS} cameraFar={6000} fogRange={[1200, 4500]} floorVisible={false} lighting={lighting} exposure={settings.exposure} environmentIntensity={1} paused={paused} inactive={hidden} pixelRatio={[1, 1.5]} background="#a9c8d9" shadowRadius={40} onSceneSky={setSceneSky} sceneShadowRef={sceneShadowRef}>
+        <WaterLabSceneBindings uniforms={sceneBindings} lighting={lighting} sky={sceneSky} shadowDataRef={sceneShadowRef} />
         <ShoreDepthMap coast={coast} />
-        <GerstnerWaterSurface settings={settings} lighting={lighting} noise={noise} wireframe={settings.wireframe} coast={coast} foamBores={settings.surfEnabled ? foamBores : null} timeline={timeline} />
-        <ShoreWater settings={settings} lighting={lighting} noise={noise} coast={coast} timeline={timeline} wireframe={settings.wireframe} />
-        {settings.surfEnabled ? <BreakingWaves settings={settings} lighting={lighting} noise={noise} coast={coast} foamBores={foamBores} timeline={timeline} wireframe={settings.wireframe} /> : null}
+        <GerstnerWaterSurface settings={settings} lighting={lighting} noise={noise} wireframe={settings.wireframe} coast={coast} foamBores={settings.surfEnabled ? foamBores : null} timeline={timeline} sceneBindings={sceneBindings} />
+        <ShoreWater settings={settings} lighting={lighting} noise={noise} coast={coast} timeline={timeline} wireframe={settings.wireframe} sceneBindings={sceneBindings} />
+        {settings.surfEnabled ? <BreakingWaves settings={breakerSettings} lighting={lighting} noise={noise} coast={coast} foamBores={foamBores} timeline={timeline} wireframe={settings.wireframe} sceneBindings={sceneBindings} /> : null}
         <RedrawOnChange of={settings} />
         <Suspense fallback={null}><AzovTerrain definition={definition} settings={terrainSettings} qualityProfile={qualityProfile} lighting={lighting} sky={null} runtime={null} rocks={rocks} swash={foamField} /></Suspense>
         <LabStats onStats={setStats} />
       </AssetStudio>
-      <div className="water-lab__views" role="group" aria-label="Ракурс">{['shore', 'above', 'macro', 'surf', 'surfSide', 'lip', 'surfAbove', 'spit', 'edge'].map((id) => <button key={id} aria-pressed={view === id} onClick={() => setView(id)}>{viewLabel(id)}</button>)}</div>
+      <div className="water-lab__views" role="group" aria-label="Ракурс">{['shore', 'above', 'macro', 'surf', 'surfSide', 'lip', 'surfAbove', 'spit', 'edge'].map((id) => <button key={id} aria-pressed={view === id} onClick={() => selectView(id)}>{viewLabel(id)}</button>)}</div>
       <div className="water-lab__presets" role="group" aria-label="Presets">{Object.keys(PRESETS).map((id) => <button key={id} onClick={() => setSettings((current) => ({ ...current, ...PRESETS[id] }))}>{t[id]}</button>)}</div>
     </section><aside className="water-lab__inspector">
       <div className="water-lab__tabs" role="tablist">{['waves', 'surf', 'foam', 'look', 'light'].map((id) => <button key={id} role="tab" aria-selected={tab === id} onClick={() => setTab(id)}>{t[id]}</button>)}</div>

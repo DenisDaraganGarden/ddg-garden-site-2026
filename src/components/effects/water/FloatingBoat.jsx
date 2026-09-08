@@ -200,6 +200,7 @@ export default function FloatingBoat({
       // needs believable buoyancy, so two phase-shifted waves are sufficient.
       const phase = clock.elapsedTime + boatAnchor.x * 0.37 - boatAnchor.z * 0.29;
       const amplitude = Math.min(settings.waveAmplitude, 0.12);
+      const sea = runtime.sampleSeaSurface?.(boatAnchor);
       targetPose.heave = clamp(
         BOAT_NEUTRAL_Y + boatHeightOffset
           + Math.sin(phase * 0.83) * amplitude * 0.42
@@ -207,8 +208,11 @@ export default function FloatingBoat({
         BOAT_TARGET_Y_MIN + boatHeightOffset,
         BOAT_TARGET_Y_MAX + boatHeightOffset,
       );
-      targetPose.pitch = Math.sin(phase * 0.71 + 0.6) * amplitude * 0.58;
-      targetPose.roll = Math.sin(phase * 0.94 - 0.8) * amplitude * 0.72;
+      targetPose.heave += sea?.worldY ?? 0;
+      targetPose.pitch = Math.sin(phase * 0.71 + 0.6) * amplitude * 0.58
+        + (sea ? Math.atan2(-sea.normal.z, Math.max(sea.normal.y, 0.25)) * 0.55 : 0);
+      targetPose.roll = Math.sin(phase * 0.94 - 0.8) * amplitude * 0.72
+        + (sea ? Math.atan2(sea.normal.x, Math.max(sea.normal.y, 0.25)) * 0.55 : 0);
       targetPose.heave += runtime.sampleCoastWaveAt?.(boatAnchor.x,boatAnchor.z) ?? 0;
     } else {
       // GPU readback is intentionally slower than the render loop. Filtering its

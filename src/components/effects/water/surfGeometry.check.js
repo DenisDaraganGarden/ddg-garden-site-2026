@@ -11,6 +11,8 @@ const read = (name) => readFileSync(new URL(name, import.meta.url), 'utf8');
 const surf = read('./BreakingWaves.jsx');
 const shore = read('./ShoreWater.jsx');
 const open = read('./GerstnerWaterSurface.jsx');
+const sea = read('./SeaWater.jsx');
+const coastFrame = read('./coastFrame.js');
 
 // 1. One cell for every water surface. Each surface fades the trains its mesh
 // cannot resolve; hand two neighbours different cells and they compute
@@ -23,6 +25,14 @@ for (const [name, source] of [['BreakingWaves', surf], ['ShoreWater', shore], ['
     assert.ok(cell === 'waterCell(p)' || cell === 'cell', `${name}: gerstnerDisplace takes the shared cell, not ${cell}`);
   }
 }
+
+// 8. Optional surf is not an absent hand-over: its swell still dies only in
+// shallow water. With terrain hidden, the synthetic shore map must not erase
+// a radial sea that has no terrain mesh to meet.
+assert.ok(coastFrame.includes('if (uSwellFade.y <= 0.0) return shore;'), 'no-surf keeps shallow-water attenuation');
+assert.ok(sea.includes('swellFadeWidth: effectiveSettings.surfEnabled ? 30 : 0'), 'SeaWater disables only the breaker hand-over');
+assert.ok(sea.includes('coast={definition.terrainEnabled ? coast : null}'), 'terrain-off sea has no synthetic land mask');
+assert.ok(sea.includes('{definition.terrainEnabled ? <ShoreDepthMap coast={coast} /> : null}'), 'terrain-off sea does not render a shore depth map');
 assert.ok(shore.includes('float cell = waterCell(p)'), 'ShoreWater derives its cell from waterCell');
 assert.ok(open.includes('float cell = waterCell(p)'), 'GerstnerWaterSurface derives its cell from waterCell');
 
@@ -38,6 +48,9 @@ assert.ok(/varying float vGround;/.test(surf), 'the bed reaches the fragment');
 assert.ok(surf.includes('float k = surfCenterU(s + h) - surfCenterU(s - h)'), 'the crest slope is measured');
 assert.ok(surf.includes('inversesqrt(1.0 + k * k)'), 'the section is normalised across that slope');
 assert.ok(surf.includes('float along = sAlong - k * x;'), 'the section leans along the shore with the crest');
+assert.ok(surf.includes('uniform float uBreakVisible[BREAK_SAMPLES + 1]'), 'a discontinuous coast can split the crest');
+assert.ok(surf.includes('* surfBreakVisibleAt(s);'), 'the split fades out before a ruled triangle crosses land');
+assert.ok(surf.includes('vec3 n = cross(ws1 - ws0, wt1 - wt0);'), 'normals are centred within their profile section');
 
 // 4. The shore band cuts its edge per pixel, from the depth map and the sheet,
 // not from its own vertices: a contour of a varying is a straight segment
@@ -81,5 +94,15 @@ assert.ok(worstBefore > 0.5, `with the base at the still line it was ${(worstBef
 const line = read('./coastBreakLine.js');
 assert.ok(line.includes('0.25 * line[i - 1] + 0.5 * line[i] + 0.25 * line[i + 1]'), 'the break line is smoothed once');
 assert.ok(surf.includes('f * f * (3.0 - 2.0 * f)'), 'and read with a smooth step between samples');
+
+// 7. The boat cockpit writes a stencil seal before water. The new sea has
+// three material families, and every one must reject that seal just as the
+// retired pond surface did, otherwise the cockpit fills only after sea mode.
+for (const [name, source] of [['BreakingWaves', surf], ['ShoreWater', shore], ['GerstnerWaterSurface', open]]) {
+  assert.ok(source.includes('BOAT_CUTOUT_STENCIL_REF'), `${name} keeps the boat cockpit dry`);
+  assert.ok(source.includes('stencilFunc: THREE.NotEqualStencilFunc') || source.includes('stencilFunc={THREE.NotEqualStencilFunc}'), `${name} rejects the cockpit stencil`);
+  assert.ok(source.includes('sceneDepthVertex'), `${name} uses the canvas logarithmic-depth vertex contract`);
+  assert.ok(source.includes('sceneDepthFragment'), `${name} uses the canvas logarithmic-depth fragment contract`);
+}
 
 console.log(`surfGeometry: one cell for three surfaces, the loft rides the bed (${(worstNow * 100).toFixed(1)} cm under, was ${(worstBefore * 100).toFixed(0)}), the section follows the crest's normal`);

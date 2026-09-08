@@ -45,6 +45,7 @@ assert.equal(gerstnerWeatherAt(123, -456, 0), 1);
 // is the one thing Denis will not accept. They are hashed value noise.
 assert.ok(!/caps/.test(gerstnerShader), 'the whitecap mask must not be a sine table');
 assert.ok(gerstnerShader.includes('gerstnerHash'), 'the whitecap patches must be hashed noise');
+assert.ok(gerstnerShader.includes('uGerstnerMotion[0].x * uGerstnerTime'), 'patches stop with a zero-speed carrier');
 // The whitecap coverage the shader falls back on where a wave no longer
 // resolves in a pixel must be the coverage the wave field actually has, or the
 // foam appears and vanishes as the camera moves. Re-measure the Jacobian's

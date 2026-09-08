@@ -309,7 +309,6 @@ export default function HomeFishSchool({
     surfaceProbeElapsed.current += safeDelta;
     if (
       surfaceProbeElapsed.current >= FISH_SURFACE_PROBE_SECONDS
-      && qualityProfile.useGpuBoatProbes
       && typeof runtime?.sampleWaterSurface === 'function'
       && surfaceSamples.current.length > 0
     ) {
@@ -322,12 +321,20 @@ export default function HomeFishSchool({
       // One rotating probe, never one synchronous GPU read per fish. The
       // answer lands one fence later, for this sample's own point. A small
       // lag allowance keeps dorsal fins submerged between cached samples.
-      runtime.sampleWaterSurface(surfaceProbePoint).then((result) => {
+      const receiveSurface = (result) => {
         if (result) {
           sample.worldY = result.worldY - Math.max(0.012, Math.abs(waveAmplitude) * 0.35);
           sample.ready = true;
         }
-      });
+      };
+      // Phones deliberately avoid a fenced readback. The sea sampler is
+      // analytic and synchronous, so the habitat still follows the visible
+      // carrier rather than falling back to the retired pond amplitude.
+      if (!qualityProfile.useGpuBoatProbes && typeof runtime.sampleSeaSurface === 'function') {
+        receiveSurface(runtime.sampleSeaSurface(surfaceProbePoint));
+      } else {
+        runtime.sampleWaterSurface(surfaceProbePoint).then(receiveSurface);
+      }
     }
 
     obstacleElapsed.current += safeDelta;

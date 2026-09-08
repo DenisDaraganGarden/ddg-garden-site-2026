@@ -173,13 +173,15 @@ float gerstnerNoise(vec2 p) {
 // every water shader includes this chunk, and the foam field needs it too.
 float waterWindPatch(vec2 p) {
   if (uGerstnerPatches <= 0.001) return 1.0;
-  vec2 q = p * 0.0042 + uGerstnerTrain[0].xy * uGerstnerTime * 0.004;
+  // The patches belong to the carrier. At seaSpeed=0 the carrier is still;
+  // advancing this independent term made an otherwise frozen sea crawl.
+  vec2 q = p * 0.0042 + uGerstnerTrain[0].xy * uGerstnerMotion[0].x * uGerstnerTime * 0.004;
   float f = gerstnerNoise(q) * 0.62 + gerstnerNoise(q * 2.37 + 4.1) * 0.38;
   return mix(1.0, smoothstep(0.28, 0.72, f), uGerstnerPatches);
 }
 
 float gerstnerWhitecapMask(vec2 p) {
-  vec2 q = p * 0.018 + uGerstnerTrain[0].xy * uGerstnerTime * 0.02;
+  vec2 q = p * 0.018 + uGerstnerTrain[0].xy * uGerstnerMotion[0].x * uGerstnerTime * 0.02;
   q += (vec2(gerstnerNoise(q * 0.37), gerstnerNoise(q * 0.37 + 7.31)) - 0.5) * 1.8;
   mat2 rot = mat2(0.8, -0.6, 0.6, 0.8);
   float sum = 0.0, amp = 0.5, total = 0.0;
@@ -229,7 +231,9 @@ vec3 gerstnerDisplace(vec2 p, float fade, float cell, out vec3 normal, out float
     dzz -= q * wa * d.y * d.y * s;
     dxz -= q * wa * d.x * d.y * s;
   }
-  normal = normalize(vec3(-slope.x, 1.0 - slope.y, -slope.z));
+  // Cross the two surface tangents. The single-train approximation using
+  // 1-sum(QkA sin) tilts crossing waves incorrectly.
+  normal = normalize(cross(vec3(dxz, slope.z, 1.0 + dzz), vec3(1.0 + dxx, slope.x, dxz)));
   jacobian = (1.0 + dxx) * (1.0 + dzz) - dxz * dxz;
   return vec3(p.x, 0.0, p.y) + offset;
 }
@@ -268,7 +272,7 @@ float gerstnerWhitecaps(vec2 p, float threshold, float softness) {
     dxz -= wa * d.x * d.y;
   }
   float jacobian = (1.0 + dxx) * (1.0 + dzz) - dxz * dxz;
-  float resolved = smoothstep(threshold + softness, threshold - softness, jacobian);
+  float resolved = 1.0 - smoothstep(threshold - softness, threshold + softness, jacobian);
   // The same coverage this field has on average (WHITECAP_FIT, measured).
   float r = (1.0 - threshold) / max(sqrt(variance * 0.5), 1e-4);
   float mean = ${WHITECAP_FIT.peak} * pow(1.0 - smoothstep(${WHITECAP_FIT.from}, ${WHITECAP_FIT.to}, r), ${WHITECAP_FIT.shape});
@@ -292,5 +296,26 @@ vec2 gerstnerPixelSlope(vec2 p, float fade, float cell, out float fold) {
     fold += motion.y * wa * sin(phase);
   }
   return slope;
+}
+// Reconstruct the entire resolvable normal at the undeformed surface point.
+// Interpolating normals on radial triangles and adding the missing share at
+// displaced world coordinates mixed two phases and exposed the mesh rings.
+vec3 gerstnerSurfaceNormal(vec2 p, float fade) {
+  vec2 weather = gerstnerWeather(p);
+  vec2 slope = vec2(0.0);
+  float dxx = 0.0, dzz = 0.0, dxz = 0.0;
+  for (int i = 0; i < GERSTNER_TRAINS; i++) {
+    vec4 train = uGerstnerTrain[i];
+    vec4 motion = uGerstnerMotion[i];
+    float phase = train.z * dot(train.xy, p) - motion.x * uGerstnerTime + motion.z + weather.y;
+    float aa = 1.0 - smoothstep(0.35, 1.5, fwidth(phase));
+    float ka = train.z * train.w * fade * weather.x * gerstnerEnvelope(phase, motion.w) * aa;
+    slope += train.xy * ka * cos(phase);
+    float fold = motion.y * ka * sin(phase);
+    dxx -= fold * train.x * train.x;
+    dzz -= fold * train.y * train.y;
+    dxz -= fold * train.x * train.y;
+  }
+  return normalize(cross(vec3(dxz, slope.y, 1.0 + dzz), vec3(1.0 + dxx, slope.x, dxz)));
 }
 `;

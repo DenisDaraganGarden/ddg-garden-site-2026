@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { isSeaOpticsSurfaceName } from './water/opticsCaptureExclusions.js';
 
 export const contactAoVertexShader = `
   varying vec2 vUv;
@@ -126,7 +127,7 @@ export function captureContactAoDepth({ gl, scene, camera, target }) {
   scene.traverse((object) => {
     const materials = Array.isArray(object.material) ? object.material : [object.material];
     const isTransparent = materials.some((material) => material?.transparent || material?.depthWrite === false);
-    if (excludedNames.has(object.name) || isTransparent) {
+    if (excludedNames.has(object.name) || isSeaOpticsSurfaceName(object.name) || isTransparent) {
       if (object.visible) { hidden.push(object); object.visible = false; }
       return;
     }

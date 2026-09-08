@@ -1,8 +1,9 @@
 import React, { useMemo } from 'react';
 import * as THREE from 'three';
 import { Environment } from '@react-three/drei';
-import { useThree } from '@react-three/fiber';
+import { useFrame, useThree } from '@react-three/fiber';
 import { buildHomeSceneLighting } from '../components/effects/homeSceneLighting';
+import { resolveDirectionalShadowContact } from '../components/effects/shadowContactContract';
 import { useSkyEnvironment } from '../components/effects/water/skyEnvironment';
 import SkyDome from '../components/effects/water/SkyDome';
 import { getPublishedHomeSceneSettings } from '../features/home-scene/hooks/useHomeSceneSettings';
@@ -14,7 +15,7 @@ const PUBLISHED = getPublishedHomeSceneSettings();
 // so a tuft under this light looks as it will on the site. `overrides` are the
 // collection's own knobs (time of day, cloud cover) on top of the published
 // settings; `lighting` replaces the whole solution (the tanker's night preview).
-export default function SceneLight({ overrides, lighting: given, shadowRadius = 9, environmentIntensity = 1 }) {
+export default function SceneLight({ overrides, lighting: given, shadowRadius = 9, environmentIntensity = 1, onSky = null, shadowDataRef = null }) {
   const { scene } = useThree();
   const lighting = useMemo(() => given ?? buildHomeSceneLighting({ ...PUBLISHED, ...overrides }), [given, overrides]);
   const sky = useSkyEnvironment(lighting.sky, { width: 2048, height: 1024 });
@@ -41,10 +42,52 @@ export default function SceneLight({ overrides, lighting: given, shadowRadius = 
     return color;
   }, [sky.texture, sky.skyIrradiance, lighting]);
   React.useEffect(() => { if (scene.fog) scene.fog.color.copy(fogColor); }, [scene, fogColor]);
+  // A specialised collection can sample this exact LUT in a custom material.
+  // Do not rebuild it beside the scene light: separate sky tables are how an
+  // object starts reflecting a different atmosphere than the visible dome.
+  React.useEffect(() => { onSky?.(sky); }, [onSky, sky]);
   const standoff = shadowRadius * 2.2;
+  const keyLightRef = React.useRef(null);
+  const publishedShadowRef = React.useRef({
+    keyShadowMap: null,
+    keyShadowMatrix: null,
+    keyShadowBias: 0,
+    keyShadowRadius: 1,
+    keyShadowTexelSize: new THREE.Vector2(1 / 2048, 1 / 2048),
+    keyShadowCascades: [],
+    keyShadowSplit: 1e9,
+    keyDirectShare: 0,
+  });
+  const shadowContact = useMemo(() => resolveDirectionalShadowContact({
+    legacyBias: lighting.shadow.bias,
+    contactOffsetMeters: lighting.shadow.contactOffsetMeters,
+    near: 0.5,
+    far: standoff + shadowRadius * 2,
+    radius: shadowRadius,
+    mapSize: 2048,
+  }), [lighting.shadow.bias, lighting.shadow.contactOffsetMeters, shadowRadius, standoff]);
+
+  // The sea shader cannot receive Three's automatic shadow uniforms. Publish
+  // this very same directional map after it has been allocated, with the
+  // physical water bias used by WaterLights. A ref avoids a React render every
+  // frame and leaves the lab controls/storage entirely untouched.
+  useFrame(() => {
+    if (!shadowDataRef) return;
+    const shadow = keyLightRef.current?.shadow;
+    const map = shadow?.map?.depthTexture ?? null;
+    const data = publishedShadowRef.current;
+    data.keyShadowMap = map;
+    data.keyShadowMatrix = shadow?.matrix ?? null;
+    data.keyShadowBias = shadowContact.waterBias;
+    data.keyShadowRadius = lighting.shadow.radius;
+    if (shadow?.mapSize) data.keyShadowTexelSize.set(1 / Math.max(shadow.mapSize.x, 1), 1 / Math.max(shadow.mapSize.y, 1));
+    data.keyDirectShare = sky?.directShare ?? 0;
+    shadowDataRef.current = data;
+  }, -4);
   return (
     <>
       <directionalLight
+        ref={keyLightRef}
         position={direction.clone().multiplyScalar(standoff).toArray()}
         intensity={lighting.key.sceneIntensity}
         color={keyColor}
@@ -57,8 +100,8 @@ export default function SceneLight({ overrides, lighting: given, shadowRadius = 
         shadow-camera-right={shadowRadius}
         shadow-camera-top={shadowRadius}
         shadow-camera-bottom={-shadowRadius}
-        shadow-bias={lighting.shadow.bias}
-        shadow-normalBias={0.01}
+        shadow-bias={shadowContact.bias}
+        shadow-normalBias={shadowContact.normalBias}
         shadow-radius={lighting.shadow.radius}
         shadow-intensity={lighting.shadow.intensity}
       />

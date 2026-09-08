@@ -1,3 +1,4 @@
+import { seaRippleShader } from './seaRippleShader.js';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
@@ -6,6 +7,8 @@ import { createGerstnerUniforms, gerstnerPixelShader, gerstnerShader, syncGerstn
 import { coastWaterShader, createCoastWaterUniforms, syncCoastWaterUniforms, tickShoreDepth } from './coastFrame';
 import { createFoamFieldUniforms, foamFieldShader } from './foamField';
 import { createWaterShadingUniforms, syncWaterShadingUniforms, tickWaterShadingUniforms, useWaterNoise, waterShadingShader } from './waterShading';
+import { BOAT_CUTOUT_STENCIL_REF } from './constants';
+import { sceneDepthFragment, sceneDepthVertex } from '../shaders/sceneDepth';
 
 // The water at the shore, on the beach's own grid. The open-water mesh is
 // coarse where it meets the sand and its plane simply sank under the beach's
@@ -46,12 +49,19 @@ function buildShoreBand(definition, sMin, sMax, qMin, qMax) {
       const v = r * cols + c;
       const cLo = Math.max(c - 1, 0), cHi = Math.min(c + 1, cols - 1);
       const rLo = Math.max(r - 1, 0), rHi = Math.min(r + 1, rows - 1);
-      const dq = (ground[r * cols + cHi] - ground[r * cols + cLo]) / ((cHi - cLo) * COLUMN);
-      const ds = (ground[rHi * cols + c] - ground[rLo * cols + c]) / ((rHi - rLo) * ROW);
-      const x = -dq * definition.landX - ds * definition.alongX;
-      const z = -dq * definition.landZ - ds * definition.alongZ;
-      const length = Math.hypot(x, 1, z);
-      groundNormal[v * 3] = x / length; groundNormal[v * 3 + 1] = 1 / length; groundNormal[v * 3 + 2] = z / length;
+      const qLo = r * cols + cLo, qHi = r * cols + cHi;
+      const sLo = rLo * cols + c, sHi = rHi * cols + c;
+      const qx = positions[qHi * 3] - positions[qLo * 3];
+      const qz = positions[qHi * 3 + 2] - positions[qLo * 3 + 2];
+      const qy = ground[qHi] - ground[qLo];
+      const sx = positions[sHi * 3] - positions[sLo * 3];
+      const sz = positions[sHi * 3 + 2] - positions[sLo * 3 + 2];
+      const sy = ground[sHi] - ground[sLo];
+      // s is curved in world space: using only the fixed coast axes omitted
+      // the coastline derivative and gave the wet sand a different normal.
+      const x = sy * qz - sz * qy, y = sz * qx - sx * qz, z = sx * qy - sy * qx;
+      const length = Math.hypot(x, y, z);
+      groundNormal[v * 3] = x / length; groundNormal[v * 3 + 1] = y / length; groundNormal[v * 3 + 2] = z / length;
     }
   }
   const indices = new (cols * rows > 65535 ? Uint32Array : Uint16Array)((cols - 1) * (rows - 1) * 6);
@@ -78,12 +88,14 @@ const vertexShader = /* glsl */`
   #include <fog_pars_vertex>
   ${gerstnerShader}
   ${coastWaterShader}
+  ${seaRippleShader}
   ${foamFieldShader}
   attribute vec2 aCoast;
   attribute float aGround;
   attribute vec3 aGroundNormal;
   uniform float uFilm;
   varying vec3 vWorld;
+  varying vec2 vSurface;
   varying vec3 vWaveNormal;
   varying vec3 vGroundNormal;
   varying float vGround;
@@ -103,6 +115,7 @@ const vertexShader = /* glsl */`
     // half metre: two waters that meet must compute one swell there.
     float cell = waterCell(p);
     vec3 world = gerstnerDisplace(p, fade, cell, waveNormal, jacobian, drift);
+    world.y += seaRippleDisplacement(world.xz);
     // The swash: where the sheet covers the sand now, the water rides on it.
     float film = 0.0;
     if (uFoamMemory > 0.5) {
@@ -124,8 +137,12 @@ const vertexShader = /* glsl */`
     vLevel = world.y;
     // No threshold on the sheet: a step tears the lift between neighbouring
     // vertices. The sheet's own taper is what thins the tongue's edge.
-    world.y = max(world.y, aGround + uFilm * film);
+    // Dry vertices stay at sea level. Only an actual swash sheet may lift
+    // them onto land; unconditional max(ground) made dry triangles climb it.
+    float sheetLift = smoothstep(0.0, 0.02, film);
+    world.y = mix(world.y, max(world.y, aGround + uFilm * film), sheetLift);
     vWorld = world;
+    vSurface = p;
     vWaveNormal = waveNormal;
     vJacobian = jacobian;
     vGroundNormal = aGroundNormal;
@@ -151,6 +168,7 @@ const fragmentShader = /* glsl */`
   uniform float uFoamThreshold;
   uniform float uFoamSoftness;
   varying vec3 vWorld;
+  varying vec2 vSurface;
   varying vec3 vWaveNormal;
   varying vec3 vGroundNormal;
   varying float vGround;
@@ -183,16 +201,11 @@ const fragmentShader = /* glsl */`
     float depth = max(max(vLevel - bed, sheet), 0.004);
     vec3 view = normalize(cameraPosition - vWorld);
     float pixel = length(vec2(fwidth(vWorld.x), fwidth(vWorld.z)));
-    vec3 n = normalize(vWaveNormal);
-    // The share of the swell this band's mesh no longer carries, as slope per
-    // pixel — the same restoration the open water does, so the seam is flat in
-    // shading as well as in height.
-    float fold;
-    vec2 farSlope = gerstnerPixelSlope(vWorld.xz, vFade, vCell, fold);
-    n = normalize(vec3(n.x - farSlope.x * n.y, n.y, n.z - farSlope.y * n.y));
+    vec3 n = gerstnerSurfaceNormal(vSurface, vFade);
     // The film lies on the sand: its normal is the sand's, not the swell's.
     n = normalize(mix(n, normalize(vGroundNormal), vFilm));
-    n = waterRippleNormal(n, vWorld.xz, pixel, max(vFade, 0.45) * (1.0 - vFilm));
+    float rippleWet = uShoreReady > 0.5 ? smoothstep(0.4, 0.8, -bed) : 1.0;
+    n = waterRippleNormal(n, vWorld.xz, pixel, max(vFade, 0.45) * (1.0 - vFilm), rippleWet);
     // Exactly the open water's foam: the same whitecap measure, the same
     // crossfade into the field's window, the same age and the same crest lift.
     // Anything else and this band reads as a rectangle of another shader laid
@@ -213,7 +226,7 @@ const fragmentShader = /* glsl */`
 `;
 
 // coast: { definition, band: { sMin, sMax, seam }, shoreDepth, foamField, breakQ }.
-export default function ShoreWater({ settings, lighting, noise = null, coast, timeline = null, wireframe = false }) {
+export default function ShoreWater({ settings, lighting, noise = null, coast, timeline = null, wireframe = false, sceneBindings = null }) {
   const activeNoise = useWaterNoise(noise);
   const band = coast.band;
   const geometry = useMemo(() => buildShoreBand(coast.definition, band.sMin, band.sMax, band.seam - 2, 12), [band.seam, band.sMax, band.sMin, coast.definition]);
@@ -224,6 +237,7 @@ export default function ShoreWater({ settings, lighting, noise = null, coast, ti
     ...createCoastWaterUniforms(),
     ...createFoamFieldUniforms(),
     ...createWaterShadingUniforms(),
+    ...(sceneBindings ?? {}),
     uFilm: { value: 0.03 },
     uSeam: { value: -24 },
     uFoamThreshold: { value: 0.55 },
@@ -233,7 +247,7 @@ export default function ShoreWater({ settings, lighting, noise = null, coast, ti
   useEffect(() => {
     syncGerstnerUniforms(uniforms, settings);
     syncWaterShadingUniforms(uniforms, settings, lighting);
-    syncCoastWaterUniforms(uniforms, coast, coast.breakQ ?? -10);
+    syncCoastWaterUniforms(uniforms, coast, coast.breakQ ?? -10, coast.swellFadeWidth ?? 30);
     uniforms.uSeam.value = band.seam;
     uniforms.uFilm.value = settings.swashFilm ?? 0.03;
     uniforms.uFoamThreshold.value = settings.foamThreshold;
@@ -253,7 +267,22 @@ export default function ShoreWater({ settings, lighting, noise = null, coast, ti
 
   return (
     <mesh name="shore-water" geometry={geometry} frustumCulled={false}>
-      <shaderMaterial uniforms={uniforms} vertexShader={vertexShader} fragmentShader={fragmentShader} fog wireframe={wireframe} polygonOffset polygonOffsetFactor={-1} polygonOffsetUnits={-1} />
+      <shaderMaterial
+        uniforms={uniforms}
+        vertexShader={sceneDepthVertex(vertexShader)}
+        fragmentShader={sceneDepthFragment(fragmentShader)}
+        fog
+        wireframe={wireframe}
+        polygonOffset
+        polygonOffsetFactor={-1}
+        polygonOffsetUnits={-1}
+        stencilWrite
+        stencilRef={BOAT_CUTOUT_STENCIL_REF}
+        stencilFunc={THREE.NotEqualStencilFunc}
+        stencilFail={THREE.KeepStencilOp}
+        stencilZFail={THREE.KeepStencilOp}
+        stencilZPass={THREE.KeepStencilOp}
+      />
     </mesh>
   );
 }

@@ -12,6 +12,7 @@ export default function WaterInteractionPlane({
   terrainQuery,
   pointerStateRef,
   sampleBoatProbes,
+  sampleSeaSurface = null,
   enableSurfaceRefine = true,
   debug = false,
 }) {
@@ -103,7 +104,17 @@ export default function WaterInteractionPlane({
     // Only the refinement is rate limited: it costs a synchronous GPU readback.
     // The ray itself is a plane intersection, so there is no reason to sample the
     // pointer at anything less than the rate the pointer actually moves.
-    const canRefine = enableSurfaceRefine
+    // The sea's carrier is much higher than the old centimetre-scale pond.
+    // Its CPU sampler avoids readbacks, including in the editor and on phones.
+    if (settings.seaEnabled && sampleSeaSurface) {
+      for (let iteration = 0; iteration < 3; iteration += 1) {
+        const sea = sampleSeaSurface(rayHitPointRef.current);
+        if (!sea) break;
+        surfacePlaneRef.current.constant = -sea.worldY;
+        if (!ray.intersectPlane(surfacePlaneRef.current, rayHitPointRef.current)) break;
+      }
+    }
+    const canRefine = !settings.seaEnabled && enableSurfaceRefine
       && typeof sampleBoatProbes === 'function'
       && settings.waveAmplitude > 0.0001
       && (performance.now() - lastSurfaceRefineTimeRef.current) >= (1000 / 30);
@@ -223,6 +234,7 @@ export default function WaterInteractionPlane({
     gl,
     worldPointToUv,
     sampleBoatProbes,
+    sampleSeaSurface,
     settings,
     size.width,
     size.height,

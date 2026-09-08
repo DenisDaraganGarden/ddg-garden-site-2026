@@ -116,6 +116,8 @@ export default function AssetStudio({
   // The collection's own knobs on the scene light (time of day, cloud cover).
   sceneOverrides,
   shadowRadius = 9,
+  onSceneSky = null,
+  sceneShadowRef = null,
 }) {
   const flightView = view.startsWith('flight') || view === 'landing';
   const stoneLighting = lightingPreset === 'black-stone';
@@ -143,7 +145,7 @@ export default function AssetStudio({
       <fog attach="fog" args={[background, fogRange?.[0] ?? (cameraViews ? 28 : (flightView ? 32 : 6.2)), fogRange?.[1] ?? (cameraViews ? 40 : (flightView ? 48 : 10.5))]} />
       <StudioExposure exposure={exposure} environmentIntensity={sceneMode ? undefined : environmentIntensity} />
       {sceneMode ? (
-        <SceneLight lighting={lighting} overrides={overrides} shadowRadius={shadowRadius} environmentIntensity={environmentIntensity} />
+        <SceneLight lighting={lighting} overrides={overrides} shadowRadius={shadowRadius} environmentIntensity={environmentIntensity} onSky={onSceneSky} shadowDataRef={sceneShadowRef} />
       ) : (
         <>
           <StudioEnvironment />

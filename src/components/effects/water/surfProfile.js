@@ -73,7 +73,9 @@ float surfLevel(float x, float H) {
   return H * (cos(th) + 0.18 * cos(2.0 * th) + 0.16 * sin(2.0 * th)) / SURF_F_RANGE;
 }
 float surfLean(float z, float H, float lean) {
-  float rise = smoothstep(SURF_TROUGH * H, SURF_CREST * H, z);
+  // The crest tapers to H=0 at its ends. Equal smoothstep edges are undefined
+  // there and can turn an otherwise invisible end vertex into a NaN triangle.
+  float rise = smoothstep(SURF_TROUGH, SURF_CREST, z / max(H, 0.00001));
   return lean * H * rise * rise;
 }
 float surfPlunge(float zRoot, float zLand) {

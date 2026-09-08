@@ -1,4 +1,7 @@
 import { coastShader,createCoastUniforms,syncCoastUniforms } from '../../../terrain/terrainShader.js';
+import { createGerstnerUniforms, gerstnerShader, syncGerstnerUniforms } from './gerstnerWaves.js';
+import { resolveSeaBreakQ } from './seaCoastFade.js';
+import { createTerrainDefinition } from '../../../terrain/terrainModel.js';
 import { sceneDepthVertex, sceneDepthFragment } from '../shaders/sceneDepth';
 import React, { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { useFrame, useLoader } from '@react-three/fiber';
@@ -23,6 +26,7 @@ import {
 
 const stemWaveVertexChunk = `
   ${coastShader}
+  ${gerstnerShader}
   uniform float uStemTime;
   uniform float uStemExtent;
   uniform sampler2D uStemState;
@@ -30,20 +34,66 @@ const stemWaveVertexChunk = `
   uniform float uStemWaveAmplitude;
   uniform float uStemFloatOffset;
   uniform float uStemClearance;
+  uniform float uStemSeaActive;
+  uniform float uStemSeaSurfActive;
+  uniform float uStemSeaBreakQ;
+  uniform vec2 uStemSeaCameraFade;
   attribute float aStemBaseY;
   attribute vec2 aStemWaterUv;
 
   float stemWaterHeightAt(vec2 waterUv) {
     float rawHeight = texture2D(uStemState, waterUv).r;
     float smoothHeight = texture2D(uStemNormalMap, waterUv).a * 2.0 - 1.0;
-    return mix(rawHeight, smoothHeight, 0.84) * uStemWaveAmplitude;
+    vec2 point = vec2((waterUv.x - .5) * uStemExtent, (.5 - waterUv.y) * uStemExtent);
+    vec2 lo = smoothstep(vec2(0.035), vec2(0.07), waterUv);
+    vec2 hi = 1.0 - smoothstep(vec2(0.93), vec2(0.965), waterUv);
+    float rim = lo.x * lo.y * hi.x * hi.y;
+    float pond = coastPondWeight(coastLocal(point));
+    return mix(rawHeight, smoothHeight, 0.84) * uStemWaveAmplitude * mix(1.0, rim * pond, uStemSeaActive);
+  }
+
+  float stemSeaHeightAt(vec2 waterUv) {
+    vec2 worldPoint = vec2((waterUv.x - .5) * uStemExtent, (.5 - waterUv.y) * uStemExtent);
+    vec2 point = worldPoint;
+    vec3 normal;
+    float jacobian;
+    vec2 drift;
+    vec3 surface;
+    for (int iteration = 0; iteration < 6; iteration++) {
+      float cameraFade = 1.0 - smoothstep(uStemSeaCameraFade.x, uStemSeaCameraFade.y, distance(point, cameraPosition.xz));
+      if (uCoastShape.x < 0.5) {
+        surface = gerstnerDisplace(point, cameraFade, waterCell(point), normal, jacobian, drift);
+        point += worldPoint - surface.xz;
+        continue;
+      }
+      vec2 qs = coastLocal(point);
+      float depth = -coastHeight(qs);
+      float handover = uStemSeaSurfActive > 0.5 ? 1.0 - 0.65 * smoothstep(uStemSeaBreakQ - 30.0, uStemSeaBreakQ, qs.x) : 1.0;
+      float shore = smoothstep(0.05, 0.9, depth);
+      float shoal = clamp(pow(max(depth, 0.05) / 2.5, -0.25), 1.0, 1.2);
+      float fade = handover * shore * shoal * cameraFade;
+      surface = gerstnerDisplace(point, fade, waterCell(point), normal, jacobian, drift);
+      point += worldPoint - surface.xz;
+    }
+    if (uCoastShape.x < 0.5) {
+      float cameraFade = 1.0 - smoothstep(uStemSeaCameraFade.x, uStemSeaCameraFade.y, distance(point, cameraPosition.xz));
+      return gerstnerDisplace(point, cameraFade, waterCell(point), normal, jacobian, drift).y;
+    }
+    vec2 qs = coastLocal(point);
+    float depth = -coastHeight(qs);
+    float handover = uStemSeaSurfActive > 0.5 ? 1.0 - 0.65 * smoothstep(uStemSeaBreakQ - 30.0, uStemSeaBreakQ, qs.x) : 1.0;
+    float shore = smoothstep(0.05, 0.9, depth);
+    float shoal = clamp(pow(max(depth, 0.05) / 2.5, -0.25), 1.0, 1.2);
+    float cameraFade = 1.0 - smoothstep(uStemSeaCameraFade.x, uStemSeaCameraFade.y, distance(point, cameraPosition.xz));
+    float fade = handover * shore * shoal * cameraFade;
+    return gerstnerDisplace(point, fade, waterCell(point), normal, jacobian, drift).y;
   }
 `;
 
 // Lily pads riding the surface. They read the same height field the water does,
 // so a pad sits on the wave rather than through it.
 
-export function SurfaceVegetation({ settings, runtime, qualityProfile, lighting, terrainQuery }) {
+export function SurfaceVegetation({ settings, runtime, qualityProfile, lighting, terrainQuery, seaSettings = null }) {
   const materialRef = useRef();
   const stemMeshRef = useRef();
   const contactMeshRef = useRef();
@@ -108,6 +158,7 @@ export function SurfaceVegetation({ settings, runtime, qualityProfile, lighting,
   const contactMap = useMemo(() => createSurfacePlantContactMap(), []);
   const stemWaveUniforms = useMemo(() => ({
     ...createCoastUniforms(),
+    ...createGerstnerUniforms(),
     uStemTime:{value:0},
     uStemExtent:{value:34},
     uStemState: { value: null },
@@ -115,6 +166,10 @@ export function SurfaceVegetation({ settings, runtime, qualityProfile, lighting,
     uStemWaveAmplitude: { value: 0.05 },
     uStemFloatOffset: { value: 0.022 },
     uStemClearance: { value: getSurfaceVegetationStemClearance() },
+    uStemSeaActive: { value: 0 },
+    uStemSeaSurfActive: { value: 0 },
+    uStemSeaBreakQ: { value: -10 },
+    uStemSeaCameraFade: { value: new THREE.Vector2(1, 2) },
   }), []);
   const stemMaterial = useMemo(() => {
     const material = new THREE.MeshBasicMaterial({
@@ -131,7 +186,7 @@ export function SurfaceVegetation({ settings, runtime, qualityProfile, lighting,
         .replace(
           '#include <begin_vertex>',
           `
-            float stemTopY = coastWave(coastLocal(vec2((aStemWaterUv.x-.5)*uStemExtent,(.5-aStemWaterUv.y)*uStemExtent)),uStemTime) + stemWaterHeightAt(aStemWaterUv)
+            float stemTopY = coastWave(coastLocal(vec2((aStemWaterUv.x-.5)*uStemExtent,(.5-aStemWaterUv.y)*uStemExtent)),uStemTime) * (1.0 - uStemSeaActive) + stemWaterHeightAt(aStemWaterUv) + stemSeaHeightAt(aStemWaterUv) * uStemSeaActive
               + uStemFloatOffset
               - uStemClearance;
             float stemHeight = max(0.03, stemTopY - aStemBaseY);
@@ -172,6 +227,11 @@ export function SurfaceVegetation({ settings, runtime, qualityProfile, lighting,
     uSize: { value: 0.18 },
     uFloatOffset: { value: 0.022 },
     uStiffness: { value: 0.3 },
+    ...createGerstnerUniforms(),
+    uSeaActive: { value: 0 },
+    uSeaSurfActive: { value: 0 },
+    uSeaBreakQ: { value: -10 },
+    uSeaCameraFade: { value: new THREE.Vector2(1, 2) },
     // Raised by the refraction pass so the capture holds only what is
     // actually under the water. See WaterReflections.
     uSubmergedOnly: { value: 0 },
@@ -223,6 +283,19 @@ export function SurfaceVegetation({ settings, runtime, qualityProfile, lighting,
   useEffect(() => {
     syncCoastUniforms(uniforms, settings);
     syncCoastUniforms(stemWaveUniforms,settings);
+    if (seaSettings?.enabled) {
+      syncGerstnerUniforms(uniforms, seaSettings);
+      syncGerstnerUniforms(stemWaveUniforms, seaSettings);
+      const breakQ = resolveSeaBreakQ(createTerrainDefinition(settings), seaSettings);
+      uniforms.uSeaBreakQ.value = breakQ;
+      stemWaveUniforms.uStemSeaBreakQ.value = breakQ;
+      uniforms.uSeaCameraFade.value.set(seaSettings.fadeStart, seaSettings.fadeEnd);
+      stemWaveUniforms.uStemSeaCameraFade.value.copy(uniforms.uSeaCameraFade.value);
+    }
+    uniforms.uSeaActive.value = seaSettings?.enabled ? 1 : 0;
+    uniforms.uSeaSurfActive.value = seaSettings?.surfEnabled ? 1 : 0;
+    stemWaveUniforms.uStemSeaActive.value = seaSettings?.enabled ? 1 : 0;
+    stemWaveUniforms.uStemSeaSurfActive.value = seaSettings?.surfEnabled ? 1 : 0;
     stemWaveUniforms.uStemExtent.value=settings.waterExtent;
     uniforms.uCenter.value.set(settings.surfacePlantCenterX, settings.surfacePlantCenterZ);
     uniforms.uRadius.value = settings.surfacePlantRadius;
@@ -246,7 +319,7 @@ export function SurfaceVegetation({ settings, runtime, qualityProfile, lighting,
     uniforms.uMoonIntensity.value = lighting.key.intensity;
     stemWaveUniforms.uStemWaveAmplitude.value = settings.waveAmplitude;
     stemWaveUniforms.uStemFloatOffset.value = settings.surfacePlantFloatOffset;
-  }, [lightDirection, lighting, settings, stemWaveUniforms, uniforms]);
+  }, [lightDirection, lighting, seaSettings, settings, stemWaveUniforms, uniforms]);
 
   useFrame(({ clock }) => {
     syncCursorFlashlightUniforms(uniforms);
@@ -255,6 +328,10 @@ export function SurfaceVegetation({ settings, runtime, qualityProfile, lighting,
     stemWaveUniforms.uStemState.value = runtime.currentStateTargetRef.current?.texture ?? null;
     stemWaveUniforms.uStemNormalMap.value = runtime.normalTargetRef.current?.texture ?? null;
     uniforms.uTime.value = clock.elapsedTime;
+    if (seaSettings?.enabled) {
+      uniforms.uGerstnerTime.value = clock.elapsedTime;
+      stemWaveUniforms.uGerstnerTime.value = clock.elapsedTime;
+    }
     stemWaveUniforms.uStemTime.value=clock.elapsedTime;
     const reflectionTexture = reflectionDataRef.current.texture;
     uniforms.uReflectionTexture.value = reflectionTexture;

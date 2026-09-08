@@ -2,12 +2,29 @@ import React from 'react';
 import { useLanguage } from '../../../../../i18n/useLanguage';
 import {
     ColorControl,
+    CheckboxControl,
     RangeControl,
     SelectControl,
     SectionHeading,
 } from '../../HomeEditorControls';
 import { formatFloat, SIMULATION_RESOLUTION_OPTIONS } from '../editorShared';
 import { TERRAIN_RANGES } from '../../../../../terrain/settings.js';
+import { SEA_RANGES } from '../../../../../components/effects/water/seaSettings.js';
+
+const seaLabel = (ru, en, language) => language === 'ru' ? ru : en;
+const SeaRange = ({ settings, handleSettingChange, setting, ru, en, language, unit = '' }) => {
+    const [min, max, step] = SEA_RANGES[setting];
+    return <RangeControl label={seaLabel(ru, en, language)} value={settings[setting]} min={min} max={max} step={step} unit={unit} formatValue={(value) => Number(Number(value).toFixed(step < 0.1 ? 2 : 1))} onChange={(event) => handleSettingChange(event, setting)} />;
+};
+const SEA_WAVES = [
+    ['seaWavelength', 'Длина волны', 'Wavelength', 'm'], ['seaAmplitude', 'Высота волны', 'Wave height', 'm'], ['seaSteepness', 'Крутизна', 'Steepness'], ['seaSpeed', 'Скорость', 'Speed'], ['seaWindDirection', 'Направление ветра', 'Wind direction', '°'], ['seaSets', 'Наборы', 'Sets'], ['seaGusts', 'Порывы', 'Gusts'], ['seaCrossWaves', 'Поперечные волны', 'Cross waves'], ['seaFadeStart', 'Волны гаснут с', 'Waves fade from', 'm'], ['seaFadeEnd', 'Волны гаснут до', 'Waves fade to', 'm'],
+];
+const SEA_SURF = [
+    ['seaSurfPhase', 'Фаза обрушения', 'Break phase'], ['seaSurfHeight', 'Высота вала', 'Breaker height', 'm'], ['seaSurfWidth', 'Ширина вала', 'Breaker width', 'm'], ['seaSurfBreakDistance', 'Сдвиг обрушения', 'Break offset', 'm'], ['seaSurfBreakLength', 'Длина обрушения', 'Breaking length', 'm'], ['seaSurfLean', 'Наклон гребня', 'Crest lean'], ['seaSurfJet', 'Выброс губы', 'Lip throw', 'm/s'], ['seaSurfLift', 'Подъём губы', 'Lip lift', 'm/s'], ['seaSurfSheet', 'Толщина губы', 'Lip thickness'], ['seaSurfRoller', 'Объём пены', 'Foam volume'], ['seaSurfRollerDensity', 'Плотность вала', 'Roller density'], ['seaSurfPeel', 'Пил вдоль гребня', 'Peel along crest'], ['seaSurfRefraction', 'Рефракция', 'Refraction'], ['seaSurfBoreLength', 'Схлопывание', 'Collapse', 'm'], ['seaSurfRunup', 'Заплеск на песок', 'Run-up on sand', 'm'], ['seaSurfSpeed', 'Скорость вала', 'Breaker speed', 'm/s'], ['seaSurfPeriod', 'Период', 'Period', 's'], ['seaSurfSets', 'Разброс высоты', 'Height variation'],
+];
+const SEA_FOAM = [
+    ['seaFoamLife', 'Живёт на воде', 'Lives on water', 's'], ['seaFoamDeposit', 'Плотность пены', 'Foam density'], ['seaFoamWindow', 'Окно памяти', 'Memory window', 'm'], ['seaFoamDrift', 'Снос ветром', 'Wind drift', 'm/s'], ['seaFoamSwirl', 'Завихрения', 'Swirl'], ['seaFoamDry', 'Сохнет песок', 'Sand dries in', 's'], ['seaSwashFilm', 'Плёнка заплеска', 'Swash film', 'm'], ['seaFoamThreshold', 'Порог пены', 'Foam threshold'], ['seaFoamSoftness', 'Мягкость', 'Softness'], ['seaFoamLaceScale', 'Масштаб кружева', 'Lace scale'], ['seaFoamBrightness', 'Яркость пены', 'Foam brightness'], ['seaRipple', 'Рябь', 'Ripple'], ['seaWindPatches', 'Пятна ветра', 'Wind patches'], ['seaRippleScale', 'Масштаб ряби', 'Ripple scale'],
+];
 
 // The bed of the Azov shelf lives in the terrain (terrainShader.js coastBedCover):
 // the offshore slope, then what lies on the sand. Labels inline, as in terrain.jsx.
@@ -24,10 +41,17 @@ const SHELF_CONTROLS = [
 ];
 
 export const WaterGeometrySection = ({ settings, handleSettingChange }) => {
-    const { t } = useLanguage();
+    const { t, language } = useLanguage();
+    const sea = Boolean(settings.seaEnabled);
 
     return (
         <>
+            <CheckboxControl label={seaLabel('Новое море', 'New sea', language)} checked={sea} onChange={(event) => handleSettingChange(event, 'seaEnabled', 'boolean')} />
+            {sea ? <>
+                <SectionHeading label={seaLabel('Сетка', 'Mesh', language)} subtle />
+                <SeaRange settings={settings} handleSettingChange={handleSettingChange} setting="seaMeshRings" ru="Кольца сетки" en="Mesh rings" language={language} />
+                <SeaRange settings={settings} handleSettingChange={handleSettingChange} setting="seaMeshSegments" ru="Сегменты сетки" en="Mesh segments" language={language} />
+            </> : <>
             <RangeControl
                 label={t('homeEditor.controls.waterExtent')}
                 value={settings.waterExtent}
@@ -38,15 +62,24 @@ export const WaterGeometrySection = ({ settings, handleSettingChange }) => {
                 formatValue={(value) => formatFloat(value, 1)}
                 onChange={(event) => handleSettingChange(event, 'waterExtent')}
             />
+            </>}
         </>
     );
 };
 
 export const WaterWavesSection = ({ settings, handleSettingChange }) => {
-    const { t } = useLanguage();
+    const { t, language } = useLanguage();
+    const sea = Boolean(settings.seaEnabled);
 
     return (
         <>
+            {sea ? <>
+                {SEA_WAVES.map(([setting, ru, en, unit]) => <SeaRange key={setting} settings={settings} handleSettingChange={handleSettingChange} setting={setting} ru={ru} en={en} language={language} unit={unit} />)}
+                <SectionHeading label={seaLabel('Прибой', 'Surf', language)} subtle />
+                <CheckboxControl label={seaLabel('Прибой включён', 'Surf enabled', language)} checked={Boolean(settings.seaSurfEnabled)} onChange={(event) => handleSettingChange(event, 'seaSurfEnabled', 'boolean')} />
+                <CheckboxControl label={seaLabel('Стоп-кадр', 'Freeze', language)} checked={Boolean(settings.seaSurfFreeze)} onChange={(event) => handleSettingChange(event, 'seaSurfFreeze', 'boolean')} />
+                {SEA_SURF.map(([setting, ru, en, unit]) => <SeaRange key={setting} settings={settings} handleSettingChange={handleSettingChange} setting={setting} ru={ru} en={en} language={language} unit={unit} />)}
+            </> : <>
             <SectionHeading label={t('homeEditor.blocks.simulation')} subtle />
             <SelectControl
                 label={t('homeEditor.controls.simulationResolution')}
@@ -84,6 +117,7 @@ export const WaterWavesSection = ({ settings, handleSettingChange }) => {
                 formatValue={(value) => formatFloat(value)}
                 onChange={(event) => handleSettingChange(event, 'waveChoppiness')}
             />
+            </>}
             <SectionHeading label={t('homeEditor.blocks.cursorRipples')} subtle />
             <RangeControl
                 label={t('homeEditor.controls.rippleRadius')}
@@ -119,7 +153,22 @@ export const WaterWavesSection = ({ settings, handleSettingChange }) => {
 };
 
 export const WaterShaderSection = ({ settings, handleSettingChange }) => {
-    const { t } = useLanguage();
+    const { t, language } = useLanguage();
+    const sea = Boolean(settings.seaEnabled);
+
+    if (sea) return <>
+        <SectionHeading label={seaLabel('Пена и рябь', 'Foam and ripple', language)} subtle />
+        <CheckboxControl label={seaLabel('Память пены', 'Foam memory', language)} checked={Boolean(settings.seaFoamMemory)} onChange={(event) => handleSettingChange(event, 'seaFoamMemory', 'boolean')} />
+        {SEA_FOAM.map(([setting, ru, en, unit]) => <SeaRange key={setting} settings={settings} handleSettingChange={handleSettingChange} setting={setting} ru={ru} en={en} language={language} unit={unit} />)}
+        <SectionHeading label={seaLabel('Вид', 'Look', language)} subtle />
+        <ColorControl label={seaLabel('Цвет воды', 'Water colour', language)} value={settings.seaWaterColor} onChange={(event) => handleSettingChange(event, 'seaWaterColor', 'color')} />
+        <ColorControl label={seaLabel('Цвет глубины', 'Deep colour', language)} value={settings.seaDeepColor} onChange={(event) => handleSettingChange(event, 'seaDeepColor', 'color')} />
+        <ColorControl label={seaLabel('Цвет дна', 'Bed colour', language)} value={settings.seaBedColor} onChange={(event) => handleSettingChange(event, 'seaBedColor', 'color')} />
+        <SeaRange settings={settings} handleSettingChange={handleSettingChange} setting="seaBedTurbidity" ru="Мутность воды" en="Water turbidity" language={language} />
+        <SeaRange settings={settings} handleSettingChange={handleSettingChange} setting="seaCrestGlow" ru="Просвет гребня" en="Crest glow" language={language} />
+        <SeaRange settings={settings} handleSettingChange={handleSettingChange} setting="seaGlint" ru="Блики солнца" en="Sun glints" language={language} />
+        <SeaRange settings={settings} handleSettingChange={handleSettingChange} setting="seaSkyReflection" ru="Отражение неба" en="Sky reflection" language={language} />
+    </>;
 
     return (
         <>

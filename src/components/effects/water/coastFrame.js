@@ -13,9 +13,8 @@ import { createPass, createTarget, disposePass, restoreDefaultFramebuffer } from
 export { BREAK_SAMPLES, breakLineMean, coastBreakLine } from './coastBreakLine.js';
 // The shore depth map: the ground's height over the coast band, in coast
 // coordinates, from 336 m out (past the spit's seaward shore) to 16 m inland.
-// Heights are stored clamped to ±1 m in half floats — deeper reads as deep
-// enough for every rule here, higher as land — at 0.34 m across and 0.8 m
-// along the shore; 8 bits quantised neighbouring texels into flat steps.
+// Heights are stored in metres in half floats. The range expands to cover
+// the complete spit and shelf, rather than ending at a fixed offshore seam.
 const SHORE_MAP = Object.freeze({ width: 2048, height: 1024, qMin: -336, qMax: 16 });
 
 export const coastWaterShader = /* glsl */`
@@ -32,11 +31,11 @@ vec2 coastPoint(float q, float s) {
 // Ground height at a coast position, from the map: one fetch instead of the
 // ground's own function, which is far too heavy per vertex, let alone per pixel.
 float coastGround(vec2 qs) {
-  if (uShoreReady < 0.5) return -1.0;
+  if (uShoreReady < 0.5) return -max(uCoastSurface.y, 2.5);
   vec2 uv = (qs - uShoreRange.xz) / (uShoreRange.yw - uShoreRange.xz);
-  if (uv.x < 0.0 || uv.y < 0.0 || uv.y > 1.0) return -1.0;
+  if (uv.x < 0.0 || uv.y < 0.0 || uv.y > 1.0) return -max(uCoastSurface.y, 2.5);
   if (uv.x > 1.0) return 1.0;
-  return texture2D(uShoreDepth, uv).r * 2.0 - 1.0;
+  return texture2D(uShoreDepth, uv).r;
 }
 // The crest is never a ruled line: two incommensurate sines wander it along the
 // shore. The surf ribbon and the foam field's bore share this one function, so
@@ -51,10 +50,13 @@ float coastShoal(float depth) {
   return clamp(pow(max(depth, 0.05) / 2.5, -0.25), 1.0, 1.2);
 }
 float coastSwellFade(vec2 qs) {
-  if (uSwellFade.y <= 0.0) return 1.0;
   float qb = uSwellFade.x;
   float depth = -coastGround(qs);
-  return (1.0 - 0.65 * smoothstep(qb - uSwellFade.y, qb, qs.x)) * smoothstep(0.05, 0.9, depth) * coastShoal(depth);
+  // With breakers disabled there is no hand-over line, but the physical
+  // shallow-water attenuation still matters.
+  float shore = smoothstep(0.05, 0.9, depth) * coastShoal(depth);
+  if (uSwellFade.y <= 0.0) return shore;
+  return (1.0 - 0.65 * smoothstep(qb - uSwellFade.y, qb, qs.x)) * shore;
 }
 `;
 
@@ -64,7 +66,9 @@ const shoreDepthFragment = /* glsl */`
   varying vec2 vUv;
   void main() {
     vec2 qs = vec2(mix(uShoreRange.x, uShoreRange.y, vUv.x), mix(uShoreRange.z, uShoreRange.w, vUv.y));
-    gl_FragColor = vec4(clamp(coastHeight(qs), -1.0, 1.0) * 0.5 + 0.5, 0.0, 0.0, 1.0);
+    // Half floats preserve the actual depth in metres. Clamping to one metre
+    // made every deep texel look like a shoal and distorted shore attenuation.
+    gl_FragColor = vec4(coastHeight(qs), 0.0, 0.0, 1.0);
   }
 `;
 
@@ -112,7 +116,7 @@ export function ShoreDepthMap({ coast }) {
   useEffect(() => {
     if (!map) return undefined;
     const half = definition.terrainLength * 0.5;
-    holder.range.set(SHORE_MAP.qMin, SHORE_MAP.qMax, -half, half);
+    holder.range.set(Math.min(SHORE_MAP.qMin, -definition.coastOffshore - 16), SHORE_MAP.qMax, -half, half);
     syncCoastUniforms(map.pass.material.uniforms, definition);
     map.pass.material.uniforms.uShoreRange.value.copy(holder.range);
     gl.setRenderTarget(map.target);
@@ -127,5 +131,3 @@ export function ShoreDepthMap({ coast }) {
   }, [definition, gl, holder, map]);
   return null;
 }
-
-

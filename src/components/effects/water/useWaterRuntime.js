@@ -26,6 +26,9 @@ import {
   takeNextWaterImpulse,
   WATER_IMPULSE_QUEUE_LIMIT,
 } from './waterImpulseQueue';
+import { createGerstnerSurfaceSampler } from './gerstnerSurfaceSampler.js';
+import { createSeaSurfaceFade } from './seaCoastFade.js';
+import { radialCellFactor } from './radialWaterGeometry.js';
 
 // The wave simulation: a ping-pong height field advanced on the GPU, plus the
 // derived normal and probe passes the rest of the scene reads from.
@@ -67,14 +70,45 @@ const decodeProbeBuffer = (buffer, results) => {
   }
 };
 
-export function useWaterRuntime(settings, qualityProfile, mode) {
-  const { gl } = useThree();
-  const coastDefinitionRef=useRef();coastDefinitionRef.current=createTerrainDefinition(settings);
+export function useWaterRuntime(settings, qualityProfile, mode, seaSettings = null) {
+  const { gl, camera } = useThree();
+  const coastDefinition = useMemo(() => createTerrainDefinition(settings), [settings]);
+  const coastDefinitionRef=useRef();coastDefinitionRef.current=coastDefinition;
   const coastTimeRef=useRef(0);
+  const seaTimeRef = useRef(0);
+  const seaSamplerRef = useRef(null);
+  // The simulation remains the local ripple/probe layer. When the sea is
+  // visible, an analytic sampler supplies the carrier swell and this layer is
+  // added back on top, so cursor wakes and caustics do not disappear during
+  // the visual migration.
+  seaSamplerRef.current = seaSettings?.enabled === false
+    ? null
+    : (seaSettings ? createGerstnerSurfaceSampler(seaSettings) : null);
+  const seaFadeAt = useMemo(
+    () => seaSettings ? createSeaSurfaceFade(coastDefinition, seaSettings, () => camera.position) : null,
+    [camera, coastDefinition, seaSettings],
+  );
+  const seaCellFactor = useMemo(
+    () => seaSettings ? radialCellFactor({ rings: seaSettings.meshRings, segments: seaSettings.meshSegments }) : 0,
+    [seaSettings],
+  );
+  const seaCellAt = useCallback(
+    (x, z) => Math.hypot(x - camera.position.x, z - camera.position.z) * seaCellFactor,
+    [camera, seaCellFactor],
+  );
   const sampleCoastWaveAt=useCallback((x,z)=>{
     const p=coastDefinitionRef.current;if(!p.terrainEnabled)return 0;
     const {u,s}=coastCoordinates(x,z,p);return sampleCoastWave(u-shorePosition(s,p),s,coastTimeRef.current,p);
   },[]);
+  const sampleSeaSurface = useCallback((worldPoint, target = {}) => {
+    if (!worldPoint || !Number.isFinite(worldPoint.x) || !Number.isFinite(worldPoint.z)) return null;
+    const sample = seaSamplerRef.current?.(worldPoint.x, worldPoint.z, seaTimeRef.current, target, {
+      fadeAt: seaFadeAt,
+      cellAt: seaCellAt,
+    });
+    if (!sample) return null;
+    return sample;
+  }, [seaCellAt, seaFadeAt]);
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
   const stateRef = useRef(null);
@@ -269,6 +303,7 @@ export function useWaterRuntime(settings, qualityProfile, mode) {
 
   useFrame((_, delta) => {
     coastTimeRef.current=_.clock.elapsedTime;
+    seaTimeRef.current=_.clock.elapsedTime;
     if (!isDocumentCurrentlyVisible()) {
       simulationAccumulatorRef.current = 0;
       return;
@@ -372,15 +407,38 @@ export function useWaterRuntime(settings, qualityProfile, mode) {
       const result = results[index];
       const { u, s } = coastCoordinates(point.x, point.z, definition);
       const pondWeight = coastPondWeight(u - shorePosition(s, definition), s, definition);
-      const wave = sampleCoastWaveAt(point.x, point.z);
-      result.height *= pondWeight;
-      result.normal.lerp(PROBE_UP, 1 - pondWeight).normalize();
-      result.worldHeight = result.height * waveAmplitude + wave;
-      result.normal.x -= (sampleCoastWaveAt(point.x + e, point.z) - wave) / e;
-      result.normal.z -= (sampleCoastWaveAt(point.x, point.z + e) - wave) / e;
-      result.normal.normalize();
+      const uv = worldToUv(point.x, point.z);
+      const edge = Math.min(uv.x, uv.y, 1 - uv.x, 1 - uv.y);
+      const rippleWeight = pondWeight * THREE.MathUtils.smoothstep(edge, 0.035, 0.07);
+      result.height *= rippleWeight;
+      result.normal.lerp(PROBE_UP, 1 - rippleWeight).normalize();
+      const sea = sampleSeaSurface(point);
+      if (sea) {
+        // Preserve the short simulated displacement and normal as a local
+        // detail layer over the analytic carrier. `result.normal` is already
+        // the pond/coast normal at this exact point.
+        const rippleSlopeX = result.normal.x;
+        const rippleSlopeZ = result.normal.z;
+        // The visible swell dies in the last metre of physical depth. The
+        // analytic probe must follow that shore rule too, otherwise a boat or
+        // a downed gull keeps riding a wave after the rendered sea has become
+        // the swash sheet. The full break-line hand-over belongs to SeaWater;
+        // this depth fade is the shared, safe lower bound until that coast
+        // descriptor is available to the runtime.
+        result.worldHeight = result.height * waveAmplitude + sea.worldY;
+        result.normal.copy(sea.normal);
+        result.normal.x += rippleSlopeX;
+        result.normal.z += rippleSlopeZ;
+        result.normal.normalize();
+      } else {
+        const wave = sampleCoastWaveAt(point.x, point.z);
+        result.worldHeight = result.height * waveAmplitude + wave;
+        result.normal.x -= (sampleCoastWaveAt(point.x + e, point.z) - wave) / e;
+        result.normal.z -= (sampleCoastWaveAt(point.x, point.z + e) - wave) / e;
+        result.normal.normalize();
+      }
     }
-  }, [sampleCoastWaveAt]);
+  }, [sampleCoastWaveAt, sampleSeaSurface, worldToUv]);
 
   const probeSlotsRef = useRef(new Map());
   const getProbeSlot = useCallback((key) => {
@@ -462,7 +520,11 @@ export function useWaterRuntime(settings, qualityProfile, mode) {
 
     const halfExtent = settings.waterExtent * 0.5;
     if (Math.abs(worldPoint.x) > halfExtent || Math.abs(worldPoint.z) > halfExtent) {
-      return Promise.resolve(null);
+      // The interaction field remains a bounded pond texture, whereas the
+      // visible sea follows the coast and camera. Outside that local texture
+      // actors still receive the analytic carrier; there is simply no cursor
+      // ripple to add at that point.
+      return Promise.resolve(sampleSeaSurface(worldPoint));
     }
 
     const cache = surfaceSampleCacheRef.current;
@@ -517,7 +579,7 @@ export function useWaterRuntime(settings, qualityProfile, mode) {
     gl.readRenderTargetPixels(renderState.probe, 0, 0, 5, 1, buffer);
     restoreDefaultFramebuffer(gl);
     return Promise.resolve(finish());
-  }, [applyCoastToProbes, gl, renderProbes, renderState, settings.waterExtent]);
+  }, [applyCoastToProbes, gl, renderProbes, renderState, sampleSeaSurface, settings.waterExtent]);
 
   return {
     currentStateTargetRef: stateRef,
@@ -526,6 +588,7 @@ export function useWaterRuntime(settings, qualityProfile, mode) {
     emitWaterImpulse,
     sampleBoatProbes,
     sampleCoastWaveAt,
+    sampleSeaSurface,
     sampleWaterSurface,
     effectiveResolution,
   };

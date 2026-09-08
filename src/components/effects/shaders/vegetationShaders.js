@@ -1,4 +1,5 @@
 import { coastShader } from '../../../terrain/terrainShader.js';
+import { gerstnerShader } from '../water/gerstnerWaves.js';
 // Instanced pond vegetation. Surface leaves use a compact hand-derived PBR
 // atlas; underwater blades remain procedural so large meadows stay cheap.
 
@@ -6,6 +7,7 @@ import { cursorFlashlightShaderChunk } from './cursorFlashlightShader';
 
 export const surfaceVegetationVertexShader = `
 ${coastShader}
+${gerstnerShader}
   attribute vec2 aScatter;
   attribute vec2 aCluster;
   attribute float aScale;
@@ -37,6 +39,10 @@ ${coastShader}
   uniform float uTime;
   uniform float uFloatOffset;
   uniform float uStiffness;
+  uniform float uSeaActive;
+  uniform float uSeaSurfActive;
+  uniform float uSeaBreakQ;
+  uniform vec2 uSeaCameraFade;
   uniform mat4 uReflectionMatrix;
 
   vec3 decodeNormal(vec3 packedNormal) {
@@ -52,10 +58,41 @@ ${coastShader}
 
   // The height field is authored in the same two textures the water surface
   // reads, so a pad sampling them lands on exactly the water it floats on.
-  float waterHeightAt(vec2 simulationUv) {
+  float waterHeightAt(vec2 simulationUv, vec2 worldPoint) {
     float rawHeight = texture2D(uState, simulationUv).r;
     float smoothHeight = texture2D(uNormalMap, simulationUv).a * 2.0 - 1.0;
-    return mix(rawHeight, smoothHeight, 0.84) * uWaveAmplitude;
+    vec2 lo = smoothstep(vec2(0.035), vec2(0.07), simulationUv);
+    vec2 hi = 1.0 - smoothstep(vec2(0.93), vec2(0.965), simulationUv);
+    float rim = lo.x * lo.y * hi.x * hi.y;
+    float pond = coastPondWeight(coastLocal(worldPoint));
+    float seaWeight = rim * pond;
+    return mix(rawHeight, smoothHeight, 0.84) * uWaveAmplitude * mix(1.0, seaWeight, uSeaActive);
+  }
+
+  float seaFadeAt(vec2 point);
+  // Instances are placed in visible world coordinates whereas the Gerstner
+  // mesh is parameterised before its horizontal orbital displacement. Solve
+  // that small inverse here, exactly as CPU probes do, before sampling y.
+  vec3 seaSurfaceAt(vec2 worldPoint, out vec3 normal) {
+    vec2 point = worldPoint;
+    float jacobian;
+    vec2 drift;
+    vec3 surface;
+    for (int iteration = 0; iteration < 6; iteration++) {
+      surface = gerstnerDisplace(point, seaFadeAt(point), waterCell(point), normal, jacobian, drift);
+      point += worldPoint - surface.xz;
+    }
+    return gerstnerDisplace(point, seaFadeAt(point), waterCell(point), normal, jacobian, drift);
+  }
+  float seaFadeAt(vec2 point) {
+    float cameraFade = 1.0 - smoothstep(uSeaCameraFade.x, uSeaCameraFade.y, distance(point, cameraPosition.xz));
+    if (uCoastShape.x < 0.5) return cameraFade;
+    vec2 qs = coastLocal(point);
+    float depth = -coastHeight(qs);
+    float handover = uSeaSurfActive > 0.5 ? 1.0 - 0.65 * smoothstep(uSeaBreakQ - 30.0, uSeaBreakQ, qs.x) : 1.0;
+    float shore = smoothstep(0.05, 0.9, depth);
+    float shoal = clamp(pow(max(depth, 0.05) / 2.5, -0.25), 1.0, 1.2);
+    return handover * shore * shoal * cameraFade;
   }
 
   void main() {
@@ -83,8 +120,11 @@ ${coastShader}
 
     // The sideways shove of a choppy wave moves the whole pad, so it is read
     // once at the centre. Riding the wave is per-vertex; drifting is not.
-    vec3 centerNormal = decodeNormal(texture2D(uNormalMap, centerUv).rgb);
-    float centerHeight = waterHeightAt(centerUv)+coastWave(coastLocal(leafCenter),uTime);
+    vec3 rippleCenterNormal = decodeNormal(texture2D(uNormalMap, centerUv).rgb);
+    vec3 seaCenterNormal;
+    vec3 seaCenter = seaSurfaceAt(leafCenter, seaCenterNormal);
+    vec3 centerNormal = normalize(mix(rippleCenterNormal, normalize(seaCenterNormal + vec3(rippleCenterNormal.x, 0.0, rippleCenterNormal.z)), uSeaActive));
+    float centerHeight = waterHeightAt(centerUv, leafCenter) + coastWave(coastLocal(leafCenter),uTime) * (1.0 - uSeaActive) + seaCenter.y * uSeaActive;
     if(uCoastShape.x>.5 && coastHeight(coastLocal(leafCenter))>-.06)vInsideWater=0.0;
     vec2 worldXZ = leafCenter + rotatedLocal
       + centerNormal.xz * centerHeight * clamp(uWaveChoppiness, 0.0, 1.25) * 0.34;
@@ -94,8 +134,11 @@ ${coastShader}
     // to stay plausible, which left the pad flat while the wave underneath it was
     // not - one edge in the air, the opposite edge submerged.
     vec2 vertexUv = clamp(simulationUvFor(worldXZ), vec2(0.001), vec2(0.999));
-    vec3 waterNormal = decodeNormal(texture2D(uNormalMap, vertexUv).rgb);
-    float waterY = waterHeightAt(vertexUv)+coastWave(coastLocal(worldXZ),uTime);
+    vec3 rippleNormal = decodeNormal(texture2D(uNormalMap, vertexUv).rgb);
+    vec3 seaNormal;
+    vec3 seaWorld = seaSurfaceAt(worldXZ, seaNormal);
+    vec3 waterNormal = normalize(mix(rippleNormal, normalize(seaNormal + vec3(rippleNormal.x, 0.0, rippleNormal.z)), uSeaActive));
+    float waterY = waterHeightAt(vertexUv, worldXZ) + coastWave(coastLocal(worldXZ),uTime) * (1.0 - uSeaActive) + seaWorld.y * uSeaActive;
 
     // A pad is a stiff disc, not a cloth. Fully supple it takes the shape of the
     // water under it and can never be washed over; fully rigid it stays a flat

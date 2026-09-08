@@ -45,4 +45,20 @@ export function coastBreakLine(definition, height, along0, length, samples = BRE
   return smoothed;
 }
 
+// A single ribbon can turn with a coast, but it cannot join two separate
+// shores across the spit. In that case consecutive isobath samples jump by
+// tens of metres: the ruled quads between them cut through the sand and fold
+// into long diagonal triangles. Keep continuous pieces and let them end in
+// foam instead. The shader fades this mask over the adjacent sample.
+export function coastBreakVisibility(line, length, maxSlope = 0.8) {
+  const visible = new Float32Array(line.length).fill(1);
+  const step = length / Math.max(line.length - 1, 1);
+  for (let i = 1; i < line.length; i += 1) {
+    if (Math.abs(line[i] - line[i - 1]) / Math.max(step, 1e-6) <= maxSlope) continue;
+    // A lone visible vertex would still leave a stretched triangle into the gap.
+    for (let j = Math.max(0, i - 2); j <= Math.min(line.length - 1, i + 1); j += 1) visible[j] = 0;
+  }
+  return visible;
+}
+
 export const breakLineMean = (line) => line.reduce((sum, q) => sum + q, 0) / line.length;

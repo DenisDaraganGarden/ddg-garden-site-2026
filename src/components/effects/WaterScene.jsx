@@ -44,6 +44,9 @@ import Seabed from './water/Seabed';
 import { SurfaceVegetation } from './water/SurfaceVegetation';
 import { UnderwaterAlgae } from './water/UnderwaterAlgae';
 import FloatingBoat from './water/FloatingBoat';
+import SeaWater from './water/SeaWater.jsx';
+import { createFoamFieldHolder } from './water/foamField.js';
+import { resolveEffectiveSeaSettings, resolveSeaSettings } from './water/seaSettings.js';
 import StaticSculpture from './water/StaticSculpture';
 import SceneLightObjects from './water/SceneLightObjects';
 import {
@@ -275,7 +278,13 @@ function WaterRuntimeScene({
         ? 512
         : (qualityProfile.qualityTier === QUALITY_TIER.medium ? 512 : 1024),
   });
-  const runtime = useWaterRuntime(settings, qualityProfile, mode);
+  const seaSettings = useMemo(() => resolveSeaSettings(settings), [settings]);
+  const effectiveSeaSettings = useMemo(
+    () => resolveEffectiveSeaSettings(seaSettings, qualityProfile),
+    [qualityProfile, seaSettings],
+  );
+  const seaSwash = useMemo(() => createFoamFieldHolder(), []);
+  const runtime = useWaterRuntime(settings, qualityProfile, mode, effectiveSeaSettings);
   const landingSitesRef = useRef([]);
   const [landingSurfaces, setLandingSurfaces] = useState({
     boat: null,
@@ -356,7 +365,7 @@ function WaterRuntimeScene({
 
   useEffect(() => {
     const { dataset } = gl.domElement;
-    dataset.ddgWaterEngine = 'v2';
+    dataset.ddgWaterEngine = seaSettings.enabled ? 'sea' : 'v2';
     dataset.ddgQualityTier = qualityProfile.qualityTier ?? (qualityProfile.isLowPower ? 'low' : 'high');
     dataset.ddgMobileProfile = qualityProfile.isMobileDevice ? 'on' : 'off';
     dataset.ddgSkyLut = `${sky.width}x${sky.height}`;
@@ -406,6 +415,7 @@ function WaterRuntimeScene({
     qualityProfile.waterMeshDensityCap,
     reflectionsEnabled,
     runtime.effectiveResolution,
+    seaSettings.enabled,
     settings.simulationResolution,
     settings.waterMeshDensity,
     settings.shadowsEnabled,
@@ -466,7 +476,7 @@ function WaterRuntimeScene({
         {terrainQuery&&settings.shrubsEnabled ? <CoastShrubs settings={shrubAsset} plants={shrubPlants} qualityProfile={qualityProfile} envMapIntensity={lighting.environment.reflection}/> : null}
         {terrainQuery&&settings.treesEnabled ? <CoastTrees settings={treeAsset} plants={treePlants} qualityProfile={qualityProfile} envMapIntensity={lighting.environment.reflection}/> : null}
         {terrainQuery&&settings.grassEnabled ? <CoastGrass query={terrainQuery} definition={queryDefinition} settings={grassSettings} asset={grassAsset} qualityProfile={qualityProfile} envMapIntensity={lighting.environment.reflection}/> : null}
-        {settings.terrainEnabled ? <AzovTerrain plantCover={shrubCover} rocks={terrainRocks} onTerrainReady={handleLandingSurfaceReady} audioRuntime={audioRuntime} runtime={runtime} definition={terrainDefinition} settings={settings} qualityProfile={qualityProfile} lighting={lighting} sky={sky} /> : null}
+        {settings.terrainEnabled ? <AzovTerrain plantCover={shrubCover} rocks={terrainRocks} onTerrainReady={handleLandingSurfaceReady} audioRuntime={audioRuntime} runtime={runtime} definition={terrainDefinition} settings={settings} qualityProfile={qualityProfile} lighting={lighting} sky={sky} swash={seaSettings.enabled ? seaSwash : null} /> : null}
         {settings.seabedVisible && !seabedCovered ? (
           <Seabed
             settings={settings}
@@ -494,7 +504,7 @@ function WaterRuntimeScene({
             mode={mode}
           />
         ) : null}
-        {settings.waterVisible && settings.farWaterVisible && settings.debugView === 'beauty' ? (
+        {settings.waterVisible && !seaSettings.enabled && settings.farWaterVisible && settings.debugView === 'beauty' ? (
           <FarWaterSurface
             settings={settings}
             lighting={lighting}
@@ -502,13 +512,25 @@ function WaterRuntimeScene({
             qualityProfile={qualityProfile}
           />
         ) : null}
-        {settings.waterVisible ? (
+        {settings.waterVisible && !seaSettings.enabled ? (
           <WaterSurfaceV2
             settings={settings}
             runtime={runtime}
             qualityProfile={qualityProfile}
             lighting={lighting}
             sky={sky}
+          />
+        ) : null}
+        {settings.waterVisible && seaSettings.enabled ? (
+          <SeaWater
+            settings={effectiveSeaSettings}
+            sceneSettings={settings}
+            definition={terrainDefinition}
+            lighting={lighting}
+            sky={sky}
+            runtime={runtime}
+            swash={seaSwash}
+            qualityProfile={qualityProfile}
           />
         ) : null}
         {settings.liliesVisible ? (
@@ -518,6 +540,7 @@ function WaterRuntimeScene({
             runtime={runtime}
             qualityProfile={qualityProfile}
             lighting={lighting}
+            seaSettings={effectiveSeaSettings}
           />
         ) : null}
         {settings.boatVisible ? (
@@ -537,7 +560,7 @@ function WaterRuntimeScene({
             useOpticsLod
           />
         ) : null}
-        {settings.tankerVisible ? <HomeTanker settings={settings} lighting={lighting} audioRuntime={audioRuntime} /> : null}
+        {settings.tankerVisible ? <HomeTanker settings={settings} seaSettings={effectiveSeaSettings.enabled ? effectiveSeaSettings : null} lighting={lighting} audioRuntime={audioRuntime} /> : null}
         {settings.sculptureVisible ? (
           <StaticSculpture
             terrainQuery={terrainQuery}
@@ -579,6 +602,7 @@ function WaterRuntimeScene({
           settings={settings}
           pointerStateRef={runtime.pointerStateRef}
           sampleBoatProbes={runtime.sampleBoatProbes}
+          sampleSeaSurface={runtime.sampleSeaSurface}
           // A narrow desktop window is not a finger. isMobileDevice folds in
           // viewport width; the refine pass costs a readback per drag frame,
           // and only a touch drag can afford to lose it.

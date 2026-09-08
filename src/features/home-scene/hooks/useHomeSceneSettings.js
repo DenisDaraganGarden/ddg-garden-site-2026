@@ -3,6 +3,7 @@ import { DEFAULT_TERRAIN_SETTINGS, normalizeTerrainSettings } from '../../../ter
 import { DEFAULT_TANKER_SETTINGS, normalizeTankerSettings } from '../../../tanker/settings.js';
 import { DEFAULT_SHORE_SETTINGS, normalizeShoreSettings } from '../../../shore/settings.js';
 import { DEFAULT_RENDER_QUALITY_SETTINGS, normalizeRenderQualitySettings } from '../../../components/effects/renderQualitySettings.js';
+import { SEA_SETTINGS_DEFAULTS, normalizeSeaSettings } from '../../../components/effects/water/seaSettings.js';
 import { DEFAULT_PAINTERLY_CLOUD_SETTINGS, normalizePainterlyCloudSettings } from '../lib/painterlyCloudSettings.js';
 import { useCallback, useEffect, useState } from 'react';
 import { publishedHomeSceneSettings } from '../data/publishedHomeSceneSettings';
@@ -196,6 +197,7 @@ export const getBaseHomeSceneSettings = () => ({
   ...DEFAULT_TREE_SETTINGS,
   ...DEFAULT_GRASS_SETTINGS,
   ...DEFAULT_SHORE_SETTINGS,
+  ...SEA_SETTINGS_DEFAULTS,
   waterExtent: 24,
   // Metres over which the pond's look hands over to the far field at its edge.
   farWaterBlendWidth: 2.5,
@@ -692,6 +694,7 @@ const normalizeHomeSceneSettings = (savedSettings = {}, includeCameraSystem = tr
   };
 
   const normalizedScene = {
+    ...normalizeSeaSettings(merged),
     waterExtent: clampFloat(merged.waterExtent, 12, 200, defaults.waterExtent),
     farWaterBlendWidth: clampFloat(merged.farWaterBlendWidth, 0.4, 8, defaults.farWaterBlendWidth),
     simulationResolution: clampResolution(merged.simulationResolution),

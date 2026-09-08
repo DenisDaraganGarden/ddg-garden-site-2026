@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { breakLineMean, coastBreakLine } from './coastBreakLine.js';
+import { breakLineMean, coastBreakLine, coastBreakVisibility } from './coastBreakLine.js';
 import { createTerrainDefinition } from '../../../terrain/terrainModel.js';
 
 // The break line follows the coast's own depth: a bigger wave breaks farther
@@ -21,4 +21,16 @@ coastBreakLine(flat, 1.5, -100, 200, 4).forEach((q) => assert.ok(q > -2 && q <= 
 // Heights along the crest: a section the weather makes taller breaks farther out.
 const varied = coastBreakLine(coast, 1.1, along0, length, 14, 0.78, (s) => (s < along0 + length * 0.5 ? 0.6 : 1.6));
 assert.ok(varied[0] > tall[0] && varied[10] < tall[0], `per-section heights move the line: ${varied[0]} / ${varied[10]} vs ${tall[0]}`);
+// At the spit, the first shallow crossing can jump from its outer shoal to
+// the mainland. That is a valid depth result, but not a valid single loft:
+// joining it would put a ruled triangle over dry sand. The visibility mask
+// removes both ends and their immediate neighbours, leaving no bridge.
+const longLine = coastBreakLine(coast, 0.45, coast.terrainSpitPosition - 430, 760);
+const visible = coastBreakVisibility(longLine, 760);
+let sharp = -1;
+for (let i = 1; i < longLine.length; i += 1) {
+  if (Math.abs(longLine[i] - longLine[i - 1]) / (760 / (longLine.length - 1)) > 0.8) { sharp = i; break; }
+}
+assert.ok(sharp > 0, 'the long coast contains the spit discontinuity');
+for (let i = Math.max(0, sharp - 2); i <= Math.min(visible.length - 1, sharp + 1); i += 1) assert.equal(visible[i], 0, `sample ${i} beside the spit is not bridged`);
 console.log(`coastFrame: 1.1 m breaks at ${tall[0].toFixed(1)} m on the beach and ${tall[14].toFixed(1)} m off the spit's shoal`);

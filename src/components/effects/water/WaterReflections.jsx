@@ -25,6 +25,7 @@ import {
   hideExcludedSeagullReflections,
   readSeagullReflectionActivity,
 } from '../../../features/home-scene/creatures/seagullReflectionCapture';
+import { isSeaOpticsSurfaceName } from './opticsCaptureExclusions.js';
 
 // Planar reflection and refraction: the scene is re-rendered from a mirrored
 // camera into a texture the water surface samples. The refresh is rate limited,
@@ -164,6 +165,8 @@ export default function WaterReflections({
   });
   const sceneObjectsRef = useRef({
     waterSurface: null,
+    gerstnerWater: null,
+    shoreWater: null,
     seabed: null,
     surfaceVegetation: null,
     underwaterAlgae: null,
@@ -275,6 +278,12 @@ export default function WaterReflections({
     if (!sceneObjects.waterSurface || !sceneObjects.waterSurface.parent) {
       sceneObjects.waterSurface = scene.getObjectByName('water-surface');
     }
+    if (!sceneObjects.gerstnerWater || !sceneObjects.gerstnerWater.parent) {
+      sceneObjects.gerstnerWater = scene.getObjectByName('gerstner-water');
+    }
+    if (!sceneObjects.shoreWater || !sceneObjects.shoreWater.parent) {
+      sceneObjects.shoreWater = scene.getObjectByName('shore-water');
+    }
     if (!sceneObjects.seabed || !sceneObjects.seabed.parent) {
       sceneObjects.seabed = scene.getObjectByName('seabed');
     }
@@ -316,6 +325,8 @@ export default function WaterReflections({
     }
 
     const waterSurface = sceneObjects.waterSurface;
+    const gerstnerWater = sceneObjects.gerstnerWater;
+    const shoreWater = sceneObjects.shoreWater;
     const seabed = sceneObjects.seabed;
     const skyDome = sceneObjects.skyDome;
     const cloudSky = scene.getObjectByName('painterly-sky');
@@ -331,21 +342,25 @@ export default function WaterReflections({
     const fishSchool = sceneObjects.fishSchool;
     const seagullReflectionActivity = readSeagullReflectionActivity(seagullFlock);
 
-    if (!waterSurface) {
+    const waterAnchor = waterSurface ?? gerstnerWater ?? shoreWater;
+    if (!waterAnchor) {
       return;
     }
 
     // OrbitControls changes the pose before this pass, but the renderer has not
     // updated its world matrix yet. Validate the final view, not last frame's.
     camera.updateMatrixWorld(true);
-    waterSurface.getWorldPosition(waterSurfaceWorldPosition);
+    waterAnchor.getWorldPosition(waterSurfaceWorldPosition);
     const mirrorY = waterSurfaceWorldPosition.y;
     // Simulation height is clamped to 2.4; the coastal carrier/harmonic/shoal
     // product is bounded by 2.781. The storm is already in uCoastSurf.x.
-    const waveUniforms = waterSurface.material?.uniforms;
+    const waveUniforms = waterSurface?.material?.uniforms ?? gerstnerWater?.material?.uniforms;
+    const gerstnerEnvelope = (waveUniforms?.uGerstnerTrain?.value ?? [])
+      .reduce((sum, train) => sum + Math.abs(train?.w ?? 0), 0);
     refractionPolicy.waveEnvelope = Math.max(.5,
       2.4 * Math.abs(waveUniforms?.uWaveAmplitude?.value ?? 0)
-      + 2.8 * Math.max(0, waveUniforms?.uCoastSurf?.value?.x ?? 0) + .03);
+      + 2.8 * Math.max(0, waveUniforms?.uCoastSurf?.value?.x ?? 0)
+      + gerstnerEnvelope + .03);
     const refractionUrgent = refractionEnabled && refractionTarget && (
       reflectionData.current.refractionTexture !== refractionTarget.texture
       || refractionCaptureNeedsUrgentUpdate(refractionPolicy, camera, mirrorY)
@@ -501,7 +516,13 @@ export default function WaterReflections({
     const farWaterSurfaceWasVisible = farWaterSurface?.visible ?? false;
     const fishSchoolWasVisible = fishSchool?.visible ?? false;
 
-    if (waterSurface) waterSurface.visible = false;
+    const capturedSeaSurfaces = [];
+    scene.traverse((object) => {
+      if (object.isMesh && isSeaOpticsSurfaceName(object.name)) {
+        capturedSeaSurfaces.push([object, object.visible]);
+        object.visible = false;
+      }
+    });
     if (interactionPlane) interactionPlane.visible = false;
     // The procedural water sky already contains the key-light highlight.
     // Excluding the UI-facing disc avoids a doubled sun in planar captures.
@@ -625,7 +646,7 @@ export default function WaterReflections({
       restoreDefaultFramebuffer(gl);
       gl.setClearColor(reflectionPreviousClearColor, previousClearAlpha);
 
-      if (waterSurface) waterSurface.visible = true;
+      capturedSeaSurfaces.forEach(([surface, wasVisible]) => { surface.visible = wasVisible; });
       if (seabed) seabed.visible = true;
       setSubmergedOnly(surfaceVegetation, 0);
       if (surfaceVegetation) surfaceVegetation.visible = surfaceVegetationWasVisible;
