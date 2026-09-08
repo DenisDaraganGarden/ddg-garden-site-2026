@@ -29,6 +29,10 @@ export const waterShadingShader = /* glsl */`
   uniform float uLaceScale;
   uniform float uFoamBrightness;
   uniform vec3 uBedColor;
+  // Metres of water that hide the bed. This sea is turbid: the sand is gone
+  // within a knee's depth, not a metre and a half — read too far it makes the
+  // whole shallows look like beach, which is what read as a flooded shore.
+  uniform float uBedReach;
   #define WATER_PI 3.14159265
   float gerstnerNoise(vec2 p); // defined by gerstnerShader, which every water fragment includes first
 
@@ -161,6 +165,7 @@ export function createWaterShadingUniforms() {
     uLaceScale: { value: 0.15 },
     uFoamBrightness: { value: 1 },
     uBedColor: { value: new THREE.Color('#c4b08a') },
+    uBedReach: { value: 7 },
   };
 }
 
@@ -180,6 +185,8 @@ export function syncWaterShadingUniforms(uniforms, settings, lighting) {
   uniforms.uLaceScale.value = settings.laceScale;
   uniforms.uFoamBrightness.value = settings.foamBrightness;
   uniforms.uBedColor.value.set(settings.bedColor ?? '#c4b08a');
+  // Turbidity in the editor's own sense: more of it, less depth to hide the sand.
+  uniforms.uBedReach.value = 3.5 + 9 * Math.min(Math.max(Number(settings.bedTurbidity ?? 0.5), 0), 1);
   vec3From(uniforms.uSunDirection.value, lighting?.key?.direction, [0.4, 0.7, -0.5]).normalize();
   vec3From(uniforms.uSunRadiance.value, lighting?.key?.sceneRadiance, [2.5, 2.3, 2]);
   vec3From(uniforms.uFillIrradiance.value, lighting?.fill?.irradiance, [0.7, 0.8, 1]);

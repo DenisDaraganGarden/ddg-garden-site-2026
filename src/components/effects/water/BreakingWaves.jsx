@@ -242,7 +242,7 @@ const sheetFragmentShader = /* glsl */`
     float crest = gerstnerWhitecaps(vWorld.xz, uFoamThreshold, uFoamSoftness);
     float coverage = max(vFoam * 0.95, max(memory.x * memory.z, crest * 0.9 * (1.0 - memory.z)));
     float age = mix(0.35, memory.y, memory.z) * (1.0 - vFoam);
-    float bed = uShoreReady > 0.5 ? exp(-max(-coastGround(coastLocal(vWorld.xz)), 0.0) * 3.0) : 0.0;
+    float bed = uShoreReady > 0.5 ? exp(-max(-coastGround(coastLocal(vWorld.xz)), 0.0) * uBedReach) : 0.0;
     vec3 color = shadeWater(vWorld, n, view, pixel, waterFlowUv(vWorld.xz), coverage, age, vThickness, 0.0, bed) * vShade;
     gl_FragColor = vec4(color, vAlpha);
     #include <fog_fragment>

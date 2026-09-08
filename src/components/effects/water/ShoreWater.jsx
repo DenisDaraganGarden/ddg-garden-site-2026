@@ -198,7 +198,7 @@ const fragmentShader = /* glsl */`
     float lift = clamp((vWorld.y - vLevel + 0.2) * 1.5, 0.0, 1.0) * (1.0 - vJacobian * 0.5) * (1.0 - vFilm);
     // The sand under the water by Beer-Lambert: at the edge the water is the
     // wet sand itself under a gloss, deeper it is the water's own body.
-    vec3 color = shadeWater(vWorld, n, view, pixel, waterFlowUv(vWorld.xz), coverage, age, 10.0, lift, exp(-depth * 3.0));
+    vec3 color = shadeWater(vWorld, n, view, pixel, waterFlowUv(vWorld.xz), coverage, age, 10.0, lift, exp(-depth * uBedReach));
     gl_FragColor = vec4(color, 1.0);
     #include <fog_fragment>
     #include <tonemapping_fragment>
