@@ -1,33 +1,22 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES } from './localizedContent';
+import React, { useCallback, useEffect, useMemo } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { translate } from './translations';
 import { LanguageContext } from './LanguageContext';
-
-const LANGUAGE_STORAGE_KEY = 'ddg_site_language_v1';
-
-function getInitialLanguage() {
-  if (typeof window === 'undefined') {
-    return DEFAULT_LANGUAGE;
-  }
-
-  const storedValue = window.localStorage.getItem(LANGUAGE_STORAGE_KEY);
-  return SUPPORTED_LANGUAGES.includes(storedValue) ? storedValue : DEFAULT_LANGUAGE;
-}
+import { languageFromPath, localizePath } from './languageRoutes';
 
 export const LanguageProvider = ({ children }) => {
-  const [language, setLanguageState] = useState(getInitialLanguage);
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // Источник правды — адрес страницы. Хранить выбор в localStorage больше нельзя:
+  // тогда один и тот же URL показывал бы разным людям разный язык, и поисковик
+  // не смог бы сослаться на английскую версию.
+  const language = languageFromPath(location.pathname);
 
   const setLanguage = useCallback((nextLanguage) => {
-    const resolvedLanguage = SUPPORTED_LANGUAGES.includes(nextLanguage)
-      ? nextLanguage
-      : DEFAULT_LANGUAGE;
-
-    setLanguageState(resolvedLanguage);
-
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem(LANGUAGE_STORAGE_KEY, resolvedLanguage);
-    }
-  }, []);
+    const target = localizePath(location.pathname, nextLanguage);
+    navigate(`${target}${location.search}${location.hash}`);
+  }, [location.pathname, location.search, location.hash, navigate]);
 
   useEffect(() => {
     document.documentElement.lang = language;

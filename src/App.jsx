@@ -5,6 +5,8 @@ import {
     Route,
 } from 'react-router-dom';
 import Navigation from './components/ui/Navigation';
+import { LanguageProvider } from './i18n/LanguageProvider';
+import { localizePath } from './i18n/languageRoutes';
 import { SiteAudioProvider } from './features/audio/SiteAudioProvider';
 import { archiveNavigationItems } from './config/siteNavigation';
 import { useLanguage } from './i18n/useLanguage';
@@ -91,8 +93,19 @@ function AppShell() {
             <main className="app-content" style={{ position: 'relative', width: '100%', height: '100%' }}>
                 <Suspense fallback={routeFallback}>
                     <Routes>
-                        {routeDefinitions.map((route) => (
-                            <Route key={route.path} path={route.path} element={route.element} />
+                        {routeDefinitions.flatMap((route) => (
+                            // Каждый маршрут регистрируется дважды: в корне русский,
+                            // под /en английский. Одна ветка «*» ловит всё остальное.
+                            route.path === '*'
+                                ? [<Route key="*" path="*" element={route.element} />]
+                                : [
+                                    <Route key={route.path} path={route.path} element={route.element} />,
+                                    <Route
+                                        key={localizePath(route.path, 'en')}
+                                        path={localizePath(route.path, 'en')}
+                                        element={route.element}
+                                    />,
+                                ]
                         ))}
                     </Routes>
                 </Suspense>
@@ -108,9 +121,11 @@ function AppShell() {
 function App() {
     return (
         <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-            <SiteAudioProvider>
-                <AppShell />
-            </SiteAudioProvider>
+            <LanguageProvider>
+                <SiteAudioProvider>
+                    <AppShell />
+                </SiteAudioProvider>
+            </LanguageProvider>
         </Router>
     );
 }
