@@ -47,6 +47,13 @@ const Info = () => {
                 </a>
               </div>
 
+              <div className="info-phone-block">
+                <span className="info-field-label">{localizeField(infoContacts.emailLabel, language)}</span>
+                <a className="info-phone-link" href={`mailto:${infoContacts.email}`} data-testid="info-email-link">
+                  {infoContacts.email}
+                </a>
+              </div>
+
               <div className="info-office-list">
                 {infoContacts.offices.map((office) => (
                   <a

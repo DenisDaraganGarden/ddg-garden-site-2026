@@ -20,6 +20,13 @@ export const infoContacts = {
     en: 'Phone',
   },
   phoneNumber: '+7 999 695-15-90',
+  emailLabel: {
+    ru: 'Почта',
+    en: 'Email',
+  },
+  // Канонический адрес: он же в Яндекс.Бизнесе, 2ГИС и в разметке организации.
+  // Карты считают организацию одной только при дословном совпадении контактов.
+  email: 'info@daragangarden.ru',
   mapOfficeId: 'spb',
   offices: [
     {
