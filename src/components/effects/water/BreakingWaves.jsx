@@ -250,7 +250,11 @@ const sheetFragmentShader = /* glsl */`
   varying float vShade;
   varying float vGround;
   void main() {
-    if (vAlpha <= 0.002) discard;
+    // The sheet is transparent at its edge. Keep its interpolated coverage in
+    // the physical range before the blend state receives it; with MSAA, a
+    // fragment may be evaluated at the pixel centre outside this thin triangle.
+    float alpha = clamp(vAlpha, 0.0, 1.0);
+    if (alpha <= 0.002) discard;
     // No water under the sand: the loft is clipped by the bed, not by whatever
     // the beach happens to write into the depth buffer first.
     if (vWorld.y < vGround + 0.005) discard;
@@ -270,8 +274,8 @@ const sheetFragmentShader = /* glsl */`
     float coverage = max(vFoam * 0.95, max(memory.x * memory.z, crest * 0.9 * (1.0 - memory.z)));
     float age = mix(0.35, memory.y, memory.z) * (1.0 - vFoam);
     float bed = uShoreReady > 0.5 ? exp(-max(-coastGround(coastLocal(vWorld.xz)), 0.0) * uBedReach) : 0.0;
-    vec3 color = shadeWater(vWorld, n, view, pixel, waterFlowUv(vWorld.xz), coverage, age, vThickness, 0.0, bed) * vShade;
-    gl_FragColor = vec4(color, vAlpha);
+    vec3 color = shadeWater(vWorld, n, view, pixel, waterFlowUv(vWorld.xz), coverage, age, vThickness, 0.0, bed) * clamp(vShade, 0.0, 1.0);
+    gl_FragColor = vec4(color, alpha);
     #include <fog_fragment>
     #include <tonemapping_fragment>
     #include <colorspace_fragment>

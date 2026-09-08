@@ -280,6 +280,14 @@ export const waterShadingShader = /* glsl */`
   // bed: how much of the sand shows through the water here, 0..1 —
   // exp(-depth * k) down and back up, k about 3 for this turbid sea.
   vec3 shadeWater(vec3 world, vec3 n, vec3 view, float pixel, vec2 foamUv, float foamCoverage, float foamAge, float thickness, float lift, float bed) {
+    // A thin, moving loft can cover an MSAA sample while the pixel centre lies
+    // just outside its triangle. Its interpolants may then extrapolate by a
+    // few metres. Optical thickness has no negative physical meaning: feeding
+    // that value to Beer-Lambert turns a sub-pixel edge into exp(+x), which is
+    // an HDR firefly rather than a brighter wave.
+    thickness = max(thickness, 0.0);
+    foamCoverage = clamp(foamCoverage, 0.0, 1.0);
+    foamAge = clamp(foamAge, 0.0, 1.0);
     float facing = clamp(dot(n, view), 0.0, 1.0);
     float fresnel = 0.02 + 0.98 * pow(1.0 - facing, 5.0);
     vec3 reflected = reflect(-view, n);

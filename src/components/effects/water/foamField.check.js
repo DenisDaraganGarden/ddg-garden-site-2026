@@ -12,6 +12,13 @@ const foam = read('./foamField.js');
 const surface = read('./GerstnerWaterSurface.jsx');
 const shading = read('./waterShading.js');
 const breaking = read('./BreakingWaves.jsx') + read('./ShoreWater.jsx');
+
+// A sub-pixel breaker lip can interpolate its thickness outside the triangle
+// at an MSAA pixel centre. Beer-Lambert accepts only a physical path length:
+// a negative path turns into an exponential HDR firefly.
+assert.ok(shading.includes('thickness = max(thickness, 0.0);'), 'water Beer path cannot become negative at a thin-sheet edge');
+assert.ok(shading.includes('foamCoverage = clamp(foamCoverage, 0.0, 1.0);'), 'water foam coverage stays physical at a thin-sheet edge');
+assert.ok(breaking.includes('float alpha = clamp(vAlpha, 0.0, 1.0);'), 'breaker sheet clamps MSAA edge alpha before blending');
 const surf = read('./surfProfile.js') + read('./coastFrame.js') + read('./coastBreakLine.js');
 
 // Arguments of every call/declaration of `call`: top-level commas between the
