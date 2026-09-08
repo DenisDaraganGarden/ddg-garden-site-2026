@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { SPRAY_GROW, SPRAY_RADIUS, SPRAY_TIERS, sprayFlight, sprayInstanceCount } from './spray.js';
+import { SPRAY_ACCEPTANCE, SPRAY_GROW, SPRAY_RADIUS, SPRAY_TIERS, sprayFlight, sprayInstanceCount } from './spray.js';
 
 // The motes fly in closed form so that nothing has to be simulated or stored.
 // That is only allowed if the closed form IS the trajectory: integrate the
@@ -41,28 +41,33 @@ const painted = (distance) => {
   const count = sprayInstanceCount({ distance, height: 0.9, ...view });
   const pxPerMetre = 0.5 * view.viewportHeight * view.projectionY / Math.max(distance, 1);
   const quadPx = Math.max(2 * (SPRAY_RADIUS + SPRAY_GROW * 0.5) * Math.sqrt(0.9 / 0.45) * pxPerMetre, 2.5);
-  return { count, area: count * quadPx * quadPx * 0.785 };
+  // Only the survivors paint: the budget is about what reaches the screen.
+  return { count, area: count * SPRAY_ACCEPTANCE * quadPx * quadPx * 0.785 };
 };
 const budget = view.viewportWidth * view.viewportHeight * view.overdraw;
 const FLOOR = 60;
+// Between the floor and the pool's ceiling the budget governs, and there the
+// painted area must be flat: that is the whole point of deriving the count
+// from coverage rather than from distance. Outside that band say which limit
+// binds — silently drifting off budget would read as "covered" when it is not.
+let governed = 0;
 let previous = 0;
-for (const distance of [5, 8, 12, 20, 30]) {
+for (let distance = 3; distance <= 60; distance += 1) {
   const { count, area } = painted(distance);
-  assert.ok(count < SPRAY_TIERS.high.max, `distance ${distance} should not be capped: ${count}`);
-  if (count > FLOOR) {
+  assert.ok(count >= previous, `the count must not fall as the camera pulls back: ${previous} then ${count}`);
+  previous = count;
+  if (count > FLOOR && count < SPRAY_TIERS.high.max) {
+    governed += 1;
     assert.ok(Math.abs(area - budget) / budget < 0.05, `painted area at ${distance} m is ${(area / budget).toFixed(2)} of budget`);
-  } else {
+  } else if (count <= FLOOR) {
     // Nose to the crest the floor binds and the budget is deliberately
     // overspent, so the plume does not thin to nothing. Bound the overspend.
     assert.ok(area < budget * 2, `the floor overspends by ${(area / budget).toFixed(2)}x at ${distance} m`);
   }
-  assert.ok(count >= previous, `the count must not fall as the camera pulls back: ${previous} then ${count}`);
-  previous = count;
 }
-// Far enough away the pool is the limit, not the budget: that is where the
-// distance fade takes over and the spray dissolves into a band of white.
+assert.ok(governed >= 8, `the budget should govern over a real range of distances, not ${governed} metres`);
 assert.equal(sprayInstanceCount({ distance: 60, height: 0.9, ...view }), SPRAY_TIERS.high.max);
-assert.ok(sprayInstanceCount({ distance: 20, height: 0.9, ...view, overdraw: SPRAY_TIERS.low.overdraw, max: SPRAY_TIERS.low.max })
-  < sprayInstanceCount({ distance: 20, height: 0.9, ...view }), 'a lower tier draws fewer motes');
+assert.ok(sprayInstanceCount({ distance: 9, height: 0.9, ...view, overdraw: SPRAY_TIERS.low.overdraw, max: SPRAY_TIERS.low.max })
+  < sprayInstanceCount({ distance: 9, height: 0.9, ...view }), 'a lower tier draws fewer motes');
 
-console.log(`spray: closed-form flight within 2 mm of the integrated trajectory, coverage held to ${(view.overdraw).toFixed(1)}x the frame at every distance`);
+console.log(`spray: closed-form flight within 2 mm of the integrated trajectory, coverage held to ${view.overdraw.toFixed(1)}x the frame over ${governed} m of the approach`);

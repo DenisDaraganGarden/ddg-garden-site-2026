@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { createGerstnerUniforms, gerstnerShader, gerstnerWeatherAt, syncGerstnerUniforms } from './gerstnerWaves';
 import { coastPoint } from '../../../terrain/terrainModel.js';
 import { BREAK_SAMPLES, breakLineMean, coastBreakLine, coastWaterShader, createCoastWaterUniforms, syncCoastWaterUniforms, tickShoreDepth } from './coastFrame';
-import { SPRAY_TIERS, buildSprayGeometry, createSprayUniforms, sprayInstanceCount, sprayShader, sprayVertexBody, syncSprayUniforms } from './spray';
+import { SPRAY_TIERS, buildSprayGeometry, createSprayUniforms, sprayFragmentBody, sprayFragmentVaryings, sprayInstanceCount, sprayShader, sprayVertexBody, syncSprayUniforms } from './spray';
 import { SURF_SHAPE, surfPlungeTime, surfProfileShader } from './surfProfile';
 import { createWaterShadingUniforms, syncWaterShadingUniforms, tickWaterShadingUniforms, useWaterNoise, waterShadingShader } from './waterShading';
 
@@ -342,13 +342,11 @@ ${sprayVertexBody}
 
 const sprayFragmentShader = /* glsl */`
   #include <fog_pars_fragment>
-  varying vec2 vQuad;
-  varying float vOpacity;
+  ${gerstnerShader}
+  ${waterShadingShader}
+  ${sprayFragmentVaryings}
   void main() {
-    float rad2 = dot(vQuad, vQuad);
-    if (rad2 > 1.0) discard;
-    float alpha = vOpacity * (1.0 - rad2);
-    gl_FragColor = vec4(vec3(0.95, 0.96, 0.94) * alpha, alpha);
+${sprayFragmentBody}
     #include <fog_fragment>
     #include <tonemapping_fragment>
     #include <colorspace_fragment>
@@ -500,7 +498,10 @@ export default function BreakingWaves({ settings, lighting, noise = null, coast,
       const projectionX = camera.projectionMatrix.elements[0];
       spray.uSprayViewport.value = viewport.height;
       spray.uSprayS0.value = 0.5;
-      spray.uSpraySpan.value = Math.min(Math.max(2.4 * distance / Math.max(projectionX, 0.1), 25), 160) / coast.length;
+      // Half the frustum's width, not all of it: spray is thrown at the break,
+      // and spreading the pool over every metre of visible crest leaves a
+      // scatter of motes instead of a plume.
+      spray.uSpraySpan.value = Math.min(Math.max(1.1 * distance / Math.max(projectionX, 0.1), 12), 90) / coast.length;
       const alive = !frozen || ribbon.index === 0;
       sprayGeometries[ribbon.index].instanceCount = alive
         ? sprayInstanceCount({ distance, height, viewportHeight: viewport.height, viewportWidth: viewport.width, projectionY, overdraw: tier.overdraw, max: tier.max })
