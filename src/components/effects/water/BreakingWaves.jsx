@@ -93,7 +93,10 @@ const loftShader = /* glsl */`
   SurfPoint surfAt(float s, float t) {
     float travel = surfTravelAt(s);
     float q = surfBreakAt(s) + travel - uTravel + uPose;
-    return surfProfile(t, travel, surfHeightAt(s) * (1.0 - 0.85 * smoothstep(-1.5, max(uRunup, -1.0), q)));
+    // Running up the beach the bore thins into a sheet, but it keeps a third of
+    // its height until the very top of the run-up: a wave that shrinks to
+    // nothing before it lands never reads as hitting the shore.
+    return surfProfile(t, travel, surfHeightAt(s) * (1.0 - 0.65 * smoothstep(0.0, max(uRunup, 0.5), q)));
   }
   vec3 surfSwell(vec2 p) {
     float dist = distance(p, cameraPosition.xz);
@@ -155,14 +158,15 @@ const loftShader = /* glsl */`
     float rim = smoothstep(0.0, 0.16, t) * (1.0 - smoothstep(0.84, 1.0, t));
     return normalize(mix(surfSwellNormal(w.xz), n, rim));
   }
-  // A section is gone when it has run up the beach or, on a spit, when it has
-  // travelled its bore out past its own break.
+  // The bore runs all the way in and ends by thinning into the swash sheet at
+  // the top of its run-up — it must not evaporate in mid-beach. Only the last
+  // metre fades, and by then the sheet is centimetres thick and the foam field
+  // has taken the swash over; a section still alive past its bore length, or
+  // one over sand that stands well clear of the water, ends there.
   float surfRunupAlpha(vec3 w, float s, float ground) {
-    return (1.0 - smoothstep(uRunup - 4.0, uRunup, coastLocal(w.xz).x))
-      * (1.0 - smoothstep(uSpent - 8.0, uSpent, surfTravelAt(s)))
-      // On the spit and over a bar the sand is above water where the mainland's
-      // q is still at sea: there the wave ends on that sand, not on the ruler.
-      * (1.0 - smoothstep(0.15, 0.35, max(ground, 0.0)));
+    return (1.0 - smoothstep(uRunup - 1.0, uRunup, coastLocal(w.xz).x))
+      * (1.0 - smoothstep(uSpent - 4.0, uSpent, surfTravelAt(s)))
+      * (1.0 - smoothstep(0.35, 0.75, max(ground, 0.0)));
   }
 `;
 
