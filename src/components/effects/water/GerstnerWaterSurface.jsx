@@ -63,7 +63,13 @@ const fragmentShader = /* glsl */`
     // reaches the surface there is no water drawn, so this mesh's coarse
     // triangles never fight the beach for depth and the beach's own fine mesh
     // is the shoreline.
-    if (uShoreReady > 0.5 && coastGround(coastLocal(vWorld.xz)) > -0.015) discard;
+    // The water ends where the map says five centimetres of depth: closer to the
+    // waterline it would fight the beach's own triangles for the edge; the strip
+    // it leaves bare is the wet sand of the swash.
+    float ground = uShoreReady > 0.5 ? coastGround(coastLocal(vWorld.xz)) : -1.0;
+    if (ground > -0.05) discard;
+    // Over the last metre and a half of depth the sand shows through.
+    float bed = smoothstep(-1.5, -0.05, ground) * 0.85;
     vec3 view = normalize(cameraPosition - vWorld);
     float pixel = length(vec2(fwidth(vWorld.x), fwidth(vWorld.z)));
     vec3 n = normalize(vWaveNormal);
@@ -79,7 +85,7 @@ const fragmentShader = /* glsl */`
     // keeps the lace the same on both sides of the window's edge.
     float age = mix(0.35, memory.y, memory.z);
     float lift = clamp(vWorld.y * 1.5, 0.0, 1.0) * (1.0 - jacobian * 0.5);
-    vec3 color = shadeWater(vWorld, n, view, pixel, waterFlowUv(vWorld.xz), coverage, age, 10.0, lift);
+    vec3 color = shadeWater(vWorld, n, view, pixel, waterFlowUv(vWorld.xz), coverage, age, 10.0, lift, bed);
     gl_FragColor = vec4(color, 1.0);
     #include <fog_fragment>
     #include <tonemapping_fragment>

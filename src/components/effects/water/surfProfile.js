@@ -149,11 +149,11 @@ SurfPoint surfProfile(float t, float dn, float H) {
     o.thickness = 3.0;
     // The roller: after landing the whole face boils and keeps boiling as the
     // bore runs; the splash-up stands highest where the lip came down.
-    float roller = smoothstep(0.0, 0.25, psi) * (1.0 - 0.35 * psi) * smoothstep(0.85, 0.05, u);
-    float burst = splash * smoothstep(0.9, 0.2, u) * 1.4;
-    o.foam = max(max(roller, burst), 0.35 * rearing * smoothstep(0.5, 0.0, u));
+    float roller = smoothstep(0.0, 0.25, psi) * (1.0 - 0.35 * psi) * (1.0 - smoothstep(0.05, 0.85, u));
+    float burst = splash * (1.0 - smoothstep(0.2, 0.9, u)) * 1.4;
+    o.foam = max(max(roller, burst), 0.35 * rearing * (1.0 - smoothstep(0.0, 0.5, u)));
     o.puff = roller * (0.7 + 0.5 * (1.0 - psi)) + burst;
-    o.shade = 1.0 - 0.45 * jetOut * smoothstep(0.55, 0.0, u);
+    o.shade = 1.0 - 0.45 * jetOut * (1.0 - smoothstep(0.0, 0.55, u));
     o.arc = 0.5 * uWidth + 2.0 * jetLen + 0.5 * uWidth * u;
   }
   return o;

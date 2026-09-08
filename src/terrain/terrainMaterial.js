@@ -14,6 +14,16 @@ uniform highp sampler2DArray uTerrainSurface;
 uniform sampler2D uPlantCover;uniform vec4 uPlantCoverBounds;uniform float uPlantCoverEnabled;
 uniform vec4 uTerrainGrade;uniform float uTerrainGradeDry;
 uniform float uRockLayer;uniform float uTerrainTime;uniform float uTerrainOptics;uniform float uTerrainScale;uniform float uTerrainParallax;uniform float uRockOnly;uniform float uTerrainGroundCover;
+// The water's foam field where the surf hands the beach its swash: r foam on the sand, b wet sand. Zero outside its window.
+uniform sampler2D uSwashField;uniform vec3 uSwashWindow;uniform float uSwashEnabled;
+vec3 swashField(vec2 worldXZ){
+ if(uSwashEnabled<.5)return vec3(0.0);
+ vec2 uv=(worldXZ-uSwashWindow.xy)/(2.0*uSwashWindow.z)+.5;
+ // The weight fades over the window's rim; plain clamps, since smoothstep with reversed edges is undefined in GLSL.
+ float w=clamp(min(min(uv.x,1.0-uv.x),min(uv.y,1.0-uv.y))/.06,0.0,1.0);
+ if(w<=0.0)return vec3(0.0);
+ return texture2D(uSwashField,uv).rgb*w;
+}
 uniform sampler2D uPondNormalMap;uniform vec2 uPondTexel;uniform float uPondExtent;uniform vec4 uCausticsParams;uniform vec3 uCausticsLight;uniform float uCausticsKey;
 struct TerrainSample{vec3 color;vec3 surface;vec3 normal;};
 // The daylight soils of the Taganrog bluffs (linear): fresh scarp #C4A472,
@@ -108,7 +118,8 @@ export function createTerrainMaterial(textures,p,rockOnly=false){
   uPlantCover:{value:null},uPlantCoverBounds:{value:new THREE.Vector4(0,0,1,1)},uPlantCoverEnabled:{value:0},
   uTerrainGrade:{value:new THREE.Vector4(1,1,1,1)},uTerrainGradeDry:{value:1},
   uTerrainTime:{value:0},uTerrainOptics:{value:0},uTerrainScale:{value:p.terrainTextureScale},uTerrainParallax:{value:p.terrainParallax},uTerrainGroundCover:{value:p.terrainGroundCover},uRockLayer:{value:rockOnly?2:3},uRockOnly:{value:rockOnly?1:0},
-  uPondNormalMap:{value:null},uPondTexel:{value:new THREE.Vector2(1/256,1/256)},uPondExtent:{value:34},uCausticsParams:{value:new THREE.Vector4(0,1,1,0)},uCausticsLight:{value:new THREE.Vector3(0,1,0)},uCausticsKey:{value:1}};
+  uPondNormalMap:{value:null},uPondTexel:{value:new THREE.Vector2(1/256,1/256)},uPondExtent:{value:34},uCausticsParams:{value:new THREE.Vector4(0,1,1,0)},uCausticsLight:{value:new THREE.Vector3(0,1,0)},uCausticsKey:{value:1},
+  uSwashField:{value:null},uSwashWindow:{value:new THREE.Vector3(0,0,1)},uSwashEnabled:{value:0}};
  syncCoastUniforms(uniforms,p);
  const material=new THREE.MeshStandardMaterial({color:'#ffffff',roughness:.85,metalness:0,side:THREE.FrontSide});
  material.name=rockOnly?'azov-sandstone-boulders':'azov-coast-pbr';material.userData.coastUniforms=uniforms;
@@ -148,6 +159,11 @@ export function createTerrainMaterial(textures,p,rockOnly=false){
    float wet=surfBand?coastWetnessAtHeight(qs,uTerrainTime,groundY):(groundY<0.0?coastMask(qs):0.0);
    float caustic=groundY<-.02?shelfCaustics(vTerrainWorld.xz,-groundY-.02):0.0;
    float foamTrace=surfBand?coastSandFoamAtHeight(qs,vTerrainWorld,uTerrainTime,groundY)*smoothstep(.28,.88,terrainN.y)*(1.0-rockWeight*.32):0.0;
+   // The surf's own swash, from the water's foam field: the sand a bore's
+   // run-up sheet has wetted, and the lace it left, in the same reticulated
+   // foam this shader draws for its own wave.
+   vec3 swash=swashField(vTerrainWorld.xz);
+   if(surfBand&&groundY>-.02){wet=max(wet,swash.b);foamTrace=max(foamTrace,min(swash.r*1.3,.9)*(.5+.5*coastLace(vTerrainWorld.xz,11.0,vec2(0.0)))*smoothstep(.28,.88,terrainN.y)*(1.0-rockWeight*.32));}
    float path=coastPathMask(qs)*(1.0-uRockOnly);
    // Height above the run-up envelope the wet sand dries by, frozen in time so
    // what the sea leaves along that line does not float with the tide.
@@ -376,11 +392,11 @@ export function createTerrainMaterial(textures,p,rockOnly=false){
      float capEdge=hN+(coastNoise(vec2(qs.y*.09,7.0)+seed)-.5)*.16;
      float cap=smoothstep(.78,.88,capEdge)*(.55+.45*uCoastGeology.y)*(1.0-uRockOnly),underCap=smoothstep(.62,.78,capEdge)*(1.0-cap)*(1.0-uRockOnly);
      float talusTier=max(1.0-smoothstep(.2,.42,hN),uRockOnly);
-     float fresh=smoothstep(.6,.3,abs(terrainN.y))*(1.0-uCoastGeology.z*.6)*smoothstep(.5,.8,coastPatch(vec2(qs.y,groundY*2.6),4.0,seed*30.0+9.0));
+     float fresh=(1.0-smoothstep(.3,.6,abs(terrainN.y)))*(1.0-uCoastGeology.z*.6)*smoothstep(.5,.8,coastPatch(vec2(qs.y,groundY*2.6),4.0,seed*30.0+9.0));
      fresh=clamp(fresh,0.0,1.0)*(1.0-talusTier);
      float bedPhase=groundY*19.0+(coastNoise(vec2(qs.y*.05,groundY*.3)+seed)-.5)*5.0+sin(qs.y*.077)*1.5,beds=sin(bedPhase);
      float coarse=coastNoise(vec2(qs.y*.03,groundY*.9)+seed)-.5;
-     float steep=smoothstep(.9,.5,abs(terrainN.y))*(1.0-smoothstep(30.0,90.0,dist));
+     float steep=(1.0-smoothstep(.5,.9,abs(terrainN.y)))*(1.0-smoothstep(30.0,90.0,dist));
      vec2 streakUv=vec2(qs.y*1.9+sin(groundY*.9)*.25,groundY*.11)+seed;
      float streaks=(coastNoise(streakUv)-.5)*2.0,streakSlope=(coastNoise(streakUv+vec2(.15,0.0))-coastNoise(streakUv))*6.0;
      float flow=sin(qs.y*.72+sin(qs.y*.131+uCoastShape.w*.137)+qs.x*.075);

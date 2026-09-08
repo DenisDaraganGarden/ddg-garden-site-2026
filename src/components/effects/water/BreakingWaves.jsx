@@ -73,7 +73,7 @@ const loftShader = /* glsl */`
   // modulation), the ends taper to the swell, and the break moment peels.
   float surfHeightAt(float s) {
     float y = s * uCrestLength;
-    return uHeight * smoothstep(0.0, 0.06, s) * smoothstep(1.0, 0.94, s) * (0.9 + 0.1 * cos(SURF_TAU * y / 9.0));
+    return uHeight * smoothstep(0.0, 0.06, s) * (1.0 - smoothstep(0.94, 1.0, s)) * (0.9 + 0.1 * cos(SURF_TAU * y / 9.0));
   }
   float surfPhaseAt(float s) {
     float y = s * uCrestLength;
@@ -89,8 +89,11 @@ const loftShader = /* glsl */`
   float surfTravelAt(float s) {
     return uTravel + (1.0 - uRefraction) * (uBreakMean - surfBreakAt(s)) - s * uCrestLength * uPeel;
   }
+  // On the sand the bore flattens into the swash sheet as it runs up.
   SurfPoint surfAt(float s, float t) {
-    return surfProfile(t, surfTravelAt(s), surfHeightAt(s));
+    float travel = surfTravelAt(s);
+    float q = surfBreakAt(s) + travel - uTravel + uPose;
+    return surfProfile(t, travel, surfHeightAt(s) * (1.0 - 0.85 * smoothstep(-1.5, max(uRunup, -1.0), q)));
   }
   vec3 surfSwell(vec2 p) {
     float dist = distance(p, cameraPosition.xz);
@@ -107,7 +110,7 @@ const loftShader = /* glsl */`
   }
   // The edges of the loft coincide with the swell and vanish into it.
   float surfEdgeAlpha(float s, float t) {
-    return smoothstep(0.0, 0.08, t) * smoothstep(1.0, 0.92, t) * smoothstep(0.0, 0.04, s) * smoothstep(1.0, 0.96, s);
+    return smoothstep(0.0, 0.08, t) * (1.0 - smoothstep(0.92, 1.0, t)) * smoothstep(0.0, 0.04, s) * (1.0 - smoothstep(0.96, 1.0, s));
   }
   // Normal by finite differences; a collapsed row (the jet before launch) has
   // no area and gets the up vector rather than a NaN.
@@ -168,7 +171,7 @@ const sheetFragmentShader = /* glsl */`
     vec3 n = normalize(vNormal);
     if (dot(n, view) < 0.0) n = -n;
     n = waterRippleNormal(n, vWorld.xz, pixel, 0.5);
-    vec3 color = shadeWater(vWorld, n, view, pixel, vFoamUv, vFoam * 0.95, 0.0, vThickness, 0.0) * vShade;
+    vec3 color = shadeWater(vWorld, n, view, pixel, vFoamUv, vFoam * 0.95, 0.0, vThickness, 0.0, 0.0) * vShade;
     gl_FragColor = vec4(color, vAlpha);
     #include <fog_fragment>
     #include <tonemapping_fragment>
@@ -391,7 +394,10 @@ export default function BreakingWaves({ settings, lighting, noise = null, coast,
         const plunge = surfPlungeTime(SURF_SHAPE.crest * height, -0.2 * height, settings.surfLift);
         const psi = clamp01((midTravel - speed * plunge) / Math.max(settings.surfBoreLength, 0.1));
         const strength = smoothstep(0, 0.25, psi) * (1 - 0.5 * psi);
-        bore.set(ribbon.uniforms.uBreakMean.value + travel + settings.surfWidth * 0.1, strength * 0.45, settings.surfWidth * 0.16, 0);
+        const crestQ = ribbon.uniforms.uBreakMean.value + travel;
+        // The run-up front: the water's edge on the sand, once the wave has landed.
+        const front = psi > 0 ? Math.min(crestQ + settings.surfWidth * 0.16 + 1, settings.surfRunup) : -100;
+        bore.set(crestQ + settings.surfWidth * 0.1, strength * 0.45, settings.surfWidth * 0.16, front);
       }
     });
   });

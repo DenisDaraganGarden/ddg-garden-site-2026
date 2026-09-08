@@ -72,7 +72,8 @@ function TerrainStrip({ definition:p,s0,material,water,qualityProfile,settings,l
   if(water)return <WaterSurfaceV2 geometryOverride={geometry} shoreMode runtime={runtime} settings={settings} lighting={lighting} sky={sky} qualityProfile={qualityProfile}/>;
   return <mesh ref={mesh} geometry={geometry} material={material} castShadow receiveShadow userData={{terrainLod:lod,ddgOpticsGeometry:optics}} />;
 }
-export default function AzovTerrain({ definition, settings, qualityProfile, lighting, sky, runtime, rocks, onTerrainReady, audioRuntime, plantCover }) {
+// swash: the water's foam field holder ({ texture, window }) the beach reads its wet sand and lace from; null without the new water.
+export default function AzovTerrain({ definition, settings, qualityProfile, lighting, sky, runtime, rocks, onTerrainReady, audioRuntime, plantCover, swash = null }) {
   const {gl}=useThree();const land=useRef();
   const shoreEmitter=useRef(settings.audio?.emitters?.shore);shoreEmitter.current=settings.audio?.emitters?.shore;
   useEffect(()=>()=>{const emitter=shoreEmitter.current;if(emitter)audioRuntime?.updateEmitter?.('shore',emitter.x,emitter.y,emitter.z);},[audioRuntime]);
@@ -101,7 +102,8 @@ export default function AzovTerrain({ definition, settings, qualityProfile, ligh
     for(const m of Object.values(materials)){const u=m.userData.coastUniforms;syncCoastUniforms(u,definition);syncGrassFieldUniforms(u,settings,definition);
       u.uPondNormalMap.value=pondNormals;u.uPondTexel.value.set(pondTexel,pondTexel);u.uPondExtent.value=settings.waterExtent;
       u.uCausticsParams.value.set(pondNormals?settings.causticsIntensity:0,settings.causticsScale,settings.causticsSharpness,settings.waterTurbidity);
-      u.uCausticsLight.value.fromArray(lighting.key.direction);u.uCausticsKey.value=lighting.key.intensity;u.uTerrainTime.value=clock.elapsedTime;u.uTerrainScale.value=definition.terrainTextureScale;u.uTerrainParallax.value=lowPower?0:definition.terrainParallax;u.uTerrainGroundCover.value=definition.terrainGroundCover;updateEcologyUniforms(u,{dryness:settings.shrubsDryness??definition.terrainWeathering,fieldSeed:settings.shrubsFieldSeed,patchScale:settings.shrubsPatchScale,patchContrast:settings.shrubsPatchContrast});m.envMapIntensity=lighting.environment.reflection;}
+      u.uCausticsLight.value.fromArray(lighting.key.direction);u.uCausticsKey.value=lighting.key.intensity;u.uTerrainTime.value=clock.elapsedTime;
+      u.uSwashField.value=swash?.texture??null;u.uSwashEnabled.value=swash?.texture?1:0;if(swash)u.uSwashWindow.value.copy(swash.window);u.uTerrainScale.value=definition.terrainTextureScale;u.uTerrainParallax.value=lowPower?0:definition.terrainParallax;u.uTerrainGroundCover.value=definition.terrainGroundCover;updateEcologyUniforms(u,{dryness:settings.shrubsDryness??definition.terrainWeathering,fieldSeed:settings.shrubsFieldSeed,patchScale:settings.shrubsPatchScale,patchContrast:settings.shrubsPatchContrast});m.envMapIntensity=lighting.environment.reflection;}
     if(import.meta.env.DEV && Math.floor(clock.elapsedTime*2)%2===0){
       const lods=[0,0,0];let triangles=0,morphing=0;land.current?.traverse(o=>{if(o.userData.terrainLod!=null){lods[o.userData.terrainLod]++;if(o.userData.terrainMorph>0&&o.userData.terrainMorph<1)morphing++;triangles+=o.geometry.index.count/3;}});
       gl.domElement.dataset.ddgTerrain=JSON.stringify({axes:'N -Z · E +X · up +Y',length:definition.terrainLength,offshore:definition.coastOffshore,spit:definition.terrainSpitEnabled,textureSize:textures.size,textureLayers:textures.layers,textureBytes:textures.bytes,geomorph:true,morphing,strips:strips.length,lods,triangles,waterline:0,depth:'logarithmic',physics:'analytic height / normal / surface / raycast'});

@@ -6,8 +6,12 @@ import { createGerstnerUniforms, gerstnerShader, syncGerstnerUniforms } from './
 import { windVector } from './waterShading';
 import { coastWaterShader, createCoastWaterUniforms, syncCoastWaterUniforms } from './coastFrame';
 
-// Foam as a state with memory instead of a function of the wave's phase. An RG
-// field in a window that follows the camera: R is density, G is age. Every tick
+// Foam as a state with memory instead of a function of the wave's phase. A
+// field in a window that follows the camera: R is density, G is age, B is how
+// wet the sand is — the field is also the swash, the beach's memory of the
+// water: a bore's run-up sheet wets the sand and leaves lace at its edge; on
+// the sand foam is sucked in within seconds and what is left slides back down
+// the slope, and the sand dries over a minute. Every tick
 // the water carries the field with it (the wave's own horizontal motion plus a
 // wind drift), the density decays with a lifetime, and new foam comes from the
 // folding crests (the Gerstner Jacobian) and from the broken face of every live
@@ -19,9 +23,13 @@ const FOAM_RESOLUTION = 768;
 const FORWARD = new THREE.Vector3();
 
 // The bores the breaking waves deposit: q across the shore (metres from the
-// waterline), strength, half width. Owned by whoever draws both surfaces, so the ribbons
+// waterline), strength, half width, and the run-up front on the sand (q of the
+// water's edge, -100 when the wave has not landed). Owned by whoever draws both surfaces, so the ribbons
 // write straight into the uniform the foam pass reads.
-export const createFoamBores = () => Array.from({ length: FOAM_BORE_SLOTS }, () => new THREE.Vector4());
+export const createFoamBores = () => Array.from({ length: FOAM_BORE_SLOTS }, () => new THREE.Vector4(0, 0, 1, -100));
+
+// What the terrain reads: the field's texture and window, filled every tick.
+export const createFoamFieldHolder = () => ({ texture: null, window: new THREE.Vector3(0, 0, 1) });
 
 // Density left after dt seconds, given the time it takes to fall to 1/e.
 export const foamDecay = (life, dt) => Math.exp(-Math.max(dt, 0) / Math.max(Number(life) || 0, 0.05));
@@ -43,8 +51,8 @@ uniform float uFoamMemory;
 vec3 sampleFoamField(vec2 p) {
   if (uFoamMemory < 0.5) return vec3(0.0);
   vec2 uv = (p - uFoamWindow.xy) / (2.0 * uFoamWindow.z) + 0.5;
-  vec2 edge = smoothstep(0.0, 0.06, uv) * smoothstep(1.0, 0.94, uv);
-  float weight = min(edge.x, edge.y);
+  // Fades over the window's rim; plain clamps, since smoothstep with reversed edges is undefined in GLSL.
+  float weight = clamp(min(min(uv.x, 1.0 - uv.x), min(uv.y, 1.0 - uv.y)) / 0.06, 0.0, 1.0);
   if (weight <= 0.0) return vec3(0.0);
   return vec3(texture2D(uFoamField, uv).rg, weight);
 }
@@ -64,6 +72,8 @@ const updateFragmentShader = /* glsl */`
   uniform float uHasPrev;
   uniform float uDelta;
   uniform float uDecay;
+  uniform float uSandDecay;
+  uniform float uDryDecay;
   uniform float uAgeStep;
   uniform float uCell;
   uniform vec2 uDrift;
@@ -80,29 +90,46 @@ const updateFragmentShader = /* glsl */`
     // undisplaced point that lands there, so foam sits a fraction of a
     // wavelength off the exact crest. Invert the displacement if it ever shows.
     gerstnerDisplace(world, 1.0, uCell, waveNormal, jacobian, orbital);
+    // On the sand the foam is carried back down the slope by the backwash.
+    vec2 qs = coastLocal(world);
+    float ground = coastGround(qs);
+    bool sand = ground > -0.01;
+    vec2 velocity = orbital + uDrift;
+    if (sand) {
+      vec2 slope = vec2(coastGround(qs + vec2(0.5, 0.0)) - coastGround(qs - vec2(0.5, 0.0)), coastGround(qs + vec2(0.0, 0.5)) - coastGround(qs - vec2(0.0, 0.5)));
+      vec2 down = -(slope.x * coastLand() + slope.y * coastAlong()) * 30.0;
+      float speed = length(down);
+      velocity = speed > 1.5 ? down * (1.5 / speed) : down;
+    }
     // Advection: read the field where this water was a tick ago. The same
     // fetch re-registers the window when the camera moves.
-    vec2 from = world - (orbital + uDrift) * uDelta;
+    vec2 from = world - velocity * uDelta;
     vec2 prevUv = (from - uPrevWindow.xy) / (2.0 * uPrevWindow.z) + 0.5;
-    vec2 state = vec2(0.0);
+    vec3 state = vec3(0.0);
     if (uHasPrev > 0.5 && all(greaterThan(prevUv, vec2(0.0))) && all(lessThan(prevUv, vec2(1.0)))) {
-      state = texture2D(uPrev, prevUv).rg;
+      state = texture2D(uPrev, prevUv).rgb;
     }
-    state.x *= uDecay;
+    state.x *= sand ? uSandDecay : uDecay;
     state.y = min(state.y + uAgeStep, 1.0);
+    state.z = sand ? state.z * uDryDecay : 1.0;
     // Crests fold in patches, not along their whole length: a broad mask
     // drifting with the wind gates where a fold makes foam.
     float patchy = uNoiseReady > 0.5 ? smoothstep(0.44, 0.6, texture(uNoise, vec3(world * 0.03 + uDrift * uGerstnerTime * 0.02, 0.73)).r) : 1.0;
-    float fresh = smoothstep(uThreshold + uSoftness, uThreshold - uSoftness, jacobian) * uDeposit * 0.65 * patchy;
-    float q = coastLocal(world).x;
+    float fresh = sand ? 0.0 : smoothstep(uThreshold + uSoftness, uThreshold - uSoftness, jacobian) * uDeposit * 0.65 * patchy;
+    float q = qs.x;
     for (int i = 0; i < FOAM_BORES; i++) {
       vec4 bore = uBore[i];
       fresh = max(fresh, bore.y * uDeposit * (1.0 - smoothstep(bore.z * 0.3, bore.z, abs(q - bore.x))));
+      // The run-up sheet: the sand up to the front is wet, the front leaves lace.
+      if (sand && bore.w > -50.0 && q < bore.w) {
+        state.z = 1.0;
+        fresh = max(fresh, bore.y * 0.8 * (1.0 - smoothstep(0.1, 0.7, bore.w - q)));
+      }
     }
     // Fresh foam wins and is young again; what it does not cover keeps its age.
     state.y = mix(state.y, 0.0, step(state.x, fresh));
     state.x = min(max(state.x, fresh), 1.0);
-    gl_FragColor = vec4(state, 0.0, 1.0);
+    gl_FragColor = vec4(state, 1.0);
   }
 `;
 
@@ -119,7 +146,7 @@ export function createFoamFieldUniforms() {
 export function useFoamField(targetUniforms, { settings, bores, coast = null, noise = null }) {
   const { gl } = useThree();
   const field = useMemo(() => {
-    const options = { type: THREE.HalfFloatType, format: THREE.RGFormat, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter };
+    const options = { type: THREE.HalfFloatType, format: THREE.RGBAFormat, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter };
     const read = createTarget(FOAM_RESOLUTION, FOAM_RESOLUTION, options);
     const write = createTarget(FOAM_RESOLUTION, FOAM_RESOLUTION, options);
     const pass = createPass(updateFragmentShader, {
@@ -130,6 +157,8 @@ export function useFoamField(targetUniforms, { settings, bores, coast = null, no
       uHasPrev: { value: 0 },
       uDelta: { value: 1 / 60 },
       uDecay: { value: 1 },
+      uSandDecay: { value: 1 },
+      uDryDecay: { value: 1 },
       uAgeStep: { value: 0 },
       uCell: { value: 0.1 },
       uDrift: { value: new THREE.Vector2() },
@@ -164,6 +193,7 @@ export function useFoamField(targetUniforms, { settings, bores, coast = null, no
     if (!settings.foamMemory) {
       targetUniforms.uFoamMemory.value = 0;
       uniforms.uHasPrev.value = 0;
+      if (coast?.foamField) coast.foamField.texture = null;
       return;
     }
     const step = Math.min(Math.max(delta, 1 / 240), 1 / 20);
@@ -183,6 +213,8 @@ export function useFoamField(targetUniforms, { settings, bores, coast = null, no
     uniforms.uPrev.value = field.read.texture;
     uniforms.uDelta.value = step;
     uniforms.uDecay.value = foamDecay(settings.foamLife, step);
+    uniforms.uSandDecay.value = foamDecay(2, step);
+    uniforms.uDryDecay.value = foamDecay(settings.foamDry ?? 40, step);
     uniforms.uAgeStep.value = step / Math.max(Number(settings.foamLife) || 0, 0.05);
     uniforms.uCell.value = (2 * half) / FOAM_RESOLUTION;
     uniforms.uThreshold.value = settings.foamThreshold;
@@ -191,7 +223,7 @@ export function useFoamField(targetUniforms, { settings, bores, coast = null, no
     uniforms.uDrift.value.fromArray(windVector(settings.windDirection)).multiplyScalar(Number(settings.foamDrift) || 0);
     syncCoastWaterUniforms(uniforms, coast, coast?.breakQ ?? -10, 0);
     if (bores) uniforms.uBore.value = bores;
-    else uniforms.uBore.value.forEach((bore) => bore.set(0, 0, 1, 0));
+    else uniforms.uBore.value.forEach((bore) => bore.set(0, 0, 1, -100));
 
     gl.setRenderTarget(field.write);
     gl.render(field.pass.scene, field.pass.camera);
@@ -204,5 +236,6 @@ export function useFoamField(targetUniforms, { settings, bores, coast = null, no
     targetUniforms.uFoamField.value = field.read.texture;
     targetUniforms.uFoamWindow.value.copy(uniforms.uWindow.value);
     targetUniforms.uFoamMemory.value = 1;
+    if (coast?.foamField) { coast.foamField.texture = field.read.texture; coast.foamField.window.copy(uniforms.uWindow.value); }
   }, -20);
 }

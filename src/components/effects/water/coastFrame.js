@@ -13,8 +13,9 @@ import { createPass, createTarget, disposePass, restoreDefaultFramebuffer } from
 export { BREAK_SAMPLES, breakLineMean, coastBreakLine } from './coastBreakLine.js';
 // The shore depth map: the ground's height over the coast band, in coast
 // coordinates, from 336 m out (past the spit's seaward shore) to 16 m inland.
-// Heights are stored clamped to ±1 m — deeper reads as deep enough for every
-// rule here, higher as land — at 0.34 m across and 0.8 m along the shore.
+// Heights are stored clamped to ±1 m in half floats — deeper reads as deep
+// enough for every rule here, higher as land — at 0.34 m across and 0.8 m
+// along the shore; 8 bits quantised neighbouring texels into flat steps.
 const SHORE_MAP = Object.freeze({ width: 2048, height: 1024, qMin: -336, qMax: 16 });
 
 export const coastWaterShader = /* glsl */`
@@ -91,7 +92,7 @@ export function ShoreDepthMap({ coast }) {
   const holder = coast?.shoreDepth;
   const map = useMemo(() => {
     if (!definition || !holder) return null;
-    const target = createTarget(SHORE_MAP.width, SHORE_MAP.height, { type: THREE.UnsignedByteType, format: THREE.RGBAFormat, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter });
+    const target = createTarget(SHORE_MAP.width, SHORE_MAP.height, { type: THREE.HalfFloatType, format: THREE.RGBAFormat, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter });
     const pass = createPass(shoreDepthFragment, { ...createCoastUniforms(), uShoreRange: { value: new THREE.Vector4() } });
     return { target, pass };
   }, [definition, holder]);

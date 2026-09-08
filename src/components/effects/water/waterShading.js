@@ -28,6 +28,7 @@ export const waterShadingShader = /* glsl */`
   uniform float uRippleScale;
   uniform float uLaceScale;
   uniform float uFoamBrightness;
+  uniform vec3 uBedColor;
   #define WATER_PI 3.14159265
 
   vec3 waterSkyColor(vec3 ray) {
@@ -85,12 +86,13 @@ export const waterShadingShader = /* glsl */`
   }
   // thickness: metres of water behind this point toward the light (a lip is
   // centimetres, open water is metres). lift: extra backlight for a crest.
-  vec3 shadeWater(vec3 world, vec3 n, vec3 view, float pixel, vec2 foamUv, float foamCoverage, float foamAge, float thickness, float lift) {
+  // bed: how much of the sand shows through shallow water here (0..1).
+  vec3 shadeWater(vec3 world, vec3 n, vec3 view, float pixel, vec2 foamUv, float foamCoverage, float foamAge, float thickness, float lift, float bed) {
     float facing = clamp(dot(n, view), 0.0, 1.0);
     float fresnel = 0.02 + 0.98 * pow(1.0 - facing, 5.0);
     vec3 reflected = reflect(-view, n);
     // The underside of a lip looks down at the water, not at a mirrored sky.
-    float below = smoothstep(0.0, -0.25, reflected.y);
+    float below = 1.0 - smoothstep(-0.25, 0.0, reflected.y);
     reflected.y = abs(reflected.y);
     vec3 reflection = mix(waterSkyColor(reflected), uDeepColor * uFillIrradiance * 0.6, below);
     reflection += uSunRadiance * pow(max(dot(reflected, uSunDirection), 0.0), 320.0) * uGlint * 0.02;
@@ -103,7 +105,10 @@ export const waterShadingShader = /* glsl */`
     float backlight = pow(max(dot(view, -uSunDirection), 0.0), 3.0);
     body += uWaterColor * uSunRadiance / WATER_PI * backlight * (lift + transmit * 1.5) * uCrestGlow * 1.6;
     body += uWaterColor * uFillIrradiance / WATER_PI * transmit * 1.8;
-    vec3 color = mix(body, reflection, clamp(fresnel, 0.02, 0.85) * (1.0 - transmit * 0.8));
+    // Shallow water: the sand shows through, tinted by the water, and the
+    // surface reads less as a mirror.
+    body = mix(body, uBedColor * uWaterColor * 1.6 * (uFillIrradiance + uSunRadiance * (0.2 + 0.4 * sunDiffuse)) / WATER_PI, bed);
+    vec3 color = mix(body, reflection, clamp(fresnel, 0.02, 0.85) * (1.0 - transmit * 0.8) * (1.0 - 0.45 * bed));
     float bubbles;
     float foam = waterFoam(foamUv, foamCoverage, pixel, foamAge, bubbles);
     // Beer/powder from the clouds: a thick patch is lit flat white, a thin one
@@ -139,6 +144,7 @@ export function createWaterShadingUniforms() {
     uRippleScale: { value: 0.06 },
     uLaceScale: { value: 0.15 },
     uFoamBrightness: { value: 1 },
+    uBedColor: { value: new THREE.Color('#c4b08a') },
   };
 }
 
@@ -157,6 +163,7 @@ export function syncWaterShadingUniforms(uniforms, settings, lighting) {
   uniforms.uRippleScale.value = settings.rippleScale;
   uniforms.uLaceScale.value = settings.laceScale;
   uniforms.uFoamBrightness.value = settings.foamBrightness;
+  uniforms.uBedColor.value.set(settings.bedColor ?? '#c4b08a');
   vec3From(uniforms.uSunDirection.value, lighting?.key?.direction, [0.4, 0.7, -0.5]).normalize();
   vec3From(uniforms.uSunRadiance.value, lighting?.key?.sceneRadiance, [2.5, 2.3, 2]);
   vec3From(uniforms.uFillIrradiance.value, lighting?.fill?.irradiance, [0.7, 0.8, 1]);

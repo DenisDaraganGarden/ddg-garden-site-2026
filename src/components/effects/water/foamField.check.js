@@ -36,9 +36,9 @@ for (const [name, source] of [['foamField', foam], ['GerstnerWaterSurface', surf
   assert.ok(calls.length > 0, `${name} calls gerstnerDisplace with the wrong number of arguments`);
 }
 // Foam age reaches the lace through shadeWater, in the same slot everywhere.
-assert.equal(argumentCount(shading, 'vec3 shadeWater')[0], 9);
+assert.equal(argumentCount(shading, 'vec3 shadeWater')[0], 10);
 for (const [name, source] of [['GerstnerWaterSurface', surface], ['BreakingWaves', breaking]]) {
-  argumentCount(source, '\\bshadeWater').forEach((count) => assert.equal(count, 9, `${name} calls shadeWater with ${count} arguments`));
+  argumentCount(source, '\\bshadeWater').forEach((count) => assert.equal(count, 10, `${name} calls shadeWater with ${count} arguments`));
 }
 
 // Every uniform the foam pass declares has to be created in JS: an unbound one
