@@ -173,8 +173,14 @@ const fragmentShader = /* glsl */`
     // water is drawn over sand the map failed to notice — which is what
     // flooded the beach and the spit.
     float bed = uShoreReady > 0.5 ? max(coastGround(coastLocal(vWorld.xz)), vGround) : vGround;
-    float depth = max(vLevel - bed, sheet);
-    if (depth < 0.004) discard;
+    // Land is decided by the BED against the still line, never by the wave.
+    // Testing the instantaneous surface against the bed punched a hole wherever
+    // a trough happened to sit lower than the bed the fragment read — and since
+    // troughs come in a lattice, so did the holes: those were the black spots.
+    // A sea has water wherever its floor is below sea level; a wave cannot take
+    // the water away.
+    if (bed > 0.02 && sheet <= 0.001) discard;
+    float depth = max(max(vLevel - bed, sheet), 0.004);
     vec3 view = normalize(cameraPosition - vWorld);
     float pixel = length(vec2(fwidth(vWorld.x), fwidth(vWorld.z)));
     vec3 n = normalize(vWaveNormal);
