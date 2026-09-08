@@ -144,7 +144,13 @@ const updateFragmentShader = /* glsl */`
     float fresh = sand ? 0.0 : gerstnerWhitecaps(world, uThreshold, uSoftness) * uDeposit;
     for (int i = 0; i < FOAM_BORES; i++) {
       vec4 bore = uBore[i];
-      fresh = max(fresh, onCrest * bore.y * uDeposit * (1.0 - smoothstep(bore.z * 0.3, bore.z, abs(qBore - bore.x))));
+      // Ragged and trailing, not a drawn line: an even deposit along the
+      // isobath reads as a contour traced on the sea. The width is broken by
+      // the same hashed noise the whitecaps use, and the wake lies BEHIND the
+      // bore rather than centred on it.
+      float ragged = bore.z * (0.7 + 1.9 * gerstnerNoise(vec2(qs.y * 0.09, bore.x * 0.05)));
+      float across = 1.0 - smoothstep(ragged * 0.2, ragged, abs(qBore - bore.x + ragged * 0.4));
+      fresh = max(fresh, onCrest * bore.y * uDeposit * across);
       // The run-up sheet: the sand up to the front is under water and wet, the
       // front leaves lace. It is a sheet on the beach, so it starts at the
       // waterline — without that bound every grain of the spit, which has no

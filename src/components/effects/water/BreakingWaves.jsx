@@ -574,7 +574,7 @@ export default function BreakingWaves({ settings, lighting, noise = null, coast,
         const crestQ = ribbon.uniforms.uBreakMean.value + travel;
         // The run-up front: the water's edge on the sand, once the wave has landed.
         const front = psi > 0 ? crestQ + settings.surfWidth * 0.16 + 1 : -100;
-        bore.set(crestQ + settings.surfWidth * 0.1, strength * 0.45, settings.surfWidth * 0.16, front);
+        bore.set(crestQ + settings.surfWidth * 0.1, strength * 0.45, settings.surfWidth * 0.55, front);
       }
     });
   });

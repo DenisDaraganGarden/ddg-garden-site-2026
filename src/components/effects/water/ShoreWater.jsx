@@ -168,7 +168,11 @@ const fragmentShader = /* glsl */`
     // not by the row of vertices nearest to it.
     vec2 fuv = (vWorld.xz - uFoamWindow.xy) / (2.0 * uFoamWindow.z) + 0.5;
     float sheet = uFoamMemory > 0.5 && all(greaterThan(fuv, vec2(0.0))) && all(lessThan(fuv, vec2(1.0))) ? texture2D(uFoamField, fuv).a * uFilm : 0.0;
-    float bed = uShoreReady > 0.5 ? coastGround(coastLocal(vWorld.xz)) : vGround;
+    // The map is 34 cm across and clamped to a metre; the vertex attribute is
+    // the ground's own function. Where they disagree the HIGHER wins, or the
+    // water is drawn over sand the map failed to notice — which is what
+    // flooded the beach and the spit.
+    float bed = uShoreReady > 0.5 ? max(coastGround(coastLocal(vWorld.xz)), vGround) : vGround;
     float depth = max(vLevel - bed, sheet);
     if (depth < 0.004) discard;
     vec3 view = normalize(cameraPosition - vWorld);
