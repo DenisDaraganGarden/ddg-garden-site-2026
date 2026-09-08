@@ -44,10 +44,17 @@ float coastGround(vec2 qs) {
 float coastCrestWiggle(float sAlong, float width) {
   return (0.32 * sin(6.2831853 * sAlong / 12.7) + 0.16 * sin(6.2831853 * sAlong / 8.9 + 1.7)) * width * 0.0795775;
 }
+// The swell grows as the bed rises, H ~ d^(-1/4), until the breakers take it.
+// Capped at 1.2: the whole-surface steepness budget is at most 0.8, so the
+// product stays under one and no trochoid can loop over itself.
+float coastShoal(float depth) {
+  return clamp(pow(max(depth, 0.05) / 2.5, -0.25), 1.0, 1.2);
+}
 float coastSwellFade(vec2 qs) {
   if (uSwellFade.y <= 0.0) return 1.0;
   float qb = uSwellFade.x;
-  return (1.0 - 0.65 * smoothstep(qb - uSwellFade.y, qb, qs.x)) * smoothstep(0.05, 0.9, -coastGround(qs));
+  float depth = -coastGround(qs);
+  return (1.0 - 0.65 * smoothstep(qb - uSwellFade.y, qb, qs.x)) * smoothstep(0.05, 0.9, depth) * coastShoal(depth);
 }
 `;
 

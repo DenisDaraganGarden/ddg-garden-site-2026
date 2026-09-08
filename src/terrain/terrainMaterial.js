@@ -16,13 +16,13 @@ uniform vec4 uTerrainGrade;uniform float uTerrainGradeDry;
 uniform float uRockLayer;uniform float uTerrainTime;uniform float uTerrainOptics;uniform float uTerrainScale;uniform float uTerrainParallax;uniform float uRockOnly;uniform float uTerrainGroundCover;
 // The water's foam field where the surf hands the beach its swash: r foam on the sand, b wet sand. Zero outside its window.
 uniform sampler2D uSwashField;uniform vec3 uSwashWindow;uniform float uSwashEnabled;
-vec3 swashField(vec2 worldXZ){
- if(uSwashEnabled<.5)return vec3(0.0);
+vec4 swashField(vec2 worldXZ){
+ if(uSwashEnabled<.5)return vec4(0.0);
  vec2 uv=(worldXZ-uSwashWindow.xy)/(2.0*uSwashWindow.z)+.5;
  // The weight fades over the window's rim; plain clamps, since smoothstep with reversed edges is undefined in GLSL.
  float w=clamp(min(min(uv.x,1.0-uv.x),min(uv.y,1.0-uv.y))/.06,0.0,1.0);
- if(w<=0.0)return vec3(0.0);
- return texture2D(uSwashField,uv).rgb*w;
+ if(w<=0.0)return vec4(0.0);
+ return vec4(texture2D(uSwashField,uv).rgb,w);
 }
 uniform sampler2D uPondNormalMap;uniform vec2 uPondTexel;uniform float uPondExtent;uniform vec4 uCausticsParams;uniform vec3 uCausticsLight;uniform float uCausticsKey;
 struct TerrainSample{vec3 color;vec3 surface;vec3 normal;};
@@ -162,8 +162,11 @@ export function createTerrainMaterial(textures,p,rockOnly=false){
    // The surf's own swash, from the water's foam field: the sand a bore's
    // run-up sheet has wetted, and the lace it left, in the same reticulated
    // foam this shader draws for its own wave.
-   vec3 swash=swashField(vTerrainWorld.xz);
-   if(surfBand&&groundY>-.02){wet=max(wet,swash.b);foamTrace=max(foamTrace,min(swash.r*1.3,.9)*(.5+.5*coastLace(vTerrainWorld.xz,11.0,vec2(0.0)))*smoothstep(.28,.88,terrainN.y)*(1.0-rockWeight*.32));}
+   vec4 swash=swashField(vTerrainWorld.xz);
+   // Inside the field's window the water's own memory replaces the analytic
+   // wave, it does not race it: max() left a dark rim a metre from the
+   // waterline that never dried, because the analytic level never moves.
+   if(surfBand&&groundY>-.02){wet=mix(wet,swash.b,swash.a);foamTrace=max(foamTrace,min(swash.r*swash.a*1.3,.9)*(.5+.5*coastLace(vTerrainWorld.xz,11.0,vec2(0.0)))*smoothstep(.28,.88,terrainN.y)*(1.0-rockWeight*.32));}
    float path=coastPathMask(qs)*(1.0-uRockOnly);
    // Height above the run-up envelope the wet sand dries by, frozen in time so
    // what the sea leaves along that line does not float with the tide.

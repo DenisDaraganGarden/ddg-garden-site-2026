@@ -37,7 +37,12 @@ export function coastShelfDrop(q,s,p) {
 }
 export function coastHeight(q,s,p) {
   const seed=p.terrainSeed*.137;
-  const shelf=-p.waterDepth*(1-Math.exp(Math.min(q,0)/12));
+  // The knee of the near-shore curve, as a 1:N run at the water's edge; and on
+  // it, bars and shoals stretched along the shore. GLSL twin in terrainShader.js
+  // coastHeight - keep the two identical, the water reads both.
+  const knee=Math.max(p.terrainShoreKnee??12,1);
+  const ramp=-p.waterDepth*(1-Math.exp(Math.min(q,0)/knee));
+  const shelf=ramp+(p.terrainBars??0)*.55*(coastPatch(s,q*2.2,46,seed+7)-.5)*smooth(-90,-50,q)*(1-smooth(-14,-4,q))*smooth(.05,.7,-ramp);
   if(q<=0)return spitHeight(mix(-p.waterDepth,shelf,terrainCoverage(q,s,p))+coastShelfDrop(q,s,p),sampleSpit(q+shorePosition(s,p),s,p),terrainCoverage(q,s,p),p,q);
   const f=coastProfile(s,p),t=smooth(f.foot,f.top,q);
   const bench=.4*smooth(f.foot,f.foot+f.width*.58,q)+.6*smooth(f.foot+f.width*.76,f.top,q);
