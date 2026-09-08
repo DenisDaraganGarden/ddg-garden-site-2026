@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { createGerstnerUniforms, gerstnerCrestDelay, gerstnerPeriod, gerstnerShader, gerstnerWeatherAt, resolveGerstnerTrains, syncGerstnerUniforms } from './gerstnerWaves';
+import { createGerstnerUniforms, gerstnerCrestDelay, gerstnerPeriod, gerstnerPixelShader, gerstnerShader, gerstnerWeatherAt, resolveGerstnerTrains, syncGerstnerUniforms } from './gerstnerWaves';
 import { coastCoordinates, coastPoint } from '../../../terrain/terrainModel.js';
 import { BREAK_SAMPLES, breakLineMean, coastBreakLine, coastWaterShader, createCoastWaterUniforms, syncCoastWaterUniforms, tickShoreDepth } from './coastFrame';
+import { createFoamFieldUniforms, foamFieldShader } from './foamField';
 import { SPRAY_TIERS, buildSprayGeometry, createSprayUniforms, sprayFragmentBody, sprayFragmentVaryings, sprayInstanceCount, sprayShader, sprayVertexBody, syncSprayUniforms } from './spray';
 import { SURF_SHAPE, surfPlungeTime, surfProfileShader } from './surfProfile';
 import { createWaterShadingUniforms, syncWaterShadingUniforms, tickWaterShadingUniforms, useWaterNoise, waterShadingShader } from './waterShading';
@@ -205,7 +206,12 @@ const sheetVertexShader = /* glsl */`
 const sheetFragmentShader = /* glsl */`
   #include <fog_pars_fragment>
   ${gerstnerShader}
+  ${gerstnerPixelShader}
   ${waterShadingShader}
+  ${coastWaterShader}
+  ${foamFieldShader}
+  uniform float uFoamThreshold;
+  uniform float uFoamSoftness;
   varying vec3 vWorld;
   varying vec3 vNormal;
   varying vec2 vFoamUv;
@@ -224,7 +230,17 @@ const sheetFragmentShader = /* glsl */`
     vec3 n = normalize(vNormal);
     if (dot(n, view) < 0.0) n = -n;
     n = waterRippleNormal(n, vWorld.xz, pixel, 0.5);
-    vec3 color = shadeWater(vWorld, n, view, pixel, vFoamUv, vFoam * 0.95, 0.0, vThickness, 0.0, 0.0) * vShade;
+    // The ribbon's foam is the water's foam. It is drawn in the same
+    // world-space flow frame, so the lace runs on across the seam instead of
+    // stopping at the mesh's edge; it takes whichever is greater of what the
+    // profile knows and what the field remembers, and it ages with the field.
+    // Anything else and the breaker wears a texture of its own.
+    vec3 memory = sampleFoamField(vWorld.xz);
+    float crest = gerstnerWhitecaps(vWorld.xz, uFoamThreshold, uFoamSoftness);
+    float coverage = max(vFoam * 0.95, max(memory.x * memory.z, crest * 0.9 * (1.0 - memory.z)));
+    float age = mix(0.35, memory.y, memory.z) * (1.0 - vFoam);
+    float bed = uShoreReady > 0.5 ? exp(-max(-coastGround(coastLocal(vWorld.xz)), 0.0) * 3.0) : 0.0;
+    vec3 color = shadeWater(vWorld, n, view, pixel, waterFlowUv(vWorld.xz), coverage, age, vThickness, 0.0, bed) * vShade;
     gl_FragColor = vec4(color, vAlpha);
     #include <fog_fragment>
     #include <tonemapping_fragment>
@@ -240,6 +256,7 @@ const shellVertexShader = /* glsl */`
   uniform sampler3D uNoise;
   uniform float uNoiseReady;
   uniform float uTime;
+  uniform vec2 uWind;
   uniform float uRoller;
   varying vec3 vWorld;
   varying vec3 vNormal;
@@ -260,7 +277,10 @@ const shellVertexShader = /* glsl */`
     bool underside = t >= 0.5 && t < 0.7;
     n *= underside ? -1.0 : 1.0;
     // Lumps: the same cloud volume shapes the silhouette, tumbling with the roller.
-    float lump = uNoiseReady > 0.5 ? texture(uNoise, vec3(s * uCrestLength * 0.11, sp.arc * 0.23 - uTime * 0.35, 0.21)).r : 0.5;
+    // World coordinates, like every other foam here: read along the crest and
+    // the profile the lumps were the same stamp repeated down the whole
+    // breaker, which is what read as a row of cauliflowers.
+    float lump = uNoiseReady > 0.5 ? texture(uNoise, vec3((w.xz - uWind * uTime * 0.1) * 0.45, fract(w.y * 0.45 + gerstnerNoise(w.xz * 0.021) * 3.0))).r : 0.5;
     float shell = sp.puff * uRoller * surfHeightAt(s) * (0.45 + 1.1 * lump);
     vWorld = w + n * shell;
     vNormal = n;
@@ -279,6 +299,7 @@ const shellFragmentShader = /* glsl */`
   #include <fog_pars_fragment>
   ${gerstnerShader}
   ${waterShadingShader}
+  ${coastWaterShader}
   uniform float uRollerDensity;
   varying vec3 vWorld;
   varying vec3 vNormal;
@@ -306,9 +327,13 @@ const shellFragmentShader = /* glsl */`
       vec3 p = vWorld - view * d;
       // Lumps from the cloud volume, carried with the wave (crest, arc) and
       // tumbling along the arc; a finer octave tears their edges.
-      vec3 q = vec3(vFoamUv.x, vFoamUv.y - uTime * 1.2, p.y) * 0.35;
-      float lump = texture(uNoise, q * 0.25).r;
-      float tear = texture(uNoise, q * 0.9 + vec3(0.0, 0.0, 0.37)).b;
+      // World coordinates with the sliding slice, like every other foam in this
+      // water: read in the profile's own frame the lumps were a stamp repeated
+      // along the crest, which is what read as cauliflower.
+      vec3 q = (p - vec3(uWind.x, 0.0, uWind.y) * uTime * 0.12) * 0.9;
+      q.z += gerstnerNoise(p.xz * 0.021) * 3.0;
+      float lump = texture(uNoise, q * 0.55).r;
+      float tear = texture(uNoise, q * 1.7 + vec3(0.0, 0.0, 0.37)).b;
       // Denser toward the water, eroded toward the shell: rounded tops.
       float density = smoothstep(0.45, 1.0, lump * 0.9 + tear * 0.45 + (1.0 - h) * 0.7 - 0.4) * vPuff * uRollerDensity;
       if (density <= 0.001) continue;
@@ -374,7 +399,10 @@ export default function BreakingWaves({ settings, lighting, noise = null, coast,
       ...shading,
       ...createGerstnerUniforms(),
       ...createCoastWaterUniforms(),
+      ...createFoamFieldUniforms(),
       ...createSprayUniforms(),
+      uFoamThreshold: { value: 0.55 },
+      uFoamSoftness: { value: 0.15 },
       uAlong0: { value: 0 },
       uCrestLength: { value: 100 },
       uBreakLine: { value: new Float32Array(BREAK_SAMPLES + 1).fill(-10) },
@@ -437,6 +465,8 @@ export default function BreakingWaves({ settings, lighting, noise = null, coast,
       uniforms.uSpeed.value = Math.max(settings.surfSpeed, 0.1);
       uniforms.uRoller.value = settings.surfRoller;
       uniforms.uRollerDensity.value = settings.surfRollerDensity;
+      uniforms.uFoamThreshold.value = settings.foamThreshold;
+      uniforms.uFoamSoftness.value = settings.foamSoftness;
       syncSprayUniforms(uniforms, settings, tier);
     });
   }, [coast, lighting, ribbons, settings, shading, tier]);
@@ -462,6 +492,10 @@ export default function BreakingWaves({ settings, lighting, noise = null, coast,
       let travel = frozen ? (ribbon.index === 0 ? frozenTravel : -1000) : start + speed * (time - ribbon.spawn);
       ribbon.uniforms.uGerstnerTime.value = time;
       tickShoreDepth(ribbon.uniforms, coast);
+      const field = coast.foamField;
+      ribbon.uniforms.uFoamField.value = field?.texture ?? null;
+      ribbon.uniforms.uFoamMemory.value = field?.texture ? 1 : 0;
+      if (field?.texture) ribbon.uniforms.uFoamWindow.value.copy(field.window);
       ribbon.uniforms.uPeel.value = frozen ? 0 : settings.surfPeel;
       if (frozen) ribbon.spawn = time - (travel - start) / speed;
       if (!frozen && travel > end) {
