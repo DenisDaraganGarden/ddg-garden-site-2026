@@ -19,6 +19,9 @@ const breaking = read('./BreakingWaves.jsx') + read('./ShoreWater.jsx');
 assert.ok(shading.includes('thickness = max(thickness, 0.0);'), 'water Beer path cannot become negative at a thin-sheet edge');
 assert.ok(shading.includes('foamCoverage = clamp(foamCoverage, 0.0, 1.0);'), 'water foam coverage stays physical at a thin-sheet edge');
 assert.ok(breaking.includes('float alpha = clamp(vAlpha, 0.0, 1.0);'), 'breaker sheet clamps MSAA edge alpha before blending');
+assert.ok(foam.includes('alongCrest * uBorePeelSpan * uBoreFrame.y'), 'wet trail uses the local breaker event span');
+assert.ok(foam.includes('uniforms.uBorePeelSpan.value = surfPeelSpan(settings);'), 'foam and loft share the same event-length calculation');
+assert.ok(foam.includes('settings.surfFreeze ? 0 : (settings.surfPeel ?? 0)'), 'frozen inspection removes peel from both the foam and geometry');
 const surf = read('./surfProfile.js') + read('./coastFrame.js') + read('./coastBreakLine.js');
 
 // Arguments of every call/declaration of `call`: top-level commas between the

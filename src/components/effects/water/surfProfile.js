@@ -17,6 +17,9 @@
 // section has its own height and break moment, so the break peels.
 
 export const SURF_GRAVITY = 9.81;
+export const SURF_REARING_WIDTH_SHARE = 0.35;
+export const SURF_BORE_HEIGHT_FRACTION = 0.22;
+export const SURF_SHEET_TIP_TAPER = 0.82;
 
 export const surfShape = (theta) => Math.cos(theta) + 0.18 * Math.cos(2 * theta) + 0.16 * Math.sin(2 * theta);
 
@@ -39,6 +42,38 @@ export const SURF_SHAPE = (() => {
 // Seconds for the lip to fall from zRoot to zLand when thrown up at lift m/s.
 export const surfPlungeTime = (zRoot, zLand, lift) =>
   (lift + Math.sqrt(Math.max(lift * lift + 2 * SURF_GRAVITY * (zRoot - zLand), 0))) / SURF_GRAVITY;
+
+// A peeling breaker is a local event travelling along a crest, not a phase
+// ramp over the whole coastline.  Keep its lag bounded by the length of the
+// visible event: this same value is used by the loft and by the CPU bore that
+// writes the foam field, so the two cannot drift into a diagonal rope.
+const surfPositive = (value) => Number.isFinite(Number(value)) ? Math.max(Number(value), 0) : 0;
+
+export const surfRearingLength = ({ surfWidth, surfBreakLength }) =>
+  Math.min(surfPositive(surfBreakLength), Math.max(0.75, surfPositive(surfWidth) * SURF_REARING_WIDTH_SHARE));
+
+export const surfPeelSpan = ({ surfWidth, surfBreakLength, surfBoreLength }) =>
+  Math.max(1, surfRearingLength({ surfWidth, surfBreakLength }) + surfPositive(surfBoreLength));
+
+export const surfPeelTravelOffset = (s, settings) => {
+  const progress = Math.min(Math.max(surfPositive(s), 0), 1);
+  return progress > 0 ? -progress * surfPositive(settings.surfPeel) * surfPeelSpan(settings) : 0;
+};
+
+export const surfBoreHeightRatio = (phase) =>
+  1 - (1 - SURF_BORE_HEIGHT_FRACTION) * Math.min(Math.max(surfPositive(phase), 0), 1);
+
+export const surfSheetThickness = ({ height, sheet, emerge = 1, arc = 0, spent = 0 }) =>
+  surfPositive(height) * surfPositive(sheet) * Math.min(Math.max(surfPositive(emerge), 0), 1)
+  * (1 - SURF_SHEET_TIP_TAPER * Math.min(Math.max(surfPositive(arc), 0), 1))
+  * (1 - Math.min(Math.max(surfPositive(spent), 0), 1));
+
+export const surfJetDown = ({ jet, lift, elapsed = 0 }) => {
+  const x = surfPositive(lift) - SURF_GRAVITY * surfPositive(elapsed);
+  const z = -surfPositive(jet);
+  const length = Math.hypot(x, z);
+  return length > 1e-6 ? [x / length, z / length] : [0, -1];
+};
 
 export const surfProfileShader = /* glsl */`
 #define SURF_G ${SURF_GRAVITY.toFixed(2)}
@@ -81,13 +116,22 @@ float surfLean(float z, float H, float lean) {
 float surfPlunge(float zRoot, float zLand) {
   return (uLift + sqrt(max(uLift * uLift + 2.0 * SURF_G * (zRoot - zLand), 0.0))) / SURF_G;
 }
+vec2 surfJetDown(vec2 tangent) {
+  vec2 down = vec2(tangent.y, -tangent.x);
+  float len = length(down);
+  return len > 0.00001 ? down / len : vec2(0.0, -1.0);
+}
 
 // dn: metres travelled past the point where the lip leaves the crest
 // (negative before). H: this section's height. t: 0..1 around the profile —
 // back of the wave, jet top, jet underside, front face.
 SurfPoint surfProfile(float t, float dn, float H) {
   float tau = max(dn, 0.0) / max(uSpeed, 0.1);
-  float rearing = smoothstep(-uSteepen, 0.0, dn);
+  // The water shoals for a long distance, but its visible face only rears in
+  // the last third of a wavelength.  Letting uSteepen deform the full 16 m
+  // default turned one small Azov breaker into a long white rope.
+  float rearLength = min(uSteepen, max(0.75, uWidth * ${SURF_REARING_WIDTH_SHARE.toFixed(2)}));
+  float rearing = smoothstep(-rearLength, 0.0, dn);
   float zc = SURF_CREST * H;
   float frontScale = mix(1.0, 0.32, rearing);
   // Where the tip lands: a first guess on the face, then the face it meets.
@@ -98,7 +142,10 @@ SurfPoint surfProfile(float t, float dn, float H) {
   float aMax = min(tau, tauImp);
   // After landing the body sinks into a bore and the lean relaxes.
   float psi = clamp((dn - uSpeed * tauImp) / max(uBore, 0.1), 0.0, 1.0);
-  float Hb = H * (1.0 - 0.45 * psi);
+  // Once the lip lands the wall loses most of its height and spreads into a
+  // low bore.  It remains a real water surface through uBore; only the thin
+  // ballistic sheet is allowed to disappear early.
+  float Hb = H * mix(1.0, ${SURF_BORE_HEIGHT_FRACTION.toFixed(2)}, psi);
   // The lip hits the trough: the water bursts up ahead of the wave, then the
   // roller settles onto the bore's face and rides it to the sand.
   float splash = smoothstep(0.0, 0.1, psi) * (1.0 - smoothstep(0.1, 0.45, psi));
@@ -106,7 +153,7 @@ SurfPoint surfProfile(float t, float dn, float H) {
   // The lip leaves from the crest; once landed, the crest sinks with the body.
   vec2 root = vec2(surfLean(SURF_CREST * Hb, Hb, lean), SURF_CREST * Hb);
   float emerge = smoothstep(0.0, 0.06, tau);
-  float spent = smoothstep(0.0, 0.2, psi);
+  float spent = smoothstep(0.0, 0.10, psi);
   float jetLen = aMax * length(vec2(uJet, uLift - 0.5 * SURF_G * aMax));
 
   float jetOut = smoothstep(0.0, 0.15, aMax / max(tauImp, 0.01)) * (1.0 - smoothstep(0.0, 0.4, psi));
@@ -132,8 +179,11 @@ SurfPoint surfProfile(float t, float dn, float H) {
     vec2 jet = root + vec2(uJet * a, uLift * a - 0.5 * SURF_G * a * a);
     vec2 tangent = vec2(uJet, uLift - SURF_G * a);
     o.vel = tangent;
-    vec2 down = normalize(vec2(tangent.y, -tangent.x));
-    float th = uSheet * H * emerge * (1.0 - 0.82 * u);
+    vec2 down = surfJetDown(tangent);
+    // The underside and the bore's first body point meet at u=0. It must
+    // collapse with the spent sheet too; otherwise their 7 cm separation
+    // becomes a black line at the foot of a small breaker.
+    float th = uSheet * H * emerge * (1.0 - ${SURF_SHEET_TIP_TAPER.toFixed(2)} * u) * (1.0 - spent);
     o.p = top ? jet : jet + down * th;
     // Landed: the sheet is foam now; it hands over to the roller and goes.
     o.alpha = 1.0 - spent;
@@ -147,17 +197,20 @@ SurfPoint surfProfile(float t, float dn, float H) {
     float u = (t - 0.7) / 0.3;
     float x = 0.5 * uWidth * u;
     float z = surfLevel(x, Hb);
-    vec2 body = vec2(x * frontScale + surfLean(z, Hb, lean), z);
+    // The reared face relaxes with the bore instead of carrying its vertical
+    // silhouette down the beach after the jet has gone.
+    float boreFace = mix(frontScale, 0.72, smoothstep(0.04, 0.75, psi));
+    vec2 body = vec2(x * boreFace + surfLean(z, Hb, lean), z);
     // The face starts where the sheet's underside leaves the body.
-    vec2 rootUnder = root + normalize(vec2(uLift, -uJet)) * uSheet * H * emerge * (1.0 - spent);
+    vec2 rootUnder = root + surfJetDown(vec2(uJet, uLift)) * uSheet * H * emerge * (1.0 - spent);
     o.p = mix(rootUnder, body, smoothstep(0.0, 0.15, u));
     o.thickness = 3.0;
     // The roller: after landing the whole face boils and keeps boiling as the
     // bore runs; the splash-up stands highest where the lip came down.
-    float roller = smoothstep(0.0, 0.25, psi) * (1.0 - 0.35 * psi) * (1.0 - smoothstep(0.05, 0.85, u));
-    float burst = splash * (1.0 - smoothstep(0.2, 0.9, u)) * 1.4;
-    o.foam = max(max(roller, burst), 0.35 * rearing * (1.0 - smoothstep(0.0, 0.5, u)));
-    o.puff = roller * (0.7 + 0.5 * (1.0 - psi)) + burst;
+    float roller = smoothstep(0.0, 0.08, psi) * (1.0 - 0.65 * psi) * (1.0 - smoothstep(0.05, 0.85, u));
+    float burst = splash * (1.0 - smoothstep(0.2, 0.9, u));
+    o.foam = max(max(roller, burst), 0.18 * rearing * (1.0 - smoothstep(0.0, 0.5, u)));
+    o.puff = roller * (0.42 + 0.32 * (1.0 - psi)) + burst;
     o.shade = 1.0 - 0.45 * jetOut * (1.0 - smoothstep(0.0, 0.55, u));
     o.arc = 0.5 * uWidth + 2.0 * jetLen + 0.5 * uWidth * u;
   }

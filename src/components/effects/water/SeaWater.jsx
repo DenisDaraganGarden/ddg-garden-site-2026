@@ -6,6 +6,7 @@ import ShoreWater from './ShoreWater.jsx';
 import BreakingWaves from './BreakingWaves.jsx';
 import { resolveEffectiveSeaSettings } from './seaSettings.js';
 import { useWaterNoise } from './waterShading.js';
+import { SeaCausticNormals } from './seaCausticNormals.js';
 import {
   createWaterSceneBindingUniforms,
   useWaterSceneBindings,
@@ -36,6 +37,7 @@ function SeaWaterActive({
   sceneSettings = settings,
   qualityProfile = null,
   swash = null,
+  seaCaustics = null,
 }) {
   // The three product materials shade the same physical sea. Build one noise
   // volume here and hand its lifecycle-safe handle to all of them; each child
@@ -83,6 +85,7 @@ function SeaWaterActive({
   return (
     <>
       {definition.terrainEnabled ? <ShoreDepthMap coast={coast} /> : null}
+      {seaCaustics && sceneSettings.causticsIntensity > 0 && (definition.terrainEnabled || sceneSettings.seabedVisible) ? <SeaCausticNormals holder={seaCaustics} settings={effectiveSettings} sceneSettings={sceneSettings} coast={definition.terrainEnabled ? coast : null} runtime={runtime} /> : null}
       <GerstnerWaterSurface
         settings={effectiveSettings}
         lighting={lighting}

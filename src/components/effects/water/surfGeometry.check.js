@@ -12,6 +12,7 @@ const surf = read('./BreakingWaves.jsx');
 const shore = read('./ShoreWater.jsx');
 const open = read('./GerstnerWaterSurface.jsx');
 const sea = read('./SeaWater.jsx');
+const profile = read('./surfProfile.js');
 const coastFrame = read('./coastFrame.js');
 const activeScene = read('../WaterScene.jsx');
 const terrainScene = read('../../../terrain/AzovTerrain.jsx');
@@ -63,10 +64,19 @@ assert.ok(surf.includes('inversesqrt(1.0 + k * k)'), 'the section is normalised 
 assert.ok(surf.includes('float along = sAlong - k * x;'), 'the section leans along the shore with the crest');
 assert.ok(surf.includes('uniform float uBreakVisible[BREAK_SAMPLES + 1]'), 'a discontinuous coast can split the crest');
 assert.ok(surf.includes('* surfBreakVisibleAt(s);'), 'the split fades out before a ruled triangle crosses land');
+assert.ok(surf.includes('uniform float uPeelSpan;'), 'peeling is bounded by a local event span');
+assert.ok(surf.includes('- s * uPeelSpan * uPeel'), 'the loft does not ramp phase over the full coast length');
+assert.ok(!surf.includes('- s * uCrestLength * uPeel'), 'the old 760-m peel rope is gone');
+assert.ok(surf.includes('surfPeelTravelOffset(0.5, settings)'), 'the CPU foam bore follows the loft phase at its centre');
+assert.ok(surf.includes('smoothstep(0, 0.08, psi) * (1 - 0.65 * psi)'), 'the CPU foam bore starts and decays with the rendered low roller');
 assert.ok(surf.includes('vec3 n = cross(ws1 - ws0, wt1 - wt0);'), 'normals are centred within their profile section');
 assert.ok(surf.includes('uniform float uRibbonVisible;'), 'inactive frozen ribbons have an explicit visibility uniform');
 assert.ok(surf.includes('uRibbonVisible * sp.alpha'), 'both surf passes discard frozen ghost ribbons');
 assert.ok(surf.includes('ribbon.uniforms.uRibbonVisible.value = alive ? 1 : 0;'), 'only the inspected frozen ribbon remains visible');
+assert.ok(surf.includes('shadeWater(vWorld, n, view, pixel, vFoamUv,'), 'sheet foam uses the crest-and-arc frame, not a drifting world flow UV');
+assert.ok(surf.includes('(0.48 + 0.42 * lump)'), 'the persistent bore shell is bounded below a second rounded ridge');
+assert.ok(profile.includes('* (1.0 - spent);\n    o.p = top ? jet : jet + down * th;'), 'the lip underside collapses with the spent sheet');
+assert.ok(profile.includes('surfJetDown(vec2(uJet, uLift))'), 'the bore root uses the same guarded jet frame');
 
 // 4. The shore band cuts its edge per pixel, from the depth map and the sheet,
 // not from its own vertices: a contour of a varying is a straight segment

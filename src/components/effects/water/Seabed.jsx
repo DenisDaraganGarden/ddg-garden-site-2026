@@ -9,7 +9,7 @@ import { seabedFragmentShader, seabedVertexShader } from '../shaders/waterRuntim
 
 // The lake bed: relief, texture and the caustics the water casts onto it.
 
-export default function Seabed({ settings, runtime, qualityProfile, lighting }) {
+export default function Seabed({ settings, runtime, qualityProfile, lighting, seaCaustics = null }) {
   const materialRef = useRef();
   const { gl } = useThree();
   const texture = useLoader(THREE.TextureLoader, '/textures/seabed/seabed_texture.webp');
@@ -101,11 +101,12 @@ export default function Seabed({ settings, runtime, qualityProfile, lighting }) 
   ]);
 
   useFrame((state) => {
-    uniforms.uNormalMap.value = runtime.normalTargetRef.current?.texture ?? null;
+    const seaNormalReady=seaCaustics?.active&&seaCaustics.texture;
+    uniforms.uNormalMap.value = seaNormalReady ? seaCaustics.texture : (runtime.normalTargetRef.current?.texture ?? null);
     uniforms.uTime.value = state.clock.elapsedTime;
     uniforms.uStateResolution.value.set(
-      runtime.currentStateTargetRef.current?.width ?? settings.simulationResolution,
-      runtime.currentStateTargetRef.current?.height ?? settings.simulationResolution,
+      seaNormalReady ? seaCaustics.resolution : (runtime.currentStateTargetRef.current?.width ?? settings.simulationResolution),
+      seaNormalReady ? seaCaustics.resolution : (runtime.currentStateTargetRef.current?.height ?? settings.simulationResolution),
     );
   }, -2);
 

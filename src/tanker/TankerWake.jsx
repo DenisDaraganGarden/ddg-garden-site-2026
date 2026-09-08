@@ -15,15 +15,22 @@ const fragmentShader = `
   uniform vec3 uColor;
   varying vec2 vUv;
   void main() {
-    float behind = vUv.x;
+    // MSAA may evaluate a covered sample at a pixel centre just outside this
+    // transparent plane. Its interpolated UV can therefore leave 0..1; that
+    // used to make the centre-line denominator zero or negative and turn
+    // exp(-lateral² / depth) into an Inf/NaN wake pixel.
+    float behind = clamp(vUv.x, 0.0, 1.0);
     float lateral = abs(vUv.y - 0.5) * 2.0;
     float width = 0.055 + behind * 0.78;
-    float edge = exp(-pow((lateral - width) * 27.0, 2.0));
-    float center = exp(-lateral * lateral / (0.006 + behind * 0.1));
+    // GLSL pow is undefined for a negative base, even when the exponent happens
+    // to be two. This exact multiplication is defined on both sides of the wake.
+    float edgeDistance = (lateral - width) * 27.0;
+    float edge = exp(-edgeDistance * edgeDistance);
+    float center = exp(-lateral * lateral / max(0.006 + behind * 0.1, 0.006));
     float grain = 0.6 + 0.22 * sin(behind * 141.0 - uTime * 3.0)
       * sin(lateral * 88.0 + uTime * 0.8);
     float fade = smoothstep(0.0, 0.04, behind) * (1.0 - smoothstep(0.16, 1.0, behind));
-    float alpha = (edge * 0.38 + center * 0.18) * grain * fade * uSpeed;
+    float alpha = clamp((edge * 0.38 + center * 0.18) * grain * fade * uSpeed, 0.0, 1.0);
     gl_FragColor = vec4(uColor, alpha);
     #include <tonemapping_fragment>
     #include <colorspace_fragment>

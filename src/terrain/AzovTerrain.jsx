@@ -70,7 +70,7 @@ function TerrainStrip({ definition:p,s0,material,qualityProfile }) {
   return <mesh ref={mesh} geometry={geometry} material={material} castShadow receiveShadow userData={{terrainLod:lod,ddgOpticsGeometry:optics}} />;
 }
 // swash: the water's foam field holder ({ texture, window }) the beach reads its wet sand and lace from; null without the new water.
-export default function AzovTerrain({ definition, settings, qualityProfile, lighting, runtime, rocks, onTerrainReady, audioRuntime, plantCover, swash = null }) {
+export default function AzovTerrain({ definition, settings, qualityProfile, lighting, runtime, rocks, onTerrainReady, audioRuntime, plantCover, swash = null, seaCaustics = null }) {
   const {gl}=useThree();const land=useRef();
   const shoreEmitter=useRef(settings.audio?.emitters?.shore);shoreEmitter.current=settings.audio?.emitters?.shore;
   useEffect(()=>()=>{const emitter=shoreEmitter.current;if(emitter)audioRuntime?.updateEmitter?.('shore',emitter.x,emitter.y,emitter.z);},[audioRuntime]);
@@ -95,9 +95,9 @@ export default function AzovTerrain({ definition, settings, qualityProfile, ligh
       const surf=coastSurfCoordinates(local.u-shorePosition(s,definition),s,definition);
       const source=surf.spit?{x:surf.spit.shoreU*definition.landX+surf.spit.shoreS*definition.alongX,z:surf.spit.shoreU*definition.landZ+surf.spit.shoreS*definition.alongZ}:coastPoint(0,s,definition);audioRuntime.updateEmitter('shore',source.x,.15,source.z);
     }
-    const pondNormals=runtime?.normalTargetRef?.current?.texture??null,pondTexel=1/Math.max(1,runtime?.effectiveResolution??256);
+    const seaNormalReady=seaCaustics?.active&&seaCaustics.texture;const pondNormals=seaNormalReady?seaCaustics.texture:(runtime?.normalTargetRef?.current?.texture??null),pondResolution=seaNormalReady?seaCaustics.resolution:(runtime?.effectiveResolution??256),pondExtent=seaNormalReady?seaCaustics.extent:settings.waterExtent,pondTexel=1/Math.max(1,pondResolution);
     for(const m of Object.values(materials)){const u=m.userData.coastUniforms;syncCoastUniforms(u,definition);syncGrassFieldUniforms(u,settings,definition);
-      u.uPondNormalMap.value=pondNormals;u.uPondTexel.value.set(pondTexel,pondTexel);u.uPondExtent.value=settings.waterExtent;
+      u.uPondNormalMap.value=pondNormals;u.uPondTexel.value.set(pondTexel,pondTexel);u.uPondExtent.value=pondExtent;
       u.uCausticsParams.value.set(pondNormals?settings.causticsIntensity:0,settings.causticsScale,settings.causticsSharpness,settings.waterTurbidity);
       u.uCausticsLight.value.fromArray(lighting.key.direction);u.uCausticsKey.value=lighting.key.intensity;u.uTerrainTime.value=clock.elapsedTime;
       u.uSwashField.value=swash?.texture??null;u.uSwashEnabled.value=swash?.texture?1:0;if(swash)u.uSwashWindow.value.copy(swash.window);u.uTerrainScale.value=definition.terrainTextureScale;u.uTerrainParallax.value=lowPower?0:definition.terrainParallax;u.uTerrainGroundCover.value=definition.terrainGroundCover;updateEcologyUniforms(u,{dryness:settings.shrubsDryness??definition.terrainWeathering,fieldSeed:settings.shrubsFieldSeed,patchScale:settings.shrubsPatchScale,patchContrast:settings.shrubsPatchContrast});m.envMapIntensity=lighting.environment.reflection;}

@@ -43,6 +43,7 @@ import { SurfaceVegetation } from './water/SurfaceVegetation';
 import { UnderwaterAlgae } from './water/UnderwaterAlgae';
 import FloatingBoat from './water/FloatingBoat';
 import SeaWater from './water/SeaWater.jsx';
+import { createSeaCausticNormalsHolder } from './water/seaCausticNormals.js';
 import { createFoamFieldHolder } from './water/foamField.js';
 import { resolveEffectiveSeaSettings, resolveSeaSettings } from './water/seaSettings.js';
 import StaticSculpture from './water/StaticSculpture';
@@ -269,6 +270,7 @@ function WaterRuntimeScene({
     [qualityProfile, seaSettings],
   );
   const seaSwash = useMemo(() => createFoamFieldHolder(), []);
+  const seaCaustics = useMemo(() => createSeaCausticNormalsHolder(), []);
   const runtime = useWaterRuntime(settings, qualityProfile, mode, effectiveSeaSettings);
   const landingSitesRef = useRef([]);
   const [landingSurfaces, setLandingSurfaces] = useState({
@@ -460,11 +462,12 @@ function WaterRuntimeScene({
         {terrainQuery&&settings.shrubsEnabled ? <CoastShrubs settings={shrubAsset} plants={shrubPlants} qualityProfile={qualityProfile} envMapIntensity={lighting.environment.reflection}/> : null}
         {terrainQuery&&settings.treesEnabled ? <CoastTrees settings={treeAsset} plants={treePlants} qualityProfile={qualityProfile} envMapIntensity={lighting.environment.reflection}/> : null}
         {terrainQuery&&settings.grassEnabled ? <CoastGrass query={terrainQuery} definition={queryDefinition} settings={grassSettings} asset={grassAsset} qualityProfile={qualityProfile} envMapIntensity={lighting.environment.reflection}/> : null}
-        {settings.terrainEnabled ? <AzovTerrain plantCover={shrubCover} rocks={terrainRocks} onTerrainReady={handleLandingSurfaceReady} audioRuntime={audioRuntime} runtime={runtime} definition={terrainDefinition} settings={settings} qualityProfile={qualityProfile} lighting={lighting} swash={seaSwash} /> : null}
+        {settings.terrainEnabled ? <AzovTerrain plantCover={shrubCover} rocks={terrainRocks} onTerrainReady={handleLandingSurfaceReady} audioRuntime={audioRuntime} runtime={runtime} definition={terrainDefinition} settings={settings} qualityProfile={qualityProfile} lighting={lighting} swash={seaSwash} seaCaustics={seaCaustics} /> : null}
         {settings.seabedVisible && !seabedCovered ? (
           <Seabed
             settings={settings}
             runtime={runtime}
+            seaCaustics={seaCaustics}
             qualityProfile={qualityProfile}
             lighting={lighting}
           />
@@ -497,6 +500,7 @@ function WaterRuntimeScene({
             sky={sky}
             runtime={runtime}
             swash={seaSwash}
+            seaCaustics={seaCaustics}
             qualityProfile={qualityProfile}
           />
         ) : null}

@@ -5,6 +5,7 @@ import { createPass, createTarget, disposePass, restoreDefaultFramebuffer } from
 import { createGerstnerUniforms, gerstnerPixelShader, gerstnerShader, syncGerstnerUniforms } from './gerstnerWaves';
 import { windVector } from './waterShading';
 import { coastWaterShader, createCoastWaterUniforms, syncCoastWaterUniforms } from './coastFrame';
+import { surfPeelSpan } from './surfProfile';
 
 // Foam as a state with memory instead of a function of the wave's phase. A
 // field in a window that follows the camera: R is density, G is age, B is how
@@ -86,6 +87,7 @@ const updateFragmentShader = /* glsl */`
   // it is peeled along the shore and wanders, so the sample is moved into the
   // crest's frame before it is compared.
   uniform vec4 uBoreFrame;
+  uniform float uBorePeelSpan; // local breaker event, independent of coast length
   uniform float uBoreRunup;   // how far up the beach the water is allowed to go
   void main() {
     vec2 world = uWindow.xy + (vUv - 0.5) * 2.0 * uWindow.z;
@@ -132,7 +134,7 @@ const updateFragmentShader = /* glsl */`
     // same wander scallops it, so the wet line is the line the wave drew.
     float crestLength = max(uBoreFrame.z, 1.0);
     float alongCrest = clamp((qs.y - uBoreFrame.x) / crestLength, 0.0, 1.0);
-    float qBore = q + alongCrest * crestLength * uBoreFrame.y - coastCrestWiggle(qs.y, uBoreFrame.w);
+    float qBore = q + alongCrest * uBorePeelSpan * uBoreFrame.y - coastCrestWiggle(qs.y, uBoreFrame.w);
     // Off the ends of the crest there is no bore at all.
     float onCrest = step(uBoreFrame.x - 12.0, qs.y) * step(qs.y, uBoreFrame.x + crestLength + 12.0);
     state.x *= sand ? uSandDecay : uDecay;
@@ -211,6 +213,7 @@ export function useFoamField(targetUniforms, { settings, bores, coast = null, ti
       ...createCoastWaterUniforms(),
       uBore: { value: createFoamBores() },
       uBoreFrame: { value: new THREE.Vector4(0, 0, 1, 9) },
+      uBorePeelSpan: { value: 1 },
       uBoreRunup: { value: 6 },
     });
     return { read, write, pass, lastTime: null };
@@ -271,7 +274,10 @@ export function useFoamField(targetUniforms, { settings, bores, coast = null, ti
     syncCoastWaterUniforms(uniforms, coast, coast?.breakQ ?? -10, 0);
     if (bores) uniforms.uBore.value = bores;
     else uniforms.uBore.value.forEach((bore) => bore.set(0, 0, 1, -100));
-    uniforms.uBoreFrame.value.set(coast?.along0 ?? 0, settings.surfPeel ?? 0, coast?.length ?? 1, settings.surfWidth ?? 9);
+    // Inspection removes peel from the loft; its wet trail must use the same
+    // transform. A full-coast skew made foam slide away from the new local lip.
+    uniforms.uBoreFrame.value.set(coast?.along0 ?? 0, settings.surfFreeze ? 0 : (settings.surfPeel ?? 0), coast?.length ?? 1, settings.surfWidth ?? 9);
+    uniforms.uBorePeelSpan.value = surfPeelSpan(settings);
     uniforms.uBoreRunup.value = settings.surfRunup ?? 6;
 
     gl.setRenderTarget(field.write);

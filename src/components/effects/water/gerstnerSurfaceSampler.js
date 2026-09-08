@@ -7,6 +7,7 @@ import { gerstnerWeatherAt, resolveGerstnerTrains } from './gerstnerWaves.js';
 // fish and birds once the sea replaces the old visible height field.
 
 const finite = (value, fallback) => Number.isFinite(Number(value)) ? Number(value) : fallback;
+export const GERSTNER_INVERSE_ITERATIONS = 6;
 
 function envelope(phase, sets) {
   return 1 - Math.min(Math.max(finite(sets, 0), 0), 1) * 0.5 * (1 - Math.sin(phase * 0.1667));
@@ -78,7 +79,7 @@ export function createGerstnerSurfaceSampler(settings) {
     return target;
   };
 
-  return (x, z, time, target = {}, { fadeAt = null, cellAt = null } = {}) => {
+  return (x, z, time, target = {}, { fadeAt = null, cellAt = null, inverseIterations = GERSTNER_INVERSE_ITERATIONS } = {}) => {
     const worldX = finite(x, 0);
     const worldZ = finite(z, 0);
     const elapsed = finite(time, 0);
@@ -89,7 +90,7 @@ export function createGerstnerSurfaceSampler(settings) {
     let px = worldX;
     let pz = worldZ;
     const scratch = { normal: new THREE.Vector3() };
-    for (let iteration = 0; iteration < 6; iteration += 1) {
+    for (let iteration = 0; iteration < Math.max(1, Math.round(finite(inverseIterations, GERSTNER_INVERSE_ITERATIONS))); iteration += 1) {
       evaluate(px, pz, elapsed, scratch, fadeAt?.(px, pz) ?? 1, cellAt?.(px, pz) ?? 0);
       px += worldX - scratch.x;
       pz += worldZ - scratch.z;

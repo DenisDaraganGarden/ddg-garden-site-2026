@@ -173,12 +173,24 @@ export const waterShadingShader = /* glsl */`
     float density = clamp(uSeaRefractionTurbidity, 0.0, 1.0);
     density *= 0.45 + 0.55 * density;
     float depthScale = 5.0 / max(uSeaRefractionDepth, 0.25);
-    vec3 absorption = (vec3(0.008, 0.003, 0.001) + density * vec3(0.13, 0.055, 0.018)) * depthScale;
+    // The authored water colour belongs to the medium, rather than merely to
+    // the fallback below a capture. Normalising by its strongest channel keeps
+    // this a hue-only attenuation: white adds none, black stays finite, and it
+    // can only remove light along a non-zero water path. The established base
+    // spectrum still provides clear-water absorption at zero turbidity.
+    vec3 waterHue = clamp(uWaterColor, vec3(0.0), vec3(1.0));
+    vec3 waterTransmissionTint = waterHue / max(max(waterHue.r, waterHue.g), max(waterHue.b, 0.001));
+    vec3 hueAbsorption = (vec3(1.0) - waterTransmissionTint) * density * 0.16;
+    vec3 absorption = (vec3(0.008, 0.003, 0.001) + density * vec3(0.13, 0.055, 0.018) + hueAbsorption) * depthScale;
     float scattering = density * 0.62 * depthScale * clamp(uSeaRefractionScattering, 0.0, 2.0);
     vec3 transmittance = exp(-(absorption + vec3(scattering)) * path);
     float scatterAmount = 1.0 - exp(-scattering * path);
     float forward = pow(max(dot(view, uSunDirection), 0.0), 5.0);
+    // The dedicated scattering colour remains the art direction for suspended
+    // matter. Water hue only tints part of it, so changing either control is
+    // visible without one silently replacing the other.
     vec3 scatterColor = mix(mix(uDeepColor, max(uSeaRefractionScatteringColor, vec3(0.001)), 0.7), uSunRadiance, forward * 0.46);
+    scatterColor *= mix(vec3(1.0), waterTransmissionTint, 0.42);
     vec3 refractedScene = max(captured.rgb, vec3(0.0)) * transmittance
       + scatterColor * scatterAmount * mix(0.48, 1.0, sqrt(clamp(uSeaRefractionEnvironment, 0.0, 1.0)))
       * waterKeyVisibility(world) * (0.82 + forward * 0.2);
@@ -235,28 +247,29 @@ export const waterShadingShader = /* glsl */`
   }
   // Foam coordinates: x across the flow, y along it, in metres. On open water
   // the flow is the wind; a breaker hands in crest × arc so the streaks run
-  // down its face.
+  // down its face. The coordinate belongs to its carrier: a field advects its
+  // own coverage and a breaking profile advances its own arc. Do not scroll a
+  // second texture through either one, or the foam crawls over still water.
   vec2 waterFlowUv(vec2 p) {
     return vec2(dot(p, vec2(-uWind.y, uWind.x)), dot(p, uWind));
   }
-  // Foam from a coverage 0..1. A dense body with a torn edge (widened only by
-  // the pixel, so distance blurs it instead of sparkling), a low-contrast
-  // milky veil around it where the foam is thin, and small bubbles on the
-  // body (Worley cells: bright domes, dark seams). The detail octave is read
-  // through a rotated, warped coordinate so the volume's tiling never lines
-  // up with the base and shows as a lattice. age 0..1 comes from the foam
-  // field: old foam survives only where the fine octave is strong, so a
-  // patch breaks into rags and holes as it dies.
+  // Foam from a coverage 0..1. On the water this is a porous film: a dense
+  // body breaks at its edge into short strands and holes. The only genuinely
+  // volumetric foam is the shell at a breaking lip; promoting every Worley
+  // cell here into a bright dome made the whole sea read as cauliflower. The
+  // detail octave is rotated and warped so the volume's tiling never appears
+  // as a lattice. age 0..1 comes from the foam field: old foam survives only
+  // where the fine octave is strong, so a patch breaks into rags and holes.
   float waterFoam(vec2 fp, float coverage, float pixel, float age, out float bubbles) {
     bubbles = 0.0;
     if (coverage <= 0.001 || uNoiseReady < 0.5) return 0.0;
-    vec2 lp = vec2(fp.x * 0.85, fp.y * 1.25 - uTime * 0.25) * uLaceScale;
+    vec2 lp = vec2(fp.x * 0.85, fp.y * 1.25) * uLaceScale;
     // The noise volume tiles in all three axes, so a plane through it repeats
     // every 1/scale metres — at a metre-scale lace that lattice is plainly
-    // visible on the sea. The slice slides with the world instead: neighbouring
-    // stretches of water read different depths of the volume, and there is no
-    // plane in it left to repeat. The offset is hashed value noise, itself
-    // without a period.
+    // visible on the sea. The slice varies along the foam carrier instead:
+    // neighbouring stretches read different depths of the volume, and there
+    // is no plane in it left to repeat. The offset is hashed value noise,
+    // itself without a period.
     float slice = fract(0.12 + gerstnerNoise(fp * 0.021) * 3.0);
     vec3 lace = texture(uNoise, vec3(lp, slice)).rgb;
     float feature = 0.125 / max(uLaceScale, 0.001);
@@ -270,10 +283,16 @@ export const waterShadingShader = /* glsl */`
     float pattern = lace.r * 0.5 + detail.r * 0.3 + fine * 0.2;
     float width = 0.05 + smoothstep(feature * 0.1, feature * 0.6, pixel) * 0.22;
     float body = smoothstep(1.0 - coverage - width, 1.0 - coverage + width, pattern);
-    body *= smoothstep(0.18, 0.4, fine + coverage * 0.6);
-    float veil = smoothstep(1.0 - coverage - 0.4, 1.0 - coverage + 0.08, pattern) * (1.0 - body) * 0.3 * smoothstep(0.05, 0.4, coverage);
-    bubbles = body * mix(0.5, detail.g * detail.g, fineFade);
-    return clamp(body + veil, 0.0, 1.0);
+    float pores = mix(0.52, detail.g, fineFade);
+    body *= smoothstep(0.20, 0.54, fine + coverage * 0.52) * mix(0.62, 1.0, pores);
+    // The sparse rim is a film left as a patch breaks apart, not a cloudy
+    // halo around each noise cell. It is deliberately narrower than the body
+    // and fades by pixel width before it can sparkle at distance.
+    float strands = smoothstep(1.0 - coverage - width * 0.72, 1.0 - coverage + width * 0.72, pattern)
+      * (1.0 - body) * smoothstep(0.08, 0.38, coverage)
+      * smoothstep(0.18, 0.56, fine);
+    bubbles = clamp(pores * body + (1.0 - body) * 0.72, 0.0, 1.0);
+    return clamp(body + strands * 0.34, 0.0, 1.0);
   }
   // thickness: metres of water behind this point toward the light (a lip is
   // centimetres, open water is metres). lift: extra backlight for a crest.
@@ -331,11 +350,11 @@ export const waterShadingShader = /* glsl */`
     float bubbles;
     float foam = waterFoam(foamUv, foamCoverage, pixel, foamAge, bubbles);
     // Beer/powder from the clouds: a thick patch is lit flat white, a thin one
-    // keeps some of the water's shading under it. The bubble domes catch the
-    // sun as small wet glints.
+    // keeps some of the water's shading under it. Pores only attenuate the film
+    // a little; they are not separate bright bubbles on every noise cell.
     float powder = 1.0 - exp(-foam * 2.6);
     vec3 foamLit = vec3(0.9, 0.92, 0.88) * (uFillIrradiance + uSunRadiance * sunDiffuse * keyVisibility) / WATER_PI * (0.55 + 0.45 * powder) * uFoamBrightness;
-    foamLit *= 0.7 + 0.5 * bubbles;
+    foamLit *= mix(0.82, 0.98, bubbles);
     foamLit += uSunRadiance * pow(max(dot(reflected, uSunDirection), 0.0), 48.0) * uGlint * (0.02 + 0.06 * bubbles) * keyVisibility;
     return mix(color, foamLit, foam);
   }
