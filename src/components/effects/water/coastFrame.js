@@ -38,6 +38,12 @@ float coastGround(vec2 qs) {
   if (uv.x > 1.0) return 1.0;
   return texture2D(uShoreDepth, uv).r * 2.0 - 1.0;
 }
+// The crest is never a ruled line: two incommensurate sines wander it along the
+// shore. The surf ribbon and the foam field's bore share this one function, so
+// the wet front the bore leaves on the sand scallops with the crest that drew it.
+float coastCrestWiggle(float sAlong, float width) {
+  return (0.32 * sin(6.2831853 * sAlong / 12.7) + 0.16 * sin(6.2831853 * sAlong / 8.9 + 1.7)) * width * 0.0795775;
+}
 float coastSwellFade(vec2 qs) {
   if (uSwellFade.y <= 0.0) return 1.0;
   float qb = uSwellFade.x;

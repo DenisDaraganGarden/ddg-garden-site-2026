@@ -16,7 +16,6 @@ const vertexShader = /* glsl */`
   #include <fog_pars_vertex>
   ${gerstnerShader}
   ${coastWaterShader}
-  uniform float uCellFactor;
   varying vec3 vWorld;
   varying vec3 vWaveNormal;
   varying float vJacobian;
@@ -28,7 +27,7 @@ const vertexShader = /* glsl */`
     // The swell hands a share to the breakers at the break line and dies in
     // the last metre of depth: the same rule for the beach, the spit and the cape.
     float fade = (1.0 - smoothstep(uGerstnerFade.x, uGerstnerFade.y, dist)) * coastSwellFade(coastLocal(p));
-    float cell = dist * uCellFactor;
+    float cell = waterCell(p);
     vec3 waveNormal;
     float jacobian;
     vec2 drift;
@@ -119,14 +118,12 @@ export default function GerstnerWaterSurface({ settings, lighting, noise = null,
     ...createWaterShadingUniforms(),
     ...createFoamFieldUniforms(),
     ...createCoastWaterUniforms(),
-    uCellFactor: { value: 0.05 },
     uFoamThreshold: { value: 0.5 },
     uFoamSoftness: { value: 0.15 },
     uShoreBand: { value: new THREE.Vector3(0, 0, -24) },
   }));
 
   useEffect(() => {
-    uniforms.uCellFactor.value = geometry.userData.cellFactor;
     syncGerstnerUniforms(uniforms, settings);
     syncWaterShadingUniforms(uniforms, settings, lighting);
     uniforms.uFoamThreshold.value = settings.foamThreshold;
@@ -134,7 +131,7 @@ export default function GerstnerWaterSurface({ settings, lighting, noise = null,
     syncCoastWaterUniforms(uniforms, coast, coast?.breakQ ?? -10);
     const band = coast?.band;
     uniforms.uShoreBand.value.set(band?.sMin ?? 0, band?.sMax ?? 0, band?.seam ?? -24);
-  }, [coast, geometry, lighting, settings, uniforms]);
+  }, [coast, lighting, settings, uniforms]);
 
   // The water's clock runs before every water pass; it stands still with the scene.
   useFrame((_, delta) => { timeline?.advance(delta); }, -30);

@@ -77,14 +77,12 @@ const loftShader = /* glsl */`
     vec2 at = coastPoint(uBreakMean, uAlong0 + s * uCrestLength);
     return uHeight * gerstnerWeather(at).x * smoothstep(0.0, 0.06, s) * (1.0 - smoothstep(0.94, 1.0, s));
   }
-  float surfPhaseAt(float s) {
-    float y = s * uCrestLength;
-    return (0.32 * sin(SURF_TAU * y / 12.7) + 0.16 * sin(SURF_TAU * y / 8.9 + 1.7)) * uWidth / SURF_TAU * 0.5;
-  }
+  float surfPhaseAt(float s) { return coastCrestWiggle(uAlong0 + s * uCrestLength, uWidth); }
   float surfBreakAt(float s) {
     float x = clamp(s, 0.0, 1.0) * float(BREAK_SAMPLES);
     int i = int(floor(x));
-    return mix(uBreakLine[i], uBreakLine[min(i + 1, BREAK_SAMPLES)], fract(x));
+    float f = fract(x);
+    return mix(uBreakLine[i], uBreakLine[min(i + 1, BREAK_SAMPLES)], f * f * (3.0 - 2.0 * f));
   }
   // Refraction: the crest keeps the break line's shape by uRefraction and stays
   // straight for the rest, so a section standing over deeper water breaks later.
@@ -103,12 +101,42 @@ const loftShader = /* glsl */`
     vec3 normal;
     float jacobian;
     vec2 drift;
-    return gerstnerDisplace(p, fade, 1.5, normal, jacobian, drift);
+    // The shared cell, not a constant: the loft's edges have to lie on the very
+    // swell the open water and the shore band draw, or they hover over it.
+    return gerstnerDisplace(p, fade, waterCell(p), normal, jacobian, drift);
   }
+  // The crest's centre line, in the coast frame's land coordinate: the break
+  // line refracted, the wave's travel, and the wander along the shore.
+  float surfCenterU(float s) {
+    float sAlong = uAlong0 + s * uCrestLength;
+    return coastShore(sAlong) + surfBreakAt(s) + surfTravelAt(s) - uTravel + uPose + coastCrestWiggle(sAlong, uWidth);
+  }
+  // The section is swept along the NORMAL of the crest, not along a fixed
+  // direction to the shore: where the break line bends around the spit's shoal,
+  // or the crest wanders, the section turns with it instead of shearing.
+  // And the wave stands on the bed, not on the still line: past the waterline
+  // the whole section rides the sand, so the bore runs up the beach instead of
+  // through it — and the normal, finite differences of this same function,
+  // follows the beach's slope for free.
   vec3 surfWorld(float s, SurfPoint sp) {
-    float q = surfBreakAt(s) + surfTravelAt(s) - uTravel + uPose + sp.p.x + surfPhaseAt(s);
-    vec2 xz = coastPoint(q, uAlong0 + s * uCrestLength);
-    return surfSwell(xz) + vec3(0.0, sp.p.y - sp.base, 0.0);
+    float sAlong = uAlong0 + s * uCrestLength;
+    float h = 0.5 / uCrestLength;                       // half a metre along the crest
+    float k = surfCenterU(s + h) - surfCenterU(s - h);  // du/ds, metres per metre
+    float x = sp.p.x * inversesqrt(1.0 + k * k);
+    float along = sAlong - k * x;
+    float u = surfCenterU(s) + x;
+    vec2 xz = coastLand() * u + coastAlong() * along;
+    float bed = max(coastGround(vec2(u - coastShore(along), along)), 0.0);
+    return surfSwell(xz) + vec3(0.0, sp.p.y - sp.base + bed, 0.0);
+  }
+  vec3 surfSwellNormal(vec2 p) {
+    float dist = distance(p, cameraPosition.xz);
+    float fade = (1.0 - smoothstep(uGerstnerFade.x, uGerstnerFade.y, dist)) * coastSwellFade(coastLocal(p));
+    vec3 normal;
+    float jacobian;
+    vec2 drift;
+    gerstnerDisplace(p, fade, waterCell(p), normal, jacobian, drift);
+    return normal;
   }
   // The edges of the loft coincide with the swell and vanish into it.
   float surfEdgeAlpha(float s, float t) {
@@ -117,16 +145,24 @@ const loftShader = /* glsl */`
   // Normal by finite differences; a collapsed row (the jet before launch) has
   // no area and gets the up vector rather than a NaN.
   vec3 surfNormal(float s, float t, vec3 w) {
-    float ts = t + (fract(t / 0.2) < 0.95 ? 0.008 : -0.008);
+    float ts = t + (fract((t - 0.1) / 0.2) < 0.96 ? 0.008 : -0.008);
     vec3 ws = surfWorld(s + 0.003, surfAt(s + 0.003, t));
     vec3 wt = surfWorld(s, surfAt(s, ts));
-    vec3 n = cross(wt - w, ws - w) * (ts > t ? 1.0 : -1.0);
-    return dot(n, n) > 1e-10 ? normalize(n) : vec3(0.0, 1.0, 0.0);
+    vec3 n = cross(ws - w, wt - w) * (ts > t ? 1.0 : -1.0);
+    n = dot(n, n) > 1e-10 ? normalize(n) : vec3(0.0, 1.0, 0.0);
+    // Toward the rim the section is a sliver and its own normal turns edge-on;
+    // hand it back to the swell it lies on, so the ribbon has no rim at all.
+    float rim = smoothstep(0.0, 0.16, t) * (1.0 - smoothstep(0.84, 1.0, t));
+    return normalize(mix(surfSwellNormal(w.xz), n, rim));
   }
   // A section is gone when it has run up the beach or, on a spit, when it has
   // travelled its bore out past its own break.
-  float surfRunupAlpha(vec3 w, float s) {
-    return (1.0 - smoothstep(uRunup - 4.0, uRunup, coastLocal(w.xz).x)) * (1.0 - smoothstep(uSpent - 8.0, uSpent, surfTravelAt(s)));
+  float surfRunupAlpha(vec3 w, float s, float ground) {
+    return (1.0 - smoothstep(uRunup - 4.0, uRunup, coastLocal(w.xz).x))
+      * (1.0 - smoothstep(uSpent - 8.0, uSpent, surfTravelAt(s)))
+      // On the spit and over a bar the sand is above water where the mainland's
+      // q is still at sea: there the wave ends on that sand, not on the ruler.
+      * (1.0 - smoothstep(0.15, 0.35, max(ground, 0.0)));
   }
 `;
 
@@ -139,16 +175,19 @@ const sheetVertexShader = /* glsl */`
   varying float vThickness;
   varying float vAlpha;
   varying float vShade;
+  varying float vGround;
   void main() {
     float s = position.x, t = position.y;
     SurfPoint sp = surfAt(s, t);
     vec3 w = surfWorld(s, sp);
+    float ground = coastGround(coastLocal(w.xz));
     vWorld = w;
+    vGround = ground;
     vNormal = surfNormal(s, t, w);
     vFoamUv = vec2(s * uCrestLength, sp.arc);
     vFoam = sp.foam;
     vThickness = sp.thickness;
-    vAlpha = sp.alpha * surfRunupAlpha(w, s) * surfEdgeAlpha(s, t);
+    vAlpha = sp.alpha * surfRunupAlpha(w, s, ground) * surfEdgeAlpha(s, t);
     vShade = sp.shade;
     vec4 mvPosition = viewMatrix * vec4(w, 1.0);
     gl_Position = projectionMatrix * mvPosition;
@@ -166,8 +205,12 @@ const sheetFragmentShader = /* glsl */`
   varying float vThickness;
   varying float vAlpha;
   varying float vShade;
+  varying float vGround;
   void main() {
     if (vAlpha <= 0.002) discard;
+    // No water under the sand: the loft is clipped by the bed, not by whatever
+    // the beach happens to write into the depth buffer first.
+    if (vWorld.y < vGround + 0.005) discard;
     vec3 view = normalize(cameraPosition - vWorld);
     float pixel = length(vec2(fwidth(vWorld.x), fwidth(vWorld.z)));
     vec3 n = normalize(vNormal);
@@ -196,14 +239,18 @@ const shellVertexShader = /* glsl */`
   varying float vShell;
   varying float vPuff;
   varying float vAlpha;
+  varying float vGround;
   void main() {
     float s = position.x, t = position.y;
     SurfPoint sp = surfAt(s, t);
     vec3 w = surfWorld(s, sp);
     vec3 n = surfNormal(s, t, w);
-    // Foam stands up off the water; under the lip it hangs down.
+    // Foam stands up off the water; under the lip it hangs down. The normal is
+    // outward by construction now, so its sign is not guessed from n.y — on the
+    // vertical face of a reared wave that guess flipped between neighbouring
+    // vertices and tore the shell by half a metre.
     bool underside = t >= 0.5 && t < 0.7;
-    n *= sign(n.y + 1e-4) * (underside ? -1.0 : 1.0);
+    n *= underside ? -1.0 : 1.0;
     // Lumps: the same cloud volume shapes the silhouette, tumbling with the roller.
     float lump = uNoiseReady > 0.5 ? texture(uNoise, vec3(s * uCrestLength * 0.11, sp.arc * 0.23 - uTime * 0.35, 0.21)).r : 0.5;
     float shell = sp.puff * uRoller * surfHeightAt(s) * (0.45 + 1.1 * lump);
@@ -212,7 +259,8 @@ const shellVertexShader = /* glsl */`
     vFoamUv = vec2(s * uCrestLength, sp.arc);
     vShell = shell;
     vPuff = sp.puff;
-    vAlpha = sp.alpha * surfRunupAlpha(w, s) * surfEdgeAlpha(s, t);
+    vGround = coastGround(coastLocal(w.xz));
+    vAlpha = sp.alpha * surfRunupAlpha(w, s, vGround) * surfEdgeAlpha(s, t);
     vec4 mvPosition = viewMatrix * vec4(vWorld, 1.0);
     gl_Position = projectionMatrix * mvPosition;
     #include <fog_vertex>
@@ -229,9 +277,11 @@ const shellFragmentShader = /* glsl */`
   varying float vShell;
   varying float vPuff;
   varying float vAlpha;
+  varying float vGround;
   #define SHELL_STEPS 12
   void main() {
     if (vAlpha <= 0.002 || vShell < 0.004 || uNoiseReady < 0.5) discard;
+    if (vWorld.y < vGround + 0.005) discard;
     vec3 view = normalize(cameraPosition - vWorld);
     vec3 n = normalize(vNormal);
     float facing = max(dot(n, view), 0.25);
@@ -276,7 +326,7 @@ const smoothstep = (a, b, x) => { const u = clamp01((x - a) / (b - a)); return u
 
 // coast: { definition, along0, length, breakQ } — the terrain's coast frame
 // and the stretch of shore (coast s) the breakers work.
-export default function BreakingWaves({ settings, lighting, noise = null, coast, foamBores = null, timeline = null }) {
+export default function BreakingWaves({ settings, lighting, noise = null, coast, foamBores = null, timeline = null, wireframe = false }) {
   const activeNoise = useWaterNoise(noise);
   const geometry = useMemo(() => buildRibbonGeometry(RIBBON_SEGMENTS, RIBBON_ROWS), []);
   useEffect(() => () => geometry.dispose(), [geometry]);
@@ -317,6 +367,7 @@ export default function BreakingWaves({ settings, lighting, noise = null, coast,
     return { index, uniforms, sheet, shell, spawn: -index * 9, height: 1, lineFor: '' };
   }), [shading]);
   useEffect(() => () => ribbons.forEach((ribbon) => { ribbon.sheet.dispose(); ribbon.shell.dispose(); }), [ribbons]);
+  useEffect(() => { ribbons.forEach((ribbon) => { ribbon.sheet.wireframe = wireframe; ribbon.shell.wireframe = wireframe; }); }, [ribbons, wireframe]);
   const schedule = useRef({ lastSpawn: 0, spawned: RIBBON_COUNT });
 
   useEffect(() => {
@@ -391,7 +442,7 @@ export default function BreakingWaves({ settings, lighting, noise = null, coast,
         ribbon.lineFor = lineKey;
       }
       ribbon.uniforms.uTravel.value = travel;
-      ribbon.uniforms.uPose.value = frozen ? 1.4 : travel;
+      ribbon.uniforms.uPose.value = frozen ? Math.max(1.4, frozenTravel) : travel;
       ribbon.uniforms.uHeight.value = height;
       // What the wave leaves on the water: once the lip has landed (the same
       // timing the profile uses, at mid-crest) the roller writes into the foam
