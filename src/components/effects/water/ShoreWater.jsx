@@ -113,10 +113,14 @@ const vertexShader = /* glsl */`
     // The swell's own level, before the sand claims it: the fragment needs the
     // unclamped surface, because max() taken here — per vertex — is what turned
     // the water's edge into a staircase with this band's own metre-wide rows.
-    // The surface can never lie below the ground it stands on. A trough that
-    // dipped under the bed was discarded by the fragment, and those holes read
-    // as black spots scattered through the shallows.
-    world.y = max(world.y, aGround + 0.006);
+    // A trough may not dig below the bed — that is what punched the lattice of
+    // holes that read as black spots. But the limit is on the trough's DEPTH,
+    // never on the surface's height: clamping the level up to the ground
+    // floated the water over the beach and drowned the spit. Where the ground
+    // stands above still water the limit is zero, the surface stays at the
+    // still line, and the fragment discards it as dry land.
+    float rest = -aGround;
+    world.y = max(world.y, -max(rest - 0.02, 0.0));
     vLevel = world.y;
     // No threshold on the sheet: a step tears the lift between neighbouring
     // vertices. The sheet's own taper is what thins the tongue's edge.
