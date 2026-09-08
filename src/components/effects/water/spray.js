@@ -34,7 +34,7 @@ const GRAVITY = 9.81;
 // Most of the pool is rejected at birth — a mote is only kept in proportion to
 // the foam standing off the water where it was born — so the coverage budget
 // has to be spent on the survivors, not on the draws.
-export const SPRAY_ACCEPTANCE = 0.32;
+export const SPRAY_ACCEPTANCE = 0.55;
 export const SPRAY_RADIUS = 0.02;
 export const SPRAY_GROW = 0.11;
 
@@ -146,7 +146,7 @@ export const sprayVertexBody = /* glsl */`
   float t = lip ? mix(0.30, 0.50, sprayHash(seed + 2.7)) : mix(0.70, 0.82, sprayHash(seed + 2.7));
   SurfPoint sp = surfProfile(t, surfTravelAt(s) - travelBack, H);
   float weight = sp.puff * (lip ? sp.alpha : 1.0) * uSprayAmount;
-  if (weight < sprayHash(seed + 4.1) * 0.75) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
+  if (weight < sprayHash(seed + 4.1) * 0.42) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
 
   // Two populations. Droplets are thrown and fall; mist is the fine foam that
   // lifts off the crest and hangs — the steam Denis is after, and the thing
@@ -197,7 +197,7 @@ export const sprayVertexBody = /* glsl */`
   // it cover a silhouette instead of decorating one.
   if (mist) radius *= uSprayMistSize * (0.6 + 1.4 * span);
   // Vapour is a veil, not a wall: it must never carry the plume's weight.
-  float opacity = weight * smoothstep(0.0, 0.06, age) * (1.0 - smoothstep(0.72, 1.0, span)) * (mist ? 0.30 : 1.0);
+  float opacity = weight * smoothstep(0.0, 0.06, age) * (1.0 - smoothstep(0.72, 1.0, span)) * (mist ? 0.55 : 1.0);
   // A mote that has fallen back into the water is gone. The level is known from
   // the profile, so no depth texture is needed — and it fades over its OWN
   // diameter, or the depth test slices the big ones flat on the surface.
@@ -212,7 +212,9 @@ export const sprayVertexBody = /* glsl */`
   // so it is drawn larger and fainter with its painted energy preserved. The
   // chord below still uses the physical radius, or the medium would thin out.
   float pxRadius = radius * projectionMatrix[1][1] * 0.5 * uSprayViewport / max(dist, 0.05);
-  float grow = max(1.0, uSprayMinPx / max(pxRadius, 0.001));
+  // Capped: without a ceiling a shrinking viewport grew every mote without
+  // limit, and the plume visibly stretched as the window was resized.
+  float grow = clamp(uSprayMinPx / max(pxRadius, 0.001), 1.0, 2.5);
   vRadius = radius;
   vOpacity = opacity / (grow * grow);
   // Detail is for the motes big enough on screen to show it. The plan had this
@@ -298,10 +300,15 @@ export const sprayFragmentBody = /* glsl */`
   // The same expression the foam volume uses, so one brightness slider governs
   // the foam and the spray thrown off it and they cannot disagree. The
   // directional gain is gone: it was what made the spray outshine the foam.
+  // Spray is mostly SKY-lit: a droplet is a white speck against a bright
+  // background, not a lamp. The sun's share is modulated by the mote's own
+  // normal and held below the sky's, or a low sun paints the whole plume its
+  // own yellow — which is exactly what it did.
+  float sunFace = max(dot(nS, uSunDirection), 0.0);
   vec3 lit = vec3(0.94, 0.95, 0.92) * (
-      uFillIrradiance * (0.35 + 0.65 * (0.5 + 0.5 * nS.y))
-    + uSunRadiance * sunT * (0.25 + 0.75 * powder)
-    + uSunRadiance * sunT * powder * forward * 0.35) / WATER_PI * uFoamBrightness;
+      uFillIrradiance * (0.85 + 0.55 * (0.5 + 0.5 * nS.y))
+    + uSunRadiance * sunT * (0.12 + 0.5 * sunFace) * (0.25 + 0.75 * powder)
+    + uSunRadiance * sunT * powder * forward * 0.2) / WATER_PI * uFoamBrightness;
   gl_FragColor = vec4(lit * alpha, alpha);
 `;
 
@@ -322,7 +329,7 @@ export function createSprayUniforms() {
     uSprayFar: { value: new THREE.Vector2(110, 170) },
     uSprayNear: { value: 1.2 },
     uSprayMinPx: { value: 2.5 },
-    uSprayMistShare: { value: 0.4 },
+    uSprayMistShare: { value: 0.62 },
     uSprayMistSize: { value: 2.2 },
     uSpraySpread: { value: 1.6 },
     uSprayViewport: { value: 800 },
@@ -330,7 +337,7 @@ export function createSprayUniforms() {
     // constant and reads as a flat disc. At 8 m^-1 the grain is about 12 cm
     // inside a mote a few centimetres across, so the medium breaks up.
     uSprayScale: { value: 8 },
-    uSprayExtinction: { value: 2.4 },
+    uSprayExtinction: { value: 1.3 },
     uSprayTaps: { value: 1 },
   };
 }
@@ -340,9 +347,9 @@ export function syncSprayUniforms(uniforms, settings, tier = SPRAY_TIERS.high) {
   uniforms.uSprayCurl.value = Number(settings.sprayCurl ?? tier.curl);
   uniforms.uSprayWind.value = Number(settings.foamDrift ?? 0.9);
   uniforms.uSprayScale.value = Number(settings.sprayGrain ?? 8);
-  uniforms.uSprayExtinction.value = Number(settings.sprayDensity ?? 2.4);
+  uniforms.uSprayExtinction.value = Number(settings.sprayDensity ?? 1.3);
   uniforms.uSprayTaps.value = tier.taps;
-  uniforms.uSprayMistShare.value = Number(settings.sprayMist ?? 0.4);
+  uniforms.uSprayMistShare.value = Number(settings.sprayMist ?? 0.62);
   uniforms.uSprayMistSize.value = Number(settings.sprayMistSize ?? 2.2);
   uniforms.uSpraySpread.value = Number(settings.spraySpread ?? 1.6);
   uniforms.uSprayFar.value.set(Number(settings.sprayFar ?? tier.far[1]) * 0.65, Number(settings.sprayFar ?? tier.far[1]));

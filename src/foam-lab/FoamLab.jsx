@@ -42,7 +42,7 @@ const DEFAULTS = Object.freeze({
   waterColor: '#2c7a64', deepColor: '#143a40', bedColor: '#c4b08a', crestGlow: 0.6, glint: 1.4, skyReflection: 0.4,
   meshRings: 128, meshSegments: 128,
   // The volume itself.
-  spray: true, sprayAmount: 1, sprayCurl: 0.35, sprayGrain: 8, sprayDensity: 2.4, sprayFar: 170, sprayMist: 0.4, sprayMistSize: 2.2, spraySpread: 1.6,
+  spray: true, sprayAmount: 1, sprayCurl: 0.35, sprayGrain: 8, sprayDensity: 1.3, sprayFar: 170, sprayMist: 0.62, sprayMistSize: 2.2, spraySpread: 1.6,
   volume: true, volumeHeight: 0.35, volumeDensity: 1, volumeDetail: 0.9, volumeErosion: 0.35, volumeNear: 120, volumeFar: 260,
   surfEnabled: true, surfHeight: 0.9, surfWidth: 9, surfBreakDistance: -6, surfBreakLength: 16, surfLean: 0.4, surfJet: 2, surfLift: 0.7, surfSheet: 0.16, surfRoller: 0.5, surfRollerDensity: 1, surfPeel: 0.05, surfRefraction: 0.7, surfBoreLength: 16, surfRunup: 6, surfSpeed: 4.5, surfPeriod: 9, surfSets: 0.5, surfFreeze: false, surfPhase: 0.5,
   timeOfDay: PUBLISHED.timeOfDay ?? 9.4, sunBearing: PUBLISHED.sunBearing ?? 338, sunNoonElevation: PUBLISHED.sunNoonElevation ?? 50, exposure: 1,

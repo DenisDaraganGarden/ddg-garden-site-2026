@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { createGerstnerUniforms, gerstnerShader, gerstnerWeatherAt, syncGerstnerUniforms } from './gerstnerWaves';
-import { coastPoint } from '../../../terrain/terrainModel.js';
+import { coastCoordinates, coastPoint } from '../../../terrain/terrainModel.js';
 import { BREAK_SAMPLES, breakLineMean, coastBreakLine, coastWaterShader, createCoastWaterUniforms, syncCoastWaterUniforms, tickShoreDepth } from './coastFrame';
 import { SPRAY_TIERS, buildSprayGeometry, createSprayUniforms, sprayFragmentBody, sprayFragmentVaryings, sprayInstanceCount, sprayShader, sprayVertexBody, syncSprayUniforms } from './spray';
 import { SURF_SHAPE, surfPlungeTime, surfProfileShader } from './surfProfile';
@@ -498,10 +498,13 @@ export default function BreakingWaves({ settings, lighting, noise = null, coast,
       const projectionX = camera.projectionMatrix.elements[0];
       spray.uSprayViewport.value = viewport.height;
       spray.uSprayS0.value = 0.5;
-      // Half the frustum's width, not all of it: spray is thrown at the break,
-      // and spreading the pool over every metre of visible crest leaves a
-      // scatter of motes instead of a plume.
-      spray.uSpraySpan.value = Math.min(Math.max(1.1 * distance / Math.max(projectionX, 0.1), 12), 90) / coast.length;
+      // The band follows the camera along the crest and is as wide as the view:
+      // pinned to the middle it clung to one piece, spread over the whole crest
+      // it thinned to nothing. Both were wrong for the same reason — the pool is
+      // finite and belongs where the camera is looking.
+      const local = coastCoordinates(camera.position.x, camera.position.z, coast.definition);
+      spray.uSprayS0.value = THREE.MathUtils.clamp((local.s - coast.along0) / coast.length, 0, 1);
+      spray.uSpraySpan.value = Math.min(Math.max(1.6 * distance / Math.max(projectionX, 0.1), 18), 120) / coast.length;
       const alive = !frozen || ribbon.index === 0;
       sprayGeometries[ribbon.index].instanceCount = alive
         ? sprayInstanceCount({ distance, height, viewportHeight: viewport.height, viewportWidth: viewport.width, projectionY, overdraw: tier.overdraw, max: tier.max })
