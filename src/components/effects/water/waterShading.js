@@ -68,7 +68,7 @@ export const waterShadingShader = /* glsl */`
   float waterFoam(vec2 fp, float coverage, float pixel, float age, out float bubbles) {
     bubbles = 0.0;
     if (coverage <= 0.001 || uNoiseReady < 0.5) return 0.0;
-    vec2 lp = vec2(fp.x * 0.5, fp.y * 1.7 - uTime * 0.25) * uLaceScale;
+    vec2 lp = vec2(fp.x * 0.85, fp.y * 1.25 - uTime * 0.25) * uLaceScale;
     vec3 lace = texture(uNoise, vec3(lp, 0.12)).rgb;
     float feature = 0.125 / max(uLaceScale, 0.001);
     float fineFade = 1.0 - smoothstep(feature * 0.05, feature * 0.25, pixel);

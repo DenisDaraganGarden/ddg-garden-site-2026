@@ -85,7 +85,7 @@ const fragmentShader = /* glsl */`
     float jacobian = vJacobian - fold;
     // Whitecaps from the whole wave field, unfaded, in patches: foam shows to
     // the horizon even where the mesh no longer carries the wave.
-    float crest = smoothstep(uFoamThreshold + uFoamSoftness, uFoamThreshold - uFoamSoftness, 1.0 - gerstnerFold(vWorld.xz)) * gerstnerWhitecapMask(vWorld.xz);
+    float crest = smoothstep(uFoamThreshold + uFoamSoftness, uFoamThreshold - uFoamSoftness, gerstnerCrestFold(vWorld.xz)) * gerstnerWhitecapMask(vWorld.xz);
     vec3 memory = sampleFoamField(vWorld.xz);
     float coverage = mix(crest * 0.9, memory.x, memory.z);
     // Beyond the window the whitecap has no age of its own; a middling one

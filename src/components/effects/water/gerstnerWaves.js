@@ -158,21 +158,28 @@ vec3 gerstnerDisplace(vec2 p, float fade, float cell, out vec3 normal, out float
 // and whitecaps from above. A crest that spans a pixel or more of phase is
 // averaged out instead of shimmering as the camera moves.
 export const gerstnerPixelShader = /* glsl */`
-// The whole wave field's fold here, unfaded and fully resolved: foam is a
-// property of the surface and shows to the horizon even where the mesh no
-// longer carries the wave. A crest that spans a pixel or more of phase is
-// averaged out instead of shimmering.
-float gerstnerFold(vec2 p) {
+// The Jacobian of the whole wave field here, unfaded and fully resolved: foam
+// is a property of the surface and shows to the horizon even where the mesh no
+// longer carries the wave. Same determinant as gerstnerDisplace — 1 on flat
+// water, small where the crest folds — so one threshold reads the same near
+// and far, and it is sharply peaked on the crest instead of smeared over the
+// whole wave. A crest that spans a pixel or more of phase is averaged out
+// instead of shimmering.
+float gerstnerCrestFold(vec2 p) {
   vec2 weather = gerstnerWeather(p);
-  float fold = 0.0;
+  float dxx = 0.0, dzz = 0.0, dxz = 0.0;
   for (int i = 0; i < GERSTNER_TRAINS; i++) {
     vec4 train = uGerstnerTrain[i];
     vec4 motion = uGerstnerMotion[i];
-    float phase = train.z * dot(train.xy, p) - motion.x * uGerstnerTime + motion.z + weather.y;
+    vec2 d = train.xy;
+    float phase = train.z * dot(d, p) - motion.x * uGerstnerTime + motion.z + weather.y;
     float aa = 1.0 - smoothstep(0.35, 1.5, fwidth(phase));
-    fold += motion.y * train.z * train.w * weather.x * gerstnerEnvelope(phase, motion.w) * aa * sin(phase);
+    float wa = motion.y * train.z * train.z * train.w * weather.x * gerstnerEnvelope(phase, motion.w) * aa * sin(phase);
+    dxx -= wa * d.x * d.x;
+    dzz -= wa * d.y * d.y;
+    dxz -= wa * d.x * d.y;
   }
-  return fold;
+  return (1.0 + dxx) * (1.0 + dzz) - dxz * dxz;
 }
 vec2 gerstnerPixelSlope(vec2 p, float fade, float cell, out float fold) {
   vec2 slope = vec2(0.0);

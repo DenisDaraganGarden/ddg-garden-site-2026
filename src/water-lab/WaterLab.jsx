@@ -39,7 +39,9 @@ const BAND = Object.freeze({ sMin: ALONG0 - 60, sMax: ALONG0 + CREST_LENGTH + 60
 const DEFAULTS = Object.freeze({
   wavelength: 11.5, amplitude: 0.57, steepness: 0.7, speed: 0.55, windDirection: 94, sets: 0.37, gusts: 0.44, crossWaves: 0.01, fadeStart: 260, fadeEnd: 2440,
   ripple: 0.63, rippleScale: 0.09,
-  foamThreshold: 0.8, foamSoftness: 0.4, laceScale: 0.13, foamBrightness: 0.5,
+  // The threshold is on the wave field's Jacobian now (1 = flat, small = the
+  // crest folds); Denis's 0.8/0.4 were tuned against the old smeared measure.
+  foamThreshold: 0.55, foamSoftness: 0.15, laceScale: 0.13, foamBrightness: 0.5,
   foamMemory: true, foamLife: 7, foamDeposit: 0.65, foamWindow: 228, foamDrift: 1.3, foamDry: 43, swashFilm: 0.03,
   waterColor: '#2c7a64', deepColor: '#143a40', bedColor: '#c4b08a', crestGlow: 0.6, glint: 2.05, skyReflection: 0.3,
   meshRings: 152, meshSegments: 104, wireframe: false,
