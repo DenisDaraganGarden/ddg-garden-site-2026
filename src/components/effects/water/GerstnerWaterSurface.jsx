@@ -53,6 +53,7 @@ const fragmentShader = /* glsl */`
   ${coastWaterShader}
   uniform float uFoamThreshold;
   uniform float uFoamSoftness;
+  uniform vec3 uShoreBand; // sMin, sMax, seam q: inside, the shore water on the beach's grid draws the water past the seam
   varying vec3 vWorld;
   varying vec3 vWaveNormal;
   varying float vJacobian;
@@ -63,11 +64,14 @@ const fragmentShader = /* glsl */`
     // reaches the surface there is no water drawn, so this mesh's coarse
     // triangles never fight the beach for depth and the beach's own fine mesh
     // is the shoreline.
-    // The water ends where the map says five centimetres of depth: closer to the
-    // waterline it would fight the beach's own triangles for the edge; the strip
-    // it leaves bare is the wet sand of the swash.
-    float ground = uShoreReady > 0.5 ? coastGround(coastLocal(vWorld.xz)) : -1.0;
-    if (ground > -0.05) discard;
+    // Along the shore band the water on the beach's own grid takes over past
+    // the seam; elsewhere the water ends where the map says five centimetres of
+    // depth — closer to the waterline it would fight the beach's own triangles
+    // for the edge, and the strip it leaves bare is the wet sand of the swash.
+    vec2 qs = coastLocal(vWorld.xz);
+    float ground = uShoreReady > 0.5 ? coastGround(qs) : -1.0;
+    bool inBand = uShoreBand.y > uShoreBand.x && qs.y > uShoreBand.x && qs.y < uShoreBand.y;
+    if (inBand ? qs.x > uShoreBand.z : ground > -0.05) discard;
     // Over the last metre and a half of depth the sand shows through.
     float bed = smoothstep(-1.5, -0.05, ground) * 0.85;
     vec3 view = normalize(cameraPosition - vWorld);
@@ -78,7 +82,9 @@ const fragmentShader = /* glsl */`
     n = normalize(vec3(n.x - farSlope.x * n.y, n.y, n.z - farSlope.y * n.y));
     n = waterRippleNormal(n, vWorld.xz, pixel, vFade);
     float jacobian = vJacobian - fold;
-    float crest = smoothstep(uFoamThreshold + uFoamSoftness, uFoamThreshold - uFoamSoftness, jacobian);
+    // Whitecaps from the whole wave field, unfaded, in patches: foam shows to
+    // the horizon even where the mesh no longer carries the wave.
+    float crest = smoothstep(uFoamThreshold + uFoamSoftness, uFoamThreshold - uFoamSoftness, 1.0 - gerstnerFold(vWorld.xz)) * gerstnerWhitecapMask(vWorld.xz);
     vec3 memory = sampleFoamField(vWorld.xz);
     float coverage = mix(crest * 0.9, memory.x, memory.z);
     // Beyond the window the whitecap has no age of its own; a middling one
@@ -95,7 +101,9 @@ const fragmentShader = /* glsl */`
 
 // coast: { definition, breakQ } — the terrain's coast frame and where the
 // breakers take over; null leaves the swell running to the horizon everywhere.
-export default function GerstnerWaterSurface({ settings, lighting, noise = null, followCamera = true, wireframe = false, coast = null, foamBores = null }) {
+// timeline: the scene's paused-aware clock (createSceneTimeline), advanced
+// here for every water surface; without one the renderer's clock is used.
+export default function GerstnerWaterSurface({ settings, lighting, noise = null, followCamera = true, wireframe = false, coast = null, foamBores = null, timeline = null }) {
   const meshRef = useRef();
   const activeNoise = useWaterNoise(noise);
   const geometry = useMemo(
@@ -113,6 +121,7 @@ export default function GerstnerWaterSurface({ settings, lighting, noise = null,
     uCellFactor: { value: 0.05 },
     uFoamThreshold: { value: 0.5 },
     uFoamSoftness: { value: 0.15 },
+    uShoreBand: { value: new THREE.Vector3(0, 0, -24) },
   }));
 
   useEffect(() => {
@@ -122,13 +131,18 @@ export default function GerstnerWaterSurface({ settings, lighting, noise = null,
     uniforms.uFoamThreshold.value = settings.foamThreshold;
     uniforms.uFoamSoftness.value = settings.foamSoftness;
     syncCoastWaterUniforms(uniforms, coast, coast?.breakQ ?? -10);
+    const band = coast?.band;
+    uniforms.uShoreBand.value.set(band?.sMin ?? 0, band?.sMax ?? 0, band?.seam ?? -24);
   }, [coast, geometry, lighting, settings, uniforms]);
 
-  useFoamField(uniforms, { settings, bores: foamBores, coast, noise: activeNoise });
+  // The water's clock runs before every water pass; it stands still with the scene.
+  useFrame((_, delta) => { timeline?.advance(delta); }, -30);
+  useFoamField(uniforms, { settings, bores: foamBores, coast, timeline });
 
   useFrame(({ clock, camera }) => {
-    uniforms.uGerstnerTime.value = clock.elapsedTime;
-    tickWaterShadingUniforms(uniforms, clock.elapsedTime, activeNoise);
+    const time = timeline ? timeline.elapsed : clock.elapsedTime;
+    uniforms.uGerstnerTime.value = time;
+    tickWaterShadingUniforms(uniforms, time, activeNoise);
     if (coast) tickShoreDepth(uniforms, coast);
     if (followCamera && meshRef.current) meshRef.current.position.set(camera.position.x, 0, camera.position.z);
   });

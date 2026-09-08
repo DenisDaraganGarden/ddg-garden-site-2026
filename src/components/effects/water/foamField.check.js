@@ -11,7 +11,7 @@ const gerstner = read('./gerstnerWaves.js');
 const foam = read('./foamField.js');
 const surface = read('./GerstnerWaterSurface.jsx');
 const shading = read('./waterShading.js');
-const breaking = read('./BreakingWaves.jsx');
+const breaking = read('./BreakingWaves.jsx') + read('./ShoreWater.jsx');
 const surf = read('./surfProfile.js') + read('./coastFrame.js') + read('./coastBreakLine.js');
 
 // Arguments of every call/declaration of `call`: top-level commas between the
@@ -56,9 +56,10 @@ declared.forEach((name) => assert.ok(created.has(name), `uniform ${name} is decl
 // created by the ribbons.
 const surfDeclared = [...(surf + breaking).matchAll(/^\s*uniform\s+\w+\s+(u\w+)\s*;/gm)].map((match) => match[1]);
 const surfCreated = new Set([
-  ...[...breaking.matchAll(/^\s{6}(u\w+):\s*\{/gm)].map((match) => match[1]),
+  ...[...breaking.matchAll(/^\s{4,6}(u\w+):\s*\{/gm)].map((match) => match[1]),
   ...[...shading.matchAll(/^\s{4}(u\w+):\s*\{/gm)].map((match) => match[1]),
   ...[...surf.matchAll(/(u\w+):\s*\{\s*value/g)].map((match) => match[1]),
+  ...[...(read('./foamField.js') + read('./gerstnerWaves.js')).matchAll(/^\s{4}(u\w+):\s*\{/gm)].map((match) => match[1]),
 ]);
 assert.ok(surfDeclared.length >= 15, `expected the surf shaders to declare uniforms, found ${surfDeclared.length}`);
 surfDeclared.forEach((name) => assert.ok(surfCreated.has(name), `uniform ${name} is declared in a surf shader but never created`));

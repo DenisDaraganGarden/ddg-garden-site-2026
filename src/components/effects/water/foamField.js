@@ -8,10 +8,11 @@ import { coastWaterShader, createCoastWaterUniforms, syncCoastWaterUniforms } fr
 
 // Foam as a state with memory instead of a function of the wave's phase. A
 // field in a window that follows the camera: R is density, G is age, B is how
-// wet the sand is — the field is also the swash, the beach's memory of the
-// water: a bore's run-up sheet wets the sand and leaves lace at its edge; on
-// the sand foam is sucked in within seconds and what is left slides back down
-// the slope, and the sand dries over a minute. Every tick
+// wet the sand is, A is the run-up sheet itself — the field is also the swash,
+// the beach's memory of the water: a bore's run-up sheet wets the sand and
+// leaves lace at its edge, the sheet drains from the top of the beach down;
+// on the sand foam is sucked in within seconds and what is left slides back
+// down the slope, and the sand dries over a minute. Every tick
 // the water carries the field with it (the wave's own horizontal motion plus a
 // wind drift), the density decays with a lifetime, and new foam comes from the
 // folding crests (the Gerstner Jacobian) and from the broken face of every live
@@ -62,11 +63,8 @@ const updateFragmentShader = /* glsl */`
   #define FOAM_BORES ${FOAM_BORE_SLOTS}
   ${gerstnerShader}
   ${coastWaterShader}
-  precision highp sampler3D;
   varying vec2 vUv;
   uniform sampler2D uPrev;
-  uniform sampler3D uNoise;
-  uniform float uNoiseReady;
   uniform vec3 uWindow;      // centre.xz, half size
   uniform vec3 uPrevWindow;
   uniform float uHasPrev;
@@ -105,31 +103,32 @@ const updateFragmentShader = /* glsl */`
     // fetch re-registers the window when the camera moves.
     vec2 from = world - velocity * uDelta;
     vec2 prevUv = (from - uPrevWindow.xy) / (2.0 * uPrevWindow.z) + 0.5;
-    vec3 state = vec3(0.0);
+    vec4 state = vec4(0.0);
     if (uHasPrev > 0.5 && all(greaterThan(prevUv, vec2(0.0))) && all(lessThan(prevUv, vec2(1.0)))) {
-      state = texture2D(uPrev, prevUv).rgb;
+      state = texture2D(uPrev, prevUv);
     }
+    float q = qs.x;
     state.x *= sand ? uSandDecay : uDecay;
     state.y = min(state.y + uAgeStep, 1.0);
     state.z = sand ? state.z * uDryDecay : 1.0;
-    // Crests fold in patches, not along their whole length: a broad mask
-    // drifting with the wind gates where a fold makes foam.
-    float patchy = uNoiseReady > 0.5 ? smoothstep(0.44, 0.6, texture(uNoise, vec3(world * 0.03 + uDrift * uGerstnerTime * 0.02, 0.73)).r) : 1.0;
-    float fresh = sand ? 0.0 : smoothstep(uThreshold + uSoftness, uThreshold - uSoftness, jacobian) * uDeposit * 0.65 * patchy;
-    float q = qs.x;
+    // The sheet drains from the top of the beach first: a second near the
+    // waterline, a fifth of one six metres up.
+    state.w = sand ? state.w * exp(-uDelta / max(0.2, 1.1 - 0.9 * clamp(q / 6.0, 0.0, 1.0))) : 1.0;
+    float fresh = sand ? 0.0 : smoothstep(uThreshold + uSoftness, uThreshold - uSoftness, jacobian) * uDeposit * 0.65 * gerstnerWhitecapMask(world);
     for (int i = 0; i < FOAM_BORES; i++) {
       vec4 bore = uBore[i];
       fresh = max(fresh, bore.y * uDeposit * (1.0 - smoothstep(bore.z * 0.3, bore.z, abs(q - bore.x))));
-      // The run-up sheet: the sand up to the front is wet, the front leaves lace.
+      // The run-up sheet: the sand up to the front is under water and wet, the front leaves lace.
       if (sand && bore.w > -50.0 && q < bore.w) {
         state.z = 1.0;
+        state.w = 1.0;
         fresh = max(fresh, bore.y * 0.8 * (1.0 - smoothstep(0.1, 0.7, bore.w - q)));
       }
     }
     // Fresh foam wins and is young again; what it does not cover keeps its age.
     state.y = mix(state.y, 0.0, step(state.x, fresh));
     state.x = min(max(state.x, fresh), 1.0);
-    gl_FragColor = vec4(state, 1.0);
+    gl_FragColor = state;
   }
 `;
 
@@ -143,7 +142,8 @@ export function createFoamFieldUniforms() {
 
 // Advances the field and points `targetUniforms` (a water surface's) at it.
 // `bores` is the array the breaking waves write into, or null.
-export function useFoamField(targetUniforms, { settings, bores, coast = null, noise = null }) {
+// timeline: the scene's paused-aware clock; without one the renderer's clock is used.
+export function useFoamField(targetUniforms, { settings, bores, coast = null, timeline = null }) {
   const { gl } = useThree();
   const field = useMemo(() => {
     const options = { type: THREE.HalfFloatType, format: THREE.RGBAFormat, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter };
@@ -167,8 +167,6 @@ export function useFoamField(targetUniforms, { settings, bores, coast = null, no
       uDeposit: { value: 1 },
       ...createCoastWaterUniforms(),
       uBore: { value: createFoamBores() },
-      uNoise: { value: null },
-      uNoiseReady: { value: 0 },
     });
     return { read, write, pass };
   }, []);
@@ -207,9 +205,7 @@ export function useFoamField(targetUniforms, { settings, bores, coast = null, no
     uniforms.uPrevWindow.value.copy(uniforms.uWindow.value);
     foamWindowCenter(uniforms.uWindow.value, camera.position.x + FORWARD.x * reach, camera.position.z + FORWARD.z * reach, half);
     syncGerstnerUniforms(uniforms, settings);
-    uniforms.uGerstnerTime.value = clock.elapsedTime;
-    uniforms.uNoise.value = noise?.volume ?? null;
-    uniforms.uNoiseReady.value = noise ? 1 : 0;
+    uniforms.uGerstnerTime.value = timeline ? timeline.elapsed : clock.elapsedTime;
     uniforms.uPrev.value = field.read.texture;
     uniforms.uDelta.value = step;
     uniforms.uDecay.value = foamDecay(settings.foamLife, step);

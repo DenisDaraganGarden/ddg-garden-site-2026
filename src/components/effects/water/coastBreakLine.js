@@ -10,13 +10,15 @@ export const BREAK_SAMPLES = 48;
 // than H / 0.78 (the depth-induced breaking criterion, γ = 0.78). Returns q per
 // section; a spit or shoal in the way pulls the line out to sea there, which
 // is what bends the crest around it.
-export function coastBreakLine(definition, height, along0, length, samples = BREAK_SAMPLES, gamma = 0.78) {
-  const depthAtBreak = Math.max(height, 0.05) / gamma;
+// heightAt(s): the wave's height at that section, when it varies along the
+// crest; the plain height otherwise.
+export function coastBreakLine(definition, height, along0, length, samples = BREAK_SAMPLES, gamma = 0.78, heightAt = null) {
   const line = new Float32Array(samples + 1);
   // No wave this lab draws breaks farther out than this; the shelf beyond only deepens.
   const start = -160;
   for (let i = 0; i <= samples; i += 1) {
     const s = along0 + (i / samples) * length;
+    const depthAtBreak = Math.max(heightAt ? heightAt(s) : height, 0.05) / gamma;
     // A crossing from deeper to shallower water; a coast that is shallow all
     // the way out has no unbroken wave to offer, and gets the waterline.
     let found = -1.5;

@@ -18,4 +18,7 @@ assert.ok(breakLineMean(tall) < breakLineMean(small));
 // Too shallow everywhere: the line sits at the waterline, never at sea.
 const flat = createTerrainDefinition({ waterDepthMeters: 0.3 });
 coastBreakLine(flat, 1.5, -100, 200, 4).forEach((q) => assert.ok(q > -2 && q <= 0, `waterline break ${q}`));
+// Heights along the crest: a section the weather makes taller breaks farther out.
+const varied = coastBreakLine(coast, 1.1, along0, length, 14, 0.78, (s) => (s < along0 + length * 0.5 ? 0.6 : 1.6));
+assert.ok(varied[0] > tall[0] && varied[10] < tall[0], `per-section heights move the line: ${varied[0]} / ${varied[10]} vs ${tall[0]}`);
 console.log(`coastFrame: 1.1 m breaks at ${tall[0].toFixed(1)} m on the beach and ${tall[14].toFixed(1)} m off the spit's shoal`);

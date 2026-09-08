@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { createGerstnerUniforms, gerstnerShader, syncGerstnerUniforms } from './gerstnerWaves';
+import { createGerstnerUniforms, gerstnerShader, gerstnerWeatherAt, syncGerstnerUniforms } from './gerstnerWaves';
+import { coastPoint } from '../../../terrain/terrainModel.js';
 import { BREAK_SAMPLES, breakLineMean, coastBreakLine, coastWaterShader, createCoastWaterUniforms, syncCoastWaterUniforms, tickShoreDepth } from './coastFrame';
 import { SURF_SHAPE, surfPlungeTime, surfProfileShader } from './surfProfile';
 import { createWaterShadingUniforms, syncWaterShadingUniforms, tickWaterShadingUniforms, useWaterNoise, waterShadingShader } from './waterShading';
@@ -69,11 +70,12 @@ const loftShader = /* glsl */`
   uniform float uPeel;
   uniform float uRunup;
   uniform float uSpent;        // metres past its own break after which a section is gone
-  // Height and phase vary smoothly along the crest (Bosboom & Stive's example
-  // modulation), the ends taper to the swell, and the break moment peels.
+  // The crest's height follows the swell's weather at its break point, so a
+  // gust's bigger sections break earlier and farther out than the lulls; the
+  // ends taper to the swell. The CPU break line uses the same field.
   float surfHeightAt(float s) {
-    float y = s * uCrestLength;
-    return uHeight * smoothstep(0.0, 0.06, s) * (1.0 - smoothstep(0.94, 1.0, s)) * (0.9 + 0.1 * cos(SURF_TAU * y / 9.0));
+    vec2 at = coastPoint(uBreakMean, uAlong0 + s * uCrestLength);
+    return uHeight * gerstnerWeather(at).x * smoothstep(0.0, 0.06, s) * (1.0 - smoothstep(0.94, 1.0, s));
   }
   float surfPhaseAt(float s) {
     float y = s * uCrestLength;
@@ -274,7 +276,7 @@ const smoothstep = (a, b, x) => { const u = clamp01((x - a) / (b - a)); return u
 
 // coast: { definition, along0, length, breakQ } — the terrain's coast frame
 // and the stretch of shore (coast s) the breakers work.
-export default function BreakingWaves({ settings, lighting, noise = null, coast, foamBores = null }) {
+export default function BreakingWaves({ settings, lighting, noise = null, coast, foamBores = null, timeline = null }) {
   const activeNoise = useWaterNoise(noise);
   const geometry = useMemo(() => buildRibbonGeometry(RIBBON_SEGMENTS, RIBBON_ROWS), []);
   useEffect(() => () => geometry.dispose(), [geometry]);
@@ -312,7 +314,7 @@ export default function BreakingWaves({ settings, lighting, noise = null, coast,
     // The loft's edges lie on the swell; the offset keeps them from fighting it for depth.
     const sheet = new THREE.ShaderMaterial({ uniforms, vertexShader: sheetVertexShader, fragmentShader: sheetFragmentShader, fog: true, transparent: true, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
     const shell = new THREE.ShaderMaterial({ uniforms, vertexShader: shellVertexShader, fragmentShader: shellFragmentShader, fog: true, transparent: true, depthWrite: false, premultipliedAlpha: true, side: THREE.DoubleSide });
-    return { index, uniforms, sheet, shell, spawn: -index * 9, height: 1, lineFor: NaN };
+    return { index, uniforms, sheet, shell, spawn: -index * 9, height: 1, lineFor: '' };
   }), [shading]);
   useEffect(() => () => ribbons.forEach((ribbon) => { ribbon.sheet.dispose(); ribbon.shell.dispose(); }), [ribbons]);
   const schedule = useRef({ lastSpawn: 0, spawned: RIBBON_COUNT });
@@ -327,7 +329,7 @@ export default function BreakingWaves({ settings, lighting, noise = null, coast,
       uniforms.uCrestLength.value = coast.length;
       uniforms.uRefraction.value = settings.surfRefraction;
       uniforms.uSpent.value = settings.surfBoreLength + 30;
-      ribbon.lineFor = NaN;
+      ribbon.lineFor = '';
       uniforms.uWidth.value = settings.surfWidth;
       uniforms.uSteepen.value = settings.surfBreakLength;
       uniforms.uLean.value = settings.surfLean;
@@ -344,7 +346,7 @@ export default function BreakingWaves({ settings, lighting, noise = null, coast,
   }, [coast, lighting, ribbons, settings, shading]);
 
   useFrame(({ clock }) => {
-    const time = clock.elapsedTime;
+    const time = timeline ? timeline.elapsed : clock.elapsedTime;
     tickWaterShadingUniforms(shading, time, activeNoise);
     // Travel is measured from the mean break line: the wave is born well out
     // to sea and is over once its bore has run its length.
@@ -373,14 +375,20 @@ export default function BreakingWaves({ settings, lighting, noise = null, coast,
         travel = start + speed * (time - next);
       }
       const height = settings.surfHeight * (frozen ? 1 : ribbon.height);
-      // The break line for this wave's height: where the coast is shallower
-      // than H / 0.78, section by section, refreshed when the height changes.
-      if (ribbon.lineFor !== height) {
-        const line = coastBreakLine(coast.definition, height, coast.along0, coast.length);
+      // The break line for this wave: where the coast is shallower than
+      // H / 0.78, section by section, with the crest's height read from the
+      // swell's weather at its own break point — first with the plain height
+      // to find the line, then with the heights along it. Refreshed when the
+      // height or the weather changes.
+      const lineKey = `${height}|${settings.gusts}|${settings.surfBreakDistance}`;
+      if (ribbon.lineFor !== lineKey) {
+        const guess = breakLineMean(coastBreakLine(coast.definition, height, coast.along0, coast.length, 8));
+        const heightAt = (s) => { const at = coastPoint(guess, s, coast.definition); return height * gerstnerWeatherAt(at.x, at.z, settings.gusts); };
+        const line = coastBreakLine(coast.definition, height, coast.along0, coast.length, BREAK_SAMPLES, 0.78, heightAt);
         for (let i = 0; i < line.length; i += 1) line[i] += settings.surfBreakDistance;
         ribbon.uniforms.uBreakLine.value = line;
         ribbon.uniforms.uBreakMean.value = breakLineMean(line);
-        ribbon.lineFor = height;
+        ribbon.lineFor = lineKey;
       }
       ribbon.uniforms.uTravel.value = travel;
       ribbon.uniforms.uPose.value = frozen ? 1.4 : travel;

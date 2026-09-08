@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { GERSTNER_MAX_STEEPNESS, gerstnerSteepnessBudget, resolveGerstnerTrains } from './gerstnerWaves.js';
+import { GERSTNER_MAX_STEEPNESS, GERSTNER_WEATHER, gerstnerShader, gerstnerSteepnessBudget, gerstnerWeatherAt, resolveGerstnerTrains } from './gerstnerWaves.js';
 import { buildRadialWaterGeometry } from './radialWaterGeometry.js';
 
 // The steepness budget is the no-self-intersection guarantee: whatever the
@@ -30,4 +30,15 @@ for (let face = 0; face < index.count; face += 3) {
   // Y of the cross product of two XZ edges: positive means the face looks up.
   assert.ok(uz * vx - ux * vz > 0, `face ${face / 3} is wound downward`);
 }
+// The weather: GLSL and JS read one table (the CPU break line and the loft's
+// crest heights must agree), the envelope never exceeds 1 (the steepness
+// budget holds) and never falls below 1 - 0.7 * gusts.
+for (const [fx, fz] of [...GERSTNER_WEATHER.gusts, ...GERSTNER_WEATHER.wander, ...GERSTNER_WEATHER.caps]) {
+  assert.ok(gerstnerShader.includes(`p.x * ${fx.toFixed(4)} + p.y * ${fz.toFixed(4)}`), `weather term ${fx}/${fz} missing from the GLSL`);
+}
+for (let i = 0; i < 2000; i += 1) {
+  const w = gerstnerWeatherAt(Math.sin(i * 7.3) * 900, Math.cos(i * 3.1) * 900, 1);
+  assert.ok(w <= 1 + 1e-9 && w >= 0.3 - 1e-9, `weather envelope ${w}`);
+}
+assert.equal(gerstnerWeatherAt(123, -456, 0), 1);
 console.log(`gerstnerWaves: steepness capped at ${GERSTNER_MAX_STEEPNESS}, radial mesh ${geometry.userData.triangles} triangles facing up`);

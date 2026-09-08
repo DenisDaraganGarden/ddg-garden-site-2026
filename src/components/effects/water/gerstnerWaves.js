@@ -10,6 +10,22 @@ import * as THREE from 'three';
 export const GERSTNER_TRAIN_COUNT = 4;
 export const GERSTNER_MAX_STEEPNESS = 0.8;
 const GRAVITY = 9.81;
+
+// The weather over the water: slow sine fields in world xz. One table for the
+// GLSL and the JS below, so the loft's heights along a crest and the break
+// line computed on the CPU agree. Each term: [fx, fz, phase, weight].
+export const GERSTNER_WEATHER = Object.freeze({
+  // Amplitude in gusts: sum / 2.1 is -1..1.
+  gusts: [[0.0113, 0.0071, 0, 1], [0.0047, -0.0129, 1.7, 0.7], [0.0231, 0.0187, 0.4, 0.4]],
+  // Phase: crests wander instead of running as ruled lines.
+  wander: [[0.0083, -0.0097, 2.1, 1], [0.0173, 0.0059, 0.9, 0.6]],
+  // Where crests fold into whitecaps: patches of ~30 m, sum / 1.7 is -1..1.
+  caps: [[0.031, -0.019, 0.6, 1], [0.051, 0.043, 2.3, 0.7]],
+});
+const sineSum = (terms, x, z, drift = 0) => terms.reduce((sum, [fx, fz, phase, weight]) => sum + weight * Math.sin(fx * x + fz * z + phase + drift), 0);
+const sineSumGlsl = (terms, drift = '') => terms.map(([fx, fz, phase, weight]) => `${weight.toFixed(2)} * sin(p.x * ${fx.toFixed(4)} + p.y * ${fz.toFixed(4)} + ${phase.toFixed(2)}${drift})`).join(' + ');
+// Amplitude factor of the swell here, 1 - 0.7 * gusts .. 1.
+export const gerstnerWeatherAt = (x, z, gusts) => 1 - Math.min(Math.max(Number(gusts) || 0, 0), 1) * 0.35 * (1 - sineSum(GERSTNER_WEATHER.gusts, x, z) / 2.1);
 const TRAIN_SHAPES = [
   { wavelength: 1, amplitude: 1, bearing: 0, sets: 1, cross: 0 },
   { wavelength: 0.62, amplitude: 0.45, bearing: 38, sets: 0.6, cross: 1 },
@@ -74,11 +90,17 @@ uniform vec2 uGerstnerFade;
 // The sea is never one clean train: a slow field over the water bends every
 // train's phase, so crests wander instead of running as ruled lines, and
 // scales the amplitude in patches, the gusts. The envelope never exceeds 1,
-// so the steepness budget holds.
+// so the steepness budget holds. Generated from GERSTNER_WEATHER.
 vec2 gerstnerWeather(vec2 p) {
-  float a = sin(p.x * 0.0113 + p.y * 0.0071) + 0.7 * sin(p.x * 0.0047 - p.y * 0.0129 + 1.7) + 0.4 * sin(p.x * 0.0231 + p.y * 0.0187 + 0.4);
-  float b = sin(p.x * 0.0083 - p.y * 0.0097 + 2.1) + 0.6 * sin(p.x * 0.0173 + p.y * 0.0059 + 0.9);
+  float a = ${sineSumGlsl(GERSTNER_WEATHER.gusts)};
+  float b = ${sineSumGlsl(GERSTNER_WEATHER.wander)};
   return vec2(1.0 - uGerstnerGusts * 0.35 * (1.0 - a / 2.1), b * 1.6 * uGerstnerGusts);
+}
+// Crests fold in patches, not along their whole length: where a fold makes
+// foam, drifting slowly downwind.
+float gerstnerWhitecapMask(vec2 p) {
+  float c = ${sineSumGlsl(GERSTNER_WEATHER.caps, ' + uGerstnerTime * 0.03')};
+  return smoothstep(0.1, 0.55, c / 1.7);
 }
 
 // Waves arrive in groups: the envelope runs at a sixth of the train's own
@@ -136,6 +158,22 @@ vec3 gerstnerDisplace(vec2 p, float fade, float cell, out vec3 normal, out float
 // and whitecaps from above. A crest that spans a pixel or more of phase is
 // averaged out instead of shimmering as the camera moves.
 export const gerstnerPixelShader = /* glsl */`
+// The whole wave field's fold here, unfaded and fully resolved: foam is a
+// property of the surface and shows to the horizon even where the mesh no
+// longer carries the wave. A crest that spans a pixel or more of phase is
+// averaged out instead of shimmering.
+float gerstnerFold(vec2 p) {
+  vec2 weather = gerstnerWeather(p);
+  float fold = 0.0;
+  for (int i = 0; i < GERSTNER_TRAINS; i++) {
+    vec4 train = uGerstnerTrain[i];
+    vec4 motion = uGerstnerMotion[i];
+    float phase = train.z * dot(train.xy, p) - motion.x * uGerstnerTime + motion.z + weather.y;
+    float aa = 1.0 - smoothstep(0.35, 1.5, fwidth(phase));
+    fold += motion.y * train.z * train.w * weather.x * gerstnerEnvelope(phase, motion.w) * aa * sin(phase);
+  }
+  return fold;
+}
 vec2 gerstnerPixelSlope(vec2 p, float fade, float cell, out float fold) {
   vec2 slope = vec2(0.0);
   fold = 0.0;
