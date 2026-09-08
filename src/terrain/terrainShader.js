@@ -16,6 +16,8 @@ uniform vec4 uCoastSwell;
 uniform vec4 uCoastShelf;
 // x: scale of the bed patches (m), y: ripple marks on the sand.
 uniform vec4 uCoastBed;
+// x: the length of the near-shore knee in metres, y: bars and shoals along the shore.
+uniform vec4 uCoastNearshore;
 // x: talus run out of the bluff onto the beach, y: beds and rain rills of the face, z: width of the turf rim of the crest (m), w: moist islands.
 uniform vec4 uCoastSoil;
 uniform vec3 uCoastRimTint;uniform vec3 uCoastOasisTint;
@@ -47,9 +49,21 @@ float coastShelfDrop(vec2 qs) {
  float ends=1.0-smoothstep(uCoastDimensions.x*.5-64.0,uCoastDimensions.x*.5,abs(qs.y));
  return -uCoastShelf.x*.01*max(min(-qs.x,coastOffshore())-24.0,0.0)*ends*uCoastShape.x;
 }
+// The plants' ecology patch (plantEcology.js), repeated here because the water
+// shaders carry the coast chunk without the plant chunk: a smooth metre-space
+// field, 0..1, with the same CPU twin in terrainModel.js. Declared above the
+// bed because the bars read it.
+float coastPatch(vec2 p,float scale,float seed) {
+ vec2 q=p/max(scale,1.0);float phase=seed*.713;
+ float warp=sin(q.x*1.7-q.y*1.3+phase)*.7;
+ return .5+.25*sin(q.x*2.1+q.y*.9+warp+phase)+.17*sin(q.y*2.7-q.x*.6+phase*1.7)+.08*sin(q.x*4.3+q.y*3.2-phase*.8);
+}
 float coastHeight(vec2 qs) {
  float q=qs.x,s=qs.y,seed=uCoastShape.w*.137;
- float shelf=-uCoastSurface.y*(1.0-exp(min(q,0.0)/12.0));
+ // The knee of the near-shore curve as a 1:N run at the water's edge, and on it
+ // bars and shoals along the shore. CPU twin in terrainModel.js coastHeight.
+ float ramp=-uCoastSurface.y*(1.0-exp(min(q,0.0)/max(uCoastNearshore.x,1.0)));
+ float shelf=ramp+uCoastNearshore.y*.55*(coastPatch(vec2(s,q*2.2),46.0,seed+7.0)-.5)*smoothstep(-90.0,-50.0,q)*(1.0-smoothstep(-14.0,-4.0,q))*smoothstep(.05,.7,-ramp);
  if(q<=0.0)return coastSpitHeight(mix(-uCoastSurface.y,shelf,coastMask(qs))+coastShelfDrop(qs),qs,coastMask(qs));
  vec3 f=coastLandforms(s);vec4 profile=coastProfile(s,f);
  float foot=profile.x,top=profile.y,bank=profile.z,width=top-foot;
@@ -112,14 +126,6 @@ float coastWetnessAtHeight(vec2 qs,float time,float ground) {
 }
 // The physical wetness field omits the material's centimetre drying noise.
 float coastWetness(vec2 qs,float time){float level=max(max(.04,uCoastSurface.w*.035),coastWaveGain(qs,time));return (1.0-smoothstep(level,level+.1,coastHeight(qs)))*coastMask(qs);}
-// The plants' ecology patch (plantEcology.js), repeated here because the water
-// shaders carry the coast chunk without the plant chunk: a smooth metre-space
-// field, 0..1, with the same CPU twin in terrainModel.js.
-float coastPatch(vec2 p,float scale,float seed) {
- vec2 q=p/max(scale,1.0);float phase=seed*.713;
- float warp=sin(q.x*1.7-q.y*1.3+phase)*.7;
- return .5+.25*sin(q.x*2.1+q.y*.9+warp+phase)+.17*sin(q.y*2.7-q.x*.6+phase*1.7)+.08*sin(q.x*4.3+q.y*3.2-phase*.8);
-}
 // What lies on the sand of the shelf, by depth: the surf keeps the first half
 // metre bare, eelgrass and weed take the middle of the shelf, silt settles in
 // the calm deeper water, mussel banks sit as small dark islands. The patches
@@ -247,7 +253,7 @@ float coastSandFoamAtHeight(vec2 qs,vec3 world,float time,float ground){return c
 float coastFoam(vec2 qs,vec3 world,float time){return coastFoamAtHeight(qs,world,time,coastHeight(qs));}
 `;
 export function createCoastUniforms() {
- return {uCoastSpit:{value:new THREE.Vector4()},uCoastSpitProfile:{value:new THREE.Vector4(1,12,1,0)},uCoastSpitBounds:{value:new THREE.Vector4()},uCoastSpitNodes:{value:Array.from({length:SPIT_SEGMENTS+1},()=>new THREE.Vector4())},uCoastLandforms:{value:new THREE.Vector4()},uCoastShape:{value:new THREE.Vector4()},uCoastDimensions:{value:new THREE.Vector4()},uCoastDetail:{value:new THREE.Vector4()},uCoastSurface:{value:new THREE.Vector4()},uCoastSurf:{value:new THREE.Vector4()},uCoastGeology:{value:new THREE.Vector4()},uCoastSwell:{value:new THREE.Vector4(0,-1,1,0)},uCoastShelf:{value:new THREE.Vector4()},uCoastBed:{value:new THREE.Vector4(42,0,0,0)},uCoastSoil:{value:new THREE.Vector4(.6,.6,8,0)},uCoastRimTint:{value:new THREE.Color('#86ad55')},uCoastOasisTint:{value:new THREE.Color('#7f9c58')},uCoastWrack:{value:new THREE.Vector4(.6,0,0,0)},uCoastSand:{value:new THREE.Vector4(.6,0,0,0)}};
+ return {uCoastSpit:{value:new THREE.Vector4()},uCoastSpitProfile:{value:new THREE.Vector4(1,12,1,0)},uCoastSpitBounds:{value:new THREE.Vector4()},uCoastSpitNodes:{value:Array.from({length:SPIT_SEGMENTS+1},()=>new THREE.Vector4())},uCoastLandforms:{value:new THREE.Vector4()},uCoastShape:{value:new THREE.Vector4()},uCoastDimensions:{value:new THREE.Vector4()},uCoastDetail:{value:new THREE.Vector4()},uCoastSurface:{value:new THREE.Vector4()},uCoastSurf:{value:new THREE.Vector4()},uCoastGeology:{value:new THREE.Vector4()},uCoastSwell:{value:new THREE.Vector4(0,-1,1,0)},uCoastShelf:{value:new THREE.Vector4()},uCoastBed:{value:new THREE.Vector4(42,0,0,0)},uCoastNearshore:{value:new THREE.Vector4(12,0,0,0)},uCoastSoil:{value:new THREE.Vector4(.6,.6,8,0)},uCoastRimTint:{value:new THREE.Color('#86ad55')},uCoastOasisTint:{value:new THREE.Color('#7f9c58')},uCoastWrack:{value:new THREE.Vector4(.6,0,0,0)},uCoastSand:{value:new THREE.Vector4(.6,0,0,0)}};
 }
 export function syncCoastUniforms(uniforms,p) {
  uniforms.uCoastShape.value.set(p.terrainEnabled?1:0,p.terrainBearing*Math.PI/180,p.terrainOffset,p.terrainSeed);
@@ -261,6 +267,7 @@ export function syncCoastUniforms(uniforms,p) {
  uniforms.uCoastShelf?.value.set(p.terrainShelfSlope??0,p.terrainWeed??0,p.terrainSilt??0,p.terrainMussels??0);
  const definition=p.spit?p:createTerrainDefinition(p);
  uniforms.uCoastBed?.value.set(p.terrainBedScale??42,p.terrainRipples??0,definition.coastOffshore,0);
+ uniforms.uCoastNearshore?.value.set(p.terrainShoreKnee??12,p.terrainBars??0,0,0);
  uniforms.uCoastSpit?.value.set(p.terrainSpitEnabled?1:0,definition.terrainSpitShoal,definition.terrainSpitPosition,0);
  uniforms.uCoastSpitProfile?.value.set(definition.spit.length,definition.spit.rootRadius,definition.terrainSpitBend<0?-1:1,0);
  const bounds=definition.spit.bounds;

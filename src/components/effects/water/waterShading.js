@@ -111,7 +111,10 @@ export const waterShadingShader = /* glsl */`
     // depth — and the surface reads less as a mirror over it.
     vec3 bedLit = uBedColor * 0.55 * (uFillIrradiance + uSunRadiance * (0.3 + 0.7 * sunDiffuse)) / WATER_PI;
     body = mix(body, bedLit, bed);
-    vec3 color = mix(body, reflection, clamp(fresnel, 0.02, 0.85) * (1.0 - transmit * 0.8) * (1.0 - 0.45 * bed));
+    // Fresnel does not know how deep the water is. Damping the reflection by
+    // the bed killed the sheen exactly where a real shore has most of it — on
+    // the swash film, a millimetre of water over wet sand, which is a mirror.
+    vec3 color = mix(body, reflection, clamp(fresnel, 0.02, 0.85) * (1.0 - transmit * 0.8));
     float bubbles;
     float foam = waterFoam(foamUv, foamCoverage, pixel, foamAge, bubbles);
     // Beer/powder from the clouds: a thick patch is lit flat white, a thin one

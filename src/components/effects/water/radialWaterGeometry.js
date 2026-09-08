@@ -5,6 +5,16 @@ import * as THREE from 'three';
 // mesh follows the camera; waves are evaluated in world space, so vertices
 // sliding under a fixed wave field is invisible at this density.
 
+// Metres of vertex spacing per metre of distance from the camera: the larger of
+// the radial growth and the angular step. Every water surface fades the trains
+// it cannot resolve by this one number (waterCell in gerstnerWaves.js), so two
+// surfaces meeting at a seam compute the same swell there and there is no step.
+export function radialCellFactor({ innerRadius = 1, outerRadius = 3000, rings = 112, segments = 144 } = {}) {
+  const ringCount = Math.max(Math.round(Number(rings) || 112), 2);
+  const segmentCount = Math.max(Math.round(Number(segments) || 144), 3);
+  return Math.max((outerRadius / innerRadius) ** (1 / (ringCount - 1)) - 1, (Math.PI * 2) / segmentCount);
+}
+
 export function buildRadialWaterGeometry({ innerRadius = 1, outerRadius = 3000, rings = 112, segments = 144 } = {}) {
   const ringCount = Math.max(Math.round(rings), 2);
   const segmentCount = Math.max(Math.round(segments), 3);
@@ -39,9 +49,6 @@ export function buildRadialWaterGeometry({ innerRadius = 1, outerRadius = 3000, 
   geometry.setIndex(indices);
   geometry.boundingSphere = new THREE.Sphere(new THREE.Vector3(), outerRadius);
   geometry.userData.triangles = indices.length / 3;
-  // Metres of vertex spacing per metre of distance from the centre: the larger
-  // of the radial growth and the angular step. The shader uses it to hand
-  // waves the mesh can no longer resolve over to the per-pixel normal.
-  geometry.userData.cellFactor = Math.max(growth - 1, (Math.PI * 2) / segmentCount);
+  geometry.userData.cellFactor = radialCellFactor({ innerRadius, outerRadius, rings, segments });
   return geometry;
 }

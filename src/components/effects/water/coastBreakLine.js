@@ -36,7 +36,13 @@ export function coastBreakLine(definition, height, along0, length, samples = BRE
     }
     line[i] = found;
   }
-  return line;
+  // The samples are 6 m apart and the ribbon's columns 1.75 m: read raw, the
+  // line is a polyline and the crest kinks by up to 17 degrees where the spit's
+  // shoal pulls it out. One 1-2-1 pass costs nothing and, on the open beach
+  // where every sample is equal, changes nothing.
+  const smoothed = Float32Array.from(line);
+  for (let i = 1; i < samples; i += 1) smoothed[i] = 0.25 * line[i - 1] + 0.5 * line[i] + 0.25 * line[i + 1];
+  return smoothed;
 }
 
 export const breakLineMean = (line) => line.reduce((sum, q) => sum + q, 0) / line.length;

@@ -79,6 +79,12 @@ const updateFragmentShader = /* glsl */`
   uniform float uSoftness;
   uniform float uDeposit;
   uniform vec4 uBore[FOAM_BORES];
+  // The crest the bores came from: s of its start, its peel, its length, and
+  // the breaker's width. A bore is one number per wave, but the crest that drew
+  // it is peeled along the shore and wanders, so the sample is moved into the
+  // crest's frame before it is compared.
+  uniform vec4 uBoreFrame;
+  uniform float uBoreRunup;   // how far up the beach the water is allowed to go
   void main() {
     vec2 world = uWindow.xy + (vUv - 0.5) * 2.0 * uWindow.z;
     vec3 waveNormal;
@@ -107,22 +113,39 @@ const updateFragmentShader = /* glsl */`
     if (uHasPrev > 0.5 && all(greaterThan(prevUv, vec2(0.0))) && all(lessThan(prevUv, vec2(1.0)))) {
       state = texture2D(uPrev, prevUv);
     }
+    // The sand's memory does not travel. Foam on top of it is carried down the
+    // slope by the backwash, but the dark of a wetted beach stays where the
+    // water was: read that channel at this texel's own place.
+    vec2 stillUv = (world - uPrevWindow.xy) / (2.0 * uPrevWindow.z) + 0.5;
+    float wetPrev = uHasPrev > 0.5 && all(greaterThan(stillUv, vec2(0.0))) && all(lessThan(stillUv, vec2(1.0))) ? texture2D(uPrev, stillUv).b : 0.0;
     float q = qs.x;
+    // Into the crest's frame: the peel skews the front along the shore and the
+    // same wander scallops it, so the wet line is the line the wave drew.
+    float crestLength = max(uBoreFrame.z, 1.0);
+    float alongCrest = clamp((qs.y - uBoreFrame.x) / crestLength, 0.0, 1.0);
+    float qBore = q + alongCrest * crestLength * uBoreFrame.y - coastCrestWiggle(qs.y, uBoreFrame.w);
+    // Off the ends of the crest there is no bore at all.
+    float onCrest = step(uBoreFrame.x - 12.0, qs.y) * step(qs.y, uBoreFrame.x + crestLength + 12.0);
     state.x *= sand ? uSandDecay : uDecay;
     state.y = min(state.y + uAgeStep, 1.0);
-    state.z = sand ? state.z * uDryDecay : 1.0;
+    state.z = sand ? wetPrev * uDryDecay : 1.0;
     // The sheet drains from the top of the beach first: a second near the
     // waterline, a fifth of one six metres up.
     state.w = sand ? state.w * exp(-uDelta / max(0.2, 1.1 - 0.9 * clamp(q / 6.0, 0.0, 1.0))) : 1.0;
     float fresh = sand ? 0.0 : smoothstep(uThreshold + uSoftness, uThreshold - uSoftness, jacobian) * uDeposit * 0.65 * gerstnerWhitecapMask(world);
     for (int i = 0; i < FOAM_BORES; i++) {
       vec4 bore = uBore[i];
-      fresh = max(fresh, bore.y * uDeposit * (1.0 - smoothstep(bore.z * 0.3, bore.z, abs(q - bore.x))));
-      // The run-up sheet: the sand up to the front is under water and wet, the front leaves lace.
-      if (sand && bore.w > -50.0 && q < bore.w) {
+      fresh = max(fresh, onCrest * bore.y * uDeposit * (1.0 - smoothstep(bore.z * 0.3, bore.z, abs(qBore - bore.x))));
+      // The run-up sheet: the sand up to the front is under water and wet, the
+      // front leaves lace. It is a sheet on the beach, so it starts at the
+      // waterline — without that bound every grain of the spit, which has no
+      // surf of its own, was wet for ever.
+      if (sand && onCrest > 0.5 && bore.w > -50.0 && qBore < bore.w && qBore > -2.0 && q < uBoreRunup) {
         state.z = 1.0;
-        state.w = 1.0;
-        fresh = max(fresh, bore.y * 0.8 * (1.0 - smoothstep(0.1, 0.7, bore.w - q)));
+        // The tongue is thin at its edge and thickens behind it: a slab of one
+        // constant thickness with a vertical wall is not a run-up.
+        state.w = max(state.w, clamp((bore.w - qBore) * 0.5, 0.0, 1.0));
+        fresh = max(fresh, bore.y * 0.8 * (1.0 - smoothstep(0.1, 0.7, bore.w - qBore)));
       }
     }
     // Fresh foam wins and is young again; what it does not cover keeps its age.
@@ -167,6 +190,8 @@ export function useFoamField(targetUniforms, { settings, bores, coast = null, ti
       uDeposit: { value: 1 },
       ...createCoastWaterUniforms(),
       uBore: { value: createFoamBores() },
+      uBoreFrame: { value: new THREE.Vector4(0, 0, 1, 9) },
+      uBoreRunup: { value: 6 },
     });
     return { read, write, pass };
   }, []);
@@ -220,6 +245,8 @@ export function useFoamField(targetUniforms, { settings, bores, coast = null, ti
     syncCoastWaterUniforms(uniforms, coast, coast?.breakQ ?? -10, 0);
     if (bores) uniforms.uBore.value = bores;
     else uniforms.uBore.value.forEach((bore) => bore.set(0, 0, 1, -100));
+    uniforms.uBoreFrame.value.set(coast?.along0 ?? 0, settings.surfPeel ?? 0, coast?.length ?? 1, settings.surfWidth ?? 9);
+    uniforms.uBoreRunup.value = settings.surfRunup ?? 6;
 
     gl.setRenderTarget(field.write);
     gl.render(field.pass.scene, field.pass.camera);

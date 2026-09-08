@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { coastHeight, coastPoint } from '../../../terrain/terrainModel.js';
-import { createGerstnerUniforms, gerstnerShader, syncGerstnerUniforms } from './gerstnerWaves';
+import { createGerstnerUniforms, gerstnerPixelShader, gerstnerShader, syncGerstnerUniforms } from './gerstnerWaves';
 import { coastWaterShader, createCoastWaterUniforms, syncCoastWaterUniforms, tickShoreDepth } from './coastFrame';
 import { createFoamFieldUniforms, foamFieldShader } from './foamField';
 import { createWaterShadingUniforms, syncWaterShadingUniforms, tickWaterShadingUniforms, useWaterNoise, waterShadingShader } from './waterShading';
@@ -26,6 +26,7 @@ function buildShoreBand(definition, sMin, sMax, qMin, qMax) {
   const positions = new Float32Array(cols * rows * 3);
   const coast = new Float32Array(cols * rows * 2);
   const ground = new Float32Array(cols * rows);
+  const groundNormal = new Float32Array(cols * rows * 3);
   let v = 0;
   for (let r = 0; r < rows; r += 1) {
     const s = sMin + r * ROW;
@@ -35,6 +36,22 @@ function buildShoreBand(definition, sMin, sMax, qMin, qMax) {
       positions[v * 3] = x; positions[v * 3 + 2] = z;
       coast[v * 2] = q; coast[v * 2 + 1] = s;
       ground[v] = coastHeight(q, s, definition);
+    }
+  }
+  // The sand's normal from the heights just sampled — the swash film lies on
+  // the sand, so it must catch the light the way the sand does, not as a level
+  // mirror. Central differences inside, one-sided at the rim; no new samples.
+  for (let r = 0; r < rows; r += 1) {
+    for (let c = 0; c < cols; c += 1) {
+      const v = r * cols + c;
+      const cLo = Math.max(c - 1, 0), cHi = Math.min(c + 1, cols - 1);
+      const rLo = Math.max(r - 1, 0), rHi = Math.min(r + 1, rows - 1);
+      const dq = (ground[r * cols + cHi] - ground[r * cols + cLo]) / ((cHi - cLo) * COLUMN);
+      const ds = (ground[rHi * cols + c] - ground[rLo * cols + c]) / ((rHi - rLo) * ROW);
+      const x = -dq * definition.landX - ds * definition.alongX;
+      const z = -dq * definition.landZ - ds * definition.alongZ;
+      const length = Math.hypot(x, 1, z);
+      groundNormal[v * 3] = x / length; groundNormal[v * 3 + 1] = 1 / length; groundNormal[v * 3 + 2] = z / length;
     }
   }
   const indices = new (cols * rows > 65535 ? Uint32Array : Uint16Array)((cols - 1) * (rows - 1) * 6);
@@ -50,6 +67,7 @@ function buildShoreBand(definition, sMin, sMax, qMin, qMax) {
   geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
   geometry.setAttribute('aCoast', new THREE.BufferAttribute(coast, 2));
   geometry.setAttribute('aGround', new THREE.BufferAttribute(ground, 1));
+  geometry.setAttribute('aGroundNormal', new THREE.BufferAttribute(groundNormal, 3));
   geometry.setIndex(new THREE.BufferAttribute(indices, 1));
   geometry.computeBoundingSphere();
   geometry.boundingSphere.radius += 4;
@@ -63,12 +81,16 @@ const vertexShader = /* glsl */`
   ${foamFieldShader}
   attribute vec2 aCoast;
   attribute float aGround;
+  attribute vec3 aGroundNormal;
   uniform float uFilm;
   varying vec3 vWorld;
   varying vec3 vWaveNormal;
+  varying vec3 vGroundNormal;
   varying float vGround;
   varying float vFilm;
   varying float vFade;
+  varying float vCell;
+  varying float vLevel;
   void main() {
     vec2 p = position.xz;
     float dist = distance(p, cameraPosition.xz);
@@ -76,7 +98,10 @@ const vertexShader = /* glsl */`
     vec3 waveNormal;
     float jacobian;
     vec2 drift;
-    vec3 world = gerstnerDisplace(p, fade, 0.5, waveNormal, jacobian, drift);
+    // The same cell as the open water past the seam, not this band's own
+    // half metre: two waters that meet must compute one swell there.
+    float cell = waterCell(p);
+    vec3 world = gerstnerDisplace(p, fade, cell, waveNormal, jacobian, drift);
     // The swash: where the sheet covers the sand now, the water rides on it.
     float film = 0.0;
     if (uFoamMemory > 0.5) {
@@ -84,12 +109,20 @@ const vertexShader = /* glsl */`
       if (all(greaterThan(uv, vec2(0.0))) && all(lessThan(uv, vec2(1.0)))) film = texture2D(uFoamField, uv).a;
     }
     film *= smoothstep(-0.02, 0.02, aGround);
-    if (film > 0.02) world.y = max(world.y, aGround + 0.006 + uFilm * film);
+    // The swell's own level, before the sand claims it: the fragment needs the
+    // unclamped surface, because max() taken here — per vertex — is what turned
+    // the water's edge into a staircase with this band's own metre-wide rows.
+    vLevel = world.y;
+    // No threshold on the sheet: a step tears the lift between neighbouring
+    // vertices. The sheet's own taper is what thins the tongue's edge.
+    world.y = max(world.y, aGround + uFilm * film);
     vWorld = world;
     vWaveNormal = waveNormal;
+    vGroundNormal = aGroundNormal;
     vGround = aGround;
     vFilm = film;
     vFade = fade;
+    vCell = cell;
     vec4 mvPosition = viewMatrix * vec4(world, 1.0);
     gl_Position = projectionMatrix * mvPosition;
     #include <fog_vertex>
@@ -100,29 +133,47 @@ const fragmentShader = /* glsl */`
   #include <fog_pars_fragment>
   ${waterShadingShader}
   ${gerstnerShader}
+  ${gerstnerPixelShader}
   ${coastWaterShader}
   ${foamFieldShader}
   uniform float uSeam;
+  uniform float uFilm;
   varying vec3 vWorld;
   varying vec3 vWaveNormal;
+  varying vec3 vGroundNormal;
   varying float vGround;
   varying float vFilm;
   varying float vFade;
+  varying float vCell;
+  varying float vLevel;
   void main() {
-    // Under the sand there is no water; past the seam the open-water mesh draws.
-    float depth = vWorld.y - vGround;
-    if (depth < 0.003) discard;
+    // Past the seam the open-water mesh draws this water.
     if (coastLocal(vWorld.xz).x < uSeam) discard;
+    // The water's edge, per pixel. The bed comes from the shore depth map — a
+    // smooth field, not this band's chords — and the sheet from the foam field,
+    // so the tongue running up the sand is cut by the water that is there and
+    // not by the row of vertices nearest to it.
+    vec2 fuv = (vWorld.xz - uFoamWindow.xy) / (2.0 * uFoamWindow.z) + 0.5;
+    float sheet = uFoamMemory > 0.5 && all(greaterThan(fuv, vec2(0.0))) && all(lessThan(fuv, vec2(1.0))) ? texture2D(uFoamField, fuv).a * uFilm : 0.0;
+    float bed = uShoreReady > 0.5 ? coastGround(coastLocal(vWorld.xz)) : vGround;
+    float depth = max(vLevel - bed, sheet);
+    if (depth < 0.004) discard;
     vec3 view = normalize(cameraPosition - vWorld);
     float pixel = length(vec2(fwidth(vWorld.x), fwidth(vWorld.z)));
+    vec3 n = normalize(vWaveNormal);
+    // The share of the swell this band's mesh no longer carries, as slope per
+    // pixel — the same restoration the open water does, so the seam is flat in
+    // shading as well as in height.
+    float fold;
+    vec2 farSlope = gerstnerPixelSlope(vWorld.xz, vFade, vCell, fold);
+    n = normalize(vec3(n.x - farSlope.x * n.y, n.y, n.z - farSlope.y * n.y));
     // The film lies on the sand: its normal is the sand's, not the swell's.
-    vec3 n = normalize(mix(normalize(vWaveNormal), vec3(0.0, 1.0, 0.0), vFilm));
+    n = normalize(mix(n, normalize(vGroundNormal), vFilm));
     n = waterRippleNormal(n, vWorld.xz, pixel, vFade * (1.0 - vFilm));
     vec3 memory = sampleFoamField(vWorld.xz);
     // The sand under the water by Beer-Lambert: at the edge the water is the
     // wet sand itself under a gloss, deeper it is the water's own body.
-    float bed = exp(-depth * 3.0);
-    vec3 color = shadeWater(vWorld, n, view, pixel, waterFlowUv(vWorld.xz), memory.x, memory.y, 10.0, 0.0, bed);
+    vec3 color = shadeWater(vWorld, n, view, pixel, waterFlowUv(vWorld.xz), memory.x, memory.y, 10.0, 0.0, exp(-depth * 3.0));
     gl_FragColor = vec4(color, 1.0);
     #include <fog_fragment>
     #include <tonemapping_fragment>
@@ -131,10 +182,10 @@ const fragmentShader = /* glsl */`
 `;
 
 // coast: { definition, band: { sMin, sMax, seam }, shoreDepth, foamField, breakQ }.
-export default function ShoreWater({ settings, lighting, noise = null, coast, timeline = null }) {
+export default function ShoreWater({ settings, lighting, noise = null, coast, timeline = null, wireframe = false }) {
   const activeNoise = useWaterNoise(noise);
   const band = coast.band;
-  const geometry = useMemo(() => buildShoreBand(coast.definition, band.sMin, band.sMax, band.seam - 2, 8), [band.seam, band.sMax, band.sMin, coast.definition]);
+  const geometry = useMemo(() => buildShoreBand(coast.definition, band.sMin, band.sMax, band.seam - 2, 12), [band.seam, band.sMax, band.sMin, coast.definition]);
   useEffect(() => () => geometry.dispose(), [geometry]);
   const [uniforms] = useState(() => ({
     ...THREE.UniformsUtils.clone(THREE.UniformsLib.fog),
@@ -167,7 +218,7 @@ export default function ShoreWater({ settings, lighting, noise = null, coast, ti
 
   return (
     <mesh name="shore-water" geometry={geometry} frustumCulled={false}>
-      <shaderMaterial uniforms={uniforms} vertexShader={vertexShader} fragmentShader={fragmentShader} fog />
+      <shaderMaterial uniforms={uniforms} vertexShader={vertexShader} fragmentShader={fragmentShader} fog wireframe={wireframe} polygonOffset polygonOffsetFactor={-1} polygonOffsetUnits={-1} />
     </mesh>
   );
 }

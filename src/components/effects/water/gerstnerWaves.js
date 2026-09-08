@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { radialCellFactor } from './radialWaterGeometry.js';
 
 // Open-water waves as a sum of Gerstner (trochoid) trains, evaluated per vertex
 // in world XZ so the surface is continuous from the camera to the horizon.
@@ -65,6 +66,7 @@ export function createGerstnerUniforms() {
     uGerstnerSets: { value: 0 },
     uGerstnerGusts: { value: 0 },
     uGerstnerFade: { value: new THREE.Vector2(100, 250) },
+    uCellFactor: { value: radialCellFactor() },
   };
 }
 
@@ -76,6 +78,10 @@ export function syncGerstnerUniforms(uniforms, settings) {
   uniforms.uGerstnerSets.value = Math.min(Math.max(Number(settings.sets) || 0, 0), 1);
   uniforms.uGerstnerGusts.value = Math.min(Math.max(Number(settings.gusts) || 0, 0), 1);
   uniforms.uGerstnerFade.value.set(Math.max(Number(settings.fadeStart) || 0, 1), Math.max(Number(settings.fadeEnd) || 0, Number(settings.fadeStart) + 1));
+  // Every water surface resolves the trains by the same cell, whatever its own
+  // mesh: the open water, the shore band and the surf ribbons meet at seams,
+  // and a seam is only invisible when both sides compute the same swell there.
+  if (uniforms.uCellFactor) uniforms.uCellFactor.value = radialCellFactor({ rings: settings.meshRings, segments: settings.meshSegments });
 }
 
 export const gerstnerShader = /* glsl */`
@@ -86,6 +92,12 @@ uniform float uGerstnerTime;
 uniform float uGerstnerSets;
 uniform float uGerstnerGusts;
 uniform vec2 uGerstnerFade;
+uniform float uCellFactor;
+
+// The vertex spacing every water surface pretends to have here. Not its own
+// mesh's spacing: the shared one, so the trains a surface drops are the trains
+// its neighbour drops, and the water is one surface across their seam.
+float waterCell(vec2 p) { return distance(p, cameraPosition.xz) * uCellFactor; }
 
 // The sea is never one clean train: a slow field over the water bends every
 // train's phase, so crests wander instead of running as ruled lines, and

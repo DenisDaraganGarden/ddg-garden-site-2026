@@ -13,6 +13,8 @@ import { TERRAIN_RANGES } from '../../../../../terrain/settings.js';
 // the offshore slope, then what lies on the sand. Labels inline, as in terrain.jsx.
 const SHELF_CONTROLS = [
     ['terrainShelfExtent', 'Дальность дна', 'Seabed extent', ' m'],
+    ['terrainShoreKnee', 'Колено дна', 'Bed knee', ' m'],
+    ['terrainBars', 'Бары и отмели', 'Bars and shoals', ''],
     ['terrainShelfSlope', 'Уклон шельфа', 'Shelf slope', '%'],
     ['terrainWeed', 'Луга водорослей', 'Weed meadows', ''],
     ['terrainSilt', 'Ил', 'Silt', ''],
