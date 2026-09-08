@@ -32,7 +32,6 @@ const vertexShader = /* glsl */`
   varying vec3 vWorld;
   varying vec3 vNormal;
   varying float vShell;
-  varying float vCoverage;
   varying float vAge;
   void main() {
     vec2 p = (modelMatrix * vec4(position, 1.0)).xz;
@@ -49,7 +48,6 @@ const vertexShader = /* glsl */`
     vWorld = world + waveNormal * shell;
     vNormal = waveNormal;
     vShell = shell;
-    vCoverage = coverage;
     vAge = field.y;
     vec4 mvPosition = viewMatrix * vec4(vWorld, 1.0);
     gl_Position = projectionMatrix * mvPosition;
@@ -60,7 +58,9 @@ const vertexShader = /* glsl */`
 const fragmentShader = /* glsl */`
   #include <fog_pars_fragment>
   #define MARCH_STEPS ${MARCH_STEPS}
+  ${gerstnerShader}
   ${waterShadingShader}
+  ${foamFieldShader}
   uniform float uDensity;
   uniform float uDetail;
   uniform float uErosion;
@@ -68,23 +68,30 @@ const fragmentShader = /* glsl */`
   varying vec3 vWorld;
   varying vec3 vNormal;
   varying float vShell;
-  varying float vCoverage;
   varying float vAge;
 
   // h: 1 at the top of the shell, 0 on the water.
-  float foamDensityAt(vec3 p, float h) {
+  float foamDensityAt(vec3 p, float h, float coverage) {
     vec3 q = p * uDetail;
     q.xz += uWind * uTime * 0.12;
-    float mass = texture(uNoise, q * 0.5).r;
-    float tear = texture(uNoise, q * 1.7 + vec3(0.0, 0.31, 0.0)).b;
+    // The volume tiles; a slice that slides with the world does not.
+    float slice = gerstnerNoise(p.xz * 0.017) * 3.0;
+    float mass = texture(uNoise, vec3(q.xz * 0.5, fract(q.y * 0.5 + slice))).r;
+    float tear = texture(uNoise, vec3(q.xz * 1.63 + 0.31, fract(q.y * 1.63 + slice * 1.7))).b;
     // Packed against the water, eroded on top: rounded heaps, not a brick.
     float profile = 1.0 - smoothstep(0.15, 1.0, h);
     float d = mass * 0.75 + tear * 0.45 - uErosion * h - 0.25;
-    return max(d, 0.0) * profile * vCoverage * uDensity;
+    return max(d, 0.0) * profile * coverage * uDensity;
   }
 
   void main() {
     if (vShell < 0.003 || uNoiseReady < 0.5) discard;
+    // Coverage per pixel, not interpolated across the mesh's triangles: at a
+    // grazing angle those triangles are metres wide and their edges showed as
+    // a staircase through the foam.
+    vec3 field = sampleFoamField(vWorld.xz);
+    float coverage = field.x * field.z;
+    if (coverage < 0.004) discard;
     vec3 view = normalize(cameraPosition - vWorld);
     float facing = max(dot(normalize(vNormal), view), 0.25);
     float depth = vShell / facing;
@@ -96,7 +103,7 @@ const fragmentShader = /* glsl */`
       float travelled = (float(i) + 0.5) * stepLength;
       vec3 p = vWorld - view * travelled;
       float h = 1.0 - travelled / max(depth, 0.001);
-      float density = foamDensityAt(p, h);
+      float density = foamDensityAt(p, h, coverage);
       if (density <= 0.002) continue;
       float alpha = 1.0 - exp(-density * stepLength * 22.0);
       // Two short taps toward the sun instead of a second march: enough for a
@@ -104,7 +111,7 @@ const fragmentShader = /* glsl */`
       float shadow = 0.0;
       for (int tap = 1; tap <= 2; tap += 1) {
         if (float(tap) > uSunTaps) break;
-        shadow += foamDensityAt(p + sun * (float(tap * tap) * vShell * 0.5), min(h + float(tap) * 0.3, 1.0));
+        shadow += foamDensityAt(p + sun * (float(tap * tap) * vShell * 0.5), min(h + float(tap) * 0.3, 1.0), coverage);
       }
       float sunLight = exp(-shadow * vShell * 6.0);
       float powder = 1.0 - exp(-density * 3.2);

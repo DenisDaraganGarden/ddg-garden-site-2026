@@ -201,6 +201,7 @@ const sheetVertexShader = /* glsl */`
 
 const sheetFragmentShader = /* glsl */`
   #include <fog_pars_fragment>
+  ${gerstnerShader}
   ${waterShadingShader}
   varying vec3 vWorld;
   varying vec3 vNormal;
@@ -273,6 +274,7 @@ const shellVertexShader = /* glsl */`
 
 const shellFragmentShader = /* glsl */`
   #include <fog_pars_fragment>
+  ${gerstnerShader}
   ${waterShadingShader}
   uniform float uRollerDensity;
   varying vec3 vWorld;

@@ -79,6 +79,7 @@ const updateFragmentShader = /* glsl */`
   uniform float uThreshold;
   uniform float uSoftness;
   uniform float uDeposit;
+  uniform float uSwirl;
   uniform vec4 uBore[FOAM_BORES];
   // The crest the bores came from: s of its start, its peel, its length, and
   // the breaker's width. A bore is one number per wave, but the crest that drew
@@ -99,7 +100,14 @@ const updateFragmentShader = /* glsl */`
     vec2 qs = coastLocal(world);
     float ground = coastGround(qs);
     bool sand = ground > -0.01;
-    vec2 velocity = orbital + uDrift;
+    // Crossing seas turn the foam: a divergence-free curl of the hashed noise,
+    // strong only where the sea is steep — a storm swirls, a calm does not.
+    float e = 1.5;
+    float curlA = gerstnerNoise(world * 0.045 + uGerstnerTime * 0.01);
+    float curlX = gerstnerNoise(vec2(world.x, world.y + e) * 0.045 + uGerstnerTime * 0.01) - gerstnerNoise(vec2(world.x, world.y - e) * 0.045 + uGerstnerTime * 0.01);
+    float curlZ = gerstnerNoise(vec2(world.x + e, world.y) * 0.045 + uGerstnerTime * 0.01) - gerstnerNoise(vec2(world.x - e, world.y) * 0.045 + uGerstnerTime * 0.01);
+    vec2 swirl = vec2(curlX, -curlZ) * uSwirl * (0.4 + 0.6 * curlA);
+    vec2 velocity = orbital + uDrift + swirl;
     if (sand) {
       vec2 slope = vec2(coastGround(qs + vec2(0.5, 0.0)) - coastGround(qs - vec2(0.5, 0.0)), coastGround(qs + vec2(0.0, 0.5)) - coastGround(qs - vec2(0.0, 0.5)));
       vec2 down = -(slope.x * coastLand() + slope.y * coastAlong()) * 30.0;
@@ -189,6 +197,7 @@ export function useFoamField(targetUniforms, { settings, bores, coast = null, ti
       uThreshold: { value: 0.5 },
       uSoftness: { value: 0.15 },
       uDeposit: { value: 1 },
+      uSwirl: { value: 0 },
       ...createCoastWaterUniforms(),
       uBore: { value: createFoamBores() },
       uBoreFrame: { value: new THREE.Vector4(0, 0, 1, 9) },
@@ -242,6 +251,7 @@ export function useFoamField(targetUniforms, { settings, bores, coast = null, ti
     uniforms.uThreshold.value = settings.foamThreshold;
     uniforms.uSoftness.value = settings.foamSoftness;
     uniforms.uDeposit.value = settings.foamDeposit;
+    uniforms.uSwirl.value = Number(settings.foamSwirl) || 0;
     uniforms.uDrift.value.fromArray(windVector(settings.windDirection)).multiplyScalar(Number(settings.foamDrift) || 0);
     syncCoastWaterUniforms(uniforms, coast, coast?.breakQ ?? -10, 0);
     if (bores) uniforms.uBore.value = bores;

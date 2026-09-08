@@ -30,6 +30,7 @@ export const waterShadingShader = /* glsl */`
   uniform float uFoamBrightness;
   uniform vec3 uBedColor;
   #define WATER_PI 3.14159265
+  float gerstnerNoise(vec2 p); // defined by gerstnerShader, which every water fragment includes first
 
   vec3 waterSkyColor(vec3 ray) {
     return mix(uSkyHorizon, uSkyZenith, pow(clamp(ray.y, 0.0, 1.0), 0.55)) * uSkyLevel;
@@ -69,13 +70,20 @@ export const waterShadingShader = /* glsl */`
     bubbles = 0.0;
     if (coverage <= 0.001 || uNoiseReady < 0.5) return 0.0;
     vec2 lp = vec2(fp.x * 0.85, fp.y * 1.25 - uTime * 0.25) * uLaceScale;
-    vec3 lace = texture(uNoise, vec3(lp, 0.12)).rgb;
+    // The noise volume tiles in all three axes, so a plane through it repeats
+    // every 1/scale metres — at a metre-scale lace that lattice is plainly
+    // visible on the sea. The slice slides with the world instead: neighbouring
+    // stretches of water read different depths of the volume, and there is no
+    // plane in it left to repeat. The offset is hashed value noise, itself
+    // without a period.
+    float slice = fract(0.12 + gerstnerNoise(fp * 0.021) * 3.0);
+    vec3 lace = texture(uNoise, vec3(lp, slice)).rgb;
     float feature = 0.125 / max(uLaceScale, 0.001);
     float fineFade = 1.0 - smoothstep(feature * 0.05, feature * 0.25, pixel);
     // Rotated and warped between octaves: the noise volume tiles, the foam must not.
     vec2 dp = mat2(0.83, -0.56, 0.56, 0.83) * lp * 2.37 + lace.g * 0.35;
     lp += (vec2(lace.b, lace.g) - 0.5) * 0.9;
-    vec3 detail = texture(uNoise, vec3(dp, 0.52 + lace.r * 0.2)).rgb;
+    vec3 detail = texture(uNoise, vec3(dp, fract(0.52 + lace.r * 0.2 + slice * 0.63))).rgb;
     float fine = mix(0.5, detail.b, fineFade);
     coverage *= mix(1.0, 0.4 + 0.6 * smoothstep(0.1, 0.7, fine), clamp(age, 0.0, 1.0));
     float pattern = lace.r * 0.5 + detail.r * 0.3 + fine * 0.2;

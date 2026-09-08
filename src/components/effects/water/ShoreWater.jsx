@@ -131,9 +131,9 @@ const vertexShader = /* glsl */`
 
 const fragmentShader = /* glsl */`
   #include <fog_pars_fragment>
-  ${waterShadingShader}
   ${gerstnerShader}
   ${gerstnerPixelShader}
+  ${waterShadingShader}
   ${coastWaterShader}
   ${foamFieldShader}
   uniform float uSeam;
