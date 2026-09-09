@@ -485,6 +485,11 @@ export const getBaseHomeSceneSettings = () => ({
   debugWireframe: false,
   editorHeadingColor: '#8d8d8d',
   editorCursor: false,
+  // Плёнка и грейд — это итоговый кадр, а работать удобнее по сырому. Ключ
+  // редакторский: его нет ни в publishedHomeSceneKeys, ни в снимках камер,
+  // поэтому он не уезжает на сайт и не подменяет авторское значение
+  // postProcessingEnabled — то остаётся ровно таким, каким Денис его выставил.
+  editorPostProcessing: false,
 });
 
 const normalizeLegacySettings = (savedSettings, defaults) => {
@@ -1147,6 +1152,7 @@ const normalizeHomeSceneSettings = (savedSettings = {}, includeCameraSystem = tr
     debugWireframe: pickBoolean(merged.debugWireframe, defaults.debugWireframe),
     editorHeadingColor: pickColor(merged.editorHeadingColor, defaults.editorHeadingColor),
     editorCursor: pickBoolean(merged.editorCursor, defaults.editorCursor),
+    editorPostProcessing: pickBoolean(merged.editorPostProcessing, defaults.editorPostProcessing),
   };
 
   if (!includeCameraSystem) {

@@ -456,6 +456,12 @@ export const PostSection = ({ settings, handleSettingChange }) => {
                 onChange={(event) => handleSettingChange(event, 'postProcessingEnabled', 'boolean')}
             />
 
+            <CheckboxControl controlId={'editorPostProcessing'}
+                label={t('homeEditor.controls.editorPostProcessing')}
+                checked={Boolean(settings.editorPostProcessing)}
+                onChange={(event) => handleSettingChange(event, 'editorPostProcessing', 'boolean')}
+            />
+
             <SelectControl controlId={'postAntiAliasing'}
                 label={t('homeEditor.controls.postAntiAliasing')}
                 value={settings.postAntiAliasing ?? 'auto'}

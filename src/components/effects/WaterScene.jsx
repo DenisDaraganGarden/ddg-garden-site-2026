@@ -198,6 +198,9 @@ function WaterRuntimeScene({
   const postEnabled = baseQualityProfile.postProcessingSupported !== false
     && baseQualityProfile.postDepthStencilEnabled !== false
     && settings.postProcessingEnabled
+    // В редакторе постобработка по умолчанию выключена: открывать редактор и
+    // видеть готовый кадр мешает работе. Значение сцены при этом не меняется.
+    && (mode !== 'editor' || Boolean(settings.editorPostProcessing))
     && settings.debugView === 'beauty';
   const qualityProfile = useRenderBudget({
     baseProfile: baseQualityProfile,
