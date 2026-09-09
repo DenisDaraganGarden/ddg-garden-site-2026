@@ -6,6 +6,7 @@ import React, {
     useRef,
     useState,
 } from 'react';
+import { version } from '../../package.json';
 import WaterScene from '../components/effects/WaterScene';
 import {
     applyHomeSceneSnapshot,
@@ -43,7 +44,7 @@ const INITIAL_PUBLISHED_SNAPSHOT = JSON.stringify(
 );
 const LOCAL_EDIT_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
 // Загрузочный экран живёт в index.html. Здесь только момент, когда его снять.
-const BOOT_FADE_MS = 450;
+const BOOT_FADE_MS = 500;
 // Без WebGL маяк сцены не сработает никогда, а экран непрозрачный: страховка.
 const BOOT_SAFETY_MS = 25000;
 
@@ -169,6 +170,12 @@ const HomeEdit = () => {
 
         if (!root.dataset.engineBoot) {
             return undefined;
+        }
+
+        const versionSlot = document.querySelector('[data-engine-boot-version]');
+
+        if (versionSlot) {
+            versionSlot.textContent = version;
         }
 
         const dismiss = () => {
