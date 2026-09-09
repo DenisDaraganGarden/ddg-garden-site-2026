@@ -8,6 +8,57 @@ const precision = (value) => {
 
 const isCompleteNumber = (value) => /^-?(?:\d+|\d*\.\d+)(?:e[+-]?\d+)?$/i.test(value.trim());
 
+// Бесконечное перетаскивание, как в 3ds Max: на первом же движении редактор
+// забирает указатель, и края экрана перестают существовать — тянуть можно
+// сколько нужно. Пока указатель захвачен, clientX стоит на месте, поэтому шаг
+// считается по movementX. Захват просим с unadjustedMovement: без ускорения
+// операционной системы одно и то же движение руки всегда даёт один и тот же
+// шаг. Если браузер захват не дал (iframe без разрешения, старый Safari),
+// gesture.locked остаётся false и всё работает как раньше — по clientX.
+//
+// ponytail: LOCK_SPEED — множитель под живую руку. Захваченное движение
+// приходит в аппаратных точках, а не в CSS-пикселях, поэтому на Retina тот же
+// жест может ощущаться быстрее. Единственное место для подкрутки.
+const LOCK_SPEED = 1;
+
+const releasePointerLock = (gesture, element) => {
+    // releasing поднимается до выхода: запрос захвата асинхронный и может
+    // сработать уже после отпускания кнопки — тогда его снимет сам обработчик.
+    gesture.releasing = true;
+    if (gesture.onLockChange) {
+        document.removeEventListener('pointerlockchange', gesture.onLockChange);
+        gesture.onLockChange = null;
+    }
+    if (document.pointerLockElement && document.pointerLockElement === element) document.exitPointerLock?.();
+    gesture.locked = false;
+    gesture.locking = false;
+};
+
+const requestPointerLock = (element, gesture, onLost) => {
+    if (typeof element.requestPointerLock !== 'function') return;
+    // Перехват событий не отпускаем руками: при блокировке браузер снимает его
+    // сам, а если в блокировке откажут (Chrome, например, не даёт её сразу после
+    // выхода по Esc), перехват — единственное, что удерживает драг, когда курсор
+    // ушёл с поля. Флаг locking нужен, чтобы автоматическая потеря перехвата не
+    // была принята за отмену жеста.
+    gesture.locking = true;
+    gesture.onLockChange = () => {
+        gesture.locked = document.pointerLockElement === element;
+        // Кнопку успели отпустить, пока запрос летел, — снимаем сразу.
+        if (gesture.locked && gesture.releasing) { document.exitPointerLock?.(); return; }
+        // Esc снимает захват браузером — для этого контрола Esc всегда отмена.
+        if (!gesture.locked && !gesture.releasing) onLost();
+    };
+    document.addEventListener('pointerlockchange', gesture.onLockChange);
+    const plain = () => { try { element.requestPointerLock(); } catch { /* отказ — обычный драг */ } };
+    try {
+        const request = element.requestPointerLock({ unadjustedMovement: true });
+        if (request?.catch) request.catch(plain);
+    } catch {
+        plain();
+    }
+};
+
 export function FocusControlNumberInput({ controlId, value, min, max, step = 1, onChange, onGesture, ...props }) {
     const active = useRef(null);
     const inputRef = useRef(null);
@@ -29,6 +80,7 @@ export function FocusControlNumberInput({ controlId, value, min, max, step = 1, 
         if (!gesture) return;
         active.current = null;
         const input = inputRef.current;
+        releasePointerLock(gesture, input);
         input?.classList.remove('focus-number--scrubbing');
         if (!gesture.moved) return;
         if (cancel) {
@@ -94,10 +146,12 @@ export function FocusControlNumberInput({ controlId, value, min, max, step = 1, 
             if (!gesture.moved) {
                 gesture.moved = true;
                 event.currentTarget.classList.add('focus-number--scrubbing');
+                requestPointerLock(event.currentTarget, gesture, () => finish(true));
                 onGesture?.('Start', { id: controlId, value: gesture.initial, initial: gesture.initial, event });
             }
             event.preventDefault();
-            gesture.fraction += (event.clientX - gesture.lastX) / (event.shiftKey ? 20 : 4);
+            const travel = gesture.locked ? event.movementX * LOCK_SPEED : event.clientX - gesture.lastX;
+            gesture.fraction += travel / (event.shiftKey ? 20 : 4);
             gesture.lastX = event.clientX;
             const whole = Math.trunc(gesture.fraction);
             gesture.fraction -= whole;
@@ -108,7 +162,7 @@ export function FocusControlNumberInput({ controlId, value, min, max, step = 1, 
         }}
         onPointerUp={(event) => { if (active.current?.pointerId === event.pointerId) finish(false); }}
         onPointerCancel={() => finish(true)}
-        onLostPointerCapture={() => finish(true)}
+        onLostPointerCapture={() => { if (!active.current?.locking) finish(true); }}
         onKeyDown={(event) => {
             if (event.key === 'Escape') {
                 event.preventDefault();
