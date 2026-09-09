@@ -194,8 +194,25 @@ const HomeEdit = () => {
             return undefined;
         }
 
-        const safetyTimer = window.setTimeout(dismiss, BOOT_SAFETY_MS);
-        return () => window.clearTimeout(safetyTimer);
+        // Пока вкладка скрыта, r3f держит frameloop='never': сцена не строится
+        // и маяк молчать будет сколько угодно. Отсчёт страховки в это время не
+        // идёт — иначе экран снимет сам себя, пока никто не смотрит, и Денис
+        // вернётся к недостроенному редактору вместо загрузки.
+        let safetyTimer = null;
+        const syncSafety = () => {
+            window.clearTimeout(safetyTimer);
+            safetyTimer = document.visibilityState === 'visible'
+                ? window.setTimeout(dismiss, BOOT_SAFETY_MS)
+                : null;
+        };
+
+        syncSafety();
+        document.addEventListener('visibilitychange', syncSafety);
+
+        return () => {
+            window.clearTimeout(safetyTimer);
+            document.removeEventListener('visibilitychange', syncSafety);
+        };
     }, [isSceneReady, t]);
 
     // Track which bucket the live window falls into (for the "current" badge in the UI).
