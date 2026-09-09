@@ -30,6 +30,10 @@ const isTypingTarget = (target) => {
 export function useEditorTool(enabled = true) {
     const [mode, setMode] = useState('translate');
     const [suppressed, setSuppressed] = useState(false);
+    // Режим выбора объекта прямо в сцене. Клавиша — V: WASD заняты полётом
+    // камеры (W вперёд, S назад, A/D вбок), Q и E — её высотой, а G/R/S —
+    // гизмо, так что все привычные буквы уже что-то значат.
+    const [picking, setPicking] = useState(false);
 
     useEffect(() => {
         if (!enabled || typeof window === 'undefined') {
@@ -48,6 +52,12 @@ export function useEditorTool(enabled = true) {
                 return;
             }
 
+            if (event.key.toLowerCase() === 'v') {
+                event.preventDefault();
+                setPicking((value) => !value);
+                return;
+            }
+
             const nextMode = MODE_KEYS[event.key.toLowerCase()];
             if (nextMode) {
                 event.preventDefault();
@@ -60,7 +70,7 @@ export function useEditorTool(enabled = true) {
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [enabled]);
 
-    return { mode, setMode, suppressed, setSuppressed };
+    return { mode, setMode, suppressed, setSuppressed, picking, setPicking };
 }
 
 export default useEditorTool;

@@ -54,6 +54,7 @@ import {
 import {
 } from './water/renderTargets';
 import EditorGizmo from '../../features/home-scene/components/editor/EditorGizmo';
+import EditorPicker from '../../features/home-scene/components/editor/EditorPicker';
 import ScenePostProcessing from './ScenePostProcessing';
 import PainterlyClouds from './sky/painterly/PainterlyClouds';
 import CloudShadowReceivers from './sky/painterly/CloudShadowReceivers';
@@ -591,6 +592,7 @@ function WaterRuntimeScene({
           onTransform={editorGizmo.onTransform}
         />
       ) : null}
+      {mode === 'editor' ? <EditorPicker enabled={Boolean(editorGizmo?.picking)} onPick={editorGizmo?.onPick} /> : null}
       <DebugWireframe enabled={mode === 'editor' && Boolean(settings.debugWireframe)} />
       <SceneReadyBeacon onSceneReady={onSceneReady} waiting={sky.isPlaceholder} />
       {showDebugHelpers ? <axesHelper args={[2]} /> : null}

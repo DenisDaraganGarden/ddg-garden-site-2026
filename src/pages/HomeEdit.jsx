@@ -93,7 +93,7 @@ const HomeEdit = () => {
     } = useHomeSceneEditor();
     // Preview the chrome toggles in the editor itself, not only after publishing.
     useHomeChromeVisibility(settings);
-    const { mode: gizmoMode, setMode: setGizmoMode, suppressed: gizmoSuppressed, setSuppressed: setGizmoSuppressed } = useEditorTool();
+    const { mode: gizmoMode, setMode: setGizmoMode, suppressed: gizmoSuppressed, setSuppressed: setGizmoSuppressed, picking, setPicking } = useEditorTool();
     const focusHistory = useFocusHistory(settings, setSettings, handleSettingChange, applySettings);
     const isLocalPublishAvailable = typeof window !== 'undefined'
         && LOCAL_EDIT_HOSTS.has(window.location.hostname);
@@ -490,6 +490,9 @@ const HomeEdit = () => {
         }
     }, [handleBoatPositionChange, handleSculpturePositionChange, setSettings]);
 
+    // Клик по объекту в сцене ставит тот же путь, что и клик в дереве.
+    const handlePickObject = useCallback((path) => setActiveTab(path), [setActiveTab]);
+
     const { group: gizmoGroup, node: gizmoNode } = resolveEditorPath(activeTab, { includeDevOnly: true });
     // An object switched off has left the scene graph; the gizmo has nothing to hold.
     const gizmoTargetShown = sceneObjectsForNode(`${gizmoGroup.id}/${gizmoNode.id}`).every(({ key }) => settings[key] !== false);
@@ -498,7 +501,9 @@ const HomeEdit = () => {
         selection: gizmoSuppressed ? null : gizmoSelection,
         mode: gizmoMode,
         onTransform: handleGizmoTransform,
-    }), [gizmoSuppressed, gizmoSelection, gizmoMode, handleGizmoTransform]);
+        picking,
+        onPick: handlePickObject,
+    }), [gizmoSuppressed, gizmoSelection, gizmoMode, handleGizmoTransform, picking, handlePickObject]);
 
 
     const layoutEditor = useMemo(() => ({
@@ -662,7 +667,7 @@ const HomeEdit = () => {
                 applySettings={focusHistory.applySettings}
                 history={focusHistory}
                 layoutEditor={layoutEditor}
-                gizmo={{ mode: gizmoMode, setMode: setGizmoMode, selection: gizmoSelection, suppressed: gizmoSuppressed, show: () => setGizmoSuppressed(false), hide: () => setGizmoSuppressed(true) }}
+                gizmo={{ mode: gizmoMode, setMode: setGizmoMode, selection: gizmoSelection, suppressed: gizmoSuppressed, show: () => setGizmoSuppressed(false), hide: () => setGizmoSuppressed(true), picking, setPicking }}
                 onPublish={isLocalPublishAvailable ? () => handlePublish() : undefined}
                 onDeploy={isLocalPublishAvailable ? () => handlePublish({ deploy: true }) : undefined}
                 onAdoptPublished={handleAdoptPublished}
