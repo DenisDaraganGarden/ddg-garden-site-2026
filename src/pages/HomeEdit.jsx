@@ -42,6 +42,10 @@ const INITIAL_PUBLISHED_SNAPSHOT = JSON.stringify(
     sanitizeHomeSceneSettingsForPublish(getPublishedHomeSceneSettings()),
 );
 const LOCAL_EDIT_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
+// Загрузочный экран живёт в index.html. Здесь только момент, когда его снять.
+const BOOT_FADE_MS = 450;
+// Без WebGL маяк сцены не сработает никогда, а экран непрозрачный: страховка.
+const BOOT_SAFETY_MS = 25000;
 
 const getCurrentLayoutKey = () => {
     if (typeof window === 'undefined') {
@@ -100,6 +104,7 @@ const HomeEdit = () => {
     const [selectedLayoutKey, setSelectedLayoutKey] = useState(() => settings.editorLayoutKey ?? getCurrentLayoutKey());
     const [currentLayoutKey, setCurrentLayoutKey] = useState(getCurrentLayoutKey);
     const [cameraPoseRevision, setCameraPoseRevision] = useState(0);
+    const [isSceneReady, setIsSceneReady] = useState(false);
     const deferredSettings = useDeferredValue(settings);
     const audioSettingsFingerprint = JSON.stringify(settings.audio);
     // Snapshots are committed by setSettings; deferred state only drives the
@@ -153,6 +158,35 @@ const HomeEdit = () => {
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [setSettings]);
+
+    // Редактор открывается уже собранным: экран из index.html держит кадр, пока
+    // сцена не отчитается, что она построена. Раньше на его месте были шапка
+    // сайта и общий спиннер маршрута, а потом резкая подмена на редактор.
+    const handleSceneReady = useCallback(() => setIsSceneReady(true), []);
+
+    useEffect(() => {
+        const root = document.documentElement;
+
+        if (!root.dataset.engineBoot) {
+            return undefined;
+        }
+
+        const dismiss = () => {
+            root.dataset.engineBoot = 'ready';
+            window.setTimeout(() => {
+                document.getElementById('engine-boot')?.remove();
+                delete root.dataset.engineBoot;
+            }, BOOT_FADE_MS);
+        };
+
+        if (isSceneReady) {
+            dismiss();
+            return undefined;
+        }
+
+        const safetyTimer = window.setTimeout(dismiss, BOOT_SAFETY_MS);
+        return () => window.clearTimeout(safetyTimer);
+    }, [isSceneReady]);
 
     // Track which bucket the live window falls into (for the "current" badge in the UI).
     useEffect(() => {
@@ -580,6 +614,7 @@ const HomeEdit = () => {
                             settings={settings}
                             layoutOverride={selectedLayoutKey}
                             onCameraRigApi={handleCameraRigApi}
+                            onSceneReady={handleSceneReady}
                             onBoatPositionChange={handleBoatPositionChange}
                             onSculpturePositionChange={handleSculpturePositionChange}
                             editorGizmo={editorGizmo}
