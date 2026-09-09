@@ -47,7 +47,6 @@ const LOCAL_EDIT_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
 const BOOT_FADE_MS = 500;
 // Без WebGL маяк сцены не сработает никогда, а экран непрозрачный: страховка.
 const BOOT_SAFETY_MS = 25000;
-
 const getCurrentLayoutKey = () => {
     if (typeof window === 'undefined') {
         return 'desktop';
@@ -178,6 +177,10 @@ const HomeEdit = () => {
             versionSlot.textContent = version;
         }
 
+        document.querySelectorAll('#engine-boot [data-boot-phase]').forEach((node) => {
+            node.textContent = t(`homeEditor.boot.${node.dataset.bootPhase}`);
+        });
+
         const dismiss = () => {
             root.dataset.engineBoot = 'ready';
             window.setTimeout(() => {
@@ -193,7 +196,7 @@ const HomeEdit = () => {
 
         const safetyTimer = window.setTimeout(dismiss, BOOT_SAFETY_MS);
         return () => window.clearTimeout(safetyTimer);
-    }, [isSceneReady]);
+    }, [isSceneReady, t]);
 
     // Track which bucket the live window falls into (for the "current" badge in the UI).
     useEffect(() => {

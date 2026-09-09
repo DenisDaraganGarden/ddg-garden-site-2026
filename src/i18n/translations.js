@@ -637,6 +637,10 @@ export const translations = {
         sepia: 'Сепия',
         faded: 'Выцветшая',
       },
+      boot: {
+        loading: 'Загрузка',
+        building: 'Сборка сцены',
+      },
       publish: {
         publish: 'В проект',
         publishHint: 'В проект: записать сцену в publishedHomeSceneSettings.js. Сайт не трогает',
@@ -1283,6 +1287,10 @@ export const translations = {
         bw: 'Black & white',
         sepia: 'Sepia',
         faded: 'Faded',
+      },
+      boot: {
+        loading: 'Loading',
+        building: 'Building scene',
       },
       publish: {
         publish: 'To project',

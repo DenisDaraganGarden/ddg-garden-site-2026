@@ -76,6 +76,42 @@
         color: #989d9e;
       }
 
+      #engine-boot .engine-boot__status {
+        display: grid;
+        justify-items: center;
+        gap: 11px;
+      }
+
+      /* Обе подписи лежат в кадре сразу и перекрещиваются CSS-анимацией, а не
+         по событию загрузчика. Замер: ассеты заканчиваются к ~1.1 с, дальше
+         главный поток на секунды уходит в построение сцены — и ни один
+         setTimeout там не выполнится, подпись бы застряла на «Загрузке» почти
+         до конца. Анимацию же ведёт композитор, она играет сквозь блокировку.
+         Задержка подобрана по этому замеру; на очень холодном кеше подпись
+         сменится чуть раньше, чем реально догрузится последний ассет. */
+      #engine-boot .engine-boot__phase {
+        position: relative;
+        height: 9px;
+      }
+      #engine-boot .engine-boot__phase span {
+        position: absolute;
+        top: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        white-space: nowrap;
+        font-size: 7px;
+        font-weight: 400;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        color: #989d9e;
+      }
+      #engine-boot .engine-boot__phase span[data-boot-phase="loading"] {
+        animation: engine-boot-phase-out 0.5s ease 1.2s both;
+      }
+      #engine-boot .engine-boot__phase span[data-boot-phase="building"] {
+        animation: engine-boot-phase-in 0.5s ease 1.2s both;
+      }
+
       #engine-boot .engine-boot__bar {
         position: relative;
         width: 146px;
@@ -94,6 +130,8 @@
       }
 
       @keyframes engine-boot-spin { to { transform: rotate(360deg); } }
+      @keyframes engine-boot-phase-out { from { opacity: 1; } to { opacity: 0; } }
+      @keyframes engine-boot-phase-in { from { opacity: 0; } to { opacity: 1; } }
       @keyframes engine-boot-sweep {
         from { transform: translateX(-100%); }
         to { transform: translateX(350%); }
@@ -124,7 +162,13 @@
     <div id="engine-boot" role="status">
       <img class="engine-boot__mark" src="/ouroboros-mark.webp" width="168" height="168" alt="" aria-hidden="true" />
       <div class="engine-boot__word">OUROBOROS<small>ENGINE <span data-engine-boot-version></span></small></div>
-      <div class="engine-boot__bar"><i></i></div>
+      <div class="engine-boot__status">
+        <div class="engine-boot__bar"><i></i></div>
+        <div class="engine-boot__phase">
+          <span data-boot-phase="loading">Загрузка</span>
+          <span data-boot-phase="building">Сборка сцены</span>
+        </div>
+      </div>
     </div>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
