@@ -98,6 +98,9 @@ const HomeEdit = () => {
     const isLocalPublishAvailable = typeof window !== 'undefined'
         && LOCAL_EDIT_HOSTS.has(window.location.hostname);
     const [publishState, setPublishState] = useState({ busy: false, message: '' });
+    // ПКМ во вьюпорте: точка клика и то, во что попал луч. Пункты собирает
+    // панель — она одна знает про дерево, камеры и манипулятор.
+    const [sceneMenu, setSceneMenu] = useState(null);
     const publishRequestRef = useRef(0);
     const lastPublishedSnapshotRef = useRef(INITIAL_PUBLISHED_SNAPSHOT);
     const cameraRigApiRef = useRef(null);
@@ -503,6 +506,7 @@ const HomeEdit = () => {
         onTransform: handleGizmoTransform,
         picking,
         onPick: handlePickObject,
+        onContextMenu: setSceneMenu,
     }), [gizmoSuppressed, gizmoSelection, gizmoMode, handleGizmoTransform, picking, handlePickObject]);
 
 
@@ -667,7 +671,7 @@ const HomeEdit = () => {
                 applySettings={focusHistory.applySettings}
                 history={focusHistory}
                 layoutEditor={layoutEditor}
-                gizmo={{ mode: gizmoMode, setMode: setGizmoMode, selection: gizmoSelection, suppressed: gizmoSuppressed, show: () => setGizmoSuppressed(false), hide: () => setGizmoSuppressed(true), picking, setPicking }}
+                gizmo={{ mode: gizmoMode, setMode: setGizmoMode, selection: gizmoSelection, suppressed: gizmoSuppressed, show: () => setGizmoSuppressed(false), hide: () => setGizmoSuppressed(true), picking, setPicking, sceneMenu, closeSceneMenu: () => setSceneMenu(null) }}
                 onPublish={isLocalPublishAvailable ? () => handlePublish() : undefined}
                 onDeploy={isLocalPublishAvailable ? () => handlePublish({ deploy: true }) : undefined}
                 onAdoptPublished={handleAdoptPublished}

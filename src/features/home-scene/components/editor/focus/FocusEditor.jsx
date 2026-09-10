@@ -9,6 +9,7 @@ import { RegisteredFocusControl } from './FocusControlComponents';
 import { FOCUS_DOMAINS, getFocusDomain, getFocusGroups, getFocusLabel, getNodeIcon } from './focusNavigation';
 import { FocusIcon } from './FocusIcons';
 import { FocusColorPalette, useFocusColorPalette, useFocusIconColors } from './FocusIconPalette';
+import { FocusContextMenu } from './FocusContextMenu';
 import { FocusCameraManager, FocusCameraParameters, FocusCameraStrip, FocusTechnicalViews } from './FocusCameras';
 import logo from './ouroboros-reference.png';
 import './FocusEditor.css';
@@ -105,6 +106,9 @@ function FocusShell(props) {
     const [filter, setFilter] = useState(''); const [paramsTab, setParamsTab] = useState('all'); const [pendingField, setPendingField] = useState(null);
     const [stripOpen, setStripOpen] = useState(stored.stripOpen !== false); const [focus, setFocus] = useState(false); const [preview, setPreview] = useState(false);
     const [modal, setModal] = useState(null); const [viewsOpen, setViewsOpen] = useState(false); const grip = useRef(null); const resize = useRef(null); const lastNodes = useRef({});
+    // Чёрная рамка — это то, как кадр обрежется на сайте; полупрозрачная показывает,
+    // что осталось за кадром. Настройка вида, живёт рядом с шириной панели.
+    const [solidFrame, setSolidFrame] = useState(stored.solidFrame === true); const [rowMenu, setRowMenu] = useState(null);
     const controls = useFocusControls(); const colors = useFocusIconColors(); const palette = useFocusColorPalette();
     const selected = resolveEditorPath(activeTab, { includeDevOnly: import.meta.env.DEV }); const domain = getFocusDomain(selected.path);
     const groups = getFocusGroups(domain.id, { includeDevOnly: import.meta.env.DEV });
@@ -112,15 +116,15 @@ function FocusShell(props) {
     const localScope = selected.group.id === 'editor'; const globalScope = selected.group.id === 'audio';
     const sectionProps = { settings, handleSettingChange: props.handleSettingChange, applySettings: props.applySettings, layoutEditor, audioLab: props.audioLab };
     useEffect(() => {
-        try { localStorage.setItem(UI_KEY, JSON.stringify({ width, collapsed, stripOpen, pinnedIds: [...controls.pinnedIds], path: selected.path })); } catch { /* local UI only */ }
-    }, [width, collapsed, stripOpen, controls.pinnedIds, selected.path]);
+        try { localStorage.setItem(UI_KEY, JSON.stringify({ width, collapsed, stripOpen, solidFrame, pinnedIds: [...controls.pinnedIds], path: selected.path })); } catch { /* local UI only */ }
+    }, [width, collapsed, stripOpen, solidFrame, controls.pinnedIds, selected.path]);
     useLayoutEffect(() => {
         const root = document.documentElement;
-        root.dataset.focusEditor = 'true'; root.dataset.focusPreview = String(preview); root.dataset.focusCanvas = String(focus);
+        root.dataset.focusEditor = 'true'; root.dataset.focusPreview = String(preview); root.dataset.focusCanvas = String(focus); root.dataset.focusFrame = solidFrame ? 'solid' : 'soft';
         root.style.setProperty('--focus-inspector-width', `${width}px`); root.style.setProperty('--focus-panel-space', collapsed || focus || preview ? '0px' : `${width}px`);
         root.style.setProperty('--focus-rail-space', focus || preview ? '0px' : '42px');
-        return () => { delete root.dataset.focusEditor; delete root.dataset.focusPreview; delete root.dataset.focusCanvas; ['--focus-inspector-width', '--focus-panel-space', '--focus-rail-space'].forEach((name) => root.style.removeProperty(name)); };
-    }, [width, collapsed, focus, preview]);
+        return () => { delete root.dataset.focusEditor; delete root.dataset.focusPreview; delete root.dataset.focusCanvas; delete root.dataset.focusFrame; ['--focus-inspector-width', '--focus-panel-space', '--focus-rail-space'].forEach((name) => root.style.removeProperty(name)); };
+    }, [width, collapsed, focus, preview, solidFrame]);
     useEffect(() => { if (stored.path) setActiveTab(resolveEditorPath(stored.path, { includeDevOnly: import.meta.env.DEV }).path); }, [stored.path, setActiveTab]);
     const selectNode = useCallback((path, field = null) => {
         const next = resolveEditorPath(path, { includeDevOnly: import.meta.env.DEV }); lastNodes.current[getFocusDomain(next.path).id] = next.path;
@@ -144,12 +148,59 @@ function FocusShell(props) {
         };
         document.addEventListener('keydown', keyboard); return () => document.removeEventListener('keydown', keyboard);
     }, [history]);
+    // ПКМ принадлежит редактору, а не браузеру: «Копировать изображение» поверх
+    // ленты камер — не то меню. Строка параметра получает своё, поля ввода
+    // сохраняют родное (там нужна вставка), остальное просто гасится. Меню
+    // вьюпорта приходит из сцены через gizmo — там нужен луч, а не DOM.
+    useEffect(() => {
+        const menu = (event) => {
+            // Shift — запасной выход к родному меню браузера: «Сохранить
+            // изображение» у миниатюры камеры иначе не достать.
+            if (event.defaultPrevented || event.shiftKey) return;
+            const row = event.target.closest?.('[data-focus-control-id]');
+            if (row) {
+                event.preventDefault();
+                setRowMenu({ x: event.clientX, y: event.clientY, id: row.dataset.focusControlId, label: row.querySelector('label')?.textContent ?? '' });
+                return;
+            }
+            if (event.target.closest?.('textarea,[contenteditable=true],input:not([type=range]):not([type=checkbox]):not([type=color])')) return;
+            event.preventDefault();
+        };
+        document.addEventListener('contextmenu', menu); return () => document.removeEventListener('contextmenu', menu);
+    }, []);
     const endResize = (event, cancel = false) => {
         const current = resize.current; if (!current) return; resize.current = null;
         if (cancel) setWidth(current.width); else if (!current.moved) setCollapsed(true);
         try { event.currentTarget.releasePointerCapture(current.pointerId); } catch { /* capture ended */ }
     };
     const onFieldFound = useCallback(() => setPendingField(null), []);
+    // Меню вьюпорта. Попадание пришло лучом, поэтому здесь только пункты: что
+    // делать с объектом под курсором, а на пустом месте — как смотреть сцену.
+    const sceneMenuItems = (hit) => {
+        const target = hit.node ? resolveEditorPath(hit.node, { includeDevOnly: import.meta.env.DEV }) : null;
+        const objects = target ? sceneObjectsForNode(target.path) : [];
+        const visible = objects.every(({ key }) => settings[key] !== false);
+        // Манипулятор предлагается только тому объекту, который уже выбран:
+        // правило «что можно двигать» живёт в HomeEdit и второй копии не заводит.
+        const holding = Boolean(gizmo?.selection) && selected.path === target?.path;
+        return [
+            target ? { label: tr('Открыть параметры', 'Open parameters'), icon: 'sliders', onSelect: () => selectNode(target.path) } : null,
+            hit.root ? { label: tr('Смотреть на объект', 'Frame object'), icon: 'target', onSelect: () => layoutEditor.frameObject?.(hit.root) } : null,
+            hit.root ? { label: tr('Смотреть сверху', 'Frame from above'), icon: 'camera', onSelect: () => layoutEditor.frameObject?.(hit.root, { above: true }) } : null,
+            ...(holding ? ['translate', ...(gizmo.selection.startsWith('light') ? [] : ['rotate', 'scale'])].map((mode) => ({
+                label: t(`homeEditor.gizmo.${mode}`), icon: mode === 'translate' ? 'move' : mode, hint: { translate: 'G', rotate: 'R', scale: 'S' }[mode],
+                checked: !gizmo.suppressed && gizmo.mode === mode, onSelect: () => { gizmo.setMode(mode); gizmo.show?.(); },
+            })) : []),
+            objects.length ? { label: visible ? tr('Скрыть объект', 'Hide object') : tr('Показать объект', 'Show object'), icon: visible ? 'eyeoff' : 'eye', onSelect: () => props.applySettings(Object.fromEntries(objects.map(({ key }) => [key, !visible]))) } : null,
+            // Небо накрывает сцену куполом, поэтому «пустого места» во вьюпорте
+            // почти не бывает: показ кадра нужен в меню всегда, а не в отдельной ветке.
+            '-',
+            { label: tr('Выбор объекта в сцене', 'Pick objects in the scene'), icon: 'target', hint: 'V', checked: Boolean(gizmo?.picking), onSelect: () => gizmo?.setPicking?.(!gizmo?.picking) },
+            { label: tr('Управление обзором', 'Viewport navigation'), icon: 'hand', onSelect: () => { gizmo?.hide?.(); document.querySelector('.home-editor-render-frame canvas')?.focus({ preventScroll: true }); } },
+            { label: tr('Чёрная рамка кадра', 'Solid frame mask'), icon: 'desktop', checked: solidFrame, onSelect: () => setSolidFrame((value) => !value) },
+            { label: tr('Посмотреть кадр сайта', 'Preview site framing'), icon: 'eye', onSelect: () => setPreview(true) },
+        ];
+    };
     const commands = [{ id: 'command:save', label: tr('В проект', 'Save to project'), icon: 'upload', action: () => setModal('save') }, { id: 'command:help', label: tr('Горячие клавиши', 'Keyboard shortcuts'), icon: 'help', action: () => setModal('help') }];
     const nodeTarget = { kind: 'node', path: selected.path, label: t(`homeEditor.nodes.${selected.node.id}`) };
     return <div className={`focus-editor ${focus || preview ? 'focus-editor--hidden' : ''}`}>
@@ -161,14 +212,19 @@ function FocusShell(props) {
         })}</details>)}</div></aside> : null}
         {!collapsed ? <aside className="focus-inspector" id="focus-inspector" style={{ '--home-editor-heading-color': settings.editorHeadingColor }}><div ref={grip} className="focus-resize" role="separator" tabIndex="0" aria-label={tr('Ширина инспектора', 'Inspector width')} aria-orientation="vertical" aria-valuenow={width} aria-valuemin="280" aria-valuemax="420" data-focus-tip={tr('Клик — свернуть. Потяните край — ширина.', 'Click to collapse. Drag to resize.')} onPointerDown={(event) => { if (event.button !== 0) return; event.preventDefault(); resize.current = { pointerId: event.pointerId, x: event.clientX, width, moved: false }; event.currentTarget.setPointerCapture(event.pointerId); }} onPointerMove={(event) => { const current = resize.current; if (!current) return; const delta = current.x - event.clientX; if (!current.moved && Math.abs(delta) < 4) return; current.moved = true; setWidth(Math.max(280, Math.min(420, current.width + delta))); }} onPointerUp={endResize} onPointerCancel={(event) => endResize(event, true)} onLostPointerCapture={(event) => endResize(event, true)} onKeyDown={(event) => { if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') { event.preventDefault(); setWidth((value) => Math.max(280, Math.min(420, value + (event.key === 'ArrowLeft' ? 10 : -10)))); } if (event.key === 'Enter') setCollapsed(true); }} /><div className="focus-inspector-head"><div className="focus-breadcrumb">{getFocusLabel(domain, language)}{getFocusLabel(domain, language) !== t(`homeEditor.groups.${selected.group.id}`) ? <><FocusIcon name="right" />{t(`homeEditor.groups.${selected.group.id}`)}</> : null}</div><div className="focus-object-title"><Button className="focus-object-icon" icon={getNodeIcon(selected.node.id)} label={tr('Цвет значка', 'Icon colour')} onClick={(event) => palette.open(event, nodeTarget)} onContextMenu={(event) => palette.open(event, nodeTarget)} style={{ color: colors.colorFor(selected.path) }} /><h1>{t(`homeEditor.nodes.${selected.node.id}`)}</h1></div><div className="focus-scope"><FocusIcon name={globalScope ? 'sound' : localScope ? 'settings' : layoutEditor.activeWorkCameraId ? 'lock' : 'camera'} /><span>{globalScope ? tr('Общий звук', 'Global audio') : localScope ? tr('Локальные настройки', 'Local preferences') : layoutEditor.activeWorkCameraId ? tr('Локальный снимок', 'Local snapshot') : tr('Сцена в проекте', 'Project scene')}</span>{!localScope && !globalScope ? <FocusControlScope path="cameras/camera" nodeLabel={t('homeEditor.nodes.camera')}><RangeControl controlId="cameraFov" label="FOV" value={layoutEditor.layouts?.[layoutEditor.selectedKey]?.cameraFov ?? settings.cameraFov} min={15} max={100} step={0.1} unit="°" onChange={(event) => layoutEditor.onFovChange(Number(event.target.value))} testId="focus-camera-fov" /></FocusControlScope> : null}</div></div><div className="focus-inspector-tabs"><button type="button" className={paramsTab === 'all' ? 'is-active' : ''} onClick={() => setParamsTab('all')}>{tr('Параметры', 'Parameters')}</button><button type="button" className={paramsTab === 'pinned' ? 'is-active' : ''} onClick={() => setParamsTab('pinned')}><FocusIcon name="star" />{tr('Избранное', 'Favorites')}{controls.pinnedIds.size ? <small>{controls.pinnedIds.size}</small> : null}</button></div>{selected.node.id !== 'camera' || paramsTab === 'pinned' ? <div className="focus-parameter-search"><FocusIcon name="search" /><input value={filter} onChange={(event) => setFilter(event.target.value)} placeholder={tr('Найти параметр…', 'Find parameter…')} aria-label={tr('Найти параметр', 'Find parameter')} /></div> : null}<InspectorContents selected={selected} paramsTab={paramsTab} filter={filter} sectionProps={sectionProps} pendingField={pendingField} onFieldFound={onFieldFound} /><footer><span className="focus-spacer" /><button type="button" onClick={() => setLanguage(language === 'ru' ? 'en' : 'ru')} aria-label={tr('Сменить язык', 'Change language')}>{language.toUpperCase()}<FocusIcon name="chevron" /></button></footer></aside> : null}
         <Button className={`focus-panel-tab ${collapsed ? 'is-collapsed' : ''}`} icon="right" label={collapsed ? tr('Развернуть инспектор', 'Expand inspector') : tr('Свернуть инспектор', 'Collapse inspector')} aria-expanded={!collapsed} aria-controls="focus-inspector" onClick={() => setCollapsed((value) => !value)} />
-        <div className="focus-stage-toolbar"><div className="focus-glass"><Button label={t('homeEditor.controls.technicalFrames')} onClick={() => setViewsOpen((value) => !value)}><FocusIcon name="camera" />{tr('Виды', 'Views')}<FocusIcon name="chevron" /></Button>{viewsOpen ? <FocusTechnicalViews settings={settings} layoutEditor={layoutEditor} /> : null}</div><span className="focus-spacer" /><div className="focus-glass"><Button icon="undo" label={tr('Отменить · ⌘Z', 'Undo · ⌘Z')} disabled={!history?.canUndo} onClick={history?.undo} /><Button icon="redo" label={tr('Повторить · ⌘⇧Z', 'Redo · ⌘⇧Z')} disabled={!history?.canRedo} onClick={history?.redo} /></div></div>
+        <div className="focus-stage-toolbar"><div className="focus-glass"><Button label={t('homeEditor.controls.technicalFrames')} onClick={() => setViewsOpen((value) => !value)}><FocusIcon name="camera" />{tr('Виды', 'Views')}<FocusIcon name="chevron" /></Button>{viewsOpen ? <FocusTechnicalViews settings={settings} layoutEditor={layoutEditor} frame={{ solid: solidFrame, toggle: () => setSolidFrame((value) => !value) }} /> : null}</div><span className="focus-spacer" /><div className="focus-glass"><Button icon="undo" label={tr('Отменить · ⌘Z', 'Undo · ⌘Z')} disabled={!history?.canUndo} onClick={history?.undo} /><Button icon="redo" label={tr('Повторить · ⌘⇧Z', 'Redo · ⌘⇧Z')} disabled={!history?.canRedo} onClick={history?.redo} /></div></div>
         <div className="focus-stage-tools focus-glass"><Button icon="cursor" label={tr('Выбор объекта в списке', 'Select an object from the list')} onClick={() => { setNavOpen(true); setCollapsed(false); }} /><Button icon="target" label={tr('Выбор объекта в сцене · V', 'Pick an object in the scene · V')} aria-pressed={gizmo?.picking} onClick={() => gizmo?.setPicking?.(!gizmo?.picking)} data-testid="focus-tool-pick" />{gizmo?.selection ? <>{['translate', ...(gizmo.selection.startsWith('light') ? [] : ['rotate', 'scale'])].map((mode) => <Button key={mode} icon={mode === 'translate' ? 'move' : mode} label={t(`homeEditor.gizmo.${mode}Hint`)} aria-pressed={!gizmo.suppressed && gizmo.mode === mode} onClick={() => { gizmo.setMode(mode); gizmo.show?.(); }} />)}</> : null}<Button icon="hand" label={tr('Управление обзором', 'Viewport navigation')} aria-pressed={gizmo?.suppressed} onClick={() => { gizmo?.hide?.(); document.querySelector('.home-editor-render-frame canvas')?.focus({ preventScroll: true }); }} /></div>
         <div className="focus-film-area">{stripOpen ? <FocusCameraStrip layoutEditor={layoutEditor} /> : null}<Button className="focus-film-toggle focus-glass" icon="camera" label={tr('Лента камер', 'Camera film strip')} aria-expanded={stripOpen} onClick={() => setStripOpen((value) => !value)}>{tr('Камеры', 'Cameras')}<FocusIcon name="chevron" /></Button></div>
         <footer className="focus-statusbar"><span>{t(`homeEditor.groups.${selected.group.id}`) === t(`homeEditor.nodes.${selected.node.id}`) ? t(`homeEditor.nodes.${selected.node.id}`) : `${t(`homeEditor.groups.${selected.group.id}`)} / ${t(`homeEditor.nodes.${selected.node.id}`)}`}</span><span className="focus-spacer" />{publishState?.message || publishHint ? <span role="status">{publishState?.message || publishHint}</span> : null}<span>{gizmo?.selection ? 'G · R · S' : tr('Пробел — пауза', 'Space — pause')}</span></footer>
         {focus || preview ? <Button className="focus-return" icon="panel" label={tr('Вернуться к инструментам', 'Return to tools')} onClick={() => { setFocus(false); setPreview(false); }}>{tr('К редактору', 'Editor')}</Button> : null}
         {modal === 'search' ? <SearchDialog onClose={() => setModal(null)} onSelect={selectNode} commands={commands} /> : null}
-        {modal === 'help' ? <Dialog title={tr('Управление', 'Controls')} onClose={() => setModal(null)}><div className="focus-shortcuts">{[[tr('Поиск', 'Search'), '⌘ K'], [tr('Отменить / повторить параметр', 'Undo / redo parameter'), '⌘ Z / ⌘ ⇧ Z'], [tr('Пауза', 'Pause'), 'Space'], [tr('Перенос / поворот / масштаб', 'Move / rotate / scale'), 'G / R / S'], [tr('Свободный полёт', 'Free flight'), 'W A S D Q E'], [tr('Скрыть / вернуть панели', 'Hide / show panels'), 'Tab'], [tr('Изменить число', 'Scrub value'), tr('ЛКМ ↔ · Shift точнее', 'LMB ↔ · Shift precise')], [tr('Цвет значка', 'Icon colour'), tr('ПКМ', 'RMB')], [tr('Отменить жест / скрыть манипулятор', 'Cancel gesture / hide gizmo'), 'Esc']].map(([label, keys]) => <div key={label}><span>{label}</span><kbd>{keys}</kbd></div>)}</div></Dialog> : null}
+        {modal === 'help' ? <Dialog title={tr('Управление', 'Controls')} onClose={() => setModal(null)}><div className="focus-shortcuts">{[[tr('Поиск', 'Search'), '⌘ K'], [tr('Отменить / повторить параметр', 'Undo / redo parameter'), '⌘ Z / ⌘ ⇧ Z'], [tr('Пауза', 'Pause'), 'Space'], [tr('Перенос / поворот / масштаб', 'Move / rotate / scale'), 'G / R / S'], [tr('Свободный полёт', 'Free flight'), 'W A S D Q E'], [tr('Скрыть / вернуть панели', 'Hide / show panels'), 'Tab'], [tr('Изменить число', 'Scrub value'), tr('ЛКМ ↔ · Shift точнее', 'LMB ↔ · Shift precise')], [tr('Меню объекта, камеры, параметра', 'Object, camera, parameter menu'), tr('ПКМ', 'RMB')], [tr('Цвет значка', 'Icon colour'), tr('ПКМ в списке', 'RMB in the list')], [tr('Отменить жест / скрыть манипулятор', 'Cancel gesture / hide gizmo'), 'Esc']].map(([label, keys]) => <div key={label}><span>{label}</span><kbd>{keys}</kbd></div>)}</div></Dialog> : null}
         {['save', 'publish', 'revert'].includes(modal) ? <Dialog title={modal === 'revert' ? t('homeEditor.publish.adopt') : modal === 'publish' ? tr('Публикация на сайт', 'Publish to website') : tr('Сохранение в проект', 'Save to project')} onClose={() => setModal(null)}><div className="focus-save-summary"><p>{modal === 'revert' ? tr('Текущий вид будет заменён опубликованными настройками проекта. Рабочие камеры останутся в браузере.', 'The current view will be replaced with published project settings. Working cameras remain in the browser.') : tr('В проект входят обычные сцены, их Desktop и Mobile, общий звук. Рабочие камеры и настройки редактора остаются локальными.', 'The project includes scenes, their Desktop and Mobile views and global audio. Working cameras and editor preferences remain local.')}</p>{modal !== 'revert' ? <div className="focus-scene-names">{layoutEditor.cameras.map((camera) => <span key={camera.id}>{camera.name}</span>)}</div> : null}{modal === 'publish' ? <p>{tr('Это действие обновит живой сайт.', 'This will update the live website.')}</p> : null}<footer><Button label={tr('Отмена', 'Cancel')} onClick={() => setModal(null)}>{tr('Отмена', 'Cancel')}</Button><Button className="focus-primary" label={tr('Подтвердить действие', 'Confirm action')} onClick={() => { const action = modal === 'revert' ? onAdoptPublished : modal === 'publish' ? onDeploy : onPublish; setModal(null); action?.(); }}>{modal === 'revert' ? tr('Откатить', 'Revert') : modal === 'publish' ? tr('Опубликовать', 'Publish') : tr('В проект', 'Save')}</Button></footer></div></Dialog> : null}
+        {gizmo?.sceneMenu ? <FocusContextMenu x={gizmo.sceneMenu.x} y={gizmo.sceneMenu.y} title={gizmo.sceneMenu.node ? t(`homeEditor.nodes.${resolveEditorPath(gizmo.sceneMenu.node, { includeDevOnly: import.meta.env.DEV }).node.id}`) : tr('Сцена', 'Scene')} items={sceneMenuItems(gizmo.sceneMenu)} onClose={gizmo.closeSceneMenu} /> : null}
+        {rowMenu ? <FocusContextMenu x={rowMenu.x} y={rowMenu.y} title={rowMenu.label} items={[
+            { label: controls.pinnedIds.has(rowMenu.id) ? tr('Убрать из избранного', 'Remove from favourites') : tr('В избранное', 'Add to favourites'), icon: 'star', onSelect: () => controls.togglePin(rowMenu.id) },
+            { label: tr('Открыть избранное', 'Open favourites'), icon: 'panel', onSelect: () => { setParamsTab('pinned'); setCollapsed(false); } },
+        ]} onClose={() => setRowMenu(null)} /> : null}
         {palette.popup ? <FocusColorPalette {...palette.popup} colors={colors} language={language} onClose={palette.close} /> : null}<FocusTooltip />
         <div hidden aria-hidden="true" data-testid="focus-control-catalog"><FocusCameraParameters settings={settings} layoutEditor={layoutEditor} catalogOnly />{ALL_NODES.filter(({ node }) => node.id !== 'camera').map(({ group, node, path }) => <NodeSections key={path} group={group} node={node} catalogOnly sectionProps={sectionProps} />)}</div>
     </div>;

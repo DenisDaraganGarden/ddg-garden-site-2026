@@ -595,7 +595,7 @@ function WaterRuntimeScene({
           onTransform={editorGizmo.onTransform}
         />
       ) : null}
-      {mode === 'editor' ? <EditorPicker enabled={Boolean(editorGizmo?.picking)} onPick={editorGizmo?.onPick} /> : null}
+      {mode === 'editor' ? <EditorPicker enabled={Boolean(editorGizmo?.picking)} onPick={editorGizmo?.onPick} onContextMenu={editorGizmo?.onContextMenu} /> : null}
       <DebugWireframe enabled={mode === 'editor' && Boolean(settings.debugWireframe)} />
       <SceneReadyBeacon onSceneReady={onSceneReady} waiting={sky.isPlaceholder} />
       {showDebugHelpers ? <axesHelper args={[2]} /> : null}

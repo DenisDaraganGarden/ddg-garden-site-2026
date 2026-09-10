@@ -9,7 +9,7 @@ html[data-focus-editor=true]:not([data-focus-preview=true]) .main-nav{display:no
 html[data-focus-canvas=true] .home-editor-stage,html[data-focus-preview=true] .home-editor-stage{inset:0}
 html[data-focus-preview=true] .home-editor-viewport{width:min(100vw,calc(100dvh * 1.7777778));height:min(100dvh,56.25vw)}
 html[data-focus-preview=true] .home-editor-render-frame{inset:var(--home-editor-frame-inset) 0}
-html[data-focus-preview=true] .home-editor-frame-mask{background:#000;border:0}
+html[data-focus-preview=true] .home-editor-frame-mask,html[data-focus-frame=solid] .home-editor-frame-mask{background:#000;border:0}
 .focus-editor{position:fixed;inset:0;z-index:140;pointer-events:none;color:var(--focus-text);font:11px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;letter-spacing:0;text-transform:none;--font-secondary:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
 .focus-editor *{box-sizing:border-box}.focus-editor :is(button,input,select){font:inherit;letter-spacing:0;text-transform:none;color:inherit}
 .focus-editor :is(button,input,select):focus-visible{outline:1px solid var(--focus-accent);outline-offset:2px}

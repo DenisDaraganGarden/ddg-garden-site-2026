@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { SCENE_OBJECTS, sceneNodeForObject3D, sceneObjectsForNode } from './sceneObjects.js';
+import { SCENE_OBJECTS, sceneHitForObject3D, sceneNodeForObject3D, sceneObjectsForNode } from './sceneObjects.js';
 
 // Клик по сцене разбирается по именам, под которыми объекты в ней лежат.
 // Проверяется на выдуманных узлах: сама функция ходит только по name и parent.
@@ -30,6 +30,12 @@ assert.equal(sceneNodeForObject3D(node('water-interaction-plane')), null);
 assert.equal(sceneNodeForObject3D(node('pointer-debug')), null);
 assert.equal(sceneNodeForObject3D(node('')), null);
 assert.equal(sceneNodeForObject3D(node(undefined)), null);
+
+// Контекстное меню наводит камеру на то же попадание, поэтому вместе с узлом
+// возвращается имя предка — то, которое понимает scene.getObjectByName.
+assert.deepEqual(sceneHitForObject3D(boatMesh), { node: 'objects/boat', root: 'boat' });
+assert.deepEqual(sceneHitForObject3D(node('coast-rocks-2')), { node: 'landscape/rocks', root: 'coast-rocks-2' });
+assert.equal(sceneHitForObject3D(node('water-interaction-plane')), null);
 
 // Каждый корень ведёт в существующий узел дерева редактора.
 for (const object of SCENE_OBJECTS) {

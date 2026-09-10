@@ -7,6 +7,7 @@ import { EDITOR_THUMBNAIL_READY, requestEditorThumbnail } from '../../../../../c
 import { FocusCheckboxControl, FocusRangeControl } from './FocusControlComponents';
 import { FocusControlNumberInput } from './FocusControlNumberInput';
 import { FocusControlScope } from './FocusControlsContext';
+import { FocusContextMenu } from './FocusContextMenu';
 import './FocusCameras.css';
 
 const THUMBNAILS_KEY = 'ddg_home_editor_camera_thumbnails_v1';
@@ -63,7 +64,9 @@ function CameraRow({ camera, index, kind, active, layoutEditor, onCapture, onOpe
         else layoutEditor.captureLayout(layoutEditor.selectedKey);
         onCapture(camera.id, layoutEditor.selectedKey);
     };
-    return <article className={`focus-camera-card ${active ? 'is-active' : ''} ${!isWork && camera.enabled === false ? 'is-disabled' : ''}`}>
+    // ПКМ по карточке — те же настройки, что под «•••»: переименование и порядок
+    // живут в диалоге, второго списка действий заводить незачем.
+    return <article className={`focus-camera-card ${active ? 'is-active' : ''} ${!isWork && camera.enabled === false ? 'is-disabled' : ''}`} onContextMenu={(event) => { if (event.shiftKey) return; event.preventDefault(); onOpenSettings({ camera, kind, index }); }}>
         <div className="focus-camera-card-top">
             <button type="button" className="focus-camera-card-select" onClick={() => select(camera.id)} aria-pressed={active}>
                 <span className="focus-camera-card-index">{String(index + 1).padStart(2, '0')}</span>
@@ -152,17 +155,18 @@ export function FocusCameraManager({ settings, layoutEditor }) {
     return <div className="focus-camera-manager"><CameraGroup kind="work" layoutEditor={layoutEditor} onCapture={captureImage} onOpenSettings={setSettingsItem} /><CameraGroup kind="scene" layoutEditor={layoutEditor} onCapture={captureImage} onOpenSettings={setSettingsItem} /><FocusCameraTuning settings={settings} layoutEditor={layoutEditor} /><CameraSettingsDialog item={settingsItem} layoutEditor={layoutEditor} onCapture={captureImage} onClose={() => setSettingsItem(null)} /></div>;
 }
 
-function FocusCameraTile({ camera, active, onSelect, thumbnail }) {
-    return <button type="button" className={`focus-film-tile ${active ? 'is-active' : ''}`} onClick={onSelect} aria-pressed={active} title={camera.name}>
+function FocusCameraTile({ camera, active, onSelect, onMenu, thumbnail }) {
+    return <button type="button" className={`focus-film-tile ${active ? 'is-active' : ''}`} onClick={onSelect} onContextMenu={onMenu} aria-pressed={active} title={camera.name}>
         {thumbnail ? <img src={thumbnail} alt="" /> : <span className="focus-film-empty" aria-hidden="true" />}
         <span>{camera.name}</span>
     </button>;
 }
 
 export function FocusCameraStrip({ layoutEditor, className = '' }) {
-    const { t } = useLanguage();
+    const { t, language } = useLanguage();
     const [thumbnails, captureImage] = useCameraThumbnails();
     const [menuOpen, setMenuOpen] = useState(false);
+    const [tileMenu, setTileMenu] = useState(null);
     const scrollerRef = useRef(null);
     const scrollLeftRef = useRef(0);
     const dragRef = useRef(null);
@@ -209,6 +213,20 @@ export function FocusCameraStrip({ layoutEditor, className = '' }) {
         else layoutEditor.captureLayout(layoutEditor.selectedKey);
         captureImage(id, layoutEditor.selectedKey);
     };
+    // ПКМ по плитке: выбрать, переснять ракурс или миниатюру, удалить. Защиты те
+    // же, что в диалоге камеры: главная рабочая и последняя сцена не удаляются.
+    const tileMenuItems = (camera) => {
+        const isWork = camera.kind === 'work';
+        const list = isWork ? layoutEditor.workCameras ?? [] : layoutEditor.cameras ?? [];
+        const canRemove = isWork ? camera.id !== WORK_CAMERA_MAIN_ID : list.length > 1;
+        return [
+            { label: language === 'ru' ? 'Выбрать' : 'Select', icon: 'camera', disabled: active(camera), onSelect: () => select(camera) },
+            { label: t('homeEditor.controls.layoutCapture'), icon: 'capture', disabled: !active(camera), onSelect: captureActive },
+            { label: language === 'ru' ? 'Обновить миниатюру' : 'Refresh thumbnail', icon: 'eye', onSelect: () => captureImage(camera.id, layoutEditor.selectedKey) },
+            '-',
+            { label: language === 'ru' ? 'Удалить' : 'Delete', icon: 'close', danger: true, disabled: !canRemove, onSelect: () => (isWork ? layoutEditor.removeWorkCamera : layoutEditor.removeCamera)(camera.id) },
+        ];
+    };
     const startDrag = (event) => {
         if (event.button !== 0) return;
         dragRef.current = { id: event.pointerId, x: event.clientX, scroll: event.currentTarget.scrollLeft, dragging: false };
@@ -235,17 +253,20 @@ export function FocusCameraStrip({ layoutEditor, className = '' }) {
     };
     return <div className={`focus-film-strip ${className}`} aria-label={t('homeEditor.controls.cameras')}>
         <div ref={scrollerRef} className="focus-film-scroll" tabIndex="0" onScroll={(event) => { scrollLeftRef.current = event.currentTarget.scrollLeft; }} onPointerDown={startDrag} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag} onClickCapture={(event) => { if (justDraggedRef.current) { event.preventDefault(); event.stopPropagation(); justDraggedRef.current = false; } }} onKeyDown={(event) => { if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') { event.preventDefault(); event.currentTarget.scrollBy({ left: event.key === 'ArrowLeft' ? -160 : 160, behavior: 'smooth' }); } }}>
-            {all.map((camera, index) => <React.Fragment key={camera.id}>{index === 0 || camera.kind !== all[index - 1].kind ? <span className={`focus-film-label focus-film-label--${camera.kind}`}>{camera.kind === 'work' ? t('homeEditor.controls.workCameras') : t('homeEditor.controls.cameras')}</span> : null}<FocusCameraTile camera={camera} active={active(camera)} onSelect={() => select(camera)} thumbnail={thumbnails[thumbnailKey(camera.id, layoutEditor.selectedKey)]} /></React.Fragment>)}
+            {all.map((camera, index) => <React.Fragment key={camera.id}>{index === 0 || camera.kind !== all[index - 1].kind ? <span className={`focus-film-label focus-film-label--${camera.kind}`}>{camera.kind === 'work' ? t('homeEditor.controls.workCameras') : t('homeEditor.controls.cameras')}</span> : null}<FocusCameraTile camera={camera} active={active(camera)} onSelect={() => select(camera)} onMenu={(event) => { if (event.shiftKey) return; event.preventDefault(); setTileMenu({ x: event.clientX, y: event.clientY, camera }); }} thumbnail={thumbnails[thumbnailKey(camera.id, layoutEditor.selectedKey)]} /></React.Fragment>)}
         </div>
+        {tileMenu ? <FocusContextMenu x={tileMenu.x} y={tileMenu.y} title={tileMenu.camera.name} items={tileMenuItems(tileMenu.camera)} onClose={() => setTileMenu(null)} /> : null}
         <div className="focus-film-add"><IconButton label={t('homeEditor.controls.cameraAdd')} onClick={() => setMenuOpen((value) => !value)} aria-expanded={menuOpen}>+</IconButton>{menuOpen ? <div role="menu"><button type="button" role="menuitem" onClick={() => { setMenuOpen(false); layoutEditor.addWorkCamera(); }}>{t('homeEditor.controls.workCameraAdd')}</button><button type="button" role="menuitem" onClick={() => { setMenuOpen(false); layoutEditor.addCamera(); }}>{t('homeEditor.controls.cameraAdd')}</button><button type="button" role="menuitem" onClick={() => { setMenuOpen(false); captureActive(); }}>{t('homeEditor.controls.layoutCapture')}</button></div> : null}</div>
     </div>;
 }
 
-export function FocusTechnicalViews({ settings, layoutEditor }) {
+export function FocusTechnicalViews({ settings, layoutEditor, frame: frameMask }) {
     const { language, t } = useLanguage();
     if (!layoutEditor) return null;
     const preview = (frame) => frame.object ? layoutEditor.frameObject?.(frame.object, frame.options) : layoutEditor.previewPose?.(frame.pose(settings));
     return <div className="focus-technical-views" role="menu" aria-label={t('homeEditor.controls.technicalFrames')}>
+        {/* Рамка кадра — не ракурс, а способ показа: чёрная обрезает так, как обрежет сайт. */}
+        {frameMask ? <><button type="button" role="menuitemcheckbox" aria-checked={frameMask.solid} className="focus-technical-views__check" onClick={frameMask.toggle}><span aria-hidden="true">{frameMask.solid ? '✓' : ''}</span>{language === 'ru' ? 'Чёрная рамка кадра' : 'Solid frame mask'}</button><hr /></> : null}
         {TECHNICAL_FRAMES.map((frame) => <button type="button" key={frame.id} role="menuitem" onClick={() => preview(frame)}>{language === 'ru' ? frame.ru : frame.en}</button>)}
     </div>;
 }

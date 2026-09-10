@@ -38,11 +38,15 @@ export const sceneObjectsForNode = (path) => SCENE_OBJECTS.filter((object) => ob
 const matchRoot = (name) => SCENE_OBJECTS.find((object) => object.roots?.includes(name))
   ?? SCENE_OBJECTS.find((object) => object.roots?.some((root) => name.startsWith(`${root}-`)));
 
-export const sceneNodeForObject3D = (object) => {
+// Вместе с узлом дерева возвращается имя, под которым объект лежит в сцене:
+// по нему работает наводка камеры (frameObject), и второй раз искать не нужно.
+export const sceneHitForObject3D = (object) => {
   for (let node = object; node; node = node.parent) {
     const match = node.name ? matchRoot(node.name) : null;
-    if (match?.node) return match.node;
+    if (match?.node) return { node: match.node, root: node.name };
   }
 
   return null;
 };
+
+export const sceneNodeForObject3D = (object) => sceneHitForObject3D(object)?.node ?? null;
