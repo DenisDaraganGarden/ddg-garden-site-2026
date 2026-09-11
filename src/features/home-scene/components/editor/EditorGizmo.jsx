@@ -1,6 +1,7 @@
+/* eslint-disable react-refresh/only-export-components -- Правило осей и его подсказка — одно знание, живут вместе. */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { useThree } from '@react-three/fiber';
+import { useFrame, useThree } from '@react-three/fiber';
 
 const LazyTransformControls = React.lazy(() => import('@react-three/drei/core/TransformControls.js').then((module) => ({
     default: module.TransformControls,
@@ -18,12 +19,14 @@ const LazyTransformControls = React.lazy(() => import('@react-three/drei/core/Tr
 const GIZMO_TARGETS = {
     boat: {
         objectName: 'boat-anchor',
+        visualName: 'boat',
         translate: { x: true, y: false, z: true },
         rotate: { x: false, y: true, z: false },
         uniformScale: true,
     },
     sculpture: {
         objectName: 'sculpture-anchor',
+        visualName: 'sculpture',
         translate: { x: true, y: false, z: true },
         rotate: { x: false, y: true, z: false },
         uniformScale: true,
@@ -57,12 +60,49 @@ const GIZMO_TARGETS = {
     },
 };
 
+// Подсказка для строки состояния: какие оси у объекта в этом режиме и почему
+// остальных нет. Стрелок в кадре бывает две, и это выглядит как поломка, пока
+// не сказано словами, что высоту лодки задаёт вода.
+const GIZMO_NOTES = {
+    boat: { ru: 'высота — от воды', en: 'height comes from the water' },
+    sculpture: { ru: 'высота — от дна', en: 'height comes from the seabed' },
+};
+
+export function describeGizmoAxes(selection, mode, language = 'ru') {
+    const rule = GIZMO_TARGETS[selection];
+    if (!rule) return '';
+    const axes = mode === 'scale'
+        ? (rule.uniformScale ? (language === 'ru' ? 'равномерно' : 'uniform') : 'X Y Z')
+        : ['x', 'y', 'z'].filter((axis) => rule[mode]?.[axis]).map((axis) => axis.toUpperCase()).join(' ');
+    const note = mode === 'translate' ? GIZMO_NOTES[selection]?.[language] : null;
+    return [axes, note].filter(Boolean).join(' · ');
+}
+
 const round = (value, digits = 3) => Number(value.toFixed(digits));
 
-export default function EditorGizmo({ selection, mode, orbitRef, onTransform }) {
+// Манипулятор стоит не на якоре, а на видимом центре объекта. У лодки начало
+// координат модели — у кормы, в полутора метрах от корпуса, и стрелки на
+// якоре висели в воде рядом с лодкой: это выглядело как поломка.
+//
+// Ручки держат не сам объект, а прокси. Поворот и масштаб лодки живут не на
+// якоре, а на дочерних узлах (яв — на «boat», масштаб — на модели), и когда
+// TransformControls крутил якорь напрямую, сцена сверху накладывала то же
+// значение из настроек — лодка поворачивалась дважды. Прокси пишет только в
+// настройки, а сцена раскладывает их по своим узлам, как и от ползунков.
+export default function EditorGizmo({ selection, mode, orbitRef, onTransform, pose }) {
     const { scene } = useThree();
-    const controlsRef = useRef(null);
+    // Ручки приходят лениво, через Suspense: обычный ref в момент эффекта ещё
+    // пуст, и слушатели бы не повесились. Ref-колбэк кладёт их в состояние.
+    const [controls, setControls] = useState(null);
     const [target, setTarget] = useState(null);
+    const [visual, setVisual] = useState(null);
+    const proxy = useMemo(() => {
+        const object = new THREE.Object3D();
+        object.name = 'editor-gizmo-proxy';
+        return object;
+    }, []);
+    const drag = useRef(null);
+    const centre = useRef(new THREE.Vector3());
     const rule = selection ? GIZMO_TARGETS[selection] : null;
 
     // The anchors mount with the scene, which can be a frame or two after the
@@ -70,14 +110,17 @@ export default function EditorGizmo({ selection, mode, orbitRef, onTransform }) 
     useEffect(() => {
         if (!rule) {
             setTarget(null);
+            setVisual(null);
             return undefined;
         }
 
         let frame = 0;
         const resolve = () => {
-            const found = scene.getObjectByName(rule.objectName);
-            if (found) {
-                setTarget(found);
+            const anchor = scene.getObjectByName(rule.objectName);
+            const body = rule.visualName ? scene.getObjectByName(rule.visualName) : anchor;
+            if (anchor && body) {
+                setTarget(anchor);
+                setVisual(body);
                 return;
             }
             frame = requestAnimationFrame(resolve);
@@ -86,6 +129,20 @@ export default function EditorGizmo({ selection, mode, orbitRef, onTransform }) 
         resolve();
         return () => cancelAnimationFrame(frame);
     }, [rule, scene]);
+
+    // Центр модели в её собственных координатах — один раз: он не зависит ни
+    // от поворота, ни от качки, а коробку по 70 тысячам треугольников каждый
+    // кадр считать незачем.
+    useEffect(() => {
+        if (!visual) return;
+        const box = new THREE.Box3().setFromObject(visual);
+        if (box.isEmpty()) {
+            centre.current.set(0, 0, 0);
+            return;
+        }
+        visual.updateWorldMatrix(true, false);
+        centre.current.copy(visual.worldToLocal(box.getCenter(new THREE.Vector3())));
+    }, [visual]);
 
     const axes = useMemo(() => {
         if (!rule) {
@@ -100,36 +157,53 @@ export default function EditorGizmo({ selection, mode, orbitRef, onTransform }) 
         return { showX: true, showY: true, showZ: true };
     }, [mode, rule]);
 
+    // Пока ручку не тянут, прокси следует за сценой: центр модели, яв и масштаб
+    // из настроек. Во время протяжки им владеет TransformControls.
+    useFrame(() => {
+        if (!target || !visual || drag.current) return;
+        visual.updateWorldMatrix(true, false);
+        proxy.position.copy(visual.localToWorld(centre.current.clone()));
+        proxy.rotation.set(0, THREE.MathUtils.degToRad(pose?.rotationY ?? 0), 0);
+        proxy.scale.setScalar(pose?.scale ?? 1);
+    });
+
     // Orbiting while dragging a handle would drag the object across the screen.
     useEffect(() => {
-        const controls = controlsRef.current;
         const orbit = orbitRef?.current;
 
         if (!controls) {
             return undefined;
         }
+        // В dev ручки доступны снаружи — проба гоняет протяжку без мыши.
+        if (import.meta.env.DEV) window.__ouroborosGizmo = { controls, proxy };
 
         const handleDragging = (event) => {
             if (orbit) {
                 orbit.enabled = !event.value;
             }
+            // В начале протяжки запоминаем, где стояли якорь и прокси: сдвиг
+            // ручки переносится на якорь как разница, а не как абсолют.
+            drag.current = event.value && target
+                ? { anchor: target.position.clone(), proxy: proxy.position.clone() }
+                : null;
         };
 
         controls.addEventListener('dragging-changed', handleDragging);
         return () => {
             controls.removeEventListener('dragging-changed', handleDragging);
+            drag.current = null;
             if (orbit) {
                 orbit.enabled = true;
             }
         };
-    }, [orbitRef, target]);
+    }, [controls, orbitRef, proxy, target]);
 
     if (!rule || !target) {
         return null;
     }
 
     const handleObjectChange = () => {
-        if (typeof onTransform !== 'function') {
+        if (typeof onTransform !== 'function' || !drag.current) {
             return;
         }
 
@@ -137,32 +211,34 @@ export default function EditorGizmo({ selection, mode, orbitRef, onTransform }) 
         // settings every frame, so the settings are the source of truth and the
         // gizmo is one more way to write to them.
         if (mode === 'translate') {
+            const next = drag.current.anchor.clone().add(proxy.position).sub(drag.current.proxy);
             onTransform(selection, {
-                position: { x: round(target.position.x, 2), z: round(target.position.z, 2) },
+                position: { x: round(next.x, 2), y: round(next.y, 2), z: round(next.z, 2) },
             });
             return;
         }
 
         if (mode === 'rotate') {
             onTransform(selection, {
-                rotationY: Math.round(THREE.MathUtils.radToDeg(target.rotation.y)),
+                rotationY: Math.round(THREE.MathUtils.radToDeg(proxy.rotation.y)),
             });
             return;
         }
 
         const uniform = rule.uniformScale
-            ? (target.scale.x + target.scale.y + target.scale.z) / 3
-            : target.scale.x;
+            ? (proxy.scale.x + proxy.scale.y + proxy.scale.z) / 3
+            : proxy.scale.x;
         onTransform(selection, { scale: round(uniform, 4) });
     };
 
     return (
         <React.Suspense fallback={null}>
+            <primitive object={proxy} />
             <LazyTransformControls
-                ref={controlsRef}
-                object={target}
+                ref={setControls}
+                object={proxy}
                 mode={mode}
-                size={0.8}
+                size={1}
                 space="world"
                 onObjectChange={handleObjectChange}
                 {...axes}

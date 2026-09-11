@@ -514,14 +514,23 @@ const HomeEdit = ({ project = null }) => {
     const transformTool = GIZMO_MODES.includes(tool);
     const activeTool = transformTool && !gizmoSelection ? 'select' : tool;
     const picking = activeTool !== 'hand';
+    // Яв и масштаб выбранного объекта — из настроек: манипулятор их показывает,
+    // а пишет обратно только через onTransform, сцену напрямую не трогая.
+    const gizmoPose = gizmoSelection === 'boat'
+        ? { rotationY: settings.boatYaw ?? 0, scale: settings.boatScale ?? 1 }
+        : gizmoSelection === 'sculpture'
+            ? { rotationY: settings.sculptureRotationY ?? 0, scale: settings.sculptureScale ?? 1 }
+            : null;
     const editorGizmo = useMemo(() => ({
         selection: transformTool && gizmoSelection ? gizmoSelection : null,
         mode: transformTool ? tool : lastTransform,
+        pose: gizmoPose,
         onTransform: handleGizmoTransform,
         picking,
         onPick: handlePickObject,
         onContextMenu: setSceneMenu,
-    }), [transformTool, gizmoSelection, tool, lastTransform, handleGizmoTransform, picking, handlePickObject]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- pose сравнивается по значениям, не по ссылке
+    }), [transformTool, gizmoSelection, tool, lastTransform, handleGizmoTransform, picking, handlePickObject, gizmoPose?.rotationY, gizmoPose?.scale]);
 
     // Курсор во вьюпорте говорит, какой инструмент в руке, не глядя на панель.
     useEffect(() => {

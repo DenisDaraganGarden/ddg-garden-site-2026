@@ -24,6 +24,11 @@ export default function EditorPicker({ enabled, onPick, onContextMenu }) {
     const scene = useThree((state) => state.scene);
     const raycaster = useThree((state) => state.raycaster);
 
+    // В dev сцена доступна снаружи — для проб и справочника, как каталог контролов.
+    useEffect(() => {
+        if (import.meta.env.DEV) window.__ouroborosScene = scene;
+    }, [scene]);
+
     useEffect(() => {
         const element = gl.domElement;
         let pressed = null;

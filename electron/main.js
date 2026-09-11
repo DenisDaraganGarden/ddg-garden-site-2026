@@ -136,7 +136,10 @@ app.whenReady().then(async () => {
     if (SMOKE || PROBE) await runSmoke(window);
   } catch (error) {
     console.error('Движок не запустился:', error);
+    await viteServer?.close();
+    viteServer = null;
     app.exit(1);
+    process.exit(1);
   }
 });
 

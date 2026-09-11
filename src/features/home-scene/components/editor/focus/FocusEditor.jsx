@@ -3,6 +3,7 @@ import { useLanguage } from '../../../../../i18n/useLanguage';
 import { version } from '../../../../../../package.json';
 import { EDITOR_TREE, resolveEditorPath } from '../editorTree';
 import { sceneObjectsForNode } from '../../../lib/sceneObjects';
+import { describeGizmoAxes } from '../EditorGizmo';
 import { RangeControl, CheckboxControl, SectionHeading } from '../../HomeEditorControls';
 import { FocusControlsProvider, FocusControlScope, useFocusControls } from './FocusControlsContext';
 import { RegisteredFocusControl } from './FocusControlComponents';
@@ -261,7 +262,7 @@ function FocusShell(props) {
             <Button icon="panel" label={tr('Список объектов', 'Object list')} aria-pressed={navOpen} onClick={() => { setNavOpen((value) => !value); setCollapsed(false); }} data-testid="focus-tool-list" />
         </div>
         <div className="focus-film-area">{stripOpen ? <FocusCameraStrip layoutEditor={layoutEditor} /> : null}<Button className="focus-film-toggle focus-glass" icon="camera" label={tr('Лента камер', 'Camera film strip')} aria-expanded={stripOpen} onClick={() => setStripOpen((value) => !value)}>{tr('Камеры', 'Cameras')}<FocusIcon name="chevron" /></Button></div>
-        <footer className="focus-statusbar"><span>{t(`homeEditor.groups.${selected.group.id}`) === t(`homeEditor.nodes.${selected.node.id}`) ? t(`homeEditor.nodes.${selected.node.id}`) : `${t(`homeEditor.groups.${selected.group.id}`)} / ${t(`homeEditor.nodes.${selected.node.id}`)}`}</span><span className="focus-spacer" />{publishState?.message || publishHint ? <span role="status">{publishState?.message || publishHint}</span> : null}<span>{(() => { const item = TOOLS.find((entry) => entry.id === gizmo?.tool); return item ? `${tr(item.ru, item.en)} · ${item.key}` : tr('Пробел — пауза', 'Space — pause'); })()}</span></footer>
+        <footer className="focus-statusbar"><span>{t(`homeEditor.groups.${selected.group.id}`) === t(`homeEditor.nodes.${selected.node.id}`) ? t(`homeEditor.nodes.${selected.node.id}`) : `${t(`homeEditor.groups.${selected.group.id}`)} / ${t(`homeEditor.nodes.${selected.node.id}`)}`}</span><span className="focus-spacer" />{publishState?.message || publishHint ? <span role="status">{publishState?.message || publishHint}</span> : null}<span>{(() => { const item = TOOLS.find((entry) => entry.id === gizmo?.tool); if (!item) return tr('Пробел — пауза', 'Space — pause'); const axes = item.transform && gizmo?.movable ? describeGizmoAxes(gizmo.movable, item.id, language) : ''; return [`${tr(item.ru, item.en)} · ${item.key}`, axes].filter(Boolean).join(' · '); })()}</span></footer>
         {focus || preview ? <Button className="focus-return" icon="panel" label={tr('Вернуться к инструментам', 'Return to tools')} onClick={() => { setFocus(false); setPreview(false); }}>{tr('К редактору', 'Editor')}</Button> : null}
         {modal === 'search' ? <SearchDialog onClose={() => setModal(null)} onSelect={selectNode} commands={commands} /> : null}
         {modal?.kind === 'presets' ? <Dialog title={`${tr('Детали', 'Parts')} · ${modal.label}`} onClose={() => setModal(null)}><FocusPresets path={modal.path} label={modal.label} settings={settings} applySettings={props.applySettings} onClose={() => setModal(null)} /></Dialog> : null}
