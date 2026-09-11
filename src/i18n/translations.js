@@ -150,6 +150,8 @@ export const translations = {
       // Headings inside one section, splitting a long control list into
       // readable blocks. Same look as an aspect heading - a rule and a label.
       blocks: {
+        seagullTerritory: 'Территория',
+        seagullPerches: 'Посадки',
         sun: 'Солнце',
         air: 'Воздух',
         clouds: 'Облака',
@@ -538,6 +540,15 @@ export const translations = {
         seagullCount: 'Количество чаек',
         seagullFlightActivity: 'Активность полёта',
         seagullLandingDensity: 'Плотность посадок',
+        seagullTerritoryRadius: 'Радиус территории',
+        seagullTerritoryX: 'Центр территории · X',
+        seagullTerritoryZ: 'Центр территории · Z',
+        seagullAltitudeMin: 'Высота полёта · нижняя',
+        seagullAltitudeMax: 'Высота полёта · верхняя',
+        seagullPerchTerrain: 'Садятся на сушу',
+        seagullPerchRocks: 'Садятся на валуны',
+        seagullPerchObjects: 'Садятся на объекты',
+        seagullPerchCount: 'Мест на суше',
         seagullPointerInteraction: 'Реакция на курсор',
         seagullShootingEnabled: 'Стрельба по чайкам',
         fishEnabled: 'Рыбы',
@@ -809,6 +820,8 @@ export const translations = {
       // Headings inside one section, splitting a long control list into
       // readable blocks. Same look as an aspect heading - a rule and a label.
       blocks: {
+        seagullTerritory: 'Territory',
+        seagullPerches: 'Perches',
         sun: 'Sun',
         air: 'Air',
         clouds: 'Clouds',
@@ -1193,6 +1206,15 @@ export const translations = {
         seagullCount: 'Seagull count',
         seagullFlightActivity: 'Flight activity',
         seagullLandingDensity: 'Landing density',
+        seagullTerritoryRadius: 'Territory radius',
+        seagullTerritoryX: 'Territory centre · X',
+        seagullTerritoryZ: 'Territory centre · Z',
+        seagullAltitudeMin: 'Flight altitude · low',
+        seagullAltitudeMax: 'Flight altitude · high',
+        seagullPerchTerrain: 'Perch on land',
+        seagullPerchRocks: 'Perch on boulders',
+        seagullPerchObjects: 'Perch on objects',
+        seagullPerchCount: 'Land perches',
         seagullPointerInteraction: 'Cursor response',
         seagullShootingEnabled: 'Seagull shooting',
         fishEnabled: 'Fish',

@@ -418,6 +418,19 @@ export const getBaseHomeSceneSettings = () => ({
   seagullLandingDensity: 0.38,
   seagullPointerInteraction: true,
   seagullShootingEnabled: true,
+  // Территория стаи — где летают и как высоко. Заводские значения — маршруты
+  // сайта как есть: круг ~6 м у начала координат, от уреза до 4.6 м.
+  seagullTerritoryX: 0,
+  seagullTerritoryZ: 0,
+  seagullTerritoryRadius: 6,
+  seagullAltitudeMin: 0.36,
+  seagullAltitudeMax: 4.6,
+  // Посадки: процедурные места на суше и валунах в пределах территории, и
+  // объекты, которые сами регистрируют поверхность (лодка, скульптура).
+  seagullPerchTerrain: true,
+  seagullPerchRocks: true,
+  seagullPerchObjects: true,
+  seagullPerchCount: 12,
   fishEnabled: true,
   fishPointerInteraction: true,
   fishCount: 50,
@@ -1029,6 +1042,15 @@ const normalizeHomeSceneSettings = (savedSettings = {}, includeCameraSystem = tr
       merged.seagullShootingEnabled,
       defaults.seagullShootingEnabled,
     ),
+    seagullTerritoryX: clampFloat(merged.seagullTerritoryX, -400, 400, defaults.seagullTerritoryX),
+    seagullTerritoryZ: clampFloat(merged.seagullTerritoryZ, -400, 400, defaults.seagullTerritoryZ),
+    seagullTerritoryRadius: clampFloat(merged.seagullTerritoryRadius, 3, 120, defaults.seagullTerritoryRadius),
+    seagullAltitudeMin: clampFloat(merged.seagullAltitudeMin, 0.2, 30, defaults.seagullAltitudeMin),
+    seagullAltitudeMax: clampFloat(merged.seagullAltitudeMax, 1, 80, defaults.seagullAltitudeMax),
+    seagullPerchTerrain: pickBoolean(merged.seagullPerchTerrain, defaults.seagullPerchTerrain),
+    seagullPerchRocks: pickBoolean(merged.seagullPerchRocks, defaults.seagullPerchRocks),
+    seagullPerchObjects: pickBoolean(merged.seagullPerchObjects, defaults.seagullPerchObjects),
+    seagullPerchCount: clampInt(merged.seagullPerchCount, 0, 48, defaults.seagullPerchCount),
     fishEnabled: pickBoolean(merged.fishEnabled, defaults.fishEnabled),
     fishPointerInteraction: pickBoolean(
       merged.fishPointerInteraction,

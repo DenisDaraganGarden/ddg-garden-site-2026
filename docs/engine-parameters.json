@@ -1,691 +1,141 @@
 {
-  "collected": "2026-09-11T09:56:35.183Z",
+  "collected": "2026-09-11T11:11:54.162Z",
   "rows": [
     {
-      "key": "cameraFov",
-      "group": "cameras",
-      "node": "camera",
-      "label": "FOV",
-      "kind": "число",
-      "min": 15,
-      "max": 100,
-      "step": 0.1,
-      "unit": "°"
-    },
-    {
-      "key": "waterVisible",
-      "group": "landscape",
-      "node": "water",
-      "label": "Вода",
+      "key": "audio.tracks.tanker.enabled",
+      "group": "audio",
+      "node": "audioTracks",
+      "label": "Танкер · дизель / гудок: включить дорожку",
       "kind": "выключатель"
     },
     {
-      "key": "farWaterVisible",
-      "group": "landscape",
-      "node": "water",
-      "label": "Дальняя вода",
-      "kind": "выключатель"
-    },
-    {
-      "key": "seaMeshRings",
-      "group": "landscape",
-      "node": "water",
-      "label": "Кольца сетки",
-      "kind": "число",
-      "min": 32,
-      "max": 192,
-      "step": 8
-    },
-    {
-      "key": "seaMeshSegments",
-      "group": "landscape",
-      "node": "water",
-      "label": "Сегменты сетки",
-      "kind": "число",
-      "min": 48,
-      "max": 256,
-      "step": 8
-    },
-    {
-      "key": "waterExtent",
-      "group": "landscape",
-      "node": "water",
-      "label": "Область ряби",
-      "kind": "число",
-      "min": 12,
-      "max": 200,
-      "step": 0.5,
-      "unit": "m"
-    },
-    {
-      "key": "simulationResolution",
-      "group": "landscape",
-      "node": "water",
-      "label": "Разрешение симуляции",
-      "kind": "список",
-      "options": [
-        128,
-        256,
-        384,
-        512
-      ]
-    },
-    {
-      "key": "состояние-моря",
-      "group": "landscape",
-      "node": "water",
-      "label": "Состояние моря",
-      "kind": "список",
-      "options": [
-        "custom",
-        "calm",
-        "breeze",
-        "rough",
-        "storm"
-      ]
-    },
-    {
-      "key": "seaWavelength",
-      "group": "landscape",
-      "node": "water",
-      "label": "Длина волны",
-      "kind": "число",
-      "min": 3,
-      "max": 40,
-      "step": 0.5,
-      "unit": "m"
-    },
-    {
-      "key": "seaAmplitude",
-      "group": "landscape",
-      "node": "water",
-      "label": "Высота волны",
-      "kind": "число",
-      "min": 0,
-      "max": 1.6,
-      "step": 0.01,
-      "unit": "m"
-    },
-    {
-      "key": "seaSteepness",
-      "group": "landscape",
-      "node": "water",
-      "label": "Крутизна",
-      "kind": "число",
-      "min": 0,
-      "max": 0.8,
-      "step": 0.01
-    },
-    {
-      "key": "seaSpeed",
-      "group": "landscape",
-      "node": "water",
-      "label": "Скорость",
-      "kind": "число",
-      "min": 0,
-      "max": 2.5,
-      "step": 0.05
-    },
-    {
-      "key": "seaWindDirection",
-      "group": "landscape",
-      "node": "water",
-      "label": "Направление ветра",
-      "kind": "число",
-      "min": 0,
-      "max": 360,
-      "step": 1,
-      "unit": "°"
-    },
-    {
-      "key": "seaSets",
-      "group": "landscape",
-      "node": "water",
-      "label": "Наборы",
-      "kind": "число",
-      "min": 0,
-      "max": 1,
-      "step": 0.01
-    },
-    {
-      "key": "seaGusts",
-      "group": "landscape",
-      "node": "water",
-      "label": "Порывы",
-      "kind": "число",
-      "min": 0,
-      "max": 1,
-      "step": 0.01
-    },
-    {
-      "key": "seaCrossWaves",
-      "group": "landscape",
-      "node": "water",
-      "label": "Поперечные волны",
-      "kind": "число",
-      "min": 0,
-      "max": 1,
-      "step": 0.01
-    },
-    {
-      "key": "seaFadeStart",
-      "group": "landscape",
-      "node": "water",
-      "label": "Волны гаснут с",
-      "kind": "число",
-      "min": 20,
-      "max": 1500,
-      "step": 10,
-      "unit": "m"
-    },
-    {
-      "key": "seaFadeEnd",
-      "group": "landscape",
-      "node": "water",
-      "label": "Волны гаснут до",
-      "kind": "число",
-      "min": 40,
-      "max": 3000,
-      "step": 10,
-      "unit": "m"
-    },
-    {
-      "key": "seaSurfEnabled",
-      "group": "landscape",
-      "node": "water",
-      "label": "Прибой включён",
-      "kind": "выключатель"
-    },
-    {
-      "key": "seaSurfFreeze",
-      "group": "landscape",
-      "node": "water",
-      "label": "Стоп-кадр",
-      "kind": "выключатель"
-    },
-    {
-      "key": "seaSurfPhase",
-      "group": "landscape",
-      "node": "water",
-      "label": "Фаза обрушения",
-      "kind": "число",
-      "min": 0,
-      "max": 1,
-      "step": 0.01
-    },
-    {
-      "key": "seaSurfHeight",
-      "group": "landscape",
-      "node": "water",
-      "label": "Высота вала",
-      "kind": "число",
-      "min": 0.2,
-      "max": 3,
-      "step": 0.05,
-      "unit": "m"
-    },
-    {
-      "key": "seaSurfWidth",
-      "group": "landscape",
-      "node": "water",
-      "label": "Ширина вала",
-      "kind": "число",
-      "min": 3,
-      "max": 24,
-      "step": 0.5,
-      "unit": "m"
-    },
-    {
-      "key": "seaSurfBreakDistance",
-      "group": "landscape",
-      "node": "water",
-      "label": "Сдвиг обрушения",
-      "kind": "число",
-      "min": -20,
-      "max": 40,
-      "step": 0.5,
-      "unit": "m"
-    },
-    {
-      "key": "seaSurfBreakLength",
-      "group": "landscape",
-      "node": "water",
-      "label": "Длина обрушения",
-      "kind": "число",
-      "min": 4,
-      "max": 40,
-      "step": 1,
-      "unit": "m"
-    },
-    {
-      "key": "seaSurfLean",
-      "group": "landscape",
-      "node": "water",
-      "label": "Наклон гребня",
-      "kind": "число",
-      "min": 0,
-      "max": 1,
-      "step": 0.01
-    },
-    {
-      "key": "seaSurfJet",
-      "group": "landscape",
-      "node": "water",
-      "label": "Выброс губы",
-      "kind": "число",
-      "min": 0.3,
-      "max": 4,
-      "step": 0.05,
-      "unit": "m/s"
-    },
-    {
-      "key": "seaSurfLift",
-      "group": "landscape",
-      "node": "water",
-      "label": "Подъём губы",
-      "kind": "число",
-      "min": 0,
-      "max": 2,
-      "step": 0.05,
-      "unit": "m/s"
-    },
-    {
-      "key": "seaSurfSheet",
-      "group": "landscape",
-      "node": "water",
-      "label": "Толщина губы",
-      "kind": "число",
-      "min": 0.04,
-      "max": 0.4,
-      "step": 0.01
-    },
-    {
-      "key": "seaSurfRoller",
-      "group": "landscape",
-      "node": "water",
-      "label": "Объём пены",
-      "kind": "число",
-      "min": 0,
-      "max": 1.2,
-      "step": 0.02
-    },
-    {
-      "key": "seaSurfRollerDensity",
-      "group": "landscape",
-      "node": "water",
-      "label": "Плотность вала",
-      "kind": "число",
-      "min": 0.2,
-      "max": 2.5,
-      "step": 0.05
-    },
-    {
-      "key": "seaSurfPeel",
-      "group": "landscape",
-      "node": "water",
-      "label": "Пил вдоль гребня",
-      "kind": "число",
-      "min": 0,
-      "max": 0.6,
-      "step": 0.01
-    },
-    {
-      "key": "seaSurfRefraction",
-      "group": "landscape",
-      "node": "water",
-      "label": "Рефракция",
-      "kind": "число",
-      "min": 0,
-      "max": 1,
-      "step": 0.01
-    },
-    {
-      "key": "seaSurfBoreLength",
-      "group": "landscape",
-      "node": "water",
-      "label": "Схлопывание",
-      "kind": "число",
-      "min": 3,
-      "max": 40,
-      "step": 1,
-      "unit": "m"
-    },
-    {
-      "key": "seaSurfRunup",
-      "group": "landscape",
-      "node": "water",
-      "label": "Заплеск на песок",
-      "kind": "число",
-      "min": 0,
-      "max": 12,
-      "step": 1,
-      "unit": "m"
-    },
-    {
-      "key": "seaSurfSpeed",
-      "group": "landscape",
-      "node": "water",
-      "label": "Скорость вала",
-      "kind": "число",
-      "min": 1,
-      "max": 10,
-      "step": 0.1,
-      "unit": "m/s"
-    },
-    {
-      "key": "seaSurfPeriod",
-      "group": "landscape",
-      "node": "water",
-      "label": "Период",
-      "kind": "число",
-      "min": 3,
-      "max": 20,
-      "step": 0.5,
-      "unit": "s"
-    },
-    {
-      "key": "seaSurfSets",
-      "group": "landscape",
-      "node": "water",
-      "label": "Разброс высоты",
-      "kind": "число",
-      "min": 0,
-      "max": 1,
-      "step": 0.01
-    },
-    {
-      "key": "waveAmplitude",
-      "group": "landscape",
-      "node": "water",
-      "label": "Амплитуда ряби",
-      "kind": "число",
-      "min": 0,
-      "max": 0.2,
-      "step": 0.005,
-      "unit": "m"
-    },
-    {
-      "key": "waveLength",
-      "group": "landscape",
-      "node": "water",
-      "label": "Длина ряби",
-      "kind": "число",
-      "min": 0.4,
-      "max": 3.2,
-      "step": 0.05,
-      "unit": "m"
-    },
-    {
-      "key": "rippleRadius",
-      "group": "landscape",
-      "node": "water",
-      "label": "Радиус импульса",
-      "kind": "число",
-      "min": 0.05,
-      "max": 2.4,
-      "step": 0.05,
-      "unit": "m"
-    },
-    {
-      "key": "rippleImpulse",
-      "group": "landscape",
-      "node": "water",
-      "label": "Сила импульса",
-      "kind": "число",
-      "min": 0,
-      "max": 1.2,
-      "step": 0.01
-    },
-    {
-      "key": "ambientWaveIntensity",
-      "group": "landscape",
-      "node": "water",
-      "label": "Интенсивность фоновых волн",
-      "kind": "число",
-      "min": 0,
-      "max": 1,
-      "step": 0.01
-    },
-    {
-      "key": "seaFoamMemory",
-      "group": "landscape",
-      "node": "water",
-      "label": "Память пены",
-      "kind": "выключатель"
-    },
-    {
-      "key": "seaFoamLife",
-      "group": "landscape",
-      "node": "water",
-      "label": "Живёт на воде",
-      "kind": "число",
-      "min": 1,
-      "max": 20,
-      "step": 0.5,
-      "unit": "s"
-    },
-    {
-      "key": "seaFoamDeposit",
-      "group": "landscape",
-      "node": "water",
-      "label": "Плотность пены",
-      "kind": "число",
-      "min": 0.2,
-      "max": 1.5,
-      "step": 0.05
-    },
-    {
-      "key": "seaFoamWindow",
-      "group": "landscape",
-      "node": "water",
-      "label": "Окно памяти",
-      "kind": "число",
-      "min": 32,
-      "max": 400,
-      "step": 4,
-      "unit": "m"
-    },
-    {
-      "key": "seaFoamDrift",
-      "group": "landscape",
-      "node": "water",
-      "label": "Снос ветром",
-      "kind": "число",
-      "min": 0,
-      "max": 2,
-      "step": 0.05,
-      "unit": "m/s"
-    },
-    {
-      "key": "seaFoamSwirl",
-      "group": "landscape",
-      "node": "water",
-      "label": "Завихрения",
+      "key": "audio.tracks.tanker.gain",
+      "group": "audio",
+      "node": "audioTracks",
+      "label": "Танкер · дизель / гудок · Объём",
       "kind": "число",
       "min": 0,
       "max": 1.5,
-      "step": 0.05
-    },
-    {
-      "key": "seaFoamDry",
-      "group": "landscape",
-      "node": "water",
-      "label": "Сохнет песок",
-      "kind": "число",
-      "min": 5,
-      "max": 120,
-      "step": 1,
-      "unit": "s"
-    },
-    {
-      "key": "seaSwashFilm",
-      "group": "landscape",
-      "node": "water",
-      "label": "Плёнка заплеска",
-      "kind": "число",
-      "min": 0,
-      "max": 0.08,
-      "step": 0.005,
-      "unit": "m"
-    },
-    {
-      "key": "seaFoamThreshold",
-      "group": "landscape",
-      "node": "water",
-      "label": "Порог пены",
-      "kind": "число",
-      "min": 0,
-      "max": 0.95,
       "step": 0.01
     },
     {
-      "key": "seaFoamSoftness",
-      "group": "landscape",
-      "node": "water",
-      "label": "Мягкость",
+      "key": "audio.tracks.water.enabled",
+      "group": "audio",
+      "node": "audioTracks",
+      "label": "Водная гладь: включить дорожку",
+      "kind": "выключатель"
+    },
+    {
+      "key": "audio.tracks.water.gain",
+      "group": "audio",
+      "node": "audioTracks",
+      "label": "Водная гладь · Объём",
       "kind": "число",
-      "min": 0.02,
-      "max": 0.4,
+      "min": 0,
+      "max": 1.5,
       "step": 0.01
     },
     {
-      "key": "seaFoamLaceScale",
-      "group": "landscape",
-      "node": "water",
-      "label": "Масштаб кружева",
+      "key": "audio.tracks.shore.enabled",
+      "group": "audio",
+      "node": "audioTracks",
+      "label": "Волна у берега: включить дорожку",
+      "kind": "выключатель"
+    },
+    {
+      "key": "audio.tracks.shore.gain",
+      "group": "audio",
+      "node": "audioTracks",
+      "label": "Волна у берега · Объём",
       "kind": "число",
-      "min": 0.03,
-      "max": 0.6,
+      "min": 0,
+      "max": 1.5,
       "step": 0.01
     },
     {
-      "key": "seaFoamBrightness",
-      "group": "landscape",
-      "node": "water",
-      "label": "Яркость пены",
-      "kind": "число",
-      "min": 0.2,
-      "max": 2,
-      "step": 0.05
+      "key": "audio.tracks.boat.enabled",
+      "group": "audio",
+      "node": "audioTracks",
+      "label": "Волна о лодку: включить дорожку",
+      "kind": "выключатель"
     },
     {
-      "key": "seaRipple",
-      "group": "landscape",
-      "node": "water",
-      "label": "Рябь",
+      "key": "audio.tracks.boat.gain",
+      "group": "audio",
+      "node": "audioTracks",
+      "label": "Волна о лодку · Объём",
       "kind": "число",
       "min": 0,
-      "max": 1,
+      "max": 1.5,
       "step": 0.01
     },
     {
-      "key": "seaWindPatches",
-      "group": "landscape",
-      "node": "water",
-      "label": "Пятна ветра",
+      "key": "audio.tracks.birds.enabled",
+      "group": "audio",
+      "node": "audioTracks",
+      "label": "Чайки в небе: включить дорожку",
+      "kind": "выключатель"
+    },
+    {
+      "key": "audio.tracks.birds.gain",
+      "group": "audio",
+      "node": "audioTracks",
+      "label": "Чайки в небе · Объём",
       "kind": "число",
       "min": 0,
-      "max": 1,
-      "step": 0.05
-    },
-    {
-      "key": "seaRippleScale",
-      "group": "landscape",
-      "node": "water",
-      "label": "Масштаб ряби",
-      "kind": "число",
-      "min": 0.01,
-      "max": 0.3,
-      "step": 0.005
-    },
-    {
-      "key": "seaWaterColor",
-      "group": "landscape",
-      "node": "water",
-      "label": "Цвет воды",
-      "kind": "цвет"
-    },
-    {
-      "key": "seaDeepColor",
-      "group": "landscape",
-      "node": "water",
-      "label": "Цвет глубины",
-      "kind": "цвет"
-    },
-    {
-      "key": "seaBedColor",
-      "group": "landscape",
-      "node": "water",
-      "label": "Цвет дна",
-      "kind": "цвет"
-    },
-    {
-      "key": "seaBedTurbidity",
-      "group": "landscape",
-      "node": "water",
-      "label": "Мутность воды",
-      "kind": "число",
-      "min": 0,
-      "max": 1,
-      "step": 0.05
-    },
-    {
-      "key": "seaCrestGlow",
-      "group": "landscape",
-      "node": "water",
-      "label": "Просвет гребня",
-      "kind": "число",
-      "min": 0,
-      "max": 2,
-      "step": 0.05
-    },
-    {
-      "key": "seaGlint",
-      "group": "landscape",
-      "node": "water",
-      "label": "Блики солнца",
-      "kind": "число",
-      "min": 0,
-      "max": 3,
-      "step": 0.05
-    },
-    {
-      "key": "seaSkyReflection",
-      "group": "landscape",
-      "node": "water",
-      "label": "Отражение неба",
-      "kind": "число",
-      "min": 0,
-      "max": 3,
-      "step": 0.05
-    },
-    {
-      "key": "waterDepthMeters",
-      "group": "landscape",
-      "node": "water",
-      "label": "Глубина воды",
-      "kind": "число",
-      "min": 0.25,
-      "max": 12,
-      "step": 0.25,
-      "unit": "m"
-    },
-    {
-      "key": "waterScatteringStrength",
-      "group": "landscape",
-      "node": "water",
-      "label": "Рассеивание в мутной воде",
-      "kind": "число",
-      "min": 0,
-      "max": 2,
+      "max": 1.5,
       "step": 0.01
     },
     {
-      "key": "waterScatteringColor",
-      "group": "landscape",
-      "node": "water",
-      "label": "Цвет рассеивания",
-      "kind": "цвет"
+      "key": "audio.tracks.wind.enabled",
+      "group": "audio",
+      "node": "audioTracks",
+      "label": "Ветер и листва: включить дорожку",
+      "kind": "выключатель"
+    },
+    {
+      "key": "audio.tracks.wind.gain",
+      "group": "audio",
+      "node": "audioTracks",
+      "label": "Ветер и листва · Объём",
+      "kind": "число",
+      "min": 0,
+      "max": 1.5,
+      "step": 0.01
+    },
+    {
+      "key": "audio.tracks.thunder.enabled",
+      "group": "audio",
+      "node": "audioTracks",
+      "label": "Далёкий гром: включить дорожку",
+      "kind": "выключатель"
+    },
+    {
+      "key": "audio.tracks.thunder.gain",
+      "group": "audio",
+      "node": "audioTracks",
+      "label": "Далёкий гром · Объём",
+      "kind": "число",
+      "min": 0,
+      "max": 1.5,
+      "step": 0.01
+    },
+    {
+      "key": "audio.tracks.ui.enabled",
+      "group": "audio",
+      "node": "audioTracks",
+      "label": "Клики интерфейса: включить дорожку",
+      "kind": "выключатель"
+    },
+    {
+      "key": "audio.tracks.ui.gain",
+      "group": "audio",
+      "node": "audioTracks",
+      "label": "Клики интерфейса · Объём",
+      "kind": "число",
+      "min": 0,
+      "max": 1.5,
+      "step": 0.01
     },
     {
       "key": "frameInset",
@@ -1489,6 +939,681 @@
       "max": 600,
       "step": 10,
       "unit": " m"
+    },
+    {
+      "key": "waterVisible",
+      "group": "landscape",
+      "node": "water",
+      "label": "Вода",
+      "kind": "выключатель"
+    },
+    {
+      "key": "farWaterVisible",
+      "group": "landscape",
+      "node": "water",
+      "label": "Дальняя вода",
+      "kind": "выключатель"
+    },
+    {
+      "key": "seaMeshRings",
+      "group": "landscape",
+      "node": "water",
+      "label": "Кольца сетки",
+      "kind": "число",
+      "min": 32,
+      "max": 192,
+      "step": 8
+    },
+    {
+      "key": "seaMeshSegments",
+      "group": "landscape",
+      "node": "water",
+      "label": "Сегменты сетки",
+      "kind": "число",
+      "min": 48,
+      "max": 256,
+      "step": 8
+    },
+    {
+      "key": "waterExtent",
+      "group": "landscape",
+      "node": "water",
+      "label": "Область ряби",
+      "kind": "число",
+      "min": 12,
+      "max": 200,
+      "step": 0.5,
+      "unit": "m"
+    },
+    {
+      "key": "simulationResolution",
+      "group": "landscape",
+      "node": "water",
+      "label": "Разрешение симуляции",
+      "kind": "список",
+      "options": [
+        128,
+        256,
+        384,
+        512
+      ]
+    },
+    {
+      "key": "состояние-моря",
+      "group": "landscape",
+      "node": "water",
+      "label": "Состояние моря",
+      "kind": "список",
+      "options": [
+        "custom",
+        "calm",
+        "breeze",
+        "rough",
+        "storm"
+      ]
+    },
+    {
+      "key": "seaWavelength",
+      "group": "landscape",
+      "node": "water",
+      "label": "Длина волны",
+      "kind": "число",
+      "min": 3,
+      "max": 40,
+      "step": 0.5,
+      "unit": "m"
+    },
+    {
+      "key": "seaAmplitude",
+      "group": "landscape",
+      "node": "water",
+      "label": "Высота волны",
+      "kind": "число",
+      "min": 0,
+      "max": 1.6,
+      "step": 0.01,
+      "unit": "m"
+    },
+    {
+      "key": "seaSteepness",
+      "group": "landscape",
+      "node": "water",
+      "label": "Крутизна",
+      "kind": "число",
+      "min": 0,
+      "max": 0.8,
+      "step": 0.01
+    },
+    {
+      "key": "seaSpeed",
+      "group": "landscape",
+      "node": "water",
+      "label": "Скорость",
+      "kind": "число",
+      "min": 0,
+      "max": 2.5,
+      "step": 0.05
+    },
+    {
+      "key": "seaWindDirection",
+      "group": "landscape",
+      "node": "water",
+      "label": "Направление ветра",
+      "kind": "число",
+      "min": 0,
+      "max": 360,
+      "step": 1,
+      "unit": "°"
+    },
+    {
+      "key": "seaSets",
+      "group": "landscape",
+      "node": "water",
+      "label": "Наборы",
+      "kind": "число",
+      "min": 0,
+      "max": 1,
+      "step": 0.01
+    },
+    {
+      "key": "seaGusts",
+      "group": "landscape",
+      "node": "water",
+      "label": "Порывы",
+      "kind": "число",
+      "min": 0,
+      "max": 1,
+      "step": 0.01
+    },
+    {
+      "key": "seaCrossWaves",
+      "group": "landscape",
+      "node": "water",
+      "label": "Поперечные волны",
+      "kind": "число",
+      "min": 0,
+      "max": 1,
+      "step": 0.01
+    },
+    {
+      "key": "seaFadeStart",
+      "group": "landscape",
+      "node": "water",
+      "label": "Волны гаснут с",
+      "kind": "число",
+      "min": 20,
+      "max": 1500,
+      "step": 10,
+      "unit": "m"
+    },
+    {
+      "key": "seaFadeEnd",
+      "group": "landscape",
+      "node": "water",
+      "label": "Волны гаснут до",
+      "kind": "число",
+      "min": 40,
+      "max": 3000,
+      "step": 10,
+      "unit": "m"
+    },
+    {
+      "key": "seaSurfEnabled",
+      "group": "landscape",
+      "node": "water",
+      "label": "Прибой включён",
+      "kind": "выключатель"
+    },
+    {
+      "key": "seaSurfFreeze",
+      "group": "landscape",
+      "node": "water",
+      "label": "Стоп-кадр",
+      "kind": "выключатель"
+    },
+    {
+      "key": "seaSurfPhase",
+      "group": "landscape",
+      "node": "water",
+      "label": "Фаза обрушения",
+      "kind": "число",
+      "min": 0,
+      "max": 1,
+      "step": 0.01
+    },
+    {
+      "key": "seaSurfHeight",
+      "group": "landscape",
+      "node": "water",
+      "label": "Высота вала",
+      "kind": "число",
+      "min": 0.2,
+      "max": 3,
+      "step": 0.05,
+      "unit": "m"
+    },
+    {
+      "key": "seaSurfWidth",
+      "group": "landscape",
+      "node": "water",
+      "label": "Ширина вала",
+      "kind": "число",
+      "min": 3,
+      "max": 24,
+      "step": 0.5,
+      "unit": "m"
+    },
+    {
+      "key": "seaSurfBreakDistance",
+      "group": "landscape",
+      "node": "water",
+      "label": "Сдвиг обрушения",
+      "kind": "число",
+      "min": -20,
+      "max": 40,
+      "step": 0.5,
+      "unit": "m"
+    },
+    {
+      "key": "seaSurfBreakLength",
+      "group": "landscape",
+      "node": "water",
+      "label": "Длина обрушения",
+      "kind": "число",
+      "min": 4,
+      "max": 40,
+      "step": 1,
+      "unit": "m"
+    },
+    {
+      "key": "seaSurfLean",
+      "group": "landscape",
+      "node": "water",
+      "label": "Наклон гребня",
+      "kind": "число",
+      "min": 0,
+      "max": 1,
+      "step": 0.01
+    },
+    {
+      "key": "seaSurfJet",
+      "group": "landscape",
+      "node": "water",
+      "label": "Выброс губы",
+      "kind": "число",
+      "min": 0.3,
+      "max": 4,
+      "step": 0.05,
+      "unit": "m/s"
+    },
+    {
+      "key": "seaSurfLift",
+      "group": "landscape",
+      "node": "water",
+      "label": "Подъём губы",
+      "kind": "число",
+      "min": 0,
+      "max": 2,
+      "step": 0.05,
+      "unit": "m/s"
+    },
+    {
+      "key": "seaSurfSheet",
+      "group": "landscape",
+      "node": "water",
+      "label": "Толщина губы",
+      "kind": "число",
+      "min": 0.04,
+      "max": 0.4,
+      "step": 0.01
+    },
+    {
+      "key": "seaSurfRoller",
+      "group": "landscape",
+      "node": "water",
+      "label": "Объём пены",
+      "kind": "число",
+      "min": 0,
+      "max": 1.2,
+      "step": 0.02
+    },
+    {
+      "key": "seaSurfRollerDensity",
+      "group": "landscape",
+      "node": "water",
+      "label": "Плотность вала",
+      "kind": "число",
+      "min": 0.2,
+      "max": 2.5,
+      "step": 0.05
+    },
+    {
+      "key": "seaSurfPeel",
+      "group": "landscape",
+      "node": "water",
+      "label": "Пил вдоль гребня",
+      "kind": "число",
+      "min": 0,
+      "max": 0.6,
+      "step": 0.01
+    },
+    {
+      "key": "seaSurfRefraction",
+      "group": "landscape",
+      "node": "water",
+      "label": "Рефракция",
+      "kind": "число",
+      "min": 0,
+      "max": 1,
+      "step": 0.01
+    },
+    {
+      "key": "seaSurfBoreLength",
+      "group": "landscape",
+      "node": "water",
+      "label": "Схлопывание",
+      "kind": "число",
+      "min": 3,
+      "max": 40,
+      "step": 1,
+      "unit": "m"
+    },
+    {
+      "key": "seaSurfRunup",
+      "group": "landscape",
+      "node": "water",
+      "label": "Заплеск на песок",
+      "kind": "число",
+      "min": 0,
+      "max": 12,
+      "step": 1,
+      "unit": "m"
+    },
+    {
+      "key": "seaSurfSpeed",
+      "group": "landscape",
+      "node": "water",
+      "label": "Скорость вала",
+      "kind": "число",
+      "min": 1,
+      "max": 10,
+      "step": 0.1,
+      "unit": "m/s"
+    },
+    {
+      "key": "seaSurfPeriod",
+      "group": "landscape",
+      "node": "water",
+      "label": "Период",
+      "kind": "число",
+      "min": 3,
+      "max": 20,
+      "step": 0.5,
+      "unit": "s"
+    },
+    {
+      "key": "seaSurfSets",
+      "group": "landscape",
+      "node": "water",
+      "label": "Разброс высоты",
+      "kind": "число",
+      "min": 0,
+      "max": 1,
+      "step": 0.01
+    },
+    {
+      "key": "waveAmplitude",
+      "group": "landscape",
+      "node": "water",
+      "label": "Амплитуда ряби",
+      "kind": "число",
+      "min": 0,
+      "max": 0.2,
+      "step": 0.005,
+      "unit": "m"
+    },
+    {
+      "key": "waveLength",
+      "group": "landscape",
+      "node": "water",
+      "label": "Длина ряби",
+      "kind": "число",
+      "min": 0.4,
+      "max": 3.2,
+      "step": 0.05,
+      "unit": "m"
+    },
+    {
+      "key": "rippleRadius",
+      "group": "landscape",
+      "node": "water",
+      "label": "Радиус импульса",
+      "kind": "число",
+      "min": 0.05,
+      "max": 2.4,
+      "step": 0.05,
+      "unit": "m"
+    },
+    {
+      "key": "rippleImpulse",
+      "group": "landscape",
+      "node": "water",
+      "label": "Сила импульса",
+      "kind": "число",
+      "min": 0,
+      "max": 1.2,
+      "step": 0.01
+    },
+    {
+      "key": "ambientWaveIntensity",
+      "group": "landscape",
+      "node": "water",
+      "label": "Интенсивность фоновых волн",
+      "kind": "число",
+      "min": 0,
+      "max": 1,
+      "step": 0.01
+    },
+    {
+      "key": "seaFoamMemory",
+      "group": "landscape",
+      "node": "water",
+      "label": "Память пены",
+      "kind": "выключатель"
+    },
+    {
+      "key": "seaFoamLife",
+      "group": "landscape",
+      "node": "water",
+      "label": "Живёт на воде",
+      "kind": "число",
+      "min": 1,
+      "max": 20,
+      "step": 0.5,
+      "unit": "s"
+    },
+    {
+      "key": "seaFoamDeposit",
+      "group": "landscape",
+      "node": "water",
+      "label": "Плотность пены",
+      "kind": "число",
+      "min": 0.2,
+      "max": 1.5,
+      "step": 0.05
+    },
+    {
+      "key": "seaFoamWindow",
+      "group": "landscape",
+      "node": "water",
+      "label": "Окно памяти",
+      "kind": "число",
+      "min": 32,
+      "max": 400,
+      "step": 4,
+      "unit": "m"
+    },
+    {
+      "key": "seaFoamDrift",
+      "group": "landscape",
+      "node": "water",
+      "label": "Снос ветром",
+      "kind": "число",
+      "min": 0,
+      "max": 2,
+      "step": 0.05,
+      "unit": "m/s"
+    },
+    {
+      "key": "seaFoamSwirl",
+      "group": "landscape",
+      "node": "water",
+      "label": "Завихрения",
+      "kind": "число",
+      "min": 0,
+      "max": 1.5,
+      "step": 0.05
+    },
+    {
+      "key": "seaFoamDry",
+      "group": "landscape",
+      "node": "water",
+      "label": "Сохнет песок",
+      "kind": "число",
+      "min": 5,
+      "max": 120,
+      "step": 1,
+      "unit": "s"
+    },
+    {
+      "key": "seaSwashFilm",
+      "group": "landscape",
+      "node": "water",
+      "label": "Плёнка заплеска",
+      "kind": "число",
+      "min": 0,
+      "max": 0.08,
+      "step": 0.005,
+      "unit": "m"
+    },
+    {
+      "key": "seaFoamThreshold",
+      "group": "landscape",
+      "node": "water",
+      "label": "Порог пены",
+      "kind": "число",
+      "min": 0,
+      "max": 0.95,
+      "step": 0.01
+    },
+    {
+      "key": "seaFoamSoftness",
+      "group": "landscape",
+      "node": "water",
+      "label": "Мягкость",
+      "kind": "число",
+      "min": 0.02,
+      "max": 0.4,
+      "step": 0.01
+    },
+    {
+      "key": "seaFoamLaceScale",
+      "group": "landscape",
+      "node": "water",
+      "label": "Масштаб кружева",
+      "kind": "число",
+      "min": 0.03,
+      "max": 0.6,
+      "step": 0.01
+    },
+    {
+      "key": "seaFoamBrightness",
+      "group": "landscape",
+      "node": "water",
+      "label": "Яркость пены",
+      "kind": "число",
+      "min": 0.2,
+      "max": 2,
+      "step": 0.05
+    },
+    {
+      "key": "seaRipple",
+      "group": "landscape",
+      "node": "water",
+      "label": "Рябь",
+      "kind": "число",
+      "min": 0,
+      "max": 1,
+      "step": 0.01
+    },
+    {
+      "key": "seaWindPatches",
+      "group": "landscape",
+      "node": "water",
+      "label": "Пятна ветра",
+      "kind": "число",
+      "min": 0,
+      "max": 1,
+      "step": 0.05
+    },
+    {
+      "key": "seaRippleScale",
+      "group": "landscape",
+      "node": "water",
+      "label": "Масштаб ряби",
+      "kind": "число",
+      "min": 0.01,
+      "max": 0.3,
+      "step": 0.005
+    },
+    {
+      "key": "seaWaterColor",
+      "group": "landscape",
+      "node": "water",
+      "label": "Цвет воды",
+      "kind": "цвет"
+    },
+    {
+      "key": "seaDeepColor",
+      "group": "landscape",
+      "node": "water",
+      "label": "Цвет глубины",
+      "kind": "цвет"
+    },
+    {
+      "key": "seaBedColor",
+      "group": "landscape",
+      "node": "water",
+      "label": "Цвет дна",
+      "kind": "цвет"
+    },
+    {
+      "key": "seaBedTurbidity",
+      "group": "landscape",
+      "node": "water",
+      "label": "Мутность воды",
+      "kind": "число",
+      "min": 0,
+      "max": 1,
+      "step": 0.05
+    },
+    {
+      "key": "seaCrestGlow",
+      "group": "landscape",
+      "node": "water",
+      "label": "Просвет гребня",
+      "kind": "число",
+      "min": 0,
+      "max": 2,
+      "step": 0.05
+    },
+    {
+      "key": "seaGlint",
+      "group": "landscape",
+      "node": "water",
+      "label": "Блики солнца",
+      "kind": "число",
+      "min": 0,
+      "max": 3,
+      "step": 0.05
+    },
+    {
+      "key": "seaSkyReflection",
+      "group": "landscape",
+      "node": "water",
+      "label": "Отражение неба",
+      "kind": "число",
+      "min": 0,
+      "max": 3,
+      "step": 0.05
+    },
+    {
+      "key": "waterDepthMeters",
+      "group": "landscape",
+      "node": "water",
+      "label": "Глубина воды",
+      "kind": "число",
+      "min": 0.25,
+      "max": 12,
+      "step": 0.25,
+      "unit": "m"
+    },
+    {
+      "key": "waterScatteringStrength",
+      "group": "landscape",
+      "node": "water",
+      "label": "Рассеивание в мутной воде",
+      "kind": "число",
+      "min": 0,
+      "max": 2,
+      "step": 0.01
+    },
+    {
+      "key": "waterScatteringColor",
+      "group": "landscape",
+      "node": "water",
+      "label": "Цвет рассеивания",
+      "kind": "цвет"
     },
     {
       "key": "seabedVisible",
@@ -3166,6 +3291,92 @@
       "kind": "выключатель"
     },
     {
+      "key": "seagullTerritoryRadius",
+      "group": "creatures",
+      "node": "seagulls",
+      "label": "Радиус территории",
+      "kind": "число",
+      "min": 3,
+      "max": 120,
+      "step": 0.5,
+      "unit": "m"
+    },
+    {
+      "key": "seagullTerritoryX",
+      "group": "creatures",
+      "node": "seagulls",
+      "label": "Центр территории · X",
+      "kind": "число",
+      "min": -400,
+      "max": 400,
+      "step": 0.5,
+      "unit": "m"
+    },
+    {
+      "key": "seagullTerritoryZ",
+      "group": "creatures",
+      "node": "seagulls",
+      "label": "Центр территории · Z",
+      "kind": "число",
+      "min": -400,
+      "max": 400,
+      "step": 0.5,
+      "unit": "m"
+    },
+    {
+      "key": "seagullAltitudeMin",
+      "group": "creatures",
+      "node": "seagulls",
+      "label": "Высота полёта · нижняя",
+      "kind": "число",
+      "min": 0.2,
+      "max": 30,
+      "step": 0.1,
+      "unit": "m"
+    },
+    {
+      "key": "seagullAltitudeMax",
+      "group": "creatures",
+      "node": "seagulls",
+      "label": "Высота полёта · верхняя",
+      "kind": "число",
+      "min": 1,
+      "max": 80,
+      "step": 0.1,
+      "unit": "m"
+    },
+    {
+      "key": "seagullPerchTerrain",
+      "group": "creatures",
+      "node": "seagulls",
+      "label": "Садятся на сушу",
+      "kind": "выключатель"
+    },
+    {
+      "key": "seagullPerchRocks",
+      "group": "creatures",
+      "node": "seagulls",
+      "label": "Садятся на валуны",
+      "kind": "выключатель"
+    },
+    {
+      "key": "seagullPerchObjects",
+      "group": "creatures",
+      "node": "seagulls",
+      "label": "Садятся на объекты",
+      "kind": "выключатель"
+    },
+    {
+      "key": "seagullPerchCount",
+      "group": "creatures",
+      "node": "seagulls",
+      "label": "Мест на суше",
+      "kind": "число",
+      "min": 0,
+      "max": 48,
+      "step": 1
+    },
+    {
       "key": "fishEnabled",
       "group": "creatures",
       "node": "fish",
@@ -4127,142 +4338,6 @@
       "kind": "число",
       "min": 0.25,
       "max": 1,
-      "step": 0.01
-    },
-    {
-      "key": "audio.tracks.tanker.enabled",
-      "group": "audio",
-      "node": "audioTracks",
-      "label": "Танкер · дизель / гудок: включить дорожку",
-      "kind": "выключатель"
-    },
-    {
-      "key": "audio.tracks.tanker.gain",
-      "group": "audio",
-      "node": "audioTracks",
-      "label": "Танкер · дизель / гудок · Объём",
-      "kind": "число",
-      "min": 0,
-      "max": 1.5,
-      "step": 0.01
-    },
-    {
-      "key": "audio.tracks.water.enabled",
-      "group": "audio",
-      "node": "audioTracks",
-      "label": "Водная гладь: включить дорожку",
-      "kind": "выключатель"
-    },
-    {
-      "key": "audio.tracks.water.gain",
-      "group": "audio",
-      "node": "audioTracks",
-      "label": "Водная гладь · Объём",
-      "kind": "число",
-      "min": 0,
-      "max": 1.5,
-      "step": 0.01
-    },
-    {
-      "key": "audio.tracks.shore.enabled",
-      "group": "audio",
-      "node": "audioTracks",
-      "label": "Волна у берега: включить дорожку",
-      "kind": "выключатель"
-    },
-    {
-      "key": "audio.tracks.shore.gain",
-      "group": "audio",
-      "node": "audioTracks",
-      "label": "Волна у берега · Объём",
-      "kind": "число",
-      "min": 0,
-      "max": 1.5,
-      "step": 0.01
-    },
-    {
-      "key": "audio.tracks.boat.enabled",
-      "group": "audio",
-      "node": "audioTracks",
-      "label": "Волна о лодку: включить дорожку",
-      "kind": "выключатель"
-    },
-    {
-      "key": "audio.tracks.boat.gain",
-      "group": "audio",
-      "node": "audioTracks",
-      "label": "Волна о лодку · Объём",
-      "kind": "число",
-      "min": 0,
-      "max": 1.5,
-      "step": 0.01
-    },
-    {
-      "key": "audio.tracks.birds.enabled",
-      "group": "audio",
-      "node": "audioTracks",
-      "label": "Чайки в небе: включить дорожку",
-      "kind": "выключатель"
-    },
-    {
-      "key": "audio.tracks.birds.gain",
-      "group": "audio",
-      "node": "audioTracks",
-      "label": "Чайки в небе · Объём",
-      "kind": "число",
-      "min": 0,
-      "max": 1.5,
-      "step": 0.01
-    },
-    {
-      "key": "audio.tracks.wind.enabled",
-      "group": "audio",
-      "node": "audioTracks",
-      "label": "Ветер и листва: включить дорожку",
-      "kind": "выключатель"
-    },
-    {
-      "key": "audio.tracks.wind.gain",
-      "group": "audio",
-      "node": "audioTracks",
-      "label": "Ветер и листва · Объём",
-      "kind": "число",
-      "min": 0,
-      "max": 1.5,
-      "step": 0.01
-    },
-    {
-      "key": "audio.tracks.thunder.enabled",
-      "group": "audio",
-      "node": "audioTracks",
-      "label": "Далёкий гром: включить дорожку",
-      "kind": "выключатель"
-    },
-    {
-      "key": "audio.tracks.thunder.gain",
-      "group": "audio",
-      "node": "audioTracks",
-      "label": "Далёкий гром · Объём",
-      "kind": "число",
-      "min": 0,
-      "max": 1.5,
-      "step": 0.01
-    },
-    {
-      "key": "audio.tracks.ui.enabled",
-      "group": "audio",
-      "node": "audioTracks",
-      "label": "Клики интерфейса: включить дорожку",
-      "kind": "выключатель"
-    },
-    {
-      "key": "audio.tracks.ui.gain",
-      "group": "audio",
-      "node": "audioTracks",
-      "label": "Клики интерфейса · Объём",
-      "kind": "число",
-      "min": 0,
-      "max": 1.5,
       "step": 0.01
     },
     {
@@ -5570,6 +5645,15 @@
     "seagullLandingDensity": 0.38,
     "seagullPointerInteraction": true,
     "seagullShootingEnabled": true,
+    "seagullTerritoryX": 0,
+    "seagullTerritoryZ": 0,
+    "seagullTerritoryRadius": 6,
+    "seagullAltitudeMin": 0.36,
+    "seagullAltitudeMax": 4.6,
+    "seagullPerchTerrain": true,
+    "seagullPerchRocks": true,
+    "seagullPerchObjects": true,
+    "seagullPerchCount": 12,
     "fishEnabled": true,
     "fishPointerInteraction": true,
     "fishCount": 50,

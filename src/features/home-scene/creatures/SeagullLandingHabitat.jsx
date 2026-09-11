@@ -28,7 +28,11 @@ export default function SeagullLandingHabitat({
   landingSitesRef,
   rigcheck,
   onSitesChange,
+  // Где садиться: территория стаи и что в ней считается местом. Объекты
+  // (лодка, скульптура) регистрируют поверхность сами; их можно отключить.
+  perch = {},
 }) {
+  const perchKey = JSON.stringify(perch);
   const showRigcheck = useMemo(() => resolveRigcheck(rigcheck), [rigcheck]);
   const boatRoot = boatSurface?.root;
   const boatCollisionObject = boatSurface?.collisionObject;
@@ -38,20 +42,22 @@ export default function SeagullLandingHabitat({
   const sculptureRevision = sculptureSurface?.revision;
 
   useLayoutEffect(() => {
+    const options = JSON.parse(perchKey);
+    const objects = options.objects !== false;
     const sites = [
-      ...createTerrainLandingSites(terrainSurface?.root,terrainQuery),
-      ...createLandingHabitatSites({
+      ...createTerrainLandingSites(terrainSurface?.root, terrainQuery, options),
+      ...(objects ? createLandingHabitatSites({
         root: boatRoot,
         collisionObject: boatCollisionObject,
         specs: BOAT_LANDING_SPECS,
         rigcheck: showRigcheck,
-      }),
-      ...createLandingHabitatSites({
+      }) : []),
+      ...(objects ? createLandingHabitatSites({
         root: sculptureRoot,
         collisionObject: sculptureCollisionObject,
         specs: SCULPTURE_LANDING_SPECS,
         rigcheck: showRigcheck,
-      }),
+      }) : []),
     ];
 
     if (landingSitesRef) landingSitesRef.current = sites;
@@ -73,6 +79,7 @@ export default function SeagullLandingHabitat({
     showRigcheck,
     terrainSurface,
     terrainQuery,
+    perchKey,
   ]);
 
   return null;

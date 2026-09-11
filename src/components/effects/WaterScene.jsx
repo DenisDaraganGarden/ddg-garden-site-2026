@@ -558,6 +558,15 @@ function WaterRuntimeScene({
             terrainSurface={landingSurfaces.terrain}
             terrainQuery={terrainQuery}
             landingSitesRef={landingSitesRef}
+            perch={{
+              centerX: settings.seagullTerritoryX,
+              centerZ: settings.seagullTerritoryZ,
+              radius: settings.seagullTerritoryRadius,
+              terrain: settings.seagullPerchTerrain,
+              rocks: settings.seagullPerchRocks,
+              objects: settings.seagullPerchObjects,
+              count: settings.seagullPerchCount,
+            }}
           />
         ) : null}
         {sceneObjectOn(settings, 'seagulls') ? (

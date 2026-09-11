@@ -33,6 +33,34 @@ export const SEAGULL_ROUTE_PROFILE = Object.freeze({
   high: Object.freeze({ height: 4.59, zCenter: 6.4 }),
 });
 
+// Территория стаи. Маршруты ниже нарисованы для сайта — круги радиусом ~6 м у
+// начала координат от уреза (0.36 м) до 4.6 м. Территория переносит и
+// масштабирует их: центр, радиус, полоса высот. Единица — маршруты как есть.
+export const SEAGULL_BASE_TERRITORY = Object.freeze({
+  radius: 6, altitudeMin: SEAGULL_ROUTE_PROFILE.waterline.height, altitudeMax: SEAGULL_ROUTE_PROFILE.high.height,
+});
+export const DEFAULT_SEAGULL_TERRITORY = Object.freeze({
+  x: 0, z: 0, radius: SEAGULL_BASE_TERRITORY.radius,
+  altitudeMin: SEAGULL_BASE_TERRITORY.altitudeMin, altitudeMax: SEAGULL_BASE_TERRITORY.altitudeMax,
+});
+
+function territoryScale(territory) {
+  const scale = Math.max(0.2, (territory?.radius ?? SEAGULL_BASE_TERRITORY.radius) / SEAGULL_BASE_TERRITORY.radius);
+  const baseSpan = SEAGULL_BASE_TERRITORY.altitudeMax - SEAGULL_BASE_TERRITORY.altitudeMin;
+  const min = territory?.altitudeMin ?? SEAGULL_BASE_TERRITORY.altitudeMin;
+  const max = Math.max(min + 0.4, territory?.altitudeMax ?? SEAGULL_BASE_TERRITORY.altitudeMax);
+  const heightScale = (max - min) / baseSpan;
+  return { x: territory?.x ?? 0, z: territory?.z ?? 0, scale, heightScale, heightOffset: min - SEAGULL_BASE_TERRITORY.altitudeMin * heightScale };
+}
+
+function applyTerritory(target, territory) {
+  if (!territory) return;
+  const { x, z, scale, heightScale, heightOffset } = territory;
+  target.x = x + target.x * scale;
+  target.z = z + target.z * scale;
+  target.y = target.y * heightScale + heightOffset;
+}
+
 export const FLIGHT_ROUTE = Object.freeze({
   FLOCK: 'flock',
   WATERLINE: 'waterline',
@@ -180,6 +208,8 @@ function writeTarget(agent, time, mode = 'flight') {
       agent.target.y += 0.18;
     }
   }
+  // Маршрут посчитан в координатах сайта; территория переносит его в сцену.
+  applyTerritory(agent.target, agent.territory);
   const avoidanceOffset = pointerAvoidanceOffset(agent);
   if (avoidanceOffset > 0) {
     agent.target.addScaledVector(agent.pointerAvoidance, avoidanceOffset);
@@ -354,8 +384,11 @@ export function updateFlightAgents(
   landingSites = [],
   interactionTime = time,
   terrainQuery = null,
+  territory = DEFAULT_SEAGULL_TERRITORY,
 ) {
   const specimen = mode === 'specimen';
+  const placed = territoryScale(territory);
+  for (const agent of agents) agent.territory = placed;
   if (specimen) {
     for (const agent of agents) {
       agent.state = 'flap';

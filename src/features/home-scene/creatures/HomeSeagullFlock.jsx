@@ -239,6 +239,15 @@ export default function HomeSeagullFlock({
     return { object, bones, bind, scale, meshes, castsShadow: false };
   }), [count, gltf.scene, material]);
 
+  // Территория из настроек, без пересборки стаи: ползунок двигает маршруты живьём.
+  const territoryRef = useRef(null);
+  territoryRef.current = {
+    x: settings.seagullTerritoryX ?? 0,
+    z: settings.seagullTerritoryZ ?? 0,
+    radius: settings.seagullTerritoryRadius ?? 6,
+    altitudeMin: settings.seagullAltitudeMin ?? 0.36,
+    altitudeMax: settings.seagullAltitudeMax ?? 4.6,
+  };
   const agents = useMemo(() => {
     const created = createFlightAgents(count);
     created.forEach((agent, index) => {
@@ -515,6 +524,7 @@ export default function HomeSeagullFlock({
       sites,
       interactionElapsed.current,
       terrainQuery,
+      territoryRef.current,
     );
 
     shadowClock.current += safeDelta;

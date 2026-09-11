@@ -13,7 +13,10 @@ export const LANDING_STATE = Object.freeze({
 export const MAX_ACTIVE_LANDINGS = 3;
 export const PERCHED_SOLE_HEIGHT_METERS = 0.12425;
 
+// Лодка и скульптура — авторские места с общей ёмкостью. Процедурные (берег,
+// валуны) не ограничены по типу: каждое место одно, занятость и так проверяется.
 const SURFACE_CAPACITY = Object.freeze({ boat: 2, sculpture: 1 });
+const surfaceCapacity = (surface) => SURFACE_CAPACITY[surface] ?? Infinity;
 const APPROACH_SECONDS = 2.7;
 const FLARE_SECONDS = 0.95;
 const SETTLE_SECONDS = 0.62;
@@ -190,7 +193,7 @@ export function scheduleLanding(agents, time, sites) {
   for (let offset = 0; offset < sites.length; offset += 1) {
     const siteIndex = (schedule.siteCursor + offset) % sites.length;
     const site = sites[siteIndex];
-    const capacity = SURFACE_CAPACITY[site.surface] ?? 1;
+    const capacity = surfaceCapacity(site.surface);
     if (!site?.object?.parent || occupied.has(siteIndex) || (counts[site.surface] ?? 0) >= capacity) continue;
     chosenIndex = siteIndex;
     break;
