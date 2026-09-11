@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
-import { SCENE_OBJECTS, sceneHitForObject3D, sceneNodeForObject3D, sceneObjectsForNode } from './sceneObjects.js';
+import {
+  SCENE_OBJECTS, audioSettingsForScene, newProjectObjectSettings, sceneHitForObject3D, sceneNodeForObject3D,
+  sceneObjectForName, sceneObjectsForNode, silencedSoundTracks, technicalFrameAvailable,
+} from './sceneObjects.js';
 
 // Клик по сцене разбирается по именам, под которыми объекты в ней лежат.
 // Проверяется на выдуманных узлах: сама функция ходит только по name и parent.
@@ -49,4 +52,32 @@ for (const object of SCENE_OBJECTS) {
   }
 }
 
-console.log('sceneObjects: разбор попаданий по именам сцены — ок');
+// Связи. Выключенный объект пропадает отовсюду, кроме списка: его дорожка
+// молчит и не показывается, его ракурс не предлагается. Сама настройка дорожки
+// при этом не трогается — включил объект обратно, дорожка как была.
+const scene = { tankerVisible: false, seagullsEnabled: true, boatVisible: true, audio: { tracks: { tanker: { enabled: true, gain: 0.65 }, birds: { enabled: true, gain: 0.8 }, water: { enabled: true, gain: 0.3 } } } };
+assert.deepEqual([...silencedSoundTracks(scene)], ['tanker']);
+const derived = audioSettingsForScene(scene);
+assert.equal(derived.tracks.tanker.enabled, false, 'дизель танкера молчит, когда танкера нет');
+assert.equal(derived.tracks.tanker.gain, 0.65, 'громкость дорожки не тронута');
+assert.equal(derived.tracks.birds.enabled, true);
+assert.equal(scene.audio.tracks.tanker.enabled, true, 'исходные настройки не мутируются');
+assert.equal(audioSettingsForScene({ ...scene, tankerVisible: true }), scene.audio, 'всё включено — тот же объект, без копии');
+
+assert.equal(technicalFrameAvailable({ id: 'tanker', object: 'tanker-anchor' }, scene), false);
+assert.equal(technicalFrameAvailable({ id: 'boat', object: 'boat-anchor' }, scene), true);
+assert.equal(technicalFrameAvailable({ id: 'coast', pose: () => null }, scene), true, 'ракурс без объекта — всегда');
+assert.equal(sceneObjectForName('surface-vegetation')?.key, 'liliesVisible');
+
+// Заводской проект: вещи сайта и живность выключены, берег и вода — нет.
+const fresh = newProjectObjectSettings();
+assert.deepEqual(Object.keys(fresh).sort(), ['algaeVisible', 'boatVisible', 'fishEnabled', 'liliesVisible', 'seagullsEnabled', 'shoreEnabled', 'tankerVisible'].sort());
+assert.ok(Object.values(fresh).every((value) => value === false));
+assert.equal(fresh.terrainEnabled, undefined, 'суша в новом проекте не трогается');
+
+// У каждой звуковой связи есть дорожка с таким именем в настройках звука.
+for (const object of SCENE_OBJECTS) {
+  if (object.sound) assert.ok(['tanker', 'water', 'shore', 'boat', 'birds', 'wind', 'thunder', 'ui'].includes(object.sound), `дорожка ${object.sound} неизвестна`);
+}
+
+console.log('sceneObjects: разбор попаданий, связи звука и ракурсов, заводской проект — ок');

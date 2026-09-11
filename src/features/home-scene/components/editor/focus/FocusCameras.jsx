@@ -3,6 +3,7 @@ import { useLanguage } from '../../../../../i18n/useLanguage';
 import { resolveLayoutFrameInset } from '../../../lib/layout';
 import { WORK_CAMERA_MAIN_ID } from '../../../lib/sceneCameras';
 import { TECHNICAL_FRAMES } from '../../../lib/technicalCameras';
+import { technicalFrameAvailable } from '../../../lib/sceneObjects';
 import { EDITOR_THUMBNAIL_READY, requestEditorThumbnail } from '../../../../../components/effects/editorThumbnailCapture';
 import { FocusCheckboxControl, FocusRangeControl } from './FocusControlComponents';
 import { FocusControlNumberInput } from './FocusControlNumberInput';
@@ -267,6 +268,7 @@ export function FocusTechnicalViews({ settings, layoutEditor, frame: frameMask }
     return <div className="focus-technical-views" role="menu" aria-label={t('homeEditor.controls.technicalFrames')}>
         {/* Рамка кадра — не ракурс, а способ показа: чёрная обрезает так, как обрежет сайт. */}
         {frameMask ? <><button type="button" role="menuitemcheckbox" aria-checked={frameMask.solid} className="focus-technical-views__check" onClick={frameMask.toggle}><span aria-hidden="true">{frameMask.solid ? '✓' : ''}</span>{language === 'ru' ? 'Чёрная рамка кадра' : 'Solid frame mask'}</button><hr /></> : null}
-        {TECHNICAL_FRAMES.map((frame) => <button type="button" key={frame.id} role="menuitem" onClick={() => preview(frame)}>{language === 'ru' ? frame.ru : frame.en}</button>)}
+        {/* Ракурс на выключенный объект — пустой кадр, его в списке нет. */}
+        {TECHNICAL_FRAMES.filter((frame) => technicalFrameAvailable(frame, settings)).map((frame) => <button type="button" key={frame.id} role="menuitem" onClick={() => preview(frame)}>{language === 'ru' ? frame.ru : frame.en}</button>)}
     </div>;
 }

@@ -2,29 +2,79 @@
 // visibility sheet is drawn from it, and every editor node that owns an entry
 // gets the same switch above its own controls. A new object is one line here
 // plus its key in the settings defaults; the sheet and the tab follow.
+//
+// Это же — реестр связей движка. Движок процедурный, и у каждого объекта есть
+// хвосты: имена в сцене (`roots` — по ним клик и наводка камеры), звуковая
+// дорожка (`sound`), технические ракурсы (по тем же `roots`). Выключенный
+// объект пропадает отовсюду, кроме этого списка: его дорожки нет в микшере и
+// она молчит, его ракурса нет в «Видах». Второго списка «что к чему относится»
+// не заводится — всё здесь.
+//
+// `newProject: false` — в новом проекте движка объект выключен. Лодка и
+// скульптура — вещи сайта; танкер, водоросли, кувшинки и береговые находки
+// пока не умеют размножаться вдоль воды процедурно; живность выключена, пока
+// её поведение привязано к сайту (чайки — к лодке).
 export const SCENE_OBJECT_GROUPS = Object.freeze(['landscape', 'greenery', 'objects', 'creatures', 'render']);
 
 export const SCENE_OBJECTS = Object.freeze([
   { id: 'terrain', key: 'terrainEnabled', node: 'landscape/terrain', group: 'landscape', roots: ['azov-terrain'] },
   { id: 'rocks', key: 'terrainRocksEnabled', node: 'landscape/rocks', group: 'landscape', roots: ['coast-rocks', 'coast-debris'] },
   { id: 'pebbles', key: 'terrainPebblesEnabled', node: 'landscape/pebbles', group: 'landscape', roots: ['coast-pebbles', 'coast-shell-fragments'] },
-  { id: 'shore', key: 'shoreEnabled', node: 'landscape/shore', group: 'landscape', roots: ['coastal-shore-finds', 'shore'] },
+  { id: 'shore', key: 'shoreEnabled', node: 'landscape/shore', group: 'landscape', roots: ['coastal-shore-finds', 'shore'], newProject: false },
   { id: 'water', key: 'waterVisible', node: 'landscape/water', group: 'landscape', roots: ['gerstner-water', 'shore-water', 'foam-volume'] },
   { id: 'farWater', key: 'farWaterVisible', node: 'landscape/water', group: 'landscape' },
   { id: 'seabed', key: 'seabedVisible', node: 'landscape/seabed', group: 'landscape', roots: ['seabed'] },
   { id: 'sky', key: 'skyVisible', node: 'atmosphere/hdri', group: 'landscape', roots: ['sky-dome'] },
-  { id: 'lilies', key: 'liliesVisible', node: 'greenery/lilies', group: 'greenery', roots: ['surface-vegetation'] },
-  { id: 'algae', key: 'algaeVisible', node: 'greenery/algae', group: 'greenery', roots: ['underwater-algae'] },
+  { id: 'lilies', key: 'liliesVisible', node: 'greenery/lilies', group: 'greenery', roots: ['surface-vegetation'], newProject: false },
+  { id: 'algae', key: 'algaeVisible', node: 'greenery/algae', group: 'greenery', roots: ['underwater-algae'], newProject: false },
   { id: 'shrubs', key: 'shrubsEnabled', node: 'greenery/shrubs', group: 'greenery', roots: ['coastal-oleaster'] },
   { id: 'trees', key: 'treesEnabled', node: 'greenery/trees', group: 'greenery', roots: ['coastal-trees'] },
   { id: 'grass', key: 'grassEnabled', node: 'greenery/grass', group: 'greenery', roots: ['coastal-grass'] },
-  { id: 'tanker', key: 'tankerVisible', node: 'objects/tanker', group: 'objects', roots: ['tanker-anchor', 'tanker-wake'] },
-  { id: 'boat', key: 'boatVisible', node: 'objects/boat', group: 'objects', roots: ['boat', 'boat-anchor'] },
+  { id: 'tanker', key: 'tankerVisible', node: 'objects/tanker', group: 'objects', roots: ['tanker-anchor', 'tanker-wake'], sound: 'tanker', newProject: false },
+  { id: 'boat', key: 'boatVisible', node: 'objects/boat', group: 'objects', roots: ['boat', 'boat-anchor'], sound: 'boat', newProject: false },
   { id: 'sculpture', key: 'sculptureVisible', node: 'objects/sculpture', group: 'objects', roots: ['sculpture', 'sculpture-anchor'] },
-  { id: 'seagulls', key: 'seagullsEnabled', node: 'creatures/seagulls', group: 'creatures', roots: ['seagull-flock'] },
-  { id: 'fish', key: 'fishEnabled', node: 'creatures/fish', group: 'creatures', roots: ['river-fish-school'] },
+  { id: 'seagulls', key: 'seagullsEnabled', node: 'creatures/seagulls', group: 'creatures', roots: ['seagull-flock'], sound: 'birds', newProject: false },
+  { id: 'fish', key: 'fishEnabled', node: 'creatures/fish', group: 'creatures', roots: ['river-fish-school'], newProject: false },
   { id: 'reflections', key: 'reflectionsEnabled', node: null, group: 'render' },
 ]);
+
+export const isSceneObjectOn = (settings, object) => settings?.[object.key] !== false;
+
+// Заводские значения нового проекта: всё, что помечено newProject: false, выключено.
+export const newProjectObjectSettings = () => Object.fromEntries(
+  SCENE_OBJECTS.filter((object) => object.newProject === false).map((object) => [object.key, false]),
+);
+
+// Объект по имени в сцене — тем же правилом, что и клик: точное имя раньше префикса.
+export const sceneObjectForName = (name) => (name ? matchRoot(name) : null) ?? null;
+
+// Дорожки выключенных объектов: их нет в микшере, и в движок они уходят
+// выключенными — сама настройка дорожки при этом не трогается, включил
+// объект обратно — дорожка вернулась какой была.
+export const silencedSoundTracks = (settings) => new Set(
+  SCENE_OBJECTS.filter((object) => object.sound && !isSceneObjectOn(settings, object)).map((object) => object.sound),
+);
+
+export const audioSettingsForScene = (settings) => {
+  const audio = settings?.audio;
+  const silenced = silencedSoundTracks(settings);
+  if (!audio?.tracks || silenced.size === 0) return audio;
+  return {
+    ...audio,
+    tracks: Object.fromEntries(Object.entries(audio.tracks).map(([id, track]) => [
+      id,
+      silenced.has(id) ? { ...track, enabled: false } : track,
+    ])),
+  };
+};
+
+// Технический ракурс на выключенный объект — пустой кадр. Ракурсы без объекта
+// (берег, коса, степь) остаются всегда.
+export const technicalFrameAvailable = (frame, settings) => {
+  if (!frame?.object) return true;
+  const object = sceneObjectForName(frame.object);
+  return !object || isSceneObjectOn(settings, object);
+};
 
 export const sceneObjectsForNode = (path) => SCENE_OBJECTS.filter((object) => object.node === path);
 

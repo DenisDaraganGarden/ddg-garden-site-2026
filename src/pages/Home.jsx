@@ -3,6 +3,7 @@ import WaterScene from '../components/effects/WaterScene';
 import { usePublishedHomeSceneSettings } from '../features/home-scene/hooks/useHomeSceneSettings';
 import { useHomeChromeVisibility } from '../features/home-scene/hooks/useHomeChromeVisibility';
 import { useSiteAudio } from '../features/audio/SiteAudioContext';
+import { audioSettingsForScene } from '../features/home-scene/lib/sceneObjects';
 import {
     getLayoutVisibleAspect,
     resolveLayout,
@@ -220,7 +221,9 @@ const Home = () => {
         () => JSON.parse(activeSceneFingerprint),
         [activeSceneFingerprint],
     );
-    const audioSettingsFingerprint = JSON.stringify(settings.audio);
+    // Дорожки выключенных объектов уходят в движок выключенными: танкера нет —
+    // и дизеля не слышно. Сама настройка дорожки не трогается.
+    const audioSettingsFingerprint = JSON.stringify(audioSettingsForScene(settings));
     const [viewport, setViewport] = useState(() => {
         const width = typeof window === 'undefined' ? 16 : window.innerWidth;
         const height = typeof window === 'undefined' ? 9 : window.innerHeight;

@@ -31,7 +31,7 @@ import { useHomeSceneEditor } from '../features/home-scene/hooks/useHomeSceneEdi
 import { useHomeChromeVisibility } from '../features/home-scene/hooks/useHomeChromeVisibility';
 import { GIZMO_MODES, useEditorTool } from '../features/home-scene/hooks/useEditorTool';
 import { resolveEditorPath } from '../features/home-scene/components/editor/editorTree';
-import { sceneObjectsForNode } from '../features/home-scene/lib/sceneObjects';
+import { audioSettingsForScene, sceneObjectsForNode } from '../features/home-scene/lib/sceneObjects';
 import HomeEditorPanel from '../features/home-scene/components/HomeEditorPanel';
 import { useFocusHistory } from '../features/home-scene/components/editor/focus/useFocusHistory';
 import { publishHomeSceneSettings } from '../features/home-scene/lib/homeScenePublishClient';
@@ -111,7 +111,9 @@ const HomeEdit = ({ project = null }) => {
     const [cameraPoseRevision, setCameraPoseRevision] = useState(0);
     const [isSceneReady, setIsSceneReady] = useState(false);
     const deferredSettings = useDeferredValue(settings);
-    const audioSettingsFingerprint = JSON.stringify(settings.audio);
+    // Дорожки выключенных объектов уходят в движок выключенными: танкера нет —
+    // и дизеля не слышно. Сама настройка дорожки не трогается.
+    const audioSettingsFingerprint = JSON.stringify(audioSettingsForScene(settings));
     // Snapshots are committed by setSettings; deferred state only drives the
     // inexpensive publish-dirty indicator, never a camera transition.
     const preparedSettings = deferredSettings;
@@ -135,7 +137,7 @@ const HomeEdit = ({ project = null }) => {
         setCameraTransition('idle', 0);
 
         return () => {
-            setAudioSettings(getPublishedHomeSceneSettings().audio);
+            setAudioSettings(audioSettingsForScene(getPublishedHomeSceneSettings()));
             void setEditorPreviewEnabled(false);
             setSoloTrack(null);
         };

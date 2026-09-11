@@ -7,6 +7,7 @@ import {
   SelectControl,
 } from '../../HomeEditorControls';
 import { useFocusControlScope, useFocusControls } from '../focus/FocusControlsContext';
+import { silencedSoundTracks } from '../../../lib/sceneObjects';
 
 const gainFormatter = (value) => `${Math.round(Number(value) * 100)}%`;
 const secondsFormatter = (value) => Number(value).toFixed(1);
@@ -230,12 +231,14 @@ const AudioTrackRow = ({ id, audio, handleSettingChange, audioLab, label, t }) =
 export const AudioTracksSection = ({ settings, handleSettingChange, audioLab }) => {
   const { t } = useLanguage();
   const audio = settings.audio;
+  // Дорожка выключенного объекта не показывается: танкера нет — нет и дизеля.
+  const silenced = silencedSoundTracks(settings);
 
   return (
     <>
       <p className="home-editor-audio-note">{t('homeEditor.audio.tracksNote')}</p>
       <div className="home-editor-audio-track-list" data-testid="home-editor-audio-track-list">
-        {TRACK_IDS.map((id) => (
+        {TRACK_IDS.filter((id) => !silenced.has(id)).map((id) => (
           <AudioTrackRow
             key={id}
             id={id}
@@ -315,12 +318,13 @@ const EmitterControls = ({ id, emitter, handleSettingChange, t }) => (
 
 export const AudioSpatialSection = ({ settings, handleSettingChange, audioLab }) => {
   const { t } = useLanguage();
+  const silenced = silencedSoundTracks(settings);
 
   return (
     <>
       <p className="home-editor-audio-note">{t('homeEditor.audio.spatialNote')}</p>
       <div className="home-editor-audio-spatial-list">
-        {EMITTER_IDS.map((id) => (
+        {EMITTER_IDS.filter((id) => !silenced.has(id)).map((id) => (
           <EmitterControls
             key={id}
             id={id}

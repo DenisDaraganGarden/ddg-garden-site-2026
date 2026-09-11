@@ -9,6 +9,7 @@ import {
 import {
     getBaseHomeSceneSettings, normalizeHomeSceneDraftSettings, readHomeSceneDraftSettings,
 } from '../features/home-scene/hooks/useHomeSceneSettings';
+import { newProjectObjectSettings } from '../features/home-scene/lib/sceneObjects';
 import './Engine.css';
 
 // Главное меню движка. Проект — это числа: один файл настроек на общих ассетах,
@@ -18,7 +19,9 @@ import './Engine.css';
 //
 // Сайт стоит в списке первым, но проектом движка не является: у него свой
 // черновик и свои кнопки публикации, а проект движка на сайт уехать не может.
-const factoryScene = () => normalizeHomeSceneDraftSettings(getBaseHomeSceneSettings());
+// Заводской берег — без вещей сайта и без того, что пока не умеет жить вдоль
+// воды само: что именно выключено, записано в реестре объектов одним флагом.
+const factoryScene = () => normalizeHomeSceneDraftSettings({ ...getBaseHomeSceneSettings(), ...newProjectObjectSettings() });
 
 const openEditor = (id) => { window.location.href = `/home/edit?project=${encodeURIComponent(id)}`; };
 
