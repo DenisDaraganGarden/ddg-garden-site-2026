@@ -45,6 +45,13 @@ assert.ok(foam.includes('field.lineTexture.dispose();'), 'foam field owns and di
 assert.ok(breaking.includes('foamBores.breakLines[ribbon.index].set(line);'), 'breaking waves publish their actual break line to foam');
 assert.ok(breaking.includes('foamBores.breakVisible[ribbon.index].set(visible);'), 'foam receives the same spit-gap mask as the loft');
 assert.ok(foam.includes('Math.round(cameraX / texel) * texel'), 'sub-texel camera motion does not translate a world-space pattern');
+assert.ok(foam.includes('float frontDistance = min(bore.w - qBore, uBoreRunup - q);'), 'swash tapers at both its moving front and maximum run-up');
+assert.ok(foam.includes('smoothstep(0.0, 1.2, frontDistance)'), 'the run-up cap cannot leave a full-thickness wall');
+assert.ok(foam.includes('runupCoverage * smoothstep(0.0, 1.2, frontDistance)'), 'the film preserves continuous crest-end coverage');
+assert.ok(foam.includes('runupCoverage * smoothstep(0.0, 0.6, frontDistance)'), 'wet sand follows the same tapered front and crest ends');
+assert.ok(!foam.includes('onCrest * line.y * endTaper > 0.5'), 'the smooth crest coverage is not cut into a rectangular swash stamp');
+assert.ok(foam.includes('float sampleSwashFilm(vec2 p)'), 'film vertex and fragment share a bounded field sample');
+assert.ok(foam.includes('smoothstep(0.0, 0.06, rim)'), 'the film does not expose the square atlas boundary');
 const surf = read('./surfProfile.js') + read('./coastFrame.js') + read('./coastBreakLine.js');
 
 // Arguments of every call/declaration of `call`: top-level commas between the

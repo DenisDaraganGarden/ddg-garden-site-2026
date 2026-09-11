@@ -117,11 +117,7 @@ const vertexShader = /* glsl */`
     vec3 world = gerstnerDisplace(p, fade, cell, waveNormal, jacobian, drift);
     world.y += seaRippleDisplacement(world.xz);
     // The swash: where the sheet covers the sand now, the water rides on it.
-    float film = 0.0;
-    if (uFoamMemory > 0.5) {
-      vec2 uv = (p - uFoamWindow.xy) / (2.0 * uFoamWindow.z) + 0.5;
-      if (all(greaterThan(uv, vec2(0.0))) && all(lessThan(uv, vec2(1.0)))) film = texture2D(uFoamField, uv).a;
-    }
+    float film = sampleSwashFilm(p);
     film *= smoothstep(-0.02, 0.02, aGround);
     // The swell's own level, before the sand claims it: the fragment needs the
     // unclamped surface, because max() taken here — per vertex — is what turned
@@ -135,12 +131,10 @@ const vertexShader = /* glsl */`
     float rest = -aGround;
     world.y = max(world.y, -max(rest - 0.02, 0.0));
     vLevel = world.y;
-    // No threshold on the sheet: a step tears the lift between neighbouring
-    // vertices. The sheet's own taper is what thins the tongue's edge.
-    // Dry vertices stay at sea level. Only an actual swash sheet may lift
-    // them onto land; unconditional max(ground) made dry triangles climb it.
-    float sheetLift = smoothstep(0.0, 0.02, film);
-    world.y = mix(world.y, max(world.y, aGround + uFilm * film), sheetLift);
+    // The carrier follows the ground even at a dry vertex; only the fragment
+    // mask decides whether water exists. Dropping dry vertices to sea level
+    // pulled wet neighbours under the sand and exposed metre-wide grid chords.
+    world.y = max(world.y, aGround + uFilm * film);
     vWorld = world;
     vSurface = p;
     vWaveNormal = waveNormal;
@@ -184,10 +178,9 @@ const fragmentShader = /* glsl */`
     // smooth field, not this band's chords — and the sheet from the foam field,
     // so the tongue running up the sand is cut by the water that is there and
     // not by the row of vertices nearest to it.
-    vec2 fuv = (vWorld.xz - uFoamWindow.xy) / (2.0 * uFoamWindow.z) + 0.5;
-    float sheet = uFoamMemory > 0.5 && all(greaterThan(fuv, vec2(0.0))) && all(lessThan(fuv, vec2(1.0))) ? texture2D(uFoamField, fuv).a * uFilm : 0.0;
-    // The map is 34 cm across and clamped to a metre; the vertex attribute is
-    // the ground's own function. Where they disagree the HIGHER wins, or the
+    float sheet = sampleSwashFilm(vWorld.xz) * uFilm;
+    // The map is coarse; the vertex attribute is the ground's own function.
+    // Where they disagree the HIGHER wins, or the
     // water is drawn over sand the map failed to notice — which is what
     // flooded the beach and the spit.
     float bed = uShoreReady > 0.5 ? max(coastGround(coastLocal(vWorld.xz)), vGround) : vGround;
@@ -197,13 +190,16 @@ const fragmentShader = /* glsl */`
     // troughs come in a lattice, so did the holes: those were the black spots.
     // A sea has water wherever its floor is below sea level; a wave cannot take
     // the water away.
-    if (bed > 0.02 && sheet <= 0.001) discard;
+    float sand = smoothstep(-0.02, 0.02, bed);
+    float edgeWidth = max(0.003, fwidth(sheet) * 1.5);
+    float sheetCoverage = mix(1.0, smoothstep(0.0001, edgeWidth, sheet), sand);
+    if (bed > 0.02 && sheet <= 0.0001) discard;
     float depth = max(max(vLevel - bed, sheet), 0.004);
     vec3 view = normalize(cameraPosition - vWorld);
     float pixel = length(vec2(fwidth(vWorld.x), fwidth(vWorld.z)));
     vec3 n = gerstnerSurfaceNormal(vSurface, vFade);
     // The film lies on the sand: its normal is the sand's, not the swell's.
-    n = normalize(mix(n, normalize(vGroundNormal), vFilm));
+    n = normalize(mix(n, normalize(vGroundNormal), sand));
     float rippleWet = uShoreReady > 0.5 ? smoothstep(0.4, 0.8, -bed) : 1.0;
     n = waterRippleNormal(n, vWorld.xz, pixel, max(vFade, 0.45) * (1.0 - vFilm), rippleWet);
     // Exactly the open water's foam: the same whitecap measure, the same
@@ -217,7 +213,11 @@ const fragmentShader = /* glsl */`
     float lift = clamp((vWorld.y - vLevel + 0.2) * 1.5, 0.0, 1.0) * (1.0 - vJacobian * 0.5) * (1.0 - vFilm);
     // The sand under the water by Beer-Lambert: at the edge the water is the
     // wet sand itself under a gloss, deeper it is the water's own body.
-    vec3 color = shadeWater(vWorld, n, view, pixel, waterFlowUv(vWorld.xz), coverage, age, 10.0, lift, exp(-depth * uBedReach));
+    float thickness = mix(10.0, depth, sand);
+    vec3 color = shadeWater(vWorld, n, view, pixel, waterFlowUv(vWorld.xz), coverage, age, thickness, lift, exp(-depth * uBedReach));
+    // Composite just the draining edge against the existing terrain capture.
+    // The sea stays opaque: no extra pass, sorted transparent sheet or dither.
+    if (sheetCoverage < 1.0) color = mix(waterUnrefractedScene(vWorld, color), color, sheetCoverage);
     gl_FragColor = vec4(color, 1.0);
     #include <fog_fragment>
     #include <tonemapping_fragment>

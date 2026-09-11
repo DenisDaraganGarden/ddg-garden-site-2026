@@ -10,7 +10,6 @@ import {
   restoreDefaultFramebuffer,
 } from './renderTargets';
 import {
-  DEFAULT_CLEAR_COLOR,
   clamp,
   isDocumentCurrentlyVisible,
   resolveRuntimeSimulationResolution,
@@ -28,6 +27,7 @@ import {
 import { createGerstnerSurfaceSampler } from './gerstnerSurfaceSampler.js';
 import { createSeaSurfaceFade } from './seaCoastFade.js';
 import { radialCellFactor } from './radialWaterGeometry.js';
+import { initializeWaterRuntimeTargets } from './waterRuntimeInitialization.js';
 
 // The wave simulation: a ping-pong height field advanced on the GPU, plus the
 // derived normal and probe passes the rest of the scene reads from.
@@ -285,22 +285,7 @@ export function useWaterRuntime(settings, qualityProfile, mode, seaSettings = nu
   }, [renderState]);
 
   useEffect(() => {
-    const previousClearColor = new THREE.Color();
-    const previousClearAlpha = gl.getClearAlpha();
-
-    gl.getClearColor(previousClearColor);
-
-    gl.setClearColor(DEFAULT_CLEAR_COLOR, 1);
-    gl.setRenderTarget(renderState.read);
-    gl.clear(true, false, false);
-    gl.setRenderTarget(renderState.write);
-    gl.clear(true, false, false);
-    gl.setRenderTarget(renderState.normal);
-    gl.clear(true, false, false);
-    gl.setRenderTarget(renderState.probe);
-    gl.clear(true, false, false);
-    gl.setRenderTarget(null);
-    gl.setClearColor(previousClearColor, previousClearAlpha);
+    initializeWaterRuntimeTargets(gl, renderState);
   }, [gl, renderState]);
 
   useFrame((_, delta) => {

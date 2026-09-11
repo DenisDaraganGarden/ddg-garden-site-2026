@@ -76,6 +76,13 @@ export const foamFieldShader = /* glsl */`
 uniform sampler2D uFoamField;
 uniform vec3 uFoamWindow;
 uniform float uFoamMemory;
+float sampleSwashFilm(vec2 p) {
+  if (uFoamMemory < 0.5) return 0.0;
+  vec2 uv = (p - uFoamWindow.xy) / (2.0 * uFoamWindow.z) + 0.5;
+  float rim = min(min(uv.x, 1.0 - uv.x), min(uv.y, 1.0 - uv.y));
+  if (rim <= 0.0) return 0.0;
+  return clamp(texture2D(uFoamField, uv).a, 0.0, 1.0) * smoothstep(0.0, 0.06, rim);
+}
 vec3 sampleFoamField(vec2 p) {
   if (uFoamMemory < 0.5) return vec3(0.0);
   vec2 uv = (p - uFoamWindow.xy) / (2.0 * uFoamWindow.z) + 0.5;
@@ -217,12 +224,19 @@ const updateFragmentShader = /* glsl */`
       // front leaves lace. It is a sheet on the beach, so it starts at the
       // waterline — without that bound every grain of the spit, which has no
       // surf of its own, was wet for ever.
-      if (sand && onCrest * line.y * endTaper > 0.5 && bore.w > -50.0 && qBore < bore.w && qBore > -2.0 && q > -2.0 && q < uBoreRunup) {
-        state.z = 1.0;
+      float runupCoverage = onCrest * line.y * endTaper;
+      if (sand && runupCoverage > 0.0001 && bore.w > -50.0 && qBore < bore.w && qBore > -2.0 && q > -2.0 && q < uBoreRunup) {
         // The tongue is thin at its edge and thickens behind it: a slab of one
         // constant thickness with a vertical wall is not a run-up.
-        state.w = max(state.w, clamp((bore.w - qBore) * 0.5, 0.0, 1.0));
-        fresh = max(fresh, bore.y * 0.8 * (1.0 - smoothstep(0.1, 0.7, bore.w - qBore)));
+        // Both limits are fronts: the moving tongue AND the maximum run-up.
+        // Cutting q at runup while keeping full thickness left a ruled wall
+        // along the entire beach once a bore reached that limit.
+        float frontDistance = min(bore.w - qBore, uBoreRunup - q);
+        // The crest's ends and spit gaps already taper. Thresholding that
+        // coverage at one half stamped rectangular ends into water AND sand.
+        state.z = max(state.z, runupCoverage * smoothstep(0.0, 0.6, frontDistance));
+        state.w = max(state.w, runupCoverage * smoothstep(0.0, 1.2, frontDistance));
+        fresh = max(fresh, runupCoverage * bore.y * 0.8 * (1.0 - smoothstep(0.1, 0.7, bore.w - qBore)));
       }
     }
     // Fresh foam wins and is young again; what it does not cover keeps its age.

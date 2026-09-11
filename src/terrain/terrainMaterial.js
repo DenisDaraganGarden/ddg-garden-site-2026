@@ -143,7 +143,12 @@ export function createTerrainMaterial(textures,p,rockOnly=false){
    if(uTerrainOptics>.5){
     vec2 opticsQS=coastLocal(vTerrainWorld.xz);
     float opticsWater=coastMask(opticsQS)>.001?coastWave(opticsQS,uTerrainTime)+coastEdgeRag(opticsQS,uTerrainTime):0.0;
-    if(uTerrainOptics<1.5){if(vTerrainWorld.y>opticsWater+.08)discard;}
+    // The swash carrier spans q=-26..12. Capture its possible dry bed too:
+    // the old analytic wave is not the new bore's run-up mask, and a cached
+    // capture must already contain the sand a tongue is about to cover.
+    vec2 opticsShore=coastSurfLocal(opticsQS);
+    bool swashBed=uSwashEnabled>.5&&opticsShore.x>-2.0&&opticsShore.x<12.0;
+    if(uTerrainOptics<1.5){if(vTerrainWorld.y>opticsWater+.08&&!swashBed)discard;}
     else if(vTerrainWorld.y<opticsWater-.02)discard;
    }`);
   shader.fragmentShader=shader.fragmentShader.replace('#include <map_fragment>',`
@@ -439,5 +444,5 @@ export function createTerrainMaterial(textures,p,rockOnly=false){
   `);
   shader.fragmentShader=shader.fragmentShader.replace('#include <aomap_fragment>','#include <aomap_fragment>\nreflectedLight.indirectDiffuse*=surfaceData.g;');
  };
- material.customProgramCacheKey=()=> 'azov-coast-layered-pbr-v13';return material;
+ material.customProgramCacheKey=()=> 'azov-coast-layered-pbr-v14';return material;
 }

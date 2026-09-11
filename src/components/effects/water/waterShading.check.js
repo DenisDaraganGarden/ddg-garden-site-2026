@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const source = readFileSync(new URL('./waterShading.js', import.meta.url), 'utf8');
+const shore = readFileSync(new URL('./ShoreWater.jsx', import.meta.url), 'utf8');
+const terrain = readFileSync(new URL('../../../terrain/terrainMaterial.js', import.meta.url), 'utf8');
 const foamStart = source.indexOf('float waterFoam(');
 const foamEnd = source.indexOf('vec3 shadeWater(', foamStart);
 assert.ok(foamStart >= 0 && foamEnd > foamStart, 'water foam shader is present');
@@ -76,5 +78,13 @@ assert.ok(refraction.includes('vec3 hueAbsorption = (vec3(1.0) - waterTransmissi
 assert.ok(refraction.includes('vec3 transmittance = exp('), 'refraction retains Beer-Lambert transmission');
 assert.ok(refraction.includes('scatterColor *= mix(vec3(1.0), waterTransmissionTint, 0.42);'), 'scattering colour is tinted instead of replaced');
 assert.ok(!/captured\.rgb\s*\*\s*waterTransmissionTint/.test(refraction), 'capture is not blanket-tinted at zero path');
+assert.ok(refraction.includes('float distortion = clamp(thickness, 0.0, 1.0);'), 'thin swash does not displace the captured sand like deep water');
+assert.ok(source.includes('waterCapturedRefraction(world, n, view, body, thickness)'), 'optical thickness reaches refraction');
+assert.ok(shore.includes('float thickness = mix(10.0, depth, sand);'), 'centimetre swash uses its actual thickness; the sea seam keeps its original optics');
+assert.ok(shore.includes('world.y = max(world.y, aGround + uFilm * film);'), 'dry vertices do not pull the wet edge below the beach');
+assert.ok(!shore.includes('float sheetLift ='), 'film coverage is not a per-vertex step');
+assert.ok(shore.includes('waterUnrefractedScene(vWorld, color)'), 'draining edge resolves toward the actual ground capture');
+assert.ok(shore.includes('gl_FragColor = vec4(color, 1.0);') && !shore.includes('\n        transparent'), 'shore retains one opaque pass without sorted water layers');
+assert.ok(terrain.includes('vTerrainWorld.y>opticsWater+.08&&!swashBed'), 'refraction includes the bed of the new swash instead of clipping it by the old analytic wave');
 
-console.log('waterShading: carrier-bound porous foam and depth-only water-hue refraction');
+console.log('waterShading: carrier-bound foam, thin swash optics and depth-only water-hue refraction');

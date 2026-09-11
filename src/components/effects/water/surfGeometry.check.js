@@ -88,7 +88,8 @@ assert.ok(/float bed = uShoreReady > 0\.5 \? max\(coastGround\(coastLocal\(vWorl
 // The deeper of the swell and the swash sheet, with a floor: a trough may not
 // take the water away, which is what punched the lattice of holes.
 assert.ok(/float depth = max\(max\(vLevel - bed, sheet\), 0\.004\);/.test(shore), 'the water is the deeper of the swell and the swash sheet, and never negative');
-assert.ok(/if \(bed > 0\.02 && sheet <= 0\.001\) discard;/.test(shore), 'land is decided by the bed against the still line, not by the wave');
+assert.ok(/if \(bed > 0\.02 && sheet <= 0\.0001\) discard;/.test(shore), 'land is decided by the bed against the still line, not by the wave');
+assert.ok(shore.includes('smoothstep(0.0001, edgeWidth, sheet)'), 'the last thin sheet fades before the dry-land discard');
 assert.ok(!/if \(film > 0\.0/.test(shore), 'no threshold on the swash lift');
 
 // 5. How far under the sand the loft can still reach. The profile dips below

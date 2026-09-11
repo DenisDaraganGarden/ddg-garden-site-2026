@@ -194,13 +194,25 @@ export const waterShadingShader = /* glsl */`
     vec2 f = fract(pixel);
     return 1.0 / mix(mix(inverseZ.x, inverseZ.y, f.x), mix(inverseZ.z, inverseZ.w, f.x), f.y);
   }
-  vec3 waterCapturedRefraction(vec3 world, vec3 n, vec3 view, vec3 fallback) {
+  vec3 waterUnrefractedScene(vec3 world, vec3 fallback) {
+    if (uRefractionActive < 0.5) return fallback;
+    vec4 projected = uRefractionMatrix * vec4(world, 1.0);
+    vec2 uv = projected.xy / max(projected.w, 0.0001) * 0.5 + 0.5;
+    float coverage = step(0.002, uv.x) * step(0.002, uv.y)
+      * step(uv.x, 0.998) * step(uv.y, 0.998) * step(0.0001, projected.w);
+    vec4 captured = texture2D(uRefractionTexture, clamp(uv, vec2(0.002), vec2(0.998)));
+    return mix(fallback, max(captured.rgb, vec3(0.0)), coverage * captured.a);
+  }
+  vec3 waterCapturedRefraction(vec3 world, vec3 n, vec3 view, vec3 fallback, float thickness) {
     if (uRefractionActive < 0.5) return fallback;
     vec4 projected = uRefractionMatrix * vec4(world, 1.0);
     vec2 uv = projected.xy / max(projected.w, 0.0001) * 0.5 + 0.5;
     vec3 captureNormal = normalize(mat3(uRefractionViewMatrix) * n);
     float slope = 1.0 - clamp(n.y, 0.0, 1.0);
-    vec2 refracted = uv + normalize(captureNormal.xy + vec2(0.0001)) * mix(0.0035, 0.014, slope);
+    // A centimetre of swash cannot shift the sand by the same screen distance
+    // as metres of sea. Zero thickness reads the terrain at its own pixel.
+    float distortion = clamp(thickness, 0.0, 1.0);
+    vec2 refracted = uv + normalize(captureNormal.xy + vec2(0.0001)) * mix(0.0035, 0.014, slope) * distortion;
     float coverage = step(0.002, refracted.x) * step(0.002, refracted.y)
       * step(refracted.x, 0.998) * step(refracted.y, 0.998) * step(0.0001, projected.w);
     vec4 captured = texture2D(uRefractionTexture, clamp(refracted, vec2(0.002), vec2(0.998)));
@@ -454,7 +466,7 @@ export const waterShadingShader = /* glsl */`
     // depth — and the surface reads less as a mirror over it.
     vec3 bedLit = uBedColor * 0.55 * (uFillIrradiance + uSunRadiance * (0.3 + 0.7 * sunDiffuse) * keyVisibility) / WATER_PI;
     body = mix(body, bedLit, bed);
-    body = waterCapturedRefraction(world, n, view, body);
+    body = waterCapturedRefraction(world, n, view, body, thickness);
     // Fresnel does not know how deep the water is. Damping the reflection by
     // the bed killed the sheen exactly where a real shore has most of it — on
     // the swash film, a millimetre of water over wet sand, which is a mirror.
