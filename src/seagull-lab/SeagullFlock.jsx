@@ -90,7 +90,9 @@ function applyWingRotation(bone, bindQuaternion, flapAngle, sweepAngle) {
   bone.quaternion.copy(bindQuaternion).multiply(rotationScratch).multiply(rotationScratchSecondary);
 }
 
-export default function SeagullFlock({ mode, paused, showRig, landingSitesRef, onStats }) {
+export default function SeagullFlock({ mode, paused, showRig, landingSitesRef, onStats, territory = null }) {
+  const territoryRef = useRef(territory);
+  territoryRef.current = territory;
   const gltf = useGLTF(SEAGULL_ASSET.model);
   const textures = useTexture(SEAGULL_ASSET.textures);
   const { camera, gl: renderer, size } = useThree();
@@ -505,6 +507,8 @@ export default function SeagullFlock({ mode, paused, showRig, landingSitesRef, o
         mode,
         landingSitesRef?.current ?? [],
         interactionElapsed.current,
+        null,
+        territoryRef.current ?? undefined,
       );
 
       shadowClock.current += safeDelta;

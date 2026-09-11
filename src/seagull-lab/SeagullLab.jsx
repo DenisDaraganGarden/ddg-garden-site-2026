@@ -1,6 +1,6 @@
 import React, { Suspense, useRef, useState } from 'react';
 import AssetStudio from '../asset-lab/AssetStudio';
-import LabShell from '../asset-lab/LabShell';
+import LabShell, { LabRange, LabToggle } from '../asset-lab/LabShell';
 import SeagullFlock from './SeagullFlock';
 import SeagullLandingStage from './SeagullLandingStage';
 import { SEAGULL_ASSET } from './seagullCatalog';
@@ -12,6 +12,7 @@ import { HOME_SEAGULL_WATER_Y } from '../features/home-scene/creatures/seagullFl
 const LIFT = HOME_SEAGULL_WATER_Y + 1.14;
 const lift = ({ position: [x, y, z], target: [tx, ty, tz] }) => ({ position: [x, y + LIFT, z], target: [tx, ty + LIFT, tz] });
 const CAMERA_VIEWS = {
+  territory: { landscape: lift({ position: [14, 7.5, 16], target: [3, 0.8, 0] }), portrait: lift({ position: [24, 12, 28], target: [3, 0.8, 0] }) },
   flight: { landscape: lift({ position: [7.2, 3.1, 8.8], target: [0, 0.5, 0] }), portrait: lift({ position: [15.5, 6.6, 18.8], target: [0, 0.5, 0] }) },
   landing: { landscape: lift({ position: [8.6, 4.2, 10.4], target: [0, 0.35, 0] }), portrait: lift({ position: [13.8, 7.2, 17.2], target: [0, 0.45, 0] }) },
   'flight-specimen': { landscape: lift({ position: [1.6, 0.9, 3.4], target: [0, 0.02, 0] }), portrait: lift({ position: [2.3, 1.45, 4.45], target: [0, 0.04, 0] }) },
@@ -39,6 +40,10 @@ export default function SeagullLab() {
   const [mode, setMode] = useState('flight');
   const [paused, setPaused] = useState(false);
   const [showRig, setShowRig] = useState(false);
+  // Территория — тот же набор, что в редакторе (creatures/seagulls): радиус,
+  // полоса высот, места на суше. Заводские — маршруты сайта как есть.
+  const [territory, setTerritory] = useState({ radius: 6, altitudeMin: 0.36, altitudeMax: 4.6, perchCount: 12, terrain: true, rocks: true, objects: true });
+  const setTerritoryValue = (key, value) => setTerritory((current) => ({ ...current, [key]: value }));
   const landingSitesRef = useRef([]);
   const [stats, setStats] = useState({
     birds: 9,
@@ -84,6 +89,7 @@ export default function SeagullLab() {
       views={[
         { id: 'flight', label: 'Небо · 9' },
         { id: 'landing', label: 'Посадки · курсор' },
+        { id: 'territory', label: 'Территория' },
         { id: 'glide', label: 'Планирование' },
         { id: 'stress', label: 'Нагрузка · 18' },
         { id: 'specimen', label: 'Экземпляр' },
@@ -100,6 +106,16 @@ export default function SeagullLab() {
           note: `${SEAGULL_ASSET.flight.cruiseSpeed[0]}–${SEAGULL_ASSET.flight.cruiseSpeed[1]} м/с · сосед ≈ ${SEAGULL_ASSET.flight.nearestNeighbor} м`,
         },
       ]}
+      panel={mode === 'territory' ? <>
+        <LabRange label="Радиус территории" value={territory.radius} min={3} max={40} step={0.5} unit="м" onChange={(value) => setTerritoryValue('radius', value)} />
+        <LabRange label="Высота полёта · нижняя" value={territory.altitudeMin} min={0.2} max={12} step={0.1} unit="м" onChange={(value) => setTerritoryValue('altitudeMin', value)} />
+        <LabRange label="Высота полёта · верхняя" value={territory.altitudeMax} min={1} max={30} step={0.1} unit="м" onChange={(value) => setTerritoryValue('altitudeMax', value)} />
+        <LabRange label="Мест на суше" value={territory.perchCount} min={0} max={48} step={1} onChange={(value) => setTerritoryValue('perchCount', value)} />
+        <LabToggle label="Садятся на сушу" value={territory.terrain} onChange={(value) => setTerritoryValue('terrain', value)} />
+        <LabToggle label="Садятся на валуны" value={territory.rocks} onChange={(value) => setTerritoryValue('rocks', value)} />
+        <LabToggle label="Садятся на объекты" value={territory.objects} onChange={(value) => setTerritoryValue('objects', value)} />
+        <p className="lab__note">Кольца — места, которые берег отдал сам: красные на песке, синие на валуне. Тот же расчёт, что в сцене.</p>
+      </> : null}
       transport={<>
         <button type="button" aria-pressed={showRig} onClick={() => { setMode('specimen'); setShowRig((value) => !value); }}>Риг</button>
         <button type="button" aria-pressed={paused} onClick={() => setPaused((value) => !value)}>{paused ? 'Продолжить' : 'Пауза'}</button>
@@ -110,7 +126,7 @@ export default function SeagullLab() {
         <span><b>{Math.round(stats.triangles / 1000)}k</b> трис / кадр</span>
         <span><b>{stats.shadowCasters}</b> тени · LOD</span>
         <span><b>{stats.reflectionParticipants}</b> отражения · RT</span>
-        {mode === 'landing' ? (
+        {mode === 'landing' || mode === 'territory' ? (
           <>
             <span><b>{stats.airborne}</b> в воздухе</span>
             <span><b>{stats.approaching}</b> заходят</span>
@@ -140,18 +156,20 @@ export default function SeagullLab() {
       ]}
     >
       <AssetStudio
-        view={mode === 'specimen' ? 'flight-specimen' : mode === 'landing' ? 'landing' : 'flight'}
-        cameraViews={CAMERA_VIEWS} cameraLimits={CAMERA_LIMITS} fogRange={[32, 48]}
+        view={mode === 'specimen' ? 'flight-specimen' : mode === 'landing' ? 'landing' : mode === 'territory' ? 'territory' : 'flight'}
+        cameraViews={CAMERA_VIEWS} cameraLimits={{ ...CAMERA_LIMITS, maxDistance: 60 }} fogRange={[32, 48]}
         waterReflection waterY={HOME_SEAGULL_WATER_Y}
       >
         <Suspense fallback={<LoadingBird />}>
           {mode === 'landing' && <SeagullLandingStage landingSitesRef={landingSitesRef} />}
+          {mode === 'territory' && <SeagullLandingStage landingSitesRef={landingSitesRef} land perch={{ radius: territory.radius, count: territory.perchCount, terrain: territory.terrain, rocks: territory.rocks, objects: territory.objects }} />}
           <SeagullFlock
-            mode={mode}
+            mode={mode === 'territory' ? 'landing' : mode}
             paused={paused}
             showRig={showRig}
             landingSitesRef={landingSitesRef}
             onStats={setStats}
+            territory={mode === 'territory' ? { x: 0, z: 0, radius: territory.radius, altitudeMin: territory.altitudeMin, altitudeMax: territory.altitudeMax } : null}
           />
         </Suspense>
       </AssetStudio>

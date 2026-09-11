@@ -10,6 +10,7 @@ import {
   SCULPTURE_LANDING_SPECS,
 } from '../features/home-scene/creatures/seagullLandingSurfaces.js';
 import { HOME_SEAGULL_WATER_Y } from '../features/home-scene/creatures/seagullFlight.js';
+import { createTerrainLandingSites } from '../terrain/terrainLanding.js';
 
 // The lab water is the scene's datum, so routes and downed physics need no offset.
 const FLOOR_Y = HOME_SEAGULL_WATER_Y;
@@ -60,7 +61,60 @@ function LandingSite({ spec, register, showMarker }) {
   );
 }
 
-export default function SeagullLandingStage({ landingSitesRef }) {
+// Полоса суши для режима «Территория»: у студии нет рельефа, поэтому берег —
+// ступенька на половине площадки, с камнем-валуном. Отвечает на тот же вопрос
+// surfaceAt, что и настоящая земля, так что места для посадки считает тот же
+// код, что и в сцене, — это и есть смысл режима.
+const LAND_EDGE_X = 1.2;
+const LAND_HEIGHT = 0.42;
+const LAND_ROCK = { x: 4.2, z: -1.6, radius: 0.55, height: 0.62 };
+const landQuery = {
+  surfaceAt: (x, z) => {
+    if (Math.hypot(x - LAND_ROCK.x, z - LAND_ROCK.z) < LAND_ROCK.radius) {
+      return { height: LAND_HEIGHT + LAND_ROCK.height, normal: { x: 0, y: 1, z: 0 }, habitat: 'rock' };
+    }
+    if (x < LAND_EDGE_X) return { height: -0.5, normal: { x: 0, y: 1, z: 0 }, habitat: 'water' };
+    return { height: LAND_HEIGHT, normal: { x: 0, y: 1, z: 0 }, habitat: 'beach' };
+  },
+};
+
+function LandSlab({ landingSitesRef, perch, register, showMarkers }) {
+  const root = useRef();
+  const [sites, setSites] = React.useState([]);
+  const perchKey = JSON.stringify(perch);
+  useLayoutEffect(() => {
+    const group = root.current;
+    if (!group) return undefined;
+    const created = createTerrainLandingSites(group, landQuery, { ...JSON.parse(perchKey), centerX: 4, centerZ: 0 });
+    setSites(created);
+    register(created);
+    return () => {
+      created.forEach((site) => site.object.parent?.remove(site.object));
+      register([]);
+      setSites([]);
+    };
+  }, [perchKey, register, landingSitesRef]);
+  return (
+    <group ref={root} name="landing-preview-land">
+      <mesh position={[LAND_EDGE_X + 5, FLOOR_Y + LAND_HEIGHT * 0.5, 0]} receiveShadow>
+        <boxGeometry args={[10, LAND_HEIGHT, 8]} />
+        <meshStandardMaterial color="#e6dfcf" roughness={0.95} />
+      </mesh>
+      <mesh position={[LAND_ROCK.x, FLOOR_Y + LAND_HEIGHT + LAND_ROCK.height * 0.5, LAND_ROCK.z]} castShadow receiveShadow>
+        <cylinderGeometry args={[LAND_ROCK.radius, LAND_ROCK.radius * 1.15, LAND_ROCK.height, 18]} />
+        <meshStandardMaterial color="#8d8a80" roughness={0.9} />
+      </mesh>
+      {showMarkers ? sites.map((site) => (
+        <mesh key={site.id} position={[site.position[0], site.position[1] + 0.004, site.position[2]]} rotation={[-Math.PI / 2, 0, 0]} renderOrder={6}>
+          <ringGeometry args={[0.05, 0.075, 24]} />
+          <meshBasicMaterial color={site.surface === 'rock' ? '#7f8cc9' : '#c84b43'} transparent opacity={0.8} depthWrite={false} toneMapped={false} side={THREE.DoubleSide} />
+        </mesh>
+      )) : null}
+    </group>
+  );
+}
+
+export default function SeagullLandingStage({ landingSitesRef, land = false, perch = null }) {
   const boatSource = useGLTF(BOAT_MODEL_URL).scene;
   const sculptureSource = useGLTF('/models/sculpture/sculpture.glb').scene;
   const boatGroup = useRef();
@@ -107,18 +161,27 @@ export default function SeagullLandingStage({ landingSitesRef }) {
     [boatSites, sculptureSites],
   );
 
-  useLayoutEffect(() => {
-    landingSitesRef.current = specs
+  // Места с суши приходят отдельно и позже: их добавляет полоса, а объекты —
+  // как раньше. Список один, стая его читает как есть.
+  const landSites = useRef([]);
+  const publish = React.useCallback(() => {
+    const objectSites = specs
       .map((spec, index) => ({
         ...spec,
         object: siteObjects.current[index],
         collisionObject: index < boatSites.length ? boat : sculpture,
       }))
       .filter((site) => site.object);
+    landingSitesRef.current = [...(perch?.objects === false ? [] : objectSites), ...landSites.current];
+  }, [boat, boatSites.length, landingSitesRef, perch?.objects, sculpture, specs]);
+  const registerLand = React.useCallback((sites) => { landSites.current = sites; publish(); }, [publish]);
+
+  useLayoutEffect(() => {
+    publish();
     return () => {
       landingSitesRef.current = [];
     };
-  }, [boat, boatSites.length, landingSitesRef, sculpture, specs]);
+  }, [landingSitesRef, publish]);
 
   useEffect(() => () => {
     boatMaterial.dispose();
@@ -144,6 +207,7 @@ export default function SeagullLandingStage({ landingSitesRef }) {
 
   return (
     <group name="seagull-landing-stage">
+      {land ? <LandSlab landingSitesRef={landingSitesRef} perch={perch ?? {}} register={registerLand} showMarkers /> : null}
       <group ref={boatGroup} name="landing-preview-boat" position={[-2.05, FLOOR_Y, 0.1]}>
         <primitive object={boat} />
         {boatSites.map((spec, index) => (
