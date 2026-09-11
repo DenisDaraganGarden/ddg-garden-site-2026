@@ -46,7 +46,9 @@
     "check:terrain": "node scripts/check-terrain.mjs && node scripts/check-terrain-features.mjs",
     "check:coast-contracts": "node scripts/check-terrain.mjs && node scripts/check-terrain-features.mjs && node scripts/check-water-seam.mjs && node src/components/effects/sceneTimeline.check.js && node scripts/check-seagull-render-lod.mjs && node scripts/check-seagull-distant-silhouette.mjs && node src/components/effects/water/opticsGeometryLod.check.js",
     "check:seo": "node scripts/seo/build-seo.check.mjs",
-    "check:projects": "node scripts/projectStore.check.mjs"
+    "check:projects": "node scripts/projectStore.check.mjs",
+    "app": "node ./node_modules/electron/cli.js electron/main.js",
+    "check:app": "node scripts/check-app.mjs"
   },
   "dependencies": {
     "@react-spring/three": "^9.7.3",
@@ -67,6 +69,7 @@
     "@eslint/js": "^9.39.4",
     "@playwright/test": "^1.58.2",
     "@vitejs/plugin-react": "^4.2.1",
+    "electron": "^42.4.1",
     "eslint": "^9.39.4",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^5.2.0",
