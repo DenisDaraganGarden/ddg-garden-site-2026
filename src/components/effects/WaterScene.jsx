@@ -56,6 +56,7 @@ import {
 import EditorGizmo from '../../features/home-scene/components/editor/EditorGizmo';
 import EditorPicker from '../../features/home-scene/components/editor/EditorPicker';
 import EditorAxes from '../../features/home-scene/components/editor/EditorAxes';
+import { sceneObjectOn } from '../../features/home-scene/lib/sceneObjects';
 import ScenePostProcessing from './ScenePostProcessing';
 import PainterlyClouds from './sky/painterly/PainterlyClouds';
 import CloudShadowReceivers from './sky/painterly/CloudShadowReceivers';
@@ -477,7 +478,7 @@ function WaterRuntimeScene({
             lighting={lighting}
           />
         ) : null}
-        {refractionEnabled && settings.algaeVisible ? (
+        {refractionEnabled && sceneObjectOn(settings, 'algae') ? (
           <UnderwaterAlgae
             settings={settings}
             qualityProfile={qualityProfile}
@@ -485,8 +486,7 @@ function WaterRuntimeScene({
           />
         ) : null}
         {refractionEnabled
-        && settings.waterVisible
-        && settings.fishEnabled
+        && sceneObjectOn(settings, 'fish')
         && settings.fishCount > 0 ? (
           <HomeFishSchool
             terrainQuery={terrainQuery}
@@ -509,7 +509,7 @@ function WaterRuntimeScene({
             qualityProfile={qualityProfile}
           />
         ) : null}
-        {settings.liliesVisible ? (
+        {sceneObjectOn(settings, 'lilies') ? (
           <SurfaceVegetation
             terrainQuery={terrainQuery}
             settings={settings}
@@ -551,7 +551,7 @@ function WaterRuntimeScene({
             useOpticsLod
           />
         ) : null}
-        {settings.seagullsEnabled ? (
+        {sceneObjectOn(settings, 'seagulls') ? (
           <SeagullLandingHabitat
             boatSurface={landingSurfaces.boat}
             sculptureSurface={landingSurfaces.sculpture}
@@ -560,7 +560,7 @@ function WaterRuntimeScene({
             landingSitesRef={landingSitesRef}
           />
         ) : null}
-        {settings.seagullsEnabled ? (
+        {sceneObjectOn(settings, 'seagulls') ? (
           <HomeSeagullFlock
             settings={settings}
             runtime={runtime}

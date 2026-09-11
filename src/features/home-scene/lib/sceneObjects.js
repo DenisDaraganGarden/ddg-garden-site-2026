@@ -14,6 +14,10 @@
 // скульптура — вещи сайта; танкер, водоросли, кувшинки и береговые находки
 // пока не умеют размножаться вдоль воды процедурно; живность выключена, пока
 // её поведение привязано к сайту (чайки — к лодке).
+//
+// `requires` — без чего объекта не бывает: чайкам, рыбам, кувшинкам и
+// водорослям нужна вода. Выключил воду — их нет, хотя их собственный
+// выключатель не тронут: делаем пустыню, и чайки уходят сами.
 export const SCENE_OBJECT_GROUPS = Object.freeze(['landscape', 'greenery', 'objects', 'creatures', 'render']);
 
 export const SCENE_OBJECTS = Object.freeze([
@@ -25,20 +29,32 @@ export const SCENE_OBJECTS = Object.freeze([
   { id: 'farWater', key: 'farWaterVisible', node: 'landscape/water', group: 'landscape' },
   { id: 'seabed', key: 'seabedVisible', node: 'landscape/seabed', group: 'landscape', roots: ['seabed'] },
   { id: 'sky', key: 'skyVisible', node: 'atmosphere/hdri', group: 'landscape', roots: ['sky-dome'] },
-  { id: 'lilies', key: 'liliesVisible', node: 'greenery/lilies', group: 'greenery', roots: ['surface-vegetation'], newProject: false },
-  { id: 'algae', key: 'algaeVisible', node: 'greenery/algae', group: 'greenery', roots: ['underwater-algae'], newProject: false },
+  { id: 'lilies', key: 'liliesVisible', node: 'greenery/lilies', group: 'greenery', roots: ['surface-vegetation'], requires: ['water'], newProject: false },
+  { id: 'algae', key: 'algaeVisible', node: 'greenery/algae', group: 'greenery', roots: ['underwater-algae'], requires: ['water'], newProject: false },
   { id: 'shrubs', key: 'shrubsEnabled', node: 'greenery/shrubs', group: 'greenery', roots: ['coastal-oleaster'] },
   { id: 'trees', key: 'treesEnabled', node: 'greenery/trees', group: 'greenery', roots: ['coastal-trees'] },
   { id: 'grass', key: 'grassEnabled', node: 'greenery/grass', group: 'greenery', roots: ['coastal-grass'] },
   { id: 'tanker', key: 'tankerVisible', node: 'objects/tanker', group: 'objects', roots: ['tanker-anchor', 'tanker-wake'], sound: 'tanker', newProject: false },
   { id: 'boat', key: 'boatVisible', node: 'objects/boat', group: 'objects', roots: ['boat', 'boat-anchor'], sound: 'boat', newProject: false },
-  { id: 'sculpture', key: 'sculptureVisible', node: 'objects/sculpture', group: 'objects', roots: ['sculpture', 'sculpture-anchor'] },
-  { id: 'seagulls', key: 'seagullsEnabled', node: 'creatures/seagulls', group: 'creatures', roots: ['seagull-flock'], sound: 'birds', newProject: false },
-  { id: 'fish', key: 'fishEnabled', node: 'creatures/fish', group: 'creatures', roots: ['river-fish-school'], newProject: false },
+  { id: 'sculpture', key: 'sculptureVisible', node: 'objects/sculpture', group: 'objects', roots: ['sculpture', 'sculpture-anchor'], newProject: false },
+  { id: 'seagulls', key: 'seagullsEnabled', node: 'creatures/seagulls', group: 'creatures', roots: ['seagull-flock'], sound: 'birds', requires: ['water'], newProject: false },
+  { id: 'fish', key: 'fishEnabled', node: 'creatures/fish', group: 'creatures', roots: ['river-fish-school'], requires: ['water'], newProject: false },
   { id: 'reflections', key: 'reflectionsEnabled', node: null, group: 'render' },
 ]);
 
-export const isSceneObjectOn = (settings, object) => settings?.[object.key] !== false;
+const byId = (id) => SCENE_OBJECTS.find((object) => object.id === id);
+
+// Объект есть в сцене, если включён он сам и всё, без чего его не бывает.
+export const isSceneObjectOn = (settings, object) => settings?.[object.key] !== false
+  && (object.requires ?? []).every((id) => isSceneObjectOn(settings, byId(id)));
+
+export const sceneObjectOn = (settings, id) => isSceneObjectOn(settings, byId(id));
+
+// Почему объекта нет, хотя его выключатель включён: имя того, без чего он не
+// бывает. Для подсказки у выключателя в списке.
+export const sceneObjectBlockedBy = (settings, object) => (object.requires ?? [])
+  .map(byId)
+  .filter((required) => required && !isSceneObjectOn(settings, required));
 
 // Заводские значения нового проекта: всё, что помечено newProject: false, выключено.
 export const newProjectObjectSettings = () => Object.fromEntries(

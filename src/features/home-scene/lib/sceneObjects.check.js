@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {
   SCENE_OBJECTS, audioSettingsForScene, newProjectObjectSettings, sceneHitForObject3D, sceneNodeForObject3D,
-  sceneObjectForName, sceneObjectsForNode, silencedSoundTracks, technicalFrameAvailable,
+  sceneObjectBlockedBy, sceneObjectForName, sceneObjectOn, sceneObjectsForNode, silencedSoundTracks, technicalFrameAvailable,
 } from './sceneObjects.js';
 
 // Клик по сцене разбирается по именам, под которыми объекты в ней лежат.
@@ -69,9 +69,25 @@ assert.equal(technicalFrameAvailable({ id: 'boat', object: 'boat-anchor' }, scen
 assert.equal(technicalFrameAvailable({ id: 'coast', pose: () => null }, scene), true, 'ракурс без объекта — всегда');
 assert.equal(sceneObjectForName('surface-vegetation')?.key, 'liliesVisible');
 
+// Без чего объекта не бывает: выключил воду — чаек, рыб, кувшинок и водорослей
+// нет, хотя их выключатели включены; их дорожки молчат, ракурсы уходят.
+const desert = { waterVisible: false, seagullsEnabled: true, fishEnabled: true, liliesVisible: true, audio: { tracks: { birds: { enabled: true, gain: 1 } } } };
+assert.equal(sceneObjectOn(desert, 'seagulls'), false, 'пустыня — чаек нет');
+assert.equal(sceneObjectOn(desert, 'fish'), false);
+assert.equal(sceneObjectOn(desert, 'lilies'), false);
+assert.equal(sceneObjectOn(desert, 'terrain'), true, 'суша воды не требует');
+assert.equal(sceneObjectOn({ ...desert, waterVisible: true }, 'seagulls'), true, 'вернул воду — чайки вернулись');
+assert.deepEqual(sceneObjectBlockedBy(desert, SCENE_OBJECTS.find((o) => o.id === 'seagulls')).map((o) => o.id), ['water']);
+assert.deepEqual(sceneObjectBlockedBy({ ...desert, waterVisible: true }, SCENE_OBJECTS.find((o) => o.id === 'seagulls')), []);
+assert.deepEqual([...silencedSoundTracks(desert)], ['birds']);
+assert.equal(technicalFrameAvailable({ id: 'lilies', object: 'surface-vegetation' }, desert), false);
+for (const object of SCENE_OBJECTS) {
+  for (const id of object.requires ?? []) assert.ok(SCENE_OBJECTS.some((o) => o.id === id), `${object.id} требует неизвестное «${id}»`);
+}
+
 // Заводской проект: вещи сайта и живность выключены, берег и вода — нет.
 const fresh = newProjectObjectSettings();
-assert.deepEqual(Object.keys(fresh).sort(), ['algaeVisible', 'boatVisible', 'fishEnabled', 'liliesVisible', 'seagullsEnabled', 'shoreEnabled', 'tankerVisible'].sort());
+assert.deepEqual(Object.keys(fresh).sort(), ['algaeVisible', 'boatVisible', 'fishEnabled', 'liliesVisible', 'sculptureVisible', 'seagullsEnabled', 'shoreEnabled', 'tankerVisible'].sort());
 assert.ok(Object.values(fresh).every((value) => value === false));
 assert.equal(fresh.terrainEnabled, undefined, 'суша в новом проекте не трогается');
 

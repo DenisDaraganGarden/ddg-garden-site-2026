@@ -88,3 +88,5 @@ html[data-focus-preview=true] .home-editor-frame-mask,html[data-focus-frame=soli
 html[data-editor-tool=select] .home-editor-render-frame canvas{cursor:default}
 html[data-editor-tool=translate] .home-editor-render-frame canvas,html[data-editor-tool=rotate] .home-editor-render-frame canvas,html[data-editor-tool=scale] .home-editor-render-frame canvas{cursor:crosshair}
 html[data-editor-tool=hand] .home-editor-render-frame canvas{cursor:grab}
+/* Объект включён, но его нет в сцене: без чего-то он не бывает. */
+.focus-tree-row.is-blocked .focus-tree-eye{opacity:.6;color:#df8b84}
