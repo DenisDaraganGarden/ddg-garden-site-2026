@@ -25,8 +25,10 @@ import {
   DEFAULT_SOUNDSCAPE_SETTINGS,
   normalizeSoundscapeSettings,
 } from '../../audio/data/soundscapeSettings';
+import { saveProjectSettings } from '../../engine/projectApi';
 
 export const HOME_SCENE_SETTINGS_STORAGE_KEY = 'ddg_home_scene_settings_v1';
+const PROJECT_SAVE_DELAY_MS = 700;
 const HOME_SCENE_WATER_DEFAULT_MIGRATION_KEY = 'ddg_home_scene_water_default_128_v1';
 export const LEGACY_HOME_SCENE_SETTINGS_STORAGE_KEYS = ['ddg_snake_settings_v4', 'ddg_snake_settings_v3'];
 const OBSOLETE_PUBLISHED_HOME_SCENE_STORAGE_KEYS = [
@@ -1329,9 +1331,14 @@ export const usePublishedHomeSceneSettings = () => {
   };
 };
 
-export const useHomeSceneDraftSettings = () => {
-  const [settings, setStoredSettings] = useState(() => (
-    readHomeSceneDraftSettings() ?? normalizeHomeSceneDraftSettings(getPublishedHomeSceneSettings())
+// Редактор открывается либо на черновике сайта (как раньше, localStorage этого
+// origin), либо внутри проекта движка — тогда сцена приходит файлом и в файл же
+// возвращается. Ветки не смешиваются: черновик сайта проект не видит и наоборот,
+// поэтому проект не может уехать на сайт.
+export const useHomeSceneDraftSettings = (project = null) => {
+  const [settings, setStoredSettings] = useState(() => (project
+    ? normalizeHomeSceneDraftSettings(project.settings)
+    : readHomeSceneDraftSettings() ?? normalizeHomeSceneDraftSettings(getPublishedHomeSceneSettings())
   ));
   const setSettings = useCallback((update) => {
     setStoredSettings((previous) => {
@@ -1342,12 +1349,35 @@ export const useHomeSceneDraftSettings = () => {
 
   useEffect(() => {
     if (typeof window === 'undefined' || isScenePreview()) {
-      return;
+      return undefined;
     }
 
-    window.localStorage.setItem(HOME_SCENE_SETTINGS_STORAGE_KEY, JSON.stringify(settings));
-    removeLegacyHomeSceneKeys();
-  }, [settings]);
+    if (!project) {
+      window.localStorage.setItem(HOME_SCENE_SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+      removeLegacyHomeSceneKeys();
+      return undefined;
+    }
+
+    // Эффект перезапускается на каждое движение ползунка, поэтому таймер здесь
+    // работает задержкой сам по себе: на диск уходит тишина после правки, а не
+    // каждый кадр. Закрытие окна не ждёт таймера — там отдельный сброс.
+    const timer = window.setTimeout(() => {
+      saveProjectSettings(project.id, settings).catch((error) => {
+        console.error('Не удалось сохранить проект', error);
+      });
+    }, PROJECT_SAVE_DELAY_MS);
+    const flush = () => {
+      window.clearTimeout(timer);
+      saveProjectSettings(project.id, settings, { keepalive: true }).catch(() => {
+        // Окно уже закрывается — показывать ошибку негде.
+      });
+    };
+    window.addEventListener('pagehide', flush);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener('pagehide', flush);
+    };
+  }, [project, settings]);
 
   return {
     settings,

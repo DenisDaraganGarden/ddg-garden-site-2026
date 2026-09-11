@@ -37,6 +37,7 @@ import { useFocusHistory } from '../features/home-scene/components/editor/focus/
 import { publishHomeSceneSettings } from '../features/home-scene/lib/homeScenePublishClient';
 import { useLanguage } from '../i18n/useLanguage';
 import { useSiteAudio } from '../features/audio/SiteAudioContext';
+import { activeProjectId, readProject } from '../features/engine/projectApi';
 import '../styles/HomeEditor.css';
 
 const INITIAL_PUBLISHED_SNAPSHOT = JSON.stringify(
@@ -71,7 +72,7 @@ const swapById = (list, id, direction) => {
     return items;
 };
 
-const HomeEdit = () => {
+const HomeEdit = ({ project = null }) => {
     const { t } = useLanguage();
     const {
         state: audioState,
@@ -90,7 +91,7 @@ const HomeEdit = () => {
         setActiveTab,
         handleSettingChange,
         applySettings,
-    } = useHomeSceneEditor();
+    } = useHomeSceneEditor(project);
     // Preview the chrome toggles in the editor itself, not only after publishing.
     useHomeChromeVisibility(settings);
     const { mode: gizmoMode, setMode: setGizmoMode, suppressed: gizmoSuppressed, setSuppressed: setGizmoSuppressed, picking, setPicking } = useEditorTool();
@@ -672,13 +673,16 @@ const HomeEdit = () => {
                 history={focusHistory}
                 layoutEditor={layoutEditor}
                 gizmo={{ mode: gizmoMode, setMode: setGizmoMode, selection: gizmoSelection, suppressed: gizmoSuppressed, show: () => setGizmoSuppressed(false), hide: () => setGizmoSuppressed(true), picking, setPicking, sceneMenu, closeSceneMenu: () => setSceneMenu(null) }}
-                onPublish={isLocalPublishAvailable ? () => handlePublish() : undefined}
-                onDeploy={isLocalPublishAvailable ? () => handlePublish({ deploy: true }) : undefined}
+                onPublish={isLocalPublishAvailable && !project ? () => handlePublish() : undefined}
+                onDeploy={isLocalPublishAvailable && !project ? () => handlePublish({ deploy: true }) : undefined}
                 onAdoptPublished={handleAdoptPublished}
                 publishState={publishState}
                 hasPublishChanges={hasPublishChanges}
-                publishEnabled={isLocalPublishAvailable}
-                publishHint={isLocalPublishAvailable ? '' : t('homeEditor.publish.unavailable')}
+                project={project}
+                publishEnabled={isLocalPublishAvailable && !project}
+                publishHint={project
+                    ? t('homeEditor.publish.projectScope')
+                    : (isLocalPublishAvailable ? '' : t('homeEditor.publish.unavailable'))}
                 audioLab={{
                     state: audioState,
                     previewEnabled: editorPreviewEnabled,
@@ -691,4 +695,38 @@ const HomeEdit = () => {
     );
 };
 
-export default HomeEdit;
+// Проект приходит файлом, поэтому редактор ждёт его до первого кадра: собрать
+// сцену на заводских числах и через полсекунды пересобрать на проектных — это
+// семь секунд впустую. Пока идёт загрузка, на экране держится загрузочный экран
+// из index.html, он для этого и нарисован.
+const HomeEditRoute = () => {
+    const id = activeProjectId();
+    const [project, setProject] = useState(null);
+    const [failure, setFailure] = useState(null);
+
+    useEffect(() => {
+        if (!id) return undefined;
+        let alive = true;
+        readProject(id)
+            .then((loaded) => { if (alive) setProject(loaded); })
+            .catch((error) => { if (alive) setFailure(error); });
+        return () => { alive = false; };
+    }, [id]);
+
+    if (failure) {
+        return (
+            <div className="home-editor-project-failure" role="alert">
+                <p>{failure.message}</p>
+                <a href="/engine">К проектам</a>
+            </div>
+        );
+    }
+
+    if (id && !project) {
+        return null;
+    }
+
+    return <HomeEdit project={project} />;
+};
+
+export default HomeEditRoute;

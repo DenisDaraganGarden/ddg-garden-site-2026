@@ -1,0 +1,39 @@
+html[data-engine-menu=true]{background:#17191a;overflow:auto}
+html[data-engine-menu=true] .main-nav{display:none}
+.engine-menu{position:fixed;inset:0;display:flex;flex-direction:column;background:#17191a;color:#dcddd8;font:12px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;letter-spacing:0;text-transform:none;overflow:auto}
+.engine-menu *{box-sizing:border-box}
+.engine-menu button{font:inherit;letter-spacing:0;text-transform:none;color:inherit;cursor:pointer}
+.engine-menu button:focus-visible,.engine-menu input:focus-visible{outline:1px solid #cfc1a1;outline-offset:2px}
+
+.engine-topbar{display:flex;flex:0 0 auto;gap:8px;align-items:center;height:42px;padding:0 14px;border-bottom:1px solid #2a2d2e}
+.engine-brand{display:flex;gap:9px;align-items:center}
+.engine-brand img{opacity:.92}
+.engine-brand span{display:flex;flex-direction:column;font-size:12px;font-weight:600;letter-spacing:.14em;line-height:1.1}
+.engine-brand small{color:#8f9495;font-size:8px;font-weight:400;letter-spacing:.2em}
+.engine-spacer{flex:1}
+.engine-ghost{display:flex;gap:6px;align-items:center;height:26px;padding:0 10px;border:1px solid #ffffff1f;border-radius:4px;background:#ffffff08;font-size:10px}
+.engine-ghost:hover{background:#ffffff14}
+.engine-ghost .focus-icon{width:13px;height:13px}
+
+.engine-body{flex:1;width:100%;max-width:1080px;margin:0 auto;padding:42px 28px 64px}
+.engine-body h1{margin:0;font-size:22px;font-weight:500;letter-spacing:.01em;color:#eae8e1;text-transform:none}
+.engine-lead{max-width:64ch;margin:10px 0 0;color:#9aa0a1;font-size:12px}
+.engine-note{max-width:64ch;margin:16px 0 0;padding:9px 11px;border:1px solid #ffffff14;border-radius:4px;background:#ffffff06;color:#b9bec0;font-size:11px}
+
+.engine-grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(208px,1fr));margin-top:26px}
+.engine-card{position:relative;display:flex;flex-direction:column;overflow:hidden;min-height:158px;padding:0;border:1px solid #ffffff17;border-radius:5px;background:#1d1f20;text-align:left}
+.engine-card:hover{border-color:#ffffff2e}
+.engine-card--new{gap:7px;align-items:center;justify-content:center;border-style:dashed;background:#ffffff05;color:#b6bbbc}
+.engine-card--new:hover:not(:disabled){background:#ffffff0c;color:#eae8e1}
+.engine-card--new:disabled{opacity:.35;cursor:default}
+.engine-card--new .focus-icon{width:19px;height:19px}
+.engine-card--new span{font-size:12px}
+.engine-card--new small{color:#82888a;font-size:10px}
+.engine-card--new.is-naming{padding:14px}
+
+.engine-card__preview{display:block;flex:0 0 96px;background:linear-gradient(150deg,#3a4442,#20262a 58%,#4a4133);opacity:.55}
+.engine-card__open{display:flex;flex:1;flex-direction:column;gap:3px;justify-content:center;padding:9px 11px;border:0;background:transparent;text-align:left}
+.engine-card__name{overflow:hidden;color:#eae8e1;font-size:12px;text-overflow:ellipsis;white-space:nowrap}
+.engine-card__open small{overflow:hidden;color:#82888a;font-size:9.5px;text-overflow:ellipsis;white-space:nowrap}
+.engine-card__input{width:100%;height:28px;padding:0 8px;border:1px solid #ffffff2b;border-radius:3px;background:#141616;color:#eae8e1;font:inherit;font-size:12px}
+.engine-card>.engine-card__input{width:auto;margin:9px 11px}

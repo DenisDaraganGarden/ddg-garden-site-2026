@@ -5,6 +5,14 @@ import { promisify } from 'node:util';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { publishedHomeSceneKeys } from './src/features/home-scene/data/publishedHomeSceneKeys.js';
+import {
+  createProject,
+  deleteProject,
+  isValidId,
+  listProjects,
+  readProject,
+  saveProject,
+} from './scripts/projectStore.mjs';
 
 const projectRoot = process.cwd();
 const publishedHomeSceneSettingsPath = path.join(
@@ -149,6 +157,68 @@ function homeScenePublishPlugin() {
   };
 }
 
+// Проекты движка. Тот же локальный сервер, что публикует сцену, — второго
+// канала не заводится. Сцену для нового проекта присылает редактор: заводские
+// значения собираются из модулей настроек, а те живут в браузерном графе
+// импортов и в конфиге не резолвятся.
+function engineProjectsPlugin() {
+  const attach = (middlewares) => {
+    middlewares.use('/__projects', async (request, response, next) => {
+      const id = decodeURIComponent(request.url.replace(/^\/+|\?.*$/g, ''));
+
+      try {
+        if (request.method === 'GET') {
+          if (!id) {
+            sendJson(response, 200, { ok: true, projects: await listProjects() });
+            return;
+          }
+          const project = await readProject(id);
+          sendJson(response, project ? 200 : 404, project
+            ? { ok: true, project }
+            : { ok: false, message: `Проект «${id}» не найден.` });
+          return;
+        }
+
+        if (request.method === 'POST' && !id) {
+          const body = await readJsonBody(request);
+          sendJson(response, 200, { ok: true, project: await createProject(body) });
+          return;
+        }
+
+        if (request.method === 'PUT' && isValidId(id)) {
+          const project = await saveProject(id, await readJsonBody(request));
+          sendJson(response, project ? 200 : 404, project
+            ? { ok: true, project }
+            : { ok: false, message: `Проект «${id}» не найден.` });
+          return;
+        }
+
+        if (request.method === 'DELETE' && isValidId(id)) {
+          sendJson(response, 200, { ok: await deleteProject(id) });
+          return;
+        }
+
+        next();
+      } catch (error) {
+        sendJson(response, 500, {
+          ok: false,
+          message: error instanceof Error ? error.message : 'Ошибка хранилища проектов',
+        });
+      }
+    });
+  };
+
+  return {
+    name: 'engine-projects-api',
+    configureServer(server) {
+      attach(server.middlewares);
+    },
+    configurePreviewServer(server) {
+      attach(server.middlewares);
+    },
+  };
+}
+
 const manualChunks = (id) => {
   if (!id.includes('node_modules')) {
     return undefined;
@@ -215,7 +285,7 @@ const manualChunks = (id) => {
 };
 
 export default defineConfig({
-  plugins: [react(), homeScenePublishPlugin()],
+  plugins: [react(), homeScenePublishPlugin(), engineProjectsPlugin()],
   optimizeDeps: {
     include: [
       'react-spring',

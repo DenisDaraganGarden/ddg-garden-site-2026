@@ -63,3 +63,6 @@ html[data-focus-preview=true] .home-editor-frame-mask,html[data-focus-frame=soli
 @media(max-width:850px){.focus-brand>span{display:none}.focus-active-camera{max-width:90px}.focus-topbar{padding:0 6px}.focus-saved{display:none}.focus-formats{margin:0 1px}.focus-topbar .focus-button{font-size:10px;padding:0 5px}.focus-statusbar>[role=status]{max-width:40%}}
 @media(max-width:590px){.focus-active-camera{display:none}.focus-topbar>.focus-separator{display:none}.focus-topbar .focus-primary{padding:0 7px}.focus-topbar .focus-spacer{min-width:0}.focus-topbar{gap:1px}.focus-inspector{box-shadow:-10px 0 25px #0003}.home-editor-page--focus .home-editor-stage{right:0}.focus-stage-toolbar,.focus-film-area{right:12px}.focus-statusbar>span:last-child{display:none}}
 @media(prefers-reduced-motion:reduce){.focus-editor *{animation:none!important;scroll-behavior:auto!important}}
+.focus-project-label--link{display:flex;gap:6px;align-items:center;height:24px;padding:0 8px;border:1px solid #ffffff1c;border-radius:4px;background:#ffffff08;cursor:pointer}
+.focus-project-label--link:hover{background:#ffffff14}
+.focus-project-label--link .focus-icon{width:12px;height:12px;color:var(--focus-accent)}

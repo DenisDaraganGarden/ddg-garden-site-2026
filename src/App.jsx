@@ -17,6 +17,7 @@ const Portfolio = lazy(() => import('./pages/Portfolio'));
 const ProjectDetail = lazy(() => import('./pages/ProjectDetail'));
 const Map = lazy(() => import('./pages/Map'));
 const HomeEdit = lazy(() => import('./pages/HomeEdit'));
+const Engine = lazy(() => import('./pages/Engine'));
 const CursorConceptLab = lazy(() => import('./components/ui/CursorConceptLab'));
 
 function AppShell() {
@@ -59,6 +60,9 @@ function AppShell() {
     ];
 
     const internalToolRoutes = [
+        // Главное меню движка: проекты и лаборатория. Редактор открывается
+        // отсюда с ?project=<id>; без параметра он остаётся редактором сайта.
+        { path: '/engine', element: <Engine /> },
         { path: '/home/edit', element: <HomeEdit /> },
     ];
 
