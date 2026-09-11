@@ -2,15 +2,13 @@ import React, { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState 
 import * as THREE from 'three';
 import { useFrame, useLoader, useThree } from '@react-three/fiber';
 import AssetStudio from '../asset-lab/AssetStudio';
-import LabNav from '../asset-lab/LabNav';
+import LabShell, { LabModes, LabRange, LabTabs, LabToggle } from '../asset-lab/LabShell';
 import { assetIndex } from '../asset-lab/assetCatalog';
 import { getPublishedHomeSceneSettings } from '../features/home-scene/hooks/useHomeSceneSettings';
 import { DEADWOOD_FORMS, makeDeadwood, makeDeadwoodGeometry, scatterDeadwood } from '../plants/deadwoodModel.js';
 import { createDeadwoodMaterials } from '../plants/deadwoodMaterial.js';
 import { makeStoneRing, createStoneRingMaterial, SHORE_STONE_MAPS } from '../terrain/stoneRingModel.js';
 import { terrainMapUrl } from '../terrain/terrainTextures.js';
-import '../plant-lab/plantLab.css';
-import './driftwoodLab.css';
 
 const PUBLISHED = getPublishedHomeSceneSettings();
 const DEFAULTS = { seed: PUBLISHED.shoreSeed, length: 4.3, diameter: .55, limbs: 6, bend: .55, breakage: .7, size: PUBLISHED.shoreSize,
@@ -30,13 +28,6 @@ const GALLERY = {
   branch: { x: -2.2, z: 2.7, yaw: .18, scale: 1 },
   ring: { x: 2.4, z: 3.1, yaw: 0, scale: 1 },
 };
-
-function Range({ label, value, min = 0, max = 1, step = .01, unit = '', onChange }) {
-  return <label className="plant-lab__range"><span>{label}</span><output>{Number(value).toFixed(step >= 1 ? 0 : step >= .1 ? 1 : 2)} {unit}</output><input aria-label={label} type="range" value={value} min={min} max={max} step={step} onChange={(e) => onChange(+e.target.value)} /></label>;
-}
-function Toggle({ label, value, onChange }) {
-  return <label className="plant-lab__toggle"><span>{label}</span><input aria-label={label} type="checkbox" checked={value} onChange={(e) => onChange(e.target.checked)} /></label>;
-}
 
 function makeReview(settings, selected, mode) {
   const layout = mode === 'patch' ? scatterDeadwood(settings) :
@@ -180,30 +171,44 @@ export default function DriftwoodLab() {
   useEffect(() => { const changed = () => setHidden(document.hidden); document.addEventListener('visibilitychange', changed); return () => document.removeEventListener('visibilitychange', changed); }, []);
   const choose = (kind) => { setSelected(kind); setMode('specimen'); setView('full'); if (DEADWOOD_FORMS[kind]) setSettings((s) => ({ ...s, ...DEADWOOD_FORMS[kind] })); };
   const chooseMode = (next) => { setMode(next); setView('full'); if (next === 'patch') setSelected('all'); };
-  const range = (key, min = 0, max = 1, step = .01, unit = '') => <Range key={key} label={t[key]} value={settings[key]} min={min} max={max} step={step} unit={unit} onChange={(value) => set(key, value)} />;
-  const toggle = (key) => <Toggle key={key} label={t[key]} value={settings[key]} onChange={(value) => set(key, value)} />;
-  return <main className="plant-lab driftwood-lab" data-asset-collection="driftwood" data-asset-kind={selected} data-mode={mode} lang={lang}>
-    <header className="plant-lab__header"><div><p>DDG / ASSET LAB / {assetIndex('driftwood')}</p><h1>{t.title}</h1><span>{t.subtitle}</span></div><div className="plant-lab__header-actions"><div>{['ru', 'en'].map((id) => <button key={id} aria-pressed={lang === id} onClick={() => setLang(id)}>{id.toUpperCase()}</button>)}</div><LabNav current="driftwood" lang={lang} /></div></header>
-    <div className="plant-lab__workspace"><section className="plant-lab__viewer" aria-label={t.viewport}>
-      <AssetStudio view={view} cameraViews={views} cameraLimits={LIMITS} cameraFar={150} fogRange={[90, 150]} floorVisible={false}
-        paused inactive={hidden} exposure={settings.exposure} sceneOverrides={{ timeOfDay: settings.timeOfDay }} shadowRadius={mode === 'patch' ? settings.extent * .6 : selected === 'all' ? 8 : 4}>
-        <Suspense fallback={null}><Stage review={review} settings={settings} floorVisible={view !== 'underside'} onStats={onStats} /></Suspense>
-      </AssetStudio>
-      <div className="plant-lab__views" role="group" aria-label={t.view}>{['full', 'macro', 'end', 'top', 'underside'].map((id) => <button key={id} aria-pressed={view === id} onClick={() => setView(id)}>{t[id]}</button>)}</div>
-      <div className="plant-lab__scale"><span>{stats.metres} {t.unit}</span><i style={{ width: stats.pixels }} /></div>
-    </section><aside className="plant-lab__inspector">
-      <div className="plant-lab__modes plant-lab__variants" role="group" aria-label={t.kind}>{['all', ...KINDS, 'ring'].map((kind) => <button key={kind} aria-pressed={selected === kind} onClick={() => choose(kind)}>{DEADWOOD_FORMS[kind]?.[lang] ?? t[kind]}</button>)}</div>
-      <div className="plant-lab__modes">{['specimen', 'patch'].map((id) => <button key={id} aria-pressed={mode === id} onClick={() => chooseMode(id)}>{t[id]}</button>)}</div>
-      <div className="plant-lab__tabs" role="tablist">{['form', 'surface', 'ground', 'light'].map((id) => <button key={id} role="tab" aria-selected={tab === id} onClick={() => setTab(id)}>{t[id]}</button>)}</div>
-      <div key={`${tab}-${selected}-${mode}`} className="plant-lab__controls" role="tabpanel" aria-label={t[tab]}>
+  const range = (key, min = 0, max = 1, step = .01, unit = '') => <LabRange key={key} label={t[key]} format={(v) => Number(v).toFixed(step >= 1 ? 0 : step >= .1 ? 1 : 2)} value={settings[key]} min={min} max={max} step={step} unit={unit} onChange={(value) => set(key, value)} />;
+  const toggle = (key) => <LabToggle key={key} label={t[key]} value={settings[key]} onChange={(value) => set(key, value)} />;
+  return <LabShell
+    collection="driftwood"
+    testId="driftwood-lab"
+    eyebrow={`DDG / ASSET LAB / ${assetIndex('driftwood')}`}
+    title={t.title}
+    subtitle={t.subtitle}
+    language={lang}
+    onLanguage={setLang}
+    views={['full', 'macro', 'end', 'top', 'underside'].map((id) => ({ id, label: t[id] }))}
+    view={view}
+    onView={setView}
+    scale={`${stats.metres} ${t.unit}`}
+    panel={<>
+      <LabModes label={t.kind} items={['all', ...KINDS, 'ring'].map((kind) => ({ id: kind, label: DEADWOOD_FORMS[kind]?.[lang] ?? t[kind] }))} value={selected} onChange={choose} />
+      <LabModes label={t.specimen} items={['specimen', 'patch'].map((id) => ({ id, label: t[id] }))} value={mode} onChange={chooseMode} />
+      <LabTabs label={t[tab]} items={['form', 'surface', 'ground', 'light'].map((id) => ({ id, label: t[id] }))} value={tab} onChange={setTab} />
+      <React.Fragment key={`${tab}-${selected}-${mode}`}>
         {tab === 'form' && <>{range('seed', 1, 999, 1)}{selected === 'all' ? range('size', .5, 1.7, .05) : selected !== 'ring' && <>{range('length', .4, 7, .05, t.unit)}{range('diameter', .03, 1, .01, t.unit)}{range('limbs', 0, 12, 1)}</>}
           {selected !== 'ring' && <>{range('bend')}{range('breakage')}{toggle('lightDetail')}</>}
           {(selected === 'ring' || (selected === 'all' && mode === 'specimen')) && <>{range('ringDiameter', .9, 3.8, .1, t.unit)}{range('stones', 7, 24, 1)}{range('irregularity')}</>}{toggle('wireframe')}</>}
         {tab === 'surface' && <>{selected !== 'ring' && <>{range('bleach')}{range('grain')}{range('bark')}</>}{range('wetness')}</>}
         {tab === 'ground' && <>{range('burial', 0, .4)}{toggle('sand')}{mode === 'patch' && <>{range('count', 6, 48, 1)}{range('extent', 12, 32, 1, t.unit)}</>}</>}
         {tab === 'light' && <>{range('timeOfDay', 0, 24, .05, t.hour)}{range('exposure', .3, 2, .01)}</>}
-      </div><div className="plant-lab__transport"><button onClick={() => { setSettings(DEFAULTS); setSelected('all'); setMode('specimen'); setView('full'); }}>{t.reset}</button></div>
-    </aside></div>
-    <footer className="plant-lab__footer"><span><b>{stats.triangles.toLocaleString()}</b> {t.tri}</span><span><b>{stats.calls}</b> {t.calls}</span><span><b>{review.count}</b> {t.pieces}</span><span>{review.bounds.getSize(new THREE.Vector3()).toArray().map((v) => v.toFixed(2)).join(' × ')} {t.unit}</span></footer>
-  </main>;
+      </React.Fragment>
+    </>}
+    transport={<button type="button" onClick={() => { setSettings(DEFAULTS); setSelected('all'); setMode('specimen'); setView('full'); }}>{t.reset}</button>}
+    stats={<>
+      <span><b>{stats.triangles.toLocaleString()}</b> {t.tri}</span>
+      <span><b>{stats.calls}</b> {t.calls}</span>
+      <span><b>{review.count}</b> {t.pieces}</span>
+      <span>{review.bounds.getSize(new THREE.Vector3()).toArray().map((v) => v.toFixed(2)).join(' × ')} {t.unit}</span>
+    </>}
+  >
+    <AssetStudio view={view} cameraViews={views} cameraLimits={LIMITS} cameraFar={150} fogRange={[90, 150]} floorVisible={false}
+      paused inactive={hidden} exposure={settings.exposure} sceneOverrides={{ timeOfDay: settings.timeOfDay }} shadowRadius={mode === 'patch' ? settings.extent * .6 : selected === 'all' ? 8 : 4}>
+      <Suspense fallback={null}><Stage review={review} settings={settings} floorVisible={view !== 'underside'} onStats={onStats} /></Suspense>
+    </AssetStudio>
+  </LabShell>;
 }

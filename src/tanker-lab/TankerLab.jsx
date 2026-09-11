@@ -1,11 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import AssetStudio from '../asset-lab/AssetStudio';
-import LabNav from '../asset-lab/LabNav';
-import { assetIndex } from '../asset-lab/assetCatalog';
+import LabShell, { LabColor, LabFacts, LabModes, LabRange, LabSelect, LabTabs, LabToggle } from '../asset-lab/LabShell';
 import { buildHomeSceneLighting } from '../components/effects/homeSceneLighting';
 import { TankerSound } from '../tanker/audio';
 import TankerStage from './TankerStage';
-import './tankerLab.css';
 
 const CAMERA_VIEWS = {
   full: { landscape: { position: [4.6, 2.7, 8.5], target: [0, -0.28, 0] }, portrait: { position: [5.7, 3.3, 12.4], target: [0, -0.28, 0] } },
@@ -30,13 +28,6 @@ const TEXT = {
   ru: { title: 'Речной танкер', subtitle: '138 м · стальной корпус · процедурная модель', studio: 'Студия', passage: 'На ходу', horizon: 'Горизонт', vessel: 'Судно', motion: 'Ход', material: 'Материал', light: 'Свет', sound: 'Звук', full: 'Общий', side: 'Борт', bow: 'Нос', deck: 'Сверху', bridge: 'Надстройка', underside: 'Снизу', play: 'Продолжить', pause: 'Пауза', mute: 'Выключить звук', unmute: 'Включить звук', horn: 'Гудок', speed: 'Скорость', waves: 'Волнение', course: 'Курс', time: 'Темп просмотра', travel: 'Перемещение', wake: 'Кильватер', distance: 'Дальность', detail: 'Геометрия', near: 'Ближняя', far: 'Горизонт', count: 'Судов', wire: 'Каркас', hull: 'Краска корпуса', wear: 'Потёки', wet: 'Влажность', rough: 'Шероховатость', lighting: 'Освещение', scene: 'Свет сцены', hour: 'Время суток', clouds: 'Облачность', exposure: 'Экспозиция', environment: 'Отражения среды', master: 'Общая громкость', ambience: 'Окружение', spatial: 'Шина 3D', track: 'Танкер', diesel: 'Дизель', wash: 'Шум воды', spatialize: '3D-позиционирование', mode: 'Режим микшера', off: 'Выкл.', music: 'Музыка', soundscape: 'Окружение', hybrid: 'Вместе', reset: 'Исходный вид', download: 'Скачать GLB', synthetic: 'Процедурный дизель / винт / пневмогудок', loading: 'Звук включается…', audioError: 'Не удалось включить звук', model: 'модель', draws: 'вызовы', rendered: 'кадр', rpm: 'об/мин', knots: 'уз', metres: 'м', assets: 'Коллекции', lights: 'Огни', lightsOn: 'Огни включены', intensity: 'Яркость', lightsDay: 'Днём', beacon: 'Период маяка', lightsSize: 'Размер', previewNight: 'Как ночью', s: 'с' },
   en: { title: 'River–sea tanker', subtitle: '138 m · steel hull · procedural model', studio: 'Studio', passage: 'Under way', horizon: 'Horizon', vessel: 'Vessel', motion: 'Motion', material: 'Material', light: 'Light', sound: 'Sound', full: 'Overview', side: 'Broadside', bow: 'Bow', deck: 'Deck', bridge: 'Bridge', underside: 'Underside', play: 'Resume', pause: 'Pause', mute: 'Mute', unmute: 'Enable sound', horn: 'Horn', speed: 'Speed', waves: 'Sea state', course: 'Heading', time: 'Preview rate', travel: 'Translation', wake: 'Wake', distance: 'Distance', detail: 'Geometry', near: 'Near', far: 'Horizon', count: 'Vessels', wire: 'Wireframe', hull: 'Hull paint', wear: 'Weathering', wet: 'Wetness', rough: 'Roughness', lighting: 'Lighting', scene: 'Scene light', hour: 'Time of day', clouds: 'Cloud cover', exposure: 'Exposure', environment: 'Environment reflections', master: 'Master', ambience: 'Ambience', spatial: '3D bus', track: 'Tanker', diesel: 'Diesel', wash: 'Water wash', spatialize: '3D positioning', mode: 'Mixer mode', off: 'Off', music: 'Music', soundscape: 'Soundscape', hybrid: 'Hybrid', reset: 'Initial view', download: 'Download GLB', synthetic: 'Procedural diesel / propeller / air horn', loading: 'Enabling sound…', audioError: 'Could not enable sound', model: 'model', draws: 'draw calls', rendered: 'frame', rpm: 'rpm', knots: 'kn', metres: 'm', assets: 'Collections', lights: 'Lights', lightsOn: 'Lights on', intensity: 'Intensity', lightsDay: 'In daylight', beacon: 'Beacon period', lightsSize: 'Size', previewNight: 'As at night', s: 's' },
 };
-
-function Range({ label, value, min = 0, max = 1, step = 0.01, unit = '', onChange }) {
-  return <label className="tanker-lab__range"><span>{label}</span><output>{Number(value).toFixed(step >= 1 ? 0 : 2)}{unit && ` ${unit}`}</output><input type="range" aria-label={label} min={min} max={max} step={step} value={value} onChange={(e) => onChange(Number(e.target.value))} /></label>;
-}
-function Toggle({ label, value, onChange }) {
-  return <label className="tanker-lab__toggle"><span>{label}</span><input type="checkbox" checked={value} onChange={(e) => onChange(e.target.checked)} /></label>;
-}
 
 export default function TankerLab() {
   const [language, setLanguage] = useState('ru');
@@ -114,63 +105,70 @@ export default function TankerLab() {
     };
   }, []);
 
-  const range = (key, label, min = 0, max = 1, step = 0.01, unit = '') => <Range key={key} label={label} value={settings[key]} min={min} max={max} step={step} unit={unit} onChange={(value) => set(key, value)} />;
-  const audioRange = (key, label) => <Range key={key} label={label} value={settings.audio[key]} onChange={(value) => setAudio(key, value)} />;
+  const range = (key, label, min = 0, max = 1, step = 0.01, unit = '') => <LabRange key={key} label={label} value={settings[key]} min={min} max={max} step={step} unit={unit} onChange={(value) => set(key, value)} />;
+  const audioRange = (key, label) => <LabRange key={key} label={label} value={settings.audio[key]} onChange={(value) => setAudio(key, value)} />;
 
   return (
-    <main className="tanker-lab" data-testid="tanker-lab" data-asset-collection="tanker" lang={language}>
-      <header className="tanker-lab__header">
-        <div><p>DDG / ASSET LAB / {assetIndex('tanker')}</p><h1>{t.title}</h1><span>{t.subtitle}</span></div>
-        <div className="tanker-lab__header-actions">
-          <div className="tanker-lab__languages">{['ru', 'en'].map((lang) => <button key={lang} aria-pressed={language === lang} onClick={() => setLanguage(lang)}>{lang.toUpperCase()}</button>)}</div>
-          <LabNav current="tanker" lang={language} label={t.assets} />
-        </div>
-      </header>
-      <div className="tanker-lab__workspace">
-        <section className="tanker-lab__viewer" aria-label={language === 'ru' ? '3D-модель танкера' : 'Tanker 3D viewport'}>
-          <AssetStudio
-            view={view} cameraViews={CAMERA_VIEWS} cameraLimits={CAMERA_LIMITS}
-            waterReflection={settings.mode !== 'studio' && view !== 'underside'} waterY={-0.78}
-            floorVisible={view !== 'underside'}
-            lighting={previewNight ? nightLighting : undefined}
-            sceneOverrides={{ timeOfDay: settings.timeOfDay, cloudCover: settings.cloudCover }}
-            background={previewNight ? '#1b1f24' : undefined}
-            exposure={settings.exposure} environmentIntensity={previewNight ? 0.06 : settings.environmentIntensity}
-            paused={hidden}
-          >
-            <TankerStage settings={settings} night={night} audioRef={audioRef} onStats={setStats} paused={paused || hidden} />
-          </AssetStudio>
-          <div className="tanker-lab__views" role="group" aria-label="Ракурс">
-            {['full', 'side', 'bow', 'deck', 'bridge', 'underside'].map((id) => <button key={id} aria-pressed={view === id} onClick={() => setView(id)}>{t[id]}</button>)}
-          </div>
-          <div className="tanker-lab__scale"><span>138 {t.metres}</span><i /></div>
-        </section>
-        <aside className="tanker-lab__inspector">
-          <div className="tanker-lab__modes" role="group" aria-label="Режим сцены">{['studio', 'passage', 'horizon'].map((mode) => <button key={mode} aria-pressed={settings.mode === mode} onClick={() => chooseMode(mode)}>{t[mode]}</button>)}</div>
-          <div className="tanker-lab__tabs" role="tablist">{['vessel', 'motion', 'material', 'lights', 'light', 'sound'].map((id) => <button key={id} role="tab" aria-selected={tab === id} onClick={() => setTab(id)}>{t[id]}</button>)}</div>
-          <div className="tanker-lab__controls" role="tabpanel" aria-label={t[tab]}>
-            {tab === 'vessel' && <>
-              <label className="tanker-lab__select"><span>{t.detail}</span><select aria-label={t.detail} value={settings.lod} onChange={(e) => set('lod', e.target.value)}><option value="near">{t.near} · 8 348</option><option value="horizon">{t.far} · 860</option></select></label>
-              <label className="tanker-lab__select"><span>{t.count}</span><select aria-label={t.count} value={settings.count} onChange={(e) => { set('count', Number(e.target.value)); if (Number(e.target.value) > 1) { set('lod', 'horizon'); set('mode', 'studio'); setView('full'); } }}><option value="1">1</option><option value="8">8</option></select></label>
-              <Toggle label={t.wire} value={settings.wireframe} onChange={(value) => set('wireframe', value)} />
-              <dl><div><dt>LOA</dt><dd>138.0 m</dd></div><div><dt>Beam</dt><dd>16.6 m</dd></div><div><dt>Draft</dt><dd>4.5 m</dd></div><div><dt>LOD 0 / 1</dt><dd>8 348 / 860 tri</dd></div></dl>
-              <a className="tanker-lab__download" href={new URL(`../../assets-source/models/tanker/river-sea-tanker-${settings.lod}.glb`, import.meta.url).href} download>{t.download} ↗</a>
-            </>}
-            {tab === 'motion' && <>{range('speed', t.speed, 0, 14, 0.1, t.knots)}{range('seaState', t.waves)}{range('heading', t.course, -180, 180, 1, '°')}{range('timeScale', t.time, 0.25, 4, 0.25, '×')}{range('wake', t.wake)}{range('distance', t.distance, 45, 3000, 5, t.metres)}<Toggle label={t.travel} value={settings.travel} onChange={(value) => set('travel', value)} /></>}
-            {tab === 'material' && <><label className="tanker-lab__toggle"><span>{t.hull}</span><input type="color" aria-label={t.hull} value={settings.color} onChange={(e) => set('color', e.target.value)} /></label>{range('wear', t.wear)}{range('wetness', t.wet)}{range('roughness', t.rough, 0.18, 0.95)}</>}
-            {tab === 'lights' && <><Toggle label={t.lightsOn} value={settings.lights} onChange={(value) => set('lights', value)} /><Toggle label={t.previewNight} value={settings.previewNight} onChange={(value) => set('previewNight', value)} />{range('lightsIntensity', t.intensity, 0, 3, 0.05)}{range('lightsDay', t.lightsDay, 0, 1, 0.05)}{range('beaconPeriod', t.beacon, 1, 12, 0.5, t.s)}{range('lightsSize', t.lightsSize, 0.5, 3, 0.1, '×')}</>}
-            {tab === 'light' && <>{range('timeOfDay', t.hour, 0, 24, 0.1, 'h')}{range('cloudCover', t.clouds)}{range('exposure', t.exposure, 0.2, 2.4)}{range('environmentIntensity', t.environment, 0, 2)}</>}
-            {tab === 'sound' && <><label className="tanker-lab__select"><span>{t.mode}</span><select aria-label={t.mode} value={settings.audio.mode} onChange={(e) => setAudio('mode', e.target.value)}>{['off', 'music', 'soundscape', 'hybrid'].map((id) => <option key={id} value={id}>{t[id]}</option>)}</select></label>{audioRange('masterGain', t.master)}{audioRange('ambienceGain', t.ambience)}{audioRange('spatialGain', t.spatial)}<Range label={t.track} value={settings.audio.tracks.tanker.gain} onChange={(gain) => setAudio('tracks', { tanker: { enabled: true, gain } })} />{range('engineGain', t.diesel)}{range('wakeGain', t.wash)}{range('distance', t.distance, 45, 3000, 5, t.metres)}<Toggle label={t.spatialize} value={settings.audio.spatialEnabled} onChange={(value) => setAudio('spatialEnabled', value)} /><p className="tanker-lab__audio-note">{t.synthetic}</p></>}
-          </div>
-          <div className="tanker-lab__transport">
-            <button aria-pressed={paused} onClick={() => setPaused((value) => !value)}>{paused ? '▶' : 'Ⅱ'} {paused ? t.play : t.pause}</button>
-            <button aria-pressed={audioEnabled} disabled={audioBusy} onClick={toggleAudio}>{audioBusy ? t.loading : audioEnabled ? t.mute : t.unmute}</button>
-            <button disabled={!audioEnabled} onClick={() => audioRef.current?.sound.horn()}>{t.horn}</button>
-          </div>
-          {audioError && <p role="alert">{audioError}</p>}
-        </aside>
-      </div>
-      <footer className="tanker-lab__footer" aria-live="off"><span><b>{stats.triangles.toLocaleString(language)}</b> tri / {t.model}</span><span><b>{stats.calls}</b> {t.draws}</span><span><b>{stats.renderedTriangles.toLocaleString(language)}</b> tri / {t.rendered}</span><span><b>{stats.rpm.toFixed(0)}</b> {t.rpm}</span><span className="tanker-lab__meter">AUDIO <i style={{ '--level': `${Math.min(100, stats.rms * 1500)}%` }} /> <b>{stats.rms > 0 ? `${(20 * Math.log10(stats.rms)).toFixed(0)} dBFS` : '—'}</b></span></footer>
-    </main>
+    <LabShell
+      collection="tanker"
+      eyebrow={`DDG / ASSET LAB / ${'04'}`}
+      title={t.title}
+      subtitle={t.subtitle}
+      language={language}
+      onLanguage={setLanguage}
+      views={['full', 'side', 'bow', 'deck', 'bridge', 'underside'].map((id) => ({ id, label: t[id] }))}
+      view={view}
+      onView={setView}
+      scale={`138 ${t.metres}`}
+      panel={<>
+        <LabModes label={language === 'ru' ? 'Режим сцены' : 'Scene mode'} items={['studio', 'passage', 'horizon'].map((id) => ({ id, label: t[id] }))} value={settings.mode} onChange={chooseMode} />
+        <LabTabs label={t.vessel} items={['vessel', 'motion', 'material', 'lights', 'light', 'sound'].map((id) => ({ id, label: t[id] }))} value={tab} onChange={setTab} />
+        {tab === 'vessel' && <>
+          <LabSelect label={t.detail} value={settings.lod} onChange={(value) => set('lod', value)} options={[{ value: 'near', label: `${t.near} · 8 348` }, { value: 'horizon', label: `${t.far} · 860` }]} />
+          <LabSelect label={t.count} value={String(settings.count)} onChange={(value) => { set('count', Number(value)); if (Number(value) > 1) { set('lod', 'horizon'); set('mode', 'studio'); setView('full'); } }} options={[{ value: '1', label: '1' }, { value: '8', label: '8' }]} />
+          <LabToggle label={t.wire} value={settings.wireframe} onChange={(value) => set('wireframe', value)} />
+          <LabFacts rows={[['LOA', '138.0 m'], ['Beam', '16.6 m'], ['Draft', '4.5 m'], ['LOD 0 / 1', '8 348 / 860 tri']]} />
+          <a className="lab__link" href={new URL(`../../assets-source/models/tanker/river-sea-tanker-${settings.lod}.glb`, import.meta.url).href} download>{t.download} ↗</a>
+        </>}
+        {tab === 'motion' && <>{range('speed', t.speed, 0, 14, 0.1, t.knots)}{range('seaState', t.waves)}{range('heading', t.course, -180, 180, 1, '°')}{range('timeScale', t.time, 0.25, 4, 0.25, '×')}{range('wake', t.wake)}{range('distance', t.distance, 45, 3000, 5, t.metres)}<LabToggle label={t.travel} value={settings.travel} onChange={(value) => set('travel', value)} /></>}
+        {tab === 'material' && <><LabColor label={t.hull} value={settings.color} onChange={(value) => set('color', value)} />{range('wear', t.wear)}{range('wetness', t.wet)}{range('roughness', t.rough, 0.18, 0.95)}</>}
+        {tab === 'lights' && <><LabToggle label={t.lightsOn} value={settings.lights} onChange={(value) => set('lights', value)} /><LabToggle label={t.previewNight} value={settings.previewNight} onChange={(value) => set('previewNight', value)} />{range('lightsIntensity', t.intensity, 0, 3, 0.05)}{range('lightsDay', t.lightsDay, 0, 1, 0.05)}{range('beaconPeriod', t.beacon, 1, 12, 0.5, t.s)}{range('lightsSize', t.lightsSize, 0.5, 3, 0.1, '×')}</>}
+        {tab === 'light' && <>{range('timeOfDay', t.hour, 0, 24, 0.1, 'h')}{range('cloudCover', t.clouds)}{range('exposure', t.exposure, 0.2, 2.4)}{range('environmentIntensity', t.environment, 0, 2)}</>}
+        {tab === 'sound' && <>
+          <LabSelect label={t.mode} value={settings.audio.mode} onChange={(value) => setAudio('mode', value)} options={['off', 'music', 'soundscape', 'hybrid'].map((id) => ({ value: id, label: t[id] }))} />
+          {audioRange('masterGain', t.master)}{audioRange('ambienceGain', t.ambience)}{audioRange('spatialGain', t.spatial)}
+          <LabRange label={t.track} value={settings.audio.tracks.tanker.gain} onChange={(gain) => setAudio('tracks', { tanker: { enabled: true, gain } })} />
+          {range('engineGain', t.diesel)}{range('wakeGain', t.wash)}{range('distance', t.distance, 45, 3000, 5, t.metres)}
+          <LabToggle label={t.spatialize} value={settings.audio.spatialEnabled} onChange={(value) => setAudio('spatialEnabled', value)} />
+          <p className="lab__note">{t.synthetic}</p>
+        </>}
+        {audioError && <p className="lab__note" role="alert">{audioError}</p>}
+      </>}
+      transport={<>
+        <button type="button" aria-pressed={paused} onClick={() => setPaused((value) => !value)}>{paused ? '▶' : 'Ⅱ'} {paused ? t.play : t.pause}</button>
+        <button type="button" aria-pressed={audioEnabled} disabled={audioBusy} onClick={toggleAudio}>{audioBusy ? t.loading : audioEnabled ? t.mute : t.unmute}</button>
+        <button type="button" disabled={!audioEnabled} onClick={() => audioRef.current?.sound.horn()}>{t.horn}</button>
+      </>}
+      stats={<>
+        <span><b>{stats.triangles.toLocaleString(language)}</b> tri / {t.model}</span>
+        <span><b>{stats.calls}</b> {t.draws}</span>
+        <span><b>{stats.renderedTriangles.toLocaleString(language)}</b> tri / {t.rendered}</span>
+        <span><b>{stats.rpm.toFixed(0)}</b> {t.rpm}</span>
+        <span className="lab__meter">AUDIO <i style={{ '--level': `${Math.min(100, stats.rms * 1500)}%` }} /> <b>{stats.rms > 0 ? `${(20 * Math.log10(stats.rms)).toFixed(0)} dBFS` : '—'}</b></span>
+      </>}
+    >
+      <AssetStudio
+        view={view} cameraViews={CAMERA_VIEWS} cameraLimits={CAMERA_LIMITS}
+        waterReflection={settings.mode !== 'studio' && view !== 'underside'} waterY={-0.78}
+        floorVisible={view !== 'underside'}
+        lighting={previewNight ? nightLighting : undefined}
+        sceneOverrides={{ timeOfDay: settings.timeOfDay, cloudCover: settings.cloudCover }}
+        background={previewNight ? '#1b1f24' : undefined}
+        exposure={settings.exposure} environmentIntensity={previewNight ? 0.06 : settings.environmentIntensity}
+        paused={hidden}
+      >
+        <TankerStage settings={settings} night={night} audioRef={audioRef} onStats={setStats} paused={paused || hidden} />
+      </AssetStudio>
+    </LabShell>
   );
 }

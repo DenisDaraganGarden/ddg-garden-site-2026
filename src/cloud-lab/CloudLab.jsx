@@ -1,13 +1,12 @@
 import React, { Suspense, useEffect, useMemo, useState } from 'react';
 import AssetStudio from '../asset-lab/AssetStudio';
-import LabNav from '../asset-lab/LabNav';
+import LabShell, { LabRange, LabSelect, LabTabs, LabToggle } from '../asset-lab/LabShell';
 import { assetIndex } from '../asset-lab/assetCatalog';
 import { buildHomeSceneLighting } from '../components/effects/homeSceneLighting';
 import { getPublishedHomeSceneSettings } from '../features/home-scene/hooks/useHomeSceneSettings';
 import { resolvePainterlyCloudSettings } from '../features/home-scene/lib/painterlyCloudSettings';
 import PainterlyClouds from '../components/effects/sky/painterly/PainterlyClouds';
 import CloudGround from './CloudGround';
-import './cloudLab.css';
 
 const PUBLISHED = getPublishedHomeSceneSettings();
 const DEFAULTS = Object.freeze({
@@ -33,12 +32,6 @@ const COPY = {
   en: { title: 'Painterly clouds', subtitle: 'procedural sky · light and shadows', form: 'Clouds', light: 'Light', motion: 'Motion', horizon: 'Horizon', ground: 'Shadows', zenith: 'Zenith', seed: 'Seed', coverage: 'Coverage', density: 'Density', altitude: 'Layer altitude', scale: 'Scale', height: 'Vertical volume', time: 'Time of day', exposure: 'Exposure', haze: 'Haze', rays: 'Rays', shadows: 'Cloud shadows', softness: 'Shadow softness', windSpeed: 'Wind speed', windDirection: 'Wind direction', quality: 'Quality', enabled: 'Clouds enabled', pause: 'Pause', play: 'Resume', reset: 'Reset', published: 'Project light', clear: 'Clear', sunset: 'Sunset', storm: 'Storm', broken: 'Broken', balanced: 'Balanced', low: 'Low', high: 'High', tri: 'triangles', calls: 'draw calls', fps: 'fps', tex: 'textures', bake: 'build', ready: 'ready', building: 'building…', assets: 'Collections', metres: 'm', ms: 'ms', sand: 'Sand', water: 'Water' },
 };
 
-function Range({ label, value, min, max, step, unit = '', onChange }) {
-  const precision = step >= 1 ? 0 : step >= .1 ? 1 : 2;
-  return <label className="cloud-lab__range"><span>{label}</span><output>{Number(value).toFixed(precision)}{unit && ` ${unit}`}</output><input aria-label={label} type="range" value={value} min={min} max={max} step={step} onChange={(event) => onChange(Number(event.target.value))} /></label>;
-}
-function Toggle({ label, value, onChange }) { return <label className="cloud-lab__toggle"><span>{label}</span><input aria-label={label} type="checkbox" checked={value} onChange={(event) => onChange(event.target.checked)} /></label>; }
-
 export default function CloudLab() {
   const [language, setLanguage] = useState('ru');
   const [settings, setSettings] = useState(DEFAULTS);
@@ -51,7 +44,7 @@ export default function CloudLab() {
   const t = COPY[language];
   const lighting = useMemo(() => buildHomeSceneLighting({ ...PUBLISHED, timeOfDay: settings.timeOfDay, sunBearing: settings.sunBearing, sunNoonElevation: settings.sunNoonElevation, cloudCover: 0, skyTurbidity: settings.skyTurbidity, sunIntensity: settings.sunIntensity, hdrExposure: settings.hdrExposure, sunTint: settings.sunTint }), [settings.hdrExposure, settings.skyTurbidity, settings.sunBearing, settings.sunIntensity, settings.sunNoonElevation, settings.sunTint, settings.timeOfDay]);
   const set = (key, value) => setSettings((current) => ({ ...current, [key]: value }));
-  const range = (key, label, min, max, step, unit = '') => <Range key={key} label={label} value={settings[key]} min={min} max={max} step={step} unit={unit} onChange={(value) => set(key, value)} />;
+  const range = (key, label, min, max, step, unit = '') => <LabRange key={key} label={label} value={settings[key]} min={min} max={max} step={step} unit={unit} onChange={(value) => set(key, value)} />;
 
   useEffect(() => {
     const update = () => setHidden(document.hidden);
@@ -60,25 +53,52 @@ export default function CloudLab() {
   }, []);
 
   const usePublishedLight = () => setSettings((current) => ({ ...current, timeOfDay: PUBLISHED.timeOfDay ?? 15, sunBearing: PUBLISHED.sunBearing ?? PUBLISHED.moonAzimuth ?? -40, sunNoonElevation: PUBLISHED.sunNoonElevation ?? PUBLISHED.moonElevation ?? 50, skyTurbidity: PUBLISHED.skyTurbidity ?? 2.2, sunIntensity: PUBLISHED.sunIntensity ?? 1.4, hdrExposure: PUBLISHED.hdrExposure ?? 64, sunTint: PUBLISHED.sunTint ?? '#ffffff', exposure: 1 }));
-  return <main className="cloud-lab" data-asset-collection="clouds" lang={language}>
-    <header className="cloud-lab__header"><div><p>DDG / ASSET LAB / {assetIndex('clouds')}</p><h1>{t.title}</h1><span>{t.subtitle}</span></div><div className="cloud-lab__header-actions"><div>{['ru', 'en'].map((id) => <button key={id} aria-pressed={language === id} onClick={() => setLanguage(id)}>{id.toUpperCase()}</button>)}</div><LabNav current="clouds" lang={language} label={t.assets} /></div></header>
-    <div className="cloud-lab__workspace"><section className="cloud-lab__viewer" aria-label="Cloud atmosphere viewport">
-      <AssetStudio view={view} cameraViews={VIEWS} cameraLimits={LIMITS} cameraFar={30000} fogRange={[8000, 18000]} floorVisible={false} lighting={lighting} exposure={settings.exposure} environmentIntensity={1} paused={paused} inactive={hidden} pixelRatio={[1, 1.5]} background="#a9c8d9">
-        <CloudGround settings={settings} lighting={lighting} shadow={shadow} />
-        <Suspense fallback={null}><PainterlyClouds settings={settings} lighting={lighting} onStats={setStats} onShadow={setShadow} paused={paused || hidden} /></Suspense>
-      </AssetStudio>
-      <div className="cloud-lab__views" role="group" aria-label="Ракурс">{['horizon', 'ground', 'zenith'].map((id) => <button key={id} aria-pressed={view === id} onClick={() => setView(id)}>{t[id]}</button>)}</div>
-      <div className="cloud-lab__surface" role="group" aria-label="Surface"><button aria-pressed={settings.receiverSurface === 'ground'} onClick={() => set('receiverSurface', 'ground')}>{t.sand}</button><button aria-pressed={settings.receiverSurface === 'water'} onClick={() => set('receiverSurface', 'water')}>{t.water}</button></div>
-      <div className="cloud-lab__presets" role="group" aria-label="Presets">{Object.keys(PRESETS).map((id) => <button key={id} onClick={() => setSettings((current) => ({ ...current, ...PRESETS[id] }))}>{t[id]}</button>)}</div>
-    </section><aside className="cloud-lab__inspector">
-      <div className="cloud-lab__tabs" role="tablist">{['form', 'light', 'motion'].map((id) => <button key={id} role="tab" aria-selected={tab === id} onClick={() => setTab(id)}>{t[id]}</button>)}</div>
-      <div className="cloud-lab__controls" role="tabpanel" aria-label={t[tab]}>
-        {tab === 'form' && <>{range('seed', t.seed, 1, 99, 1)}{range('coverage', t.coverage, 0, 1, .01)}{range('density', t.density, .2, 2.5, .05)}{range('altitude', t.altitude, 300, 5000, 25, t.metres)}{range('scale', t.scale, .35, 2.5, .05)}{range('height', t.height, .2, 2, .05)}<label className="cloud-lab__select"><span>{t.quality}</span><select aria-label={t.quality} value={settings.quality} onChange={(event) => set('quality', event.target.value)}>{['low', 'balanced', 'high'].map((id) => <option key={id} value={id}>{t[id]}</option>)}</select></label><Toggle label={t.enabled} value={settings.enabled} onChange={(value) => set('enabled', value)} /></>}
-        {tab === 'light' && <>{range('timeOfDay', t.time, 0, 24, .1, language === 'ru' ? 'ч' : 'h')}{range('sunBearing', language === 'ru' ? 'Направление солнца' : 'Sun bearing', -180, 180, 1, '°')}{range('sunNoonElevation', language === 'ru' ? 'Высота солнца' : 'Sun elevation', 10, 85, 1, '°')}{range('exposure', t.exposure, .3, 2, .05)}{range('haze', t.haze, 0, 1, .01)}{range('rays', t.rays, 0, 1, .01)}{range('shadowStrength', t.shadows, 0, 1, .01)}{range('shadowSoftness', t.softness, 0, 1, .01)}<button className="cloud-lab__published" onClick={usePublishedLight}>{t.published}</button></>}
-        {tab === 'motion' && <>{range('windSpeed', t.windSpeed, 0, 40, .5, language === 'ru' ? 'м/с' : 'm/s')}{range('windDirection', t.windDirection, 0, 360, 1, '°')}</>}
-      </div>
-      <div className="cloud-lab__transport"><button onClick={() => setPaused((value) => !value)}>{paused ? '▶' : 'Ⅱ'} {paused ? t.play : t.pause}</button><button onClick={() => { setSettings(DEFAULTS); setView('horizon'); setTab('form'); }}>{t.reset}</button></div>
-    </aside></div>
-    <footer className="cloud-lab__footer"><span><b>{stats.triangles.toLocaleString()}</b> {t.tri}</span><span><b>{stats.calls}</b> {t.calls}</span><span><b>{Math.round(stats.fps)}</b> {t.fps}</span><span><b>{stats.gpuMs == null ? '—' : stats.gpuMs.toFixed(2)} ms</b> GPU</span><span><b>{Number(stats.textureMB).toFixed(1)} MB</b> {t.tex}</span><span><b>{Math.round(stats.bakeMs)} {t.ms}</b> {stats.ready ? t.ready : t.building}</span></footer>
-  </main>;
+  return <LabShell
+    collection="clouds"
+    testId="cloud-lab"
+    eyebrow={`DDG / ASSET LAB / ${assetIndex('clouds')}`}
+    title={t.title}
+    subtitle={t.subtitle}
+    language={language}
+    onLanguage={setLanguage}
+    views={[
+      ...['horizon', 'ground', 'zenith'].map((id) => ({ id, label: t[id] })),
+      '-',
+      { id: 'sand', label: t.sand, pressed: settings.receiverSurface === 'ground', onSelect: () => set('receiverSurface', 'ground') },
+      { id: 'water', label: t.water, pressed: settings.receiverSurface === 'water', onSelect: () => set('receiverSurface', 'water') },
+    ]}
+    view={view}
+    onView={setView}
+    panel={<>
+      <LabModesPresets t={t} onPreset={(id) => setSettings((current) => ({ ...current, ...PRESETS[id] }))} />
+      <LabTabs label={t[tab]} items={['form', 'light', 'motion'].map((id) => ({ id, label: t[id] }))} value={tab} onChange={setTab} />
+      {tab === 'form' && <>{range('seed', t.seed, 1, 99, 1)}{range('coverage', t.coverage, 0, 1, .01)}{range('density', t.density, .2, 2.5, .05)}{range('altitude', t.altitude, 300, 5000, 25, t.metres)}{range('scale', t.scale, .35, 2.5, .05)}{range('height', t.height, .2, 2, .05)}<LabSelect label={t.quality} value={settings.quality} onChange={(value) => set('quality', value)} options={['low', 'balanced', 'high'].map((id) => ({ value: id, label: t[id] }))} /><LabToggle label={t.enabled} value={settings.enabled} onChange={(value) => set('enabled', value)} /></>}
+      {tab === 'light' && <>{range('timeOfDay', t.time, 0, 24, .1, language === 'ru' ? 'ч' : 'h')}{range('sunBearing', language === 'ru' ? 'Направление солнца' : 'Sun bearing', -180, 180, 1, '°')}{range('sunNoonElevation', language === 'ru' ? 'Высота солнца' : 'Sun elevation', 10, 85, 1, '°')}{range('exposure', t.exposure, .3, 2, .05)}{range('haze', t.haze, 0, 1, .01)}{range('rays', t.rays, 0, 1, .01)}{range('shadowStrength', t.shadows, 0, 1, .01)}{range('shadowSoftness', t.softness, 0, 1, .01)}<button type="button" className="lab__link" onClick={usePublishedLight}>{t.published}</button></>}
+      {tab === 'motion' && <>{range('windSpeed', t.windSpeed, 0, 40, .5, language === 'ru' ? 'м/с' : 'm/s')}{range('windDirection', t.windDirection, 0, 360, 1, '°')}</>}
+    </>}
+    transport={<>
+      <button type="button" aria-pressed={paused} onClick={() => setPaused((value) => !value)}>{paused ? '▶' : 'Ⅱ'} {paused ? t.play : t.pause}</button>
+      <button type="button" onClick={() => { setSettings(DEFAULTS); setView('horizon'); setTab('form'); }}>{t.reset}</button>
+    </>}
+    stats={<>
+      <span><b>{stats.triangles.toLocaleString()}</b> {t.tri}</span>
+      <span><b>{stats.calls}</b> {t.calls}</span>
+      <span><b>{Math.round(stats.fps)}</b> {t.fps}</span>
+      <span><b>{stats.gpuMs == null ? '—' : stats.gpuMs.toFixed(2)} ms</b> GPU</span>
+      <span><b>{Number(stats.textureMB).toFixed(1)} MB</b> {t.tex}</span>
+      <span><b>{Math.round(stats.bakeMs)} {t.ms}</b> {stats.ready ? t.ready : t.building}</span>
+    </>}
+  >
+    <AssetStudio view={view} cameraViews={VIEWS} cameraLimits={LIMITS} cameraFar={30000} fogRange={[8000, 18000]} floorVisible={false} lighting={lighting} exposure={settings.exposure} environmentIntensity={1} paused={paused} inactive={hidden} pixelRatio={[1, 1.5]} background="#a9c8d9">
+      <CloudGround settings={settings} lighting={lighting} shadow={shadow} />
+      <Suspense fallback={null}><PainterlyClouds settings={settings} lighting={lighting} onStats={setStats} onShadow={setShadow} paused={paused || hidden} /></Suspense>
+    </AssetStudio>
+  </LabShell>;
+}
+
+// Погодные заготовки: тот же ряд кнопок, что и режимы у других коллекций.
+function LabModesPresets({ t, onPreset }) {
+  return <div className="lab__modes" role="group" aria-label={t.form}>
+    {Object.keys(PRESETS).map((id) => <button key={id} type="button" onClick={() => onPreset(id)}>{t[id]}</button>)}
+  </div>;
 }

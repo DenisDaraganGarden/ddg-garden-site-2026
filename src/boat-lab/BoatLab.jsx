@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { useFrame, useLoader, useThree } from '@react-three/fiber';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import AssetStudio from '../asset-lab/AssetStudio';
-import LabNav from '../asset-lab/LabNav';
+import LabShell, { LabColor, LabFacts, LabModes, LabRange, LabSelect, LabTabs, LabToggle } from '../asset-lab/LabShell';
 import { assetIndex } from '../asset-lab/assetCatalog';
 import { buildHomeSceneLighting } from '../components/effects/homeSceneLighting';
 import { ENV_REFLECTION_SCALE } from '../components/effects/water/pbrMaterial';
@@ -17,7 +17,6 @@ import {
 } from '../components/effects/water/boatModel';
 import { installOpticsGeometryLod, setOpticsGeometryLod } from '../components/effects/water/opticsGeometryLod';
 import { getPublishedHomeSceneSettings } from '../features/home-scene/hooks/useHomeSceneSettings';
-import '../tanker-lab/tankerLab.css';
 
 // Collection 07. The boat is the scene's own asset: the GLB, the maps and both
 // materials come from boatModel.js, the look and the sit in the water start
@@ -44,13 +43,6 @@ const TEXT = {
   ru: { title: 'Лодка', subtitle: 'Деревянная гребная лодка · GLB из 3ds Max · дерево и чёрный металл', studio: 'Студия', water: 'На воде', material: 'Материал', geometry: 'Геометрия', light: 'Свет', full: 'Общий', side: 'Борт', bow: 'Нос', stern: 'Корма', macro: 'Крупно', top: 'Сверху', underside: 'Снизу', color: 'Тон дерева', rough: 'Шероховатость', metal: 'Металличность', clearcoat: 'Лак', clearcoatRough: 'Шероховатость лака', detail: 'Детализация', fullGeometry: 'Полная', optics: 'Оптика · LOD', wire: 'Каркас', length: 'Длина', beam: 'Ширина', height: 'Высота', download: 'Скачать GLB', lighting: 'Освещение', scene: 'Свет сцены', hour: 'Время суток', clouds: 'Облачность', exposure: 'Экспозиция', environment: 'Отражения среды', reset: 'Как в сцене', model: 'модель', draws: 'вызовы', rendered: 'кадр', metres: 'м', assets: 'Коллекции', h: 'ч' },
   en: { title: 'Rowing boat', subtitle: 'Wooden rowing boat · GLB from 3ds Max · wood and black metal', studio: 'Studio', water: 'Afloat', material: 'Material', geometry: 'Geometry', light: 'Light', full: 'Overview', side: 'Broadside', bow: 'Bow', stern: 'Stern', macro: 'Close-up', top: 'Top', underside: 'Underside', color: 'Wood tint', rough: 'Roughness', metal: 'Metalness', clearcoat: 'Varnish', clearcoatRough: 'Varnish roughness', detail: 'Detail', fullGeometry: 'Full', optics: 'Optics · LOD', wire: 'Wireframe', length: 'Length', beam: 'Beam', height: 'Height', download: 'Download GLB', lighting: 'Lighting', scene: 'Scene light', hour: 'Time of day', clouds: 'Cloud cover', exposure: 'Exposure', environment: 'Environment reflections', reset: 'As in the scene', model: 'model', draws: 'draw calls', rendered: 'frame', metres: 'm', assets: 'Collections', h: 'h' },
 };
-
-function Range({ label, value, min = 0, max = 1, step = 0.01, unit = '', onChange }) {
-  return <label className="tanker-lab__range"><span>{label}</span><output>{Number(value).toFixed(step >= 1 ? 0 : 2)}{unit && ` ${unit}`}</output><input type="range" aria-label={label} min={min} max={max} step={step} value={value} onChange={(e) => onChange(Number(e.target.value))} /></label>;
-}
-function Toggle({ label, value, onChange }) {
-  return <label className="tanker-lab__toggle"><span>{label}</span><input type="checkbox" checked={value} onChange={(e) => onChange(e.target.checked)} /></label>;
-}
 
 function countTriangles(root) {
   let triangles = 0;
@@ -152,56 +144,53 @@ export default function BoatLab() {
     return () => document.removeEventListener('visibilitychange', onVisibility);
   }, []);
 
-  const range = (key, label, min = 0, max = 1, step = 0.01, unit = '') => <Range key={key} label={label} value={settings[key]} min={min} max={max} step={step} unit={unit} onChange={(value) => set(key, value)} />;
+  const range = (key, label, min = 0, max = 1, step = 0.01, unit = '') => <LabRange key={key} label={label} value={settings[key]} min={min} max={max} step={step} unit={unit} onChange={(value) => set(key, value)} />;
   const afloat = settings.mode === 'water' && view !== 'underside';
 
   return (
-    <main className="tanker-lab" data-testid="boat-lab" data-asset-collection="boat" lang={language}>
-      <header className="tanker-lab__header">
-        <div><p>DDG / ASSET LAB / {assetIndex('boat')}</p><h1>{t.title}</h1><span>{t.subtitle}</span></div>
-        <div className="tanker-lab__header-actions">
-          <div className="tanker-lab__languages">{['ru', 'en'].map((lang) => <button key={lang} aria-pressed={language === lang} onClick={() => setLanguage(lang)}>{lang.toUpperCase()}</button>)}</div>
-          <LabNav current="boat" lang={language} label={t.assets} />
-        </div>
-      </header>
-      <div className="tanker-lab__workspace">
-        <section className="tanker-lab__viewer" aria-label={language === 'ru' ? '3D-модель лодки' : 'Boat 3D viewport'}>
-          <AssetStudio
-            view={view} cameraViews={CAMERA_VIEWS} cameraLimits={CAMERA_LIMITS}
-            waterReflection={afloat} waterY={WATER_Y} floorY={WATER_Y}
-            floorVisible={view !== 'underside'}
-            sceneOverrides={{ timeOfDay: settings.timeOfDay, cloudCover: settings.cloudCover }}
-            exposure={settings.exposure} environmentIntensity={settings.environmentIntensity}
-            paused={hidden}
-          >
-            <Suspense fallback={null}>
-              <BoatStage settings={settings} lighting={lighting} onStats={setStats} />
-            </Suspense>
-          </AssetStudio>
-          <div className="tanker-lab__views" role="group" aria-label="Ракурс">
-            {['full', 'side', 'bow', 'stern', 'macro', 'top', 'underside'].map((id) => <button key={id} aria-pressed={view === id} onClick={() => setView(id)}>{t[id]}</button>)}
-          </div>
-          <div className="tanker-lab__scale"><span>{stats.length.toFixed(1)} {t.metres}</span><i /></div>
-        </section>
-        <aside className="tanker-lab__inspector">
-          <div className="tanker-lab__modes" role="group" aria-label="Режим сцены">{['studio', 'water'].map((mode) => <button key={mode} aria-pressed={settings.mode === mode} onClick={() => set('mode', mode)}>{t[mode]}</button>)}</div>
-          <div className="tanker-lab__tabs" role="tablist">{['material', 'geometry', 'light'].map((id) => <button key={id} role="tab" aria-selected={tab === id} onClick={() => setTab(id)}>{t[id]}</button>)}</div>
-          <div className="tanker-lab__controls" role="tabpanel" aria-label={t[tab]}>
-            {tab === 'material' && <><label className="tanker-lab__toggle"><span>{t.color}</span><input type="color" aria-label={t.color} value={settings.color} onChange={(e) => set('color', e.target.value)} /></label>{range('roughness', t.rough)}{range('metalness', t.metal, 0, 0.3)}{range('clearcoat', t.clearcoat)}{range('clearcoatRoughness', t.clearcoatRough)}</>}
-            {tab === 'geometry' && <>
-              <label className="tanker-lab__select"><span>{t.detail}</span><select aria-label={t.detail} value={settings.lod} onChange={(e) => set('lod', e.target.value)}><option value="full">{t.fullGeometry} · {stats.fullTriangles.toLocaleString(language)}</option><option value="optics">{t.optics}</option></select></label>
-              <Toggle label={t.wire} value={settings.wireframe} onChange={(value) => set('wireframe', value)} />
-              <dl><div><dt>{t.length}</dt><dd>{stats.length.toFixed(2)} {t.metres}</dd></div><div><dt>{t.beam}</dt><dd>{stats.beam.toFixed(2)} {t.metres}</dd></div><div><dt>{t.height}</dt><dd>{stats.height.toFixed(2)} {t.metres}</dd></div><div><dt>LOD</dt><dd>{stats.triangles.toLocaleString(language)} tri</dd></div></dl>
-              <a className="tanker-lab__download" href={BOAT_MODEL_URL} download>{t.download} ↗</a>
-            </>}
-            {tab === 'light' && <>{range('timeOfDay', t.hour, 0, 24, 0.1, t.h)}{range('cloudCover', t.clouds)}{range('exposure', t.exposure, 0.2, 2.4)}{range('environmentIntensity', t.environment, 0, 2)}</>}
-          </div>
-          <div className="tanker-lab__transport">
-            <button onClick={() => { setSettings(DEFAULTS); setView('full'); }}>{t.reset}</button>
-          </div>
-        </aside>
-      </div>
-      <footer className="tanker-lab__footer" aria-live="off"><span><b>{stats.triangles.toLocaleString(language)}</b> tri / {t.model}</span><span><b>{stats.calls}</b> {t.draws}</span><span><b>{stats.renderedTriangles.toLocaleString(language)}</b> tri / {t.rendered}</span></footer>
-    </main>
+    <LabShell
+      collection="boat"
+      testId="boat-lab"
+      eyebrow={`DDG / ASSET LAB / ${assetIndex('boat')}`}
+      title={t.title}
+      subtitle={t.subtitle}
+      language={language}
+      onLanguage={setLanguage}
+      views={['full', 'side', 'bow', 'stern', 'macro', 'top', 'underside'].map((id) => ({ id, label: t[id] }))}
+      view={view}
+      onView={setView}
+      scale={`${stats.length.toFixed(1)} ${t.metres}`}
+      panel={<>
+        <LabModes label={t.studio} items={['studio', 'water'].map((id) => ({ id, label: t[id] }))} value={settings.mode} onChange={(value) => set('mode', value)} />
+        <LabTabs label={t[tab]} items={['material', 'geometry', 'light'].map((id) => ({ id, label: t[id] }))} value={tab} onChange={setTab} />
+        {tab === 'material' && <><LabColor label={t.color} value={settings.color} onChange={(value) => set('color', value)} />{range('roughness', t.rough)}{range('metalness', t.metal, 0, 0.3)}{range('clearcoat', t.clearcoat)}{range('clearcoatRoughness', t.clearcoatRough)}</>}
+        {tab === 'geometry' && <>
+          <LabSelect label={t.detail} value={settings.lod} onChange={(value) => set('lod', value)} options={[{ value: 'full', label: `${t.fullGeometry} · ${stats.fullTriangles.toLocaleString(language)}` }, { value: 'optics', label: t.optics }]} />
+          <LabToggle label={t.wire} value={settings.wireframe} onChange={(value) => set('wireframe', value)} />
+          <LabFacts rows={[[t.length, `${stats.length.toFixed(2)} ${t.metres}`], [t.beam, `${stats.beam.toFixed(2)} ${t.metres}`], [t.height, `${stats.height.toFixed(2)} ${t.metres}`], ['LOD', `${stats.triangles.toLocaleString(language)} tri`]]} />
+          <a className="lab__link" href={BOAT_MODEL_URL} download>{t.download} ↗</a>
+        </>}
+        {tab === 'light' && <>{range('timeOfDay', t.hour, 0, 24, 0.1, t.h)}{range('cloudCover', t.clouds)}{range('exposure', t.exposure, 0.2, 2.4)}{range('environmentIntensity', t.environment, 0, 2)}</>}
+      </>}
+      transport={<button type="button" onClick={() => { setSettings(DEFAULTS); setView('full'); }}>{t.reset}</button>}
+      stats={<>
+        <span><b>{stats.triangles.toLocaleString(language)}</b> tri / {t.model}</span>
+        <span><b>{stats.calls}</b> {t.draws}</span>
+        <span><b>{stats.renderedTriangles.toLocaleString(language)}</b> tri / {t.rendered}</span>
+      </>}
+    >
+      <AssetStudio
+        view={view} cameraViews={CAMERA_VIEWS} cameraLimits={CAMERA_LIMITS}
+        waterReflection={afloat} waterY={WATER_Y} floorY={WATER_Y}
+        floorVisible={view !== 'underside'}
+        sceneOverrides={{ timeOfDay: settings.timeOfDay, cloudCover: settings.cloudCover }}
+        exposure={settings.exposure} environmentIntensity={settings.environmentIntensity}
+        paused={hidden}
+      >
+        <Suspense fallback={null}>
+          <BoatStage settings={settings} lighting={lighting} onStats={setStats} />
+        </Suspense>
+      </AssetStudio>
+    </LabShell>
   );
 }

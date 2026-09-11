@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { useFrame, useThree } from '@react-three/fiber';
 import AssetStudio from '../asset-lab/AssetStudio';
-import LabNav from '../asset-lab/LabNav';
+import LabShell, { LabColor, LabRange, LabTabs } from '../asset-lab/LabShell';
 import { assetIndex } from '../asset-lab/assetCatalog';
 import { buildHomeSceneLighting } from '../components/effects/homeSceneLighting';
 import { buildRuntimeQualityProfile } from '../components/effects/qualityProfile';
@@ -10,7 +10,6 @@ import { SurfaceVegetation } from '../components/effects/water/SurfaceVegetation
 import { UnderwaterAlgae } from '../components/effects/water/UnderwaterAlgae';
 import { getPublishedHomeSceneSettings } from '../features/home-scene/hooks/useHomeSceneSettings';
 import { translations } from '../i18n/translations';
-import '../tanker-lab/tankerLab.css';
 
 // Collections 08 and 09. The lilies and the algae are the scene's own
 // components mounted as they are, fed with the published editor settings; the
@@ -88,10 +87,6 @@ const TEXT = {
 };
 const LAB_DEFAULTS = { timeOfDay: PUBLISHED.timeOfDay, cloudCover: PUBLISHED.cloudCover, exposure: 1.04, environmentIntensity: 0.7 };
 
-function Range({ label, value, min = 0, max = 1, step = 0.01, unit = '', onChange }) {
-  return <label className="tanker-lab__range"><span>{label}</span><output>{Number(value).toFixed(step >= 1 ? 0 : step >= 0.01 ? 2 : 3)}{unit && ` ${unit}`}</output><input type="range" aria-label={label} min={min} max={max} step={step} value={value} onChange={(e) => onChange(Number(e.target.value))} /></label>;
-}
-
 function Telemetry({ onStats }) {
   const { gl } = useThree();
   const last = useRef(-1);
@@ -124,49 +119,50 @@ function WaterPlantLab({ species }) {
     return () => document.removeEventListener('visibilitychange', onVisibility);
   }, []);
 
-  const range = ([key, min, max, step, unit]) => <Range key={key} label={controlLabel(key)} value={scene[key]} min={min} max={max} step={step} unit={unit === 'm' ? t.m : (unit ?? '')} onChange={(value) => setScene1(key, value)} />;
+  const range = ([key, min, max, step, unit]) => <LabRange key={key} label={controlLabel(key)} value={scene[key]} min={min} max={max} step={step} unit={unit === 'm' ? t.m : (unit ?? '')} onChange={(value) => setScene1(key, value)} />;
   const tabs = [...Object.keys(species.tabs), 'light'];
   const { Component } = species;
 
   return (
-    <main className="tanker-lab" data-testid={`${species.id}-lab`} data-asset-collection={species.id} lang={language}>
-      <header className="tanker-lab__header">
-        <div><p>DDG / ASSET LAB / {assetIndex(species.id)}</p><h1>{species.copy[language].title}</h1><span>{species.copy[language].subtitle}</span></div>
-        <div className="tanker-lab__header-actions">
-          <div className="tanker-lab__languages">{['ru', 'en'].map((lang) => <button key={lang} aria-pressed={language === lang} onClick={() => setLanguage(lang)}>{lang.toUpperCase()}</button>)}</div>
-          <LabNav current={species.id} lang={language} label={t.assets} />
-        </div>
-      </header>
-      <div className="tanker-lab__workspace">
-        <section className="tanker-lab__viewer" aria-label={species.copy[language].title}>
-          <AssetStudio
-            view={view} cameraViews={species.views} cameraLimits={CAMERA_LIMITS}
-            waterReflection={species.water} waterY={WATER_Y} floorY={species.floorY}
-            sceneOverrides={{ timeOfDay: lab.timeOfDay, cloudCover: lab.cloudCover }}
-            exposure={lab.exposure} environmentIntensity={lab.environmentIntensity}
-            paused={hidden}
-          >
-            <Component settings={scene} runtime={IDLE_RUNTIME} qualityProfile={qualityProfile} lighting={lighting} terrainQuery={null} />
-            <Telemetry onStats={setStats} />
-          </AssetStudio>
-          <div className="tanker-lab__views" role="group" aria-label="Ракурс">
-            {Object.keys(species.views).map((id) => <button key={id} aria-pressed={view === id} onClick={() => setView(id)}>{t[id]}</button>)}
-          </div>
-        </section>
-        <aside className="tanker-lab__inspector">
-          <div className="tanker-lab__tabs" role="tablist">{tabs.map((id) => <button key={id} role="tab" aria-selected={tab === id} onClick={() => setTab(id)}>{t[id]}</button>)}</div>
-          <div className="tanker-lab__controls" role="tabpanel" aria-label={t[tab]}>
-            {tab === 'material' && <label className="tanker-lab__toggle"><span>{controlLabel(species.color)}</span><input type="color" aria-label={controlLabel(species.color)} value={scene[species.color]} onChange={(e) => setScene1(species.color, e.target.value)} /></label>}
-            {species.tabs[tab]?.map(range)}
-            {tab === 'light' && <><Range label={t.hour} value={lab.timeOfDay} min={0} max={24} step={0.1} unit={t.h} onChange={(value) => setLab1('timeOfDay', value)} /><Range label={t.clouds} value={lab.cloudCover} onChange={(value) => setLab1('cloudCover', value)} /><Range label={t.exposure} value={lab.exposure} min={0.2} max={2.4} onChange={(value) => setLab1('exposure', value)} /><Range label={t.environment} value={lab.environmentIntensity} min={0} max={2} onChange={(value) => setLab1('environmentIntensity', value)} /></>}
-          </div>
-          <div className="tanker-lab__transport">
-            <button onClick={() => { setScene({ ...PUBLISHED, ...species.overrides }); setLab(LAB_DEFAULTS); setView('full'); }}>{t.reset}</button>
-          </div>
-        </aside>
-      </div>
-      <footer className="tanker-lab__footer" aria-live="off"><span><b>{stats.calls}</b> {t.draws}</span><span><b>{stats.triangles.toLocaleString(language)}</b> tri / {t.rendered}</span></footer>
-    </main>
+    <LabShell
+      collection={species.id}
+      testId={`${species.id}-lab`}
+      eyebrow={`DDG / ASSET LAB / ${assetIndex(species.id)}`}
+      title={species.copy[language].title}
+      subtitle={species.copy[language].subtitle}
+      language={language}
+      onLanguage={setLanguage}
+      views={Object.keys(species.views).map((id) => ({ id, label: t[id] }))}
+      view={view}
+      onView={setView}
+      panel={<>
+        <LabTabs label={t[tab]} items={tabs.map((id) => ({ id, label: t[id] }))} value={tab} onChange={setTab} />
+        {tab === 'material' && <LabColor label={controlLabel(species.color)} value={scene[species.color]} onChange={(value) => setScene1(species.color, value)} />}
+        {species.tabs[tab]?.map(range)}
+        {tab === 'light' && <>
+          <LabRange label={t.hour} value={lab.timeOfDay} min={0} max={24} step={0.1} unit={t.h} onChange={(value) => setLab1('timeOfDay', value)} />
+          <LabRange label={t.clouds} value={lab.cloudCover} onChange={(value) => setLab1('cloudCover', value)} />
+          <LabRange label={t.exposure} value={lab.exposure} min={0.2} max={2.4} onChange={(value) => setLab1('exposure', value)} />
+          <LabRange label={t.environment} value={lab.environmentIntensity} min={0} max={2} onChange={(value) => setLab1('environmentIntensity', value)} />
+        </>}
+      </>}
+      transport={<button type="button" onClick={() => { setScene({ ...PUBLISHED, ...species.overrides }); setLab(LAB_DEFAULTS); setView('full'); }}>{t.reset}</button>}
+      stats={<>
+        <span><b>{stats.calls}</b> {t.draws}</span>
+        <span><b>{stats.triangles.toLocaleString(language)}</b> tri / {t.rendered}</span>
+      </>}
+    >
+      <AssetStudio
+        view={view} cameraViews={species.views} cameraLimits={CAMERA_LIMITS}
+        waterReflection={species.water} waterY={WATER_Y} floorY={species.floorY}
+        sceneOverrides={{ timeOfDay: lab.timeOfDay, cloudCover: lab.cloudCover }}
+        exposure={lab.exposure} environmentIntensity={lab.environmentIntensity}
+        paused={hidden}
+      >
+        <Component settings={scene} runtime={IDLE_RUNTIME} qualityProfile={qualityProfile} lighting={lighting} terrainQuery={null} />
+        <Telemetry onStats={setStats} />
+      </AssetStudio>
+    </LabShell>
   );
 }
 

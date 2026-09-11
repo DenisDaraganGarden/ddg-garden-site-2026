@@ -2,15 +2,13 @@ import React, { Suspense, useEffect, useMemo, useState } from 'react';
 import { useFrame, useLoader, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import AssetStudio from '../asset-lab/AssetStudio';
-import LabNav from '../asset-lab/LabNav';
+import LabShell, { LabRange, LabSelect, LabTabs, LabToggle } from '../asset-lab/LabShell';
 import { assetIndex } from '../asset-lab/assetCatalog';
 import { getPublishedHomeSceneSettings } from '../features/home-scene/hooks/useHomeSceneSettings';
 import { createCoastalRockGeometry, ROCK_DETAIL, ROCK_TYPES, rockRandom, seatRock } from '../terrain/rocks/rockModel.js';
 import { createCoastalRockMaterial, updateCoastalRockMaterial, COASTAL_PEBBLE_PALETTE } from '../terrain/rocks/rockMaterial.js';
 import { ROCK_MAP_NAMES, createRockTextureSet, rockMapUrl } from '../terrain/rocks/rockTextures.js';
 import { TERRAIN_RANGES } from '../terrain/settings.js';
-import '../tanker-lab/tankerLab.css';
-import './rockLab.css';
 
 const PUBLISHED = getPublishedHomeSceneSettings();
 const BOULDER_SIZES = [.3, .65, 1.1, 1.7, 2.5];
@@ -35,13 +33,6 @@ const TEXT = {
   ru: { title: 'Камни', subtitle: 'Валуны, осыпь и галька побережья · геометрия и материалы сцены', pieces: 'Камни', material: 'Материал', light: 'Свет', full: 'Общий', boulders: 'Валуны', debris: 'Осыпь', pebbles: 'Галька', top: 'Сверху', macro: 'Крупно', underside: 'Снизу', seed: 'Вариант', rockSize: 'Размер валунов', pebbleSize: 'Размер гальки', debrisAmount: 'Осыпь в куче', pebblesAmount: 'Гальки в россыпи', wire: 'Каркас', exposure: 'Экспозиция', environment: 'Отражения среды', reset: 'Как в сцене', assets: 'Коллекции', metres: 'м', tri: 'треугольников', boulderCount: 'валунов', debrisCount: 'осколков', pebbleCount: 'галек', type: 'Тип', mixed: 'Смесь', limestone: 'Плитчатый известняк', coquina: 'Ракушечник', worn: 'Окатанный камень', erosion: 'Выветривание', roundness: 'Окатанность', fracture: 'Сколы', cavities: 'Выбоины', damage: 'Рельеф излома', blend: 'Свежий излом', showBlend: 'Маска излома', relief: 'Микрорельеф', wetness: 'Намокание', waterline: 'Уровень намокания', algae: 'Водорослевый налёт' },
   en: { title: 'Rocks', subtitle: 'Coast boulders, debris and pebbles · scene geometry and materials', pieces: 'Stones', material: 'Material', light: 'Light', full: 'Overview', boulders: 'Boulders', debris: 'Debris', pebbles: 'Pebbles', top: 'Top', macro: 'Close-up', underside: 'Underside', seed: 'Seed', rockSize: 'Boulder size', pebbleSize: 'Pebble size', debrisAmount: 'Debris in the pile', pebblesAmount: 'Pebbles in the spread', wire: 'Wireframe', exposure: 'Exposure', environment: 'Environment reflections', reset: 'As in the scene', assets: 'Collections', metres: 'm', tri: 'triangles', boulderCount: 'boulders', debrisCount: 'fragments', pebbleCount: 'pebbles', type: 'Type', mixed: 'Mixed', limestone: 'Bedded limestone', coquina: 'Shell limestone', worn: 'Sea-worn stone', erosion: 'Weathering', roundness: 'Roundness', fracture: 'Chipping', cavities: 'Pits', damage: 'Fracture relief', blend: 'Fresh fracture', showBlend: 'Fracture mask', relief: 'Microrelief', wetness: 'Wetness', waterline: 'Wet margin', algae: 'Algal film' },
 };
-
-function Range({ label, value, min = 0, max = 1, step = .01, unit = '', onChange }) {
-  return <label className="tanker-lab__range"><span>{label}</span><output>{Number(value).toFixed(step >= 1 ? 0 : 2)}{unit && ` ${unit}`}</output><input type="range" aria-label={label} min={min} max={max} step={step} value={value} onChange={(e) => onChange(Number(e.target.value))} /></label>;
-}
-function Toggle({ label, value, onChange }) {
-  return <label className="tanker-lab__toggle"><span>{label}</span><input type="checkbox" aria-label={label} checked={value} onChange={(e) => onChange(e.target.checked)} /></label>;
-}
 
 // A bounded number of shared shapes, including differently worn pebbles. The
 // generator is independent of placement, so changing density preserves stones.
@@ -194,49 +185,48 @@ export default function RockLab() {
     document.addEventListener('visibilitychange', onVisibility);
     return () => document.removeEventListener('visibilitychange', onVisibility);
   }, []);
-  const range = (key, label, min = 0, max = 1, step = .01, unit = '') => <Range key={key} label={label} value={settings[key]} min={min} max={max} step={step} unit={unit} onChange={(value) => set(key, value)} />;
+  const range = (key, label, min = 0, max = 1, step = .01, unit = '') => <LabRange key={key} label={label} value={settings[key]} min={min} max={max} step={step} unit={unit} onChange={(value) => set(key, value)} />;
   const counts = { boulders: BOULDER_SIZES.length, debris: Math.round(60 * settings.debris), pebbles: Math.round(360 * settings.pebbles) };
   return (
-    <main className="tanker-lab" data-testid="rock-lab" data-asset-collection="rocks" lang={language}>
-      <header className="tanker-lab__header">
-        <div><p>DDG / ASSET LAB / {assetIndex('rocks')}</p><h1>{t.title}</h1><span>{t.subtitle}</span></div>
-        <div className="tanker-lab__header-actions">
-          <div className="tanker-lab__languages">{['ru', 'en'].map((lang) => <button key={lang} aria-pressed={language === lang} onClick={() => setLanguage(lang)}>{lang.toUpperCase()}</button>)}</div>
-          <LabNav current="rocks" lang={language} label={t.assets} />
-        </div>
-      </header>
-      <div className="tanker-lab__workspace">
-        <section className="tanker-lab__viewer" aria-label={language === 'ru' ? '3D-камни' : 'Rocks 3D viewport'}>
-          <AssetStudio view={view} cameraViews={VIEWS} cameraLimits={view === 'underside' ? UNDER_LIMITS : LIMITS} floorY={0} floorVisible={false} cameraFar={120} fogRange={[70, 110]} shadowRadius={view === 'pebbles' ? 2.4 : (view === 'macro' || view === 'underside') ? 3 : 9} exposure={settings.exposure} environmentIntensity={settings.environmentIntensity} paused={hidden}>
-            {view !== 'underside' && <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow><planeGeometry args={[100, 100]} /><meshStandardMaterial color="#f0eee9" roughness={.96} /></mesh>}
-            <Suspense fallback={null}><RockStage settings={settings} lowPower={lowPower} view={view} /></Suspense>
-          </AssetStudio>
-          <div className="tanker-lab__views" role="group" aria-label={language === 'ru' ? 'Ракурс' : 'View'}>
-            {['full', 'boulders', 'debris', 'pebbles', 'top', 'macro', 'underside'].map((id) => <button key={id} aria-pressed={view === id} onClick={() => setView(id)}>{t[id]}</button>)}
-          </div>
-          <div className="tanker-lab__scale"><span>{(BOULDER_SIZES.at(-1) * settings.rockSize).toFixed(1)} {t.metres}</span><i /></div>
-        </section>
-        <aside className="tanker-lab__inspector">
-          <div className="tanker-lab__tabs" role="tablist">{['pieces', 'material', 'light'].map((id) => <button key={id} role="tab" aria-selected={tab === id} onClick={() => setTab(id)}>{t[id]}</button>)}</div>
-          <div className="tanker-lab__controls" role="tabpanel" aria-label={t[tab]}>
-            {tab === 'pieces' && <>
-              <label className="tanker-lab__select"><span>{t.type}</span><select aria-label={t.type} value={settings.type} onChange={(e) => set('type', e.target.value)}>{['mixed', ...ROCK_TYPES].map((id) => <option key={id} value={id}>{t[id]}</option>)}</select></label>
-              {range('seed', t.seed, 1, 999, 1)}
-              {range('erosion', t.erosion)}{range('roundness', t.roundness)}
-              {range('fracture', t.fracture)}{range('cavities', t.cavities)}
-              {range('rockSize', t.rockSize, ...TERRAIN_RANGES.terrainRockSize, '×')}
-              {range('debris', t.debrisAmount, 0, 2, .05)}
-              {range('pebbleSize', t.pebbleSize, ...TERRAIN_RANGES.terrainPebbleSize, '×')}
-              {range('pebbles', t.pebblesAmount, 0, 2, .05)}
-              <Toggle label={t.wire} value={settings.wireframe} onChange={(value) => set('wireframe', value)} />
-            </>}
-            {tab === 'material' && <>{range('damage', t.damage, 0, 1.5)}{range('blend', t.blend)}{range('relief', t.relief, 0, 2)}{range('wetness', t.wetness)}{range('waterline', t.waterline, 0, 2, .01, t.metres)}{range('algae', t.algae)}<Toggle label={t.showBlend} value={settings.showBlend} onChange={(value) => set('showBlend', value)} /></>}
-            {tab === 'light' && <>{range('exposure', t.exposure, .2, 2.4)}{range('environmentIntensity', t.environment, 0, 2)}</>}
-          </div>
-          <div className="tanker-lab__transport"><button onClick={() => { setSettings(DEFAULTS); setView('full'); }}>{t.reset}</button></div>
-        </aside>
-      </div>
-      <footer className="tanker-lab__footer" aria-live="off"><span><b>{counts.boulders}</b> {t.boulderCount}</span><span><b>{counts.debris}</b> {t.debrisCount}</span><span><b>{counts.pebbles}</b> {t.pebbleCount}</span></footer>
-    </main>
+    <LabShell
+      collection="rocks"
+      testId="rock-lab"
+      eyebrow={`DDG / ASSET LAB / ${assetIndex('rocks')}`}
+      title={t.title}
+      subtitle={t.subtitle}
+      language={language}
+      onLanguage={setLanguage}
+      views={['full', 'boulders', 'debris', 'pebbles', 'top', 'macro', 'underside'].map((id) => ({ id, label: t[id] }))}
+      view={view}
+      onView={setView}
+      scale={`${(BOULDER_SIZES.at(-1) * settings.rockSize).toFixed(1)} ${t.metres}`}
+      panel={<>
+        <LabTabs label={t[tab]} items={['pieces', 'material', 'light'].map((id) => ({ id, label: t[id] }))} value={tab} onChange={setTab} />
+        {tab === 'pieces' && <>
+          <LabSelect label={t.type} value={settings.type} onChange={(value) => set('type', value)} options={['mixed', ...ROCK_TYPES].map((id) => ({ value: id, label: t[id] }))} />
+          {range('seed', t.seed, 1, 999, 1)}
+          {range('erosion', t.erosion)}{range('roundness', t.roundness)}
+          {range('fracture', t.fracture)}{range('cavities', t.cavities)}
+          {range('rockSize', t.rockSize, ...TERRAIN_RANGES.terrainRockSize, '×')}
+          {range('debris', t.debrisAmount, 0, 2, .05)}
+          {range('pebbleSize', t.pebbleSize, ...TERRAIN_RANGES.terrainPebbleSize, '×')}
+          {range('pebbles', t.pebblesAmount, 0, 2, .05)}
+          <LabToggle label={t.wire} value={settings.wireframe} onChange={(value) => set('wireframe', value)} />
+        </>}
+        {tab === 'material' && <>{range('damage', t.damage, 0, 1.5)}{range('blend', t.blend)}{range('relief', t.relief, 0, 2)}{range('wetness', t.wetness)}{range('waterline', t.waterline, 0, 2, .01, t.metres)}{range('algae', t.algae)}<LabToggle label={t.showBlend} value={settings.showBlend} onChange={(value) => set('showBlend', value)} /></>}
+        {tab === 'light' && <>{range('exposure', t.exposure, .2, 2.4)}{range('environmentIntensity', t.environment, 0, 2)}</>}
+      </>}
+      transport={<button type="button" onClick={() => { setSettings(DEFAULTS); setView('full'); }}>{t.reset}</button>}
+      stats={<>
+        <span><b>{counts.boulders}</b> {t.boulderCount}</span>
+        <span><b>{counts.debris}</b> {t.debrisCount}</span>
+        <span><b>{counts.pebbles}</b> {t.pebbleCount}</span>
+      </>}
+    >
+      <AssetStudio view={view} cameraViews={VIEWS} cameraLimits={view === 'underside' ? UNDER_LIMITS : LIMITS} floorY={0} floorVisible={false} cameraFar={120} fogRange={[70, 110]} shadowRadius={view === 'pebbles' ? 2.4 : (view === 'macro' || view === 'underside') ? 3 : 9} exposure={settings.exposure} environmentIntensity={settings.environmentIntensity} paused={hidden}>
+        {view !== 'underside' && <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow><planeGeometry args={[100, 100]} /><meshStandardMaterial color="#f0eee9" roughness={.96} /></mesh>}
+        <Suspense fallback={null}><RockStage settings={settings} lowPower={lowPower} view={view} /></Suspense>
+      </AssetStudio>
+    </LabShell>
   );
 }

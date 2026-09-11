@@ -7,7 +7,7 @@ import React, {
 } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import AssetStudio from '../asset-lab/AssetStudio';
-import LabNav from '../asset-lab/LabNav';
+import LabShell, { LabModes, LabRange } from '../asset-lab/LabShell';
 import { assetIndex } from '../asset-lab/assetCatalog';
 import BlackStoneSculpture from './BlackStoneSculpture';
 import { BLACK_STONE_PRESETS } from './blackStonePresets';
@@ -108,24 +108,6 @@ function RenderTelemetry({ modelMetrics, onStats }) {
   return null;
 }
 
-function ControlGroup({ options, value, onChange, label }) {
-  return (
-    <div className="stone-lab__control-group" role="group" aria-label={label}>
-      {options.map((option) => (
-        <button
-          key={option.id}
-          type="button"
-          className={value === option.id ? 'is-active' : ''}
-          aria-pressed={value === option.id}
-          onClick={() => onChange(option.id)}
-        >
-          {option.label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
 function formatMeters(value) {
   return Number.isFinite(value) ? value.toFixed(2) : '—';
 }
@@ -198,7 +180,48 @@ export default function BlackStoneLab() {
   }, [diagnostic, lightSweep, parameters, preset, telemetry, view]);
 
   return (
-    <div className="stone-lab" data-testid="black-stone-lab" data-asset-collection="black-stone-sculpture">
+    <LabShell
+      collection="black-stone-sculpture"
+      testId="black-stone-lab"
+      eyebrow={`ASSET LAB / ${assetIndex('black-stone-sculpture')} / BLACK STONE`}
+      title="Скульптура из чёрного камня"
+      subtitle="Слоистая масса · стеклянный излом · локальная влажная полировка"
+      views={[
+        ...VIEW_OPTIONS.map((option) => ({ id: option.id, label: option.label })),
+        '-',
+        ...DIAGNOSTIC_OPTIONS.map((option) => ({ id: option.id, label: option.label, pressed: diagnostic === option.id, onSelect: () => setDiagnostic(option.id) })),
+      ]}
+      view={view}
+      onView={setView}
+      panel={<>
+        <LabModes label="Характер камня" items={PRESET_OPTIONS.map((option) => ({ id: option.id, label: option.label }))} value={preset} onChange={applyPreset} />
+        {PARAMETER_OPTIONS.map((parameter) => (
+          <LabRange
+            key={parameter.id}
+            label={parameter.label}
+            value={parameters[parameter.id]}
+            min={parameter.min}
+            max={parameter.max}
+            step={parameter.step}
+            format={(value) => `${parameter.scale ? '×' : ''}${Number(value).toFixed(2)}`}
+            onChange={(value) => updateParameter(parameter.id, value)}
+          />
+        ))}
+        <p className="lab__note">Маски RGB: <b>жилы</b> · <b>влага</b> · <b>излом</b></p>
+      </>}
+      transport={<button type="button" aria-pressed={lightSweep} onClick={() => setLightSweep((current) => !current)}>
+        Световой проход · {lightSweep ? 'движется' : 'зафиксирован'}
+      </button>}
+      stats={<>
+        <span><b>{telemetry.meshes}</b> mesh</span>
+        <span><b>{telemetry.calls}</b> calls</span>
+        <span><b>{Math.round(telemetry.triangles / 1000)}k</b> трис</span>
+        <span><b>0</b> PBR maps</span>
+        <span><b>{formatMeters(telemetry.width)} × {formatMeters(telemetry.height)} × {formatMeters(telemetry.depth)} м</b></span>
+        <span className="is-budget">1 процедурный physical material</span>
+      </>}
+      hints={['ЛКМ — вращение', 'Колесо — масштаб', 'RGB масок: жилы / влага / излом']}
+    >
       <AssetStudio view={view} lightingPreset="black-stone">
         <StoneSweepLight active={lightSweep} phase={lightPhase} />
         <Suspense fallback={<LoadingStone />}>
@@ -210,96 +233,6 @@ export default function BlackStoneLab() {
         </Suspense>
         <RenderTelemetry modelMetrics={modelMetrics} onStats={setStats} />
       </AssetStudio>
-
-      <header className="stone-lab__header">
-        <div className="stone-lab__title">
-          <p>ASSET LAB / {assetIndex('black-stone-sculpture')} / BLACK STONE</p>
-          <h1>Скульптура из чёрного камня</h1>
-          <span>Слоистая масса · стеклянный излом · локальная влажная полировка</span>
-        </div>
-
-        <div className="stone-lab__toolbar">
-          <ControlGroup
-            options={VIEW_OPTIONS}
-            value={view}
-            onChange={setView}
-            label="Ракурс"
-          />
-          <ControlGroup
-            options={DIAGNOSTIC_OPTIONS}
-            value={diagnostic}
-            onChange={setDiagnostic}
-            label="Режим материала"
-          />
-          <LabNav current="black-stone-sculpture" />
-        </div>
-      </header>
-
-      <aside className="stone-lab__inspector" aria-label="Параметры материала">
-        <div className="stone-lab__section">
-          <div className="stone-lab__section-title">
-            <span>Характер</span>
-            <em>{preset === 'custom' ? 'ручной' : PRESET_OPTIONS.find((item) => item.id === preset)?.label}</em>
-          </div>
-          <ControlGroup
-            options={PRESET_OPTIONS}
-            value={preset}
-            onChange={applyPreset}
-            label="Характер камня"
-          />
-        </div>
-
-        <div className="stone-lab__sliders">
-          {PARAMETER_OPTIONS.map((parameter) => (
-            <label key={parameter.id} className="stone-lab__slider">
-              <span>{parameter.label}</span>
-              <output>
-                {parameter.scale ? '×' : ''}{parameters[parameter.id].toFixed(2)}
-              </output>
-              <input
-                type="range"
-                aria-label={parameter.label}
-                min={parameter.min}
-                max={parameter.max}
-                step={parameter.step}
-                value={parameters[parameter.id]}
-                onChange={(event) => updateParameter(parameter.id, event.target.value)}
-              />
-            </label>
-          ))}
-        </div>
-
-        <button
-          type="button"
-          className={`stone-lab__sweep ${lightSweep ? 'is-active' : ''}`}
-          aria-pressed={lightSweep}
-          onClick={() => setLightSweep((current) => !current)}
-        >
-          <span>Световой проход</span>
-          <i>{lightSweep ? 'движется' : 'зафиксирован'}</i>
-        </button>
-
-        <div className="stone-lab__legend" aria-label="Легенда масок">
-          <span><i className="is-red" />жилы</span>
-          <span><i className="is-green" />влага</span>
-          <span><i className="is-blue" />излом</span>
-        </div>
-      </aside>
-
-      <footer className="stone-lab__telemetry" aria-live="polite">
-        <span><b>{telemetry.meshes}</b> mesh</span>
-        <span><b>{telemetry.calls}</b> calls</span>
-        <span><b>{Math.round(telemetry.triangles / 1000)}k</b> трис</span>
-        <span><b>0</b> PBR maps</span>
-        <span><b>{formatMeters(telemetry.width)} × {formatMeters(telemetry.height)} × {formatMeters(telemetry.depth)} м</b></span>
-        <span className="stone-lab__budget">1 процедурный physical material</span>
-      </footer>
-
-      <div className="stone-lab__note">
-        <span>ЛКМ — вращение</span>
-        <span>Колесо — масштаб</span>
-        <span>RGB масок: жилы / влага / излом</span>
-      </div>
-    </div>
+    </LabShell>
   );
 }

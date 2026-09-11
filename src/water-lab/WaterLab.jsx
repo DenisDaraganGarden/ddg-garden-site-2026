@@ -1,7 +1,7 @@
 import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import AssetStudio from '../asset-lab/AssetStudio';
-import LabNav from '../asset-lab/LabNav';
+import LabShell, { LabColor, LabRange, LabSelect, LabTabs, LabToggle } from '../asset-lab/LabShell';
 import { assetIndex } from '../asset-lab/assetCatalog';
 import { buildHomeSceneLighting } from '../components/effects/homeSceneLighting';
 import { getPublishedHomeSceneSettings } from '../features/home-scene/hooks/useHomeSceneSettings';
@@ -24,7 +24,6 @@ import AzovTerrain from '../terrain/AzovTerrain.jsx';
 import { coastPoint, createTerrainDefinition } from '../terrain/terrainModel.js';
 import { buildCoastRocks } from '../terrain/terrainRocks.js';
 import { SURF_SHAPE, surfPlungeTime } from '../components/effects/water/surfProfile';
-import './waterLab.css';
 
 const PUBLISHED = getPublishedHomeSceneSettings();
 // The published coast, the way the scene builds it, with the product's own
@@ -128,10 +127,6 @@ const COPY = {
   en: { title: 'Sea · waves, surf and foam', subtitle: 'Gerstner from the camera to the horizon · a ballistic lip · foam from the cloud noise', waves: 'Waves', surf: 'Surf', foam: 'Foam', look: 'Look', light: 'Light', shore: 'Shore', above: 'Above', macro: 'Crest', surfView: 'Surf', surfSide: 'Tube', lip: 'Lip', surfAbove: 'Surf above', spit: 'Spit', edge: 'Waterline', wavelength: 'Wavelength', amplitude: 'Wave height', steepness: 'Steepness', speed: 'Speed', wind: 'Wind direction', sets: 'Sets', gusts: 'Gusts', cross: 'Cross waves', fadeStart: 'Waves fade from', fadeEnd: 'Waves fade to', ripple: 'Ripple', windPatches: 'Wind patches', rippleScale: 'Ripple scale', threshold: 'Foam threshold', softness: 'Softness', lace: 'Lace scale', brightness: 'Foam brightness', foamMemory: 'Foam memory', foamLife: 'Lives on water', foamDeposit: 'Foam density', foamWindow: 'Memory window', foamDrift: 'Wind drift', foamSwirl: 'Swirl', foamDry: 'Sand dries in', swashFilm: 'Swash film', water: 'Water colour', deep: 'Deep colour', bed: 'Bed colour', bedTurbidity: 'Turbidity', glow: 'Crest glow', glint: 'Sun glints', sky: 'Sky reflection', rings: 'Mesh rings', segments: 'Mesh segments', wireframe: 'Wireframe', surfEnabled: 'Surf enabled', surfHeight: 'Breaker height', surfWidth: 'Breaker width', surfBreakDistance: 'Break offset', shoreSlope: 'Bed slope 1:N', bars: 'Bars and shoals', surfBreakLength: 'Breaking length', surfLean: 'Crest lean', surfJet: 'Lip throw', surfLift: 'Lip lift', surfSheet: 'Lip thickness', surfRoller: 'Foam volume', surfRollerDensity: 'Roller density', surfPeel: 'Peel along crest', surfRefraction: 'Refraction', surfBoreLength: 'Collapse', surfRunup: 'Run-up on sand', surfSpeed: 'Breaker speed', surfPeriod: 'Period', surfSets: 'Height variation', surfFreeze: 'Freeze', surfPhase: 'Break phase', time: 'Time of day', bearing: 'Sun bearing', elevation: 'Sun elevation', exposure: 'Exposure', pause: 'Pause', play: 'Resume', reset: 'Reset', calm: 'Calm', breeze: 'Breeze', rough: 'Rough', storm: 'Storm', tri: 'triangles', calls: 'draw calls', fps: 'fps', budget: 'steepness', assets: 'Collections', metres: 'm', hours: 'h', seconds: 's', mps: 'm/s', rad: 'rad' },
 };
 
-function Range({ label, value, min, max, step, unit = '', onChange }) {
-  const precision = step >= 1 ? 0 : step >= 0.1 ? 1 : 2;
-  return <label className="water-lab__range"><span>{label}</span><output>{Number(value).toFixed(precision)}{unit && ` ${unit}`}</output><input aria-label={label} type="range" value={value} min={min} max={max} step={step} onChange={(event) => onChange(Number(event.target.value))} /></label>;
-}
 // Paused, the canvas draws on demand only. A slider moved while the wave stands
 // still has to ask for the one frame that shows what it did.
 function RedrawOnChange({ of }) {
@@ -139,8 +134,6 @@ function RedrawOnChange({ of }) {
   useEffect(() => { invalidate(); }, [invalidate, of]);
   return null;
 }
-function Toggle({ label, value, onChange }) { return <label className="water-lab__toggle"><span>{label}</span><input aria-label={label} type="checkbox" checked={value} onChange={(event) => onChange(event.target.checked)} /></label>; }
-function ColorField({ label, value, onChange }) { return <label className="water-lab__toggle"><span>{label}</span><input aria-label={label} type="color" value={value} onChange={(event) => onChange(event.target.value)} /></label>; }
 // Counts the whole previous frame: the foam field's own render pass would
 // otherwise reset the renderer's tally before the scene is drawn.
 function LabStats({ onStats }) {
@@ -225,7 +218,7 @@ export default function WaterLab() {
     // the static preset cannot arrive between periodic ribbons and show sand.
     setInspectFreeze(id === 'surfSide' || id === 'lip');
   };
-  const range = (key, label, min, max, step, unit = '') => <Range key={key} label={label} value={settings[key]} min={min} max={max} step={step} unit={unit} onChange={(value) => set(key, value)} />;
+  const range = (key, label, min, max, step, unit = '') => <LabRange key={key} label={label} value={settings[key]} min={min} max={max} step={step} unit={unit} onChange={(value) => set(key, value)} />;
   const seaStateLabels = SEA_STATE_LABELS[language];
   const selectedSeaState = resolveSeaState(settings);
   const selectSeaState = (event) => {
@@ -242,32 +235,46 @@ export default function WaterLab() {
   }, []);
 
   const viewLabel = (id) => (id === 'surf' ? t.surfView : t[id]);
-  return <main className="water-lab" data-asset-collection="water" lang={language}>
-    <header className="water-lab__header"><div><p>DDG / ASSET LAB / {assetIndex('water')}</p><h1>{t.title}</h1><span>{t.subtitle}</span></div><div className="water-lab__header-actions"><div>{['ru', 'en'].map((id) => <button key={id} aria-pressed={language === id} onClick={() => setLanguage(id)}>{id.toUpperCase()}</button>)}</div><LabNav current="water" lang={language} label={t.assets} /></div></header>
-    <div className="water-lab__workspace"><section className="water-lab__viewer" aria-label="Water viewport">
-      <AssetStudio view={view} cameraViews={views} cameraLimits={LIMITS} cameraFar={6000} fogRange={[1200, 4500]} floorVisible={false} lighting={lighting} exposure={settings.exposure} environmentIntensity={1} paused={paused} inactive={hidden} pixelRatio={[1, 1.5]} background="#a9c8d9" shadowRadius={40} onSceneSky={setSceneSky} sceneShadowRef={sceneShadowRef}>
-        <WaterLabSceneBindings uniforms={sceneBindings} lighting={lighting} sky={sceneSky} shadowDataRef={sceneShadowRef} />
-        <ShoreDepthMap coast={coast} />
-        <GerstnerWaterSurface settings={breakerSettings} lighting={lighting} noise={noise} wireframe={settings.wireframe} coast={coast} foamBores={settings.surfEnabled ? foamBores : null} timeline={timeline} sceneBindings={sceneBindings} />
-        <ShoreWater settings={settings} lighting={lighting} noise={noise} coast={coast} timeline={timeline} wireframe={settings.wireframe} sceneBindings={sceneBindings} />
-        {settings.surfEnabled ? <BreakingWaves settings={breakerSettings} lighting={lighting} noise={noise} coast={coast} foamBores={foamBores} timeline={timeline} wireframe={settings.wireframe} sceneBindings={sceneBindings} /> : null}
-        <RedrawOnChange of={breakerSettings} />
-        <Suspense fallback={null}><AzovTerrain definition={definition} settings={terrainSettings} qualityProfile={qualityProfile} lighting={lighting} sky={null} runtime={null} rocks={rocks} swash={foamField} /></Suspense>
-        <LabStats onStats={setStats} />
-      </AssetStudio>
-      <div className="water-lab__views" role="group" aria-label="Ракурс">{['shore', 'above', 'macro', 'surf', 'surfSide', 'lip', 'surfAbove', 'spit', 'edge'].map((id) => <button key={id} aria-pressed={view === id} onClick={() => selectView(id)}>{viewLabel(id)}</button>)}</div>
-      <label className="water-lab__surface water-lab__select"><span>{seaStateLabels.label}</span><select aria-label={seaStateLabels.label} value={selectedSeaState} onChange={selectSeaState}><option value={SEA_STATE_CUSTOM}>{seaStateLabels.custom}</option>{SEA_STATE_IDS.map((id) => <option key={id} value={id}>{seaStateLabels[id]}</option>)}</select></label>
-    </section><aside className="water-lab__inspector">
-      <div className="water-lab__tabs" role="tablist">{['waves', 'surf', 'foam', 'look', 'light'].map((id) => <button key={id} role="tab" aria-selected={tab === id} onClick={() => setTab(id)}>{t[id]}</button>)}</div>
-      <div className="water-lab__controls" role="tabpanel" aria-label={t[tab]}>
-        {tab === 'waves' && <>{range('wavelength', t.wavelength, 3, 40, 0.5, t.metres)}{range('amplitude', t.amplitude, 0, 1.6, 0.01, t.metres)}{range('steepness', t.steepness, 0, GERSTNER_MAX_STEEPNESS, 0.01)}{range('speed', t.speed, 0, 2.5, 0.05)}{range('windDirection', t.wind, 0, 360, 1, '°')}{range('sets', t.sets, 0, 1, 0.01)}{range('gusts', t.gusts, 0, 1, 0.01)}{range('crossWaves', t.cross, 0, 1, 0.01)}{range('fadeStart', t.fadeStart, 20, 1500, 10, t.metres)}{range('fadeEnd', t.fadeEnd, 40, 3000, 10, t.metres)}</>}
-        {tab === 'surf' && <><Toggle label={t.surfEnabled} value={settings.surfEnabled} onChange={(value) => set('surfEnabled', value)} /><Toggle label={t.surfFreeze} value={settings.surfFreeze} onChange={(value) => set('surfFreeze', value)} />{range('surfPhase', t.surfPhase, 0, 1, 0.01)}{range('surfHeight', t.surfHeight, 0.2, 3, 0.05, t.metres)}{range('surfWidth', t.surfWidth, 3, 24, 0.5, t.metres)}{range('surfBreakDistance', t.surfBreakDistance, -20, 40, 0.5, t.metres)}{range('shoreSlope', t.shoreSlope, 3, 80, 0.5)}{range('bars', t.bars, 0, 1, 0.01)}{range('surfBreakLength', t.surfBreakLength, 4, 40, 1, t.metres)}{range('surfLean', t.surfLean, 0, 1, 0.01)}{range('surfJet', t.surfJet, 0.3, 4, 0.05, t.mps)}{range('surfLift', t.surfLift, 0, 2, 0.05, t.mps)}{range('surfSheet', t.surfSheet, 0.04, 0.4, 0.01)}{range('surfRoller', t.surfRoller, 0, 1.2, 0.02)}{range('surfRollerDensity', t.surfRollerDensity, 0.2, 2.5, 0.05)}{range('surfPeel', t.surfPeel, 0, 0.6, 0.01)}{range('surfRefraction', t.surfRefraction, 0, 1, 0.01)}{range('surfBoreLength', t.surfBoreLength, 3, 40, 1, t.metres)}{range('surfRunup', t.surfRunup, 0, 12, 1, t.metres)}{range('surfSpeed', t.surfSpeed, 1, 10, 0.1, t.mps)}{range('surfPeriod', t.surfPeriod, 3, 20, 0.5, t.seconds)}{range('surfSets', t.surfSets, 0, 1, 0.01)}</>}
-        {tab === 'foam' && <><Toggle label={t.foamMemory} value={settings.foamMemory} onChange={(value) => set('foamMemory', value)} />{range('foamLife', t.foamLife, 1, 20, 0.5, t.seconds)}{range('foamDeposit', t.foamDeposit, 0.2, 1.5, 0.05)}{range('foamWindow', t.foamWindow, 32, 400, 4, t.metres)}{range('foamDrift', t.foamDrift, 0, 2, 0.05, t.mps)}{range('foamSwirl', t.foamSwirl, 0, 1.5, 0.05)}{range('foamDry', t.foamDry, 5, 120, 1, t.seconds)}{range('swashFilm', t.swashFilm, 0, 0.08, 0.005, t.metres)}{range('foamThreshold', t.threshold, 0, 0.95, 0.01)}{range('foamSoftness', t.softness, 0.02, 0.4, 0.01)}{range('laceScale', t.lace, 0.03, 0.6, 0.01)}{range('foamBrightness', t.brightness, 0.2, 2, 0.05)}{range('ripple', t.ripple, 0, 1, 0.01)}{range('windPatches', t.windPatches, 0, 1, 0.05)}{range('rippleScale', t.rippleScale, 0.01, 0.3, 0.005)}</>}
-        {tab === 'look' && <><ColorField label={t.water} value={settings.waterColor} onChange={(value) => set('waterColor', value)} /><ColorField label={t.deep} value={settings.deepColor} onChange={(value) => set('deepColor', value)} /><ColorField label={t.bed} value={settings.bedColor} onChange={(value) => set('bedColor', value)} />{range('bedTurbidity', t.bedTurbidity, 0, 1, 0.05)}{range('crestGlow', t.glow, 0, 2, 0.05)}{range('glint', t.glint, 0, 3, 0.05)}{range('skyReflection', t.sky, 0, 3, 0.05)}{range('meshRings', t.rings, 32, 192, 8)}{range('meshSegments', t.segments, 48, 256, 8)}<Toggle label={t.wireframe} value={settings.wireframe} onChange={(value) => set('wireframe', value)} /></>}
-        {tab === 'light' && <>{range('timeOfDay', t.time, 0, 24, 0.1, t.hours)}{range('sunBearing', t.bearing, -180, 360, 1, '°')}{range('sunNoonElevation', t.elevation, 10, 85, 1, '°')}{range('exposure', t.exposure, 0.3, 2, 0.05)}</>}
-      </div>
-      <div className="water-lab__transport"><button onClick={() => setPaused((value) => !value)}>{paused ? '▶' : 'Ⅱ'} {paused ? t.play : t.pause}</button><button onClick={() => { forgetSettings(); setInspectFreeze(false); setSettings(DEFAULTS); setView('surf'); setTab('waves'); }}>{t.reset}</button></div>
-    </aside></div>
-    <footer className="water-lab__footer"><span><b>{stats.triangles.toLocaleString()}</b> {t.tri}</span><span><b>{stats.calls}</b> {t.calls}</span><span><b>{Math.round(stats.fps)}</b> {t.fps}</span><span><b>Σ Q·k·A = {Number(settings.steepness).toFixed(2)}</b> {t.budget}</span></footer>
-  </main>;
+  return <LabShell
+    collection="water"
+    testId="water-lab"
+    eyebrow={`DDG / ASSET LAB / ${assetIndex('water')}`}
+    title={t.title}
+    subtitle={t.subtitle}
+    language={language}
+    onLanguage={setLanguage}
+    views={['shore', 'above', 'macro', 'surf', 'surfSide', 'lip', 'surfAbove', 'spit', 'edge'].map((id) => ({ id, label: viewLabel(id) }))}
+    view={view}
+    onView={selectView}
+    panel={<>
+      <LabSelect label={seaStateLabels.label} value={selectedSeaState} onChange={(value) => selectSeaState({ target: { value } })} options={[{ value: SEA_STATE_CUSTOM, label: seaStateLabels.custom }, ...SEA_STATE_IDS.map((id) => ({ value: id, label: seaStateLabels[id] }))]} />
+      <LabTabs label={t[tab]} items={['waves', 'surf', 'foam', 'look', 'light'].map((id) => ({ id, label: t[id] }))} value={tab} onChange={setTab} />
+      {tab === 'waves' && <>{range('wavelength', t.wavelength, 3, 40, 0.5, t.metres)}{range('amplitude', t.amplitude, 0, 1.6, 0.01, t.metres)}{range('steepness', t.steepness, 0, GERSTNER_MAX_STEEPNESS, 0.01)}{range('speed', t.speed, 0, 2.5, 0.05)}{range('windDirection', t.wind, 0, 360, 1, '°')}{range('sets', t.sets, 0, 1, 0.01)}{range('gusts', t.gusts, 0, 1, 0.01)}{range('crossWaves', t.cross, 0, 1, 0.01)}{range('fadeStart', t.fadeStart, 20, 1500, 10, t.metres)}{range('fadeEnd', t.fadeEnd, 40, 3000, 10, t.metres)}</>}
+      {tab === 'surf' && <><LabToggle label={t.surfEnabled} value={settings.surfEnabled} onChange={(value) => set('surfEnabled', value)} /><LabToggle label={t.surfFreeze} value={settings.surfFreeze} onChange={(value) => set('surfFreeze', value)} />{range('surfPhase', t.surfPhase, 0, 1, 0.01)}{range('surfHeight', t.surfHeight, 0.2, 3, 0.05, t.metres)}{range('surfWidth', t.surfWidth, 3, 24, 0.5, t.metres)}{range('surfBreakDistance', t.surfBreakDistance, -20, 40, 0.5, t.metres)}{range('shoreSlope', t.shoreSlope, 3, 80, 0.5)}{range('bars', t.bars, 0, 1, 0.01)}{range('surfBreakLength', t.surfBreakLength, 4, 40, 1, t.metres)}{range('surfLean', t.surfLean, 0, 1, 0.01)}{range('surfJet', t.surfJet, 0.3, 4, 0.05, t.mps)}{range('surfLift', t.surfLift, 0, 2, 0.05, t.mps)}{range('surfSheet', t.surfSheet, 0.04, 0.4, 0.01)}{range('surfRoller', t.surfRoller, 0, 1.2, 0.02)}{range('surfRollerDensity', t.surfRollerDensity, 0.2, 2.5, 0.05)}{range('surfPeel', t.surfPeel, 0, 0.6, 0.01)}{range('surfRefraction', t.surfRefraction, 0, 1, 0.01)}{range('surfBoreLength', t.surfBoreLength, 3, 40, 1, t.metres)}{range('surfRunup', t.surfRunup, 0, 12, 1, t.metres)}{range('surfSpeed', t.surfSpeed, 1, 10, 0.1, t.mps)}{range('surfPeriod', t.surfPeriod, 3, 20, 0.5, t.seconds)}{range('surfSets', t.surfSets, 0, 1, 0.01)}</>}
+      {tab === 'foam' && <><LabToggle label={t.foamMemory} value={settings.foamMemory} onChange={(value) => set('foamMemory', value)} />{range('foamLife', t.foamLife, 1, 20, 0.5, t.seconds)}{range('foamDeposit', t.foamDeposit, 0.2, 1.5, 0.05)}{range('foamWindow', t.foamWindow, 32, 400, 4, t.metres)}{range('foamDrift', t.foamDrift, 0, 2, 0.05, t.mps)}{range('foamSwirl', t.foamSwirl, 0, 1.5, 0.05)}{range('foamDry', t.foamDry, 5, 120, 1, t.seconds)}{range('swashFilm', t.swashFilm, 0, 0.08, 0.005, t.metres)}{range('foamThreshold', t.threshold, 0, 0.95, 0.01)}{range('foamSoftness', t.softness, 0.02, 0.4, 0.01)}{range('laceScale', t.lace, 0.03, 0.6, 0.01)}{range('foamBrightness', t.brightness, 0.2, 2, 0.05)}{range('ripple', t.ripple, 0, 1, 0.01)}{range('windPatches', t.windPatches, 0, 1, 0.05)}{range('rippleScale', t.rippleScale, 0.01, 0.3, 0.005)}</>}
+      {tab === 'look' && <><LabColor label={t.water} value={settings.waterColor} onChange={(value) => set('waterColor', value)} /><LabColor label={t.deep} value={settings.deepColor} onChange={(value) => set('deepColor', value)} /><LabColor label={t.bed} value={settings.bedColor} onChange={(value) => set('bedColor', value)} />{range('bedTurbidity', t.bedTurbidity, 0, 1, 0.05)}{range('crestGlow', t.glow, 0, 2, 0.05)}{range('glint', t.glint, 0, 3, 0.05)}{range('skyReflection', t.sky, 0, 3, 0.05)}{range('meshRings', t.rings, 32, 192, 8)}{range('meshSegments', t.segments, 48, 256, 8)}<LabToggle label={t.wireframe} value={settings.wireframe} onChange={(value) => set('wireframe', value)} /></>}
+      {tab === 'light' && <>{range('timeOfDay', t.time, 0, 24, 0.1, t.hours)}{range('sunBearing', t.bearing, -180, 360, 1, '°')}{range('sunNoonElevation', t.elevation, 10, 85, 1, '°')}{range('exposure', t.exposure, 0.3, 2, 0.05)}</>}
+    </>}
+    transport={<>
+      <button type="button" aria-pressed={paused} onClick={() => setPaused((value) => !value)}>{paused ? '▶' : 'Ⅱ'} {paused ? t.play : t.pause}</button>
+      <button type="button" onClick={() => { forgetSettings(); setInspectFreeze(false); setSettings(DEFAULTS); setView('surf'); setTab('waves'); }}>{t.reset}</button>
+    </>}
+    stats={<>
+      <span><b>{stats.triangles.toLocaleString()}</b> {t.tri}</span>
+      <span><b>{stats.calls}</b> {t.calls}</span>
+      <span><b>{Math.round(stats.fps)}</b> {t.fps}</span>
+      <span><b>Σ Q·k·A = {Number(settings.steepness).toFixed(2)}</b> {t.budget}</span>
+    </>}
+  >
+    <AssetStudio view={view} cameraViews={views} cameraLimits={LIMITS} cameraFar={6000} fogRange={[1200, 4500]} floorVisible={false} lighting={lighting} exposure={settings.exposure} environmentIntensity={1} paused={paused} inactive={hidden} pixelRatio={[1, 1.5]} background="#a9c8d9" shadowRadius={40} onSceneSky={setSceneSky} sceneShadowRef={sceneShadowRef}>
+      <WaterLabSceneBindings uniforms={sceneBindings} lighting={lighting} sky={sceneSky} shadowDataRef={sceneShadowRef} />
+      <ShoreDepthMap coast={coast} />
+      <GerstnerWaterSurface settings={breakerSettings} lighting={lighting} noise={noise} wireframe={settings.wireframe} coast={coast} foamBores={settings.surfEnabled ? foamBores : null} timeline={timeline} sceneBindings={sceneBindings} />
+      <ShoreWater settings={settings} lighting={lighting} noise={noise} coast={coast} timeline={timeline} wireframe={settings.wireframe} sceneBindings={sceneBindings} />
+      {settings.surfEnabled ? <BreakingWaves settings={breakerSettings} lighting={lighting} noise={noise} coast={coast} foamBores={foamBores} timeline={timeline} wireframe={settings.wireframe} sceneBindings={sceneBindings} /> : null}
+      <RedrawOnChange of={breakerSettings} />
+      <Suspense fallback={null}><AzovTerrain definition={definition} settings={terrainSettings} qualityProfile={qualityProfile} lighting={lighting} sky={null} runtime={null} rocks={rocks} swash={foamField} /></Suspense>
+      <LabStats onStats={setStats} />
+    </AssetStudio>
+  </LabShell>;
 }
