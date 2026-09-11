@@ -1,17 +1,26 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 export const GIZMO_MODES = ['translate', 'rotate', 'scale'];
+export const EDITOR_TOOLS = ['select', ...GIZMO_MODES, 'hand'];
 
-// Blender's G/R/S, because that is the gizmo this is modelled on. W/E are
-// accepted as the Unity/Unreal aliases for move and rotate; their R (scale) is
-// deliberately not bound, since R already means rotate here and a key that means
-// two different things depending on the app is worse than one that means one.
-const MODE_KEYS = {
+// Одна линейка инструментов, как в 3ds Max: в каждый момент активен ровно один.
+//
+//   select     V   клик выбирает объект, протяжка крутит камеру — инструмент по умолчанию
+//   translate  G ┐
+//   rotate     R ├ манипулятор в этом режиме; клик по-прежнему выбирает
+//   scale      S ┘
+//   hand       H   только обзор: манипулятор спрятан, клики ничего не выбирают
+//
+// Клавиши — Blender'овские G/R/S, потому что манипулятор с него и списан.
+// W/E как псевдонимы больше не принимаются: W/A/S/D/Q/E — полёт камеры, и
+// буква, которая значит разное в зависимости от того, куда упал фокус, хуже
+// буквы с одним значением. Esc возвращает к выбору и прячет манипулятор.
+const TOOL_KEYS = {
+    v: 'select',
     g: 'translate',
-    w: 'translate',
     r: 'rotate',
-    e: 'rotate',
     s: 'scale',
+    h: 'hand',
 };
 
 const isTypingTarget = (target) => {
@@ -23,17 +32,18 @@ const isTypingTarget = (target) => {
     return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target.isContentEditable;
 };
 
-// The selection itself comes from the editor tree - picking an object under
-// "Objects" is the same act as picking it in an engine's hierarchy, so there is
-// no second source of truth. This owns the tool, and Escape to get the handles
-// out of the way without losing the selection.
+// Выбор объекта приходит из дерева редактора — второго источника истины нет.
+// Здесь только инструмент: какой активен и какой из трёх трансформаций был
+// последним, чтобы выбранный объект сразу получал привычный манипулятор.
 export function useEditorTool(enabled = true) {
-    const [mode, setMode] = useState('translate');
-    const [suppressed, setSuppressed] = useState(false);
-    // Режим выбора объекта прямо в сцене. Клавиша — V: WASD заняты полётом
-    // камеры (W вперёд, S назад, A/D вбок), Q и E — её высотой, а G/R/S —
-    // гизмо, так что все привычные буквы уже что-то значат.
-    const [picking, setPicking] = useState(false);
+    const [tool, setToolState] = useState('translate');
+    const lastTransform = useRef('translate');
+
+    const setTool = useCallback((next) => {
+        if (!EDITOR_TOOLS.includes(next)) return;
+        if (GIZMO_MODES.includes(next)) lastTransform.current = next;
+        setToolState(next);
+    }, []);
 
     useEffect(() => {
         if (!enabled || typeof window === 'undefined') {
@@ -41,36 +51,29 @@ export function useEditorTool(enabled = true) {
         }
 
         const handleKeyDown = (event) => {
-            // A slider holds focus for most of an editing session, and G/R/S are
-            // also ordinary characters - never take them from a field.
+            // Ползунок держит фокус большую часть сессии, а G/R/S — обычные
+            // буквы: у поля их не отнимать.
             if (event.defaultPrevented || event.target?.closest?.('dialog') || isTypingTarget(event.target) || event.metaKey || event.ctrlKey || event.altKey) {
                 return;
             }
 
             if (event.key === 'Escape') {
-                setSuppressed(true);
+                setTool('select');
                 return;
             }
 
-            if (event.key.toLowerCase() === 'v') {
+            const next = TOOL_KEYS[event.key.toLowerCase()];
+            if (next) {
                 event.preventDefault();
-                setPicking((value) => !value);
-                return;
-            }
-
-            const nextMode = MODE_KEYS[event.key.toLowerCase()];
-            if (nextMode) {
-                event.preventDefault();
-                setMode(nextMode);
-                setSuppressed(false);
+                setTool(next);
             }
         };
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [enabled]);
+    }, [enabled, setTool]);
 
-    return { mode, setMode, suppressed, setSuppressed, picking, setPicking };
+    return { tool, setTool, lastTransform: lastTransform.current };
 }
 
 export default useEditorTool;

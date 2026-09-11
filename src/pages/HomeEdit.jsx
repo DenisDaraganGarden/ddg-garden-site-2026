@@ -29,7 +29,7 @@ import {
 } from '../features/home-scene/lib/layout';
 import { useHomeSceneEditor } from '../features/home-scene/hooks/useHomeSceneEditor';
 import { useHomeChromeVisibility } from '../features/home-scene/hooks/useHomeChromeVisibility';
-import { useEditorTool } from '../features/home-scene/hooks/useEditorTool';
+import { GIZMO_MODES, useEditorTool } from '../features/home-scene/hooks/useEditorTool';
 import { resolveEditorPath } from '../features/home-scene/components/editor/editorTree';
 import { sceneObjectsForNode } from '../features/home-scene/lib/sceneObjects';
 import HomeEditorPanel from '../features/home-scene/components/HomeEditorPanel';
@@ -95,7 +95,7 @@ const HomeEdit = ({ project = null }) => {
     } = useHomeSceneEditor(project);
     // Preview the chrome toggles in the editor itself, not only after publishing.
     useHomeChromeVisibility(settings);
-    const { mode: gizmoMode, setMode: setGizmoMode, suppressed: gizmoSuppressed, setSuppressed: setGizmoSuppressed, picking, setPicking } = useEditorTool();
+    const { tool, setTool, lastTransform } = useEditorTool();
     const focusHistory = useFocusHistory(settings, setSettings, handleSettingChange, applySettings);
     const isLocalPublishAvailable = typeof window !== 'undefined'
         && LOCAL_EDIT_HOSTS.has(window.location.hostname);
@@ -500,21 +500,34 @@ const HomeEdit = ({ project = null }) => {
         }
     }, [handleBoatPositionChange, handleSculpturePositionChange, setSettings]);
 
-    // Клик по объекту в сцене ставит тот же путь, что и клик в дереве.
-    const handlePickObject = useCallback((path) => setActiveTab(path), [setActiveTab]);
+    // Клик по объекту в сцене ставит тот же путь, что и клик в дереве, и так же
+    // даёт выбранному последнюю трансформацию — манипулятор появляется сразу.
+    const handlePickObject = useCallback((path) => { setActiveTab(path); setTool(lastTransform); }, [setActiveTab, setTool, lastTransform]);
 
     const { group: gizmoGroup, node: gizmoNode } = resolveEditorPath(activeTab, { includeDevOnly: true });
     // An object switched off has left the scene graph; the gizmo has nothing to hold.
     const gizmoTargetShown = sceneObjectsForNode(`${gizmoGroup.id}/${gizmoNode.id}`).every(({ key }) => settings[key] !== false);
     const gizmoSelection = gizmoTargetShown && ((gizmoGroup.id === 'objects' && gizmoNode.id !== 'tanker') || gizmoGroup.id === 'lights') ? gizmoNode.id : null;
+    // Инструмент хранится один, но трансформация без объекта, который можно
+    // двигать, — это просто выбор: так «перенос» остаётся привычным умолчанием
+    // и сам возвращается, как только выбран следующий подвижный объект.
+    const transformTool = GIZMO_MODES.includes(tool);
+    const activeTool = transformTool && !gizmoSelection ? 'select' : tool;
+    const picking = activeTool !== 'hand';
     const editorGizmo = useMemo(() => ({
-        selection: gizmoSuppressed ? null : gizmoSelection,
-        mode: gizmoMode,
+        selection: transformTool && gizmoSelection ? gizmoSelection : null,
+        mode: transformTool ? tool : lastTransform,
         onTransform: handleGizmoTransform,
         picking,
         onPick: handlePickObject,
         onContextMenu: setSceneMenu,
-    }), [gizmoSuppressed, gizmoSelection, gizmoMode, handleGizmoTransform, picking, handlePickObject]);
+    }), [transformTool, gizmoSelection, tool, lastTransform, handleGizmoTransform, picking, handlePickObject]);
+
+    // Курсор во вьюпорте говорит, какой инструмент в руке, не глядя на панель.
+    useEffect(() => {
+        document.documentElement.dataset.editorTool = activeTool;
+        return () => { delete document.documentElement.dataset.editorTool; };
+    }, [activeTool]);
 
 
     const layoutEditor = useMemo(() => ({
@@ -678,7 +691,7 @@ const HomeEdit = ({ project = null }) => {
                 applySettings={focusHistory.applySettings}
                 history={focusHistory}
                 layoutEditor={layoutEditor}
-                gizmo={{ mode: gizmoMode, setMode: setGizmoMode, selection: gizmoSelection, suppressed: gizmoSuppressed, show: () => setGizmoSuppressed(false), hide: () => setGizmoSuppressed(true), picking, setPicking, sceneMenu, closeSceneMenu: () => setSceneMenu(null) }}
+                gizmo={{ tool: activeTool, setTool, lastTransform, movable: gizmoSelection, selection: editorGizmo.selection, picking, sceneMenu, closeSceneMenu: () => setSceneMenu(null) }}
                 onPublish={isLocalPublishAvailable && !project ? () => handlePublish() : undefined}
                 onDeploy={isLocalPublishAvailable && !project ? () => handlePublish({ deploy: true }) : undefined}
                 onAdoptPublished={handleAdoptPublished}

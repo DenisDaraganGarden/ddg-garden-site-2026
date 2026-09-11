@@ -295,17 +295,19 @@ export default function WaterCameraRig({
       return undefined;
     }
 
+    // Курсор покоя задаёт редактор по инструменту (data-editor-tool на <html>);
+    // здесь только «схватил» на время протяжки, поверх любого инструмента.
     const handleStart = () => {
       domElement.style.cursor = 'grabbing';
     };
     const handleEnd = () => {
-      domElement.style.cursor = 'grab';
+      domElement.style.cursor = '';
     };
     const preventContextMenu = (event) => {
       event.preventDefault();
     };
 
-    domElement.style.cursor = 'grab';
+    domElement.style.cursor = '';
     domElement.addEventListener('contextmenu', preventContextMenu);
     controls.addEventListener('start', handleStart);
     controls.addEventListener('end', handleEnd);
