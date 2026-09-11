@@ -15,6 +15,11 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = Number(process.env.DDG_APP_PORT) || 41219;
 const START = process.env.DDG_APP_START || '/engine';
 const SMOKE = process.env.DDG_APP_SMOKE;
+// Режим сбора: приложение открывает страницу, выполняет в ней выражение и
+// кладёт ответ в файл. Так снимается справочник параметров — прямо из редактора,
+// а не из пересказа исходников.
+const PROBE = process.env.DDG_APP_PROBE;
+const PROBE_OUT = process.env.DDG_APP_PROBE_OUT;
 
 let viteServer = null;
 
@@ -93,6 +98,18 @@ async function createWindow(url) {
 // Проверка без глаз: окно поднимается, страница грузится, кадр ложится в файл.
 async function runSmoke(window) {
   await new Promise((resolve) => { setTimeout(resolve, Number(process.env.DDG_APP_SMOKE_WAIT) || 4000); });
+
+  if (PROBE) {
+    const value = await window.webContents.executeJavaScript(await fs.readFile(PROBE, 'utf8'), true);
+    await fs.writeFile(PROBE_OUT, JSON.stringify(value, null, 2));
+    console.log(`app: собрано в ${PROBE_OUT}`);
+    await viteServer?.close();
+    viteServer = null;
+    app.exit(0);
+    process.exit(0);
+    return;
+  }
+
   const title = await window.webContents.executeJavaScript(
     'document.querySelector(".engine-body h1")?.textContent ?? document.querySelector(".focus-project-label")?.textContent ?? "нет заголовка"',
   );
@@ -112,7 +129,7 @@ app.whenReady().then(async () => {
     const url = await startEngineServer();
     buildMenu();
     const window = await createWindow(url);
-    if (SMOKE) await runSmoke(window);
+    if (SMOKE || PROBE) await runSmoke(window);
   } catch (error) {
     console.error('Движок не запустился:', error);
     app.exit(1);

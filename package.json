@@ -48,7 +48,8 @@
     "check:seo": "node scripts/seo/build-seo.check.mjs",
     "check:projects": "node scripts/projectStore.check.mjs",
     "app": "node ./node_modules/electron/cli.js electron/main.js",
-    "check:app": "node scripts/check-app.mjs"
+    "check:app": "node scripts/check-app.mjs",
+    "build:reference": "node scripts/build-engine-reference.mjs"
   },
   "dependencies": {
     "@react-spring/three": "^9.7.3",

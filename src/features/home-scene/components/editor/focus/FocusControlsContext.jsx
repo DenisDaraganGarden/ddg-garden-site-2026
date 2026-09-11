@@ -62,6 +62,10 @@ export function FocusControlsProvider({
 }) {
     const store = useRef(null);
     if (!store.current) store.current = createStore();
+    // Каталог контролов — единственное место, где записаны подписи и пределы
+    // всех параметров сразу. Справочник движка для агента снимается отсюда
+    // (`npm run build:reference`), поэтому в dev он доступен снаружи.
+    if (import.meta.env.DEV && typeof window !== 'undefined') window.__ouroborosControls = store.current;
     const callbacks = useRef({ onNumericGestureStart, onNumericGestureCommit, onNumericGestureCancel });
     callbacks.current = { onNumericGestureStart, onNumericGestureCommit, onNumericGestureCancel };
     const pins = useMemo(() => new Set(pinnedIds), [pinnedIds]);
