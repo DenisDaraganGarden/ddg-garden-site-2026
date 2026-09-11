@@ -8,7 +8,7 @@
 единицы взяты из его каталога контролов, поэтому параметр не может появиться в
 редакторе и не появиться здесь. Руками не править.
 
-Снято: 2026-09-11 · параметров: 520 · разделов: 36
+Снято: 2026-09-11 · параметров: 520 · разделов: 37
 
 Как этим пользоваться агенту: читать и писать `projects/<id>.json`, поле
 `settings` — плоский объект с этими ключами. Пределы ниже — это пределы
@@ -207,6 +207,36 @@
 |---|---|---|---|---|
 | `editorCursor` | Курсор сцены в редакторе | выключатель | да / нет | false |
 | `editorHeadingColor` | Цвет заголовков | цвет | #rrggbb | #8d8d8d |
+
+## engine/debug
+
+| Ключ | Что это | Вид | Пределы | Заводское |
+|---|---|---|---|---|
+| `debugView` | Режим отладки | список | beauty · height · normals · caustics · seabed-depth | beauty |
+| `debugWireframe` | Каркас (wireframe) | выключатель | да / нет | false |
+| `showPerformanceHud` | Показывать FPS и память | выключатель | да / нет | false |
+| `showPointerDebug` | Отладка курсора и тача | выключатель | да / нет | false |
+
+## engine/quality
+
+| Ключ | Что это | Вид | Пределы | Заводское |
+|---|---|---|---|---|
+| `contactAoEnabled` | Контактное AO | выключатель | да / нет | false |
+| `contactAoIntensity` | Сила AO | число | 0 … 1, шаг 0.05 | 0.35 |
+| `contactAoRadius` | Радиус AO | число | 0.05 … 3, шаг 0.05, m | 0.5 |
+| `postAntiAliasing` | Сглаживание | список | auto · msaa · fxaa · off | auto |
+| `upscaleMode` | Апскейл | список | off · fsr1 | off |
+| `upscaleQuality` | Качество апскейла | список | ultra · quality · balanced | quality |
+| `upscaleSharpness` | Резкость апскейла | число | 0 … 1, шаг 0.05 | 0.25 |
+
+## engine/resolution
+
+| Ключ | Что это | Вид | Пределы | Заводское |
+|---|---|---|---|---|
+| `adaptiveQuality` | Автобюджет · цель 30 FPS | выключатель | да / нет | true |
+| `frameRateLimit` | Предел частоты кадров | список | 0 · 30 · 40 · 60 · 120 | 0 |
+| `renderScale` | Разрешение рендера — десктоп | число | 0.5 … 2, шаг 0.05, x | 1 |
+| `renderScaleMobile` | Разрешение рендера — мобайл | число | 0.5 … 2, шаг 0.05, x | 2 |
 
 ## greenery/algae
 
@@ -639,15 +669,6 @@
 | `tankerX` | Восток / запад · X | число | -8000 … 8000, шаг 10,  m | -1450 |
 | `tankerZ` | Юг / север · Z | число | -8000 … 8000, шаг 10,  m | -820 |
 
-## render/debug
-
-| Ключ | Что это | Вид | Пределы | Заводское |
-|---|---|---|---|---|
-| `debugView` | Режим отладки | список | beauty · height · normals · caustics · seabed-depth | beauty |
-| `debugWireframe` | Каркас (wireframe) | выключатель | да / нет | false |
-| `showPerformanceHud` | Показывать FPS и память | выключатель | да / нет | false |
-| `showPointerDebug` | Отладка курсора и тача | выключатель | да / нет | false |
-
 ## render/post
 
 | Ключ | Что это | Вид | Пределы | Заводское |
@@ -661,9 +682,6 @@
 | `colorGamma` | Гамма | число | 0.35 … 2.5, шаг 0.01 | 1 |
 | `colorHue` | Сдвиг оттенка | число | -180 … 180, шаг 1, ° | 0 |
 | `colorSaturation` | Насыщенность | число | 0 … 2, шаг 0.01, % | 1.02 |
-| `contactAoEnabled` | Контактное AO | выключатель | да / нет | false |
-| `contactAoIntensity` | Сила AO | число | 0 … 1, шаг 0.05 | 0.35 |
-| `contactAoRadius` | Радиус AO | число | 0.05 … 3, шаг 0.05, m | 0.5 |
 | `editorPostProcessing` | Показывать её в редакторе | выключатель | да / нет | false |
 | `filmDustAmount` | Пыль | число | 0 … 1, шаг 0.005 | 0.04 |
 | `filmEnabled` | Включить | выключатель | да / нет | false |
@@ -675,20 +693,7 @@
 | `filmGrainSize` | Размер зерна | число | 0.45 … 3, шаг 0.05, px | 1.05 |
 | `filmScratchAmount` | Царапины | число | 0 … 1, шаг 0.005 | 0.025 |
 | `filmStock` | Тип | список | neutral · 35mm · 16mm · 8mm · bw · sepia · faded | 16mm |
-| `postAntiAliasing` | Сглаживание | список | auto · msaa · fxaa · off | auto |
 | `postProcessingEnabled` | Постобработка включена | выключатель | да / нет | true |
-| `upscaleMode` | Апскейл | список | off · fsr1 | off |
-| `upscaleQuality` | Качество апскейла | список | ultra · quality · balanced | quality |
-| `upscaleSharpness` | Резкость апскейла | число | 0 … 1, шаг 0.05 | 0.25 |
-
-## render/resolution
-
-| Ключ | Что это | Вид | Пределы | Заводское |
-|---|---|---|---|---|
-| `adaptiveQuality` | Автобюджет · цель 30 FPS | выключатель | да / нет | true |
-| `frameRateLimit` | Предел частоты кадров | список | 0 · 30 · 40 · 60 · 120 | 0 |
-| `renderScale` | Разрешение рендера — десктоп | число | 0.5 … 2, шаг 0.05, x | 1 |
-| `renderScaleMobile` | Разрешение рендера — мобайл | число | 0.5 … 2, шаг 0.05, x | 2 |
 
 ## render/visibility
 

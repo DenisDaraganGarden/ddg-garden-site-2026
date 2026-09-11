@@ -6,23 +6,22 @@ export const FOCUS_DOMAINS = [
     { id: 'scene', ru: 'Сцена', en: 'Scene', icon: 'grid', groupIds: ['landscape', 'greenery', 'objects', 'creatures'] },
     { id: 'environment', ru: 'Среда', en: 'Environment', icon: 'sun', groupIds: ['atmosphere', 'lights'] },
     { id: 'cameras', ru: 'Камеры', en: 'Cameras', icon: 'camera', groupIds: ['cameras'] },
+    { id: 'render', ru: 'Рендер', en: 'Render', icon: 'sliders', groupIds: ['render'] },
     { id: 'audio', ru: 'Звук', en: 'Audio', icon: 'sound', groupIds: ['audio'] },
-    // Всё, что относится к движку целиком — графика, постобработка, видимость,
-    // интерфейс, редактор, клавиши, — открывается отдельным окном настроек,
-    // а не в правой панели. Пути узлов остаются прежними: по ним работают
-    // поиск, избранное и сохранённый выбор.
-    { id: 'workspace', ru: 'Настройки движка', en: 'Engine settings', icon: 'settings', groupIds: ['render', 'interface', 'cursor', 'editor'], dialog: 'settings' },
+    // Настройки движка — то, что про кадр и рабочее место, а не про сцену:
+    // разрешение, качество кадра, интерфейс, редактор, клавиши. Открываются
+    // отдельным окном, а не в правой панели. Видимость объектов и плёнка — это
+    // сцена, они остаются в «Рендере» справа.
+    { id: 'workspace', ru: 'Настройки движка', en: 'Engine settings', icon: 'settings', groupIds: ['engine', 'interface', 'cursor', 'editor'], dialog: 'settings' },
 ];
 
 // Разделы окна настроек: слева список, справа те же секции, что и в инспекторе.
 export const SETTINGS_PAGES = [
-    { id: 'graphics', ru: 'Графика', en: 'Graphics', icon: 'sliders', parts: [['render/resolution'], ['render/post', 'quality']] },
-    { id: 'look', ru: 'Плёнка и цвет', en: 'Film and colour', icon: 'eye', parts: [['render/post', 'look']] },
-    { id: 'visibility', ru: 'Видимость', en: 'Visibility', icon: 'eye', parts: [['render/visibility']] },
-    { id: 'interface', ru: 'Интерфейс', en: 'Interface', icon: 'panel', parts: [['interface/ui'], ['cursor/cursor']] },
-    { id: 'editor', ru: 'Редактор', en: 'Editor', icon: 'settings', parts: [['editor/settings']] },
-    { id: 'keys', ru: 'Клавиши', en: 'Shortcuts', icon: 'help', parts: [] },
-    { id: 'debug', ru: 'Отладка', en: 'Debug', icon: 'bug', parts: [['render/debug']], devOnly: true },
+    { id: 'graphics', ru: 'Графика', en: 'Graphics', icon: 'sliders', paths: ['engine/resolution', 'engine/quality'] },
+    { id: 'interface', ru: 'Интерфейс', en: 'Interface', icon: 'panel', paths: ['interface/ui', 'cursor/cursor'] },
+    { id: 'editor', ru: 'Редактор', en: 'Editor', icon: 'settings', paths: ['editor/settings'] },
+    { id: 'keys', ru: 'Клавиши', en: 'Shortcuts', icon: 'help', paths: [] },
+    { id: 'debug', ru: 'Отладка', en: 'Debug', icon: 'bug', paths: ['engine/debug'], devOnly: true },
 ];
 
 const groupToDomain = new Map(
@@ -54,7 +53,7 @@ const NODE_ICONS = {
     light1: 'light', light1target: 'target', light2: 'light', light2target: 'target',
     light: 'sun', hdri: 'cloud', fog: 'cloud', rays: 'sun', clouds: 'cloud',
     audioMixer: 'sound', audioTracks: 'sound', audioSpatial: 'sound',
-    camera: 'camera', visibility: 'eye', resolution: 'sliders', post: 'sliders', debug: 'bug',
+    camera: 'camera', visibility: 'eye', resolution: 'sliders', quality: 'sliders', post: 'sliders', debug: 'bug',
     ui: 'panel', cursor: 'cursor', settings: 'settings',
 };
 

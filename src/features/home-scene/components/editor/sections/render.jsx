@@ -440,26 +440,14 @@ export const ResolutionSection = ({ settings, handleSettingChange }) => {
     );
 };
 
-// Постобработка разрезана на две части: качество кадра (сглаживание, апскейл,
-// AO) — это графика, она живёт в настройках движка рядом с разрешением; плёнка,
-// bloom и цвет — вид, художественная часть. В инспекторе обе идут подряд.
+// Постобработка разрезана на две части. Качество кадра — сглаживание, апскейл,
+// AO — это движок, оно живёт в окне настроек рядом с разрешением. Плёнка, bloom
+// и цвет — сцена, художественная часть, в правой панели вместе с объектами.
 export const PostQualitySection = ({ settings, handleSettingChange }) => {
     const { t } = useLanguage();
 
     return (
         <>
-            <CheckboxControl controlId={'postProcessingEnabled'}
-                label={t('homeEditor.controls.postProcessingEnabled')}
-                checked={Boolean(settings.postProcessingEnabled)}
-                onChange={(event) => handleSettingChange(event, 'postProcessingEnabled', 'boolean')}
-            />
-
-            <CheckboxControl controlId={'editorPostProcessing'}
-                label={t('homeEditor.controls.editorPostProcessing')}
-                checked={Boolean(settings.editorPostProcessing)}
-                onChange={(event) => handleSettingChange(event, 'editorPostProcessing', 'boolean')}
-            />
-
             <SelectControl controlId={'postAntiAliasing'}
                 label={t('homeEditor.controls.postAntiAliasing')}
                 value={settings.postAntiAliasing ?? 'auto'}
@@ -523,6 +511,18 @@ export const PostLookSection = ({ settings, handleSettingChange }) => {
 
     return (
         <>
+            <SectionHeading label={t('homeEditor.blocks.post')} subtle />
+            <CheckboxControl controlId={'postProcessingEnabled'}
+                label={t('homeEditor.controls.postProcessingEnabled')}
+                checked={Boolean(settings.postProcessingEnabled)}
+                onChange={(event) => handleSettingChange(event, 'postProcessingEnabled', 'boolean')}
+            />
+            <CheckboxControl controlId={'editorPostProcessing'}
+                label={t('homeEditor.controls.editorPostProcessing')}
+                checked={Boolean(settings.editorPostProcessing)}
+                onChange={(event) => handleSettingChange(event, 'editorPostProcessing', 'boolean')}
+            />
+
             <SectionHeading label={t('homeEditor.blocks.film')} subtle />
             <CheckboxControl controlId={'filmEnabled'}
                 label={t('homeEditor.controls.filmEnabled')}

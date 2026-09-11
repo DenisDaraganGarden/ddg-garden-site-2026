@@ -42,14 +42,11 @@ function useCatalog() {
     return store.all();
 }
 
-function NodeSections({ group, node, catalogOnly = false, sectionProps, only = null }) {
+function NodeSections({ group, node, catalogOnly = false, sectionProps }) {
     const { t } = useLanguage();
-    // Окно настроек показывает узел по частям: «качество кадра» — в графике,
-    // «плёнка и цвет» — отдельно. Инспектор по-прежнему показывает узел целиком.
-    const aspects = only ? node.aspects.filter((aspect) => aspect.id === only) : node.aspects;
     return <FocusControlScope path={`${group.id}/${node.id}`} groupLabel={t(`homeEditor.groups.${group.id}`)} nodeLabel={t(`homeEditor.nodes.${node.id}`)} catalogOnly={catalogOnly}>
-        {only ? null : sceneObjectsForNode(`${group.id}/${node.id}`).map(({ key }) => <CheckboxControl key={key} controlId={key} label={t(`homeEditor.controls.${key}`)} checked={Boolean(sectionProps.settings[key])} onChange={(event) => sectionProps.handleSettingChange(event, key, 'boolean')} testId={`home-editor-object-${key}`} />)}
-        {aspects.map(({ id, Section }) => <React.Fragment key={id}>{node.aspects.length > 1 ? <SectionHeading label={t(`homeEditor.aspects.${id}`)} /> : null}<Section {...sectionProps} /></React.Fragment>)}
+        {sceneObjectsForNode(`${group.id}/${node.id}`).map(({ key }) => <CheckboxControl key={key} controlId={key} label={t(`homeEditor.controls.${key}`)} checked={Boolean(sectionProps.settings[key])} onChange={(event) => sectionProps.handleSettingChange(event, key, 'boolean')} testId={`home-editor-object-${key}`} />)}
+        {node.aspects.map(({ id, Section }) => <React.Fragment key={id}>{node.aspects.length > 1 ? <SectionHeading label={t(`homeEditor.aspects.${id}`)} /> : null}<Section {...sectionProps} /></React.Fragment>)}
     </FocusControlScope>;
 }
 
@@ -59,7 +56,7 @@ const shortcutRows = (tr) => [[tr('Поиск', 'Search'), '⌘ K'], [tr('Отм
 // Окно настроек движка: слева разделы, справа те же секции, что и в инспекторе,
 // — контролы регистрируются в том же каталоге, поиск и избранное их видят.
 function SettingsDialog({ sectionProps, onClose }) {
-    const { language } = useLanguage(); const tr = (ru, en) => language === 'ru' ? ru : en;
+    const { language, t } = useLanguage(); const tr = (ru, en) => language === 'ru' ? ru : en;
     const pages = SETTINGS_PAGES.filter((page) => import.meta.env.DEV || !page.devOnly);
     const [pageId, setPageId] = useState(pages[0].id);
     const page = pages.find((item) => item.id === pageId) ?? pages[0];
@@ -72,7 +69,7 @@ function SettingsDialog({ sectionProps, onClose }) {
                 <h3>{getFocusLabel(page, language)}</h3>
                 {page.id === 'keys'
                     ? <div className="focus-shortcuts">{shortcutRows(tr).map(([label, keys]) => <div key={label}><span>{label}</span><kbd>{keys}</kbd></div>)}</div>
-                    : page.parts.map(([path, only]) => { const { group, node } = resolveEditorPath(path, { includeDevOnly: import.meta.env.DEV }); return <NodeSections key={`${path}:${only ?? ''}`} group={group} node={node} sectionProps={sectionProps} only={only ?? null} />; })}
+                    : page.paths.map((path) => { const { group, node } = resolveEditorPath(path, { includeDevOnly: import.meta.env.DEV }); return <React.Fragment key={path}>{page.paths.length > 1 ? <SectionHeading label={t(`homeEditor.nodes.${node.id}`)} /> : null}<NodeSections group={group} node={node} sectionProps={sectionProps} /></React.Fragment>; })}
                 {page.id === 'editor' ? <p className="focus-settings__note">{tr('Настройки редактора живут в этом браузере и на сайт не попадают. Графика и плёнка — часть сцены: они сохраняются в камеру и уезжают в проект.', 'Editor preferences live in this browser and never reach the site. Graphics and film belong to the scene: they are stored per camera and go into the project.')}</p> : null}
             </div>
         </div>

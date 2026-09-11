@@ -134,8 +134,16 @@ export const EDITOR_TREE = [
         id: 'render',
         nodes: [
             { id: 'visibility', aspects: [{ id: 'visibility', Section: VisibilitySection }] },
+            { id: 'post', aspects: [{ id: 'post', Section: PostLookSection }] },
+        ],
+    },
+    // Движок — то, что не про сцену, а про кадр как таковой: разрешение,
+    // сглаживание, апскейл, AO. Живёт в окне настроек, а не в правой панели.
+    {
+        id: 'engine',
+        nodes: [
             { id: 'resolution', aspects: [{ id: 'resolution', Section: ResolutionSection }] },
-            { id: 'post', aspects: [{ id: 'quality', Section: PostQualitySection }, { id: 'look', Section: PostLookSection }] },
+            { id: 'quality', aspects: [{ id: 'quality', Section: PostQualitySection }] },
             { id: 'debug', devOnly: true, aspects: [{ id: 'debug', Section: DebugSection }] },
         ],
     },

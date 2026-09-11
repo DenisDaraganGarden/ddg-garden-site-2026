@@ -1,5 +1,5 @@
 {
-  "collected": "2026-09-11T08:57:26.091Z",
+  "collected": "2026-09-11T09:56:35.183Z",
   "rows": [
     {
       "key": "cameraFov",
@@ -4659,49 +4659,6 @@
       "kind": "выключатель"
     },
     {
-      "key": "frameRateLimit",
-      "group": "render",
-      "node": "resolution",
-      "label": "Предел частоты кадров",
-      "kind": "список",
-      "options": [
-        "0",
-        "30",
-        "40",
-        "60",
-        "120"
-      ]
-    },
-    {
-      "key": "adaptiveQuality",
-      "group": "render",
-      "node": "resolution",
-      "label": "Автобюджет · цель 30 FPS",
-      "kind": "выключатель"
-    },
-    {
-      "key": "renderScale",
-      "group": "render",
-      "node": "resolution",
-      "label": "Разрешение рендера — десктоп",
-      "kind": "число",
-      "min": 0.5,
-      "max": 2,
-      "step": 0.05,
-      "unit": "x"
-    },
-    {
-      "key": "renderScaleMobile",
-      "group": "render",
-      "node": "resolution",
-      "label": "Разрешение рендера — мобайл",
-      "kind": "число",
-      "min": 0.5,
-      "max": 2,
-      "step": 0.05,
-      "unit": "x"
-    },
-    {
       "key": "postProcessingEnabled",
       "group": "render",
       "node": "post",
@@ -4714,80 +4671,6 @@
       "node": "post",
       "label": "Показывать её в редакторе",
       "kind": "выключатель"
-    },
-    {
-      "key": "postAntiAliasing",
-      "group": "render",
-      "node": "post",
-      "label": "Сглаживание",
-      "kind": "список",
-      "options": [
-        "auto",
-        "msaa",
-        "fxaa",
-        "off"
-      ]
-    },
-    {
-      "key": "upscaleMode",
-      "group": "render",
-      "node": "post",
-      "label": "Апскейл",
-      "kind": "список",
-      "options": [
-        "off",
-        "fsr1"
-      ]
-    },
-    {
-      "key": "upscaleQuality",
-      "group": "render",
-      "node": "post",
-      "label": "Качество апскейла",
-      "kind": "список",
-      "options": [
-        "ultra",
-        "quality",
-        "balanced"
-      ]
-    },
-    {
-      "key": "upscaleSharpness",
-      "group": "render",
-      "node": "post",
-      "label": "Резкость апскейла",
-      "kind": "число",
-      "min": 0,
-      "max": 1,
-      "step": 0.05
-    },
-    {
-      "key": "contactAoEnabled",
-      "group": "render",
-      "node": "post",
-      "label": "Контактное AO",
-      "kind": "выключатель"
-    },
-    {
-      "key": "contactAoIntensity",
-      "group": "render",
-      "node": "post",
-      "label": "Сила AO",
-      "kind": "число",
-      "min": 0,
-      "max": 1,
-      "step": 0.05
-    },
-    {
-      "key": "contactAoRadius",
-      "group": "render",
-      "node": "post",
-      "label": "Радиус AO",
-      "kind": "число",
-      "min": 0.05,
-      "max": 3,
-      "step": 0.05,
-      "unit": "m"
     },
     {
       "key": "filmEnabled",
@@ -4990,29 +4873,146 @@
       "unit": "°"
     },
     {
+      "key": "frameRateLimit",
+      "group": "engine",
+      "node": "resolution",
+      "label": "Предел частоты кадров",
+      "kind": "список",
+      "options": [
+        "0",
+        "30",
+        "40",
+        "60",
+        "120"
+      ]
+    },
+    {
+      "key": "adaptiveQuality",
+      "group": "engine",
+      "node": "resolution",
+      "label": "Автобюджет · цель 30 FPS",
+      "kind": "выключатель"
+    },
+    {
+      "key": "renderScale",
+      "group": "engine",
+      "node": "resolution",
+      "label": "Разрешение рендера — десктоп",
+      "kind": "число",
+      "min": 0.5,
+      "max": 2,
+      "step": 0.05,
+      "unit": "x"
+    },
+    {
+      "key": "renderScaleMobile",
+      "group": "engine",
+      "node": "resolution",
+      "label": "Разрешение рендера — мобайл",
+      "kind": "число",
+      "min": 0.5,
+      "max": 2,
+      "step": 0.05,
+      "unit": "x"
+    },
+    {
+      "key": "postAntiAliasing",
+      "group": "engine",
+      "node": "quality",
+      "label": "Сглаживание",
+      "kind": "список",
+      "options": [
+        "auto",
+        "msaa",
+        "fxaa",
+        "off"
+      ]
+    },
+    {
+      "key": "upscaleMode",
+      "group": "engine",
+      "node": "quality",
+      "label": "Апскейл",
+      "kind": "список",
+      "options": [
+        "off",
+        "fsr1"
+      ]
+    },
+    {
+      "key": "upscaleQuality",
+      "group": "engine",
+      "node": "quality",
+      "label": "Качество апскейла",
+      "kind": "список",
+      "options": [
+        "ultra",
+        "quality",
+        "balanced"
+      ]
+    },
+    {
+      "key": "upscaleSharpness",
+      "group": "engine",
+      "node": "quality",
+      "label": "Резкость апскейла",
+      "kind": "число",
+      "min": 0,
+      "max": 1,
+      "step": 0.05
+    },
+    {
+      "key": "contactAoEnabled",
+      "group": "engine",
+      "node": "quality",
+      "label": "Контактное AO",
+      "kind": "выключатель"
+    },
+    {
+      "key": "contactAoIntensity",
+      "group": "engine",
+      "node": "quality",
+      "label": "Сила AO",
+      "kind": "число",
+      "min": 0,
+      "max": 1,
+      "step": 0.05
+    },
+    {
+      "key": "contactAoRadius",
+      "group": "engine",
+      "node": "quality",
+      "label": "Радиус AO",
+      "kind": "число",
+      "min": 0.05,
+      "max": 3,
+      "step": 0.05,
+      "unit": "m"
+    },
+    {
       "key": "debugWireframe",
-      "group": "render",
+      "group": "engine",
       "node": "debug",
       "label": "Каркас (wireframe)",
       "kind": "выключатель"
     },
     {
       "key": "showPointerDebug",
-      "group": "render",
+      "group": "engine",
       "node": "debug",
       "label": "Отладка курсора и тача",
       "kind": "выключатель"
     },
     {
       "key": "showPerformanceHud",
-      "group": "render",
+      "group": "engine",
       "node": "debug",
       "label": "Показывать FPS и память",
       "kind": "выключатель"
     },
     {
       "key": "debugView",
-      "group": "render",
+      "group": "engine",
       "node": "debug",
       "label": "Режим отладки",
       "kind": "список",
