@@ -2,19 +2,22 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-// Проект движка — это числа, а не модели: один JSON с настройками сцены и
-// камерами. Ассеты (модели, текстуры, небо, звук) общие и лежат в public/,
-// в проект не копируются.
+// Файловые хранилища движка. Два вида записей, одна механика:
 //
-// Файлы, а не localStorage: сцену собирает агент, а агент читает файлы.
-// Имя файла делается читаемым по той же причине — чтобы «projects/azovskiy-
-// bereg.json» можно было открыть, не спрашивая редактор.
+//   projects/<id>.json — проект: числа сцены и камеры. Ассеты (модели,
+//     текстуры, небо, звук) общие, лежат в public/ и в проект не копируются:
+//     движок процедурный, форму он считает из этих чисел.
+//   presets/<id>.json — деталь: настроенный вариант одного объекта (три вида
+//     травы, пять кустов). Из деталей собирается новый проект.
+//
+// Файлы, а не localStorage: сцены собирает агент, а агент читает файлы. Имя
+// файла делается читаемым по той же причине — чтобы «projects/azovskiy-bereg.json»
+// можно было открыть, не спрашивая редактор.
+//
 // Папка переопределяется переменной окружения: так проверка пишет во временный
 // каталог, а собранное приложение — в свою папку данных, не в исходники.
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-export const PROJECTS_DIR = process.env.DDG_PROJECTS_DIR
-  ? path.resolve(process.env.DDG_PROJECTS_DIR)
-  : path.join(ROOT, 'projects');
+const HOME = process.env.DDG_PROJECTS_DIR ? path.resolve(process.env.DDG_PROJECTS_DIR) : ROOT;
 
 const TRANSLIT = {
   а: 'a', б: 'b', в: 'v', г: 'g', д: 'd', е: 'e', ё: 'e', ж: 'zh', з: 'z', и: 'i',
@@ -31,108 +34,112 @@ export function slugify(name) {
     .replace(/^-+|-+$/g, '')
     .slice(0, 48);
 
-  return slug || 'proekt';
+  return slug || 'zapis';
 }
-
-const projectPath = (id) => path.join(PROJECTS_DIR, `${id}.json`);
 
 // Идентификатор приходит из сети и становится путём — всё, кроме простого
 // имени файла, отбрасывается, иначе «../../» ушло бы гулять по диску.
 export const isValidId = (id) => typeof id === 'string' && /^[a-z0-9][a-z0-9-]{0,63}$/.test(id);
 
-async function readAll() {
-  let names = [];
-  try {
-    names = await fs.readdir(PROJECTS_DIR);
-  } catch (error) {
-    if (error.code !== 'ENOENT') throw error;
-    return [];
-  }
+// Тяжёлое поле (сцена проекта, значения детали) не уезжает в список: там сотни
+// ключей на запись, а меню их не показывает.
+export function createStore(folder, payloadKey) {
+  const dir = path.join(HOME, folder);
+  const filePath = (id) => path.join(dir, `${id}.json`);
 
-  const projects = await Promise.all(names
-    .filter((name) => name.endsWith('.json'))
-    .map(async (name) => {
-      try {
-        return JSON.parse(await fs.readFile(path.join(PROJECTS_DIR, name), 'utf8'));
-      } catch {
-        return null;
-      }
-    }));
+  const readAll = async () => {
+    let names = [];
+    try {
+      names = await fs.readdir(dir);
+    } catch (error) {
+      if (error.code !== 'ENOENT') throw error;
+      return [];
+    }
 
-  return projects.filter(Boolean);
-}
+    const entries = await Promise.all(names
+      .filter((name) => name.endsWith('.json'))
+      .map(async (name) => {
+        try {
+          return JSON.parse(await fs.readFile(path.join(dir, name), 'utf8'));
+        } catch {
+          return null;
+        }
+      }));
 
-// Список для меню: без настроек, иначе на каждый проект уезжает по сотне
-// килобайт чисел, которые меню всё равно не показывает.
-export async function listProjects() {
-  const projects = await readAll();
-  return projects
-    .map(({ settings: _settings, ...meta }) => meta)
+    return entries.filter(Boolean);
+  };
+
+  const list = async () => (await readAll())
+    .map(({ [payloadKey]: _payload, ...meta }) => meta)
     .sort((a, b) => String(b.updated ?? '').localeCompare(String(a.updated ?? '')));
-}
 
-export async function readProject(id) {
-  if (!isValidId(id)) return null;
-  try {
-    return JSON.parse(await fs.readFile(projectPath(id), 'utf8'));
-  } catch (error) {
-    if (error.code === 'ENOENT') return null;
-    throw error;
-  }
-}
-
-async function freeId(name) {
-  const base = slugify(name);
-  const taken = new Set((await listProjects()).map((project) => project.id));
-  if (!taken.has(base)) return base;
-  for (let index = 2; ; index += 1) {
-    if (!taken.has(`${base}-${index}`)) return `${base}-${index}`;
-  }
-}
-
-export async function createProject({ name, settings, engine }) {
-  if (!settings || typeof settings !== 'object' || Array.isArray(settings)) {
-    throw new Error('Проект не создан: не передана сцена.');
-  }
-
-  const now = new Date().toISOString();
-  const project = {
-    id: await freeId(name),
-    name: String(name ?? '').trim() || 'Без названия',
-    engine: engine ?? null,
-    created: now,
-    updated: now,
-    settings,
+  const read = async (id) => {
+    if (!isValidId(id)) return null;
+    try {
+      return JSON.parse(await fs.readFile(filePath(id), 'utf8'));
+    } catch (error) {
+      if (error.code === 'ENOENT') return null;
+      throw error;
+    }
   };
 
-  await fs.mkdir(PROJECTS_DIR, { recursive: true });
-  await fs.writeFile(projectPath(project.id), `${JSON.stringify(project, null, 2)}\n`, 'utf8');
-  return project;
-}
-
-// Правки приходят по одной: переименование без сцены не должно её стирать.
-export async function saveProject(id, patch) {
-  const current = await readProject(id);
-  if (!current) return null;
-
-  const next = {
-    ...current,
-    ...(patch.name === undefined ? {} : { name: String(patch.name).trim() || current.name }),
-    ...(patch.settings === undefined ? {} : { settings: patch.settings }),
-    updated: new Date().toISOString(),
+  const freeId = async (name) => {
+    const base = slugify(name);
+    const taken = new Set((await list()).map((entry) => entry.id));
+    if (!taken.has(base)) return base;
+    for (let index = 2; ; index += 1) {
+      if (!taken.has(`${base}-${index}`)) return `${base}-${index}`;
+    }
   };
 
-  await fs.writeFile(projectPath(id), `${JSON.stringify(next, null, 2)}\n`, 'utf8');
-  return next;
+  const write = async (entry) => {
+    await fs.mkdir(dir, { recursive: true });
+    await fs.writeFile(filePath(entry.id), `${JSON.stringify(entry, null, 2)}\n`, 'utf8');
+    return entry;
+  };
+
+  const create = async ({ name, ...rest }) => {
+    if (!rest[payloadKey] || typeof rest[payloadKey] !== 'object' || Array.isArray(rest[payloadKey])) {
+      throw new Error(`Запись не создана: не передано поле «${payloadKey}».`);
+    }
+
+    const now = new Date().toISOString();
+    return write({
+      id: await freeId(name),
+      name: String(name ?? '').trim() || 'Без названия',
+      created: now,
+      updated: now,
+      ...rest,
+    });
+  };
+
+  // Правки приходят по одной: переименование без сцены не должно её стирать.
+  const save = async (id, patch) => {
+    const current = await read(id);
+    if (!current) return null;
+
+    // Личность записи правкой не подменяется: id — это имя файла, created — факт.
+    const fields = { ...patch };
+    delete fields.id;
+    delete fields.created;
+    const next = { ...current, ...fields, updated: new Date().toISOString() };
+    if (patch?.name !== undefined) next.name = String(patch.name).trim() || current.name;
+    return write(next);
+  };
+
+  const remove = async (id) => {
+    if (!isValidId(id)) return false;
+    try {
+      await fs.unlink(filePath(id));
+      return true;
+    } catch (error) {
+      if (error.code === 'ENOENT') return false;
+      throw error;
+    }
+  };
+
+  return { dir, list, read, create, save, remove };
 }
 
-export async function deleteProject(id) {
-  if (!isValidId(id)) return false;
-  try {
-    await fs.unlink(projectPath(id));
-    return true;
-  } catch (error) {
-    if (error.code === 'ENOENT') return false;
-    throw error;
-  }
-}
+export const projects = createStore('projects', 'settings');
+export const presets = createStore('presets', 'values');

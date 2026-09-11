@@ -1,13 +1,11 @@
-// Проекты движка живут файлами в папке projects/ и ходят через локальный
-// сервер — тот же, что публикует сцену. Причина простая: сцену собирает агент,
-// а агент читает файлы, а не localStorage браузера.
+// Проекты и детали движка живут файлами и ходят через локальный сервер — тот
+// же, что публикует сцену. Причина простая: сцены собирает агент, а агент
+// читает файлы, а не localStorage браузера.
 //
 // Черновик сайта сюда не входит. У него свой ключ в localStorage и своя кнопка
 // «В проект»: проект движка не может случайно уехать на сайт.
-const BASE = '/__projects';
-
-async function call(path, options) {
-    const response = await fetch(`${BASE}${path}`, {
+async function call(base, path, options) {
+    const response = await fetch(`${base}${path}`, {
         ...options,
         headers: options?.body ? { 'Content-Type': 'application/json' } : undefined,
     });
@@ -20,25 +18,36 @@ async function call(path, options) {
     }
 
     if (!response.ok || payload?.ok === false) {
-        throw new Error(payload?.message ?? `Хранилище проектов ответило ${response.status}`);
+        throw new Error(payload?.message ?? `Хранилище движка ответило ${response.status}`);
     }
 
     return payload;
 }
 
-export const listProjects = async () => (await call('/')).projects ?? [];
-export const readProject = async (id) => (await call(`/${encodeURIComponent(id)}`)).project;
-export const createProject = async (body) => (await call('/', { method: 'POST', body: JSON.stringify(body) })).project;
-export const renameProject = async (id, name) => (await call(`/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify({ name }) })).project;
-export const removeProject = (id) => call(`/${encodeURIComponent(id)}`, { method: 'DELETE' });
+const store = (base) => ({
+    list: async () => (await call(base, '/')).entries ?? [],
+    read: async (id) => (await call(base, `/${encodeURIComponent(id)}`)).entry,
+    create: async (body) => (await call(base, '/', { method: 'POST', body: JSON.stringify(body) })).entry,
+    save: async (id, patch, { keepalive = false } = {}) => (await call(base, `/${encodeURIComponent(id)}`, {
+        method: 'PUT', body: JSON.stringify(patch), keepalive,
+    })).entry,
+    remove: (id) => call(base, `/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+});
 
-// Сохранение сцены уходит часто и не должно ничего блокировать: ответ не ждём,
-// ошибку показываем вызывающему. keepalive нужен для последнего сохранения при
-// закрытии окна — обычный запрос браузер в этот момент отменяет.
-export const saveProjectSettings = (id, settings, { keepalive = false } = {}) => call(
-    `/${encodeURIComponent(id)}`,
-    { method: 'PUT', body: JSON.stringify({ settings }), keepalive },
-);
+// Проект — сцена целиком. Деталь — настроенный вариант одного объекта.
+export const projectStore = store('/__projects');
+export const presetStore = store('/__presets');
+
+export const listProjects = projectStore.list;
+export const readProject = projectStore.read;
+export const createProject = projectStore.create;
+export const removeProject = projectStore.remove;
+export const renameProject = (id, name) => projectStore.save(id, { name });
+
+// Сохранение сцены уходит часто и не должно ничего блокировать. keepalive нужен
+// для последнего сохранения при закрытии окна — обычный запрос браузер в этот
+// момент отменяет.
+export const saveProjectSettings = (id, settings, options) => projectStore.save(id, { settings }, options);
 
 // Редактор узнаёт, что открыт в проекте, по адресу: /home/edit?project=<id>.
 // Без параметра он остаётся тем же редактором сайта, что и был.
