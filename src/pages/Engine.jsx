@@ -4,10 +4,10 @@ import { version } from '../../package.json';
 import { FocusIcon } from '../features/home-scene/components/editor/focus/FocusIcons';
 import { FocusContextMenu } from '../features/home-scene/components/editor/focus/FocusContextMenu';
 import {
-    createProject, listProjects, readProject, removeProject, renameProject,
+    createProject, listProjects, projectStore, readProject, removeProject, renameProject,
 } from '../features/engine/projectApi';
 import {
-    getBaseHomeSceneSettings, normalizeHomeSceneDraftSettings,
+    getBaseHomeSceneSettings, normalizeHomeSceneDraftSettings, readHomeSceneDraftSettings,
 } from '../features/home-scene/hooks/useHomeSceneSettings';
 import './Engine.css';
 
@@ -16,11 +16,26 @@ import './Engine.css';
 // диск, и «чистый» — это заводские значения тех же модулей настроек, из которых
 // собран список публикуемых ключей.
 //
-// Сайта в этом списке нет. Он публикуется своей кнопкой из своего редактора, и
-// проект движка не может туда уехать.
+// Сайт стоит в списке первым, но проектом движка не является: у него свой
+// черновик и свои кнопки публикации, а проект движка на сайт уехать не может.
 const factoryScene = () => normalizeHomeSceneDraftSettings(getBaseHomeSceneSettings());
 
 const openEditor = (id) => { window.location.href = `/home/edit?project=${encodeURIComponent(id)}`; };
+
+// Сайт — не проект движка, а его собственный редактор: черновик в этом браузере,
+// свои кнопки «В проект» и «На сайт». В меню он стоит первым и отдельно, чтобы
+// было видно, что это он. Кадр берётся из миниатюр камер того же редактора.
+const siteThumbnail = () => {
+    try {
+        const draft = readHomeSceneDraftSettings();
+        const thumbnails = JSON.parse(localStorage.getItem('ddg_home_editor_camera_thumbnails_v1') || '{}');
+        const cameraId = draft?.activeCameraId ?? draft?.sceneCameras?.[0]?.id;
+        const layout = draft?.editorLayoutKey ?? 'desktop';
+        return thumbnails[`${cameraId}:${layout}`] ?? Object.values(thumbnails)[0] ?? null;
+    } catch {
+        return null;
+    }
+};
 
 const formatDate = (value, language) => {
     const date = new Date(value);
@@ -53,6 +68,7 @@ export default function Engine() {
     const [state, setState] = useState({ status: 'loading', projects: [], message: '' });
     const [editing, setEditing] = useState(null);
     const [menu, setMenu] = useState(null);
+    const [sitePreview] = useState(siteThumbnail);
 
     const reload = useCallback(async () => {
         try {
@@ -161,12 +177,23 @@ export default function Engine() {
                         <small>{tr('Заводской берег', 'Factory coast')}</small>
                     </button>}
 
+                <article className="engine-card engine-card--site">
+                    <button type="button" className="engine-card__open" onClick={() => { window.location.href = '/home/edit'; }}>
+                        {sitePreview ? <img className="engine-card__preview" src={sitePreview} alt="" /> : <span className="engine-card__preview" aria-hidden="true" />}
+                        <span className="engine-card__name">{tr('Сайт · заглавная страница', 'Website · home page')}</span>
+                        <small>{tr('свой черновик · публикуется на сайт', 'own draft · publishes to the site')}</small>
+                    </button>
+                    <span className="engine-card__tag">{tr('сайт', 'site')}</span>
+                </article>
+
                 {state.projects.map((project) => <article
                     key={project.id}
                     className="engine-card"
                     onContextMenu={(event) => { if (event.shiftKey) return; event.preventDefault(); setMenu({ x: event.clientX, y: event.clientY, project }); }}
                 >
-                    <span className="engine-card__preview" aria-hidden="true" />
+                    {project.thumbnail
+                        ? <img className="engine-card__preview" src={`${projectStore.thumbnailUrl(project.id)}?t=${encodeURIComponent(project.updated)}`} alt="" />
+                        : <span className="engine-card__preview" aria-hidden="true" />}
                     {editing?.id === project.id
                         ? naming(project)
                         : <button type="button" className="engine-card__open" onClick={() => openEditor(project.id)}>

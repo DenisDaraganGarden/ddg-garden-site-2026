@@ -157,9 +157,27 @@ function homeScenePublishPlugin() {
 function engineStorePlugin() {
   const attach = (middlewares, route, store) => {
     middlewares.use(route, async (request, response, next) => {
-      const id = decodeURIComponent(request.url.replace(/^\/+|\?.*$/g, ''));
+      const [id, part] = decodeURIComponent(request.url.replace(/^\/+|\?.*$/g, '')).split('/');
 
       try {
+        // Миниатюра: /__projects/<id>/thumbnail — файл рядом с записью.
+        if (part === 'thumbnail' && isValidId(id)) {
+          if (request.method === 'GET') {
+            const image = await store.readThumbnail(id);
+            if (!image) { sendJson(response, 404, { ok: false, message: 'Миниатюры нет.' }); return; }
+            response.statusCode = 200;
+            response.setHeader('Content-Type', 'image/webp');
+            response.setHeader('Cache-Control', 'no-cache');
+            response.end(image);
+            return;
+          }
+          if (request.method === 'PUT') {
+            const body = await readJsonBody(request);
+            sendJson(response, 200, { ok: await store.writeThumbnail(id, body.image) });
+            return;
+          }
+        }
+
         if (request.method === 'GET') {
           if (!id) {
             sendJson(response, 200, { ok: true, entries: await store.list() });

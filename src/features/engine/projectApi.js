@@ -32,6 +32,10 @@ const store = (base) => ({
         method: 'PUT', body: JSON.stringify(patch), keepalive,
     })).entry,
     remove: (id) => call(base, `/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+    thumbnailUrl: (id) => `${base}/${encodeURIComponent(id)}/thumbnail`,
+    saveThumbnail: (id, image, { keepalive = false } = {}) => call(base, `/${encodeURIComponent(id)}/thumbnail`, {
+        method: 'PUT', body: JSON.stringify({ image }), keepalive,
+    }),
 });
 
 // Проект — сцена целиком. Деталь — настроенный вариант одного объекта.

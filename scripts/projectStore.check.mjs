@@ -66,7 +66,18 @@ assert.equal((await presets.list()).length, 1);
 assert.equal((await projects.list()).length, 2);
 await assert.rejects(() => presets.create({ name: 'Пустая', node: 'greenery/grass' }), /не передано поле/);
 
+// Миниатюра — отдельный файл рядом с записью, в список попадает только флаг.
+const pixel = `data:image/webp;base64,${Buffer.from('RIFF....WEBP').toString('base64')}`;
+assert.equal(await projects.writeThumbnail('dyuny', pixel), true);
+assert.equal(await projects.writeThumbnail('nikogo', pixel), false);
+await assert.rejects(() => projects.writeThumbnail('dyuny', 'data:image/png;base64,AAAA'), /webp/);
+assert.ok((await projects.readThumbnail('dyuny')).length > 0);
+assert.equal((await projects.list()).find((entry) => entry.id === 'dyuny').thumbnail, true);
+assert.equal((await projects.list()).find((entry) => entry.id === 'dyuny-2').thumbnail, false);
+assert.ok(!('thumbnail' in (await projects.read('dyuny'))), 'в самой записи миниатюры нет');
+
 assert.equal(await projects.remove('dyuny'), true);
+assert.equal(await projects.readThumbnail('dyuny'), null, 'миниатюра уходит вместе с записью');
 assert.equal(await projects.remove('dyuny'), false);
 assert.equal((await projects.list()).length, 1);
 assert.equal((await presets.list()).length, 1, 'удаление проекта не трогает детали');

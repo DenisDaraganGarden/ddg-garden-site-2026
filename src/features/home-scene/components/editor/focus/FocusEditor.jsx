@@ -6,7 +6,7 @@ import { sceneObjectsForNode } from '../../../lib/sceneObjects';
 import { RangeControl, CheckboxControl, SectionHeading } from '../../HomeEditorControls';
 import { FocusControlsProvider, FocusControlScope, useFocusControls } from './FocusControlsContext';
 import { RegisteredFocusControl } from './FocusControlComponents';
-import { FOCUS_DOMAINS, getFocusDomain, getFocusGroups, getFocusLabel, getNodeIcon } from './focusNavigation';
+import { FOCUS_DOMAINS, SETTINGS_PAGES, getFocusDomain, getFocusGroups, getFocusLabel, getNodeIcon } from './focusNavigation';
 import { FocusIcon } from './FocusIcons';
 import { FocusColorPalette, useFocusColorPalette, useFocusIconColors } from './FocusIconPalette';
 import { FocusContextMenu } from './FocusContextMenu';
@@ -25,11 +25,11 @@ function Button({ icon, label, children, className = '', ...props }) {
     return <button type="button" className={`focus-button ${className}`} aria-label={label} data-focus-tip={label} {...props}>{icon ? <FocusIcon name={icon} /> : null}{children}</button>;
 }
 
-function Dialog({ title, children, onClose }) {
+function Dialog({ title, children, onClose, className = '' }) {
     const ref = useRef(null);
     const { language } = useLanguage();
     useEffect(() => { const dialog = ref.current; dialog.showModal(); return () => dialog.close(); }, []);
-    return <dialog ref={ref} className="focus-dialog" aria-label={title} onCancel={(event) => { event.preventDefault(); onClose(); }} onKeyDown={(event) => event.stopPropagation()} onClick={(event) => {
+    return <dialog ref={ref} className={`focus-dialog ${className}`} aria-label={title} onCancel={(event) => { event.preventDefault(); onClose(); }} onKeyDown={(event) => event.stopPropagation()} onClick={(event) => {
         if (event.target !== event.currentTarget) return;
         const bounds = event.currentTarget.getBoundingClientRect();
         if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) onClose();
@@ -42,12 +42,41 @@ function useCatalog() {
     return store.all();
 }
 
-function NodeSections({ group, node, catalogOnly = false, sectionProps }) {
+function NodeSections({ group, node, catalogOnly = false, sectionProps, only = null }) {
     const { t } = useLanguage();
+    // Окно настроек показывает узел по частям: «качество кадра» — в графике,
+    // «плёнка и цвет» — отдельно. Инспектор по-прежнему показывает узел целиком.
+    const aspects = only ? node.aspects.filter((aspect) => aspect.id === only) : node.aspects;
     return <FocusControlScope path={`${group.id}/${node.id}`} groupLabel={t(`homeEditor.groups.${group.id}`)} nodeLabel={t(`homeEditor.nodes.${node.id}`)} catalogOnly={catalogOnly}>
-        {sceneObjectsForNode(`${group.id}/${node.id}`).map(({ key }) => <CheckboxControl key={key} controlId={key} label={t(`homeEditor.controls.${key}`)} checked={Boolean(sectionProps.settings[key])} onChange={(event) => sectionProps.handleSettingChange(event, key, 'boolean')} testId={`home-editor-object-${key}`} />)}
-        {node.aspects.map(({ id, Section }) => <React.Fragment key={id}>{node.aspects.length > 1 ? <SectionHeading label={t(`homeEditor.aspects.${id}`)} /> : null}<Section {...sectionProps} /></React.Fragment>)}
+        {only ? null : sceneObjectsForNode(`${group.id}/${node.id}`).map(({ key }) => <CheckboxControl key={key} controlId={key} label={t(`homeEditor.controls.${key}`)} checked={Boolean(sectionProps.settings[key])} onChange={(event) => sectionProps.handleSettingChange(event, key, 'boolean')} testId={`home-editor-object-${key}`} />)}
+        {aspects.map(({ id, Section }) => <React.Fragment key={id}>{node.aspects.length > 1 ? <SectionHeading label={t(`homeEditor.aspects.${id}`)} /> : null}<Section {...sectionProps} /></React.Fragment>)}
     </FocusControlScope>;
+}
+
+// Список клавиш один: он и в справке, и в окне настроек.
+const shortcutRows = (tr) => [[tr('Поиск', 'Search'), '⌘ K'], [tr('Отменить / повторить параметр', 'Undo / redo parameter'), '⌘ Z / ⌘ ⇧ Z'], [tr('Пауза', 'Pause'), 'Space'], [tr('Перенос / поворот / масштаб', 'Move / rotate / scale'), 'G / R / S'], [tr('Свободный полёт', 'Free flight'), 'W A S D Q E'], [tr('Выбор объекта в сцене', 'Pick an object in the scene'), 'V'], [tr('Скрыть / вернуть панели', 'Hide / show panels'), 'Tab'], [tr('Изменить число', 'Scrub value'), tr('ЛКМ ↔ · Shift точнее', 'LMB ↔ · Shift precise')], [tr('Меню объекта, камеры, параметра', 'Object, camera, parameter menu'), tr('ПКМ', 'RMB')], [tr('Цвет значка', 'Icon colour'), tr('ПКМ в списке', 'RMB in the list')], [tr('Отменить жест / скрыть манипулятор', 'Cancel gesture / hide gizmo'), 'Esc']];
+
+// Окно настроек движка: слева разделы, справа те же секции, что и в инспекторе,
+// — контролы регистрируются в том же каталоге, поиск и избранное их видят.
+function SettingsDialog({ sectionProps, onClose }) {
+    const { language } = useLanguage(); const tr = (ru, en) => language === 'ru' ? ru : en;
+    const pages = SETTINGS_PAGES.filter((page) => import.meta.env.DEV || !page.devOnly);
+    const [pageId, setPageId] = useState(pages[0].id);
+    const page = pages.find((item) => item.id === pageId) ?? pages[0];
+    return <Dialog title={tr('Настройки движка', 'Engine settings')} onClose={onClose} className="focus-dialog--wide">
+        <div className="focus-settings">
+            <nav className="focus-settings__nav" aria-label={tr('Разделы настроек', 'Settings sections')}>
+                {pages.map((item) => <button key={item.id} type="button" aria-pressed={item.id === page.id} onClick={() => setPageId(item.id)}><FocusIcon name={item.icon} />{getFocusLabel(item, language)}</button>)}
+            </nav>
+            <div className="focus-settings__body focus-inspector-scroll">
+                <h3>{getFocusLabel(page, language)}</h3>
+                {page.id === 'keys'
+                    ? <div className="focus-shortcuts">{shortcutRows(tr).map(([label, keys]) => <div key={label}><span>{label}</span><kbd>{keys}</kbd></div>)}</div>
+                    : page.parts.map(([path, only]) => { const { group, node } = resolveEditorPath(path, { includeDevOnly: import.meta.env.DEV }); return <NodeSections key={`${path}:${only ?? ''}`} group={group} node={node} sectionProps={sectionProps} only={only ?? null} />; })}
+                {page.id === 'editor' ? <p className="focus-settings__note">{tr('Настройки редактора живут в этом браузере и на сайт не попадают. Графика и плёнка — часть сцены: они сохраняются в камеру и уезжают в проект.', 'Editor preferences live in this browser and never reach the site. Graphics and film belong to the scene: they are stored per camera and go into the project.')}</p> : null}
+            </div>
+        </div>
+    </Dialog>;
 }
 
 function SearchDialog({ onClose, onSelect, commands }) {
@@ -133,6 +162,7 @@ function FocusShell(props) {
         gizmo?.show?.();
     }, [setActiveTab, gizmo]);
     const selectDomain = (item) => {
+        if (item.dialog) { setModal(item.dialog); setNavOpen(false); return; }
         const nextGroups = getFocusGroups(item.id, { includeDevOnly: import.meta.env.DEV }); const hasTree = nextGroups.reduce((total, group) => total + group.nodes.length, 0) > 1;
         if (item.id === domain.id) { setNavOpen(hasTree && !navOpen); setCollapsed(false); return; }
         selectNode(lastNodes.current[item.id] || `${nextGroups[0].id}/${nextGroups[0].nodes[0].id}`); setNavOpen(hasTree);
@@ -203,13 +233,13 @@ function FocusShell(props) {
             { label: tr('Посмотреть кадр сайта', 'Preview site framing'), icon: 'eye', onSelect: () => setPreview(true) },
         ];
     };
-    const commands = [{ id: 'command:save', label: tr('В проект', 'Save to project'), icon: 'upload', action: () => setModal('save') }, { id: 'command:presets', label: tr('Детали объекта', 'Parts of this object'), icon: 'folder', action: () => setModal({ kind: 'presets', path: selected.path, label: t(`homeEditor.nodes.${selected.node.id}`) }) }, { id: 'command:help', label: tr('Горячие клавиши', 'Keyboard shortcuts'), icon: 'help', action: () => setModal('help') }];
+    const commands = [{ id: 'command:save', label: tr('В проект', 'Save to project'), icon: 'upload', action: () => setModal('save') }, { id: 'command:presets', label: tr('Детали объекта', 'Parts of this object'), icon: 'folder', action: () => setModal({ kind: 'presets', path: selected.path, label: t(`homeEditor.nodes.${selected.node.id}`) }) }, { id: 'command:settings', label: tr('Настройки движка', 'Engine settings'), icon: 'settings', action: () => setModal('settings') }, { id: 'command:help', label: tr('Горячие клавиши', 'Keyboard shortcuts'), icon: 'help', action: () => setModal('help') }];
     const nodeTarget = { kind: 'node', path: selected.path, label: t(`homeEditor.nodes.${selected.node.id}`) };
     return <div className={`focus-editor ${focus || preview ? 'focus-editor--hidden' : ''}`}>
         <header className="focus-topbar"><div className="focus-brand"><svg viewBox="243 157 535 535" aria-hidden="true"><image href={logo} width="1536" height="1024" /></svg><span>OUROBOROS<small>ENGINE {version}</small></span></div>{props.project
             ? <button type="button" className="focus-project-label focus-project-label--link" onClick={() => { window.location.href = '/engine'; }} data-focus-tip={tr('К списку проектов', 'Back to the project list')}><FocusIcon name="folder" />{props.project.name}</button>
             : <span className="focus-project-label">{tr('Редактор сцены', 'Scene editor')}</span>}<span className="focus-saved" data-focus-tip={tr('Настройки автоматически сохраняются в этом браузере.', 'Settings are saved automatically in this browser.')}>●</span><span className="focus-spacer" /><span className="focus-active-camera" data-focus-tip={layoutEditor.activeWorkCameraId ? tr('Рабочий снимок — только локально', 'Working snapshot — local only') : tr('Сцена входит в проект', 'Scene is included in the project')}><FocusIcon name={layoutEditor.activeWorkCameraId ? 'lock' : 'camera'} />{currentCamera?.name}</span><div className="focus-formats">{['desktop', 'portrait'].map((key) => <Button key={key} icon={key === 'desktop' ? 'desktop' : 'mobile'} label={key === 'desktop' ? 'Desktop' : 'Mobile'} aria-pressed={layoutEditor.selectedKey === key} onClick={() => layoutEditor.setSelectedKey(key)} data-testid={`home-editor-camera-variant-${key}`} />)}</div><Button icon={settings.animationPaused ? 'play' : 'pause'} label={tr('Пауза / продолжить · Пробел', 'Pause / play · Space')} onClick={() => props.handleSettingChange({ target: { checked: !settings.animationPaused } }, 'animationPaused', 'boolean')} /><Button icon="eye" label={tr('Посмотреть кадр сайта', 'Preview site framing')} onClick={() => setPreview(true)} /><span className="focus-separator" /><Button icon="undo" label={t('homeEditor.publish.adoptHint')} onClick={() => setModal('revert')} data-testid="home-editor-adopt-published" /><Button className="focus-primary" label={tr('Сохранить сцены в проект', 'Save scenes to project')} onClick={() => setModal('save')} disabled={!publishEnabled || publishState?.busy || !hasPublishChanges} data-testid="home-editor-publish">{tr('В проект', 'Save')}</Button><Button label={tr('Опубликовать на сайте', 'Publish to website')} onClick={() => setModal('publish')} disabled={!publishEnabled || publishState?.busy} data-testid="home-editor-deploy">{tr('На сайт', 'Publish')}<FocusIcon name="chevron" /></Button></header>
-        <nav className="focus-rail" aria-label={tr('Рабочие области', 'Workspaces')}>{FOCUS_DOMAINS.map((item) => <Button key={item.id} icon={item.icon} label={getFocusLabel(item, language)} aria-pressed={item.id === domain.id} onClick={() => selectDomain(item)} data-testid={`focus-domain-${item.id}`} />)}<span className="focus-spacer" /><Button icon="search" label={tr('Поиск · ⌘K', 'Search · ⌘K')} onClick={() => setModal('search')} /><Button icon="help" label={tr('Горячие клавиши · ?', 'Keyboard shortcuts · ?')} onClick={() => setModal('help')} /></nav>
+        <nav className="focus-rail" aria-label={tr('Рабочие области', 'Workspaces')}>{FOCUS_DOMAINS.map((item) => <Button key={item.id} icon={item.icon} label={getFocusLabel(item, language)} aria-pressed={item.dialog ? modal === item.dialog : item.id === domain.id} onClick={() => selectDomain(item)} data-testid={`focus-domain-${item.id}`} />)}<span className="focus-spacer" /><Button icon="search" label={tr('Поиск · ⌘K', 'Search · ⌘K')} onClick={() => setModal('search')} /><Button icon="help" label={tr('Горячие клавиши · ?', 'Keyboard shortcuts · ?')} onClick={() => setModal('help')} /></nav>
         {navOpen ? <aside className="focus-navigator"><header>{getFocusLabel(domain, language)}<span className="focus-spacer" /><Button icon="close" label={tr('Закрыть список', 'Close list')} onClick={() => setNavOpen(false)} /></header><div className="focus-tree-search"><FocusIcon name="search" /><input value={treeQuery} onChange={(event) => setTreeQuery(event.target.value)} aria-label={tr('Фильтр объектов', 'Filter objects')} placeholder={tr('Объекты…', 'Objects…')} /></div><div className="focus-tree-scroll">{groups.map((group) => <details key={group.id} open><summary onContextMenu={(event) => palette.open(event, { kind: 'group', groupId: group.id, label: t(`homeEditor.groups.${group.id}`) })} data-focus-tip={tr('ПКМ — цвет группы', 'Right click — group colour')}><FocusIcon name="folder" style={{ color: colors.groupColor(group.id) }} />{t(`homeEditor.groups.${group.id}`)}</summary>{group.nodes.filter((node) => matchesSearch(t(`homeEditor.nodes.${node.id}`), treeQuery)).map((node) => {
             const path = `${group.id}/${node.id}`; const objects = sceneObjectsForNode(path); const visible = objects.every(({ key }) => settings[key] !== false);
             return <div key={path} className={`focus-tree-row ${selected.path === path ? 'is-active' : ''}`}><button type="button" onClick={() => selectNode(path)} onContextMenu={(event) => palette.open(event, { kind: 'node', path, label: t(`homeEditor.nodes.${node.id}`) })} data-testid={`home-editor-tab-${node.id}`}><FocusIcon name={getNodeIcon(node.id)} style={{ color: colors.colorFor(path) }} /><span>{t(`homeEditor.nodes.${node.id}`)}</span></button>{objects.length ? <Button className="focus-tree-eye" icon={visible ? 'eye' : 'eyeoff'} label={tr('Видимость объекта', 'Object visibility')} onClick={() => props.applySettings(Object.fromEntries(objects.map(({ key }) => [key, !visible])))} /> : null}</div>;
@@ -223,7 +253,8 @@ function FocusShell(props) {
         {focus || preview ? <Button className="focus-return" icon="panel" label={tr('Вернуться к инструментам', 'Return to tools')} onClick={() => { setFocus(false); setPreview(false); }}>{tr('К редактору', 'Editor')}</Button> : null}
         {modal === 'search' ? <SearchDialog onClose={() => setModal(null)} onSelect={selectNode} commands={commands} /> : null}
         {modal?.kind === 'presets' ? <Dialog title={`${tr('Детали', 'Parts')} · ${modal.label}`} onClose={() => setModal(null)}><FocusPresets path={modal.path} label={modal.label} settings={settings} applySettings={props.applySettings} onClose={() => setModal(null)} /></Dialog> : null}
-        {modal === 'help' ? <Dialog title={tr('Управление', 'Controls')} onClose={() => setModal(null)}><div className="focus-shortcuts">{[[tr('Поиск', 'Search'), '⌘ K'], [tr('Отменить / повторить параметр', 'Undo / redo parameter'), '⌘ Z / ⌘ ⇧ Z'], [tr('Пауза', 'Pause'), 'Space'], [tr('Перенос / поворот / масштаб', 'Move / rotate / scale'), 'G / R / S'], [tr('Свободный полёт', 'Free flight'), 'W A S D Q E'], [tr('Скрыть / вернуть панели', 'Hide / show panels'), 'Tab'], [tr('Изменить число', 'Scrub value'), tr('ЛКМ ↔ · Shift точнее', 'LMB ↔ · Shift precise')], [tr('Меню объекта, камеры, параметра', 'Object, camera, parameter menu'), tr('ПКМ', 'RMB')], [tr('Цвет значка', 'Icon colour'), tr('ПКМ в списке', 'RMB in the list')], [tr('Отменить жест / скрыть манипулятор', 'Cancel gesture / hide gizmo'), 'Esc']].map(([label, keys]) => <div key={label}><span>{label}</span><kbd>{keys}</kbd></div>)}</div></Dialog> : null}
+        {modal === 'help' ? <Dialog title={tr('Управление', 'Controls')} onClose={() => setModal(null)}><div className="focus-shortcuts">{shortcutRows(tr).map(([label, keys]) => <div key={label}><span>{label}</span><kbd>{keys}</kbd></div>)}</div></Dialog> : null}
+        {modal === 'settings' ? <SettingsDialog sectionProps={sectionProps} onClose={() => setModal(null)} /> : null}
         {['save', 'publish', 'revert'].includes(modal) ? <Dialog title={modal === 'revert' ? t('homeEditor.publish.adopt') : modal === 'publish' ? tr('Публикация на сайт', 'Publish to website') : tr('Сохранение в проект', 'Save to project')} onClose={() => setModal(null)}><div className="focus-save-summary"><p>{modal === 'revert' ? tr('Текущий вид будет заменён опубликованными настройками проекта. Рабочие камеры останутся в браузере.', 'The current view will be replaced with published project settings. Working cameras remain in the browser.') : tr('В проект входят обычные сцены, их Desktop и Mobile, общий звук. Рабочие камеры и настройки редактора остаются локальными.', 'The project includes scenes, their Desktop and Mobile views and global audio. Working cameras and editor preferences remain local.')}</p>{modal !== 'revert' ? <div className="focus-scene-names">{layoutEditor.cameras.map((camera) => <span key={camera.id}>{camera.name}</span>)}</div> : null}{modal === 'publish' ? <p>{tr('Это действие обновит живой сайт.', 'This will update the live website.')}</p> : null}<footer><Button label={tr('Отмена', 'Cancel')} onClick={() => setModal(null)}>{tr('Отмена', 'Cancel')}</Button><Button className="focus-primary" label={tr('Подтвердить действие', 'Confirm action')} onClick={() => { const action = modal === 'revert' ? onAdoptPublished : modal === 'publish' ? onDeploy : onPublish; setModal(null); action?.(); }}>{modal === 'revert' ? tr('Откатить', 'Revert') : modal === 'publish' ? tr('Опубликовать', 'Publish') : tr('В проект', 'Save')}</Button></footer></div></Dialog> : null}
         {gizmo?.sceneMenu ? <FocusContextMenu x={gizmo.sceneMenu.x} y={gizmo.sceneMenu.y} title={gizmo.sceneMenu.node ? t(`homeEditor.nodes.${resolveEditorPath(gizmo.sceneMenu.node, { includeDevOnly: import.meta.env.DEV }).node.id}`) : tr('Сцена', 'Scene')} items={sceneMenuItems(gizmo.sceneMenu)} onClose={gizmo.closeSceneMenu} /> : null}
         {rowMenu ? <FocusContextMenu x={rowMenu.x} y={rowMenu.y} title={rowMenu.label} items={[

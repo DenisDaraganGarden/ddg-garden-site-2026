@@ -99,15 +99,19 @@ async function createWindow(url) {
 async function runSmoke(window) {
   await new Promise((resolve) => { setTimeout(resolve, Number(process.env.DDG_APP_SMOKE_WAIT) || 4000); });
 
+  // Сбор и кадр совместимы: скрипт может, например, открыть окно настроек,
+  // а кадр снимет уже его.
   if (PROBE) {
     const value = await window.webContents.executeJavaScript(await fs.readFile(PROBE, 'utf8'), true);
-    await fs.writeFile(PROBE_OUT, JSON.stringify(value, null, 2));
-    console.log(`app: собрано в ${PROBE_OUT}`);
-    await viteServer?.close();
-    viteServer = null;
-    app.exit(0);
-    process.exit(0);
-    return;
+    if (PROBE_OUT) await fs.writeFile(PROBE_OUT, JSON.stringify(value, null, 2));
+    console.log(`app: собрано${PROBE_OUT ? ` в ${PROBE_OUT}` : ''}`);
+    if (!SMOKE) {
+      await viteServer?.close();
+      viteServer = null;
+      app.exit(0);
+      process.exit(0);
+      return;
+    }
   }
 
   const title = await window.webContents.executeJavaScript(

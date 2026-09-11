@@ -66,3 +66,17 @@ html[data-focus-preview=true] .home-editor-frame-mask,html[data-focus-frame=soli
 .focus-project-label--link{display:flex;gap:6px;align-items:center;height:24px;padding:0 8px;border:1px solid #ffffff1c;border-radius:4px;background:#ffffff08;cursor:pointer}
 .focus-project-label--link:hover{background:#ffffff14}
 .focus-project-label--link .focus-icon{width:12px;height:12px;color:var(--focus-accent)}
+/* Окно настроек движка: слева разделы, справа секции инспектора. */
+.focus-dialog.focus-dialog--wide{width:min(860px,calc(100vw - 28px))}
+.focus-settings{display:grid;grid-template-columns:172px minmax(0,1fr);height:min(600px,calc(100dvh - 130px));border-top:1px solid var(--focus-line)}
+.focus-settings__nav{display:flex;flex-direction:column;gap:2px;padding:9px 7px;border-right:1px solid var(--focus-line);background:var(--focus-bg)}
+.focus-settings__nav button{display:flex;gap:8px;align-items:center;height:30px;padding:0 9px;border:0;border-radius:4px;background:transparent;color:var(--focus-muted);font-size:11px;text-align:left}
+.focus-settings__nav button:hover{background:#ffffff09;color:var(--focus-text)}
+.focus-settings__nav button[aria-pressed=true]{background:#ffffff10;color:var(--focus-text)}
+.focus-settings__nav .focus-icon{width:14px;height:14px}
+.focus-settings__body{padding:8px 18px 20px}
+.focus-settings__body>h3{margin:6px 0 10px;font:500 15px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--focus-text);text-transform:none;letter-spacing:0}
+.focus-settings__note{margin:14px 0 0;padding:9px 11px;border:1px solid #ffffff12;border-radius:4px;background:#ffffff06;color:var(--focus-muted);font-size:10px;line-height:1.5}
+.focus-settings .focus-shortcuts{padding:0}
+.focus-settings__body .focus-control-row{grid-template-columns:15px minmax(160px,240px) minmax(20px,1fr) 56px 14px}
+.focus-settings__body .focus-control-row input[type=number]{max-width:80px}

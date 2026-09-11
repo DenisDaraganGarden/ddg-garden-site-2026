@@ -440,16 +440,14 @@ export const ResolutionSection = ({ settings, handleSettingChange }) => {
     );
 };
 
-export const PostSection = ({ settings, handleSettingChange }) => {
+// Постобработка разрезана на две части: качество кадра (сглаживание, апскейл,
+// AO) — это графика, она живёт в настройках движка рядом с разрешением; плёнка,
+// bloom и цвет — вид, художественная часть. В инспекторе обе идут подряд.
+export const PostQualitySection = ({ settings, handleSettingChange }) => {
     const { t } = useLanguage();
-    const filmStockOptions = HOME_SCENE_FILM_STOCKS.map(({ value }) => ({
-        value,
-        label: t(`homeEditor.filmStocks.${value}`),
-    }));
 
     return (
         <>
-            <SectionHeading label={t('homeEditor.blocks.post')} subtle />
             <CheckboxControl controlId={'postProcessingEnabled'}
                 label={t('homeEditor.controls.postProcessingEnabled')}
                 checked={Boolean(settings.postProcessingEnabled)}
@@ -512,7 +510,19 @@ export const PostSection = ({ settings, handleSettingChange }) => {
                 formatValue={(value) => formatFloat(value, 2)}
                 onChange={(event) => handleSettingChange(event, 'contactAoRadius')}
             />
+        </>
+    );
+};
 
+export const PostLookSection = ({ settings, handleSettingChange }) => {
+    const { t } = useLanguage();
+    const filmStockOptions = HOME_SCENE_FILM_STOCKS.map(({ value }) => ({
+        value,
+        label: t(`homeEditor.filmStocks.${value}`),
+    }));
+
+    return (
+        <>
             <SectionHeading label={t('homeEditor.blocks.film')} subtle />
             <CheckboxControl controlId={'filmEnabled'}
                 label={t('homeEditor.controls.filmEnabled')}

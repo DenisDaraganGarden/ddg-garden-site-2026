@@ -38,6 +38,7 @@ import { publishHomeSceneSettings } from '../features/home-scene/lib/homeScenePu
 import { useLanguage } from '../i18n/useLanguage';
 import { useSiteAudio } from '../features/audio/SiteAudioContext';
 import { activeProjectId, readProject } from '../features/engine/projectApi';
+import { requestEditorThumbnail } from '../components/effects/editorThumbnailCapture';
 import '../styles/HomeEditor.css';
 
 const INITIAL_PUBLISHED_SNAPSHOT = JSON.stringify(
@@ -166,7 +167,12 @@ const HomeEdit = ({ project = null }) => {
     // Редактор открывается уже собранным: экран из index.html держит кадр, пока
     // сцена не отчитается, что она построена. Раньше на его месте были шапка
     // сайта и общий спиннер маршрута, а потом резкая подмена на редактор.
-    const handleSceneReady = useCallback(() => setIsSceneReady(true), []);
+    const handleSceneReady = useCallback(() => {
+        setIsSceneReady(true);
+        // Первая миниатюра проекта — сразу как сцена собралась, а не после первой
+        // правки: в меню карточка должна показывать сцену, а не заглушку.
+        if (project) window.setTimeout(() => requestEditorThumbnail(`project:${project.id}`), 1200);
+    }, [project]);
 
     useEffect(() => {
         const root = document.documentElement;

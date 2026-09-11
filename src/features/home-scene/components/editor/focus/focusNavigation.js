@@ -6,9 +6,23 @@ export const FOCUS_DOMAINS = [
     { id: 'scene', ru: 'Сцена', en: 'Scene', icon: 'grid', groupIds: ['landscape', 'greenery', 'objects', 'creatures'] },
     { id: 'environment', ru: 'Среда', en: 'Environment', icon: 'sun', groupIds: ['atmosphere', 'lights'] },
     { id: 'cameras', ru: 'Камеры', en: 'Cameras', icon: 'camera', groupIds: ['cameras'] },
-    { id: 'render', ru: 'Рендер', en: 'Render', icon: 'sliders', groupIds: ['render'] },
     { id: 'audio', ru: 'Звук', en: 'Audio', icon: 'sound', groupIds: ['audio'] },
-    { id: 'workspace', ru: 'Рабочее место', en: 'Workspace', icon: 'settings', groupIds: ['interface', 'cursor', 'editor'] },
+    // Всё, что относится к движку целиком — графика, постобработка, видимость,
+    // интерфейс, редактор, клавиши, — открывается отдельным окном настроек,
+    // а не в правой панели. Пути узлов остаются прежними: по ним работают
+    // поиск, избранное и сохранённый выбор.
+    { id: 'workspace', ru: 'Настройки движка', en: 'Engine settings', icon: 'settings', groupIds: ['render', 'interface', 'cursor', 'editor'], dialog: 'settings' },
+];
+
+// Разделы окна настроек: слева список, справа те же секции, что и в инспекторе.
+export const SETTINGS_PAGES = [
+    { id: 'graphics', ru: 'Графика', en: 'Graphics', icon: 'sliders', parts: [['render/resolution'], ['render/post', 'quality']] },
+    { id: 'look', ru: 'Плёнка и цвет', en: 'Film and colour', icon: 'eye', parts: [['render/post', 'look']] },
+    { id: 'visibility', ru: 'Видимость', en: 'Visibility', icon: 'eye', parts: [['render/visibility']] },
+    { id: 'interface', ru: 'Интерфейс', en: 'Interface', icon: 'panel', parts: [['interface/ui'], ['cursor/cursor']] },
+    { id: 'editor', ru: 'Редактор', en: 'Editor', icon: 'settings', parts: [['editor/settings']] },
+    { id: 'keys', ru: 'Клавиши', en: 'Shortcuts', icon: 'help', parts: [] },
+    { id: 'debug', ru: 'Отладка', en: 'Debug', icon: 'bug', parts: [['render/debug']], devOnly: true },
 ];
 
 const groupToDomain = new Map(

@@ -5,7 +5,7 @@ import { DEFAULT_SHORE_SETTINGS, normalizeShoreSettings } from '../../../shore/s
 import { DEFAULT_RENDER_QUALITY_SETTINGS, normalizeRenderQualitySettings } from '../../../components/effects/renderQualitySettings.js';
 import { SEA_SETTINGS_DEFAULTS, normalizeSeaSettings } from '../../../components/effects/water/seaSettings.js';
 import { DEFAULT_PAINTERLY_CLOUD_SETTINGS, normalizePainterlyCloudSettings } from '../lib/painterlyCloudSettings.js';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { publishedHomeSceneSettings } from '../data/publishedHomeSceneSettings';
 import { publishedHomeSceneKeys } from '../data/publishedHomeSceneKeys';
 import {
@@ -25,10 +25,14 @@ import {
   DEFAULT_SOUNDSCAPE_SETTINGS,
   normalizeSoundscapeSettings,
 } from '../../audio/data/soundscapeSettings';
-import { saveProjectSettings } from '../../engine/projectApi';
+import { projectStore, saveProjectSettings } from '../../engine/projectApi';
+import { EDITOR_THUMBNAIL_READY, requestEditorThumbnail } from '../../../components/effects/editorThumbnailCapture';
 
 export const HOME_SCENE_SETTINGS_STORAGE_KEY = 'ddg_home_scene_settings_v1';
 const PROJECT_SAVE_DELAY_MS = 700;
+// Миниатюра проекта — не чаще раза в несколько секунд: кадр снимается с холста,
+// и на каждое движение ползунка это лишнее.
+const PROJECT_THUMBNAIL_EVERY_MS = 6000;
 const HOME_SCENE_WATER_DEFAULT_MIGRATION_KEY = 'ddg_home_scene_water_default_128_v1';
 export const LEGACY_HOME_SCENE_SETTINGS_STORAGE_KEYS = ['ddg_snake_settings_v4', 'ddg_snake_settings_v3'];
 const OBSOLETE_PUBLISHED_HOME_SCENE_STORAGE_KEYS = [
@@ -1336,6 +1340,10 @@ export const usePublishedHomeSceneSettings = () => {
 // возвращается. Ветки не смешиваются: черновик сайта проект не видит и наоборот,
 // поэтому проект не может уехать на сайт.
 export const useHomeSceneDraftSettings = (project = null) => {
+  const lastThumbnailAt = useRef(0);
+  // Открыть проект — не значит его править: пока сцена та же, что пришла из
+  // файла, на диск ничего не уходит, и «обновлён» не сдвигается от просмотра.
+  const untouched = useRef(null);
   const [settings, setStoredSettings] = useState(() => (project
     ? normalizeHomeSceneDraftSettings(project.settings)
     : readHomeSceneDraftSettings() ?? normalizeHomeSceneDraftSettings(getPublishedHomeSceneSettings())
@@ -1358,6 +1366,9 @@ export const useHomeSceneDraftSettings = (project = null) => {
       return undefined;
     }
 
+    if (untouched.current === null) untouched.current = settings;
+    if (settings === untouched.current) return undefined;
+
     // Эффект перезапускается на каждое движение ползунка, поэтому таймер здесь
     // работает задержкой сам по себе: на диск уходит тишина после правки, а не
     // каждый кадр. Закрытие окна не ждёт таймера — там отдельный сброс.
@@ -1365,6 +1376,10 @@ export const useHomeSceneDraftSettings = (project = null) => {
       saveProjectSettings(project.id, settings).catch((error) => {
         console.error('Не удалось сохранить проект', error);
       });
+      if (Date.now() - lastThumbnailAt.current > PROJECT_THUMBNAIL_EVERY_MS) {
+        lastThumbnailAt.current = Date.now();
+        requestEditorThumbnail(`project:${project.id}`);
+      }
     }, PROJECT_SAVE_DELAY_MS);
     const flush = () => {
       window.clearTimeout(timer);
@@ -1378,6 +1393,21 @@ export const useHomeSceneDraftSettings = (project = null) => {
       window.removeEventListener('pagehide', flush);
     };
   }, [project, settings]);
+
+  // Кадр приходит после того, как сцена его нарисует; ключ отличает его от
+  // миниатюр камер, которые ходят тем же событием.
+  useEffect(() => {
+    if (!project || typeof window === 'undefined') return undefined;
+    const key = `project:${project.id}`;
+    const store = (event) => {
+      if (event.detail?.key !== key) return;
+      projectStore.saveThumbnail(project.id, event.detail.image).catch(() => {
+        // Миниатюра — удобство меню, сцена от неё не зависит.
+      });
+    };
+    window.addEventListener(EDITOR_THUMBNAIL_READY, store);
+    return () => window.removeEventListener(EDITOR_THUMBNAIL_READY, store);
+  }, [project]);
 
   return {
     settings,

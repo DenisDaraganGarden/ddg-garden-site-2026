@@ -69,9 +69,15 @@ export function createStore(folder, payloadKey) {
     return entries.filter(Boolean);
   };
 
-  const list = async () => (await readAll())
+  // Миниатюра лежит рядом с записью отдельным файлом, а не base64 внутри JSON:
+  // агенту, который читает числа, картинка в тексте только мешает.
+  const thumbnailPath = (id) => path.join(dir, `${id}.webp`);
+  const hasThumbnail = async (id) => fs.access(thumbnailPath(id)).then(() => true, () => false);
+
+  const list = async () => Promise.all((await readAll())
     .map(({ [payloadKey]: _payload, ...meta }) => meta)
-    .sort((a, b) => String(b.updated ?? '').localeCompare(String(a.updated ?? '')));
+    .sort((a, b) => String(b.updated ?? '').localeCompare(String(a.updated ?? '')))
+    .map(async (meta) => ({ ...meta, thumbnail: await hasThumbnail(meta.id) })));
 
   const read = async (id) => {
     if (!isValidId(id)) return null;
@@ -131,6 +137,7 @@ export function createStore(folder, payloadKey) {
     if (!isValidId(id)) return false;
     try {
       await fs.unlink(filePath(id));
+      await fs.rm(thumbnailPath(id), { force: true });
       return true;
     } catch (error) {
       if (error.code === 'ENOENT') return false;
@@ -138,7 +145,26 @@ export function createStore(folder, payloadKey) {
     }
   };
 
-  return { dir, list, read, create, save, remove };
+  // Кадр приходит из редактора как data URL (webp, 320 px по ширине).
+  const writeThumbnail = async (id, dataUrl) => {
+    if (!isValidId(id) || !(await read(id))) return false;
+    const match = /^data:image\/webp;base64,([A-Za-z0-9+/=]+)$/.exec(String(dataUrl ?? ''));
+    if (!match) throw new Error('Миниатюра должна быть webp в data URL.');
+    await fs.writeFile(thumbnailPath(id), Buffer.from(match[1], 'base64'));
+    return true;
+  };
+
+  const readThumbnail = async (id) => {
+    if (!isValidId(id)) return null;
+    try {
+      return await fs.readFile(thumbnailPath(id));
+    } catch (error) {
+      if (error.code === 'ENOENT') return null;
+      throw error;
+    }
+  };
+
+  return { dir, list, read, create, save, remove, writeThumbnail, readThumbnail };
 }
 
 export const projects = createStore('projects', 'settings');
