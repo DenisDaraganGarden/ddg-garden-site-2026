@@ -23,10 +23,29 @@ const PROBE_OUT = process.env.DDG_APP_PROBE_OUT;
 
 let viteServer = null;
 
+// Корень сервера приложения — меню проектов, а не редактор сайта: кнопка в
+// списке запуска открывает вкладку на этом порту, и она должна показывать то
+// же, что и окно. Плагин стоит первым, чтобы перехватить «/» раньше редакторского.
+function engineAtRootPlugin() {
+  const redirect = (middlewares) => {
+    middlewares.use((request, response, next) => {
+      if (request.url === '/' || request.url === '') {
+        response.statusCode = 302;
+        response.setHeader('Location', START);
+        response.end();
+        return;
+      }
+      next();
+    });
+  };
+  return { name: 'engine-at-root', configureServer(server) { redirect(server.middlewares); } };
+}
+
 async function startEngineServer() {
   const { default: config } = await import(path.join(ROOT, 'vite.editor.config.js'));
   viteServer = await createServer({
     ...config,
+    plugins: [engineAtRootPlugin(), ...config.plugins],
     configFile: false,
     root: ROOT,
     server: { ...config.server, host: '127.0.0.1', port: PORT, strictPort: true },
