@@ -33,6 +33,7 @@ const DEV_LOCAL_EDITOR_KEYS = new Set([
   'debugWireframe',
   'editorHeadingColor',
   'editorCursor',
+  'fireEditPoint',
 ]);
 const FILM_CONTROL_IDS = [
   'home-editor-film-enabled',

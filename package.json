@@ -49,6 +49,7 @@
     "check:projects": "node scripts/projectStore.check.mjs",
     "app": "node ./node_modules/electron/cli.js electron/main.js",
     "check:app": "node scripts/check-app.mjs",
+    "check:fire": "node src/fire/fire.check.js",
     "build:reference": "node scripts/build-engine-reference.mjs"
   },
   "dependencies": {

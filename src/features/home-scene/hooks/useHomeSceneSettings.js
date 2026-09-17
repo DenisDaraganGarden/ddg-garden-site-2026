@@ -1,6 +1,7 @@
 import {DEFAULT_GRASS_SETTINGS,DEFAULT_SHRUB_SETTINGS,DEFAULT_TREE_SETTINGS,normalizeGrassSettings,normalizeShrubSettings,normalizeTreeSettings} from '../../../plants/settings.js';
 import { DEFAULT_TERRAIN_SETTINGS, normalizeTerrainSettings } from '../../../terrain/settings.js';
 import { DEFAULT_TANKER_SETTINGS, normalizeTankerSettings } from '../../../tanker/settings.js';
+import { DEFAULT_FIRE_SETTINGS, normalizeFireSettings } from '../../../fire/settings.js';
 import { DEFAULT_SHORE_SETTINGS, normalizeShoreSettings } from '../../../shore/settings.js';
 import { DEFAULT_RENDER_QUALITY_SETTINGS, normalizeRenderQualitySettings } from '../../../components/effects/renderQualitySettings.js';
 import { SEA_SETTINGS_DEFAULTS, normalizeSeaSettings } from '../../../components/effects/water/seaSettings.js';
@@ -198,6 +199,7 @@ const pickLayout = (value, fallback) => {
 
 export const getBaseHomeSceneSettings = () => ({
   ...DEFAULT_TANKER_SETTINGS,
+  ...DEFAULT_FIRE_SETTINGS,
   ...DEFAULT_TERRAIN_SETTINGS,
   ...DEFAULT_SHRUB_SETTINGS,
   ...DEFAULT_TREE_SETTINGS,
@@ -1133,6 +1135,7 @@ const normalizeHomeSceneSettings = (savedSettings = {}, includeCameraSystem = tr
     ),
     audio: normalizeSoundscapeSettings(merged.audio),
     ...normalizeTankerSettings(merged),
+    ...normalizeFireSettings(merged),
     ...normalizeTerrainSettings(merged),
     ...normalizeShrubSettings(merged),
     ...normalizeTreeSettings(merged),

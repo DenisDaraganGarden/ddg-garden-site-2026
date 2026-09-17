@@ -111,6 +111,7 @@ export const TECHNICAL_FRAMES = Object.freeze([
   { id: 'dune', ru: 'Дюна', en: 'Dune grass', pose: duneView },
   { id: 'reed', ru: 'Камыш', en: 'Reed', pose: reedView },
   { id: 'tanker', ru: 'Танкер', en: 'Tanker', object: 'tanker-anchor' },
+  { id: 'fire', ru: 'Огонь', en: 'Fire', object: 'fire-anchor' },
   { id: 'boat', ru: 'Лодка', en: 'Boat', object: 'boat-anchor' },
   { id: 'sculpture', ru: 'Скульптура', en: 'Sculpture', object: 'sculpture-anchor' },
   { id: 'lilies', ru: 'Кувшинки сверху', en: 'Lily pads from above', object: 'surface-vegetation', options: { above: true } },

@@ -11,6 +11,7 @@ import { buildCoastRocks, attachRockCollisions } from '../../terrain/terrainRock
 import AzovTerrain from '../../terrain/AzovTerrain.jsx';
 import { coastBandCoversPond, createTerrainDefinition, createTerrainQuery } from '../../terrain/terrainModel.js';
 import HomeTanker from '../../tanker/HomeTanker.jsx';
+import HomeFire from '../../fire/HomeFire.jsx';
 import React, {
   useCallback,
   useEffect,
@@ -537,6 +538,7 @@ function WaterRuntimeScene({
           />
         ) : null}
         {settings.tankerVisible ? <HomeTanker settings={settings} seaSettings={effectiveSeaSettings.enabled ? effectiveSeaSettings : null} lighting={lighting} audioRuntime={audioRuntime} /> : null}
+        {sceneObjectOn(settings, 'fire') ? <HomeFire settings={settings} lighting={lighting} qualityProfile={qualityProfile} terrainQuery={terrainQuery} mode={mode} /> : null}
         {settings.sculptureVisible ? (
           <StaticSculpture
             terrainQuery={terrainQuery}

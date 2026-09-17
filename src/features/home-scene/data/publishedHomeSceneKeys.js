@@ -1,12 +1,14 @@
 import {DEFAULT_GRASS_SETTINGS,DEFAULT_SHRUB_SETTINGS,DEFAULT_TREE_SETTINGS} from '../../../plants/settings.js';
 import { DEFAULT_TERRAIN_SETTINGS } from '../../../terrain/settings.js';
 import { DEFAULT_TANKER_SETTINGS } from '../../../tanker/settings.js';
+import { FIRE_PUBLISHED_KEYS } from '../../../fire/settings.js';
 import { DEFAULT_SHORE_SETTINGS } from '../../../shore/settings.js';
 import { DEFAULT_RENDER_QUALITY_SETTINGS } from '../../../components/effects/renderQualitySettings.js';
 import { SEA_SETTINGS_DEFAULTS } from '../../../components/effects/water/seaSettings.js';
 import { DEFAULT_PAINTERLY_CLOUD_SETTINGS } from '../lib/painterlyCloudSettings.js';
 const keys = [
   ...Object.keys(DEFAULT_TANKER_SETTINGS),
+  ...FIRE_PUBLISHED_KEYS,
   ...Object.keys(DEFAULT_TERRAIN_SETTINGS),
   ...Object.keys(DEFAULT_SHRUB_SETTINGS),
   ...Object.keys(DEFAULT_TREE_SETTINGS),

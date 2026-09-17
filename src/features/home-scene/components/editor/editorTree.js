@@ -2,6 +2,7 @@ import {ShrubsSection} from './sections/shrubs';
 import {TreesSection} from './sections/trees';
 import { TerrainSection } from './sections/terrain';
 import { TankerSection } from './sections/tanker';
+import { FireSection } from './sections/fire';
 import {
     SeabedSection,
     WaterGeometrySection,
@@ -86,6 +87,7 @@ export const EDITOR_TREE = [
         id: 'objects',
         nodes: [
             { id: 'tanker', aspects: [{ id: 'transform', Section: TankerSection }] },
+            { id: 'fire', aspects: [{ id: 'fire', Section: FireSection }] },
             { id: 'boat', aspects: [{ id: 'transform', Section: BoatSection }] },
             { id: 'sculpture', aspects: [{ id: 'transform', Section: SculptureSection }] },
         ],

@@ -24,6 +24,7 @@ export const ASSET_CATALOG = Object.freeze([
   { index: '12', id: 'driftwood', group: 'landscape', ru: 'Коряги', en: 'Driftwood', title: { ru: 'Коряги и камни', en: 'Driftwood & stones' } },
   { index: '13', id: 'water', group: 'landscape', ru: 'Море', en: 'Sea', title: { ru: 'Море · волны, прибой и пена', en: 'Sea · waves, surf and foam' } },
   { index: '14', id: 'clouds', group: 'atmosphere', ru: 'Облака', en: 'Clouds', title: { ru: 'Живописные облака', en: 'Painterly clouds' } },
+  { index: '15', id: 'fire', group: 'objects', ru: 'Огонь', en: 'Fire', title: { ru: 'Огонь по следу', en: 'Fire along a trail' } },
 ]);
 
 export const DEFAULT_ASSET_COLLECTION = 'river-fish';

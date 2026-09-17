@@ -30,6 +30,8 @@ import {
 import { useHomeSceneEditor } from '../features/home-scene/hooks/useHomeSceneEditor';
 import { useHomeChromeVisibility } from '../features/home-scene/hooks/useHomeChromeVisibility';
 import { GIZMO_MODES, useEditorTool } from '../features/home-scene/hooks/useEditorTool';
+import { FIRE_POINT_RANGE } from '../fire/settings.js';
+import { trailFrame, trailKey, trailPointCount, worldToLocal } from '../fire/trail.js';
 import { resolveEditorPath } from '../features/home-scene/components/editor/editorTree';
 import { audioSettingsForScene, sceneObjectsForNode } from '../features/home-scene/lib/sceneObjects';
 import HomeEditorPanel from '../features/home-scene/components/HomeEditorPanel';
@@ -481,6 +483,24 @@ const HomeEdit = ({ project = null }) => {
             return;
         }
 
+        // Огонь: ручка на всём следе двигает раму (fireX/Z, яв, масштаб), ручка
+        // на выбранной точке — саму точку, в местных координатах рамы.
+        if (id === 'fire') {
+            setSettings((previous) => {
+                if (patch.position) {
+                    const point = Math.min(trailPointCount(previous), Math.round(previous.fireEditPoint) || 0);
+                    if (!point) return { ...previous, fireX: Number(patch.position.x.toFixed(2)), fireZ: Number(patch.position.z.toFixed(2)) };
+                    const local = worldToLocal(patch.position, trailFrame(previous));
+                    const limit = (value) => Number(Math.max(-FIRE_POINT_RANGE, Math.min(FIRE_POINT_RANGE, value)).toFixed(2));
+                    return { ...previous, [`fireP${point}X`]: limit(local.x), [`fireP${point}Z`]: limit(local.z) };
+                }
+                if (typeof patch.rotationY === 'number') return { ...previous, fireYaw: patch.rotationY };
+                if (typeof patch.scale === 'number') return { ...previous, fireScale: Number(Math.max(0.1, Math.min(6, patch.scale)).toFixed(3)) };
+                return previous;
+            });
+            return;
+        }
+
         if (patch.position) {
             if (id === 'boat') {
                 handleBoatPositionChange(patch.position);
@@ -522,7 +542,12 @@ const HomeEdit = ({ project = null }) => {
         ? { rotationY: settings.boatYaw ?? 0, scale: settings.boatScale ?? 1 }
         : gizmoSelection === 'sculpture'
             ? { rotationY: settings.sculptureRotationY ?? 0, scale: settings.sculptureScale ?? 1 }
-            : null;
+            : gizmoSelection === 'fire'
+                ? (() => {
+                    const point = Math.min(trailPointCount(settings), Math.round(settings.fireEditPoint) || 0);
+                    return { rotationY: settings.fireYaw ?? 0, scale: settings.fireScale ?? 1, objectName: point > 0 ? `fire-point-${point}` : undefined, centreKey: trailKey(settings) };
+                })()
+                : null;
     const editorGizmo = useMemo(() => ({
         selection: transformTool && gizmoSelection ? gizmoSelection : null,
         mode: transformTool ? tool : lastTransform,
@@ -532,7 +557,7 @@ const HomeEdit = ({ project = null }) => {
         onPick: handlePickObject,
         onContextMenu: setSceneMenu,
     // eslint-disable-next-line react-hooks/exhaustive-deps -- pose сравнивается по значениям, не по ссылке
-    }), [transformTool, gizmoSelection, tool, lastTransform, handleGizmoTransform, picking, handlePickObject, gizmoPose?.rotationY, gizmoPose?.scale]);
+    }), [transformTool, gizmoSelection, tool, lastTransform, handleGizmoTransform, picking, handlePickObject, gizmoPose?.rotationY, gizmoPose?.scale, gizmoPose?.objectName, gizmoPose?.centreKey]);
 
     // Курсор во вьюпорте говорит, какой инструмент в руке, не глядя на панель.
     useEffect(() => {

@@ -522,6 +522,13 @@ export default function WaterReflections({
         capturedSeaSurfaces.push([object, object.visible]);
         object.visible = false;
       }
+      // Отказ от зеркала целым поддеревом (огонь, лабораторные помощники): один
+      // флаг на корне вместо имени в этом списке. Стая чаек решает по своим
+      // флагам ниже, уже спрятанное она не трогает.
+      if (object.visible && object.userData?.ddgNoWaterReflection && !object.isMesh) {
+        capturedSeaSurfaces.push([object, true]);
+        object.visible = false;
+      }
     });
     if (interactionPlane) interactionPlane.visible = false;
     // The procedural water sky already contains the key-light highlight.
