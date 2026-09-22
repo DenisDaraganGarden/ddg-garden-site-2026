@@ -2,7 +2,7 @@ import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 're
 import { useFrame, useLoader, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import CoastRocksPBR, { useCoastRockMaterials } from './CoastRocksPBR.jsx';
-import { buildTerrainStrip, terrainLod } from './terrainGeometry.js';
+import { buildTerrainStrip, terrainLod, terrainMetresPerPixel, TERRAIN_LOD_METRES_PER_PIXEL } from './terrainGeometry.js';
 import { createTerrainDefinition, coastCoordinates, shorePosition, coastPoint, coastSurfCoordinates, COAST_STRIP_LENGTH } from './terrainModel.js';
 import { createTerrainMaterial } from './terrainMaterial.js';
 import { syncCoastUniforms } from './terrainShader.js';
@@ -17,7 +17,7 @@ const mapNames=TERRAIN_MAP_NAMES;
 // frees the shared attributes and its own index, the strip's then only its own.
 function disposeStrip(geometry){geometry.userData.optics?.dispose();geometry.dispose();}
 function TerrainStrip({ definition:p,s0,material,qualityProfile }) {
-  const {camera}=useThree();
+  const {camera,size}=useThree();
   const [lod,setLod]=useState(2); const timer=useRef(0),mesh=useRef(),transition=useRef({target:2,refining:false,morph:0});
   const geometryCache=useMemo(()=>({definition:p,s0,levels:new Map()}),[p,s0]);
   const geometry=useMemo(()=>{const {definition,s0,levels}=geometryCache;if(!levels.has(lod))levels.set(lod,buildTerrainStrip(definition,s0,lod));return levels.get(lod);},[geometryCache,lod]);
@@ -60,9 +60,11 @@ function TerrainStrip({ definition:p,s0,material,qualityProfile }) {
     // unused fine buffers after leaving the area; a 4 km coast cannot keep all
     // visited high-detail strips resident on a phone.
     if(distance>360)for(const [level,cached]of geometryCache.levels){if(level<lod){disposeStrip(cached);geometryCache.levels.delete(level);}}
-    const desired=terrainLod(distance,qualityProfile.isLowPower||qualityProfile.isMobileDevice);
-    const threshold=desired<lod?(desired===0?70:250):(lod===0?100:300);
-    if(desired!==lod&&(desired<lod?distance<threshold:distance>threshold)){
+    const metresPerPixel=terrainMetresPerPixel(distance,camera.fov,size.height);
+    const desired=terrainLod(metresPerPixel,qualityProfile.isLowPower||qualityProfile.isMobileDevice);
+    // Hysteresis in screen units: refine well inside a level, coarsen well outside it.
+    const edge=TERRAIN_LOD_METRES_PER_PIXEL[Math.min(desired,lod)];
+    if(desired!==lod&&(desired<lod?metresPerPixel<edge*.85:metresPerPixel>edge*1.2)){
       state.target=desired;
       if(desired<lod&&!state.refining&&state.morph===0){state.refining=true;setLod(lod-1);}
     }else if(desired===lod)state.target=lod;
