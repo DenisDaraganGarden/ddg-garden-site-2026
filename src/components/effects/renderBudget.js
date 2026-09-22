@@ -100,6 +100,9 @@ export function createRenderBudgetController(config = RENDER_BUDGET) {
 }
 
 const OPTICS_RATIOS = [1, .8, .65, .5];
+// The refraction capture shades the whole seabed through the coast shader at
+// the optics size; a softer capture is invisible through the water, its cost is not.
+const OPTICS_SIZE_RATIOS = [1, 1, .8, .6];
 
 export function applyRenderBudget(profile, level = 0, { postEnabled = false } = {}) {
   const safeLevel = Math.max(0, Math.min(RENDER_BUDGET.maximumLevel, Math.round(level) || 0));
@@ -117,6 +120,9 @@ export function applyRenderBudget(profile, level = 0, { postEnabled = false } = 
     // urgent submerged motion is therefore never replaced with an analytic path.
     refractionActiveFps: rate(profile.refractionActiveFps),
     refractionIdleFps: rate(profile.refractionIdleFps),
+    reflectionTextureSize: Number.isFinite(profile.reflectionTextureSize)
+      ? Math.max(64, Math.round(profile.reflectionTextureSize * OPTICS_SIZE_RATIOS[safeLevel]))
+      : profile.reflectionTextureSize,
     postRenderScale: profile.postRenderScale * postScale,
   };
 }

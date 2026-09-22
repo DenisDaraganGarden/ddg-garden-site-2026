@@ -17,4 +17,12 @@ cancel(); assert.equal(seen.at(-1), 'cheap:closed');
 while (queue.stats.pending) queue.advance();
 assert.deepEqual(completed, ['heavy']); assert.equal(queue.stats.completed, 1);
 assert.equal(queue.stats.maxStepsPerFrame, 2); assert.equal(queue.advance(), false);
-console.log('calibrationQueue: shared budget, fairness, owner handover and cancellation passed');
+// A yielded promise (a fenced readback) parks the job until it settles and
+// resumes it with the value; the queue keeps rotating the others meanwhile.
+let finishRead; const got = [];
+queue.enqueue((function* () { got.push(yield new Promise((r) => { finishRead = r; })); yield; return 'fenced'; })(), value => completed.push(value));
+queue.enqueue(work('other', 1, 1), value => completed.push(value));
+queue.advance(); queue.advance(); assert.deepEqual(got, []); assert.equal(queue.stats.pending, 1); assert.equal(completed.at(-1), 'other');
+finishRead(42); await new Promise((r) => setTimeout(r, 0));
+queue.advance(); assert.deepEqual(got, [42]); queue.advance(); assert.deepEqual(completed.slice(1), ['other', 'fenced']);
+console.log('calibrationQueue: shared budget, fairness, owner handover, cancellation and fenced steps passed');

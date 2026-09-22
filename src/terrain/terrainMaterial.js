@@ -140,7 +140,7 @@ export function createTerrainMaterial(textures,p,rockOnly=false){
   // sand the swash shows through itself), reflection the rest. Replacing the
   // chunk also frees the terrain from the renderer's global planes.
   shader.fragmentShader=shader.fragmentShader.replace('#include <clipping_planes_fragment>',`
-   if(uTerrainOptics>.5){
+   if(uTerrainOptics>.5&&uTerrainOptics<2.5){
     vec2 opticsQS=coastLocal(vTerrainWorld.xz);
     float opticsWater=coastMask(opticsQS)>.001?coastWave(opticsQS,uTerrainTime)+coastEdgeRag(opticsQS,uTerrainTime):0.0;
     // The swash carrier spans q=-26..12. Capture its possible dry bed too:
@@ -152,6 +152,9 @@ export function createTerrainMaterial(textures,p,rockOnly=false){
     else if(vTerrainWorld.y<opticsWater-.02)discard;
    }`);
   shader.fragmentShader=shader.fragmentShader.replace('#include <map_fragment>',`
+   // A depth-only pass (contact AO, uTerrainOptics 3): the log depth is already
+   // written above, nothing below would reach a colour buffer.
+   if(uTerrainOptics>2.5)return;
    vec3 terrainN=normalize(vTerrainNormal),viewWorld=cameraPosition-vTerrainWorld;
    // The mesh is the analytic height at its vertices, so the drawn surface is
    // the ground here to within the display error - millimetres on the beach,
