@@ -1,5 +1,5 @@
 {
-  "collected": "2026-09-22T21:27:27.232Z",
+  "collected": "2026-09-22T22:05:23.756Z",
   "rows": [
     {
       "key": "cameraFov",
@@ -3518,6 +3518,185 @@
       "step": 0.01
     },
     {
+      "key": "placedEnabled",
+      "group": "objects",
+      "node": "placed",
+      "label": "Расстановка",
+      "kind": "выключатель"
+    },
+    {
+      "key": "placedObjects",
+      "group": "objects",
+      "node": "placed",
+      "label": "Объект",
+      "kind": "список",
+      "options": [
+        ""
+      ]
+    },
+    {
+      "key": "placedObjects[].species",
+      "group": "objects",
+      "node": "placed",
+      "label": "Вид",
+      "kind": "список",
+      "options": [
+        "oleaster",
+        "tamarisk",
+        "plum",
+        "elm",
+        "willow",
+        "snag"
+      ]
+    },
+    {
+      "key": "placedObjects[].height",
+      "group": "objects",
+      "node": "placed",
+      "label": "Высота",
+      "kind": "число",
+      "min": 2.5,
+      "max": 12,
+      "step": 0.1,
+      "unit": " m"
+    },
+    {
+      "key": "placedObjects[].spread",
+      "group": "objects",
+      "node": "placed",
+      "label": "Ширина кроны",
+      "kind": "число",
+      "min": 1.5,
+      "max": 12,
+      "step": 0.1,
+      "unit": " m"
+    },
+    {
+      "key": "placedObjects[].lean",
+      "group": "objects",
+      "node": "placed",
+      "label": "Наклон от ветра",
+      "kind": "число",
+      "min": 0,
+      "max": 1,
+      "step": 0.01
+    },
+    {
+      "key": "placedObjects[].twist",
+      "group": "objects",
+      "node": "placed",
+      "label": "Кручение ствола",
+      "kind": "число",
+      "min": 0,
+      "max": 1,
+      "step": 0.01
+    },
+    {
+      "key": "placedObjects[].density",
+      "group": "objects",
+      "node": "placed",
+      "label": "Плотность листвы",
+      "kind": "число",
+      "min": 0.1,
+      "max": 1,
+      "step": 0.01
+    },
+    {
+      "key": "placedObjects[].leafSize",
+      "group": "objects",
+      "node": "placed",
+      "label": "Размер листа",
+      "kind": "число",
+      "min": 0.8,
+      "max": 2.4,
+      "step": 0.05
+    },
+    {
+      "key": "placedObjects[].deadwood",
+      "group": "objects",
+      "node": "placed",
+      "label": "Сухие ветви",
+      "kind": "число",
+      "min": 0,
+      "max": 1,
+      "step": 0.01
+    },
+    {
+      "key": "placedObjects[].translucency",
+      "group": "objects",
+      "node": "placed",
+      "label": "Просвечивание",
+      "kind": "число",
+      "min": 0,
+      "max": 1.4,
+      "step": 0.05
+    },
+    {
+      "key": "placedObjects[].x",
+      "group": "objects",
+      "node": "placed",
+      "label": "Положение X",
+      "kind": "число",
+      "min": -1200,
+      "max": 1200,
+      "step": 0.1,
+      "unit": " m"
+    },
+    {
+      "key": "placedObjects[].z",
+      "group": "objects",
+      "node": "placed",
+      "label": "Положение Z",
+      "kind": "число",
+      "min": -1200,
+      "max": 1200,
+      "step": 0.1,
+      "unit": " m"
+    },
+    {
+      "key": "placedObjects[].y",
+      "group": "objects",
+      "node": "placed",
+      "label": "Основание Y",
+      "kind": "число",
+      "min": -20,
+      "max": 60,
+      "step": 0.05,
+      "unit": " m"
+    },
+    {
+      "key": "placedObjects[].rotation",
+      "group": "objects",
+      "node": "placed",
+      "label": "Поворот",
+      "kind": "число",
+      "min": -180,
+      "max": 180,
+      "step": 1,
+      "unit": "°"
+    },
+    {
+      "key": "placedObjects[].scale",
+      "group": "objects",
+      "node": "placed",
+      "label": "Масштаб",
+      "kind": "число",
+      "min": 0.25,
+      "max": 4,
+      "step": 0.05,
+      "unit": " x"
+    },
+    {
+      "key": "placedObjects[].seed",
+      "group": "objects",
+      "node": "placed",
+      "label": "Вариант",
+      "kind": "число",
+      "min": 1,
+      "max": 200,
+      "step": 1
+    },
+    {
       "key": "seagullsEnabled",
       "group": "creatures",
       "node": "seagulls",
@@ -5296,6 +5475,13 @@
       "kind": "выключатель"
     },
     {
+      "key": "placedEnabled",
+      "group": "render",
+      "node": "visibility",
+      "label": "Расстановка",
+      "kind": "выключатель"
+    },
+    {
       "key": "seagullsEnabled",
       "group": "render",
       "node": "visibility",
@@ -5886,6 +6072,7 @@
     "topiaryBrushWidth": 1.2,
     "topiaryBrushHeight": 2.4,
     "topiaryPlaneY": 0,
+    "placedEnabled": true,
     "shrubsEnabled": true,
     "shrubsCount": 512,
     "shrubsSeed": 23,

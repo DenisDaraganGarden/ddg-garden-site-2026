@@ -1,4 +1,5 @@
 import TopiaryObjects from '../../topiary/TopiaryObjects.jsx';
+import PlacedObjects from '../../placed/PlacedObjects.jsx';
 import TopiaryBrush from '../../topiary/TopiaryBrush.jsx';
 import CoastShrubs from '../../plants/CoastShrubs.jsx';
 import CoastTrees from '../../plants/CoastTrees.jsx';
@@ -472,6 +473,7 @@ function WaterRuntimeScene({
         {settings.topiaryEnabled && settings.topiaryObjects?.length ? <TopiaryObjects objects={settings.topiaryObjects} selectedId={mode === 'editor' ? editorGizmo?.topiary?.selectedId : null} qualityProfile={qualityProfile} envMapIntensity={lighting.environment.reflection} /> : null}
         {terrainQuery&&settings.shrubsEnabled ? <CoastShrubs settings={shrubAsset} plants={shrubPlants} qualityProfile={qualityProfile} envMapIntensity={lighting.environment.reflection}/> : null}
         {terrainQuery&&settings.treesEnabled ? <CoastTrees settings={treeAsset} plants={treePlants} qualityProfile={qualityProfile} envMapIntensity={lighting.environment.reflection}/> : null}
+        {settings.placedEnabled && settings.placedObjects?.length ? <PlacedObjects objects={settings.placedObjects} selectedId={mode === 'editor' ? editorGizmo?.placed?.selectedId : null} treeAsset={treeAsset} shrubAsset={shrubAsset} qualityProfile={qualityProfile} lighting={lighting} envMapIntensity={lighting.environment.reflection} /> : null}
         {terrainQuery&&settings.grassEnabled ? <CoastGrass query={terrainQuery} definition={queryDefinition} settings={grassSettings} asset={grassAsset} qualityProfile={qualityProfile} envMapIntensity={lighting.environment.reflection}/> : null}
         {settings.terrainEnabled ? <AzovTerrain plantCover={shrubCover} rocks={terrainRocks} onTerrainReady={handleLandingSurfaceReady} audioRuntime={audioRuntime} runtime={runtime} definition={terrainDefinition} settings={settings} qualityProfile={qualityProfile} lighting={lighting} swash={seaSwash} seaCaustics={seaCaustics} /> : null}
         {settings.seabedVisible && !seabedCovered ? (

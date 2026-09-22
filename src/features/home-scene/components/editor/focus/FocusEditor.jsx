@@ -154,7 +154,7 @@ function FocusShell(props) {
     const groups = getFocusGroups(domain.id, { includeDevOnly: import.meta.env.DEV });
     const currentCamera = layoutEditor.activeWorkCameraId ? layoutEditor.workCameras.find((camera) => camera.id === layoutEditor.activeWorkCameraId) : layoutEditor.cameras.find((camera) => camera.id === layoutEditor.activeCameraId);
     const localScope = selected.group.id === 'editor'; const globalScope = selected.group.id === 'audio';
-    const sectionProps = { settings, handleSettingChange: props.handleSettingChange, applySettings: props.applySettings, layoutEditor, audioLab: props.audioLab, topiaryEditor: props.topiaryEditor };
+    const sectionProps = { settings, handleSettingChange: props.handleSettingChange, applySettings: props.applySettings, layoutEditor, audioLab: props.audioLab, topiaryEditor: props.topiaryEditor, placedEditor: props.placedEditor };
     useEffect(() => {
         try { localStorage.setItem(UI_KEY, JSON.stringify({ width, collapsed, stripOpen, solidFrame, pinnedIds: [...controls.pinnedIds], path: selected.path })); } catch { /* local UI only */ }
     }, [width, collapsed, stripOpen, solidFrame, controls.pinnedIds, selected.path]);
