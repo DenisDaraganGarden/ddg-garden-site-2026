@@ -121,6 +121,45 @@ export const LightSection = ({ settings, handleSettingChange }) => {
                 checked={Boolean(settings.lightDiscEnabled)}
                 onChange={(event) => handleSettingChange(event, 'lightDiscEnabled', 'boolean')}
             />
+            <SectionHeading label={t('homeEditor.blocks.ambientLight')} subtle />
+            <RangeControl controlId={'ambientIntensity'}
+                label={t('homeEditor.controls.ambientIntensity')}
+                value={settings.ambientIntensity}
+                min={0}
+                max={2}
+                step={0.01}
+                formatValue={(value) => formatFloat(value)}
+                onChange={(event) => handleSettingChange(event, 'ambientIntensity')}
+            />
+            <ColorControl controlId={'ambientColor'}
+                label={t('homeEditor.controls.ambientColor')}
+                value={settings.ambientColor}
+                onChange={(event) => handleSettingChange(event, 'ambientColor', 'color')}
+            />
+            <RangeControl controlId={'hemisphereIntensity'}
+                label={t('homeEditor.controls.hemisphereIntensity')}
+                value={settings.hemisphereIntensity}
+                min={0}
+                max={2}
+                step={0.01}
+                formatValue={(value) => formatFloat(value)}
+                onChange={(event) => handleSettingChange(event, 'hemisphereIntensity')}
+            />
+            <ColorControl controlId={'hemisphereSkyColor'}
+                label={t('homeEditor.controls.hemisphereSkyColor')}
+                value={settings.hemisphereSkyColor}
+                onChange={(event) => handleSettingChange(event, 'hemisphereSkyColor', 'color')}
+            />
+            <ColorControl controlId={'hemisphereGroundColor'}
+                label={t('homeEditor.controls.hemisphereGroundColor')}
+                value={settings.hemisphereGroundColor}
+                onChange={(event) => handleSettingChange(event, 'hemisphereGroundColor', 'color')}
+            />
+            <ColorControl controlId={'envTint'}
+                label={t('homeEditor.controls.envTint')}
+                value={settings.envTint}
+                onChange={(event) => handleSettingChange(event, 'envTint', 'color')}
+            />
             <SectionHeading label={t('homeEditor.blocks.shadows')} subtle />
             <CheckboxControl controlId={'shadowsEnabled'}
                 label={t('homeEditor.controls.shadowsEnabled')}
@@ -186,6 +225,15 @@ export const LightSection = ({ settings, handleSettingChange }) => {
                 unit="%"
                 formatValue={(value) => Math.round(Number(value) * 100)}
                 onChange={(event) => handleSettingChange(event, 'waterShadowStrength')}
+            />
+            <RangeControl controlId={'shadowBias'}
+                label={t('homeEditor.controls.shadowBias')}
+                value={settings.shadowBias}
+                min={-0.005}
+                max={0.005}
+                step={0.0001}
+                formatValue={(value) => formatFloat(value, 4)}
+                onChange={(event) => handleSettingChange(event, 'shadowBias')}
             />
         </>
     );

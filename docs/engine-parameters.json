@@ -1,5 +1,5 @@
 {
-  "collected": "2026-09-11T11:11:54.162Z",
+  "collected": "2026-09-22T13:31:07.155Z",
   "rows": [
     {
       "key": "audio.tracks.tanker.enabled",
@@ -986,6 +986,16 @@
       "unit": "m"
     },
     {
+      "key": "waterMeshDensity",
+      "group": "landscape",
+      "node": "water",
+      "label": "Плотность сетки воды",
+      "kind": "число",
+      "min": 96,
+      "max": 384,
+      "step": 8
+    },
+    {
       "key": "simulationResolution",
       "group": "landscape",
       "node": "water",
@@ -1365,6 +1375,36 @@
       "step": 0.01
     },
     {
+      "key": "rippleDamping",
+      "group": "landscape",
+      "node": "water",
+      "label": "Затухание ряби",
+      "kind": "число",
+      "min": 0.93,
+      "max": 0.992,
+      "step": 0.001
+    },
+    {
+      "key": "normalStrength",
+      "group": "landscape",
+      "node": "water",
+      "label": "Сила нормалей",
+      "kind": "число",
+      "min": 0,
+      "max": 3.2,
+      "step": 0.02
+    },
+    {
+      "key": "normalBlur",
+      "group": "landscape",
+      "node": "water",
+      "label": "Сглаживание нормалей",
+      "kind": "число",
+      "min": 0.2,
+      "max": 2.5,
+      "step": 0.01
+    },
+    {
       "key": "ambientWaveIntensity",
       "group": "landscape",
       "node": "water",
@@ -1372,6 +1412,26 @@
       "kind": "число",
       "min": 0,
       "max": 1,
+      "step": 0.01
+    },
+    {
+      "key": "ambientWaveSpeed",
+      "group": "landscape",
+      "node": "water",
+      "label": "Скорость фоновых волн",
+      "kind": "число",
+      "min": 0,
+      "max": 10,
+      "step": 0.05
+    },
+    {
+      "key": "waveChoppiness",
+      "group": "landscape",
+      "node": "water",
+      "label": "Излом поверхности",
+      "kind": "число",
+      "min": 0,
+      "max": 1.25,
       "step": 0.01
     },
     {
@@ -1758,6 +1818,46 @@
       "step": 0.01
     },
     {
+      "key": "seabedReliefScale",
+      "group": "landscape",
+      "node": "seabed",
+      "label": "Масштаб рельефа дна",
+      "kind": "число",
+      "min": 0.5,
+      "max": 6,
+      "step": 0.05
+    },
+    {
+      "key": "seabedTextureScale",
+      "group": "landscape",
+      "node": "seabed",
+      "label": "Масштаб текстуры дна",
+      "kind": "число",
+      "min": 0.1,
+      "max": 10,
+      "step": 0.05
+    },
+    {
+      "key": "seabedSaturation",
+      "group": "landscape",
+      "node": "seabed",
+      "label": "Насыщенность дна",
+      "kind": "число",
+      "min": 0,
+      "max": 2,
+      "step": 0.01
+    },
+    {
+      "key": "waterTurbidity",
+      "group": "landscape",
+      "node": "seabed",
+      "label": "Мутность / рассеивание воды",
+      "kind": "число",
+      "min": 0,
+      "max": 1,
+      "step": 0.01
+    },
+    {
       "key": "causticsIntensity",
       "group": "landscape",
       "node": "seabed",
@@ -1776,6 +1876,16 @@
       "min": 0,
       "max": 1,
       "step": 0.02
+    },
+    {
+      "key": "causticsScale",
+      "group": "landscape",
+      "node": "seabed",
+      "label": "Масштаб каустики",
+      "kind": "число",
+      "min": 0.5,
+      "max": 6,
+      "step": 0.05
     },
     {
       "key": "liliesVisible",
@@ -3030,6 +3140,56 @@
       "step": 0.01
     },
     {
+      "key": "boatMetalness",
+      "group": "objects",
+      "node": "boat",
+      "label": "Металличность",
+      "kind": "число",
+      "min": 0,
+      "max": 1,
+      "step": 0.01
+    },
+    {
+      "key": "boatClearcoat",
+      "group": "objects",
+      "node": "boat",
+      "label": "Лак (Clearcoat)",
+      "kind": "число",
+      "min": 0,
+      "max": 1,
+      "step": 0.01
+    },
+    {
+      "key": "boatClearcoatRoughness",
+      "group": "objects",
+      "node": "boat",
+      "label": "Шероховатость лака",
+      "kind": "число",
+      "min": 0,
+      "max": 1,
+      "step": 0.01
+    },
+    {
+      "key": "boatCutoutFitWidth",
+      "group": "objects",
+      "node": "boat",
+      "label": "Вырез: раздув по ширине",
+      "kind": "число",
+      "min": 0.1,
+      "max": 1.6,
+      "step": 0.01
+    },
+    {
+      "key": "boatCutoutFitLength",
+      "group": "objects",
+      "node": "boat",
+      "label": "Вырез: раздув по длине",
+      "kind": "число",
+      "min": 0.1,
+      "max": 1.6,
+      "step": 0.01
+    },
+    {
       "key": "sculptureVisible",
       "group": "objects",
       "node": "sculpture",
@@ -3063,6 +3223,28 @@
       "group": "objects",
       "node": "sculpture",
       "label": "Поворот скульптуры (Y)",
+      "kind": "число",
+      "min": -180,
+      "max": 180,
+      "step": 1,
+      "unit": "°"
+    },
+    {
+      "key": "sculptureRotationX",
+      "group": "objects",
+      "node": "sculpture",
+      "label": "Наклон скульптуры (X)",
+      "kind": "число",
+      "min": -180,
+      "max": 180,
+      "step": 1,
+      "unit": "°"
+    },
+    {
+      "key": "sculptureRotationZ",
+      "group": "objects",
+      "node": "sculpture",
+      "label": "Крен скульптуры (Z)",
       "kind": "число",
       "min": -180,
       "max": 180,
@@ -3790,6 +3972,54 @@
       "kind": "выключатель"
     },
     {
+      "key": "ambientIntensity",
+      "group": "atmosphere",
+      "node": "light",
+      "label": "Заполняющий свет: сила",
+      "kind": "число",
+      "min": 0,
+      "max": 2,
+      "step": 0.01
+    },
+    {
+      "key": "ambientColor",
+      "group": "atmosphere",
+      "node": "light",
+      "label": "Заполняющий свет: цвет",
+      "kind": "цвет"
+    },
+    {
+      "key": "hemisphereIntensity",
+      "group": "atmosphere",
+      "node": "light",
+      "label": "Полусфера: сила",
+      "kind": "число",
+      "min": 0,
+      "max": 2,
+      "step": 0.01
+    },
+    {
+      "key": "hemisphereSkyColor",
+      "group": "atmosphere",
+      "node": "light",
+      "label": "Полусфера: цвет неба",
+      "kind": "цвет"
+    },
+    {
+      "key": "hemisphereGroundColor",
+      "group": "atmosphere",
+      "node": "light",
+      "label": "Полусфера: цвет земли",
+      "kind": "цвет"
+    },
+    {
+      "key": "envTint",
+      "group": "atmosphere",
+      "node": "light",
+      "label": "Тон отражений",
+      "kind": "цвет"
+    },
+    {
       "key": "shadowsEnabled",
       "group": "atmosphere",
       "node": "light",
@@ -3850,6 +4080,16 @@
       "max": 1,
       "step": 0.01,
       "unit": "%"
+    },
+    {
+      "key": "shadowBias",
+      "group": "atmosphere",
+      "node": "light",
+      "label": "Смещение теней",
+      "kind": "число",
+      "min": -0.005,
+      "max": 0.005,
+      "step": 0.0001
     },
     {
       "key": "skyVisible",

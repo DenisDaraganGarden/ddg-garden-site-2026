@@ -31,6 +31,7 @@ const DEV_LOCAL_EDITOR_KEYS = new Set([
   'showPointerDebug',
   'freeCamera',
   'debugWireframe',
+  'editorPostProcessing',
   'editorHeadingColor',
   'editorCursor',
 ]);

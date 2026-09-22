@@ -48,6 +48,7 @@ export const WaterGeometrySection = ({ settings, handleSettingChange }) => {
         <SeaRange settings={settings} handleSettingChange={handleSettingChange} setting="seaMeshRings" ru="Кольца сетки" en="Mesh rings" language={language} />
         <SeaRange settings={settings} handleSettingChange={handleSettingChange} setting="seaMeshSegments" ru="Сегменты сетки" en="Mesh segments" language={language} />
         <RangeControl controlId={'waterExtent'} label={seaLabel('Область ряби', 'Ripple area', language)} value={settings.waterExtent} min={12} max={200} step={0.5} unit="m" formatValue={(value) => formatFloat(value, 1)} onChange={(event) => handleSettingChange(event, 'waterExtent')} />
+        <RangeControl controlId={'waterMeshDensity'} label={seaLabel('Плотность сетки воды', 'Water mesh density', language)} value={settings.waterMeshDensity} min={96} max={384} step={8} onChange={(event) => handleSettingChange(event, 'waterMeshDensity', 'integer')} />
         <SelectControl controlId={'simulationResolution'} label={t('homeEditor.controls.simulationResolution')} value={settings.simulationResolution} options={SIMULATION_RESOLUTION_OPTIONS} onChange={(event) => handleSettingChange(event, 'simulationResolution', 'integer')} />
     </>;
 };
@@ -114,6 +115,33 @@ export const WaterWavesSection = ({ settings, handleSettingChange, applySettings
                 formatValue={(value) => formatFloat(value)}
                 onChange={(event) => handleSettingChange(event, 'rippleImpulse')}
             />
+            <RangeControl controlId={'rippleDamping'}
+                label={t('homeEditor.controls.rippleDamping')}
+                value={settings.rippleDamping}
+                min={0.93}
+                max={0.992}
+                step={0.001}
+                formatValue={(value) => formatFloat(value, 3)}
+                onChange={(event) => handleSettingChange(event, 'rippleDamping')}
+            />
+            <RangeControl controlId={'normalStrength'}
+                label={t('homeEditor.controls.normalStrength')}
+                value={settings.normalStrength}
+                min={0}
+                max={3.2}
+                step={0.02}
+                formatValue={(value) => formatFloat(value)}
+                onChange={(event) => handleSettingChange(event, 'normalStrength')}
+            />
+            <RangeControl controlId={'normalBlur'}
+                label={t('homeEditor.controls.normalBlur')}
+                value={settings.normalBlur}
+                min={0.2}
+                max={2.5}
+                step={0.01}
+                formatValue={(value) => formatFloat(value)}
+                onChange={(event) => handleSettingChange(event, 'normalBlur')}
+            />
             <SectionHeading label={t('homeEditor.blocks.ambientWaves')} subtle />
             <RangeControl controlId={'ambientWaveIntensity'}
                 label={t('homeEditor.controls.ambientWaveIntensity')}
@@ -123,6 +151,24 @@ export const WaterWavesSection = ({ settings, handleSettingChange, applySettings
                 step={0.01}
                 formatValue={(value) => formatFloat(value)}
                 onChange={(event) => handleSettingChange(event, 'ambientWaveIntensity')}
+            />
+            <RangeControl controlId={'ambientWaveSpeed'}
+                label={t('homeEditor.controls.ambientWaveSpeed')}
+                value={settings.ambientWaveSpeed}
+                min={0}
+                max={10}
+                step={0.05}
+                formatValue={(value) => formatFloat(value)}
+                onChange={(event) => handleSettingChange(event, 'ambientWaveSpeed')}
+            />
+            <RangeControl controlId={'waveChoppiness'}
+                label={t('homeEditor.controls.waveChoppiness')}
+                value={settings.waveChoppiness}
+                min={0}
+                max={1.25}
+                step={0.01}
+                formatValue={(value) => formatFloat(value)}
+                onChange={(event) => handleSettingChange(event, 'waveChoppiness')}
             />
         </>
     );
@@ -233,6 +279,42 @@ export const SeabedSection = ({ settings, handleSettingChange }) => {
                 formatValue={(value) => formatFloat(value)}
                 onChange={(event) => handleSettingChange(event, 'seabedAoStrength')}
             />
+            <RangeControl controlId={'seabedReliefScale'}
+                label={t('homeEditor.controls.seabedReliefScale')}
+                value={settings.seabedReliefScale}
+                min={0.5}
+                max={6}
+                step={0.05}
+                formatValue={(value) => formatFloat(value)}
+                onChange={(event) => handleSettingChange(event, 'seabedReliefScale')}
+            />
+            <RangeControl controlId={'seabedTextureScale'}
+                label={t('homeEditor.controls.seabedTextureScale')}
+                value={settings.seabedTextureScale}
+                min={0.1}
+                max={10}
+                step={0.05}
+                formatValue={(value) => formatFloat(value)}
+                onChange={(event) => handleSettingChange(event, 'seabedTextureScale')}
+            />
+            <RangeControl controlId={'seabedSaturation'}
+                label={t('homeEditor.controls.seabedSaturation')}
+                value={settings.seabedSaturation}
+                min={0}
+                max={2}
+                step={0.01}
+                formatValue={(value) => formatFloat(value)}
+                onChange={(event) => handleSettingChange(event, 'seabedSaturation')}
+            />
+            <RangeControl controlId={'waterTurbidity'}
+                label={t('homeEditor.controls.waterTurbidity')}
+                value={settings.waterTurbidity}
+                min={0}
+                max={1}
+                step={0.01}
+                formatValue={(value) => formatFloat(value)}
+                onChange={(event) => handleSettingChange(event, 'waterTurbidity')}
+            />
             <SectionHeading label={t('homeEditor.blocks.caustics')} subtle />
             <RangeControl controlId={'causticsIntensity'}
                 label={t('homeEditor.controls.causticsIntensity')}
@@ -251,6 +333,15 @@ export const SeabedSection = ({ settings, handleSettingChange }) => {
                 step={0.02}
                 formatValue={(value) => formatFloat(value)}
                 onChange={(event) => handleSettingChange(event, 'causticsSharpness')}
+            />
+            <RangeControl controlId={'causticsScale'}
+                label={t('homeEditor.controls.causticsScale')}
+                value={settings.causticsScale}
+                min={0.5}
+                max={6}
+                step={0.05}
+                formatValue={(value) => formatFloat(value)}
+                onChange={(event) => handleSettingChange(event, 'causticsScale')}
             />
         </>
     );
