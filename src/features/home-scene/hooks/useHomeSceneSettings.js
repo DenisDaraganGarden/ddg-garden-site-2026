@@ -1,4 +1,5 @@
 import { DEFAULT_TOPIARY_SETTINGS, normalizeTopiarySettings } from '../../../topiary/settings.js';
+import { DEFAULT_PLACED_SETTINGS, normalizePlacedSettings } from '../../../placed/settings.js';
 import {DEFAULT_GRASS_SETTINGS,DEFAULT_SHRUB_SETTINGS,DEFAULT_TREE_SETTINGS,normalizeGrassSettings,normalizeShrubSettings,normalizeTreeSettings} from '../../../plants/settings.js';
 import { DEFAULT_TERRAIN_SETTINGS, normalizeTerrainSettings } from '../../../terrain/settings.js';
 import { DEFAULT_TANKER_SETTINGS, normalizeTankerSettings } from '../../../tanker/settings.js';
@@ -201,6 +202,7 @@ export const getBaseHomeSceneSettings = () => ({
   ...DEFAULT_TANKER_SETTINGS,
   ...DEFAULT_TERRAIN_SETTINGS,
   ...DEFAULT_TOPIARY_SETTINGS,
+  ...DEFAULT_PLACED_SETTINGS,
   ...DEFAULT_SHRUB_SETTINGS,
   ...DEFAULT_TREE_SETTINGS,
   ...DEFAULT_GRASS_SETTINGS,
@@ -1149,6 +1151,7 @@ const normalizeHomeSceneSettings = (savedSettings = {}, includeCameraSystem = tr
     ...normalizeTankerSettings(merged),
     ...normalizeTerrainSettings(merged),
     ...normalizeTopiarySettings(merged),
+    ...normalizePlacedSettings(merged),
     ...normalizeShrubSettings(merged),
     ...normalizeTreeSettings(merged),
     ...normalizeGrassSettings(merged),

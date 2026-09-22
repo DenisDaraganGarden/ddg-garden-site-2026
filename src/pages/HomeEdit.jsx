@@ -30,6 +30,7 @@ import {
 import { useHomeSceneEditor } from '../features/home-scene/hooks/useHomeSceneEditor';
 import { useHomeChromeVisibility } from '../features/home-scene/hooks/useHomeChromeVisibility';
 import { useTopiaryEditor } from '../topiary/useTopiaryEditor.js';
+import { usePlacedEditor } from '../placed/usePlacedEditor.js';
 import { TOPIARY_LIMITS } from '../topiary/settings.js';
 import { GIZMO_MODES, useEditorTool } from '../features/home-scene/hooks/useEditorTool';
 import { resolveEditorPath } from '../features/home-scene/components/editor/editorTree';
@@ -111,6 +112,8 @@ const HomeEdit = ({ project = null }) => {
     const publishRequestRef = useRef(0);
     const lastPublishedSnapshotRef = useRef(INITIAL_PUBLISHED_SNAPSHOT);
     const cameraRigApiRef = useRef(null);
+    const placedEditor = usePlacedEditor({ settings, history: focusHistory, setActiveTab, setTool, language, layoutEditor: { capturePose: () => cameraRigApiRef.current?.capturePose?.() } });
+    const { update: updatePlaced, select: selectPlaced } = placedEditor;
     const [selectedLayoutKey, setSelectedLayoutKey] = useState(() => settings.editorLayoutKey ?? getCurrentLayoutKey());
     const [currentLayoutKey, setCurrentLayoutKey] = useState(getCurrentLayoutKey);
     const [cameraPoseRevision, setCameraPoseRevision] = useState(0);
@@ -480,6 +483,12 @@ const HomeEdit = ({ project = null }) => {
             updateTopiary(id.slice(8), changes);
             return;
         }
+        if (id.startsWith('placed:')) {
+            const changes = patch.position ? { x: patch.position.x, y: patch.position.y, z: patch.position.z }
+                : typeof patch.rotationY === 'number' ? { rotation: patch.rotationY } : { scale: patch.scale };
+            updatePlaced(id.slice(7), changes);
+            return;
+        }
         const lightMatch = /^light([12])(target)?$/.exec(id);
         if (lightMatch && patch.position) {
             const prefix = `light${lightMatch[1]}${lightMatch[2] ? 'Target' : ''}`;
@@ -511,17 +520,20 @@ const HomeEdit = ({ project = null }) => {
             const key = id === 'boat' ? 'boatScale' : 'sculptureScale';
             setSettings((previous) => ({ ...previous, [key]: patch.scale }));
         }
-    }, [handleBoatPositionChange, handleSculpturePositionChange, setSettings, updateTopiary]);
+    }, [handleBoatPositionChange, handleSculpturePositionChange, setSettings, updateTopiary, updatePlaced]);
 
     // Клик по объекту в сцене ставит тот же путь, что и клик в дереве, и так же
     // даёт выбранному последнюю трансформацию — манипулятор появляется сразу.
-    const handlePickObject = useCallback((path, hit) => { if (hit?.topiaryId) selectTopiary(hit.topiaryId); else setActiveTab(path); setTool(lastTransform); }, [setActiveTab, setTool, lastTransform, selectTopiary]);
+    const handlePickObject = useCallback((path, hit) => { if (hit?.topiaryId) selectTopiary(hit.topiaryId); else if (hit?.placedId) selectPlaced(hit.placedId); else setActiveTab(path); setTool(lastTransform); }, [setActiveTab, setTool, lastTransform, selectTopiary, selectPlaced]);
 
     const { group: gizmoGroup, node: gizmoNode } = resolveEditorPath(activeTab, { includeDevOnly: true });
     // An object switched off has left the scene graph; the gizmo has nothing to hold.
     const gizmoTargetShown = sceneObjectsForNode(`${gizmoGroup.id}/${gizmoNode.id}`).every(({ key }) => settings[key] !== false);
     const selectedTopiary = gizmoNode.id === 'topiary' ? settings.topiaryObjects.find(o => o.id === topiaryEditor.selectedId) : null;
-    const gizmoSelection = gizmoTargetShown && selectedTopiary ? `topiary:${selectedTopiary.id}` : gizmoTargetShown && ((gizmoGroup.id === 'objects' && gizmoNode.id !== 'tanker') || gizmoGroup.id === 'lights') ? gizmoNode.id : null;
+    const selectedPlaced = gizmoNode.id === 'placed' ? settings.placedObjects.find(o => o.id === placedEditor.selectedId) : null;
+    const gizmoSelection = gizmoTargetShown && selectedTopiary ? `topiary:${selectedTopiary.id}`
+        : gizmoTargetShown && selectedPlaced ? `placed:${selectedPlaced.id}`
+        : gizmoTargetShown && ((gizmoGroup.id === 'objects' && gizmoNode.id !== 'tanker' && gizmoNode.id !== 'placed') || gizmoGroup.id === 'lights') ? gizmoNode.id : null;
     // Инструмент хранится один, но трансформация без объекта, который можно
     // двигать, — это просто выбор: так «перенос» остаётся привычным умолчанием
     // и сам возвращается, как только выбран следующий подвижный объект.
@@ -530,7 +542,8 @@ const HomeEdit = ({ project = null }) => {
     const picking = activeTool !== 'hand' && activeTool !== 'topiary';
     // Яв и масштаб выбранного объекта — из настроек: манипулятор их показывает,
     // а пишет обратно только через onTransform, сцену напрямую не трогая.
-    const gizmoPose = selectedTopiary ? { rotationY: selectedTopiary.rotation, scale: selectedTopiary.scale } : gizmoSelection === 'boat'
+    const gizmoPose = selectedTopiary ? { rotationY: selectedTopiary.rotation, scale: selectedTopiary.scale }
+        : selectedPlaced ? { rotationY: selectedPlaced.rotation, scale: selectedPlaced.scale } : gizmoSelection === 'boat'
         ? { rotationY: settings.boatYaw ?? 0, scale: settings.boatScale ?? 1 }
         : gizmoSelection === 'sculpture'
             ? { rotationY: settings.sculptureRotationY ?? 0, scale: settings.sculptureScale ?? 1 }
@@ -545,8 +558,9 @@ const HomeEdit = ({ project = null }) => {
         onContextMenu: activeTool === 'topiary' ? undefined : setSceneMenu,
         topiary: { drawing: activeTool === 'topiary' && settings.topiaryObjects.length < TOPIARY_LIMITS.objects,
             selectedId: gizmoNode.id === 'topiary' ? topiaryEditor.selectedId : null, onStroke: topiaryEditor.onStroke },
+        placed: { selectedId: gizmoNode.id === 'placed' ? placedEditor.selectedId : null },
     // eslint-disable-next-line react-hooks/exhaustive-deps -- pose сравнивается по значениям, не по ссылке
-    }), [transformTool, gizmoSelection, tool, lastTransform, handleGizmoTransform, picking, handlePickObject, gizmoPose?.rotationY, gizmoPose?.scale, activeTool, settings.topiaryObjects.length, gizmoNode.id, topiaryEditor.selectedId, topiaryEditor.onStroke]);
+    }), [transformTool, gizmoSelection, tool, lastTransform, handleGizmoTransform, picking, handlePickObject, gizmoPose?.rotationY, gizmoPose?.scale, activeTool, settings.topiaryObjects.length, gizmoNode.id, topiaryEditor.selectedId, topiaryEditor.onStroke, placedEditor.selectedId]);
 
     // Курсор во вьюпорте говорит, какой инструмент в руке, не глядя на панель.
     useEffect(() => {
@@ -716,6 +730,7 @@ const HomeEdit = ({ project = null }) => {
                 applySettings={focusHistory.applySettings}
                 history={focusHistory}
                 topiaryEditor={topiaryEditor}
+                placedEditor={placedEditor}
                 layoutEditor={layoutEditor}
                 gizmo={{ tool: activeTool, setTool, lastTransform, movable: gizmoSelection, selection: editorGizmo.selection, picking, sceneMenu, closeSceneMenu: () => setSceneMenu(null) }}
                 onPublish={isLocalPublishAvailable && !project ? () => handlePublish() : undefined}
