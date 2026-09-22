@@ -155,7 +155,7 @@ export const sprayVertexBody = /* glsl */`
   bool mist = sprayHash(seed + 13.1) < uSprayMistShare;
   vec2 jit = (vec2(sprayHash(seed + 6.2), sprayHash(seed + 7.4)) - 0.5) * (lip ? 0.10 : 0.70) * H;
   sp.p += jit;
-  vec3 born = surfWorld(s, sp, -travelBack);
+  vec3 born = surfWorld(s, sp, -travelBack, surfCrestDamp(t));
   float waterY = born.y - (sp.p.y - sp.base);
   // Depth across the crest, so the plume is a body and not a curtain.
   born += vec3(coastAlong().x, 0.0, coastAlong().y) * (sprayHash(seed + 14.6) - 0.5) * uSpraySpread;
@@ -354,6 +354,10 @@ export function createSprayUniforms() {
 
 export function syncSprayUniforms(uniforms, settings, tier = SPRAY_TIERS.high) {
   uniforms.uSprayAmount.value = Number(settings.sprayAmount ?? 1);
+  const size = Number(settings.spraySize ?? 1);
+  uniforms.uSprayRadius.value = SPRAY_RADIUS * size;
+  uniforms.uSprayGrow.value = SPRAY_GROW * size;
+  uniforms.uSprayCycle.value = Number(settings.sprayLife ?? 2.2);
   uniforms.uSprayCurl.value = Number(settings.sprayCurl ?? tier.curl);
   uniforms.uSprayWind.value = Number(settings.foamDrift ?? 0.9);
   uniforms.uSprayScale.value = Number(settings.sprayGrain ?? 8);

@@ -81,6 +81,7 @@ const loftShader = /* glsl */`
   uniform float uRunup;
   uniform float uSpent;        // metres past its own break after which a section is gone
   uniform float uRibbonVisible;
+  uniform float uSurfSmooth;   // how much the crest ignores the short swell it stands on
   // The crest's height follows the swell's weather at its break point, so a
   // gust's bigger sections break earlier and farther out than the lulls; the
   // ends taper to the swell. The CPU break line uses the same field.
@@ -115,7 +116,14 @@ const loftShader = /* glsl */`
     // nothing before it lands never reads as hitting the shore.
     return surfProfile(t, travel, surfHeightAt(s) * (1.0 - 0.65 * smoothstep(0.0, max(uRunup, 0.5), q)));
   }
-  vec3 surfSwell(vec2 p) {
+  // The breaker is one body of water. The short swell it stands on must not
+  // print its cusps and ripples on the lip: with steep, crossed trains the
+  // crest read as a saw. Damping is zero at the loft's edges (t near 0 and
+  // 1), so they still lie exactly on the swell; the lip in between is smooth.
+  float surfCrestDamp(float t) {
+    return uSurfSmooth * smoothstep(0.1, 0.28, t) * (1.0 - smoothstep(0.74, 0.92, t));
+  }
+  vec3 surfSwell(vec2 p, float damp) {
     float dist = distance(p, cameraPosition.xz);
     float fade = (1.0 - smoothstep(uGerstnerFade.x, uGerstnerFade.y, dist)) * coastSwellFade(coastLocal(p));
     vec3 normal;
@@ -124,7 +132,8 @@ const loftShader = /* glsl */`
     // The shared cell, not a constant: the loft's edges have to lie on the very
     // swell the open water and the shore band draw, or they hover over it.
     vec3 world = gerstnerDisplace(p, fade, waterCell(p), normal, jacobian, drift);
-    world.y += seaRippleDisplacement(world.xz);
+    world = mix(world, vec3(p.x, 0.0, p.y), damp);
+    world.y += seaRippleDisplacement(world.xz) * (1.0 - damp);
     return world;
   }
   // The crest's centre line, in the coast frame's land coordinate: the break
@@ -142,7 +151,7 @@ const loftShader = /* glsl */`
   // follows the beach's slope for free.
   // dq: metres to rewind the crest by, so a mote born a moment ago is placed
   // where the wave stood then instead of riding along with it.
-  vec3 surfWorld(float s, SurfPoint sp, float dq) {
+  vec3 surfWorld(float s, SurfPoint sp, float dq, float damp) {
     float sAlong = uAlong0 + s * uCrestLength;
     float h = 0.5 / uCrestLength;                       // half a metre along the crest
     float k = surfCenterU(s + h) - surfCenterU(s - h);  // du/ds, metres per metre
@@ -151,8 +160,9 @@ const loftShader = /* glsl */`
     float u = surfCenterU(s) + x;
     vec2 xz = coastLand() * u + coastAlong() * along;
     float bed = max(coastGround(vec2(u - coastShore(along), along)), 0.0);
-    return surfSwell(xz) + vec3(0.0, sp.p.y - sp.base + bed, 0.0);
+    return surfSwell(xz, damp) + vec3(0.0, sp.p.y - sp.base + bed, 0.0);
   }
+  vec3 surfWorld(float s, SurfPoint sp, float dq) { return surfWorld(s, sp, dq, 0.0); }
   vec3 surfSwellNormal(vec2 p) {
     float dist = distance(p, cameraPosition.xz);
     float fade = (1.0 - smoothstep(uGerstnerFade.x, uGerstnerFade.y, dist)) * coastSwellFade(coastLocal(p));
@@ -181,10 +191,10 @@ const loftShader = /* glsl */`
     else { t0 = max(0.7001, t - 0.008); t1 = min(1.0, t + 0.008); }
     float s0 = max(0.0, s - 0.003);
     float s1 = min(1.0, s + 0.003);
-    vec3 ws0 = surfWorld(s0, surfAt(s0, t), 0.0);
-    vec3 ws1 = surfWorld(s1, surfAt(s1, t), 0.0);
-    vec3 wt0 = surfWorld(s, surfAt(s, t0), 0.0);
-    vec3 wt1 = surfWorld(s, surfAt(s, t1), 0.0);
+    vec3 ws0 = surfWorld(s0, surfAt(s0, t), 0.0, surfCrestDamp(t));
+    vec3 ws1 = surfWorld(s1, surfAt(s1, t), 0.0, surfCrestDamp(t));
+    vec3 wt0 = surfWorld(s, surfAt(s, t0), 0.0, surfCrestDamp(t0));
+    vec3 wt1 = surfWorld(s, surfAt(s, t1), 0.0, surfCrestDamp(t1));
     vec3 n = cross(ws1 - ws0, wt1 - wt0);
     n = dot(n, n) > 1e-10 ? normalize(n) : vec3(0.0, 1.0, 0.0);
     // Toward the rim the section is a sliver and its own normal turns edge-on;
@@ -214,15 +224,22 @@ const sheetVertexShader = /* glsl */`
   varying float vAlpha;
   varying float vShade;
   varying float vGround;
+  uniform float uSurfFoamVariety;
   void main() {
     float s = position.x, t = position.y;
     SurfPoint sp = surfAt(s, t);
-    vec3 w = surfWorld(s, sp, 0.0);
+    vec3 w = surfWorld(s, sp, 0.0, surfCrestDamp(t));
     float ground = coastGround(coastLocal(w.xz));
     vWorld = w;
     vGround = ground;
     vNormal = surfNormal(s, t, w);
-    vFoamUv = vec2(s * uCrestLength, sp.arc);
+    // The foam frame is straight along the crest, so its lace came back every
+    // 1/scale metres. A slow warp of the frame along the crest breaks the
+    // period without leaving the crest-and-arc frame the foam is drawn in.
+    float along = s * uCrestLength;
+    vFoamUv = vec2(along, sp.arc) + vec2(
+      (gerstnerNoise(vec2(along * 0.045, 0.37)) - 0.5) * 9.0,
+      (gerstnerNoise(vec2(along * 0.09, 2.1)) - 0.5) * 3.0) * uSurfFoamVariety;
     vFoam = sp.foam;
     vThickness = sp.thickness;
     vAlpha = uRibbonVisible * sp.alpha * surfRunupAlpha(w, s, ground) * surfEdgeAlpha(s, t);
@@ -242,6 +259,8 @@ const sheetFragmentShader = /* glsl */`
   ${foamFieldShader}
   uniform float uFoamThreshold;
   uniform float uFoamSoftness;
+  uniform float uSurfFoamVariety;
+  uniform float uSurfStreaks;
   varying vec3 vWorld;
   varying vec3 vNormal;
   varying vec2 vFoamUv;
@@ -272,7 +291,17 @@ const sheetFragmentShader = /* glsl */`
     // Anything else and the breaker wears a texture of its own.
     vec3 memory = sampleFoamField(vWorld.xz);
     float crest = gerstnerWhitecaps(vWorld.xz, uFoamThreshold, uFoamSoftness);
+    // Along the crest the profile's foam frame is straight, so the lace came
+    // back every 1/scale metres — a visible period on the face. A slow warp
+    // of the frame along the crest and patchy coverage break it; streaks are
+    // the foam dragged down the face, fine across the crest, long along it.
+    float along = vFoamUv.x;
+    float patches = mix(1.0, 0.55 + 0.9 * gerstnerNoise(vec2(along * 0.13, vFoamUv.y * 0.3 + 5.0)), uSurfFoamVariety);
+    float streaks = mix(1.0, 0.45 + 1.1 * gerstnerNoise(vec2(along * 0.7, vFoamUv.y * 0.06 + 9.0)), uSurfStreaks);
     float coverage = max(vFoam * 0.95, max(memory.x * memory.z, crest * 0.9 * (1.0 - memory.z)));
+    // Only the profile's own foam is broken up; what the field remembers and
+    // the whitecaps keep their coverage.
+    coverage = clamp(mix(coverage, coverage * patches * streaks, clamp(vFoam, 0.0, 1.0)), 0.0, 1.0);
     float age = mix(0.35, memory.y, memory.z) * (1.0 - vFoam);
     float bed = uShoreReady > 0.5 ? exp(-max(-coastGround(coastLocal(vWorld.xz)), 0.0) * uBedReach) : 0.0;
     vec3 color = shadeWater(vWorld, n, view, pixel, vFoamUv, coverage, age, vThickness, 0.0, bed) * clamp(vShade, 0.0, 1.0);
@@ -303,7 +332,7 @@ const shellVertexShader = /* glsl */`
   void main() {
     float s = position.x, t = position.y;
     SurfPoint sp = surfAt(s, t);
-    vec3 w = surfWorld(s, sp, 0.0);
+    vec3 w = surfWorld(s, sp, 0.0, surfCrestDamp(t));
     vec3 n = surfNormal(s, t, w);
     // Foam stands up off the water; under the lip it hangs down. The normal is
     // outward by construction now, so its sign is not guessed from n.y — on the
@@ -498,6 +527,9 @@ export default function BreakingWaves({ settings, lighting, noise = null, coast,
       uSpeed: { value: 4.5 },
       uRoller: { value: 0.5 },
       uRollerDensity: { value: 1 },
+      uSurfSmooth: { value: 0 },
+      uSurfFoamVariety: { value: 0 },
+      uSurfStreaks: { value: 0 },
     };
     // The loft's edges lie on the swell; the offset keeps them from fighting it for depth.
     const cockpitStencil = {
@@ -548,6 +580,9 @@ export default function BreakingWaves({ settings, lighting, noise = null, coast,
       uniforms.uSpeed.value = Math.max(settings.surfSpeed, 0.1);
       uniforms.uRoller.value = settings.surfRoller;
       uniforms.uRollerDensity.value = settings.surfRollerDensity;
+      uniforms.uSurfSmooth.value = settings.surfSmooth ?? 0;
+      uniforms.uSurfFoamVariety.value = settings.surfFoamVariety ?? 0;
+      uniforms.uSurfStreaks.value = settings.surfStreaks ?? 0;
       uniforms.uFoamThreshold.value = settings.foamThreshold;
       uniforms.uFoamSoftness.value = settings.foamSoftness;
       syncSprayUniforms(uniforms, settings, tier);
@@ -659,7 +694,7 @@ export default function BreakingWaves({ settings, lighting, noise = null, coast,
       // Their transparent passes then fight in depth and flash under motion.
       ribbon.uniforms.uRibbonVisible.value = alive ? 1 : 0;
       sprayGeometries[ribbon.index].instanceCount = alive
-        ? sprayInstanceCount({ distance, height, viewportHeight: viewport.height, viewportWidth: viewport.width, projectionY, overdraw: tier.overdraw, max: tier.max })
+        ? sprayInstanceCount({ distance, height, viewportHeight: viewport.height, viewportWidth: viewport.width, projectionY, overdraw: tier.overdraw, max: tier.max, radius: (0.02 + 0.11 * 0.5) * (settings.spraySize ?? 1) })
         : 0;
       ribbon.uniforms.uTravel.value = travel;
       ribbon.uniforms.uPose.value = frozen ? Math.max(1.4, frozenTravel) : travel;
