@@ -1,5 +1,5 @@
 {
-  "collected": "2026-09-22T20:31:53.825Z",
+  "collected": "2026-09-22T21:27:27.232Z",
   "rows": [
     {
       "key": "cameraFov",
@@ -4559,7 +4559,8 @@
         "auto",
         "low",
         "balanced",
-        "high"
+        "high",
+        "ultra"
       ]
     },
     {
@@ -4596,6 +4597,50 @@
       "group": "atmosphere",
       "node": "clouds",
       "label": "Молнии",
+      "kind": "число",
+      "min": 0,
+      "max": 1,
+      "step": 0.01,
+      "unit": "%"
+    },
+    {
+      "key": "painterlyCloudRainCells",
+      "group": "atmosphere",
+      "node": "clouds",
+      "label": "Дождевые тучи",
+      "kind": "число",
+      "min": 0,
+      "max": 1,
+      "step": 0.01,
+      "unit": "%"
+    },
+    {
+      "key": "painterlyCloudRainDrops",
+      "group": "atmosphere",
+      "node": "clouds",
+      "label": "Капли у камеры",
+      "kind": "число",
+      "min": 0,
+      "max": 1,
+      "step": 0.01,
+      "unit": "%"
+    },
+    {
+      "key": "painterlyCloudRainDropSize",
+      "group": "atmosphere",
+      "node": "clouds",
+      "label": "Размер капель",
+      "kind": "число",
+      "min": 0.5,
+      "max": 2,
+      "step": 0.05,
+      "unit": "x"
+    },
+    {
+      "key": "painterlyCloudRainDarkness",
+      "group": "atmosphere",
+      "node": "clouds",
+      "label": "Темнота туч",
       "kind": "число",
       "min": 0,
       "max": 1,
@@ -6040,6 +6085,10 @@
     "painterlyCloudStorm": 0.7,
     "painterlyCloudRain": 0.6,
     "painterlyCloudLightning": 0.5,
+    "painterlyCloudRainCells": 0.5,
+    "painterlyCloudRainDarkness": 0.6,
+    "painterlyCloudRainDrops": 0.6,
+    "painterlyCloudRainDropSize": 1,
     "distantSurfaceColor": "#70716d",
     "moonPhase": 0.5,
     "moonBrightness": 1,

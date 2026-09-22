@@ -367,6 +367,7 @@ export const buildHomeSceneLighting = (settings = {}) => {
       starAxis,
       starRotation: (timeOfDay / 24) * Math.PI * 2 - Math.PI,
       starsIntensity: clamp(finiteNumber(settings.starsIntensity, 1), 0, 3),
+      moonBrightness: clamp(finiteNumber(settings.moonBrightness, 1), 0, 4),
     },
     surface: {
       color: distantSurface,

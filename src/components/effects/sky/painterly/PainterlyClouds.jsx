@@ -14,6 +14,9 @@ const PROFILE = {
   low: { ratio: .4, steps: 24, noise: 64, shadow: 256, hz: 6, atlas: 256 },
   balanced: { ratio: .55, steps: 40, noise: 64, shadow: 384, hz: 10, atlas: 512 },
   high: { ratio: .75, steps: 64, noise: 96, shadow: 512, hz: 12, atlas: 768 },
+  // Full-resolution buffer, fine steps inside cloud and six sun taps: for a
+  // still frame or a strong GPU, not a promise of frame rate.
+  ultra: { ratio: 1, steps: 96, noise: 96, shadow: 768, hz: 15, atlas: 1024 },
 };
 const clamp = THREE.MathUtils.clamp;
 // Linear radiance of a stroke inside the volume: bluish white, well above the
@@ -66,7 +69,8 @@ function createResources(noise, profile, product, colorType) {
     uCamera: { value: new THREE.Vector3() }, uResolution: { value: new THREE.Vector2() },
     uOrigin: { value: new THREE.Vector2() }, uExtent: { value: EXTENT }, uSoftness: { value: .3 },
     uRadianceGain: { value: 1 }, uDiscVisible: { value: 1 }, uDiscCosRadius: { value: .99995 },
-    uStorm: { value: 0 }, uRain: { value: 0 }, uTime: { value: 0 },
+    uStorm: { value: 0 }, uRain: { value: 0 }, uTime: { value: 0 }, uRainInView: { value: 1 },
+    uRainCells: { value: .5 }, uRainDark: { value: .6 }, uFineStep: { value: 1 }, uMoonGate: { value: 0 },
     uFlash: { value: 0 }, uFlashPos: { value: new THREE.Vector3(0, 1800, -4000) }, uFlashColor: { value: FLASH_COLOR.clone() },
     uMoonDirection: { value: new THREE.Vector3(0, -1, 0) }, uMoonSunDirection: { value: new THREE.Vector3(0, 1, 0) },
     uMoonRadiance: { value: new THREE.Color(0, 0, 0) }, uMoonCosRadius: { value: Math.cos(.26 * Math.PI / 180) },
@@ -99,7 +103,8 @@ function createResources(noise, profile, product, colorType) {
     geometry,uniforms,volumeTarget,shadowTarget,shadowRaw,shadowBlur,blurUniforms,blur,volume,shadow,atlasTarget,atlas,composite,camera:new THREE.Camera(),
     descriptor:{texture:shadowTarget.texture,origin:uniforms.uOrigin.value,extent:EXTENT,sun:uniforms.uSun.value,strength:0,enabled:false,
       altitude:1400,height:2400,skyTexture:null,skyTexel:new THREE.Vector2(1/profile.atlas,2/profile.atlas),environment:null,
-      flash:0,flashPosition:uniforms.uFlashPos.value,flashColor:FLASH_SCENE_COLOR},
+      flash:0,flashPosition:uniforms.uFlashPos.value,flashColor:FLASH_SCENE_COLOR,
+      weather:noise.weather,wind:uniforms.uWind.value,weatherPeriod:18000,rain:0,rainCells:.5,storm:0,rainInPost:false,rainDrops:.6,rainDropSize:1},
     dispose(){
       geometry.dispose();composite.dispose();
       for(const p of [volume,shadow,blur,atlas])p?.material.dispose();
@@ -182,7 +187,8 @@ function CloudRuntime({noise,settings,lighting,onStats,onShadow,paused,bakeMs,mo
     u.uWind.value.copy(m.offset);
     u.uCoverage.value=settings.enabled ? settings.coverage : 0;
     u.uDensity.value=settings.density;u.uAltitude.value=settings.altitude;u.uHeight.value=settings.height*2400;
-    u.uScale.value=settings.scale;u.uLightSteps.value=settings.quality==='low'?2:settings.quality==='high'?4:3;
+    u.uScale.value=settings.scale;u.uLightSteps.value=settings.quality==='low'?2:settings.quality==='ultra'?6:settings.quality==='high'?4:3;
+    u.uFineStep.value=settings.quality==='high'||settings.quality==='ultra'?.5:1;
     u.uSun.value.fromArray(lighting.sky.keyDirection).normalize();
     const elevation=lighting.sky.sunElevationDeg;
     const day=clamp((elevation+5)/15,.006,1),warm=clamp((16-elevation)/20,0,1);
@@ -195,7 +201,16 @@ function CloudRuntime({noise,settings,lighting,onStats,onShadow,paused,bakeMs,mo
     u.uHazeColor.value.setRGB(.4+warm*.24,.57-warm*.15,.75-warm*.32).multiplyScalar((.015+day*.85)*(1-.5*storm));
     u.uHaze.value=settings.haze;u.uDay.value=day;u.uSteps.value=profile.steps;u.uSoftness.value=settings.shadowSoftness;
     u.uStorm.value=settings.storm??0;u.uRain.value=settings.quality==='low'?0:(settings.rain??0);u.uTime.value=m.elapsed;
+    u.uRainCells.value=settings.rainCells??.5;u.uRainDark.value=settings.rainDarkness??.6;
+    // The product post pass draws the rain with scene depth (over sea and
+    // land); this pass then keeps it only for the water atlas and the lab.
+    u.uRainInView.value=d.rainInPost?0:1;
+    d.weatherPeriod=18000*settings.scale;d.rain=u.uRain.value;d.rainCells=u.uRainCells.value;d.storm=u.uStorm.value;
+    d.rainDrops=settings.rainDrops??.6;d.rainDropSize=settings.rainDropSize??1;
     const sky=lighting.sky;
+    // Moonlight on the clouds: the key is the moon at night, so the same direct
+    // term runs, gated by how much moon there is instead of by the day.
+    u.uMoonGate.value=(sky.night??0)*(sky.moonIllumination??0)*(sky.moonBrightness??1)*.09;
     u.uMoonDirection.value.fromArray(sky.moonDirection??[0,-1,0]).normalize();
     u.uMoonSunDirection.value.fromArray(sky.sunDirection??[0,1,0]).normalize();
     u.uMoonRadiance.value.fromArray(sky.moonDiscRadiance??[0,0,0]).multiplyScalar(discVisible?1:0);

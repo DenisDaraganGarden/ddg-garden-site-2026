@@ -8,7 +8,7 @@
 единицы взяты из его каталога контролов, поэтому параметр не может появиться в
 редакторе и не появиться здесь. Руками не править.
 
-Снято: 2026-09-22 · параметров: 583 · разделов: 39
+Снято: 2026-09-22 · параметров: 587 · разделов: 39
 
 Как этим пользоваться агенту: читать и писать `projects/<id>.json`, поле
 `settings` — плоский объект с этими ключами. `topiaryObjects` — массив форм;
@@ -25,8 +25,12 @@
 | `painterlyCloudHaze` | Дымка | число | 0 … 1, шаг 0.01, % | 0.3 |
 | `painterlyCloudHeight` | Вертикальный объём | число | 0.2 … 2, шаг 0.05 | 1 |
 | `painterlyCloudLightning` | Молнии | число | 0 … 1, шаг 0.01, % | 0.5 |
-| `painterlyCloudQuality` | Качество | список | auto · low · balanced · high | auto |
+| `painterlyCloudQuality` | Качество | список | auto · low · balanced · high · ultra | auto |
 | `painterlyCloudRain` | Дождь | число | 0 … 1, шаг 0.01, % | 0.6 |
+| `painterlyCloudRainCells` | Дождевые тучи | число | 0 … 1, шаг 0.01, % | 0.5 |
+| `painterlyCloudRainDarkness` | Темнота туч | число | 0 … 1, шаг 0.01, % | 0.6 |
+| `painterlyCloudRainDrops` | Капли у камеры | число | 0 … 1, шаг 0.01, % | 0.6 |
+| `painterlyCloudRainDropSize` | Размер капель | число | 0.5 … 2, шаг 0.05, x | 1 |
 | `painterlyCloudRays` | Лучи под облаками | число | 0 … 1, шаг 0.01, % | 0.35 |
 | `painterlyCloudScale` | Масштаб | число | 0.35 … 2.5, шаг 0.05, x | 1 |
 | `painterlyCloudSeed` | Вариант | число | 1 … 99, шаг 1 | 7 |
