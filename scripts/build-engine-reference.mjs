@@ -18,36 +18,45 @@ const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..')
 const OUT_MD = path.join(ROOT, 'docs', 'engine-parameters.md');
 const OUT_JSON = path.join(ROOT, 'docs', 'engine-parameters.json');
 
-const collected = path.join(await fs.mkdtemp(path.join(os.tmpdir(), 'ddg-reference-')), 'catalog.json');
+// A live sandbox browser can supply the same probe without opening a second
+// desktop window. Formatting and validation remain this generator's job.
+const catalogInput = process.env.DDG_REFERENCE_CATALOG;
+let raw;
+if (catalogInput) {
+  raw = await fs.readFile(path.resolve(catalogInput), 'utf8');
+} else {
+  const collected = path.join(await fs.mkdtemp(path.join(os.tmpdir(), 'ddg-reference-')), 'catalog.json');
 
-const child = spawn(electron, ['electron/main.js'], {
-  cwd: ROOT,
-  env: {
-    ...process.env,
-    DDG_APP_START: '/home/edit',
-    DDG_APP_PORT: process.env.DDG_APP_PORT ?? '41229',
-    DDG_APP_SMOKE_WAIT: '1000',
-    DDG_APP_PROBE: path.join(ROOT, 'scripts', 'engine-reference-probe.js'),
-    DDG_APP_PROBE_OUT: collected,
-  },
-  stdio: ['ignore', 'pipe', 'pipe'],
-});
+  const child = spawn(electron, ['electron/main.js'], {
+    cwd: ROOT,
+    env: {
+      ...process.env,
+      DDG_APP_START: '/home/edit',
+      DDG_APP_PORT: process.env.DDG_APP_PORT ?? '41229',
+      DDG_APP_SMOKE_WAIT: '1000',
+      DDG_APP_PROBE: path.join(ROOT, 'scripts', 'engine-reference-probe.js'),
+      DDG_APP_PROBE_OUT: collected,
+    },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
 
-let output = '';
-child.stdout.on('data', (chunk) => { output += chunk; });
-child.stderr.on('data', (chunk) => { output += chunk; });
+  let output = '';
+  child.stdout.on('data', (chunk) => { output += chunk; });
+  child.stderr.on('data', (chunk) => { output += chunk; });
 
-const code = await new Promise((resolve) => {
-  const timer = setTimeout(() => { child.kill('SIGKILL'); resolve('таймаут'); }, 180000);
-  child.on('exit', (value) => { clearTimeout(timer); resolve(value); });
-});
+  const code = await new Promise((resolve) => {
+    const timer = setTimeout(() => { child.kill('SIGKILL'); resolve('таймаут'); }, 180000);
+    child.on('exit', (value) => { clearTimeout(timer); resolve(value); });
+  });
 
-const raw = await fs.readFile(collected, 'utf8').catch(() => null);
-await fs.rm(path.dirname(collected), { recursive: true, force: true });
+  raw = await fs.readFile(collected, 'utf8').catch(() => null);
+  await fs.rm(path.dirname(collected), { recursive: true, force: true });
 
-if (code !== 0 || !raw) {
-  console.error(output.trim().split('\n').filter((line) => !line.includes('GL_INVALID')).join('\n'));
-  throw new Error(`Справочник не собран (выход ${code})`);
+  if (code !== 0 || !raw) {
+    console.error(output.trim().split('\n').filter((line) => !line.includes('GL_INVALID')).join('\n'));
+    throw new Error(`Справочник не собран (выход ${code})`);
+  }
+
 }
 
 const catalog = JSON.parse(raw);
@@ -94,7 +103,8 @@ const lines = [
   `Снято: ${catalog.collected.slice(0, 10)} · параметров: ${catalog.rows.length} · разделов: ${groups.size}`,
   '',
   'Как этим пользоваться агенту: читать и писать `projects/<id>.json`, поле',
-  '`settings` — плоский объект с этими ключами. Пределы ниже — это пределы',
+  '`settings` — плоский объект с этими ключами. `topiaryObjects` — массив форм;',
+  '`topiaryObjects[].…` обозначает поле одной формы. Пределы ниже — это пределы',
   'редактора; движок нормализует значение при загрузке, выходить за них не нужно.',
   '',
 ];

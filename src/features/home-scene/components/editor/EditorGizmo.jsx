@@ -68,8 +68,13 @@ const GIZMO_NOTES = {
     sculpture: { ru: 'высота — от дна', en: 'height comes from the seabed' },
 };
 
+const targetRule = selection => {
+    if (!selection?.startsWith('topiary:')) return GIZMO_TARGETS[selection];
+    return { objectName: `topiary-${selection.slice(8)}`, translate: { x: true, y: true, z: true }, rotate: { x: false, y: true, z: false }, uniformScale: true };
+};
+
 export function describeGizmoAxes(selection, mode, language = 'ru') {
-    const rule = GIZMO_TARGETS[selection];
+    const rule = targetRule(selection);
     if (!rule) return '';
     const axes = mode === 'scale'
         ? (rule.uniformScale ? (language === 'ru' ? 'равномерно' : 'uniform') : 'X Y Z')
@@ -103,7 +108,7 @@ export default function EditorGizmo({ selection, mode, orbitRef, onTransform, po
     }, []);
     const drag = useRef(null);
     const centre = useRef(new THREE.Vector3());
-    const rule = selection ? GIZMO_TARGETS[selection] : null;
+    const rule = useMemo(() => selection ? targetRule(selection) : null, [selection]);
 
     // The anchors mount with the scene, which can be a frame or two after the
     // selection is made, so resolve by name and retry until it exists.

@@ -1,5 +1,5 @@
 {
-  "collected": "2026-09-22T16:30:16.376Z",
+  "collected": "2026-09-22T17:25:25.078Z",
   "rows": [
     {
       "key": "cameraFov",
@@ -2337,6 +2337,183 @@
       "max": 1200,
       "step": 10,
       "unit": " m"
+    },
+    {
+      "key": "topiaryEnabled",
+      "group": "greenery",
+      "node": "topiary",
+      "label": "Стриженые формы",
+      "kind": "выключатель"
+    },
+    {
+      "key": "topiaryBrushWidth",
+      "group": "greenery",
+      "node": "topiary",
+      "label": "Толщина мазка",
+      "kind": "число",
+      "min": 0.3,
+      "max": 8,
+      "step": 0.05,
+      "unit": " m"
+    },
+    {
+      "key": "topiaryBrushHeight",
+      "group": "greenery",
+      "node": "topiary",
+      "label": "Высота мазка",
+      "kind": "число",
+      "min": 0.3,
+      "max": 12,
+      "step": 0.05,
+      "unit": " m"
+    },
+    {
+      "key": "topiaryPlaneY",
+      "group": "greenery",
+      "node": "topiary",
+      "label": "Плоскость Y",
+      "kind": "число",
+      "min": -20,
+      "max": 40,
+      "step": 0.05,
+      "unit": " m"
+    },
+    {
+      "key": "topiaryObjects",
+      "group": "greenery",
+      "node": "topiary",
+      "label": "Объект",
+      "kind": "список",
+      "options": [
+        ""
+      ]
+    },
+    {
+      "key": "topiaryObjects[].width",
+      "group": "greenery",
+      "node": "topiary",
+      "label": "Толщина",
+      "kind": "число",
+      "min": 0.3,
+      "max": 8,
+      "step": 0.05,
+      "unit": " m"
+    },
+    {
+      "key": "topiaryObjects[].height",
+      "group": "greenery",
+      "node": "topiary",
+      "label": "Высота",
+      "kind": "число",
+      "min": 0.3,
+      "max": 12,
+      "step": 0.05,
+      "unit": " m"
+    },
+    {
+      "key": "topiaryObjects[].density",
+      "group": "greenery",
+      "node": "topiary",
+      "label": "Плотность хвои",
+      "kind": "число",
+      "min": 0.1,
+      "max": 1,
+      "step": 0.01
+    },
+    {
+      "key": "topiaryObjects[].leafSize",
+      "group": "greenery",
+      "node": "topiary",
+      "label": "Размер веточки",
+      "kind": "число",
+      "min": 0.14,
+      "max": 0.55,
+      "step": 0.01,
+      "unit": " m"
+    },
+    {
+      "key": "topiaryObjects[].roundness",
+      "group": "greenery",
+      "node": "topiary",
+      "label": "Скругление",
+      "kind": "число",
+      "min": 0,
+      "max": 1,
+      "step": 0.01
+    },
+    {
+      "key": "topiaryObjects[].roughness",
+      "group": "greenery",
+      "node": "topiary",
+      "label": "Шероховатость",
+      "kind": "число",
+      "min": 0.35,
+      "max": 1,
+      "step": 0.01
+    },
+    {
+      "key": "topiaryObjects[].translucency",
+      "group": "greenery",
+      "node": "topiary",
+      "label": "Просвечивание",
+      "kind": "число",
+      "min": 0,
+      "max": 1.4,
+      "step": 0.05
+    },
+    {
+      "key": "topiaryObjects[].x",
+      "group": "greenery",
+      "node": "topiary",
+      "label": "Положение X",
+      "kind": "число",
+      "min": -1200,
+      "max": 1200,
+      "step": 0.1,
+      "unit": " m"
+    },
+    {
+      "key": "topiaryObjects[].z",
+      "group": "greenery",
+      "node": "topiary",
+      "label": "Положение Z",
+      "kind": "число",
+      "min": -1200,
+      "max": 1200,
+      "step": 0.1,
+      "unit": " m"
+    },
+    {
+      "key": "topiaryObjects[].baseY",
+      "group": "greenery",
+      "node": "topiary",
+      "label": "Основание Y",
+      "kind": "число",
+      "min": -20,
+      "max": 40,
+      "step": 0.05,
+      "unit": " m"
+    },
+    {
+      "key": "topiaryObjects[].rotation",
+      "group": "greenery",
+      "node": "topiary",
+      "label": "Поворот",
+      "kind": "число",
+      "min": -180,
+      "max": 180,
+      "step": 1,
+      "unit": "°"
+    },
+    {
+      "key": "topiaryObjects[].scale",
+      "group": "greenery",
+      "node": "topiary",
+      "label": "Масштаб",
+      "kind": "число",
+      "min": 0.25,
+      "max": 4,
+      "step": 0.05
     },
     {
       "key": "shrubsEnabled",
@@ -4968,6 +5145,13 @@
       "kind": "выключатель"
     },
     {
+      "key": "topiaryEnabled",
+      "group": "render",
+      "node": "visibility",
+      "label": "Стриженые формы",
+      "kind": "выключатель"
+    },
+    {
       "key": "shrubsEnabled",
       "group": "render",
       "node": "visibility",
@@ -5603,6 +5787,10 @@
     "terrainMussels": 0.3,
     "terrainBedScale": 42,
     "terrainRipples": 0.6,
+    "topiaryEnabled": true,
+    "topiaryBrushWidth": 1.2,
+    "topiaryBrushHeight": 2.4,
+    "topiaryPlaneY": 0,
     "shrubsEnabled": true,
     "shrubsCount": 512,
     "shrubsSeed": 23,

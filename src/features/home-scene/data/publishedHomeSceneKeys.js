@@ -1,3 +1,4 @@
+import { DEFAULT_TOPIARY_SETTINGS } from '../../../topiary/settings.js';
 import {DEFAULT_GRASS_SETTINGS,DEFAULT_SHRUB_SETTINGS,DEFAULT_TREE_SETTINGS} from '../../../plants/settings.js';
 import { DEFAULT_TERRAIN_SETTINGS } from '../../../terrain/settings.js';
 import { DEFAULT_TANKER_SETTINGS } from '../../../tanker/settings.js';
@@ -6,6 +7,7 @@ import { DEFAULT_RENDER_QUALITY_SETTINGS } from '../../../components/effects/ren
 import { SEA_SETTINGS_DEFAULTS } from '../../../components/effects/water/seaSettings.js';
 import { DEFAULT_PAINTERLY_CLOUD_SETTINGS } from '../lib/painterlyCloudSettings.js';
 const keys = [
+  ...Object.keys(DEFAULT_TOPIARY_SETTINGS),
   ...Object.keys(DEFAULT_TANKER_SETTINGS),
   ...Object.keys(DEFAULT_TERRAIN_SETTINGS),
   ...Object.keys(DEFAULT_SHRUB_SETTINGS),

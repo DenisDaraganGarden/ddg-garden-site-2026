@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 export const GIZMO_MODES = ['translate', 'rotate', 'scale'];
-export const EDITOR_TOOLS = ['select', ...GIZMO_MODES, 'hand'];
+export const EDITOR_TOOLS = ['select', ...GIZMO_MODES, 'hand', 'topiary'];
 
 // Одна линейка инструментов, как в 3ds Max: в каждый момент активен ровно один.
 //
@@ -21,6 +21,7 @@ const TOOL_KEYS = {
     r: 'rotate',
     s: 'scale',
     h: 'hand',
+    b: 'topiary',
 };
 
 const isTypingTarget = (target) => {
