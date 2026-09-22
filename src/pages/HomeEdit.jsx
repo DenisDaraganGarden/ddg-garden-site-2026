@@ -658,7 +658,10 @@ const HomeEdit = ({ project = null }) => {
         setSettings(currentPreparedSettings);
 
         try {
-            const payload = await publishHomeSceneSettings(currentPublishableSettings, { deploy });
+            const payload = await publishHomeSceneSettings(currentPublishableSettings, {
+                deploy,
+                source: project ? { projectId: project.id, projectName: project.name } : null,
+            });
 
             if (publishRequestRef.current !== requestId) {
                 return;
@@ -733,16 +736,16 @@ const HomeEdit = ({ project = null }) => {
                 placedEditor={placedEditor}
                 layoutEditor={layoutEditor}
                 gizmo={{ tool: activeTool, setTool, lastTransform, movable: gizmoSelection, selection: editorGizmo.selection, picking, sceneMenu, closeSceneMenu: () => setSceneMenu(null) }}
-                onPublish={isLocalPublishAvailable && !project ? () => handlePublish() : undefined}
-                onDeploy={isLocalPublishAvailable && !project ? () => handlePublish({ deploy: true }) : undefined}
+                onPublish={isLocalPublishAvailable ? () => handlePublish() : undefined}
+                onDeploy={isLocalPublishAvailable ? () => handlePublish({ deploy: true }) : undefined}
                 onAdoptPublished={handleAdoptPublished}
                 publishState={publishState}
                 hasPublishChanges={hasPublishChanges}
                 project={project}
-                publishEnabled={isLocalPublishAvailable && !project}
-                publishHint={project
-                    ? t('homeEditor.publish.projectScope')
-                    : (isLocalPublishAvailable ? '' : t('homeEditor.publish.unavailable'))}
+                publishEnabled={isLocalPublishAvailable}
+                publishHint={isLocalPublishAvailable
+                    ? (project ? t('homeEditor.publish.projectScope') : '')
+                    : t('homeEditor.publish.unavailable')}
                 audioLab={{
                     state: audioState,
                     previewEnabled: editorPreviewEnabled,

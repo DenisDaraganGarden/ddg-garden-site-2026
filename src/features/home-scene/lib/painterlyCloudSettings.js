@@ -91,9 +91,11 @@ export const resolveStormScalars = (settings = {}) => {
 // desktop/mobile profile here, without writing that effective choice to scenes.
 export const resolvePainterlyCloudSettings = (settings = {}, qualityProfile = {}) => {
   const normalized = normalizePainterlyCloudSettings(settings);
-  const quality = normalized.painterlyCloudQuality === 'auto'
-    ? (qualityProfile.isMobileDevice || qualityProfile.isLowPower ? 'low' : 'balanced')
-    : normalized.painterlyCloudQuality;
+  const small = Boolean(qualityProfile.isMobileDevice || qualityProfile.isLowPower);
+  const requested = normalized.painterlyCloudQuality === 'auto' ? (small ? 'low' : 'balanced') : normalized.painterlyCloudQuality;
+  // High and ultra are desktop profiles; a phone that receives an authored
+  // one renders balanced, without writing that choice back into the scene.
+  const quality = small && (requested === 'high' || requested === 'ultra') ? 'balanced' : requested;
   return {
     enabled: normalized.painterlyCloudsEnabled,
     seed: normalized.painterlyCloudSeed,

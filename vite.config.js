@@ -19,6 +19,11 @@ const publishedHomeSceneSettingsPath = path.join(
 );
 const execFileAsync = promisify(execFile);
 const PUBLISHED_HOME_SCENE_SETTINGS_FILE = 'src/features/home-scene/data/publishedHomeSceneSettings.js';
+// Which project the home page scene came from (or null for the site's own
+// editor), so the project list can say what is on the home page right now.
+const PUBLISHED_HOME_SCENE_SOURCE_FILE = 'src/features/home-scene/data/publishedHomeSceneSource.json';
+const publishedHomeSceneSourcePath = path.join(projectRoot, PUBLISHED_HOME_SCENE_SOURCE_FILE);
+const DEPLOY_FILES = [PUBLISHED_HOME_SCENE_SETTINGS_FILE, PUBLISHED_HOME_SCENE_SOURCE_FILE];
 const DEPLOY_REMOTE = 'origin';
 const DEPLOY_BRANCH = 'main';
 
@@ -38,12 +43,12 @@ async function git(args, timeout = 60000) {
 // a person to look at, and the error says so.
 async function deployPublishedHomeScene() {
   const branch = await git(['rev-parse', '--abbrev-ref', 'HEAD']);
-  await git(['add', '--', PUBLISHED_HOME_SCENE_SETTINGS_FILE]);
-  const staged = await git(['diff', '--cached', '--name-only', '--', PUBLISHED_HOME_SCENE_SETTINGS_FILE]);
+  await git(['add', '--', ...DEPLOY_FILES]);
+  const staged = await git(['diff', '--cached', '--name-only', '--', ...DEPLOY_FILES]);
   let commit = null;
 
   if (staged) {
-    await git(['commit', '--only', '-m', 'chore(home): publish authored scene', '--', PUBLISHED_HOME_SCENE_SETTINGS_FILE]);
+    await git(['commit', '--only', '-m', 'chore(home): publish authored scene', '--', ...DEPLOY_FILES]);
     commit = await git(['rev-parse', '--short', 'HEAD']);
   }
 
@@ -81,6 +86,12 @@ function normalizeHomeSceneSettingsPayload(settings) {
   }, {});
 }
 
+function normalizeHomeSceneSourcePayload(source) {
+  if (!source || typeof source !== 'object') return { projectId: null, projectName: null };
+  const projectId = typeof source.projectId === 'string' && isValidId(source.projectId) ? source.projectId : null;
+  return { projectId, projectName: projectId && typeof source.projectName === 'string' ? source.projectName.slice(0, 120) : null };
+}
+
 function buildPublishedHomeSceneSettingsModule(settings) {
   return `export const publishedHomeSceneSettings = ${JSON.stringify(settings, null, 2)};\n`;
 }
@@ -110,6 +121,11 @@ function homeScenePublishPlugin() {
         await fs.writeFile(
           publishedHomeSceneSettingsPath,
           buildPublishedHomeSceneSettingsModule(normalizedSettings),
+          'utf8',
+        );
+        await fs.writeFile(
+          publishedHomeSceneSourcePath,
+          `${JSON.stringify({ ...normalizeHomeSceneSourcePayload(body.source), publishedAt: new Date().toISOString() }, null, 2)}\n`,
           'utf8',
         );
 
