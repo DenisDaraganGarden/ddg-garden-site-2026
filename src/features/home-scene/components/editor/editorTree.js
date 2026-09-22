@@ -10,7 +10,7 @@ import {
 } from './sections/landscape';
 import { AlgaeSection, LiliesSection } from './sections/greenery';
 import { GrassSection } from './sections/grass';
-import { BoatSection, SculptureSection } from './sections/objects';
+import { BoatSection, PlaneSection, SculptureSection } from './sections/objects';
 import {
     CloudsSection,
     FogSection,
@@ -88,6 +88,7 @@ export const EDITOR_TREE = [
             { id: 'tanker', aspects: [{ id: 'transform', Section: TankerSection }] },
             { id: 'boat', aspects: [{ id: 'transform', Section: BoatSection }] },
             { id: 'sculpture', aspects: [{ id: 'transform', Section: SculptureSection }] },
+            { id: 'plane', aspects: [{ id: 'transform', Section: PlaneSection }] },
         ],
     },
     {

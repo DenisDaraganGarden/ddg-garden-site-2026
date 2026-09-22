@@ -365,3 +365,47 @@ export const SculptureSection = ({ settings, handleSettingChange, layoutEditor }
         </>
     );
 };
+
+export const PlaneSection = ({ settings, handleSettingChange }) => {
+    const { t } = useLanguage();
+
+    return (
+        <>
+            <SectionHeading label={t('homeEditor.blocks.transform')} subtle />
+            <RangeControl controlId={'planeSize'}
+                label={t('homeEditor.controls.planeSize')}
+                value={settings.planeSize}
+                min={10}
+                max={5000}
+                step={10}
+                unit="m"
+                onChange={(event) => handleSettingChange(event, 'planeSize')}
+            />
+            <RangeControl controlId={'planeHeight'}
+                label={t('homeEditor.controls.planeHeight')}
+                value={settings.planeHeight}
+                min={-50}
+                max={50}
+                step={0.1}
+                unit="m"
+                formatValue={(value) => formatFloat(value)}
+                onChange={(event) => handleSettingChange(event, 'planeHeight')}
+            />
+            <SectionHeading label={t('homeEditor.blocks.material')} subtle />
+            <ColorControl controlId={'planeColor'}
+                label={t('homeEditor.controls.planeColor')}
+                value={settings.planeColor}
+                onChange={(event) => handleSettingChange(event, 'planeColor', 'color')}
+            />
+            <RangeControl controlId={'planeRoughness'}
+                label={t('homeEditor.controls.planeRoughness')}
+                value={settings.planeRoughness}
+                min={0}
+                max={1}
+                step={0.01}
+                formatValue={(value) => formatFloat(value)}
+                onChange={(event) => handleSettingChange(event, 'planeRoughness')}
+            />
+        </>
+    );
+};

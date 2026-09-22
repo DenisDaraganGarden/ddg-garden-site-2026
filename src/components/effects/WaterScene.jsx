@@ -47,6 +47,7 @@ import { createSeaCausticNormalsHolder } from './water/seaCausticNormals.js';
 import { createFoamFieldHolder } from './water/foamField.js';
 import { resolveEffectiveSeaSettings, resolveSeaSettings } from './water/seaSettings.js';
 import StaticSculpture from './water/StaticSculpture';
+import GroundPlane from './GroundPlane';
 import SceneLightObjects from './water/SceneLightObjects';
 import {
   PUBLIC_CAMERA_POSITION,
@@ -537,6 +538,7 @@ function WaterRuntimeScene({
           />
         ) : null}
         {settings.tankerVisible ? <HomeTanker settings={settings} seaSettings={effectiveSeaSettings.enabled ? effectiveSeaSettings : null} lighting={lighting} audioRuntime={audioRuntime} /> : null}
+        {settings.planeEnabled ? <GroundPlane settings={settings} lighting={lighting} /> : null}
         {settings.sculptureVisible ? (
           <StaticSculpture
             terrainQuery={terrainQuery}

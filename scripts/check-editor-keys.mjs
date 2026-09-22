@@ -16,6 +16,10 @@ try {
   const r = JSON.parse(fs.readFileSync('docs/engine-parameters.json', 'utf8'));
   const base = (k) => k.split('.')[0];
   const controls = new Map(); for (const row of r.rows) { const b = base(row.key); if (!controls.has(b)) controls.set(b, row); }
+  // An object's on/off switch is drawn from the registry (sceneObjects.js) on
+  // the visibility sheet and above its node, not declared in a section file.
+  const { SCENE_OBJECTS } = await server.ssrLoadModule('/src/features/home-scene/lib/sceneObjects.js');
+  for (const object of SCENE_OBJECTS) if (!controls.has(object.key)) controls.set(object.key, { node: `registry:${object.id}` });
   // The reference is a snapshot; the sections are the truth for "has a control".
   const sectionsDir = 'src/features/home-scene/components/editor';
   const sectionText = []; const walkSections = (dir) => { for (const e of fs.readdirSync(dir, { withFileTypes: true })) { const p = path.join(dir, e.name); if (e.isDirectory()) walkSections(p); else if (/\.jsx?$/.test(e.name)) sectionText.push([e.name, fs.readFileSync(p, 'utf8')]); } }; walkSections(sectionsDir);

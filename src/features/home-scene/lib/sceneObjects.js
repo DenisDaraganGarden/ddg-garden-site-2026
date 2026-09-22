@@ -37,6 +37,8 @@ export const SCENE_OBJECTS = Object.freeze([
   { id: 'tanker', key: 'tankerVisible', node: 'objects/tanker', group: 'objects', roots: ['tanker-anchor', 'tanker-wake'], sound: 'tanker', newProject: false },
   { id: 'boat', key: 'boatVisible', node: 'objects/boat', group: 'objects', roots: ['boat', 'boat-anchor'], sound: 'boat', newProject: false },
   { id: 'sculpture', key: 'sculptureVisible', node: 'objects/sculpture', group: 'objects', roots: ['sculpture', 'sculpture-anchor'], newProject: false },
+  // A blank flat ground for a scene that starts from nothing; off by default everywhere.
+  { id: 'plane', key: 'planeEnabled', node: 'objects/plane', group: 'objects', roots: ['ground-plane'], newProject: false },
   { id: 'seagulls', key: 'seagullsEnabled', node: 'creatures/seagulls', group: 'creatures', roots: ['seagull-flock'], sound: 'birds', requires: ['water'], newProject: false },
   { id: 'fish', key: 'fishEnabled', node: 'creatures/fish', group: 'creatures', roots: ['river-fish-school'], requires: ['water'], newProject: false },
   { id: 'reflections', key: 'reflectionsEnabled', node: null, group: 'render' },
