@@ -1,5 +1,5 @@
 {
-  "collected": "2026-09-22T17:25:25.078Z",
+  "collected": "2026-09-22T20:31:53.825Z",
   "rows": [
     {
       "key": "cameraFov",
@@ -4063,6 +4063,16 @@
       "step": 0.05
     },
     {
+      "key": "starsIntensity",
+      "group": "atmosphere",
+      "node": "light",
+      "label": "Звёзды",
+      "kind": "число",
+      "min": 0,
+      "max": 3,
+      "step": 0.05
+    },
+    {
       "key": "lightDiscEnabled",
       "group": "atmosphere",
       "node": "light",
@@ -4551,6 +4561,46 @@
         "balanced",
         "high"
       ]
+    },
+    {
+      "key": "painterlyCloudStormEnabled",
+      "group": "atmosphere",
+      "node": "clouds",
+      "label": "Гроза",
+      "kind": "выключатель"
+    },
+    {
+      "key": "painterlyCloudStorm",
+      "group": "atmosphere",
+      "node": "clouds",
+      "label": "Сила грозы",
+      "kind": "число",
+      "min": 0,
+      "max": 1,
+      "step": 0.01,
+      "unit": "%"
+    },
+    {
+      "key": "painterlyCloudRain",
+      "group": "atmosphere",
+      "node": "clouds",
+      "label": "Дождь",
+      "kind": "число",
+      "min": 0,
+      "max": 1,
+      "step": 0.01,
+      "unit": "%"
+    },
+    {
+      "key": "painterlyCloudLightning",
+      "group": "atmosphere",
+      "node": "clouds",
+      "label": "Молнии",
+      "kind": "число",
+      "min": 0,
+      "max": 1,
+      "step": 0.01,
+      "unit": "%"
     },
     {
       "key": "audio.enabled",
@@ -5986,9 +6036,14 @@
     "painterlyCloudHaze": 0.3,
     "painterlyCloudRays": 0.35,
     "painterlyCloudQuality": "auto",
+    "painterlyCloudStormEnabled": false,
+    "painterlyCloudStorm": 0.7,
+    "painterlyCloudRain": 0.6,
+    "painterlyCloudLightning": 0.5,
     "distantSurfaceColor": "#70716d",
     "moonPhase": 0.5,
     "moonBrightness": 1,
+    "starsIntensity": 1,
     "envMode": "sky",
     "hdriIntensity": 1,
     "showHdriBackground": false,

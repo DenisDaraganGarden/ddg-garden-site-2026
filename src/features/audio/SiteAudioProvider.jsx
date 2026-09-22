@@ -226,6 +226,7 @@ export function SiteAudioProvider({ children }) {
     updateEmitter: (emitterId, x, y, z, immediate) => (
       siteAudioEngine.updateEmitter(emitterId, x, y, z, immediate)
     ),
+    playThunder: (options) => siteAudioEngine.playThunder(options),
   }), []);
 
   const value = React.useMemo(() => ({

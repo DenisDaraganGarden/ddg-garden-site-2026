@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
+import { useFrame } from '@react-three/fiber';
 import { cloudShadowSampling } from '../components/effects/sky/painterly/cloudShaders';
 
 const vertex = /* glsl */`
@@ -8,6 +9,12 @@ const vertex = /* glsl */`
 `;
 const fragment = /* glsl */`
   uniform vec3 uSunColor; uniform vec3 uAmbient; uniform vec3 uHorizon; uniform float uWater; uniform float uHaze;
+  uniform float uFlash; uniform vec3 uFlashPos; uniform vec3 uFlashColor;
+  vec3 flashIrradiance(vec3 p) {
+    vec3 c = vec3(uFlashPos.x, clamp(p.y, 0., uFlashPos.y), uFlashPos.z);
+    vec3 d = c - p; float d2 = dot(d, d);
+    return uFlashColor * uFlash * (.5 + .5 * d.y * inversesqrt(max(d2, 1.))) * 1e6 / (d2 + 1e6);
+  }
   ${cloudShadowSampling}
   varying vec3 vWorld;
   float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123); }
@@ -19,8 +26,9 @@ const fragment = /* glsl */`
     vec3 sand = mix(vec3(.30,.285,.235), vec3(.55,.51,.42), broad*.55+.35) + grain*.018;
     vec3 sea = mix(vec3(.035,.115,.14), vec3(.12,.25,.28), ripple*.45+.28);
     float transmission = cloudTransmission(vWorld);
-    vec3 groundLit = sand * (uAmbient*.9 + uSunColor*(.72*transmission));
-    vec3 waterLit = sea * (uAmbient*.72 + uSunColor*(.34*transmission)) + uSunColor*pow(ripple, 10.)*.018*transmission;
+    vec3 flash = flashIrradiance(vWorld) * .35;
+    vec3 groundLit = sand * (uAmbient*.9 + uSunColor*(.72*transmission) + flash);
+    vec3 waterLit = sea * (uAmbient*.72 + uSunColor*(.34*transmission) + flash*.6) + uSunColor*pow(ripple, 10.)*.018*transmission;
     vec3 color = mix(groundLit, waterLit, uWater);
     float distanceFog = 1. - exp(-length(cameraPosition.xz-p) * (.000018 + uHaze*.000025));
     color = mix(color, uHorizon, distanceFog);
@@ -34,7 +42,7 @@ const color = (source, fallback) => new THREE.Color().fromArray(Array.isArray(so
 export default function CloudGround({ settings, lighting, shadow }) {
   const material = useMemo(() => new THREE.ShaderMaterial({
     vertexShader: vertex, fragmentShader: fragment,
-    uniforms: { uCloudShadow: { value: null }, uShadowOrigin: { value: new THREE.Vector2() }, uShadowExtent: { value: 30000 }, uShadowStrength: { value: 0 }, uSun: { value: new THREE.Vector3() }, uSunColor: { value: new THREE.Color() }, uAmbient: { value: new THREE.Color() }, uHorizon: { value: new THREE.Color() }, uWater: { value: 0 }, uHaze: { value: 0 } }, toneMapped: true,
+    uniforms: { uCloudShadow: { value: null }, uShadowOrigin: { value: new THREE.Vector2() }, uShadowExtent: { value: 30000 }, uShadowStrength: { value: 0 }, uSun: { value: new THREE.Vector3() }, uFlash: { value: 0 }, uFlashPos: { value: new THREE.Vector3() }, uFlashColor: { value: new THREE.Color() }, uSunColor: { value: new THREE.Color() }, uAmbient: { value: new THREE.Color() }, uHorizon: { value: new THREE.Color() }, uWater: { value: 0 }, uHaze: { value: 0 } }, toneMapped: true,
   }), []);
   useEffect(() => {
     const sun = lighting?.key?.direction ?? [.4, .7, -.5];
@@ -50,5 +58,10 @@ export default function CloudGround({ settings, lighting, shadow }) {
     material.uniforms.uHaze.value = settings.haze;
   }, [lighting, material, settings.haze, settings.receiverSurface, settings.shadowStrength, shadow]);
   useEffect(() => () => material.dispose(), [material]);
+  useFrame(() => {
+    material.uniforms.uFlash.value = shadow?.flash ?? 0;
+    if (shadow?.flashPosition) material.uniforms.uFlashPos.value.copy(shadow.flashPosition);
+    if (shadow?.flashColor) material.uniforms.uFlashColor.value.copy(shadow.flashColor);
+  });
   return <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow><planeGeometry args={[30000, 30000]} /><primitive object={material} attach="material" /></mesh>;
 }

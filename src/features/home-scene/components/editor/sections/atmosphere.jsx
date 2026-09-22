@@ -115,6 +115,15 @@ export const LightSection = ({ settings, handleSettingChange }) => {
                 formatValue={(value) => formatFloat(value)}
                 onChange={(event) => handleSettingChange(event, 'moonBrightness')}
             />
+            <RangeControl controlId={'starsIntensity'}
+                label={t('homeEditor.controls.starsIntensity')}
+                value={settings.starsIntensity}
+                min={0}
+                max={3}
+                step={0.05}
+                formatValue={(value) => formatFloat(value)}
+                onChange={(event) => handleSettingChange(event, 'starsIntensity')}
+            />
 
             <CheckboxControl controlId={'lightDiscEnabled'}
                 label={t('homeEditor.controls.lightDiscEnabled')}
@@ -247,7 +256,8 @@ export const CloudsSection = ({ settings, handleSettingChange }) => {
     }));
     const applyPainterlyPreset = (preset) => {
         Object.entries(PAINTERLY_CLOUD_PRESETS[preset]).forEach(([key, value]) => {
-            handleSettingChange({ target: { value } }, key);
+            const boolean = typeof value === 'boolean';
+            handleSettingChange({ target: { value, checked: value } }, key, boolean ? 'boolean' : undefined);
         });
     };
 
@@ -342,6 +352,14 @@ export const CloudsSection = ({ settings, handleSettingChange }) => {
                 options={['auto', 'low', 'balanced', 'high'].map((value) => ({ value, label: t(`homeEditor.controls.painterlyCloudQuality${value[0].toUpperCase()}${value.slice(1)}`) }))}
                 onChange={(event) => handleSettingChange(event, 'painterlyCloudQuality', 'string')}
             />
+            <CheckboxControl controlId={'painterlyCloudStormEnabled'}
+                label={t('homeEditor.controls.painterlyCloudStormEnabled')}
+                checked={Boolean(settings.painterlyCloudStormEnabled)}
+                onChange={(event) => handleSettingChange(event, 'painterlyCloudStormEnabled', 'boolean')}
+            />
+            <RangeControl controlId={'painterlyCloudStorm'} label={t('homeEditor.controls.painterlyCloudStorm')} value={settings.painterlyCloudStorm} min={0} max={1} step={0.01} unit="%" formatValue={(value) => Math.round(Number(value) * 100)} onChange={(event) => handleSettingChange(event, 'painterlyCloudStorm')} />
+            <RangeControl controlId={'painterlyCloudRain'} label={t('homeEditor.controls.painterlyCloudRain')} value={settings.painterlyCloudRain} min={0} max={1} step={0.01} unit="%" formatValue={(value) => Math.round(Number(value) * 100)} onChange={(event) => handleSettingChange(event, 'painterlyCloudRain')} />
+            <RangeControl controlId={'painterlyCloudLightning'} label={t('homeEditor.controls.painterlyCloudLightning')} value={settings.painterlyCloudLightning} min={0} max={1} step={0.01} unit="%" formatValue={(value) => Math.round(Number(value) * 100)} onChange={(event) => handleSettingChange(event, 'painterlyCloudLightning')} />
         </>
     );
 };

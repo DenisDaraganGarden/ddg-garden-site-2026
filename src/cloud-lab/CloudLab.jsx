@@ -12,13 +12,15 @@ const PUBLISHED = getPublishedHomeSceneSettings();
 const DEFAULTS = Object.freeze({
   ...resolvePainterlyCloudSettings(PUBLISHED),
   timeOfDay: 15, exposure: 1.0, skyTurbidity: 2.2, sunIntensity: 1.4, hdrExposure: 64, sunTint: '#ffffff', sunBearing: -40, sunNoonElevation: 50, receiverSurface: 'ground',
+  stormEnabled: false, storm: .8, rain: .7, lightning: .6, moonPhase: PUBLISHED.moonPhase ?? .5, moonBrightness: PUBLISHED.moonBrightness ?? 1, stars: PUBLISHED.starsIntensity ?? 1,
 });
 
 const PRESETS = {
-  clear: { coverage: .5, density: .9, height: 1, timeOfDay: 15, sunBearing: -40 },
-  sunset: { coverage: .62, density: 1.35, height: 1, timeOfDay: 17.4, sunBearing: 130 },
-  storm: { coverage: .94, density: 2.2, height: 1.25, timeOfDay: 16, sunBearing: 100 },
-  broken: { coverage: .35, density: .8, height: .6, timeOfDay: 17, sunBearing: 100 },
+  clear: { coverage: .5, density: .9, height: 1, timeOfDay: 15, sunBearing: -40, stormEnabled: false },
+  sunset: { coverage: .62, density: 1.35, height: 1, timeOfDay: 17.4, sunBearing: 130, stormEnabled: false },
+  storm: { coverage: .94, density: 2.2, height: 1.25, timeOfDay: 16, sunBearing: 100, stormEnabled: true, storm: .8, rain: .7, lightning: .6 },
+  broken: { coverage: .35, density: .8, height: .6, timeOfDay: 17, sunBearing: 100, stormEnabled: false },
+  night: { coverage: .4, density: .9, height: .8, timeOfDay: 1, sunBearing: -40, stormEnabled: false },
 };
 const VIEWS = {
   horizon: { landscape: { position: [0, 70, 140], target: [0, 900, -4200] }, portrait: { position: [0, 92, 175], target: [0, 860, -4200] } },
@@ -28,8 +30,8 @@ const VIEWS = {
 const LIMITS = { minDistance: 5, maxDistance: 15000, minPolarAngle: .001, maxPolarAngle: Math.PI - .001 };
 
 const COPY = {
-  ru: { title: 'Живописные облака', subtitle: 'процедурное небо · свет и тени', form: 'Облака', light: 'Свет', motion: 'Движение', horizon: 'Горизонт', ground: 'Тени', zenith: 'Зенит', seed: 'Вариант', coverage: 'Покрытие', density: 'Плотность', altitude: 'Высота слоя', scale: 'Масштаб', height: 'Вертикальный объём', time: 'Время суток', exposure: 'Экспозиция', haze: 'Дымка', rays: 'Лучи', shadows: 'Тень облаков', softness: 'Мягкость тени', windSpeed: 'Скорость ветра', windDirection: 'Направление ветра', quality: 'Качество', enabled: 'Облака включены', pause: 'Пауза', play: 'Продолжить', reset: 'Сброс', published: 'Свет из проекта', clear: 'Ясно', sunset: 'Закат', storm: 'Гроза', broken: 'Разорванные', balanced: 'Баланс', low: 'Легко', high: 'Высоко', tri: 'треугольников', calls: 'вызовов', fps: 'кад/с', tex: 'текстуры', bake: 'сборка', ready: 'готово', building: 'сборка…', assets: 'Коллекции', metres: 'м', ms: 'мс', sand: 'Песок', water: 'Вода' },
-  en: { title: 'Painterly clouds', subtitle: 'procedural sky · light and shadows', form: 'Clouds', light: 'Light', motion: 'Motion', horizon: 'Horizon', ground: 'Shadows', zenith: 'Zenith', seed: 'Seed', coverage: 'Coverage', density: 'Density', altitude: 'Layer altitude', scale: 'Scale', height: 'Vertical volume', time: 'Time of day', exposure: 'Exposure', haze: 'Haze', rays: 'Rays', shadows: 'Cloud shadows', softness: 'Shadow softness', windSpeed: 'Wind speed', windDirection: 'Wind direction', quality: 'Quality', enabled: 'Clouds enabled', pause: 'Pause', play: 'Resume', reset: 'Reset', published: 'Project light', clear: 'Clear', sunset: 'Sunset', storm: 'Storm', broken: 'Broken', balanced: 'Balanced', low: 'Low', high: 'High', tri: 'triangles', calls: 'draw calls', fps: 'fps', tex: 'textures', bake: 'build', ready: 'ready', building: 'building…', assets: 'Collections', metres: 'm', ms: 'ms', sand: 'Sand', water: 'Water' },
+  ru: { title: 'Живописные облака', subtitle: 'процедурное небо · свет и тени', form: 'Облака', light: 'Свет', motion: 'Движение', horizon: 'Горизонт', ground: 'Тени', zenith: 'Зенит', seed: 'Вариант', coverage: 'Покрытие', density: 'Плотность', altitude: 'Высота слоя', scale: 'Масштаб', height: 'Вертикальный объём', time: 'Время суток', exposure: 'Экспозиция', haze: 'Дымка', rays: 'Лучи', shadows: 'Тень облаков', softness: 'Мягкость тени', windSpeed: 'Скорость ветра', windDirection: 'Направление ветра', quality: 'Качество', enabled: 'Облака включены', pause: 'Пауза', play: 'Продолжить', reset: 'Сброс', published: 'Свет из проекта', clear: 'Ясно', sunset: 'Закат', storm: 'Гроза', broken: 'Разорванные', balanced: 'Баланс', low: 'Легко', high: 'Высоко', tri: 'треугольников', calls: 'вызовов', fps: 'кад/с', tex: 'текстуры', bake: 'сборка', ready: 'готово', building: 'сборка…', assets: 'Коллекции', metres: 'м', ms: 'мс', sand: 'Песок', water: 'Вода', stormOn: 'Гроза включена', stormStrength: 'Сила грозы', rain: 'Дождь', lightning: 'Молнии', strike: 'Ударить молнией', night: 'Ночь', moonPhase: 'Фаза луны', moonBrightness: 'Яркость луны', stars: 'Звёзды' },
+  en: { title: 'Painterly clouds', subtitle: 'procedural sky · light and shadows', form: 'Clouds', light: 'Light', motion: 'Motion', horizon: 'Horizon', ground: 'Shadows', zenith: 'Zenith', seed: 'Seed', coverage: 'Coverage', density: 'Density', altitude: 'Layer altitude', scale: 'Scale', height: 'Vertical volume', time: 'Time of day', exposure: 'Exposure', haze: 'Haze', rays: 'Rays', shadows: 'Cloud shadows', softness: 'Shadow softness', windSpeed: 'Wind speed', windDirection: 'Wind direction', quality: 'Quality', enabled: 'Clouds enabled', pause: 'Pause', play: 'Resume', reset: 'Reset', published: 'Project light', clear: 'Clear', sunset: 'Sunset', storm: 'Storm', broken: 'Broken', balanced: 'Balanced', low: 'Low', high: 'High', tri: 'triangles', calls: 'draw calls', fps: 'fps', tex: 'textures', bake: 'build', ready: 'ready', building: 'building…', assets: 'Collections', metres: 'm', ms: 'ms', sand: 'Sand', water: 'Water', stormOn: 'Thunderstorm on', stormStrength: 'Storm strength', rain: 'Rain', lightning: 'Lightning', strike: 'Strike now', night: 'Night', moonPhase: 'Moon phase', moonBrightness: 'Moon brightness', stars: 'Stars' },
 };
 
 export default function CloudLab() {
@@ -41,8 +43,11 @@ export default function CloudLab() {
   const [hidden, setHidden] = useState(() => globalThis.document?.hidden ?? false);
   const [stats, setStats] = useState({ calls: 0, triangles: 0, fps: 0, textureMB: 0, bakeMs: 0, ready: false, clouds: 0 });
   const [shadow, setShadow] = useState(null);
+  const [strikeRequest, setStrikeRequest] = useState(0);
   const t = COPY[language];
-  const lighting = useMemo(() => buildHomeSceneLighting({ ...PUBLISHED, timeOfDay: settings.timeOfDay, sunBearing: settings.sunBearing, sunNoonElevation: settings.sunNoonElevation, cloudCover: 0, skyTurbidity: settings.skyTurbidity, sunIntensity: settings.sunIntensity, hdrExposure: settings.hdrExposure, sunTint: settings.sunTint }), [settings.hdrExposure, settings.skyTurbidity, settings.sunBearing, settings.sunIntensity, settings.sunNoonElevation, settings.sunTint, settings.timeOfDay]);
+  const stormOn = settings.stormEnabled;
+  const cloudSettings = useMemo(() => ({ ...settings, storm: stormOn ? settings.storm : 0, rain: stormOn ? settings.rain * settings.storm : 0, lightning: stormOn ? settings.lightning : 0 }), [settings, stormOn]);
+  const lighting = useMemo(() => buildHomeSceneLighting({ ...PUBLISHED, painterlyCloudsEnabled: true, painterlyCloudStormEnabled: settings.stormEnabled, painterlyCloudStorm: settings.storm, moonPhase: settings.moonPhase, moonBrightness: settings.moonBrightness, starsIntensity: settings.stars, timeOfDay: settings.timeOfDay, sunBearing: settings.sunBearing, sunNoonElevation: settings.sunNoonElevation, cloudCover: 0, skyTurbidity: settings.skyTurbidity, sunIntensity: settings.sunIntensity, hdrExposure: settings.hdrExposure, sunTint: settings.sunTint }), [settings.stormEnabled, settings.storm, settings.moonPhase, settings.moonBrightness, settings.stars, settings.hdrExposure, settings.skyTurbidity, settings.sunBearing, settings.sunIntensity, settings.sunNoonElevation, settings.sunTint, settings.timeOfDay]);
   const set = (key, value) => setSettings((current) => ({ ...current, [key]: value }));
   const range = (key, label, min, max, step, unit = '') => <LabRange key={key} label={label} value={settings[key]} min={min} max={max} step={step} unit={unit} onChange={(value) => set(key, value)} />;
 
@@ -71,9 +76,15 @@ export default function CloudLab() {
     onView={setView}
     panel={<>
       <LabModesPresets t={t} onPreset={(id) => setSettings((current) => ({ ...current, ...PRESETS[id] }))} />
-      <LabTabs label={t[tab]} items={['form', 'light', 'motion'].map((id) => ({ id, label: t[id] }))} value={tab} onChange={setTab} />
+      <LabTabs label={t[tab]} items={['form', 'light', 'motion', 'storm'].map((id) => ({ id, label: t[id] }))} value={tab} onChange={setTab} />
       {tab === 'form' && <>{range('seed', t.seed, 1, 99, 1)}{range('coverage', t.coverage, 0, 1, .01)}{range('density', t.density, .2, 2.5, .05)}{range('altitude', t.altitude, 300, 5000, 25, t.metres)}{range('scale', t.scale, .35, 2.5, .05)}{range('height', t.height, .2, 2, .05)}<LabSelect label={t.quality} value={settings.quality} onChange={(value) => set('quality', value)} options={['low', 'balanced', 'high'].map((id) => ({ value: id, label: t[id] }))} /><LabToggle label={t.enabled} value={settings.enabled} onChange={(value) => set('enabled', value)} /></>}
       {tab === 'light' && <>{range('timeOfDay', t.time, 0, 24, .1, language === 'ru' ? 'ч' : 'h')}{range('sunBearing', language === 'ru' ? 'Направление солнца' : 'Sun bearing', -180, 180, 1, '°')}{range('sunNoonElevation', language === 'ru' ? 'Высота солнца' : 'Sun elevation', 10, 85, 1, '°')}{range('exposure', t.exposure, .3, 2, .05)}{range('haze', t.haze, 0, 1, .01)}{range('rays', t.rays, 0, 1, .01)}{range('shadowStrength', t.shadows, 0, 1, .01)}{range('shadowSoftness', t.softness, 0, 1, .01)}<button type="button" className="lab__link" onClick={usePublishedLight}>{t.published}</button></>}
+      {tab === 'light' && <>{range('moonPhase', t.moonPhase, 0, 1, .01)}{range('moonBrightness', t.moonBrightness, 0, 4, .05)}{range('stars', t.stars, 0, 3, .05)}</>}
+      {tab === 'storm' && <>
+        <LabToggle label={t.stormOn} value={settings.stormEnabled} onChange={(value) => set('stormEnabled', value)} />
+        {range('storm', t.stormStrength, 0, 1, .01)}{range('rain', t.rain, 0, 1, .01)}{range('lightning', t.lightning, 0, 1, .01)}
+        <div className="lab__modes" role="group" aria-label={t.storm}><button type="button" data-testid="cloud-lab-strike" onClick={() => setStrikeRequest((value) => value + 1)}>{t.strike}</button></div>
+      </>}
       {tab === 'motion' && <>{range('windSpeed', t.windSpeed, 0, 40, .5, language === 'ru' ? 'м/с' : 'm/s')}{range('windDirection', t.windDirection, 0, 360, 1, '°')}</>}
     </>}
     transport={<>
@@ -91,7 +102,7 @@ export default function CloudLab() {
   >
     <AssetStudio view={view} cameraViews={VIEWS} cameraLimits={LIMITS} cameraFar={30000} fogRange={[8000, 18000]} floorVisible={false} lighting={lighting} exposure={settings.exposure} environmentIntensity={1} paused={paused} inactive={hidden} pixelRatio={[1, 1.5]} background="#a9c8d9">
       <CloudGround settings={settings} lighting={lighting} shadow={shadow} />
-      <Suspense fallback={null}><PainterlyClouds settings={settings} lighting={lighting} onStats={setStats} onShadow={setShadow} paused={paused || hidden} /></Suspense>
+      <Suspense fallback={null}><PainterlyClouds settings={cloudSettings} lighting={lighting} onStats={setStats} onShadow={setShadow} paused={paused || hidden} strikeRequest={strikeRequest} /></Suspense>
     </AssetStudio>
   </LabShell>;
 }

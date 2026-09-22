@@ -18,15 +18,21 @@ export const DEFAULT_PAINTERLY_CLOUD_SETTINGS = Object.freeze({
   painterlyCloudHaze: 0.3,
   painterlyCloudRays: 0.35,
   painterlyCloudQuality: 'auto',
+  // The storm is one switch; its strength, rain and lightning adapt the same
+  // procedural field. Off means every storm term is exactly zero.
+  painterlyCloudStormEnabled: false,
+  painterlyCloudStorm: 0.7,
+  painterlyCloudRain: 0.6,
+  painterlyCloudLightning: 0.5,
 });
 
 // These deliberately exclude sun, HDRI, camera and wind: applying weather
 // shape must never move an authored frame or relight it behind the author's back.
 export const PAINTERLY_CLOUD_PRESETS = Object.freeze({
-  clear: Object.freeze({ painterlyCloudCoverage: .5, painterlyCloudDensity: .9, painterlyCloudHeight: 1 }),
-  sunset: Object.freeze({ painterlyCloudCoverage: .62, painterlyCloudDensity: 1.35, painterlyCloudHeight: 1 }),
-  storm: Object.freeze({ painterlyCloudCoverage: .94, painterlyCloudDensity: 2.2, painterlyCloudHeight: 1.25 }),
-  broken: Object.freeze({ painterlyCloudCoverage: .35, painterlyCloudDensity: .8, painterlyCloudHeight: .6 }),
+  clear: Object.freeze({ painterlyCloudCoverage: .5, painterlyCloudDensity: .9, painterlyCloudHeight: 1, painterlyCloudStormEnabled: false }),
+  sunset: Object.freeze({ painterlyCloudCoverage: .62, painterlyCloudDensity: 1.35, painterlyCloudHeight: 1, painterlyCloudStormEnabled: false }),
+  storm: Object.freeze({ painterlyCloudCoverage: .94, painterlyCloudDensity: 2.2, painterlyCloudHeight: 1.25, painterlyCloudStormEnabled: true, painterlyCloudStorm: .8, painterlyCloudRain: .7, painterlyCloudLightning: .6 }),
+  broken: Object.freeze({ painterlyCloudCoverage: .35, painterlyCloudDensity: .8, painterlyCloudHeight: .6, painterlyCloudStormEnabled: false }),
 });
 
 const QUALITIES = new Set(['auto', 'low', 'balanced', 'high']);
@@ -48,7 +54,24 @@ export const normalizePainterlyCloudSettings = (settings = {}) => ({
   painterlyCloudRays: clamp(settings.painterlyCloudRays, 0, 1, DEFAULT_PAINTERLY_CLOUD_SETTINGS.painterlyCloudRays),
   painterlyCloudQuality: QUALITIES.has(settings.painterlyCloudQuality)
     ? settings.painterlyCloudQuality : DEFAULT_PAINTERLY_CLOUD_SETTINGS.painterlyCloudQuality,
+  painterlyCloudStormEnabled: typeof settings.painterlyCloudStormEnabled === 'boolean'
+    ? settings.painterlyCloudStormEnabled : DEFAULT_PAINTERLY_CLOUD_SETTINGS.painterlyCloudStormEnabled,
+  painterlyCloudStorm: clamp(settings.painterlyCloudStorm, 0, 1, DEFAULT_PAINTERLY_CLOUD_SETTINGS.painterlyCloudStorm),
+  painterlyCloudRain: clamp(settings.painterlyCloudRain, 0, 1, DEFAULT_PAINTERLY_CLOUD_SETTINGS.painterlyCloudRain),
+  painterlyCloudLightning: clamp(settings.painterlyCloudLightning, 0, 1, DEFAULT_PAINTERLY_CLOUD_SETTINGS.painterlyCloudLightning),
 });
+
+// Effective storm scalars: the switch gates every term, so an authored scene
+// with the storm off renders exactly as it did before the storm existed.
+export const resolveStormScalars = (settings = {}) => {
+  const normalized = normalizePainterlyCloudSettings(settings);
+  const on = normalized.painterlyCloudsEnabled && normalized.painterlyCloudStormEnabled;
+  return {
+    storm: on ? normalized.painterlyCloudStorm : 0,
+    rain: on ? normalized.painterlyCloudRain * normalized.painterlyCloudStorm : 0,
+    lightning: on ? normalized.painterlyCloudLightning : 0,
+  };
+};
 
 // The renderer only receives its compact contract. `auto` selects the safe
 // desktop/mobile profile here, without writing that effective choice to scenes.
@@ -72,5 +95,6 @@ export const resolvePainterlyCloudSettings = (settings = {}, qualityProfile = {}
     haze: normalized.painterlyCloudHaze,
     rays: normalized.painterlyCloudRays,
     quality,
+    ...resolveStormScalars(normalized),
   };
 };

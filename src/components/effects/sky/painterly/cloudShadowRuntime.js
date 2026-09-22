@@ -6,9 +6,18 @@ import * as THREE from 'three';
 const BINDER_STATE = new WeakMap();
 const DEFAULT_ORIGIN = new THREE.Vector2();
 const DEFAULT_SUN = new THREE.Vector3(0, 1, 0);
+const DEFAULT_FLASH_POSITION = new THREE.Vector3(0, 1800, -4000);
+const DEFAULT_FLASH_COLOR = new THREE.Color(0, 0, 0);
+// A lightning flash is diffuse light from the whole channel, added to the
+// ambient irradiance in the same units as a directional light's colour, so it
+// lands on every lit material through the one chunk three already computes.
 const patchDirectionalLights = (source) => source.replace(
   /getDirectionalLightInfo\(\s*[^,]+,\s*directLight\s*\);/g,
   (call) => `${call}\n\t\t// ddgCloudDirectionalAttenuation\n\t\tdirectLight.color *= ddgCloudTransmission( vDdgCloudShadowWorldPosition );`,
+).replace(
+  /vec3 irradiance = getAmbientLightIrradiance\( ambientLightColor \);/,
+  // geometryNormal is three's view-space normal; the bolt lives in world space.
+  (line) => `${line}\n\t// ddgFlashIrradiance\n\tirradiance += ddgFlashIrradiance( vDdgCloudShadowWorldPosition, inverseTransformDirection( geometryNormal, viewMatrix ) );`,
 );
 
 export const DDG_CLOUD_SHADOW_GLSL = /* glsl */`
@@ -19,6 +28,18 @@ uniform vec3 uDdgCloudShadowSun;
 uniform float uDdgCloudShadowAltitude;
 uniform float uDdgCloudShadowStrength;
 uniform float uDdgCloudShadowEnabled;
+uniform float uDdgFlash;
+uniform vec3 uDdgFlashPosition;
+uniform vec3 uDdgFlashColor;
+
+vec3 ddgFlashIrradiance(vec3 worldPos, vec3 n) {
+  if (uDdgFlash <= 0.0005) return vec3(0.0);
+  vec3 c = vec3(uDdgFlashPosition.x, clamp(worldPos.y, 0.0, uDdgFlashPosition.y), uDdgFlashPosition.z);
+  vec3 d = c - worldPos;
+  float d2 = dot(d, d);
+  float wrap = clamp(dot(n, d * inversesqrt(max(d2, 1.0))) * 0.5 + 0.5, 0.0, 1.0);
+  return uDdgFlashColor * uDdgFlash * wrap * 1.0e6 / (d2 + 1.0e6);
+}
 
 float ddgCloudTransmission(vec3 worldPos) {
   if (uDdgCloudShadowEnabled < 0.5) return 1.0;
@@ -40,6 +61,9 @@ export function createCloudShadowUniforms() {
     uDdgCloudShadowAltitude: { value: 2600 },
     uDdgCloudShadowStrength: { value: 0 },
     uDdgCloudShadowEnabled: { value: 0 },
+    uDdgFlash: { value: 0 },
+    uDdgFlashPosition: { value: new THREE.Vector3() },
+    uDdgFlashColor: { value: new THREE.Color() },
   };
 }
 
@@ -52,6 +76,9 @@ export function updateCloudShadowUniforms(uniforms, descriptor) {
   uniforms.uDdgCloudShadowAltitude.value = Math.max(Number(descriptor?.altitude) || 2600, 0);
   uniforms.uDdgCloudShadowStrength.value = THREE.MathUtils.clamp(Number(descriptor?.strength) || 0, 0, 1);
   uniforms.uDdgCloudShadowEnabled.value = active ? 1 : 0;
+  uniforms.uDdgFlash.value = descriptor?.enabled ? THREE.MathUtils.clamp(Number(descriptor?.flash) || 0, 0, 1) : 0;
+  uniforms.uDdgFlashPosition.value.copy(descriptor?.flashPosition ?? DEFAULT_FLASH_POSITION);
+  uniforms.uDdgFlashColor.value.copy(descriptor?.flashColor ?? DEFAULT_FLASH_COLOR);
   return uniforms;
 }
 
@@ -116,7 +143,7 @@ export function bindCloudShadowMaterial(material, cloudShadowRef) {
     });
   };
   const cloudKey = function ddgCloudShadowCacheKey() {
-    return `${previousKey?.call(material) ?? material.type}|ddg-cloud-shadow-v1`;
+    return `${previousKey?.call(material) ?? material.type}|ddg-cloud-shadow-v3`;
   };
   material.onBeforeCompile = cloudCompile;
   material.customProgramCacheKey = cloudKey;

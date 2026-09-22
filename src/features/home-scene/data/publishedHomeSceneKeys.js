@@ -59,6 +59,7 @@ const keys = [
   'distantSurfaceColor',
   'moonPhase',
   'moonBrightness',
+  'starsIntensity',
   'envMode',
   'hdriIntensity',
   'showHdriBackground',

@@ -2,6 +2,7 @@ import React, { useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { useFrame, useThree } from '@react-three/fiber';
 import { skyShaderChunk } from '../shaders/skyShader';
+import { celestialShaderChunk } from '../shaders/celestialShader';
 
 // The visible sky: three vertices at the far plane, shaded from the same table
 // the water reflects and the environment map is baked from.
@@ -31,6 +32,7 @@ const skyFragmentShader = /* glsl */`
   varying vec3 vRay;
 
   ${skyShaderChunk}
+  ${celestialShaderChunk}
 
   #include <common>
   #include <dithering_pars_fragment>
@@ -38,7 +40,8 @@ const skyFragmentShader = /* glsl */`
   void main() {
     vec3 ray = normalize(vRay);
     vec3 color = skyRadiance(ray) * uSkyLevel
-      + celestialBody(ray, uKeyDirection, uKeyRadiance, uKeyCosRadius, uKeyGlowPower);
+      + celestialBody(ray, uKeyDirection, uKeyRadiance, uKeyCosRadius, uKeyGlowPower) * (1.0 - uNight)
+      + moonBody(ray) + starField(ray);
 
     // The full-screen sky also owns rays below the horizon. Treat those pixels
     // as the distant continuation of the water instead of exposing the renderer
@@ -96,6 +99,14 @@ export default function SkyDome({ sky }) {
     uLowerSurfaceColor: { value: new THREE.Color('#70716d') },
     uInverseProjection: { value: new THREE.Matrix4() },
     uInverseView: { value: new THREE.Matrix4() },
+    uMoonDirection: { value: new THREE.Vector3(0, -1, 0) },
+    uMoonSunDirection: { value: new THREE.Vector3(0, 1, 0) },
+    uMoonRadiance: { value: new THREE.Color(0, 0, 0) },
+    uMoonCosRadius: { value: Math.cos(THREE.MathUtils.degToRad(0.26)) },
+    uStarAxis: { value: new THREE.Vector3(1, 0, 0) },
+    uStarRotation: { value: 0 },
+    uStars: { value: 0 },
+    uNight: { value: 0 },
   }), []);
 
   React.useEffect(() => () => geometry.dispose(), [geometry]);
@@ -120,6 +131,14 @@ export default function SkyDome({ sky }) {
     uniforms.uKeyGlowStrength.value = sky.keyGlowStrength;
     uniforms.uSkyLevel.value = sky.skyLevel;
     uniforms.uLowerSurfaceColor.value.fromArray(sky.lowerSurfaceColor);
+    uniforms.uMoonDirection.value.fromArray(sky.moonDirection ?? [0, -1, 0]).normalize();
+    uniforms.uMoonSunDirection.value.fromArray(sky.sunDirection ?? [0, 1, 0]).normalize();
+    uniforms.uMoonRadiance.value.fromArray(sky.moonRadiance ?? [0, 0, 0]);
+    uniforms.uMoonCosRadius.value = sky.moonCosRadius ?? uniforms.uMoonCosRadius.value;
+    uniforms.uStarAxis.value.fromArray(sky.starAxis ?? [1, 0, 0]).normalize();
+    uniforms.uStarRotation.value = sky.starRotation ?? 0;
+    uniforms.uStars.value = sky.starsIntensity ?? 0;
+    uniforms.uNight.value = sky.night ?? 0;
   }, -3);
 
   if (!sky.texture) {

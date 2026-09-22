@@ -252,6 +252,7 @@ export const getBaseHomeSceneSettings = () => ({
   distantSurfaceColor: '#70716d',
   moonPhase: 0.5,
   moonBrightness: 1,
+  starsIntensity: 1,
   envMode: 'sky',
   hdriIntensity: 1,
   showHdriBackground: false,
@@ -797,6 +798,7 @@ const normalizeHomeSceneSettings = (savedSettings = {}, includeCameraSystem = tr
     ),
     moonPhase: clampFloat(merged.moonPhase, 0, 1, defaults.moonPhase),
     moonBrightness: clampFloat(merged.moonBrightness, 0, 4, defaults.moonBrightness),
+    starsIntensity: clampFloat(merged.starsIntensity, 0, 3, defaults.starsIntensity),
     envMode: ['sky', 'sky+hdri', 'hdri'].includes(merged.envMode)
       ? merged.envMode
       : defaults.envMode,

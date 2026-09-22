@@ -442,6 +442,7 @@ function WaterRuntimeScene({
         sunPower={(settings.sunIntensity ?? 1.4) / 1.4}
         discVisible={settings.lightDiscEnabled !== false}
         visible={settings.skyVisible !== false && !((settings.envMode === 'hdri' || settings.envMode === 'sky+hdri') && settings.showHdriBackground)}
+        onStrike={(clap) => audioRuntime?.playThunder?.({ gain: clap.gain })}
       />}
       <CloudShadowReceivers />
       <WaterReflections
