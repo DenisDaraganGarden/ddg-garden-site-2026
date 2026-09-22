@@ -1,6 +1,7 @@
 import { execFile } from 'node:child_process';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
@@ -250,8 +251,9 @@ const manualChunks = (id) => {
   }
 
   // three ships a second, complete renderer for WebGPU plus its shading
-  // language. Only the globe on /map reaches for it; on the home route it was
-  // 610 kB of download and parse that nothing called.
+  // language. Only the globe on /map reached for it, for paths it never
+  // enables; `resolve.alias` below hands it a stub, so this chunk is empty
+  // unless something imports the real modules again.
   if (
     id.includes('/three/build/three.webgpu.js') ||
     id.includes('/three/build/three.tsl.js')
@@ -301,6 +303,12 @@ const manualChunks = (id) => {
 
 export default defineConfig({
   plugins: [react(), homeScenePublishPlugin(), engineStorePlugin()],
+  resolve: {
+    alias: [
+      { find: /^three\/webgpu$/, replacement: fileURLToPath(new URL('./src/lib/threeWebgpuStub.js', import.meta.url)) },
+      { find: /^three\/tsl$/, replacement: fileURLToPath(new URL('./src/lib/threeWebgpuStub.js', import.meta.url)) },
+    ],
+  },
   optimizeDeps: {
     include: [
       'react-spring',
