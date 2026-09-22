@@ -18,14 +18,14 @@ let cachedCountriesGeojson = null;
 let countriesGeojsonPromise = null;
 
 const MAJOR_COUNTRIES = [
-    { lat: 37.0902, lng: -95.7129, text: 'USA' },
-    { lat: 61.5240, lng: 105.3188, text: 'Russia' },
-    { lat: 35.8617, lng: 104.1954, text: 'China' },
-    { lat: -14.2350, lng: -51.9253, text: 'Brazil' },
-    { lat: 20.5937, lng: 78.9629, text: 'India' },
-    { lat: -25.2744, lng: 133.7751, text: 'Australia' },
-    { lat: 56.1304, lng: -106.3468, text: 'Canada' },
-    { lat: -30.5595, lng: 22.9375, text: 'South Africa' },
+    { lat: 37.0902, lng: -95.7129, text: { ru: 'США', en: 'USA' } },
+    { lat: 61.5240, lng: 105.3188, text: { ru: 'Россия', en: 'Russia' } },
+    { lat: 35.8617, lng: 104.1954, text: { ru: 'Китай', en: 'China' } },
+    { lat: -14.2350, lng: -51.9253, text: { ru: 'Бразилия', en: 'Brazil' } },
+    { lat: 20.5937, lng: 78.9629, text: { ru: 'Индия', en: 'India' } },
+    { lat: -25.2744, lng: 133.7751, text: { ru: 'Австралия', en: 'Australia' } },
+    { lat: 56.1304, lng: -106.3468, text: { ru: 'Канада', en: 'Canada' } },
+    { lat: -30.5595, lng: 22.9375, text: { ru: 'ЮАР', en: 'South Africa' } },
 ];
 
 const toRadians = (value) => value * (Math.PI / 180);
@@ -634,12 +634,13 @@ const Map = () => {
 
         const countryLabels = MAJOR_COUNTRIES.map((country) => ({
             ...country,
+            text: localizeField(country.text, language),
             altitude: 0.006,
             type: 'country',
         }));
 
         return [...projectLabels, ...countryLabels];
-    }, [projectClusters]);
+    }, [language, projectClusters]);
 
     useEffect(() => {
         if (focusProjectId && globeEl.current) {
@@ -744,6 +745,17 @@ const Map = () => {
 
                         if (renderer) {
                             renderer.setPixelRatio(Math.min(window.devicePixelRatio, mobileViewport ? 1 : 1.5));
+                        }
+
+                        // Open on the projects, not on the Atlantic: the default view
+                        // put every marker on the top rim, under the page title.
+                        if (!focusProjectId && mappableProjects.length > 0) {
+                            const centre = getClusterCenter(mappableProjects);
+                            globeEl.current?.pointOfView({
+                                lat: centre.lat,
+                                lng: centre.lng,
+                                altitude: mobileViewport ? 2.6 : 2.2,
+                            }, 0);
                         }
                     }}
                     polygonsData={countries.features}
