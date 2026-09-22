@@ -18,7 +18,7 @@ const failures = [];
 
 // 1. No lab file may share its name with a product module — that is a copy.
 const productFiles = new Map(
-  ['features', 'components', 'plants', 'tanker', 'terrain']
+  ['features', 'components', 'plants', 'tanker', 'terrain', 'topiary']
     .flatMap((dir) => walk(join(root, dir)))
     .filter(isModule)
     .map((file) => [basename(file), file.replace(root, 'src/')]),
@@ -26,7 +26,7 @@ const productFiles = new Map(
 const labDirs = readdirSync(root).filter((name) => name.endsWith('-lab') && name !== 'asset-lab');
 for (const dir of labDirs) {
   const files = walk(join(root, dir)).filter(isModule);
-  const importsProduct = files.some((file) => /from '\.\.\/(features|components|plants|tanker|terrain)\//.test(readFileSync(file, 'utf8')));
+  const importsProduct = files.some((file) => /from '\.\.\/(features|components|plants|tanker|terrain|topiary)\//.test(readFileSync(file, 'utf8')));
   if (!importsProduct) failures.push(`${dir}: imports no product module`);
   for (const file of files) {
     const twin = productFiles.get(basename(file));

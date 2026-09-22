@@ -1,3 +1,4 @@
+import {TopiarySection} from './sections/topiary';
 import {ShrubsSection} from './sections/shrubs';
 import {TreesSection} from './sections/trees';
 import { TerrainSection } from './sections/terrain';
@@ -10,7 +11,7 @@ import {
 } from './sections/landscape';
 import { AlgaeSection, LiliesSection } from './sections/greenery';
 import { GrassSection } from './sections/grass';
-import { BoatSection, SculptureSection } from './sections/objects';
+import { BoatSection, PlaneSection, SculptureSection } from './sections/objects';
 import {
     CloudsSection,
     FogSection,
@@ -78,6 +79,7 @@ export const EDITOR_TREE = [
             { id: 'lilies', aspects: [{ id: 'scatter', Section: LiliesSection }] },
             { id: 'algae', aspects: [{ id: 'scatter', Section: AlgaeSection }] },
             { id: 'trees', aspects: [{ id: 'scatter', Section: TreesSection }] },
+            { id: 'topiary', aspects: [{ id: 'scatter', Section: TopiarySection }] },
             { id: 'shrubs', aspects: [{ id: 'scatter', Section: ShrubsSection }] },
             { id: 'grass', aspects: [{ id: 'meadow', Section: GrassSection }] },
         ],
@@ -88,6 +90,7 @@ export const EDITOR_TREE = [
             { id: 'tanker', aspects: [{ id: 'transform', Section: TankerSection }] },
             { id: 'boat', aspects: [{ id: 'transform', Section: BoatSection }] },
             { id: 'sculpture', aspects: [{ id: 'transform', Section: SculptureSection }] },
+            { id: 'plane', aspects: [{ id: 'transform', Section: PlaneSection }] },
         ],
     },
     {

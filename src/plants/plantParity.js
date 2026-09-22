@@ -1,7 +1,6 @@
 import * as THREE from 'three';
 import {preserveRenderer} from './plantAtlases.js';
 import {getBaseMaterialHooks} from '../components/effects/csmAdapter.js';
-import {readRenderTargetPixelsWithPboGuard} from '../components/effects/safeRenderTargetReadback.js';
 
 // One light on every level. On the first frame the card is rendered beside the
 // geometry it stands for - under the scene's own environment and key light, the
@@ -103,31 +102,38 @@ export function* calibratePlantCard(renderer,scene,geometry,materials,farGeometr
  // Coverage-weighted mean tone-mapped luminance and saturation, and the
  // covered area, of the plant seen from `azimuth` at the window the mip asks for.
  let lastReadback=null;
- const measure=(meshes,mip,azimuth)=>{
+ // Both passes and their readbacks are issued at once; the reads are fenced,
+ // so the CPU never waits for the GPU (a synchronous readPixels drains the
+ // whole queued frame - reflections, shadows and all - one or two times a
+ // frame for a few hundred steps, which held the site at 15 fps while loading).
+ const measure=async(meshes,mip,azimuth)=>{
   const s=Math.max(24,Math.min(size,Math.ceil(frame/2**mip*1.2))),sum={n:0,solid:0,lum:0,sat:0};
   dir.set(Math.sin(azimuth)*Math.cos(ELEVATION),Math.sin(ELEVATION),Math.cos(azimuth)*Math.cos(ELEVATION));
   camera.position.copy(centre).addScaledVector(dir,height*8);camera.up.set(0,1,0);camera.lookAt(centre);
   const span=height*1.15*s/(frame/2**mip)*.5;camera.left=-span;camera.right=span;camera.top=span;camera.bottom=-span;camera.updateProjectionMatrix();
   for(const o of stage.children.filter(o=>o.isMesh))stage.remove(o);for(const m of meshes)stage.add(m);
+  const diagnose=!lastReadback;let reads=null,errors=null;
   preserveRenderer(renderer,()=>{
    const shadows={enabled:renderer.shadowMap.enabled,auto:renderer.shadowMap.autoUpdate};renderer.shadowMap.enabled=true;renderer.shadowMap.autoUpdate=true;
    const gl=renderer.getContext();
-   const diagnose=!lastReadback;
    try{
     // The window lives on the target itself: the shadow pass inside render()
     // re-applies it, a renderer viewport it would reset (and scale by DPR).
     rt.viewport.set(0,0,s,s);rt.scissor.set(0,0,s,s);rt.scissorTest=true;
     renderer.setRenderTarget(rt);renderer.setClearColor(BLACK,0);renderer.clear();renderer.render(stage,camera);
     const blackRenderError=diagnose?gl.getError():0;
-    const pixelPackBufferBoundBlack=readRenderTargetPixelsWithPboGuard(renderer,rt,0,0,s,s,pixels);
+    const black=renderer.readRenderTargetPixelsAsync(rt,0,0,s,s,pixels);
     const blackReadError=diagnose?gl.getError():0;
     renderer.setRenderTarget(rt);renderer.setClearColor(WHITE,1);renderer.clear();renderer.render(stage,camera);
     const whiteRenderError=diagnose?gl.getError():0;
-    const pixelPackBufferBoundWhite=readRenderTargetPixelsWithPboGuard(renderer,rt,0,0,s,s,white);
+    const whiteRead=renderer.readRenderTargetPixelsAsync(rt,0,0,s,s,white);
     const whiteReadError=diagnose?gl.getError():0;
-    if(diagnose)lastReadback={cornerBlackRGB:[pixels[0],pixels[1],pixels[2]],cornerWhiteRGB:[white[0],white[1],white[2]],pixelPackBufferBoundBlack,pixelPackBufferBoundWhite,blackRenderError,blackReadError,whiteRenderError,whiteReadError};
+    reads=Promise.all([black,whiteRead]);errors={blackRenderError,blackReadError,whiteRenderError,whiteReadError};
    }finally{renderer.shadowMap.enabled=shadows.enabled;renderer.shadowMap.autoUpdate=shadows.auto;}
   });
+  // A lost context rejects the read: measure nothing, the card keeps its gains.
+  try{await reads;}catch{return {n:0,solid:0,lum:0,sat:0};}
+  if(diagnose)lastReadback={cornerBlackRGB:[pixels[0],pixels[1],pixels[2]],cornerWhiteRGB:[white[0],white[1],white[2]],...errors};
   for(let i=0,end=s*s*4;i<end;i+=4){
    const c=Math.max(0,Math.min(1,1-((white[i]-pixels[i])+(white[i+1]-pixels[i+1])+(white[i+2]-pixels[i+2]))/765));if(c<=.02)continue;
    const [r,g,b]=aces(pixels[i]/255/c,pixels[i+1]/255/c,pixels[i+2]/255/c,exposure),hi=Math.max(r,g,b);
@@ -139,7 +145,7 @@ export function* calibratePlantCard(renderer,scene,geometry,materials,farGeometr
  try{
   const geo=[[],[]];
   for(let view=0;view<2;view++)for(let i=0;i<CARD_MIPS.length;i++){
-   geo[view][i]=measure(near,CARD_MIPS[i],VIEWS[view]);
+   geo[view][i]=yield measure(near,CARD_MIPS[i],VIEWS[view]);
    if(view===0&&i===0)result.readback=lastReadback;
    // A stage that reads back black over the whole window is not measuring the
    // plant (a renderer with a pass of its own in the way): leave the card as it is.
@@ -157,7 +163,6 @@ export function* calibratePlantCard(renderer,scene,geometry,materials,farGeometr
     };
     result.light='invalid';return result;
    }
-   yield;
   }
   // Luminance: the correction acts before tone mapping, so each gain is fitted
   // in steps against the tone-mapped result, the front view first and the
@@ -166,7 +171,7 @@ export function* calibratePlantCard(renderer,scene,geometry,materials,farGeometr
    const want=geo[view][i];if(want.n<16)return null;
    let g=1,card=null;
    for(let step=0;step<3;step++){
-    target[i]=g;card=measure([far],CARD_MIPS[i],VIEWS[view]);yield;if(card.n<16)return null;
+    target[i]=g;card=yield measure([far],CARD_MIPS[i],VIEWS[view]);if(card.n<16)return null;
     if(view===0&&step===0){result.geoLum[i]=Math.round(want.lum*255);result.cardLum[i]=Math.round(card.lum*255);}
     // A pale card is lifted at most a little: past that the brightest bark clips to white.
     g=THREE.MathUtils.clamp(g*want.lum/Math.max(1e-3,card.lum),.35,1.15);
@@ -185,7 +190,7 @@ export function* calibratePlantCard(renderer,scene,geometry,materials,farGeometr
   const fit=function*(i,set,candidates){
    const want=geo[0][i].solid;if(want<16)return null;
    let best=candidates[0],bestError=Infinity;
-   for(const k of candidates){set(k);const got=measure([far],CARD_MIPS[i],VIEWS[0]).solid;yield;const error=Math.abs(want/Math.max(1,got)-1);if(error<bestError){best=k;bestError=error;}}
+   for(const k of candidates){set(k);const got=(yield measure([far],CARD_MIPS[i],VIEWS[0])).solid;const error=Math.abs(want/Math.max(1,got)-1);if(error<bestError){best=k;bestError=error;}}
    set(best);return best;
   };
   result.nearCut=(yield* fit(0,k=>{cut.x=k;},[1,.85,.7,.55,.45]))??1;

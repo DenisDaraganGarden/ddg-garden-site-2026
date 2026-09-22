@@ -189,8 +189,10 @@ export default function WaterLights({ settings, mode, qualityProfile, lighting, 
   const envMode = settings.envMode ?? 'sky';
   const useHdri = envMode === 'hdri' || envMode === 'sky+hdri';
   const showHdriBackground = useHdri && Boolean(settings.showHdriBackground);
+  // Under a storm the photographed environment is the only fill that does not
+  // darken by itself, so it takes the same dimming the painterly sky applies.
   const hdriEnvironmentIntensity = (settings.hdriIntensity ?? 1)
-    * lighting.environment.exposure;
+    * lighting.environment.exposure * (1 - 0.5 * (lighting.sky.storm ?? 0));
   const localHdriFile = SELF_HOSTED_HDRI[settings.hdrPreset] ?? SELF_HOSTED_HDRI.night;
 
   return (
@@ -241,6 +243,14 @@ export default function WaterLights({ settings, mode, qualityProfile, lighting, 
             keyGlowStrength: lighting.sky.keyGlowStrength,
             skyLevel: lighting.sky.skyLevel,
             lowerSurfaceColor: lighting.surface.color.linear,
+            moonDirection: lighting.sky.moonDirection,
+            sunDirection: lighting.sky.sunDirection,
+            moonRadiance: settings.lightDiscEnabled === false ? [0, 0, 0] : lighting.sky.moonDiscRadiance,
+            moonCosRadius: lighting.sky.moonCosRadius,
+            starAxis: lighting.sky.starAxis,
+            starRotation: lighting.sky.starRotation,
+            starsIntensity: lighting.sky.starsIntensity,
+            night: lighting.sky.night,
           }}
         />
       )}

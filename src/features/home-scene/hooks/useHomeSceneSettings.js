@@ -1,3 +1,4 @@
+import { DEFAULT_TOPIARY_SETTINGS, normalizeTopiarySettings } from '../../../topiary/settings.js';
 import {DEFAULT_GRASS_SETTINGS,DEFAULT_SHRUB_SETTINGS,DEFAULT_TREE_SETTINGS,normalizeGrassSettings,normalizeShrubSettings,normalizeTreeSettings} from '../../../plants/settings.js';
 import { DEFAULT_TERRAIN_SETTINGS, normalizeTerrainSettings } from '../../../terrain/settings.js';
 import { DEFAULT_TANKER_SETTINGS, normalizeTankerSettings } from '../../../tanker/settings.js';
@@ -199,6 +200,7 @@ const pickLayout = (value, fallback) => {
 export const getBaseHomeSceneSettings = () => ({
   ...DEFAULT_TANKER_SETTINGS,
   ...DEFAULT_TERRAIN_SETTINGS,
+  ...DEFAULT_TOPIARY_SETTINGS,
   ...DEFAULT_SHRUB_SETTINGS,
   ...DEFAULT_TREE_SETTINGS,
   ...DEFAULT_GRASS_SETTINGS,
@@ -250,6 +252,7 @@ export const getBaseHomeSceneSettings = () => ({
   distantSurfaceColor: '#70716d',
   moonPhase: 0.5,
   moonBrightness: 1,
+  starsIntensity: 1,
   envMode: 'sky',
   hdriIntensity: 1,
   showHdriBackground: false,
@@ -338,6 +341,7 @@ export const getBaseHomeSceneSettings = () => ({
   boatCutoutFitLength: 0.92,
   boatCutoutDebug: false,
   sculptureColor: '#b7bcc7',
+  planeColor: '#8a8f94',
   sculptureMetalness: 0.08,
   sculptureRoughness: 0.78,
   sculptureClearcoat: 0.12,
@@ -358,6 +362,9 @@ export const getBaseHomeSceneSettings = () => ({
   sculptureMicroRelief: 0.78,
   sculpturePosition: { ...DEFAULT_SCULPTURE_POSITION },
   sculptureScale: 0.045,
+  planeSize: 400,
+  planeHeight: 0,
+  planeRoughness: 0.9,
   sculptureRotationX: 0,
   sculptureRotationY: 0,
   sculptureRotationZ: 0,
@@ -412,6 +419,7 @@ export const getBaseHomeSceneSettings = () => ({
   algaeVisible: true,
   boatVisible: true,
   sculptureVisible: true,
+  planeEnabled: false,
   seagullsEnabled: true,
   seagullCount: 9,
   seagullFlightActivity: 0.72,
@@ -790,6 +798,7 @@ const normalizeHomeSceneSettings = (savedSettings = {}, includeCameraSystem = tr
     ),
     moonPhase: clampFloat(merged.moonPhase, 0, 1, defaults.moonPhase),
     moonBrightness: clampFloat(merged.moonBrightness, 0, 4, defaults.moonBrightness),
+    starsIntensity: clampFloat(merged.starsIntensity, 0, 3, defaults.starsIntensity),
     envMode: ['sky', 'sky+hdri', 'hdri'].includes(merged.envMode)
       ? merged.envMode
       : defaults.envMode,
@@ -868,6 +877,7 @@ const normalizeHomeSceneSettings = (savedSettings = {}, includeCameraSystem = tr
     boatCutoutFitLength: clampFloat(merged.boatCutoutFitLength, 0.1, 1.6, defaults.boatCutoutFitLength),
     boatCutoutDebug: pickBoolean(merged.boatCutoutDebug, defaults.boatCutoutDebug),
     sculptureColor: pickColor(merged.sculptureColor, defaults.sculptureColor),
+    planeColor: pickColor(merged.planeColor, defaults.planeColor),
     sculptureMetalness: clampFloat(merged.sculptureMetalness, 0, 1, defaults.sculptureMetalness),
     sculptureRoughness: clampFloat(merged.sculptureRoughness, 0, 1, defaults.sculptureRoughness),
     sculptureClearcoat: clampFloat(merged.sculptureClearcoat, 0, 1, defaults.sculptureClearcoat),
@@ -893,6 +903,9 @@ const normalizeHomeSceneSettings = (savedSettings = {}, includeCameraSystem = tr
     sculptureMicroRelief: clampFloat(merged.sculptureMicroRelief, 0, 1, defaults.sculptureMicroRelief),
     sculpturePosition: normalizedSculpturePosition,
     sculptureScale: clampFloat(merged.sculptureScale, 0.005, 0.2, defaults.sculptureScale),
+    planeSize: clampFloat(merged.planeSize, 10, 5000, defaults.planeSize),
+    planeHeight: clampFloat(merged.planeHeight, -50, 50, defaults.planeHeight),
+    planeRoughness: clampFloat(merged.planeRoughness, 0, 1, defaults.planeRoughness),
     sculptureRotationX: clampFloat(merged.sculptureRotationX, -180, 180, defaults.sculptureRotationX),
     sculptureRotationY: clampFloat(merged.sculptureRotationY, -180, 180, defaults.sculptureRotationY),
     sculptureRotationZ: clampFloat(merged.sculptureRotationZ, -180, 180, defaults.sculptureRotationZ),
@@ -1020,6 +1033,7 @@ const normalizeHomeSceneSettings = (savedSettings = {}, includeCameraSystem = tr
     algaeVisible: pickBoolean(merged.algaeVisible, defaults.algaeVisible),
     boatVisible: pickBoolean(merged.boatVisible, defaults.boatVisible),
     sculptureVisible: pickBoolean(merged.sculptureVisible, defaults.sculptureVisible),
+    planeEnabled: pickBoolean(merged.planeEnabled, defaults.planeEnabled),
     seagullsEnabled: pickBoolean(merged.seagullsEnabled, defaults.seagullsEnabled),
     seagullCount: clampInt(merged.seagullCount, 1, 9, defaults.seagullCount),
     seagullFlightActivity: clampFloat(
@@ -1134,6 +1148,7 @@ const normalizeHomeSceneSettings = (savedSettings = {}, includeCameraSystem = tr
     audio: normalizeSoundscapeSettings(merged.audio),
     ...normalizeTankerSettings(merged),
     ...normalizeTerrainSettings(merged),
+    ...normalizeTopiarySettings(merged),
     ...normalizeShrubSettings(merged),
     ...normalizeTreeSettings(merged),
     ...normalizeGrassSettings(merged),

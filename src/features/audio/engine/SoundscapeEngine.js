@@ -88,6 +88,11 @@ function setCurve(param, curve, startTime, duration, fallbackStart, fallbackEnd)
   param.linearRampToValueAtTime?.(fallbackEnd, startTime + duration);
 }
 
+// The fade curves are fixed 0..1 tables; a quieter clap needs them scaled.
+const scaleCurve = (curve, amplitude) => (
+  amplitude === 1 ? curve : Float32Array.from(curve, (value) => value * amplitude)
+);
+
 function stopSourceSafely(source, when = 0) {
   try {
     source.stop(when);
@@ -866,7 +871,23 @@ export class SoundscapeEngine {
     track.timers.add(timer);
   }
 
-  playTrackOccurrence(track) {
+  // A storm strike asks for its own clap: the lightning runtime has already
+  // waited out the distance, so this plays now at the loudness it computed.
+  playThunder({ delaySeconds = 0, gain = 1 } = {}) {
+    const track = this.tracks.get('thunder');
+    if (!track || track.stopped) {
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      track.timers.delete(timer);
+      if (!track.stopped) {
+        this.playTrackOccurrence(track, clamp(gain, 0, 1));
+      }
+    }, Math.max(0, delaySeconds) * 1000);
+    track.timers.add(timer);
+  }
+
+  playTrackOccurrence(track, amplitude = 1) {
     if (
       !this.context
       || track.stopped
@@ -887,11 +908,12 @@ export class SoundscapeEngine {
     const { source, envelope } = this.createSource(track);
 
     envelope.gain.setValueAtTime(0, now);
-    setCurve(envelope.gain, equalPowerFadeIn, now, fade, 0, 1);
-    envelope.gain.setValueAtTime(1, Math.max(now + fade, now + duration - fade));
-    setCurve(envelope.gain, equalPowerFadeOut, now + duration - fade, fade, 1, 0);
+    setCurve(envelope.gain, scaleCurve(equalPowerFadeIn, amplitude), now, fade, 0, amplitude);
+    envelope.gain.setValueAtTime(amplitude, Math.max(now + fade, now + duration - fade));
+    setCurve(envelope.gain, scaleCurve(equalPowerFadeOut, amplitude), now + duration - fade, fade, amplitude, 0);
 
-    if (track.panner && track.asset.emitterId !== 'boat') {
+    // A clap that overlaps one still sounding keeps the shared panner where it is.
+    if (track.panner && track.asset.emitterId !== 'boat' && track.sources.size <= 1) {
       const base = this.settings.emitters[track.asset.emitterId];
       if (base) {
         const spread = track.asset.id === 'birds' ? 5 : 8;

@@ -71,7 +71,7 @@ export default function EditorPicker({ enabled, onPick, onContextMenu }) {
 
             if (!enabled || typeof onPick !== 'function') return;
             const found = hitAt(event);
-            if (found) onPick(found.node);
+            if (found) onPick(found.node, found);
         };
 
         element.addEventListener('pointerdown', handlePointerDown);

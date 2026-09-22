@@ -7,9 +7,10 @@ export function createCalibrationQueue({ now = () => performance.now(), budgetMs
   const owners = new Set();
   const stats = { pending: 0, completed: 0, steps: 0, lastMs: 0, maxMs: 0, maxStepsPerFrame: 0 };
   function cancel(job) {
+    if (job.cancelled) return;
+    job.cancelled = true;
     const index = jobs.indexOf(job);
-    if (index < 0) return;
-    jobs.splice(index, 1);
+    if (index >= 0) jobs.splice(index, 1);
     stats.pending = jobs.length;
     job.iterator.return?.();
   }
@@ -25,15 +26,27 @@ export function createCalibrationQueue({ now = () => performance.now(), budgetMs
     advance() {
       if (!jobs.length) return false;
       const start = now(); let count = 0;
-      do {
-        const job = jobs.shift();
+      // One pass in queue order: jobs that step go to the back, the rest keep
+      // their place. A job that yields a promise (a fenced GPU readback) is
+      // parked until it settles and resumes with the value.
+      const round = jobs.splice(0), kept = [], stepped = [];
+      for (let i = 0; i < round.length; i++) {
+        const job = round[i];
+        if (job.cancelled) continue;
+        if (job.waiting || count >= maxSteps || now() - start >= budgetMs) { kept.push(job); continue; }
         let step;
-        try { step = job.iterator.next(); }
-        catch (error) { job.iterator.return?.(); stats.pending = jobs.length; throw error; }
+        try { step = job.iterator.next(job.resume); }
+        catch (error) { job.iterator.return?.(); jobs.push(...kept, ...stepped, ...round.slice(i + 1)); stats.pending = jobs.length; throw error; }
+        job.resume = undefined;
         count++; stats.steps++;
-        if (step.done) { stats.completed++; job.onDone(step.value); }
-        else jobs.push(job);
-      } while (jobs.length && count < maxSteps && now() - start < budgetMs);
+        if (step.done) { stats.completed++; job.onDone(step.value); continue; }
+        if (typeof step.value?.then === 'function') {
+          job.waiting = true;
+          step.value.then((value) => { job.resume = value; }, () => { job.resume = null; }).then(() => { job.waiting = false; });
+        }
+        stepped.push(job);
+      }
+      jobs.push(...kept, ...stepped);
       stats.pending = jobs.length; stats.lastMs = now() - start;
       stats.maxMs = Math.max(stats.maxMs, stats.lastMs);
       stats.maxStepsPerFrame = Math.max(stats.maxStepsPerFrame, count);

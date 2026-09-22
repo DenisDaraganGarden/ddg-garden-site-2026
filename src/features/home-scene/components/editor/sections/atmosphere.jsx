@@ -115,11 +115,59 @@ export const LightSection = ({ settings, handleSettingChange }) => {
                 formatValue={(value) => formatFloat(value)}
                 onChange={(event) => handleSettingChange(event, 'moonBrightness')}
             />
+            <RangeControl controlId={'starsIntensity'}
+                label={t('homeEditor.controls.starsIntensity')}
+                value={settings.starsIntensity}
+                min={0}
+                max={3}
+                step={0.05}
+                formatValue={(value) => formatFloat(value)}
+                onChange={(event) => handleSettingChange(event, 'starsIntensity')}
+            />
 
             <CheckboxControl controlId={'lightDiscEnabled'}
                 label={t('homeEditor.controls.lightDiscEnabled')}
                 checked={Boolean(settings.lightDiscEnabled)}
                 onChange={(event) => handleSettingChange(event, 'lightDiscEnabled', 'boolean')}
+            />
+            <SectionHeading label={t('homeEditor.blocks.ambientLight')} subtle />
+            <RangeControl controlId={'ambientIntensity'}
+                label={t('homeEditor.controls.ambientIntensity')}
+                value={settings.ambientIntensity}
+                min={0}
+                max={2}
+                step={0.01}
+                formatValue={(value) => formatFloat(value)}
+                onChange={(event) => handleSettingChange(event, 'ambientIntensity')}
+            />
+            <ColorControl controlId={'ambientColor'}
+                label={t('homeEditor.controls.ambientColor')}
+                value={settings.ambientColor}
+                onChange={(event) => handleSettingChange(event, 'ambientColor', 'color')}
+            />
+            <RangeControl controlId={'hemisphereIntensity'}
+                label={t('homeEditor.controls.hemisphereIntensity')}
+                value={settings.hemisphereIntensity}
+                min={0}
+                max={2}
+                step={0.01}
+                formatValue={(value) => formatFloat(value)}
+                onChange={(event) => handleSettingChange(event, 'hemisphereIntensity')}
+            />
+            <ColorControl controlId={'hemisphereSkyColor'}
+                label={t('homeEditor.controls.hemisphereSkyColor')}
+                value={settings.hemisphereSkyColor}
+                onChange={(event) => handleSettingChange(event, 'hemisphereSkyColor', 'color')}
+            />
+            <ColorControl controlId={'hemisphereGroundColor'}
+                label={t('homeEditor.controls.hemisphereGroundColor')}
+                value={settings.hemisphereGroundColor}
+                onChange={(event) => handleSettingChange(event, 'hemisphereGroundColor', 'color')}
+            />
+            <ColorControl controlId={'envTint'}
+                label={t('homeEditor.controls.envTint')}
+                value={settings.envTint}
+                onChange={(event) => handleSettingChange(event, 'envTint', 'color')}
             />
             <SectionHeading label={t('homeEditor.blocks.shadows')} subtle />
             <CheckboxControl controlId={'shadowsEnabled'}
@@ -187,6 +235,15 @@ export const LightSection = ({ settings, handleSettingChange }) => {
                 formatValue={(value) => Math.round(Number(value) * 100)}
                 onChange={(event) => handleSettingChange(event, 'waterShadowStrength')}
             />
+            <RangeControl controlId={'shadowBias'}
+                label={t('homeEditor.controls.shadowBias')}
+                value={settings.shadowBias}
+                min={-0.005}
+                max={0.005}
+                step={0.0001}
+                formatValue={(value) => formatFloat(value, 4)}
+                onChange={(event) => handleSettingChange(event, 'shadowBias')}
+            />
         </>
     );
 };
@@ -199,7 +256,8 @@ export const CloudsSection = ({ settings, handleSettingChange }) => {
     }));
     const applyPainterlyPreset = (preset) => {
         Object.entries(PAINTERLY_CLOUD_PRESETS[preset]).forEach(([key, value]) => {
-            handleSettingChange({ target: { value } }, key);
+            const boolean = typeof value === 'boolean';
+            handleSettingChange({ target: { value, checked: value } }, key, boolean ? 'boolean' : undefined);
         });
     };
 
@@ -291,9 +349,21 @@ export const CloudsSection = ({ settings, handleSettingChange }) => {
             <SelectControl controlId={'painterlyCloudQuality'}
                 label={t('homeEditor.controls.painterlyCloudQuality')}
                 value={settings.painterlyCloudQuality}
-                options={['auto', 'low', 'balanced', 'high'].map((value) => ({ value, label: t(`homeEditor.controls.painterlyCloudQuality${value[0].toUpperCase()}${value.slice(1)}`) }))}
+                options={['auto', 'low', 'balanced', 'high', 'ultra'].map((value) => ({ value, label: t(`homeEditor.controls.painterlyCloudQuality${value[0].toUpperCase()}${value.slice(1)}`) }))}
                 onChange={(event) => handleSettingChange(event, 'painterlyCloudQuality', 'string')}
             />
+            <CheckboxControl controlId={'painterlyCloudStormEnabled'}
+                label={t('homeEditor.controls.painterlyCloudStormEnabled')}
+                checked={Boolean(settings.painterlyCloudStormEnabled)}
+                onChange={(event) => handleSettingChange(event, 'painterlyCloudStormEnabled', 'boolean')}
+            />
+            <RangeControl controlId={'painterlyCloudStorm'} label={t('homeEditor.controls.painterlyCloudStorm')} value={settings.painterlyCloudStorm} min={0} max={1} step={0.01} unit="%" formatValue={(value) => Math.round(Number(value) * 100)} onChange={(event) => handleSettingChange(event, 'painterlyCloudStorm')} />
+            <RangeControl controlId={'painterlyCloudRain'} label={t('homeEditor.controls.painterlyCloudRain')} value={settings.painterlyCloudRain} min={0} max={1} step={0.01} unit="%" formatValue={(value) => Math.round(Number(value) * 100)} onChange={(event) => handleSettingChange(event, 'painterlyCloudRain')} />
+            <RangeControl controlId={'painterlyCloudLightning'} label={t('homeEditor.controls.painterlyCloudLightning')} value={settings.painterlyCloudLightning} min={0} max={1} step={0.01} unit="%" formatValue={(value) => Math.round(Number(value) * 100)} onChange={(event) => handleSettingChange(event, 'painterlyCloudLightning')} />
+            <RangeControl controlId={'painterlyCloudRainCells'} label={t('homeEditor.controls.painterlyCloudRainCells')} value={settings.painterlyCloudRainCells} min={0} max={1} step={0.01} unit="%" formatValue={(value) => Math.round(Number(value) * 100)} onChange={(event) => handleSettingChange(event, 'painterlyCloudRainCells')} />
+            <RangeControl controlId={'painterlyCloudRainDrops'} label={t('homeEditor.controls.painterlyCloudRainDrops')} value={settings.painterlyCloudRainDrops} min={0} max={1} step={0.01} unit="%" formatValue={(value) => Math.round(Number(value) * 100)} onChange={(event) => handleSettingChange(event, 'painterlyCloudRainDrops')} />
+            <RangeControl controlId={'painterlyCloudRainDropSize'} label={t('homeEditor.controls.painterlyCloudRainDropSize')} value={settings.painterlyCloudRainDropSize} min={0.5} max={2} step={0.05} unit="x" formatValue={(value) => formatFloat(value)} onChange={(event) => handleSettingChange(event, 'painterlyCloudRainDropSize')} />
+            <RangeControl controlId={'painterlyCloudRainDarkness'} label={t('homeEditor.controls.painterlyCloudRainDarkness')} value={settings.painterlyCloudRainDarkness} min={0} max={1} step={0.01} unit="%" formatValue={(value) => Math.round(Number(value) * 100)} onChange={(event) => handleSettingChange(event, 'painterlyCloudRainDarkness')} />
         </>
     );
 };
@@ -469,6 +539,11 @@ export const RaysSection = ({ settings, handleSettingChange }) => {
 
     return (
         <>
+            {settings.postProcessingEnabled ? null : (
+                <div className="home-editor-control-group">
+                    <small style={{ opacity: 0.7 }}>{t('homeEditor.controls.sunRaysNeedPost')}</small>
+                </div>
+            )}
             <CheckboxControl controlId={'sunRaysEnabled'}
                 label={t('homeEditor.controls.sunRaysEnabled')}
                 checked={Boolean(settings.sunRaysEnabled)}

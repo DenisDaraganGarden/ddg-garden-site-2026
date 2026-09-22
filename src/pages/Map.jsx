@@ -10,22 +10,35 @@ import '../styles/Map.css';
 // Self-hosted so country outlines AND the land-scale mask always load (the old
 // runtime GitHub CDN was flaky → mask fell back to "all land" = scales everywhere).
 const COUNTRIES_GEOJSON_URL = `${import.meta.env.BASE_URL}geo/countries-110m.geojson`;
+// Natural Earth rivers (50m, coordinates rounded to 0.01°) and the large lakes
+// (110m): both are drawn black into the land mask, so they are water in the
+// same shader branch as the ocean.
+const RIVERS_GEOJSON_URL = `${import.meta.env.BASE_URL}geo/rivers-50m.geojson`;
+const LAKES_GEOJSON_URL = `${import.meta.env.BASE_URL}geo/lakes-110m.geojson`;
 const PROJECT_CLUSTER_DISTANCE_KM = 60;
 const LABEL_NEIGHBORHOOD_DISTANCE_KM = 2200;
 const MOBILE_VIEWPORT_MAX_WIDTH = 900;
 
-let cachedCountriesGeojson = null;
-let countriesGeojsonPromise = null;
+// A plain object: the component below is named Map and shadows the global.
+const geojsonCache = {};
+
+const MAJOR_OCEANS = [
+    { lat: -6, lng: -155, text: { ru: 'Тихий океан', en: 'Pacific Ocean' } },
+    { lat: 14, lng: -36, text: { ru: 'Атлантический океан', en: 'Atlantic Ocean' } },
+    { lat: -22, lng: 78, text: { ru: 'Индийский океан', en: 'Indian Ocean' } },
+    { lat: 78, lng: -30, text: { ru: 'Северный Ледовитый океан', en: 'Arctic Ocean' } },
+    { lat: -62, lng: 40, text: { ru: 'Южный океан', en: 'Southern Ocean' } },
+];
 
 const MAJOR_COUNTRIES = [
-    { lat: 37.0902, lng: -95.7129, text: 'USA' },
-    { lat: 61.5240, lng: 105.3188, text: 'Russia' },
-    { lat: 35.8617, lng: 104.1954, text: 'China' },
-    { lat: -14.2350, lng: -51.9253, text: 'Brazil' },
-    { lat: 20.5937, lng: 78.9629, text: 'India' },
-    { lat: -25.2744, lng: 133.7751, text: 'Australia' },
-    { lat: 56.1304, lng: -106.3468, text: 'Canada' },
-    { lat: -30.5595, lng: 22.9375, text: 'South Africa' },
+    { lat: 37.0902, lng: -95.7129, text: { ru: 'США', en: 'USA' } },
+    { lat: 61.5240, lng: 105.3188, text: { ru: 'Россия', en: 'Russia' } },
+    { lat: 35.8617, lng: 104.1954, text: { ru: 'Китай', en: 'China' } },
+    { lat: -14.2350, lng: -51.9253, text: { ru: 'Бразилия', en: 'Brazil' } },
+    { lat: 20.5937, lng: 78.9629, text: { ru: 'Индия', en: 'India' } },
+    { lat: -25.2744, lng: 133.7751, text: { ru: 'Австралия', en: 'Australia' } },
+    { lat: 56.1304, lng: -106.3468, text: { ru: 'Канада', en: 'Canada' } },
+    { lat: -30.5595, lng: 22.9375, text: { ru: 'ЮАР', en: 'South Africa' } },
 ];
 
 const toRadians = (value) => value * (Math.PI / 180);
@@ -34,25 +47,21 @@ const isMobileViewport = () => (
     typeof window !== 'undefined' && window.innerWidth <= MOBILE_VIEWPORT_MAX_WIDTH
 );
 
-const loadCountriesGeojson = async (signal) => {
-    if (cachedCountriesGeojson) {
-        return cachedCountriesGeojson;
-    }
-
-    if (!countriesGeojsonPromise) {
-        countriesGeojsonPromise = fetch(COUNTRIES_GEOJSON_URL, { signal })
+// One fetch per file for the page's lifetime, never tied to a component's
+// abort signal: under StrictMode the first mount's cleanup aborted the shared
+// promise and the second mount inherited the rejection, so the land mask
+// stayed "all land" in development.
+const loadGeojson = (url) => {
+    if (!geojsonCache[url]) {
+        geojsonCache[url] = fetch(url)
             .then((response) => response.json())
-            .then((data) => {
-                cachedCountriesGeojson = data;
-                return data;
-            })
             .catch((error) => {
-                countriesGeojsonPromise = null;
+                delete geojsonCache[url];
                 throw error;
             });
     }
 
-    return countriesGeojsonPromise;
+    return geojsonCache[url];
 };
 
 const getDistanceKm = (first, second) => {
@@ -258,9 +267,13 @@ const makePixelTexture = (r, g, b) => {
 
 // White-on-black land mask, drawn at runtime from the same country geojson that
 // feeds the border outlines — so the scales sit exactly inside the coastlines.
-const buildLandMaskTexture = (features) => {
-    const width = 2048;
-    const height = 1024;
+// Land white, water black: the ocean by omission, lakes filled and rivers
+// stroked over the land, wider for the more important rivers (Natural Earth
+// scalerank 1 = the Amazon). Desktop gets 4096 px across so a river stays a
+// clean line; a phone keeps the 2048 px canvas.
+const buildLandMaskTexture = ({ land = [], lakes = [], rivers = [] }) => {
+    const width = isMobileViewport() ? 2048 : 4096;
+    const height = width / 2;
     const canvas = document.createElement('canvas');
     canvas.width = width;
     canvas.height = height;
@@ -275,8 +288,8 @@ const buildLandMaskTexture = (features) => {
         ((90 - lat) / 180) * height,
     ];
 
-    const drawRing = (ring) => {
-        if (!ring || ring.length < 3) {
+    const drawRing = (ring, stroke = false) => {
+        if (!ring || ring.length < (stroke ? 2 : 3)) {
             return;
         }
 
@@ -306,14 +319,18 @@ const buildLandMaskTexture = (features) => {
                     context.lineTo(x, y);
                 }
             });
-            context.closePath();
-            context.fill();
+            if (stroke) {
+                context.stroke();
+            } else {
+                context.closePath();
+                context.fill();
+            }
         });
     };
 
-    const drawPolygon = (rings) => rings.forEach(drawRing);
+    const drawPolygon = (rings) => rings.forEach((ring) => drawRing(ring));
 
-    features.forEach((feature) => {
+    const drawPolygons = (features) => features.forEach((feature) => {
         const geometry = feature.geometry;
         if (!geometry) {
             return;
@@ -323,6 +340,30 @@ const buildLandMaskTexture = (features) => {
             drawPolygon(geometry.coordinates);
         } else if (geometry.type === 'MultiPolygon') {
             geometry.coordinates.forEach(drawPolygon);
+        }
+    });
+
+    drawPolygons(land);
+
+    context.fillStyle = '#000000';
+    drawPolygons(lakes);
+
+    context.strokeStyle = '#000000';
+    context.lineCap = 'round';
+    context.lineJoin = 'round';
+    rivers.forEach((feature) => {
+        const geometry = feature.geometry;
+        if (!geometry) {
+            return;
+        }
+
+        const rank = Math.min(10, Math.max(1, Number(feature.properties?.r) || 6));
+        context.lineWidth = (width / 2048) * (0.55 + (10 - rank) * 0.13);
+
+        if (geometry.type === 'LineString') {
+            drawRing(geometry.coordinates, true);
+        } else if (geometry.type === 'MultiLineString') {
+            geometry.coordinates.forEach((line) => drawRing(line, true));
         }
     });
 
@@ -346,21 +387,19 @@ const createNoirGlobeMaterial = () => {
     // Shared uniform objects: stored on userData so the component can swap the
     // land mask in once the geojson loads, and reused as-is inside the shader.
     const uniforms = {
-        uTime: { value: 0 },
         uLandMask: { value: makePixelTexture(255, 255, 255) },
         uMaskUvOffset: { value: new THREE.Vector2(0, 0) },
         uGapColor: { value: new THREE.Color('#020203') },
         uScaleColor: { value: new THREE.Color('#0e0f11') },
-        uWaterColor: { value: new THREE.Color('#050607') },
+        uWaterColor: { value: new THREE.Color('#000000') },
         uSheenColor: { value: new THREE.Color('#ffffff') },
         uRimColor: { value: new THREE.Color('#8b9097') },
-        uWaterLightDir: { value: new THREE.Vector3(-0.3, 0.55, 0.78).normalize() },
         // x = scales per longitude band, y = scale rows per latitude (fine grain)
         uScaleFreq: { value: new THREE.Vector2(900.0, 475.0) },
     };
     material.userData.uniforms = uniforms;
 
-    material.customProgramCacheKey = () => 'ddg-snake-scale-v11';
+    material.customProgramCacheKey = () => 'ddg-snake-scale-v12';
     material.onBeforeCompile = (shader) => {
         Object.assign(shader.uniforms, uniforms);
 
@@ -385,7 +424,6 @@ const createNoirGlobeMaterial = () => {
             .replace(
                 '#include <common>',
                 `#include <common>
-                uniform float uTime;
                 uniform sampler2D uLandMask;
                 uniform vec2 uMaskUvOffset;
                 uniform vec3 uGapColor;
@@ -393,7 +431,6 @@ const createNoirGlobeMaterial = () => {
                 uniform vec3 uWaterColor;
                 uniform vec3 uSheenColor;
                 uniform vec3 uRimColor;
-                uniform vec3 uWaterLightDir;
                 uniform vec2 uScaleFreq;
                 varying vec3 vWorldPosition;
                 varying vec3 vWorldNormal;
@@ -469,7 +506,10 @@ const createNoirGlobeMaterial = () => {
                 // melt the converging rows into a smooth matte cap at the poles,
                 // so the rings never collapse into a bullseye (~69deg..~84deg)
                 float poleFade = 1.0 - smoothstep(1.20, 1.46, abs(lat));
-                body *= detail * poleFade;
+                // From afar the scales settle into their mean coverage, so the
+                // land keeps its tone against the black water instead of
+                // dissolving into the gap colour with it.
+                body = mix(0.62, body, detail * poleFade);
 
                 // matte near-black body; per-scale jitter + overlap relief shading
                 vec3 bodyTone = mix(uGapColor, uScaleColor, body);
@@ -484,24 +524,10 @@ const createNoirGlobeMaterial = () => {
                 landSurface += uSheenColor * glint * 0.16;
                 landSurface += uRimColor * fresnel * 0.10;
 
-                // ocean: glossy black water. A fixed light + the globe's spin makes
-                // the specular "sun glint" drift across the surface; faint ripple
-                // (object-space, so no poles/seam) breaks it into sparkle.
-                vec3 L = normalize(uWaterLightDir);
-                vec3 reflDir = reflect(-viewDir, worldNormal);
-                float rl = max(dot(reflDir, L), 0.0);
-                // soft liquid ripple: a SUM of sines (not a product) avoids the
-                // blocky checkerboard the multiplied version produced
-                float rip = sin(sp.x * 68.0 + uTime * 0.7)
-                          + sin(sp.z * 61.0 - uTime * 0.5)
-                          + sin((sp.x + sp.z) * 44.0 + uTime * 0.32);
-                rip = 0.74 + 0.26 * (rip / 3.0);
-                float waterGlint = pow(rl, 64.0) * rip;   // softer, liquid highlight
-                float sheen = pow(rl, 6.0) * 0.14;          // broad soft sheen
-
-                vec3 waterSurface = mix(outgoingLight, uWaterColor, 0.92);
-                waterSurface += uSheenColor * (waterGlint * 0.85 + sheen);
-                waterSurface += uRimColor * fresnel * 0.10;
+                // water: black, ocean, lakes and rivers alike. Only a breath of
+                // rim light keeps the sphere's edge readable against the page.
+                vec3 waterSurface = mix(outgoingLight, uWaterColor, 0.96);
+                waterSurface += uRimColor * fresnel * 0.05;
 
                 outgoingLight = mix(waterSurface, landSurface, land);
 
@@ -509,10 +535,6 @@ const createNoirGlobeMaterial = () => {
             );
 
         material.userData.shader = shader;
-    };
-
-    material.onBeforeRender = () => {
-        uniforms.uTime.value = performance.now() * 0.001;
     };
 
     return material;
@@ -538,6 +560,7 @@ const Map = () => {
 
     const [hoverD, setHoverD] = useState(null);
     const [countries, setCountries] = useState({ features: [] });
+    const [waterways, setWaterways] = useState({ rivers: [], lakes: [] });
     const [mobileViewport, setMobileViewport] = useState(() => isMobileViewport());
 
     useEffect(() => {
@@ -558,17 +581,19 @@ const Map = () => {
     }, []);
 
     useEffect(() => {
-        const controller = new AbortController();
+        let cancelled = false;
+        const report = (error) => console.error('Error loading GeoJSON:', error);
 
-        loadCountriesGeojson(controller.signal)
-            .then(setCountries)
-            .catch((error) => {
-                if (error.name !== 'AbortError') {
-                    console.error('Error loading GeoJSON:', error);
-                }
-            });
+        loadGeojson(COUNTRIES_GEOJSON_URL)
+            .then((data) => { if (!cancelled) setCountries(data); })
+            .catch(report);
+        Promise.all([loadGeojson(RIVERS_GEOJSON_URL), loadGeojson(LAKES_GEOJSON_URL)])
+            .then(([rivers, lakes]) => {
+                if (!cancelled) setWaterways({ rivers: rivers.features ?? [], lakes: lakes.features ?? [] });
+            })
+            .catch(report);
 
-        return () => controller.abort();
+        return () => { cancelled = true; };
     }, []);
 
     const globeMaterial = useMemo(() => createNoirGlobeMaterial(), []);
@@ -580,7 +605,7 @@ const Map = () => {
             return undefined;
         }
 
-        const maskTexture = buildLandMaskTexture(countries.features);
+        const maskTexture = buildLandMaskTexture({ land: countries.features, ...waterways });
         const landMaskUniform = globeMaterial.userData.uniforms?.uLandMask;
         const previousTexture = landMaskUniform?.value;
 
@@ -595,7 +620,7 @@ const Map = () => {
         return () => {
             maskTexture.dispose();
         };
-    }, [countries, globeMaterial]);
+    }, [countries, globeMaterial, waterways]);
 
     const localizedProjects = useMemo(() => (
         projectRegistry.map((project) => ({
@@ -634,12 +659,20 @@ const Map = () => {
 
         const countryLabels = MAJOR_COUNTRIES.map((country) => ({
             ...country,
+            text: localizeField(country.text, language),
             altitude: 0.006,
             type: 'country',
         }));
 
-        return [...projectLabels, ...countryLabels];
-    }, [projectClusters]);
+        const oceanLabels = MAJOR_OCEANS.map((ocean) => ({
+            ...ocean,
+            text: localizeField(ocean.text, language),
+            altitude: 0.006,
+            type: 'ocean',
+        }));
+
+        return [...projectLabels, ...countryLabels, ...oceanLabels];
+    }, [language, projectClusters]);
 
     useEffect(() => {
         if (focusProjectId && globeEl.current) {
@@ -745,6 +778,17 @@ const Map = () => {
                         if (renderer) {
                             renderer.setPixelRatio(Math.min(window.devicePixelRatio, mobileViewport ? 1 : 1.5));
                         }
+
+                        // Open on the projects, not on the Atlantic: the default view
+                        // put every marker on the top rim, under the page title.
+                        if (!focusProjectId && mappableProjects.length > 0) {
+                            const centre = getClusterCenter(mappableProjects);
+                            globeEl.current?.pointOfView({
+                                lat: centre.lat,
+                                lng: centre.lng,
+                                altitude: mobileViewport ? 2.6 : 2.2,
+                            }, 0);
+                        }
                     }}
                     polygonsData={countries.features}
                     polygonCapColor={() => 'rgba(0, 0, 0, 0)'}
@@ -771,9 +815,9 @@ const Map = () => {
                         element.className = `globe-html-label globe-html-label--${item.type}`;
                         element.dataset.visible = 'true';
 
-                        if (item.type === 'country') {
+                        if (item.type === 'country' || item.type === 'ocean') {
                             const text = document.createElement('span');
-                            text.className = 'globe-html-label__country-text';
+                            text.className = `globe-html-label__country-text globe-html-label__country-text--${item.type}`;
                             text.innerText = item.text;
                             element.appendChild(text);
                             return element;

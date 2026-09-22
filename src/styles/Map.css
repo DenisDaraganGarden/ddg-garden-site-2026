@@ -246,12 +246,14 @@
     display: block;
 }
 
-.globe-html-label--country {
+.globe-html-label--country,
+.globe-html-label--ocean {
     --label-translate-x: -50%;
     --label-translate-y: -50%;
 }
 
-.globe-html-label--country[data-visible="false"] {
+.globe-html-label--country[data-visible="false"],
+.globe-html-label--ocean[data-visible="false"] {
     transform: translate(var(--label-translate-x), var(--label-translate-y)) scale(0.96);
 }
 
@@ -261,6 +263,13 @@
     letter-spacing: 0.08em;
     text-transform: uppercase;
     text-shadow: 0 0 10px rgba(0, 0, 0, 0.9);
+}
+
+/* Oceans: the same voice, quieter and more spaced, over the black water. */
+.globe-html-label__country-text--ocean {
+    color: rgba(255, 255, 255, 0.28);
+    letter-spacing: 0.22em;
+    font-size: 0.68rem;
 }
 
 @media (max-width: 900px) {

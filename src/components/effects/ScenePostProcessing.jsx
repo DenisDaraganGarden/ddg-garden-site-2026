@@ -6,6 +6,7 @@ import { getRenderTargetCapabilities } from './renderTargetCapabilities';
 import { createSpatialUpscaler, getSpatialUpscaleSize, UPSCALE_SCALES } from './spatialUpscale';
 import { captureContactAoDepth, contactAoFragmentShader, contactAoVertexShader, createContactAoTargets } from './contactAO';
 import { useCloudScene } from './sky/painterly/CloudSceneContext.jsx';
+import { createRainUniforms, updateRainUniforms } from './sky/painterly/cloudShadowRuntime.js';
 import {
   createCloudShadowUniforms,
   updateCloudShadowUniforms,
@@ -134,6 +135,13 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
   const noiseTexture = useMemo(() => createNoiseTexture(), []);
   const filmNoiseTexture = useMemo(() => createFilmNoiseTexture(), []);
   const cloudShadowUniforms = useMemo(() => createCloudShadowUniforms(), []);
+  // The cloud pass yields its rain to this pass only while this pass exists.
+  useEffect(() => () => { if (cloudScene?.current) cloudScene.current.rainInPost = false; }, [cloudScene]);
+  const rainUniforms = useMemo(() => {
+    const uniforms = createRainUniforms();
+    uniforms.uDdgRainSteps.value = isLowPower ? 6 : 10;
+    return uniforms;
+  }, [isLowPower]);
   // Focus asks once per explicit camera capture. Keeping the request here means
   // the default framebuffer is sampled immediately after the final post pass,
   // without a permanent preserveDrawingBuffer or an extra render.
@@ -284,6 +292,7 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
     uSunRaySampleCount: { value: 18 },
     uSunRadius: { value: 0.01 },
     uPainterlyCloudRays: { value: 0.35 },
+    uPainterlyCloudHaze: { value: 0.3 },
     uPainterlyCloudDay: { value: 1 },
     uFogMode: { value: 0 },
     uFogColor: { value: new THREE.Color('#000000') },
@@ -303,7 +312,8 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
     uCursorLightSoftness: { value: 0.72 },
     uCursorLightFogRelief: { value: 0 },
     ...cloudShadowUniforms,
-  }), [bloomTargets, cloudShadowUniforms, contactAo, filmNoiseTexture, isLowPower, noiseTexture, renderTarget]);
+    ...rainUniforms,
+  }), [bloomTargets, cloudShadowUniforms, contactAo, filmNoiseTexture, isLowPower, noiseTexture, rainUniforms, renderTarget]);
   const postMaterial = useMemo(() => new THREE.ShaderMaterial({
     uniforms,
     vertexShader: postVertexShader,
@@ -419,6 +429,7 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
     uniforms.uSunRaysDensity.value = settings.sunRaysDensity;
     uniforms.uSunRaySampleCount.value = sunRaySampleCount;
     uniforms.uPainterlyCloudRays.value = finiteSetting(settings.painterlyCloudRays, 0.35);
+    uniforms.uPainterlyCloudHaze.value = finiteSetting(settings.painterlyCloudHaze, 0.3);
     uniforms.uPainterlyCloudDay.value = THREE.MathUtils.smoothstep(
       finiteSetting(lighting.sky?.sunElevationDeg, -90),
       -4,
@@ -525,6 +536,7 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
     const enabled = postProcessingSupported
       && settings.postProcessingEnabled
       && settings.debugView === 'beauty';
+    if (cloudScene?.current) cloudScene.current.rainInPost = enabled;
     if (!enabled) {
       gl.domElement.dataset.ddgUpscale = 'off';
       gl.setRenderTarget(null);
@@ -628,6 +640,7 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
     uniforms.uCameraWorld.value.copy(camera.matrixWorld);
     uniforms.uCameraWorldPosition.value.setFromMatrixPosition(camera.matrixWorld);
     updateCloudShadowUniforms(cloudShadowUniforms, cloudScene?.current);
+    updateRainUniforms(rainUniforms, cloudScene?.current);
     uniforms.uTime.value = clock.elapsedTime;
 
     const cursorRuntime = getCursorFlashlightRuntime();

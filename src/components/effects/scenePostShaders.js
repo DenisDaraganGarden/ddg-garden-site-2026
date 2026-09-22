@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { rcasShaderChunk } from './spatialUpscale.js';
-import { DDG_CLOUD_SHADOW_GLSL } from './sky/painterly/cloudShadowRuntime.js';
+import { DDG_CLOUD_SHADOW_GLSL, DDG_RAIN_GLSL } from './sky/painterly/cloudShadowRuntime.js';
 export const FILM_NOISE_TEXTURE_SIZE = 512;
 
 export const postVertexShader = `
@@ -177,6 +177,8 @@ export const postFragmentShader = `
   #include <dithering_pars_fragment>
 
   ${DDG_CLOUD_SHADOW_GLSL}
+  uniform float uPainterlyCloudHaze;
+  ${DDG_RAIN_GLSL}
 
   ${rcasShaderChunk}
   #ifdef DDG_UPSCALE_PREPASS
@@ -231,8 +233,12 @@ export const postFragmentShader = `
     }
     // Shafts are only visible in participating air. This Beer term means a
     // foreground centimetre has effectively no haze while a kilometre does.
-    float extinction = clamp(uFogDensity, 0.0, 1.0) * 0.00016
-      * clamp(uFogScattering, 0.0, 1.0) * step(0.5, uFogMode);
+    // Without authored fog the cloud layer's own haze is the medium, so the
+    // slider under the clouds works on its own instead of silently needing fog.
+    float extinction = max(
+      clamp(uFogDensity, 0.0, 1.0) * 0.00016 * clamp(uFogScattering, 0.0, 1.0) * step(0.5, uFogMode),
+      clamp(uPainterlyCloudHaze, 0.0, 1.0) * 0.00008
+    );
     float medium = 1.0 - exp(-visibleDistance * extinction);
     return phase * (transmission * 0.25) * medium
       * clamp(uPainterlyCloudRays, 0.0, 1.0) * uPainterlyCloudDay;
@@ -650,6 +656,21 @@ export const postFragmentShader = `
         * clamp(uCursorLightFogRelief, 0.0, 1.0);
       float relievedFogAmount = fogAmount * mix(1.0, 0.62, flashlightRelief);
       color = mix(color, scatteredFog, clamp(relievedFogAmount, 0.0, 0.94));
+    }
+
+    if (uDdgRain > 0.001) {
+      vec3 rainViewRay = ddgPostViewRay(filmUv);
+      vec3 rainRay = normalize(mat3(uCameraWorld) * rainViewRay);
+      float rainDistance = hasOpaqueDepth > 0.5 ? viewDistance / max(-rainViewRay.z, 0.0001) : 16000.0;
+      float veil = ddgRainVeil(uCameraWorldPosition, rainRay, rainDistance, rayMarchDither(gl_FragCoord.xy));
+      float horizonLuminance = ddgLuminance(uFogHorizonColor);
+      vec3 rainColor = mix(uFogHorizonColor, vec3(horizonLuminance), 0.6) * 0.5 * (1.0 - 0.45 * uDdgStorm)
+        + uDdgFlashColor * uDdgFlash * 0.04;
+      if (veil > 0.0005) color = mix(color, rainColor, veil * 0.92);
+      // Drops in front of the lens scatter a little light: lighter than what
+      // they cover, never darker.
+      float streaks = ddgRainStreaks(filmUv, uResolution.x / max(uResolution.y, 1.0));
+      if (streaks > 0.0005) color = mix(color, color * 0.8 + rainColor * 0.45 + uSunColor * 0.02, streaks * 0.5);
     }
 
     float fogRayCoupling = step(0.5, uFogMode)

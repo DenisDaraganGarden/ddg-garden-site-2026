@@ -121,6 +121,9 @@ export function isContactAoOccluder(sceneViewZ, probeViewZ, bias = 0.025) {
 export function captureContactAoDepth({ gl, scene, camera, target }) {
   const hidden = [];
   const colorWrites = [];
+  // The coast shader is the frame's heaviest fragment program; with colour
+  // writes off it still ran in full here. 3 asks it for depth only.
+  const terrainOptics = [];
   const previousTarget = gl.getRenderTarget();
   const previousBackground = scene.background;
   const previousAutoUpdate = gl.shadowMap.autoUpdate;
@@ -135,6 +138,11 @@ export function captureContactAoDepth({ gl, scene, camera, target }) {
       if (!material || material.colorWrite === false) return;
       colorWrites.push([material, material.colorWrite]);
       material.colorWrite = false;
+      const optics = material.userData?.coastUniforms?.uTerrainOptics;
+      if (optics && !terrainOptics.some(([uniform]) => uniform === optics)) {
+        terrainOptics.push([optics, optics.value]);
+        optics.value = 3;
+      }
     });
   });
   try {
@@ -145,6 +153,7 @@ export function captureContactAoDepth({ gl, scene, camera, target }) {
     gl.render(scene, camera);
   } finally {
     colorWrites.forEach(([material, value]) => { material.colorWrite = value; });
+    terrainOptics.forEach(([uniform, value]) => { uniform.value = value; });
     hidden.forEach((object) => { object.visible = true; });
     scene.background = previousBackground;
     gl.shadowMap.autoUpdate = previousAutoUpdate;

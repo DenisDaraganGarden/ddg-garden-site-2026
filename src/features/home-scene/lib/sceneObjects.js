@@ -31,12 +31,15 @@ export const SCENE_OBJECTS = Object.freeze([
   { id: 'sky', key: 'skyVisible', node: 'atmosphere/hdri', group: 'landscape', roots: ['sky-dome'] },
   { id: 'lilies', key: 'liliesVisible', node: 'greenery/lilies', group: 'greenery', roots: ['surface-vegetation'], requires: ['water'], newProject: false },
   { id: 'algae', key: 'algaeVisible', node: 'greenery/algae', group: 'greenery', roots: ['underwater-algae'], requires: ['water'], newProject: false },
+  { id: 'topiary', key: 'topiaryEnabled', node: 'greenery/topiary', group: 'greenery', roots: ['topiary'] },
   { id: 'shrubs', key: 'shrubsEnabled', node: 'greenery/shrubs', group: 'greenery', roots: ['coastal-oleaster'] },
   { id: 'trees', key: 'treesEnabled', node: 'greenery/trees', group: 'greenery', roots: ['coastal-trees'] },
   { id: 'grass', key: 'grassEnabled', node: 'greenery/grass', group: 'greenery', roots: ['coastal-grass'] },
   { id: 'tanker', key: 'tankerVisible', node: 'objects/tanker', group: 'objects', roots: ['tanker-anchor', 'tanker-wake'], sound: 'tanker', newProject: false },
   { id: 'boat', key: 'boatVisible', node: 'objects/boat', group: 'objects', roots: ['boat', 'boat-anchor'], sound: 'boat', newProject: false },
   { id: 'sculpture', key: 'sculptureVisible', node: 'objects/sculpture', group: 'objects', roots: ['sculpture', 'sculpture-anchor'], newProject: false },
+  // A blank flat ground for a scene that starts from nothing; off by default everywhere.
+  { id: 'plane', key: 'planeEnabled', node: 'objects/plane', group: 'objects', roots: ['ground-plane'], newProject: false },
   { id: 'seagulls', key: 'seagullsEnabled', node: 'creatures/seagulls', group: 'creatures', roots: ['seagull-flock'], sound: 'birds', requires: ['water'], newProject: false },
   { id: 'fish', key: 'fishEnabled', node: 'creatures/fish', group: 'creatures', roots: ['river-fish-school'], requires: ['water'], newProject: false },
   { id: 'reflections', key: 'reflectionsEnabled', node: null, group: 'render' },
@@ -108,6 +111,7 @@ const matchRoot = (name) => SCENE_OBJECTS.find((object) => object.roots?.include
 // по нему работает наводка камеры (frameObject), и второй раз искать не нужно.
 export const sceneHitForObject3D = (object) => {
   for (let node = object; node; node = node.parent) {
+    if (node.userData?.topiaryId) return { node: 'greenery/topiary', root: node.name, topiaryId: node.userData.topiaryId };
     const match = node.name ? matchRoot(node.name) : null;
     if (match?.node) return { node: match.node, root: node.name };
   }

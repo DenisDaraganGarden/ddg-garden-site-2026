@@ -26,8 +26,9 @@ for (let elapsed = 0; elapsed < 11; elapsed += .05) {
 }
 assert.equal(cpuBoundSnapshot.level, 1, 'fast GPU timing does not hide a CPU-bound frame');
 
-const profile = applyRenderBudget({ reflectionActiveFps: 30, reflectionIdleFps: 20, refractionActiveFps: 24, refractionIdleFps: 16, postRenderScale: 1 }, 3, { postEnabled: true });
-assert.deepEqual([profile.reflectionActiveFps, profile.refractionActiveFps, profile.postRenderScale], [15, 12, .8]);
+const profile = applyRenderBudget({ reflectionActiveFps: 30, reflectionIdleFps: 20, refractionActiveFps: 24, refractionIdleFps: 16, reflectionTextureSize: 768, postRenderScale: 1 }, 3, { postEnabled: true });
+assert.deepEqual([profile.reflectionActiveFps, profile.refractionActiveFps, profile.postRenderScale, profile.reflectionTextureSize], [15, 12, .8, 461]);
+assert.equal(applyRenderBudget({ reflectionTextureSize: 768 }, 1).reflectionTextureSize, 768, 'level 1 keeps the optics size');
 assert.equal(applyRenderBudget(profile, 0, { postEnabled: false }).postRenderScale, .8, 'budget composes from its supplied base profile only');
 
 function createTimerGl() {

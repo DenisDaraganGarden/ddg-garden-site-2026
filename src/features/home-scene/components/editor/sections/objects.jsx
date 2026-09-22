@@ -97,6 +97,52 @@ export const BoatSection = ({ settings, handleSettingChange, layoutEditor }) => 
                 formatValue={(value) => formatFloat(value)}
                 onChange={(event) => handleSettingChange(event, 'boatReflectionIntensity')}
             />
+            <RangeControl controlId={'boatMetalness'}
+                label={t('homeEditor.controls.boatMetalness')}
+                value={settings.boatMetalness}
+                min={0}
+                max={1}
+                step={0.01}
+                formatValue={(value) => formatFloat(value)}
+                onChange={(event) => handleSettingChange(event, 'boatMetalness')}
+            />
+            <RangeControl controlId={'boatClearcoat'}
+                label={t('homeEditor.controls.boatClearcoat')}
+                value={settings.boatClearcoat}
+                min={0}
+                max={1}
+                step={0.01}
+                formatValue={(value) => formatFloat(value)}
+                onChange={(event) => handleSettingChange(event, 'boatClearcoat')}
+            />
+            <RangeControl controlId={'boatClearcoatRoughness'}
+                label={t('homeEditor.controls.boatClearcoatRoughness')}
+                value={settings.boatClearcoatRoughness}
+                min={0}
+                max={1}
+                step={0.01}
+                formatValue={(value) => formatFloat(value)}
+                onChange={(event) => handleSettingChange(event, 'boatClearcoatRoughness')}
+            />
+            <SectionHeading label={t('homeEditor.blocks.waterCutout')} subtle />
+            <RangeControl controlId={'boatCutoutFitWidth'}
+                label={t('homeEditor.controls.boatCutoutFitWidth')}
+                value={settings.boatCutoutFitWidth}
+                min={0.1}
+                max={1.6}
+                step={0.01}
+                formatValue={(value) => formatFloat(value)}
+                onChange={(event) => handleSettingChange(event, 'boatCutoutFitWidth')}
+            />
+            <RangeControl controlId={'boatCutoutFitLength'}
+                label={t('homeEditor.controls.boatCutoutFitLength')}
+                value={settings.boatCutoutFitLength}
+                min={0.1}
+                max={1.6}
+                step={0.01}
+                formatValue={(value) => formatFloat(value)}
+                onChange={(event) => handleSettingChange(event, 'boatCutoutFitLength')}
+            />
         </>
     );
 };
@@ -146,6 +192,24 @@ export const SculptureSection = ({ settings, handleSettingChange, layoutEditor }
                 step={1}
                 unit="°"
                 onChange={(event) => handleSettingChange(event, 'sculptureRotationY')}
+            />
+            <RangeControl controlId={'sculptureRotationX'}
+                label={t('homeEditor.controls.sculptureRotationX')}
+                value={settings.sculptureRotationX}
+                min={-180}
+                max={180}
+                step={1}
+                unit="°"
+                onChange={(event) => handleSettingChange(event, 'sculptureRotationX')}
+            />
+            <RangeControl controlId={'sculptureRotationZ'}
+                label={t('homeEditor.controls.sculptureRotationZ')}
+                value={settings.sculptureRotationZ}
+                min={-180}
+                max={180}
+                step={1}
+                unit="°"
+                onChange={(event) => handleSettingChange(event, 'sculptureRotationZ')}
             />
             <RangeControl controlId={'sculptureBottomOffset'}
                 label={t('homeEditor.controls.sculptureBottomOffset')}
@@ -297,6 +361,50 @@ export const SculptureSection = ({ settings, handleSettingChange, layoutEditor }
                 step={0.01}
                 formatValue={(value) => formatFloat(value)}
                 onChange={(event) => handleSettingChange(event, 'sculptureMicroRelief')}
+            />
+        </>
+    );
+};
+
+export const PlaneSection = ({ settings, handleSettingChange }) => {
+    const { t } = useLanguage();
+
+    return (
+        <>
+            <SectionHeading label={t('homeEditor.blocks.transform')} subtle />
+            <RangeControl controlId={'planeSize'}
+                label={t('homeEditor.controls.planeSize')}
+                value={settings.planeSize}
+                min={10}
+                max={5000}
+                step={10}
+                unit="m"
+                onChange={(event) => handleSettingChange(event, 'planeSize')}
+            />
+            <RangeControl controlId={'planeHeight'}
+                label={t('homeEditor.controls.planeHeight')}
+                value={settings.planeHeight}
+                min={-50}
+                max={50}
+                step={0.1}
+                unit="m"
+                formatValue={(value) => formatFloat(value)}
+                onChange={(event) => handleSettingChange(event, 'planeHeight')}
+            />
+            <SectionHeading label={t('homeEditor.blocks.material')} subtle />
+            <ColorControl controlId={'planeColor'}
+                label={t('homeEditor.controls.planeColor')}
+                value={settings.planeColor}
+                onChange={(event) => handleSettingChange(event, 'planeColor', 'color')}
+            />
+            <RangeControl controlId={'planeRoughness'}
+                label={t('homeEditor.controls.planeRoughness')}
+                value={settings.planeRoughness}
+                min={0}
+                max={1}
+                step={0.01}
+                formatValue={(value) => formatFloat(value)}
+                onChange={(event) => handleSettingChange(event, 'planeRoughness')}
             />
         </>
     );

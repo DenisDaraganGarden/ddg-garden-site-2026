@@ -157,11 +157,21 @@ export const buildHomeSceneLighting = (settings = {}) => {
   const night = solveNightWeight(sun.elevationDeg);
   const sunDirection = buildHomeSceneLightDirection(sun.azimuthDeg, sun.elevationDeg);
   const moonDirection = buildHomeSceneLightDirection(moon.azimuthDeg, moon.elevationDeg);
-  const skyKeyDirection = [
+  const blendedKey = [
     sunDirection[0] + (moonDirection[0] - sunDirection[0]) * night,
     sunDirection[1] + (moonDirection[1] - sunDirection[1]) * night,
     sunDirection[2] + (moonDirection[2] - sunDirection[2]) * night,
   ];
+  // A lerp of two unit vectors is shorter than one; the disc test is a dot
+  // product against this, so an unnormalised dusk key made the body vanish.
+  const blendedLength = Math.hypot(...blendedKey) || 1;
+  const skyKeyDirection = night <= 0 ? sunDirection : night >= 1 ? moonDirection
+    : blendedKey.map((value) => value / blendedLength);
+  // The storm is a property of the painterly volume, so it exists only while
+  // that layer is on. Zero here means every storm term below is an identity.
+  const storm = settings.painterlyCloudsEnabled === true && settings.painterlyCloudStormEnabled === true
+    ? clamp(finiteNumber(settings.painterlyCloudStorm, 0.7), 0, 1)
+    : 0;
   // The volume projects its own world-space attenuation onto receivers. Keep
   // the legacy baked mask out of this mode to avoid dimming the same sun twice.
   const cloudCover = settings.painterlyCloudsEnabled === true ? 0 : clamp(finiteNumber(settings.cloudCover, 0), 0, 1);
@@ -185,7 +195,9 @@ export const buildHomeSceneLighting = (settings = {}) => {
     cloudSunOcclusion: settings.cloudSunOcclusion,
     keyDirection: skyKeyDirection,
   });
-  const sunVisibility = solveCloudSunVisibility(skyKeyDirection, cloudState);
+  // A storm deck blocks most of the beam; what remains is diffuse, so the
+  // shadows soften below through cloudSoftness rather than a second rule.
+  const sunVisibility = solveCloudSunVisibility(skyKeyDirection, cloudState) * (1 - 0.82 * storm);
   // The key's colour is the sun's colour AFTER the air has had it. Nobody picks
   // it; a low sun reddens because its light crossed more atmosphere, which is the
   // same reason the horizon behind it reddens. Authoring the two separately is
@@ -222,10 +234,33 @@ export const buildHomeSceneLighting = (settings = {}) => {
     ? diffuseIrradiance.map((value) => value / fillIntensity)
     : [1, 1, 1];
   const cloudSoftness = clamp(
-    (1 - sunVisibility) * 0.85 + cloudCover * 0.35,
+    (1 - sunVisibility) * 0.85 + cloudCover * 0.35 + storm * 0.9,
     0,
     1,
   );
+  // The moon's own surface radiance, independent of the day/night blend and
+  // of how much of it is lit: the phase is drawn geometrically by the sky.
+  const moonDiscRadiance = scaleColor(solveKeyLight({
+    sunElevationDeg: sun.elevationDeg,
+    moonElevationDeg: moon.elevationDeg,
+    sunTint: sunTint.linear,
+    sunIntensity,
+    skyTurbidity,
+    cloudCover: 0,
+    sunVisibility: 1,
+    night: 1,
+    moonIllumination: 1,
+    moonBrightness: clamp(finiteNumber(settings.moonBrightness, 1), 0, 4),
+  }), SKY.discGain);
+  // The sun's daily circle is a rotation about this axis (noon direction
+  // crossed with the 18:00 horizon point); the stars ride the same rotation.
+  const bearingRadians = sunBearing * DEG_TO_RAD;
+  const noonRadians = sunNoonElevation * DEG_TO_RAD;
+  const starAxis = [
+    -Math.sin(noonRadians) * Math.sin(bearingRadians),
+    Math.cos(noonRadians),
+    -Math.sin(noonRadians) * Math.cos(bearingRadians),
+  ];
 
   return {
     key: {
@@ -321,6 +356,18 @@ export const buildHomeSceneLighting = (settings = {}) => {
       night,
       sunElevationDeg: sun.elevationDeg,
       moonIllumination: moon.illumination,
+      storm,
+      sunDirection,
+      moonDirection,
+      moonDiscRadiance,
+      // Angular radius of the moon as seen from here: a fixed 0.52 degrees.
+      moonCosRadius: Math.cos(0.26 * DEG_TO_RAD),
+      // Stars ride the same daily rotation as the sun: the hour angle about the
+      // horizontal axis perpendicular to the authored bearing.
+      starAxis,
+      starRotation: (timeOfDay / 24) * Math.PI * 2 - Math.PI,
+      starsIntensity: clamp(finiteNumber(settings.starsIntensity, 1), 0, 3),
+      moonBrightness: clamp(finiteNumber(settings.moonBrightness, 1), 0, 4),
     },
     surface: {
       color: distantSurface,

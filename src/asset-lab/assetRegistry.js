@@ -10,6 +10,7 @@ import RockLab from '../rock-lab/RockLab';
 import DriftwoodLab from '../driftwood-lab/DriftwoodLab';
 import WaterLab from '../water-lab/WaterLab';
 import CloudLab from '../cloud-lab/CloudLab';
+import TopiaryLab from '../topiary-lab/TopiaryLab';
 
 const COMPONENTS = {
   'river-fish': FishLab,
@@ -22,6 +23,7 @@ const COMPONENTS = {
   lilies: LiliesLab,
   algae: AlgaeLab,
   grass: GrassLab,
+  topiary: TopiaryLab,
   rocks: RockLab,
   driftwood: DriftwoodLab,
   water: WaterLab,
