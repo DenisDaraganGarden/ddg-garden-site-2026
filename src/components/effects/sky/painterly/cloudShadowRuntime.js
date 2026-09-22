@@ -7,6 +7,13 @@ const BINDER_STATE = new WeakMap();
 const DEFAULT_ORIGIN = new THREE.Vector2();
 const DEFAULT_SUN = new THREE.Vector3(0, 1, 0);
 const DEFAULT_FLASH_POSITION = new THREE.Vector3(0, 1800, -4000);
+// A sampler must always hold a texture of its own kind, even when the branch
+// that reads it is off: an unset sampler2D lands on whatever unit 0 holds (a
+// depth texture, on the post pass) and the driver reports a format mismatch.
+// White is "no cloud in the way"; black is "no weather cell".
+const solid = (value) => { const texture = new THREE.DataTexture(new Uint8Array([value, value, value, 255]), 1, 1); texture.needsUpdate = true; return texture; };
+const EMPTY_WHITE = solid(255);
+const EMPTY_BLACK = solid(0);
 const DEFAULT_FLASH_COLOR = new THREE.Color(0, 0, 0);
 // A lightning flash is diffuse light from the whole channel, added to the
 // ambient irradiance in the same units as a directional light's colour, so it
@@ -141,7 +148,7 @@ export function createRainUniforms() {
 
 export function updateRainUniforms(uniforms, descriptor) {
   const active = Boolean(descriptor?.enabled && descriptor?.weather);
-  uniforms.uDdgWeather.value = active ? descriptor.weather : null;
+  uniforms.uDdgWeather.value = active ? descriptor.weather : EMPTY_BLACK;
   uniforms.uDdgWeatherWind.value.copy(descriptor?.wind ?? DEFAULT_ORIGIN);
   uniforms.uDdgWeatherPeriod.value = Math.max(Number(descriptor?.weatherPeriod) || 18000, 1);
   uniforms.uDdgRain.value = active ? THREE.MathUtils.clamp(Number(descriptor?.rain) || 0, 0, 1) : 0;
@@ -169,7 +176,7 @@ export function createCloudShadowUniforms() {
 
 export function updateCloudShadowUniforms(uniforms, descriptor) {
   const active = Boolean(descriptor?.enabled && descriptor?.texture && Number(descriptor?.strength) > 0);
-  uniforms.uDdgCloudShadowTexture.value = descriptor?.texture ?? null;
+  uniforms.uDdgCloudShadowTexture.value = descriptor?.texture ?? EMPTY_WHITE;
   uniforms.uDdgCloudShadowOrigin.value.copy(descriptor?.origin ?? DEFAULT_ORIGIN);
   uniforms.uDdgCloudShadowExtent.value = Math.max(Number(descriptor?.extent) || 24000, 1);
   uniforms.uDdgCloudShadowSun.value.copy(descriptor?.sun ?? DEFAULT_SUN).normalize();

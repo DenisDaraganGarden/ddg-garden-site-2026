@@ -7,9 +7,11 @@ import {
     createProject, listProjects, projectStore, readProject, removeProject, renameProject,
 } from '../features/engine/projectApi';
 import {
-    getBaseHomeSceneSettings, normalizeHomeSceneDraftSettings, readHomeSceneDraftSettings,
+    getBaseHomeSceneSettings, normalizeHomeSceneDraftSettings, readHomeSceneDraftSettings, sanitizeHomeSceneSettingsForPublish,
 } from '../features/home-scene/hooks/useHomeSceneSettings';
 import { newProjectObjectSettings } from '../features/home-scene/lib/sceneObjects';
+import { publishHomeSceneSettings } from '../features/home-scene/lib/homeScenePublishClient';
+import publishedSource from '../features/home-scene/data/publishedHomeSceneSource.json';
 import './Engine.css';
 
 // Главное меню движка. Проект — это числа: один файл настроек на общих ассетах,
@@ -72,6 +74,24 @@ export default function Engine() {
     const [editing, setEditing] = useState(null);
     const [menu, setMenu] = useState(null);
     const [sitePreview] = useState(siteThumbnail);
+    // The source file is bundled: it says who was on the home page when this
+    // page loaded; a publish from here updates the note without a reload.
+    const [homeSource, setHomeSource] = useState(publishedSource);
+    const [homeNote, setHomeNote] = useState('');
+    // The whole project becomes the home page scene: the file the site builds
+    // from, exactly as the editor's «На заглавную» writes it. The trip to
+    // GitHub stays a separate, deliberate button in the editor.
+    const toHomePage = async (project) => {
+        try {
+            setHomeNote(tr(`Ставлю «${project.name}» на заглавную…`, `Putting "${project.name}" on the home page…`));
+            const full = await readProject(project.id);
+            await publishHomeSceneSettings(sanitizeHomeSceneSettingsForPublish(full.settings), { source: { projectId: project.id, projectName: project.name } });
+            setHomeSource({ projectId: project.id, projectName: project.name, publishedAt: new Date().toISOString() });
+            setHomeNote(tr(`«${project.name}» — сцена заглавной. Выложить на сайт: открыть проект → «На сайт».`, `"${project.name}" is the home page scene. To publish: open the project → "To the site".`));
+        } catch (error) {
+            setHomeNote(tr(`Не удалось: ${error.message}`, `Failed: ${error.message}`));
+        }
+    };
 
     const reload = useCallback(async () => {
         try {
@@ -130,6 +150,7 @@ export default function Engine() {
         { label: tr('Открыть', 'Open'), icon: 'right', onSelect: () => openEditor(project.id) },
         { label: tr('Переименовать', 'Rename'), icon: 'sliders', onSelect: () => setEditing({ id: project.id, name: project.name }) },
         { label: tr('Сделать копию', 'Duplicate'), icon: 'folder', onSelect: () => duplicate(project) },
+        { label: tr('На заглавную сайта', 'To the site home page'), icon: 'upload', onSelect: () => toHomePage(project) },
         '-',
         { label: tr('Удалить', 'Delete'), icon: 'close', danger: true, onSelect: () => remove(project) },
     ];
@@ -166,6 +187,7 @@ export default function Engine() {
             )}</p>
 
             {state.message ? <p className="engine-note" role="status">{state.message}</p> : null}
+            {homeNote ? <p className="engine-note" role="status">{homeNote}</p> : null}
             {state.status === 'offline' ? <p className="engine-note">{tr(
                 'Хранилище проектов отвечает только на локальном сервере движка. Запусти редактор из приложения.',
                 'The project store answers only on the engine’s local server. Start the editor from the app.',
@@ -184,7 +206,9 @@ export default function Engine() {
                     <button type="button" className="engine-card__open" onClick={() => { window.location.href = '/home/edit'; }}>
                         {sitePreview ? <img className="engine-card__preview" src={sitePreview} alt="" /> : <span className="engine-card__preview" aria-hidden="true" />}
                         <span className="engine-card__name">{tr('Сайт · заглавная страница', 'Website · home page')}</span>
-                        <small>{tr('свой черновик · публикуется на сайт', 'own draft · publishes to the site')}</small>
+                        <small>{homeSource?.projectId
+                            ? tr(`на заглавной: ${homeSource.projectName ?? homeSource.projectId}`, `on the home page: ${homeSource.projectName ?? homeSource.projectId}`)
+                            : tr('свой черновик · публикуется на сайт', 'own draft · publishes to the site')}</small>
                     </button>
                     <span className="engine-card__tag">{tr('сайт', 'site')}</span>
                 </article>
