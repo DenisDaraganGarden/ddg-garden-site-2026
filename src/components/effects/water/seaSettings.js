@@ -19,6 +19,11 @@ export const SEA_SETTINGS_DEFAULTS = Object.freeze({
   seaSurfSheet: 0.16, seaSurfRoller: 0.5, seaSurfRollerDensity: 1, seaSurfPeel: 0.06,
   seaSurfRefraction: 0.7, seaSurfBoreLength: 14, seaSurfRunup: 6, seaSurfSpeed: 4.5,
   seaSurfPeriod: 9, seaSurfSets: 0.5, seaSurfFreeze: false, seaSurfPhase: 0.5,
+  // The crest as one body: how much the loft ignores the short swell; foam on
+  // the face broken out of its period and dragged into streaks; the spray's
+  // own knobs, which the runtime already had but nothing could set.
+  seaSurfSmooth: 0, seaSurfFoamVariety: 0, seaSurfStreaks: 0,
+  seaSprayAmount: 1, seaSpraySize: 1, seaSprayLife: 2.2, seaSprayMist: 0.62, seaSprayMistSize: 2.2, seaSprayDensity: 1.3, seaSpraySpread: 1.6,
   seaSwashFilm: 0.03,
 });
 
@@ -26,7 +31,9 @@ export const SEA_RANGES = Object.freeze({
   seaWavelength: [3, 40, 0.5], seaAmplitude: [0, 1.6, 0.01], seaSteepness: [0, 0.8, 0.01], seaSpeed: [0, 2.5, 0.05], seaWindDirection: [0, 360, 1], seaSets: [0, 1, 0.01], seaGusts: [0, 1, 0.01], seaCrossWaves: [0, 1, 0.01], seaFadeStart: [20, 1500, 10], seaFadeEnd: [40, 3000, 10], seaRipple: [0, 1, 0.01], seaRippleScale: [0.01, 0.3, 0.005],
   seaFoamThreshold: [0, 0.95, 0.01], seaFoamSoftness: [0.02, 0.4, 0.01], seaFoamLaceScale: [0.03, 0.6, 0.01], seaFoamBrightness: [0.2, 2, 0.05], seaFoamLife: [1, 20, 0.5], seaFoamDeposit: [0.2, 1.5, 0.05], seaFoamWindow: [32, 400, 4], seaFoamDrift: [0, 2, 0.05], seaFoamSwirl: [0, 1.5, 0.05], seaFoamDry: [5, 120, 1], seaWindPatches: [0, 1, 0.05], seaSwashFilm: [0, 0.08, 0.005],
   seaBedTurbidity: [0, 1, 0.05], seaCrestGlow: [0, 2, 0.05], seaGlint: [0, 3, 0.05], seaSkyReflection: [0, 3, 0.05], seaMeshRings: [32, 192, 8], seaMeshSegments: [48, 256, 8],
-  seaSurfHeight: [0.2, 3, 0.05], seaSurfWidth: [3, 24, 0.5], seaSurfBreakDistance: [-20, 40, 0.5], seaSurfBreakLength: [4, 40, 1], seaSurfLean: [0, 1, 0.01], seaSurfJet: [0.3, 4, 0.05], seaSurfLift: [0, 2, 0.05], seaSurfSheet: [0.04, 0.4, 0.01], seaSurfRoller: [0, 1.2, 0.02], seaSurfRollerDensity: [0.2, 2.5, 0.05], seaSurfPeel: [0, 0.6, 0.01], seaSurfRefraction: [0, 1, 0.01], seaSurfBoreLength: [3, 40, 1], seaSurfRunup: [0, 12, 1], seaSurfSpeed: [1, 10, 0.1], seaSurfPeriod: [3, 20, 0.5], seaSurfSets: [0, 1, 0.01], seaSurfPhase: [0, 1, 0.01],
+  seaSurfHeight: [0.2, 6, 0.05], seaSurfWidth: [3, 40, 0.5], seaSurfBreakDistance: [-20, 40, 0.5], seaSurfBreakLength: [4, 40, 1], seaSurfLean: [0, 1, 0.01], seaSurfJet: [0.3, 6, 0.05], seaSurfLift: [0, 4, 0.05], seaSurfSheet: [0.04, 0.6, 0.01], seaSurfRoller: [0, 1.2, 0.02], seaSurfRollerDensity: [0.2, 2.5, 0.05], seaSurfPeel: [0, 0.6, 0.01], seaSurfRefraction: [0, 1, 0.01], seaSurfBoreLength: [3, 40, 1], seaSurfRunup: [0, 12, 1], seaSurfSpeed: [1, 10, 0.1], seaSurfPeriod: [3, 20, 0.5], seaSurfSets: [0, 1, 0.01], seaSurfPhase: [0, 1, 0.01],
+  seaSurfSmooth: [0, 1, 0.01], seaSurfFoamVariety: [0, 1, 0.01], seaSurfStreaks: [0, 1, 0.01],
+  seaSprayAmount: [0, 3, 0.05], seaSpraySize: [0.3, 3, 0.05], seaSprayLife: [0.5, 6, 0.1], seaSprayMist: [0, 1, 0.01], seaSprayMistSize: [0.5, 4, 0.1], seaSprayDensity: [0.2, 3, 0.05], seaSpraySpread: [0, 5, 0.1],
 });
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
@@ -66,6 +73,8 @@ export function resolveSeaSettings(flat = {}) {
     waterColor: sea.seaWaterColor, deepColor: sea.seaDeepColor, bedColor: sea.seaBedColor, bedTurbidity: sea.seaBedTurbidity, crestGlow: sea.seaCrestGlow, glint: sea.seaGlint, skyReflection: sea.seaSkyReflection,
     meshRings: sea.seaMeshRings, meshSegments: sea.seaMeshSegments,
     surfEnabled: sea.seaSurfEnabled, surfHeight: sea.seaSurfHeight, surfWidth: sea.seaSurfWidth, surfBreakDistance: sea.seaSurfBreakDistance, surfBreakLength: sea.seaSurfBreakLength, surfLean: sea.seaSurfLean, surfJet: sea.seaSurfJet, surfLift: sea.seaSurfLift, surfSheet: sea.seaSurfSheet, surfRoller: sea.seaSurfRoller, surfRollerDensity: sea.seaSurfRollerDensity, surfPeel: sea.seaSurfPeel, surfRefraction: sea.seaSurfRefraction, surfBoreLength: sea.seaSurfBoreLength, surfRunup: sea.seaSurfRunup, surfSpeed: sea.seaSurfSpeed, surfPeriod: sea.seaSurfPeriod, surfSets: sea.seaSurfSets, surfFreeze: sea.seaSurfFreeze, surfPhase: sea.seaSurfPhase, swashFilm: sea.seaSwashFilm,
+    surfSmooth: sea.seaSurfSmooth, surfFoamVariety: sea.seaSurfFoamVariety, surfStreaks: sea.seaSurfStreaks,
+    sprayAmount: sea.seaSprayAmount, spraySize: sea.seaSpraySize, sprayLife: sea.seaSprayLife, sprayMist: sea.seaSprayMist, sprayMistSize: sea.seaSprayMistSize, sprayDensity: sea.seaSprayDensity, spraySpread: sea.seaSpraySpread,
   };
 }
 

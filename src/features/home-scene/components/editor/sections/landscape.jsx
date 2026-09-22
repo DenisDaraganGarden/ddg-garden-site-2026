@@ -23,6 +23,13 @@ const SEA_WAVES = [
 const SEA_SURF = [
     ['seaSurfPhase', 'Фаза обрушения', 'Break phase'], ['seaSurfHeight', 'Высота вала', 'Breaker height', 'm'], ['seaSurfWidth', 'Ширина вала', 'Breaker width', 'm'], ['seaSurfBreakDistance', 'Сдвиг обрушения', 'Break offset', 'm'], ['seaSurfBreakLength', 'Длина обрушения', 'Breaking length', 'm'], ['seaSurfLean', 'Наклон гребня', 'Crest lean'], ['seaSurfJet', 'Выброс губы', 'Lip throw', 'm/s'], ['seaSurfLift', 'Подъём губы', 'Lip lift', 'm/s'], ['seaSurfSheet', 'Толщина губы', 'Lip thickness'], ['seaSurfRoller', 'Объём пены', 'Foam volume'], ['seaSurfRollerDensity', 'Плотность вала', 'Roller density'], ['seaSurfPeel', 'Пил вдоль гребня', 'Peel along crest'], ['seaSurfRefraction', 'Рефракция', 'Refraction'], ['seaSurfBoreLength', 'Схлопывание', 'Collapse', 'm'], ['seaSurfRunup', 'Заплеск на песок', 'Run-up on sand', 'm'], ['seaSurfSpeed', 'Скорость вала', 'Breaker speed', 'm/s'], ['seaSurfPeriod', 'Период', 'Period', 's'], ['seaSurfSets', 'Разброс высоты', 'Height variation'],
 ];
+const SEA_CREST = [
+    ['seaSurfSmooth', 'Гладкость гребня', 'Crest smoothing'], ['seaSurfFoamVariety', 'Разнообразие пены', 'Foam variety'], ['seaSurfStreaks', 'Прожилки пены', 'Foam streaks'],
+];
+const SEA_SPRAY = [
+    ['seaSprayAmount', 'Количество', 'Amount'], ['seaSpraySize', 'Размер капель', 'Drop size', 'x'], ['seaSprayLife', 'Время полёта', 'Flight time', 's'], ['seaSprayMist', 'Доля тумана', 'Mist share'],
+    ['seaSprayMistSize', 'Размер тумана', 'Mist size', 'x'], ['seaSprayDensity', 'Плотность', 'Density'], ['seaSpraySpread', 'Разброс вдоль гребня', 'Spread along the crest', 'm'],
+];
 const SEA_FOAM = [
     ['seaFoamLife', 'Живёт на воде', 'Lives on water', 's'], ['seaFoamDeposit', 'Плотность пены', 'Foam density'], ['seaFoamWindow', 'Окно памяти', 'Memory window', 'm'], ['seaFoamDrift', 'Снос ветром', 'Wind drift', 'm/s'], ['seaFoamSwirl', 'Завихрения', 'Swirl'], ['seaFoamDry', 'Сохнет песок', 'Sand dries in', 's'], ['seaSwashFilm', 'Плёнка заплеска', 'Swash film', 'm'], ['seaFoamThreshold', 'Порог пены', 'Foam threshold'], ['seaFoamSoftness', 'Мягкость', 'Softness'], ['seaFoamLaceScale', 'Масштаб кружева', 'Lace scale'], ['seaFoamBrightness', 'Яркость пены', 'Foam brightness'], ['seaRipple', 'Рябь', 'Ripple'], ['seaWindPatches', 'Пятна ветра', 'Wind patches'], ['seaRippleScale', 'Масштаб ряби', 'Ripple scale'],
 ];
@@ -75,6 +82,10 @@ export const WaterWavesSection = ({ settings, handleSettingChange, applySettings
             <CheckboxControl controlId={'seaSurfEnabled'} label={seaLabel('Прибой включён', 'Surf enabled', language)} checked={Boolean(settings.seaSurfEnabled)} onChange={(event) => handleSettingChange(event, 'seaSurfEnabled', 'boolean')} />
             <CheckboxControl controlId={'seaSurfFreeze'} label={seaLabel('Стоп-кадр', 'Freeze', language)} checked={Boolean(settings.seaSurfFreeze)} onChange={(event) => handleSettingChange(event, 'seaSurfFreeze', 'boolean')} />
             {SEA_SURF.map(([setting, ru, en, unit]) => <SeaRange key={setting} settings={settings} handleSettingChange={handleSettingChange} setting={setting} ru={ru} en={en} language={language} unit={unit} />)}
+            <SectionHeading label={seaLabel('Гребень', 'Crest', language)} subtle />
+            {SEA_CREST.map(([setting, ru, en, unit]) => <SeaRange key={setting} settings={settings} handleSettingChange={handleSettingChange} setting={setting} ru={ru} en={en} language={language} unit={unit} />)}
+            <SectionHeading label={seaLabel('Брызги', 'Spray', language)} subtle />
+            {SEA_SPRAY.map(([setting, ru, en, unit]) => <SeaRange key={setting} settings={settings} handleSettingChange={handleSettingChange} setting={setting} ru={ru} en={en} language={language} unit={unit} />)}
             <SectionHeading label={t('homeEditor.blocks.cursorRipples')} subtle />
             <RangeControl controlId={'waveAmplitude'}
                 label={seaLabel('Амплитуда ряби', 'Ripple amplitude', language)}
