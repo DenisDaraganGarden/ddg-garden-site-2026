@@ -285,11 +285,13 @@
   color: #fff;
 }
 
-.home-editor-tab:hover:not(:disabled) {
+.home-editor-tab:hover:not(:disabled):not(.is-disabled) {
   background: rgba(255, 255, 255, 0.11);
 }
 
-.home-editor-tab:disabled {
+/* A file button is a label around its input: it cannot be :disabled itself. */
+.home-editor-tab:disabled,
+.home-editor-tab.is-disabled {
   opacity: 0.35;
   cursor: not-allowed;
 }

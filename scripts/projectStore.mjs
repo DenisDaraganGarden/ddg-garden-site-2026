@@ -104,19 +104,22 @@ export function createStore(folder, payloadKey) {
     return entry;
   };
 
-  const create = async ({ name, ...rest }) => {
+  // from: копия другой записи — её модели едут вместе с числами.
+  const create = async ({ name, from, ...rest }) => {
     if (!rest[payloadKey] || typeof rest[payloadKey] !== 'object' || Array.isArray(rest[payloadKey])) {
       throw new Error(`Запись не создана: не передано поле «${payloadKey}».`);
     }
 
     const now = new Date().toISOString();
-    return write({
+    const entry = await write({
       id: await freeId(name),
       name: String(name ?? '').trim() || 'Без названия',
       created: now,
       updated: now,
       ...rest,
     });
+    if (isValidId(from) && from !== entry.id) await copyModels(from, entry.id);
+    return entry;
   };
 
   // Правки приходят по одной: переименование без сцены не должно её стирать.
@@ -138,6 +141,7 @@ export function createStore(folder, payloadKey) {
     try {
       await fs.unlink(filePath(id));
       await fs.rm(thumbnailPath(id), { force: true });
+      await fs.rm(path.join(dir, id), { recursive: true, force: true });
       return true;
     } catch (error) {
       if (error.code === 'ENOENT') return false;
@@ -164,7 +168,44 @@ export function createStore(folder, payloadKey) {
     }
   };
 
-  return { dir, list, read, create, save, remove, writeThumbnail, readThumbnail };
+  // Модели записи (.glb, импорт из редактора): <папка>/<id>/models/<модель>.glb.
+  // Свои у каждого проекта: копия уносит их с собой, удаление стирает. Имя
+  // файла — читаемое имя модели и метка времени: адрес модели никогда не
+  // переиспользуется, и браузер может держать её в кеше сколько угодно.
+  const modelsDir = (id) => path.join(dir, id, 'models');
+  const modelPath = (id, model) => path.join(modelsDir(id), `${model}.glb`);
+
+  const writeModel = async (id, name, bytes) => {
+    if (!isValidId(id) || !(await read(id))) return null;
+    if (!(bytes?.length >= 12) || bytes.toString('ascii', 0, 4) !== 'glTF') {
+      throw new Error('Это не .glb: движок принимает двоичный glTF (.glb) целиком, с текстурами внутри.');
+    }
+    await fs.mkdir(modelsDir(id), { recursive: true });
+    const model = `${slugify(String(name ?? '').replace(/\.glb$/i, '')).slice(0, 40)}-${Date.now().toString(36)}`;
+    await fs.writeFile(modelPath(id, model), bytes);
+    return { model, bytes: bytes.length };
+  };
+
+  const modelFile = async (id, model) => {
+    if (!isValidId(id) || !isValidId(model)) return null;
+    try {
+      const { size } = await fs.stat(modelPath(id, model));
+      return { file: modelPath(id, model), size };
+    } catch (error) {
+      if (error.code === 'ENOENT') return null;
+      throw error;
+    }
+  };
+
+  async function copyModels(from, to) {
+    try {
+      await fs.cp(modelsDir(from), modelsDir(to), { recursive: true });
+    } catch (error) {
+      if (error.code !== 'ENOENT') throw error;
+    }
+  }
+
+  return { dir, list, read, create, save, remove, writeThumbnail, readThumbnail, writeModel, modelFile };
 }
 
 export const projects = createStore('projects', 'settings');

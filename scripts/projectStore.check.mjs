@@ -76,8 +76,23 @@ assert.equal((await projects.list()).find((entry) => entry.id === 'dyuny').thumb
 assert.equal((await projects.list()).find((entry) => entry.id === 'dyuny-2').thumbnail, false);
 assert.ok(!('thumbnail' in (await projects.read('dyuny'))), 'в самой записи миниатюры нет');
 
+// Модели проекта: только .glb, свои у проекта, копия уносит их, удаление стирает.
+const glb = Buffer.concat([Buffer.from('glTF'), Buffer.alloc(16)]);
+await assert.rejects(() => projects.writeModel('dyuny', 'скала.obj', Buffer.from('not a glb at all')), /не .glb/);
+assert.equal(await projects.writeModel('nikogo', 'скала.glb', glb), null, 'в чужой несуществующий проект не кладётся');
+const rock = await projects.writeModel('dyuny', 'Скала у мыса.glb', glb);
+assert.match(rock.model, /^skala-u-mysa-[a-z0-9]+$/, 'имя файла модели — читаемое и уникальное');
+assert.equal((await projects.modelFile('dyuny', rock.model)).size, glb.length);
+assert.equal(await projects.modelFile('dyuny', '../dyuny-2'), null, 'из папки модели не выйти');
+assert.equal(await projects.modelFile('dyuny-2', rock.model), null, 'у другого проекта этой модели нет');
+const copy = await projects.create({ name: 'Дюны копия', settings: { terrainSeed: 42 }, from: 'dyuny' });
+assert.equal((await projects.modelFile(copy.id, rock.model)).size, glb.length, 'копия проекта уносит модели');
+assert.ok(!('from' in (await projects.read(copy.id))), 'источник копии в запись не пишется');
+assert.equal(await projects.remove(copy.id), true);
+
 assert.equal(await projects.remove('dyuny'), true);
 assert.equal(await projects.readThumbnail('dyuny'), null, 'миниатюра уходит вместе с записью');
+assert.equal(await projects.modelFile('dyuny', rock.model), null, 'модели уходят вместе с проектом');
 assert.equal(await projects.remove('dyuny'), false);
 assert.equal((await projects.list()).length, 1);
 assert.equal((await presets.list()).length, 1, 'удаление проекта не трогает детали');

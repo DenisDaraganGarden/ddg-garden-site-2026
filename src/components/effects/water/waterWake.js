@@ -6,11 +6,14 @@
 //  - foam: the path a board has cut since the foam field last read it
 //    (foamField.js stamps it into its memory, which then carries and ages it
 //    like any other foam).
+// And what stands in the water (imported models): circles along each one's
+// waterline, which the foam field breaks the water white against.
 // One record for the scene, like the play store: whatever moves writes into
 // it, the water reads it.
 
 export const WAKE_RINGS = 32;
 export const WAKE_FOAM = 4;
+export const WAKE_OBSTACLES = 24;
 // Seconds a ring is drawn for: by then it has spread and faded to nothing.
 export const WAKE_LIFE = 4;
 // The ring's front runs out at about the group speed of the half-metre waves
@@ -29,10 +32,12 @@ export function createWaterWake() {
     next: 0,
     foam: Array.from({ length: WAKE_FOAM }, () => ({ x0: 0, z0: 0, x1: 0, z1: 0, halfWidth: 0, strength: 0 })),
     foamCount: 0,
+    obstacles: new Map(),
   };
 }
 
 export const waterWake = createWaterWake();
+if (import.meta.env?.DEV && typeof window !== 'undefined') window.__DDG_WAKE__ = waterWake;
 
 // strength: 1 is a board at speed; the waves' height scales with it.
 export function wakeRing(wake, x, z, strength) {
@@ -87,6 +92,31 @@ export function writeWakeRings(wake, rings, bounds) {
   if (!live) { bounds.set(0, 0, 0, 0); return 0; }
   bounds.set((minX + maxX) / 2, (minZ + maxZ) / 2, Math.hypot(maxX - minX, maxZ - minZ) / 2, 1);
   return live;
+}
+
+// circles: [{ x, z, radius }] along one owner's waterline; none removes it.
+export function setWakeObstacles(wake, owner, circles) {
+  if (circles?.length) wake.obstacles.set(owner, circles);
+  else wake.obstacles.delete(owner);
+}
+
+// Into (x, z, radius, 1) per slot, 0 for an empty one. More circles than
+// slots are shared out evenly between their owners, each keeping circles
+// spread along its whole line, so no object loses its foam to another.
+export function writeWakeObstacles(wake, out) {
+  const owners = [...wake.obstacles.values()];
+  const share = owners.length ? Math.max(1, Math.floor(WAKE_OBSTACLES / owners.length)) : 0;
+  let slot = 0;
+  for (const circles of owners) {
+    const take = Math.min(circles.length, share);
+    for (let k = 0; k < take && slot < WAKE_OBSTACLES; k += 1) {
+      const circle = circles[Math.floor(k * circles.length / take)];
+      out[slot++].set(circle.x, circle.z, circle.radius, 1);
+    }
+  }
+  const used = slot;
+  while (slot < WAKE_OBSTACLES) out[slot++].set(0, 0, 0, 0);
+  return used;
 }
 
 // The foam laid since the last read, into (x0, z0, x1, z1) and (halfWidth,

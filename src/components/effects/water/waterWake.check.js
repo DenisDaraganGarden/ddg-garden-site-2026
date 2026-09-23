@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {
-  WAKE_FOAM, WAKE_LIFE, WAKE_RINGS, ageWake, clearWake, createWaterWake, takeWakeFoam, wakeFoam, wakeReach, wakeRing, writeWakeRings,
+  WAKE_FOAM, WAKE_LIFE, WAKE_OBSTACLES, WAKE_RINGS, ageWake, clearWake, createWaterWake, setWakeObstacles, takeWakeFoam, wakeFoam, wakeReach, wakeRing,
+  writeWakeObstacles, writeWakeRings,
 } from './waterWake.js';
 
 // The wake record between what moves on the water and the shaders that draw
@@ -61,4 +62,23 @@ const segments = Array.from({ length: WAKE_FOAM }, vec4), shapes = Array.from({ 
   assert.ok(shapes.every((shape) => shape.y === 0), 'and then reads empty');
 }
 
-console.log('waterWake: rings age out, the bounds hold every live ring, full buffers drop the oldest ring and the weakest foam, foam is read once');
+// Obstacles: shared evenly between owners, each keeps circles along its whole line.
+{
+  const wake = createWaterWake();
+  const slots = Array.from({ length: WAKE_OBSTACLES }, vec4);
+  const line = (x0, n) => Array.from({ length: n }, (_, k) => ({ x: x0 + k, z: 0, radius: 0.6 }));
+  setWakeObstacles(wake, 'reef', line(0, 40));
+  setWakeObstacles(wake, 'rock', line(100, 5));
+  setWakeObstacles(wake, 'cliff', line(200, 40));
+  assert.equal(writeWakeObstacles(wake, slots), 8 + 5 + 8, 'each owner gets its share, a small one all it has');
+  const reef = slots.filter((s) => s.w && s.x < 50).map((s) => s.x);
+  assert.ok(reef[0] === 0 && reef.at(-1) >= 30, `the share spans the whole line (${reef.join(',')})`);
+  setWakeObstacles(wake, 'reef', []);
+  setWakeObstacles(wake, 'cliff', null);
+  assert.equal(writeWakeObstacles(wake, slots), 5, 'an owner with no line is gone');
+  assert.ok(slots.slice(5).every((s) => s.w === 0), 'and its slots read empty');
+  clearWake(wake);
+  assert.equal(writeWakeObstacles(wake, slots), 5, 'the board\'s wake clearing leaves what stands in the water');
+}
+
+console.log('waterWake: rings age out, the bounds hold every live ring, full buffers drop the oldest ring and the weakest foam, foam is read once, obstacles shared evenly');
