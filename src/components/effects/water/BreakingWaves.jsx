@@ -7,7 +7,7 @@ import { coastCoordinates, coastPoint } from '../../../terrain/terrainModel.js';
 import { BREAK_SAMPLES, breakLineMean, coastBreakLine, coastWaterShader, createCoastWaterUniforms, syncCoastWaterUniforms, tickShoreDepth } from './coastFrame';
 import { coastBreakVisibility } from './coastBreakLine';
 import { FOAM_BORE_SLOTS, createFoamFieldUniforms, foamFieldShader } from './foamField';
-import { SPRAY_TIERS, buildSprayGeometry, createSprayUniforms, sprayCountAndOverflow, sprayFragmentBody, sprayFragmentVaryings, sprayShader, sprayVertexBody, syncSprayUniforms } from './spray';
+import { SPRAY_TIERS, buildSprayGeometry, createSprayUniforms, sprayBudget, sprayCountAndOverflow, sprayFragmentBody, sprayFragmentVaryings, sprayShader, sprayVertexBody, syncSprayUniforms } from './spray';
 import { surfFoamBore, surfFrozenTravel, surfPeelSpan, surfProfileShader } from './surfProfile';
 import { createWaterShadingUniforms, syncWaterShadingUniforms, tickWaterShadingUniforms, useWaterNoise, waterShadingShader } from './waterShading';
 import { BOAT_CUTOUT_STENCIL_REF } from './constants';
@@ -808,7 +808,7 @@ export default function BreakingWaves({ settings, lighting, noise = null, coast,
       // still leaves their sheet and shell exactly on top of the chosen wave.
       // Their transparent passes then fight in depth and flash under motion.
       ribbon.uniforms.uRibbonVisible.value = alive ? 1 : 0;
-      const sprayCount = sprayCountAndOverflow({ distance, height, viewportHeight: viewport.height, viewportWidth: viewport.width, projectionY, overdraw: tier.overdraw, max: tier.max, radius: (0.02 + 0.11 * 0.5) * (settings.spraySize ?? 1), amount: settings.sprayAmount ?? 1 });
+      const sprayCount = sprayCountAndOverflow({ distance, height, viewportHeight: viewport.height, viewportWidth: viewport.width, projectionY, overdraw: tier.overdraw, max: tier.max, amount: sprayBudget(settings).total });
       sprayGeometries[ribbon.index].instanceCount = alive ? sprayCount.count : 0;
       spray.uSprayOverflow.value = sprayCount.overflow;
       ribbon.uniforms.uTravel.value = travel;
