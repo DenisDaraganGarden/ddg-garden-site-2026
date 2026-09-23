@@ -99,8 +99,11 @@ const CARRIED = {
   swim: [],
   recover: [],
 };
-// Muscle strength by state, as a share of each joint's own stiffness.
+// Muscle strength by state, as a share of each joint's own stiffness. It
+// goes slack at once (a fall takes the body's hold away in an instant) but
+// comes back over TONE_RISE: a man gathers himself, he does not snap to.
 const TONE = { prone: 1, popup: 1, liedown: 1, stand: 1, fallen: 0.06, swim: 0.8, recover: 0.35 };
+const TONE_RISE = 0.5;
 const IN_WATER = new Set(['fallen', 'swim', 'recover']);
 const LEG_JOINTS = new Set(['hipL', 'kneeL', 'ankleL', 'hipR', 'kneeR', 'ankleR']);
 
@@ -129,6 +132,7 @@ export function createRider(board, options = {}) {
     pose: createPose(),
     controls: createControls(),
     targets: JOINTS.map(() => [0, 0, 0, 1]),
+    tone: 1, toneFrom: 1,
     state: 'prone',
     stateTime: 0,
     // Where each body stood on the board when its state began, for the blend.
@@ -191,11 +195,19 @@ function enter(rider, state, board = null) {
       qMul(bqi, body.q, rider.entry.rotation[i]);
     }
   });
-  const tone = TONE[state];
-  rider.world.joints.forEach((joint, i) => {
-    joint.stiffness = rider.baseStiffness[i] * (state === 'prone' && LEG_JOINTS.has(JOINTS[i].name) ? 0.25 : tone);
-  });
+  rider.toneFrom = rider.tone;
+  setTone(rider);
   rider.world.pins.length = 0;
+}
+
+function setTone(rider) {
+  const target = TONE[rider.state];
+  rider.tone = target <= rider.toneFrom ? target
+    : rider.toneFrom + (target - rider.toneFrom) * smoothstep(0, TONE_RISE, rider.stateTime);
+  const legs = rider.state === 'prone' ? 0.25 : 1;
+  rider.world.joints.forEach((joint, i) => {
+    joint.stiffness = rider.baseStiffness[i] * rider.tone * (LEG_JOINTS.has(JOINTS[i].name) ? legs : 1);
+  });
 }
 
 // The controls' counters only ever grow; a rider starting now takes their
@@ -209,6 +221,7 @@ export function syncRider(rider, intent) {
 // Put him on the board at once, lying: a respawn.
 export function resetRider(rider, board) {
   setState(rider, 'prone');
+  rider.tone = 1;
   proneControls(rider.board, { strokeL: -1, strokeR: -1 }, rider.controls);
   solvePose(rider.controls, rider.pose);
   rider.world.bodies.forEach((body, i) => {
@@ -350,6 +363,7 @@ export function stepRider(rider, frame) {
 
   // Muscles: toward the pose's joint rotations on the board or swimming,
   // toward a loose body tumbling in the water.
+  if (rider.tone !== TONE[rider.state]) setTone(rider);
   if (rider.state !== 'fallen') jointTargets(rider.pose, JOINTS, rider.targets);
   world.joints.forEach((joint, i) => {
     const target = rider.state === 'fallen' ? rider.relaxed[i] : rider.targets[i];
