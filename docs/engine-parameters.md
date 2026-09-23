@@ -8,7 +8,7 @@
 единицы взяты из его каталога контролов, поэтому параметр не может появиться в
 редакторе и не появиться здесь. Руками не править.
 
-Снято: 2026-09-23 · параметров: 613 · разделов: 40
+Снято: 2026-09-23 · параметров: 619 · разделов: 40
 
 Как этим пользоваться агенту: читать и писать `projects/<id>.json`, поле
 `settings` — плоский объект с этими ключами. `topiaryObjects` — массив форм;
@@ -19,12 +19,6 @@
 
 | Ключ | Что это | Вид | Пределы | Заводское |
 |---|---|---|---|---|
-| `cloudCover` | Облачность | число | 0 … 1, шаг 0.01, % | 0 |
-| `cloudDensity` | Плотность | число | 0 … 1, шаг 0.01, % | 0.62 |
-| `cloudHorizon` | Высота слоя | число | 0 … 1, шаг 0.01, % | 0.38 |
-| `cloudPreset` | Характер облаков | список | clear-cumulus · warm-veil · red-horizon · storm-deck | clear-cumulus |
-| `cloudScale` | Масштаб облаков | число | 0.5 … 4, шаг 0.05, x | 1 |
-| `cloudSunOcclusion` | Перекрытие солнца | число | 0 … 1, шаг 0.01, % | 0.72 |
 | `painterlyCloudAltitude` | Высота слоя | число | 300 … 5000, шаг 25, m | 1400 |
 | `painterlyCloudCoverage` | Покрытие | число | 0 … 1, шаг 0.01, % | 0.65 |
 | `painterlyCloudDensity` | Плотность | число | 0.2 … 2.5, шаг 0.05 | 1.1 |
@@ -136,6 +130,12 @@
 
 | Ключ | Что это | Вид | Пределы | Заводское |
 |---|---|---|---|---|
+| `audio.emitters.birds.maxDistance` | Предел слышимости | число | 1 … 240, шаг 1,  m |  |
+| `audio.emitters.birds.refDistance` | Ближняя дистанция | число | 0.25 … 80, шаг 0.25,  m |  |
+| `audio.emitters.birds.rolloff` | Затухание с расстоянием | число | 0 … 4, шаг 0.05 |  |
+| `audio.emitters.birds.x` | X | число | -80 … 80, шаг 0.1,  m |  |
+| `audio.emitters.birds.y` | Y | число | -20 … 80, шаг 0.1,  m |  |
+| `audio.emitters.birds.z` | Z | число | -80 … 80, шаг 0.1,  m |  |
 | `audio.emitters.shore.maxDistance` | Предел слышимости | число | 1 … 240, шаг 1,  m |  |
 | `audio.emitters.shore.refDistance` | Ближняя дистанция | число | 0.25 … 80, шаг 0.25,  m |  |
 | `audio.emitters.shore.rolloff` | Затухание с расстоянием | число | 0 … 4, шаг 0.05 |  |
@@ -159,6 +159,8 @@
 
 | Ключ | Что это | Вид | Пределы | Заводское |
 |---|---|---|---|---|
+| `audio.tracks.birds.enabled` | Чайки в небе: включить дорожку | выключатель | да / нет |  |
+| `audio.tracks.birds.gain` | Чайки в небе · Объём | число | 0 … 1.5, шаг 0.01 |  |
 | `audio.tracks.boat.enabled` | Волна о лодку: включить дорожку | выключатель | да / нет |  |
 | `audio.tracks.boat.gain` | Волна о лодку · Объём | число | 0 … 1.5, шаг 0.01 |  |
 | `audio.tracks.shore.enabled` | Волна у берега: включить дорожку | выключатель | да / нет |  |
@@ -250,6 +252,8 @@
 | `contactAoRadius` | Радиус AO | число | 0.05 … 3, шаг 0.05, m | 0.5 |
 | `postAntiAliasing` | Сглаживание | список | auto · msaa · fxaa · off | auto |
 | `upscaleMode` | Апскейл | список | off · fsr1 | off |
+| `upscaleQuality` | Качество апскейла | список | ultra · quality · balanced | quality |
+| `upscaleSharpness` | Резкость апскейла | число | 0 … 1, шаг 0.05 | 0.25 |
 
 ## engine/resolution
 
@@ -360,7 +364,7 @@
 | `topiaryBrushHeight` | Высота мазка | число | 0.3 … 12, шаг 0.05,  m | 2.4 |
 | `topiaryBrushWidth` | Толщина мазка | число | 0.3 … 8, шаг 0.05,  m | 1.2 |
 | `topiaryEnabled` | Стриженые формы | выключатель | да / нет | true |
-| `topiaryObjects` | Объект | список |  · hedge-60f83ac1-4ea9-4d28-890f-cf208dc79921 · hedge-32d63948-4ef4-487f-9fc4-cb2ef1ae71a1 · hedge-7141d415-f59a-49f3-b281-9007458ed9ec · hedge-3540c0cc-03b1-4c6c-b736-3614aa0e31f4 · hedge-36cd010a-da24-49ee-bbbe-492e01321f5b · hedge-171364de-fc33-475b-8a0a-3c18f5f7c347 · hedge-9d345241-de9a-4d05-8946-2aff55e0e134 · hedge-6c827cb3-6aad-4465-8bde-f0c4539a63b1 · hedge-ea6e9d74-b12d-42f4-a980-eb83a9756027 · hedge-2bc8b417-2f58-4e66-aaf6-876e417b1ee1 · hedge-8dc58efe-b493-4903-8570-eed2f98b45d3 · hedge-6d50e8c1-4efc-4d6e-95a7-3cd5a7935a7a · hedge-75dcd7c5-c786-4f68-bd3a-0ab79319e4c6 · hedge-6382f335-8e68-4a9a-9a9c-031dfa4a5d2b · hedge-89169578-c3b9-4289-9c3f-10f8a1fd4ff1 · hedge-bc681bb8-1fdf-4d34-be1e-a9e1446d9a08 · hedge-156342ae-e4a5-4125-a70f-0a3ca082d636 · hedge-34fffc0f-2e30-474d-85cb-1967436dafda · hedge-7fd53686-9e95-439a-9d36-b9e6735c3e27 · hedge-39324b8a-3b78-4c84-9126-35882581d0ec · hedge-921ab0d3-ae70-4c03-a3f0-a40c5a3cbdec · hedge-d93455a8-7fc0-4e35-96ae-d6c288182196 · hedge-a195e9fb-7ffc-4aef-8d54-001d3091a13f · hedge-8d2ded06-cfba-4f28-9b98-972aff6a9312 · hedge-5c5a3e3a-ef5b-4d31-8619-a3a32e6f1343 · hedge-bb98849e-a4ca-4199-b6bd-c55c0b2c485e · hedge-852206d9-436e-4dcb-b869-0b9bbecbd721 · hedge-87aa3378-f558-44eb-81a2-445ee76f10b2 · hedge-fcdbc7dc-e099-4262-bbb1-4bdde66e9732 · hedge-0e013aab-c97b-41a0-866b-b91070074ec2 |  |
+| `topiaryObjects` | Объект | список |  |  |
 | `topiaryObjects[].baseY` | Основание Y | число | -20 … 40, шаг 0.05,  m |  |
 | `topiaryObjects[].density` | Плотность хвои | число | 0.1 … 1, шаг 0.01 |  |
 | `topiaryObjects[].height` | Высота | число | 0.3 … 12, шаг 0.05,  m |  |
@@ -582,12 +586,14 @@
 | `seaSkyReflection` | Отражение неба | число | 0 … 3, шаг 0.05 | 0.3 |
 | `seaSpeed` | Скорость | число | 0 … 2.5, шаг 0.05 | 0.55 |
 | `seaSprayAmount` | Количество | число | 0 … 3, шаг 0.05 | 1 |
+| `seaSprayCurtain` | Завеса с губы | число | 0 … 1, шаг 0.01 | 0.4 |
 | `seaSprayDensity` | Плотность | число | 0.2 … 3, шаг 0.05 | 1.3 |
 | `seaSprayLife` | Время полёта | число | 0.5 … 6, шаг 0.1, s | 2.2 |
 | `seaSprayMist` | Доля тумана | число | 0 … 1, шаг 0.01 | 0.62 |
 | `seaSprayMistSize` | Размер тумана | число | 0.5 … 4, шаг 0.1, x | 2.2 |
 | `seaSpraySize` | Размер капель | число | 0.3 … 3, шаг 0.05, x | 1 |
 | `seaSpraySpread` | Разброс вдоль гребня | число | 0 … 5, шаг 0.1, m | 1.6 |
+| `seaSprayStreak` | Вытянутость капель | число | 0 … 4, шаг 0.05 | 1 |
 | `seaSteepness` | Крутизна | число | 0 … 0.8, шаг 0.01 | 0.7 |
 | `seaSurfBoreLength` | Схлопывание | число | 3 … 40, шаг 1, m | 14 |
 | `seaSurfBreakDistance` | Сдвиг обрушения | число | -20 … 40, шаг 0.5, m | 0 |
@@ -700,7 +706,7 @@
 | Ключ | Что это | Вид | Пределы | Заводское |
 |---|---|---|---|---|
 | `placedEnabled` | Расстановка | выключатель | да / нет | true |
-| `placedObjects` | Объект | список |  · placed-2833b5e5-2e09-43e3-96cf-fc1649767b60 · placed-153815a9-c96a-40d3-ba5b-ac0709fd7513 |  |
+| `placedObjects` | Объект | список |  |  |
 | `placedObjects[].deadwood` | Сухие ветви | число | 0 … 1, шаг 0.01 |  |
 | `placedObjects[].density` | Плотность листвы | число | 0.1 … 1, шаг 0.01 |  |
 | `placedObjects[].height` | Высота | число | 2.5 … 12, шаг 0.1,  m |  |
