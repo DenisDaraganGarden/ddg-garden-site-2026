@@ -111,10 +111,11 @@ export default function Engine() {
         return () => { delete document.documentElement.dataset.engineMenu; };
     }, []);
 
-    const create = async (name, settings) => {
+    // from: the project a copy is made of; its imported models go with it.
+    const create = async (name, settings, from) => {
         setEditing(null);
         try {
-            openEditor((await createProject({ name, settings: settings ?? factoryScene(), engine: version })).id);
+            openEditor((await createProject({ name, settings: settings ?? factoryScene(), engine: version, from })).id);
         } catch (error) { fail(error); }
     };
 
@@ -130,7 +131,7 @@ export default function Engine() {
     // диска, а не берётся из списка: список нарочно приходит без настроек.
     const duplicate = async (project) => {
         try {
-            await create(`${project.name} · ${tr('копия', 'copy')}`, (await readProject(project.id)).settings);
+            await create(`${project.name} · ${tr('копия', 'copy')}`, (await readProject(project.id)).settings, project.id);
         } catch (error) { fail(error); }
     };
 

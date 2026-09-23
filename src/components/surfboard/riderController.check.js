@@ -9,7 +9,7 @@ import { SEGMENT } from './riderSkeleton.js';
 // and what he says goes into the board's next step. Each case is something
 // Denis will see: lying still, paddling, getting up on a wave and riding it
 // with his feet planted, being knocked off by whitewater, falling when the
-// board turns over, floating, the leash, and climbing back on.
+// board turns over, floating, the leash, swimming and climbing back on.
 
 const dims = boardDimensions({});
 const hull = buildBoardHull(dims);
@@ -19,10 +19,10 @@ const board = { length: dims.length, deckY: (x, z) => deckHeight(dims, x, z), ha
 const calm = (x, z, t, out) => { out.height = 0; out.vx = 0; out.vy = 0; out.vz = 0; out.whitewater = 0; out.ground = -Infinity; return out; };
 const intentOf = () => ({ lean: 0, trim: 0, crouch: 0, grab: 0, lookBack: 0, strokeLeft: 0, strokeRight: 0, popUp: 0 });
 
-function session({ x = 0, y = -0.07, yaw = 0, speed = 0 } = {}) {
+function session({ x = 0, y = -0.07, yaw = 0, speed = 0, leash = true } = {}) {
   const state = createBoardState({ x, y, z: 0, yaw });
   state.v[0] = speed * Math.sin(yaw); state.v[2] = speed * Math.cos(yaw);
-  const rider = createRider(board);
+  const rider = createRider(board, { leash });
   const intent = intentOf();
   const view = () => ({ p: state.p, q: state.q, v: state.v, w: state.w, speed: Math.hypot(state.v[0], state.v[2]), wipeout: state.wipeout });
   resetRider(rider, view());
@@ -126,17 +126,19 @@ let knocked;
   assert.ok(fell !== null, 'a wall of foam knocks him off');
 }
 
-// 5. The board turned over under him: he falls, floats up, the leash comes
-// taut, and he climbs back on.
+// 5. The board turned over under him: he falls, floats up, swims to the rail
+// and climbs back on.
 let recovered, floated;
 {
   const s = session();
   s.run(1, calm);
   s.state.q[0] = 0; s.state.q[1] = 0; s.state.q[2] = Math.sin(0.85); s.state.q[3] = Math.cos(0.85);
   let fell = null, backAt = null, highestChest = -Infinity;
+  const seen = new Set();
   s.run(9, calm, calm, (t) => {
     if (s.rider.state === 'fallen' && fell === null) fell = t;
-    if (fell !== null && s.rider.state === 'fallen') highestChest = Math.max(highestChest, s.rider.out.chest[1]);
+    if (fell !== null && backAt === null) seen.add(s.rider.state);
+    if (fell !== null && (s.rider.state === 'fallen' || s.rider.state === 'swim')) highestChest = Math.max(highestChest, s.rider.out.chest[1]);
     if (fell !== null && backAt === null && s.rider.state === 'prone') backAt = t - fell;
     if (s.rider.out.events.flipBoard) { s.state.q[0] = 0; s.state.q[2] = 0; s.state.q[1] = 0; s.state.q[3] = 1; }
   });
@@ -145,6 +147,7 @@ let recovered, floated;
   assert.ok(s.finite(), 'the fall is finite');
   assert.ok(highestChest > -0.35, `he floats up to the surface (${highestChest.toFixed(2)} m)`);
   assert.ok(backAt !== null && backAt < 8, `and is back on his board (${backAt?.toFixed(1)} s)`);
+  assert.ok(seen.has('swim') && seen.has('recover'), `swimming to it and climbing on (${[...seen].join(' → ')})`);
   assert.ok(jointGap(s.rider.world) < 5e-3, 'whole');
 }
 
@@ -157,8 +160,9 @@ let recovered, floated;
   assert.ok(liedown && s.rider.state === 'prone', `a stopped board sends him back down to lie on it (${s.rider.state})`);
 }
 
-// 7. The leash: fallen, carried off by a current the board does not feel, he
-// pulls it after him by the ankle.
+// 7. The leash: in the water, carried off by a current the board does not
+// feel, he pulls it after him by the ankle — swimming against the current
+// once he is up does not stop that.
 let tow;
 {
   const s = session();
@@ -167,10 +171,46 @@ let tow;
   const current = (x, z, t, out) => { calm(x, z, t, out); out.vx = 2.5; return out; };
   let pull = 0;
   s.run(2.6, calm, current, () => { if (s.rider.out.leash) pull = Math.max(pull, Math.hypot(s.rider.out.leash.fx, s.rider.out.leash.fy, s.rider.out.leash.fz)); });
-  tow = { pull, boardVx: s.state.v[0] };
-  assert.equal(s.rider.state, 'fallen');
+  tow = { pull, towed: s.state.p[0] };
+  assert.equal(s.rider.out.onBoard, false, `still in the water (${s.rider.state})`);
   assert.ok(pull > 30, `the leash comes taut (${pull.toFixed(0)} N)`);
-  assert.ok(s.state.v[0] > 0.8, `and tows the board after him (${s.state.v[0].toFixed(2)} m/s)`);
+  assert.ok(tow.towed > 1.5, `and tows the board after him (${tow.towed.toFixed(1)} m)`);
 }
 
-console.log(`riderController: lying still and whole, paddling ${paddled.toFixed(2)} m/s, up on the wave in ${rode.stoodAt.toFixed(2)} s and ridden ${rode.travelled.toFixed(1)} m with the soles within ${(rode.worstSole * 1000).toFixed(1)} mm of the deck, knocked off by foam in ${(knocked - 1.2).toFixed(2)} s, a capsize floats him to ${floated.toFixed(2)} m, back on the board in ${recovered.toFixed(1)} s, a stopped board lays him down, a current tows the board by the leash at ${tow.boardVx.toFixed(2)} m/s (${tow.pull.toFixed(0)} N)`);
+// 8. Swimming: off the board with it 6 m away, he comes up and swims to it —
+// face down, chin out of the water, at a swimmer's pace — and climbs on.
+let swam;
+{
+  const s = session({ leash: false });
+  s.run(0.5, calm);
+  s.state.q[0] = 0; s.state.q[1] = 0; s.state.q[2] = Math.sin(0.85); s.state.q[3] = Math.cos(0.85);
+  s.run(0.4, calm);
+  assert.equal(s.rider.state, 'fallen');
+  s.state.q[2] = 0; s.state.q[3] = 1; s.state.v[0] = 0; s.state.v[2] = 0;
+  s.state.p[0] += 6;
+  const chest = () => s.rider.world.bodies[SEGMENT.chest];
+  let from = null, reached = null, heads = 0, headUp = 0, facing = 0;
+  s.run(14, calm, calm, (t) => {
+    if (s.rider.state === 'swim' && s.rider.stateTime > 1.5) {
+      if (!from) from = { t, x: [...chest().x] };
+      const head = s.rider.world.bodies[SEGMENT.head];
+      heads += 1; headUp += head.x[1] > 0 ? 1 : 0;
+      // how much the chest's front (its +z) points at the bottom
+      const q = chest().q;
+      facing += -2 * (q[1] * q[2] - q[0] * q[3]);
+    }
+    if (s.rider.state === 'recover' && reached === null) {
+      reached = t;
+      from.speed = Math.hypot(chest().x[0] - from.x[0], chest().x[2] - from.x[2]) / (t - from.t);
+    }
+  });
+  swam = { speed: from?.speed, headUp: headUp / heads, facing: facing / heads };
+  assert.ok(reached !== null, 'he swims to the board');
+  assert.ok(swam.speed > 0.6 && swam.speed < 1.4, `at a swimmer's pace (${swam.speed?.toFixed(2)} m/s)`);
+  assert.ok(swam.headUp > 0.9, `his head out of the water (${(swam.headUp * 100).toFixed(0)}% of the time)`);
+  assert.ok(swam.facing > 0.8, `face down (${swam.facing.toFixed(2)})`);
+  assert.equal(s.rider.state, 'prone', 'and climbs on');
+  assert.ok(s.finite() && jointGap(s.rider.world) < 5e-3, 'whole');
+}
+
+console.log(`riderController: lying still and whole, paddling ${paddled.toFixed(2)} m/s, up on the wave in ${rode.stoodAt.toFixed(2)} s and ridden ${rode.travelled.toFixed(1)} m with the soles within ${(rode.worstSole * 1000).toFixed(1)} mm of the deck, knocked off by foam in ${(knocked - 1.2).toFixed(2)} s, a capsize floats him to ${floated.toFixed(2)} m, back on the board in ${recovered.toFixed(1)} s, a stopped board lays him down, a current tows the board ${tow.towed.toFixed(1)} m by the leash (${tow.pull.toFixed(0)} N), he swims ${swam.speed.toFixed(2)} m/s with his head up`);

@@ -18,6 +18,9 @@ export const DEFAULT_SURFBOARD_SETTINGS = Object.freeze({
   surfboardPaddle: 1, surfboardCarve: 1, surfboardBalance: 1,
   // First-person field of view in play.
   surfboardCameraFov: 80,
+  // What it leaves on the water in play: the rings of small waves (its V, the
+  // hands, the splashes) and the foam off its tail, 1 as tuned, 0 for none.
+  surfboardWakeWaves: 1, surfboardWakeFoam: 1,
 });
 
 export const SURFBOARD_RANGES = Object.freeze({
@@ -28,6 +31,7 @@ export const SURFBOARD_RANGES = Object.freeze({
   surfboardMass: [1.5, 8, 0.1], surfboardRiderMass: [0, 120, 1],
   surfboardPaddle: [0, 3, 0.05], surfboardCarve: [0.2, 3, 0.05], surfboardBalance: [0, 2, 0.05],
   surfboardCameraFov: [50, 110, 1],
+  surfboardWakeWaves: [0, 2, 0.05], surfboardWakeFoam: [0, 2, 0.05],
 });
 
 const COLOR = /^#[0-9a-f]{6}$/i;

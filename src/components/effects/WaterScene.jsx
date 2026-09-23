@@ -82,22 +82,34 @@ import HomeFishSchool from '../../features/home-scene/creatures/HomeFishSchool.j
 import Surfboard from '../surfboard/Surfboard.jsx';
 import SurfPlayCamera from '../surfboard/SurfPlayCamera.jsx';
 import { createSurfRibbons } from './water/surfRibbons.js';
+import UnderwaterView from './water/UnderwaterView.jsx';
 
 // Wireframe is a material flag, not a shader mode, so it cannot be one more
 // entry in the debug view list. Sweeping the scene rather than threading a prop
 // into every material also covers what arrives late: the boat and the sculpture
 // only get their materials once their models finish loading.
+//
+// The view is about the meshes on screen. Every other pass drawn through it —
+// the shadow maps, the mirror and the refraction (WaterReflections reads
+// scene.userData.ddgWireframe) — drew each mesh again as lines, which made it
+// twenty times slower than the scene itself; they keep what they last drew.
 function DebugWireframe({ enabled }) {
-  const { scene } = useThree();
+  const { gl, scene } = useThree();
   const touchedRef = useRef(new Set());
 
   const skirtedRef = useRef(new Set());
+  const shadowsRef = useRef(null);
 
   useFrame(() => {
     const touched = touchedRef.current;
     const skirted = skirtedRef.current;
 
     if (!enabled) {
+      if (shadowsRef.current !== null) {
+        gl.shadowMap.autoUpdate = shadowsRef.current;
+        shadowsRef.current = null;
+        delete scene.userData.ddgWireframe;
+      }
       if (touched.size === 0) {
         return;
       }
@@ -109,6 +121,12 @@ function DebugWireframe({ enabled }) {
       skirted.forEach((geometry) => geometry.setDrawRange(0, Infinity));
       skirted.clear();
       return;
+    }
+
+    if (shadowsRef.current === null) {
+      shadowsRef.current = gl.shadowMap.autoUpdate;
+      gl.shadowMap.autoUpdate = false;
+      scene.userData.ddgWireframe = true;
     }
 
     scene.traverse((object) => {
@@ -133,13 +151,18 @@ function DebugWireframe({ enabled }) {
   });
 
   useEffect(() => () => {
+    if (shadowsRef.current !== null) {
+      gl.shadowMap.autoUpdate = shadowsRef.current;
+      shadowsRef.current = null;
+      delete scene.userData.ddgWireframe;
+    }
     touchedRef.current.forEach((material) => {
       material.wireframe = false;
     });
     touchedRef.current.clear();
     skirtedRef.current.forEach((geometry) => geometry.setDrawRange(0, Infinity));
     skirtedRef.current.clear();
-  }, []);
+  }, [gl, scene]);
 
   return null;
 }
@@ -288,6 +311,9 @@ function WaterRuntimeScene({
   const seaCaustics = useMemo(() => createSeaCausticNormalsHolder(), []);
   // What the breakers do each frame, for the surfboard to ride (BreakingWaves fills it).
   const surfRibbons = useMemo(() => createSurfRibbons(), []);
+  // Whether the camera is under the sea this frame, and the murk it sees:
+  // UnderwaterView decides, the sea surfaces turn their undersides to it.
+  const underwater = useMemo(() => ({ active: false, murk: new THREE.Color() }), []);
   // Play needs the board even while it is switched off in the scene; never without water.
   const surfboardOn = sceneObjectOn(settings, 'surfboard') || (playing && sceneObjectOn(settings, 'water'));
   const runtime = useWaterRuntime(settings, qualityProfile, mode, effectiveSeaSettings);
@@ -525,6 +551,7 @@ function WaterRuntimeScene({
             seaCaustics={seaCaustics}
             surfRibbons={surfRibbons}
             qualityProfile={qualityProfile}
+            underwater={underwater}
           />
         ) : null}
         {sceneObjectOn(settings, 'lilies') ? (
@@ -629,6 +656,17 @@ function WaterRuntimeScene({
         />
       </WaterReflections>
       <ScenePostProcessing settings={settings} qualityProfile={qualityProfile} lighting={lighting} />
+      {/* The editor's cameras can dive; the site's authored ones stay above the water. */}
+      {mode === 'editor' && settings.waterVisible && settings.debugView === 'beauty' ? (
+        <UnderwaterView
+          seaSettings={effectiveSeaSettings}
+          lighting={lighting}
+          terrainDefinition={terrainDefinition}
+          terrainQuery={terrainQuery}
+          surfRibbons={surfRibbons}
+          underwater={underwater}
+        />
+      ) : null}
       {mode === 'editor' && playing && surfboardOn ? (
         <SurfPlayCamera
           settings={settings}
