@@ -83,12 +83,22 @@ const loftShader = /* glsl */`
   uniform float uRibbonVisible;
   uniform float uSurfSmooth;   // how much the crest ignores the short swell it stands on
   uniform float uMeander;      // how far the crest wanders along the shore; 1 is the original line
+  // The open water's own inputs at the point the loft stands on, left by the
+  // last surfSwell call: the sheet hands them to its fragment, so its rim is
+  // shaded exactly as the sea beside it.
+  vec2 surfSeaSurface;
+  float surfSeaFade;
+  float surfSeaJacobian;
+  float surfSeaHeight;
+  float surfBreakVisibleAt(float s);
   // The crest's height follows the swell's weather at its break point, so a
   // gust's bigger sections break earlier and farther out than the lulls; the
-  // ends taper to the swell. The CPU break line uses the same field.
+  // ends taper to the swell, and so does a section the coast cuts out: it sinks
+  // into the sea instead of ending as a full-height wall faded to glass.
+  // The CPU break line uses the same field.
   float surfHeightAt(float s) {
     vec2 at = coastPoint(uBreakMean, uAlong0 + s * uCrestLength);
-    return uHeight * gerstnerWeather(at).x * smoothstep(0.0, 0.06, s) * (1.0 - smoothstep(0.94, 1.0, s));
+    return uHeight * gerstnerWeather(at).x * smoothstep(0.0, 0.06, s) * (1.0 - smoothstep(0.94, 1.0, s)) * surfBreakVisibleAt(s);
   }
   float surfPhaseAt(float s) { return coastCrestWiggle(uAlong0 + s * uCrestLength, uWidth, uMeander); }
   float surfBreakAt(float s) {
@@ -115,7 +125,23 @@ const loftShader = /* glsl */`
     // Running up the beach the bore thins into a sheet, but it keeps a third of
     // its height until the very top of the run-up: a wave that shrinks to
     // nothing before it lands never reads as hitting the shore.
-    return surfProfile(t, travel, surfHeightAt(s) * (1.0 - 0.65 * smoothstep(0.0, max(uRunup, 0.5), q)));
+    SurfPoint sp = surfProfile(t, travel, surfHeightAt(s) * (1.0 - 0.65 * smoothstep(0.0, max(uRunup, 0.5), q)));
+    // A landed lip folds back onto its root as it fades. Faded in place it
+    // left a see-through strip across the crest and a fin under it: a pair of
+    // lines along every bore.
+    if (t >= 0.3 && t < 0.7) {
+      // Exactly on the anchor once gone, so the folded rows are truly degenerate.
+      sp.p = sp.spent >= 1.0 ? sp.anchor : mix(sp.p, sp.anchor, sp.spent);
+      sp.alpha = mix(sp.alpha, 1.0, sp.spent);
+      // A folded lip has no foam volume: the roller on the face takes over.
+      sp.puff *= 1.0 - sp.spent;
+    }
+    // The crest's ends dissolve with its height: without this the foam stayed
+    // whole while the wave under it shrank, and the end read as a pale cap.
+    float end = smoothstep(0.0, 0.06, s) * (1.0 - smoothstep(0.94, 1.0, s)) * surfBreakVisibleAt(s);
+    sp.foam *= end;
+    sp.puff *= end;
+    return sp;
   }
   // The breaker is one body of water. The short swell it stands on must not
   // print its cusps and ripples on the lip: with steep, crossed trains the
@@ -133,8 +159,13 @@ const loftShader = /* glsl */`
     // The shared cell, not a constant: the loft's edges have to lie on the very
     // swell the open water and the shore band draw, or they hover over it.
     vec3 world = gerstnerDisplace(p, fade, waterCell(p), normal, jacobian, drift);
+    float ripple = seaRippleDisplacement(world.xz);
+    surfSeaSurface = p;
+    surfSeaFade = fade;
+    surfSeaJacobian = jacobian;
+    surfSeaHeight = world.y + ripple;
     world = mix(world, vec3(p.x, 0.0, p.y), damp);
-    world.y += seaRippleDisplacement(world.xz) * (1.0 - damp);
+    world.y += ripple * (1.0 - damp);
     return world;
   }
   // The crest's centre line, in the coast frame's land coordinate: the break
@@ -177,10 +208,15 @@ const loftShader = /* glsl */`
   float surfEdgeAlpha(float s, float t) {
     return smoothstep(0.0, 0.08, t) * (1.0 - smoothstep(0.92, 1.0, t)) * smoothstep(0.0, 0.04, s) * (1.0 - smoothstep(0.96, 1.0, s)) * surfBreakVisibleAt(s);
   }
+  // How much of a point is the loft's own surface rather than the sea it
+  // stands on: 0 at the rim, where the section is a sliver lying on the swell.
+  float surfRim(float t) {
+    return smoothstep(0.0, 0.16, t) * (1.0 - smoothstep(0.84, 1.0, t));
+  }
   // Normal by centred finite differences inside each continuous part of the
   // profile. The old one-sided step crossed the top/underside seam at a few
   // rows, flipping the foam shell's light into a visible zigzag.
-  vec3 surfNormal(float s, float t, vec3 w) {
+  vec3 surfLoftNormal(float s, float t) {
     // A mesh row falls exactly on t=.5. A zero centred step there produces an
     // up-vector for the entire crest: the dark, ruler-straight seam seen from
     // low angles. Use the derivative of the adjoining continuous piece at a
@@ -197,11 +233,12 @@ const loftShader = /* glsl */`
     vec3 wt0 = surfWorld(s, surfAt(s, t0), 0.0, surfCrestDamp(t0));
     vec3 wt1 = surfWorld(s, surfAt(s, t1), 0.0, surfCrestDamp(t1));
     vec3 n = cross(ws1 - ws0, wt1 - wt0);
-    n = dot(n, n) > 1e-10 ? normalize(n) : vec3(0.0, 1.0, 0.0);
-    // Toward the rim the section is a sliver and its own normal turns edge-on;
-    // hand it back to the swell it lies on, so the ribbon has no rim at all.
-    float rim = smoothstep(0.0, 0.16, t) * (1.0 - smoothstep(0.84, 1.0, t));
-    return normalize(mix(surfSwellNormal(w.xz), n, rim));
+    return dot(n, n) > 1e-10 ? normalize(n) : vec3(0.0, 1.0, 0.0);
+  }
+  // Toward the rim the section is a sliver and its own normal turns edge-on;
+  // hand it back to the swell it lies on, so the ribbon has no rim at all.
+  vec3 surfNormal(float s, float t, vec3 w) {
+    return normalize(mix(surfSwellNormal(w.xz), surfLoftNormal(s, t), surfRim(t)));
   }
   // The bore runs all the way in and ends by thinning into the swash sheet at
   // the top of its run-up — it must not evaporate in mid-beach. Only the last
@@ -225,15 +262,22 @@ const sheetVertexShader = /* glsl */`
   varying float vAlpha;
   varying float vShade;
   varying float vGround;
+  varying vec4 vSea;      // the sea under this point: surface parameter, fade; and how much of it is the loft's own
+  varying vec2 vSeaLift;  // that sea's height and fold
+  varying float vOwnFoam; // the profile's own foam fades only at the very rim
   uniform float uSurfFoamVariety;
   void main() {
     float s = position.x, t = position.y;
     SurfPoint sp = surfAt(s, t);
     vec3 w = surfWorld(s, sp, 0.0, surfCrestDamp(t));
+    // Read before any other surfWorld call overwrites them.
+    vSea = vec4(surfSeaSurface, surfSeaFade, surfRim(t));
+    vSeaLift = vec2(surfSeaHeight, surfSeaJacobian);
+    vOwnFoam = smoothstep(0.0, 0.04, t) * (1.0 - smoothstep(0.96, 1.0, t));
     float ground = coastGround(coastLocal(w.xz));
     vWorld = w;
     vGround = ground;
-    vNormal = surfNormal(s, t, w);
+    vNormal = surfLoftNormal(s, t);
     // The foam frame is straight along the crest, so its lace came back every
     // 1/scale metres. A slow warp of the frame along the crest breaks the
     // period without leaving the crest-and-arc frame the foam is drawn in.
@@ -254,6 +298,9 @@ const sheetVertexShader = /* glsl */`
 const sheetFragmentShader = /* glsl */`
   #include <fog_pars_fragment>
   #define WATER_SEA_FOAM
+  #define WATER_BODY_NORMAL
+  #define WATER_REFRACTION_ANCHOR
+  #define WATER_OBJECT_REFLECTION_SCALE
   ${gerstnerShader}
   ${gerstnerPixelShader}
   ${waterShadingShader}
@@ -271,6 +318,10 @@ const sheetFragmentShader = /* glsl */`
   varying float vAlpha;
   varying float vShade;
   varying float vGround;
+  varying vec4 vSea;
+  varying vec2 vSeaLift;
+  varying float vOwnFoam;
+  uniform vec2 uOpticsMirror; // x: drawn into the sea's mirror, y: the mirror plane
   void main() {
     // The sheet is transparent at its edge. Keep its interpolated coverage in
     // the physical range before the blend state receives it; with MSAA, a
@@ -280,12 +331,21 @@ const sheetFragmentShader = /* glsl */`
     // No water under the sand: the loft is clipped by the bed, not by whatever
     // the beach happens to write into the depth buffer first.
     if (vWorld.y < vGround + 0.005) discard;
+    if (uOpticsMirror.x > 0.5 && vWorld.y < uOpticsMirror.y - 0.02) discard;
     vec3 view = normalize(cameraPosition - vWorld);
     float pixel = length(vec2(fwidth(vWorld.x), fwidth(vWorld.z)));
-    vec3 n = normalize(vNormal);
+    // At its rim the loft is the sea it stands on: the open water's per-pixel
+    // swell normal, its ripple, crest lift and depth, so the seam has nothing
+    // to show. Inward it becomes the wave's own surface.
+    float rim = vSea.w;
+    vec3 seaN = gerstnerSurfaceNormal(vSea.xy, vSea.z);
+    vec3 n = normalize(mix(seaN, normalize(vNormal), rim));
     if (dot(n, view) < 0.0) n = -n;
     float rippleWet = smoothstep(0.4, 0.8, -vGround);
-    n = waterRippleNormal(n, vWorld.xz, pixel, 0.5, rippleWet);
+    // The ripple is a height field over the flat sea: on a steep face its
+    // world-XZ pattern would be extruded up the wall; on the swash it is glass.
+    float film = sampleSwashFilm(vWorld.xz);
+    n = waterRippleNormal(n, vWorld.xz, pixel, max(vSea.z, 0.45) * mix(1.0, smoothstep(0.3, 0.8, n.y), rim) * (1.0 - film), rippleWet);
     // Two foams. The profile's own rides with the wave, in the crest-and-arc
     // frame; what the field remembers and the whitecaps lie still on the
     // water, in the world's flow frame, so their lace runs on across the seam
@@ -302,11 +362,27 @@ const sheetFragmentShader = /* glsl */`
     float streaks = mix(1.0, 0.45 + 1.1 * gerstnerNoise(vec2(along * 0.7, vFoamUv.y * 0.06 + 9.0)), uSurfStreaks);
     // Only the profile's own foam is broken up; what the field remembers and
     // the whitecaps keep their coverage.
-    float own = clamp(vFoam * 0.95 * patches * streaks, 0.0, 1.0);
-    waterSeaFoamCoverage = max(memory.x * memory.z, crest * 0.9 * (1.0 - memory.z));
+    float own = clamp(vFoam * 0.95 * patches * streaks, 0.0, 1.0) * vOwnFoam;
+    waterSeaFoamCoverage = mix(crest * 0.9, memory.x, memory.z);
     waterSeaFoamAge = mix(0.35, memory.y, memory.z);
-    float bed = uShoreReady > 0.5 ? exp(-max(-coastGround(coastLocal(vWorld.xz)), 0.0) * uBedReach) : 0.0;
-    vec3 color = shadeWater(vWorld, n, view, pixel, vFoamUv, own, 0.0, vThickness, 0.0, bed) * clamp(vShade, 0.0, 1.0);
+    // The medium is seen through the sea's own surface, and read in the
+    // capture at the water under this point: a wall of the wave is no more
+    // water than the sea at its foot, and above the eye line it no longer
+    // switched to another colour model.
+    waterBodyNormal = normalize(mix(n, seaN, rim));
+    waterRefractionAnchor = vec3(vWorld.x, vSeaLift.x, vWorld.z);
+    waterObjectReflectionScale = 1.0 - rim;
+    // Depth under this point: the still depth plus the wave standing on it,
+    // equal to the open water's at the rim. Read from the still depth alone the
+    // bore over the shallows was painted as bare sand: an orange tube.
+    float ground = uShoreReady > 0.5 ? coastGround(coastLocal(vWorld.xz)) : -1.0;
+    float column = max(-ground, 0.0) + max(vWorld.y - max(vSeaLift.x, ground), 0.0);
+    float bed = uShoreReady > 0.5 ? exp(-column * uBedReach) * (1.0 - smoothstep(0.9, 1.0, -ground)) : 0.0;
+    // Crest lift and thickness: the sea's at the rim, the section's chord
+    // inside; on sand, the film's own depth as the swash has it.
+    float lift = clamp(vSeaLift.x * 1.5, 0.0, 1.0) * (1.0 - vSeaLift.y * 0.5) * (1.0 - rim);
+    float thickness = min(mix(10.0, vThickness, rim), mix(10.0, max(column, 0.004), smoothstep(-0.02, 0.02, ground)));
+    vec3 color = shadeWater(vWorld, n, view, pixel, vFoamUv, own, 0.0, thickness, lift, bed) * clamp(vShade, 0.0, 1.0);
     gl_FragColor = vec4(color, alpha);
     #include <fog_fragment>
     #include <tonemapping_fragment>
@@ -331,6 +407,7 @@ const shellVertexShader = /* glsl */`
   varying float vPuff;
   varying float vAlpha;
   varying float vGround;
+  varying float vThickness;
   void main() {
     float s = position.x, t = position.y;
     SurfPoint sp = surfAt(s, t);
@@ -358,7 +435,10 @@ const shellVertexShader = /* glsl */`
     // wave ran through its own foam and the foam seemed to lag behind it.
     vCarry = coastLand() * surfTravelAt(s);
     vec2 carried = w.xz - vCarry;
-    float lump = uNoiseReady > 0.5 ? texture(uNoise, vec3(carried * 0.45, fract(w.y * 0.45 + gerstnerNoise(carried * 0.021) * 3.0 + uTime * 0.05))).r : 0.5;
+    // Sampled once per vertex, so no finer than the mesh: at 0.45 per metre the
+    // lumps were smaller than the 0.5-0.7 m rows and every row became a crease.
+    // The fine lumps belong to the fragment march.
+    float lump = uNoiseReady > 0.5 ? texture(uNoise, vec3(carried * 0.11, fract(w.y * 0.11 + gerstnerNoise(carried * 0.021) * 3.0 + uTime * 0.05))).r : 0.5;
     // Keep the landed bore low. Noise may break its silhouette, but it may not
     // inflate it into a second rounded wave behind the short lip.
     float shell = sp.puff * uRoller * surfHeightAt(s) * (0.48 + 0.42 * lump);
@@ -367,6 +447,7 @@ const shellVertexShader = /* glsl */`
     vFoamUv = vec2(s * uCrestLength, sp.arc);
     vShell = shell;
     vPuff = sp.puff;
+    vThickness = sp.thickness;
     vGround = coastGround(coastLocal(w.xz));
     vAlpha = uRibbonVisible * sp.alpha * surfRunupAlpha(w, s, vGround) * surfEdgeAlpha(s, t);
     vec4 mvPosition = viewMatrix * vec4(vWorld, 1.0);
@@ -409,26 +490,37 @@ const shellFragmentShader = /* glsl */`
   varying float vPuff;
   varying float vAlpha;
   varying float vGround;
+  varying float vThickness;
+  uniform vec2 uOpticsMirror;
   #define SHELL_STEPS 12
   void main() {
+    // Derivatives first: after a non-uniform discard they are undefined.
+    float footprint = length(fwidth(vWorld));
+    // Interleaved-gradient jitter of the march: fixed steps banded the volume.
+    float jitter = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
     if (vAlpha <= 0.002 || vShell < 0.004 || uNoiseReady < 0.5) discard;
     if (vWorld.y < vGround + 0.005) discard;
+    if (uOpticsMirror.x > 0.5 && vWorld.y < uOpticsMirror.y - 0.02) discard;
     vec3 view = normalize(cameraPosition - vWorld);
     vec3 n = normalize(vNormal);
     float facing = max(dot(n, view), 0.25);
     // The shell is thin next to its curvature: walk straight down to the water.
     float depth = vShell / facing;
     float stepLength = depth / float(SHELL_STEPS);
-    float sunDiffuse = 0.35 + 0.65 * max(dot(n, uSunDirection), 0.0);
     // The shell has its own volume march, but it belongs to the same sun as
     // the water below it. Sample the CSM/cloud visibility once at the shell
     // rather than once per march step: the shell is centimetres thick and the
     // direct-light field cannot vary across it at a visible scale.
     float keyVisibility = waterKeyVisibility(vWorld);
+    // The roller is foam like any other (waterFoamLight): the sky it faces, the
+    // sun, and the glow of the thin water it is made of when lit from behind.
+    // Deeper in the volume both fade: it reads by its own occlusion.
+    vec3 sky = waterSkyIrradiance(n) + uFillIrradiance;
+    vec3 glow = uWaterColor * uSunRadiance / WATER_PI * pow(max(dot(view, -uSunDirection), 0.0), 3.0) * uCrestGlow * 1.6 * keyVisibility * 1.5 * waterSlabGlow(vThickness);
     float transmittance = 1.0;
     vec3 light = vec3(0.0);
     for (int i = 0; i < SHELL_STEPS; i++) {
-      float d = (float(i) + 0.5) * stepLength;
+      float d = (float(i) + jitter) * stepLength;
       float h = 1.0 - d / depth;                 // 1 at the shell, 0 on the water
       vec3 p = vWorld - view * d;
       // Lumps from the cloud volume, carried in with the wave and boiling
@@ -439,15 +531,17 @@ const shellFragmentShader = /* glsl */`
       vec3 q = (c + vec3(0.13, -0.21, 0.09) * uTime * 0.35) * 0.9;
       q.z += gerstnerNoise(c.xz * 0.021) * 3.0;
       float lump = texture(uNoise, q * 0.55).r;
-      float tear = texture(uNoise, q * 1.7 + vec3(0.0, 0.0, 0.37)).b;
+      // The tearing octave fades once it is finer than a pixel, before it can sparkle.
+      float tear = mix(0.5, texture(uNoise, q * 1.7 + vec3(0.0, 0.0, 0.37)).b, 1.0 - smoothstep(0.03, 0.12, footprint));
       // Denser toward the water, eroded toward the shell: rounded tops.
       float density = smoothstep(0.45, 1.0, lump * 0.9 + tear * 0.45 + (1.0 - h) * 0.7 - 0.4) * vPuff * uRollerDensity;
       if (density <= 0.001) continue;
       float alpha = 1.0 - exp(-density * stepLength * 4.5);
       // Beer/powder: light comes in from the shell side and fades toward the water.
       float powder = 1.0 - exp(-density * 2.6);
-      float shade = exp(-(1.0 - h) * 1.4);
-      vec3 lit = vec3(0.9, 0.92, 0.88) * (uFillIrradiance * (0.5 + 0.5 * h) + uSunRadiance * keyVisibility * sunDiffuse * shade * (0.3 + 0.7 * powder)) / WATER_PI * uFoamBrightness;
+      float shade = mix(0.55, 1.0, h);
+      vec3 lit = waterFoamLight(sky * mix(0.6, 1.0, h), n, view, keyVisibility * shade * (0.3 + 0.7 * powder), powder)
+        + glow * (1.0 - 0.35 * powder);
       light += transmittance * alpha * lit;
       transmittance *= 1.0 - alpha;
       if (transmittance < 0.02) break;
@@ -502,6 +596,11 @@ export default function BreakingWaves({ settings, lighting, noise = null, coast,
   }, [coast.length, qualityProfile?.isLowPower, qualityProfile?.isMobileDevice]);
   const geometry = useMemo(() => buildRibbonGeometry(mesh.segments, mesh.rows), [mesh]);
   useEffect(() => () => geometry.dispose(), [geometry]);
+  // What the sea's mirror draws: a quarter of the columns, half the rows (the
+  // joins at t = .3/.5/.7 still fall on rows).
+  const opticsGeometry = useMemo(() => buildRibbonGeometry(Math.max(48, Math.ceil(mesh.segments / 32) * 8), 30), [mesh]);
+  useEffect(() => () => opticsGeometry.dispose(), [opticsGeometry]);
+  const opticsUserData = useMemo(() => ({ ddgOpticsGeometry: opticsGeometry }), [opticsGeometry]);
   // Shading uniforms are shared by reference between the ribbons: one sync
   // updates every material. Each ribbon's two materials share its uniforms.
   const shading = useMemo(() => createWaterShadingUniforms(), []);
@@ -544,6 +643,7 @@ export default function BreakingWaves({ settings, lighting, noise = null, coast,
       uMeander: { value: 1 },
       uSurfFoamVariety: { value: 0 },
       uSurfStreaks: { value: 0 },
+      uOpticsMirror: { value: new THREE.Vector2(0, 0) },
     };
     // The loft's edges lie on the swell; the offset keeps them from fighting it for depth.
     const cockpitStencil = {
@@ -666,7 +766,8 @@ export default function BreakingWaves({ settings, lighting, noise = null, coast,
         const guess = breakLineMean(coastBreakLine(coast.definition, height, coast.along0, coast.length, 8));
         const heightAt = (s) => { const at = coastPoint(guess, s, coast.definition); return height * gerstnerWeatherAt(at.x, at.z, settings.gusts); };
         const line = coastBreakLine(coast.definition, height, coast.along0, coast.length, BREAK_SAMPLES, 0.78, heightAt);
-        for (let i = 0; i < line.length; i += 1) line[i] += settings.surfBreakDistance;
+        // The author's offset can move a break, never onto the sand.
+        for (let i = 0; i < line.length; i += 1) line[i] = Math.min(line[i] + settings.surfBreakDistance, -1.5);
         ribbon.uniforms.uBreakLine.value = line;
         const visible = coastBreakVisibility(line, coast.length);
         const mean = breakLineMean(line);
@@ -739,7 +840,7 @@ export default function BreakingWaves({ settings, lighting, noise = null, coast,
 
   return ribbons.flatMap((ribbon) => [
     <mesh key={`spray-${ribbon.index}`} name={`breaking-spray-${ribbon.index}`} geometry={sprayGeometries[ribbon.index]} material={ribbon.spray} frustumCulled={false} renderOrder={5} />,
-    <mesh key={`sheet-${ribbon.index}`} name={`breaking-wave-${ribbon.index}`} geometry={geometry} material={ribbon.sheet} frustumCulled={false} renderOrder={2} />,
-    <mesh key={`shell-${ribbon.index}`} name={`breaking-foam-${ribbon.index}`} geometry={geometry} material={ribbon.shell} frustumCulled={false} renderOrder={3} />,
+    <mesh key={`sheet-${ribbon.index}`} name={`breaking-wave-${ribbon.index}`} geometry={geometry} material={ribbon.sheet} frustumCulled={false} renderOrder={2} userData={opticsUserData} />,
+    <mesh key={`shell-${ribbon.index}`} name={`breaking-foam-${ribbon.index}`} geometry={geometry} material={ribbon.shell} frustumCulled={false} renderOrder={3} userData={opticsUserData} />,
   ]);
 }

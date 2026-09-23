@@ -210,7 +210,10 @@ const fragmentShader = /* glsl */`
     vec3 memory = sampleFoamField(vWorld.xz);
     float coverage = mix(crest * 0.9, memory.x, memory.z);
     float age = mix(0.35, memory.y, memory.z);
-    float lift = clamp((vWorld.y - vLevel + 0.2) * 1.5, 0.0, 1.0) * (1.0 - vJacobian * 0.5) * (1.0 - vFilm);
+    // The open sea's rule: crest height above the still line. Measured from
+    // the band's own level it was a constant 0.3 over water, a glow the sea
+    // beside it and the breaker's rim did not have.
+    float lift = clamp(vLevel * 1.5, 0.0, 1.0) * (1.0 - vJacobian * 0.5) * (1.0 - vFilm);
     // The sand under the water by Beer-Lambert: at the edge the water is the
     // wet sand itself under a gloss, deeper it is the water's own body.
     float thickness = mix(10.0, depth, sand);

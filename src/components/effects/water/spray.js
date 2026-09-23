@@ -358,25 +358,15 @@ export const sprayFragmentBody = /* glsl */`
     sunT = exp(-uSprayExtinction * dB * 0.6 * vRadius);
   }
   float powder = 1.0 - exp(-dens * 2.6);
-  // Forward scattering is ADDED, never multiplied in: with the sun behind the
-  // camera a factor would make the spray darker than the foam it comes from.
-  float forward = pow(max(dot(-vView, uSunDirection), 0.0), 6.0);
-  // The same expression the foam volume uses, so one brightness slider governs
-  // the foam and the spray thrown off it and they cannot disagree. The
-  // directional gain is gone: it was what made the spray outshine the foam.
-  // Spray is mostly SKY-lit: a droplet is a white speck against a bright
-  // background, not a lamp. The sun's share is modulated by the mote's own
-  // normal and held below the sky's, or a low sun paints the whole plume its
-  // own yellow — which is exactly what it did.
-  float sunFace = max(dot(nS, uSunDirection), 0.0);
+  // The same light as every other foam (waterFoamLight): the sky the water
+  // reflects, the sun on the mote's face and through it from behind. Spray is
+  // mostly sky-lit, a white speck against a bright background; its sun share
+  // stays half the foam's, or a low sun paints the whole plume its own yellow.
   // The mote's internal self-shadow (sunT) is distinct from scene shadowing.
   // Sample the latter once at its centre so CSM/cloud shadow bands cross the
   // whole plume with the water, without adding a shadow lookup per noise tap.
   float keyVisibility = waterKeyVisibility(vWorld);
-  vec3 lit = vec3(0.94, 0.95, 0.92) * (
-      uFillIrradiance * (0.85 + 0.55 * (0.5 + 0.5 * nS.y))
-    + uSunRadiance * keyVisibility * sunT * (0.12 + 0.5 * sunFace) * (0.25 + 0.75 * powder)
-    + uSunRadiance * keyVisibility * sunT * powder * forward * 0.2) / WATER_PI * uFoamBrightness;
+  vec3 lit = waterFoamLight(waterSkyIrradiance(nS) + uFillIrradiance, nS, vView, keyVisibility * sunT * 0.5 * (0.25 + 0.75 * powder), powder);
   gl_FragColor = vec4(lit * alpha, alpha);
 `;
 

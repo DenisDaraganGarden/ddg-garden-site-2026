@@ -76,12 +76,20 @@ export const foamFieldShader = /* glsl */`
 uniform sampler2D uFoamField;
 uniform vec3 uFoamWindow;
 uniform float uFoamMemory;
+// Half a metre a texel at a 400 m window: a plain bilinear tap drew the
+// field's patches with straight kinks. The smoothed tap costs the same fetch.
+vec2 foamFieldUv(vec2 uv) {
+  vec2 t = uv * ${FOAM_RESOLUTION}.0 + 0.5;
+  vec2 f = fract(t);
+  f = f * f * (3.0 - 2.0 * f);
+  return (floor(t) + f - 0.5) / ${FOAM_RESOLUTION}.0;
+}
 float sampleSwashFilm(vec2 p) {
   if (uFoamMemory < 0.5) return 0.0;
   vec2 uv = (p - uFoamWindow.xy) / (2.0 * uFoamWindow.z) + 0.5;
   float rim = min(min(uv.x, 1.0 - uv.x), min(uv.y, 1.0 - uv.y));
   if (rim <= 0.0) return 0.0;
-  return clamp(texture2D(uFoamField, uv).a, 0.0, 1.0) * smoothstep(0.0, 0.06, rim);
+  return clamp(texture2D(uFoamField, foamFieldUv(uv)).a, 0.0, 1.0) * smoothstep(0.0, 0.06, rim);
 }
 vec3 sampleFoamField(vec2 p) {
   if (uFoamMemory < 0.5) return vec3(0.0);
@@ -89,7 +97,7 @@ vec3 sampleFoamField(vec2 p) {
   // Fades over the window's rim; plain clamps, since smoothstep with reversed edges is undefined in GLSL.
   float weight = clamp(min(min(uv.x, 1.0 - uv.x), min(uv.y, 1.0 - uv.y)) / 0.06, 0.0, 1.0);
   if (weight <= 0.0) return vec3(0.0);
-  return vec3(texture2D(uFoamField, uv).rg, weight);
+  return vec3(texture2D(uFoamField, foamFieldUv(uv)).rg, weight);
 }
 `;
 

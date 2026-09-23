@@ -19,3 +19,8 @@ export const isSeaOpticsSurfaceName = (name) => (
   || numberedSeaSurfacePrefixes.some((prefix) => name.startsWith(prefix))
 );
 
+// The one exception, in the mirror only: the sea reflects the breaker standing
+// on it — its water sheet and its foam, never the spray. The loft cuts itself
+// at the mirror plane and stops sampling the reflection while it is drawn into it.
+export const isMirroredSeaSurfaceName = (name) => name.startsWith('breaking-wave-') || name.startsWith('breaking-foam-');
+

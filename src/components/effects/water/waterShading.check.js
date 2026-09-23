@@ -21,6 +21,7 @@ assert.ok(foam.includes('float coverageActive = smoothstep(0.0005, 0.0025, cover
 // the artist-facing control.
 assert.ok(foam.includes('float strands ='), 'foam retains a thin porous edge');
 assert.ok(source.includes('foamLit *= mix(0.82, 0.98, bubbles);'), 'foam porosity is a bounded attenuation, not a bright bubble lobe');
+assert.ok(!/float slice = fract\(/.test(foam) && foam.includes('0.52 + lace.r * 0.2 + slice * 0.63)'), 'the foam slice is not wrapped: a wrap cut the detail octave along a line');
 assert.ok(source.includes('vec2 waterFoamCarrierWarp(vec2 fp)'), 'foam deforms the carrier before sampling the tiled volume');
 assert.ok(source.includes('vec2 carrier = waterFoamCarrierWarp(fp);'), 'foam uses the deformed carrier coordinates');
 const foamWarpStart = source.indexOf('vec2 waterFoamCarrierWarp(');

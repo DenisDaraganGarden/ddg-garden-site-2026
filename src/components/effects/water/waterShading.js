@@ -5,12 +5,15 @@ import { DDG_CLOUD_SHADOW_GLSL } from '../sky/painterly/cloudShadowRuntime.js';
 import { skyShaderChunk } from '../shaders/skyShader';
 import { cursorFlashlightShaderChunk } from '../shaders/cursorFlashlightShader';
 import { createWaterSceneBindingUniforms } from './waterSceneBindings';
+import { RIPPLE_PLANES } from './waterRipplePlanes.js';
 
 // One look for every water surface: the open-water mesh, the breaking-wave
 // ribbons and later the shore. Body colour, sky reflection, sun glint,
 // translucency by thickness, and foam drawn with the painterly clouds' noise
 // (Worley edges for the lace, the fine octave for the eroded edge, Beer/powder
 // for the light). Every detail layer fades by metres-per-pixel before it aliases.
+
+const vec = ([axis, name]) => `vec3(${axis.map((x) => x.toFixed(4)).join(', ')}) * ${name}`;
 
 export const waterShadingShader = /* glsl */`
   precision highp sampler3D;
@@ -80,6 +83,8 @@ export const waterShadingShader = /* glsl */`
   uniform float uSeaRippleExtent;
   uniform float uSeaRippleStrength;
   uniform float uSeaRippleAmplitude;
+  uniform sampler2D uSkyIrradianceMap;
+  uniform float uSkyIrradianceActive;
   #define WATER_PI 3.14159265
   float gerstnerNoise(vec2 p); // defined by gerstnerShader, which every water fragment includes first
 
@@ -89,6 +94,25 @@ export const waterShadingShader = /* glsl */`
     // anchors remain a complete lab fallback before a scene sky is available.
     if (uWaterSceneSkyActive < 0.5) return fallback * uSkyLevel;
     return skyRadiance(ray) * uSkyLevel;
+  }
+  // One bilinear tap of the same sky, for taps that are averaged anyway: the
+  // nine-tap Catmull-Rom is for the one ray that is seen sharp.
+  vec3 waterSkyColorSoft(vec3 ray) {
+    if (uWaterSceneSkyActive < 0.5) return waterSkyColor(ray);
+    vec3 r = normalize(ray);
+    vec2 uv = vec2(atan(r.z, r.x) * 0.15915494 + 0.5, asin(clamp(r.y, -1.0, 1.0)) * 0.31830989 + 0.5);
+    return textureLod(uSkyLut, uv, 0.0).rgb * uSkyLevel;
+  }
+  // Light a diffuse surface facing n receives from the sky the water reflects:
+  // an ambient cube reduced from that very sky each frame (waterSceneBindings),
+  // at the scale the sand is lit by it. Foam had only the fill light, 50 times
+  // less, so any foam facing away from the sun went black beside bright water.
+  vec3 waterSkyIrradiance(vec3 n) {
+    if (uSkyIrradianceActive < 0.5) return mix(uSkyHorizon, uSkyZenith, 0.5) * uSkyLevel * WATER_PI * (0.5 + 0.5 * n.y);
+    vec3 n2 = n * n;
+    return n2.x * texelFetch(uSkyIrradianceMap, ivec2(n.x < 0.0 ? 1 : 0, 0), 0).rgb
+      + n2.y * texelFetch(uSkyIrradianceMap, ivec2(n.y < 0.0 ? 3 : 2, 0), 0).rgb
+      + n2.z * texelFetch(uSkyIrradianceMap, ivec2(n.z < 0.0 ? 5 : 4, 0), 0).rgb;
   }
   float waterShadowTap(sampler2DShadow shadowMap, vec4 shadowCoord, float shadowEnabled, float bias, vec2 texelSize, float radius) {
     if (shadowEnabled < 0.5) return 1.0;
@@ -111,14 +135,26 @@ export const waterShadingShader = /* glsl */`
     float shadows = mix(nearShadow, farShadow, cascade) * ddgCloudTransmission(world);
     return mix(1.0, shadows, clamp(uKeyDirectShare * uWaterShadowStrength, 0.0, 1.0));
   }
-  vec3 waterObjectReflection(vec3 world, vec3 n, vec3 fallback, float roughness) {
+#ifdef WATER_OBJECT_REFLECTION_SCALE
+  float waterObjectReflectionScale; // the breaker: the mirror holds the breaker itself, so only its rim may read it
+#endif
+  vec3 waterObjectReflection(vec3 world, vec3 n, vec3 view, vec3 reflected, vec3 fallback, float roughness) {
     if (uReflectionActive < 0.5) return fallback;
     vec4 projected = uReflectionMatrix * vec4(world, 1.0);
     vec2 uv = projected.xy / max(projected.w, 0.0001) * 0.5 + 0.5;
-    vec2 distorted = uv + n.xz * 0.002;
-    float coverage = step(0.002, distorted.x) * step(0.002, distorted.y)
-      * step(distorted.x, 0.998) * step(distorted.y, 0.998) * step(0.0001, projected.w);
-    vec4 captured = texture2D(uReflectionTexture, clamp(distorted, vec2(0.002), vec2(0.998)));
+    // The capture is a flat mirror; the sea is not. Shift the lookup by how far
+    // the wave-bent reflected ray points from the flat mirror's, where both
+    // land at infinity: reflected objects then ripple with the same normal as
+    // the sky around them instead of lying still under it like a pane of glass.
+    vec4 bent = uReflectionMatrix * vec4(normalize(vec3(reflected.x, max(reflected.y, 0.002), reflected.z)), 0.0);
+    vec4 mirror = uReflectionMatrix * vec4(-view.x, view.y, -view.z, 0.0);
+    vec2 shift = (bent.xy / max(bent.w, 0.0001) - mirror.xy / max(mirror.w, 0.0001)) * 0.5;
+    vec2 distorted = uv + clamp(shift, vec2(-0.08), vec2(0.08));
+    // Soft at the capture's border, never a step to the sky.
+    vec2 edge = min(distorted, 1.0 - distorted);
+    float coverage = clamp(min(edge.x, edge.y) / 0.02, 0.0, 1.0) * step(0.0001, projected.w);
+    vec2 at = clamp(distorted, vec2(0.002), vec2(0.998));
+    vec4 captured = texture2D(uReflectionTexture, at);
     // A distant wind ripple has no resolvable normal, but it is still a rough
     // reflector. Four symmetric texel taps are enough for this small planar
     // object capture; keep the exact centre sample in glassy patches.
@@ -126,16 +162,20 @@ export const waterShadingShader = /* glsl */`
       vec2 texel = 1.0 / vec2(textureSize(uReflectionTexture, 0));
       vec2 spread = texel * (1.0 + roughness * 4.0);
       vec4 filtered = (
-        texture2D(uReflectionTexture, clamp(distorted + vec2(spread.x, 0.0), vec2(0.002), vec2(0.998)))
-        + texture2D(uReflectionTexture, clamp(distorted - vec2(spread.x, 0.0), vec2(0.002), vec2(0.998)))
-        + texture2D(uReflectionTexture, clamp(distorted + vec2(0.0, spread.y), vec2(0.002), vec2(0.998)))
-        + texture2D(uReflectionTexture, clamp(distorted - vec2(0.0, spread.y), vec2(0.002), vec2(0.998)))
+        texture2D(uReflectionTexture, clamp(at + vec2(spread.x, 0.0), vec2(0.002), vec2(0.998)))
+        + texture2D(uReflectionTexture, clamp(at - vec2(spread.x, 0.0), vec2(0.002), vec2(0.998)))
+        + texture2D(uReflectionTexture, clamp(at + vec2(0.0, spread.y), vec2(0.002), vec2(0.998)))
+        + texture2D(uReflectionTexture, clamp(at - vec2(0.0, spread.y), vec2(0.002), vec2(0.998)))
       ) * 0.25;
       captured = mix(captured, filtered, roughness * 0.8);
     }
-    // The physical sky stays the dominant reflection. Captured objects only
-    // occupy their own translucent pixels, avoiding dark mirror silhouettes.
-    return mix(fallback, captured.rgb, coverage * captured.a * clamp(uSeaObjectReflectionStrength * 0.24, 0.0, 0.48));
+    // An object hides the sky behind it. The capture is cleared to transparent
+    // black, so its colour is already weighted by its own coverage.
+    float weight = coverage * clamp(uSeaObjectReflectionStrength * 0.5, 0.0, 1.0);
+#ifdef WATER_OBJECT_REFLECTION_SCALE
+    weight *= waterObjectReflectionScale;
+#endif
+    return fallback * (1.0 - weight * captured.a) + max(captured.rgb, vec3(0.0)) * weight;
   }
   vec3 waterReflectionTangent(vec3 ray) {
     vec3 tangent = vec3(-ray.z, 0.0, ray.x) + vec3(0.0001, 0.0, 0.0);
@@ -148,10 +188,10 @@ export const waterShadingShader = /* glsl */`
     vec3 bitangent = normalize(cross(ray, tangent));
     float spread = roughness * 0.12;
     vec3 filtered = (
-      waterSkyColor(normalize(ray + tangent * spread))
-      + waterSkyColor(normalize(ray - tangent * spread))
-      + waterSkyColor(normalize(ray + bitangent * spread))
-      + waterSkyColor(normalize(ray - bitangent * spread))
+      waterSkyColorSoft(normalize(ray + tangent * spread))
+      + waterSkyColorSoft(normalize(ray - tangent * spread))
+      + waterSkyColorSoft(normalize(ray + bitangent * spread))
+      + waterSkyColorSoft(normalize(ray - bitangent * spread))
     ) * 0.25;
     return mix(centre, filtered, smoothstep(0.001, 0.08, roughness));
   }
@@ -204,31 +244,47 @@ export const waterShadingShader = /* glsl */`
     vec4 captured = texture2D(uRefractionTexture, clamp(uv, vec2(0.002), vec2(0.998)));
     return mix(fallback, max(captured.rgb, vec3(0.0)), coverage * captured.a);
   }
+#ifdef WATER_REFRACTION_ANCHOR
+  vec3 waterRefractionAnchor; // the water surface under this point: the breaker is seen through the sea it stands on
+#endif
   vec3 waterCapturedRefraction(vec3 world, vec3 n, vec3 view, vec3 fallback, float thickness) {
     if (uRefractionActive < 0.5) return fallback;
-    vec4 projected = uRefractionMatrix * vec4(world, 1.0);
+    vec3 at = world;
+#ifdef WATER_REFRACTION_ANCHOR
+    at = waterRefractionAnchor;
+#endif
+    // Metres of wave standing above that water: more water on the way down.
+    float above = max(world.y - at.y, 0.0);
+    vec4 projected = uRefractionMatrix * vec4(at, 1.0);
     vec2 uv = projected.xy / max(projected.w, 0.0001) * 0.5 + 0.5;
     vec3 captureNormal = normalize(mat3(uRefractionViewMatrix) * n);
-    float slope = 1.0 - clamp(n.y, 0.0, 1.0);
+    vec3 captureUp = normalize(mat3(uRefractionViewMatrix) * vec3(0.0, 1.0, 0.0));
     // A centimetre of swash cannot shift the sand by the same screen distance
     // as metres of sea. Zero thickness reads the terrain at its own pixel.
     float distortion = clamp(thickness, 0.0, 1.0);
-    vec2 refracted = uv + normalize(captureNormal.xy + vec2(0.0001)) * mix(0.0035, 0.014, slope) * distortion;
-    float coverage = step(0.002, refracted.x) * step(0.002, refracted.y)
-      * step(refracted.x, 0.998) * step(refracted.y, 0.998) * step(0.0001, projected.w);
+    // The offset follows the normal's departure from flat water, so it is
+    // continuous. Normalised, its direction flipped wherever a steep face
+    // looked into the lens, and the sand behind jumped in bands along the rows.
+    vec2 refracted = uv + clamp((captureNormal.xy - captureUp.xy) * 0.03, vec2(-0.014), vec2(0.014)) * distortion;
+    // Soft at the capture's border; clamp, not a reversed smoothstep.
+    vec2 edge = min(refracted, 1.0 - refracted);
+    float coverage = clamp(min(edge.x, edge.y) / 0.03, 0.0, 1.0) * step(0.0001, projected.w);
     vec4 captured = texture2D(uRefractionTexture, clamp(refracted, vec2(0.002), vec2(0.998)));
     coverage *= captured.a;
     float path = min(uSeaRefractionDepth / max(dot(n, view), 0.22), uSeaRefractionDepth * 4.0);
-    if (uRefractionDepthActive > 0.5 && coverage > 0.5) {
+    if (uRefractionDepthActive > 0.5 && coverage > 0.0) {
       float sceneDepth = texture2D(uRefractionDepthTexture, refracted).x;
       coverage = step(0.000001, sceneDepth) * (1.0 - step(0.999999, sceneDepth)) * coverage;
       if (sceneDepth > 0.000001 && sceneDepth < 0.999999) {
-        vec3 surfaceView = (uRefractionViewMatrix * vec4(world, 1.0)).xyz;
+        vec3 surfaceView = (uRefractionViewMatrix * vec4(at, 1.0)).xyz;
         float sceneViewZ = waterRefractionViewZ(refracted, sceneDepth);
         float rayCosine = max(abs(normalize(surfaceView).z), 0.08);
-        path = min(max((abs(sceneViewZ) - abs(surfaceView.z)) / rayCosine, 0.0), uSeaRefractionDepth * 4.0);
+        // The water the ray really crosses, uncapped: a ray that grazes toward
+        // a far bed fades into deep water instead of switching to it.
+        path = max((abs(sceneViewZ) - abs(surfaceView.z)) / rayCosine, 0.0);
       }
     }
+    path += above;
     float density = clamp(uSeaRefractionTurbidity, 0.0, 1.0);
     density *= 0.45 + 0.55 * density;
     float depthScale = 5.0 / max(uSeaRefractionDepth, 0.25);
@@ -243,23 +299,35 @@ export const waterShadingShader = /* glsl */`
     vec3 absorption = (vec3(0.008, 0.003, 0.001) + density * vec3(0.13, 0.055, 0.018) + hueAbsorption) * depthScale;
     float scattering = density * 0.62 * depthScale * clamp(uSeaRefractionScattering, 0.0, 2.0);
     vec3 transmittance = exp(-(absorption + vec3(scattering)) * path);
-    float scatterAmount = 1.0 - exp(-scattering * path);
-    float forward = pow(max(dot(view, uSunDirection), 0.0), 5.0);
     // The dedicated scattering colour remains the art direction for suspended
     // matter. Water hue only tints part of it, so changing either control is
     // visible without one silently replacing the other.
-    vec3 scatterColor = mix(mix(uDeepColor, max(uSeaRefractionScatteringColor, vec3(0.001)), 0.7), uSunRadiance, forward * 0.46);
+    vec3 scatterColor = mix(uDeepColor, max(uSeaRefractionScatteringColor, vec3(0.001)), 0.7);
     scatterColor *= mix(vec3(1.0), waterTransmissionTint, 0.42);
-    vec3 refractedScene = max(captured.rgb, vec3(0.0)) * transmittance
-      + scatterColor * scatterAmount * mix(0.48, 1.0, sqrt(clamp(uSeaRefractionEnvironment, 0.0, 1.0)))
-      * waterKeyVisibility(world) * (0.82 + forward * 0.2);
-    return mix(fallback, refractedScene, clamp(coverage, 0.0, 1.0));
+    // One medium. What the capture cannot see through this water is the same
+    // water, infinitely deep: the lit body the caller computed. The old
+    // in-scatter was a colour of its own that ignored the light (olive at
+    // noon, brown at dawn) and the capture's edge switched between the two:
+    // the hard line across the waves at eye level, sand below it, teal above.
+    vec3 hue = scatterColor / max(max(scatterColor.r, scatterColor.g), max(scatterColor.b, 0.001));
+    vec3 medium = fallback * mix(vec3(1.0), hue, 0.2 * clamp(uSeaRefractionScattering, 0.0, 1.0));
+    vec3 seen = transmittance * clamp(coverage, 0.0, 1.0);
+    return max(captured.rgb, vec3(0.0)) * seen + medium * (vec3(1.0) - seen);
   }
   // Two scrolling slices of the cloud volume as wind ripples on the swell.
-  float waterRippleHeight(vec2 p) {
+  // Each slice is a plane tilted through the periodic volume, so no world
+  // vector lands on a whole tile, and it is pushed along its normal by a slow
+  // drift so near returns differ. Read on axis planes, the ripple was an exact
+  // square tile of 1/(2.9 x scale) metres, parallel to the beach: the waffle.
+  float waterRippleDrift(vec2 p) {
+    return (gerstnerNoise(p * 0.23 + vec2(5.3, 1.7)) - 0.5) * 2.0;
+  }
+  float waterRippleHeight(vec2 p, float drift) {
     vec2 a = p * uRippleScale + uWind * uTime * 0.05;
     vec2 b = p * uRippleScale * 2.9 - uWind * uTime * 0.03;
-    return texture(uNoise, vec3(a, 0.31)).r * 0.65 + texture(uNoise, vec3(b, 0.67)).b * 0.35;
+    vec3 ta = ${RIPPLE_PLANES[0].map(vec).join(' + ')} + vec3(0.0, 0.0, 0.31);
+    vec3 tb = ${RIPPLE_PLANES[1].map(vec).join(' + ')} + vec3(0.0, 0.0, 0.67);
+    return texture(uNoise, ta).r * 0.65 + texture(uNoise, tb).b * 0.35;
   }
   // The large wind field says whether a crest can whitecap. This finer field
   // only distributes its unresolved chop: irregular paws tens of metres wide
@@ -309,9 +377,10 @@ export const waterShadingShader = /* glsl */`
     }
     if (w > 0.001) {
       float e = 0.02 / max(uRippleScale, 0.001);
-      float h = waterRippleHeight(p);
-      float hx = waterRippleHeight(p + vec2(e, 0.0));
-      float hz = waterRippleHeight(p + vec2(0.0, e));
+      float drift = waterRippleDrift(p);
+      float h = waterRippleHeight(p, drift);
+      float hx = waterRippleHeight(p + vec2(e, 0.0), drift);
+      float hz = waterRippleHeight(p + vec2(0.0, e), drift);
       float relief = 0.06 * w;
       // The ripple is a height field over the *water surface*, rather than a
       // world-horizontal normal stamped onto every face.  Project its slope onto
@@ -381,8 +450,10 @@ export const waterShadingShader = /* glsl */`
   // detail octave is rotated and warped so the volume's tiling never appears
   // as a lattice. age 0..1 comes from the foam field: old foam survives only
   // where the fine octave is strong, so a patch breaks into rags and holes.
-  float waterFoam(vec2 fp, float coverage, float pixel, float age, out float bubbles) {
+  // height: how much foam stands here, 0..1, for its relief light.
+  float waterFoam(vec2 fp, float coverage, float pixel, float age, out float bubbles, out float height) {
     bubbles = 0.0;
+    height = 0.0;
     // uNoiseReady is uniform. Do not return on the per-fragment coverage
     // field before fwidth below: GLSL derivatives become undefined where a
     // foam edge crosses a pixel quad, which showed up as a dotted inner line.
@@ -395,7 +466,12 @@ export const waterShadingShader = /* glsl */`
     // neighbouring stretches read different depths of the volume, and there
     // is no plane in it left to repeat. The offset is hashed value noise,
     // itself without a period.
-    float slice = fract(0.12 + gerstnerNoise(carrier * 0.019) * 3.0);
+    // The plane is also tilted by irrational slopes and bent at a few repeats:
+    // shifted only smoothly, the same islands came back one repeat away.
+    // Not wrapped: the volume repeats in depth by itself, and a fract() here
+    // cut the detail octave (read at 0.63 of this depth) along a line every
+    // couple of metres once the tilt made the slice climb.
+    float slice = 0.12 + gerstnerNoise(carrier * 0.019) * 3.0 + dot(lp, vec2(0.618, 0.7549)) + gerstnerNoise(lp * 0.37 + vec2(5.1, -2.3)) * 1.2;
     vec3 lace = texture(uNoise, vec3(lp, slice)).rgb;
     // Variety. The detail octave followed the lace scale, so a large lace
     // (islands of several metres) had nothing finer in it: smooth blobs of
@@ -409,9 +485,11 @@ export const waterShadingShader = /* glsl */`
     // Rotated and warped between octaves: the noise volume tiles, the foam must not.
     vec2 dp = mat2(0.83, -0.56, 0.56, 0.83) * lp * detailScale + lace.g * 0.35;
     lp += (vec2(lace.b, lace.g) - 0.5) * 0.9;
-    vec3 detail = texture(uNoise, vec3(dp, fract(0.52 + lace.r * 0.2 + slice * 0.63))).rgb;
+    vec3 detail = texture(uNoise, vec3(dp, 0.52 + lace.r * 0.2 + slice * 0.63)).rgb;
     float fine = mix(0.5, detail.b, fineFade);
-    coverage *= mix(1.0, 0.4 + 0.6 * smoothstep(0.1, 0.7, fine), clamp(age, 0.0, 1.0));
+    // Old foam is drawn out along the flow into windrows, a few metres apart
+    // and tens of metres long, instead of shrinking in place.
+    coverage *= mix(1.0, 0.25 + 1.5 * gerstnerNoise(vec2(carrier.x * 0.31, carrier.y * 0.045) + 13.1), clamp(age, 0.0, 1.0) * 0.8);
     float pattern = lace.r * 0.5 + detail.r * 0.3 + fine * 0.2;
     // The former threshold used 1 - coverage directly against this biased
     // distribution. That made .25 empty while .5 covered most of the sea.
@@ -421,12 +499,21 @@ export const waterShadingShader = /* glsl */`
     float width = max(fwidth(pattern) * 0.75, 0.008);
     float coverageActive = smoothstep(0.0005, 0.0025, coverage);
     float islands = smoothstep(threshold - width, threshold + width, pattern);
+    // Density: thin at an island's rim, dense in its core — not a cut-out.
+    float thick = clamp((pattern - threshold) / 0.11 + 0.15, 0.0, 1.0);
+    float density = islands * (1.0 - exp(-3.0 * thick - 0.35));
+    // Aged foam opens into a net on the cell walls, thickest where walls meet,
+    // as a real patch does before it is gone; fresh foam is still whole.
+    float netLevel = mix(0.28, 0.40, age);
+    float net = smoothstep(netLevel - 0.03, netLevel + 0.03, (1.0 - lace.g) + (fine - 0.5) * 0.08);
     float pores = mix(0.52, detail.g, fineFade);
     float porosity = smoothstep(0.20, 0.54, fine + coverage * 0.52) * mix(0.62, 1.0, pores);
     // Once lace is smaller than a pixel, resolve it to its area-weighted film
     // density. Thresholding a mean pattern would switch that foam off.
     float farFilm = coverage * (0.62 + 0.38 * 0.52);
-    float body = mix(farFilm, islands * porosity, fineFade);
+    farFilm *= mix(1.0, 0.57, clamp(age, 0.0, 1.0));
+    float body = mix(farFilm, density * mix(1.0, net, clamp(age, 0.0, 1.0)) * porosity, fineFade);
+    height = coverageActive * thick * smoothstep(threshold - width * 4.0, threshold + 0.11, pattern) * fineFade;
     // The sparse rim is a film left as a patch breaks apart, not a cloudy
     // halo around each noise cell. It is deliberately narrower than the body
     // and fades by pixel width before it can sparkle at distance.
@@ -444,6 +531,33 @@ export const waterShadingShader = /* glsl */`
   float waterSeaFoamCoverage;
   float waterSeaFoamAge;
 #endif
+#ifdef WATER_BODY_NORMAL
+  vec3 waterBodyNormal; // the mean water surface the medium is seen through; the breaker sets it
+#endif
+  // Sun a thin sheet of water scatters toward the eye from behind it: nothing
+  // for a film, most at about 0.6 m, gone within a few metres. Beer's exp(-x)
+  // alone peaked at zero thickness, so the thinnest lip glowed most.
+  float waterSlabGlow(float thickness) {
+    float x = 1.6 * thickness;
+    return x * exp(1.0 - x);
+  }
+  // A reflected ray that looks down lands on the sea itself: part mirrored
+  // sky, part lit water — not the black it was under a steep face.
+  vec3 waterBelowRadiance(vec3 reflectedDown, float keyVisibility) {
+    vec3 mirrored = waterSkyColor(vec3(reflectedDown.x, abs(reflectedDown.y), reflectedDown.z)) * 0.3;
+    vec3 lit = uWaterColor * (uFillIrradiance + uSunRadiance * 0.3 * keyVisibility) * 0.55 / WATER_PI;
+    return mix(mirrored, lit, 0.6);
+  }
+  // One light for every foam: the film on the water, the roller's volume and
+  // the spray. sky: waterSkyIrradiance(n) plus fill, from the caller; sunShare:
+  // the sun's visibility times the caller's own shading. Foam is a white
+  // diffuser: the sky the water reflects, the sun on its face and, where it is
+  // thin, the sun through it from behind.
+  vec3 waterFoamLight(vec3 sky, vec3 n, vec3 view, float sunShare, float powder) {
+    float forward = pow(max(dot(-view, uSunDirection), 0.0), 6.0) * (1.0 - 0.6 * powder);
+    vec3 irradiance = sky + uSunRadiance * sunShare * (max(dot(n, uSunDirection), 0.0) + 0.8 * forward);
+    return vec3(0.9, 0.92, 0.88) * irradiance / WATER_PI * uFoamBrightness;
+  }
   vec3 shadeWater(vec3 world, vec3 n, vec3 view, float pixel, vec2 foamUv, float foamCoverage, float foamAge, float thickness, float lift, float bed) {
     // A thin, moving loft can cover an MSAA sample while the pixel centre lies
     // just outside its triangle. Its interpolants may then extrapolate by a
@@ -456,29 +570,49 @@ export const waterShadingShader = /* glsl */`
     float facing = clamp(dot(n, view), 0.0, 1.0);
     float fresnel = 0.02 + 0.98 * pow(1.0 - facing, 5.0);
     vec3 reflected = reflect(-view, n);
-    float unresolvedRoughness = waterRippleUnresolvedRoughness(world.xz, pixel);
     // The underside of a lip looks down at the water, not at a mirrored sky.
     float below = 1.0 - smoothstep(-0.25, 0.0, reflected.y);
+    vec3 reflectedDown = reflected;
     reflected.y = abs(reflected.y);
-    vec3 reflection = mix(waterSkyReflection(reflected, unresolvedRoughness), uDeepColor * uFillIrradiance * 0.6, below);
-    reflection = waterObjectReflection(world, n, reflection, unresolvedRoughness);
+    // Toward the horizon the mirrored sky is magnified: one row of the cloud
+    // atlas spans many screen rows and its steps read as horizontal streaks.
+    // Filter it there as a rough sea would.
+    float grazing = 1.0 - smoothstep(0.004, 0.07, reflected.y);
+    float unresolvedRoughness = max(waterRippleUnresolvedRoughness(world.xz, pixel), 0.2 * grazing);
     float keyVisibility = waterKeyVisibility(world);
+    vec3 reflection = mix(waterSkyReflection(reflected, unresolvedRoughness), waterBelowRadiance(reflectedDown, keyVisibility), below);
+    reflection = waterObjectReflection(world, n, view, reflected, reflection, unresolvedRoughness);
     reflection += uSunRadiance * waterSunGlint(reflected, unresolvedRoughness) * uGlint * 0.02 * keyVisibility;
     float sunDiffuse = max(dot(n, uSunDirection), 0.0);
-    vec3 body = mix(uDeepColor, uWaterColor, pow(facing, 0.6));
-    body *= (uFillIrradiance + uSunRadiance * (0.15 + 0.45 * sunDiffuse) * keyVisibility) * 0.55 / WATER_PI;
+    // The medium is seen through the mean water surface. A breaker's wall
+    // facing the lens is no more water than the flat sea at its foot; only
+    // its reflection, Fresnel and glow belong to the wall itself.
+    vec3 bodyNormal = n;
+#ifdef WATER_BODY_NORMAL
+    bodyNormal = waterBodyNormal;
+#endif
+    float bodyFacing = clamp(dot(bodyNormal, view), 0.0, 1.0);
+    float bodyDiffuse = max(dot(bodyNormal, uSunDirection), 0.0);
+    vec3 body = mix(uDeepColor, uWaterColor, pow(bodyFacing, 0.6));
+    body *= (uFillIrradiance + uSunRadiance * (0.15 + 0.45 * bodyDiffuse) * keyVisibility) * 0.55 / WATER_PI;
     // Translucency: sun and sky through thin water toward the eye. The wall
     // of a wave lit from behind glows green.
     float transmit = exp(-thickness * 1.6);
     float backlight = pow(max(dot(view, -uSunDirection), 0.0), 3.0);
-    body += uWaterColor * uSunRadiance / WATER_PI * backlight * (lift + transmit * 1.5) * uCrestGlow * 1.6 * keyVisibility;
+    vec3 sunThrough = uWaterColor * uSunRadiance / WATER_PI * backlight * uCrestGlow * 1.6 * keyVisibility;
+    body += sunThrough * lift;
     body += uWaterColor * uFillIrradiance / WATER_PI * transmit * 1.8;
     // Shallow water: the sand shows through — wet sand, lit as the beach's own
     // wet band is, by the share the caller took from Beer-Lambert for the
     // depth — and the surface reads less as a mirror over it.
-    vec3 bedLit = uBedColor * 0.55 * (uFillIrradiance + uSunRadiance * (0.3 + 0.7 * sunDiffuse) * keyVisibility) / WATER_PI;
+    vec3 bedLit = uBedColor * 0.55 * (uFillIrradiance + uSunRadiance * (0.3 + 0.7 * bodyDiffuse) * keyVisibility) / WATER_PI;
     body = mix(body, bedLit, bed);
     body = waterCapturedRefraction(world, n, view, body, thickness);
+    // The sheet's own scattering reaches the eye whatever lies behind it, so it
+    // comes after the capture; sand under a film blocks it.
+    vec3 glow = sunThrough * 1.5 * waterSlabGlow(thickness) * (1.0 - bed);
+    body += glow;
+    vec3 behind = body;
     // Fresnel does not know how deep the water is. Damping the reflection by
     // the bed killed the sheen exactly where a real shore has most of it — on
     // the swash film, a millimetre of water over wet sand, which is a mirror.
@@ -496,23 +630,47 @@ export const waterShadingShader = /* glsl */`
       + cursorSpecular * (0.38 + fresnel * 0.82);
     color += cursorLight.radiance * cursorSurfaceResponse;
     float bubbles;
-    float foam = waterFoam(foamUv, foamCoverage, pixel, foamAge, bubbles);
+    float foamHeight;
+    float foam = waterFoam(foamUv, foamCoverage, pixel, foamAge, bubbles, foamHeight);
 #ifdef WATER_SEA_FOAM
     // A breaker carries two foams: its own, riding with the wave in the
     // crest-and-arc frame, and the sea's, lying still on the water the wave
     // runs through. Each keeps its own frame; drawn in one, the other slides.
     float seaBubbles;
-    float seaFoam = waterFoam(waterFlowUv(world.xz), waterSeaFoamCoverage, pixel, waterSeaFoamAge, seaBubbles);
+    float seaHeight;
+    float seaFoam = waterFoam(waterFlowUv(world.xz), waterSeaFoamCoverage, pixel, waterSeaFoamAge, seaBubbles, seaHeight);
     bubbles = mix(bubbles, seaBubbles, step(foam, seaFoam));
+    foamHeight = max(foamHeight, seaHeight);
     foam = max(foam, seaFoam);
 #endif
+    // Relief. Foam is a layer of bubbles standing on the water, not a decal:
+    // its height tilts the normal it is lit with, so rims catch the light and
+    // hollows sit in the shade. A surface gradient from the screen
+    // derivatives, taken before any branch; it fades with the lace itself.
+    vec3 dpx = dFdx(world);
+    vec3 dpy = dFdy(world);
+    vec3 r1 = cross(dpy, n);
+    vec3 r2 = cross(n, dpx);
+    float det = dot(dpx, r1);
+    vec3 relief = (dFdx(foamHeight) * r1 + dFdy(foamHeight) * r2) * (sign(det) / max(abs(det), 1e-10)) * mix(0.02, 0.008, foamAge);
+    relief *= min(1.0, 0.7 / max(length(relief), 1e-6));
+    if (foam <= 0.0) return color;
+    vec3 nF = normalize(n - relief);
     // Beer/powder from the clouds: a thick patch is lit flat white, a thin one
     // keeps some of the water's shading under it. Pores only attenuate the film
     // a little; they are not separate bright bubbles on every noise cell.
     float powder = 1.0 - exp(-foam * 2.6);
-    vec3 foamLit = vec3(0.9, 0.92, 0.88) * (uFillIrradiance + uSunRadiance * sunDiffuse * keyVisibility) / WATER_PI * (0.55 + 0.45 * powder) * uFoamBrightness;
+    float cavity = mix(0.72, 1.0, smoothstep(0.0, 0.6, foamHeight));
+    vec3 foamLit = waterFoamLight(waterSkyIrradiance(nF) * cavity + uFillIrradiance, nF, view, keyVisibility, powder) * (0.55 + 0.45 * powder);
+    // Foam lies on, or is made of, the water that glows: it scatters the same
+    // light, so a backlit lip's foam is never darker than the lip.
+    foamLit += (sunThrough * lift + glow) * (1.0 - 0.35 * powder);
+    // Thin foam lets through what the water behind it shows; and foam on a
+    // thin sheet is lit through the sheet from its far side as well.
+    foamLit += behind * (1.0 - powder);
+    foamLit += waterFoamLight(waterSkyIrradiance(-nF), -nF, view, keyVisibility, powder) * exp(-thickness * 1.6) * (1.0 - 0.5 * powder);
     foamLit *= mix(0.82, 0.98, bubbles);
-    foamLit += uSunRadiance * pow(max(dot(reflected, uSunDirection), 0.0), 48.0) * uGlint * (0.02 + 0.06 * bubbles) * keyVisibility;
+    foamLit += uSunRadiance * pow(max(dot(reflect(-view, nF), uSunDirection), 0.0), 48.0) * uGlint * (0.02 + 0.06 * bubbles) * keyVisibility;
     return mix(color, foamLit, foam);
   }
 `;

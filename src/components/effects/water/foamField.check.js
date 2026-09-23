@@ -30,7 +30,7 @@ assert.ok(foam.includes('float across = tail * front;'), 'the narrow symmetric c
 assert.ok(foam.includes('float(i) * 17.3'), 'trace seed is a stable bore slot, never its moving position');
 assert.ok(!foam.includes('bore.x * 0.043'), 'trace does not translate its material stamp with the crest');
 assert.ok(surface.includes('mix(crest * 0.9, memory.x, memory.z)'), 'deposited density is not thresholded a second time in open water');
-assert.ok(breaking.includes('waterSeaFoamCoverage = max(memory.x * memory.z, crest * 0.9 * (1.0 - memory.z));'), 'the breaker keeps deposited foam independently of analytic threshold');
+assert.ok(breaking.includes('waterSeaFoamCoverage = mix(crest * 0.9, memory.x, memory.z);'), 'the breaker carries the sea\'s foam exactly as the open water beside it does');
 assert.ok(breaking.includes('#define WATER_SEA_FOAM'), 'the sea\'s foam on the breaker lies in the world frame, its own rides with the wave');
 
 assert.ok(foam.includes('export const foamFreezeKey = (settings = {})'), 'frozen phase has a stable settings-derived seed');

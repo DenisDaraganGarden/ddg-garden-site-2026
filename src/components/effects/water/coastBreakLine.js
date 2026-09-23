@@ -18,7 +18,10 @@ export function coastBreakLine(definition, height, along0, length, samples = BRE
   const start = -160;
   for (let i = 0; i <= samples; i += 1) {
     const s = along0 + (i / samples) * length;
-    const depthAtBreak = Math.max(heightAt ? heightAt(s) : height, 0.05) / gamma;
+    // A set wave taller than the outer water can carry breaks at the outer
+    // limit: finding no crossing, it fell back to the waterline and cut a
+    // hole with a rounded end into the middle of the crest.
+    const depthAtBreak = Math.min(Math.max(heightAt ? heightAt(s) : height, 0.05) / gamma, heightAt ? 0.99 * -coastHeight(start, s, definition) : Infinity);
     // A crossing from deeper to shallower water; a coast that is shallow all
     // the way out has no unbroken wave to offer, and gets the waterline.
     let found = -1.5;
