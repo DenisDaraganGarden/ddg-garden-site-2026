@@ -205,6 +205,7 @@ varying float vOpacity;
 varying float vDetail;
 varying float vSoft;
 varying float vStretch;
+varying vec2 vBead;
 float sprayHash(float x) { return fract(sin(x * 127.1 + 311.7) * 43758.5453); }
 `;
 
@@ -352,6 +353,7 @@ export const sprayVertexBody = /* glsl */`
     vRight = right * cr + up * sr;
     vUp = up * cr - right * sr;
     vStretch = 1.0;
+    vBead = vec2(0.0);
     vec2 viewQuad = vec2(
       cr * vQuad.x - sr * vQuad.y,
       sr * vQuad.x + cr * vQuad.y
@@ -369,6 +371,9 @@ export const sprayVertexBody = /* glsl */`
     vec2 axis = len > 1e-5 ? trail / len : vec2(0.0, 1.0);
     float halfLength = 0.5 * len + draw;
     vStretch = halfLength / draw;
+    // A torn-off strand is one ligament while young and a chain of beads a
+    // moment later; a thrown drop is a bead from the start.
+    vBead = vec2(curtain ? smoothstep(0.08, 0.35, age) : 1.0, sprayHash(seed + 21.4) * 6.28318530718);
     centre = vec3(0.5 * (mvPosition.xy + tail), mvPosition.z);
     offset = axis * vQuad.x * halfLength + vec2(-axis.y, axis.x) * vQuad.y * draw;
     vec3 flightW = world - worldAgo;
@@ -395,6 +400,7 @@ varying float vOpacity;
 varying float vDetail;
 varying float vSoft;
 varying float vStretch;
+varying vec2 vBead;
 `;
 
 export const sprayFragmentBody = /* glsl */`
@@ -410,12 +416,26 @@ export const sprayFragmentBody = /* glsl */`
     // froth a few centimetres thick, every drop was glass, and there was no
     // spray to see up close.
     vec2 q = vec2(vQuad.x * vStretch, vQuad.y);
+    // f runs from the tail's end (0) to the head (1). Drawn as an even rod of
+    // one width and one opacity, a long streak read as a grey stick — geometry,
+    // not water. A drop smeared along its flight is a comet: full at the head,
+    // narrowing and thinning to nothing at the tail.
+    float f = clamp(0.5 + 0.5 * q.x / vStretch, 0.0, 1.0);
+    float streak = smoothstep(1.5, 4.0, vStretch);
+    float width = mix(1.0, mix(0.3, 1.0, sqrt(f)), streak);
     float along = max(abs(q.x) - (vStretch - 1.0), 0.0);
-    float d2 = along * along + q.y * q.y;
+    float across = q.y / width;
+    float d2 = along * along + across * across;
     if (d2 > 1.0) discard;
     float core = 1.0 - d2;
-    float head = mix(0.4, 1.0, clamp(0.5 + 0.5 * q.x / vStretch, 0.0, 1.0));
-    alpha = (1.0 - exp(-uSprayExtinction * 1.6 * core)) * head * vOpacity;
+    float head = mix(mix(0.4, 1.0, f), smoothstep(0.0, 0.7, f), streak);
+    // Past a few radii the strand breaks into beads, each about three radii
+    // long, its phase its own so no two strands break alike.
+    float beads = smoothstep(-0.35, 0.45, cos(q.x * 2.0943951 + vBead.y));
+    head *= mix(1.0, beads, vBead.x * streak);
+    // The ink of a drop is spread over its streak: past six radii a longer
+    // smear is a fainter one, as in a photograph.
+    alpha = (1.0 - exp(-uSprayExtinction * 1.6 * core)) * head * vOpacity * min(1.0, sqrt(6.0 / vStretch));
     if (alpha < 0.003) discard;
     vec3 nS = normalize(vView * sqrt(core) + vUp * q.y);
     // The same light as every other foam (waterFoamLight), and water, not
