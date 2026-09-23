@@ -41,6 +41,8 @@ function SeaWaterActive({
   // createSurfRibbons() holder from the scene: BreakingWaves fills it with the
   // frame's breakers, for anything that has to ride them (surfSurfaceSampler).
   surfRibbons = null,
+  // { active, murk } from UnderwaterView: the camera is under the sea this frame.
+  underwater = null,
 }) {
   // The three product materials shade the same physical sea. Build one noise
   // volume here and hand its lifecycle-safe handle to all of them; each child
@@ -98,6 +100,7 @@ function SeaWaterActive({
         sceneBindings={sceneBindings}
         farVisible={sceneSettings.farWaterVisible !== false}
         nearExtent={sceneSettings.waterExtent}
+        underwater={underwater}
       />
       {definition.terrainEnabled ? <ShoreWater
         settings={effectiveSettings}
@@ -105,6 +108,7 @@ function SeaWaterActive({
         noise={noise}
         coast={coast}
         sceneBindings={sceneBindings}
+        underwater={underwater}
       /> : null}
       {effectiveSettings.surfEnabled && definition.terrainEnabled ? (
         <BreakingWaves

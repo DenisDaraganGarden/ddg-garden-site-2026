@@ -11,6 +11,9 @@ import { SEGMENT } from './riderSkeleton';
 import { createSurfWater } from './surfWater';
 import { surfAlongAt, surfLineup } from './lineup';
 import { publishSurfPlay, surfPlay } from './surfPlayStore';
+import { createWakeEmitter, emitBoardWake, resetWakeEmitter } from './boardWake';
+import { ageWake, clearWake, waterWake } from '../effects/water/waterWake';
+import { boardAgainstSolid, hasSolids, solidHeightAt } from '../../placed/solidSurface';
 
 // The surfboard in the scene: the physics body on the water the GPU draws.
 //
@@ -56,6 +59,12 @@ const SETTLE_CHANGE = 0.005;
 // slide down it at the editor's soft mooring (4 /s², up to 1.6 m off in 1.5 s
 // on testy's breaker); held four times firmer it is at rest within 0.7 m.
 const SETTLE_MOOR = 16;
+// A solid placed model (its «Коллизия» on) is ground the board rides onto
+// where it stands at most this much over the board (m), and a wall it stops
+// against where it stands higher; off a wall the board comes back with this
+// share of its speed, and the rider's own slam check decides if he goes.
+const WALL_STEP = .35;
+const WALL_BOUNCE = .25;
 
 const worldPosition = new THREE.Vector3();
 const worldQuaternion = new THREE.Quaternion();
@@ -135,10 +144,12 @@ export default function Surfboard({
       frame: 0,
       physicsMs: 0,
       sample: {},
+      wake: createWakeEmitter(), // what it and the rider leave on the water
     };
   }
 
   useEffect(() => () => {
+    clearWake(waterWake);
     surfPlay.board.ready = false;
     // No board, no spot to pin: leaving auto falls back to the stored fields.
     surfPlay.home = null;
@@ -265,6 +276,7 @@ export default function Surfboard({
         resetRider(rider, ride.view);
         syncRider(rider, surfPlay.intent);
         ride.rider = rider;
+        resetWakeEmitter(ride.wake);
       } else {
         place(ride, checkpoint, time, EMPTY_DRAFT);
         ride.placed = checkpoint;
@@ -288,6 +300,7 @@ export default function Surfboard({
         boardView(ride);
         resetRider(rider, ride.view);
         syncRider(rider, surfPlay.intent);
+        resetWakeEmitter(ride.wake);
       }
       if (surfPlay.checkpointRequest !== ride.checkpointRequest) {
         ride.checkpointRequest = surfPlay.checkpointRequest;
@@ -306,23 +319,44 @@ export default function Surfboard({
 
     if (dt > 0) {
       const started = performance.now();
+      // Solid models under the board are ground where it can ride up onto them.
+      const solid = hasSolids();
+      const boardWater = solid ? (x, z, at, out) => {
+        water.sample(x, z, at, out);
+        const top = solidHeightAt(x, z);
+        if (top > out.ground && top < state.p[1] + WALL_STEP) out.ground = top;
+        return out;
+      } : water.sample;
       if (mode === 'play') {
         // The board under the rider as he left it last frame: his weight and
         // what he does while he is on it, the leash's pull once he is off.
         const on = rider.out.onBoard;
-        stepBoard(state, on ? riddenBody : emptyBody, on ? rider.out.input : null, water.sample, time, dt, { substep: SUBSTEP, external: rider.out.leash });
+        ride.before ??= [0, 0, 0];
+        ride.before[0] = state.p[0]; ride.before[1] = state.p[1]; ride.before[2] = state.p[2];
+        stepBoard(state, on ? riddenBody : emptyBody, on ? rider.out.input : null, boardWater, time, dt, { substep: SUBSTEP, external: rider.out.leash });
+        if (solid && boardAgainstSolid(state.p, state.q, hull.length, surfboardWidth, WALL_STEP)) {
+          state.p[0] = ride.before[0]; state.p[2] = ride.before[2];
+          state.v[0] *= -WALL_BOUNCE; state.v[2] *= -WALL_BOUNCE; state.w[1] *= .5;
+        }
         // Then the rider on the board where it now is.
         boardView(ride);
         ride.riderTime = time;
-        stepRider(rider, { dt, board: ride.view, intent: surfPlay.intent, water: riderWater, ground: terrainQuery?.heightAt ?? null });
+        const ground = solid ? (x, z) => Math.max(terrainQuery?.heightAt?.(x, z) ?? -Infinity, solidHeightAt(x, z)) : (terrainQuery?.heightAt ?? null);
+        stepRider(rider, { dt, board: ride.view, intent: surfPlay.intent, water: riderWater, ground });
         riderEvents(rider, state);
         if (!rider.world.bodies.every((body) => Number.isFinite(body.x[0] + body.x[1] + body.x[2] + body.q[3]))) resetRider(rider, ride.view);
+        emitBoardWake(ride.wake, waterWake, {
+          dt, state, length: hull.length, rider,
+          water: (x, z, out) => water.sample(x, z, time, out),
+          scale: { waves: settings.surfboardWakeWaves, foam: settings.surfboardWakeFoam },
+        });
       } else {
-        stepBoard(state, emptyBody, null, water.sample, time, dt, {
+        stepBoard(state, emptyBody, null, boardWater, time, dt, {
           substep: SUBSTEP,
           moor: { x: checkpoint.x, z: checkpoint.z, yaw: checkpoint.yaw },
         });
       }
+      ageWake(waterWake, dt);
       ride.physicsMs += (performance.now() - started - ride.physicsMs) * 0.1;
       // Whatever the water ever hands it, a lost board comes home rather than
       // taking NaN into the scene graph and the mirror.

@@ -449,6 +449,14 @@ export default function WaterReflections({
       shouldRenderReflection = reflectionEnabled;
       shouldRenderRefraction = refractionEnabled && Boolean(refractionTarget);
     }
+    // The wireframe view (WaterScene's DebugWireframe) is about the meshes on
+    // screen. Captured through it, every mesh drawn again as lines into the
+    // mirror and the refraction made the view twenty times slower; the water
+    // keeps the last captures it had instead.
+    if (scene.userData.ddgWireframe === true && reflectionData.current.texture) {
+      shouldRenderReflection = false;
+      shouldRenderRefraction = false;
+    }
 
     if (!shouldRenderReflection && !shouldRenderRefraction) {
       return;

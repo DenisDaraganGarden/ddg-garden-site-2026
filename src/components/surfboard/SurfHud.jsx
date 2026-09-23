@@ -54,14 +54,15 @@ const RESTING_SPEED = 1.5;
 const STICK_REACH = 16;
 
 // What the rider is doing, from his own state first: in the water he is
-// fallen or swimming back (he climbs on by himself, R is not asked for),
+// fallen, swimming back or climbing on (all by himself, R is not asked for),
 // getting up is its own moment; on his feet, the worst thing that is true
 // wins. «On the wave» means a breaker under the board, not any slope of the
 // swell. The breaker share and the stroke are read live: the snapshot only
 // says when to look again.
 const rideState = ({ rider, wipeout, airborne, planing, speed }) => (
   rider === 'fallen' ? ['упал', 'wiped out']
-    : rider === 'recover' ? ['плывёт к доске', 'swimming back']
+    : rider === 'swim' ? ['плывёт к доске', 'swimming back']
+      : rider === 'recover' ? ['забирается на доску', 'climbing on']
       : rider === 'popup' ? ['встаёт', 'getting up']
         : rider === 'liedown' ? ['ложится', 'lying down']
           : wipeout ? ['упал', 'wiped out']

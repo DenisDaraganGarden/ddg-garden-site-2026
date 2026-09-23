@@ -361,6 +361,60 @@ export function proneControls(board, p, out) {
   return out;
 }
 
+// Swimming, in a frame of his own: +Z the way he swims, y = 0 the water's
+// surface, the pelvis over x = z = 0. Head-up crawl — the stroke lifeguards
+// and surfers swim to a board with, eyes on it: face forward just above the
+// water, arms turning over in turn, legs in a flutter kick.
+// p: { strokeL, strokeR (0..1 phase of each arm), kick (phase 0..1), lift 0..1
+// (how far the head is held up) }.
+export function swimControls(p, out) {
+  out.pelvis[0] = 0; out.pelvis[1] = -0.16; out.pelvis[2] = 0;
+  qFromAxisAngle(X, 6 * DEG, qTmp);
+  qMul(PRONE_BASE, qTmp, out.pelvisQ);
+  const lift = clamp(p.lift ?? 1, 0, 1);
+  qFromAxisAngle(X, -(8 + 8 * lift) * DEG, out.lumbarQ);
+  qFromAxisAngle(X, -(6 + 8 * lift) * DEG, out.thoracicQ);
+  // The head rolls a little with the arms, held up to see where he goes.
+  const roll = Math.sin(2 * Math.PI * (p.strokeL ?? 0)) * 8 * DEG;
+  qFromAxisAngle(Z, roll, qTmp);
+  qFromAxisAngle(X, -(22 + 26 * lift) * DEG, qTmp2);
+  qMul(qTmp, qTmp2, out.neckQ);
+  // Flutter kick: each leg up and down from the hip, half a beat apart, toes
+  // pointed back.
+  const kick = p.kick ?? 0;
+  for (const [side, x, beat] of [['L', 0.09, 0], ['R', -0.09, 0.5]]) {
+    const s = out[`sole${side}`];
+    s[0] = x; s[1] = -0.3 + 0.13 * Math.sin(2 * Math.PI * (kick + beat)); s[2] = -0.9;
+    qFromAxisAngle(X, 0.75, qTmp);
+    qMul(PRONE_BASE, qTmp, out[`footQ${side}`]);
+    const pole = out[`kneePole${side}`];
+    pole[0] = 0; pole[1] = -1; pole[2] = -0.1;
+  }
+  // Crawl: in ahead of the shoulder, pulled down and back under the chest to
+  // the hip, out of the water there and swung forward over it, elbow high.
+  const shoulderZ = 0.47;
+  for (const [side, sign] of [['L', 1], ['R', -1]]) {
+    const phase = ((p[`stroke${side}`] ?? 0) % 1 + 1) % 1;
+    const hand = out[`hand${side}`];
+    const pole = out[`elbowPole${side}`];
+    if (phase < 0.5) {
+      const t = phase / 0.5;
+      hand[0] = sign * (0.16 + 0.06 * Math.sin(Math.PI * t));
+      hand[1] = -0.14 - 0.3 * Math.sin(Math.PI * t);
+      hand[2] = shoulderZ + 0.52 - 0.95 * smoothstep(0, 1, t);
+      pole[0] = sign * 0.7; pole[1] = 0.7; pole[2] = 0;
+    } else {
+      const t = (phase - 0.5) / 0.5;
+      hand[0] = sign * (0.26 + 0.12 * Math.sin(Math.PI * t));
+      hand[1] = -0.12 + 0.36 * Math.sin(Math.PI * t);
+      hand[2] = shoulderZ - 0.43 + 0.95 * smoothstep(0, 1, t);
+      pole[0] = sign * 0.35; pole[1] = 1; pole[2] = -0.2;
+    }
+    normalize(pole);
+  }
+  return out;
+}
+
 // Getting up: t 0..1 from lying (with the hands pressed on the deck by the
 // chest) to standing. Each part moves on its own clock, as a real pop-up
 // goes: chest up on straight arms, the feet swung through under him, then up.

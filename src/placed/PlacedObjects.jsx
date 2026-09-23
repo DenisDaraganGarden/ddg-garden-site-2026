@@ -1,5 +1,10 @@
-import React, { Suspense, useEffect, useMemo } from 'react';
+import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
+import { activeProjectId, projectModelUrl } from '../features/engine/projectApi.js';
+import { setWakeObstacles, waterWake } from '../components/effects/water/waterWake.js';
+import { waterlineCircles, waterlineCrossings } from './waterline.js';
+import { setSolid, solidHeightfield } from './solidSurface.js';
 import { makeCoastTree } from '../plants/treeModel.js';
 import { TREE_SPECIES } from '../plants/treeSpecies.js';
 import { makeOleaster } from '../plants/oleasterModel.js';
@@ -98,15 +103,138 @@ function PlacedRocks({ objects, lowPower, lighting, selectedId }) {
     });
 }
 
+// --- imported models -------------------------------------------------------------
+// A model's file, seen from this editor: the project's own folder on the local
+// server (projectStore.mjs). The site's own scene is no project and has none.
+const modelUrl = (object) => {
+    const project = activeProjectId();
+    return project ? projectModelUrl(project, object.model) : null;
+};
+
+// Wet where the sea reaches it: under the still line and a ragged splash band
+// over it the scan goes darker and glossier, as the Azov rocks do. The band is
+// this high (m) over the still water at y = 0.
+const WET_SPLASH = .35;
+function wetMaterial(material) {
+    const wet = new THREE.Vector3(0, WET_SPLASH, 1);
+    material.userData.placedWet = wet;
+    material.onBeforeCompile = (shader) => {
+        shader.uniforms.uPlacedWet = { value: wet };
+        shader.vertexShader = `varying vec3 vPlacedWorld;\n${shader.vertexShader.replace('#include <project_vertex>', `#include <project_vertex>
+            vPlacedWorld = (modelMatrix * vec4(transformed, 1.0)).xyz;`)}`;
+        shader.fragmentShader = `uniform vec3 uPlacedWet;\nvarying vec3 vPlacedWorld;\n${shader.fragmentShader
+            .replace('#include <map_fragment>', `#include <map_fragment>
+            float placedEdge = uPlacedWet.x + uPlacedWet.y * (.6 + .4 * sin(vPlacedWorld.x * 1.9 + sin(vPlacedWorld.z * 1.3) * 2.));
+            float placedWet = uPlacedWet.z * (1. - smoothstep(placedEdge - .05, placedEdge + .2, vPlacedWorld.y));
+            diffuseColor.rgb *= mix(1., .58, placedWet);`)
+            .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
+            roughnessFactor = mix(roughnessFactor, .28, placedWet);`)}`;
+    };
+    material.customProgramCacheKey = () => 'placed-model-wet-v1';
+}
+
+// One instance of a loaded model: its own materials (so its switches are its
+// own), shadows both ways, and its own middle over the place with its lowest
+// point on it — a scan's origin is wherever the scanner stood, often metres
+// away. A scan's unlit material (its light baked in) is lit by the scene when
+// asked: then it takes shadows and the wet line, a little darker in shade.
+function prepareModel(scene, lit) {
+    const root = scene.clone(true);
+    const converted = new Map();
+    const convert = (material) => {
+        if (converted.has(material)) return converted.get(material);
+        const next = lit && material.isMeshBasicMaterial
+            ? new THREE.MeshStandardMaterial({
+                name: material.name, map: material.map, color: material.color, roughness: .92, metalness: 0, vertexColors: material.vertexColors,
+                transparent: material.transparent, opacity: material.opacity, alphaTest: material.alphaTest, side: material.side,
+            })
+            : material.clone();
+        wetMaterial(next);
+        converted.set(material, next);
+        return next;
+    };
+    root.traverse((node) => {
+        if (!node.isMesh) return;
+        node.castShadow = true;
+        node.receiveShadow = true;
+        node.material = Array.isArray(node.material) ? node.material.map(convert) : convert(node.material);
+    });
+    root.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(root);
+    root.position.set(-(box.min.x + box.max.x) / 2, -box.min.y, -(box.min.z + box.max.z) / 2);
+    return { root, materials: [...converted.values()], size: box.getSize(new THREE.Vector3()) };
+}
+
+// Loaded once per file for the session and shared by its instances. Its own
+// loading manager: a model imported into a scene already on screen must not
+// read as the scene loading again (drei's progress, SceneReadyBeacon), and
+// loading outside render keeps React from being told about it mid-render.
+const models = new Map();
+const modelLoader = new GLTFLoader(new THREE.LoadingManager());
+function loadModel(url) {
+    if (!models.has(url)) models.set(url, modelLoader.loadAsync(url).catch((error) => { models.delete(url); throw error; }));
+    return models.get(url);
+}
+function useModel(url) {
+    const [state, setState] = useState({ url: null, gltf: null });
+    useEffect(() => {
+        let live = true;
+        // A file gone or not parsing draws nothing, not a broken scene; its
+        // anchor stays, so it can still be selected and deleted.
+        loadModel(url).then((gltf) => { if (live) setState({ url, gltf }); }, (error) => { if (import.meta.env.DEV) console.warn('placed model', url, error); });
+        return () => { live = false; };
+    }, [url]);
+    return state.url === url ? state.gltf : null;
+}
+
+function PlacedModel({ object, url, selected }) {
+    const gltf = useModel(url);
+    const lit = object.species !== 'scan';
+    const prepared = useMemo(() => (gltf ? prepareModel(gltf.scene, lit) : null), [gltf, lit]);
+    const group = useRef();
+    useEffect(() => () => prepared?.materials.forEach((material) => material.dispose()), [prepared]);
+    useEffect(() => { prepared?.materials.forEach((material) => { material.userData.placedWet.z = object.wet ? 1 : 0; }); }, [prepared, object.wet]);
+    // Wet by the sea, it also breaks the water: its waterline, found again
+    // whenever it moves, is where the foam field whitens the water running at it.
+    const { id, x, y, z, rotation, tiltX, tiltZ, scale, wet, hidden, collision } = object;
+    useEffect(() => {
+        if (!prepared || !group.current || !wet || hidden) { setWakeObstacles(waterWake, id, null); return undefined; }
+        setWakeObstacles(waterWake, id, waterlineCircles(waterlineCrossings(group.current)));
+        return () => setWakeObstacles(waterWake, id, null);
+    }, [prepared, id, x, y, z, rotation, tiltX, tiltZ, scale, wet, hidden]);
+    // Solid: its top surface is ground for the board, the rider and planting.
+    useEffect(() => {
+        if (!prepared || !group.current || !collision || hidden) { setSolid(id, null); return undefined; }
+        setSolid(id, solidHeightfield(group.current));
+        return () => setSolid(id, null);
+    }, [prepared, id, x, y, z, rotation, tiltX, tiltZ, scale, collision, hidden]);
+    if (!prepared) return <Anchor object={object} selected={selected} radius={1} />;
+    return <>
+        <Anchor object={object} selected={selected} radius={Math.max(.3, Math.max(prepared.size.x, prepared.size.z) * .55)} />
+        <group ref={group} name={`placed-visual-${object.id}`} userData={{ placedId: object.id }} position={[object.x, object.y, object.z]}
+            rotation={[deg(object.tiltX), deg(object.rotation), deg(object.tiltZ), 'YXZ']} scale={object.scale}>
+            <primitive object={prepared.root} />
+        </group>
+    </>;
+}
+
 export default function PlacedObjects({ objects, selectedId = null, treeAsset, shrubAsset, qualityProfile, lighting, envMapIntensity = 1 }) {
     const lowPower = Boolean(qualityProfile?.isLowPower || qualityProfile?.isMobileDevice);
-    const rocks = objects.filter((object) => object.kind === 'rock');
+    // A hidden object keeps its anchor: it can still be picked from the list,
+    // framed and moved, it only draws nothing.
+    const shown = objects.filter((object) => !object.hidden);
+    const rocks = shown.filter((object) => object.kind === 'rock');
     return <group name="placed">
-        {objects.map((object) => object.kind === 'tree'
-            ? <PlacedTree key={object.id} object={object} asset={treeAsset} lowPower={lowPower} envMapIntensity={envMapIntensity} selected={object.id === selectedId} />
-            : object.kind === 'shrub'
-                ? <PlacedShrub key={object.id} object={object} asset={shrubAsset} lowPower={lowPower} envMapIntensity={envMapIntensity} selected={object.id === selectedId} />
-                : null)}
+        {objects.filter((object) => object.hidden).map((object) => <Anchor key={object.id} object={object} selected={object.id === selectedId} radius={1} />)}
+        {shown.map((object) => {
+            const selected = object.id === selectedId;
+            if (object.kind === 'tree') return <PlacedTree key={object.id} object={object} asset={treeAsset} lowPower={lowPower} envMapIntensity={envMapIntensity} selected={selected} />;
+            if (object.kind === 'shrub') return <PlacedShrub key={object.id} object={object} asset={shrubAsset} lowPower={lowPower} envMapIntensity={envMapIntensity} selected={selected} />;
+            if (object.kind !== 'model') return null;
+            const url = modelUrl(object);
+            return url ? <PlacedModel key={object.id} object={object} url={url} selected={selected} />
+                : <Anchor key={object.id} object={object} selected={selected} radius={1} />;
+        })}
         {rocks.length ? <Suspense fallback={null}><PlacedRocks objects={rocks} lowPower={lowPower} lighting={lighting} selectedId={selectedId} /></Suspense> : null}
     </group>;
 }

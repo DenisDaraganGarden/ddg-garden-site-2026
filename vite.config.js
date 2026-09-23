@@ -1,4 +1,5 @@
 import { execFile } from 'node:child_process';
+import { createReadStream } from 'node:fs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -96,6 +97,23 @@ function buildPublishedHomeSceneSettingsModule(settings) {
   return `export const publishedHomeSceneSettings = ${JSON.stringify(settings, null, 2)};\n`;
 }
 
+// A model upload is the file itself, not JSON. Bounded, so a wrong drop cannot
+// fill the memory: a photogrammetry scan is a few hundred megabytes at most.
+const MODEL_UPLOAD_LIMIT = 512 * 2 ** 20;
+
+async function readRawBody(request, limit) {
+  const chunks = [];
+  let size = 0;
+
+  for await (const chunk of request) {
+    size += chunk.length;
+    if (size > limit) throw new Error(`Файл больше ${Math.round(limit / 2 ** 20)} МБ.`);
+    chunks.push(Buffer.from(chunk));
+  }
+
+  return Buffer.concat(chunks);
+}
+
 async function readJsonBody(request) {
   const chunks = [];
 
@@ -174,9 +192,30 @@ function homeScenePublishPlugin() {
 function engineStorePlugin() {
   const attach = (middlewares, route, store) => {
     middlewares.use(route, async (request, response, next) => {
-      const [id, part] = decodeURIComponent(request.url.replace(/^\/+|\?.*$/g, '')).split('/');
+      const [id, part, file] = decodeURIComponent(request.url.replace(/^\/+|\?.*$/g, '')).split('/');
 
       try {
+        // Модели проекта: POST /__projects/<id>/models — тело сам .glb, имя в
+        // заголовке X-Model-Name; GET /__projects/<id>/models/<модель>.glb.
+        if (part === 'models' && isValidId(id) && store.writeModel) {
+          if (request.method === 'POST' && !file) {
+            const bytes = await readRawBody(request, MODEL_UPLOAD_LIMIT);
+            const saved = await store.writeModel(id, decodeURIComponent(String(request.headers['x-model-name'] ?? 'model')), bytes);
+            sendJson(response, saved ? 200 : 404, saved ? { ok: true, ...saved } : { ok: false, message: `Проект «${id}» не найден.` });
+            return;
+          }
+          if (request.method === 'GET' && file) {
+            const found = await store.modelFile(id, file.replace(/\.glb$/, ''));
+            if (!found) { sendJson(response, 404, { ok: false, message: 'Модели нет.' }); return; }
+            response.statusCode = 200;
+            response.setHeader('Content-Type', 'model/gltf-binary');
+            response.setHeader('Content-Length', String(found.size));
+            response.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+            createReadStream(found.file).pipe(response);
+            return;
+          }
+        }
+
         // Миниатюра: /__projects/<id>/thumbnail — файл рядом с записью.
         if (part === 'thumbnail' && isValidId(id)) {
           if (request.method === 'GET') {

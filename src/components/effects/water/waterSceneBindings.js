@@ -8,6 +8,7 @@ import {
   updateCloudShadowUniforms,
 } from '../sky/painterly/cloudShadowRuntime.js';
 import { reflectionContext } from './reflectionContext';
+import { WAKE_RINGS, waterWake, writeWakeRings } from './waterWake.js';
 import {
   createCursorFlashlightUniforms,
   syncCursorFlashlightUniforms,
@@ -100,6 +101,9 @@ export function createWaterSceneBindingUniforms() {
     uSeaRippleAmplitude: { value: 0 },
     uSkyIrradianceMap: { value: EMPTY_SKY_IRRADIANCE },
     uSkyIrradianceActive: { value: 0 },
+    // The wakes things moving on the water leave (waterWake.js).
+    uWakeRing: { value: Array.from({ length: WAKE_RINGS }, () => new THREE.Vector4()) },
+    uWakeBounds: { value: new THREE.Vector4() },
     ...createCursorFlashlightUniforms(),
     ...createCloudShadowUniforms(),
   };
@@ -235,6 +239,7 @@ export function useWaterSceneBindings(uniforms, { lighting, sky, runtime = null,
     uniforms.uSeaRippleNormalMap.value = rippleNormal;
     uniforms.uSeaRippleStateMap.value = rippleState;
     uniforms.uSeaRippleActive.value = rippleNormal && rippleState ? 1 : 0;
+    writeWakeRings(waterWake, uniforms.uWakeRing.value, uniforms.uWakeBounds.value);
 
     uniforms.uReflectionTexture.value = data.texture ?? null;
     uniforms.uReflectionActive.value = data.texture ? 1 : 0;

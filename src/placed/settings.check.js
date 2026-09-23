@@ -39,4 +39,24 @@ assert.equal(normalizePlacedObject({ kind: 'rock', variant: 9 }).variant, 5);
     assert.deepEqual(normalizePlacedObject(rock), rock);
 }
 
+// A model: its file, a scale as wide as scans need, tilts, its switches; no file, no object.
+{
+    const model = createPlacedObject('model', { x: 3, z: 4, name: 'Риф', model: 'beach-reef-mfq1x2' });
+    assert.equal(model.kind, 'model');
+    assert.equal(model.model, 'beach-reef-mfq1x2');
+    assert.equal(model.species, 'lit');
+    assert.equal(model.wet, true, 'wet by default: the sea reaches it');
+    assert.equal(model.collision, false);
+    assert.ok(!('hidden' in model), 'shown by default, and only a hidden object says so');
+    assert.deepEqual(normalizePlacedObject(model), model);
+    const scaled = normalizePlacedObject({ ...model, scale: 0.02, tiltX: 400, hidden: true, collision: true });
+    assert.equal(scaled.scale, 0.02, 'a model scales below the other kinds\' quarter');
+    assert.equal(scaled.tiltX, 180);
+    assert.equal(scaled.hidden, true);
+    assert.equal(scaled.collision, true);
+    assert.equal(normalizePlacedObject({ ...model, model: '../../etc/passwd' }), null, 'a file name that is a path is no model');
+    assert.equal(normalizePlacedObject({ ...model, model: undefined }), null);
+    assert.equal(normalizePlacedObject({ kind: 'tree', scale: 0.02 }).scale, 0.25, 'the other kinds keep their range');
+}
+
 console.log('placed: all checks passed');

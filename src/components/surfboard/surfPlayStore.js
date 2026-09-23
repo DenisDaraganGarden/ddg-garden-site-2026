@@ -54,7 +54,8 @@ export const surfPlay = {
     riding: 0, onBreaker: 0,
   },
   // The rider's body: 'prone' (lying, paddling), 'popup' (getting up),
-  // 'stand' (riding), 'fallen' (in the water), 'recover' (back onto the board).
+  // 'stand' (riding), 'fallen' (tumbling in the water), 'swim' (swimming to
+  // the board), 'recover' (climbing onto it).
   // chest, pelvis, head: world positions for the camera, written each frame.
   rider: { state: 'prone', onBoard: true, chest: null, pelvis: null, head: null },
   // Where the board actually waits in the editor: the auto lineup spot or

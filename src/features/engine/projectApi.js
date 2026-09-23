@@ -53,6 +53,20 @@ export const renameProject = (id, name) => projectStore.save(id, { name });
 // момент отменяет.
 export const saveProjectSettings = (id, settings, options) => projectStore.save(id, { settings }, options);
 
+// Модели проекта (.glb): файл уходит на локальный сервер как есть и ложится в
+// папку проекта; в сцене объект ссылается на него по имени файла.
+export async function uploadProjectModel(projectId, file) {
+    const response = await fetch(`/__projects/${encodeURIComponent(projectId)}/models`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'model/gltf-binary', 'X-Model-Name': encodeURIComponent(file.name ?? 'model.glb') },
+        body: file,
+    });
+    const payload = await response.json().catch(() => null);
+    if (!response.ok || !payload?.ok) throw new Error(payload?.message ?? `Модель не загрузилась (${response.status})`);
+    return payload;
+}
+export const projectModelUrl = (projectId, model) => `/__projects/${encodeURIComponent(projectId)}/models/${encodeURIComponent(model)}.glb`;
+
 // Редактор узнаёт, что открыт в проекте, по адресу: /home/edit?project=<id>.
 // Без параметра он остаётся тем же редактором сайта, что и был.
 export function activeProjectId(search = typeof window === 'undefined' ? '' : window.location.search) {
