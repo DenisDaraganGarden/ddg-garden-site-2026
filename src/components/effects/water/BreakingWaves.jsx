@@ -8,7 +8,7 @@ import { BREAK_SAMPLES, breakLineMean, coastBreakLine, coastWaterShader, createC
 import { coastBreakVisibility } from './coastBreakLine';
 import { FOAM_BORE_SLOTS, createFoamFieldUniforms, foamFieldShader } from './foamField';
 import { SPRAY_TIERS, buildSprayGeometry, createSprayUniforms, sprayFragmentBody, sprayFragmentVaryings, sprayInstanceCount, sprayShader, sprayVertexBody, syncSprayUniforms } from './spray';
-import { SURF_SHAPE, surfPeelSpan, surfPeelTravelOffset, surfPlungeTime, surfProfileShader } from './surfProfile';
+import { surfFoamBore, surfFrozenTravel, surfPeelSpan, surfProfileShader } from './surfProfile';
 import { createWaterShadingUniforms, syncWaterShadingUniforms, tickWaterShadingUniforms, useWaterNoise, waterShadingShader } from './waterShading';
 import { BOAT_CUTOUT_STENCIL_REF } from './constants';
 import { sceneDepthFragment, sceneDepthVertex } from '../shaders/sceneDepth';
@@ -253,6 +253,7 @@ const sheetVertexShader = /* glsl */`
 
 const sheetFragmentShader = /* glsl */`
   #include <fog_pars_fragment>
+  #define WATER_SEA_FOAM
   ${gerstnerShader}
   ${gerstnerPixelShader}
   ${waterShadingShader}
@@ -285,11 +286,11 @@ const sheetFragmentShader = /* glsl */`
     if (dot(n, view) < 0.0) n = -n;
     float rippleWet = smoothstep(0.4, 0.8, -vGround);
     n = waterRippleNormal(n, vWorld.xz, pixel, 0.5, rippleWet);
-    // The ribbon's foam is the water's foam. It is drawn in the same
-    // world-space flow frame, so the lace runs on across the seam instead of
-    // stopping at the mesh's edge; it takes whichever is greater of what the
-    // profile knows and what the field remembers, and it ages with the field.
-    // Anything else and the breaker wears a texture of its own.
+    // Two foams. The profile's own rides with the wave, in the crest-and-arc
+    // frame; what the field remembers and the whitecaps lie still on the
+    // water, in the world's flow frame, so their lace runs on across the seam
+    // into the open water instead of sliding along with the breaker — drawn
+    // in the wave's frame, the trail on its back crawled with it.
     vec3 memory = sampleFoamField(vWorld.xz);
     float crest = gerstnerWhitecaps(vWorld.xz, uFoamThreshold, uFoamSoftness);
     // Along the crest the profile's foam frame is straight, so the lace came
@@ -299,13 +300,13 @@ const sheetFragmentShader = /* glsl */`
     float along = vFoamUv.x;
     float patches = mix(1.0, 0.55 + 0.9 * gerstnerNoise(vec2(along * 0.13, vFoamUv.y * 0.3 + 5.0)), uSurfFoamVariety);
     float streaks = mix(1.0, 0.45 + 1.1 * gerstnerNoise(vec2(along * 0.7, vFoamUv.y * 0.06 + 9.0)), uSurfStreaks);
-    float coverage = max(vFoam * 0.95, max(memory.x * memory.z, crest * 0.9 * (1.0 - memory.z)));
     // Only the profile's own foam is broken up; what the field remembers and
     // the whitecaps keep their coverage.
-    coverage = clamp(mix(coverage, coverage * patches * streaks, clamp(vFoam, 0.0, 1.0)), 0.0, 1.0);
-    float age = mix(0.35, memory.y, memory.z) * (1.0 - vFoam);
+    float own = clamp(vFoam * 0.95 * patches * streaks, 0.0, 1.0);
+    waterSeaFoamCoverage = max(memory.x * memory.z, crest * 0.9 * (1.0 - memory.z));
+    waterSeaFoamAge = mix(0.35, memory.y, memory.z);
     float bed = uShoreReady > 0.5 ? exp(-max(-coastGround(coastLocal(vWorld.xz)), 0.0) * uBedReach) : 0.0;
-    vec3 color = shadeWater(vWorld, n, view, pixel, vFoamUv, coverage, age, vThickness, 0.0, bed) * clamp(vShade, 0.0, 1.0);
+    vec3 color = shadeWater(vWorld, n, view, pixel, vFoamUv, own, 0.0, vThickness, 0.0, bed) * clamp(vShade, 0.0, 1.0);
     gl_FragColor = vec4(color, alpha);
     #include <fog_fragment>
     #include <tonemapping_fragment>
@@ -321,11 +322,11 @@ const shellVertexShader = /* glsl */`
   uniform sampler3D uNoise;
   uniform float uNoiseReady;
   uniform float uTime;
-  uniform vec2 uWind;
   uniform float uRoller;
   varying vec3 vWorld;
   varying vec3 vNormal;
   varying vec2 vFoamUv;
+  varying vec2 vCarry;
   varying float vShell;
   varying float vPuff;
   varying float vAlpha;
@@ -341,11 +342,23 @@ const shellVertexShader = /* glsl */`
     // vertices and tore the shell by half a metre.
     bool underside = t >= 0.5 && t < 0.7;
     n *= underside ? -1.0 : 1.0;
-    // Lumps: the same cloud volume shapes the silhouette, tumbling with the roller.
-    // The shell noise itself is world based, but shading follows vFoamUv below:
-    // the colour therefore travels along the actual crest-and-arc profile,
-    // rather than sliding through it as a second water-flow texture.
-    float lump = uNoiseReady > 0.5 ? texture(uNoise, vec3((w.xz - uWind * uTime * 0.1) * 0.45, fract(w.y * 0.45 + gerstnerNoise(w.xz * 0.021) * 3.0))).r : 0.5;
+    // The face's first stretch climbs from under the lip up to the crest, so
+    // its outward normal looks back out to sea. The roller's shell stood off
+    // it as a sheet behind and above the crest, and the lumps along that
+    // sheet read from the front as columns of steam. On the face the foam
+    // stands up or forward, never back.
+    if (t >= 0.7) {
+      vec3 sea = -vec3(coastLand().x, 0.0, coastLand().y);
+      n = normalize(n - sea * max(dot(n, sea), 0.0) + vec3(0.0, 0.001, 0.0));
+    }
+    // Lumps: the same cloud volume shapes the silhouette. The foam is the
+    // roller's water and runs in with it, so the volume is read in a frame
+    // carried with the crest: world along the shore (no stamp repeats along
+    // it), travelling toward the shore with the wave. Read in the world, the
+    // wave ran through its own foam and the foam seemed to lag behind it.
+    vCarry = coastLand() * surfTravelAt(s);
+    vec2 carried = w.xz - vCarry;
+    float lump = uNoiseReady > 0.5 ? texture(uNoise, vec3(carried * 0.45, fract(w.y * 0.45 + gerstnerNoise(carried * 0.021) * 3.0 + uTime * 0.05))).r : 0.5;
     // Keep the landed bore low. Noise may break its silhouette, but it may not
     // inflate it into a second rounded wave behind the short lip.
     float shell = sp.puff * uRoller * surfHeightAt(s) * (0.48 + 0.42 * lump);
@@ -391,6 +404,7 @@ const shellFragmentShader = /* glsl */`
   varying vec3 vWorld;
   varying vec3 vNormal;
   varying vec2 vFoamUv;
+  varying vec2 vCarry;
   varying float vShell;
   varying float vPuff;
   varying float vAlpha;
@@ -417,13 +431,13 @@ const shellFragmentShader = /* glsl */`
       float d = (float(i) + 0.5) * stepLength;
       float h = 1.0 - d / depth;                 // 1 at the shell, 0 on the water
       vec3 p = vWorld - view * d;
-      // Lumps from the cloud volume, carried with the wave (crest, arc) and
-      // tumbling along the arc; a finer octave tears their edges.
-      // World coordinates with the sliding slice, like every other foam in this
-      // water: read in the profile's own frame the lumps were a stamp repeated
-      // along the crest, which is what read as cauliflower.
-      vec3 q = (p - vec3(uWind.x, 0.0, uWind.y) * uTime * 0.12) * 0.9;
-      q.z += gerstnerNoise(p.xz * 0.021) * 3.0;
+      // Lumps from the cloud volume, carried in with the wave and boiling
+      // slowly; a finer octave tears their edges. World along the shore, with
+      // the sliding slice: read in the profile's own frame the lumps were a
+      // stamp repeated along the crest, which is what read as cauliflower.
+      vec3 c = p - vec3(vCarry.x, 0.0, vCarry.y);
+      vec3 q = (c + vec3(0.13, -0.21, 0.09) * uTime * 0.35) * 0.9;
+      q.z += gerstnerNoise(c.xz * 0.021) * 3.0;
       float lump = texture(uNoise, q * 0.55).r;
       float tear = texture(uNoise, q * 1.7 + vec3(0.0, 0.0, 0.37)).b;
       // Denser toward the water, eroded toward the shell: rounded tops.
@@ -468,8 +482,6 @@ ${transparentPremultipliedOutput}
 
 const DRAWING_BUFFER = new THREE.Vector2();
 const hash = (n) => ((n * 9301 + 49297) % 233280) / 233280;
-const clamp01 = (value) => Math.min(Math.max(value, 0), 1);
-const smoothstep = (a, b, x) => { const u = clamp01((x - a) / (b - a)); return u * u * (3 - 2 * u); };
 
 // coast: { definition, along0, length, breakQ } — the terrain's coast frame
 // and the stretch of shore (coast s) the breakers work.
@@ -607,8 +619,7 @@ export default function BreakingWaves({ settings, lighting, noise = null, coast,
     // (0 = rearing up, 1 = spent bore) without moving it, so one camera sees
     // every stage; the others park out of sight.
     const frozen = settings.surfFreeze;
-    const plungeAt = surfPlungeTime(SURF_SHAPE.crest * settings.surfHeight, -0.2 * settings.surfHeight, settings.surfLift);
-    const frozenTravel = THREE.MathUtils.lerp(-settings.surfBreakLength - 3, speed * plungeAt + settings.surfBoreLength + 3, settings.surfPhase);
+    const frozenTravel = surfFrozenTravel(settings);
     ribbons.forEach((ribbon) => {
       let travel = frozen ? (ribbon.index === 0 ? frozenTravel : -1000) : start + speed * (time - ribbon.spawn);
       ribbon.uniforms.uGerstnerTime.value = time;
@@ -707,20 +718,10 @@ export default function BreakingWaves({ settings, lighting, noise = null, coast,
       // field, so the trail outlives the wave.
       const bore = foamBores?.[ribbon.index];
       if (bore) {
-        // Same bounded peeling phase as surfTravelAt(s) at the bore's centre.
-        // FoamField receives this helper too: its texture must not keep the old
-        // 760-m crest-length ramp after the visible loft became local.
-        const midTravel = travel + surfPeelTravelOffset(0.5, settings);
-        const plunge = surfPlungeTime(SURF_SHAPE.crest * height, -0.2 * height, settings.surfLift);
-        const psi = clamp01((midTravel - speed * plunge) / Math.max(settings.surfBoreLength, 0.1));
-        // The field starts when the profile's low roller starts, then weakens
-        // with that same bore phase. Otherwise the geometry has already become
-        // a bore while its physical trail waits several metres to appear.
-        const strength = smoothstep(0, 0.08, psi) * (1 - 0.65 * psi);
-        const crestQ = ribbon.uniforms.uBreakMean.value + travel;
+        const mean = ribbon.uniforms.uBreakMean.value;
+        const record = surfFoamBore(settings, travel, height, frozen);
         // The run-up front: the water's edge on the sand, once the wave has landed.
-        const front = psi > 0 ? crestQ + settings.surfWidth * 0.16 + 1 : -100;
-        bore.set(crestQ + settings.surfWidth * 0.1, strength * 0.45, settings.surfWidth * 0.55, front);
+        bore.set(mean + record.x, record.strength, record.halfWidth, record.front === null ? -100 : mean + record.front);
       }
     });
   }, -25);

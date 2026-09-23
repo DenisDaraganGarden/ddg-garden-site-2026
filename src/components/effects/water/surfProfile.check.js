@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { SURF_BORE_HEIGHT_FRACTION, SURF_SHAPE, surfBoreHeightRatio, surfFoamBoreFrameQ, surfJetDown, surfPeelSpan, surfPeelTravelOffset, surfPlungeTime, surfRearingLength, surfShape, surfSheetThickness } from './surfProfile.js';
+import { SURF_BORE_HEIGHT_FRACTION, SURF_SHAPE, foamBoreDeposit, surfBoreHeightRatio, surfFoamBore, surfFoamBoreFrameQ, surfFrozenTravel as frozenTravelOf, surfProfileParams as paramsOf, surfProfilePoint as pointOf, surfJetDown, surfPeelSpan, surfPeelTravelOffset, surfPlungeTime, surfRearingLength, surfShape, surfSheetThickness } from './surfProfile.js';
 
 // The shoaling shape must reproduce the reference figures (Bosboom & Stive,
 // Azov surf sheet): crest phase θp ≈ 0.17662 and range ≈ 2.12365.
@@ -83,6 +83,25 @@ for (const refraction of [0, 0.7, 1]) {
   const unborn = surfProfilePoint(0.5, -5, 2.05, P), root = surfProfilePoint(0.3, -5, 2.05, P);
   assert.ok(Math.hypot(unborn.x - root.x, unborn.z - root.z) < 1e-9, 'before the break the lip has no length');
   assert.ok(Number.isFinite(surfFrozenTravel(settings)), 'the frozen phase has a travel');
+}
+
+// The foam the breaker leaves on the water starts where the foam on its face
+// ends, at every stage after landing: at the impact the foot of the face,
+// later the roller's edge. It used to run up to 1.5 m ahead of the roller.
+{
+  const settings = { surfWidth: 18, surfBreakLength: 37, surfLean: 0.23, surfJet: 4, surfLift: 2, surfSheet: 0.34, surfBoreLength: 27, surfSpeed: 3.5, surfHeight: 2.05, surfPeel: 0.37 };
+  const P = paramsOf(settings);
+  for (const phase of [0.62, 0.66, 0.7, 0.75, 0.85]) {
+    const travel = frozenTravelOf(settings, phase);
+    const face = Array.from({ length: 301 }, (_, i) => pointOf(0.7 + 0.3 * Math.min(i / 300, 0.9999), travel, settings.surfHeight, P));
+    const peak = Math.max(...face.map((p) => p.foam));
+    const faceEdge = face.filter((p) => p.foam >= 0.5 * peak).pop().x;
+    const bore = surfFoamBore(settings, travel, settings.surfHeight, true);
+    const water = Array.from({ length: 1101 }, (_, i) => -40 + i * 0.05);
+    const top = Math.max(...water.map((x) => foamBoreDeposit(travel + x, bore)));
+    const waterEdge = water.filter((x) => foamBoreDeposit(travel + x, bore) >= 0.5 * top).pop();
+    assert.ok(Math.abs(waterEdge - faceEdge) < 0.5, `phase ${phase}: foam on the water ends at ${waterEdge.toFixed(2)} m, the face's at ${faceEdge.toFixed(2)} m`);
+  }
 }
 
 console.log(`surfProfile: θp ${SURF_SHAPE.thetaPeak.toFixed(5)}, range ${SURF_SHAPE.range.toFixed(5)}, 1.1 m lip lands in ${fall.toFixed(2)} s; peel span ${surfPeelSpan(azov).toFixed(2)} m`);

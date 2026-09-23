@@ -7,7 +7,7 @@ export const SEA_SETTINGS_DEFAULTS = Object.freeze({
   seaWavelength: 11.5, seaAmplitude: 0.57, seaSteepness: 0.7, seaSpeed: 0.55,
   seaWindDirection: 94, seaSets: 0.37, seaGusts: 0.44, seaCrossWaves: 0.01,
   seaFadeStart: 260, seaFadeEnd: 2440, seaRipple: 0.63, seaRippleScale: 0.09,
-  seaFoamThreshold: 0.55, seaFoamSoftness: 0.15, seaFoamLaceScale: 0.13,
+  seaFoamThreshold: 0.55, seaFoamSoftness: 0.15, seaFoamLaceScale: 0.13, seaFoamVariety: 0.6,
   seaFoamBrightness: 0.5, seaFoamMemory: true, seaFoamLife: 7, seaFoamDeposit: 0.65,
   seaFoamWindow: 228, seaFoamDrift: 1.3, seaFoamSwirl: 0.3, seaFoamDry: 43,
   seaWindPatches: 0.65,
@@ -29,7 +29,7 @@ export const SEA_SETTINGS_DEFAULTS = Object.freeze({
 
 export const SEA_RANGES = Object.freeze({
   seaWavelength: [3, 40, 0.5], seaAmplitude: [0, 1.6, 0.01], seaSteepness: [0, 0.8, 0.01], seaSpeed: [0, 2.5, 0.05], seaWindDirection: [0, 360, 1], seaSets: [0, 1, 0.01], seaGusts: [0, 1, 0.01], seaCrossWaves: [0, 1, 0.01], seaFadeStart: [20, 1500, 10], seaFadeEnd: [40, 3000, 10], seaRipple: [0, 1, 0.01], seaRippleScale: [0.01, 0.3, 0.005],
-  seaFoamThreshold: [0, 0.95, 0.01], seaFoamSoftness: [0.02, 0.4, 0.01], seaFoamLaceScale: [0.03, 0.6, 0.01], seaFoamBrightness: [0.2, 2, 0.05], seaFoamLife: [1, 20, 0.5], seaFoamDeposit: [0.2, 1.5, 0.05], seaFoamWindow: [32, 400, 4], seaFoamDrift: [0, 2, 0.05], seaFoamSwirl: [0, 1.5, 0.05], seaFoamDry: [5, 120, 1], seaWindPatches: [0, 1, 0.05], seaSwashFilm: [0, 0.08, 0.005],
+  seaFoamThreshold: [0, 0.95, 0.01], seaFoamSoftness: [0.02, 0.4, 0.01], seaFoamLaceScale: [0.03, 0.6, 0.01], seaFoamVariety: [0, 1, 0.01], seaFoamBrightness: [0.2, 2, 0.05], seaFoamLife: [1, 20, 0.5], seaFoamDeposit: [0.2, 1.5, 0.05], seaFoamWindow: [32, 400, 4], seaFoamDrift: [0, 2, 0.05], seaFoamSwirl: [0, 1.5, 0.05], seaFoamDry: [5, 120, 1], seaWindPatches: [0, 1, 0.05], seaSwashFilm: [0, 0.08, 0.005],
   seaBedTurbidity: [0, 1, 0.05], seaCrestGlow: [0, 2, 0.05], seaGlint: [0, 3, 0.05], seaSkyReflection: [0, 3, 0.05], seaMeshRings: [32, 192, 8], seaMeshSegments: [48, 256, 8],
   seaSurfHeight: [0.2, 6, 0.05], seaSurfWidth: [3, 40, 0.5], seaSurfBreakDistance: [-20, 40, 0.5], seaSurfBreakLength: [4, 40, 1], seaSurfLean: [0, 1, 0.01], seaSurfJet: [0.3, 6, 0.05], seaSurfLift: [0, 4, 0.05], seaSurfSheet: [0.04, 0.6, 0.01], seaSurfRoller: [0, 1.2, 0.02], seaSurfRollerDensity: [0.2, 2.5, 0.05], seaSurfPeel: [0, 0.6, 0.01], seaSurfRefraction: [0, 1, 0.01], seaSurfBoreLength: [3, 40, 1], seaSurfRunup: [0, 12, 1], seaSurfSpeed: [1, 10, 0.1], seaSurfPeriod: [3, 20, 0.5], seaSurfSets: [0, 1, 0.01], seaSurfPhase: [0, 1, 0.01],
   seaSurfSmooth: [0, 1, 0.01], seaSurfFoamVariety: [0, 1, 0.01], seaSurfStreaks: [0, 1, 0.01], seaSurfMeander: [0, 1.5, 0.01],
@@ -68,7 +68,7 @@ export function resolveSeaSettings(flat = {}) {
     wavelength: sea.seaWavelength, amplitude: sea.seaAmplitude, steepness: sea.seaSteepness, speed: sea.seaSpeed,
     windDirection: sea.seaWindDirection, sets: sea.seaSets, gusts: sea.seaGusts, crossWaves: sea.seaCrossWaves,
     fadeStart: sea.seaFadeStart, fadeEnd: sea.seaFadeEnd, ripple: sea.seaRipple, rippleScale: sea.seaRippleScale,
-    foamThreshold: sea.seaFoamThreshold, foamSoftness: sea.seaFoamSoftness, laceScale: sea.seaFoamLaceScale, foamBrightness: sea.seaFoamBrightness,
+    foamThreshold: sea.seaFoamThreshold, foamSoftness: sea.seaFoamSoftness, laceScale: sea.seaFoamLaceScale, foamVariety: sea.seaFoamVariety, foamBrightness: sea.seaFoamBrightness,
     foamMemory: sea.seaFoamMemory, foamLife: sea.seaFoamLife, foamDeposit: sea.seaFoamDeposit, foamWindow: sea.seaFoamWindow, foamDrift: sea.seaFoamDrift, foamSwirl: sea.seaFoamSwirl, foamDry: sea.seaFoamDry, windPatches: sea.seaWindPatches,
     waterColor: sea.seaWaterColor, deepColor: sea.seaDeepColor, bedColor: sea.seaBedColor, bedTurbidity: sea.seaBedTurbidity, crestGlow: sea.seaCrestGlow, glint: sea.seaGlint, skyReflection: sea.seaSkyReflection,
     meshRings: sea.seaMeshRings, meshSegments: sea.seaMeshSegments,
