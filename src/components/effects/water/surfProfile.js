@@ -25,18 +25,20 @@ export const surfShape = (theta) => Math.cos(theta) + 0.18 * Math.cos(2 * theta)
 
 // Crest phase and the crest-to-trough range of f, found once numerically. The
 // mean over a period is zero, so f / range is the level in units of H.
+// thetaTrough: where the front slope bottoms out, past the crest.
 export const SURF_SHAPE = (() => {
   let peak = { theta: 0, value: -Infinity };
-  let low = Infinity;
+  let low = { theta: 0, value: Infinity };
   const samples = 1 << 16;
   for (let i = 0; i < samples; i += 1) {
     const theta = (i / samples) * 2 * Math.PI - Math.PI;
     const value = surfShape(theta);
     if (value > peak.value) peak = { theta, value };
-    low = Math.min(low, value);
+    if (value < low.value) low = { theta, value };
   }
-  const range = peak.value - low;
-  return Object.freeze({ thetaPeak: peak.theta, range, crest: peak.value / range, trough: low / range });
+  const range = peak.value - low.value;
+  const thetaTrough = low.theta < peak.theta ? low.theta + 2 * Math.PI : low.theta;
+  return Object.freeze({ thetaPeak: peak.theta, thetaTrough, range, crest: peak.value / range, trough: low.value / range });
 })();
 
 // Seconds for the lip to fall from zRoot to zLand when thrown up at lift m/s.
@@ -109,6 +111,17 @@ export const surfLevelAt = (x, H, width) => {
   const th = (2 * Math.PI / width) * x + SURF_SHAPE.thetaPeak;
   return H * surfShape(th) / SURF_SHAPE.range;
 };
+// Where the front slope (crest to trough, monotonic) comes down to level z.
+export const surfFrontAt = (z, H, width) => {
+  let lo = 0, hi = (SURF_SHAPE.thetaTrough - SURF_SHAPE.thetaPeak) / (2 * Math.PI) * width;
+  if (z <= surfLevelAt(hi, H, width)) return hi;
+  for (let i = 0; i < 8; i += 1) {
+    const mid = 0.5 * (lo + hi);
+    if (surfLevelAt(mid, H, width) > z) lo = mid; else hi = mid;
+  }
+  const a = surfLevelAt(lo, H, width), b = surfLevelAt(hi, H, width);
+  return lo + (hi - lo) * Math.min(Math.max((a - z) / Math.max(a - b, 1e-9), 0), 1);
+};
 const surfLeanAt = (z, H, lean) => {
   const rise = smooth(SURF_SHAPE.trough, SURF_SHAPE.crest, z / Math.max(H, 0.00001));
   return lean * H * rise * rise;
@@ -175,13 +188,16 @@ export function surfProfilePoint(t, dn, H, P) {
     o.vel = [P.jet, P.lift - g * a];
   } else {
     const u = (t - 0.7) / 0.3;
-    const x = 0.5 * P.width * u;
-    const z = surfLevelAt(x, Hb, P.width);
-    const body = [x * boreFace + surfLeanAt(z, Hb, lean), z];
     const [dx, dz] = surfDownOf(P.jet, P.lift);
     const under = P.sheet * H * emerge * (1 - spent);
-    const k = smooth(0, 0.15, u);
-    [o.x, o.z] = [lerp(root[0] + dx * under, body[0], k), lerp(root[1] + dz * under, body[1], k)];
+    const rootUnder = [root[0] + dx * under, root[1] + dz * under];
+    const x0 = surfFrontAt(rootUnder[1], Hb, P.width);
+    const x = lerp(x0, 0.5 * P.width, u);
+    const z = surfLevelAt(x, Hb, P.width);
+    const body = [x * boreFace + surfLeanAt(z, Hb, lean), z];
+    const z0 = surfLevelAt(x0, Hb, P.width);
+    const k = 1 - smooth(0, 0.35, u);
+    [o.x, o.z] = [body[0] + (rootUnder[0] - (x0 * boreFace + surfLeanAt(z0, Hb, lean))) * k, body[1] + (rootUnder[1] - z0) * k];
     o.thickness = surfChordAt(o.z, Hb, P.width, boreFace);
     const reach = smooth(0, 0.2, psi);
     const roller = smooth(0, 0.08, psi) * (1 - 0.65 * psi) * (1 - smooth(0.05, 0.85, u)) * smooth(0.8 - reach, 1 - reach, u);
@@ -241,6 +257,7 @@ export const surfProfileShader = /* glsl */`
 #define SURF_G ${SURF_GRAVITY.toFixed(2)}
 #define SURF_TAU 6.2831853
 #define SURF_THETA_P ${SURF_SHAPE.thetaPeak.toFixed(6)}
+#define SURF_THETA_T ${SURF_SHAPE.thetaTrough.toFixed(6)}
 #define SURF_F_RANGE ${SURF_SHAPE.range.toFixed(6)}
 #define SURF_CREST ${SURF_SHAPE.crest.toFixed(6)}
 #define SURF_TROUGH ${SURF_SHAPE.trough.toFixed(6)}
@@ -271,6 +288,20 @@ struct SurfPoint {
 float surfLevel(float x, float H) {
   float th = SURF_TAU / uWidth * x + SURF_THETA_P;
   return H * (cos(th) + 0.18 * cos(2.0 * th) + 0.16 * sin(2.0 * th)) / SURF_F_RANGE;
+}
+// Where the front slope (crest to trough, monotonic) comes down to level z:
+// bisection and a last linear step (surfFrontAt is the CPU twin).
+float surfFront(float z, float H) {
+  float lo = 0.0;
+  float hi = (SURF_THETA_T - SURF_THETA_P) / SURF_TAU * uWidth;
+  if (z <= surfLevel(hi, H)) return hi;
+  for (int i = 0; i < 8; i++) {
+    float mid = 0.5 * (lo + hi);
+    if (surfLevel(mid, H) > z) lo = mid; else hi = mid;
+  }
+  float a = surfLevel(lo, H);
+  float b = surfLevel(hi, H);
+  return lo + (hi - lo) * clamp((a - z) / max(a - b, 1e-9), 0.0, 1.0);
 }
 float surfLean(float z, float H, float lean) {
   // The crest tapers to H=0 at its ends. Equal smoothstep edges are undefined
@@ -372,14 +403,21 @@ SurfPoint surfProfile(float t, float dn, float H) {
     o.arc = 0.5 * uWidth + (top ? jetLen * u : jetLen * (2.0 - u));
   } else {
     float u = (t - 0.7) / 0.3;
-    float x = 0.5 * uWidth * u;
+    // The face starts where the sheet's underside leaves the body, and runs
+    // down from there: it begins on the front slope at the underside root's
+    // own height. Started at the crest, its first stretch climbed from under
+    // the lip back up to the top and turned — a knee, and under a thick lip a
+    // loop, the surface folded over itself.
+    vec2 rootUnder = root + surfJetDown(vec2(uJet, uLift)) * uSheet * H * emerge * (1.0 - spent);
+    float x0 = surfFront(rootUnder.y, Hb);
+    float x = mix(x0, 0.5 * uWidth, u);
     float z = surfLevel(x, Hb);
     // The reared face relaxes with the bore instead of carrying its vertical
     // silhouette down the beach after the jet has gone.
     vec2 body = vec2(x * boreFace + surfLean(z, Hb, lean), z);
-    // The face starts where the sheet's underside leaves the body.
-    vec2 rootUnder = root + surfJetDown(vec2(uJet, uLift)) * uSheet * H * emerge * (1.0 - spent);
-    o.p = mix(rootUnder, body, smoothstep(0.0, 0.15, u));
+    float z0 = surfLevel(x0, Hb);
+    vec2 start = vec2(x0 * boreFace + surfLean(z0, Hb, lean), z0);
+    o.p = body + (rootUnder - start) * (1.0 - smoothstep(0.0, 0.35, u));
     o.thickness = surfChord(o.p.y, Hb, boreFace);
     o.anchor = o.p;
     // Foam is born where the lip comes down, at the foot of the face: the

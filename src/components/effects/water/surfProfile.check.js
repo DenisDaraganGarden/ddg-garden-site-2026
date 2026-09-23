@@ -104,4 +104,19 @@ for (const refraction of [0, 0.7, 1]) {
   }
 }
 
+// The face runs down from under the lip: it never climbs back toward the
+// crest first. Started at the crest it made a knee at the lip's root, and
+// under a thick lip a loop — the surface folded over itself.
+for (const settings of [
+  { surfWidth: 36, surfBreakLength: 37, surfLean: 0.2, surfJet: 5.25, surfLift: 3.4, surfSheet: 0.52, surfBoreLength: 40, surfSpeed: 8.4, surfHeight: 5.1 },
+  { surfWidth: 18, surfBreakLength: 37, surfLean: 0.23, surfJet: 4, surfLift: 2, surfSheet: 0.34, surfBoreLength: 27, surfSpeed: 3.5, surfHeight: 2.05 },
+]) {
+  const P = paramsOf(settings);
+  for (const dn of [-4, 0, 2, 5, 9, 14, 25]) {
+    const face = Array.from({ length: 91 }, (_, i) => pointOf(0.7 + 0.3 * (i / 300), dn, settings.surfHeight, P));
+    const rise = Math.max(...face.map((p) => p.z - face[0].z));
+    assert.ok(rise < 0.01, `W${settings.surfWidth} dn ${dn}: the face climbs ${rise.toFixed(3)} m above the lip's root before it falls`);
+  }
+}
+
 console.log(`surfProfile: θp ${SURF_SHAPE.thetaPeak.toFixed(5)}, range ${SURF_SHAPE.range.toFixed(5)}, 1.1 m lip lands in ${fall.toFixed(2)} s; peel span ${surfPeelSpan(azov).toFixed(2)} m`);
