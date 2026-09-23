@@ -3,10 +3,12 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { randomSequence } from '../../plants/oleasterModel.js';
 
 // A weathered beach house on stilts and the painted shed beside it, after the
-// diorama Denis brought (Sketchfab, «DAE Diorama — By the ocean»). A sketch in
-// boards and cut panels, no textures yet, but every measure is a real one for
-// the surfer (1.74 m, riderSkeleton.js) who is going to walk here: 18 cm steps
-// on a 28 cm run, a 2.05 m door, a 95 cm rail, 2.4 m under the porch beam.
+// diorama Denis brought (Sketchfab, «DAE Diorama — By the ocean»). Boards and
+// cut panels, every measure a real one for the surfer (1.74 m,
+// riderSkeleton.js) who is going to walk here: 18 cm steps on a 28 cm run, a
+// 2.05 m door, a 95 cm rail, 2.4 m under the porch beam. Each piece carries
+// metric UVs with the grain along it and a surface (which board, which
+// layout) for its material (houseMaterial.js).
 //
 // Age is procedural. `damage` takes boards away, snaps them, leaves them
 // hanging from a nail, opens gaps in the walls and holes in the roofs, breaks
@@ -14,7 +16,7 @@ import { randomSequence } from '../../plants/oleasterModel.js';
 // house towards a corner, leans it, swaybacks the ridge and droops the porch
 // between its posts. Every piece draws its fate from a stream of its own, the
 // same draws at any damage, so more damage only adds wounds to those already
-// there. Streaks, peeling paint and rust belong to the material (weathering.js).
+// there. Streaks, peeling paint and rust belong to the material (houseMaterial.js).
 //
 // Each building is boxes and flat panels merged into one geometry per finish
 // (siding, trim, roof…): a dozen draw calls. The house faces +Z — the gable
@@ -120,18 +122,25 @@ const spread = (a, b, maxGap) => {
 // faces sharing an edge cut it alike and stay closed when the house bends.
 // Elsewhere the bend is affine, and an uncut edge stays straight and shut.
 function tessellate(geometry, maxEdge, bends) {
-  const position = geometry.attributes.position.array, normal = geometry.attributes.normal.array;
-  const limit = maxEdge * maxEdge, outPosition = [], outNormal = [];
-  const vertex = (i) => [position[i], position[i + 1], position[i + 2], normal[i], normal[i + 1], normal[i + 2]];
+  const names = Object.keys(geometry.attributes), sources = names.map((name) => geometry.attributes[name]);
+  const limit = maxEdge * maxEdge, outputs = names.map(() => []);
+  // A vertex is all its attributes in a row, position first.
+  const vertex = (i) => sources.flatMap((source) => Array.from(source.array.subarray(i * source.itemSize, (i + 1) * source.itemSize)));
+  const emit = (point) => {
+    let offset = 0;
+    sources.forEach((source, k) => {
+      for (let c = 0; c < source.itemSize; c += 1) outputs[k].push(point[offset + c]);
+      offset += source.itemSize;
+    });
+  };
   const middle = (a, b) => a.map((value, k) => (value + b[k]) / 2);
   const d2 = (a, b) => (a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2 + (a[2] - b[2]) ** 2;
   const split = (a, b, c) => {
     const ab = d2(a, b), bc = d2(b, c), ca = d2(c, a), longest = Math.max(ab, bc, ca);
     if (longest <= limit) {
-      for (const point of [a, b, c]) {
-        outPosition.push(point[0], point[1], point[2]);
-        outNormal.push(point[3], point[4], point[5]);
-      }
+      emit(a);
+      emit(b);
+      emit(c);
     } else if (longest === ab) {
       const m = middle(a, b);
       split(a, m, c);
@@ -146,19 +155,37 @@ function tessellate(geometry, maxEdge, bends) {
       split(m, b, c);
     }
   };
-  for (let i = 0; i < position.length; i += 9) {
-    const a = vertex(i), b = vertex(i + 3), c = vertex(i + 6);
+  for (let i = 0; i < sources[0].count; i += 3) {
+    const a = vertex(i), b = vertex(i + 1), c = vertex(i + 2);
     if ([a, b, c].some((point) => bends(point[0], point[1], point[2]))) split(a, b, c);
-    else for (const point of [a, b, c]) {
-      outPosition.push(point[0], point[1], point[2]);
-      outNormal.push(point[3], point[4], point[5]);
-    }
+    else [a, b, c].forEach(emit);
   }
   const out = new THREE.BufferGeometry();
-  out.setAttribute('position', new THREE.Float32BufferAttribute(outPosition, 3));
-  out.setAttribute('normal', new THREE.Float32BufferAttribute(outNormal, 3));
+  names.forEach((name, k) => out.setAttribute(name, new THREE.Float32BufferAttribute(outputs[k], sources[k].itemSize)));
   return out;
 }
+
+// Metric UVs on a box before it is placed: u along its longest side — the
+// grain — and v across; the end faces take the two short sides. A `wall` box
+// keeps v up (local y) and u along each face, for boards that run across it.
+function boxUvs(geometry, size, mode) {
+  const { position, normal, uv } = geometry.attributes;
+  const long = size.indexOf(Math.max(...size));
+  for (let i = 0; i < position.count; i += 1) {
+    const p = [position.getX(i), position.getY(i), position.getZ(i)];
+    const n = [normal.getX(i), normal.getY(i), normal.getZ(i)].map(Math.abs);
+    const axis = n.indexOf(Math.max(...n)), plane = [0, 1, 2].filter((k) => k !== axis);
+    let a, b;
+    if (mode === 'wall') [a, b] = axis === 1 ? [0, 2] : [plane.find((k) => k !== 1), 1];
+    else [a, b] = plane.includes(long) ? [long, plane.find((k) => k !== long)] : plane;
+    uv.setXY(i, p[a] + size[a] / 2, p[b] + size[b] / 2);
+  }
+}
+
+// How each finish lays its texture by default (houseMaterial.js): 0 a board,
+// 1 clapboard, 2 shakes, 3 upright boards, 4 asphalt shingles, 5 iron,
+// 6 plain, 7 rope, 8 wood shingles.
+const LAYOUT = { roof: 4, shedRoof: 8, metal: 5, glass: 6, unit: 6, void: 6, rope: 7 };
 
 // The pieces, collected per finish and merged at the end.
 function createKit(seed, damage = 0) {
@@ -175,28 +202,46 @@ function createKit(seed, damage = 0) {
     return chance < damage * weight ? { kind, amount } : null;
   };
   const turn = new THREE.Matrix4(), euler = new THREE.Euler();
-  const add = (role, geometry) => {
-    geometry.deleteAttribute('uv');
+  // A piece's `surface`: its layout (LAYOUT) and a scale the layout reads — a
+  // roof's course, a wall's first course, a board wall's first joint. Which
+  // patch of texture and which shade it gets comes from where it is, so the
+  // same board keeps them whatever the damage does to the others.
+  const add = (role, geometry, { layout = LAYOUT[role] ?? 0, scale = 0 } = {}) => {
     const flat = geometry.index ? geometry.toNonIndexed() : geometry;
     if (flat !== geometry) geometry.dispose();
+    flat.computeBoundingBox();
+    const c = flat.boundingBox.getCenter(new THREE.Vector3());
+    const seed = Math.sin(c.x * 12.9898 + c.y * 78.233 + c.z * 37.719) * 43758.5453;
+    const surface = new Float32Array(flat.attributes.position.count * 3);
+    for (let i = 0; i < surface.length; i += 3) [surface[i], surface[i + 1], surface[i + 2]] = [seed - Math.floor(seed), layout, scale];
+    flat.setAttribute('aSurface', new THREE.BufferAttribute(surface, 3));
     if (!parts.has(role)) parts.set(role, []);
     parts.get(role).push(flat);
   };
   // A box in a frame: centre and size in (u, v, w), turned about its centre
   // (radians; about w first, then v, then u).
-  const box = (role, m, [cu, cv, cw], [su, sv, sw], [ru = 0, rv = 0, rw = 0] = []) => {
+  const box = (role, m, [cu, cv, cw], [su, sv, sw], [ru = 0, rv = 0, rw = 0] = [], surface = {}) => {
     const geometry = new THREE.BoxGeometry(su, sv, sw);
+    boxUvs(geometry, [su, sv, sw], surface.uv);
     if (ru || rv || rw) geometry.applyMatrix4(turn.makeRotationFromEuler(euler.set(ru, rv, rw)));
-    add(role, geometry.translate(cu, cv, cw).applyMatrix4(m));
+    add(role, geometry.translate(cu, cv, cw).applyMatrix4(m), surface);
   };
-  // A flat piece cut to an outline in (u, v), `thickness` deep from w0 along w.
-  const panel = (role, m, points, thickness, w0 = 0) => {
+  // A flat piece cut to an outline in (u, v), `thickness` deep from w0 along w;
+  // its UVs are the outline's metres. A roof counts its courses up from the
+  // eave: `fromEave` is the v of the first course there.
+  const panel = (role, m, points, thickness, w0 = 0, surface = {}) => {
     const shape = new THREE.Shape(points.map(([u, v]) => new THREE.Vector2(u, v)));
-    add(role, new THREE.ExtrudeGeometry(shape, { depth: thickness, bevelEnabled: false }).translate(0, 0, w0).applyMatrix4(m));
+    const geometry = new THREE.ExtrudeGeometry(shape, { depth: thickness, bevelEnabled: false });
+    if (surface.fromEave !== undefined) {
+      const { uv } = geometry.attributes;
+      for (let i = 0; i < uv.count; i += 1) uv.setY(i, surface.fromEave - uv.getY(i));
+    }
+    add(role, geometry.translate(0, 0, w0).applyMatrix4(m), surface);
   };
   // A stick between two world points, `width` across and `height` up.
   const beam = (role, a, b, width, height) => {
-    const geometry = new THREE.BoxGeometry(width, height, a.distanceTo(b));
+    const length = a.distanceTo(b), geometry = new THREE.BoxGeometry(width, height, length);
+    boxUvs(geometry, [width, height, length]);
     add(role, geometry.applyMatrix4(new THREE.Matrix4().lookAt(a, b, Y).setPosition(a.clone().lerp(b, 0.5))));
   };
   // A board between two world points that damage may take away, snap short or
@@ -226,8 +271,10 @@ function createKit(seed, damage = 0) {
   // A rope hanging between two world points.
   const rope = (role, a, b, radius = 0.016) => {
     const sag = 0.04 + 0.025 * a.distanceTo(b);
-    const middle = a.clone().lerp(b, 0.5).add(vec(0, -2 * sag, 0));
-    add(role, new THREE.TubeGeometry(new THREE.QuadraticBezierCurve3(a, middle, b), 16, radius, 5, false));
+    const curve = new THREE.QuadraticBezierCurve3(a, a.clone().lerp(b, 0.5).add(vec(0, -2 * sag, 0)), b);
+    const geometry = new THREE.TubeGeometry(curve, 16, radius, 5, false), { uv } = geometry.attributes, length = curve.getLength();
+    for (let i = 0; i < uv.count; i += 1) uv.setX(i, uv.getX(i) * length);
+    add(role, geometry);
   };
   // Corrugated iron: a sheet su × sv in a frame, the ribs running along v. A
   // lifted sheet pivots on its upper edge, its lower edge off the roof.
@@ -235,17 +282,21 @@ function createKit(seed, damage = 0) {
     const ribs = Math.max(2, Math.round(su / 0.12));
     const geometry = new THREE.PlaneGeometry(su, sv, ribs * 6, 1);
     const position = geometry.attributes.position;
-    for (let i = 0; i < position.count; i += 1) position.setZ(i, 0.018 * Math.sin((position.getX(i) / su) * ribs * Math.PI * 2));
+    const { uv } = geometry.attributes;
+    for (let i = 0; i < position.count; i += 1) {
+      position.setZ(i, 0.018 * Math.sin((position.getX(i) / su) * ribs * Math.PI * 2));
+      uv.setXY(i, position.getX(i) + su / 2, position.getY(i) + sv / 2);
+    }
     geometry.computeVertexNormals();
     if (lift) geometry.translate(0, sv / 2, 0).rotateX(lift).translate(0, -sv / 2, 0);
     if (spin) geometry.rotateZ(spin);
-    add(role, geometry.translate(cu, cv, w0).applyMatrix4(m));
+    add(role, geometry.translate(cu, cv, w0).applyMatrix4(m), { layout: 5, scale: su / ribs });
   };
   // A roof slab cut to its outline, with a shingle course every `course` up
   // from the eave.
   const roof = (role, plane, outline, thickness, course = 0.3) => {
-    panel(role, plane.m, outline, thickness);
     const vs = outline.map(([, v]) => v);
+    panel(role, plane.m, outline, thickness, 0, { scale: course, fromEave: Math.max(...vs) - 0.05 });
     const top = Math.min(...vs);
     for (let v = Math.max(...vs) - 0.05; v > top + 0.12; v -= course) {
       const [a, b] = spanAt(outline, v);
@@ -387,7 +438,7 @@ function openings(kit) {
     const hit = wound(weight), swing = hit ? 0.35 + 0.6 * hit.amount : 0;
     if (hit) box('void', m, [u, h / 2, 0.0135], [w, h, 0.027]);
     const leaf = m.clone().multiply(new THREE.Matrix4().makeTranslation(u - w / 2, 0, 0.025)).multiply(new THREE.Matrix4().makeRotationY(-swing));
-    box(role, leaf, [w / 2, h / 2, 0], [w, h, 0.05]);
+    box(role, leaf, [w / 2, h / 2, 0], [w, h, 0.05], [], { layout: 3, uv: 'wall' });
     box('unit', leaf, [w - 0.1, 1.0, 0.045], [0.04, 0.14, 0.05]);
     return leaf;
   };
@@ -518,11 +569,11 @@ export function buildBeachHouse(input = {}) {
     return [-half, half];
   };
   for (const m of [front, back]) {
-    panel('siding', m, gable, WALL, -WALL);
+    panel('siding', m, gable, WALL, -WALL, { layout: 1 });
     kit.courses('siding', m, gableSpan, 0.22, apex - 0.1, 0.22);
   }
   for (const m of [right, left]) {
-    box('siding', m, [0, EAVES / 2, -WALL / 2], [L, EAVES, WALL]);
+    box('siding', m, [0, EAVES / 2, -WALL / 2], [L, EAVES, WALL], [], { layout: 1, uv: 'wall' });
     kit.courses('siding', m, () => [-L / 2 + 0.08, L / 2 - 0.08], 0.22, EAVES, 0.22);
   }
   for (const [m, half] of [[front, W / 2], [back, W / 2], [right, L / 2], [left, L / 2]]) {
@@ -643,9 +694,10 @@ export function buildBeachHouse(input = {}) {
   const aFront = wallFrame(ax, F, annex.z1, 0, 1); // u = +x, the house at +aw/2
   const aBack = wallFrame(ax, F, annex.z0, 0, -1); // u = −x, the house at −aw/2
   const aSide = wallFrame(annex.x0, F, az, -1, 0); // u = +z
-  panel('shakes', aFront, [[-aw / 2, 0], [aw / 2, 0], [aw / 2, high], [-aw / 2, low]], WALL, -WALL);
-  panel('shakes', aBack, [[-aw / 2, 0], [aw / 2, 0], [aw / 2, low], [-aw / 2, high]], WALL, -WALL);
-  box('shakes', aSide, [0, low / 2, -WALL / 2], [ad, low, WALL]);
+  const shakeWall = { layout: 2, scale: 0.2 };
+  panel('shakes', aFront, [[-aw / 2, 0], [aw / 2, 0], [aw / 2, high], [-aw / 2, low]], WALL, -WALL, shakeWall);
+  panel('shakes', aBack, [[-aw / 2, 0], [aw / 2, 0], [aw / 2, low], [-aw / 2, high]], WALL, -WALL, shakeWall);
+  box('shakes', aSide, [0, low / 2, -WALL / 2], [ad, low, WALL], [], { ...shakeWall, uv: 'wall' });
   const rise11 = Math.tan(leanTo);
   kit.courses('shakes', aFront, (v) => [v <= low ? -aw / 2 : -aw / 2 + (v - low) / rise11, aw / 2 - 0.02], 0.2, high, 0.17, true);
   kit.courses('shakes', aBack, (v) => [-aw / 2 + 0.02, v <= low ? aw / 2 : aw / 2 - (v - low) / rise11], 0.2, high, 0.17, true);
@@ -712,7 +764,7 @@ export function buildBeachHouse(input = {}) {
       stairs: { risers, rise, run: RUN, width: STAIR_WIDTH, top: [stairTop, F, zc], foot: [stairFoot, 0, zc] },
       annex,
       // Where rain runs off and streaks the walls below: the eaves, the band
-      // at the upper floor, the upper and the lower sills (weathering.js).
+      // at the upper floor, the upper and the lower sills (houseMaterial.js).
       dripLines: [F + EAVES, F + SECOND - 0.08, F + UPPER_SILL - 0.06, F + 0.84],
     },
   };
@@ -749,7 +801,7 @@ export function buildBeachShed(input = {}) {
   // The hut: a painted box in vertical boards, dark corner posts, the gable
   // over the door closed in. A board gone leaves a dark slot.
   const depth = FRONT - X0, bx = (X0 + FRONT) / 2;
-  box('shedWall', WORLD, [bx, H + WALLS / 2, 0], [depth, WALLS, Z1 - Z0]);
+  box('shedWall', WORLD, [bx, H + WALLS / 2, 0], [depth, WALLS, Z1 - Z0], [], { layout: 3, uv: 'wall', scale: 0.1 });
   const faces = [
     [wallFrame(FRONT, H, 0, 1, 0), Z1 - Z0],
     [wallFrame(X0, H, 0, -1, 0), Z1 - Z0],
@@ -767,7 +819,7 @@ export function buildBeachShed(input = {}) {
     }
   }
   for (const x of [X0, FRONT]) for (const z of [Z0, Z1]) box('wood', WORLD, [x, H + WALLS / 2 + 0.01, z], [0.1, WALLS + 0.02, 0.1]);
-  panel('shedWall', faces[0][0], [[-Z1, WALLS], [Z1, WALLS], [0, roofAt(FRONT, 0) - H]], 0.1, -0.1);
+  panel('shedWall', faces[0][0], [[-Z1, WALLS], [Z1, WALLS], [0, roofAt(FRONT, 0) - H]], 0.1, -0.1, { layout: 3 });
   const stepZ = 0.25;
   // The door (u = −z on the front face): painted boards, a white Z-brace; the
   // years leave it ajar.

@@ -41,6 +41,7 @@
     "handoff": "node scripts/handoff.mjs",
     "grass:textures": "node scripts/grass/build-textures.mjs",
     "bark:textures": "node scripts/plants/build-bark-textures.mjs",
+    "house:textures": "node scripts/house/build-house-textures.mjs",
     "check:grass": "node scripts/check-grass.mjs",
     "check:lab-links": "node scripts/check-lab-links.mjs",
     "check:sea-settings": "node scripts/check-sea-settings.mjs",

@@ -1,4 +1,4 @@
-import React, { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
+import React, { Suspense, useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
 import * as THREE from 'three';
 import AssetStudio from '../asset-lab/AssetStudio';
 import LabShell, { LabColor, LabFacts, LabModes, LabRange, LabTabs, LabToggle } from '../asset-lab/LabShell';
@@ -56,7 +56,7 @@ const DEFAULTS = {
 };
 const TEXT = {
   ru: {
-    title: 'Дом у океана', subtitle: 'Дом на сваях и сарай · эскиз без текстур · по диораме «By the ocean»',
+    title: 'Дом у океана', subtitle: 'Дом на сваях и сарай · процедурные текстуры и износ · по диораме «By the ocean»',
     color: 'Цвет', clay: 'Макет', shape: 'Форма', wear: 'Износ', paint: 'Краски', light: 'Свет',
     fresh: 'Новый', lived: 'Жилой', derelict: 'Заброшенный', weather: 'Подтёки и выцветание', damage: 'Сломанные доски', sag: 'Проседание',
     full: 'Общий', front: 'Фасад', side: 'Сбоку', back: 'Сзади', porch: 'Веранда', shed: 'Сарай', top: 'План',
@@ -70,7 +70,7 @@ const TEXT = {
     triangles: 'треугольников', meshes: 'мешей', m: 'м', deg: '°', h: 'ч',
   },
   en: {
-    title: 'House by the ocean', subtitle: 'Stilt house and shed · untextured sketch · after the «By the ocean» diorama',
+    title: 'House by the ocean', subtitle: 'Stilt house and shed · procedural textures and wear · after the «By the ocean» diorama',
     color: 'Colour', clay: 'Clay', shape: 'Shape', wear: 'Wear', paint: 'Paint', light: 'Light',
     fresh: 'New', lived: 'Lived-in', derelict: 'Derelict', weather: 'Streaks and fading', damage: 'Broken boards', sag: 'Sagging',
     full: 'Overview', front: 'Front', side: 'Side', back: 'Back', porch: 'Porch', shed: 'Shed', top: 'Plan',
@@ -194,13 +194,15 @@ export default function HouseLab() {
           <planeGeometry args={[600, 600]} />
           <meshStandardMaterial color="#f0eee9" roughness={0.96} />
         </mesh>
-        <BeachHouseModel building={house} colors={settings.colors} clay={clay} wireframe={settings.wireframe} weather={settings.weather} seed={settings.seed} />
-        {settings.shed ? (
-          // Off the foot of the stairs, its steps a metre and a bit from theirs.
-          <group position={[footX - 3.6, 0, footZ + 1.4]} rotation={[0, 0.12, 0]}>
-            <BeachHouseModel building={shed} colors={settings.colors} clay={clay} wireframe={settings.wireframe} weather={settings.weather} seed={settings.seed + 5} />
-          </group>
-        ) : null}
+        <Suspense fallback={null}>
+          <BeachHouseModel building={house} colors={settings.colors} clay={clay} wireframe={settings.wireframe} weather={settings.weather} seed={settings.seed} />
+          {settings.shed ? (
+            // Off the foot of the stairs, its steps a metre and a bit from theirs.
+            <group position={[footX - 3.6, 0, footZ + 1.4]} rotation={[0, 0.12, 0]}>
+              <BeachHouseModel building={shed} colors={settings.colors} clay={clay} wireframe={settings.wireframe} weather={settings.weather} seed={settings.seed + 5} />
+            </group>
+          ) : null}
+        </Suspense>
         {settings.rider ? (
           <group position={[footX - 0.45, 0, footZ + 0.75]} rotation={[0, 0.9, 0]}>
             <RiderModel ref={placeRider} />

@@ -1,0 +1,63 @@
+{
+  "generator": "scripts/house/build-house-textures.mjs",
+  "source": "procedural: wrapping gradient noise and cells, no images",
+  "format": "WebP quality 92; mobile/ at half size",
+  "encoding": {
+    "albedo": "sRGB, mean luminance 0.5 linear (a tint for the finish colour)",
+    "normal": "linear, tangent space, OpenGL +Y up",
+    "surface": "linear, R ambient occlusion, G roughness, B height"
+  },
+  "entries": {
+    "wood": {
+      "size": [
+        1024,
+        512
+      ],
+      "tileMetres": [
+        2,
+        1
+      ],
+      "reliefMetres": 0.003,
+      "albedoGain": 1.108,
+      "seam": {
+        "albedo": 1.14,
+        "normal": 1.37,
+        "surface": 1.24
+      }
+    },
+    "shingle": {
+      "size": [
+        512,
+        512
+      ],
+      "tileMetres": [
+        0.5,
+        0.5
+      ],
+      "reliefMetres": 0.0008,
+      "albedoGain": 3.901,
+      "seam": {
+        "albedo": 0.84,
+        "normal": 0.94,
+        "surface": 1.03
+      }
+    },
+    "metal": {
+      "size": [
+        512,
+        512
+      ],
+      "tileMetres": [
+        1,
+        1
+      ],
+      "reliefMetres": 0,
+      "albedoGain": 1.005,
+      "seam": {
+        "albedo": 0.76,
+        "normal": 0,
+        "surface": 0.92
+      }
+    }
+  }
+}

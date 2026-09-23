@@ -5,7 +5,7 @@ import { RIDER_HEIGHT } from '../surfboard/riderSkeleton.js';
 // The house is for walking: hold its measures to the surfer's (1.74 m) and to
 // the carpenter's rules, at the defaults and at both ends of every slider.
 const triangles = (building) => [...building.parts.values()].reduce((sum, geometry) => sum + geometry.attributes.position.count / 3, 0);
-const finite = (building) => [...building.parts.values()].every((geometry) => geometry.attributes.position.array.every(Number.isFinite));
+const finite = (building) => [...building.parts.values()].every((geometry) => ['position', 'uv', 'aSurface'].every((name) => geometry.attributes[name].array.every(Number.isFinite)));
 
 function holds(house, label) {
   const { plan } = house;
@@ -22,7 +22,17 @@ function holds(house, label) {
   assert.ok(finite(house), `${label}: every vertex is a number`);
   assert.ok(house.bounds.min.y > -0.03, `${label}: nothing below the sand (${house.bounds.min.y.toFixed(3)})`);
   assert.ok(plan.ridge > plan.eaves + 1, `${label}: the ridge stands above the eaves`);
-  for (const role of house.parts.keys()) assert.ok(HOUSE_ROLES.includes(role), `${label}: unknown finish ${role}`);
+  for (const [role, geometry] of house.parts) {
+    assert.ok(HOUSE_ROLES.includes(role), `${label}: unknown finish ${role}`);
+    // Laid for the material: metric UVs, and a surface of a seed in [0, 1)
+    // and a layout it knows (houseMaterial.js).
+    const { uv, aSurface } = geometry.attributes;
+    assert.ok(uv?.itemSize === 2 && aSurface?.itemSize === 3, `${label}: ${role} has uv and aSurface`);
+    for (let i = 0; i < aSurface.count; i += 1) {
+      const seed = aSurface.getX(i), layout = aSurface.getY(i);
+      assert.ok(seed >= 0 && seed < 1 && Number.isInteger(layout) && layout >= 0 && layout <= 8, `${label}: ${role} surface ${seed}, ${layout}`);
+    }
+  }
   // A sagging house is cut short to bend: the biggest one, bent most, ~41k.
   assert.ok(triangles(house) < 48000, `${label}: ${triangles(house)} triangles`);
 }
@@ -68,6 +78,8 @@ for (const damage of [0.25, 0.5, 0.75, 1]) {
   disposeBuilding(aged);
 }
 assert.ok(holes > 0, 'a derelict house has holes');
+const seedOf = (damage) => buildBeachHouse({ damage, sag: 0 }).parts.get('siding').attributes.aSurface.getX(0);
+assert.equal(seedOf(0), seedOf(1), 'a board keeps its patch of texture whatever the damage');
 // Sagging bends the roof (a straight ridge has no vertex at its middle; a
 // sagging one is cut there) and leaves the stilts on the sand.
 const ridgeMiddle = (building) => {
