@@ -162,3 +162,9 @@ body,
 @media (prefers-reduced-motion: reduce) {
   .lab__pill button { transition: none; }
 }
+
+/* A drawing over the studio (the water lab's section): same paper, same ink. */
+.lab__section { position: absolute; inset: 0; z-index: 1; background: var(--lab-bg); pointer-events: none; }
+.lab__section svg { display: block; }
+.lab__section-title { fill: var(--lab-muted); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; }
+.lab__section-axis { fill: var(--lab-faint); font-size: 10px; font-variant-numeric: tabular-nums; }

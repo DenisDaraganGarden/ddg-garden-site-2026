@@ -40,8 +40,14 @@ float coastGround(vec2 qs) {
 // The crest is never a ruled line: two incommensurate sines wander it along the
 // shore. The surf ribbon and the foam field's bore share this one function, so
 // the wet front the bore leaves on the sand scallops with the crest that drew it.
-float coastCrestWiggle(float sAlong, float width) {
-  return (0.32 * sin(6.2831853 * sAlong / 12.7) + 0.16 * sin(6.2831853 * sAlong / 8.9 + 1.7)) * width * 0.0795775;
+// Self-similar in the breaker's width: the periods grow with it as the
+// amplitude does, so a wide breaker meanders as gently as a 9 m one. With
+// fixed periods a wide lip was thrown out farther than the crest's own bend
+// radius and laid itself along the shore in repeating scoops — the saw.
+// meander scales the amplitude; 1 is the original line.
+float coastCrestWiggle(float sAlong, float width, float meander) {
+  float stretch = max(width, 3.0) / 9.0;
+  return (0.32 * sin(6.2831853 * sAlong / (12.7 * stretch)) + 0.16 * sin(6.2831853 * sAlong / (8.9 * stretch) + 1.7)) * width * 0.0795775 * meander;
 }
 // The swell grows as the bed rises, H ~ d^(-1/4), until the breakers take it.
 // Capped at 1.2: the whole-surface steepness budget is at most 0.8, so the
@@ -71,6 +77,12 @@ const shoreDepthFragment = /* glsl */`
     gl_FragColor = vec4(coastHeight(qs), 0.0, 0.0, 1.0);
   }
 `;
+
+// JS twin of coastCrestWiggle, for the laboratory's cameras and section.
+export const coastCrestWiggleAt = (sAlong, width, meander = 1) => {
+  const stretch = Math.max(width, 3) / 9;
+  return (0.32 * Math.sin((2 * Math.PI * sAlong) / (12.7 * stretch)) + 0.16 * Math.sin((2 * Math.PI * sAlong) / (8.9 * stretch) + 1.7)) * width * 0.0795775 * meander;
+};
 
 export function createCoastWaterUniforms() {
   return {

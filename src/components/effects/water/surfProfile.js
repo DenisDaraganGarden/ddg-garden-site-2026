@@ -81,6 +81,106 @@ export const surfJetDown = ({ jet, lift, elapsed = 0 }) => {
 export const surfFoamBoreFrameQ = ({ q, peel = 0, wiggle = 0, refraction = 0, breakAt = 0, breakMean = 0 }) =>
   Number(q) + Number(peel) - Number(wiggle) - Math.min(Math.max(Number(refraction) || 0, 0), 1) * (Number(breakAt) - Number(breakMean));
 
+// CPU twin of surfProfile below, for the laboratory's section drawing and the
+// node checks. The same formulas in the same order; keep them in step with the
+// GLSL (surfProfile.check.js holds both to the joints and the landing).
+const smooth = (edge0, edge1, x) => {
+  const t = Math.min(Math.max((x - edge0) / (edge1 - edge0), 0), 1);
+  return t * t * (3 - 2 * t);
+};
+const lerp = (a, b, t) => a + (b - a) * t;
+
+// The profile's knobs from the flat surf settings.
+export const surfProfileParams = (settings) => ({
+  width: surfPositive(settings.surfWidth), steepen: surfPositive(settings.surfBreakLength), lean: surfPositive(settings.surfLean),
+  jet: surfPositive(settings.surfJet), lift: surfPositive(settings.surfLift), sheet: surfPositive(settings.surfSheet),
+  bore: surfPositive(settings.surfBoreLength), speed: surfPositive(settings.surfSpeed),
+});
+
+// Metres past the break a frozen breaker stands at for a phase 0..1: from
+// rearing up to a spent bore, as BreakingWaves poses its inspection ribbon.
+export const surfFrozenTravel = (settings, phase = settings.surfPhase) => {
+  const plunge = surfPlungeTime(SURF_SHAPE.crest * settings.surfHeight, -0.2 * settings.surfHeight, settings.surfLift);
+  const start = -settings.surfBreakLength - 3;
+  return lerp(start, Math.max(settings.surfSpeed, 0.1) * plunge + settings.surfBoreLength + 3, phase);
+};
+
+export const surfLevelAt = (x, H, width) => {
+  const th = (2 * Math.PI / width) * x + SURF_SHAPE.thetaPeak;
+  return H * surfShape(th) / SURF_SHAPE.range;
+};
+const surfLeanAt = (z, H, lean) => {
+  const rise = smooth(SURF_SHAPE.trough, SURF_SHAPE.crest, z / Math.max(H, 0.00001));
+  return lean * H * rise * rise;
+};
+const surfDownOf = (tx, tz) => {
+  const length = Math.hypot(tz, tx);
+  return length > 0.00001 ? [tz / length, -tx / length] : [0, -1];
+};
+
+// One point of the section: t 0..1 around the profile (back, lip top, lip
+// underside, front face), dn metres past the break, H the section's height.
+export function surfProfilePoint(t, dn, H, P) {
+  const g = SURF_GRAVITY;
+  const plungeFrom = (zRoot, zLand) => (P.lift + Math.sqrt(Math.max(P.lift * P.lift + 2 * g * (zRoot - zLand), 0))) / g;
+  const tau = Math.max(dn, 0) / Math.max(P.speed, 0.1);
+  const rearLength = Math.min(P.steepen, Math.max(0.75, P.width * SURF_REARING_WIDTH_SHARE));
+  const rearing = smooth(-rearLength, 0, dn);
+  const zc = SURF_SHAPE.crest * H;
+  const frontScale = lerp(1, 0.32, rearing);
+  let tauImp = plungeFrom(zc, -0.2 * H);
+  const xTip = P.lean * H * rearing + P.jet * tauImp;
+  const zLand = Math.min(surfLevelAt((xTip - P.lean * H * 0.25) / frontScale, H, P.width), zc - 0.3 * H);
+  tauImp = plungeFrom(zc, zLand);
+  const aMax = Math.min(tau, tauImp);
+  const psi = Math.min(Math.max((dn - P.speed * tauImp) / Math.max(P.bore, 0.1), 0), 1);
+  const Hb = H * lerp(1, SURF_BORE_HEIGHT_FRACTION, psi);
+  const splash = smooth(0, 0.1, psi) * (1 - smooth(0.1, 0.45, psi));
+  const lean = P.lean * rearing * (1 - psi);
+  const root = [surfLeanAt(SURF_SHAPE.crest * Hb, Hb, lean), SURF_SHAPE.crest * Hb];
+  const emerge = smooth(0, 0.06, tau);
+  const spent = smooth(0, 0.1, psi);
+  const o = { alpha: 1, puff: 0, foam: 0, base: surfLevelAt(0.5 * P.width, Hb, P.width), part: 'back', tauImp, psi, rearing, aMax };
+  if (t < 0.3) {
+    const u = t / 0.3;
+    const x = -0.5 * P.width + 0.5 * P.width * u;
+    const z = surfLevelAt(x, Hb, P.width);
+    [o.x, o.z] = [x + surfLeanAt(z, Hb, lean), z];
+    o.foam = 0.45 * smooth(0.8, 1, u) * rearing + 0.5 * psi * smooth(0.6, 1, u);
+  } else if (t < 0.7) {
+    const top = t < 0.5;
+    const u = top ? (t - 0.3) / 0.2 : 1 - (t - 0.5) / 0.2;
+    const a = aMax * u;
+    const jx = root[0] + P.jet * a;
+    const jz = root[1] + P.lift * a - 0.5 * g * a * a;
+    const [dx, dz] = surfDownOf(P.jet, P.lift - g * a);
+    const th = P.sheet * H * emerge * (1 - SURF_SHEET_TIP_TAPER * u) * (1 - spent);
+    [o.x, o.z] = top ? [jx, jz] : [jx + dx * th, jz + dz * th];
+    o.alpha = 1 - spent;
+    o.thickness = th;
+    const aeration = aMax / Math.max(tauImp, 0.01) * u;
+    o.foam = top ? 0.15 + 0.85 * aeration * aeration : 0.08 + 0.3 * aeration;
+    o.puff = top ? aeration * aeration : 0.25 * aeration;
+    o.part = top ? 'lip' : 'under';
+  } else {
+    const u = (t - 0.7) / 0.3;
+    const x = 0.5 * P.width * u;
+    const z = surfLevelAt(x, Hb, P.width);
+    const boreFace = lerp(frontScale, 0.72, smooth(0.04, 0.75, psi));
+    const body = [x * boreFace + surfLeanAt(z, Hb, lean), z];
+    const [dx, dz] = surfDownOf(P.jet, P.lift);
+    const under = P.sheet * H * emerge * (1 - spent);
+    const k = smooth(0, 0.15, u);
+    [o.x, o.z] = [lerp(root[0] + dx * under, body[0], k), lerp(root[1] + dz * under, body[1], k)];
+    const roller = smooth(0, 0.08, psi) * (1 - 0.65 * psi) * (1 - smooth(0.05, 0.85, u));
+    const burst = splash * (1 - smooth(0.2, 0.9, u));
+    o.foam = Math.max(Math.max(roller, burst), 0.18 * rearing * (1 - smooth(0, 0.5, u)));
+    o.puff = roller * (0.42 + 0.32 * (1 - psi)) + burst;
+    o.part = 'face';
+  }
+  return o;
+}
+
 export const surfProfileShader = /* glsl */`
 #define SURF_G ${SURF_GRAVITY.toFixed(2)}
 #define SURF_TAU 6.2831853

@@ -65,4 +65,24 @@ for (const refraction of [0, 0.7, 1]) {
     assert.ok(Math.abs(frameQ - (travel + breakMean)) < 1e-12, `foam frame follows refracted crest at r=${refraction}`);
   }
 }
+// The CPU twin: the loft's edges lie on its base level, the four pieces join
+// without a gap, and a lip that has not left yet has no length.
+{
+  const { surfProfilePoint, surfProfileParams, surfFrozenTravel } = await import('./surfProfile.js');
+  const settings = { surfWidth: 18, surfBreakLength: 37, surfLean: 0.23, surfJet: 4, surfLift: 2, surfSheet: 0.34, surfBoreLength: 27, surfSpeed: 3.5, surfHeight: 2.05, surfPhase: 0.52 };
+  const P = surfProfileParams(settings);
+  for (const dn of [-20, -1, 0.5, 2, 6, 20, 60]) {
+    const at = (t) => surfProfilePoint(t, dn, 2.05, P);
+    const base = at(0).base;
+    assert.ok(Math.abs(at(0).z - base) < 1e-9 && Math.abs(at(1).z - base) < 1e-9, `edges on the base level at dn ${dn}`);
+    for (const joint of [0.3, 0.7]) {
+      const a = at(joint - 1e-7), b = at(joint + 1e-7);
+      assert.ok(Math.hypot(a.x - b.x, a.z - b.z) < 1e-4, `profile joins at t ${joint}, dn ${dn}`);
+    }
+  }
+  const unborn = surfProfilePoint(0.5, -5, 2.05, P), root = surfProfilePoint(0.3, -5, 2.05, P);
+  assert.ok(Math.hypot(unborn.x - root.x, unborn.z - root.z) < 1e-9, 'before the break the lip has no length');
+  assert.ok(Number.isFinite(surfFrozenTravel(settings)), 'the frozen phase has a travel');
+}
+
 console.log(`surfProfile: θp ${SURF_SHAPE.thetaPeak.toFixed(5)}, range ${SURF_SHAPE.range.toFixed(5)}, 1.1 m lip lands in ${fall.toFixed(2)} s; peel span ${surfPeelSpan(azov).toFixed(2)} m`);

@@ -24,7 +24,7 @@ const SEA_SURF = [
     ['seaSurfPhase', 'Фаза обрушения', 'Break phase'], ['seaSurfHeight', 'Высота вала', 'Breaker height', 'm'], ['seaSurfWidth', 'Ширина вала', 'Breaker width', 'm'], ['seaSurfBreakDistance', 'Сдвиг обрушения', 'Break offset', 'm'], ['seaSurfBreakLength', 'Длина обрушения', 'Breaking length', 'm'], ['seaSurfLean', 'Наклон гребня', 'Crest lean'], ['seaSurfJet', 'Выброс губы', 'Lip throw', 'm/s'], ['seaSurfLift', 'Подъём губы', 'Lip lift', 'm/s'], ['seaSurfSheet', 'Толщина губы', 'Lip thickness'], ['seaSurfRoller', 'Объём пены', 'Foam volume'], ['seaSurfRollerDensity', 'Плотность вала', 'Roller density'], ['seaSurfPeel', 'Пил вдоль гребня', 'Peel along crest'], ['seaSurfRefraction', 'Рефракция', 'Refraction'], ['seaSurfBoreLength', 'Схлопывание', 'Collapse', 'm'], ['seaSurfRunup', 'Заплеск на песок', 'Run-up on sand', 'm'], ['seaSurfSpeed', 'Скорость вала', 'Breaker speed', 'm/s'], ['seaSurfPeriod', 'Период', 'Period', 's'], ['seaSurfSets', 'Разброс высоты', 'Height variation'],
 ];
 const SEA_CREST = [
-    ['seaSurfSmooth', 'Гладкость гребня', 'Crest smoothing'], ['seaSurfFoamVariety', 'Разнообразие пены', 'Foam variety'], ['seaSurfStreaks', 'Прожилки пены', 'Foam streaks'],
+    ['seaSurfSmooth', 'Гладкость гребня', 'Crest smoothing'], ['seaSurfMeander', 'Извилистость гребня', 'Crest meander'], ['seaSurfFoamVariety', 'Разнообразие пены', 'Foam variety'], ['seaSurfStreaks', 'Прожилки пены', 'Foam streaks'],
 ];
 const SEA_SPRAY = [
     ['seaSprayAmount', 'Количество', 'Amount'], ['seaSpraySize', 'Размер капель', 'Drop size', 'x'], ['seaSprayLife', 'Время полёта', 'Flight time', 's'], ['seaSprayMist', 'Доля тумана', 'Mist share'],
