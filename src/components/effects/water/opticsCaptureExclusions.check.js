@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { isSeaOpticsSurfaceName } from './opticsCaptureExclusions.js';
+import { isMirroredSeaSurfaceName, isSeaOpticsSurfaceName } from './opticsCaptureExclusions.js';
 
 [
   'water-surface',
@@ -15,4 +15,9 @@ import { isSeaOpticsSurfaceName } from './opticsCaptureExclusions.js';
   assert.equal(isSeaOpticsSurfaceName(name), false, `${name} is not a captured sea surface`);
 });
 
-console.log('optics capture exclusions: named and numbered sea surfaces are excluded');
+['breaking-wave-0', 'breaking-foam-6'].forEach((name) => assert.equal(isMirroredSeaSurfaceName(name), true, `${name} is mirrored by the sea`));
+['breaking-spray-3', 'gerstner-water', 'shore-water', 'water-surface', 'boat'].forEach((name) => {
+  assert.equal(isMirroredSeaSurfaceName(name), false, `${name} is not mirrored`);
+});
+
+console.log('optics capture exclusions: named and numbered sea surfaces are excluded; the breaker alone is mirrored');

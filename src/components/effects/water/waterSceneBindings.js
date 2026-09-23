@@ -1,6 +1,7 @@
-import { useContext, useEffect, useState } from 'react';
+import { useContext, useEffect, useMemo, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
+import { createPass, createTarget, disposePass, restoreDefaultFramebuffer } from './renderTargets.js';
 import { useCloudScene } from '../sky/painterly/CloudSceneContext.jsx';
 import {
   createCloudShadowUniforms,
@@ -11,6 +12,41 @@ import {
   createCursorFlashlightUniforms,
   syncCursorFlashlightUniforms,
 } from '../shaders/cursorFlashlightShader';
+
+// The sky the water reflects, reduced to what a diffuse surface facing each
+// axis receives from it (+x, -x, +y, -y, +z, -z): an ambient cube. Foam is lit
+// by it, at the scale the sand gets from the scene's image light. Below the
+// horizon a surface sees the sea: the mirrored sky, weakly. Six pixels, a few
+// thousand bilinear taps, once a frame; no readback.
+const SKY_IRRADIANCE_SHADER = /* glsl */`
+  precision highp float;
+  uniform sampler2D uSky;
+  uniform float uScale;
+  varying vec2 vUv;
+  void main() {
+    int i = int(gl_FragCoord.x);
+    vec3 axis = vec3(i == 0 ? 1.0 : (i == 1 ? -1.0 : 0.0), i == 2 ? 1.0 : (i == 3 ? -1.0 : 0.0), i == 4 ? 1.0 : (i == 5 ? -1.0 : 0.0));
+    vec3 sum = vec3(0.0);
+    for (int y = 0; y < 48; y++) {
+      float e = (float(y) + 0.5) / 48.0 * 3.14159265 - 1.5707963;
+      float ce = cos(e);
+      for (int x = 0; x < 96; x++) {
+        float a = (float(x) + 0.5) / 96.0 * 6.28318531 - 3.14159265;
+        vec3 w = vec3(ce * cos(a), sin(e), ce * sin(a));
+        float c = max(dot(axis, w), 0.0);
+        vec3 radiance = textureLod(uSky, vec2(a * 0.15915494 + 0.5, abs(e) * 0.31830989 + 0.5), 0.0).rgb;
+        sum += radiance * (w.y < 0.0 ? 0.06 : 1.0) * c * ce;
+      }
+    }
+    gl_FragColor = vec4(sum * (3.14159265 / 48.0) * (6.28318531 / 96.0) * uScale, 1.0);
+  }
+`;
+// Samplers must hold a real texture on WebKit even behind a false branch.
+const EMPTY_SKY_IRRADIANCE = (() => {
+  const texture = new THREE.DataTexture(new Float32Array(6 * 4), 6, 1, THREE.RGBAFormat, THREE.FloatType);
+  texture.needsUpdate = true;
+  return texture;
+})();
 
 // The new sea uses hand-written shaders, so Three cannot attach the scene's
 // optics and shadows to it automatically. Keep that bridge in one place and
@@ -62,6 +98,8 @@ export function createWaterSceneBindingUniforms() {
     uSeaRippleExtent: { value: 24 },
     uSeaRippleStrength: { value: 1 },
     uSeaRippleAmplitude: { value: 0 },
+    uSkyIrradianceMap: { value: EMPTY_SKY_IRRADIANCE },
+    uSkyIrradianceActive: { value: 0 },
     ...createCursorFlashlightUniforms(),
     ...createCloudShadowUniforms(),
   };
@@ -85,6 +123,11 @@ export function useWaterSceneBindings(uniforms, { lighting, sky, runtime = null,
   const reflectionDataRef = useContext(reflectionContext);
   const cloudScene = useCloudScene();
   const emptyShadow = useEmptyShadow();
+  const irradiance = useMemo(() => ({
+    target: createTarget(6, 1, { type: THREE.HalfFloatType, minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter }),
+    pass: createPass(SKY_IRRADIANCE_SHADER, { uSky: { value: null }, uScale: { value: 1 } }),
+  }), []);
+  useEffect(() => () => { irradiance.target.dispose(); disposePass(irradiance.pass); }, [irradiance]);
 
   useEffect(() => {
     uniforms.uKeyShadowBias.value = lighting.shadow.waterBias;
@@ -129,7 +172,7 @@ export function useWaterSceneBindings(uniforms, { lighting, sky, runtime = null,
     );
   }, [lighting, sceneSettings.boatReflectionIntensity, sceneSettings.normalStrength, sceneSettings.seaBedTurbidity, sceneSettings.waterDepthMeters, sceneSettings.waterExtent, sceneSettings.waterScatteringStrength, sceneSettings.waterTurbidity, sceneSettings.waveAmplitude, uniforms]);
 
-  useFrame(() => {
+  useFrame(({ gl }) => {
     syncCursorFlashlightUniforms(uniforms);
     const cloudDescriptor = cloudScene?.current;
     updateCloudShadowUniforms(uniforms, cloudDescriptor);
@@ -138,6 +181,23 @@ export function useWaterSceneBindings(uniforms, { lighting, sky, runtime = null,
       : sky?.texture ?? null;
     uniforms.uSkyLut.value = activeSky;
     uniforms.uWaterSceneSkyActive.value = activeSky ? 1 : 0;
+    if (activeSky) {
+      // The scale the terrain takes the same sky at (WaterLights'
+      // environmentIntensity): foam and sand are lit alike.
+      const cloudSky = Boolean(cloudDescriptor?.enabled && cloudDescriptor?.skyTexture);
+      irradiance.pass.material.uniforms.uSky.value = activeSky;
+      irradiance.pass.material.uniforms.uScale.value = cloudSky ? 1 : (lighting.sky?.skyLevel ?? 1);
+      const previous = gl.getRenderTarget();
+      gl.setRenderTarget(irradiance.target);
+      gl.render(irradiance.pass.scene, irradiance.pass.camera);
+      if (previous) gl.setRenderTarget(previous);
+      else restoreDefaultFramebuffer(gl);
+      uniforms.uSkyIrradianceMap.value = irradiance.target.texture;
+      uniforms.uSkyIrradianceActive.value = 1;
+    } else {
+      uniforms.uSkyIrradianceMap.value = EMPTY_SKY_IRRADIANCE;
+      uniforms.uSkyIrradianceActive.value = 0;
+    }
     if (activeSky?.image) {
       uniforms.uSkyLutTexel.value.set(
         cloudDescriptor?.enabled && cloudDescriptor?.skyTexel

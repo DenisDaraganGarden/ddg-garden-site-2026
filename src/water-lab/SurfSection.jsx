@@ -51,7 +51,7 @@ function useBreakLine(definition, settings, along0, length) {
     const guess = breakLineMean(coastBreakLine(definition, settings.surfHeight, along0, length, 8));
     const heightAt = (s) => { const p = coastPoint(guess, s, definition); return settings.surfHeight * gerstnerWeatherAt(p.x, p.z, settings.gusts); };
     const line = coastBreakLine(definition, settings.surfHeight, along0, length, 48, 0.78, heightAt);
-    for (let i = 0; i < line.length; i += 1) line[i] += settings.surfBreakDistance;
+    for (let i = 0; i < line.length; i += 1) line[i] = Math.min(line[i] + settings.surfBreakDistance, -1.5);
     const mean = breakLineMean(line);
     const breakAt = (s) => {
       const x = Math.min(Math.max((s - along0) / length, 0), 1) * 48;

@@ -205,12 +205,22 @@ float coastEdgeRag(vec2 qs,float time) {
  float lobes=(coastNoise(vec2(qs.y*.16+time*.04,qs.x*.35+11.0))-.5)*.16;
  return (tongues+lobes)*coverage;
 }
+// Value noise has its full spread at every lattice corner and a quarter of
+// it at every cell centre, so its 0.5-lines were dim at the corners and bright
+// between them: a waffle at 45 degrees to the world axes, one cell across,
+// on every shallow of the beach. Scaled to the spread expected at its place
+// in the cell, the lines lose the lattice and keep their look (coastLace.check.js).
+float coastLaceNoise(vec2 p){
+ vec2 f=fract(p);f=f*f*(3.0-2.0*f);
+ vec2 g=(1.0-f)*(1.0-f)+f*f;
+ return clamp(.5+(coastNoise(p)-.5)*.743*inversesqrt(g.x*g.y),0.0,1.0);
+}
 // Reticulated foam: the ridges of value noise are the bubble rafts, the
 // troughs between them the holes. A sheet with holes, never a cut-out.
 float coastLace(vec2 world,float scale,vec2 drift) {
- float n=coastNoise(world*scale+drift);
+ float n=coastLaceNoise(world*scale+drift);
  float web=1.0-abs(2.0*n-1.0);
- float fine=1.0-abs(2.0*coastNoise(world*scale*3.1+drift*1.7+vec2(5.0,9.0))-1.0);
+ float fine=1.0-abs(2.0*coastLaceNoise(world*scale*3.1+drift*1.7+vec2(5.0,9.0))-1.0);
  return web*web*(.55+.45*fine*fine);
 }
 // x: foam on the water (edge lace, the bore's white water, backwash streaks).

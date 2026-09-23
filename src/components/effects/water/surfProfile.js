@@ -118,6 +118,14 @@ const surfDownOf = (tx, tz) => {
   return length > 0.00001 ? [tz / length, -tx / length] : [0, -1];
 };
 
+// Water behind a point of the body toward the light: the horizontal chord
+// through the section at its height. 0.7: this crest is sharper than a
+// cosine. A flat 3 m made the whole body glow alike, a tenth of a crest's.
+export const surfChordAt = (z, Hb, width, boreFace) => {
+  const h = Math.min(Math.max(z / Math.max(Hb, 1e-4) - SURF_SHAPE.trough, 0), 1);
+  return Math.max(0.7 * width * (1 + boreFace) / (2 * Math.PI) * Math.acos(2 * h - 1), 0.1);
+};
+
 // One point of the section: t 0..1 around the profile (back, lip top, lip
 // underside, front face), dn metres past the break, H the section's height.
 export function surfProfilePoint(t, dn, H, P) {
@@ -140,12 +148,14 @@ export function surfProfilePoint(t, dn, H, P) {
   const root = [surfLeanAt(SURF_SHAPE.crest * Hb, Hb, lean), SURF_SHAPE.crest * Hb];
   const emerge = smooth(0, 0.06, tau);
   const spent = smooth(0, 0.1, psi);
+  const boreFace = lerp(frontScale, 0.72, smooth(0.04, 0.75, psi));
   const o = { alpha: 1, puff: 0, foam: 0, vel: [0, 0], splash, base: surfLevelAt(0.5 * P.width, Hb, P.width), part: 'back', tauImp, psi, rearing, aMax };
   if (t < 0.3) {
     const u = t / 0.3;
     const x = -0.5 * P.width + 0.5 * P.width * u;
     const z = surfLevelAt(x, Hb, P.width);
     [o.x, o.z] = [x + surfLeanAt(z, Hb, lean), z];
+    o.thickness = surfChordAt(z, Hb, P.width, boreFace);
     o.foam = 0.45 * smooth(0.8, 1, u) * rearing + 0.5 * psi * smooth(0.6, 1, u);
   } else if (t < 0.7) {
     const top = t < 0.5;
@@ -167,12 +177,12 @@ export function surfProfilePoint(t, dn, H, P) {
     const u = (t - 0.7) / 0.3;
     const x = 0.5 * P.width * u;
     const z = surfLevelAt(x, Hb, P.width);
-    const boreFace = lerp(frontScale, 0.72, smooth(0.04, 0.75, psi));
     const body = [x * boreFace + surfLeanAt(z, Hb, lean), z];
     const [dx, dz] = surfDownOf(P.jet, P.lift);
     const under = P.sheet * H * emerge * (1 - spent);
     const k = smooth(0, 0.15, u);
     [o.x, o.z] = [lerp(root[0] + dx * under, body[0], k), lerp(root[1] + dz * under, body[1], k)];
+    o.thickness = surfChordAt(o.z, Hb, P.width, boreFace);
     const reach = smooth(0, 0.2, psi);
     const roller = smooth(0, 0.08, psi) * (1 - 0.65 * psi) * (1 - smooth(0.05, 0.85, u)) * smooth(0.8 - reach, 1 - reach, u);
     const burst = splash * smooth(0.5, 0.95, u);
@@ -254,6 +264,8 @@ struct SurfPoint {
   float base;      // level of the profile's edges; the loft stands the wave on the swell from here
   vec2 vel;        // the water's own velocity here in the profile's plane; only the jet has one
   float splash;    // the splash-up where the lip has landed, 0..1; the spray bursts from the tip
+  vec2 anchor;     // where a landed lip folds back to: its root, or under it for the underside
+  float spent;     // how far the landed lip has gone, 0..1
 };
 
 float surfLevel(float x, float H) {
@@ -265,6 +277,12 @@ float surfLean(float z, float H, float lean) {
   // there and can turn an otherwise invisible end vertex into a NaN triangle.
   float rise = smoothstep(SURF_TROUGH, SURF_CREST, z / max(H, 0.00001));
   return lean * H * rise * rise;
+}
+// Water behind a point of the body toward the light: the horizontal chord
+// through the section at its height (surfChordAt is the CPU twin).
+float surfChord(float z, float Hb, float boreFace) {
+  float h = clamp(z / max(Hb, 1e-4) - SURF_TROUGH, 0.0, 1.0);
+  return max(0.7 * uWidth * (1.0 + boreFace) / SURF_TAU * acos(2.0 * h - 1.0), 0.1);
 }
 float surfPlunge(float zRoot, float zLand) {
   return (uLift + sqrt(max(uLift * uLift + 2.0 * SURF_G * (zRoot - zLand), 0.0))) / SURF_G;
@@ -307,6 +325,7 @@ SurfPoint surfProfile(float t, float dn, float H) {
   vec2 root = vec2(surfLean(SURF_CREST * Hb, Hb, lean), SURF_CREST * Hb);
   float emerge = smoothstep(0.0, 0.06, tau);
   float spent = smoothstep(0.0, 0.10, psi);
+  float boreFace = mix(frontScale, 0.72, smoothstep(0.04, 0.75, psi));
   float jetLen = aMax * length(vec2(uJet, uLift - 0.5 * SURF_G * aMax));
 
   float jetOut = smoothstep(0.0, 0.15, aMax / max(tauImp, 0.01)) * (1.0 - smoothstep(0.0, 0.4, psi));
@@ -316,13 +335,15 @@ SurfPoint surfProfile(float t, float dn, float H) {
   o.shade = 1.0;
   o.vel = vec2(0.0);
   o.splash = splash;
+  o.spent = 0.0;
   o.base = surfLevel(0.5 * uWidth, Hb);
   if (t < 0.3) {
     float u = t / 0.3;
     float x = -0.5 * uWidth + 0.5 * uWidth * u;
     float z = surfLevel(x, Hb);
     o.p = vec2(x + surfLean(z, Hb, lean), z);
-    o.thickness = 3.0;
+    o.thickness = surfChord(z, Hb, boreFace);
+    o.anchor = o.p;
     // Crumbs: foam born at the crest as it rears, and the bore's own foam.
     o.foam = 0.45 * smoothstep(0.8, 1.0, u) * rearing + 0.5 * psi * smoothstep(0.6, 1.0, u);
     o.arc = 0.5 * uWidth * u;
@@ -341,6 +362,8 @@ SurfPoint surfProfile(float t, float dn, float H) {
     o.p = top ? jet : jet + down * th;
     // Landed: the sheet is foam now; it hands over to the roller and goes.
     o.alpha = 1.0 - spent;
+    o.anchor = top ? root : root + surfJetDown(vec2(uJet, uLift)) * uSheet * H * emerge * (1.0 - spent);
+    o.spent = spent;
     o.thickness = th;
     float aeration = aMax / max(tauImp, 0.01) * u;
     o.foam = top ? 0.15 + 0.85 * aeration * aeration : 0.08 + 0.3 * aeration;
@@ -353,12 +376,12 @@ SurfPoint surfProfile(float t, float dn, float H) {
     float z = surfLevel(x, Hb);
     // The reared face relaxes with the bore instead of carrying its vertical
     // silhouette down the beach after the jet has gone.
-    float boreFace = mix(frontScale, 0.72, smoothstep(0.04, 0.75, psi));
     vec2 body = vec2(x * boreFace + surfLean(z, Hb, lean), z);
     // The face starts where the sheet's underside leaves the body.
     vec2 rootUnder = root + surfJetDown(vec2(uJet, uLift)) * uSheet * H * emerge * (1.0 - spent);
     o.p = mix(rootUnder, body, smoothstep(0.0, 0.15, u));
-    o.thickness = 3.0;
+    o.thickness = surfChord(o.p.y, Hb, boreFace);
+    o.anchor = o.p;
     // Foam is born where the lip comes down, at the foot of the face: the
     // splash-up stands there. The roller then climbs the face to the crest
     // (reach) and boils there as the bore runs. Born at the top of the face,

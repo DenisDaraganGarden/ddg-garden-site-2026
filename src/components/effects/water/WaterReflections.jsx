@@ -25,7 +25,7 @@ import {
   hideExcludedSeagullReflections,
   readSeagullReflectionActivity,
 } from '../../../features/home-scene/creatures/seagullReflectionCapture';
-import { isSeaOpticsSurfaceName } from './opticsCaptureExclusions.js';
+import { isMirroredSeaSurfaceName, isSeaOpticsSurfaceName } from './opticsCaptureExclusions.js';
 
 // Planar reflection and refraction: the scene is re-rendered from a mirrored
 // camera into a texture the water surface samples. The refresh is rate limited,
@@ -415,7 +415,10 @@ export default function WaterReflections({
       sculptureAnchor.getWorldQuaternion(reflectionSculptureQuaternion);
     }
 
-    const reflectionIsMoving = hasSceneMotion(reflectionTiming.reflectionMotion);
+    // A breaker running in is moving content of the mirror, like the boat:
+    // at the idle rate its reflection trailed it by a stride.
+    const surfInMirror = scene.getObjectByName('breaking-wave-0')?.visible === true;
+    const reflectionIsMoving = hasSceneMotion(reflectionTiming.reflectionMotion) || surfInMirror;
     const refractionSceneIsMoving = hasSceneMotion(reflectionTiming.refractionMotion);
 
     // Fish exist only below the waterline. They keep refraction alive, but must
@@ -625,11 +628,35 @@ export default function WaterReflections({
         gl.clear(true, true, true);
         const restoreSeagullVisibility = hideExcludedSeagullReflections(seagullFlock);
         const restoreTerrainReflection = setTerrainOptics(terrain, 2);
+        // The sea mirrors the breaker standing on it: the water sheet and the
+        // foam, on their coarse optics mesh. Their shaders take no clipping
+        // planes, so they cut themselves at the mirror; and they must not sample
+        // the target they are being drawn into.
+        const mirroredLoft = capturedSeaSurfaces
+          .filter(([object, wasVisible]) => wasVisible && isMirroredSeaSurfaceName(object.name))
+          .map(([object]) => {
+            const uniforms = object.material.uniforms ?? {};
+            return { object, uniforms, geometry: object.geometry, texture: uniforms.uReflectionTexture?.value, active: uniforms.uReflectionActive?.value };
+          });
+        mirroredLoft.forEach(({ object, uniforms }) => {
+          object.visible = true;
+          if (object.userData.ddgOpticsGeometry) object.geometry = object.userData.ddgOpticsGeometry;
+          if (uniforms.uReflectionTexture) uniforms.uReflectionTexture.value = null;
+          if (uniforms.uReflectionActive) uniforms.uReflectionActive.value = 0;
+          uniforms.uOpticsMirror?.value.set(1, mirrorY);
+        });
         try {
           gl.render(scene, reflectionCamera);
         } finally {
           restoreSeagullVisibility();
           restoreTerrainReflection();
+          mirroredLoft.forEach(({ object, uniforms, geometry, texture, active }) => {
+            object.visible = false;
+            object.geometry = geometry;
+            if (uniforms.uReflectionTexture) uniforms.uReflectionTexture.value = texture;
+            if (uniforms.uReflectionActive) uniforms.uReflectionActive.value = active;
+            uniforms.uOpticsMirror?.value.set(0, 0);
+          });
         }
         reflectionData.current.texture = reflectionTarget.texture;
         captureStats.current.reflections++;
