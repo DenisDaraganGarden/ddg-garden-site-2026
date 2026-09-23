@@ -20,6 +20,9 @@ import * as THREE from 'three';
 export const ENV_REFLECTION_SCALE = Object.freeze({
   boat: 0.385,
   sculpture: 0.455,
+  // Glassed fibreglass under a hot coat: glossier than varnished wood, still a
+  // dielectric that returns only part of the sky.
+  surfboard: 0.5,
 });
 
 // HTML colour pickers describe a perceptual sRGB swatch, while material colour

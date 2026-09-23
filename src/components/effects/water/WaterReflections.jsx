@@ -48,6 +48,9 @@ const refractionClipPlane = new THREE.Plane(new THREE.Vector3(0, -1, 0), 0);
 const REFLECTION_CLIP_PLANES = [reflectionClipPlane];
 const REFRACTION_CLIP_PLANES = [refractionClipPlane];
 const WATER_CLIP_OVERLAP = 0.015;
+// Things that sail or ride on their own set userData.ddgDynamicReflection on
+// their anchor while they move, and the mirror keeps pace with them.
+const DYNAMIC_REFLECTION_ANCHORS = ['tanker-anchor', 'surfboard-anchor'];
 
 // The beach cuts itself on the run-up water (terrainMaterial.js): 1 keeps the
 // submerged part for refraction, 2 the emerged part for reflection.
@@ -389,7 +392,7 @@ export default function WaterReflections({
         : false;
 
       return cameraMoved || boatMoved || sculptureMoved || seagullReflectionActivity.dynamic
-        || scene.getObjectByName('tanker-anchor')?.userData.ddgDynamicReflection === true;
+        || DYNAMIC_REFLECTION_ANCHORS.some((name) => scene.getObjectByName(name)?.userData.ddgDynamicReflection === true);
     };
     const saveSceneMotion = (snapshot) => {
       snapshot.initialized = true;

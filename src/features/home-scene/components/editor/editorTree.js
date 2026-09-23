@@ -4,6 +4,7 @@ import {ShrubsSection} from './sections/shrubs';
 import {TreesSection} from './sections/trees';
 import { TerrainSection } from './sections/terrain';
 import { TankerSection } from './sections/tanker';
+import { SurfboardBoardSection, SurfboardCheckpointSection, SurfboardRideSection } from './sections/surfboard';
 import {
     SeabedSection,
     WaterGeometrySection,
@@ -93,6 +94,14 @@ export const EDITOR_TREE = [
             { id: 'sculpture', aspects: [{ id: 'transform', Section: SculptureSection }] },
             { id: 'plane', aspects: [{ id: 'transform', Section: PlaneSection }] },
             { id: 'placed', aspects: [{ id: 'transform', Section: PlacedSection }] },
+            {
+                id: 'surfboard',
+                aspects: [
+                    { id: 'board', Section: SurfboardBoardSection },
+                    { id: 'ride', Section: SurfboardRideSection },
+                    { id: 'checkpoint', Section: SurfboardCheckpointSection },
+                ],
+            },
         ],
     },
     {

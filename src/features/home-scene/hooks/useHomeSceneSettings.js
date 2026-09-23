@@ -3,6 +3,7 @@ import { DEFAULT_PLACED_SETTINGS, normalizePlacedSettings } from '../../../place
 import {DEFAULT_GRASS_SETTINGS,DEFAULT_SHRUB_SETTINGS,DEFAULT_TREE_SETTINGS,normalizeGrassSettings,normalizeShrubSettings,normalizeTreeSettings} from '../../../plants/settings.js';
 import { DEFAULT_TERRAIN_SETTINGS, normalizeTerrainSettings } from '../../../terrain/settings.js';
 import { DEFAULT_TANKER_SETTINGS, normalizeTankerSettings } from '../../../tanker/settings.js';
+import { DEFAULT_SURFBOARD_SETTINGS, normalizeSurfboardSettings } from '../../../components/surfboard/settings.js';
 import { DEFAULT_SHORE_SETTINGS, normalizeShoreSettings } from '../../../shore/settings.js';
 import { DEFAULT_RENDER_QUALITY_SETTINGS, normalizeRenderQualitySettings } from '../../../components/effects/renderQualitySettings.js';
 import { SEA_SETTINGS_DEFAULTS, normalizeSeaSettings } from '../../../components/effects/water/seaSettings.js';
@@ -22,6 +23,7 @@ import {
   normalizeSceneCameras,
   normalizeSlideshow,
   normalizeWorkCameras,
+  SCENE_CAMERA_SNAPSHOT_EXCLUDED_KEYS,
 } from '../lib/sceneCameras';
 import {
   DEFAULT_SOUNDSCAPE_SETTINGS,
@@ -115,8 +117,10 @@ const VALID_DEBUG_VIEWS = new Set(HOME_SCENE_DEBUG_VIEWS.map((option) => option.
 const VALID_FOG_MODES = new Set(HOME_SCENE_FOG_MODES.map((option) => option.value));
 const VALID_FILM_STOCKS = new Set(HOME_SCENE_FILM_STOCKS.map((option) => option.value));
 const VALID_LIGHT_TYPES = new Set(HOME_SCENE_LIGHT_TYPES.map((option) => option.value));
+// Published keys that belong to the whole scene rather than to one camera (the
+// catalogue itself, the sound, the surfboard) are listed once, in sceneCameras.js.
 const HOME_SCENE_CAMERA_SNAPSHOT_KEYS = publishedHomeSceneKeys.filter((key) => (
-  key !== 'sceneCameras' && key !== 'slideshow' && key !== 'audio'
+  !SCENE_CAMERA_SNAPSHOT_EXCLUDED_KEYS.includes(key)
 ));
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 const clampResolution = (value) => {
@@ -200,6 +204,7 @@ const pickLayout = (value, fallback) => {
 
 export const getBaseHomeSceneSettings = () => ({
   ...DEFAULT_TANKER_SETTINGS,
+  ...DEFAULT_SURFBOARD_SETTINGS,
   ...DEFAULT_TERRAIN_SETTINGS,
   ...DEFAULT_TOPIARY_SETTINGS,
   ...DEFAULT_PLACED_SETTINGS,
@@ -1162,6 +1167,7 @@ const normalizeHomeSceneSettings = (savedSettings = {}, includeCameraSystem = tr
     ),
     audio: normalizeSoundscapeSettings(merged.audio),
     ...normalizeTankerSettings(merged),
+    ...normalizeSurfboardSettings(merged),
     ...normalizeTerrainSettings(merged),
     ...normalizeTopiarySettings(merged),
     ...normalizePlacedSettings(merged),

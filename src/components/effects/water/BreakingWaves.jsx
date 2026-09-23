@@ -2,10 +2,10 @@ import { seaRippleShader } from './seaRippleShader.js';
 import React, { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { createGerstnerUniforms, gerstnerCrestDelay, gerstnerPeriod, gerstnerPixelShader, gerstnerShader, gerstnerWeatherAt, resolveGerstnerTrains, syncGerstnerUniforms } from './gerstnerWaves';
+import { createGerstnerUniforms, gerstnerCrestDelay, gerstnerPeriod, gerstnerPixelShader, gerstnerShader, resolveGerstnerTrains, syncGerstnerUniforms } from './gerstnerWaves';
 import { coastCoordinates, coastPoint } from '../../../terrain/terrainModel.js';
-import { BREAK_SAMPLES, breakLineMean, coastBreakLine, coastWaterShader, createCoastWaterUniforms, syncCoastWaterUniforms, tickShoreDepth } from './coastFrame';
-import { coastBreakVisibility } from './coastBreakLine';
+import { BREAK_SAMPLES, coastWaterShader, createCoastWaterUniforms, syncCoastWaterUniforms, tickShoreDepth } from './coastFrame';
+import { recordSurfRibbons, surfRibbonBreakLine } from './surfRibbons';
 import { FOAM_BORE_SLOTS, createFoamFieldUniforms, foamFieldShader } from './foamField';
 import { SPRAY_TIERS, buildSprayGeometry, createSprayUniforms, sprayBudget, sprayCountAndOverflow, sprayFragmentBody, sprayFragmentVaryings, sprayShader, sprayVertexBody, syncSprayUniforms } from './spray';
 import { surfFoamBore, surfFrozenTravel, surfPeelSpan, surfProfileShader } from './surfProfile';
@@ -579,7 +579,9 @@ const hash = (n) => ((n * 9301 + 49297) % 233280) / 233280;
 
 // coast: { definition, along0, length, breakQ } — the terrain's coast frame
 // and the stretch of shore (coast s) the breakers work.
-export default function BreakingWaves({ settings, lighting, noise = null, coast, foamBores = null, timeline = null, wireframe = false, sprayTier = SPRAY_TIERS.high, sceneBindings = null, qualityProfile = null }) {
+// surfRibbons: an optional createSurfRibbons() holder that receives, every
+// frame, what the loft is drawn from, for anything that has to ride it.
+export default function BreakingWaves({ settings, lighting, noise = null, coast, foamBores = null, surfRibbons = null, timeline = null, wireframe = false, sprayTier = SPRAY_TIERS.high, sceneBindings = null, qualityProfile = null }) {
   const tier = qualityProfile?.isLowPower ? SPRAY_TIERS.low
     : (qualityProfile?.isMobileDevice ? SPRAY_TIERS.medium : sprayTier);
   const activeNoise = useWaterNoise(noise);
@@ -669,6 +671,9 @@ export default function BreakingWaves({ settings, lighting, noise = null, coast,
   }, [mesh.count]);
   useEffect(() => () => sprayGeometries.forEach((geometry) => geometry.dispose()), [sprayGeometries]);
   const schedule = useRef({ lastSpawn: 0, spawned: mesh.count });
+  // Without the loft there is nothing to ride: an unmounted surf must not
+  // leave its last frame standing in the holder.
+  useEffect(() => () => { if (surfRibbons) surfRibbons.count = 0; }, [surfRibbons]);
 
   useEffect(() => {
     syncWaterShadingUniforms(shading, settings, lighting);
@@ -756,21 +761,12 @@ export default function BreakingWaves({ settings, lighting, noise = null, coast,
         travel = start + speed * (time - next);
       }
       const height = settings.surfHeight * (frozen ? 1 : ribbon.height);
-      // The break line for this wave: where the coast is shallower than
-      // H / 0.78, section by section, with the crest's height read from the
-      // swell's weather at its own break point — first with the plain height
-      // to find the line, then with the heights along it. Refreshed when the
+      // The break line for this wave (surfRibbonBreakLine), refreshed when the
       // height or the weather changes.
       const lineKey = `${height}|${settings.gusts}|${settings.surfBreakDistance}`;
       if (ribbon.lineFor !== lineKey) {
-        const guess = breakLineMean(coastBreakLine(coast.definition, height, coast.along0, coast.length, 8));
-        const heightAt = (s) => { const at = coastPoint(guess, s, coast.definition); return height * gerstnerWeatherAt(at.x, at.z, settings.gusts); };
-        const line = coastBreakLine(coast.definition, height, coast.along0, coast.length, BREAK_SAMPLES, 0.78, heightAt);
-        // The author's offset can move a break, never onto the sand.
-        for (let i = 0; i < line.length; i += 1) line[i] = Math.min(line[i] + settings.surfBreakDistance, -1.5);
+        const { line, visible, mean } = surfRibbonBreakLine(coast, height, settings);
         ribbon.uniforms.uBreakLine.value = line;
-        const visible = coastBreakVisibility(line, coast.length);
-        const mean = breakLineMean(line);
         ribbon.uniforms.uBreakVisible.value = visible;
         ribbon.uniforms.uBreakMean.value = mean;
         // The foam field is a separate pass, so give it the same refracted
@@ -825,6 +821,7 @@ export default function BreakingWaves({ settings, lighting, noise = null, coast,
         bore.set(mean + record.x, record.strength, record.halfWidth, record.front === null ? -100 : mean + record.front);
       }
     });
+    if (surfRibbons) recordSurfRibbons(surfRibbons, { time, frozen, definition: coast.definition, settings }, ribbons);
   }, -25);
 
   // The bore schedule precedes the foam pass. Texture readers follow it, so

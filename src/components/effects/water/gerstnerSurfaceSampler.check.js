@@ -84,3 +84,28 @@ const surfOffNear = seaCoastFadeAtBreak(terrain, -8, 0, 0, surfOff);
 const surfOffFar = seaCoastFadeAtBreak(terrain, -80, 0, 0, surfOff);
 assert.ok(Math.abs(surfOffNear - surfOffFar) < 1e-12, 'surf-off carrier ignores break-line hand-over but retains its physical depth fade');
 assert.equal(seaCoastFadeAtBreak({ terrainEnabled: false }, -8, 0, 0, { surfEnabled: true }), 1, 'terrain-off carrier has no synthetic shore attenuation');
+
+// The particle velocity is the time derivative of the displacement at a fixed
+// surface parameter p: difference the shader's own forward map in time and the
+// sampler must agree, envelope and fades included. A board is carried by it.
+let worstVelocity = 0;
+for (const [x, z, time, fade, cell] of [[17.2, -13.7, 6.2, 0.8, 0.071], [-40, 22, 31.5, 0.35, 0], [3, 64, 118.9, 1, 0.19]]) {
+  const sample = sea(x, z, time, {}, { fadeAt: () => fade, cellAt: () => cell });
+  const epsilon = 1e-4;
+  const after = shaderForward(sample.parameterX, sample.parameterZ, time + epsilon, fade, cell);
+  const before = shaderForward(sample.parameterX, sample.parameterZ, time - epsilon, fade, cell);
+  const numeric = { x: (after.x - before.x) / (2 * epsilon), y: (after.y - before.y) / (2 * epsilon), z: (after.z - before.z) / (2 * epsilon) };
+  const error = Math.hypot(numeric.x - sample.velocity.x, numeric.y - sample.velocity.y, numeric.z - sample.velocity.z);
+  worstVelocity = Math.max(worstVelocity, error);
+  assert.ok(error < 1e-6, `velocity at ${x},${z}: analytic ${JSON.stringify(sample.velocity)} vs time difference ${JSON.stringify(numeric)}`);
+  assert.ok(Math.hypot(sample.velocity.x, sample.velocity.y, sample.velocity.z) > 0.01, 'a live swell moves its water');
+}
+assert.equal(Math.hypot(flat.velocity.x, flat.velocity.y, flat.velocity.z), 0, 'a calm sea holds its water still');
+// A reused target keeps its vectors: probes of one actor share one target.
+const reused = { };
+const first = sea(4, 5, 2, reused);
+const { normal: keptNormal, velocity: keptVelocity } = first;
+sea(-9, 1, 3, reused);
+assert.ok(reused.normal === keptNormal && reused.velocity === keptVelocity, 'a reused target keeps its normal and velocity vectors');
+
+console.log(`gerstnerSurfaceSampler: shader parity under fade and LOD, particle velocity within ${worstVelocity.toExponential(1)} m/s of the time derivative`);

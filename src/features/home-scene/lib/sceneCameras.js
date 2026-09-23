@@ -2,7 +2,11 @@
 // and public player can share this module without making either of them depend
 // on React or on a particular scene renderer.
 import { createPairedCameraLayouts } from './layout.js';
+import { DEFAULT_SURFBOARD_SETTINGS } from '../../../components/surfboard/settings.js';
 
+// Keys that stay on the root when a camera is switched. Besides the catalogue
+// and the editor's own state this is the sound and the surfboard: a board, or a
+// checkpoint, that changed with the camera would be a trap.
 export const SCENE_CAMERA_SNAPSHOT_EXCLUDED_KEYS = Object.freeze([
   'sceneCameras',
   'slideshow',
@@ -16,6 +20,7 @@ export const SCENE_CAMERA_SNAPSHOT_EXCLUDED_KEYS = Object.freeze([
   'editorCursor',
   'debugWireframe',
   'audio',
+  ...Object.keys(DEFAULT_SURFBOARD_SETTINGS),
 ]);
 
 export const DEFAULT_SCENE_CAMERA_HOLD_SECONDS = 8;
