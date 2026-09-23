@@ -92,3 +92,7 @@ html[data-editor-tool=hand] .home-editor-render-frame canvas{cursor:grab}
 .focus-tree-row.is-blocked .focus-tree-eye{opacity:.6;color:#df8b84}
 /* «Играть» рядом с паузой: подпись и рамка отличают вход в игру от переключателя анимации. */
 .focus-topbar .focus-play{height:24px;margin-left:3px;border:1px solid var(--focus-line);font-size:10px}.focus-play .focus-icon{width:13px;height:13px;color:var(--focus-accent)}
+/* Section folds (sectionFolds.js): a heading is a toggle, its chevron down while open;
+   what it folds is hidden by the fold's own mark, since a row's display:grid outranks [hidden]. */
+.focus-sections [data-folded-away]{display:none!important}
+.focus-inspector .home-editor-section-heading.is-foldable{cursor:pointer;user-select:none}.focus-inspector .home-editor-section-heading.is-foldable:before{content:'›';flex:none;width:9px;margin-right:3px;font-size:11px;opacity:.5;transform:rotate(90deg);transition:transform .12s}.focus-inspector .home-editor-section-heading.is-foldable[data-folded=true]:before{transform:rotate(0)}.focus-inspector .home-editor-section-heading.is-foldable:hover:before{opacity:.9}.focus-inspector .home-editor-section-heading.is-foldable:focus-visible{outline:1px solid var(--focus-line);outline-offset:-1px}

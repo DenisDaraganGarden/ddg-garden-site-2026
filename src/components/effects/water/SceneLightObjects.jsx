@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
+import { useThree } from '@react-three/fiber';
 
 // Light objects, the Corona Light way: the light has a body you can see and a
 // target you drag, and the two are separate things in the scene. Both ends are
@@ -112,6 +113,12 @@ function LightObject({ settings, slot }) {
 }
 
 export default function SceneLightObjects({ settings }) {
+  // A light kept out of the reflections lives on its own layer, which the mirror
+  // camera leaves out. three culls lights by the camera's layers too, so the
+  // eye has to see that layer, or switching the light out of the reflections
+  // took it out of the whole scene.
+  const camera = useThree((state) => state.camera);
+  useEffect(() => { camera.layers.enable(NO_REFLECTION_LAYER); }, [camera]);
   return (
     <>
       {SLOTS.map((slot) => (

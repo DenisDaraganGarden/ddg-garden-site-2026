@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { useLanguage } from '../../../../../i18n/useLanguage';
 import { useFocusControlRegistration, useFocusControls, useRegisteredFocusControl } from './FocusControlsContext';
 import { FocusControlNumberInput } from './FocusControlNumberInput';
+import { controlHelp } from '../help/index.js';
 import './focus-controls.css';
 
 const displayValue = (value, formatter) => typeof formatter === 'function' ? formatter(value) : value;
@@ -16,9 +17,17 @@ function PinButton({ id, controls }) {
     return <button type="button" className={`focus-control-pin${pinned ? ' is-pinned' : ''}`} onClick={() => controls?.togglePin(id)} aria-label={text} title={text}>★</button>;
 }
 
+// The label, and a «?» after it when the parameter has a description: the
+// label alone ellipsises, the «?» never does.
+function ControlLabel({ label, help, title }) {
+    return <label title={title} data-focus-tip={label}><span className="focus-control-label">{label}</span>
+        {help ? <span className="focus-control-help" data-focus-tip={help} data-focus-tip-quick="" tabIndex={0} role="note" aria-label={help}>?</span> : null}</label>;
+}
+
 function FocusControlBody({ descriptor, controls, allowPin = true }) {
     const { kind, label, value, checked, min, max, step, unit = '', formatValue, options = [], testId, onChangeRef, id } = descriptor;
     const { language } = useLanguage();
+    const help = controlHelp(String(id ?? '').slice(String(id ?? '').indexOf(':') + 1), language);
     const change = (event) => onChangeRef?.current?.(event);
     const gesture = (kindName, detail) => controls?.gesture(kindName, detail);
     const rangeGesture = useRef(null);
@@ -58,16 +67,16 @@ function FocusControlBody({ descriptor, controls, allowPin = true }) {
     } : {};
     const rowProps = { 'data-focus-control-id': id };
 
-    if (kind === 'toggle') return <div className="focus-control-row focus-control-row--toggle" {...rowProps}><PinButton id={allowPin ? id : null} controls={controls} /><label data-focus-tip={label}>{label}</label><input type="checkbox" checked={Boolean(checked)} onChange={change} data-testid={testId} aria-label={label} /></div>;
-    if (kind === 'color') return <div className="focus-control-row focus-control-row--color" {...rowProps}><PinButton id={allowPin ? id : null} controls={controls} /><label data-focus-tip={label}>{label}</label><input type="color" value={value} onChange={change} data-testid={testId} aria-label={label} /></div>;
-    if (kind === 'select') return <div className="focus-control-row focus-control-row--select" {...rowProps}><PinButton id={allowPin ? id : null} controls={controls} /><label data-focus-tip={label}>{label}</label><select value={value} onChange={change} data-testid={testId} aria-label={label}>{options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div>;
+    if (kind === 'toggle') return <div className="focus-control-row focus-control-row--toggle" {...rowProps}><PinButton id={allowPin ? id : null} controls={controls} /><ControlLabel label={label} help={help} /><input type="checkbox" checked={Boolean(checked)} onChange={change} data-testid={testId} aria-label={label} /></div>;
+    if (kind === 'color') return <div className="focus-control-row focus-control-row--color" {...rowProps}><PinButton id={allowPin ? id : null} controls={controls} /><ControlLabel label={label} help={help} /><input type="color" value={value} onChange={change} data-testid={testId} aria-label={label} /></div>;
+    if (kind === 'select') return <div className="focus-control-row focus-control-row--select" {...rowProps}><PinButton id={allowPin ? id : null} controls={controls} /><ControlLabel label={label} help={help} /><select value={value} onChange={change} data-testid={testId} aria-label={label}>{options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div>;
     const formatted = displayValue(value, formatValue);
     const numberTip = String(formatted) !== String(value) ? `${formatted}${unit}` : undefined;
     const numericLabel = language === 'en' ? `${label} — exact value` : `${label} — точное значение`;
     const numericTip = language === 'en'
         ? `${label}. Drag with left mouse to change; Shift for precision; double-click for exact input.`
         : `${label}. ЛКМ и движение — изменить; Shift — точнее; двойной клик — точный ввод.`;
-    return <div className="focus-control-row focus-control-row--range" {...rowProps}><PinButton id={allowPin ? id : null} controls={controls} /><label title={label} data-focus-tip={label}>{label}</label><input type="range" value={value} min={min} max={max} step={step} onChange={change} data-testid={testId} aria-label={label} {...rangeHandlers} /><FocusControlNumberInput controlId={id} value={value} min={min} max={max} step={step} onChange={change} onGesture={gesture} aria-label={numericLabel} title={numberTip} data-focus-tip={numericTip} /><span className="focus-control-unit">{unit}</span></div>;
+    return <div className="focus-control-row focus-control-row--range" {...rowProps}><PinButton id={allowPin ? id : null} controls={controls} /><ControlLabel label={label} help={help} title={label} /><input type="range" value={value} min={min} max={max} step={step} onChange={change} data-testid={testId} aria-label={label} {...rangeHandlers} /><FocusControlNumberInput controlId={id} value={value} min={min} max={max} step={step} onChange={change} onGesture={gesture} aria-label={numericLabel} title={numberTip} data-focus-tip={numericTip} /><span className="focus-control-unit">{unit}</span></div>;
 }
 
 function Registered({ id }) {

@@ -6,6 +6,7 @@ import {
     FocusSelectControl,
 } from './editor/focus/FocusControlComponents';
 import { useFocusControlScope } from './editor/focus/FocusControlsContext';
+import { useSectionFold } from './editor/focus/sectionFolds';
 
 const formatControlValue = (value, formatter) => {
     if (typeof formatter === 'function') {
@@ -72,11 +73,17 @@ export const SelectControl = ({ label, value, onChange, options, testId, control
 
 // `subtle` marks a block inside a section, as opposed to the heading of a whole
 // aspect. Same rule and label, quieter - otherwise two headings in a row read as
-// siblings and the nesting disappears.
+// siblings and the nesting disappears. In the inspector a heading folds what
+// is under it (sectionFolds.js writes its key and state onto it).
 export const SectionHeading = ({ label, subtle = false }) => {
     const scope = useFocusControlScope();
+    const fold = useSectionFold();
     if (scope?.catalogOnly) return null;
-    return <h4 className={`home-editor-section-heading${subtle ? ' home-editor-section-heading--block' : ''}`}>{label}</h4>;
+    const className = `home-editor-section-heading${subtle ? ' home-editor-section-heading--block' : ''}`;
+    if (!fold) return <h4 className={className}>{label}</h4>;
+    const toggle = (event) => fold.toggle(event.currentTarget.dataset.foldKey);
+    return <h4 className={`${className} is-foldable`} role="button" tabIndex={0} onClick={toggle}
+        onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); toggle(event); } }}>{label}</h4>;
 };
 
 export const CheckboxControl = ({ label, checked, onChange, testId, controlId }) => {

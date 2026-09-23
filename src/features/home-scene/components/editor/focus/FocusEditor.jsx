@@ -7,6 +7,7 @@ import { GIZMO_MODES } from '../../../hooks/useEditorTool';
 import { describeGizmoAxes, gizmoAllows } from '../EditorGizmo';
 import { RangeControl, CheckboxControl, SectionHeading } from '../../HomeEditorControls';
 import { FocusControlsProvider, FocusControlScope, useFocusControls } from './FocusControlsContext';
+import { SectionFoldContext, applyFolds, foldsHiding, loadFolds, saveFolds, useSectionFold } from './sectionFolds';
 import { RegisteredFocusControl } from './FocusControlComponents';
 import { FOCUS_DOMAINS, SETTINGS_PAGES, getFocusDomain, getFocusGroups, getFocusLabel, getNodeIcon } from './focusNavigation';
 import { FocusIcon } from './FocusIcons';
@@ -58,10 +59,22 @@ function useCatalog() {
 
 function NodeSections({ group, node, catalogOnly = false, sectionProps }) {
     const { t } = useLanguage();
-    return <FocusControlScope path={`${group.id}/${node.id}`} groupLabel={t(`homeEditor.groups.${group.id}`)} nodeLabel={t(`homeEditor.nodes.${node.id}`)} catalogOnly={catalogOnly}>
-        {sceneObjectsForNode(`${group.id}/${node.id}`).map(({ key }) => <CheckboxControl key={key} controlId={key} label={t(`homeEditor.controls.${key}`)} checked={Boolean(sectionProps.settings[key])} onChange={(event) => sectionProps.handleSettingChange(event, key, 'boolean')} testId={`home-editor-object-${key}`} />)}
+    // Folding (sectionFolds.js): after every render, and whenever a section
+    // adds rows by itself, the headings get their keys and what they fold is hidden.
+    const fold = useSectionFold(); const ref = useRef(null); const path = `${group.id}/${node.id}`;
+    const folded = useRef(fold?.folded); folded.current = fold?.folded;
+    useLayoutEffect(() => { if (fold && ref.current) applyFolds(ref.current, path, fold.folded); });
+    useEffect(() => {
+        if (!fold || !ref.current) return undefined;
+        const observer = new MutationObserver(() => applyFolds(ref.current, path, folded.current));
+        observer.observe(ref.current, { childList: true, subtree: true });
+        return () => observer.disconnect();
+    }, [fold, path]);
+    const sections = <FocusControlScope path={path} groupLabel={t(`homeEditor.groups.${group.id}`)} nodeLabel={t(`homeEditor.nodes.${node.id}`)} catalogOnly={catalogOnly}>
+        {sceneObjectsForNode(path).map(({ key }) => <CheckboxControl key={key} controlId={key} label={t(`homeEditor.controls.${key}`)} checked={Boolean(sectionProps.settings[key])} onChange={(event) => sectionProps.handleSettingChange(event, key, 'boolean')} testId={`home-editor-object-${key}`} />)}
         {node.aspects.map(({ id, Section }) => <React.Fragment key={id}>{node.aspects.length > 1 ? <SectionHeading label={t(`homeEditor.aspects.${id}`)} /> : null}<Section {...sectionProps} /></React.Fragment>)}
     </FocusControlScope>;
+    return fold ? <div ref={ref} className="focus-sections">{sections}</div> : sections;
 }
 
 // Список клавиш один: он и в справке, и в окне настроек.
@@ -111,14 +124,26 @@ function SearchDialog({ onClose, onSelect, commands }) {
 function InspectorContents({ selected, paramsTab, filter, sectionProps, pendingField, onFieldFound }) {
     const controls = useFocusControls(); const catalog = useCatalog(); const ref = useRef(null); const { language } = useLanguage();
     const filtered = catalog.filter((item) => (paramsTab === 'pinned' ? controls.pinnedIds.has(item.id) : item.path === selected.path) && matchesSearch(`${item.label} ${item.nodeLabel} ${item.controlId || ''}`, filter));
+    // Which section headings are folded, remembered in this browser.
+    const [folded, setFolded] = useState(loadFolds);
+    const fold = useMemo(() => ({
+        folded,
+        toggle(key) {
+            if (!key) return;
+            setFolded((current) => { const next = new Set(current); if (next.has(key)) next.delete(key); else next.add(key); saveFolds(next); return next; });
+        },
+    }), [folded]);
     useLayoutEffect(() => {
         if (!pendingField || !ref.current) return;
         const row = [...ref.current.querySelectorAll('[data-focus-control-id]')].find((item) => item.dataset.focusControlId === pendingField);
         if (!row) return;
+        // A field found in a folded section opens it first, and is shown on the next pass.
+        const hiding = foldsHiding(row);
+        if (hiding.length) { setFolded((current) => { const next = new Set(current); hiding.forEach((key) => next.delete(key)); saveFolds(next); return next; }); return; }
         let parent = row.parentElement; while (parent && parent !== ref.current) { if (parent.tagName === 'DETAILS') parent.open = true; parent = parent.parentElement; }
         row.scrollIntoView({ block: 'center' }); row.classList.add('focus-field-found'); row.querySelector('input,select')?.focus({ preventScroll: true }); onFieldFound();
-    }, [pendingField, selected.path, onFieldFound, catalog]);
-    return <div ref={ref} className="focus-inspector-scroll" data-testid="focus-inspector-scroll">{paramsTab === 'pinned' || filter ? <>{filtered.map((item, index) => <React.Fragment key={item.id}>{paramsTab === 'pinned' && (index === 0 || filtered[index - 1].path !== item.path) ? <h4 className="home-editor-section-heading">{item.nodeLabel}</h4> : null}<RegisteredFocusControl id={item.id} /></React.Fragment>)}{!filtered.length ? <p className="focus-empty">{language === 'ru' ? 'Наведите на параметр и закрепите звёздочкой.' : 'Hover a parameter and pin it with the star.'}</p> : null}</> : selected.node.id === 'camera' ? <FocusCameraManager settings={sectionProps.settings} layoutEditor={sectionProps.layoutEditor} /> : <NodeSections group={selected.group} node={selected.node} sectionProps={sectionProps} />}</div>;
+    }, [pendingField, selected.path, onFieldFound, catalog, folded]);
+    return <div ref={ref} className="focus-inspector-scroll" data-testid="focus-inspector-scroll">{paramsTab === 'pinned' || filter ? <>{filtered.map((item, index) => <React.Fragment key={item.id}>{paramsTab === 'pinned' && (index === 0 || filtered[index - 1].path !== item.path) ? <h4 className="home-editor-section-heading">{item.nodeLabel}</h4> : null}<RegisteredFocusControl id={item.id} /></React.Fragment>)}{!filtered.length ? <p className="focus-empty">{language === 'ru' ? 'Наведите на параметр и закрепите звёздочкой.' : 'Hover a parameter and pin it with the star.'}</p> : null}</> : selected.node.id === 'camera' ? <FocusCameraManager settings={sectionProps.settings} layoutEditor={sectionProps.layoutEditor} /> : <SectionFoldContext.Provider value={fold}><NodeSections group={selected.group} node={selected.node} sectionProps={sectionProps} /></SectionFoldContext.Provider>}</div>;
 }
 
 function FocusTooltip() {
@@ -126,15 +151,19 @@ function FocusTooltip() {
     useEffect(() => {
         let timer;
         const hide = () => { clearTimeout(timer); setTip(null); };
+        // A «?» is asked on purpose and answers at once; a description can run to
+        // a few lines, so near the bottom of the window the tip hangs above its
+        // anchor by its own bottom edge, whatever its height.
         const show = (event) => {
             const target = event.target.closest?.('[data-focus-tip]'); hide();
             if (!target || !target.dataset.focusTip) return;
-            timer = setTimeout(() => { const r = target.getBoundingClientRect(); setTip({ text: target.dataset.focusTip, x: Math.max(8, Math.min(innerWidth - 274, r.left)), y: r.bottom > innerHeight - 95 ? r.top - 66 : r.bottom + 8 }); }, 600);
+            const quick = 'focusTipQuick' in target.dataset;
+            timer = setTimeout(() => { const r = target.getBoundingClientRect(); const above = r.bottom > innerHeight - (quick ? 150 : 95); setTip({ text: target.dataset.focusTip, x: Math.max(8, Math.min(innerWidth - 274, r.left)), top: above ? undefined : r.bottom + 8, bottom: above ? innerHeight - r.top + 8 : undefined }); }, quick ? 120 : 600);
         };
         document.addEventListener('mouseover', show); document.addEventListener('mouseout', hide); document.addEventListener('focusin', show); document.addEventListener('focusout', hide); document.addEventListener('pointerdown', hide); document.addEventListener('scroll', hide, true);
         return () => { hide(); document.removeEventListener('mouseover', show); document.removeEventListener('mouseout', hide); document.removeEventListener('focusin', show); document.removeEventListener('focusout', hide); document.removeEventListener('pointerdown', hide); document.removeEventListener('scroll', hide, true); };
     }, []);
-    return tip ? <div role="tooltip" className="focus-tooltip" style={{ left: tip.x, top: tip.y }}>{tip.text}</div> : null;
+    return tip ? <div role="tooltip" className="focus-tooltip" style={{ left: tip.x, top: tip.top, bottom: tip.bottom }}>{tip.text}</div> : null;
 }
 
 function FocusShell(props) {
