@@ -27,7 +27,7 @@ const SEA_CREST = [
     ['seaSurfSmooth', 'Гладкость гребня', 'Crest smoothing'], ['seaSurfMeander', 'Извилистость гребня', 'Crest meander'], ['seaSurfFoamVariety', 'Разнообразие пены', 'Foam variety'], ['seaSurfStreaks', 'Прожилки пены', 'Foam streaks'],
 ];
 const SEA_SPRAY = [
-    ['seaSprayAmount', 'Количество', 'Amount'], ['seaSpraySize', 'Размер капель', 'Drop size', 'x'], ['seaSprayLife', 'Время полёта', 'Flight time', 's'], ['seaSprayMist', 'Доля тумана', 'Mist share'],
+    ['seaSprayAmount', 'Количество', 'Amount'], ['seaSpraySize', 'Размер капель', 'Drop size', 'x'], ['seaSprayStreak', 'Вытянутость капель', 'Drop streaks'], ['seaSprayCurtain', 'Завеса с губы', 'Lip curtain'], ['seaSprayLife', 'Время полёта', 'Flight time', 's'], ['seaSprayMist', 'Доля тумана', 'Mist share'],
     ['seaSprayMistSize', 'Размер тумана', 'Mist size', 'x'], ['seaSprayDensity', 'Плотность', 'Density'], ['seaSpraySpread', 'Разброс вдоль гребня', 'Spread along the crest', 'm'],
 ];
 const SEA_FOAM = [

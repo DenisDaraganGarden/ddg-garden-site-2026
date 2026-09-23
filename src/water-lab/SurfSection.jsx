@@ -105,7 +105,7 @@ export default function SurfSection({ settings, definition, along0, length, s, l
     const land = windVector(settings.windDirection);
     const wind = (land[0] * definition.landX + land[1] * definition.landZ) * (Number(settings.foamDrift) || 0);
     const motes = [];
-    for (let id = 0; id < SPRAY_IDS; id += 1) {
+    for (let id = 0; id < SPRAY_IDS * Math.min(Math.max(Number(settings.sprayAmount ?? 1), 0), 3); id += 1) {
       const mote = sprayMote(id, SPRAY_TIME, { settings, P, H: current.H, dn: current.dn, wind });
       if (mote && mote.opacity > 0.02) motes.push(mote);
     }
@@ -234,7 +234,7 @@ export default function SurfSection({ settings, definition, along0, length, s, l
       <path d={path(shell)} stroke={FOAM} strokeWidth={0.9} strokeDasharray="3 2" fill="none" />
       {froth.motes.map((m, i) => (m.mist
         ? <circle key={`m${i}`} cx={X(current.centre + m.x)} cy={Y(m.z)} r={Math.max(1.5, m.radius * scale)} fill={FOAM} fillOpacity={0.05 * m.opacity} />
-        : <circle key={`m${i}`} cx={X(current.centre + m.x)} cy={Y(m.z)} r={Math.min(Math.max(0.8, m.radius * scale * 0.5), 2.5)} fill="#17394a" fillOpacity={Math.min(1, 0.7 * m.opacity)} />))}
+        : <line key={`m${i}`} x1={X(current.centre + m.xAgo)} y1={Y(m.zAgo)} x2={X(current.centre + m.x)} y2={Y(m.z)} stroke={m.curtain ? '#17394a' : '#3b6f86'} strokeWidth={Math.min(Math.max(0.8, 2 * m.radius * scale), 3)} strokeLinecap="round" strokeOpacity={Math.min(1, 0.85 * m.opacity)} />))}
       {current.points.slice(1).map((p, i) => film[i + 1] > 0.02 ? <line key={`f${i}`} x1={X(current.points[i].q)} y1={Y(current.points[i].y)} x2={X(p.q)} y2={Y(p.y)} stroke={FOAM} strokeWidth={6} strokeLinecap="round" opacity={film[i + 1] * 0.8} /> : null)}
       {/* The lip dissolves once it has landed: drawn as faint as it is. */}
       {current.points.slice(1).map((p, i) => <line key={`i${i}`} x1={X(current.points[i].q)} y1={Y(current.points[i].y)} x2={X(p.q)} y2={Y(p.y)} stroke={ink} strokeWidth={2.2} strokeLinecap="round" opacity={Math.max(0.12, Math.min(p.alpha, current.points[i].alpha))} />)}

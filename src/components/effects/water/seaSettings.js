@@ -23,7 +23,7 @@ export const SEA_SETTINGS_DEFAULTS = Object.freeze({
   // the face broken out of its period and dragged into streaks; the spray's
   // own knobs, which the runtime already had but nothing could set.
   seaSurfSmooth: 0, seaSurfFoamVariety: 0, seaSurfStreaks: 0, seaSurfMeander: 1,
-  seaSprayAmount: 1, seaSpraySize: 1, seaSprayLife: 2.2, seaSprayMist: 0.62, seaSprayMistSize: 2.2, seaSprayDensity: 1.3, seaSpraySpread: 1.6,
+  seaSprayAmount: 1, seaSpraySize: 1, seaSprayStreak: 1, seaSprayCurtain: 0.4, seaSprayLife: 2.2, seaSprayMist: 0.62, seaSprayMistSize: 2.2, seaSprayDensity: 1.3, seaSpraySpread: 1.6,
   seaSwashFilm: 0.03,
 });
 
@@ -33,7 +33,7 @@ export const SEA_RANGES = Object.freeze({
   seaBedTurbidity: [0, 1, 0.05], seaCrestGlow: [0, 2, 0.05], seaGlint: [0, 3, 0.05], seaSkyReflection: [0, 3, 0.05], seaMeshRings: [32, 192, 8], seaMeshSegments: [48, 256, 8],
   seaSurfHeight: [0.2, 6, 0.05], seaSurfWidth: [3, 40, 0.5], seaSurfBreakDistance: [-20, 40, 0.5], seaSurfBreakLength: [4, 40, 1], seaSurfLean: [0, 1, 0.01], seaSurfJet: [0.3, 6, 0.05], seaSurfLift: [0, 4, 0.05], seaSurfSheet: [0.04, 0.6, 0.01], seaSurfRoller: [0, 1.2, 0.02], seaSurfRollerDensity: [0.2, 2.5, 0.05], seaSurfPeel: [0, 0.6, 0.01], seaSurfRefraction: [0, 1, 0.01], seaSurfBoreLength: [3, 40, 1], seaSurfRunup: [0, 12, 1], seaSurfSpeed: [1, 10, 0.1], seaSurfPeriod: [3, 20, 0.5], seaSurfSets: [0, 1, 0.01], seaSurfPhase: [0, 1, 0.01],
   seaSurfSmooth: [0, 1, 0.01], seaSurfFoamVariety: [0, 1, 0.01], seaSurfStreaks: [0, 1, 0.01], seaSurfMeander: [0, 1.5, 0.01],
-  seaSprayAmount: [0, 3, 0.05], seaSpraySize: [0.3, 3, 0.05], seaSprayLife: [0.5, 6, 0.1], seaSprayMist: [0, 1, 0.01], seaSprayMistSize: [0.5, 4, 0.1], seaSprayDensity: [0.2, 3, 0.05], seaSpraySpread: [0, 5, 0.1],
+  seaSprayAmount: [0, 3, 0.05], seaSpraySize: [0.3, 3, 0.05], seaSprayStreak: [0, 4, 0.05], seaSprayCurtain: [0, 1, 0.01], seaSprayLife: [0.5, 6, 0.1], seaSprayMist: [0, 1, 0.01], seaSprayMistSize: [0.5, 4, 0.1], seaSprayDensity: [0.2, 3, 0.05], seaSpraySpread: [0, 5, 0.1],
 });
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
@@ -74,7 +74,7 @@ export function resolveSeaSettings(flat = {}) {
     meshRings: sea.seaMeshRings, meshSegments: sea.seaMeshSegments,
     surfEnabled: sea.seaSurfEnabled, surfHeight: sea.seaSurfHeight, surfWidth: sea.seaSurfWidth, surfBreakDistance: sea.seaSurfBreakDistance, surfBreakLength: sea.seaSurfBreakLength, surfLean: sea.seaSurfLean, surfJet: sea.seaSurfJet, surfLift: sea.seaSurfLift, surfSheet: sea.seaSurfSheet, surfRoller: sea.seaSurfRoller, surfRollerDensity: sea.seaSurfRollerDensity, surfPeel: sea.seaSurfPeel, surfRefraction: sea.seaSurfRefraction, surfBoreLength: sea.seaSurfBoreLength, surfRunup: sea.seaSurfRunup, surfSpeed: sea.seaSurfSpeed, surfPeriod: sea.seaSurfPeriod, surfSets: sea.seaSurfSets, surfFreeze: sea.seaSurfFreeze, surfPhase: sea.seaSurfPhase, swashFilm: sea.seaSwashFilm,
     surfSmooth: sea.seaSurfSmooth, surfFoamVariety: sea.seaSurfFoamVariety, surfStreaks: sea.seaSurfStreaks, surfMeander: sea.seaSurfMeander,
-    sprayAmount: sea.seaSprayAmount, spraySize: sea.seaSpraySize, sprayLife: sea.seaSprayLife, sprayMist: sea.seaSprayMist, sprayMistSize: sea.seaSprayMistSize, sprayDensity: sea.seaSprayDensity, spraySpread: sea.seaSpraySpread,
+    sprayAmount: sea.seaSprayAmount, spraySize: sea.seaSpraySize, sprayStreak: sea.seaSprayStreak, sprayCurtain: sea.seaSprayCurtain, sprayLife: sea.seaSprayLife, sprayMist: sea.seaSprayMist, sprayMistSize: sea.seaSprayMistSize, sprayDensity: sea.seaSprayDensity, spraySpread: sea.seaSpraySpread,
   };
 }
 

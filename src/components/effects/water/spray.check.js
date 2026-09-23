@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { SPRAY_ACCEPTANCE, SPRAY_GROW, SPRAY_RADIUS, SPRAY_TIERS, sprayFlight, sprayFragmentBody, sprayInstanceCount, sprayVertexBody } from './spray.js';
+import { SPRAY_ACCEPTANCE, SPRAY_GROW, SPRAY_RADIUS, SPRAY_TIERS, sprayFlight, sprayCountAndOverflow, sprayFragmentBody, sprayInstanceCount, sprayMote, sprayVertexBody } from './spray.js';
+import { surfProfileParams, surfProfilePoint } from './surfProfile.js';
 
 // The motes fly in closed form so that nothing has to be simulated or stored.
 // That is only allowed if the closed form IS the trajectory: integrate the
@@ -85,5 +86,61 @@ assert.equal(
   'spray and foam shell share the alpha-preserving fog/output transform',
 );
 assert.match(breakingSource, /float keyVisibility = waterKeyVisibility\(vWorld\);/, 'foam shell receives the water CSM/cloud direct-light visibility once per march');
+
+// The amount slider is the number of motes, not their opacity: twice the
+// amount, twice the count, until the tier's ceiling.
+{
+  const base = { distance: 30, height: 1.5, viewportHeight: 900, viewportWidth: 1500, projectionY: 3.08, overdraw: 2.6, max: 1e9 };
+  const one = sprayInstanceCount({ ...base, amount: 1 });
+  assert.ok(Math.abs(sprayInstanceCount({ ...base, amount: 2 }) / one - 2) < 0.01, 'the amount doubles the motes');
+  // Where the pool's ceiling binds, the rest of the amount keeps more drops at birth.
+  const capped = { ...base, distance: 40, height: 0.45, max: SPRAY_TIERS.high.max };
+  const low = sprayCountAndOverflow({ ...capped, amount: 1 }), high = sprayCountAndOverflow({ ...capped, amount: 3 });
+  assert.equal(low.count, high.count, 'the ceiling binds here');
+  assert.ok(Math.abs(high.overflow / low.overflow - 3) < 0.01, 'past the ceiling the amount still triples the drops kept');
+}
+// While the lip flies it sheds a curtain: drops that are drawn along their
+// flight (a strand, not a bead) and opaque enough to be seen.
+{
+  const settings = { surfWidth: 18, surfBreakLength: 37, surfLean: 0.23, surfJet: 4, surfLift: 2, surfSheet: 0.34, surfBoreLength: 27, surfSpeed: 3.5, surfHeight: 2.05, sprayMist: 0.4, sprayCurtain: 0.4, sprayStreak: 1 };
+  const P = surfProfileParams(settings);
+  // A metre and a half past the break: the lip is in the air (it lands ~3 m on).
+  const dn = 1.5;
+  const drops = [];
+  for (let id = 0; id < 4000; id += 1) {
+    const mote = sprayMote(id, 5.3, { settings, P, H: settings.surfHeight, dn, frozen: true });
+    if (mote?.curtain && !mote.mist && mote.opacity > 0.2) drops.push(mote);
+  }
+  assert.ok(drops.length > 40, `the flying lip sheds a curtain (${drops.length} drops)`);
+  const strands = drops.filter((m) => Math.hypot(m.x - m.xAgo, m.z - m.zAgo) > 0.15);
+  assert.ok(strands.length > drops.length / 2, 'most curtain drops are drawn as strands along their flight');
+  assert.ok(sprayFragmentBody.includes('uSprayExtinction * 1.6 * core'), 'a drop is opaque by what it is, not by its size in metres');
+  // Live, the curtain leaves the lip: most of it is outside the lip's own
+  // sheet (between its top and its underside), where the sheet would hide it.
+  // Late in the throw, when the curtain is richest (the lip lands ~3 m on).
+  const dnLive = 2.8;
+  const sheet = Array.from({ length: 81 }, (_, i) => surfProfilePoint(0.3 + 0.4 * Math.min(i / 80, 0.9999), dnLive, settings.surfHeight, P));
+  const inside = (x, z) => {
+    let hit = false;
+    for (let i = 0, j = sheet.length - 1; i < sheet.length; j = i, i += 1) {
+      const a = sheet[i], b = sheet[j];
+      const az = a.z - a.base, bz = b.z - b.base;
+      if ((az > z) !== (bz > z) && x < (b.x - a.x) * (z - az) / (bz - az) + a.x) hit = !hit;
+    }
+    return hit;
+  };
+  const live = [];
+  for (let id = 0; id < 4000; id += 1) {
+    const mote = sprayMote(id, 5.3, { settings, P, H: settings.surfHeight, dn: dnLive });
+    if (mote?.curtain && mote.opacity > 0.05) live.push(mote);
+  }
+  const buried = live.filter((m) => inside(m.x, m.z)).length;
+  assert.ok(live.length > 20 && buried < live.length / 2, `the live curtain is outside the lip sheet (${buried} of ${live.length} inside)`);
+  // A mist share of one keeps the curtain: it is always drops.
+  const misty = { ...settings, sprayMist: 1 };
+  let curtainDrops = 0;
+  for (let id = 0; id < 2000; id += 1) if (sprayMote(id, 5.3, { settings: misty, P, H: settings.surfHeight, dn, frozen: true })?.curtain) curtainDrops += 1;
+  assert.ok(curtainDrops > 20, 'all-mist spray still has its curtain of drops');
+}
 
 console.log(`spray: closed-form flight within 2 mm of the integrated trajectory, coverage held to ${view.overdraw.toFixed(1)}x the frame over ${governed} m of the approach`);
