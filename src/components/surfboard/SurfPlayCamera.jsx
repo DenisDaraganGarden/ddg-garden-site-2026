@@ -21,7 +21,11 @@ import { surfPlay } from './surfPlayStore';
 // The mouse is the shell's (usePlayKeys writes surfPlay.look): yaw turns the
 // view about +Y (positive = left), pitch tilts it (positive = up), zoom scales
 // the distance. Chase and first person drift back to straight ahead once the
-// hand lets go. Wherever it goes, the camera stays above the water and sand.
+// hand lets go; looking back (Q, LB, the middle button) swings them round to
+// the wave behind. They frame the rider — his chest on the board, all of him
+// in the water — and first person looks out of his head. Wherever it goes,
+// the camera stays above the water and sand, and rides up over a breaker
+// rather than into the curl under its lip.
 
 const CHASE = { distance: 4.8, elevation: 0.3, ahead: 2.5, fov: 62 };
 const SIDE = { along: 9, shoreward: 6, up: 2.5, fov: 45 };
@@ -59,6 +63,10 @@ function followVector(value, velocity, target, omega, dt) {
   }
 }
 
+// How far seaward of the camera a breaker's crest is looked for (m), so the
+// camera climbs over it before the lip gets to it.
+const CREST_LOOK = [2.5, 5];
+
 const boardQuaternion = new THREE.Quaternion();
 const boardPosition = new THREE.Vector3();
 const nose = new THREE.Vector3();
@@ -91,6 +99,7 @@ export default function SurfPlayCamera({ settings, orbitRef, seaSettings, terrai
       orbitBase: 0,
       side: 1,
       lookYaw: 0, lookPitch: 0, lookMovedAt: -Infinity,
+      back: 0,             // how far round to the wave behind (0..1), eased
       orbit: null,         // the editor's orbit controls this ride switched off
       sample: {},
     };
@@ -150,10 +159,17 @@ export default function SurfPlayCamera({ settings, orbitRef, seaSettings, terrai
     }
     rig.lookYaw = look.yaw;
     rig.lookPitch = look.pitch;
+    rig.back += ((surfPlay.intent?.lookBack ?? 0) - rig.back) * Math.min(1, dt * 5);
+    const turnBack = Math.PI * smoothstep(0, 1, rig.back);
+    // Who the camera looks at: the rider's chest on the board, his hips in
+    // the water, the board itself if there is no rider.
+    const rider = surfPlay.rider;
+    const inWater = rider && (rider.state === 'fallen' || rider.state === 'recover');
+    const focus = rider?.chest && rider.state !== 'none' ? (inWater ? rider.pelvis : rider.chest) : null;
 
     let fov = CHASE.fov;
     let clearance = WATER_CLEARANCE;
-    if (mode === 'first') {
+    if (mode === 'first' && !inWater) {
       fov = settings.surfboardCameraFov;
       clearance = EYE_CLEARANCE;
       // Lying down until he rides: the posture the physics holds him in, not
@@ -170,7 +186,12 @@ export default function SurfPlayCamera({ settings, orbitRef, seaSettings, terrai
       side.set(1, 0, 0).applyQuaternion(boardQuaternion);
       const roll = Math.asin(clamp(side.y, -0.6, 0.6));
       // A camera looks down its −Z: yaw it half a turn from the direction.
-      eyeEuler.set(clamp(-0.08 + look.pitch, -1.3, 1.3), Math.atan2(fx, fz) + Math.PI + look.yaw, -EYE_ROLL * roll);
+      eyeEuler.set(clamp(-0.08 + look.pitch, -1.3, 1.3), Math.atan2(fx, fz) + Math.PI + look.yaw + turnBack, -EYE_ROLL * roll);
+      // His own eyes, where his head is (it sways with him), once he has one.
+      if (rider?.head && rider.state !== 'none') {
+        desired.set(rider.head[0], rider.head[1] + 0.06, rider.head[2]);
+        followVector(rig.position, rig.velocity, desired, 30, dt);
+      }
     } else if (mode === 'side') {
       fov = SIDE.fov;
       // Along the crest the way he rides it (with some hysteresis), and in
@@ -186,35 +207,51 @@ export default function SurfPlayCamera({ settings, orbitRef, seaSettings, terrai
         board.z + (landX * rig.side * SIDE.along + landZ * SIDE.shoreward) * reach,
       );
       if (snap) { rig.position.copy(desired); rig.velocity.set(0, 0, 0); } else followVector(rig.position, rig.velocity, desired, 2.5, dt);
-      aim.set(board.x, board.y + 0.5, board.z);
+      if (focus) aim.set(focus[0], focus[1], focus[2]); else aim.set(board.x, board.y + 0.5, board.z);
     } else {
       const orbit = mode === 'orbit';
       if (orbit) fov = ORBIT.fov;
-      const azimuth = (orbit ? rig.orbitBase : rig.heading) + look.yaw;
+      const azimuth = (orbit ? rig.orbitBase : rig.heading) + look.yaw + (orbit ? 0 : turnBack);
       const elevation = clamp((orbit ? ORBIT.elevation : CHASE.elevation) - look.pitch, -0.2, 1.45);
       const distance = (orbit ? ORBIT.distance : CHASE.distance) * look.zoom;
+      const cx = focus ? focus[0] : board.x, cy = focus ? focus[1] - 0.6 : board.y, cz = focus ? focus[2] : board.z;
       desired.set(
-        board.x - Math.sin(azimuth) * Math.cos(elevation) * distance,
-        board.y + 0.4 + Math.sin(elevation) * distance,
-        board.z - Math.cos(azimuth) * Math.cos(elevation) * distance,
+        cx - Math.sin(azimuth) * Math.cos(elevation) * distance,
+        cy + 0.4 + Math.sin(elevation) * distance,
+        cz - Math.cos(azimuth) * Math.cos(elevation) * distance,
       );
       // Orbit answers the hand directly; the chase trails a little.
       if (snap || orbit) { rig.position.copy(desired); rig.velocity.set(0, 0, 0); } else followVector(rig.position, rig.velocity, desired, 6, dt);
-      const ahead = orbit ? 0 : CHASE.ahead;
-      aim.set(board.x + Math.sin(azimuth) * ahead, board.y + 0.5, board.z + Math.cos(azimuth) * ahead);
+      const ahead = orbit || inWater ? 0 : CHASE.ahead * (1 - rig.back);
+      if (focus) aim.set(focus[0] + Math.sin(azimuth) * ahead, focus[1], focus[2] + Math.cos(azimuth) * ahead);
+      else aim.set(board.x + Math.sin(azimuth) * ahead, board.y + 0.5, board.z + Math.cos(azimuth) * ahead);
     }
 
-    // Above the water (the breaker included) and the sand at the camera.
+    // Above the water (the breaker included) and the sand at the camera: at
+    // once where the water itself would swallow it, and eased up over a crest
+    // coming from seaward, so it climbs the wave instead of going under its lip.
     const surface = water.sample(rig.position.x, rig.position.z, time, rig.sample);
-    let floor = surface.height + clearance;
+    const here = surface.height;
+    let crest = here;
+    if (terrainDefinition?.terrainEnabled && mode !== 'first') {
+      for (const back of CREST_LOOK) {
+        crest = Math.max(crest, water.sample(rig.position.x - terrainDefinition.landX * back, rig.position.z - terrainDefinition.landZ * back, time, rig.sample).height);
+      }
+    }
+    let floor = here + clearance;
     if (terrainQuery) floor = Math.max(floor, terrainQuery.heightAt(rig.position.x, rig.position.z) + GROUND_CLEARANCE);
+    const over = crest + clearance + 0.3;
+    if (rig.position.y < over && mode !== 'first') {
+      rig.position.y += Math.min(over - rig.position.y, 6 * dt);
+      rig.velocity.y = Math.max(rig.velocity.y, 0);
+    }
     if (rig.position.y < floor) {
       rig.position.y = floor;
       rig.velocity.y = Math.max(rig.velocity.y, 0);
     }
 
     camera.position.copy(rig.position);
-    if (mode === 'first') {
+    if (mode === 'first' && !inWater) {
       camera.quaternion.setFromEuler(eyeEuler);
     } else {
       if (snap) { rig.look.copy(aim); rig.lookVelocity.set(0, 0, 0); } else followVector(rig.look, rig.lookVelocity, aim, 10, dt);

@@ -513,7 +513,7 @@ function hullForces(body, w) {
   out.buoyant = buoyant;
 }
 
-function substep(state, body, input, water, time, moor) {
+function substep(state, body, input, water, time, moor, external) {
   const hStep = num[H_STEP];
   const { mass, count, pr, pn, ph, rw, at, groundAt } = body;
   const w = state.w;
@@ -649,8 +649,10 @@ function substep(state, body, input, water, time, moor) {
   const forward = input.forward || 0, back = input.back || 0;
   const steer = (input.right || 0) - (input.left || 0);
   const planing = dynamic / (dynamic + buoyant + 1e-6);
-  // Riding (standing) above ~3.5 m/s through the water, lying down below it.
-  const riding = smoothstep(1.5, 3.5, through);
+  // Riding (standing) or lying: the rider's body says which when there is one
+  // (input.stand, 0 lying .. 1 standing, as he gets up); the invisible rider
+  // stands above ~3.5 m/s through the water and lies down below it.
+  const riding = input.stand ?? smoothstep(1.5, 3.5, through);
   state.riding = riding;
 
   // The rider's body floats once the deck is under: lying down (slow) it is
@@ -683,7 +685,9 @@ function substep(state, body, input, water, time, moor) {
   if (headed && support > 0) {
     // Paddling (a hand pushing when there is no rider), fading out by 2.2 m/s.
     let thrust = forward * PADDLE_ACCEL * paddle * Math.max(0, 1 - along / PADDLE_TOP) * support;
-    if (rider > 0) thrust += PUMP_ACCEL * paddle * planing * (input.pump ? 1 : 0.5 * forward);
+    // Pumping: the rider's extension (0..1, from how fast he rises out of a
+    // crouch), or W while planing at half.
+    if (rider > 0) thrust += PUMP_ACCEL * paddle * planing * Math.max(Number(input.pump) || 0, 0.5 * forward);
     if (thrust > 0) force(mass * thrust * hx, 0, mass * thrust * hz, 0, 0, 0);
     // Digging the tail brakes against the water.
     if (back > 0) {
@@ -728,6 +732,9 @@ function substep(state, body, input, water, time, moor) {
   // Air.
   const air = 0.5 * RHO_AIR * (AIR_DRAG_BOARD + (rider > 0 ? AIR_DRAG_RIDER : 0)) * Math.sqrt(vc[0] * vc[0] + vc[1] * vc[1] + vc[2] * vc[2]);
   force(-air * vc[0], -air * vc[1], -air * vc[2], 0, 0, 0);
+
+  // A pull from outside at a world point (the leash of a rider in the water).
+  if (external) force(external.fx, external.fy, external.fz, external.x - c[0], external.y - c[1], external.z - c[2]);
 
   // Editor mooring: a horizontal spring and a yaw spring to the checkpoint,
   // critically damped, heave, pitch and roll left to the water.
@@ -812,7 +819,9 @@ function substep(state, body, input, water, time, moor) {
 // {height, vx, vy, vz, whitewater, ground}; options.moor holds it to a
 // checkpoint {x, z, yaw, stiffness (1/s², default 4)} in the editor, and
 // options.substep trades cost for accuracy (every substep samples the water at
-// each hull point and once for the fins; 1/120 s still passes every check).
+// each hull point and once for the fins; 1/120 s still passes every check);
+// options.external {x, y, z, fx, fy, fz} is a force (N) held over the step at a
+// world point.
 export function stepBoard(state, body, input, water, time, dt, options) {
   if (!(dt > 0)) return state;
   dt = Math.min(dt, MAX_DT);
@@ -820,6 +829,7 @@ export function stepBoard(state, body, input, water, time, dt, options) {
   num[H_STEP] = dt / steps;
   const controls = input || NO_INPUT;
   const moor = options?.moor || null;
+  const external = options?.external || null;
 
   // Integrate the centre of mass; the state carries the board origin.
   setRotation(state.q);
@@ -837,7 +847,7 @@ export function stepBoard(state, body, input, water, time, dt, options) {
     state.popCooldown = POP_COOLDOWN;
   }
 
-  for (let k = 0; k < steps; k += 1) substep(state, body, controls, water, time - dt + (k + 1) * num[H_STEP], moor);
+  for (let k = 0; k < steps; k += 1) substep(state, body, controls, water, time - dt + (k + 1) * num[H_STEP], moor, external);
 
   setRotation(state.q);
   ax = R[0] * ox + R[1] * oy + R[2] * oz; ay = R[3] * ox + R[4] * oy + R[5] * oz; az = R[6] * ox + R[7] * oy + R[8] * oz;
