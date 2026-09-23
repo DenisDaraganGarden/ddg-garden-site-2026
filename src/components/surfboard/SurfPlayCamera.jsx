@@ -164,7 +164,7 @@ export default function SurfPlayCamera({ settings, orbitRef, seaSettings, terrai
     // Who the camera looks at: the rider's chest on the board, his hips in
     // the water, the board itself if there is no rider.
     const rider = surfPlay.rider;
-    const inWater = rider && (rider.state === 'fallen' || rider.state === 'recover');
+    const inWater = rider && rider.onBoard === false;
     const focus = rider?.chest && rider.state !== 'none' ? (inWater ? rider.pelvis : rider.chest) : null;
 
     let fov = CHASE.fov;

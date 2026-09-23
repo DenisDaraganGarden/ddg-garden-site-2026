@@ -45,15 +45,17 @@ export const SEGMENT = Object.freeze(Object.fromEntries(SEGMENT_NAMES.map((name,
 // to the arm, which hangs a few degrees out. The ankle is a ball: with
 // the knee's own give, a foot square across the stringer under a knee turned
 // toward the nose is a twist the leg really makes.
+// The shoulder, with its blade, is the most mobile joint there is: its cone
+// leans out to the side and takes the crawl's recovery over the water.
 // Muscles: stiffness N·m/rad, damping 1/s — legs and spine strong, the neck
 // firm, the arms loose enough to swing with the board.
 export const JOINTS = Object.freeze([
   { name: 'lumbar', parent: 'pelvis', child: 'abdomen', anchor: [0, 1.05, 0], type: 'ball', axis: [0, 1, 0], ref: [0, 0, 1], swing: 0.75, twist: [-0.4, 0.4], stiffness: 1400, damping: 40 },
   { name: 'thoracic', parent: 'abdomen', child: 'chest', anchor: [0, 1.21, 0], type: 'ball', axis: [0, 1, 0], ref: [0, 0, 1], swing: 0.4, twist: [-0.4, 0.4], stiffness: 1400, damping: 40 },
   { name: 'neck', parent: 'chest', child: 'head', anchor: [0, 1.50, 0], type: 'ball', axis: [0, 1, 0], ref: [0, 0, 1], swing: 0.8, twist: [-1.1, 1.1], stiffness: 300, damping: 30 },
-  { name: 'shoulderL', parent: 'chest', child: 'upperArmL', anchor: [0.19, 1.45, 0], type: 'ball', axis: [0, -1, 0], coneAxis: [0.7, -0.2, 0.7], ref: [0, 0, 1], swing: 1.95, stiffness: 160, damping: 25 },
+  { name: 'shoulderL', parent: 'chest', child: 'upperArmL', anchor: [0.19, 1.45, 0], type: 'ball', axis: [0, -1, 0], coneAxis: [0.8, -0.1, 0.4], ref: [0, 0, 1], swing: 2.25, stiffness: 160, damping: 25 },
   { name: 'elbowL', parent: 'upperArmL', child: 'forearmL', anchor: [0.21, 1.15, 0], type: 'hinge', axis: [1, 0.0536, 0], ref: [0, 0, 1], range: [-2.5, 0], stiffness: 90, damping: 25 },
-  { name: 'shoulderR', parent: 'chest', child: 'upperArmR', anchor: [-0.19, 1.45, 0], type: 'ball', axis: [0, -1, 0], coneAxis: [-0.7, -0.2, 0.7], ref: [0, 0, 1], swing: 1.95, stiffness: 160, damping: 25 },
+  { name: 'shoulderR', parent: 'chest', child: 'upperArmR', anchor: [-0.19, 1.45, 0], type: 'ball', axis: [0, -1, 0], coneAxis: [-0.8, -0.1, 0.4], ref: [0, 0, 1], swing: 2.25, stiffness: 160, damping: 25 },
   { name: 'elbowR', parent: 'upperArmR', child: 'forearmR', anchor: [-0.21, 1.15, 0], type: 'hinge', axis: [1, -0.0536, 0], ref: [0, 0, 1], range: [-2.5, 0], stiffness: 90, damping: 25 },
   { name: 'hipL', parent: 'pelvis', child: 'thighL', anchor: [0.09, 0.93, 0], type: 'ball', axis: [0, -1, 0], coneAxis: [0.2, -0.64, 0.76], ref: [0, 0, 1], swing: 1.3, twist: [-0.85, 0.85], stiffness: 1800, damping: 40 },
   { name: 'kneeL', parent: 'thighL', child: 'shinL', anchor: [0.09, 0.51, 0], type: 'hinge', axis: [1, 0, 0], ref: [0, 0, 1], range: [0, 2.5], stiffness: 1600, damping: 40 },

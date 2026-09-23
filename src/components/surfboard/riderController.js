@@ -2,7 +2,7 @@ import {
   JOINTS, SEGMENT, SEGMENT_NAMES, createRiderRagdoll, segmentVolume,
 } from './riderSkeleton.js';
 import {
-  createControls, createPose, jointTargets, popUpControls, proneControls, solvePose, standControls,
+  createControls, createPose, jointTargets, popUpControls, proneControls, solvePose, standControls, swimControls,
 } from './riderPose.js';
 import {
   bodyPoint, driveKinematic, placeBody, qConj, qFromAxisAngle, qMul, qRotate, qRotateInverse, qSlerp, setKinematic, stepRagdoll,
@@ -23,8 +23,10 @@ import {
 //   fallen   wiped out: nothing carries him. The muscles keep a little tone,
 //            the water floats him by the density of each part and drags him
 //            with its flow, the leash ties his back ankle to the tail.
-//   recover  back to the board: pulled to it as a swimmer pulls himself along
-//            his leash, then lying on it again.
+//   swim     he comes up and swims to his board: head-up crawl to the nearest
+//            rail, the arms' pull and the kick driving him, his body kept
+//            level and turned toward the rail by the swimmer's own feel for it.
+//   recover  at the rail he climbs on: pulled up onto the deck, then lying.
 //
 // He falls when the ride takes him beyond what the pose can hold: the board
 // capsizes or stops dead under him, or the water shoves his chest off his
@@ -54,16 +56,29 @@ const SLOW_TIME = 0.9;
 const KNOCKED_OFF = 0.2;
 const CAPSIZED = 0.3;
 const SLAMMED = 30;
-// After a fall: in the water at least this long, back by this long anyway.
+// After a fall: the tumble lasts this long before he swims (sooner if asked).
 const FALL_SETTLE = 1.2;
-const FALL_GIVE_UP = 3.2;
 // A man under water swims for the air: this much lift at the chest and head
 // once the first tumble is over and while the head is under.
 const SWIM_UP = 220;
 const SWIM_AFTER = 0.5;
-const RECOVER_PULL = 1.5;
+// Swimming: a crawl stroke's cycle (s); the thrust of an arm pulling through
+// the water and of the kick (N). They are set by the speed they give, about
+// 0.9 m/s, not by a real swimmer's ~50 N: the water drags each part of him as
+// if it were alone in the flow, the trunk in its own wake included; how
+// firmly he holds his body flat and turned where he swims (N·m/rad) and how
+// fast he turns (rad/s); how close the rail must be to climb on (m).
+const SWIM_CYCLE = 1.3;
+const SWIM_PULL = 230;
+const SWIM_KICK = 55;
+const SWIM_HOLD = 380;
+const SWIM_TURN = 1.6;
+const CLIMB_REACH = 0.75;
+const SWIM_GIVE_UP = 15;
+// Climbing on: pulled onto the deck over this long, done when this close.
+const RECOVER_PULL = 0.9;
 const RECOVER_NEAR = 0.2;
-const RECOVER_GIVE_UP = 6;
+const RECOVER_GIVE_UP = 3;
 // The leash: 6 ft of urethane that stretches.
 const LEASH_LENGTH = 1.85;
 const LEASH_STIFFNESS = 380;
@@ -81,10 +96,12 @@ const CARRIED = {
   liedown: ['pelvis', 'abdomen', 'chest', 'footL', 'footR'],
   stand: ['pelvis', 'footL', 'footR'],
   fallen: [],
+  swim: [],
   recover: [],
 };
 // Muscle strength by state, as a share of each joint's own stiffness.
-const TONE = { prone: 1, popup: 1, liedown: 1, stand: 1, fallen: 0.06, recover: 0.35 };
+const TONE = { prone: 1, popup: 1, liedown: 1, stand: 1, fallen: 0.06, swim: 0.8, recover: 0.35 };
+const IN_WATER = new Set(['fallen', 'swim', 'recover']);
 const LEG_JOINTS = new Set(['hipL', 'kneeL', 'ankleL', 'hipR', 'kneeR', 'ankleR']);
 
 const clamp = (x, a, b) => (x < a ? a : x > b ? b : x);
@@ -94,7 +111,8 @@ const smoothstep = (a, b, x) => {
 };
 
 // board: { length, deckY(x, z), halfWidth(z) } in the board's frame.
-export function createRider(board) {
+// options.leash false: no leash (the checks swim him from further off).
+export function createRider(board, options = {}) {
   const world = createRiderRagdoll();
   const baseStiffness = world.joints.map((joint) => joint.stiffness);
   // The loose pose of a limp body: knees and elbows a little bent.
@@ -116,6 +134,8 @@ export function createRider(board) {
     // Where each body stood on the board when its state began, for the blend.
     entry: { position: SEGMENT_NAMES.map(() => [0, 0, 0]), rotation: SEGMENT_NAMES.map(() => [0, 0, 0, 1]) },
     strokeL: -1, strokeR: -1, nextArm: 'L', queueL: 0, queueR: 0,
+    swimPhase: 0, kickPhase: 0, swimYaw: 0, swimEffort: 1,
+    climb: [0, 0, 0],
     counters: { popUp: 0, strokeLeft: 0, strokeRight: 0 },
     crouch: 0, crouchRate: 0, lastCrouch: 0,
     sink: 0, sinkV: 0, sway: 0, swayV: 0,
@@ -124,6 +144,7 @@ export function createRider(board) {
     samples: SEGMENT_NAMES.map(() => ({ height: -Infinity, vx: 0, vy: 0, vz: 0, whitewater: 0, ground: -Infinity })),
     volume: SEGMENT_NAMES.map((_, i) => segmentVolume(i)),
     leashLocal: [0, board.deckY(0, -board.length / 2 + 0.06) + 0.01, -board.length / 2 + 0.06],
+    leashed: options.leash !== false,
     leashAnchor: [0, 0, 0], leashVelocity: [0, 0, 0],
     out: {
       onBoard: true,
@@ -276,10 +297,22 @@ export function stepRider(rider, frame) {
     rider.slowFor = frame.board.speed < SLOW_SPEED ? rider.slowFor + dt : 0;
     if (rider.slowFor > SLOW_TIME) enter(rider, 'liedown', board);
   } else if (state === 'fallen') {
-    const settled = rider.stateTime > FALL_SETTLE;
-    if ((settled && (popUp || strokeLeft || strokeRight || trim > 0.2)) || rider.stateTime > FALL_GIVE_UP) {
-      enter(rider, 'recover', board);
+    // The tumble, then he swims for his board; asked, he starts sooner.
+    if (rider.stateTime > FALL_SETTLE || (rider.stateTime > SWIM_AFTER && (popUp || strokeLeft || strokeRight || trim > 0.2))) {
+      enter(rider, 'swim', board);
+      rider.swimYaw = headingOf(world.bodies[SEGMENT.chest]);
     }
+  } else if (state === 'swim') {
+    // Holding back he treads water (the strokes slow and go nowhere);
+    // holding forward he swims harder.
+    rider.swimEffort = trim < -0.3 ? 0 : trim > 0.2 ? 1.3 : 1;
+    const beat = Math.max(rider.swimEffort, 0.4);
+    rider.swimPhase += dt / SWIM_CYCLE * beat;
+    rider.kickPhase += dt * 2.4 * beat;
+    climbPoint(rider, board, rider.climb);
+    const chest = world.bodies[SEGMENT.chest];
+    const near = Math.hypot(chest.x[0] - rider.climb[0], chest.x[2] - rider.climb[2]) < CLIMB_REACH;
+    if (near || rider.stateTime > SWIM_GIVE_UP) enter(rider, 'recover', board);
   }
   // Stand value for the board: how much of him is up on his feet.
   out.stand = rider.state === 'stand' ? 1
@@ -288,7 +321,7 @@ export function stepRider(rider, frame) {
   input.stand = out.stand;
 
   // --- the pose, in the board's frame ---------------------------------------------
-  const onBoard = rider.state !== 'fallen' && rider.state !== 'recover';
+  const onBoard = !IN_WATER.has(rider.state);
   if (rider.state === 'stand' || rider.state === 'popup' || rider.state === 'liedown') {
     // The legs as a spring: sinking under an impact, rising as the board drops away.
     const felt = tv2[1] - G;
@@ -310,12 +343,14 @@ export function stepRider(rider, frame) {
   if (rider.state === 'stand') standControls(rider.board, params, rider.controls);
   else if (rider.state === 'popup') popUpControls(rider.board, rider.stateTime / POPUP_TIME, params, rider.controls);
   else if (rider.state === 'liedown') popUpControls(rider.board, 1 - rider.stateTime / LIEDOWN_TIME, params, rider.controls);
-  else proneControls(rider.board, { strokeL: rider.strokeL, strokeR: rider.strokeR, arch: 0.6 + 0.4 * Math.max(trim, 0) }, rider.controls);
+  else if (rider.state === 'swim') {
+    swimControls({ strokeL: rider.swimPhase, strokeR: rider.swimPhase + 0.5, kick: rider.kickPhase, lift: 1 }, rider.controls);
+  } else proneControls(rider.board, { strokeL: rider.strokeL, strokeR: rider.strokeR, arch: 0.6 + 0.4 * Math.max(trim, 0) }, rider.controls);
   solvePose(rider.controls, rider.pose);
 
-  // Muscles: toward the pose's joint rotations on the board, toward a loose
-  // body in the water.
-  if (onBoard || rider.state === 'recover') jointTargets(rider.pose, JOINTS, rider.targets);
+  // Muscles: toward the pose's joint rotations on the board or swimming,
+  // toward a loose body tumbling in the water.
+  if (rider.state !== 'fallen') jointTargets(rider.pose, JOINTS, rider.targets);
   world.joints.forEach((joint, i) => {
     const target = rider.state === 'fallen' ? rider.relaxed[i] : rider.targets[i];
     joint.target[0] = target[0]; joint.target[1] = target[1]; joint.target[2] = target[2]; joint.target[3] = target[3];
@@ -340,17 +375,31 @@ export function stepRider(rider, frame) {
     const pull = smoothstep(0, RECOVER_PULL, rider.stateTime);
     for (const name of ['pelvis', 'chest']) {
       const i = SEGMENT[name];
-      let pin = world.pins.find((p) => p.body === world.bodies[i]);
-      if (!pin) {
-        pin = { body: world.bodies[i], local: [0, 0, 0], target: [0, 0, 0], targetQ: [0, 0, 0, 1], targetV: [0, 0, 0], stiffness: 0, angularStiffness: 0, damping: 0 };
-        world.pins.push(pin);
-      }
+      const pin = pinOf(world, world.bodies[i]);
       toWorld(board, rider.pose.position[i], pin.target);
       qMul(board.q, rider.pose.rotation[i], pin.targetQ);
       pin.targetV[0] = board.v[0]; pin.targetV[1] = board.v[1]; pin.targetV[2] = board.v[2];
       pin.stiffness = 200 + 7800 * pull * pull;
       pin.angularStiffness = 40 + 900 * pull * pull;
       pin.damping = 2 + 6 * pull;
+    }
+  }
+
+  // Swimming: his trunk held flat and turned toward the rail he swims for,
+  // turning no faster than a swimmer turns; the water holds him up.
+  if (rider.state === 'swim') {
+    const pelvis = world.bodies[SEGMENT.pelvis];
+    const want = Math.atan2(rider.climb[0] - pelvis.x[0], rider.climb[2] - pelvis.x[2]);
+    const turn = Math.atan2(Math.sin(want - rider.swimYaw), Math.cos(want - rider.swimYaw));
+    rider.swimYaw += clamp(turn, -SWIM_TURN * dt, SWIM_TURN * dt);
+    qFromAxisAngle(UP, rider.swimYaw, swimFrame);
+    for (const name of ['pelvis', 'chest']) {
+      const i = SEGMENT[name];
+      const pin = pinOf(world, world.bodies[i]);
+      qMul(swimFrame, rider.pose.rotation[i], pin.targetQ);
+      pin.stiffness = 0;
+      pin.angularStiffness = SWIM_HOLD * smoothstep(0, 0.6, rider.stateTime);
+      pin.damping = 0;
     }
   }
 
@@ -368,7 +417,7 @@ export function stepRider(rider, frame) {
   rider.leashVelocity[0] = board.v[0] + board.w[1] * tv[2] - board.w[2] * tv[1];
   rider.leashVelocity[1] = board.v[1] + board.w[2] * tv[0] - board.w[0] * tv[2];
   rider.leashVelocity[2] = board.v[2] + board.w[0] * tv[1] - board.w[1] * tv[0];
-  const leashOn = !onBoard;
+  const leashOn = !onBoard && rider.leashed;
   const leashSum = out.leashForce;
   leashSum.fx = 0; leashSum.fy = 0; leashSum.fz = 0;
   let nearGround = false;
@@ -387,14 +436,17 @@ export function stepRider(rider, frame) {
         if (body.kinematic) continue;
         waterOn(rider, body, i, h);
       }
-      if (rider.state === 'fallen' && rider.stateTime > SWIM_AFTER) {
+      if ((rider.state === 'fallen' && rider.stateTime > SWIM_AFTER) || rider.state === 'swim') {
         const head = w.bodies[SEGMENT.head], chest = w.bodies[SEGMENT.chest];
         const under = rider.samples[SEGMENT.head].height - head.x[1];
-        if (under > 0) {
-          const push = SWIM_UP * clamp(under / 0.3, 0, 1);
+        // Swimming he keeps his chin up, out of the water.
+        const clear = rider.state === 'swim' ? 0.12 : 0.05;
+        if (under > -clear) {
+          const push = SWIM_UP * clamp((under + clear) / 0.3, 0, 1);
           head.f[1] += push * 0.4; chest.f[1] += push * 0.6;
         }
       }
+      if (rider.state === 'swim') swimThrust(rider, w);
       if (leashOn) {
         const foot = w.bodies[SEGMENT.footR];
         const f = leashPull(rider, foot);
@@ -437,10 +489,57 @@ export function stepRider(rider, frame) {
     }
   }
 
-  out.onBoard = rider.state !== 'fallen' && rider.state !== 'recover';
+  out.onBoard = !IN_WATER.has(rider.state);
   bodyPoint(world.bodies[SEGMENT.chest], [0, 0, 0], out.chest);
   bodyPoint(world.bodies[SEGMENT.pelvis], [0, 0, 0], out.pelvis);
   return out;
+}
+
+const UP = [0, 1, 0];
+const swimFrame = [0, 0, 0, 1];
+const railLocal = [0, 0, 0];
+
+function pinOf(world, body) {
+  let pin = world.pins.find((p) => p.body === body);
+  if (!pin) {
+    pin = { body, local: [0, 0, 0], target: [0, 0, 0], targetQ: [0, 0, 0, 1], targetV: [0, 0, 0], stiffness: 0, angularStiffness: 0, damping: 0 };
+    world.pins.push(pin);
+  }
+  return pin;
+}
+
+// The way a body's head end points, as a heading about +Y.
+const headAxis = [0, 0, 0];
+function headingOf(body) {
+  qRotate(body.q, UP, headAxis);
+  return Math.atan2(headAxis[0], headAxis[2]);
+}
+
+// Where on the board he swims for: the rail beside him, level with where he is
+// along it but clear of the nose and the fins.
+function climbPoint(rider, board, out) {
+  const pelvis = rider.world.bodies[SEGMENT.pelvis];
+  toLocal(board, pelvis.x, railLocal);
+  const half = rider.board.length / 2;
+  const z = clamp(railLocal[2], -half + 0.35, half - 0.45);
+  const x = (railLocal[0] >= 0 ? 1 : -1) * (rider.board.halfWidth ? rider.board.halfWidth(z) : 0.24);
+  railLocal[0] = x; railLocal[1] = rider.board.deckY(x, z); railLocal[2] = z;
+  return toWorld(board, railLocal, out);
+}
+
+// The crawl's drive: each arm pulling through the water, and the kick, push
+// him along his heading — while he is in the water to push against it.
+function swimThrust(rider, w) {
+  const chest = w.bodies[SEGMENT.chest];
+  const wet = rider.samples[SEGMENT.chest].height - chest.x[1] > -0.1;
+  if (!wet) return;
+  const phaseL = ((rider.swimPhase % 1) + 1) % 1, phaseR = (((rider.swimPhase + 0.5) % 1) + 1) % 1;
+  const pull = (phase) => (phase < 0.5 ? Math.sin(Math.PI * phase / 0.5) : 0);
+  const thrust = rider.swimEffort * (SWIM_PULL * (pull(phaseL) + pull(phaseR)) + SWIM_KICK);
+  const fx = Math.sin(rider.swimYaw) * thrust, fz = Math.cos(rider.swimYaw) * thrust;
+  chest.f[0] += fx * 0.6; chest.f[2] += fz * 0.6;
+  const pelvis = w.bodies[SEGMENT.pelvis];
+  pelvis.f[0] += fx * 0.4; pelvis.f[2] += fz * 0.4;
 }
 
 // One arm's stroke: its phase runs 0..1 over STROKE_TIME; a new one starts
