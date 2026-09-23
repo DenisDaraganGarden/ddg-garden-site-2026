@@ -9,6 +9,7 @@ import { createFoamFieldUniforms, foamFieldShader, useFoamField } from './foamFi
 import { createWaterShadingUniforms, syncWaterShadingUniforms, tickWaterShadingUniforms, useWaterNoise, waterShadingShader } from './waterShading';
 import { BOAT_CUTOUT_STENCIL_REF } from './constants';
 import { sceneDepthFragment, sceneDepthVertex } from '../shaders/sceneDepth';
+import { setUnderside, waterFragmentTail, waterUndersideShader } from './underwaterOptics.js';
 
 // The open-water surface: one radial mesh under the camera, Gerstner trains in
 // the vertex shader, and foam from the field with memory near the camera —
@@ -55,6 +56,7 @@ const fragmentShader = /* glsl */`
   ${gerstnerShader}
   ${gerstnerPixelShader}
   ${waterShadingShader}
+  ${waterUndersideShader}
   ${foamFieldShader}
   ${coastWaterShader}
   uniform float uFoamThreshold;
@@ -97,6 +99,10 @@ const fragmentShader = /* glsl */`
     vec3 n = gerstnerSurfaceNormal(vSurface, vFade);
     float rippleWet = uShoreReady > 0.5 ? smoothstep(0.4, 0.8, -ground) : 1.0;
     n = waterRippleNormal(n, vWorld.xz, pixel, max(vFade, 0.45), rippleWet);
+#ifdef WATER_UNDERSIDE
+    // The eye is under the water and this is the surface from below.
+    gl_FragColor = vec4(waterUnderside(vWorld, n, view), 1.0);
+#else
     float jacobian = vJacobian;
     // Whitecaps from the whole wave field, unfaded, in patches: foam shows to
     // the horizon even where the mesh no longer carries the wave.
@@ -109,9 +115,8 @@ const fragmentShader = /* glsl */`
     float lift = clamp(vWorld.y * 1.5, 0.0, 1.0) * (1.0 - jacobian * 0.5);
     vec3 color = shadeWater(vWorld, n, view, pixel, waterFlowUv(vWorld.xz), coverage, age, 10.0, lift, bed);
     gl_FragColor = vec4(color, 1.0);
-    #include <fog_fragment>
-    #include <tonemapping_fragment>
-    #include <colorspace_fragment>
+#endif
+    ${waterFragmentTail}
   }
 `;
 
@@ -119,7 +124,9 @@ const fragmentShader = /* glsl */`
 // breakers take over; null leaves the swell running to the horizon everywhere.
 // timeline: the scene's paused-aware clock (createSceneTimeline), advanced
 // here for every water surface; without one the renderer's clock is used.
-export default function GerstnerWaterSurface({ settings, lighting, noise = null, followCamera = true, wireframe = false, coast = null, foamBores = null, timeline = null, sceneBindings = null, farVisible = true, nearExtent = 82 }) {
+// underwater: { active, murk } from UnderwaterView — while active, the surface
+// shows the camera its underside (setUnderside), mirroring that murk.
+export default function GerstnerWaterSurface({ settings, lighting, noise = null, followCamera = true, wireframe = false, coast = null, foamBores = null, timeline = null, sceneBindings = null, farVisible = true, nearExtent = 82, underwater = null }) {
   const meshRef = useRef();
   const activeNoise = useWaterNoise(noise);
   const geometry = useMemo(
@@ -140,6 +147,7 @@ export default function GerstnerWaterSurface({ settings, lighting, noise = null,
     uShoreBand: { value: new THREE.Vector3(0, 0, -24) },
     uSeaFarVisible: { value: 1 },
     uSeaNearExtent: { value: 82 },
+    uUnderwaterMurk: { value: underwater?.murk ?? new THREE.Color() },
   }));
 
   useEffect(() => {
@@ -164,6 +172,7 @@ export default function GerstnerWaterSurface({ settings, lighting, noise = null,
     tickWaterShadingUniforms(uniforms, time, activeNoise);
     if (coast) tickShoreDepth(uniforms, coast);
     if (followCamera && meshRef.current) meshRef.current.position.set(camera.position.x, 0, camera.position.z);
+    setUnderside(meshRef.current?.material, Boolean(underwater?.active));
   });
 
   return (

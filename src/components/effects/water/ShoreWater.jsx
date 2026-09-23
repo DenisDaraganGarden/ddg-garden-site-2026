@@ -1,5 +1,5 @@
 import { seaRippleShader } from './seaRippleShader.js';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { coastHeight, coastPoint } from '../../../terrain/terrainModel.js';
@@ -9,6 +9,7 @@ import { createFoamFieldUniforms, foamFieldShader } from './foamField';
 import { createWaterShadingUniforms, syncWaterShadingUniforms, tickWaterShadingUniforms, useWaterNoise, waterShadingShader } from './waterShading';
 import { BOAT_CUTOUT_STENCIL_REF } from './constants';
 import { sceneDepthFragment, sceneDepthVertex } from '../shaders/sceneDepth';
+import { setUnderside, waterFragmentTail, waterUndersideShader } from './underwaterOptics.js';
 
 // The water at the shore, on the beach's own grid. The open-water mesh is
 // coarse where it meets the sand and its plane simply sank under the beach's
@@ -155,6 +156,7 @@ const fragmentShader = /* glsl */`
   ${gerstnerShader}
   ${gerstnerPixelShader}
   ${waterShadingShader}
+  ${waterUndersideShader}
   ${coastWaterShader}
   ${foamFieldShader}
   uniform float uSeam;
@@ -202,6 +204,10 @@ const fragmentShader = /* glsl */`
     n = normalize(mix(n, normalize(vGroundNormal), sand));
     float rippleWet = uShoreReady > 0.5 ? smoothstep(0.4, 0.8, -bed) : 1.0;
     n = waterRippleNormal(n, vWorld.xz, pixel, max(vFade, 0.45) * (1.0 - vFilm), rippleWet);
+#ifdef WATER_UNDERSIDE
+    // The eye is under the water and this is the surface from below.
+    gl_FragColor = vec4(waterUnderside(vWorld, n, view), 1.0);
+#else
     // Exactly the open water's foam: the same whitecap measure, the same
     // crossfade into the field's window, the same age and the same crest lift.
     // Anything else and this band reads as a rectangle of another shader laid
@@ -222,14 +228,15 @@ const fragmentShader = /* glsl */`
     // The sea stays opaque: no extra pass, sorted transparent sheet or dither.
     if (sheetCoverage < 1.0) color = mix(waterUnrefractedScene(vWorld, color), color, sheetCoverage);
     gl_FragColor = vec4(color, 1.0);
-    #include <fog_fragment>
-    #include <tonemapping_fragment>
-    #include <colorspace_fragment>
+#endif
+    ${waterFragmentTail}
   }
 `;
 
 // coast: { definition, band: { sMin, sMax, seam }, shoreDepth, foamField, breakQ }.
-export default function ShoreWater({ settings, lighting, noise = null, coast, timeline = null, wireframe = false, sceneBindings = null }) {
+// underwater: { active, murk } from UnderwaterView — the underside while active.
+export default function ShoreWater({ settings, lighting, noise = null, coast, timeline = null, wireframe = false, sceneBindings = null, underwater = null }) {
+  const meshRef = useRef();
   const activeNoise = useWaterNoise(noise);
   const band = coast.band;
   const geometry = useMemo(() => buildShoreBand(coast.definition, band.sMin, band.sMax, band.seam - 2, 12), [band.seam, band.sMax, band.sMin, coast.definition]);
@@ -245,6 +252,7 @@ export default function ShoreWater({ settings, lighting, noise = null, coast, ti
     uSeam: { value: -24 },
     uFoamThreshold: { value: 0.55 },
     uFoamSoftness: { value: 0.15 },
+    uUnderwaterMurk: { value: underwater?.murk ?? new THREE.Color() },
   }));
 
   useEffect(() => {
@@ -266,10 +274,11 @@ export default function ShoreWater({ settings, lighting, noise = null, coast, ti
     uniforms.uFoamField.value = field?.texture ?? null;
     uniforms.uFoamMemory.value = field?.texture ? 1 : 0;
     if (field) uniforms.uFoamWindow.value.copy(field.window);
+    setUnderside(meshRef.current?.material, Boolean(underwater?.active));
   });
 
   return (
-    <mesh name="shore-water" geometry={geometry} frustumCulled={false}>
+    <mesh ref={meshRef} name="shore-water" geometry={geometry} frustumCulled={false}>
       <shaderMaterial
         uniforms={uniforms}
         vertexShader={sceneDepthVertex(vertexShader)}
