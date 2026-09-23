@@ -5,6 +5,7 @@ import BlackStoneLab from '../black-stone-lab/BlackStoneLab';
 import TankerLab from '../tanker-lab/TankerLab';
 import BoatLab from '../boat-lab/BoatLab';
 import SurfboardLab from '../surfboard-lab/SurfboardLab';
+import HouseLab from '../house-lab/HouseLab';
 import { GrassLab, OleasterLab, TreeLab } from '../plant-lab/PlantLab';
 import { AlgaeLab, LiliesLab } from '../water-plant-lab/WaterPlantLab';
 import RockLab from '../rock-lab/RockLab';
@@ -20,6 +21,7 @@ const COMPONENTS = {
   tanker: TankerLab,
   boat: BoatLab,
   surfboard: SurfboardLab,
+  house: HouseLab,
   oleaster: OleasterLab,
   tree: TreeLab,
   lilies: LiliesLab,

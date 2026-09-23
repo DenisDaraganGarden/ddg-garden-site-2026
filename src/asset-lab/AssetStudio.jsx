@@ -125,6 +125,10 @@ export default function AssetStudio({
   // and image-based light, or the white studio. A collection that hands in a
   // whole lighting solution (the tanker at night) is shown under it either way.
   const sceneMode = useLabLightMode() === 'scene' || Boolean(lighting);
+  // The studio key stands 7.8 m out, enough for everything up to the usual
+  // 9 m stage; a bigger stage (a house) moves it back, or its top falls behind
+  // the shadow camera and casts nothing.
+  const keyReach = Math.max(1, shadowRadius / 9);
   const overridesKey = JSON.stringify(sceneOverrides ?? null);
   const overrides = useMemo(() => (overridesKey === 'null' ? undefined : JSON.parse(overridesKey)), [overridesKey]);
 
@@ -151,14 +155,14 @@ export default function AssetStudio({
           <StudioEnvironment />
           <hemisphereLight args={['#f9fbff', '#b8afa1', stoneLighting ? 0.34 : 1.35]} />
           <directionalLight
-            position={[3.4, 5.5, 4]}
+            position={[3.4 * keyReach, 5.5 * keyReach, 4 * keyReach]}
             intensity={stoneLighting ? 1.7 : 2.1}
             color="#fff7e9"
             castShadow
             shadow-mapSize-width={1024}
             shadow-mapSize-height={1024}
             shadow-camera-near={0.5}
-            shadow-camera-far={30}
+            shadow-camera-far={30 * keyReach}
             shadow-camera-left={-shadowRadius}
             shadow-camera-right={shadowRadius}
             shadow-camera-top={shadowRadius}

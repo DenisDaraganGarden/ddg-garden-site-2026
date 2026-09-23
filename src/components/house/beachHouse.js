@@ -1,0 +1,852 @@
+import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { randomSequence } from '../../plants/oleasterModel.js';
+
+// A weathered beach house on stilts and the painted shed beside it, after the
+// diorama Denis brought (Sketchfab, «DAE Diorama — By the ocean»). A sketch in
+// boards and cut panels, no textures yet, but every measure is a real one for
+// the surfer (1.74 m, riderSkeleton.js) who is going to walk here: 18 cm steps
+// on a 28 cm run, a 2.05 m door, a 95 cm rail, 2.4 m under the porch beam.
+//
+// Age is procedural. `damage` takes boards away, snaps them, leaves them
+// hanging from a nail, opens gaps in the walls and holes in the roofs, breaks
+// panes, swings a door ajar and drops planks on the sand; `sag` settles the
+// house towards a corner, leans it, swaybacks the ridge and droops the porch
+// between its posts. Every piece draws its fate from a stream of its own, the
+// same draws at any damage, so more damage only adds wounds to those already
+// there. Streaks, peeling paint and rust belong to the material (weathering.js).
+//
+// Each building is boxes and flat panels merged into one geometry per finish
+// (siding, trim, roof…): a dozen draw calls. The house faces +Z — the gable
+// with the porch and the green shutters — with its centre on the origin and
+// y = 0 on the sand; the shed's door faces +X. Placing them is the caller's.
+
+export const HOUSE_DEFAULTS = Object.freeze({
+  houseWidth: 6, // the gable end, m
+  houseLength: 8.4, // along the ridge, m
+  floorHeight: 1.44, // floor and porch above the sand: the stilts, m
+  roofPitch: 38, // degrees
+  porchDepth: 2.2, // m
+  weather: 0.35, // streaks, faded and peeling paint, rust (the material's)
+  damage: 0.15, // boards gone, snapped or hanging, holes, planks on the sand
+  sag: 0.2, // settling, lean, a swaybacked ridge, a drooping porch
+  seed: 7, // the hand-made unevenness, and which boards the years pick
+});
+export const HOUSE_RANGES = Object.freeze({
+  houseWidth: [5, 8, 0.1],
+  houseLength: [6.5, 11, 0.1],
+  floorHeight: [0.6, 2.4, 0.02],
+  roofPitch: [22, 50, 1],
+  porchDepth: [1.5, 3, 0.05],
+  weather: [0, 1, 0.01],
+  damage: [0, 1, 0.01],
+  sag: [0, 1, 0.01],
+});
+
+// One flat colour per finish, read off the diorama.
+export const HOUSE_COLORS = Object.freeze({
+  siding: '#9a8e7f', // weathered clapboard
+  shakes: '#8a6d55', // the lean-to's cedar shakes
+  trim: '#ebe7de', // posts, rails, stairs, casings
+  deck: '#9c9385', // porch boards
+  wood: '#6b5a49', // stilts, skirting, the shed's frame
+  roof: '#4a3f38', // asphalt shingles
+  metal: '#9b8e82', // corrugated iron
+  glass: '#2a3139',
+  door: '#857563',
+  awning: '#2f8a68', // the Bahama shutters
+  shedWall: '#7fbcb0', // the turquoise shed
+  shedRoof: '#b09878',
+  rope: '#cdb991',
+  unit: '#dcdbd5', // the air conditioner, the meter box
+  void: '#16130f', // where boards and panes are gone
+});
+export const HOUSE_ROLES = Object.freeze(Object.keys(HOUSE_COLORS));
+
+export function normalizeHouse(input = {}) {
+  const out = { seed: Number.isFinite(input.seed) ? Math.round(input.seed) : HOUSE_DEFAULTS.seed };
+  for (const [key, [min, max]] of Object.entries(HOUSE_RANGES)) {
+    const value = Number(input[key]);
+    out[key] = Number.isFinite(value) ? THREE.MathUtils.clamp(value, min, max) : HOUSE_DEFAULTS[key];
+  }
+  return out;
+}
+
+const Y = new THREE.Vector3(0, 1, 0);
+const vec = (x, y, z) => new THREE.Vector3(x, y, z);
+const WORLD = new THREE.Matrix4();
+const clamp = THREE.MathUtils.clamp;
+
+// A plane's frame: origin o, in-plane axes u and v, w = u × v out of the plane.
+function frame(o, u, v) {
+  return new THREE.Matrix4().makeBasis(u, v, new THREE.Vector3().crossVectors(u, v)).setPosition(o);
+}
+// A wall as one sees it from outside: u to the right, v up, w out of the wall;
+// (nx, nz) is its outward normal, the origin on its outer face.
+function wallFrame(x, y, z, nx, nz) {
+  return frame(vec(x, y, z), new THREE.Vector3().crossVectors(Y, vec(nx, 0, nz)), Y);
+}
+// A roof plane through o falling at `pitch` towards the horizontal (dx, dz):
+// v runs down the slope, w out of the roof. `plan` puts a point of the plan
+// (x, z) on the slope as (u, v), so a roof is drawn by its outline seen from above.
+function roofPlane(o, dx, dz, pitch) {
+  const d = vec(dx, 0, dz);
+  const u = new THREE.Vector3().crossVectors(d, Y);
+  const v = d.clone().multiplyScalar(Math.cos(pitch)).addScaledVector(Y, -Math.sin(pitch));
+  return {
+    m: frame(o, u, v),
+    plan: ([x, z]) => [(x - o.x) * u.x + (z - o.z) * u.z, ((x - o.x) * dx + (z - o.z) * dz) / Math.cos(pitch)],
+  };
+}
+// Where the line v = const crosses a convex outline: [u min, u max].
+function spanAt(points, v) {
+  let lo = Infinity, hi = -Infinity;
+  points.forEach(([u0, v0], i) => {
+    const [u1, v1] = points[(i + 1) % points.length];
+    if (v0 === v1 || (v0 - v) * (v1 - v) > 0) return;
+    const u = u0 + ((u1 - u0) * (v - v0)) / (v1 - v0);
+    lo = Math.min(lo, u);
+    hi = Math.max(hi, u);
+  });
+  return [lo, hi];
+}
+const spread = (a, b, maxGap) => {
+  const n = Math.max(1, Math.ceil(Math.abs(b - a) / maxGap));
+  return Array.from({ length: n + 1 }, (_, i) => a + ((b - a) * i) / n);
+};
+
+// Cut the triangles that touch `bends` (a test on a vertex) down to edges of
+// `maxEdge` or less — the longest edge first, always at its midpoint, so two
+// faces sharing an edge cut it alike and stay closed when the house bends.
+// Elsewhere the bend is affine, and an uncut edge stays straight and shut.
+function tessellate(geometry, maxEdge, bends) {
+  const position = geometry.attributes.position.array, normal = geometry.attributes.normal.array;
+  const limit = maxEdge * maxEdge, outPosition = [], outNormal = [];
+  const vertex = (i) => [position[i], position[i + 1], position[i + 2], normal[i], normal[i + 1], normal[i + 2]];
+  const middle = (a, b) => a.map((value, k) => (value + b[k]) / 2);
+  const d2 = (a, b) => (a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2 + (a[2] - b[2]) ** 2;
+  const split = (a, b, c) => {
+    const ab = d2(a, b), bc = d2(b, c), ca = d2(c, a), longest = Math.max(ab, bc, ca);
+    if (longest <= limit) {
+      for (const point of [a, b, c]) {
+        outPosition.push(point[0], point[1], point[2]);
+        outNormal.push(point[3], point[4], point[5]);
+      }
+    } else if (longest === ab) {
+      const m = middle(a, b);
+      split(a, m, c);
+      split(m, b, c);
+    } else if (longest === bc) {
+      const m = middle(b, c);
+      split(a, b, m);
+      split(a, m, c);
+    } else {
+      const m = middle(c, a);
+      split(a, b, m);
+      split(m, b, c);
+    }
+  };
+  for (let i = 0; i < position.length; i += 9) {
+    const a = vertex(i), b = vertex(i + 3), c = vertex(i + 6);
+    if ([a, b, c].some((point) => bends(point[0], point[1], point[2]))) split(a, b, c);
+    else for (const point of [a, b, c]) {
+      outPosition.push(point[0], point[1], point[2]);
+      outNormal.push(point[3], point[4], point[5]);
+    }
+  }
+  const out = new THREE.BufferGeometry();
+  out.setAttribute('position', new THREE.Float32BufferAttribute(outPosition, 3));
+  out.setAttribute('normal', new THREE.Float32BufferAttribute(outNormal, 3));
+  return out;
+}
+
+// The pieces, collected per finish and merged at the end.
+function createKit(seed, damage = 0) {
+  const parts = new Map();
+  const rand = randomSequence(seed);
+  const fate = randomSequence(seed * 31 + 17);
+  const jitter = (amount) => (rand() - 0.5) * 2 * amount;
+  // A piece is hurt when its first draw falls under damage × weight. Three
+  // draws every time, hurt or not: the pattern holds while the slider moves,
+  // and more damage only adds to the wounds already there. Nothing inside a
+  // wound may draw again, from either stream.
+  const wound = (weight) => {
+    const chance = fate(), kind = fate(), amount = fate();
+    return chance < damage * weight ? { kind, amount } : null;
+  };
+  const turn = new THREE.Matrix4(), euler = new THREE.Euler();
+  const add = (role, geometry) => {
+    geometry.deleteAttribute('uv');
+    const flat = geometry.index ? geometry.toNonIndexed() : geometry;
+    if (flat !== geometry) geometry.dispose();
+    if (!parts.has(role)) parts.set(role, []);
+    parts.get(role).push(flat);
+  };
+  // A box in a frame: centre and size in (u, v, w), turned about its centre
+  // (radians; about w first, then v, then u).
+  const box = (role, m, [cu, cv, cw], [su, sv, sw], [ru = 0, rv = 0, rw = 0] = []) => {
+    const geometry = new THREE.BoxGeometry(su, sv, sw);
+    if (ru || rv || rw) geometry.applyMatrix4(turn.makeRotationFromEuler(euler.set(ru, rv, rw)));
+    add(role, geometry.translate(cu, cv, cw).applyMatrix4(m));
+  };
+  // A flat piece cut to an outline in (u, v), `thickness` deep from w0 along w.
+  const panel = (role, m, points, thickness, w0 = 0) => {
+    const shape = new THREE.Shape(points.map(([u, v]) => new THREE.Vector2(u, v)));
+    add(role, new THREE.ExtrudeGeometry(shape, { depth: thickness, bevelEnabled: false }).translate(0, 0, w0).applyMatrix4(m));
+  };
+  // A stick between two world points, `width` across and `height` up.
+  const beam = (role, a, b, width, height) => {
+    const geometry = new THREE.BoxGeometry(width, height, a.distanceTo(b));
+    add(role, geometry.applyMatrix4(new THREE.Matrix4().lookAt(a, b, Y).setPosition(a.clone().lerp(b, 0.5))));
+  };
+  // A board between two world points that damage may take away, snap short or
+  // leave hanging from its nail at one end — no lower than `floor`.
+  const stick = (role, a, b, width, height, weight = 0.3, floor = 0.02) => {
+    const hit = wound(weight);
+    if (!hit) {
+      beam(role, a, b, width, height);
+      return;
+    }
+    if (hit.kind < 0.35) return;
+    const [fixed, free] = hit.amount < 0.5 ? [a, b] : [b, a];
+    const run = free.clone().sub(fixed), length = run.length();
+    let end;
+    if (hit.kind < 0.7) {
+      const flat = Math.hypot(run.x, run.z) || 1e-6;
+      // The board's edge, not its middle, stops at the floor.
+      const lowest = -Math.asin(clamp((fixed.y - floor - height / 2) / length, 0, 1));
+      const slope = Math.max(Math.atan2(run.y, flat) - 0.5 - hit.amount, lowest);
+      end = fixed.clone().add(vec((run.x / flat) * Math.cos(slope) * length, Math.sin(slope) * length, (run.z / flat) * Math.cos(slope) * length));
+    } else {
+      end = fixed.clone().addScaledVector(run, 0.3 + 0.45 * hit.amount);
+      end.y -= 0.02 + 0.05 * hit.amount;
+    }
+    beam(role, fixed, end, width, height);
+  };
+  // A rope hanging between two world points.
+  const rope = (role, a, b, radius = 0.016) => {
+    const sag = 0.04 + 0.025 * a.distanceTo(b);
+    const middle = a.clone().lerp(b, 0.5).add(vec(0, -2 * sag, 0));
+    add(role, new THREE.TubeGeometry(new THREE.QuadraticBezierCurve3(a, middle, b), 16, radius, 5, false));
+  };
+  // Corrugated iron: a sheet su × sv in a frame, the ribs running along v. A
+  // lifted sheet pivots on its upper edge, its lower edge off the roof.
+  const corrugated = (role, m, [cu, cv], [su, sv], w0, spin = 0, lift = 0) => {
+    const ribs = Math.max(2, Math.round(su / 0.12));
+    const geometry = new THREE.PlaneGeometry(su, sv, ribs * 6, 1);
+    const position = geometry.attributes.position;
+    for (let i = 0; i < position.count; i += 1) position.setZ(i, 0.018 * Math.sin((position.getX(i) / su) * ribs * Math.PI * 2));
+    geometry.computeVertexNormals();
+    if (lift) geometry.translate(0, sv / 2, 0).rotateX(lift).translate(0, -sv / 2, 0);
+    if (spin) geometry.rotateZ(spin);
+    add(role, geometry.translate(cu, cv, w0).applyMatrix4(m));
+  };
+  // A roof slab cut to its outline, with a shingle course every `course` up
+  // from the eave.
+  const roof = (role, plane, outline, thickness, course = 0.3) => {
+    panel(role, plane.m, outline, thickness);
+    const vs = outline.map(([, v]) => v);
+    const top = Math.min(...vs);
+    for (let v = Math.max(...vs) - 0.05; v > top + 0.12; v -= course) {
+      const [a, b] = spanAt(outline, v);
+      if (b - a > 0.15) box(role, plane.m, [(a + b) / 2, v + jitter(0.012), thickness + 0.012], [b - a - 0.04, 0.05, 0.024]);
+    }
+  };
+  // Horizontal courses on a wall: `span(v)` gives the wall's [u0, u1] at a
+  // height. Clapboard is one shadow line per course; shakes break into
+  // shingles of uneven width.
+  const courses = (role, m, span, from, to, step, broken = false) => {
+    for (let v = from; v < to - 0.04; v += step) {
+      const [u0, u1] = span(v);
+      if (!broken) {
+        if (u1 - u0 > 0.1) box(role, m, [(u0 + u1) / 2, v, 0.012], [u1 - u0, 0.035, 0.024]);
+        continue;
+      }
+      for (let u = u0; u < u1 - 0.06;) {
+        const width = Math.min(u1 - u, 0.1 + rand() * 0.25);
+        box(role, m, [u + width / 2, v + jitter(0.012), 0.014 + jitter(0.006)], [width - 0.012, 0.05, 0.028]);
+        u += width;
+      }
+    }
+  };
+  // Boards gone from a wall: dark gaps a course or three high, the odd board
+  // still hanging from a nail at the gap's corner. Where a gap would open is
+  // drawn whether it opens or not.
+  const gaps = (m, u0, u1, v0, v1, count, role) => {
+    for (let i = 0; i < count; i += 1) {
+      const pu = fate(), pv = fate(), size = fate(), hit = wound(0.9);
+      const w = Math.min(u1 - u0 - 0.1, 0.45 + size * 1.1), h = 0.22 * (1 + Math.floor(size * 2.99));
+      if (!hit || w < 0.3) continue;
+      const u = u0 + w / 2 + pu * (u1 - u0 - w), v = v0 + h / 2 + pv * Math.max(0, v1 - v0 - h);
+      box('void', m, [u, v, 0.0135], [w, h, 0.027]);
+      if (hit.kind < 0.6) {
+        const swing = 0.3 + 0.6 * hit.amount, length = w * 0.85;
+        box(role, m, [u - w / 2 + (length / 2) * Math.cos(swing), v + h / 2 - 0.1 - (length / 2) * Math.sin(swing), 0.04], [length, 0.2, 0.02], [0, 0, -swing]);
+      }
+    }
+  };
+  // Shingles blown off in patches; the worst are holes with the rafters across.
+  const roofWounds = (plane, outline, thickness, count) => {
+    const vs = outline.map(([, v]) => v), top = Math.min(...vs), bottom = Math.max(...vs);
+    for (let i = 0; i < count; i += 1) {
+      const pu = fate(), pv = fate(), size = fate(), hit = wound(0.8);
+      const w = 0.5 + size * 1.1, h = 0.35 + size * 0.5;
+      const v = top + 0.3 + h / 2 + pv * Math.max(0, bottom - top - 0.6 - h);
+      const spans = [v - h / 2, v, v + h / 2].map((at) => spanAt(outline, at));
+      const lo = Math.max(...spans.map(([a]) => a)) + 0.15, hi = Math.min(...spans.map(([, b]) => b)) - 0.15;
+      if (!hit || hi - lo < w) continue;
+      const u = lo + w / 2 + pu * (hi - lo - w), hole = hit.kind < damage * 0.7;
+      box(hole ? 'void' : 'wood', plane.m, [u, v, thickness + 0.016], [w, h, 0.034]);
+      if (hole) for (const k of [-1, 1]) box('wood', plane.m, [u + (k * w) / 4, v, thickness + 0.04], [0.07, h + 0.24, 0.05]);
+    }
+  };
+  // Planks fallen on the sand.
+  const litter = (count, x0, x1, z0, z1) => {
+    for (let i = 0; i < count; i += 1) {
+      const px = fate(), pz = fate(), yaw = fate(), size = fate(), hit = wound(0.9);
+      if (!hit) continue;
+      const length = 0.7 + size * 1.5, tilt = (hit.amount - 0.5) * 0.06;
+      const role = ['wood', 'deck', 'siding', 'trim'][Math.floor(hit.kind * 3.999)];
+      box(role, WORLD, [x0 + px * (x1 - x0), 0.017 + (Math.abs(tilt) * length) / 2, z0 + pz * (z1 - z0)], [length, 0.03, 0.12 + 0.1 * size], [0, yaw * Math.PI, tilt]);
+    }
+  };
+  // Merge per finish; a sagging building is cut short where it bends
+  // (`bends`, a test on a vertex) and bent by `warp`.
+  const build = (warp = null, bends = null, maxEdge = 1.5) => new Map([...parts].map(([role, list]) => {
+    let merged = mergeGeometries(list, false);
+    list.forEach((geometry) => geometry.dispose());
+    if (warp) {
+      const cut = tessellate(merged, maxEdge, bends);
+      merged.dispose();
+      merged = cut;
+      const position = merged.attributes.position, point = new THREE.Vector3();
+      for (let i = 0; i < position.count; i += 1) {
+        warp(point.fromBufferAttribute(position, i));
+        position.setXYZ(i, point.x, point.y, point.z);
+      }
+    }
+    merged.computeBoundingBox();
+    merged.computeBoundingSphere();
+    return [role, merged];
+  }));
+  return { box, panel, beam, stick, rope, corrugated, roof, courses, gaps, roofWounds, litter, jitter, wound, chance: fate, build };
+}
+
+// Openings: a white casing, the glass, the meeting rail of a sash window, and
+// what the diorama hangs in them — blinds half down, boards nailed across, a
+// louvred Bahama shutter propped open over the glass. Damage cracks a pane
+// (a shard left in its corner), boards a window up, lets a shutter hang from
+// one hinge, swings a door ajar.
+function openings(kit) {
+  const { box, beam, panel, jitter, wound } = kit;
+  const casing = (m, u, v0, w, h, sill = true) => {
+    box('trim', m, [u, v0 + h + 0.05, 0.03], [w + 0.22, 0.1, 0.06]);
+    if (sill) box('trim', m, [u, v0 - 0.03, 0.05], [w + 0.26, 0.06, 0.1]);
+    for (const s of [-1, 1]) box('trim', m, [u + s * (w / 2 + 0.05), v0 + h / 2, 0.03], [0.1, h, 0.06]);
+  };
+  const shutter = (m, u, v0, w, h) => {
+    const loose = wound(0.45);
+    const tilt = loose ? 0.22 : 0.6, spin = loose ? -(0.25 + 0.4 * loose.amount) : 0;
+    const width = w + 0.16, height = h + 0.12, hingeU = u - width / 2, hingeV = v0 + h + 0.1;
+    // A point of the panel, `x` across from its left hinge and `s` down it.
+    const at = (x, s, out = 0) => {
+      const du = x * Math.cos(spin) + s * Math.sin(spin), below = s * Math.cos(spin) - x * Math.sin(spin);
+      return [hingeU + du, hingeV - below * Math.cos(tilt) + out * Math.sin(tilt), 0.07 + below * Math.sin(tilt) + out * Math.cos(tilt)];
+    };
+    box('awning', m, at(width / 2, height / 2), [width, height, 0.04], [-tilt, 0, spin]);
+    for (let k = 0; k < 6; k += 1) box('awning', m, at(width / 2, (height * (k + 0.5)) / 6, 0.03), [width - 0.06, 0.05, 0.028], [-tilt - 0.4, 0, spin]);
+    if (loose) return;
+    for (const [x, s] of [[0.1, -1], [width - 0.1, 1]]) {
+      beam('trim', vec(...at(x, height - 0.05)).applyMatrix4(m), vec(u + s * (w / 2 + 0.06), v0 + 0.1, 0.05).applyMatrix4(m), 0.025, 0.025);
+    }
+  };
+  const sash = (m, u, v0, w, h, look = 'plain') => {
+    casing(m, u, v0, w, h);
+    const hit = wound(0.4), nudge = [jitter(0.04), jitter(0.04), jitter(0.04)];
+    const broken = Boolean(hit) && hit.kind < 0.55, boarded = look === 'boarded' || (Boolean(hit) && !broken);
+    box(broken ? 'void' : 'glass', m, [u, v0 + h / 2, 0.02], [w, h, 0.02]);
+    if (broken) {
+      const a = 0.3 + 0.4 * hit.amount;
+      panel('glass', m, [[u - w / 2, v0 + h], [u - w / 2 + w * a, v0 + h], [u - w / 2, v0 + h * (1 - a)]], 0.008, 0.028);
+    }
+    box('trim', m, [u, v0 + h / 2, 0.035], [w, 0.05, 0.03]);
+    if (look === 'blinds' && !broken) box('trim', m, [u, v0 + h * 0.74, 0.034], [w - 0.02, h * 0.52, 0.006]);
+    if (boarded) {
+      [[0.22, 0.1], [0.5, -0.07], [0.8, 0.13]].forEach(([at, tilt], i) => {
+        box('door', m, [u + nudge[i], v0 + h * at, 0.085], [w + 0.3, 0.15, 0.03], [0, 0, tilt]);
+      });
+    }
+    if (look === 'shutter') shutter(m, u, v0, w, h);
+  };
+  // A door hung on its left edge; damage swings it out on the hinge and shows
+  // the dark behind. Returns the leaf's frame (on the hinge, u across the
+  // leaf) for battens and the like.
+  const door = (m, u, w, h, role = 'door', casingRole = 'trim', weight = 0.2) => {
+    box(casingRole, m, [u, h + 0.05, 0.03], [w + 0.22, 0.1, 0.06]);
+    for (const s of [-1, 1]) box(casingRole, m, [u + s * (w / 2 + 0.05), h / 2, 0.03], [0.1, h, 0.06]);
+    const hit = wound(weight), swing = hit ? 0.35 + 0.6 * hit.amount : 0;
+    if (hit) box('void', m, [u, h / 2, 0.0135], [w, h, 0.027]);
+    const leaf = m.clone().multiply(new THREE.Matrix4().makeTranslation(u - w / 2, 0, 0.025)).multiply(new THREE.Matrix4().makeRotationY(-swing));
+    box(role, leaf, [w / 2, h / 2, 0], [w, h, 0.05]);
+    box('unit', leaf, [w - 0.1, 1.0, 0.045], [0.04, 0.14, 0.05]);
+    return leaf;
+  };
+  return { sash, door };
+}
+
+const WALL = 0.16; // wall thickness
+const SECOND = 2.75; // the upper floor above the ground floor
+const EAVES = 5.05; // top of the side walls above the floor
+const POST = 0.12, POST_HEIGHT = 2.4, HEADER = 0.18; // porch posts and the beam on them
+const RAIL = 0.95; // top of the rail above the boards
+const MAX_RISE = 0.19, RUN = 0.28, STAIR_WIDTH = 1.1;
+const STILT = 0.18, STILT_SPACING = 2.2;
+const RIM = 0.26; // the band board round a floor
+const DECK = 0.035; // board thickness
+const ROOF = 0.16, EAVE_OUT = 0.45, RAKE_OUT = 0.35;
+const PORCH_ROOF = 0.12, PORCH_PITCH = THREE.MathUtils.degToRad(16), UPPER_SILL = SECOND + 0.85;
+
+export function buildBeachHouse(input = {}) {
+  const p = normalizeHouse(input);
+  const { houseWidth: W, houseLength: L, floorHeight: F, porchDepth: P } = p;
+  const pitch = THREE.MathUtils.degToRad(p.roofPitch);
+  const kit = createKit(p.seed, p.damage);
+  const { box, panel, beam, stick, jitter, wound } = kit;
+  const open = openings(kit);
+  const rail = (a, b, postAtA = true, postAtB = true) => {
+    const dx = b[0] - a[0], dz = b[1] - a[1], length = Math.hypot(dx, dz);
+    const start = postAtA ? POST / 2 : 0, end = length - (postAtB ? POST / 2 : 0);
+    if (end - start < 0.25) return;
+    const at = (s, y) => vec(a[0] + (dx / length) * s, y, a[1] + (dz / length) * s);
+    stick('trim', at(start, F + RAIL - 0.03), at(end, F + RAIL - 0.03), 0.13, 0.06, 0.1, F + 0.05);
+    for (const h of [0.2, 0.44, 0.68]) stick('trim', at(start, F + h), at(end, F + h), 0.025, 0.11, 0.3, F + 0.05);
+  };
+
+  // Where things are. The side porch wraps round the right corner; the lean-to
+  // sits on the left wall towards the back; the stairs leave the porch's left
+  // end and run down towards −X.
+  const wrapBack = L / 2 - Math.min(3.2, L * 0.4);
+  const annex = { x0: -W / 2 - 2.6, x1: -W / 2, z0: -L / 2 + 0.7, z1: -L / 2 + 3.7 };
+  const frontPostZ = L / 2 + P - POST / 2, sidePostX = W / 2 + P - POST / 2;
+  const stairZ1 = frontPostZ + 0.025, stairZ0 = stairZ1 - STAIR_WIDTH;
+  const risers = Math.ceil(F / MAX_RISE - 1e-9), rise = F / risers, treads = risers - 1;
+  const stairTop = -W / 2, stairFoot = stairTop - treads * RUN;
+
+  // Under the floors: stilts on a grid, outer faces flush with the edge; a
+  // band board round each floor; planks across the stilts below it.
+  const stilts = (x0, x1, z0, z1) => {
+    const top = F - DECK - 0.02;
+    for (const x of spread(x0 + STILT / 2, x1 - STILT / 2, STILT_SPACING)) {
+      for (const z of spread(z0 + STILT / 2, z1 - STILT / 2, STILT_SPACING)) {
+        const jx = jitter(0.02), jz = jitter(0.02), rx = jitter(0.01), rz = jitter(0.01), hit = wound(0.5);
+        const lean = hit ? [(hit.kind - 0.5) * 0.12, (hit.amount - 0.5) * 0.12] : [0, 0];
+        box('wood', WORLD, [x + jx, top / 2, z + jz], [STILT, top, STILT], [rx + lean[0], 0, rz + lean[1]]);
+      }
+    }
+  };
+  const band = (x0, x1, z0, z1) => {
+    const y = F - DECK - RIM / 2;
+    box('wood', WORLD, [(x0 + x1) / 2, y, z1 - 0.025], [x1 - x0, RIM, 0.05]);
+    box('wood', WORLD, [(x0 + x1) / 2, y, z0 + 0.025], [x1 - x0, RIM, 0.05]);
+    box('wood', WORLD, [x1 - 0.025, y, (z0 + z1) / 2], [0.05, RIM, z1 - z0]);
+    box('wood', WORLD, [x0 + 0.025, y, (z0 + z1) / 2], [0.05, RIM, z1 - z0]);
+  };
+  const skirtRows = [];
+  for (let y = 0.28; y < F - DECK - RIM - 0.18; y += 0.34) skirtRows.push(y);
+  const skirt = (a, b, [nx, nz]) => {
+    const dx = b[0] - a[0], dz = b[1] - a[1], length = Math.hypot(dx, dz), ex = (dx / length) * 0.02, ez = (dz / length) * 0.02;
+    for (const y of skirtRows) {
+      const lift = jitter(0.02), tilt = jitter(0.012) * length;
+      const from = vec(a[0] + nx * 0.02 - ex, y + lift, a[1] + nz * 0.02 - ez), to = vec(b[0] + nx * 0.02 + ex, y + lift + tilt, b[1] + nz * 0.02 + ez);
+      stick('wood', from, to, 0.03, 0.2, 0.3);
+    }
+  };
+  // A white lattice between the stilts, `length` wide, on a frame at the sand.
+  const lattice = (m, length) => {
+    const bottom = 0.08, top = F - DECK - RIM - 0.02, half = length / 2, step = 0.3;
+    if (top - bottom < 0.2) return;
+    for (const dir of [1, -1]) {
+      for (let c = -half - (top - bottom); c < half + (top - bottom); c += step) {
+        // The line u = c + dir·(v − bottom), clipped to the rectangle.
+        const v0 = Math.max(bottom, bottom + (dir > 0 ? -half - c : c - half));
+        const v1 = Math.min(top, bottom + (dir > 0 ? half - c : c + half));
+        if (v1 - v0 < 0.04 || wound(0.28)) continue;
+        const u0 = c + dir * (v0 - bottom), u1 = c + dir * (v1 - bottom);
+        box('trim', m, [(u0 + u1) / 2, (v0 + v1) / 2, 0.01 + (dir > 0 ? 0 : 0.016)], [Math.hypot(u1 - u0, v1 - v0), 0.045, 0.014], [0, 0, (dir * Math.PI) / 4]);
+      }
+    }
+    for (const v of [bottom, top]) box('trim', m, [0, v, 0.03], [length, 0.07, 0.03]);
+  };
+
+  // The house's floor and the porch's. The porch's inner edge rests on the
+  // house's own stilts.
+  box('wood', WORLD, [0, F - RIM / 2, 0], [W, RIM, L]);
+  stilts(-W / 2, W / 2, -L / 2, L / 2);
+  stilts(-W / 2, W / 2 + P, L / 2 + 0.9, L / 2 + P);
+  stilts(W / 2 + 0.9, W / 2 + P, wrapBack, L / 2);
+  band(-W / 2, W / 2 + P, L / 2, L / 2 + P);
+  band(W / 2, W / 2 + P, wrapBack, L / 2);
+  // Porch boards run out from the wall, a finger's gap apart, none quite alike.
+  const boards = (x0, x1, z0, z1, alongZ) => {
+    const span = alongZ ? x1 - x0 : z1 - z0, n = Math.round(span / 0.15);
+    for (let i = 0; i < n; i += 1) {
+      const c = (alongZ ? x0 : z0) + ((i + 0.5) * span) / n, y = F - DECK / 2 + jitter(0.004), short = Math.abs(jitter(0.03)) / 2;
+      const from = alongZ ? vec(c, y, z0 + short) : vec(x0 + short, y, c), to = alongZ ? vec(c, y, z1 - short) : vec(x1 - short, y, c);
+      stick('deck', from, to, span / n - 0.012, DECK, 0.3);
+    }
+  };
+  boards(-W / 2, W / 2 + P, L / 2, L / 2 + P, true);
+  boards(W / 2, W / 2 + P, wrapBack, L / 2, false);
+  skirt([-W / 2, -L / 2], [W / 2, -L / 2], [0, -1]);
+  skirt([W / 2, -L / 2], [W / 2, wrapBack], [1, 0]);
+  skirt([W / 2, wrapBack], [W / 2 + P, wrapBack], [0, -1]);
+  skirt([W / 2 + P, wrapBack], [W / 2 + P, L / 2 + P], [1, 0]);
+  skirt([W / 2 + P, L / 2 + P], [-W / 2, L / 2 + P], [0, 1]);
+  skirt([-W / 2, stairZ0 - 0.05], [-W / 2, annex.z1], [-1, 0]);
+  skirt([-W / 2, annex.z0], [-W / 2, -L / 2], [-1, 0]);
+
+  // Walls: gable ends front and back, the long walls under the eaves, a shadow
+  // line every clapboard, white corner boards, the band at the upper floor.
+  const front = wallFrame(0, F, L / 2, 0, 1);
+  const back = wallFrame(0, F, -L / 2, 0, -1);
+  const right = wallFrame(W / 2, F, 0, 1, 0); // u runs to the back
+  const left = wallFrame(-W / 2, F, 0, -1, 0); // u runs to the front
+  const tan = Math.tan(pitch), apex = EAVES + (W / 2) * tan;
+  const gable = [[-W / 2, 0], [W / 2, 0], [W / 2, EAVES], [0, apex], [-W / 2, EAVES]];
+  const gableSpan = (v) => {
+    const half = (v <= EAVES ? W / 2 : W / 2 - (v - EAVES) / tan) - 0.08;
+    return [-half, half];
+  };
+  for (const m of [front, back]) {
+    panel('siding', m, gable, WALL, -WALL);
+    kit.courses('siding', m, gableSpan, 0.22, apex - 0.1, 0.22);
+  }
+  for (const m of [right, left]) {
+    box('siding', m, [0, EAVES / 2, -WALL / 2], [L, EAVES, WALL]);
+    kit.courses('siding', m, () => [-L / 2 + 0.08, L / 2 - 0.08], 0.22, EAVES, 0.22);
+  }
+  for (const [m, half] of [[front, W / 2], [back, W / 2], [right, L / 2], [left, L / 2]]) {
+    for (const s of [-1, 1]) box('trim', m, [s * (half - 0.04), EAVES / 2, 0.02], [0.16, EAVES + 0.02, 0.04]);
+    box('trim', m, [0, SECOND, 0.022], [2 * half, 0.16, 0.044]);
+    box('trim', m, [0, 0.07, 0.022], [2 * half, 0.14, 0.044]);
+    kit.gaps(m, -half + 0.2, half - 0.2, 0.25, EAVES - 0.25, half > 3.5 ? 4 : 3, 'siding');
+  }
+
+  // Doors and windows, wall by wall.
+  open.door(front, -W / 2 + 1.25, 0.9, 2.05);
+  open.sash(front, W / 2 - 1.45, 0.9, 1.0, 1.25, 'blinds');
+  for (const s of [-1, 1]) open.sash(front, s * W * 0.19, UPPER_SILL, 0.8, 1.15, 'shutter');
+  const vent = (m) => {
+    const v0 = EAVES + 0.3, h = 0.5;
+    if (W / 2 - (v0 + h + 0.15 - EAVES) / tan > 0.45) open.sash(m, 0, v0, 0.5, h);
+  };
+  vent(front);
+  vent(back);
+  open.sash(back, 0.9, 0.9, 1.0, 1.25, 'blinds');
+  open.sash(back, -1.4, 1.2, 0.6, 0.9);
+  open.sash(back, 0, UPPER_SILL, 0.8, 1.15);
+  // Right wall: u = −z; the side porch covers u < −wrapBack.
+  open.sash(right, -(L / 2 + wrapBack) / 2, 0.9, 1.0, 1.25, 'blinds');
+  open.sash(right, -wrapBack + 1.4, 0.9, 1.0, 1.25, 'blinds');
+  open.sash(right, L / 2 - 1.3, 0.9, 1.0, 1.25, 'boarded');
+  open.sash(right, -L / 2 + 1.6, UPPER_SILL, 0.8, 1.15);
+  open.sash(right, 0.9, UPPER_SILL, 0.8, 1.15, 'blinds');
+  // Left wall: u = z; the lean-to covers annex.z0…z1 downstairs.
+  open.sash(left, (annex.z1 + L / 2) / 2, 0.9, 1.0, 1.25);
+  open.sash(left, -L / 2 + 1.5, UPPER_SILL, 0.8, 1.15);
+  open.sash(left, L / 2 - 1.6, UPPER_SILL, 0.8, 1.15, 'blinds');
+  // The air conditioner high on the right wall, the meter by the lean-to.
+  const acU = L / 2 - 0.9, acV = EAVES - 0.95;
+  box('unit', right, [acU, acV, 0.19], [0.85, 0.62, 0.34]);
+  panel('glass', right, Array.from({ length: 16 }, (_, i) => [acU + 0.14 + 0.2 * Math.cos((i / 16) * Math.PI * 2), acV + 0.2 * Math.sin((i / 16) * Math.PI * 2)]), 0.01, 0.36);
+  for (const s of [-1, 1]) box('trim', right, [acU + s * 0.32, acV - 0.34, 0.2], [0.04, 0.05, 0.4]);
+  box('unit', left, [annex.z1 + 0.45, 1.3, 0.08], [0.32, 0.46, 0.16]);
+
+  // The main roof: two slabs on the gable walls' slopes, a cap on the ridge,
+  // white boards along the eaves and the rakes.
+  const cos = Math.cos(pitch), ridgeY = F + apex;
+  for (const s of [1, -1]) {
+    const plane = roofPlane(vec(0, ridgeY, 0), s, 0, pitch);
+    const outline = [[0, -L / 2 - RAKE_OUT], [s * (W / 2 + EAVE_OUT), -L / 2 - RAKE_OUT], [s * (W / 2 + EAVE_OUT), L / 2 + RAKE_OUT], [0, L / 2 + RAKE_OUT]].map(plane.plan);
+    kit.roof('roof', plane, outline, ROOF, 0.32);
+    kit.roofWounds(plane, outline, ROOF, 3);
+    const slopeLength = (W / 2 + EAVE_OUT) / cos;
+    for (const e of [-1, 1]) box('trim', plane.m, [e * (L / 2 + RAKE_OUT + 0.02), slopeLength / 2, ROOF - 0.1], [0.04, slopeLength + 0.02, 0.24]);
+    box('trim', plane.m, [0, slopeLength + 0.02, ROOF - 0.1], [L + 2 * RAKE_OUT + 0.08, 0.04, 0.24]);
+  }
+  box('roof', WORLD, [0, ridgeY + ROOF / cos + 0.02, 0], [0.34, 0.08, L + 2 * RAKE_OUT]);
+
+  // The porch: posts on the outer edge, a beam on them, a lean-to roof that
+  // turns the corner with a hip, rails with three white slats.
+  const frontPosts = spread(-W / 2 + POST / 2, sidePostX, 2.6).map((x) => [x, frontPostZ]);
+  const sidePosts = spread(frontPostZ, wrapBack + POST / 2, 2.6).slice(1).map((z) => [sidePostX, z]);
+  for (const [x, z] of [...frontPosts, ...sidePosts]) {
+    const hit = wound(0.6);
+    box('trim', WORLD, [x, F + POST_HEIGHT / 2, z], [POST, POST_HEIGHT, POST], hit ? [(hit.kind - 0.5) * 0.08, 0, (hit.amount - 0.5) * 0.08] : []);
+  }
+  const headerY = F + POST_HEIGHT + HEADER / 2;
+  box('trim', WORLD, [(-W / 2 + W / 2 + P) / 2, headerY, frontPostZ], [W + P, HEADER, POST + 0.02]);
+  box('trim', WORLD, [sidePostX, headerY, (wrapBack + L / 2 + P) / 2], [POST + 0.02, HEADER, L / 2 + P - wrapBack]);
+  frontPosts.slice(1).forEach((post, i) => rail(frontPosts[i], post));
+  sidePosts.forEach((post, i) => rail(i ? sidePosts[i - 1] : frontPosts.at(-1), post));
+  rail(sidePosts.at(-1) ?? frontPosts.at(-1), [W / 2 + 0.02, wrapBack + POST / 2], true, false);
+  const newel = [-W / 2 + POST / 2, stairZ0 + 0.025];
+  box('trim', WORLD, [newel[0], F + (RAIL + 0.1) / 2, newel[1]], [POST, RAIL + 0.1, POST]);
+  rail(newel, [-W / 2 + POST / 2, L / 2 + 0.02], true, false);
+  // The roof meets the wall below the upper sills: a deep porch flattens it.
+  const postLine = P - POST / 2;
+  const porchPitch = Math.min(PORCH_PITCH, Math.atan((UPPER_SILL - 0.4 - POST_HEIGHT - HEADER) / postLine));
+  const porchTan = Math.tan(porchPitch), porchHigh = F + POST_HEIGHT + HEADER + postLine * porchTan;
+  const reach = P + 0.3;
+  const frontRoof = roofPlane(vec(0, porchHigh, L / 2), 0, 1, porchPitch);
+  const frontOutline = [[-W / 2 - 0.35, L / 2], [W / 2, L / 2], [W / 2 + reach, L / 2 + reach], [-W / 2 - 0.35, L / 2 + reach]].map(frontRoof.plan);
+  kit.roof('roof', frontRoof, frontOutline, PORCH_ROOF, 0.3);
+  kit.roofWounds(frontRoof, frontOutline, PORCH_ROOF, 2);
+  const sideRoof = roofPlane(vec(W / 2, porchHigh, 0), 1, 0, porchPitch);
+  const sideOutline = [[W / 2, L / 2], [W / 2 + reach, L / 2 + reach], [W / 2 + reach, wrapBack - 0.3], [W / 2, wrapBack - 0.3]].map(sideRoof.plan);
+  kit.roof('roof', sideRoof, sideOutline, PORCH_ROOF, 0.3);
+  kit.roofWounds(sideRoof, sideOutline, PORCH_ROOF, 1);
+  const lip = PORCH_ROOF / Math.cos(porchPitch) + 0.02;
+  beam('roof', vec(W / 2, porchHigh + lip, L / 2), vec(W / 2 + reach, porchHigh - reach * porchTan + lip, L / 2 + reach), 0.16, 0.06);
+  const porchEave = reach / Math.cos(porchPitch);
+  for (const [plane, outline] of [[frontRoof, frontOutline], [sideRoof, sideOutline]]) {
+    const [a, b] = spanAt(outline, porchEave - 1e-6);
+    box('trim', plane.m, [(a + b) / 2, porchEave + 0.02, PORCH_ROOF - 0.07], [b - a, 0.04, 0.18]);
+  }
+
+  // The stairs: closed white stringers, open risers, a rail each side from a
+  // newel on the sand to the porch.
+  const slope = rise / RUN, climb = Math.atan(slope), zc = (stairZ0 + stairZ1) / 2;
+  for (let k = 1; k <= treads; k += 1) {
+    const hit = wound(0.2);
+    if (hit && hit.kind < 0.45) continue;
+    box('trim', WORLD, [stairTop - (k - 0.5) * RUN - 0.015, F - k * rise - 0.02, zc], [RUN + 0.03, 0.04, STAIR_WIDTH - 0.1], hit ? [(hit.amount - 0.5) * 0.3, 0, 0] : []);
+  }
+  const depth = 0.3 / Math.cos(climb);
+  for (const z of [stairZ0 + 0.025, stairZ1 - 0.025]) {
+    const side = frame(vec(stairTop, 0, z), vec(-1, 0, 0), Y);
+    const top = F - 0.02, lower = Math.max(0.05, top - depth);
+    panel('trim', side, [[0, top], [top / slope, 0], [lower / slope, 0], [0, lower]], 0.05, -0.025);
+    const footU = treads * RUN + 0.05, footRail = F - footU * slope;
+    box('trim', WORLD, [stairTop - footU, (footRail + RAIL + 0.1) / 2, z], [0.1, footRail + RAIL + 0.1, 0.1]);
+    for (const [h, size, weight] of [[RAIL - 0.03, [0.13, 0.06], 0.1], [0.62, [0.025, 0.1], 0.3], [0.33, [0.025, 0.1], 0.3]]) {
+      stick('trim', vec(stairTop - footU, footRail + h, z), vec(stairTop, F + h, z), size[0], size[1], weight);
+    }
+  }
+
+  // The lean-to: shakes on three walls, a corrugated roof falling away from
+  // the house, a white lattice between its stilts.
+  const aw = annex.x1 - annex.x0, ad = annex.z1 - annex.z0, ax = (annex.x0 + annex.x1) / 2, az = (annex.z0 + annex.z1) / 2;
+  const leanTo = THREE.MathUtils.degToRad(11), low = 2.5, high = low + aw * Math.tan(leanTo);
+  box('wood', WORLD, [ax, F - RIM / 2, az], [aw, RIM, ad]);
+  stilts(annex.x0, annex.x1 - 0.9, annex.z0, annex.z1);
+  const aFront = wallFrame(ax, F, annex.z1, 0, 1); // u = +x, the house at +aw/2
+  const aBack = wallFrame(ax, F, annex.z0, 0, -1); // u = −x, the house at −aw/2
+  const aSide = wallFrame(annex.x0, F, az, -1, 0); // u = +z
+  panel('shakes', aFront, [[-aw / 2, 0], [aw / 2, 0], [aw / 2, high], [-aw / 2, low]], WALL, -WALL);
+  panel('shakes', aBack, [[-aw / 2, 0], [aw / 2, 0], [aw / 2, low], [-aw / 2, high]], WALL, -WALL);
+  box('shakes', aSide, [0, low / 2, -WALL / 2], [ad, low, WALL]);
+  const rise11 = Math.tan(leanTo);
+  kit.courses('shakes', aFront, (v) => [v <= low ? -aw / 2 : -aw / 2 + (v - low) / rise11, aw / 2 - 0.02], 0.2, high, 0.17, true);
+  kit.courses('shakes', aBack, (v) => [-aw / 2 + 0.02, v <= low ? aw / 2 : aw / 2 - (v - low) / rise11], 0.2, high, 0.17, true);
+  kit.courses('shakes', aSide, () => [-ad / 2, ad / 2], 0.2, low, 0.17, true);
+  for (const [m, u] of [[aFront, -aw / 2], [aBack, aw / 2], [aSide, -ad / 2], [aSide, ad / 2]]) {
+    box('trim', m, [u + (u < 0 ? 0.05 : -0.05), low / 2, 0.02], [0.12, low, 0.04]);
+  }
+  open.sash(aSide, 0, 0.95, 0.8, 1.0);
+  open.sash(aFront, -0.35, 1.0, 0.65, 0.85);
+  kit.gaps(aSide, -ad / 2 + 0.2, ad / 2 - 0.2, 0.2, low - 0.2, 2, 'shakes');
+  const aRoof = roofPlane(vec(annex.x1, F + high, az), -1, 0, leanTo);
+  const [ua, va] = aRoof.plan([annex.x1, annex.z1 + 0.25]);
+  const [ub, vb] = aRoof.plan([annex.x0 - 0.35, annex.z0 - 0.25]);
+  const [u0, u1] = [Math.min(ua, ub), Math.max(ua, ub)], sheets = Math.ceil((u1 - u0) / 0.95);
+  for (let i = 0; i < sheets; i += 1) {
+    const width = (u1 - u0) / sheets, du = jitter(0.02), dv = jitter(0.04), spin = jitter(0.015), hit = wound(0.5);
+    if (hit && hit.kind < 0.3) continue;
+    kit.corrugated('metal', aRoof.m, [u0 + (i + 0.5) * width + du, (va + vb) / 2 + dv], [width + 0.06, vb - va], 0.03 + (i % 2) * 0.012, spin, hit ? 0.06 + 0.14 * hit.amount : 0);
+  }
+  for (const [m, length] of [[wallFrame(ax, 0, annex.z1, 0, 1), aw], [wallFrame(annex.x0, 0, az, -1, 0), ad], [wallFrame(ax, 0, annex.z0, 0, -1), aw]]) lattice(m, length);
+
+  kit.litter(16, -W / 2 - 2.2, W / 2 + P + 1.8, -L / 2 - 1.8, L / 2 + P + 2.2);
+
+  // Settling, a smooth field over every vertex (long pieces are cut short
+  // first so that they bend): the floor sinks towards one corner and the house
+  // leans that way, the ridge swaybacks, the porch droops between its posts,
+  // most at its outer edge. Nothing moves on the sand line.
+  const sink = [kit.chance() < 0.5 ? -1 : 1, kit.chance() < 0.5 ? -1 : 1];
+  const porchPosts = [...frontPosts, ...sidePosts], postGap = Math.max(1, frontPosts[1][0] - frontPosts[0][0]);
+  const eaveY = F + EAVES, s = p.sag;
+  const warp = s > 0 ? (v) => {
+    const corner = clamp(((sink[0] * v.x) / (W / 2 + P) + (sink[1] * v.z) / (L / 2 + P) + 2) / 4, 0, 1);
+    let drop = 0.22 * clamp(v.y / F, 0, 1) * corner;
+    const along = v.z / (L / 2 + RAKE_OUT);
+    drop += 0.3 * clamp((v.y - eaveY) / (ridgeY - eaveY), 0, 1) * Math.max(0, 1 - along * along);
+    const out = clamp(Math.max(v.z - L / 2, v.x - W / 2) / P, 0, 1);
+    if (out > 0) {
+      let near = Infinity;
+      for (const [x, z] of porchPosts) near = Math.min(near, Math.hypot(v.x - x, v.z - z));
+      drop += 0.1 * out * Math.sin((Math.PI / 2) * clamp(near / (postGap / 2), 0, 1)) * clamp((v.y - F + 0.8) / 0.5, 0, 1);
+    }
+    v.x += 0.014 * sink[0] * v.y * s;
+    v.y -= s * drop;
+  } : null;
+  // Only the roof above the eaves and the porch bend; the rest, the walls'
+  // own boards and casings too, settles flat.
+  const bends = (x, y, z) => y > eaveY + 0.05 || (y > F - 0.85 && (z > L / 2 + 0.12 || x > W / 2 + 0.12));
+
+  const parts = kit.build(warp, bends);
+  const bounds = new THREE.Box3();
+  parts.forEach((geometry) => bounds.union(geometry.boundingBox));
+  return {
+    parts,
+    bounds,
+    plan: {
+      ...p,
+      floor: F,
+      eaves: F + EAVES,
+      ridge: bounds.max.y,
+      upperSill: F + UPPER_SILL,
+      door: { width: 0.9, height: 2.05 },
+      rail: RAIL,
+      porch: { depth: P, underBeam: POST_HEIGHT, roofAtWall: porchHigh + PORCH_ROOF / Math.cos(porchPitch), pitch: THREE.MathUtils.radToDeg(porchPitch) },
+      stairs: { risers, rise, run: RUN, width: STAIR_WIDTH, top: [stairTop, F, zc], foot: [stairFoot, 0, zc] },
+      annex,
+      // Where rain runs off and streaks the walls below: the eaves, the band
+      // at the upper floor, the upper and the lower sills (weathering.js).
+      dripLines: [F + EAVES, F + SECOND - 0.08, F + UPPER_SILL - 0.06, F + 0.84],
+    },
+  };
+}
+
+// The shed: a turquoise board hut on a low deck, a hipped shingle roof that
+// runs on over the deck on two posts, rope rails either side of the steps and
+// a sheet of corrugated iron thrown on the roof. Its door faces +X.
+export function buildBeachShed(input = {}) {
+  const { seed, damage, sag } = normalizeHouse(input);
+  const kit = createKit(seed + 101, damage);
+  const { box, panel, beam, stick, jitter, wound } = kit;
+  const open = openings(kit);
+  const H = 0.45; // the deck above the sand: three 15 cm steps
+  const X0 = -1.75, X1 = 1.75, Z0 = -1.3, Z1 = 1.3; // the deck
+  const FRONT = 0.45, WALLS = 2.25; // the hut's front wall; its height above the deck
+  const pitch = THREE.MathUtils.degToRad(32), tan = Math.tan(pitch), cos = Math.cos(pitch), T = 0.1;
+  const RX0 = X0 - 0.3, RX1 = X1 + 0.3, RZ0 = Z0 - 0.3, RZ1 = Z1 + 0.3; // the roof in plan
+  const hip = (RZ1 - RZ0) / 2, ridgeHalf = (RX1 - RX0) / 2 - hip, ridgeY = H + WALLS + Z1 * tan;
+  const roofAt = (x, z) => ridgeY - tan * Math.max(Math.abs(z), Math.abs(x) - ridgeHalf, 0);
+
+  // Deck: stubby posts, a band, boards running front to back.
+  for (const x of [X0 + 0.08, 0, X1 - 0.08]) for (const z of [Z0 + 0.08, 0, Z1 - 0.08]) box('wood', WORLD, [x, (H - 0.05) / 2, z], [0.14, H - 0.05, 0.14]);
+  box('wood', WORLD, [0, H - 0.125, Z1 - 0.02], [X1 - X0, 0.18, 0.04]);
+  box('wood', WORLD, [0, H - 0.125, Z0 + 0.02], [X1 - X0, 0.18, 0.04]);
+  box('wood', WORLD, [X1 - 0.02, H - 0.125, 0], [0.04, 0.18, Z1 - Z0]);
+  box('wood', WORLD, [X0 + 0.02, H - 0.125, 0], [0.04, 0.18, Z1 - Z0]);
+  const n = Math.round((Z1 - Z0) / 0.15);
+  for (let i = 0; i < n; i += 1) {
+    const x = jitter(0.02), y = H - DECK / 2 + jitter(0.004), short = Math.abs(jitter(0.04)) / 2, z = Z0 + ((i + 0.5) * (Z1 - Z0)) / n;
+    stick('deck', vec(X0 + short + x, y, z), vec(X1 - short + x, y, z), (Z1 - Z0) / n - 0.012, DECK, 0.3);
+  }
+
+  // The hut: a painted box in vertical boards, dark corner posts, the gable
+  // over the door closed in. A board gone leaves a dark slot.
+  const depth = FRONT - X0, bx = (X0 + FRONT) / 2;
+  box('shedWall', WORLD, [bx, H + WALLS / 2, 0], [depth, WALLS, Z1 - Z0]);
+  const faces = [
+    [wallFrame(FRONT, H, 0, 1, 0), Z1 - Z0],
+    [wallFrame(X0, H, 0, -1, 0), Z1 - Z0],
+    [wallFrame(bx, H, Z1, 0, 1), depth],
+    [wallFrame(bx, H, Z0, 0, -1), depth],
+  ];
+  for (const [m, width] of faces) {
+    for (let u = -width / 2 + 0.1; u < width / 2 - 0.08; u += 0.15) {
+      const nudge = jitter(0.01), hit = wound(0.22);
+      box('shedWall', m, [u + nudge, WALLS / 2, 0.01], [0.03, WALLS, 0.02]);
+      if (hit && u < width / 2 - 0.2) {
+        const tall = WALLS * (0.35 + 0.5 * hit.amount);
+        box('void', m, [u + 0.075, tall / 2, 0.012], [0.11, tall, 0.024]);
+      }
+    }
+  }
+  for (const x of [X0, FRONT]) for (const z of [Z0, Z1]) box('wood', WORLD, [x, H + WALLS / 2 + 0.01, z], [0.1, WALLS + 0.02, 0.1]);
+  panel('shedWall', faces[0][0], [[-Z1, WALLS], [Z1, WALLS], [0, roofAt(FRONT, 0) - H]], 0.1, -0.1);
+  const stepZ = 0.25;
+  // The door (u = −z on the front face): painted boards, a white Z-brace; the
+  // years leave it ajar.
+  const leaf = open.door(faces[0][0], -stepZ, 0.82, 1.9, 'shedWall', 'wood', 0.6);
+  for (const v of [0.3, 1.6]) box('trim', leaf, [0.41, v, 0.031], [0.72, 0.1, 0.024]);
+  box('trim', leaf, [0.41, 0.95, 0.031], [Math.hypot(0.62, 1.3), 0.1, 0.022], [0, 0, Math.atan2(1.3, 0.62)]);
+  open.sash(faces[2][0], -0.1, 1.15, 0.55, 0.5);
+
+  // The roof: hipped, four slabs, caps on the ridge and the hips; posts and a
+  // beam carry it over the deck.
+  const panels = [
+    [[0, ridgeY, 0], [0, 1], [[RX0, RZ1], [RX1, RZ1], [ridgeHalf, 0], [-ridgeHalf, 0]]],
+    [[0, ridgeY, 0], [0, -1], [[RX1, RZ0], [RX0, RZ0], [-ridgeHalf, 0], [ridgeHalf, 0]]],
+    [[ridgeHalf, ridgeY, 0], [1, 0], [[RX1, RZ0], [RX1, RZ1], [ridgeHalf, 0]]],
+    [[-ridgeHalf, ridgeY, 0], [-1, 0], [[RX0, RZ1], [RX0, RZ0], [-ridgeHalf, 0]]],
+  ];
+  let rightSlope = null;
+  for (const [o, [dx, dz], outline] of panels) {
+    const plane = roofPlane(vec(...o), dx, dz, pitch), cut = outline.map(plane.plan);
+    kit.roof('shedRoof', plane, cut, T, 0.26);
+    kit.roofWounds(plane, cut, T, dz ? 1 : 0);
+    if (dz === 1) rightSlope = plane;
+  }
+  const lip = T / cos + 0.02, eaveY = ridgeY - hip * tan;
+  beam('shedRoof', vec(-ridgeHalf, ridgeY + lip, 0), vec(ridgeHalf, ridgeY + lip, 0), 0.16, 0.06);
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+    beam('shedRoof', vec(sx * ridgeHalf, ridgeY + lip, 0), vec(sx * RX1, eaveY + lip, sz * RZ1), 0.16, 0.06);
+  }
+  // Iron thrown on the roof, a little askew; a gale lifts it or takes it.
+  const iron = wound(0.5);
+  if (!iron || iron.kind >= 0.3) kit.corrugated('metal', rightSlope.m, rightSlope.plan([0, 0.95]), [1.1, 0.9], T + 0.045, 0.12, iron ? 0.1 + 0.25 * iron.amount : 0);
+
+  const postX = X1 - 0.07, headerTop = roofAt(postX, Z1 - 0.07) - 0.03;
+  for (const z of [Z0 + 0.07, Z1 - 0.07]) {
+    box('wood', WORLD, [postX, (H + headerTop - 0.18) / 2, z], [0.12, headerTop - 0.18 - H, 0.12]);
+    box('wood', WORLD, [(FRONT + postX) / 2, headerTop - 0.09, z], [postX - FRONT, 0.18, 0.1]);
+  }
+  box('wood', WORLD, [postX, headerTop - 0.09, 0], [0.12, 0.18, Z1 - Z0]);
+
+  // Steps to the door, and rope rails: stubby posts beside the steps, two
+  // ropes to the corner posts and along both sides of the deck. A rope that
+  // has given way hangs from one post to the boards.
+  box('deck', WORLD, [X1 + 0.14, 0.15, stepZ], [0.28, 0.3, 1.0]);
+  box('deck', WORLD, [X1 + 0.42, 0.075, stepZ], [0.28, 0.15, 1.0]);
+  const stubs = [stepZ - 0.6, stepZ + 0.6];
+  for (const z of stubs) box('wood', WORLD, [postX, H + 0.45, z], [0.09, 0.9, 0.09]);
+  for (const h of [0.45, 0.82]) {
+    const y = H + h;
+    const spans = [
+      [vec(postX, y, Z0 + 0.07), vec(postX, y, stubs[0])],
+      [vec(postX, y, stubs[1]), vec(postX, y, Z1 - 0.07)],
+      ...[Z0 + 0.07, Z1 - 0.07].map((z) => [vec(postX, y, z), vec(FRONT + 0.06, y, z)]),
+    ];
+    for (const [a, b] of spans) {
+      const snapped = wound(0.35);
+      if (!snapped) kit.rope('rope', a, b);
+      else kit.rope('rope', a, a.clone().lerp(b, 0.5 + 0.3 * snapped.amount).setY(H + 0.03));
+    }
+  }
+
+  kit.litter(5, X0 - 1, X1 + 1.2, Z0 - 1.2, Z1 + 1.2);
+
+  // Settling: the deck end sinks, the hut leans aside, the ridge droops.
+  const warp = sag > 0 ? (v) => {
+    const up = clamp((v.y - H - WALLS) / (ridgeY - H - WALLS), 0, 1);
+    v.y -= sag * (0.12 * clamp(v.y / H, 0, 1) * clamp((v.x - X0) / (X1 - X0), 0, 1) + 0.12 * up * Math.max(0, 1 - (v.x / RX1) ** 2));
+    v.z += sag * 0.02 * v.y;
+  } : null;
+
+  const parts = kit.build(warp, (x, y) => y > H + WALLS + 0.05, 1);
+  const bounds = new THREE.Box3();
+  parts.forEach((geometry) => bounds.union(geometry.boundingBox));
+  return {
+    parts,
+    bounds,
+    plan: { deck: H, steps: 3, stepRise: H / 3, door: { width: 0.82, height: 1.9 }, eaves: eaveY, ridge: bounds.max.y, dripLines: [H + WALLS, H + 1.1, H + 0.02, 0.3] },
+  };
+}
+
+export function disposeBuilding(building) {
+  building?.parts.forEach((geometry) => geometry.dispose());
+}
