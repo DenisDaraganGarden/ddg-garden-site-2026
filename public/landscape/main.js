@@ -17,8 +17,8 @@
   const clamp = (value, last) => Math.max(0, Math.min(last, value));
   const pad = n => String(n).padStart(2, '0');
   const indexForHash = hash => {
-    const id = hash.slice(1) === 'works' ? 'secret-garden' : hash.slice(1);
-    const index = sheets.findIndex(sheet => sheet.id === id);
+    if (hash === '#works') return 1;
+    const index = sheets.findIndex(sheet => sheet.id === hash.slice(1));
     return index < 0 ? 0 : index;
   };
   const update = () => {

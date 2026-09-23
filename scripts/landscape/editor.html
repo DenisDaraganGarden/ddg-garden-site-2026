@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ландшафт · редактор</title>
+<link rel="icon" href="/landscape/assets/favicon-32.png">
+<style>
+@font-face{font-family:Oranienbaum;src:url('/landscape/assets/Oranienbaum-Regular.ttf') format('truetype')}
+@font-face{font-family:Liberation;src:url('/landscape/assets/LiberationSans-Regular.ttf') format('truetype')}
+:root{--paper:#f6f4f0;--ink:#141414;--muted:#77736e;--line:#dcd8d2;--error:#a8322a}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font:13px/1.5 Liberation,Arial,sans-serif}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+button:focus-visible,a:focus-visible,input:focus-visible{outline:1px solid currentColor;outline-offset:4px}
+a{color:inherit}
+header{position:sticky;top:0;z-index:3;display:flex;align-items:center;justify-content:space-between;gap:24px;padding:22px 48px;background:var(--paper);border-bottom:1px solid var(--line)}
+h1{font:400 27px/1 Oranienbaum,serif;margin:0}
+h1 small{font:12px Liberation,Arial,sans-serif;color:var(--muted);margin-left:14px}
+.actions{display:flex;align-items:center;gap:28px}
+#status{color:var(--muted);max-width:520px;text-align:right}
+#status.error{color:var(--error)}
+.actions a{text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:5px}
+#save{background:var(--ink);color:var(--paper);padding:10px 22px}
+#save:disabled{opacity:.3;cursor:default}
+.hint{margin:0;padding:16px 48px 0;color:var(--muted);font-size:12px;max-width:980px}
+main{padding:8px 48px 80px}
+.project{position:relative;display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:0 20px;padding:30px 0;border-bottom:1px solid var(--line)}
+.project.above{box-shadow:0 -2px 0 var(--ink)}
+.project.below{box-shadow:0 2px 0 var(--ink)}
+.side{display:flex;flex-direction:column;align-items:flex-start;gap:10px;padding-top:9px}
+.num{color:var(--muted);font-size:11px;font-variant-numeric:tabular-nums}
+.handle{cursor:grab;color:var(--muted);font-size:20px;line-height:1;user-select:none}
+.handle:hover{color:var(--ink)}
+input{font:inherit;color:inherit;background:none;border:0;border-bottom:1px solid transparent;border-radius:0;padding:2px 0;width:100%;max-width:760px}
+input:hover{border-bottom-color:var(--line)}
+input:focus{outline:none;border-bottom-color:var(--ink)}
+.title{font:30px/1.15 Oranienbaum,serif}
+.subtitle{color:var(--muted);font-size:12px;margin-top:6px}
+.subtitle::placeholder{color:#b5b0a9}
+.tools{display:flex;flex-direction:column;align-items:flex-end;gap:10px;padding-top:9px;color:var(--muted);font-size:12px}
+.tools .arrows{display:flex;gap:6px}
+.tools .arrows button{width:30px;height:30px;border:1px solid var(--line)}
+.tools button:hover{color:var(--ink);border-color:var(--ink)}
+.tools button:disabled{opacity:.3;cursor:default}
+.delete{text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:4px}
+.frames{grid-column:2/4;display:flex;flex-wrap:wrap;gap:14px;margin-top:20px}
+.frame,.add{position:relative;height:150px;margin:0}
+.frame{cursor:grab;background:#e8e5df}
+.frame img{height:100%;width:auto;min-width:60px;display:block;user-select:none;-webkit-user-drag:none}
+.frame .label{position:absolute;left:0;bottom:0;background:#000b;color:#fff;font-size:10px;padding:2px 7px;font-variant-numeric:tabular-nums}
+.frame .remove{position:absolute;top:5px;right:5px;width:26px;height:26px;background:#000b;color:#fff;font-size:16px;line-height:26px;opacity:0;transition:opacity .15s}
+.frame:hover .remove,.frame .remove:focus-visible{opacity:1}
+.frame.dragging{opacity:.35}
+.add{width:170px;border:1px dashed #b5b0a9;color:var(--muted);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;text-align:center;padding:14px}
+.add small{font-size:11px;color:#9a958f}
+.add:hover{border-color:var(--ink);color:var(--ink)}
+.before::before{content:"";position:absolute;left:-9px;top:-4px;bottom:-4px;width:3px;background:var(--ink)}
+#new{margin-top:30px;padding:14px 22px;border:1px dashed #b5b0a9;color:var(--muted)}
+#new:hover{border-color:var(--ink);color:var(--ink)}
+@media(max-width:700px){header,main{padding-left:18px;padding-right:18px}header{flex-wrap:wrap}.hint{padding:14px 18px 0}.project{grid-template-columns:28px minmax(0,1fr)}.tools{grid-column:2;flex-direction:row;align-items:center;margin-top:12px}.frames{grid-column:1/3}.frame,.add{height:110px}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Ландшафт<small>редактор портфолио</small></h1>
+  <div class="actions"><span id="status" role="status">Загружаю…</span><a href="/landscape/" target="_blank">Открыть страницу</a><button id="save" disabled>Сохранить</button></div>
+</header>
+<p class="hint">Проекты перетаскивайте за ⠿ или стрелками, кадры — мышкой, в том числе в другой проект. Картинки любого размера бросайте из Finder прямо в ряд проекта — они сами ужмутся под сайт. Обложка сайта — первый кадр первого проекта. ⌘S — сохранить.</p>
+<main>
+  <div id="projects"></div>
+  <button id="new">+ Новый проект</button>
+</main>
+<input id="picker" type="file" accept="image/*,.tif,.tiff" multiple hidden>
+<template id="project-row">
+  <section class="project">
+    <div class="side"><span class="num"></span><span class="handle" draggable="true" title="Перетащить проект">⠿</span></div>
+    <div><input class="title" aria-label="Название проекта"><input class="subtitle" aria-label="Подпись" placeholder="Подпись, например «Совместно с CHADO»"></div>
+    <div class="tools"><div class="arrows"><button class="up" aria-label="Выше">↑</button><button class="down" aria-label="Ниже">↓</button></div><span class="about">есть «О проекте»</span><button class="delete">Удалить проект</button></div>
+    <div class="frames"></div>
+  </section>
+</template>
+<script>
+'use strict';
+const $ = selector => document.querySelector(selector);
+const list = $('#projects'), statusLine = $('#status'), saveButton = $('#save'), picker = $('#picker');
+let data = {projects: []}, dirty = false, busy = 0, drag = null;
+
+const pad = n => String(n).padStart(2, '0');
+const say = (text, error = false) => {statusLine.textContent = text; statusLine.classList.toggle('error', error);};
+const refreshSave = () => {saveButton.disabled = !dirty || busy > 0;};
+const touch = () => {dirty = true; refreshSave(); say('Есть несохранённые изменения');};
+const changed = () => {touch(); render();};
+// Insert position counts the slots before removal, as the drop marker shows it.
+const moveItem = (items, from, to) => {
+  if (to === from || to === from + 1) return false;
+  const [item] = items.splice(from, 1);
+  items.splice(to > from ? to - 1 : to, 0, item);
+  return true;
+};
+const letters = 'абвгдеёжзийклмнопрстуфхцчшщъыьэюя'.split('');
+const latin = 'a b v g d e e zh z i y k l m n o p r s t u f h c ch sh sch  y  e yu ya'.split(' ');
+const slug = text => [...text.toLowerCase()].map(c => letters.includes(c) ? latin[letters.indexOf(c)] : c).join('')
+  .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+const clearMarks = () => document.querySelectorAll('.before,.above,.below').forEach(el => el.classList.remove('before', 'above', 'below'));
+const hasFiles = event => event.dataTransfer.types.includes('Files');
+
+function frameSlot(strip, event) {
+  const frames = [...strip.querySelectorAll('.frame')];
+  const index = frames.findIndex(frame => {
+    const box = frame.getBoundingClientRect();
+    return event.clientY < box.top || (event.clientY <= box.bottom && event.clientX < box.left + box.width / 2);
+  });
+  return index < 0 ? frames.length : index;
+}
+function projectSlot(event) {
+  const index = [...list.children].findIndex(row => {
+    const box = row.getBoundingClientRect();
+    return event.clientY < box.top + box.height / 2;
+  });
+  return index < 0 ? list.children.length : index;
+}
+
+function render() {
+  list.replaceChildren(...data.projects.map((project, index) => {
+    const row = $('#project-row').content.firstElementChild.cloneNode(true);
+    row.querySelector('.num').textContent = pad(index + 1);
+    const title = row.querySelector('.title'), subtitle = row.querySelector('.subtitle');
+    title.value = project.title;
+    subtitle.value = project.subtitle;
+    title.oninput = () => {project.title = title.value; touch();};
+    subtitle.oninput = () => {project.subtitle = subtitle.value; touch();};
+    row.querySelector('.about').hidden = !project.about;
+    const up = row.querySelector('.up'), down = row.querySelector('.down');
+    up.disabled = index === 0;
+    down.disabled = index === data.projects.length - 1;
+    up.onclick = () => {moveItem(data.projects, index, index - 1); changed();};
+    down.onclick = () => {moveItem(data.projects, index, index + 2); changed();};
+    row.querySelector('.delete').onclick = () => {
+      const count = project.frames.length ? ` вместе с кадрами (${project.frames.length})` : '';
+      if (confirm(`Удалить проект «${project.title}»${count}?`)) {data.projects.splice(index, 1); changed();}
+    };
+    const handle = row.querySelector('.handle');
+    handle.ondragstart = event => {
+      drag = {kind: 'project', index};
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('text/plain', project.title);
+      event.dataTransfer.setDragImage(row, 30, 30);
+    };
+    handle.ondragend = () => {drag = null; clearMarks();};
+
+    const strip = row.querySelector('.frames');
+    project.frames.forEach((name, frameIndex) => {
+      const frame = document.createElement('figure');
+      frame.className = 'frame';
+      frame.draggable = true;
+      frame.innerHTML = '<img alt=""><span class="label"></span><button class="remove" title="Убрать кадр" aria-label="Убрать кадр">×</button>';
+      const image = frame.querySelector('img');
+      image.onerror = () => {image.onerror = null; image.src = `/landscape/assets/${name}-1600.webp`;};
+      image.src = `/landscape/assets/${name}-900.webp`;
+      frame.querySelector('.label').textContent = pad(frameIndex + 1) + (index === 0 && frameIndex === 0 ? ' · обложка' : '');
+      frame.querySelector('.remove').onclick = () => {project.frames.splice(frameIndex, 1); changed();};
+      frame.ondragstart = event => {
+        drag = {kind: 'frame', project, index: frameIndex};
+        event.dataTransfer.effectAllowed = 'move';
+        event.dataTransfer.setData('text/plain', name);
+        requestAnimationFrame(() => frame.classList.add('dragging'));
+      };
+      frame.ondragend = () => {drag = null; clearMarks(); frame.classList.remove('dragging');};
+      strip.append(frame);
+    });
+    const add = document.createElement('button');
+    add.className = 'add';
+    add.innerHTML = '+ Добавить кадры<small>или бросьте файлы сюда</small>';
+    add.onclick = () => {
+      picker.onchange = () => {upload(project, [...picker.files], project.frames.length); picker.value = '';};
+      picker.click();
+    };
+    strip.append(add);
+    strip.ondragover = event => {
+      if (!hasFiles(event) && drag?.kind !== 'frame') return;
+      event.preventDefault();
+      event.stopPropagation();
+      clearMarks();
+      (strip.querySelectorAll('.frame')[frameSlot(strip, event)] ?? add).classList.add('before');
+    };
+    strip.ondrop = event => {
+      if (!hasFiles(event) && drag?.kind !== 'frame') return;
+      event.preventDefault();
+      event.stopPropagation();
+      const at = frameSlot(strip, event);
+      clearMarks();
+      if (hasFiles(event)) return upload(project, [...event.dataTransfer.files], at);
+      const source = drag.project.frames;
+      if (source === project.frames) {
+        if (moveItem(source, drag.index, at)) changed();
+      } else {
+        project.frames.splice(at, 0, ...source.splice(drag.index, 1));
+        changed();
+      }
+    };
+    return row;
+  }));
+}
+
+list.ondragover = event => {
+  if (drag?.kind !== 'project') return;
+  event.preventDefault();
+  clearMarks();
+  const at = projectSlot(event), rows = list.children;
+  if (rows[at]) rows[at].classList.add('above');
+  else rows[rows.length - 1]?.classList.add('below');
+};
+list.ondrop = event => {
+  if (drag?.kind !== 'project') return;
+  event.preventDefault();
+  clearMarks();
+  if (moveItem(data.projects, drag.index, projectSlot(event))) changed();
+};
+// A file dropped beside a project row must not make the browser open it.
+addEventListener('dragover', event => {if (hasFiles(event)) event.preventDefault();});
+addEventListener('drop', event => {if (hasFiles(event)) {event.preventDefault(); clearMarks();}});
+addEventListener('dragleave', event => {if (!event.relatedTarget) clearMarks();});
+
+async function upload(project, files, at) {
+  if (!files.length) return;
+  files.sort((a, b) => a.name.localeCompare(b.name, 'ru', {numeric: true}));
+  busy++;
+  refreshSave();
+  const failed = [];
+  for (const [count, file] of files.entries()) {
+    say(`Готовлю картинку ${count + 1} из ${files.length}: ${file.name}`);
+    try {
+      const response = await fetch('/api/upload?prefix=' + encodeURIComponent(project.id || 'new'), {method: 'POST', body: file});
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error);
+      project.frames.splice(at++, 0, result.name);
+      dirty = true;
+      render();
+    } catch (error) {
+      failed.push(`${file.name} — ${error.message === 'Failed to fetch' ? 'редактор не отвечает' : error.message}`);
+    }
+  }
+  busy--;
+  refreshSave();
+  if (failed.length) say('Не получилось: ' + failed.join('; '), true);
+  else say('Картинки готовы. Не забудьте сохранить');
+}
+
+async function save() {
+  if (!dirty || busy) return;
+  const taken = new Set(data.projects.map(project => project.id));
+  for (const project of data.projects.filter(project => !project.id)) {
+    const base = slug(project.title) || 'project';
+    let id = base;
+    for (let n = 2; taken.has(id); n++) id = `${base}-${n}`;
+    taken.add(id);
+    project.id = id;
+  }
+  saveButton.disabled = true;
+  say('Сохраняю и собираю страницу…');
+  try {
+    const response = await fetch('/api/portfolio', {method: 'PUT', headers: {'content-type': 'application/json'}, body: JSON.stringify(data)});
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error);
+    dirty = false;
+    say('Сохранено, страница собрана');
+  } catch (error) {
+    say(error.message === 'Failed to fetch' ? 'Редактор не отвечает — он запущен?' : error.message, true);
+  }
+  refreshSave();
+}
+
+saveButton.onclick = save;
+$('#new').onclick = () => {
+  data.projects.push({id: '', title: 'Новый проект', subtitle: '', frames: [], about: ''});
+  changed();
+  const title = list.lastElementChild.querySelector('.title');
+  title.scrollIntoView({block: 'center'});
+  title.focus();
+  title.select();
+};
+addEventListener('keydown', event => {
+  if ((event.metaKey || event.ctrlKey) && event.code === 'KeyS') {event.preventDefault(); save();}
+});
+addEventListener('beforeunload', event => {if (dirty || busy) event.preventDefault();});
+
+fetch('/api/portfolio').then(response => response.json()).then(json => {
+  data = json;
+  render();
+  say('Всё сохранено');
+}).catch(() => say('Редактор не отвечает — он запущен?', true));
+</script>
+</body>
+</html>

@@ -1,0 +1,124 @@
+{
+  "projects": [
+    {
+      "id": "secret-garden",
+      "title": "Secret Garden",
+      "subtitle": "",
+      "frames": [
+        "p04-i01",
+        "p05-i02"
+      ],
+      "about": ""
+    },
+    {
+      "id": "french-manor",
+      "title": "A French manor",
+      "subtitle": "",
+      "frames": [
+        "p06-i01"
+      ],
+      "about": ""
+    },
+    {
+      "id": "raevo",
+      "title": "RAEVO",
+      "subtitle": "Для Derevo Park",
+      "frames": [
+        "p07-i02"
+      ],
+      "about": "<p>Ландшафт: Денис Дараган<br>По заказу студии Derevo Park</p>"
+    },
+    {
+      "id": "papushevo",
+      "title": "Papushevo Park",
+      "subtitle": "Совместно с CHADO",
+      "frames": [
+        "p08-i02"
+      ],
+      "about": "<p>Ландшафт: Денис Дараган<br>Совместно с архитектурным бюро CHADO</p>"
+    },
+    {
+      "id": "amphitheatre",
+      "title": "Открытый амфитеатр",
+      "subtitle": "Совместно с CHADO",
+      "frames": [
+        "p09-i01"
+      ],
+      "about": "<p>Ландшафт: Денис Дараган<br>Совместно с архитектурным бюро CHADO</p>"
+    },
+    {
+      "id": "merchant-zlobin",
+      "title": "Merchant Zlobin",
+      "subtitle": "Для Derevo Park",
+      "frames": [
+        "p10-i01"
+      ],
+      "about": "<p>Ландшафт: Денис Дараган<br>По заказу студии Derevo Park</p>"
+    },
+    {
+      "id": "petersburg-garden",
+      "title": "Сад выпускников",
+      "subtitle": "В сотрудничестве с L.BURO",
+      "frames": [
+        "p11-i02"
+      ],
+      "about": "<p>Ландшафтная концепция: Денис Дараган. В сотрудничестве с L.BURO.</p><p>L.BURO<br>Серебряный диплом АЛАРОС 2023</p><h3>На конкурсном планшете</h3><ul><li>Пётр Лари<span>главный архитектор</span></li><li>Денис Дараган<span>архитектор</span></li></ul><div class=\"source-links\"><a href=\"https://alaros.ru/projects?project=126&amp;projectYear=2023\" target=\"_blank\" rel=\"noopener noreferrer\">На сайте АЛАРОС</a><button data-document=\"./assets/alaros-2023-126.jpg\" data-caption=\"Сад выпускников · АЛАРОС 2023\">Снимок страницы</button></div>"
+    },
+    {
+      "id": "provence",
+      "title": "Private Provencal estate",
+      "subtitle": "",
+      "frames": [
+        "p13-i01",
+        "p13-i02"
+      ],
+      "about": ""
+    },
+    {
+      "id": "beach-hut",
+      "title": "Beach hut",
+      "subtitle": "",
+      "frames": [
+        "p14-i01"
+      ],
+      "about": ""
+    },
+    {
+      "id": "crimea",
+      "title": "Крым",
+      "subtitle": "Совместно с CHADO",
+      "frames": [
+        "p15-i01"
+      ],
+      "about": "<p>Ландшафт: Денис Дараган<br>Совместно с архитектурным бюро CHADO</p>"
+    },
+    {
+      "id": "outdoor-cinema",
+      "title": "Отель",
+      "subtitle": "",
+      "frames": [
+        "p16-i01"
+      ],
+      "about": ""
+    },
+    {
+      "id": "playhub",
+      "title": "Play Hub",
+      "subtitle": "В сотрудничестве с L.BURO",
+      "frames": [
+        "playhub-20260905-01",
+        "p17-i02"
+      ],
+      "about": "<p>Концепция команды Denis Daragan Бюро. Руководство: Денис Дараган.</p><p>L.BURO<br>Золотой диплом АЛАРОС 2025</p><h3>На конкурсном планшете</h3><ul><li>Пётр Лари<span>главный архитектор</span></li><li>Денис Дараган<span>архитектор</span></li></ul><div class=\"source-links\"><a href=\"https://alaros.ru/projects?project=55&amp;projectYear=2025\" target=\"_blank\" rel=\"noopener noreferrer\">На сайте АЛАРОС</a><button data-document=\"./assets/alaros-2025-55.jpg\" data-caption=\"Play Hub «Сад вне времени» · АЛАРОС 2025\">Снимок страницы</button></div>"
+    },
+    {
+      "id": "sculpture-garden",
+      "title": "Пространство и скульптура",
+      "subtitle": "",
+      "frames": [
+        "p21-i01"
+      ],
+      "about": ""
+    }
+  ]
+}
