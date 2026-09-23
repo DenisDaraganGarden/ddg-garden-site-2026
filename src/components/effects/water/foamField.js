@@ -6,6 +6,7 @@ import { createGerstnerUniforms, gerstnerPixelShader, gerstnerShader, syncGerstn
 import { windVector } from './waterShading';
 import { BREAK_SAMPLES, coastWaterShader, createCoastWaterUniforms, syncCoastWaterUniforms } from './coastFrame';
 import { surfPeelSpan } from './surfProfile';
+import { WAKE_FOAM, takeWakeFoam, waterWake } from './waterWake.js';
 
 // Foam as a state with memory instead of a function of the wave's phase. A
 // field in a window that follows the camera: R is density, G is age, B is how
@@ -133,6 +134,10 @@ const updateFragmentShader = /* glsl */`
   uniform sampler2D uBoreLine; // R break q, G visibility, B ribbon mean; 49 x 7
   uniform float uBoreRefraction;
   uniform float uBoreRunup;   // how far up the beach the water is allowed to go
+  // The path a board has cut since the last tick (waterWake.js): per stretch
+  // its ends (x0, z0, x1, z1) and (half width, cover, 0, 0).
+  uniform vec4 uWakeFoam[${WAKE_FOAM}];
+  uniform vec4 uWakeFoamShape[${WAKE_FOAM}];
   vec3 boreLineAt(int slot, float along) {
     float x = clamp(along, 0.0, 1.0) * float(${BREAK_SAMPLES});
     float i0 = floor(x);
@@ -248,6 +253,18 @@ const updateFragmentShader = /* glsl */`
         fresh = max(fresh, runupCoverage * bore.y * 0.8 * (1.0 - smoothstep(0.1, 0.7, bore.w - qBore)));
       }
     }
+    // The board's trail, on the water only: a soft stripe along its path, at
+    // least a texel wide or a thin trail would fall between the texels.
+    for (int i = 0; i < ${WAKE_FOAM}; i++) {
+      vec4 shape = uWakeFoamShape[i];
+      if (sand || shape.y <= 0.0001) continue;
+      vec4 stretch = uWakeFoam[i];
+      vec2 along = stretch.zw - stretch.xy;
+      float t = clamp(dot(world - stretch.xy, along) / max(dot(along, along), 1e-6), 0.0, 1.0);
+      float off = length(world - stretch.xy - along * t);
+      float halfWidth = max(shape.x, uCell * 0.7);
+      fresh = max(fresh, shape.y * (1.0 - smoothstep(halfWidth * 0.4, halfWidth + uCell * 0.5, off)));
+    }
     // Fresh foam wins and is young again; what it does not cover keeps its age.
     state.y = mix(state.y, 0.0, step(state.x, fresh));
     state.x = min(max(state.x, fresh), 1.0);
@@ -297,6 +314,8 @@ export function useFoamField(targetUniforms, { settings, bores, coast = null, ti
       uBoreLine: { value: null },
       uBoreRefraction: { value: 0 },
       uBoreRunup: { value: 6 },
+      uWakeFoam: { value: Array.from({ length: WAKE_FOAM }, () => new THREE.Vector4()) },
+      uWakeFoamShape: { value: Array.from({ length: WAKE_FOAM }, () => new THREE.Vector4()) },
     });
     const lineData = new Float32Array(FOAM_BORE_LINE_WIDTH * FOAM_BORE_SLOTS * 4);
     const lineTexture = new THREE.DataTexture(lineData, FOAM_BORE_LINE_WIDTH, FOAM_BORE_SLOTS, THREE.RGBAFormat, THREE.FloatType);
@@ -417,6 +436,9 @@ export function useFoamField(targetUniforms, { settings, bores, coast = null, ti
       field.lineRevision = bores.lineRevision;
     }
     uniforms.uBoreRunup.value = settings.surfRunup ?? 6;
+    // A frozen inspection takes no new foam; what was laid meanwhile is dropped.
+    takeWakeFoam(waterWake, uniforms.uWakeFoam.value, uniforms.uWakeFoamShape.value);
+    if (frozen) uniforms.uWakeFoamShape.value.forEach((shape) => shape.set(0, 0, 0, 0));
 
     gl.setRenderTarget(field.write);
     gl.render(field.pass.scene, field.pass.camera);

@@ -11,6 +11,8 @@ import { SEGMENT } from './riderSkeleton';
 import { createSurfWater } from './surfWater';
 import { surfAlongAt, surfLineup } from './lineup';
 import { publishSurfPlay, surfPlay } from './surfPlayStore';
+import { createWakeEmitter, emitBoardWake, resetWakeEmitter } from './boardWake';
+import { ageWake, clearWake, waterWake } from '../effects/water/waterWake';
 
 // The surfboard in the scene: the physics body on the water the GPU draws.
 //
@@ -135,10 +137,12 @@ export default function Surfboard({
       frame: 0,
       physicsMs: 0,
       sample: {},
+      wake: createWakeEmitter(), // what it and the rider leave on the water
     };
   }
 
   useEffect(() => () => {
+    clearWake(waterWake);
     surfPlay.board.ready = false;
     // No board, no spot to pin: leaving auto falls back to the stored fields.
     surfPlay.home = null;
@@ -265,6 +269,7 @@ export default function Surfboard({
         resetRider(rider, ride.view);
         syncRider(rider, surfPlay.intent);
         ride.rider = rider;
+        resetWakeEmitter(ride.wake);
       } else {
         place(ride, checkpoint, time, EMPTY_DRAFT);
         ride.placed = checkpoint;
@@ -288,6 +293,7 @@ export default function Surfboard({
         boardView(ride);
         resetRider(rider, ride.view);
         syncRider(rider, surfPlay.intent);
+        resetWakeEmitter(ride.wake);
       }
       if (surfPlay.checkpointRequest !== ride.checkpointRequest) {
         ride.checkpointRequest = surfPlay.checkpointRequest;
@@ -317,12 +323,18 @@ export default function Surfboard({
         stepRider(rider, { dt, board: ride.view, intent: surfPlay.intent, water: riderWater, ground: terrainQuery?.heightAt ?? null });
         riderEvents(rider, state);
         if (!rider.world.bodies.every((body) => Number.isFinite(body.x[0] + body.x[1] + body.x[2] + body.q[3]))) resetRider(rider, ride.view);
+        emitBoardWake(ride.wake, waterWake, {
+          dt, state, length: hull.length, rider,
+          water: (x, z, out) => water.sample(x, z, time, out),
+          scale: { waves: settings.surfboardWakeWaves, foam: settings.surfboardWakeFoam },
+        });
       } else {
         stepBoard(state, emptyBody, null, water.sample, time, dt, {
           substep: SUBSTEP,
           moor: { x: checkpoint.x, z: checkpoint.z, yaw: checkpoint.yaw },
         });
       }
+      ageWake(waterWake, dt);
       ride.physicsMs += (performance.now() - started - ride.physicsMs) * 0.1;
       // Whatever the water ever hands it, a lost board comes home rather than
       // taking NaN into the scene graph and the mirror.

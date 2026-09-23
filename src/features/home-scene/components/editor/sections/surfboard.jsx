@@ -32,6 +32,8 @@ const ride = [
   ['surfboardCarve', 'Поворот', 'Carve', ''],
   ['surfboardBalance', 'Баланс', 'Balance', ''],
   ['surfboardCameraFov', 'Угол обзора от первого лица', 'First-person field of view', '°'],
+  ['surfboardWakeWaves', 'Волны от доски', 'Wake waves', ''],
+  ['surfboardWakeFoam', 'Пена от доски', 'Board foam', ''],
 ];
 const place = [
   ['surfboardCheckpointX', 'Положение X', 'Position X', ' m'],

@@ -6,6 +6,7 @@ import { skyShaderChunk } from '../shaders/skyShader';
 import { cursorFlashlightShaderChunk } from '../shaders/cursorFlashlightShader';
 import { createWaterSceneBindingUniforms } from './waterSceneBindings';
 import { RIPPLE_PLANES } from './waterRipplePlanes.js';
+import { WAKE_RINGS, WAKE_SPEED } from './waterWake.js';
 
 // One look for every water surface: the open-water mesh, the breaking-wave
 // ribbons and later the shore. Body colour, sky reflection, sun glint,
@@ -85,6 +86,8 @@ export const waterShadingShader = /* glsl */`
   uniform float uSeaRippleAmplitude;
   uniform sampler2D uSkyIrradianceMap;
   uniform float uSkyIrradianceActive;
+  uniform vec4 uWakeRing[${WAKE_RINGS}];
+  uniform vec4 uWakeBounds;
   #define WATER_PI 3.14159265
   float gerstnerNoise(vec2 p); // defined by gerstnerShader, which every water fragment includes first
 
@@ -369,6 +372,34 @@ export const waterShadingShader = /* glsl */`
     vec2 hi = 1.0 - smoothstep(vec2(0.93), vec2(0.965), uv);
     return lo.x * lo.y * hi.x * hi.y;
   }
+  // The wakes (waterWake.js): every ring a packet of small waves running out
+  // from where the water was cut or struck, as the slope it adds. A moving
+  // board's row of rings sums to its V. They are a few centimetres high, so
+  // they belong in the normal, not in the mesh. The packet's width and its
+  // wavelength grow with age as in waterWake.js, whose reach bounds the loop.
+  vec2 waterWakeSlope(vec2 p) {
+    vec2 slope = vec2(0.0);
+    if (uWakeBounds.w < 0.5 || distance(p, uWakeBounds.xy) > uWakeBounds.z) return slope;
+    for (int i = 0; i < ${WAKE_RINGS}; i++) {
+      vec4 ring = uWakeRing[i];
+      if (ring.w <= 0.0) continue;
+      vec2 d = p - ring.xy;
+      float r = length(d);
+      float age = ring.z;
+      float spread = 0.25 + 0.3 * age;
+      float fromFront = r - ${WAKE_SPEED.toFixed(3)} * age - 0.15;
+      float x = fromFront / spread;
+      if (abs(x) > 3.0 || r < 0.001) continue;
+      float k = 2.0 * WATER_PI / (0.45 + 0.25 * age);
+      // A few centimetres at strength one, spread over the ring as it grows
+      // and given back to the water over a couple of seconds.
+      float amplitude = 0.035 * ring.w * exp(-0.9 * age) * inversesqrt(1.0 + 2.0 * r);
+      float envelope = exp(-x * x);
+      float dhdr = amplitude * envelope * (-2.0 * x / spread * cos(k * fromFront) - k * sin(k * fromFront));
+      slope += dhdr * d / r;
+    }
+    return slope;
+  }
   vec3 waterRippleNormal(vec3 n, vec2 p, float pixel, float weight, float wet) {
     float w = 0.0;
     if (uRipple > 0.001 && weight > 0.001 && uNoiseReady > 0.5) {
@@ -403,6 +434,14 @@ export const waterShadingShader = /* glsl */`
       vec3 localSlope = vec3(encoded.x, 0.0, encoded.z) * (0.16 * uSeaRippleStrength * inBounds * runtimeWeight);
       localSlope -= n * dot(n, localSlope);
       n = normalize(n + localSlope);
+    }
+    vec2 wake = waterWakeSlope(p);
+    if (dot(wake, wake) > 1e-8) {
+      // Waves finer than a pixel average out instead of shimmering.
+      float resolved = 1.0 - smoothstep(0.06, 0.25, pixel);
+      vec3 wakeSlope = vec3(-wake.x, 0.0, -wake.y) * resolved * clamp(wet, 0.0, 1.0);
+      wakeSlope -= n * dot(n, wakeSlope);
+      n = normalize(n + wakeSlope);
     }
     return n;
   }
