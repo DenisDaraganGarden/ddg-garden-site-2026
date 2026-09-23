@@ -524,6 +524,19 @@ export const getBaseHomeSceneSettings = () => ({
 const normalizeLegacySettings = (savedSettings, defaults) => {
   const legacy = {};
 
+  // Spray puffs became a kind of their own: their own count, clock, density
+  // and size, none of it the drops' any more. A scene saved before keeps the
+  // puffs it was tuned with. 0.37 is the two puff budgets in spray.js.
+  if (savedSettings?.seaSprayMist !== undefined && savedSettings?.seaSprayPuffTrail === undefined) {
+    const spray = (key, fallback) => (Number.isFinite(Number(savedSettings[key])) ? Number(savedSettings[key]) : fallback);
+    const puffs = Math.min(spray('seaSprayAmount', 1), 1) * (1 - spray('seaSprayCurtain', 0.4)) * spray('seaSprayMist', 0.62) / 0.37;
+    legacy.seaSprayPuffSplash = puffs;
+    legacy.seaSprayPuffTrail = puffs;
+    legacy.seaSprayPuffLife = spray('seaSprayLife', 2.2);
+    legacy.seaSprayPuffDensity = Math.min(spray('seaSprayDensity', 1.3), 1.3) / 1.3;
+    legacy.seaSprayPuffSize = spray('seaSprayMistSize', 2.2) * spray('seaSpraySize', 1);
+  }
+
   if (savedSettings?.planeMeshDensity !== undefined) {
     legacy.waterMeshDensity = clampInt(savedSettings.planeMeshDensity, 96, 384, defaults.waterMeshDensity);
   }

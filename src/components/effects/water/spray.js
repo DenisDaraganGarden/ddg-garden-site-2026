@@ -38,6 +38,23 @@ const GRAVITY = 9.81;
 export const SPRAY_ACCEPTANCE = 0.55;
 export const SPRAY_RADIUS = 0.02;
 export const SPRAY_GROW = 0.11;
+// A puff's radius at the end of its life, before its own size slider.
+const PUFF_FULL = (SPRAY_RADIUS + SPRAY_GROW) * 2;
+
+// Drops and puffs are two budgets, each with its own slider: «Количество
+// капель» counts the drops; the puffs are counted twice over, those born where
+// the lip lands (splash) and those the roller leaves behind the wave (trail).
+// At one each they split the pool as the old mist share of 0.62 did. The puffs
+// used to be thinned by the drops' amount so the drops could grow alone, and
+// then no slider could add a single puff.
+const DROP_BUDGET = 0.63, PUFF_BUDGET = 0.185;
+export function sprayBudget(settings) {
+  const amount = (key) => Math.max(Number(settings[key] ?? 1), 0) || 0;
+  const drops = DROP_BUDGET * amount('sprayAmount');
+  const splash = PUFF_BUDGET * amount('sprayPuffSplash');
+  const puffs = splash + PUFF_BUDGET * amount('sprayPuffTrail');
+  return { total: drops + puffs, puffShare: drops + puffs > 0 ? puffs / (drops + puffs) : 0, splashShare: puffs > 0 ? splash / puffs : 0.5 };
+}
 
 // One quad per mote, the id the only per-instance datum. The attributes are
 // built once and shared by reference between the ribbons' geometries — only
@@ -80,26 +97,25 @@ const sprayHash = (x) => { const v = Math.sin(x * 127.1 + 311.7) * 43758.5453; r
 const sprayMix = (a, b, t) => a + (b - a) * t;
 const spraySmooth = (a, b, x) => { const t = Math.min(Math.max((x - a) / (b - a), 0), 1); return t * t * (3 - 2 * t); };
 export function sprayMote(id, time, { settings, P, H, dn, wind = 0, frozen = false, overflow = 1 }) {
-  const cycle = Number(settings.sprayLife ?? 2.2);
+  const { puffShare, splashShare } = sprayBudget(settings);
+  const mist = sprayHash(id * 0.7548776662 + 0.21) < puffShare;
+  const cycle = Number((mist ? settings.sprayPuffLife : settings.sprayLife) ?? 2.2);
   const t0 = time - sprayHash(id * 0.6180339887) * cycle;
   const age = t0 - Math.floor(t0 / cycle) * cycle;
   const seed = sprayHash(id * 0.6180339887 + Math.floor(t0 / cycle) * 7.7771 + 1);
   const h = (k) => sprayHash(seed + k);
   const life = cycle * sprayMix(0.35, 1, h(3.1) ** 2);
-  const amount = Number(settings.sprayAmount ?? 1);
-  if (age > life || amount <= 0.001) return null;
+  if (age > life) return null;
   const speed = Math.max(P.speed, 0.1);
   const travelBack = frozen ? 0 : speed * age;
   const curtainShare = Number(settings.sprayCurtain ?? 0.4);
   const pick = h(9.3);
-  const curtain = pick < curtainShare;
-  const burst = !curtain && pick < curtainShare + (1 - curtainShare) * 0.5;
+  const curtain = !mist && pick < curtainShare;
+  const burst = mist ? pick < splashShare : !curtain && pick < curtainShare + (1 - curtainShare) * 0.5;
   const t = curtain ? sprayMix(0.44, 0.4995, h(2.7)) : (burst ? 0.4995 : sprayMix(0.7, 0.82, h(2.7)));
   const sp = surfProfilePoint(t, dn - travelBack, H, P);
   const weight = curtain ? sp.puff * sp.alpha : (burst ? sp.splash : sp.puff);
-  const mist = !curtain && h(13.1) < Number(settings.sprayMist ?? 0.62);
-  if (weight * (mist ? 1 : overflow) < h(4.1) * 0.42) return null;
-  if (mist && h(19.7) * Math.max(amount, 1) > 1) return null;
+  if (weight * overflow < h(4.1) * 0.42) return null;
   const jitter = (curtain ? 0.05 : (burst ? 0.3 : 0.7)) * H;
   const jx = (h(6.2) - 0.5) * jitter, jz = (h(7.4) - 0.5) * jitter;
   let vx, vy;
@@ -109,7 +125,7 @@ export function sprayMote(id, time, { settings, P, H, dn, wind = 0, frozen = fal
   } else if (burst) [vx, vy] = [P.jet * 0.4, Math.sqrt(2 * GRAVITY * 0.6 * H) * sprayMix(0.4, 1, h(16.3))];
   else [vx, vy] = [speed * 0.45 + P.jet * 0.5 + jz * 3, 1.4 * Math.sqrt(H / 0.45) * weight - jx * 3];
   vx += frozen ? 0 : speed;
-  if (mist) { vx *= 0.22; vy = vy * 0.22 + 0.5 + h(15.2) * 0.7; }
+  if (mist) { vx *= 0.22; vy = vy * 0.22 + Number(settings.sprayPuffLift ?? 0.85) * (0.6 + 0.8 * h(15.2)); }
   const tau = mist ? sprayMix(0.012, 0.05, h(1.9)) : (curtain ? sprayMix(0.3, 0.9, h(1.9)) : sprayMix(0.12, 0.5, h(1.9)));
   const air = wind + (curtain && !frozen ? speed : 0);
   const [fx, fz] = sprayFlight([vx, vy, 0], [air, 0, 0], tau, age);
@@ -119,11 +135,11 @@ export function sprayMote(id, time, { settings, P, H, dn, wind = 0, frozen = fal
   const size = Number(settings.spraySize ?? 1);
   const gobbet = sprayMix(0.3, 2.6, h(11.3) ** 2);
   const radius = mist
-    ? (SPRAY_RADIUS + SPRAY_GROW * span) * size * gobbet * Number(settings.sprayMistSize ?? 2.2) * (0.6 + 1.4 * span)
+    ? gobbet * Number(settings.sprayPuffSize ?? 2.2) * sprayMix(PUFF_FULL, (SPRAY_RADIUS + SPRAY_GROW * span) * (0.6 + 1.4 * span), Number(settings.sprayPuffGrow ?? 1))
     : SPRAY_RADIUS * size * gobbet * (curtain ? 0.8 : 1);
   const x0 = sp.x + jx - travelBack, z0 = sp.z + jz - sp.base;
   const z = z0 + fz;
-  const opacity = Math.min(weight, 1) * spraySmooth(0, 0.06, age) * (1 - spraySmooth(0.72, 1, span)) * (mist ? 0.55 : 1) * spraySmooth(-0.5 * radius, 2.2 * radius, z);
+  const opacity = Math.min(weight, 1) * spraySmooth(0, 0.06, age) * (1 - spraySmooth(0.72, 1, span)) * spraySmooth(-0.5 * radius, 2.2 * radius, z);
   return { x: x0 + fx, z, xAgo: x0 + ax, zAgo: z0 + az, radius, opacity, mist, curtain, burst, age };
 }
 
@@ -131,11 +147,12 @@ export function sprayMote(id, time, { settings, P, H, dn, wind = 0, frozen = fal
 // they would cover. A mote is a fixed size in metres, so its area on screen
 // grows as 1/d²; holding the painted area flat is what keeps the fill cost the
 // same whether the camera is on the crest or a hundred metres off it.
-// amount: the author's «Количество брызг», a straight multiple of the count;
-// what the pool's ceiling cuts off comes back as the overflow, more drops
-// kept at birth (sprayVertexBody), so the slider works at any distance.
+// amount: sprayBudget's total, drops and puffs together, a straight multiple of
+// the count; what the pool's ceiling cuts off comes back as the overflow, more
+// motes kept at birth (sprayVertexBody), so the sliders work at any distance.
 export function sprayCountAndOverflow(params) {
   const raw = sprayRawCount(params);
+  if (!(raw > 0)) return { count: 0, overflow: 1 };
   const count = Math.min(Math.max(Math.round(raw), 60), params.max);
   return { count, overflow: Math.max(raw / count, 1) };
 }
@@ -157,23 +174,25 @@ attribute float aId;
 uniform vec2 uWind;          // the shading uniforms are shared, but only this one is read here
 uniform float uSprayTime;
 uniform float uSprayCycle;
-uniform float uSprayAmount;
-uniform float uSprayOverflow;  // the amount left over past the pool's ceiling: more drops kept at birth
+uniform float uSprayPuffCycle; // a puff's own clock, seconds
+uniform float uSprayPuffShare; // share of the pool that is puffs, by id
+uniform float uSprayPuffSplash; // share of the puffs born where the lip lands; the rest trail the roller
+uniform float uSprayPuffLift;  // m/s a puff rises
+uniform float uSprayPuffGrow;  // 0: a puff is born at its full size; 1: it swells from a speck
+uniform float uSprayOverflow;  // the amount left over past the pool's ceiling: more motes kept at birth
 uniform float uSprayCurtain;   // share of the motes torn off the flying lip
 uniform float uSprayStreak;    // how long a drop is drawn along its flight, in 0.06 s of it
 uniform float uSprayRoll;
 uniform float uSprayCurl;
 uniform float uSprayWind;
-uniform float uSprayGrow;      // metres the radius gains over a life
-uniform float uSprayRadius;    // radius at birth, metres
+uniform float uSprayRadius;    // a drop's radius, metres
 uniform float uSprayS0;        // crest position nearest the camera, 0..1
 uniform float uSpraySpan;      // width of the emitting band, in s
 uniform float uSprayFrozen;    // 1 while the laboratory holds the wave still
 uniform vec2 uSprayFar;        // metres where the spray thins out and is gone
 uniform float uSprayNear;      // metres below which a mote is faded, so one quad cannot fill the screen
 uniform float uSprayMinPx;
-uniform float uSprayMistShare;
-uniform float uSprayMistSize;
+uniform float uSprayPuffSize;
 uniform float uSpraySpread;
 uniform float uSprayViewport;  // drawing buffer height, pixels
 varying vec2 vQuad;
@@ -191,16 +210,23 @@ float sprayHash(float x) { return fract(sin(x * 127.1 + 311.7) * 43758.5453); }
 
 export const sprayVertexBody = /* glsl */`
   vQuad = position.xy * 2.0;
+  // Drops are thrown and fall; mist is the fine water that lifts and hangs —
+  // the puffs of steam over the roller that cover the shell's silhouette. They
+  // differ in everything: size, weight, life, and how they are drawn. A mote is
+  // one or the other for good, by its id, so each kind keeps its own clock and
+  // its own count.
+  bool mist = sprayHash(aId * 0.7548776662 + 0.21) < uSprayPuffShare;
+  float cycleLength = mist ? uSprayPuffCycle : uSprayCycle;
   // The clock. The phase is hashed, not a ramp over the id: the live count
   // changes every frame, and a ramp would mean a shrinking count keeps only a
   // contiguous band of phases — the whole plume one age, dying together.
-  float ph = sprayHash(aId * 0.6180339887) * uSprayCycle;
+  float ph = sprayHash(aId * 0.6180339887) * cycleLength;
   float t0 = uSprayTime - ph;
-  float age = mod(t0, uSprayCycle);
-  float cycle = floor(t0 / uSprayCycle);
+  float age = mod(t0, cycleLength);
+  float cycle = floor(t0 / cycleLength);
   float seed = sprayHash(aId * 0.6180339887 + cycle * 7.7771 + 1.0);
-  float life = uSprayCycle * mix(0.35, 1.0, sprayHash(seed + 3.1) * sprayHash(seed + 3.1));
-  if (age > life || uSprayAmount <= 0.001) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
+  float life = cycleLength * mix(0.35, 1.0, sprayHash(seed + 3.1) * sprayHash(seed + 3.1));
+  if (age > life) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
 
   // Birth: ask the profile itself where water leaves the wave, and keep the
   // mote in proportion to that. The wave is rewound to where it stood when
@@ -210,25 +236,20 @@ export const sprayVertexBody = /* glsl */`
   float H = surfHeightAt(s);
   // Three sources. The curtain: water torn off the lip's edge while it flies,
   // strands and drops that keep the jet's own throw and fall behind it in the
-  // air — the white streaks that hang from a plunging lip. The splash-up
-  // where the lip lands, born at the tip. The boil of the roller on the face.
+  // air — the white streaks that hang from a plunging lip; always drops. The
+  // splash-up where the lip lands, born at the tip. The boil of the roller on
+  // the face, which the running wave leaves behind it. Puffs come from the
+  // last two, in the shares their two sliders give.
   float pick = sprayHash(seed + 9.3);
-  bool curtain = pick < uSprayCurtain;
-  bool burst = !curtain && pick < uSprayCurtain + (1.0 - uSprayCurtain) * 0.5;
+  bool curtain = !mist && pick < uSprayCurtain;
+  bool burst = mist ? pick < uSprayPuffSplash : (!curtain && pick < uSprayCurtain + (1.0 - uSprayCurtain) * 0.5);
   float t = curtain ? mix(0.44, 0.4995, sprayHash(seed + 2.7)) : (burst ? 0.4995 : mix(0.70, 0.82, sprayHash(seed + 2.7)));
   SurfPoint sp = surfProfile(t, surfTravelAt(s) - travelBack, H);
-  // How much this source throws. The amount slider is the number of motes
-  // drawn, not this: it used to thin every mote into glass instead.
+  // How much this source throws. The sliders are the number of motes drawn,
+  // not this: an amount used to thin every mote into glass instead.
   float weight = curtain ? sp.puff * sp.alpha : (burst ? sp.splash : sp.puff);
-  // Drops are thrown and fall; mist is the fine water that lifts and hangs —
-  // the steam over the roller that covers the shell's silhouette. They differ
-  // in everything: size, weight, life, and how they are drawn. The curtain is
-  // always drops: at a mist share of 1 there were no drops left at all.
-  bool mist = !curtain && sprayHash(seed + 13.1) < uSprayMistShare;
-  // Past the pool's ceiling the amount keeps more drops at birth instead; and
-  // it adds drops, not fog: the mist stays as it is at an amount of one.
-  if (weight * (mist ? 1.0 : uSprayOverflow) < sprayHash(seed + 4.1) * 0.42) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
-  if (mist && sprayHash(seed + 19.7) * max(uSprayAmount, 1.0) > 1.0) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
+  // Past the pool's ceiling the amount keeps more motes at birth instead.
+  if (weight * uSprayOverflow < sprayHash(seed + 4.1) * 0.42) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
   vec2 jit = (vec2(sprayHash(seed + 6.2), sprayHash(seed + 7.4)) - 0.5) * (curtain ? 0.05 : (burst ? 0.30 : 0.70)) * H;
   sp.p += jit;
   vec3 born = surfWorld(s, sp, -travelBack, surfCrestDamp(t));
@@ -256,7 +277,7 @@ export const sprayVertexBody = /* glsl */`
     + vec3(0.0, vp.y, 0.0)
     + vec3(alg.x, 0.0, alg.y) * (sprayHash(seed + 8.8) - 0.5) * (curtain ? 0.6 : 1.8);
   // Mist keeps only a breath of the throw: it lifts and the wind takes it.
-  if (mist) v0 = v0 * 0.22 + vec3(0.0, 0.5 + sprayHash(seed + 15.2) * 0.7, 0.0);
+  if (mist) v0 = v0 * 0.22 + vec3(0.0, uSprayPuffLift * (0.6 + 0.8 * sprayHash(seed + 15.2)), 0.0);
 
   // Mist barely falls and follows the air; a drop is thrown and lands.
   // Terminal speed is g·tau: 1.2 to 5 m/s for spray drops, up to 9 for the
@@ -284,12 +305,13 @@ export const sprayVertexBody = /* glsl */`
   float span = age / max(life, 0.01);
   // Motes are not one size: a few heavy gobbets among fine ones is what
   // separates spray from a string of beads. A drop keeps its size; mist is
-  // far bigger and keeps growing as it disperses, so it covers a silhouette.
+  // far bigger and, unless told otherwise, swells from a speck as it
+  // disperses, so it covers a silhouette. The drops' size is not the puffs'.
   float gobbet = mix(0.3, 2.6, sprayHash(seed + 11.3) * sprayHash(seed + 11.3));
-  float radius = mist ? (uSprayRadius + uSprayGrow * span) * gobbet * uSprayMistSize * (0.6 + 1.4 * span)
+  float radius = mist ? gobbet * uSprayPuffSize * mix(${PUFF_FULL.toFixed(3)}, (${SPRAY_RADIUS.toFixed(3)} + ${SPRAY_GROW.toFixed(3)} * span) * (0.6 + 1.4 * span), uSprayPuffGrow)
     : uSprayRadius * gobbet * (curtain ? 0.8 : 1.0);
-  // Vapour is a veil, not a wall: it must never carry the plume's weight.
-  float opacity = min(weight, 1.0) * smoothstep(0.0, 0.06, age) * (1.0 - smoothstep(0.72, 1.0, span)) * (mist ? 0.55 : 1.0);
+  // How thick a puff is, veil or cloud, is its density in the fragment.
+  float opacity = min(weight, 1.0) * smoothstep(0.0, 0.06, age) * (1.0 - smoothstep(0.72, 1.0, span));
   // A mote that has fallen back into the water is gone. The level is known from
   // the profile, so no depth texture is needed — and it fades over its OWN
   // diameter, or the depth test slices the big ones flat on the surface.
@@ -361,6 +383,7 @@ export const sprayVertexBody = /* glsl */`
 export const sprayFragmentVaryings = /* glsl */`
 uniform float uSprayScale;
 uniform float uSprayExtinction;
+uniform float uSprayPuffDensity;
 uniform float uSprayTaps;
 varying vec2 vQuad;
 varying vec3 vWorld;
@@ -414,16 +437,17 @@ export const sprayFragmentBody = /* glsl */`
     float raw = nA.r * 0.62 + nA.g * 0.48 + 0.62 * (1.0 - rad2);
     float dens = smoothstep(0.06, 1.4, raw);
     dens = mix(0.30 * (1.0 - rad2), dens, vDetail);
-    // A veil: its opacity follows the chord through the puff in units of its
-    // own radius, so a big puff is no denser than a small one.
-    alpha = (1.0 - exp(-min(uSprayExtinction, 1.3) * 0.35 * dens * 2.0 * sqrt(1.0 - rad2))) * vOpacity;
+    // Its opacity follows the chord through the puff in units of its own
+    // radius, so a big puff is no denser than a small one. At a density of one
+    // it is the veil it always was; pushed, it goes solid as a cloud.
+    alpha = (1.0 - exp(-0.45 * uSprayPuffDensity * dens * sqrt(1.0 - rad2))) * vOpacity;
     if (alpha < 0.003) discard;
     vec3 nS = normalize(vRight * vQuad.x + vUp * vQuad.y + vView * sqrt(max(1.0 - rad2, 0.0)));
     float sunT = 1.0 - 0.55 * dens;
     if (uSprayTaps > 0.5) {
       vec4 nB = texture(uNoise, nq + uSunDirection * (0.6 * vRadius * uSprayScale));
       float dB = clamp(nB.r * 0.72 + nB.g * 0.38 - 0.28, 0.0, 1.0);
-      sunT = exp(-uSprayExtinction * dB * 0.6);
+      sunT = exp(-1.3 * uSprayPuffDensity * dB * 0.6);
     }
     float powder = 1.0 - exp(-dens * 2.6);
     // Mostly sky-lit: its sun share stays half the foam's, or a low sun paints
@@ -437,14 +461,18 @@ export function createSprayUniforms() {
   return {
     uSprayTime: { value: 0 },
     uSprayCycle: { value: 2.2 },
-    uSprayAmount: { value: 1 },
+    uSprayPuffCycle: { value: 2.2 },
+    uSprayPuffShare: { value: 0.37 },
+    uSprayPuffSplash: { value: 0.5 },
+    uSprayPuffLift: { value: 0.85 },
+    uSprayPuffGrow: { value: 1 },
+    uSprayPuffDensity: { value: 1 },
     uSprayOverflow: { value: 1 },
     uSprayCurtain: { value: 0.4 },
     uSprayStreak: { value: 1 },
     uSprayRoll: { value: 3 },
     uSprayCurl: { value: 0.35 },
     uSprayWind: { value: 0.9 },
-    uSprayGrow: { value: SPRAY_GROW },
     uSprayRadius: { value: SPRAY_RADIUS },
     uSprayS0: { value: 0.5 },
     uSpraySpan: { value: 0.35 },
@@ -452,8 +480,7 @@ export function createSprayUniforms() {
     uSprayFar: { value: new THREE.Vector2(110, 170) },
     uSprayNear: { value: 1.2 },
     uSprayMinPx: { value: 2.5 },
-    uSprayMistShare: { value: 0.62 },
-    uSprayMistSize: { value: 2.2 },
+    uSprayPuffSize: { value: 2.2 },
     uSpraySpread: { value: 1.6 },
     uSprayViewport: { value: 800 },
     // The noise feature must be SMALLER than a mote, or every mote samples one
@@ -466,20 +493,23 @@ export function createSprayUniforms() {
 }
 
 export function syncSprayUniforms(uniforms, settings, tier = SPRAY_TIERS.high) {
-  uniforms.uSprayAmount.value = Number(settings.sprayAmount ?? 1);
+  const budget = sprayBudget(settings);
+  uniforms.uSprayPuffShare.value = budget.puffShare;
+  uniforms.uSprayPuffSplash.value = budget.splashShare;
+  uniforms.uSprayPuffCycle.value = Number(settings.sprayPuffLife ?? 2.2);
+  uniforms.uSprayPuffLift.value = Number(settings.sprayPuffLift ?? 0.85);
+  uniforms.uSprayPuffGrow.value = Number(settings.sprayPuffGrow ?? 1);
+  uniforms.uSprayPuffDensity.value = Number(settings.sprayPuffDensity ?? 1);
   uniforms.uSprayCurtain.value = Number(settings.sprayCurtain ?? 0.4);
   uniforms.uSprayStreak.value = Number(settings.sprayStreak ?? 1);
-  const size = Number(settings.spraySize ?? 1);
-  uniforms.uSprayRadius.value = SPRAY_RADIUS * size;
-  uniforms.uSprayGrow.value = SPRAY_GROW * size;
+  uniforms.uSprayRadius.value = SPRAY_RADIUS * Number(settings.spraySize ?? 1);
   uniforms.uSprayCycle.value = Number(settings.sprayLife ?? 2.2);
   uniforms.uSprayCurl.value = Number(settings.sprayCurl ?? tier.curl);
   uniforms.uSprayWind.value = Number(settings.foamDrift ?? 0.9);
   uniforms.uSprayScale.value = Number(settings.sprayGrain ?? 8);
   uniforms.uSprayExtinction.value = Number(settings.sprayDensity ?? 1.3);
   uniforms.uSprayTaps.value = tier.taps;
-  uniforms.uSprayMistShare.value = Number(settings.sprayMist ?? 0.62);
-  uniforms.uSprayMistSize.value = Number(settings.sprayMistSize ?? 2.2);
+  uniforms.uSprayPuffSize.value = Number(settings.sprayPuffSize ?? 2.2);
   uniforms.uSpraySpread.value = Number(settings.spraySpread ?? 1.6);
   uniforms.uSprayFar.value.set(Number(settings.sprayFar ?? tier.far[1]) * 0.65, Number(settings.sprayFar ?? tier.far[1]));
 }

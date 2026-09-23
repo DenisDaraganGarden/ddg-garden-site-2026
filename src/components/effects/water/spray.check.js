@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { SPRAY_ACCEPTANCE, SPRAY_GROW, SPRAY_RADIUS, SPRAY_TIERS, sprayFlight, sprayCountAndOverflow, sprayFragmentBody, sprayInstanceCount, sprayMote, sprayVertexBody } from './spray.js';
+import { SPRAY_ACCEPTANCE, SPRAY_GROW, SPRAY_RADIUS, SPRAY_TIERS, sprayBudget, sprayFlight, sprayCountAndOverflow, sprayFragmentBody, sprayInstanceCount, sprayMote, sprayVertexBody } from './spray.js';
 import { surfProfileParams, surfProfilePoint } from './surfProfile.js';
 
 // The motes fly in closed form so that nothing has to be simulated or stored.
@@ -102,7 +102,7 @@ assert.match(breakingSource, /float keyVisibility = waterKeyVisibility\(vWorld\)
 // While the lip flies it sheds a curtain: drops that are drawn along their
 // flight (a strand, not a bead) and opaque enough to be seen.
 {
-  const settings = { surfWidth: 18, surfBreakLength: 37, surfLean: 0.23, surfJet: 4, surfLift: 2, surfSheet: 0.34, surfBoreLength: 27, surfSpeed: 3.5, surfHeight: 2.05, sprayMist: 0.4, sprayCurtain: 0.4, sprayStreak: 1 };
+  const settings = { surfWidth: 18, surfBreakLength: 37, surfLean: 0.23, surfJet: 4, surfLift: 2, surfSheet: 0.34, surfBoreLength: 27, surfSpeed: 3.5, surfHeight: 2.05, sprayCurtain: 0.4, sprayStreak: 1 };
   const P = surfProfileParams(settings);
   // A metre and a half past the break: the lip is in the air (it lands ~3 m on).
   const dn = 1.5;
@@ -136,11 +136,33 @@ assert.match(breakingSource, /float keyVisibility = waterKeyVisibility\(vWorld\)
   }
   const buried = live.filter((m) => inside(m.x, m.z)).length;
   assert.ok(live.length > 20 && buried < live.length / 2, `the live curtain is outside the lip sheet (${buried} of ${live.length} inside)`);
-  // A mist share of one keeps the curtain: it is always drops.
-  const misty = { ...settings, sprayMist: 1 };
-  let curtainDrops = 0;
-  for (let id = 0; id < 2000; id += 1) if (sprayMote(id, 5.3, { settings: misty, P, H: settings.surfHeight, dn, frozen: true })?.curtain) curtainDrops += 1;
-  assert.ok(curtainDrops > 20, 'all-mist spray still has its curtain of drops');
+}
+// Puffs and drops are two counts. The puffs behind the wave follow their own
+// slider and nothing else: four times the slider, four times the puffs, and
+// the drops stay as they were. Once the drops' amount thinned the puffs, and
+// no slider could add one.
+{
+  const settings = { surfWidth: 18, surfBreakLength: 37, surfLean: 0.23, surfJet: 4, surfLift: 2, surfSheet: 0.34, surfBoreLength: 27, surfSpeed: 3.5, surfHeight: 2.05, sprayAmount: 2.75 };
+  const P = surfProfileParams(settings);
+  const census = (patch) => {
+    const all = { ...settings, ...patch };
+    const tally = { drops: 0, splash: 0, trail: 0 };
+    // The pool grows with the total, as sprayCountAndOverflow sizes it.
+    for (let id = 0; id < 6000 * sprayBudget(all).total; id += 1) {
+      const mote = sprayMote(id, 5.3, { settings: all, P, H: settings.surfHeight, dn: 6, frozen: true });
+      if (mote && mote.opacity > 0.02) tally[mote.mist ? (mote.burst ? 'splash' : 'trail') : 'drops'] += 1;
+    }
+    return tally;
+  };
+  const one = census({}), four = census({ sprayPuffTrail: 4 });
+  assert.ok(one.trail > 100, `the roller leaves puffs behind the wave (${one.trail})`);
+  assert.ok(Math.abs(four.trail / one.trail - 4) < 0.6, `four times the slider, four times the puffs behind the wave (${one.trail} -> ${four.trail})`);
+  assert.ok(Math.abs(four.drops / one.drops - 1) < 0.15, `the drops do not move (${one.drops} -> ${four.drops})`);
+  const dry = census({ sprayAmount: 0 }), bare = census({ sprayPuffSplash: 0, sprayPuffTrail: 0 });
+  assert.ok(dry.drops === 0 && dry.trail > 100, 'no drops leaves the puffs');
+  assert.ok(bare.splash + bare.trail === 0 && bare.drops > 100, 'no puffs leaves the drops');
+  assert.equal(sprayCountAndOverflow({ distance: 20, height: 1, viewportHeight: 900, viewportWidth: 1500, projectionY: 3, overdraw: 2.6, max: 22000, amount: 0 }).count, 0, 'nothing to draw draws nothing');
+  assert.ok(!sprayFragmentBody.includes('min(uSprayExtinction'), 'the puffs\' density has no ceiling of its own');
 }
 
 console.log(`spray: closed-form flight within 2 mm of the integrated trajectory, coverage held to ${view.overdraw.toFixed(1)}x the frame over ${governed} m of the approach`);
