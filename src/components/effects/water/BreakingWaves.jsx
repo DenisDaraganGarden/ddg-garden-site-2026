@@ -82,6 +82,7 @@ const loftShader = /* glsl */`
   uniform float uSpent;        // metres past its own break after which a section is gone
   uniform float uRibbonVisible;
   uniform float uSurfSmooth;   // how much the crest ignores the short swell it stands on
+  uniform float uMeander;      // how far the crest wanders along the shore; 1 is the original line
   // The crest's height follows the swell's weather at its break point, so a
   // gust's bigger sections break earlier and farther out than the lulls; the
   // ends taper to the swell. The CPU break line uses the same field.
@@ -89,7 +90,7 @@ const loftShader = /* glsl */`
     vec2 at = coastPoint(uBreakMean, uAlong0 + s * uCrestLength);
     return uHeight * gerstnerWeather(at).x * smoothstep(0.0, 0.06, s) * (1.0 - smoothstep(0.94, 1.0, s));
   }
-  float surfPhaseAt(float s) { return coastCrestWiggle(uAlong0 + s * uCrestLength, uWidth); }
+  float surfPhaseAt(float s) { return coastCrestWiggle(uAlong0 + s * uCrestLength, uWidth, uMeander); }
   float surfBreakAt(float s) {
     float x = clamp(s, 0.0, 1.0) * float(BREAK_SAMPLES);
     int i = int(floor(x));
@@ -140,7 +141,7 @@ const loftShader = /* glsl */`
   // line refracted, the wave's travel, and the wander along the shore.
   float surfCenterU(float s) {
     float sAlong = uAlong0 + s * uCrestLength;
-    return coastShore(sAlong) + surfBreakAt(s) + surfTravelAt(s) - uTravel + uPose + coastCrestWiggle(sAlong, uWidth);
+    return coastShore(sAlong) + surfBreakAt(s) + surfTravelAt(s) - uTravel + uPose + coastCrestWiggle(sAlong, uWidth, uMeander);
   }
   // The section is swept along the NORMAL of the crest, not along a fixed
   // direction to the shore: where the break line bends around the spit's shoal,
@@ -528,6 +529,7 @@ export default function BreakingWaves({ settings, lighting, noise = null, coast,
       uRoller: { value: 0.5 },
       uRollerDensity: { value: 1 },
       uSurfSmooth: { value: 0 },
+      uMeander: { value: 1 },
       uSurfFoamVariety: { value: 0 },
       uSurfStreaks: { value: 0 },
     };
@@ -581,6 +583,7 @@ export default function BreakingWaves({ settings, lighting, noise = null, coast,
       uniforms.uRoller.value = settings.surfRoller;
       uniforms.uRollerDensity.value = settings.surfRollerDensity;
       uniforms.uSurfSmooth.value = settings.surfSmooth ?? 0;
+      uniforms.uMeander.value = settings.surfMeander ?? 1;
       uniforms.uSurfFoamVariety.value = settings.surfFoamVariety ?? 0;
       uniforms.uSurfStreaks.value = settings.surfStreaks ?? 0;
       uniforms.uFoamThreshold.value = settings.foamThreshold;

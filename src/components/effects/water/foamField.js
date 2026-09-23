@@ -120,6 +120,7 @@ const updateFragmentShader = /* glsl */`
   // it is peeled along the shore and wanders, so the sample is moved into the
   // crest's frame before it is compared.
   uniform vec4 uBoreFrame;
+  uniform float uBoreMeander;
   uniform float uBorePeelSpan; // local breaker event, independent of coast length
   uniform sampler2D uBoreLine; // R break q, G visibility, B ribbon mean; 49 x 7
   uniform float uBoreRefraction;
@@ -179,7 +180,7 @@ const updateFragmentShader = /* glsl */`
     // same wander scallops it, so the wet line is the line the wave drew.
     float crestLength = max(uBoreFrame.z, 1.0);
     float alongCrest = clamp((qs.y - uBoreFrame.x) / crestLength, 0.0, 1.0);
-    float qBoreBase = q + alongCrest * uBorePeelSpan * uBoreFrame.y - coastCrestWiggle(qs.y, uBoreFrame.w);
+    float qBoreBase = q + alongCrest * uBorePeelSpan * uBoreFrame.y - coastCrestWiggle(qs.y, uBoreFrame.w, uBoreMeander);
     // Off the ends of the crest there is no bore at all.
     float onCrest = step(uBoreFrame.x - 12.0, qs.y) * step(qs.y, uBoreFrame.x + crestLength + 12.0);
     state.x *= sand ? uSandDecay : uDecay;
@@ -283,6 +284,7 @@ export function useFoamField(targetUniforms, { settings, bores, coast = null, ti
       ...createCoastWaterUniforms(),
       uBore: { value: createFoamBores() },
       uBoreFrame: { value: new THREE.Vector4(0, 0, 1, 9) },
+      uBoreMeander: { value: 1 },
       uBorePeelSpan: { value: 1 },
       uBoreLine: { value: null },
       uBoreRefraction: { value: 0 },
@@ -387,6 +389,7 @@ export function useFoamField(targetUniforms, { settings, bores, coast = null, ti
     // Inspection removes peel from the loft; its wet trail must use the same
     // transform. A full-coast skew made foam slide away from the new local lip.
     uniforms.uBoreFrame.value.set(coast?.along0 ?? 0, settings.surfFreeze ? 0 : (settings.surfPeel ?? 0), coast?.length ?? 1, settings.surfWidth ?? 9);
+    uniforms.uBoreMeander.value = settings.surfMeander ?? 1;
     uniforms.uBorePeelSpan.value = surfPeelSpan(settings);
     uniforms.uBoreRefraction.value = THREE.MathUtils.clamp(Number(settings.surfRefraction) || 0, 0, 1);
     if (bores && field.lineRevision !== bores.lineRevision) {
