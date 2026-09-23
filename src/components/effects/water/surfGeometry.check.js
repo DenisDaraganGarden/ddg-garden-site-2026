@@ -67,8 +67,9 @@ assert.ok(surf.includes('* surfBreakVisibleAt(s);'), 'the split fades out before
 assert.ok(surf.includes('uniform float uPeelSpan;'), 'peeling is bounded by a local event span');
 assert.ok(surf.includes('- s * uPeelSpan * uPeel'), 'the loft does not ramp phase over the full coast length');
 assert.ok(!surf.includes('- s * uCrestLength * uPeel'), 'the old 760-m peel rope is gone');
-assert.ok(surf.includes('surfPeelTravelOffset(0.5, settings)'), 'the CPU foam bore follows the loft phase at its centre');
-assert.ok(surf.includes('smoothstep(0, 0.08, psi) * (1 - 0.65 * psi)'), 'the CPU foam bore starts and decays with the rendered low roller');
+assert.ok(surf.includes('surfFoamBore(settings, travel, height, frozen)'), 'the foam field is fed by the shared CPU bore');
+assert.ok(profile.includes('surfPeelTravelOffset(0.5, settings)'), 'the CPU foam bore follows the loft phase at its centre');
+assert.ok(profile.includes('smooth(0, 0.08, psi) * (1 - 0.65 * psi)'), 'the CPU foam bore starts and decays with the rendered low roller');
 assert.ok(surf.includes('vec3 n = cross(ws1 - ws0, wt1 - wt0);'), 'normals are centred within their profile section');
 assert.ok(surf.includes('uniform float uRibbonVisible;'), 'inactive frozen ribbons have an explicit visibility uniform');
 assert.ok(surf.includes('uRibbonVisible * sp.alpha'), 'both surf passes discard frozen ghost ribbons');

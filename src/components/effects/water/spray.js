@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { surfProfilePoint } from './surfProfile.js';
 
 // Spray: the breaking crest throws water into the air, and that is where the
 // surf stops being a surface. A shell over the ribbon can only ever have an
@@ -67,6 +68,52 @@ export function sprayFlight(v0, wind, tau, age) {
   const terminal = [wind[0], wind[1] - GRAVITY * tau, wind[2]];
   const decay = 1 - Math.exp(-age / tau);
   return [0, 1, 2].map((i) => terminal[i] * age + (v0[i] - terminal[i]) * tau * decay);
+}
+
+// CPU twin of sprayVertexBody for the laboratory's section: mote `id` at
+// `time` in the breaker's own frame — x metres shoreward of where the crest
+// stands now, z above still water; swell, curl and the spread along the crest
+// are left out. The same draws in the same order as the shader. Live, the
+// wave runs on at its speed and leaves the mote behind; frozen, it stands.
+// wind: the air's speed toward the shore, m/s.
+const sprayHash = (x) => { const v = Math.sin(x * 127.1 + 311.7) * 43758.5453; return v - Math.floor(v); };
+const sprayMix = (a, b, t) => a + (b - a) * t;
+const spraySmooth = (a, b, x) => { const t = Math.min(Math.max((x - a) / (b - a), 0), 1); return t * t * (3 - 2 * t); };
+export function sprayMote(id, time, { settings, P, H, dn, wind = 0, frozen = false }) {
+  const cycle = Number(settings.sprayLife ?? 2.2);
+  const t0 = time - sprayHash(id * 0.6180339887) * cycle;
+  const age = t0 - Math.floor(t0 / cycle) * cycle;
+  const seed = sprayHash(id * 0.6180339887 + Math.floor(t0 / cycle) * 7.7771 + 1);
+  const life = cycle * sprayMix(0.35, 1, sprayHash(seed + 3.1) ** 2);
+  const amount = Number(settings.sprayAmount ?? 1);
+  if (age > life || amount <= 0.001) return null;
+  const speed = Math.max(P.speed, 0.1);
+  const travelBack = frozen ? 0 : speed * age;
+  const pick = sprayHash(seed + 9.3);
+  const lip = pick < 0.35;
+  const burst = !lip && pick < 0.7;
+  const t = lip ? sprayMix(0.3, 0.5, sprayHash(seed + 2.7)) : (burst ? 0.4995 : sprayMix(0.7, 0.82, sprayHash(seed + 2.7)));
+  const sp = surfProfilePoint(t, dn - travelBack, H, P);
+  const weight = (burst ? sp.splash : sp.puff * (lip ? sp.alpha : 1)) * amount;
+  if (weight < sprayHash(seed + 4.1) * 0.42) return null;
+  const mist = sprayHash(seed + 13.1) < Number(settings.sprayMist ?? 0.62);
+  const jitter = (lip ? 0.1 : (burst ? 0.3 : 0.7)) * H;
+  const jx = (sprayHash(seed + 6.2) - 0.5) * jitter, jz = (sprayHash(seed + 7.4) - 0.5) * jitter;
+  let vx, vy;
+  if (lip) [vx, vy] = sp.vel;
+  else if (burst) [vx, vy] = [P.jet * 0.4, Math.sqrt(2 * GRAVITY * 0.6 * H) * sprayMix(0.4, 1, sprayHash(seed + 16.3))];
+  else [vx, vy] = [speed * 0.45 + P.jet * 0.5 + jz * 3, 1.4 * Math.sqrt(H / 0.45) * weight - jx * 3];
+  vx += frozen ? 0 : speed;
+  if (mist) { vx *= 0.22; vy = vy * 0.22 + 0.5 + sprayHash(seed + 15.2) * 0.7; }
+  const tau = mist ? sprayMix(0.012, 0.05, sprayHash(seed + 1.9)) : sprayMix(0.12, 0.5, sprayHash(seed + 1.9));
+  const [fx, fz] = sprayFlight([vx, vy, 0], [wind, 0, 0], tau, age);
+  const span = age / Math.max(life, 0.01);
+  const size = Number(settings.spraySize ?? 1);
+  let radius = (SPRAY_RADIUS + SPRAY_GROW * span) * size * sprayMix(0.3, 2.6, sprayHash(seed + 11.3) ** 2);
+  if (mist) radius *= Number(settings.sprayMistSize ?? 2.2) * (0.6 + 1.4 * span);
+  const z = sp.z + jz - sp.base + fz;
+  const opacity = weight * spraySmooth(0, 0.06, age) * (1 - spraySmooth(0.72, 1, span)) * (mist ? 0.55 : 1) * spraySmooth(-0.5 * radius, 2.2 * radius, z);
+  return { x: sp.x + jx - travelBack + fx, z, radius, opacity, mist, lip, burst, age };
 }
 
 // How many motes are worth drawing: not a function of distance but of the area
@@ -142,10 +189,16 @@ export const sprayVertexBody = /* glsl */`
   float s = clamp(uSprayS0 + (sprayHash(seed + 5.7) - 0.5) * uSpraySpan, 0.0, 1.0);
   float travelBack = uSpeed * age * (1.0 - uSprayFrozen);
   float H = surfHeightAt(s);
-  bool lip = sprayHash(seed + 9.3) < uSprayJetShare;
-  float t = lip ? mix(0.30, 0.50, sprayHash(seed + 2.7)) : mix(0.70, 0.82, sprayHash(seed + 2.7));
+  // Three sources: drops leaving the lip, the splash-up where the lip lands,
+  // and the boil of the roller on the face. The splash is born at the tip,
+  // where the jet hits the water — born on the face under the lip it rose
+  // out of the tube, metres behind the impact.
+  float pick = sprayHash(seed + 9.3);
+  bool lip = pick < uSprayJetShare;
+  bool burst = !lip && pick < uSprayJetShare + 0.35;
+  float t = lip ? mix(0.30, 0.50, sprayHash(seed + 2.7)) : (burst ? 0.4995 : mix(0.70, 0.82, sprayHash(seed + 2.7)));
   SurfPoint sp = surfProfile(t, surfTravelAt(s) - travelBack, H);
-  float weight = sp.puff * (lip ? sp.alpha : 1.0) * uSprayAmount;
+  float weight = (burst ? sp.splash : sp.puff * (lip ? sp.alpha : 1.0)) * uSprayAmount;
   if (weight < sprayHash(seed + 4.1) * 0.42) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
 
   // Two populations. Droplets are thrown and fall; mist is the fine foam that
@@ -153,7 +206,7 @@ export const sprayVertexBody = /* glsl */`
   // that covers the shell's imperfect silhouette. They differ in everything:
   // size, weight, life, and how sharply the medium is cut out of the noise.
   bool mist = sprayHash(seed + 13.1) < uSprayMistShare;
-  vec2 jit = (vec2(sprayHash(seed + 6.2), sprayHash(seed + 7.4)) - 0.5) * (lip ? 0.10 : 0.70) * H;
+  vec2 jit = (vec2(sprayHash(seed + 6.2), sprayHash(seed + 7.4)) - 0.5) * (lip ? 0.10 : (burst ? 0.30 : 0.70)) * H;
   sp.p += jit;
   vec3 born = surfWorld(s, sp, -travelBack, surfCrestDamp(t));
   float waterY = born.y - (sp.p.y - sp.base);
@@ -166,10 +219,12 @@ export const sprayVertexBody = /* glsl */`
   float slope = surfCenterU(s + hs) - surfCenterU(s - hs);
   vec2 fwd = (coastLand() - coastAlong() * slope) * inversesqrt(1.0 + slope * slope);
   vec2 alg = coastAlong();
-  // The lip's own ballistic velocity where it exists; on the face, the burst of
-  // the impact, turned about the crest's axis so the roller rolls.
-  vec2 vp = lip ? sp.vel * 1.0
-                : vec2(uSpeed * 0.45 + uJet * 0.5, 2.2 * sqrt(H / 0.45) * weight) + vec2(jit.y, -jit.x) * uSprayRoll;
+  // The lip's own ballistic velocity where it exists. The splash-up rises
+  // about as high as the wave, a little forward; the roller only boils, a
+  // fraction of that, turned about the crest's axis so it rolls.
+  vec2 vp = lip ? sp.vel
+    : (burst ? vec2(uJet * 0.4, sqrt(2.0 * ${GRAVITY.toFixed(2)} * 0.6 * H) * mix(0.4, 1.0, sprayHash(seed + 16.3)))
+             : vec2(uSpeed * 0.45 + uJet * 0.5, 1.4 * sqrt(H / 0.45) * weight) + vec2(jit.y, -jit.x) * uSprayRoll);
   vec3 v0 = vec3(fwd.x, 0.0, fwd.y) * (vp.x + uSpeed * (1.0 - uSprayFrozen))
     + vec3(0.0, vp.y, 0.0)
     + vec3(alg.x, 0.0, alg.y) * (sprayHash(seed + 8.8) - 0.5) * (lip ? 0.7 : 1.8);
@@ -177,7 +232,10 @@ export const sprayVertexBody = /* glsl */`
   if (mist) v0 = v0 * 0.22 + vec3(0.0, 0.5 + sprayHash(seed + 15.2) * 0.7, 0.0);
 
   // Mist barely falls and follows the air; a droplet is thrown and lands.
-  float tau = mist ? mix(0.012, 0.05, sprayHash(seed + 1.9)) : mix(0.05, 0.5, sprayHash(seed + 1.9) * sprayHash(seed + 1.9));
+  // Terminal speed is g·tau: from 1.2 m/s for the fine drops to 5 for the
+  // heavy ones. Lighter than that, a "drop" hung for two seconds at crest
+  // height behind the wave — a cloud of beads, which is what read as columns.
+  float tau = mist ? mix(0.012, 0.05, sprayHash(seed + 1.9)) : mix(0.12, 0.5, sprayHash(seed + 1.9));
   vec3 wind = vec3(uWind.x, 0.0, uWind.y) * uSprayWind;
   vec3 terminal = wind + vec3(0.0, -${GRAVITY.toFixed(2)} * tau, 0.0);
   vec3 flight = terminal * age + (v0 - terminal) * tau * (1.0 - exp(-age / tau));

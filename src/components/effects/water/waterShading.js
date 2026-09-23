@@ -34,6 +34,7 @@ export const waterShadingShader = /* glsl */`
   uniform float uRipple;
   uniform float uRippleScale;
   uniform float uLaceScale;
+  uniform float uFoamVariety;   // 0: one lace at one scale; 1: a finer lace inside, dense and thin stretches
   uniform float uFoamBrightness;
   uniform vec3 uBedColor;
   // Metres of water that hide the bed. This sea is turbid: the sand is gone
@@ -396,10 +397,17 @@ export const waterShadingShader = /* glsl */`
     // itself without a period.
     float slice = fract(0.12 + gerstnerNoise(carrier * 0.019) * 3.0);
     vec3 lace = texture(uNoise, vec3(lp, slice)).rgb;
-    float feature = 0.125 / max(uLaceScale, 0.001);
+    // Variety. The detail octave followed the lace scale, so a large lace
+    // (islands of several metres) had nothing finer in it: smooth blobs of
+    // one size that read as one stamp. Its scale is floored at about a
+    // metre, so big islands carry a fine lace and ragged rims; and a slow
+    // patchiness makes some stretches of the water dense and others thin.
+    float detailScale = mix(2.37, max(2.37, 0.8 / max(uLaceScale, 0.001)), uFoamVariety);
+    float feature = 0.125 / max(uLaceScale, 0.001) * 2.37 / detailScale;
     float fineFade = 1.0 - smoothstep(feature * 0.05, feature * 0.25, pixel);
+    coverage = min(coverage * mix(1.0, 0.3 + 1.4 * gerstnerNoise(carrier * 0.027 + 3.7), 0.7 * uFoamVariety), 1.0);
     // Rotated and warped between octaves: the noise volume tiles, the foam must not.
-    vec2 dp = mat2(0.83, -0.56, 0.56, 0.83) * lp * 2.37 + lace.g * 0.35;
+    vec2 dp = mat2(0.83, -0.56, 0.56, 0.83) * lp * detailScale + lace.g * 0.35;
     lp += (vec2(lace.b, lace.g) - 0.5) * 0.9;
     vec3 detail = texture(uNoise, vec3(dp, fract(0.52 + lace.r * 0.2 + slice * 0.63))).rgb;
     float fine = mix(0.5, detail.b, fineFade);
@@ -432,6 +440,10 @@ export const waterShadingShader = /* glsl */`
   // centimetres, open water is metres). lift: extra backlight for a crest.
   // bed: how much of the sand shows through the water here, 0..1 —
   // exp(-depth * k) down and back up, k about 3 for this turbid sea.
+#ifdef WATER_SEA_FOAM
+  float waterSeaFoamCoverage;
+  float waterSeaFoamAge;
+#endif
   vec3 shadeWater(vec3 world, vec3 n, vec3 view, float pixel, vec2 foamUv, float foamCoverage, float foamAge, float thickness, float lift, float bed) {
     // A thin, moving loft can cover an MSAA sample while the pixel centre lies
     // just outside its triangle. Its interpolants may then extrapolate by a
@@ -485,6 +497,15 @@ export const waterShadingShader = /* glsl */`
     color += cursorLight.radiance * cursorSurfaceResponse;
     float bubbles;
     float foam = waterFoam(foamUv, foamCoverage, pixel, foamAge, bubbles);
+#ifdef WATER_SEA_FOAM
+    // A breaker carries two foams: its own, riding with the wave in the
+    // crest-and-arc frame, and the sea's, lying still on the water the wave
+    // runs through. Each keeps its own frame; drawn in one, the other slides.
+    float seaBubbles;
+    float seaFoam = waterFoam(waterFlowUv(world.xz), waterSeaFoamCoverage, pixel, waterSeaFoamAge, seaBubbles);
+    bubbles = mix(bubbles, seaBubbles, step(foam, seaFoam));
+    foam = max(foam, seaFoam);
+#endif
     // Beer/powder from the clouds: a thick patch is lit flat white, a thin one
     // keeps some of the water's shading under it. Pores only attenuate the film
     // a little; they are not separate bright bubbles on every noise cell.
@@ -521,6 +542,7 @@ export function createWaterShadingUniforms(sceneBindings = null) {
     uRipple: { value: 0 },
     uRippleScale: { value: 0.06 },
     uLaceScale: { value: 0.15 },
+    uFoamVariety: { value: 0 },
     uFoamBrightness: { value: 1 },
     uBedColor: { value: new THREE.Color('#c4b08a') },
     uBedReach: { value: 7 },
@@ -541,6 +563,7 @@ export function syncWaterShadingUniforms(uniforms, settings, lighting) {
   uniforms.uRipple.value = settings.ripple;
   uniforms.uRippleScale.value = settings.rippleScale;
   uniforms.uLaceScale.value = settings.laceScale;
+  uniforms.uFoamVariety.value = Number(settings.foamVariety ?? 0);
   uniforms.uFoamBrightness.value = settings.foamBrightness;
   uniforms.uBedColor.value.set(settings.bedColor ?? '#c4b08a');
   // Turbidity in the editor's own sense: more of it, less depth to hide the sand.

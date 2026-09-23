@@ -140,7 +140,7 @@ export function surfProfilePoint(t, dn, H, P) {
   const root = [surfLeanAt(SURF_SHAPE.crest * Hb, Hb, lean), SURF_SHAPE.crest * Hb];
   const emerge = smooth(0, 0.06, tau);
   const spent = smooth(0, 0.1, psi);
-  const o = { alpha: 1, puff: 0, foam: 0, base: surfLevelAt(0.5 * P.width, Hb, P.width), part: 'back', tauImp, psi, rearing, aMax };
+  const o = { alpha: 1, puff: 0, foam: 0, vel: [0, 0], splash, base: surfLevelAt(0.5 * P.width, Hb, P.width), part: 'back', tauImp, psi, rearing, aMax };
   if (t < 0.3) {
     const u = t / 0.3;
     const x = -0.5 * P.width + 0.5 * P.width * u;
@@ -162,6 +162,7 @@ export function surfProfilePoint(t, dn, H, P) {
     o.foam = top ? 0.15 + 0.85 * aeration * aeration : 0.08 + 0.3 * aeration;
     o.puff = top ? aeration * aeration : 0.25 * aeration;
     o.part = top ? 'lip' : 'under';
+    o.vel = [P.jet, P.lift - g * a];
   } else {
     const u = (t - 0.7) / 0.3;
     const x = 0.5 * P.width * u;
@@ -172,13 +173,58 @@ export function surfProfilePoint(t, dn, H, P) {
     const under = P.sheet * H * emerge * (1 - spent);
     const k = smooth(0, 0.15, u);
     [o.x, o.z] = [lerp(root[0] + dx * under, body[0], k), lerp(root[1] + dz * under, body[1], k)];
-    const roller = smooth(0, 0.08, psi) * (1 - 0.65 * psi) * (1 - smooth(0.05, 0.85, u));
-    const burst = splash * (1 - smooth(0.2, 0.9, u));
+    const reach = smooth(0, 0.2, psi);
+    const roller = smooth(0, 0.08, psi) * (1 - 0.65 * psi) * (1 - smooth(0.05, 0.85, u)) * smooth(0.8 - reach, 1 - reach, u);
+    const burst = splash * smooth(0.5, 0.95, u);
     o.foam = Math.max(Math.max(roller, burst), 0.18 * rearing * (1 - smooth(0, 0.5, u)));
     o.puff = roller * (0.42 + 0.32 * (1 - psi)) + burst;
     o.part = 'face';
   }
   return o;
+}
+
+// What one breaker writes into the foam field (foamField.js) this frame, in
+// metres past the mean break line: the deposit's reference q, its strength,
+// its half width and the run-up front (null before landing). BreakingWaves
+// feeds the field with it and the laboratory's section draws the same
+// numbers, so the drawing shows where the 3D foam lies.
+export const surfFoamBore = (settings, travel, height, frozen = false) => {
+  // Same bounded peeling phase as surfTravelAt(s) at the bore's centre. The
+  // face is read from the profile itself: its bore phase, and how far its
+  // foam reaches. A phase of its own (a plunge to -0.2 H instead of the face
+  // the lip meets) started the field's trail a third of the bore late.
+  // A frozen inspection has no peel: the loft drops it, so must the trail.
+  const midTravel = travel + (frozen ? 0 : surfPeelTravelOffset(0.5, settings));
+  const P = surfProfileParams(settings);
+  const face = Array.from({ length: 13 }, (_, i) => surfProfilePoint(0.7 + 0.3 * Math.min(i / 12, 0.9999), midTravel, height, P));
+  const psi = face[0].psi;
+  // The field starts when the profile's low roller starts, then weakens
+  // with that same bore phase. Otherwise the geometry has already become
+  // a bore while its physical trail waits several metres to appear.
+  const strength = smooth(0, 0.08, psi) * (1 - 0.65 * psi);
+  // The deposit's front edge sits where the face's foam falls to half on its
+  // shoreward side, half-way into the deposit's own ragged front (0.16 of its
+  // half width): at the impact that is the foot of the face, later the
+  // roller's edge. A fixed tenth of the width put the foam on the water up to
+  // a metre and a half ahead of the roller, onto the clean lower face.
+  const peak = Math.max(...face.map((p) => p.foam));
+  const edge = face.filter((p) => p.foam >= 0.5 * peak).pop();
+  const halfWidth = settings.surfWidth * 0.55;
+  return {
+    x: travel + edge.x - 0.16 * halfWidth, strength: strength * 0.45, halfWidth,
+    front: psi > 0 ? travel + settings.surfWidth * 0.16 + 1 : null, psi,
+  };
+};
+
+// CPU twin of one bore's fresh deposit in foamField's update pass, mid-crest:
+// qBore and bore.x in the same mean-break frame, bore = surfFoamBore(...).
+// macro/detail are the shader's tear noise; 0.5 is the typical patch.
+export function foamBoreDeposit(qBore, bore, deposit = 1, macro = 0.5, detail = 0.5) {
+  const trace = 0.42 + 0.58 * smooth(0.34, 0.68, macro * 0.68 + detail * 0.32);
+  const ragged = bore.halfWidth * (0.52 + 0.96 * macro);
+  const tail = 1 - smooth(ragged * 0.15, ragged * 3.2, Math.max(bore.x - qBore, 0));
+  const front = 1 - smooth(0, ragged * 0.32, Math.max(qBore - bore.x, 0));
+  return bore.strength * deposit * tail * front * trace;
 }
 
 export const surfProfileShader = /* glsl */`
@@ -207,6 +253,7 @@ struct SurfPoint {
   float shade;     // light reaching the point: the tube is in the lip's shadow
   float base;      // level of the profile's edges; the loft stands the wave on the swell from here
   vec2 vel;        // the water's own velocity here in the profile's plane; only the jet has one
+  float splash;    // the splash-up where the lip has landed, 0..1; the spray bursts from the tip
 };
 
 float surfLevel(float x, float H) {
@@ -268,6 +315,7 @@ SurfPoint surfProfile(float t, float dn, float H) {
   o.puff = 0.0;
   o.shade = 1.0;
   o.vel = vec2(0.0);
+  o.splash = splash;
   o.base = surfLevel(0.5 * uWidth, Hb);
   if (t < 0.3) {
     float u = t / 0.3;
@@ -311,10 +359,14 @@ SurfPoint surfProfile(float t, float dn, float H) {
     vec2 rootUnder = root + surfJetDown(vec2(uJet, uLift)) * uSheet * H * emerge * (1.0 - spent);
     o.p = mix(rootUnder, body, smoothstep(0.0, 0.15, u));
     o.thickness = 3.0;
-    // The roller: after landing the whole face boils and keeps boiling as the
-    // bore runs; the splash-up stands highest where the lip came down.
-    float roller = smoothstep(0.0, 0.08, psi) * (1.0 - 0.65 * psi) * (1.0 - smoothstep(0.05, 0.85, u));
-    float burst = splash * (1.0 - smoothstep(0.2, 0.9, u));
+    // Foam is born where the lip comes down, at the foot of the face: the
+    // splash-up stands there. The roller then climbs the face to the crest
+    // (reach) and boils there as the bore runs. Born at the top of the face,
+    // under the lip's root, it stood up through the lip as a wall of steam
+    // above the crest while the tube was still open.
+    float reach = smoothstep(0.0, 0.2, psi);
+    float roller = smoothstep(0.0, 0.08, psi) * (1.0 - 0.65 * psi) * (1.0 - smoothstep(0.05, 0.85, u)) * smoothstep(0.8 - reach, 1.0 - reach, u);
+    float burst = splash * smoothstep(0.5, 0.95, u);
     o.foam = max(max(roller, burst), 0.18 * rearing * (1.0 - smoothstep(0.0, 0.5, u)));
     o.puff = roller * (0.42 + 0.32 * (1.0 - psi)) + burst;
     o.shade = 1.0 - 0.45 * jetOut * (1.0 - smoothstep(0.0, 0.55, u));
