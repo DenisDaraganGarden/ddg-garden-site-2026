@@ -10,10 +10,19 @@
 .surf-hud__state{font-size:11px;color:var(--focus-accent,#cfc1a1)}
 .surf-hud__state.is-wipeout{color:#df8b84}
 .surf-hud__camera{font-size:10px;color:var(--focus-muted,#989d9e);justify-self:end}
+.surf-hud__side{display:flex;align-items:flex-start;gap:6px}
+.surf-hud__pad{display:flex;align-items:center;height:28px;padding:0 7px;color:var(--focus-muted,#989d9e)}
+.surf-hud__pad svg{width:16px;height:16px}
 .surf-hud__exit{pointer-events:auto;height:28px;padding:0 10px;font:inherit;font-size:11px;cursor:pointer}
 .surf-hud__exit:hover{background:#2b3536e0;color:#f7f6ee}
 .surf-hud__exit:focus-visible{outline:1px solid var(--focus-accent,#cfc1a1);outline-offset:2px}
-.surf-hud__keys{align-self:flex-start;display:flex;flex-wrap:wrap;gap:3px 12px;max-width:100%;padding:5px 9px;font-size:10px;color:var(--focus-muted,#989d9e)}
+/* The legend keeps to the left half, clear of the mouse's place in the middle. */
+.surf-hud__keys{align-self:flex-start;display:flex;flex-wrap:wrap;gap:3px 12px;max-width:calc(50% - 72px);padding:5px 9px;font-size:10px;color:var(--focus-muted,#989d9e)}
 .surf-hud__keys>span{white-space:nowrap}
-.surf-hud__keys kbd{font:10px/1.5 ui-monospace,monospace;color:var(--focus-text,#dcddd8);margin-right:5px}
+.surf-hud__keys kbd,.surf-hud__hint kbd{font:10px/1.5 ui-monospace,monospace;color:var(--focus-text,#dcddd8);margin-right:5px}
+/* Bottom middle: the captured mouse's stick, or how to capture it. */
+.surf-hud__hint,.surf-hud__stick{position:absolute;left:50%;bottom:0;transform:translateX(-50%)}
+.surf-hud__hint{padding:5px 9px;font-size:10px;color:var(--focus-muted,#989d9e);white-space:nowrap}
+.surf-hud__stick{box-sizing:border-box;width:40px;height:40px;border:1px solid #ffffff2e;border-radius:50%;background:#2028294d}
+.surf-hud__stick i{position:absolute;left:50%;top:50%;width:6px;height:6px;margin:-3px 0 0 -3px;border-radius:50%;background:var(--focus-accent,#cfc1a1)}
 @media(max-width:590px){.surf-hud__keys{display:none}}

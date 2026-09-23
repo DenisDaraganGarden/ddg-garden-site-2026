@@ -2,8 +2,12 @@ import React, { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { useFrame, useThree } from '@react-three/fiber';
 import SurfboardModel from './SurfboardModel';
-import { boardDimensions, buildBoardHull } from './boardShape';
+import RiderModel from './RiderModel';
+import { updateRiderModel } from './riderMesh';
+import { boardDimensions, buildBoardHull, deckHeight, halfWidth } from './boardShape';
 import { createBoardBody, createBoardState, resetBoard, stepBoard } from './boardPhysics';
+import { createRider, resetRider, stepRider, syncRider } from './riderController';
+import { SEGMENT } from './riderSkeleton';
 import { createSurfWater } from './surfWater';
 import { surfAlongAt, surfLineup } from './lineup';
 import { publishSurfPlay, surfPlay } from './surfPlayStore';
@@ -17,16 +21,18 @@ import { publishSurfPlay, surfPlay } from './surfPlayStore';
 // In play the anchor steps aside to the origin and the board is in the world.
 //
 // Editor: an empty board (nobody on it) moored to the checkpoint, bobbing on
-// the real waves where Denis put it. Play: the rider's body, the keys from
-// surfPlayStore, no mooring. Everything per frame lives in refs and the store,
-// never in settings.
+// the real waves where Denis put it. Play: the rider (riderController) stands
+// on it — his body says what the board feels (his weight, whether he lies or
+// stands, his paddling and his lean), and once he falls off the board is
+// empty, tied to his ankle by the leash, until he climbs back on. Everything
+// per frame lives in refs and the store, never in settings.
 
 // The water under 24 hull points at 120 Hz: every check of the physics passes
 // at this substep, and it halves the samples of the default 240 Hz.
 const SUBSTEP = 1 / 120;
 // A frame longer than this (a hitch, a hidden tab) is cut short, not replayed.
 const MAX_FRAME = 0.05;
-// After a wipeout, a moment to see it before the board comes back.
+// An empty board a breaker turned over in the editor is put back after this.
 const WIPEOUT_RESPAWN = 1.5;
 // The HUD hears from the board at about 8 Hz, and at once when a state flips.
 const PUBLISH_INTERVAL = 0.125;
@@ -86,6 +92,16 @@ export default function Surfboard({
     tuning: { paddle: surfboardPaddle, carve: surfboardCarve, balance: surfboardBalance },
   }), [hull, surfboardBalance, surfboardCarve, surfboardMass, surfboardPaddle, surfboardRiderMass]);
   const emptyBody = useMemo(() => createBoardBody(hull, { boardMass: surfboardMass, riderMass: 0 }), [hull, surfboardMass]);
+  // The rider's body, fitted to this board's deck.
+  const rider = useMemo(() => {
+    const dims = boardDimensions({ surfboardLength, surfboardWidth, surfboardThickness, surfboardNoseRocker, surfboardTailRocker });
+    return createRider({
+      length: dims.length,
+      deckY: (x, z) => deckHeight(dims, x, z),
+      halfWidth: (z) => halfWidth(dims, z / dims.length + 0.5),
+    });
+  }, [surfboardLength, surfboardWidth, surfboardThickness, surfboardNoseRocker, surfboardTailRocker]);
+  const riderMeshRef = useRef(null);
   const water = useMemo(() => createSurfWater({
     seaSettings,
     coastDefinition: terrainDefinition,
@@ -112,6 +128,9 @@ export default function Surfboard({
       probe: null,         // the water under it when it last settled
       body: null,          // the empty body it last settled with
       publishedAt: -Infinity,
+      view: null,
+      rider: null,         // the rider body the ride was last started with
+      riderTime: 0,
       discrete: '',
       frame: 0,
       physicsMs: 0,
@@ -172,6 +191,35 @@ export default function Surfboard({
     return moved && !first;
   };
 
+  // The board as the rider reads it: its pose and motion, plain arrays of the
+  // physics state (no copies), and the water around him at this frame's time.
+  const boardView = (ride) => {
+    const { state } = ride;
+    ride.view ??= { p: null, q: null, v: null, w: null, speed: 0, wipeout: false };
+    ride.view.p = state.p; ride.view.q = state.q; ride.view.v = state.v; ride.view.w = state.w;
+    ride.view.speed = Math.hypot(state.v[0], state.v[2]);
+    ride.view.wipeout = state.wipeout;
+    return ride.view;
+  };
+  // The water at the rider's parts, at the time of the frame he is stepping.
+  const riderWater = (x, z, out) => water.sample(x, z, rideRef.current.riderTime, out);
+  // What the rider's frame did to the board and to the hands on the gamepad.
+  const riderEvents = (who, state) => {
+    const { events } = who.out;
+    if (events.flipBoard) {
+      // Turned the right way up where it floats, nose where it pointed.
+      const q = state.q;
+      const yaw = Math.atan2(2 * (q[0] * q[2] + q[1] * q[3]), 1 - 2 * (q[0] * q[0] + q[1] * q[1]));
+      resetBoard(state, { x: state.p[0], y: state.p[1], z: state.p[2], yaw });
+    }
+    const rumble = surfPlay.rumble;
+    if (!rumble) return;
+    if (events.fell) rumble(0.9, 0.6, 420);
+    else if (events.landed > 0.2) rumble(0.35 + 0.5 * events.landed, 0.3, 140);
+    else if (events.hit > 0.3) rumble(0.25, 0.5 * events.hit, 120);
+    else if (events.stood) rumble(0.15, 0.25, 90);
+  };
+
   useFrame((frame, delta) => {
     const anchor = anchorRef.current;
     const board = boardRef.current;
@@ -213,6 +261,10 @@ export default function Surfboard({
         const spawn = auto ? lineupAt(viewPoint()) : checkpoint;
         if (auto) { ride.spot = spawn; ride.spotSurf = surf; }
         place(ride, spawn, time, RIDDEN_DRAFT);
+        boardView(ride);
+        resetRider(rider, ride.view);
+        syncRider(rider, surfPlay.intent);
+        ride.rider = rider;
       } else {
         place(ride, checkpoint, time, EMPTY_DRAFT);
         ride.placed = checkpoint;
@@ -223,9 +275,19 @@ export default function Surfboard({
     }
 
     if (mode === 'play') {
+      // A board reshaped mid-ride brings a new rider body; it starts on the board.
+      if (ride.rider !== rider) {
+        ride.rider = rider;
+        boardView(ride);
+        resetRider(rider, ride.view);
+        syncRider(rider, surfPlay.intent);
+      }
       if (surfPlay.respawnRequest !== ride.respawnRequest) {
         ride.respawnRequest = surfPlay.respawnRequest;
         place(ride, respawnSpot(), time, RIDDEN_DRAFT);
+        boardView(ride);
+        resetRider(rider, ride.view);
+        syncRider(rider, surfPlay.intent);
       }
       if (surfPlay.checkpointRequest !== ride.checkpointRequest) {
         ride.checkpointRequest = surfPlay.checkpointRequest;
@@ -245,9 +307,16 @@ export default function Surfboard({
     if (dt > 0) {
       const started = performance.now();
       if (mode === 'play') {
-        stepBoard(state, riddenBody, surfPlay.input, water.sample, time, dt, { substep: SUBSTEP });
-        // Pop is an edge: one frame's kick per press.
-        surfPlay.input.pop = false;
+        // The board under the rider as he left it last frame: his weight and
+        // what he does while he is on it, the leash's pull once he is off.
+        const on = rider.out.onBoard;
+        stepBoard(state, on ? riddenBody : emptyBody, on ? rider.out.input : null, water.sample, time, dt, { substep: SUBSTEP, external: rider.out.leash });
+        // Then the rider on the board where it now is.
+        boardView(ride);
+        ride.riderTime = time;
+        stepRider(rider, { dt, board: ride.view, intent: surfPlay.intent, water: riderWater, ground: terrainQuery?.heightAt ?? null });
+        riderEvents(rider, state);
+        if (!rider.world.bodies.every((body) => Number.isFinite(body.x[0] + body.x[1] + body.x[2] + body.q[3]))) resetRider(rider, ride.view);
       } else {
         stepBoard(state, emptyBody, null, water.sample, time, dt, {
           substep: SUBSTEP,
@@ -284,15 +353,12 @@ export default function Surfboard({
       }
     }
 
-    // A wipeout: the rider paddles back out to the lineup; the empty board a
-    // breaker turned over in the editor is put back the right way up, or it
-    // would float on its deck at the checkpoint for good.
-    if (state.wipeout) {
+    // The empty board a breaker turned over in the editor is put back the
+    // right way up, or it would float on its deck at the checkpoint for good.
+    // In play the rider falls off and climbs back on by himself.
+    if (state.wipeout && mode === 'edit') {
       ride.wipeoutAt ??= time;
-      if (time - ride.wipeoutAt > WIPEOUT_RESPAWN) {
-        if (mode === 'play') place(ride, respawnSpot(), time, RIDDEN_DRAFT);
-        else place(ride, checkpoint, time, EMPTY_DRAFT);
-      }
+      if (time - ride.wipeoutAt > WIPEOUT_RESPAWN) place(ride, checkpoint, time, EMPTY_DRAFT);
     }
 
     // Pose: in the world while playing, relative to the checkpoint otherwise.
@@ -326,10 +392,25 @@ export default function Surfboard({
     out.onFace = state.onFace; out.airborne = state.airborne; out.wipeout = state.wipeout;
     // The rider's posture as the physics holds him (its own rule on the ground
     // speed where the state carries none), and the breaker under the board.
-    out.riding = state.riding;
+    out.riding = mode === 'play' ? rider.out.stand : state.riding;
+    if (mode === 'play') {
+      surfPlay.rider.state = rider.state;
+      const chest = rider.out.chest, pelvis = rider.out.pelvis;
+      surfPlay.rider.chest = surfPlay.rider.chest ?? [0, 0, 0];
+      surfPlay.rider.pelvis = surfPlay.rider.pelvis ?? [0, 0, 0];
+      surfPlay.rider.chest[0] = chest[0]; surfPlay.rider.chest[1] = chest[1]; surfPlay.rider.chest[2] = chest[2];
+      surfPlay.rider.pelvis[0] = pelvis[0]; surfPlay.rider.pelvis[1] = pelvis[1]; surfPlay.rider.pelvis[2] = pelvis[2];
+      surfPlay.rider.onBoard = rider.out.onBoard;
+      const head = rider.world.bodies[SEGMENT.head];
+      surfPlay.rider.head = surfPlay.rider.head ?? [0, 0, 0];
+      surfPlay.rider.head[0] = head.x[0]; surfPlay.rider.head[1] = head.x[1]; surfPlay.rider.head[2] = head.x[2];
+      updateRiderModel(riderMeshRef.current, rider);
+    } else {
+      surfPlay.rider.state = 'none';
+    }
     const under = water.sample(state.p[0], state.p[2], time, ride.sample);
     out.onBreaker = under.onBreaker;
-    const discrete = `${mode}${out.onFace}${out.airborne}${out.wipeout}`;
+    const discrete = `${mode}${out.onFace}${out.airborne}${out.wipeout}${surfPlay.rider.state}`;
     if (discrete !== ride.discrete || (mode === 'play' && time - ride.publishedAt >= PUBLISH_INTERVAL)) {
       ride.discrete = discrete;
       ride.publishedAt = time;
@@ -360,10 +441,14 @@ export default function Surfboard({
   }, -8);
 
   return (
-    <group ref={anchorRef} name="surfboard-anchor">
-      <group ref={boardRef} name="surfboard">
-        <SurfboardModel settings={settings} lighting={lighting} />
+    <>
+      <group ref={anchorRef} name="surfboard-anchor">
+        <group ref={boardRef} name="surfboard">
+          <SurfboardModel settings={settings} lighting={lighting} />
+        </group>
       </group>
-    </group>
+      {/* The rider lives in world coordinates, drawn from his bodies. */}
+      <RiderModel ref={riderMeshRef} visible={playing} />
+    </>
   );
 }
