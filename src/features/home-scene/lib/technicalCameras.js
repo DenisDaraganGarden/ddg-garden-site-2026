@@ -113,5 +113,6 @@ export const TECHNICAL_FRAMES = Object.freeze([
   { id: 'tanker', ru: 'Танкер', en: 'Tanker', object: 'tanker-anchor' },
   { id: 'boat', ru: 'Лодка', en: 'Boat', object: 'boat-anchor' },
   { id: 'sculpture', ru: 'Скульптура', en: 'Sculpture', object: 'sculpture-anchor' },
+  { id: 'surfboard', ru: 'Доска', en: 'Surfboard', object: 'surfboard-anchor' },
   { id: 'lilies', ru: 'Кувшинки сверху', en: 'Lily pads from above', object: 'surface-vegetation', options: { above: true } },
 ]);

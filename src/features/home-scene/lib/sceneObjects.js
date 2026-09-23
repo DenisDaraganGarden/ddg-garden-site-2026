@@ -42,6 +42,8 @@ export const SCENE_OBJECTS = Object.freeze([
   { id: 'plane', key: 'planeEnabled', node: 'objects/plane', group: 'objects', roots: ['ground-plane'], newProject: false },
   // Single trees, shrubs and rocks placed by hand, each with its own knobs.
   { id: 'placed', key: 'placedEnabled', node: 'objects/placed', group: 'objects', roots: ['placed'] },
+  // A surfboard that rides the sea and the breaking wave; ridden from the editor.
+  { id: 'surfboard', key: 'surfboardEnabled', node: 'objects/surfboard', group: 'objects', roots: ['surfboard-anchor', 'surfboard'], requires: ['water'], newProject: false },
   { id: 'seagulls', key: 'seagullsEnabled', node: 'creatures/seagulls', group: 'creatures', roots: ['seagull-flock'], sound: 'birds', requires: ['water'], newProject: false },
   { id: 'fish', key: 'fishEnabled', node: 'creatures/fish', group: 'creatures', roots: ['river-fish-school'], requires: ['water'], newProject: false },
   { id: 'reflections', key: 'reflectionsEnabled', node: null, group: 'render' },

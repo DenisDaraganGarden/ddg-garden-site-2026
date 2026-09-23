@@ -90,3 +90,5 @@ html[data-editor-tool=translate] .home-editor-render-frame canvas,html[data-edit
 html[data-editor-tool=hand] .home-editor-render-frame canvas{cursor:grab}
 /* Объект включён, но его нет в сцене: без чего-то он не бывает. */
 .focus-tree-row.is-blocked .focus-tree-eye{opacity:.6;color:#df8b84}
+/* «Играть» рядом с паузой: подпись и рамка отличают вход в игру от переключателя анимации. */
+.focus-topbar .focus-play{height:24px;margin-left:3px;border:1px solid var(--focus-line);font-size:10px}.focus-play .focus-icon{width:13px;height:13px;color:var(--focus-accent)}

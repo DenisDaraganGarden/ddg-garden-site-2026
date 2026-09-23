@@ -79,6 +79,9 @@ import { useSkyEnvironment } from './water/skyEnvironment';
 import HomeSeagullFlock from '../../features/home-scene/creatures/HomeSeagullFlock';
 import SeagullLandingHabitat from '../../features/home-scene/creatures/SeagullLandingHabitat.jsx';
 import HomeFishSchool from '../../features/home-scene/creatures/HomeFishSchool.jsx';
+import Surfboard from '../surfboard/Surfboard.jsx';
+import SurfPlayCamera from '../surfboard/SurfPlayCamera.jsx';
+import { createSurfRibbons } from './water/surfRibbons.js';
 
 // Wireframe is a material flag, not a shader mode, so it cannot be one more
 // entry in the debug view list. Sweeping the scene rather than threading a prop
@@ -189,6 +192,8 @@ function WaterRuntimeScene({
   editorGizmo,
   cameraPoseKey,
   audioRuntime,
+  playing = false,
+  onSurfboardCheckpoint,
 }) {
   const { gl, size } = useThree();
   const cloudSceneRef = useRef(null);
@@ -281,6 +286,10 @@ function WaterRuntimeScene({
   );
   const seaSwash = useMemo(() => createFoamFieldHolder(), []);
   const seaCaustics = useMemo(() => createSeaCausticNormalsHolder(), []);
+  // What the breakers do each frame, for the surfboard to ride (BreakingWaves fills it).
+  const surfRibbons = useMemo(() => createSurfRibbons(), []);
+  // Play needs the board even while it is switched off in the scene; never without water.
+  const surfboardOn = sceneObjectOn(settings, 'surfboard') || (playing && sceneObjectOn(settings, 'water'));
   const runtime = useWaterRuntime(settings, qualityProfile, mode, effectiveSeaSettings);
   const landingSitesRef = useRef([]);
   const [landingSurfaces, setLandingSurfaces] = useState({
@@ -432,6 +441,7 @@ function WaterRuntimeScene({
         orbitRef={orbitRef}
         freeCamera={mode === 'editor'}
         poseKey={cameraPoseKey}
+        playActive={mode === 'editor' && playing}
       />
       <HomeSoundscapeBridge runtime={audioRuntime} />
       {cloudSettings.enabled && <PainterlyClouds
@@ -513,6 +523,7 @@ function WaterRuntimeScene({
             runtime={runtime}
             swash={seaSwash}
             seaCaustics={seaCaustics}
+            surfRibbons={surfRibbons}
             qualityProfile={qualityProfile}
           />
         ) : null}
@@ -541,6 +552,19 @@ function WaterRuntimeScene({
             isWorldPositionReportingActive={audioRuntime?.isActive}
             onLandingSurfaceReady={handleLandingSurfaceReady}
             useOpticsLod
+          />
+        ) : null}
+        {surfboardOn ? (
+          <Surfboard
+            settings={settings}
+            lighting={lighting}
+            seaSettings={effectiveSeaSettings}
+            terrainDefinition={terrainDefinition}
+            terrainQuery={terrainQuery}
+            surfRibbons={surfRibbons}
+            orbitRef={orbitRef}
+            playing={mode === 'editor' && playing}
+            onCheckpoint={onSurfboardCheckpoint}
           />
         ) : null}
         {settings.tankerVisible ? <HomeTanker settings={settings} seaSettings={effectiveSeaSettings.enabled ? effectiveSeaSettings : null} lighting={lighting} audioRuntime={audioRuntime} /> : null}
@@ -605,6 +629,16 @@ function WaterRuntimeScene({
         />
       </WaterReflections>
       <ScenePostProcessing settings={settings} qualityProfile={qualityProfile} lighting={lighting} />
+      {mode === 'editor' && playing && surfboardOn ? (
+        <SurfPlayCamera
+          settings={settings}
+          orbitRef={orbitRef}
+          seaSettings={effectiveSeaSettings}
+          terrainDefinition={terrainDefinition}
+          terrainQuery={terrainQuery}
+          surfRibbons={surfRibbons}
+        />
+      ) : null}
       {mode === 'editor' && editorGizmo?.selection ? (
         <EditorGizmo
           selection={editorGizmo.selection}
@@ -616,7 +650,7 @@ function WaterRuntimeScene({
       ) : null}
       {mode === 'editor' ? <EditorPicker enabled={Boolean(editorGizmo?.picking)} onPick={editorGizmo?.onPick} onContextMenu={editorGizmo?.onContextMenu} /> : null}
       {mode === 'editor' ? <TopiaryBrush enabled={Boolean(editorGizmo?.topiary?.drawing)} settings={settings} orbitRef={orbitRef} onStroke={editorGizmo?.topiary?.onStroke} /> : null}
-      {mode === 'editor' ? <EditorAxes /> : null}
+      {mode === 'editor' && !playing ? <EditorAxes /> : null}
       <DebugWireframe enabled={mode === 'editor' && Boolean(settings.debugWireframe)} />
       <SceneReadyBeacon onSceneReady={onSceneReady} waiting={sky.isPlaceholder} />
       {showDebugHelpers ? <axesHelper args={[2]} /> : null}
@@ -644,6 +678,8 @@ const WaterScene = ({
   editorGizmo,
   cameraPoseKey,
   audioRuntime,
+  playing = false,
+  onSurfboardCheckpoint,
 }) => {
   const settings = settingsProp ?? getBaseHomeSceneSettings();
 
@@ -668,6 +704,8 @@ const WaterScene = ({
         onSceneReady={onSceneReady}
         cameraPoseKey={cameraPoseKey}
         audioRuntime={audioRuntime}
+        playing={playing}
+        onSurfboardCheckpoint={onSurfboardCheckpoint}
       />
     </SceneCanvas>
   );

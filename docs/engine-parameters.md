@@ -8,7 +8,7 @@
 единицы взяты из его каталога контролов, поэтому параметр не может появиться в
 редакторе и не появиться здесь. Руками не править.
 
-Снято: 2026-09-23 · параметров: 620 · разделов: 40
+Снято: 2026-09-23 · параметров: 643 · разделов: 41
 
 Как этим пользоваться агенту: читать и писать `projects/<id>.json`, поле
 `settings` — плоский объект с этими ключами. `topiaryObjects` — массив форм;
@@ -762,6 +762,33 @@
 | `sculptureWearScale` | Масштаб потёртости | число | 0.35 … 4.5, шаг 0.05 | 2.3 |
 | `sculptureWetness` | Влажность | число | 0 … 1, шаг 0.01 | 0.98 |
 
+## objects/surfboard
+
+| Ключ | Что это | Вид | Пределы | Заводское |
+|---|---|---|---|---|
+| `surfboardBalance` | Баланс | число | 0 … 2, шаг 0.05 | 1 |
+| `surfboardCameraFov` | Угол обзора от первого лица | число | 50 … 110, шаг 1, ° | 80 |
+| `surfboardCarve` | Поворот | число | 0.2 … 3, шаг 0.05 | 1 |
+| `surfboardCheckpointAuto` | У волны, сам | выключатель | да / нет | true |
+| `surfboardCheckpointX` | Положение X | число | -5000 … 5000, шаг 0.1,  m | 0 |
+| `surfboardCheckpointYaw` | Курс | число | -180 … 180, шаг 1, ° | 0 |
+| `surfboardCheckpointZ` | Положение Z | число | -5000 … 5000, шаг 0.1,  m | 0 |
+| `surfboardDeckColor` | Дека | цвет | #rrggbb | #f2efe6 |
+| `surfboardEnabled` | Доска | выключатель | да / нет | false |
+| `surfboardFinColor` | Плавники | цвет | #rrggbb | #2b2d2e |
+| `surfboardLength` | Длина | число | 1.5 … 3.2, шаг 0.01,  m | 1.78 |
+| `surfboardMass` | Вес доски | число | 1.5 … 8, шаг 0.1,  kg | 3.2 |
+| `surfboardNoseRocker` | Прогиб носа | число | 0.04 … 0.2, шаг 0.005,  m | 0.115 |
+| `surfboardPaddle` | Гребок | число | 0 … 3, шаг 0.05 | 1 |
+| `surfboardRailColor` | Канты | цвет | #rrggbb | #2a2e2e |
+| `surfboardRiderMass` | Вес райдера | число | 0 … 120, шаг 1,  kg | 75 |
+| `surfboardStringerColor` | Стрингер | цвет | #rrggbb | #c9a46a |
+| `surfboardStripeColor` | Цвет полос | цвет | #rrggbb | #0b0b0b |
+| `surfboardStripes` | Полосы | число | 0 … 3, шаг 1 | 2 |
+| `surfboardTailRocker` | Прогиб хвоста | число | 0.015 … 0.1, шаг 0.005,  m | 0.045 |
+| `surfboardThickness` | Толщина | число | 0.045 … 0.09, шаг 0.001,  m | 0.062 |
+| `surfboardWidth` | Ширина | число | 0.4 … 0.62, шаг 0.005,  m | 0.5 |
+
 ## objects/tanker
 
 | Ключ | Что это | Вид | Пределы | Заводское |
@@ -827,6 +854,7 @@
 | `shoreEnabled` | Береговые находки | выключатель | да / нет | true |
 | `shrubsEnabled` | Кустарники | выключатель | да / нет | true |
 | `skyVisible` | Небо | выключатель | да / нет | true |
+| `surfboardEnabled` | Доска | выключатель | да / нет | false |
 | `tankerVisible` | Танкер | выключатель | да / нет | true |
 | `terrainEnabled` | Суша | выключатель | да / нет | true |
 | `terrainPebblesEnabled` | Галька | выключатель | да / нет | true |

@@ -31,6 +31,17 @@ const GIZMO_TARGETS = {
         rotate: { x: false, y: true, z: false },
         uniformScale: true,
     },
+    // The surfboard's gizmo moves its checkpoint: where it waits in the editor
+    // and where play starts. Like the boat, the water owns its height. Its size
+    // is its shape, set in its own section, so it has no scale handle.
+    surfboard: {
+        objectName: 'surfboard-anchor',
+        visualName: 'surfboard',
+        translate: { x: true, y: false, z: true },
+        rotate: { x: false, y: true, z: false },
+        scale: false,
+        uniformScale: true,
+    },
     // A light and the point it looks at are two separate handles, the way a
     // Corona Light works: drag the body to place it, drag the pivot to aim it.
     // Both move freely in all three axes - a light is not standing on anything.
@@ -38,24 +49,28 @@ const GIZMO_TARGETS = {
         objectName: 'light-1-anchor',
         translate: { x: true, y: true, z: true },
         rotate: { x: false, y: false, z: false },
+        scale: false,
         uniformScale: false,
     },
     light1target: {
         objectName: 'light-1-target',
         translate: { x: true, y: true, z: true },
         rotate: { x: false, y: false, z: false },
+        scale: false,
         uniformScale: false,
     },
     light2: {
         objectName: 'light-2-anchor',
         translate: { x: true, y: true, z: true },
         rotate: { x: false, y: false, z: false },
+        scale: false,
         uniformScale: false,
     },
     light2target: {
         objectName: 'light-2-target',
         translate: { x: true, y: true, z: true },
         rotate: { x: false, y: false, z: false },
+        scale: false,
         uniformScale: false,
     },
 };
@@ -66,6 +81,7 @@ const GIZMO_TARGETS = {
 const GIZMO_NOTES = {
     boat: { ru: 'высота — от воды', en: 'height comes from the water' },
     sculpture: { ru: 'высота — от дна', en: 'height comes from the seabed' },
+    surfboard: { ru: 'высота — от воды', en: 'height follows the water' },
 };
 
 const targetRule = selection => {
@@ -73,6 +89,16 @@ const targetRule = selection => {
     // A placed object stands on its anchor: free in XYZ, yaws, scales as one.
     if (selection?.startsWith('placed:')) return { objectName: `placed-${selection.slice(7)}`, translate: { x: true, y: true, z: true }, rotate: { x: false, y: true, z: false }, uniformScale: true };
     return GIZMO_TARGETS[selection];
+};
+
+// Whether an object has this transform at all. A light only moves; a scale the
+// scene would drop (the board) or write to another object (a light fell
+// through to the sculpture's scale) is not offered: the tool falls back to
+// select and the menu leaves it out.
+export const gizmoAllows = (selection, mode) => {
+    const rule = targetRule(selection);
+    if (!rule) return false;
+    return mode === 'scale' ? rule.scale !== false : Object.values(rule[mode] ?? {}).some(Boolean);
 };
 
 export function describeGizmoAxes(selection, mode, language = 'ru') {
@@ -225,9 +251,12 @@ export default function EditorGizmo({ selection, mode, orbitRef, onTransform, po
             return;
         }
 
+        // The heading comes from the quaternion in Y-first order: the default
+        // XYZ order folds any turn past 90° into ±90° with X and Z at 180°, so
+        // a nudge of a board facing -160° wrote -21°.
         if (mode === 'rotate') {
             onTransform(selection, {
-                rotationY: Math.round(THREE.MathUtils.radToDeg(proxy.rotation.y)),
+                rotationY: Math.round(THREE.MathUtils.radToDeg(new THREE.Euler().setFromQuaternion(proxy.quaternion, 'YXZ').y)),
             });
             return;
         }

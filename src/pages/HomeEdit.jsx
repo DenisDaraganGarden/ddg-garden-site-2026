@@ -34,7 +34,8 @@ import { usePlacedEditor } from '../placed/usePlacedEditor.js';
 import { TOPIARY_LIMITS } from '../topiary/settings.js';
 import { GIZMO_MODES, useEditorTool } from '../features/home-scene/hooks/useEditorTool';
 import { resolveEditorPath } from '../features/home-scene/components/editor/editorTree';
-import { audioSettingsForScene, sceneObjectsForNode } from '../features/home-scene/lib/sceneObjects';
+import { gizmoAllows } from '../features/home-scene/components/editor/EditorGizmo';
+import { audioSettingsForScene, sceneObjectOn, sceneObjectsForNode } from '../features/home-scene/lib/sceneObjects';
 import HomeEditorPanel from '../features/home-scene/components/HomeEditorPanel';
 import { useFocusHistory } from '../features/home-scene/components/editor/focus/useFocusHistory';
 import { publishHomeSceneSettings } from '../features/home-scene/lib/homeScenePublishClient';
@@ -42,6 +43,9 @@ import { useLanguage } from '../i18n/useLanguage';
 import { useSiteAudio } from '../features/audio/SiteAudioContext';
 import { activeProjectId, readProject } from '../features/engine/projectApi';
 import { requestEditorThumbnail } from '../components/effects/editorThumbnailCapture';
+import { leaveAuto, setSurfPlaying, surfPlay } from '../components/surfboard/surfPlayStore.js';
+import { usePlayKeys } from '../components/surfboard/usePlayKeys.js';
+import SurfHud from '../components/surfboard/SurfHud.jsx';
 import '../styles/HomeEditor.css';
 
 const INITIAL_PUBLISHED_SNAPSHOT = JSON.stringify(
@@ -59,6 +63,9 @@ const getCurrentLayoutKey = () => {
 
     return resolveLayoutKey(window.innerWidth, window.innerHeight);
 };
+
+// Headings are stored in [-180, 180], the range the heading slider offers.
+const wrapDegrees = (degrees) => ((((degrees + 180) % 360) + 360) % 360) - 180;
 
 const syncActiveCameraScene = (settings) => syncActiveEditorCamera(settings, HOME_SCENE_SNAPSHOT_KEYS);
 const updateLayoutInSettings = updateEditorLayout;
@@ -98,7 +105,10 @@ const HomeEdit = ({ project = null }) => {
     } = useHomeSceneEditor(project);
     // Preview the chrome toggles in the editor itself, not only after publishing.
     useHomeChromeVisibility(settings);
-    const { tool, setTool, lastTransform } = useEditorTool();
+    // Play mode: the board takes the keyboard and the camera, the editor hides.
+    // Only this flag lives in React; the ride itself is in surfPlayStore.
+    const [playing, setPlaying] = useState(false);
+    const { tool, setTool, lastTransform } = useEditorTool(!playing);
     const focusHistory = useFocusHistory(settings, setSettings, handleSettingChange, applySettings);
     const topiaryEditor = useTopiaryEditor({ settings, history: focusHistory, setActiveTab, setTool, tool, language });
     const { update: updateTopiary, select: selectTopiary } = topiaryEditor;
@@ -156,7 +166,11 @@ const HomeEdit = ({ project = null }) => {
     }, [serializedPublishSettings]);
 
     // Space pauses and resumes the animation from anywhere but a text field.
+    // While riding, Space is the board's pop.
     useEffect(() => {
+        if (playing) {
+            return undefined;
+        }
         const isTextTarget = (target) => target instanceof HTMLElement && (
             target.isContentEditable
             || target.tagName === 'TEXTAREA'
@@ -172,7 +186,7 @@ const HomeEdit = ({ project = null }) => {
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [setSettings]);
+    }, [playing, setSettings]);
 
     // Редактор открывается уже собранным: экран из index.html держит кадр, пока
     // сцена не отчитается, что она построена. Раньше на его месте были шапка
@@ -489,6 +503,16 @@ const HomeEdit = ({ project = null }) => {
             updatePlaced(id.slice(7), changes);
             return;
         }
+        // The board's gizmo holds its checkpoint, the place it waits at and
+        // starts from. Height follows the water and a board has no scale.
+        // Placing it by hand means «at the wave» no longer decides; the first
+        // drag pins the spot the board stood at, so the other two keep it.
+        if (id === 'surfboard') {
+            const checkpoint = patch.position ? { surfboardCheckpointX: patch.position.x, surfboardCheckpointZ: patch.position.z }
+                : typeof patch.rotationY === 'number' ? { surfboardCheckpointYaw: wrapDegrees(patch.rotationY) } : null;
+            if (checkpoint) setSettings((previous) => ({ ...previous, ...leaveAuto(previous, checkpoint) }));
+            return;
+        }
         const lightMatch = /^light([12])(target)?$/.exec(id);
         if (lightMatch && patch.position) {
             const prefix = `light${lightMatch[1]}${lightMatch[2] ? 'Target' : ''}`;
@@ -537,8 +561,11 @@ const HomeEdit = ({ project = null }) => {
     // Инструмент хранится один, но трансформация без объекта, который можно
     // двигать, — это просто выбор: так «перенос» остаётся привычным умолчанием
     // и сам возвращается, как только выбран следующий подвижный объект.
+    // A transform the object does not have (the board's scale) is a select too.
     const transformTool = GIZMO_MODES.includes(tool);
-    const activeTool = transformTool && !gizmoSelection ? 'select' : tool;
+    const transformHeld = transformTool && gizmoAllows(gizmoSelection, tool);
+    // Riding is looking only: no gizmo, no picking, no hedge brush, no menu.
+    const activeTool = playing ? 'hand' : transformTool && !transformHeld ? 'select' : tool;
     const picking = activeTool !== 'hand' && activeTool !== 'topiary';
     // Яв и масштаб выбранного объекта — из настроек: манипулятор их показывает,
     // а пишет обратно только через onTransform, сцену напрямую не трогая.
@@ -547,20 +574,24 @@ const HomeEdit = ({ project = null }) => {
         ? { rotationY: settings.boatYaw ?? 0, scale: settings.boatScale ?? 1 }
         : gizmoSelection === 'sculpture'
             ? { rotationY: settings.sculptureRotationY ?? 0, scale: settings.sculptureScale ?? 1 }
-            : null;
+            : gizmoSelection === 'surfboard'
+                // At the wave the ring starts from the board's real heading,
+                // the one leaving auto would pin, not the stored one.
+                ? { rotationY: leaveAuto(settings, {}).surfboardCheckpointYaw ?? settings.surfboardCheckpointYaw ?? 0, scale: 1 }
+                : null;
     const editorGizmo = useMemo(() => ({
-        selection: transformTool && gizmoSelection ? gizmoSelection : null,
+        selection: !playing && transformHeld ? gizmoSelection : null,
         mode: transformTool ? tool : lastTransform,
         pose: gizmoPose,
         onTransform: handleGizmoTransform,
         picking,
         onPick: handlePickObject,
-        onContextMenu: activeTool === 'topiary' ? undefined : setSceneMenu,
+        onContextMenu: activeTool === 'topiary' || playing ? undefined : setSceneMenu,
         topiary: { drawing: activeTool === 'topiary' && settings.topiaryObjects.length < TOPIARY_LIMITS.objects,
             selectedId: gizmoNode.id === 'topiary' ? topiaryEditor.selectedId : null, onStroke: topiaryEditor.onStroke },
         placed: { selectedId: gizmoNode.id === 'placed' ? placedEditor.selectedId : null },
     // eslint-disable-next-line react-hooks/exhaustive-deps -- pose сравнивается по значениям, не по ссылке
-    }), [transformTool, gizmoSelection, tool, lastTransform, handleGizmoTransform, picking, handlePickObject, gizmoPose?.rotationY, gizmoPose?.scale, activeTool, settings.topiaryObjects.length, gizmoNode.id, topiaryEditor.selectedId, topiaryEditor.onStroke, placedEditor.selectedId]);
+    }), [playing, transformTool, transformHeld, gizmoSelection, tool, lastTransform, handleGizmoTransform, picking, handlePickObject, gizmoPose?.rotationY, gizmoPose?.scale, activeTool, settings.topiaryObjects.length, gizmoNode.id, topiaryEditor.selectedId, topiaryEditor.onStroke, placedEditor.selectedId]);
 
     // Курсор во вьюпорте говорит, какой инструмент в руке, не глядя на панель.
     useEffect(() => {
@@ -569,8 +600,59 @@ const HomeEdit = ({ project = null }) => {
     }, [activeTool]);
 
 
+    // Entering play keeps the editor view; leaving puts it back once the play
+    // camera has let go. The canvas commits its own React root after this
+    // one, so the play camera's last frame (and an orbit control coming back)
+    // can land after the first restore: it is repeated two frames later.
+    const waterOn = sceneObjectOn(settings, 'water');
+    const playPoseRef = useRef(null);
+    const startPlay = useCallback(() => {
+        if (surfPlay.playing || !waterOn) return;
+        playPoseRef.current = cameraRigApiRef.current?.capturePose?.() ?? null;
+        document.activeElement?.blur?.();
+        setSceneMenu(null);
+        setSurfPlaying(true);
+        setPlaying(true);
+    }, [waterOn]);
+    const stopPlay = useCallback(() => {
+        if (!surfPlay.playing) return;
+        setSurfPlaying(false);
+        setPlaying(false);
+    }, []);
+    useEffect(() => {
+        const pose = playPoseRef.current;
+        if (playing || !pose) return undefined;
+        playPoseRef.current = null;
+        const restore = () => cameraRigApiRef.current?.previewPose?.(pose);
+        restore();
+        let frame = requestAnimationFrame(() => { frame = requestAnimationFrame(restore); });
+        return () => cancelAnimationFrame(frame);
+    }, [playing]);
+    useEffect(() => () => setSurfPlaying(false), []);
+    usePlayKeys(playing, startPlay, stopPlay);
+    // The scene answers T with the board's place; one undoable write. T sets
+    // all three, so there is nothing left to pin on leaving auto.
+    const applySettingsRef = useRef(focusHistory.applySettings);
+    useEffect(() => { applySettingsRef.current = focusHistory.applySettings; });
+    const handleSurfboardCheckpoint = useCallback(({ x, z, yaw }) => {
+        applySettingsRef.current(leaveAuto(null, {
+            surfboardCheckpointX: Number(x.toFixed(2)),
+            surfboardCheckpointZ: Number(z.toFixed(2)),
+            surfboardCheckpointYaw: Math.round(wrapDegrees(yaw)),
+        }));
+    }, []);
+    // The ride needs a running clock and a moving wave, whatever the editor
+    // was paused on; the stored settings stay as they are.
+    const sceneSettings = useMemo(
+        () => (playing ? { ...settings, animationPaused: false, seaSurfFreeze: false } : settings),
+        [playing, settings],
+    );
+
     const layoutEditor = useMemo(() => ({
         previewPose: pose => cameraRigApiRef.current?.previewPose?.(pose),
+        capturePose: () => cameraRigApiRef.current?.capturePose?.(),
+        // Without water there is nothing to ride; the buttons show it disabled.
+        startPlay: waterOn ? startPlay : undefined,
         frameObject: (name, options) => cameraRigApiRef.current?.frameObject?.(name, options),
         cameras: settings.sceneCameras,
         activeCameraId: settings.activeCameraId,
@@ -604,6 +686,8 @@ const HomeEdit = ({ project = null }) => {
         setWorkCameraFov,
     }), [
         settings,
+        waterOn,
+        startPlay,
         selectedLayoutKey,
         currentLayoutKey,
         selectCamera,
@@ -709,7 +793,7 @@ const HomeEdit = ({ project = null }) => {
                             mode="editor"
                             testId="home-editor-scene"
                             fallbackTestId="home-editor-fallback"
-                            settings={settings}
+                            settings={sceneSettings}
                             layoutOverride={selectedLayoutKey}
                             onCameraRigApi={handleCameraRigApi}
                             onSceneReady={handleSceneReady}
@@ -718,10 +802,13 @@ const HomeEdit = ({ project = null }) => {
                             editorGizmo={editorGizmo}
                             cameraPoseKey={cameraPoseKey}
                             audioRuntime={audioRuntime}
+                            playing={playing}
+                            onSurfboardCheckpoint={handleSurfboardCheckpoint}
                         />
                     </div>
                     <div className="home-editor-frame-mask home-editor-frame-mask--top" aria-hidden="true" />
                     <div className="home-editor-frame-mask home-editor-frame-mask--bottom" aria-hidden="true" />
+                    {playing ? <SurfHud onExit={stopPlay} /> : null}
                 </div>
             </div>
 
@@ -742,6 +829,8 @@ const HomeEdit = ({ project = null }) => {
                 publishState={publishState}
                 hasPublishChanges={hasPublishChanges}
                 project={project}
+                playing={playing}
+                onPlay={waterOn ? startPlay : undefined}
                 publishEnabled={isLocalPublishAvailable}
                 publishHint={isLocalPublishAvailable
                     ? (project ? t('homeEditor.publish.projectScope') : '')

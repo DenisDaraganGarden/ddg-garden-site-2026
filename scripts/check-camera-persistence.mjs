@@ -109,7 +109,20 @@ try {
       }
     }
   }
-  console.log(`cameraPersistence: ${keys.length} snapshot fields, 60 reload/switch cycles, paired captures and publication passed`);
+
+  // The surfboard belongs to the scene, not to a camera: a checkpoint placed
+  // under a work camera is still there on camera 1 and after a reload, and
+  // publication carries it from the root. The site gets no board by default.
+  const board = { surfboardEnabled: true, surfboardCheckpointAuto: false, surfboardCheckpointX: 12.5, surfboardCheckpointYaw: -40 };
+  settings = commit({ ...selectEditorCamera(settings, workId, 'work', keys), ...board });
+  settings = normalizeHomeSceneDraftSettings(json(selectEditorCamera(settings, firstId, 'scene', keys)));
+  for (const [key, value] of Object.entries(board)) {
+    assert.ok(!keys.includes(key), `${key} is not a camera field`);
+    assert.equal(settings[key], value, `${key} survives a camera switch and a reload`);
+    assert.equal(sanitizeHomeSceneSettingsForPublish(settings)[key], value, `${key} publishes from the root`);
+  }
+  assert.equal(normalizePublishedHomeSceneSettings({}).surfboardEnabled, false, 'a scene without the key has no board');
+  console.log(`cameraPersistence: ${keys.length} snapshot fields, 60 reload/switch cycles, paired captures, publication and the global surfboard passed`);
 } finally {
   await server.close();
 }

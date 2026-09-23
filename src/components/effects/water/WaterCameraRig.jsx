@@ -31,6 +31,9 @@ const FREE_CAMERA_KEYS = new Set([
 // polar limits, so it can look straight up or straight down. It is the control
 // case for anything that looks like a camera problem - if a symptom survives it,
 // the composition rig is not the cause.
+//
+// playActive: the surfboard is being ridden and its play camera owns the view.
+// The rig then neither flies (W/A/S/D steer the board) nor re-applies a pose.
 export default function WaterCameraRig({
   mode,
   layout,
@@ -39,6 +42,7 @@ export default function WaterCameraRig({
   orbitRef,
   freeCamera = false,
   poseKey,
+  playActive = false,
 }) {
   const { camera, gl, size, scene, invalidate } = useThree();
   const internalControlsRef = useRef();
@@ -114,7 +118,7 @@ export default function WaterCameraRig({
   // (not the object identity) so editing object positions doesn't snap the camera, and
   // free-orbiting in the editor isn't interrupted by unrelated setting changes.
   useLayoutEffect(() => {
-    if (!hasCameraPosition) {
+    if (!hasCameraPosition || playActive) {
       return;
     }
 
@@ -144,6 +148,7 @@ export default function WaterCameraRig({
     cameraFov,
     freeCamera,
     hasCameraPosition,
+    playActive,
     poseKey,
   ]);
 
@@ -151,7 +156,7 @@ export default function WaterCameraRig({
     const controls = controlsRef.current;
     const pressedKeys = pressedKeysRef.current;
 
-    if (mode !== 'editor' || !freeCamera || !controls || pressedKeys.size === 0) {
+    if (mode !== 'editor' || !freeCamera || playActive || !controls || pressedKeys.size === 0) {
       return false;
     }
 
@@ -183,7 +188,7 @@ export default function WaterCameraRig({
     camera.updateMatrixWorld();
     controls.update();
     return true;
-  }, [camera, controlsRef, freeCamera, mode]);
+  }, [camera, controlsRef, freeCamera, mode, playActive]);
 
   // Keyboard flight is scoped to a focused editor canvas. Clicking a slider or
   // another control immediately returns the letter keys to the UI instead of
@@ -193,7 +198,7 @@ export default function WaterCameraRig({
     const pressedKeys = pressedKeysRef.current;
     pressedKeys.clear();
 
-    if (mode !== 'editor' || !freeCamera || !domElement) {
+    if (mode !== 'editor' || !freeCamera || playActive || !domElement) {
       return undefined;
     }
 
@@ -271,7 +276,7 @@ export default function WaterCameraRig({
       delete domElement.dataset.ddgCameraLastKey;
       delete domElement.dataset.ddgCameraMode;
     };
-  }, [freeCamera, gl, invalidate, mode, moveFreeCamera]);
+  }, [freeCamera, gl, invalidate, mode, moveFreeCamera, playActive]);
 
   useFrame(() => {
     const controls = controlsRef.current;

@@ -22,8 +22,17 @@ export function createGerstnerSurfaceSampler(settings) {
   const gusts = Math.min(Math.max(finite(settings.gusts, 0), 0), 1);
   const speed = Math.max(finite(settings.speed, 0), 0);
   const sets = Math.min(Math.max(finite(settings.sets, 0), 0), 1);
+  // One sampler serves every probe of an actor each frame, so the forward pass
+  // writes into these instead of allocating: the offset of the last evaluate,
+  // and, for the final one, its tangents and the particle velocity.
+  const offset = { x: 0, y: 0, z: 0 };
+  const dPdx = new THREE.Vector3();
+  const dPdz = new THREE.Vector3();
+  const velocity = { x: 0, y: 0, z: 0 };
 
-  const evaluate = (px, pz, elapsed, target, fade = 1, cell = 0) => {
+  // full: the inverse iterations need the position only; the last pass also
+  // builds the tangents and the velocity.
+  const evaluate = (px, pz, elapsed, fade, cell, full) => {
     const weather = gerstnerWeatherAt(px, pz, gusts);
     // Keep the phase twin in step with GERSTNER_WEATHER.wander in GLSL. The
     // amplitude weather helper is exported, while the phase terms are folded
@@ -36,47 +45,54 @@ export function createGerstnerSurfaceSampler(settings) {
     let ox = 0;
     let oy = 0;
     let oz = 0;
-    const dPdx = new THREE.Vector3(1, 0, 0);
-    const dPdz = new THREE.Vector3(0, 0, 1);
+    if (full) {
+      dPdx.set(1, 0, 0);
+      dPdz.set(0, 0, 1);
+      velocity.x = 0;
+      velocity.y = 0;
+      velocity.z = 0;
+    }
 
-    trains.forEach((train, index) => {
+    for (let index = 0; index < trains.length; index += 1) {
+      const train = trains[index];
       const phase = train.k * (train.direction[0] * px + train.direction[1] * pz)
         - train.omega * speed * elapsed + index * 1.7 + wander;
       const envelopeWeight = sets * train.sets;
       const envelopeValue = envelope(phase, envelopeWeight);
-      const resolved = 1 - (() => {
-        const t = Math.min(Math.max((cell * train.k * 0.15915494 - 0.08) / 0.22, 0), 1);
-        return t * t * (3 - 2 * t);
-      })();
+      const lod = Math.min(Math.max((cell * train.k * 0.15915494 - 0.08) / 0.22, 0), 1);
+      const resolved = 1 - lod * lod * (3 - 2 * lod);
       const amplitude = train.amplitude * weather * envelopeValue * fade * resolved;
       const sine = Math.sin(phase);
       const cosine = Math.cos(phase);
-      const envelopeSlope = envelopeDerivative(phase, envelopeWeight);
-      const phaseX = train.k * train.direction[0];
-      const phaseZ = train.k * train.direction[1];
-      const horizontalSlope = envelopeSlope * cosine - envelopeValue * sine;
-      const verticalSlope = envelopeSlope * sine + envelopeValue * cosine;
-      const baseAmplitude = train.amplitude * weather * fade * resolved;
       ox += train.q * amplitude * train.direction[0] * cosine;
       oz += train.q * amplitude * train.direction[1] * cosine;
       oy += amplitude * sine;
+      if (!full) continue;
+      const envelopeSlope = envelopeDerivative(phase, envelopeWeight);
+      const phaseX = train.k * train.direction[0];
+      const phaseZ = train.k * train.direction[1];
+      // d/dphase of E·cos and E·sin: the sets envelope rides the phase too.
+      const horizontalSlope = envelopeSlope * cosine - envelopeValue * sine;
+      const verticalSlope = envelopeSlope * sine + envelopeValue * cosine;
+      const baseAmplitude = train.amplitude * weather * fade * resolved;
       dPdx.x += train.q * baseAmplitude * train.direction[0] * phaseX * horizontalSlope;
       dPdx.z += train.q * baseAmplitude * train.direction[1] * phaseX * horizontalSlope;
       dPdx.y += baseAmplitude * phaseX * verticalSlope;
       dPdz.x += train.q * baseAmplitude * train.direction[0] * phaseZ * horizontalSlope;
       dPdz.z += train.q * baseAmplitude * train.direction[1] * phaseZ * horizontalSlope;
       dPdz.y += baseAmplitude * phaseZ * verticalSlope;
-    });
-
-    const normal = target.normal ?? new THREE.Vector3();
-    normal.crossVectors(dPdz, dPdx).normalize();
-    target.x = px + ox;
-    target.y = oy;
-    target.z = pz + oz;
-    target.worldY = oy;
-    target.height = oy;
-    target.normal = normal;
-    return target;
+      // A Gerstner surface is Lagrangian: p labels one water particle, and the
+      // displacement is where that particle is now. Its velocity is therefore
+      // the time derivative of the displacement at fixed p, and time enters
+      // only through the phase, at -omega * speed per second.
+      const phaseRate = -train.omega * speed;
+      velocity.x += phaseRate * train.q * baseAmplitude * train.direction[0] * horizontalSlope;
+      velocity.z += phaseRate * train.q * baseAmplitude * train.direction[1] * horizontalSlope;
+      velocity.y += phaseRate * baseAmplitude * verticalSlope;
+    }
+    offset.x = ox;
+    offset.y = oy;
+    offset.z = oz;
   };
 
   return (x, z, time, target = {}, { fadeAt = null, cellAt = null, inverseIterations = GERSTNER_INVERSE_ITERATIONS } = {}) => {
@@ -89,17 +105,32 @@ export function createGerstnerSurfaceSampler(settings) {
     // steepness budget that prevents the Gerstner surface from folding over.
     let px = worldX;
     let pz = worldZ;
-    const scratch = { normal: new THREE.Vector3() };
-    for (let iteration = 0; iteration < Math.max(1, Math.round(finite(inverseIterations, GERSTNER_INVERSE_ITERATIONS))); iteration += 1) {
-      evaluate(px, pz, elapsed, scratch, fadeAt?.(px, pz) ?? 1, cellAt?.(px, pz) ?? 0);
-      px += worldX - scratch.x;
-      pz += worldZ - scratch.z;
+    const iterations = Math.max(1, Math.round(finite(inverseIterations, GERSTNER_INVERSE_ITERATIONS)));
+    for (let iteration = 0; iteration < iterations; iteration += 1) {
+      evaluate(px, pz, elapsed, fadeAt?.(px, pz) ?? 1, cellAt?.(px, pz) ?? 0, false);
+      px = worldX - offset.x;
+      pz = worldZ - offset.z;
     }
-    const surface = evaluate(px, pz, elapsed, target, fadeAt?.(px, pz) ?? 1, cellAt?.(px, pz) ?? 0);
-    // Kept as diagnostic metadata for the focused CPU/GLSL parity check. The
-    // public x/z remain the reconstructed visible point.
-    surface.parameterX = px;
-    surface.parameterZ = pz;
-    return surface;
+    evaluate(px, pz, elapsed, fadeAt?.(px, pz) ?? 1, cellAt?.(px, pz) ?? 0, true);
+    const normal = target.normal ?? new THREE.Vector3();
+    normal.crossVectors(dPdz, dPdx).normalize();
+    const particle = target.velocity ?? new THREE.Vector3();
+    particle.x = velocity.x;
+    particle.y = velocity.y;
+    particle.z = velocity.z;
+    target.x = px + offset.x;
+    target.y = offset.y;
+    target.z = pz + offset.z;
+    target.worldY = offset.y;
+    target.height = offset.y;
+    target.normal = normal;
+    // m/s of the water particle standing at this point of the surface.
+    target.velocity = particle;
+    // Kept as diagnostic metadata for the focused CPU/GLSL parity check, and
+    // the point the surf loft stands on. The public x/z remain the
+    // reconstructed visible point.
+    target.parameterX = px;
+    target.parameterZ = pz;
+    return target;
   };
 }

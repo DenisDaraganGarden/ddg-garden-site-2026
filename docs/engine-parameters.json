@@ -1,5 +1,5 @@
 {
-  "collected": "2026-09-23T13:56:35.146Z",
+  "collected": "2026-09-23T18:15:54.098Z",
   "rows": [
     {
       "key": "cameraFov",
@@ -3925,6 +3925,216 @@
       "step": 1
     },
     {
+      "key": "surfboardEnabled",
+      "group": "objects",
+      "node": "surfboard",
+      "label": "Доска",
+      "kind": "выключатель"
+    },
+    {
+      "key": "surfboardLength",
+      "group": "objects",
+      "node": "surfboard",
+      "label": "Длина",
+      "kind": "число",
+      "min": 1.5,
+      "max": 3.2,
+      "step": 0.01,
+      "unit": " m"
+    },
+    {
+      "key": "surfboardWidth",
+      "group": "objects",
+      "node": "surfboard",
+      "label": "Ширина",
+      "kind": "число",
+      "min": 0.4,
+      "max": 0.62,
+      "step": 0.005,
+      "unit": " m"
+    },
+    {
+      "key": "surfboardThickness",
+      "group": "objects",
+      "node": "surfboard",
+      "label": "Толщина",
+      "kind": "число",
+      "min": 0.045,
+      "max": 0.09,
+      "step": 0.001,
+      "unit": " m"
+    },
+    {
+      "key": "surfboardNoseRocker",
+      "group": "objects",
+      "node": "surfboard",
+      "label": "Прогиб носа",
+      "kind": "число",
+      "min": 0.04,
+      "max": 0.2,
+      "step": 0.005,
+      "unit": " m"
+    },
+    {
+      "key": "surfboardTailRocker",
+      "group": "objects",
+      "node": "surfboard",
+      "label": "Прогиб хвоста",
+      "kind": "число",
+      "min": 0.015,
+      "max": 0.1,
+      "step": 0.005,
+      "unit": " m"
+    },
+    {
+      "key": "surfboardStripes",
+      "group": "objects",
+      "node": "surfboard",
+      "label": "Полосы",
+      "kind": "число",
+      "min": 0,
+      "max": 3,
+      "step": 1
+    },
+    {
+      "key": "surfboardDeckColor",
+      "group": "objects",
+      "node": "surfboard",
+      "label": "Дека",
+      "kind": "цвет"
+    },
+    {
+      "key": "surfboardRailColor",
+      "group": "objects",
+      "node": "surfboard",
+      "label": "Канты",
+      "kind": "цвет"
+    },
+    {
+      "key": "surfboardStripeColor",
+      "group": "objects",
+      "node": "surfboard",
+      "label": "Цвет полос",
+      "kind": "цвет"
+    },
+    {
+      "key": "surfboardStringerColor",
+      "group": "objects",
+      "node": "surfboard",
+      "label": "Стрингер",
+      "kind": "цвет"
+    },
+    {
+      "key": "surfboardFinColor",
+      "group": "objects",
+      "node": "surfboard",
+      "label": "Плавники",
+      "kind": "цвет"
+    },
+    {
+      "key": "surfboardMass",
+      "group": "objects",
+      "node": "surfboard",
+      "label": "Вес доски",
+      "kind": "число",
+      "min": 1.5,
+      "max": 8,
+      "step": 0.1,
+      "unit": " kg"
+    },
+    {
+      "key": "surfboardRiderMass",
+      "group": "objects",
+      "node": "surfboard",
+      "label": "Вес райдера",
+      "kind": "число",
+      "min": 0,
+      "max": 120,
+      "step": 1,
+      "unit": " kg"
+    },
+    {
+      "key": "surfboardPaddle",
+      "group": "objects",
+      "node": "surfboard",
+      "label": "Гребок",
+      "kind": "число",
+      "min": 0,
+      "max": 3,
+      "step": 0.05
+    },
+    {
+      "key": "surfboardCarve",
+      "group": "objects",
+      "node": "surfboard",
+      "label": "Поворот",
+      "kind": "число",
+      "min": 0.2,
+      "max": 3,
+      "step": 0.05
+    },
+    {
+      "key": "surfboardBalance",
+      "group": "objects",
+      "node": "surfboard",
+      "label": "Баланс",
+      "kind": "число",
+      "min": 0,
+      "max": 2,
+      "step": 0.05
+    },
+    {
+      "key": "surfboardCameraFov",
+      "group": "objects",
+      "node": "surfboard",
+      "label": "Угол обзора от первого лица",
+      "kind": "число",
+      "min": 50,
+      "max": 110,
+      "step": 1,
+      "unit": "°"
+    },
+    {
+      "key": "surfboardCheckpointAuto",
+      "group": "objects",
+      "node": "surfboard",
+      "label": "У волны, сам",
+      "kind": "выключатель"
+    },
+    {
+      "key": "surfboardCheckpointX",
+      "group": "objects",
+      "node": "surfboard",
+      "label": "Положение X",
+      "kind": "число",
+      "min": -5000,
+      "max": 5000,
+      "step": 0.1,
+      "unit": " m"
+    },
+    {
+      "key": "surfboardCheckpointZ",
+      "group": "objects",
+      "node": "surfboard",
+      "label": "Положение Z",
+      "kind": "число",
+      "min": -5000,
+      "max": 5000,
+      "step": 0.1,
+      "unit": " m"
+    },
+    {
+      "key": "surfboardCheckpointYaw",
+      "group": "objects",
+      "node": "surfboard",
+      "label": "Курс",
+      "kind": "число",
+      "min": -180,
+      "max": 180,
+      "step": 1,
+      "unit": "°"
+    },
+    {
       "key": "seagullsEnabled",
       "group": "creatures",
       "node": "seagulls",
@@ -5696,6 +5906,13 @@
       "kind": "выключатель"
     },
     {
+      "key": "surfboardEnabled",
+      "group": "render",
+      "node": "visibility",
+      "label": "Доска",
+      "kind": "выключатель"
+    },
+    {
       "key": "seagullsEnabled",
       "group": "render",
       "node": "visibility",
@@ -6191,6 +6408,28 @@
     "tankerLights": true,
     "tankerLightsIntensity": 1,
     "tankerBeaconPeriod": 4,
+    "surfboardEnabled": false,
+    "surfboardCheckpointAuto": true,
+    "surfboardCheckpointX": 0,
+    "surfboardCheckpointZ": 0,
+    "surfboardCheckpointYaw": 0,
+    "surfboardLength": 1.78,
+    "surfboardWidth": 0.5,
+    "surfboardThickness": 0.062,
+    "surfboardNoseRocker": 0.115,
+    "surfboardTailRocker": 0.045,
+    "surfboardDeckColor": "#f2efe6",
+    "surfboardRailColor": "#2a2e2e",
+    "surfboardStripeColor": "#0b0b0b",
+    "surfboardStringerColor": "#c9a46a",
+    "surfboardFinColor": "#2b2d2e",
+    "surfboardStripes": 2,
+    "surfboardMass": 3.2,
+    "surfboardRiderMass": 75,
+    "surfboardPaddle": 1,
+    "surfboardCarve": 1,
+    "surfboardBalance": 1,
+    "surfboardCameraFov": 80,
     "terrainEnabled": true,
     "terrainSeed": 37,
     "terrainBearing": 90,
