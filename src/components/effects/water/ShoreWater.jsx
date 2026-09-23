@@ -1,8 +1,9 @@
 import { seaRippleShader } from './seaRippleShader.js';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useFrame } from '@react-three/fiber';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
-import { coastHeight, coastPoint } from '../../../terrain/terrainModel.js';
+import { coastCoordinates, coastHeight, coastPoint, shorePosition } from '../../../terrain/terrainModel.js';
+import { SHORE_ROW_STEPS, shoreBandChunks, shoreChunkDistance, shoreChunkRows, shoreRowLevel } from './shoreBandLod.js';
 import { createGerstnerUniforms, gerstnerPixelShader, gerstnerShader, syncGerstnerUniforms } from './gerstnerWaves';
 import { coastWaterShader, createCoastWaterUniforms, syncCoastWaterUniforms, tickShoreDepth } from './coastFrame';
 import { createFoamFieldUniforms, foamFieldShader } from './foamField';
@@ -20,20 +21,27 @@ import { setUnderside, waterFragmentTail, waterUndersideShader } from './underwa
 // covers the beach now, the surface is lifted onto the sand by the sheet's
 // thickness and drains back down with it. The open-water mesh yields to this
 // band past the seam.
+//
+// Along the shore the band is drawn in chunks (shoreBandLod.js): near the
+// camera a row every metre, far along the crest as far apart as the open
+// water's own cells there, which the swell is faded to anyway. The columns
+// across the beach stay half a metre everywhere, so neighbouring chunks share
+// their border row and never crack; a chunk out of view is not drawn at all.
 
 const COLUMN = 0.5;
-const ROW = 1;
 
-function buildShoreBand(definition, sMin, sMax, qMin, qMax) {
+// intervals: row intervals along the shore between sMin and sMax.
+function buildShoreBand(definition, sMin, sMax, qMin, qMax, intervals) {
   const cols = Math.round((qMax - qMin) / COLUMN) + 1;
-  const rows = Math.round((sMax - sMin) / ROW) + 1;
+  const rows = intervals + 1;
+  const row = (sMax - sMin) / intervals;
   const positions = new Float32Array(cols * rows * 3);
   const coast = new Float32Array(cols * rows * 2);
   const ground = new Float32Array(cols * rows);
   const groundNormal = new Float32Array(cols * rows * 3);
   let v = 0;
   for (let r = 0; r < rows; r += 1) {
-    const s = sMin + r * ROW;
+    const s = r === intervals ? sMax : sMin + r * row;
     for (let c = 0; c < cols; c += 1, v += 1) {
       const q = qMin + c * COLUMN;
       const { x, z } = coastPoint(q, s, definition);
@@ -233,14 +241,38 @@ const fragmentShader = /* glsl */`
   }
 `;
 
+// One chunk of the band, its rows as far apart as the water's cells at its
+// distance from the camera (checked a few times a second, with hysteresis).
+// Levels it has shown stay built: a camera going back and forth reuses them.
+const Q_MAX = 12;
+function ShoreChunk({ name, definition, s0, s1, qMin, material, cellFactor }) {
+  const { camera } = useThree();
+  const [level, setLevel] = useState(SHORE_ROW_STEPS.length - 1);
+  const cache = useMemo(() => ({ definition, s0, s1, qMin, levels: new Map() }), [definition, s0, s1, qMin]);
+  const geometry = useMemo(() => cache.levels.get(level)
+    ?? buildShoreBand(cache.definition, cache.s0, cache.s1, cache.qMin, Q_MAX, shoreChunkRows(cache.s1 - cache.s0, level)), [cache, level]);
+  // StrictMode replays the cleanup below: take the shown geometry back.
+  useLayoutEffect(() => { cache.levels.set(level, geometry); }, [cache, geometry, level]);
+  useEffect(() => () => { cache.levels.forEach((built) => built.dispose()); cache.levels.clear(); }, [cache]);
+  const wait = useRef(1);
+  useFrame((_, delta) => {
+    wait.current += delta;
+    if (wait.current < 0.3) return;
+    wait.current = 0;
+    const local = coastCoordinates(camera.position.x, camera.position.z, definition);
+    const distance = shoreChunkDistance(local.s, local.u - shorePosition(local.s, definition), s0, s1, qMin, Q_MAX);
+    const next = shoreRowLevel(distance * cellFactor.value, level);
+    if (next !== level) setLevel(next);
+  });
+  return <mesh name={name} geometry={geometry} material={material} />;
+}
+
 // coast: { definition, band: { sMin, sMax, seam }, shoreDepth, foamField, breakQ }.
 // underwater: { active, murk } from UnderwaterView — the underside while active.
 export default function ShoreWater({ settings, lighting, noise = null, coast, timeline = null, wireframe = false, sceneBindings = null, underwater = null }) {
-  const meshRef = useRef();
   const activeNoise = useWaterNoise(noise);
   const band = coast.band;
-  const geometry = useMemo(() => buildShoreBand(coast.definition, band.sMin, band.sMax, band.seam - 2, 12), [band.seam, band.sMax, band.sMin, coast.definition]);
-  useEffect(() => () => geometry.dispose(), [geometry]);
+  const chunks = useMemo(() => shoreBandChunks(band.sMin, band.sMax), [band.sMax, band.sMin]);
   const [uniforms] = useState(() => ({
     ...THREE.UniformsUtils.clone(THREE.UniformsLib.fog),
     ...createGerstnerUniforms(),
@@ -254,6 +286,25 @@ export default function ShoreWater({ settings, lighting, noise = null, coast, ti
     uFoamSoftness: { value: 0.15 },
     uUnderwaterMurk: { value: underwater?.murk ?? new THREE.Color() },
   }));
+
+  // One material for every chunk.
+  const material = useMemo(() => new THREE.ShaderMaterial({
+    uniforms,
+    vertexShader: sceneDepthVertex(vertexShader),
+    fragmentShader: sceneDepthFragment(fragmentShader),
+    fog: true,
+    polygonOffset: true,
+    polygonOffsetFactor: -1,
+    polygonOffsetUnits: -1,
+    stencilWrite: true,
+    stencilRef: BOAT_CUTOUT_STENCIL_REF,
+    stencilFunc: THREE.NotEqualStencilFunc,
+    stencilFail: THREE.KeepStencilOp,
+    stencilZFail: THREE.KeepStencilOp,
+    stencilZPass: THREE.KeepStencilOp,
+  }), [uniforms]);
+  useEffect(() => () => material.dispose(), [material]);
+  useEffect(() => { material.wireframe = wireframe; }, [material, wireframe]);
 
   useEffect(() => {
     syncGerstnerUniforms(uniforms, settings);
@@ -274,27 +325,15 @@ export default function ShoreWater({ settings, lighting, noise = null, coast, ti
     uniforms.uFoamField.value = field?.texture ?? null;
     uniforms.uFoamMemory.value = field?.texture ? 1 : 0;
     if (field) uniforms.uFoamWindow.value.copy(field.window);
-    setUnderside(meshRef.current?.material, Boolean(underwater?.active));
+    setUnderside(material, Boolean(underwater?.active));
   });
 
   return (
-    <mesh ref={meshRef} name="shore-water" geometry={geometry} frustumCulled={false}>
-      <shaderMaterial
-        uniforms={uniforms}
-        vertexShader={sceneDepthVertex(vertexShader)}
-        fragmentShader={sceneDepthFragment(fragmentShader)}
-        fog
-        wireframe={wireframe}
-        polygonOffset
-        polygonOffsetFactor={-1}
-        polygonOffsetUnits={-1}
-        stencilWrite
-        stencilRef={BOAT_CUTOUT_STENCIL_REF}
-        stencilFunc={THREE.NotEqualStencilFunc}
-        stencilFail={THREE.KeepStencilOp}
-        stencilZFail={THREE.KeepStencilOp}
-        stencilZPass={THREE.KeepStencilOp}
-      />
-    </mesh>
+    <group name="shore-water">
+      {chunks.map(([s0, s1], k) => (
+        <ShoreChunk key={s0} name={`shore-water-${k}`} definition={coast.definition} s0={s0} s1={s1} qMin={band.seam - 2}
+          material={material} cellFactor={uniforms.uCellFactor} />
+      ))}
+    </group>
   );
 }
