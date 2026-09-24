@@ -728,7 +728,7 @@ function WaterRuntimeScene({
       ) : null}
       {mode === 'editor' ? <EditorPicker enabled={Boolean(editorGizmo?.picking)} onPick={editorGizmo?.onPick} onContextMenu={editorGizmo?.onContextMenu} /> : null}
       {mode === 'editor' ? <TopiaryBrush enabled={Boolean(editorGizmo?.topiary?.drawing)} settings={settings} orbitRef={orbitRef} onStroke={editorGizmo?.topiary?.onStroke} /> : null}
-      {mode === 'editor' ? <PlantingBrush mode={editorGizmo?.planting?.mode ?? null} groundY={settings.planeHeight ?? 0} orbitRef={orbitRef} onBed={editorGizmo?.planting?.onBed} onPlant={editorGizmo?.planting?.onPlant} /> : null}
+      {mode === 'editor' ? <PlantingBrush mode={editorGizmo?.planting?.mode ?? null} groundY={settings.planeHeight ?? 0} orbitRef={orbitRef} onBed={editorGizmo?.planting?.onBed} onBedSurface={editorGizmo?.planting?.onBedSurface} onPlant={editorGizmo?.planting?.onPlant} /> : null}
       {mode === 'editor' && !playing ? <EditorAxes /> : null}
       <DebugWireframe enabled={mode === 'editor' && Boolean(settings.debugWireframe)} />
       <SceneReadyBeacon onSceneReady={onSceneReady} waiting={sky.isPlaceholder} />

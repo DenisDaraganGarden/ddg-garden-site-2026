@@ -5,7 +5,7 @@ import { useFocusControlScope } from '../focus/FocusControlsContext';
 import { FocusIcon } from '../focus/FocusIcons';
 import { PLANTING_BED_DEFAULT, PLANTING_LIMITS, PLANTING_RANGES } from '../../../../../planting/settings.js';
 import { PLANTING_PALETTES } from '../../../../../planting/palettes.js';
-import { polygonArea } from '../../../../../planting/fillBed.js';
+import { bedArea } from '../../../../../planting/fillBed.js';
 import { plantName, useBedFills, usePlantLibrary } from '../../../../../planting/plantLibrary.js';
 import { bloomMonths, byCategory } from '../../../../../planting/insights.js';
 import { MONTHS_EN, MONTHS_RU } from '../../../../../planting/season.js';
@@ -68,8 +68,8 @@ function BedEditor({ beds, fills, library, plantingEditor, layoutEditor, ru }) {
             : (ru ? 'Цветников пока нет — «Цветник» (L) и контур по земле.' : 'No beds yet — Bed (L) and an outline on the ground.')}</p> : <>
             <input className="planting-name" value={selected.name} maxLength={64} aria-label={ru ? 'Имя цветника' : 'Bed name'} onChange={(event) => set({ name: event.target.value })} />
             <p className="planting-status" data-testid="planting-bed-status">{ru
-                ? `Площадь ${polygonArea(selected.points).toFixed(1)} м² · растений ${count}`
-                : `Area ${polygonArea(selected.points).toFixed(1)} m² · ${count} plants`}</p>
+                ? `Площадь ${bedArea(selected).toFixed(1)} м² · растений ${count}${selected.surface ? ' · поверхность модели' : ''}`
+                : `Area ${bedArea(selected).toFixed(1)} m² · ${count} plants${selected.surface ? ' · model surface' : ''}`}</p>
             <label className="planting-select"><span>{ru ? 'Палитра' : 'Palette'}</span>
                 <select value="" onChange={(event) => event.target.value && plantingEditor.applyPalette(selected.id, event.target.value)} data-testid="planting-palette">
                     <option value="">{ru ? 'Заменить рецепт на…' : 'Replace the recipe with…'}</option>
@@ -131,7 +131,9 @@ function PlantingWorkspace({ settings, handleSettingChange, applySettings, plant
             <button type="button" className={mode === 'plant' ? 'is-active' : ''} onClick={() => (mode === 'plant' ? plantingEditor.stop() : plantingEditor.begin('plant'))} data-testid="planting-place"><FocusIcon name="sprout" />{ru ? 'Посадить' : 'Plant'}<kbd>T</kbd></button>
             <button type="button" onClick={() => topiaryEditor?.begin()} data-testid="planting-hedge"><FocusIcon name="leaf" />{ru ? 'Изгородь' : 'Hedge'}<kbd>B</kbd></button>
         </div>
-        {mode === 'bed' ? <p className="planting-hint">{ru ? 'Обведите контур по земле и отпустите — он засадится палитрой «Степной». Esc — выйти.' : 'Draw the outline on the ground and let go — it is planted with the “Steppe” palette. Esc to leave.'}</p> : null}
+        {mode === 'bed' ? <p className="planting-hint">{ru
+            ? 'Поверхность модели подсвечивается под курсором. Щелчок — цветник на всю поверхность. Протяжка по ней — только та её часть, что внутри контура: дорожки и газон в обводке останутся пустыми. Протяжка по плоскости — просто контур. Палитра «Степной». Esc — выйти.'
+            : 'The model’s surface lights up under the cursor. A click plants the whole surface. A drag over it plants only its part inside the outline: paths and lawn inside it stay empty. A drag over the plane is a plain outline. “Steppe” palette. Esc to leave.'}</p> : null}
         {mode === 'plant' ? <div className="planting-plantrow">
             <PlantChoice library={library} value={plantingEditor.plantChoice} ru={ru} onChoose={plantingEditor.setPlantChoice} title={ru ? 'Что сажать' : 'What to plant'} testId="planting-plant" />
             <div className="planting-toggle">

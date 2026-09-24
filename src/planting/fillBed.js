@@ -45,6 +45,39 @@ function edgeDistance(points, x, z) {
     return best;
 }
 
+// Цветник с дырками (поверхность модели: приствольные круги, дорожки внутри).
+// У коры «Ростова» дырок за тридцать — каждую проверяют, только если точка
+// рядом с её рамкой.
+export const bedArea = (bed) => polygonArea(bed.points) - (bed.holes ?? []).reduce((sum, hole) => sum + polygonArea(hole), 0);
+const frames = new WeakMap();
+const holeFrames = (bed) => {
+    if (!frames.has(bed)) frames.set(bed, (bed.holes ?? []).map((hole) => {
+        let x0 = Infinity, z0 = Infinity, x1 = -Infinity, z1 = -Infinity;
+        for (const [x, z] of hole) { x0 = Math.min(x0, x); z0 = Math.min(z0, z); x1 = Math.max(x1, x); z1 = Math.max(z1, z); }
+        return { hole, x0, z0, x1, z1 };
+    }));
+    return frames.get(bed);
+};
+const near = (frame, x, z, reach) => x >= frame.x0 - reach && x <= frame.x1 + reach && z >= frame.z0 - reach && z <= frame.z1 + reach;
+export const insideBed = (bed, x, z) => insidePolygon(bed.points, x, z) && !holeFrames(bed).some((frame) => near(frame, x, z, 0) && insidePolygon(frame.hole, x, z));
+const bedEdgeDistance = (bed, x, z, reach = Infinity) => Math.min(edgeDistance(bed.points, x, z), ...holeFrames(bed).filter((frame) => near(frame, x, z, reach)).map((frame) => edgeDistance(frame.hole, x, z)));
+
+// Высота земли под точкой: по сетке высот участка (билинейно, пустые узлы —
+// по соседним), без сетки — высота цветника.
+export function groundAt(bed, x, z) {
+    const g = bed.ground;
+    if (!g) return bed.y;
+    const fx = Math.min(g.cols - 1, Math.max(0, (x - g.x0) / g.step)), fz = Math.min(g.rows - 1, Math.max(0, (z - g.z0) / g.step));
+    const i = Math.min(g.cols - 2, Math.floor(fx)), j = Math.min(g.rows - 2, Math.floor(fz)), u = fx - i, v = fz - j;
+    const corners = [[i, j, (1 - u) * (1 - v)], [i + 1, j, u * (1 - v)], [i, j + 1, (1 - u) * v], [i + 1, j + 1, u * v]];
+    let sum = 0, weight = 0;
+    for (const [ci, cj, w] of corners) {
+        const h = g.h[cj * g.cols + ci];
+        if (h !== null && h !== undefined) { sum += h * w; weight += w; }
+    }
+    return weight > 1e-6 ? sum / weight : bed.y;
+}
+
 // Шахматная посадка: n = 2/√3 / шаг² ≈ 1.155 / шаг².
 export const spacingFor = (density) => Math.sqrt(2 / Math.sqrt(3) / Math.max(1e-4, density));
 
@@ -82,7 +115,7 @@ const STRETCH = 1.8;
 export function fillBed(bed, library) {
     const recipe = bed.recipe.map((row) => ({ share: row.share, plant: library.get(row.plant) })).filter((row) => row.plant && row.share > 0);
     const points = bed.points;
-    const area = polygonArea(points);
+    const area = bedArea(bed);
     if (!recipe.length || area < 0.05) return [];
     const random = mulberry32(bed.seed);
 
@@ -98,7 +131,7 @@ export function fillBed(bed, library) {
     for (let j = 0; j < rows; j += 1) for (let i = 0; i < columns; i += 1) {
         const u = u0 + (i - 0.5 + 0.15 + 0.7 * random()) * size, v = v0 + (j - 0.5 + 0.15 + 0.7 * random()) * size;
         const x = u * STRETCH * ca - v * sa, z = u * STRETCH * sa + v * ca;
-        seeds.push({ u, v, inside: insidePolygon(points, x, z), species: -1 });
+        seeds.push({ u, v, inside: insideBed(bed, x, z), species: -1 });
     }
     const inside = seeds.filter((seed) => seed.inside);
     const counts = quotas(recipe.map((row) => row.share), inside.length);
@@ -139,8 +172,8 @@ export function fillBed(bed, library) {
                 const b = r * rowStep + (random() - 0.5) * 0.3 * step;
                 const x = cx + a * ct - b * st, z = cz + a * st + b * ct;
                 const scale = 0.88 + 0.24 * random(), flip = random() < 0.5 ? -1 : 1;
-                if (!insidePolygon(points, x, z) || speciesAt(x, z) !== species || edgeDistance(points, x, z) < step / 3) continue;
-                plants.push({ plant: row.plant.id, x: Math.round(x * 1000) / 1000, z: Math.round(z * 1000) / 1000, scale, flip });
+                if (!insideBed(bed, x, z) || speciesAt(x, z) !== species || bedEdgeDistance(bed, x, z, step / 3) < step / 3) continue;
+                plants.push({ plant: row.plant.id, x: Math.round(x * 1000) / 1000, y: Math.round(groundAt(bed, x, z) * 1000) / 1000, z: Math.round(z * 1000) / 1000, scale, flip });
             }
         }
     });
@@ -150,7 +183,7 @@ export function fillBed(bed, library) {
 // Дуглас — Пекер: контур от руки редеет до сути, не больше предела точек.
 // Контур замкнут — рука возвращается к началу, и хорда «начало — конец»
 // нулевая: он делится на две дуги в самой дальней от начала точке.
-export function simplifyContour(points, limit = PLANTING_LIMITS.contour) {
+export function simplifyContour(points, limit = PLANTING_LIMITS.contour, first = 0.04) {
     const reduce = (list, tolerance) => {
         if (list.length < 3) return list;
         const [ax, az] = list[0], [bx, bz] = list[list.length - 1];
@@ -166,7 +199,7 @@ export function simplifyContour(points, limit = PLANTING_LIMITS.contour) {
     const [x0, z0] = points[0];
     const split = points.reduce((best, [x, z], i) => (Math.hypot(x - x0, z - z0) > Math.hypot(points[best][0] - x0, points[best][1] - z0) ? i : best), 0);
     const closed = (tolerance) => [...reduce(points.slice(0, split + 1), tolerance).slice(0, -1), ...reduce([...points.slice(split), points[0]], tolerance).slice(0, -1)];
-    let tolerance = 0.04, result = closed(tolerance);
+    let tolerance = first, result = closed(tolerance);
     while (result.length > limit) { tolerance *= 1.5; result = closed(tolerance); }
     return result;
 }
@@ -178,7 +211,7 @@ export function plantingInstances(beds, bedFills, points) {
         if (!bySpecies.has(plant)) bySpecies.set(plant, []);
         bySpecies.get(plant).push(item);
     };
-    beds.forEach((bed, index) => { for (const p of bedFills[index] ?? []) add(p.plant, { plant: p.plant, x: p.x, y: bed.y, z: p.z, scale: p.scale, flip: p.flip }); });
+    beds.forEach((bed, index) => { for (const p of bedFills[index] ?? []) add(p.plant, { plant: p.plant, x: p.x, y: p.y ?? bed.y, z: p.z, scale: p.scale, flip: p.flip }); });
     for (const point of points) {
         const hash = ((point.seed * 2654435761) >>> 0) / 4294967296;
         add(point.plant, { plant: point.plant, x: point.x, y: point.y, z: point.z, scale: 0.94 + 0.12 * hash, flip: hash < 0.5 ? -1 : 1, existing: point.status === 'existing' });
@@ -195,7 +228,7 @@ export function plantingSchedule(beds, fills, points, library) {
         return rows.get(id);
     };
     beds.forEach((bed, index) => {
-        const area = polygonArea(bed.points), shares = bed.recipe.filter((r) => library.has(r.plant)), total = shares.reduce((sum, r) => sum + r.share, 0) || 1;
+        const area = bedArea(bed), shares = bed.recipe.filter((r) => library.has(r.plant)), total = shares.reduce((sum, r) => sum + r.share, 0) || 1;
         for (const r of shares) { row(r.plant).area += (area * r.share) / total; row(r.plant).beds.add(bed.name); }
         for (const plant of fills[index] ?? []) row(plant.plant).count += 1;
     });

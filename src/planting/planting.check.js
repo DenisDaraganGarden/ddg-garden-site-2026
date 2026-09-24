@@ -6,6 +6,11 @@ import { normalizePlantingSettings, PLANTING_LIMITS } from './settings.js';
 import { PLANTING_PALETTES } from './palettes.js';
 import { paletteRecipe } from './usePlantingEditor.js';
 import { bloomCurve, scopeRows } from './insights.js';
+import * as THREE from 'three';
+import { regionOutline, regionTriangles, surfaceRegions } from './surfacePick.js';
+import { clipToSurface } from './clipSurface.js';
+import { bedArea, groundAt, insideBed } from './fillBed.js';
+import { normalizePlantingBed } from './settings.js';
 
 const plant = (id, fields) => ({ id, ru: id, latin: id, category: 'perennial', height: 0.6, spread: 0.5, density: 5, foliage: 'herbaceous', ...fields });
 const library = new Map([
@@ -111,5 +116,59 @@ assert.equal(scopeRows({ kind: 'trees', status: 'existing' }, [], [], points, li
 assert.equal(scopeRows({ kind: 'trees', status: 'new' }, [], [], points, library).count, 2);
 assert.equal(Math.round(all.area), 80, 'the area is the outlines’');
 assert.deepEqual(bloomCurve(all.rows).slice(6, 9), [3, 4, 4], 'July to September: species in bloom');
+
+// Поверхность модели: сетка из квадратов 1 м (два треугольника на квадрат,
+// у каждой грани свои копии вершин, как у SketchUp).
+function gridMesh(cells, height = () => 0) {
+    const positions = [];
+    for (const [i, j] of cells) {
+        const corner = (x, z) => [x, height(x, z), z];
+        const [a, b, c, d] = [corner(i, j), corner(i + 1, j), corner(i + 1, j + 1), corner(i, j + 1)];
+        positions.push(...a, ...c, ...b, ...a, ...d, ...c);
+    }
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    return new THREE.Mesh(geometry);
+}
+const cells = (w, h, skip = () => false) => Array.from({ length: w * h }, (_, k) => [k % w, Math.floor(k / w)]).filter(([i, j]) => !skip(i, j));
+// Полоса 10 × 4 с приставленной стеной: стена — другой участок.
+const strip = gridMesh(cells(10, 4));
+const wallPositions = [10, 0, 0, 10, 2, 4, 10, 0, 4, 10, 0, 0, 10, 2, 0, 10, 2, 4];
+const both = new THREE.BufferGeometry();
+both.setAttribute('position', new THREE.Float32BufferAttribute([...strip.geometry.attributes.position.array, ...wallPositions], 3));
+const labelled = surfaceRegions(both);
+assert.equal(new Set(Array.from(labelled.regionOf).slice(0, 80)).size, 1, 'the strip is one surface');
+assert.notEqual(labelled.regionOf[80], labelled.regionOf[0], 'the wall is not part of it');
+const stripPick = regionTriangles(new THREE.Mesh(both), 5);
+assert.ok(stripPick.ground && Math.abs(stripPick.area - 40) < 1e-6, `the strip is ground of 40 m² (${stripPick.area})`);
+assert.equal(regionTriangles(new THREE.Mesh(both), 80).ground, false, 'a wall is not ground');
+const stripOutline = regionOutline(stripPick.triangles);
+assert.equal(stripOutline.holes.length, 0);
+assert.ok(Math.abs(polygonArea(stripOutline.outer) - 40) < 1e-6 && stripOutline.ground === null, 'a flat strip: its outline and no height grid');
+// Площадка 6 × 6 с дыркой 2 × 2 посередине — приствольный круг.
+const yard = gridMesh(cells(6, 6, (i, j) => i >= 2 && i < 4 && j >= 2 && j < 4));
+const yardOutline = regionOutline(regionTriangles(yard, 0).triangles);
+assert.equal(yardOutline.holes.length, 1, 'the hole is found');
+const yardBed = normalizePlantingBed({ id: 'yard', points: yardOutline.outer, holes: yardOutline.holes, y: yardOutline.y, recipe: [{ plant: 'festuca', share: 1 }], seed: 5, surface: true });
+assert.equal(bedArea(yardBed), 32);
+assert.ok(!insideBed(yardBed, 3, 3) && insideBed(yardBed, 1, 1), 'nothing is planted in the hole');
+assert.ok(fillBed(yardBed, library).every((p) => !(p.x > 2 && p.x < 4 && p.z > 2 && p.z < 4)), 'the fill keeps out of the hole');
+// Газон на склоне: высота растения — по сетке высот, а не одна на весь цветник.
+const slope = gridMesh(cells(10, 4), (x) => 0.1 * x);
+const slopeOutline = regionOutline(regionTriangles(slope, 0).triangles);
+const slopeBed = normalizePlantingBed({ id: 'slope', points: slopeOutline.outer, y: slopeOutline.y, ground: slopeOutline.ground, recipe: [{ plant: 'festuca', share: 1 }], seed: 9 });
+assert.ok(slopeBed.ground, 'a sloped surface keeps a height grid');
+assert.ok(Math.abs(groundAt(slopeBed, 7.5, 2) - 0.75) < 0.02, `ground height follows the slope (${groundAt(slopeBed, 7.5, 2)})`);
+assert.ok(fillBed(slopeBed, library).every((p) => Math.abs(p.y - 0.1 * p.x) < 0.03), 'every plant stands on the slope');
+
+// Контур от руки по поверхности: только поверхность внутри контура.
+const cut = clipToSurface([[1, 1], [5, 1], [5, 5], [1, 5]], yardOutline);
+assert.equal(cut.length, 1);
+assert.ok(Math.abs(cut[0].area - (16 - 4)) < 0.3 && cut[0].holes.length === 1, `the outline keeps the hole and the surface only (${cut[0].area.toFixed(2)} m², ${cut[0].holes.length} hole)`);
+const twoStrips = { outer: [[0, 0], [10, 0], [10, 6], [0, 6]], holes: [[[0.5, 2], [9.5, 2], [9.5, 4], [0.5, 4]]] };
+const across = clipToSurface([[2, 1], [4, 1], [4, 5], [2, 5]], twoStrips);
+assert.equal(across.length, 2, 'an outline across a path makes two beds, one on each side');
+assert.ok(across.every((piece) => Math.abs(piece.area - 2) < 0.2), `each is 2 m² (${across.map((piece) => piece.area.toFixed(2)).join(', ')})`);
+assert.equal(clipToSurface([[20, 20], [22, 20], [22, 22]], twoStrips).length, 0, 'an outline off the surface makes nothing');
 
 console.log(`planting: settings, fill (${first.length} plants in 60 m², ${smallFill.length} in 20 m² with ${small.recipe.length} species), schedule and seasons hold`);

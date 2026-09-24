@@ -368,6 +368,21 @@ const HomeEdit = ({ project = null }) => {
         setCameraPoseRevision((value) => value + 1);
     }, [selectedLayoutKey, setSettings]);
 
+    // One lens for several cameras at once (a SketchUp model's scenes): both
+    // formats of each, and the view itself when the active camera is one of them.
+    const setCamerasFov = useCallback((ids, cameraFov) => {
+        const chosen = new Set(ids);
+        setSettings((previous) => {
+            const withLens = (layouts) => Object.fromEntries(Object.entries(layouts ?? {}).map(([key, layout]) => [key, { ...layout, cameraFov }]));
+            const active = !previous.activeWorkCameraId && chosen.has(previous.activeCameraId);
+            return {
+                ...previous,
+                ...(active ? { layouts: withLens(previous.layouts) } : {}),
+                sceneCameras: previous.sceneCameras.map((camera) => (chosen.has(camera.id) ? { ...camera, scene: { ...camera.scene, layouts: withLens(camera.scene?.layouts) } } : camera)),
+            };
+        });
+    }, [setSettings]);
+
     const removeCamera = useCallback((id) => {
         setSettings((previous) => removeEditorCamera(previous, id, 'scene', HOME_SCENE_SNAPSHOT_KEYS));
         if (!settings.activeWorkCameraId && id === settings.activeCameraId) {
@@ -627,9 +642,9 @@ const HomeEdit = ({ project = null }) => {
             selectedId: gizmoNode.id === 'topiary' ? topiaryEditor.selectedId : null, onStroke: topiaryEditor.onStroke },
         placed: { selectedId: gizmoNode.id === 'placed' ? placedEditor.selectedId : null, part: gizmoNode.id === 'placed' ? placedEditor.part : null },
         planting: { mode: activeTool === 'bed' || activeTool === 'plant' ? activeTool : null, selectedId: gizmoNode.id === 'planting' ? plantingEditor.selectedId : null,
-            onBed: plantingEditor.onBed, onPlant: plantingEditor.onPlant },
+            onBed: plantingEditor.onBed, onBedSurface: plantingEditor.onBedSurface, onPlant: plantingEditor.onPlant },
     // eslint-disable-next-line react-hooks/exhaustive-deps -- pose сравнивается по значениям, не по ссылке
-    }), [playing, transformTool, transformHeld, gizmoSelection, tool, lastTransform, handleGizmoTransform, picking, drawingTool, handlePickObject, gizmoPose?.rotationY, gizmoPose?.scale, activeTool, settings.topiaryObjects.length, gizmoNode.id, topiaryEditor.selectedId, topiaryEditor.onStroke, placedEditor.selectedId, placedEditor.part, plantingEditor.selectedId, plantingEditor.onBed, plantingEditor.onPlant]);
+    }), [playing, transformTool, transformHeld, gizmoSelection, tool, lastTransform, handleGizmoTransform, picking, drawingTool, handlePickObject, gizmoPose?.rotationY, gizmoPose?.scale, activeTool, settings.topiaryObjects.length, gizmoNode.id, topiaryEditor.selectedId, topiaryEditor.onStroke, placedEditor.selectedId, placedEditor.part, plantingEditor.selectedId, plantingEditor.onBed, plantingEditor.onBedSurface, plantingEditor.onPlant]);
 
     // Курсор во вьюпорте говорит, какой инструмент в руке, не глядя на панель.
     useEffect(() => {
@@ -697,6 +712,7 @@ const HomeEdit = ({ project = null }) => {
         selectCamera,
         addCamera,
         addCameras,
+        setCamerasFov,
         removeCamera,
         moveCamera,
         renameCamera,
@@ -732,6 +748,7 @@ const HomeEdit = ({ project = null }) => {
         selectCamera,
         addCamera,
         addCameras,
+        setCamerasFov,
         removeCamera,
         moveCamera,
         renameCamera,

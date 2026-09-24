@@ -33,18 +33,22 @@ export function usePlantingEditor({ settings, history, setActiveTab, setTool, to
         applyBeds(settings.plantingBeds.map((bed, index) => (bed.id === id ? normalizePlantingBed({ ...bed, ...patch }, index) : bed)));
     }, [applyBeds]);
 
-    const onBed = useCallback((points, y) => {
+    // Новый цветник — контур от руки или поверхность модели (holes, ground,
+    // surface — surfacePick.js); засаживается первой палитрой.
+    const addBed = useCallback((shape) => {
         const { settings, language, library } = live.current;
         if (settings.plantingBeds.length >= PLANTING_LIMITS.beds) return;
         const used = new Set(settings.plantingBeds.map((bed) => bed.name));
         let n = 1, name;
         do { name = `${language === 'ru' ? 'Цветник' : 'Bed'} ${n++}`; } while (used.has(name));
         const palette = PLANTING_PALETTES[0];
-        const bed = normalizePlantingBed({ id: newId('bed'), name, points, y, recipe: paletteRecipe(palette, library), drift: palette.drift ?? PLANTING_BED_DEFAULT.drift, density: 1, seed: newSeed() }, settings.plantingBeds.length);
+        const bed = normalizePlantingBed({ id: newId('bed'), name, ...shape, recipe: paletteRecipe(palette, library), drift: palette.drift ?? PLANTING_BED_DEFAULT.drift, density: 1, seed: newSeed() }, settings.plantingBeds.length);
         if (!bed) return;
         applyBeds([...settings.plantingBeds, bed]);
         setSelectedId(bed.id);
     }, [applyBeds]);
+    const onBed = useCallback((points, y) => addBed({ points, y }), [addBed]);
+    const onBedSurface = useCallback(({ outer, holes, y, ground }) => addBed({ points: outer, holes, y, ground, surface: true }), [addBed]);
 
     const onPlant = useCallback(([x, y, z]) => {
         const { settings, history, plantChoice, plantStatus, library } = live.current;
@@ -65,7 +69,7 @@ export function usePlantingEditor({ settings, history, setActiveTab, setTool, to
 
     return {
         selectedId: beds.some((bed) => bed.id === selectedId) ? selectedId : null,
-        select, updateBed, removeBed, applyPalette, onBed, onPlant, removeLastPoint,
+        select, updateBed, removeBed, applyPalette, onBed, onBedSurface, onPlant, removeLastPoint,
         reseed: (id) => updateBed(id, { seed: newSeed() }),
         plantChoice, setPlantChoice, plantStatus, setPlantStatus,
         mode: tool === 'bed' || tool === 'plant' ? tool : null,

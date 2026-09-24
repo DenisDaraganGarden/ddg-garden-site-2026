@@ -8,9 +8,12 @@ import * as THREE from 'three';
 // userData.faceCamera: here they turn to whichever camera draws them and to
 // the sun for their shadow, about the component's own upright axis.
 
-// SketchUp's lens (35° high on a 16:9 view) through the engine's 2.78:1 band:
-// the same width of picture. The exporter writes the views without a lens.
-export const SKETCHUP_VIEW_FOV = 22.8;
+// SketchUp's lens: 35° high, its default. The exporter writes the views
+// without a lens, so every scene gets it; the editor draws a camera's FOV over
+// the whole viewport, as SketchUp draws its own (22.8° — the same lens through
+// the site's 2.78:1 band — looked twice as narrow in the editor). A model's
+// scenes take another lens at once from its SketchUp block.
+export const SKETCHUP_VIEW_FOV = 35;
 const VIEW_NAME = /^(Сцена|Scene)[\s№]/;
 
 // The glTF node each object stands for, kept on the object: the loader's own

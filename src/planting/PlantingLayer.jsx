@@ -229,21 +229,25 @@ function PlanCaps({ instances, library }) {
 }
 
 // Земля цветника — мульча под растениями; по ней цветник выбирается кликом.
+// Цветник с поверхности модели своей мульчи не рисует — земля есть в модели;
+// остаётся невидимая площадка для щелчка. Дырки (приствольные круги) — дырки.
 function BedSurface({ bed, selected, plan }) {
     const geometry = useMemo(() => {
         const shape = new THREE.Shape(bed.points.map(([x, z]) => new THREE.Vector2(x, -z)));
+        for (const hole of bed.holes ?? []) shape.holes.push(new THREE.Path(hole.map(([x, z]) => new THREE.Vector2(x, -z))));
         return new THREE.ShapeGeometry(shape).rotateX(-Math.PI / 2);
-    }, [bed.points]);
-    const outline = useMemo(() => new THREE.BufferGeometry().setFromPoints(bed.points.map(([x, z]) => new THREE.Vector3(x, 0, z))), [bed.points]);
-    useEffect(() => () => { geometry.dispose(); outline.dispose(); }, [geometry, outline]);
+    }, [bed.points, bed.holes]);
+    const outlines = useMemo(() => [bed.points, ...(bed.holes ?? [])].map((ring) => new THREE.BufferGeometry().setFromPoints(ring.map(([x, z]) => new THREE.Vector3(x, 0, z)))), [bed.points, bed.holes]);
+    useEffect(() => () => { geometry.dispose(); outlines.forEach((outline) => outline.dispose()); }, [geometry, outlines]);
     return <group position={[0, bed.y, 0]}>
-        <mesh name={`planting-bed-${bed.id}`} userData={{ plantingBed: bed.id }} geometry={geometry} position={[0, 0.012, 0]} receiveShadow={!plan}>
-            {plan ? <meshBasicMaterial color="#ece6d6" toneMapped={false} polygonOffset polygonOffsetFactor={-2} polygonOffsetUnits={-2} />
-                : <meshStandardMaterial color="#4d3d2c" roughness={1} metalness={0} polygonOffset polygonOffsetFactor={-2} polygonOffsetUnits={-2} />}
+        <mesh name={`planting-bed-${bed.id}`} userData={{ plantingBed: bed.id }} geometry={geometry} position={[0, bed.surface ? 0.03 : 0.012, 0]} receiveShadow={!plan && !bed.surface} renderOrder={plan ? 1 : 0}>
+            {plan ? <meshBasicMaterial color="#ece6d6" toneMapped={false} depthTest={!bed.surface} polygonOffset polygonOffsetFactor={-2} polygonOffsetUnits={-2} />
+                : bed.surface ? <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+                    : <meshStandardMaterial color="#4d3d2c" roughness={1} metalness={0} polygonOffset polygonOffsetFactor={-2} polygonOffsetUnits={-2} />}
         </mesh>
-        {selected || plan ? <lineLoop geometry={outline} position={[0, 0.03, 0]} raycast={() => {}}>
-            <lineBasicMaterial color={selected ? '#f2c14e' : '#3b3326'} depthTest={!selected} toneMapped={false} />
-        </lineLoop> : null}
+        {selected || plan ? outlines.map((outline, i) => <lineLoop key={i} geometry={outline} position={[0, 0.04, 0]} raycast={() => {}} renderOrder={5}>
+            <lineBasicMaterial color={selected ? '#f2c14e' : '#3b3326'} depthTest={!selected && !bed.surface} toneMapped={false} />
+        </lineLoop>) : null}
     </group>;
 }
 

@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useLanguage } from '../i18n/useLanguage';
 import { readProject } from '../features/engine/projectApi';
 import { normalizePlantingSettings } from '../planting/settings.js';
-import { plantingInstances, plantingSchedule, polygonArea, spacingFor } from '../planting/fillBed.js';
+import { bedArea, plantingInstances, plantingSchedule, spacingFor } from '../planting/fillBed.js';
 import { isSeasonSheet, plantCardUrl, plantName, plantPhotoUrl, useBedFills, usePlantLibrary } from '../planting/plantLibrary.js';
 import { bloomMonths, byCategory, CATEGORY_LABELS } from '../planting/insights.js';
 import './PlantingReport.css';
@@ -23,7 +23,7 @@ function Plan({ beds, instances, library }) {
     const layer = { tree: 3, conifer: 2, shrub: 2, topiary: 2 };
     const ordered = [...instances].sort((a, b) => (layer[library.get(a.plant)?.category] ?? 1) - (layer[library.get(b.plant)?.category] ?? 1));
     return <svg className="report-plan" viewBox={`${x0} ${z0} ${width} ${z1 - z0}`} role="img" aria-label="План посадок">
-        {beds.map((bed) => <polygon key={bed.id} points={bed.points.map((p) => p.join(',')).join(' ')} className="report-plan__bed" style={{ strokeWidth: width / 500 }} />)}
+        {beds.map((bed) => <path key={bed.id} d={[bed.points, ...(bed.holes ?? [])].map((ring) => `M${ring.map((p) => p.join(',')).join('L')}Z`).join('')} fillRule="evenodd" className="report-plan__bed" style={{ strokeWidth: width / 500 }} />)}
         {ordered.map((p, i) => {
             const plant = library.get(p.plant), r = ((plant?.spread ?? 0.5) * p.scale) / 2;
             return <g key={i}>
@@ -56,7 +56,7 @@ export default function PlantingReport() {
     const schedule = useMemo(() => plantingSchedule(planting.plantingBeds, fills, planting.plantingPoints, library), [planting, fills, library]);
     const species = useMemo(() => [...schedule].sort((a, b) => byCategory(a.plant, b.plant)), [schedule]);
     const existing = planting.plantingPoints.filter((p) => p.status === 'existing').length;
-    const area = planting.plantingBeds.reduce((sum, bed) => sum + polygonArea(bed.points), 0);
+    const area = planting.plantingBeds.reduce((sum, bed) => sum + bedArea(bed), 0);
     const date = new Date().toLocaleDateString(ru ? 'ru-RU' : 'en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
 
     if (error) return <main className="report"><p className="report-note">{error}</p></main>;

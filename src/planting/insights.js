@@ -1,7 +1,7 @@
 // Обзор посадок — то, что Денис читает, выбрав часть сада: цветник, все
 // цветники, деревья новые, существующие или все. Всё считается из тех же
 // заполнений, что рисует сцена, поэтому числа совпадают с нарисованным.
-import { polygonArea } from './fillBed.js';
+import { bedArea } from './fillBed.js';
 
 // Часть сада: { kind: 'beds', bed: id | null } или { kind: 'trees', status: 'all' | 'new' | 'existing' }.
 export function scopeRows(scope, beds, fills, points, library) {
@@ -14,11 +14,11 @@ export function scopeRows(scope, beds, fills, points, library) {
     if (scope.kind === 'beds') {
         beds.forEach((bed, index) => {
             if (scope.bed && bed.id !== scope.bed) return;
-            const bedArea = polygonArea(bed.points);
-            area += bedArea;
+            const size = bedArea(bed);
+            area += size;
             const shares = bed.recipe.filter((r) => library.has(r.plant));
             const total = shares.reduce((sum, r) => sum + r.share, 0) || 1;
-            for (const r of shares) row(r.plant).area += (bedArea * r.share) / total;
+            for (const r of shares) row(r.plant).area += (size * r.share) / total;
             for (const plant of fills[index] ?? []) row(plant.plant).count += 1;
         });
     } else {
