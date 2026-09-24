@@ -253,6 +253,10 @@ export function createRider(board, options = {}) {
       events: { fell: false, stood: false, landed: 0, hit: 0, flipBoard: false, kick: null, putDown: null },
       // The board's pose while it is in his hands, for the scene to hold it at.
       carry: null,
+      // For the HUD: what F would do now ('jump', 'climb', 'lift', 'put' or
+      // null) and L ('off', 'on', null); swimming back to the board by
+      // himself; running; carrying the board; what a jump left from.
+      hud: { board: 'jump', leash: 'off', swimBack: false, running: false, carrying: false, jumpFrom: null },
       leashed: options.leash !== false,
       chest: [0, 0, 0], pelvis: [0, 0, 0],
       // How far his chest is off where the pose holds it (m), standing.
@@ -675,6 +679,14 @@ export function stepRider(rider, frame) {
 
   out.onBoard = onBoardOf(rider);
   if (rider.carry.phase === 'none') out.carry = null;
+  // For the HUD: what F and L would do now, and how he goes.
+  const hud = out.hud;
+  hud.board = boardCan(rider, board, frame);
+  hud.leash = rider.leashed ? 'off' : out.onBoard || plugDistance(rider, board) < LEASH_REACH ? 'on' : null;
+  hud.swimBack = rider.state === 'swim' && !rider.swimFree;
+  hud.running = rider.state === 'walk' && rider.walker.run > 0.5;
+  hud.carrying = rider.carry.phase !== 'none';
+  hud.jumpFrom = rider.state === 'jump' ? rider.leap.from : null;
   bodyPoint(world.bodies[SEGMENT.chest], [0, 0, 0], out.chest);
   bodyPoint(world.bodies[SEGMENT.pelvis], [0, 0, 0], out.pelvis);
   return out;
@@ -977,20 +989,36 @@ function stepCarry(rider, board, dt, events) {
   }
 }
 
-// F on his feet: beside a board floating deep enough, he climbs on; near one
-// lying in the shallows or on the sand, he picks it up; carrying it, he puts
-// it down.
-function boardAction(rider, board, frame, up, events) {
+// What F does now — for the HUD as much as for F: on the board, he jumps off
+// it; on his feet, he puts down the board he holds, climbs on one floating
+// deep enough beside him, picks up one in reach; swimming, he climbs on beside
+// it. Nothing else.
+function boardCan(rider, board, frame) {
+  const { state } = rider;
+  if (state === 'prone' || state === 'stand') return 'jump';
+  if (state === 'swim') {
+    const chest = rider.world.bodies[SEGMENT.chest].x;
+    climbPoint(rider, board, tv2);
+    return Math.hypot(chest[0] - tv2[0], chest[2] - tv2[2]) < MOUNT_REACH ? 'climb' : null;
+  }
+  if (state !== 'walk') return null;
   const c = rider.carry;
-  if (c.phase === 'held') { lowerBoard(rider, frame, 'walk'); return; }
-  if (c.phase !== 'none') return;
+  if (c.phase === 'held') return 'put';
+  if (c.phase !== 'none') return null;
   toLocal(board, rider.world.bodies[SEGMENT.pelvis].x, tv);
   const half = rider.board.length / 2;
-  const beside = Math.abs(tv[0]) < MOUNT_REACH && Math.abs(tv[2]) < half + 0.3;
-  if (beside && depthAt(frame, board.p[0], board.p[2]) > MOUNT_DEPTH) { climbOn(rider, board, up, events); return; }
+  if (Math.abs(tv[0]) < MOUNT_REACH && Math.abs(tv[2]) < half + 0.3 && depthAt(frame, board.p[0], board.p[2]) > MOUNT_DEPTH) return 'climb';
   // Near enough to take: his hips within reach of the board's middle line.
-  if (Math.hypot(tv[0], tv[2] - clamp(tv[2], -half, half)) < CARRY_REACH) {
-    const w = rider.walker;
+  return Math.hypot(tv[0], tv[2] - clamp(tv[2], -half, half)) < CARRY_REACH ? 'lift' : null;
+}
+
+// F on his feet.
+function boardAction(rider, board, frame, up, events) {
+  const can = boardCan(rider, board, frame);
+  if (can === 'put') lowerBoard(rider, frame, 'walk');
+  else if (can === 'climb') climbOn(rider, board, up, events);
+  else if (can === 'lift') {
+    const c = rider.carry, w = rider.walker;
     c.phase = 'lift'; c.t = 0;
     // Under the arm on the side it lies.
     c.side = (board.p[0] - w.x) * Math.cos(w.yaw) - (board.p[2] - w.z) * Math.sin(w.yaw) >= 0 ? 1 : -1;

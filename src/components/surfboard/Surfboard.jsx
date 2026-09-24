@@ -451,6 +451,11 @@ export default function Surfboard({
       surfPlay.rider.chest[0] = chest[0]; surfPlay.rider.chest[1] = chest[1]; surfPlay.rider.chest[2] = chest[2];
       surfPlay.rider.pelvis[0] = pelvis[0]; surfPlay.rider.pelvis[1] = pelvis[1]; surfPlay.rider.pelvis[2] = pelvis[2];
       surfPlay.rider.onBoard = rider.out.onBoard;
+      // What F and L would do now, and how he goes, for the HUD's hints.
+      const { hud } = rider.out;
+      surfPlay.rider.board = hud.board; surfPlay.rider.leash = hud.leash;
+      surfPlay.rider.swimBack = hud.swimBack; surfPlay.rider.running = hud.running; surfPlay.rider.carrying = hud.carrying;
+      surfPlay.rider.jumpFrom = hud.jumpFrom;
       const head = rider.world.bodies[SEGMENT.head];
       surfPlay.rider.head = surfPlay.rider.head ?? [0, 0, 0];
       surfPlay.rider.head[0] = head.x[0]; surfPlay.rider.head[1] = head.x[1]; surfPlay.rider.head[2] = head.x[2];
@@ -463,7 +468,8 @@ export default function Surfboard({
     }
     const under = water.sample(state.p[0], state.p[2], time, ride.sample);
     out.onBreaker = under.onBreaker;
-    const discrete = `${mode}${out.onFace}${out.airborne}${out.wipeout}${surfPlay.rider.state}`;
+    const { rider: who } = surfPlay;
+    const discrete = `${mode}${out.onFace}${out.airborne}${out.wipeout}${who.state}${who.board}${who.leash}${who.swimBack}${who.running}${who.carrying}${who.jumpFrom}`;
     if (discrete !== ride.discrete || (mode === 'play' && time - ride.publishedAt >= PUBLISH_INTERVAL)) {
       ride.discrete = discrete;
       ride.publishedAt = time;

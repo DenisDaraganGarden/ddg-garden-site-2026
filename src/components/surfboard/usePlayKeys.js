@@ -12,7 +12,7 @@ const HELD = {
 // frames. It stays true this long after the press; the board's pop cooldown
 // (0.8 s) makes that one pop, and the scene may clear it on reading.
 export const POP_HOLD_MS = 250;
-const EDGE = /^(Space|KeyC|KeyF|KeyL|KeyR|KeyT|KeyP|Escape|Tab|Digit[1-4])$/;
+const EDGE = /^(Space|KeyC|KeyF|KeyH|KeyL|KeyR|KeyT|KeyP|Escape|Tab|Digit[1-4])$/;
 const PITCH_LIMIT = 1.2;
 const ZOOM_LIMITS = [0.4, 3];
 // A held key or button goes from rest to full in RISE seconds and back in
@@ -194,6 +194,8 @@ export function createPlayControls(stop, env = browser) {
     // The board (jump off it, climb on, carry it, put it down) and the leash.
     else if (code === 'KeyF') surfPlay.intent.board += 1;
     else if (code === 'KeyL') surfPlay.intent.leash += 1;
+    // The HUD's full list of keys.
+    else if (code === 'KeyH') { surfPlay.keysOpen = !surfPlay.keysOpen; publishSurfPlay(); }
     else if (code === 'KeyC') cycleSurfCamera();
     else if (code.startsWith('Digit')) setSurfCamera(SURF_CAMERAS[Number(code.slice(5)) - 1]);
     else if (code === 'KeyR') surfPlay.respawnRequest += 1;

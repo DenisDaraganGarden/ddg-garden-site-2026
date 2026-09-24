@@ -57,10 +57,17 @@ export const surfPlay = {
     riding: 0, onBreaker: 0,
   },
   // The rider's body: 'prone' (lying, paddling), 'popup' (getting up),
-  // 'stand' (riding), 'fallen' (tumbling in the water), 'swim' (swimming to
-  // the board), 'recover' (climbing onto it).
+  // 'stand' (riding), 'fallen' (tumbling in the water), 'swim' (swimming),
+  // 'recover' (climbing onto the board), 'walk' (on his feet), 'jump'.
   // chest, pelvis, head: world positions for the camera, written each frame.
-  rider: { state: 'prone', onBoard: true, chest: null, pelvis: null, head: null },
+  // board, leash: what F and L would do now (riderController out.hud), for
+  // the HUD's hints; swimBack, running, carrying: how he goes.
+  rider: {
+    state: 'prone', onBoard: true, chest: null, pelvis: null, head: null,
+    board: 'jump', leash: 'off', swimBack: false, running: false, carrying: false, jumpFrom: null,
+  },
+  // The full list of keys is open (H).
+  keysOpen: false,
   // Where the board actually waits in the editor: the auto lineup spot or
   // the hand-placed checkpoint, x/z in metres, yaw in radians. The board
   // writes it every edit frame; leaving auto pins it (leaveAuto).
@@ -85,6 +92,13 @@ function makeSnapshot() {
     mouseLocked: surfPlay.mouse.locked,
     gamepad: surfPlay.gamepad,
     rider: surfPlay.rider.state,
+    board: surfPlay.rider.board,
+    leash: surfPlay.rider.leash,
+    swimBack: surfPlay.rider.swimBack,
+    running: surfPlay.rider.running,
+    carrying: surfPlay.rider.carrying,
+    jumpFrom: surfPlay.rider.jumpFrom,
+    keysOpen: surfPlay.keysOpen,
   };
 }
 
