@@ -6,6 +6,7 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { publishedHomeSceneKeys } from './src/features/home-scene/data/publishedHomeSceneKeys.js';
 import { isValidId, presets, projects } from './scripts/projectStore.mjs';
+import { listPlants, plantCardFile } from './scripts/plantLibrary.mjs';
 import { mapNodes, modelOrigin, prepareSketchupGlb, readGlb, readGlbJson } from './scripts/sketchupGlb.mjs';
 import { deployPublishedHomeScene } from './scripts/deployScene.mjs';
 import { poseTuningModule } from './src/components/surfboard/poseTuning.js';
@@ -284,9 +285,31 @@ function engineStorePlugin() {
     });
   };
 
+  // Библиотека растений (scripts/plantLibrary.mjs), только чтение: записи —
+  // GET /__library/plants, картинка — GET /__library/plants/<id>/card.webp.
+  const attachLibrary = (middlewares) => {
+    middlewares.use('/__library/plants', async (request, response, next) => {
+      if (request.method !== 'GET') { next(); return; }
+      const [id, file] = decodeURIComponent(request.url.replace(/^\/+|\?.*$/g, '')).split('/');
+      try {
+        if (!id) { sendJson(response, 200, { ok: true, plants: await listPlants() }); return; }
+        const found = file === 'card.webp' ? await plantCardFile(id) : null;
+        if (!found) { sendJson(response, 404, { ok: false, message: 'Картинки нет.' }); return; }
+        response.statusCode = 200;
+        response.setHeader('Content-Type', 'image/webp');
+        response.setHeader('Content-Length', String(found.size));
+        response.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        createReadStream(found.file).pipe(response);
+      } catch (error) {
+        sendJson(response, 500, { ok: false, message: error instanceof Error ? error.message : 'Ошибка библиотеки растений' });
+      }
+    });
+  };
+
   const attachAll = (middlewares) => {
     attach(middlewares, '/__projects', projects);
     attach(middlewares, '/__presets', presets);
+    attachLibrary(middlewares);
   };
 
   return {

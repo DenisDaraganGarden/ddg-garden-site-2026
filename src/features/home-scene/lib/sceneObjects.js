@@ -36,6 +36,8 @@ export const SCENE_OBJECTS = Object.freeze([
   { id: 'sky', key: 'skyVisible', node: 'atmosphere/hdri', group: 'landscape', roots: ['sky-dome'] },
   { id: 'lilies', key: 'liliesVisible', node: 'greenery/lilies', group: 'greenery', roots: ['surface-vegetation'], requires: ['water'], newProject: false, site: true },
   { id: 'algae', key: 'algaeVisible', node: 'greenery/algae', group: 'greenery', roots: ['underwater-algae'], requires: ['water'], newProject: false, site: true },
+  // Цветники и одиночные растения из библиотеки растений (src/planting).
+  { id: 'planting', key: 'plantingEnabled', node: 'greenery/planting', group: 'greenery', roots: ['planting'] },
   { id: 'topiary', key: 'topiaryEnabled', node: 'greenery/topiary', group: 'greenery', roots: ['topiary'] },
   { id: 'shrubs', key: 'shrubsEnabled', node: 'greenery/shrubs', group: 'greenery', roots: ['coastal-oleaster'] },
   { id: 'trees', key: 'treesEnabled', node: 'greenery/trees', group: 'greenery', roots: ['coastal-trees'] },
@@ -156,6 +158,7 @@ export const sceneHitForObject3D = (object) => {
   }
   for (let node = object; node; node = node.parent) {
     if (node.userData?.topiaryId) return { node: 'greenery/topiary', root: node.name, topiaryId: node.userData.topiaryId };
+    if (node.userData?.plantingBed) return { node: 'greenery/planting', root: node.name, plantingBed: node.userData.plantingBed };
     const match = node.name ? matchRoot(node.name) : null;
     if (match?.node) return { node: match.node, root: node.name };
   }

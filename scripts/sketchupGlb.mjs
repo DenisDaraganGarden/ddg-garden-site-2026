@@ -70,10 +70,10 @@ function localMatrix(node) {
     tx, ty, tz, 1,
   ];
 }
-const transform = (m, [x, y, z]) => [0, 1, 2].map((r) => m[r] * x + m[4 + r] * y + m[8 + r] * z + m[12 + r]);
+export const transform = (m, [x, y, z]) => [0, 1, 2].map((r) => m[r] * x + m[4 + r] * y + m[8 + r] * z + m[12 + r]);
 
 // Мировые матрицы и родитель каждого узла сцены.
-function walkScene(json) {
+export function walkScene(json) {
   const world = new Map();
   const parent = new Map();
   const walk = (index, parentMatrix, parentIndex) => {

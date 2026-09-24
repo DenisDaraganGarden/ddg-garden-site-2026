@@ -1,5 +1,6 @@
 import { DEFAULT_TOPIARY_SETTINGS } from '../../../topiary/settings.js';
 import { DEFAULT_PLACED_SETTINGS } from '../../../placed/settings.js';
+import { DEFAULT_PLANTING_SETTINGS } from '../../../planting/settings.js';
 import {DEFAULT_GRASS_SETTINGS,DEFAULT_SHRUB_SETTINGS,DEFAULT_TREE_SETTINGS} from '../../../plants/settings.js';
 import { DEFAULT_TERRAIN_SETTINGS } from '../../../terrain/settings.js';
 import { DEFAULT_TANKER_SETTINGS } from '../../../tanker/settings.js';
@@ -12,6 +13,7 @@ import { DEFAULT_PAINTERLY_CLOUD_SETTINGS } from '../lib/painterlyCloudSettings.
 const keys = [
   ...Object.keys(DEFAULT_TOPIARY_SETTINGS),
   ...Object.keys(DEFAULT_PLACED_SETTINGS),
+  ...Object.keys(DEFAULT_PLANTING_SETTINGS),
   ...Object.keys(DEFAULT_TANKER_SETTINGS),
   ...Object.keys(DEFAULT_SURFBOARD_SETTINGS),
   ...Object.keys(DEFAULT_HOUSE_SETTINGS),
