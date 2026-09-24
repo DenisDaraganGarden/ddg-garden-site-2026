@@ -1,5 +1,7 @@
 import { qConj, qFromAxisAngle, qMul, qNormalize, qRotate, qSlerp } from './ragdoll.js';
 import { BELLY, BONES, PUSH_WIDTH, REST, SEGMENT, SEGMENT_CENTRE, SEGMENT_NAMES } from './riderSkeleton.js';
+import { normalizeProneTuning } from './proneTuning.js';
+import SAVED_POSE from './riderPoseTuning.js';
 
 // Where every segment of the rider should be, in the board's frame: the pose
 // the physics body is carried by (pelvis, feet) and pulled toward (the rest,
@@ -312,6 +314,12 @@ function footForward(q, out) {
   return qRotate(q, Z, out);
 }
 
+// Denis's corrections to the lying pose (proneTuning.js): the saved ones, or
+// the ones the lab's manipulators hold while he drags them.
+let prone = normalizeProneTuning(SAVED_POSE.prone);
+export const proneTuning = () => prone;
+export function setProneTuning(tuning) { prone = normalizeProneTuning(tuning); }
+
 // Lying, paddling. p: { strokeL, strokeR: the phase 0..1 of each arm's
 // stroke or −1 resting on the rail, arch 0..1 (chest up), kick 0..1 }.
 export function proneControls(board, p, out) {
@@ -320,23 +328,27 @@ export function proneControls(board, p, out) {
   const arch = clamp(p.arch ?? 0.6, 0, 1);
   // Pelvis on the deck by his belly (BELLY), chest raised by the arch of the back.
   const pelvisZ = chestZ - 0.37;
-  out.pelvis[0] = 0; out.pelvis[1] = deck(pelvisZ) + BELLY; out.pelvis[2] = pelvisZ;
+  out.pelvis[0] = prone.pelvis[0]; out.pelvis[1] = deck(pelvisZ) + BELLY + prone.pelvis[1]; out.pelvis[2] = pelvisZ + prone.pelvis[2];
   qFromAxisAngle(X, -4 * DEG, qTmp);
   qMul(PRONE_BASE, qTmp, out.pelvisQ);
-  qFromAxisAngle(X, -(10 + 14 * arch) * DEG, out.lumbarQ);
-  qFromAxisAngle(X, -(6 + 10 * arch) * DEG, out.thoracicQ);
-  qFromAxisAngle(X, -(25 + 20 * arch) * DEG, out.neckQ);
+  qFromAxisAngle(X, -(10 + 14 * arch + 0.6 * prone.chest) * DEG, out.lumbarQ);
+  qFromAxisAngle(X, -(6 + 10 * arch + 0.4 * prone.chest) * DEG, out.thoracicQ);
+  // The head nods, then turns about his spine.
+  qFromAxisAngle(Y, prone.head[1] * DEG, qTmp);
+  qFromAxisAngle(X, -(25 + 20 * arch + prone.head[0]) * DEG, qTmp2);
+  qMul(qTmp, qTmp2, out.neckQ);
   // Legs together along the board, feet just off the tail, toes pointed.
   const tail = -board.length / 2;
   const kick = p.kick ?? 0;
   for (const [side, x] of [['L', 0.07], ['R', -0.07]]) {
-    const s = out[`sole${side}`];
-    s[0] = x; s[1] = deck(Math.max(tail + 0.05, pelvisZ - 0.8)) + BELLY + 0.08 + 0.05 * kick; s[2] = pelvisZ - 0.86;
+    const s = out[`sole${side}`], foot = prone[`foot${side}`];
+    s[0] = x + foot[0]; s[1] = deck(Math.max(tail + 0.05, pelvisZ - 0.8)) + BELLY + 0.08 + 0.05 * kick + foot[1]; s[2] = pelvisZ - 0.86 + foot[2];
     // Relaxed, the toes hang down and back from the ankle.
     qFromAxisAngle(X, 0.65, qTmp);
     qMul(PRONE_BASE, qTmp, out[`footQ${side}`]);
-    const pole = out[`kneePole${side}`];
-    pole[0] = 0; pole[1] = -1; pole[2] = 0.1;
+    const pole = out[`kneePole${side}`], set = prone[`knee${side}`];
+    if (set) copy(set, pole);
+    else { pole[0] = 0; pole[1] = -1; pole[2] = 0.1; }
   }
   // Arms: each a stroke — in the water beside the rail from ahead of the
   // shoulder to the hip, out of it and forward again — or resting on the rail.
@@ -345,8 +357,12 @@ export function proneControls(board, p, out) {
   for (const [side, sign] of [['L', 1], ['R', -1]]) {
     const phase = p[`stroke${side}`];
     const hand = out[`hand${side}`];
-    if (phase == null || phase < 0) {
-      hand[0] = sign * (rail - 0.02); hand[1] = deck(shoulderZ) + 0.03; hand[2] = shoulderZ - 0.08;
+    const resting = phase == null || phase < 0;
+    if (resting) {
+      const moved = prone[`hand${side}`];
+      // The hand is the forearm's own (no wrist): the wrist a hand's height
+      // over the rail's edge, so the fingers hang over it rather than into it.
+      hand[0] = sign * (rail + 0.02) + moved[0]; hand[1] = deck(shoulderZ) + 0.12 + moved[1]; hand[2] = shoulderZ - 0.05 + moved[2];
     } else if (phase < 0.55) {
       const t = phase / 0.55;
       hand[0] = sign * (rail + 0.08); hand[1] = deck(shoulderZ) - 0.12 - 0.22 * Math.sin(Math.PI * t); hand[2] = shoulderZ + 0.42 - 0.8 * t;
@@ -354,8 +370,12 @@ export function proneControls(board, p, out) {
       const t = (phase - 0.55) / 0.45;
       hand[0] = sign * (rail + 0.14 + 0.08 * Math.sin(Math.PI * t)); hand[1] = deck(shoulderZ) + 0.02 + 0.22 * Math.sin(Math.PI * t); hand[2] = shoulderZ - 0.38 + 0.8 * t;
     }
-    const pole = out[`elbowPole${side}`];
-    pole[0] = sign * 0.6; pole[1] = 0.8; pole[2] = -0.2;
+    // Resting, the elbows fold back along his sides, a little out; paddling,
+    // they ride high and wide over the water.
+    const pole = out[`elbowPole${side}`], set = prone[`elbow${side}`];
+    if (resting && set) copy(set, pole);
+    else if (resting) { pole[0] = sign * 0.45; pole[1] = 0.35; pole[2] = -0.8; }
+    else { pole[0] = sign * 0.6; pole[1] = 0.8; pole[2] = -0.2; }
     normalize(pole);
   }
   return out;

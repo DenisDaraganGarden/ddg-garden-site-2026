@@ -91,8 +91,11 @@ const SINK_RANGE = [-0.07, 0.22];
 
 // Which bodies the pose carries in each state.
 const CARRIED = {
-  // Lying, his thighs too: loose, a stout man's would sag through the deck.
-  prone: ['pelvis', 'abdomen', 'chest', 'thighL', 'thighR'],
+  // Lying, all of him: the pose Denis sets (proneTuning.js, the lab's
+  // manipulators) is the pose he lies in, strokes and kick included — loose,
+  // a stout man's thighs sagged through the deck and his arms twisted under
+  // their own weight. The board still rocks him, the pose being on it.
+  prone: SEGMENT_NAMES,
   popup: ['pelvis', 'abdomen', 'chest', 'footL', 'footR'],
   liedown: ['pelvis', 'abdomen', 'chest', 'footL', 'footR'],
   stand: ['pelvis', 'footL', 'footR'],
