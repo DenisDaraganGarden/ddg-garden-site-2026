@@ -117,10 +117,18 @@ export function modelOrigin(json) {
   return { x: round((min[0] + max[0]) / 2), y: round(min[1]), z: round((min[2] + max[2]) / 2) };
 }
 
-// Путь узла от корня: имя и номер среди соседей с тем же именем. По нему
-// скрытые части старой версии находят себя в новой выгрузке того же файла.
+// Путь узла от верхнего уровня модели: имя и номер среди соседей с тем же
+// именем. По нему скрытые части старой версии находят себя в новой выгрузке
+// того же файла. Одиночные обёртки экспортёра (у SimLab — корень Z-up и
+// «Assembly-<n>», чей номер меняется от выгрузки к выгрузке) — одно и то же
+// место, их имена не в счёт.
 function nodePaths(json) {
   const paths = new Map();
+  let level = json.scenes?.[json.scene ?? 0]?.nodes ?? [];
+  for (let depth = 0; level.length === 1 && json.nodes[level[0]].children?.length; depth += 1) {
+    paths.set(level[0], `\u0002${depth}`);
+    level = json.nodes[level[0]].children;
+  }
   const walk = (indices, prefix) => {
     const seen = new Map();
     for (const index of indices ?? []) {
@@ -132,7 +140,7 @@ function nodePaths(json) {
       walk(json.nodes[index].children, path);
     }
   };
-  walk(json.scenes?.[json.scene ?? 0]?.nodes, '');
+  walk(level, '');
   return paths;
 }
 

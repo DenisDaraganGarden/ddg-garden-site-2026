@@ -164,8 +164,8 @@ assert.deepEqual(box, { x: 5, y: -1, z: 2.5 });
 
 // Новая выгрузка: перед знакомыми узлами появился новый, у двух одинаковых
 // имён поменялся порядок нет — узлы находят себя по пути имён.
-const previous = { scenes: [{ nodes: [0] }], nodes: [{ name: 'root', children: [1, 2, 3] }, { name: 'Куст' }, { name: 'Куст' }, { name: 'Забор' }] };
-const next = { scenes: [{ nodes: [0] }], nodes: [{ name: 'root', children: [4, 1, 2, 3] }, { name: 'Куст' }, { name: 'Куст' }, { name: 'Скамья' }, { name: 'Беседка' }] };
-assert.deepEqual(mapNodes(previous, next), [0, 1, 2, -1], 'the root and both bushes are found, the fence is gone');
+const previous = { scenes: [{ nodes: [0] }], nodes: [{ name: 'Assembly-2942', children: [1, 2, 3] }, { name: 'Куст' }, { name: 'Куст' }, { name: 'Забор' }] };
+const next = { scenes: [{ nodes: [0] }], nodes: [{ name: 'Assembly-3117', children: [4, 1, 2, 3] }, { name: 'Куст' }, { name: 'Куст' }, { name: 'Скамья' }, { name: 'Беседка' }] };
+assert.deepEqual(mapNodes(previous, next), [0, 1, 2, -1], 'the renumbered wrapper and both bushes are found, the fence is gone');
 
 console.log('sketchupGlb: ok');
