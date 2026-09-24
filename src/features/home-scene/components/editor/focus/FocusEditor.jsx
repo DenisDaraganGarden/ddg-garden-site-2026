@@ -56,7 +56,10 @@ const ALL_TOOLS = [...TOOLS, ...PLANT_TOOLS, MARK_TOOL, START_TOOL];
 // Кольцо на пробеле — по часовой от верха. Растения — один пункт-свиток
 // «Озеленение»: навёл — выпадает список, как у кнопки на линейке.
 const GREENERY = { id: 'greenery', icon: 'sprout', ru: 'Озеленение', en: 'Greenery', key: 'L · T · I · B', children: PLANT_TOOLS };
-const PIE_ORDER = ['select', 'translate', 'rotate', 'scale', 'hand', 'greenery', 'mark', 'start'];
+// Прогулка в кольце: отпустил на пункте — он идёт (main), в свитке — «Старт».
+const WALKING = { id: 'walking', icon: 'walk', ru: 'Прогулка', en: 'Walk', key: 'K', main: 'walk', children: [{ id: 'walk', icon: 'walk', ru: 'Идти', en: 'Go for a walk', key: '' }, START_TOOL] };
+const PIE_GROUPS = [GREENERY, WALKING];
+const PIE_ORDER = ['select', 'translate', 'rotate', 'scale', 'hand', 'greenery', 'mark', 'walking'];
 
 // Растения на линейке — одна кнопка: значок последнего растительного
 // инструмента, клик раскрывает меню из трёх с подписями и клавишами.
@@ -384,8 +387,8 @@ function FocusShell(props) {
         ]} onClose={() => setRowMenu(null)} /> : null}
         {palette.popup ? <FocusColorPalette {...palette.popup} colors={colors} language={language} onClose={palette.close} /> : null}<FocusTooltip />
         <FocusToolPie language={language} fill={settings.editorPieFill !== false} outline={settings.editorPieOutline !== false} enabled={!playing && !modal} current={gizmo?.tool} onTap={togglePause}
-            tools={PIE_ORDER.map((id) => (id === GREENERY.id ? GREENERY : ALL_TOOLS.find((tool) => tool.id === id))).map((tool) => ({ ...tool, disabled: Boolean(tool.transform && !gizmoAllows(gizmo?.movable, tool.id)) }))}
-            onChoose={(id) => { gizmo?.setTool?.(id); if (id === 'hand') document.querySelector('.home-editor-render-frame canvas')?.focus({ preventScroll: true }); }} />
+            tools={PIE_ORDER.map((id) => PIE_GROUPS.find((group) => group.id === id) ?? ALL_TOOLS.find((tool) => tool.id === id)).map((tool) => ({ ...tool, disabled: Boolean(tool.transform && !gizmoAllows(gizmo?.movable, tool.id)) }))}
+            onChoose={(id) => { if (id === 'walk') { onWalk?.(); return; } gizmo?.setTool?.(id); if (id === 'hand') document.querySelector('.home-editor-render-frame canvas')?.focus({ preventScroll: true }); }} />
         <div hidden aria-hidden="true" data-testid="focus-control-catalog"><FocusCameraParameters settings={settings} layoutEditor={layoutEditor} catalogOnly />{ALL_NODES.filter(({ node }) => node.id !== 'camera').map(({ group, node, path }) => <NodeSections key={path} group={group} node={node} catalogOnly sectionProps={sectionProps} />)}</div>
     </div>;
 }

@@ -48,6 +48,7 @@ export function AnnotationsSection({ settings, handleSettingChange, annotationEd
         <SelectControl controlId="annotationUnits" label={ru ? 'Единицы' : 'Units'} value={settings.annotationUnits} options={UNIT_OPTIONS.map(([value, r, e]) => ({ value, label: ru ? r : e }))} onChange={(event) => handleSettingChange(event, 'annotationUnits', 'string')} />
         <SelectControl controlId="annotationStep" label={ru ? 'Округление' : 'Rounding'} value={String(settings.annotationStep)} options={ANNOTATION_STEPS.map((step) => ({ value: String(step), label: STEP_LABELS[step][ru ? 0 : 1] }))} onChange={(event) => handleSettingChange(event, 'annotationStep')} />
         <RangeControl controlId="annotationSize" label={ru ? 'Размер' : 'Size'} value={settings.annotationSize} min={ANNOTATION_RANGES.size[0]} max={ANNOTATION_RANGES.size[1]} step={ANNOTATION_RANGES.size[2]} unit=" ×" onChange={(event) => handleSettingChange(event, 'annotationSize')} />
+        <RangeControl controlId="annotationLine" label={ru ? 'Толщина линий' : 'Line weight'} value={settings.annotationLine ?? 1} min={ANNOTATION_RANGES.line[0]} max={ANNOTATION_RANGES.line[1]} step={ANNOTATION_RANGES.line[2]} unit=" ×" onChange={(event) => handleSettingChange(event, 'annotationLine')} />
         <RangeControl controlId="annotationFade" label={ru ? 'Гаснут дальше' : 'Fade beyond'} value={settings.annotationFade} min={ANNOTATION_RANGES.fade[0]} max={ANNOTATION_RANGES.fade[1]} step={ANNOTATION_RANGES.fade[2]} unit=" m" onChange={(event) => handleSettingChange(event, 'annotationFade')} />
     </>;
 }

@@ -1,5 +1,5 @@
 {
-  "collected": "2026-09-24T23:06:36.711Z",
+  "collected": "2026-09-24T23:16:36.272Z",
   "rows": [
     {
       "key": "cameraFov",
@@ -5066,6 +5066,17 @@
       "unit": " ×"
     },
     {
+      "key": "annotationLine",
+      "group": "annotations",
+      "node": "levels",
+      "label": "Толщина линий",
+      "kind": "число",
+      "min": 0.4,
+      "max": 3,
+      "step": 0.05,
+      "unit": " ×"
+    },
+    {
       "key": "annotationFade",
       "group": "annotations",
       "node": "levels",
@@ -7257,6 +7268,7 @@
     "annotationColor": "#b0473f",
     "annotationFill": true,
     "annotationOutline": true,
+    "annotationLine": 1,
     "annotationUnits": "m",
     "annotationStep": 0.001,
     "annotationSize": 1,

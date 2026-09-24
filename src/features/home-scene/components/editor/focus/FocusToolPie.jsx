@@ -10,7 +10,8 @@ import { FocusIcon } from './FocusIcons';
 // раскрывается список (озеленение: цветник, посадить, лиана, изгородь). Мышь
 // идёт к списку по тому же лучу, поэтому кольцо не перескакивает на соседа;
 // над списком угол не считается. Отпустил на строке — она; на самом пункте —
-// последний выбранный из свитка.
+// его главное действие (main, у «Прогулки» — идти), иначе последний
+// выбранный из свитка.
 const HOLD_MS = 170;
 const RADIUS = 96;
 const DEAD_ZONE = 26;
@@ -35,7 +36,7 @@ export default function FocusToolPie({ tools, current, enabled, onChoose, onTap,
     // Свиток: что выбрать, если отпустили на самом пункте.
     const fallback = (item) => {
         const { last: remembered, current: now } = live.current;
-        return item.children.find((tool) => tool.id === now)?.id ?? remembered[item.id] ?? item.children[0].id;
+        return item.main ?? item.children.find((tool) => tool.id === now)?.id ?? remembered[item.id] ?? item.children[0].id;
     };
     const choose = (item, id = item.children ? fallback(item) : item.id) => {
         if (item.children) setLast((value) => ({ ...value, [item.id]: id }));

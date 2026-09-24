@@ -36,5 +36,9 @@ const look = (settings) => { const n = normalizeAnnotationSettings(settings); re
 assert.deepEqual(look({}), [true, true], 'fill and frame by default');
 assert.deepEqual(look({ annotationFill: false }), [false, true], 'the fill goes alone');
 assert.deepEqual(look({ annotationOutline: false }), [true, false], 'the frame goes alone');
+// Толщина линий — множитель в пределах.
+assert.equal(normalizeAnnotationSettings({}).annotationLine, 1, 'lines as drawn by default');
+assert.equal(normalizeAnnotationSettings({ annotationLine: 9 }).annotationLine, 3, 'no thicker than three times');
+assert.equal(normalizeAnnotationSettings({ annotationLine: 'x' }).annotationLine, 1, 'a broken weight is the default');
 
-console.log('annotations: level format, one zero, shelves for crowded labels, fill and frame apart');
+console.log('annotations: level format, one zero, shelves for crowded labels, fill and frame apart, line weight within bounds');

@@ -18,7 +18,7 @@ import { drawMark, hash, SHELF, snapHeight } from './marks.js';
 // бледный «призрак» поверх всего — отметку за деревом или стеной видно и
 // можно выбрать, а открытая рисуется ярко поверх своего призрака.
 const GHOST = 0.3;
-function Mark({ mark, text, color, fill, outline, size, fade, level, selected, zero }) {
+function Mark({ mark, text, color, fill, outline, line, size, fade, level, selected, zero }) {
     const { invalidate } = useThree();
     const canvas = useMemo(() => document.createElement('canvas'), []);
     const texture = useMemo(() => {
@@ -34,16 +34,16 @@ function Mark({ mark, text, color, fill, outline, size, fade, level, selected, z
         return material;
     }), [texture]);
     useEffect(() => () => { texture.dispose(); materials.forEach((material) => material.dispose()); }, [texture, materials]);
-    const box = useRef({ width: 1, height: 1, tipX: 0 });
+    const box = useRef({ width: 1, height: 1, tipX: 0, tipY: 0 });
     const sprites = useRef([]);
     useEffect(() => {
-        box.current = drawMark(canvas, { text, color, fill, outline, level, selected, zero, seed: hash(mark.id) });
+        box.current = drawMark(canvas, { text, color, fill, outline, line, level, selected, zero, seed: hash(mark.id) });
         texture.dispose();
         texture.image = canvas;
         texture.needsUpdate = true;
-        for (const sprite of sprites.current) sprite?.center.set(box.current.tipX / box.current.width, 0);
+        for (const sprite of sprites.current) sprite?.center.set(box.current.tipX / box.current.width, box.current.tipY / box.current.height);
         invalidate();
-    }, [canvas, texture, text, color, fill, outline, level, selected, zero, mark.id, invalidate]);
+    }, [canvas, texture, text, color, fill, outline, line, level, selected, zero, mark.id, invalidate]);
 
     // Каждый кадр: чуть ближе к камере по лучу, размер в пикселях экрана,
     // прозрачность по расстоянию. Вызывается как метод спрайта (this).
@@ -62,7 +62,7 @@ function Mark({ mark, text, color, fill, outline, size, fade, level, selected, z
             material.opacity = material.userData.alpha * (1 - t * t * (3 - 2 * t));
         };
     }, [mark.x, mark.y, mark.z, size, fade]);
-    return materials.map((material, i) => <sprite key={i} ref={(sprite) => { sprites.current[i] = sprite; if (sprite) sprite.center.set(box.current.tipX / box.current.width, 0); }}
+    return materials.map((material, i) => <sprite key={i} ref={(sprite) => { sprites.current[i] = sprite; if (sprite) sprite.center.set(box.current.tipX / box.current.width, box.current.tipY / box.current.height); }}
         material={material} onBeforeRender={onBeforeRender} renderOrder={i ? 19 : 20} name={`annotation-mark-${mark.id}`} userData={{ annotationMark: mark.id }} />);
 }
 
@@ -115,7 +115,7 @@ export default function AnnotationLayer({ settings, selectedId = null, geometryK
     });
 
     return <group name="annotations">
-        {marks.map((mark) => <Mark key={mark.id} mark={mark} text={texts.get(mark.id)} color={settings.annotationColor} fill={settings.annotationFill !== false} outline={settings.annotationOutline !== false} size={settings.annotationSize} fade={settings.annotationFade}
+        {marks.map((mark) => <Mark key={mark.id} mark={mark} text={texts.get(mark.id)} color={settings.annotationColor} fill={settings.annotationFill !== false} outline={settings.annotationOutline !== false} line={settings.annotationLine ?? 1} size={settings.annotationSize} fade={settings.annotationFade}
             level={shelves.get(mark.id) ?? 0} selected={mark.id === selectedId} zero={Boolean(mark.zero)} />)}
     </group>;
 }
