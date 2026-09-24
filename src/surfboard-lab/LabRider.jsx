@@ -6,13 +6,14 @@ import SurfboardModel from '../components/surfboard/SurfboardModel';
 import RiderModel from '../components/surfboard/RiderModel';
 import { updateRiderModel } from '../components/surfboard/riderMesh';
 import { lookRiderBody, updateRiderBody, useRiderBody } from '../components/surfboard/riderBody';
-import { createBoardBody, createBoardState, stepBoard } from '../components/surfboard/boardPhysics';
+import { createBoardBody, createBoardState, resetBoard, stepBoard } from '../components/surfboard/boardPhysics';
 import { deckHeight, halfWidth } from '../components/surfboard/boardShape';
-import { createRider, resetRider, stepRider } from '../components/surfboard/riderController';
+import { createRider, resetRider, stepRider, syncRider } from '../components/surfboard/riderController';
 import { createControls, createPose, proneControls, solvePose, swimControls } from '../components/surfboard/riderPose';
 import { STROKE_KEYS, SWIM_KEYS } from '../components/surfboard/poseTuning';
 import { REST, SEGMENT, SEGMENT_CENTRE, SEGMENT_NAMES } from '../components/surfboard/riderSkeleton';
 import { qRotate } from '../components/surfboard/ragdoll';
+import { surfPlay } from '../components/surfboard/surfPlayStore';
 
 // The rider on the lab's board, run by the scene's own physics on still water
 // (riderController, boardPhysics — what play runs, frame for frame): lying,
@@ -55,7 +56,96 @@ const calm = (x, z, t, out) => {
   return out;
 };
 const calmAt = (x, z, out) => calm(x, z, 0, out);
+// The shore to walk out on («Берег»): sand rising from 2 m under still water
+// where the board starts, facing it, to dry beach 25 m on.
+const SHORE_DEPTH = 2, SHORE_SLOPE = 0.08;
+// He starts lying on the board this far out (1.6 m deep), a short paddle in.
+const SHORE_START = 5;
+// On the shore the picture keeps his pelvis at a standing man's height, and
+// eases after it up and down (s), so the bob of a step shows on him, not on
+// the world.
+const FOLLOW_HEIGHT = 0.95, FOLLOW_EASE = 0.35;
+const bottom = (x, z) => -SHORE_DEPTH + SHORE_SLOPE * z;
+const sea = (x, z, t, out) => {
+  out.height = 0; out.vx = 0; out.vy = 0; out.vz = 0; out.whitewater = 0; out.ground = bottom(x, z);
+  return out;
+};
+const seaAt = (x, z, out) => sea(x, z, 0, out);
+// The shore's sand and water: grids over the slope, coloured by depth so the
+// shallows read as shallows — the water clearer and lighter as it thins, a
+// line of foam at its edge; the sand darker under water, wet at the edge, dry
+// above, mottled so a step shows how far it went.
+const SAND = { dry: new THREE.Color('#e3d3b0'), wet: new THREE.Color('#c4ab80'), deep: new THREE.Color('#8a785a') };
+const WATER = { shallow: new THREE.Color('#86d2c6'), deep: new THREE.Color('#1f5b6f'), foam: new THREE.Color('#f3f1ea') };
+const span = (from, to, step) => Array.from({ length: Math.round((to - from) / step) + 1 }, (_, i) => from + i * step);
+const hash = (x, z) => { const h = Math.sin(x * 127.1 + z * 311.7) * 43758.5453; return h - Math.floor(h); };
+const tint = (out, colour, t) => {
+  out[0] += (colour.r - out[0]) * t; out[1] += (colour.g - out[1]) * t; out[2] += (colour.b - out[2]) * t;
+};
+function paintSand(x, z, y, out) {
+  out[0] = SAND.wet.r; out[1] = SAND.wet.g; out[2] = SAND.wet.b; out[3] = 1;
+  if (y > 0) tint(out, SAND.dry, Math.min(1, y / 0.25));
+  else tint(out, SAND.deep, Math.min(1, -y / 3));
+  const mottle = 1 + 0.07 * (hash(x, z) - 0.5);
+  out[0] *= mottle; out[1] *= mottle; out[2] *= mottle;
+}
+function paintWater(x, z, y, out) {
+  const depth = Math.max(0, -bottom(x, z));
+  out[0] = WATER.shallow.r; out[1] = WATER.shallow.g; out[2] = WATER.shallow.b;
+  tint(out, WATER.deep, 1 - Math.exp(-depth / 1.4));
+  out[3] = 0.3 + 0.55 * (1 - Math.exp(-depth));
+  const foam = Math.max(0, 1 - depth / 0.15);
+  tint(out, WATER.foam, 0.9 * foam);
+  out[3] = Math.max(out[3], 0.8 * foam);
+}
+function shoreGrid(xs, zs, height, paint) {
+  const position = [], colour = [], index = [], rgba = [0, 0, 0, 1];
+  for (const z of zs) {
+    for (const x of xs) {
+      const y = height(x, z);
+      position.push(x, y, z);
+      paint(x, z, y, rgba);
+      colour.push(...rgba);
+    }
+  }
+  const n = xs.length;
+  for (let j = 0; j + 1 < zs.length; j += 1) {
+    for (let i = 0; i + 1 < n; i += 1) {
+      const a = j * n + i;
+      index.push(a, a + n, a + 1, a + 1, a + n, a + n + 1);
+    }
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(position, 3));
+  // RGBA: three.js takes a four-wide colour as alpha per vertex.
+  geometry.setAttribute('color', new THREE.Float32BufferAttribute(colour, 4));
+  geometry.setIndex(index);
+  geometry.computeVertexNormals();
+  return geometry;
+}
+function ShoreScene() {
+  const sand = useMemo(() => shoreGrid(span(-40, 40, 1), span(-40, 90, 0.5), bottom, paintSand), []);
+  // Past its edge (25 m on) the water is under the sand; it stops a little after.
+  const water = useMemo(() => shoreGrid([-40, 40], span(-40, 26, 0.5), () => 0, paintWater), []);
+  useEffect(() => () => { sand.dispose(); water.dispose(); }, [sand, water]);
+  return <>
+    <mesh geometry={sand} receiveShadow>
+      <meshStandardMaterial vertexColors roughness={0.95} metalness={0} />
+    </mesh>
+    {/* A light water: see-through, so the sand, his legs, the board's bottom
+        read through it. */}
+    <mesh geometry={water} renderOrder={2}>
+      <meshStandardMaterial vertexColors roughness={0.12} metalness={0} transparent depthWrite={false} />
+    </mesh>
+  </>;
+}
 const noseYaw = (q) => Math.atan2(2 * (q[0] * q[2] + q[1] * q[3]), 1 - 2 * (q[0] * q[0] + q[1] * q[1]));
+// A board floating on its deck is turned over for him to climb on, as the
+// scene does it (Surfboard.jsx): the right way up where it floats, the nose
+// where it pointed.
+function righted(rider, state) {
+  if (rider.out.events.flipBoard) resetBoard(state, { x: state.p[0], y: state.p[1], z: state.p[2], yaw: noseYaw(state.q) });
+}
 
 // A joint's place in the board frame, from the segment that carries it.
 const offset = [0, 0, 0];
@@ -108,6 +198,7 @@ function dragged(name, key, part, start, points, point, delta) {
 export default function LabRider({
   hull, dims, board, lighting, pose, look, pace, wireframe, onState, onClimbed,
   editing = false, editPose = 'prone', editKey = 0, tuning = null, part = null, onPart, onTuning,
+  shore = false, restart = 0, onRestart,
 }) {
   const ridden = useMemo(() => createBoardBody(hull, {
     boardMass: board.surfboardMass, riderMass: board.surfboardRiderMass,
@@ -116,7 +207,7 @@ export default function LabRider({
   const empty = useMemo(() => createBoardBody(hull, { boardMass: board.surfboardMass, riderMass: 0 }), [board.surfboardMass, hull]);
   // A new board shape is a new session: the board on the water, he on it.
   const session = useMemo(() => {
-    const state = createBoardState({ y: -0.07 });
+    const state = createBoardState({ y: -0.07, z: shore ? SHORE_START : 0 });
     const rider = createRider({
       length: dims.length,
       deckY: (x, z) => deckHeight(dims, x, z),
@@ -124,11 +215,15 @@ export default function LabRider({
     });
     const view = { p: state.p, q: state.q, v: state.v, w: state.w, speed: 0, wipeout: false };
     resetRider(rider, view);
+    // Presses from before this start are not presses now.
+    if (shore) syncRider(rider, surfPlay.intent);
     return {
       state, rider, view, time: 0, tow: 0, shove: false, push: false, reported: null, wet: false,
+      respawn: surfPlay.respawnRequest, followY: null,
       intent: { lean: 0, trim: 0, crouch: 0, grab: 0, lookBack: 0, strokeLeft: 0, strokeRight: 0, popUp: 0 },
     };
-  }, [dims]);
+    // restart: a new session on the same board; shore: the shore's own start.
+  }, [dims, restart, shore]); // eslint-disable-line react-hooks/exhaustive-deps
   const body = useRiderBody(look !== 'skeleton');
   const frame = useRef(null);
   const boardRef = useRef(null);
@@ -189,7 +284,20 @@ export default function LabRider({
       return;
     }
     const dt = Math.min(delta, MAX_FRAME) * pace;
-    if (dt > 0) {
+    if (dt > 0 && shore) {
+      // The shore: the keys and the gamepad drive him (surfPlay.intent, as in
+      // play), over sand under the water.
+      s.time += dt;
+      const on = rider.out.onBoard;
+      stepBoard(state, on ? ridden : empty, on ? rider.out.input : null, sea, s.time, dt, { substep: SUBSTEP, external: rider.out.leash });
+      view.speed = Math.hypot(state.v[0], state.v[2]);
+      view.wipeout = state.wipeout;
+      stepRider(rider, { dt, board: view, intent: surfPlay.intent, water: seaAt, ground: bottom });
+      righted(rider, state);
+      if (!rider.world.bodies.every((b) => Number.isFinite(b.x[0] + b.x[1] + b.x[2] + b.q[3]))) resetRider(rider, view);
+      // R, as in play: from the start again.
+      if (surfPlay.respawnRequest !== s.respawn) { s.respawn = surfPlay.respawnRequest; onRestart?.(); }
+    } else if (dt > 0) {
       s.time += dt;
       const on = rider.out.onBoard;
       stepBoard(state, on ? ridden : empty, on ? rider.out.input : null, calm, s.time, dt, { substep: SUBSTEP, external: rider.out.leash });
@@ -214,23 +322,31 @@ export default function LabRider({
         rider.world.bodies.forEach((b) => { b.v[0] += SHOVE * sx; b.v[1] += 1; b.v[2] += SHOVE * sz; });
       }
       stepRider(rider, { dt, board: view, intent, water: calmAt, ground: null });
+      righted(rider, state);
       if (!rider.world.bodies.every((b) => Number.isFinite(b.x[0] + b.x[1] + b.x[2] + b.q[3]))) resetRider(rider, view);
       // Back on the board after a swim, he lies there till asked again.
       if (!rider.out.onBoard) s.wet = true;
       if (s.wet && rider.state === 'prone') { s.wet = false; onClimbed?.(); }
     }
-    frame.current?.position.set(-state.p[0], 0, -state.p[2]);
+    // The picture follows him: the board, or on the shore his pelvis.
+    if (shore) {
+      const pelvis = rider.world.bodies[SEGMENT.pelvis].x;
+      s.followY = s.followY === null ? pelvis[1] : s.followY + (pelvis[1] - s.followY) * Math.min(1, delta / FOLLOW_EASE);
+      frame.current?.position.set(-pelvis[0], FOLLOW_HEIGHT - s.followY, -pelvis[2]);
+    } else frame.current?.position.set(-state.p[0], 0, -state.p[2]);
     if (boardRef.current) boardRef.current.visible = true;
     boardRef.current?.position.set(state.p[0], state.p[1], state.p[2]);
     boardRef.current?.quaternion.set(state.q[0], state.q[1], state.q[2], state.q[3]);
     updateRiderModel(sticks.current, rider);
     updateRiderBody(body, rider);
-    if (rider.state !== s.reported) { s.reported = rider.state; onState?.(rider.state); }
+    const shown = rider.state === 'walk' && rider.walker.run > 0.5 ? 'run' : rider.state;
+    if (shown !== s.reported) { s.reported = shown; onState?.(shown); }
   });
 
   return (
     <>
       <group ref={frame}>
+        {shore && <ShoreScene />}
         <group ref={boardRef}>
           <SurfboardModel settings={board} lighting={lighting} wireframe={wireframe} />
         </group>

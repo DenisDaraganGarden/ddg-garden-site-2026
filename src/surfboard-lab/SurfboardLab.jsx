@@ -5,6 +5,7 @@ import { assetIndex } from '../asset-lab/assetCatalog';
 import { buildHomeSceneLighting } from '../components/effects/homeSceneLighting';
 import SurfboardModel from '../components/surfboard/SurfboardModel';
 import LabRider from './LabRider';
+import { usePlayKeys } from '../components/surfboard/usePlayKeys';
 import { poseTuning, setPoseTuning } from '../components/surfboard/riderPose';
 import { POSE_FACTORY, normalizePoseTuning } from '../components/surfboard/poseTuning';
 import SAVED_POSE from '../components/surfboard/riderPoseTuning';
@@ -40,9 +41,18 @@ const CAMERA_VIEWS = {
   rider: { landscape: { position: [3.3, 2.0, 3.5], target: [0.25, 0.8, 0] }, portrait: { position: [4.4, 2.6, 4.7], target: [0, 0.85, 0] } },
   face: { landscape: { position: [0.55, 0.85, 2.7], target: [0.12, 0.55, 0.2] }, portrait: { position: [0.6, 1.0, 3.6], target: [0, 0.55, 0.2] } },
   abeam: { landscape: { position: [3.6, 1.05, 0.05], target: [0.2, 0.6, 0] }, portrait: { position: [4.8, 1.3, 0.05], target: [0, 0.6, 0] } },
+  // On the shore, a man on his feet (the picture keeps his pelvis at 0.95 m),
+  // seen from the sea as he comes in, from the beach, and side on.
+  fromSea: { landscape: { position: [1.2, 2.4, -4.9], target: [0.3, 0.75, 1.2] }, portrait: { position: [1.4, 3.0, -6.4], target: [0, 0.8, 1.2] } },
+  fromBeach: { landscape: { position: [1.0, 1.7, 5.2], target: [0.3, 0.85, 0] }, portrait: { position: [1.2, 2.1, 6.8], target: [0, 0.9, 0] } },
+  along: { landscape: { position: [5.4, 1.3, 0.4], target: [0.3, 0.9, 0.4] }, portrait: { position: [7.2, 1.5, 0.4], target: [0, 0.9, 0.4] } },
 };
 const BOARD_VIEWS = ['full', 'deck', 'bottom', 'side', 'tail', 'rail'];
 const RIDER_VIEWS = ['rider', 'face', 'abeam', 'deck', 'tail'];
+const SHORE_VIEWS = ['fromSea', 'fromBeach', 'along', 'rider'];
+// On the shore the keys and the gamepad are his from the start (P and Esc,
+// which leave play in the scene, have nothing to leave here).
+const stay = () => {};
 const CAMERA_LIMITS = { minDistance: 0.15, maxDistance: 12, minPolarAngle: 0.02, maxPolarAngle: Math.PI - 0.02 };
 const DEFAULTS = {
   ...normalizeSurfboardSettings(PUBLISHED),
@@ -54,11 +64,12 @@ const DEFAULTS = {
 const TEXT = {
   ru: {
     title: 'Доска для серфинга', subtitle: 'Шортборд 5\'10" · процедурная модель · стекло, карбоновый кант, стрингер, трастер',
-    studio: 'Студия', water: 'На воде', rider: 'С райдером', shape: 'Форма', paint: 'Покраска', light: 'Свет',
-    full: 'Общий', deck: 'Палуба', bottom: 'Дно', side: 'Прогиб', tail: 'Хвост', rail: 'Кант', face: 'Лицо', abeam: 'Сбоку',
+    studio: 'Студия', water: 'На воде', rider: 'С райдером', shore: 'Берег', shape: 'Форма', paint: 'Покраска', light: 'Свет',
+    full: 'Общий', deck: 'Палуба', bottom: 'Дно', side: 'Прогиб', tail: 'Хвост', rail: 'Кант', face: 'Лицо', abeam: 'Сбоку', fromSea: 'С моря', fromBeach: 'С берега', along: 'Сбоку',
     prone: 'Лежит', paddle: 'Гребёт', stand: 'Стоит', swim: 'В воду', human: 'Человек', skeleton: 'Скелет', both: 'Человек и скелет',
     doing: 'Что делает', look: 'Вид', pace: 'Скорость времени', now: 'Сейчас',
-    states: { prone: 'лежит', popup: 'встаёт', stand: 'стоит', liedown: 'ложится', fallen: 'падает', swim: 'плывёт', recover: 'забирается' },
+    states: { prone: 'лежит', popup: 'встаёт', stand: 'стоит', liedown: 'ложится', fallen: 'падает', swim: 'плывёт', recover: 'забирается', walk: 'идёт', run: 'бежит' },
+    again: 'Заново', controls: [['W A S D', 'грести, идти, поворачивать'], ['Shift', 'бежать'], ['Пробел', 'встать на доске · залезть на неё'], ['R', 'заново'], ['Геймпад', 'стик · RT бег · A встать']],
     editPose: 'Править позу', part: 'Часть', how: 'Как', howText: 'точка на теле — выбрать, стрелки — тянуть',
     poseProne: 'Лёжа', posePaddle: 'Гребок', poseSwim: 'Плывёт', moment: 'Момент гребка',
     keys: ['Вход', 'Глубже', 'Выход', 'Над водой'], draft: 'Не сохранено — в игре пока прежняя',
@@ -72,11 +83,12 @@ const TEXT = {
   },
   en: {
     title: 'Surfboard', subtitle: '5\'10" shortboard · procedural model · glassed deck, carbon rails, stringer, thruster',
-    studio: 'Studio', water: 'Afloat', rider: 'With rider', shape: 'Shape', paint: 'Paint', light: 'Light',
-    full: 'Overview', deck: 'Deck', bottom: 'Bottom', side: 'Rocker', tail: 'Tail', rail: 'Rail', face: 'Face', abeam: 'Abeam',
+    studio: 'Studio', water: 'Afloat', rider: 'With rider', shore: 'Shore', shape: 'Shape', paint: 'Paint', light: 'Light',
+    full: 'Overview', deck: 'Deck', bottom: 'Bottom', side: 'Rocker', tail: 'Tail', rail: 'Rail', face: 'Face', abeam: 'Abeam', fromSea: 'From the sea', fromBeach: 'From the beach', along: 'Abeam',
     prone: 'Lying', paddle: 'Paddling', stand: 'Riding', swim: 'Into the water', human: 'Human', skeleton: 'Skeleton', both: 'Human and skeleton',
     doing: 'What he does', look: 'Look', pace: 'Time', now: 'Now',
-    states: { prone: 'lying', popup: 'getting up', stand: 'riding', liedown: 'lying down', fallen: 'falling', swim: 'swimming', recover: 'climbing on' },
+    states: { prone: 'lying', popup: 'getting up', stand: 'riding', liedown: 'lying down', fallen: 'falling', swim: 'swimming', recover: 'climbing on', walk: 'walking', run: 'running' },
+    again: 'Start over', controls: [['W A S D', 'paddle, walk, turn'], ['Shift', 'run'], ['Space', 'stand up on the board · climb on'], ['R', 'start over'], ['Gamepad', 'stick · RT run · A stand']],
     editPose: 'Edit the pose', part: 'Part', how: 'How', howText: 'a point on him — pick, the arrows — drag',
     poseProne: 'Lying', posePaddle: 'Stroke', poseSwim: 'Swimming', moment: 'Moment of the stroke',
     keys: ['In', 'Deeper', 'Out', 'Over'], draft: 'Not saved — the game has the old one',
@@ -128,6 +140,8 @@ export default function SurfboardLab() {
   const [view, setView] = useState('full');
   const [tab, setTab] = useState('shape');
   const [riderState, setRiderState] = useState('prone');
+  const [restart, setRestart] = useState(0);
+  const again = () => setRestart((count) => count + 1);
   // The lying pose's corrections (riderPose holds the live ones for the
   // physics; this is the panel's copy), the part the arrows are on, and how
   // the last save went.
@@ -186,15 +200,17 @@ export default function SurfboardLab() {
   // With the rider the water is not drawn: the mirror would hide all of him
   // under it (the physics still floats him on y = 0); the floor sinks below
   // where he swims.
-  const riding = settings.mode === 'rider';
+  const shore = settings.mode === 'shore';
+  const riding = settings.mode === 'rider' || shore;
   const afloat = settings.mode === 'water' && view !== 'bottom';
-  const views = riding ? RIDER_VIEWS : BOARD_VIEWS;
+  const views = shore ? SHORE_VIEWS : riding ? RIDER_VIEWS : BOARD_VIEWS;
   const tabs = riding ? ['rider', 'shape', 'paint', 'light'] : ['shape', 'paint', 'light'];
+  usePlayKeys(shore, stay, stay);
   const setMode = (mode) => {
     set('mode', mode);
     if (mode !== 'rider') setEditing(false);
     // The rider's views frame a standing man; the board's, the board.
-    if (mode === 'rider') { setView('rider'); setTab('rider'); } else {
+    if (mode === 'shore') { setView('fromSea'); setTab('rider'); } else if (mode === 'rider') { setView('rider'); setTab('rider'); } else {
       if (!BOARD_VIEWS.includes(view)) setView('full');
       if (tab === 'rider') setTab('shape');
     }
@@ -214,9 +230,14 @@ export default function SurfboardLab() {
       onView={setView}
       scale={`${hull.length.toFixed(2)} ${t.m}`}
       panel={<>
-        <LabModes label={t.studio} items={['studio', 'water', 'rider'].map((id) => ({ id, label: t[id] }))} value={settings.mode} onChange={setMode} />
+        <LabModes label={t.studio} items={['studio', 'water', 'rider', 'shore'].map((id) => ({ id, label: t[id] }))} value={settings.mode} onChange={setMode} />
         <LabTabs label={t[tab]} items={tabs.map((id) => ({ id, label: t[id] }))} value={tab} onChange={setTab} />
-        {tab === 'rider' && <>
+        {tab === 'rider' && shore && <>
+          <LabModes label={t.look} items={SURFBOARD_CHOICES.surfboardRiderLook.map((id) => ({ id, label: t[id] }))} value={settings.surfboardRiderLook} onChange={(value) => set('surfboardRiderLook', value)} />
+          <LabRange label={t.pace} value={settings.pace} min={0.05} max={1} step={0.05} onChange={(value) => set('pace', value)} />
+          <LabFacts rows={[[t.now, t.states[riderState] ?? riderState], ...t.controls]} />
+        </>}
+        {tab === 'rider' && !shore && <>
           <LabModes label={t.doing} items={['prone', 'paddle', 'stand', 'swim'].map((id) => ({ id, label: t[id] }))} value={settings.pose} onChange={(value) => set('pose', value)} />
           <LabModes label={t.look} items={SURFBOARD_CHOICES.surfboardRiderLook.map((id) => ({ id, label: t[id] }))} value={settings.surfboardRiderLook} onChange={(value) => set('surfboardRiderLook', value)} />
           <LabRange label={t.pace} value={settings.pace} min={0.05} max={1} step={0.05} onChange={(value) => set('pace', value)} />
@@ -264,7 +285,10 @@ export default function SurfboardLab() {
       transport={editing ? <>
         <button type="button" onClick={savePose}>{t.save}</button>
         <button type="button" onClick={() => retune(normalizePoseTuning(POSE_FACTORY))}>{t.factory}</button>
-      </> : <button type="button" onClick={() => { setSettings(DEFAULTS); setView('full'); setTab('shape'); setEditing(false); }}>{t.reset}</button>}
+      </> : <>
+        {shore && <button type="button" onClick={again}>{t.again}</button>}
+        <button type="button" onClick={() => { setSettings(DEFAULTS); setView('full'); setTab('shape'); setEditing(false); }}>{t.reset}</button>
+      </>}
       stats={<>
         <span><b>{(hull.volume * 1000).toFixed(1)}</b> {t.l}</span>
         <span><b>{imperial(hull)}</b></span>
@@ -273,7 +297,7 @@ export default function SurfboardLab() {
       <AssetStudio
         view={view} cameraViews={CAMERA_VIEWS} cameraLimits={CAMERA_LIMITS}
         waterReflection={afloat} waterY={WATER_Y} floorY={riding ? RIDER_FLOOR : WATER_Y}
-        floorVisible={view !== 'bottom'}
+        floorVisible={view !== 'bottom' && !shore}
         sceneOverrides={{ timeOfDay: settings.timeOfDay, cloudCover: settings.cloudCover }}
         exposure={settings.exposure} environmentIntensity={settings.environmentIntensity}
         shadowRadius={3}
@@ -285,6 +309,7 @@ export default function SurfboardLab() {
             pose={settings.pose} look={board.surfboardRiderLook} pace={settings.pace} wireframe={settings.wireframe}
             onState={setRiderState} onClimbed={() => set('pose', 'prone')}
             editing={editing} editPose={editPose} editKey={editKey} tuning={tuning} part={part} onPart={setPart} onTuning={retune}
+            shore={shore} restart={restart} onRestart={again}
           />
         ) : (
           <group
