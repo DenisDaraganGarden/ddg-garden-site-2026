@@ -210,9 +210,20 @@ export function garlandBulbs({ a, b, sag }, spacing = 0.3) {
   });
 }
 
-// The pieces, collected per finish and merged at the end.
+// The pieces, collected per finish and merged at the end — twice: all of
+// them for near, and for far the ones that still show from far off, with
+// a few plain stand-ins (a rail as one board, a lattice as one sheet) in
+// place of what is dropped. One set of pieces, one set of draws: the far
+// house is the near one, settled the same, only barer.
 function createKit(seed, damage = 0) {
-  const parts = new Map();
+  const parts = new Map(), farParts = new Map();
+  let reach = 'both';
+  const only = (level, draw) => {
+    const was = reach;
+    reach = level;
+    draw();
+    reach = was;
+  };
   const rand = randomSequence(seed);
   const fate = randomSequence(seed * 31 + 17);
   const jitter = (amount) => (rand() - 0.5) * 2 * amount;
@@ -238,8 +249,12 @@ function createKit(seed, damage = 0) {
     const surface = new Float32Array(flat.attributes.position.count * 3);
     for (let i = 0; i < surface.length; i += 3) [surface[i], surface[i + 1], surface[i + 2]] = [seed - Math.floor(seed), layout, scale];
     flat.setAttribute('aSurface', new THREE.BufferAttribute(surface, 3));
-    if (!parts.has(role)) parts.set(role, []);
-    parts.get(role).push(flat);
+    const put = (set, geometry) => {
+      if (!set.has(role)) set.set(role, []);
+      set.get(role).push(geometry);
+    };
+    if (reach !== 'far') put(parts, flat);
+    if (reach !== 'near') put(farParts, reach === 'both' ? flat.clone() : flat);
   };
   // A box in a frame: centre and size in (u, v, w), turned about its centre
   // (radians; about w first, then v, then u).
@@ -321,10 +336,12 @@ function createKit(seed, damage = 0) {
     const vs = outline.map(([, v]) => v);
     panel(role, plane.m, outline, thickness, 0, { scale: course, fromEave: Math.max(...vs) - 0.05 });
     const top = Math.min(...vs);
-    for (let v = Math.max(...vs) - 0.05; v > top + 0.12; v -= course) {
-      const [a, b] = spanAt(outline, v);
-      if (b - a > 0.15) box(role, plane.m, [(a + b) / 2, v + jitter(0.012), thickness + 0.012], [b - a - 0.04, 0.05, 0.024]);
-    }
+    only('near', () => {
+      for (let v = Math.max(...vs) - 0.05; v > top + 0.12; v -= course) {
+        const [a, b] = spanAt(outline, v);
+        if (b - a > 0.15) box(role, plane.m, [(a + b) / 2, v + jitter(0.012), thickness + 0.012], [b - a - 0.04, 0.05, 0.024]);
+      }
+    });
   };
   // Openings in a wall, per wall frame: [u0, u1, v0, v1] its courses keep off.
   const holes = new Map();
@@ -393,7 +410,7 @@ function createKit(seed, damage = 0) {
     }
   };
   // Planks fallen on the sand.
-  const litter = (count, x0, x1, z0, z1) => {
+  const litter = (count, x0, x1, z0, z1) => only('near', () => {
     for (let i = 0; i < count; i += 1) {
       const px = fate(), pz = fate(), yaw = fate(), size = fate(), hit = wound(0.9);
       if (!hit) continue;
@@ -401,14 +418,14 @@ function createKit(seed, damage = 0) {
       const role = ['wood', 'deck', 'siding', 'trim'][Math.floor(hit.kind * 3.999)];
       box(role, WORLD, [x0 + px * (x1 - x0), 0.017 + (Math.abs(tilt) * length) / 2, z0 + pz * (z1 - z0)], [length, 0.03, 0.12 + 0.1 * size], [0, yaw * Math.PI, tilt]);
     }
-  };
-  // Merge per finish; a sagging building is cut short where it bends
-  // (`bends`, a test on a vertex) and bent by `warp`.
+  });
+  // Merge per finish, near and far; a sagging building is cut short where
+  // it bends (`bends`, a test on a vertex) and bent by `warp`.
   const build = (warp = null, bends = null, maxEdge = 1.5) => {
-    deferred.splice(0).forEach((args) => layCourses(...args));
-    return merge(warp, bends, maxEdge);
+    only('near', () => deferred.splice(0).forEach((args) => layCourses(...args)));
+    return { parts: merge(parts, warp, bends, maxEdge), far: merge(farParts, warp, bends, maxEdge * 2) };
   };
-  const merge = (warp, bends, maxEdge) => new Map([...parts].map(([role, list]) => {
+  const merge = (set, warp, bends, maxEdge) => new Map([...set].map(([role, list]) => {
     let merged = mergeGeometries(list, false);
     list.forEach((geometry) => geometry.dispose());
     if (warp) {
@@ -425,7 +442,7 @@ function createKit(seed, damage = 0) {
     merged.computeBoundingSphere();
     return [role, merged];
   }));
-  return { box, panel, beam, stick, rope, corrugated, roof, courses, hole, gaps, roofWounds, litter, jitter, wound, chance: fate, build };
+  return { box, panel, beam, stick, rope, corrugated, roof, courses, hole, gaps, roofWounds, litter, jitter, wound, chance: fate, only, build };
 }
 
 // Openings, built as a carpenter builds them. A window: a sill with a nose,
@@ -448,16 +465,17 @@ function openings(kit, floors = [0]) {
     const outer = w / 2 + CASING;
     for (const s of [-1, 1]) box('trim', m, [u + s * (w / 2 + CASING / 2), v0 + h / 2 + 0.01, CASING_PROUD / 2], [CASING, h + 0.02, CASING_PROUD]);
     box('trim', m, [u, v0 + h + 0.08, CASING_PROUD / 2], [2 * outer + 0.04, 0.14, CASING_PROUD]);
-    box('trim', m, [u, v0 + h + 0.162, CASING_PROUD / 2 + 0.012], [2 * outer + 0.08, 0.024, CASING_PROUD + 0.024]);
+    kit.only('near', () => box('trim', m, [u, v0 + h + 0.162, CASING_PROUD / 2 + 0.012], [2 * outer + 0.08, 0.024, CASING_PROUD + 0.024]));
     if (sill) {
       box('trim', m, [u, v0 - 0.022, 0.065], [2 * outer + 0.1, 0.044, 0.13], [0.07, 0, 0]);
-      box('trim', m, [u, v0 - 0.11, 0.018], [2 * outer - 0.04, 0.1, 0.036]);
+      kit.only('near', () => box('trim', m, [u, v0 - 0.11, 0.018], [2 * outer - 0.04, 0.1, 0.036]));
     }
     kit.hole(m, u - outer + 0.02, u + outer - 0.02, sill ? v0 - 0.14 : 0, v0 + h + 0.15);
     return v0 + h + 0.174;
   };
   // A sash: stiles, a top and a bottom rail, glazing bars `cols` × `rows`.
-  const sashFrame = (m, u, bottom, w, h, depth, [cols, rows], bottomRail, topRail) => {
+  const sashFrame = (...args) => kit.only('near', () => sashBars(...args));
+  const sashBars = (m, u, bottom, w, h, depth, [cols, rows], bottomRail, topRail) => {
     const stile = 0.045, t = 0.022, inner = w - 2 * stile, clear = h - topRail - bottomRail;
     for (const s of [-1, 1]) box('trim', m, [u + s * (w / 2 - stile / 2), bottom + h / 2, depth], [stile, h, t]);
     box('trim', m, [u, bottom + h - topRail / 2, depth], [inner, topRail, t]);
@@ -475,7 +493,9 @@ function openings(kit, floors = [0]) {
       return [hingeU + du, hingeV - below * Math.cos(tilt) + out * Math.sin(tilt), 0.095 + below * Math.sin(tilt) + out * Math.cos(tilt)];
     };
     box('awning', m, at(width / 2, height / 2), [width, height, 0.04], [-tilt, 0, spin]);
-    for (let k = 0; k < 6; k += 1) box('awning', m, at(width / 2, (height * (k + 0.5)) / 6, 0.03), [width - 0.06, 0.05, 0.028], [-tilt - 0.4, 0, spin]);
+    kit.only('near', () => {
+      for (let k = 0; k < 6; k += 1) box('awning', m, at(width / 2, (height * (k + 0.5)) / 6, 0.03), [width - 0.06, 0.05, 0.028], [-tilt - 0.4, 0, spin]);
+    });
     if (loose) return;
     for (const [x, s] of [[0.1, -1], [width - 0.1, 1]]) {
       beam('trim', vec(...at(x, height - 0.05)).applyMatrix4(m), vec(u + s * (w / 2 + 0.06), v0 + 0.1, CASING_PROUD).applyMatrix4(m), 0.025, 0.025);
@@ -487,7 +507,9 @@ function openings(kit, floors = [0]) {
     if (look === 'attic') {
       // Louvres, dark glass behind them (no room: it is the attic).
       box('glass', m, [u, v0 + h / 2, 0.006], [w, h, 0.012]);
-      for (let k = 0; k < 6; k += 1) box('trim', m, [u, v0 + (h * (k + 0.5)) / 6, 0.03], [w, 0.07, 0.012], [-0.7, 0, 0]);
+      kit.only('near', () => {
+        for (let k = 0; k < 6; k += 1) box('trim', m, [u, v0 + (h * (k + 0.5)) / 6, 0.03], [w, 0.07, 0.012], [-0.7, 0, 0]);
+      });
       return;
     }
     const broken = Boolean(hit) && hit.kind < 0.55, boarded = look === 'boarded' || (Boolean(hit) && !broken);
@@ -572,10 +594,14 @@ export function buildBeachHouse(input = {}) {
     const start = postAtA ? POST / 2 : 0, end = length - (postAtB ? POST / 2 : 0);
     if (end - start < 0.25) return;
     const at = (s, y) => vec(a[0] + (dx / length) * s, y, a[1] + (dz / length) * s);
+    kit.only('far', () => beam('trim', at(start, F + (railLow + railSub) / 2), at(end, F + (railLow + railSub) / 2), 0.03, railSub - railLow + 0.07));
+    kit.only('near', () => railBars(at, start, end));
+    stick('trim', at(start, F + RAIL - 0.018), at(end, F + RAIL - 0.018), 0.16, 0.036, 0.04, F + 0.05);
+  };
+  const railBars = (at, start, end) => {
     stick('trim', at(start, F + railLow), at(end, F + railLow), 0.05, 0.07, 0.1, F + 0.05);
     for (let s = start + 0.25; s < end - 0.15; s += 0.6) box('trim', WORLD, at(s, F + 0.043).toArray(), [0.05, 0.086, 0.05]);
     stick('trim', at(start, F + railSub), at(end, F + railSub), 0.06, 0.07, 0.08, F + 0.05);
-    stick('trim', at(start, F + RAIL - 0.018), at(end, F + RAIL - 0.018), 0.16, 0.036, 0.04, F + 0.05);
     const widths = [0.1 + jitter(0.025), 0.1 + jitter(0.025), 0.1 + jitter(0.025)];
     const top = railSub - 0.035, bottom = railLow + 0.035, gap = (top - bottom - widths.reduce((sum, w) => sum + w, 0)) / 4;
     let y = bottom + gap;
@@ -636,6 +662,11 @@ export function buildBeachHouse(input = {}) {
   const lattice = (m, length) => {
     const bottom = 0.08, top = F - DECK - RIM - 0.02, half = length / 2, step = 0.3;
     if (top - bottom < 0.2) return;
+    kit.only('far', () => box('trim', m, [0, (bottom + top) / 2, 0.018], [length, top - bottom, 0.012]));
+    kit.only('near', () => latticeStrips(m, half, bottom, top, step));
+    for (const v of [bottom, top]) box('trim', m, [0, v, 0.03], [length, 0.07, 0.03]);
+  };
+  const latticeStrips = (m, half, bottom, top, step) => {
     for (const dir of [1, -1]) {
       for (let c = -half - (top - bottom); c < half + (top - bottom); c += step) {
         // The line u = c + dir·(v − bottom), clipped to the rectangle.
@@ -646,7 +677,6 @@ export function buildBeachHouse(input = {}) {
         box('trim', m, [(u0 + u1) / 2, (v0 + v1) / 2, 0.01 + (dir > 0 ? 0 : 0.016)], [Math.hypot(u1 - u0, v1 - v0), 0.045, 0.014], [0, 0, (dir * Math.PI) / 4]);
       }
     }
-    for (const v of [bottom, top]) box('trim', m, [0, v, 0.03], [length, 0.07, 0.03]);
   };
 
   // The house's floor and the porch's. The porch's inner edge rests on the
@@ -660,6 +690,10 @@ export function buildBeachHouse(input = {}) {
   // Porch boards run out from the wall a finger's gap apart, of a few widths,
   // none quite alike, their ends nosed 3 cm over the band.
   const boards = (x0, x1, z0, z1, alongZ) => {
+    kit.only('far', () => box('deck', WORLD, [(x0 + x1 + (alongZ ? 0 : 0.03)) / 2, F - DECK / 2, (z0 + z1 + (alongZ ? 0.03 : 0)) / 2], [x1 - x0 + (alongZ ? 0 : 0.03), DECK, z1 - z0 + (alongZ ? 0.03 : 0)]));
+    kit.only('near', () => deckBoards(x0, x1, z0, z1, alongZ));
+  };
+  const deckBoards = (x0, x1, z0, z1, alongZ) => {
     const first = alongZ ? x0 : z0, last = alongZ ? x1 : z1;
     for (let c = first; c < last - 0.04;) {
       const width = Math.min(last - c, 0.13 + jitter(0.03)), y = F - DECK / 2 + jitter(0.004), short = Math.abs(jitter(0.03)) / 2, mid = c + width / 2;
@@ -769,7 +803,7 @@ export function buildBeachHouse(input = {}) {
     box('trim', WORLD, [x, F + 0.07, z], [POST + 0.05, 0.14, POST + 0.05]);
     box('trim', WORLD, [x, F + POST_HEIGHT - 0.09, z], [POST + 0.04, 0.05, POST + 0.04]);
   }
-  const brace = ([x, z], dx, dz) => stick('trim', vec(x + (dx * POST) / 2, F + POST_HEIGHT - 0.5, z + (dz * POST) / 2), vec(x + dx * 0.45, F + POST_HEIGHT - 0.01, z + dz * 0.45), 0.06, 0.07, 0.15, F + 0.05);
+  const brace = ([x, z], dx, dz) => kit.only('near', () => stick('trim', vec(x + (dx * POST) / 2, F + POST_HEIGHT - 0.5, z + (dz * POST) / 2), vec(x + dx * 0.45, F + POST_HEIGHT - 0.01, z + dz * 0.45), 0.06, 0.07, 0.15, F + 0.05));
   frontPosts.forEach((post, i) => {
     if (i > 0) brace(post, -1, 0);
     if (i < frontPosts.length - 1) brace(post, 1, 0);
@@ -905,7 +939,7 @@ export function buildBeachHouse(input = {}) {
   // own boards and casings too, settles flat.
   const bends = (x, y, z) => y > eaveY + 0.05 || (y > F - 0.85 && (z > L / 2 + 0.12 || x > W / 2 + 0.12));
 
-  const parts = kit.build(warp, bends);
+  const { parts, far } = kit.build(warp, bends);
   const bounds = new THREE.Box3();
   parts.forEach((geometry) => bounds.union(geometry.boundingBox));
   // Points that hang on the house bend with it.
@@ -916,6 +950,7 @@ export function buildBeachHouse(input = {}) {
   };
   return {
     parts,
+    far,
     bounds,
     plan: {
       ...p,
@@ -934,6 +969,10 @@ export function buildBeachHouse(input = {}) {
         // section, the wall between the lantern and the window.
         posts: { front: frontPosts, side: sidePosts, size: POST }, wrapBack, face: porchFace, railSection,
         wall: { z: L / 2 + 0.024, from: lanternU + 0.1, to: W / 2 - 2.07 },
+        // The front roof's underside, falling from the wall; the side wall's
+        // window under the porch (z of its casing's ends).
+        roof: { wall: L / 2, high: porchHigh, fall: porchTan },
+        sideWindow: [(L / 2 + wrapBack) / 2 - 0.66, (L / 2 + wrapBack) / 2 + 0.66],
       },
       // A point as the settled house carries it.
       bend: bent,
@@ -987,7 +1026,7 @@ export function buildBeachShed(input = {}) {
   for (const [m, width] of faces) {
     for (let u = -width / 2 + 0.1; u < width / 2 - 0.08; u += 0.15) {
       const nudge = jitter(0.01), hit = wound(0.22);
-      box('shedWall', m, [u + nudge, WALLS / 2, 0.01], [0.03, WALLS, 0.02]);
+      kit.only('near', () => box('shedWall', m, [u + nudge, WALLS / 2, 0.01], [0.03, WALLS, 0.02]));
       if (hit && u < width / 2 - 0.2) {
         const tall = WALLS * (0.35 + 0.5 * hit.amount);
         box('void', m, [u + 0.075, tall / 2, 0.012], [0.11, tall, 0.024]);
@@ -1055,8 +1094,10 @@ export function buildBeachShed(input = {}) {
     ];
     for (const [a, b] of spans) {
       const snapped = wound(0.35);
-      if (!snapped) kit.rope('rope', a, b);
-      else kit.rope('rope', a, a.clone().lerp(b, 0.5 + 0.3 * snapped.amount).setY(H + 0.03));
+      kit.only('near', () => {
+        if (!snapped) kit.rope('rope', a, b);
+        else kit.rope('rope', a, a.clone().lerp(b, 0.5 + 0.3 * snapped.amount).setY(H + 0.03));
+      });
     }
   }
 
@@ -1069,7 +1110,7 @@ export function buildBeachShed(input = {}) {
     v.z += sag * 0.02 * v.y;
   } : null;
 
-  const parts = kit.build(warp, (x, y) => y > H + WALLS + 0.05, 1);
+  const { parts, far } = kit.build(warp, (x, y) => y > H + WALLS + 0.05, 1);
   const bounds = new THREE.Box3();
   parts.forEach((geometry) => bounds.union(geometry.boundingBox));
   const bent = (v) => {
@@ -1078,13 +1119,14 @@ export function buildBeachShed(input = {}) {
   };
   return {
     parts,
+    far,
     bounds,
     plan: {
       lamps: [bent(bulb.clone())],
       // The garland from the house ties on at the post nearer the house (−z).
       yardAnchor: bent(vec(postX, headerTop - 0.3, Z0 + 0.02)),
       seed,
-      hut: { front: FRONT, back: X0, z0: Z0, z1: Z1, walls: WALLS, door: stepZ, posts: postX },
+      hut: { front: FRONT, back: X0, z0: Z0, z1: Z1, walls: WALLS, door: stepZ, posts: postX, header: headerTop - 0.18, stubs },
       bend: (point) => bent(vec(...point)),
       deck: H, steps: 3, stepRise: H / 3, door: { width: 0.82, height: 1.9 }, eaves: eaveY, ridge: bounds.max.y, dripLines: [H + WALLS, H + 1.1, H + 0.02, 0.3] },
   };
@@ -1092,4 +1134,5 @@ export function buildBeachShed(input = {}) {
 
 export function disposeBuilding(building) {
   building?.parts.forEach((geometry) => geometry.dispose());
+  building?.far?.forEach((geometry) => geometry.dispose());
 }

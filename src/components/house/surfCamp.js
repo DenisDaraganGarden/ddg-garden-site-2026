@@ -37,6 +37,14 @@ export const CAMP_BOARDS = Object.freeze([
   board(1.95, 0.52, 0.064, '#26292b', '#f0c64a', '#f0c64a', 1, '#f0c64a'),
 ]);
 
+// The colours one can pick for the camp's painted things (the boards, rings
+// and signs keep their own); every colour of it can also be turned round the
+// hue circle and faded by the sun (SurfCampModel.jsx).
+export const CAMP_COLORS = Object.freeze({
+  chairs: '#a3291f', hammock: '#e9dfc8', curtain: '#f59f55', flags: '#c62f28', machine: '#e8692e', machineSide: '#5fb7b0',
+});
+// The drinks machine's footprint (campProps.js builds it).
+export const VENDING = Object.freeze({ width: 0.76, depth: 0.72, height: 1.8 });
 // How wide what dries on the line is (campProps.js draws it).
 const WASHING = { towel: 0.5, bottom: 0.3, bra: 0.4, top: 0.34, tee: 0.48 };
 
@@ -119,8 +127,8 @@ const upright = (lean, spin) => axis(X, -lean).multiply(axis(Z, spin));
 const between = (random, a, b) => a + (b - a) * random();
 
 // The house's things. Front porch bays counted from the stairs.
-export function houseCamp({ plan }) {
-  const random = randomSequence(plan.seed * 131 + 7);
+export function houseCamp({ plan }, seed = plan.seed) {
+  const random = randomSequence(seed * 131 + 7);
   const { floor: F, bend, stairs, porch } = plan;
   const { front, side, size } = porch.posts;
   const faceZ = front[0][1] + size / 2, faceX = side.length ? side[0][0] + size / 2 : front.at(-1)[0] + size / 2;
@@ -173,8 +181,10 @@ export function houseCamp({ plan }) {
   const stuck = place(bend, [footX - between(random, 0.8, 1.3), footZ - between(random, 1.2, 1.8)], 0, [Math.sin(facing), Math.cos(facing)]);
   put(5, rest(boardPoints(CAMP_BOARDS[5]), standing(between(random, 0.03, 0.12), tip(), roll(), true), stuck, { ground: -0.3 }));
 
-  // A stack of old rings in the side porch's back corner, against the wall.
-  const stack = new THREE.Vector3(...bend([plan.houseWidth / 2 + 0.52, F, corner + 0.62]));
+  // A stack of old rings on the front porch, under the window's sill by the
+  // corner of the house.
+  const W = plan.houseWidth, L = plan.houseLength;
+  const stack = new THREE.Vector3(...bend([W / 2 - 0.42, F, L / 2 + 0.43]));
   const paints = [3, 4, 5, 6].sort(() => random() - 0.5);
   paints.forEach((paint, k) => {
     const at = stack.clone().add(new THREE.Vector3(between(random, -0.03, 0.03), 0.058 + k * (LIFE_RING.depth + 0.002), between(random, -0.03, 0.03)));
@@ -208,17 +218,42 @@ export function houseCamp({ plan }) {
   // The curtain in the open front door, on a rod under the head casing.
   const door = plan.door;
   const curtain = { rod: door.rod, width: door.width - 0.04, height: door.height - 0.08 };
-  return { rings, boards, sign, chairs, flags, line: { ...line, washing }, curtain };
+
+  // The side porch is the lounge: the drinks machine against the wall at its
+  // back end, clear of the window; a hammock slung from the corner post to
+  // the wall past the window.
+  const [windowFrom, windowTo] = porch.sideWindow, sideWall = W / 2 + 0.024;
+  const machine = windowFrom - (corner + 0.15) >= VENDING.width + 0.02
+    ? { position: bend([sideWall + 0.02 + VENDING.depth / 2, F, corner + 0.15 + VENDING.width / 2]), yaw: Math.PI / 2 }
+    : null;
+  const cornerPost = front.at(-1), wallHook = windowTo + 0.2;
+  const hammock = wallHook < L / 2 - 0.25
+    ? { a: bend([cornerPost[0] - size / 2 - 0.01, F + 1.7, cornerPost[1] - size / 2 - 0.01]), b: bend([sideWall + 0.01, F + 1.7, wallHook]), phase: random() * 6.3 }
+    : null;
+  // Signs. NO BAD DAYS hangs from the porch roof's edge over a bay, outside
+  // the posts, swinging; CHILL stands by the lounge; NAKED SURFING, crooked,
+  // down towards the sea.
+  const bay = Math.min(2, bays - 1), hookZ = faceZ + 0.2, roof = porch.roof;
+  const hanging = [{ face: 'noBadDays', position: bend([middle(bay) + loose(bay, 0.85), roof.high - (hookZ - roof.wall) * roof.fall, hookZ]), yaw: 0, phase: random() * 6.3 }];
+  const posts = [
+    { face: 'chill', position: [faceX + between(random, 0.8, 1.2), 0, L / 2 + porch.depth - between(random, 1.2, 1.8)], yaw: 1 + between(random, -0.2, 0.2), lean: between(random, -0.04, 0.04) },
+    { face: 'nakedSurfing', position: [faceX + between(random, 0.5, 1.5), 0, faceZ + between(random, 2.5, 3.5)], yaw: 0.64 + between(random, -0.25, 0.25), lean: between(random, -0.07, 0.07) },
+  ];
+  return { rings, boards, sign, chairs, flags, line: { ...line, washing }, curtain, machine, hammock, hanging, posts };
 }
 
 // The shed's: a ring on the hut's front wall left of the door, a board on the
 // sand against its side.
-export function shedCamp({ plan }) {
-  const random = randomSequence(plan.seed * 173 + 11);
+export function shedCamp({ plan }, seed = plan.seed) {
+  const random = randomSequence(seed * 173 + 11);
   const { hut, deck: H, bend } = plan;
   const spot = hut.z0 + 0.1 + LIFE_RING.radius + LIFE_RING.tube + random() * 0.1;
   const rings = [{ paint: 4, ...rest(RING_POINTS, upright(0, random() * 6.3), place(bend, [hut.front, spot], H + between(random, 1.8, 1.95), [1, 0], [[0, H + hut.walls, 0.02]]), { top: 0 }) }];
   const side = place(bend, [between(random, -0.03, 0.05), hut.z1], 0, [0, 1], [[0, H, 0], [H, H + hut.walls, 0.02]]);
   const boards = [{ slot: 7, settings: CAMP_BOARDS[7], ...rest(boardPoints(CAMP_BOARDS[7]), standing(between(random, 0.2, 0.3), between(random, -0.04, 0.04), between(random, -0.1, 0.1), random() < 0.6), side, { ground: -0.015 }) }];
-  return { rings, boards };
+  // SURFING IS MY FULL-TIME JOB swings under the front beam, over the rope
+  // rail beside the steps.
+  const beside = (hut.z0 + 0.13 + hut.stubs[0] - 0.05) / 2;
+  const hanging = [{ face: 'unpaid', position: bend([hut.posts, hut.header, beside]), yaw: Math.PI / 2, phase: random() * 6.3 }];
+  return { rings, boards, hanging };
 }

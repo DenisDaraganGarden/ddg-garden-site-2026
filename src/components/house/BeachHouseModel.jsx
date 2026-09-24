@@ -1,6 +1,6 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
-import { useLoader, useThree } from '@react-three/fiber';
+import { useFrame, useLoader, useThree } from '@react-three/fiber';
 import { HOUSE_COLORS, HOUSE_ROLES } from './beachHouse';
 import { houseMapUrls, houseMaps, houseMaterial } from './houseMaterial';
 
@@ -9,7 +9,8 @@ import { houseMapUrls, houseMaps, houseMaterial } from './houseMaterial';
 // behind the windows and the lanterns, more as `night` (0…1) falls; each
 // lantern also lights what is round it. `clay` shows it as an architect's
 // white card model instead: no maps, no age, no light. Suspends while the
-// maps load.
+// maps load. Past `near` metres it shows its far build (the same house,
+// barer: beachHouse.js), in the same materials.
 const FINISH = {
   glass: { roughness: 0.08 },
   metal: { roughness: 0.55, metalness: 0.25, side: THREE.DoubleSide },
@@ -22,7 +23,7 @@ const FINISH = {
 const CLAY = '#e8e3d9';
 const CLAY_DARK = '#9ca2a6';
 
-export default function BeachHouseModel({ building, colors = HOUSE_COLORS, clay = false, wireframe = false, weather = 0, seed = 0, lamps = 0, night = 0, lowPower = false }) {
+export default function BeachHouseModel({ building, colors = HOUSE_COLORS, clay = false, wireframe = false, weather = 0, seed = 0, lamps = 0, night = 0, lowPower = false, near = 60 }) {
   const { gl } = useThree();
   const textures = useLoader(THREE.TextureLoader, houseMapUrls(lowPower));
   const maps = useMemo(() => houseMaps(textures, gl), [gl, textures]);
@@ -51,11 +52,26 @@ export default function BeachHouseModel({ building, colors = HOUSE_COLORS, clay 
     materials.lamp.emissiveIntensity = clay ? 0 : lamps * (0.3 + 2.7 * night);
   }, [clay, lampLight, lamps, materials, night, shared]);
 
+  const detail = useRef(), bare = useRef(), centre = useMemo(() => building.bounds.getCenter(new THREE.Vector3()), [building]), point = useMemo(() => new THREE.Vector3(), []);
+  useFrame(({ camera }) => {
+    if (!detail.current || !bare.current) return;
+    const close = camera.position.distanceTo(detail.current.localToWorld(point.copy(centre))) < near;
+    detail.current.visible = close;
+    bare.current.visible = !close;
+  });
+
   return (
     <group>
-      {[...building.parts].map(([role, geometry]) => (
-        <mesh key={role} name={`house-${role}`} geometry={geometry} material={materials[role]} castShadow receiveShadow />
-      ))}
+      <group ref={detail}>
+        {[...building.parts].map(([role, geometry]) => (
+          <mesh key={role} name={`house-${role}`} geometry={geometry} material={materials[role]} castShadow receiveShadow />
+        ))}
+      </group>
+      <group ref={bare} visible={false}>
+        {[...(building.far ?? [])].map(([role, geometry]) => (
+          <mesh key={role} name={`house-far-${role}`} geometry={geometry} material={materials[role]} castShadow receiveShadow />
+        ))}
+      </group>
       {building.plan.lamps.map((position, i) => (
         <pointLight key={i} position={position} color="#ffbe78" intensity={clay ? 0 : lamps * night * 6} distance={9} decay={2} />
       ))}

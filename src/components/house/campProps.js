@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { LIFE_RING } from './surfCamp.js';
+import { LIFE_RING, VENDING } from './surfCamp.js';
 
 // The camp's small things as geometry, built once (SurfCampModel.jsx draws
 // and moves them): the life ring in its parts, a red Adirondack chair, the
@@ -111,18 +111,77 @@ export const SIGN_PLATES = Object.freeze({
   bikini: { shape: BRA, text: 'BIKINI', bounds: [-0.38, 0, 0.38, 0.28], textY: 0.1, drop: 0.24 },
   point: { shape: BRIEFS, text: 'POINT', bounds: [-0.35, -0.28, 0.35, 0], textY: -0.075, drop: 0 },
 });
-const PLATE = 0.006;
+// A sheet-metal plate cut to `shape`, `thickness` thick about z = 0: its edge,
+// its front face (a hair proud, uv = the shape's metres) and its back face
+// turned round, so what is painted on it reads from behind.
+export function plate(shape, thickness = 0.006, segments = 8) {
+  const edge = new THREE.ExtrudeGeometry(shape, { depth: thickness, bevelEnabled: false, curveSegments: segments }).translate(0, 0, -thickness / 2);
+  const front = new THREE.ShapeGeometry(shape, segments).translate(0, 0, thickness / 2 + 0.001);
+  const back = new THREE.ShapeGeometry(shape, segments).applyMatrix4(new THREE.Matrix4().makeRotationY(Math.PI)).translate(0, 0, -thickness / 2 - 0.001);
+  return { edge, front, back };
+}
 export function signPlate(name) {
   const { shape, drop } = SIGN_PLATES[name];
-  const plate = new THREE.ExtrudeGeometry(shape, { depth: PLATE, bevelEnabled: false, curveSegments: 8 }).translate(0, 0, -PLATE / 2);
-  const front = new THREE.ShapeGeometry(shape, 8).translate(0, 0, PLATE / 2 + 0.001);
-  // The back face turned round, so its letters read from behind.
-  const back = new THREE.ShapeGeometry(shape, 8);
-  back.applyMatrix4(new THREE.Matrix4().makeRotationY(Math.PI)).translate(0, 0, -PLATE / 2 - 0.001);
+  const { edge, front, back } = plate(shape);
   // `bikini` hangs below its straps; `point` reaches left of the post.
   const place = new THREE.Matrix4().makeTranslation(name === 'bikini' ? 0 : -0.37, -drop - (name === 'bikini' ? 0.28 : 0), 0);
-  const faces = merge([front, back]).applyMatrix4(place);
-  return { plate: plate.applyMatrix4(place), faces };
+  return { plate: edge.applyMatrix4(place), faces: merge([front, back]).applyMatrix4(place) };
+}
+// Road signs: a diamond with its corners eased, a disc.
+export const DIAMOND = (() => {
+  const r = 0.42, ease = 0.04, shape = new THREE.Shape(), corners = [[0, r], [r, 0], [0, -r], [-r, 0]];
+  corners.forEach(([x, y], i) => {
+    const [px, py] = corners[(i + 3) % 4], [nx, ny] = corners[(i + 1) % 4];
+    const inX = x + (px - x) * (ease / r), inY = y + (py - y) * (ease / r), outX = x + (nx - x) * (ease / r), outY = y + (ny - y) * (ease / r);
+    if (i) shape.lineTo(inX, inY);
+    else shape.moveTo(inX, inY);
+    shape.quadraticCurveTo(x, y, outX, outY);
+  });
+  shape.closePath();
+  return shape;
+})();
+export const DISC = new THREE.Shape().absarc(0, 0, 0.3, 0, Math.PI * 2, false);
+
+// A painted board hung by two chains from a beam: the chains from y = 0 to
+// its top corners, the board `width` × `height` below them, 3 cm thick, its
+// painted face +z (group 4 of the box: the others are bare wood).
+export function hangingBoard(width, height, chain) {
+  const board = new THREE.BoxGeometry(width, height, 0.03).translate(0, -chain - height / 2, 0);
+  const links = merge([-1, 1].map((s) => beam(v(s * (width / 2 - 0.08), 0, 0), v(s * (width / 2 - 0.06), -chain - 0.02, 0), 0.012, 0.012, v(0, 0, 1))));
+  return { board, links };
+}
+
+// A hammock slung between two points `span` apart along +x (from the
+// origin), both at y = 0: a rope down to where the cloth is gathered, a fan
+// of strings to its end, the cloth sagging `sag` between and curling up at
+// its edges, `width` across at the middle. Swings about the x axis.
+export function hammockGeometry(span, { sag = 0.5, width = 1.1, reach = 0.55, drop = 0.3 } = {}) {
+  const columns = 28, rows = 10, bed = new THREE.PlaneGeometry(1, 1, columns, rows), position = bed.attributes.position;
+  const at = (s, t) => {
+    const bell = Math.sin(Math.PI * s), w = width * bell ** 0.55;
+    return v(reach + s * (span - 2 * reach), -drop - sag * bell + 0.28 * t * t * bell ** 0.8, (t * w) / 2);
+  };
+  for (let j = 0; j <= rows; j += 1) {
+    for (let i = 0; i <= columns; i += 1) {
+      const p = at(i / columns, (j / rows) * 2 - 1);
+      position.setXYZ(j * (columns + 1) + i, p.x, p.y, p.z);
+    }
+  }
+  bed.computeVertexNormals();
+  const strings = [];
+  for (const end of [0, 1]) {
+    const anchor = v(end * span, 0, 0), gather = v(end ? span - reach * 0.8 : reach * 0.8, -drop * 0.8, 0);
+    strings.push(new THREE.TubeGeometry(new THREE.LineCurve3(anchor, gather), 1, 0.011, 5));
+    for (const t of [-1, -0.5, 0, 0.5, 1]) strings.push(new THREE.TubeGeometry(new THREE.LineCurve3(gather, at(end ? 0.97 : 0.03, t)), 1, 0.004, 4));
+  }
+  return { bed, ropes: merge(strings) };
+}
+
+// The drinks machine (VENDING's size) standing on y = 0, its front +z (box
+// group 4, painted), on a low plinth.
+export function vendingGeometry() {
+  const { width, depth, height } = VENDING;
+  return { body: new THREE.BoxGeometry(width, height - 0.05, depth).translate(0, height / 2 + 0.025, 0), plinth: new THREE.BoxGeometry(width - 0.06, 0.05, depth - 0.06).translate(0, 0.025, 0) };
 }
 
 // What dries on the line, each hanging from the line at y = 0, in the plane
@@ -187,13 +246,13 @@ export function drapeGrid(geometry, at) {
 // The wind on a flag at time t: a triangle (`kind` 'pennant') or a
 // rectangle, hoisted `hoist` long down a pole from `top` along `down`, flying
 // `fly` long towards `wind`. u runs out from the pole, v down the hoist.
-export function flagAt({ top, down, wind, kind, hoist, fly, phase }, t) {
+export function flagAt({ top, down, wind, kind, hoist, fly, phase }, t, strength = 1) {
   const along = wind.clone().addScaledVector(down, -wind.dot(down)).normalize();
   const normal = new THREE.Vector3().crossVectors(along, down).normalize();
   return (u, w, out) => {
     const across = kind === 'pennant' ? 0.5 + (w - 0.5) * (1 - u) : w;
-    const wave = Math.sin(u * 7 - t * 7.5 + phase) * 0.07 * u + Math.sin(u * 13 - t * 11 + phase * 2) * 0.02 * u;
-    const droop = 0.12 * u * u * (0.6 + 0.4 * Math.sin(t * 1.3 + phase));
+    const wave = (Math.sin(u * 7 - t * 7.5 + phase) * 0.07 * u + Math.sin(u * 13 - t * 11 + phase * 2) * 0.02 * u) * Math.min(strength, 1.6);
+    const droop = 0.12 * u * u * (0.6 + 0.4 * Math.sin(t * 1.3 + phase)) + 0.5 * u * u * Math.max(0, 1 - strength);
     out.copy(top).addScaledVector(down, across * hoist + droop).addScaledVector(along, u * fly * (1 - 0.08 * Math.abs(Math.sin(t * 3 + phase)))).addScaledVector(normal, wave);
   };
 }
@@ -202,11 +261,11 @@ export function flagAt({ top, down, wind, kind, hoist, fly, phase }, t) {
 // middle) and let down `height` in the plane with normal `out`; the draught
 // breathes it out over the threshold and blows its foot aside, showing the
 // dark of the room at one side.
-export function curtainAt({ rod, width, height, out, across }, t) {
-  const gust = 0.55 + 0.45 * Math.sin(t * 0.7) * Math.sin(t * 0.23 + 1);
+export function curtainAt({ rod, width, height, out, across }, t, strength = 1) {
+  const gust = (0.55 + 0.45 * Math.sin(t * 0.7) * Math.sin(t * 0.23 + 1)) * Math.min(strength, 1.8);
   return (u, w, point) => {
     const fall = w ** 1.6, x = (u - 0.5) * width;
-    const billow = fall * (0.2 + 0.35 * gust) + 0.02 * w * Math.sin(u * 17 + t * 2.1) + 0.04 * fall * Math.sin(t * 1.6 + u * 3);
+    const billow = fall * (0.2 * Math.min(strength, 1) + 0.35 * gust) + 0.02 * w * Math.sin(u * 17 + t * 2.1) + 0.04 * fall * Math.sin(t * 1.6 + u * 3);
     const aside = fall * (0.14 + 0.18 * gust) * (0.7 + 0.3 * Math.sin(t * 0.9 + 0.6)) * (0.3 + u);
     const lift = billow * billow * 0.6, pleat = 0.018 * Math.sin((x / 0.12) * Math.PI * 2);
     point.copy(rod).addScaledVector(across, x + aside).addScaledVector(Y, -w * height + lift).addScaledVector(out, billow + pleat);
