@@ -62,7 +62,7 @@ process.env.DDG_OPENAI_BASE_URL = `http://127.0.0.1:${server.address().port}`;
 process.env.OPENAI_API_KEY = 'sk-test-0123456789abcdefghij';
 
 try {
-  const { texturePrompt, requestSize, requestQuality, generateDraft, finishDraft, mapsFromTexture, listMaterials, imageModels, MATERIALS_DIR } = await import('./materials.mjs');
+  const { texturePrompt, requestSize, requestQuality, generateDraft, finishDraft, mapsFromTexture, listMaterials, imageModels, libraryPatch, MATERIALS_DIR } = await import('./materials.mjs');
   const { isApiKey, keyHint } = await import('./openaiKey.mjs');
   const { seamRatio } = await import('./materialMaps.mjs');
 
@@ -122,6 +122,10 @@ try {
   assert.equal(maps.tile, null);
   assert.equal(maps.mode, 'maps');
   assert.deepEqual((await listMaterials()).map((item) => item.id).sort(), [entry.id, maps.id].sort(), 'черновики в библиотеку не попадают');
+
+  // Умолчания из лаборатории «Материалы»: в пределах ползунков; у «только карт» плитки нет.
+  assert.deepEqual(libraryPatch(entry, { name: '  Планкен  ', tile: 999, normal: 1.5, roughness: -1, extra: 1 }), { name: 'Планкен', tile: 50, normal: 1.5, roughness: 0 });
+  assert.deepEqual(libraryPatch(maps, { tile: 2, normal: 'x', roughness: null }), {}, '«только карты» лежат как в SketchUp');
 
   // Сцена: сколько метров в единице координат SketchUp — по u и по v отдельно.
   const { uvScale, boxUvGeometry } = await import('../src/materials/modelMaterials.js');
@@ -216,7 +220,7 @@ try {
   } } }, 'запись только про стекло держится; «не стекло» — тоже слово');
   assert.deepEqual(normalizeMaterialSettings(normalized), normalized, 'нормализация неподвижна');
 
-  console.log(`materials: ключ, модели, задание, варианты, аналоги, шов крестом (${before.toFixed(1)} → ${after.toFixed(1)}), карты, библиотека, «только карты», масштаб SketchUp, проекция, стекло, настройки — ok`);
+  console.log(`materials: ключ, модели, задание, варианты, аналоги, шов крестом (${before.toFixed(1)} → ${after.toFixed(1)}), карты, библиотека, «только карты», масштаб SketchUp, проекция, стекло, настройки, умолчания библиотеки — ok`);
 } finally {
   server.close();
   await fs.rm(home, { recursive: true, force: true });

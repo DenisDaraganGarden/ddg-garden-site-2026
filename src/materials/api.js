@@ -26,4 +26,5 @@ export const mapsFromTexture = async (request) => (await call('/__materials/maps
 
 export const listMaterials = async () => (await call('/__library/materials')).materials ?? [];
 export const removeMaterial = (id) => call(`/__library/materials/${encodeURIComponent(id)}`, { method: 'DELETE' });
-export const renameMaterial = (id, name) => call(`/__library/materials/${encodeURIComponent(id)}`, json('PATCH', { name }));
+// Имя и умолчания (плитка, рельеф, матовость) — из лаборатории «Материалы».
+export const updateMaterial = async (id, patch) => (await call(`/__library/materials/${encodeURIComponent(id)}`, json('PATCH', patch))).material;

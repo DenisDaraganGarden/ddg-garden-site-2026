@@ -143,6 +143,29 @@ export function LabSelect({ label, value, options, onChange }) {
     );
 }
 
+// Выбор из картинок (материалы библиотеки): подпись под каждой, выбранная — в рамке.
+export function LabSwatches({ label, items, value, onChange }) {
+    return (
+        <div className="lab__swatches" role="group" aria-label={label}>
+            {items.map((item) => (
+                <button key={item.id} type="button" aria-pressed={value === item.id} title={item.label} onClick={() => onChange(item.id)}>
+                    <img src={item.image} alt="" loading="lazy" />
+                    <span>{item.label}</span>
+                </button>
+            ))}
+        </div>
+    );
+}
+
+export function LabText({ label, value, onChange }) {
+    return (
+        <label className="lab__row">
+            <span>{label}</span>
+            <input type="text" aria-label={label} value={value} onChange={(event) => onChange(event.target.value)} />
+        </label>
+    );
+}
+
 export function LabFacts({ rows }) {
     return (
         <dl className="lab__facts">

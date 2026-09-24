@@ -1,11 +1,14 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import { materialsPlugin } from './scripts/materials.mjs';
 
 // The canonical asset laboratory stays isolated from the product editor and
 // gives every collection the same browser surface and cache. It is its own
 // Vite entry: the site's build never includes it.
 //
 // The launch list can only open a server's root, so "/" lands on the lab page.
+// The material library (collection 18) reads and writes through the same local
+// routes as the editor (scripts/materials.mjs).
 function labAtRootPlugin() {
   return {
     name: 'asset-lab-at-root',
@@ -24,7 +27,7 @@ function labAtRootPlugin() {
 }
 
 export default defineConfig({
-  plugins: [react(), labAtRootPlugin()],
+  plugins: [react(), labAtRootPlugin(), materialsPlugin()],
   cacheDir: 'node_modules/.vite-asset-lab',
   server: {
     host: '127.0.0.1',

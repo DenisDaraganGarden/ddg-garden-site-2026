@@ -109,6 +109,10 @@ const loadTexture = (url, color) => new Promise((resolve, reject) => {
     }, undefined, reject);
 });
 
+// Карты материала библиотеки — [[ключ материала three, текстура], …]: их же
+// показывает лаборатория «Материалы».
+export const loadLibraryMaps = (id) => Promise.all(Object.entries(MAPS).map(([key, [file, color]]) => loadTexture(libraryFile(id, file), color).then((texture) => [key, texture])));
+
 function remember(material) {
     if (material.userData.original) return material.userData.original;
     material.userData.original = {
@@ -218,7 +222,7 @@ export function applyModelMaterials(prepared, overrides, { root, anisotropy = 4,
             onChange?.();
             continue;
         }
-        jobs.push(Promise.all(Object.entries(MAPS).map(([key, [file, color]]) => loadTexture(libraryFile(override.material, file), color).then((texture) => [key, texture])))
+        jobs.push(loadLibraryMaps(override.material)
             .then((loaded) => {
                 if (cancelled || material.userData.override !== override) { loaded.forEach(([, texture]) => texture.dispose()); return; }
                 for (const [key, texture] of loaded) {

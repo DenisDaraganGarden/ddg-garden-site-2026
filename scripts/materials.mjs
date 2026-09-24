@@ -3,6 +3,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { HOME, isValidId, slugify } from './projectStore.mjs';
 import { keyHint, readApiKey, removeApiKey, saveApiKey } from './openaiKey.mjs';
+import { MATERIAL_RANGES } from '../src/materials/settings.js';
 import {
   aoFrom, blendSeams, compositeBand, heightFrom, luminance, normalFrom, rollHalf, roughnessFrom, seamMask, seamRatio, toBytes,
 } from './materialMaps.mjs';
@@ -260,6 +261,24 @@ export async function listMaterials() {
   return entries.filter(Boolean).sort((a, b) => String(b.created).localeCompare(String(a.created)));
 }
 
+// Имя и умолчания материала из лаборатории «Материалы»: плитка, рельеф и
+// матовость, с которыми «Применить» кладёт его на модель. У «только карт»
+// плитки нет: они лежат, как лежала текстура в SketchUp.
+export function libraryPatch(entry, body) {
+  const patch = {};
+  const name = String(body.name ?? '').trim().slice(0, 80);
+  if (name) patch.name = name;
+  const number = (value, [min, max]) => (value === null || value === '' || !Number.isFinite(Number(value)) ? undefined
+    : Math.round(Math.min(max, Math.max(min, Number(value))) * 1000) / 1000);
+  const tile = number(body.tile, MATERIAL_RANGES.tile);
+  if (tile !== undefined && entry.tile !== null) patch.tile = tile;
+  for (const key of ['normal', 'roughness']) {
+    const value = number(body[key], MATERIAL_RANGES[key]);
+    if (value !== undefined) patch[key] = value;
+  }
+  return patch;
+}
+
 const send = (response, status, payload) => {
   response.statusCode = status;
   response.setHeader('Content-Type', 'application/json; charset=utf-8');
@@ -309,7 +328,7 @@ const typeOf = (file) => (file.endsWith('.png') ? 'image/png' : 'image/webp');
 // POST /__materials/finish        — выбранный вариант → бесшовный → карты → библиотека
 // POST /__materials/maps          — карты к текущей текстуре, без ИИ
 // GET  /__materials/drafts/<черновик>/<n>.webp
-// GET  /__library/materials[/<id>/<файл>], PATCH/DELETE /__library/materials/<id>
+// GET  /__library/materials[/<id>/<файл>], PATCH (имя, умолчания)/DELETE /__library/materials/<id>
 export function materialsPlugin() {
   const route = (middlewares, prefix, handler) => middlewares.use(prefix, async (request, response, next) => {
     try {
@@ -351,8 +370,8 @@ export function materialsPlugin() {
       if (request.method === 'DELETE' && !file) { await fs.rm(dir, { recursive: true, force: true }); send(response, 200, { ok: true }); return true; }
       if (request.method === 'PATCH' && !file) {
         const entry = JSON.parse(await fs.readFile(path.join(dir, 'material.json'), 'utf8'));
-        const name = String((await readJson(request, 10000)).name ?? '').trim().slice(0, 80);
-        if (name) { entry.name = name; await fs.writeFile(path.join(dir, 'material.json'), `${JSON.stringify(entry, null, 2)}\n`); }
+        Object.assign(entry, libraryPatch(entry, await readJson(request, 10000)));
+        await fs.writeFile(path.join(dir, 'material.json'), `${JSON.stringify(entry, null, 2)}\n`);
         send(response, 200, { ok: true, material: entry });
         return true;
       }

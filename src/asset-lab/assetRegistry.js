@@ -13,6 +13,7 @@ import DriftwoodLab from '../driftwood-lab/DriftwoodLab';
 import WaterLab from '../water-lab/WaterLab';
 import CloudLab from '../cloud-lab/CloudLab';
 import TopiaryLab from '../topiary-lab/TopiaryLab';
+import MaterialLab from '../material-lab/MaterialLab';
 
 const COMPONENTS = {
   'river-fish': FishLab,
@@ -32,6 +33,7 @@ const COMPONENTS = {
   driftwood: DriftwoodLab,
   water: WaterLab,
   clouds: CloudLab,
+  materials: MaterialLab,
 };
 
 export { DEFAULT_ASSET_COLLECTION };
