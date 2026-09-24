@@ -109,6 +109,7 @@ export const translations = {
         cursor: 'Курсор',
       },
       nodes: {
+        surroundings: 'Окружение',
         terrain: 'Суша',
         rocks: 'Камни',
         pebbles: 'Галька',
@@ -540,6 +541,7 @@ export const translations = {
         underwaterAlgaeSpeciesMix: 'Разнообразие видов',
         underwaterAlgaePatchiness: 'Мозаика зарослей',
         terrainEnabled: 'Суша',
+        surroundingsEnabled: 'Окружение',
         shoreEnabled: 'Береговые находки',
         terrainRocksEnabled: 'Камни',
         terrainPebblesEnabled: 'Галька',
@@ -807,6 +809,7 @@ export const translations = {
         cursor: 'Cursor',
       },
       nodes: {
+        surroundings: 'Surroundings',
         terrain: 'Land',
         rocks: 'Rocks',
         pebbles: 'Pebbles',
@@ -1230,6 +1233,7 @@ export const translations = {
         underwaterAlgaeSpeciesMix: 'Species Variety',
         underwaterAlgaePatchiness: 'Meadow Patchiness',
         terrainEnabled: 'Land',
+        surroundingsEnabled: 'Surroundings',
         shoreEnabled: 'Shore finds',
         terrainRocksEnabled: 'Rocks',
         terrainPebblesEnabled: 'Pebbles',

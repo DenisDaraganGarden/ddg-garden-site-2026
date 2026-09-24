@@ -88,6 +88,8 @@ import UnderwaterView from './water/UnderwaterView.jsx';
 
 // Loaded only once a scene switches the house on: the site does not pay for it.
 const BeachHouseScene = lazy(() => import('../house/BeachHouseScene.jsx'));
+// Окружение участка по адресу — только в проекте «Участок» с загруженной картой.
+const Surroundings = lazy(() => import('../../surroundings/Surroundings.jsx'));
 
 // Wireframe is a material flag, not a shader mode, so it cannot be one more
 // entry in the debug view list. Sweeping the scene rather than threading a prop
@@ -633,6 +635,7 @@ function WaterRuntimeScene({
         ) : null}
         {settings.tankerVisible ? <HomeTanker settings={settings} seaSettings={effectiveSeaSettings.enabled ? effectiveSeaSettings : null} lighting={lighting} audioRuntime={audioRuntime} /> : null}
         {settings.planeEnabled ? <GroundPlane settings={settings} lighting={lighting} /> : null}
+        {settings.surroundingsEnabled && settings.surroundingsStamp ? <Suspense fallback={null}><Surroundings settings={settings} lighting={lighting} /></Suspense> : null}
         {settings.sculptureVisible ? (
           <StaticSculpture
             terrainQuery={terrainQuery}

@@ -52,6 +52,7 @@
     "check:coast-contracts": "node scripts/check-terrain.mjs && node scripts/check-terrain-features.mjs && node scripts/check-water-seam.mjs && node src/components/effects/sceneTimeline.check.js && node scripts/check-seagull-render-lod.mjs && node scripts/check-seagull-distant-silhouette.mjs && node src/components/effects/water/opticsGeometryLod.check.js",
     "check:seo": "node scripts/seo/build-seo.check.mjs",
     "check:projects": "node scripts/projectStore.check.mjs && node scripts/sketchupGlb.check.mjs",
+    "check:surroundings": "node src/surroundings/surroundings.check.js",
     "check:deploy": "node scripts/deployScene.check.mjs",
     "app": "node ./node_modules/electron/cli.js electron/main.js",
     "check:app": "node scripts/check-app.mjs",

@@ -48,6 +48,7 @@ import {
     AudioSpatialSection,
     AudioTracksSection,
 } from './sections/audio';
+import { SurroundingsSection } from './sections/surroundings';
 
 // The editor is organised the way a game engine organises a scene: groups hold
 // objects, and an object exposes its aspects. Aspects render as headings inside
@@ -59,6 +60,8 @@ export const EDITOR_TREE = [
     {
         id: 'landscape',
         nodes: [
+            // Только в «Участке» (sceneObjects.js, design): окружение по адресу.
+            { id: 'surroundings', aspects: [{ id: 'surroundings', Section: SurroundingsSection }] },
             { id: 'terrain', aspects: [{ id: 'geometry', Section: TerrainSection }] },
             { id: 'rocks', aspects: [{ id: 'rocks', Section: RocksSection }] },
             { id: 'pebbles', aspects: [{ id: 'pebbles', Section: PebblesSection }] },

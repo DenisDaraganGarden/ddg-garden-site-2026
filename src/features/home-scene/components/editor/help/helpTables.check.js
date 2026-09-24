@@ -19,6 +19,10 @@ const CONDITIONAL = [
     'upscaleQuality', 'upscaleSharpness',
     ...['enabled', 'gain'].map((key) => `audio.tracks.birds.${key}`),
     ...['x', 'y', 'z', 'refDistance', 'maxDistance', 'rolloff'].map((key) => `audio.emitters.birds.${key}`),
+    // Окружение — только в проекте «Участок» (help/surroundings.js).
+    'surroundingsEnabled', 'surroundingsRadius', 'surroundingsBuildings', 'surroundingsTrees', 'surroundingsFences', 'surroundingsRelief', 'northAngle',
+    'surroundingsOffsetX', 'surroundingsOffsetZ', 'surroundingsClear', 'surroundingsBuildingColor', 'surroundingsGroundColor', 'surroundingsRoadColor',
+    'surroundingsGreenColor', 'surroundingsWaterColor',
 ];
 CONDITIONAL.forEach((key) => keys.add(key));
 const MAX = 260;

@@ -56,6 +56,7 @@ const NODE_ICONS = {
     audioMixer: 'sound', audioTracks: 'sound', audioSpatial: 'sound',
     camera: 'camera', visibility: 'eye', resolution: 'sliders', quality: 'sliders', post: 'sliders', debug: 'bug',
     ui: 'panel', cursor: 'cursor', settings: 'settings',
+    surroundings: 'terrain',
 };
 
 export function getNodeIcon(nodeId) {

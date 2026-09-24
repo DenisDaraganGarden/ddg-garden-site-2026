@@ -21,6 +21,7 @@
 //
 // `site: true` — вещь сайта и моря, которой нет в проекте «Участок» (kind
 // 'design'): там она выключена и пропадает из дерева, поиска и видимости.
+// `design: true` — наоборот, только «Участка»: окружение по адресу.
 export const SCENE_OBJECT_GROUPS = Object.freeze(['landscape', 'greenery', 'objects', 'creatures', 'render']);
 
 export const SCENE_OBJECTS = Object.freeze([
@@ -34,6 +35,8 @@ export const SCENE_OBJECTS = Object.freeze([
   { id: 'farWater', key: 'farWaterVisible', node: 'landscape/water', group: 'landscape', site: true },
   { id: 'seabed', key: 'seabedVisible', node: 'landscape/seabed', group: 'landscape', roots: ['seabed'], site: true },
   { id: 'sky', key: 'skyVisible', node: 'atmosphere/hdri', group: 'landscape', roots: ['sky-dome'] },
+  // Окружение участка из OpenStreetMap: дома, дороги, рельеф вокруг модели (src/surroundings).
+  { id: 'surroundings', key: 'surroundingsEnabled', node: 'landscape/surroundings', group: 'landscape', roots: ['surroundings'], design: true },
   { id: 'lilies', key: 'liliesVisible', node: 'greenery/lilies', group: 'greenery', roots: ['surface-vegetation'], requires: ['water'], newProject: false, site: true },
   { id: 'algae', key: 'algaeVisible', node: 'greenery/algae', group: 'greenery', roots: ['underwater-algae'], requires: ['water'], newProject: false, site: true },
   { id: 'topiary', key: 'topiaryEnabled', node: 'greenery/topiary', group: 'greenery', roots: ['topiary'] },
@@ -86,6 +89,8 @@ export const siteObjectsOff = (settings) => {
 // Узлы редактора, у которых все объекты — вещи сайта: в «Участке» их нет.
 export const SITE_ONLY_NODES = Object.freeze([...new Set(SCENE_OBJECTS.filter((object) => object.node).map((object) => object.node))]
   .filter((node) => SCENE_OBJECTS.filter((object) => object.node === node).every((object) => object.site)));
+// Узлы только «Участка» (`design: true`): у сайта и берега их нет.
+export const DESIGN_ONLY_NODES = Object.freeze([...new Set(SCENE_OBJECTS.filter((object) => object.design).map((object) => object.node))]);
 // Заводской «Участок»: пустая сцена — небо, ровная земля и расстановка; берег,
 // растения побережья и изгороди можно включить, вещей сайта нет совсем.
 export const designProjectObjectSettings = () => ({
