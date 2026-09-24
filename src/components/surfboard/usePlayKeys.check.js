@@ -96,6 +96,11 @@ controls.keydown(key('KeyF'));
 controls.keydown(key('KeyF', { repeat: true }));
 controls.keydown(key('KeyL'));
 assert.deepEqual([intent.board, intent.leash], [boards + 1, leashes + 1], 'F is the board and L the leash, once a press');
+const keysWere = surfPlay.keysOpen;
+controls.keydown(key('KeyH'));
+assert.equal(surfPlay.keysOpen, !keysWere, 'H opens the list of keys');
+controls.keydown(key('KeyH'));
+assert.equal(surfPlay.keysOpen, keysWere, 'and closes it');
 
 controls.keydown(key('KeyC'));
 assert.equal(surfPlay.camera, 'first');
