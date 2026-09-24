@@ -106,7 +106,8 @@ export function selectEditorCamera(settings, id, kind, snapshotKeys) {
   };
 }
 
-export function addEditorCamera(settings, { kind, layoutKey, pose }, snapshotKeys) {
+// `name`: a camera made from somewhere else (a SketchUp scene) keeps its name.
+export function addEditorCamera(settings, { kind, layoutKey, pose, name }, snapshotKeys) {
   const prepared = syncActiveEditorCamera(settings, snapshotKeys);
   const key = cameraListKey(kind);
   const cameras = prepared[key] ?? [];
@@ -116,6 +117,7 @@ export function addEditorCamera(settings, { kind, layoutKey, pose }, snapshotKey
   };
   const camera = {
     ...nextCameraIdentity(cameras, kind),
+    ...(name ? { name: String(name).slice(0, 80) } : {}),
     scene: createSceneSnapshot(withPose, snapshotKeys),
     ...(kind === 'work' ? {} : {
       enabled: true,

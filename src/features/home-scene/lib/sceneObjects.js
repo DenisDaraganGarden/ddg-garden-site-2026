@@ -117,10 +117,17 @@ const matchRoot = (name) => SCENE_OBJECTS.find((object) => object.roots?.include
 
 // Вместе с узлом дерева возвращается имя, под которым объект лежит в сцене:
 // по нему работает наводка камеры (frameObject), и второй раз искать не нужно.
+//
+// Поставленный объект узнаётся раньше имён: внутри модели из SketchUp лежат
+// тысячи чужих имён, и компонент «boat» не должен уводить клик к лодке. Для
+// него же отдаётся сам объект, в который попал луч, — по нему редактор
+// находит компонент модели.
 export const sceneHitForObject3D = (object) => {
   for (let node = object; node; node = node.parent) {
+    if (node.userData?.placedId) return { node: 'objects/placed', root: `placed-${node.userData.placedId}`, placedId: node.userData.placedId, object };
+  }
+  for (let node = object; node; node = node.parent) {
     if (node.userData?.topiaryId) return { node: 'greenery/topiary', root: node.name, topiaryId: node.userData.topiaryId };
-    if (node.userData?.placedId) return { node: 'objects/placed', root: `placed-${node.userData.placedId}`, placedId: node.userData.placedId };
     const match = node.name ? matchRoot(node.name) : null;
     if (match?.node) return { node: match.node, root: node.name };
   }

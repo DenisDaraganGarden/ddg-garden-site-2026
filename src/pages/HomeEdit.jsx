@@ -346,6 +346,18 @@ const HomeEdit = ({ project = null }) => {
         }, HOME_SCENE_SNAPSHOT_KEYS));
     }, [selectedLayoutKey, setSettings]);
 
+    // Cameras made from elsewhere (a SketchUp model's scenes), each with its
+    // own pose and name; the view moves to the first of them.
+    const addCameras = useCallback((views) => {
+        if (!views?.length) return;
+        setSettings((previous) => {
+            let next = previous;
+            for (const { name, ...pose } of views) next = addEditorCamera(next, { kind: 'scene', layoutKey: selectedLayoutKey, pose, name }, HOME_SCENE_SNAPSHOT_KEYS);
+            return selectEditorCamera(next, next.sceneCameras[next.sceneCameras.length - views.length].id, 'scene', HOME_SCENE_SNAPSHOT_KEYS);
+        });
+        setCameraPoseRevision((value) => value + 1);
+    }, [selectedLayoutKey, setSettings]);
+
     const removeCamera = useCallback((id) => {
         setSettings((previous) => removeEditorCamera(previous, id, 'scene', HOME_SCENE_SNAPSHOT_KEYS));
         if (!settings.activeWorkCameraId && id === settings.activeCameraId) {
@@ -548,7 +560,7 @@ const HomeEdit = ({ project = null }) => {
 
     // Клик по объекту в сцене ставит тот же путь, что и клик в дереве, и так же
     // даёт выбранному последнюю трансформацию — манипулятор появляется сразу.
-    const handlePickObject = useCallback((path, hit) => { if (hit?.topiaryId) selectTopiary(hit.topiaryId); else if (hit?.placedId) selectPlaced(hit.placedId); else setActiveTab(path); setTool(lastTransform); }, [setActiveTab, setTool, lastTransform, selectTopiary, selectPlaced]);
+    const handlePickObject = useCallback((path, hit) => { if (hit?.topiaryId) selectTopiary(hit.topiaryId); else if (hit?.placedId) selectPlaced(hit.placedId, hit.object); else setActiveTab(path); setTool(lastTransform); }, [setActiveTab, setTool, lastTransform, selectTopiary, selectPlaced]);
 
     const { group: gizmoGroup, node: gizmoNode } = resolveEditorPath(activeTab, { includeDevOnly: true });
     // An object switched off has left the scene graph; the gizmo has nothing to hold.
@@ -589,9 +601,9 @@ const HomeEdit = ({ project = null }) => {
         onContextMenu: activeTool === 'topiary' || playing ? undefined : setSceneMenu,
         topiary: { drawing: activeTool === 'topiary' && settings.topiaryObjects.length < TOPIARY_LIMITS.objects,
             selectedId: gizmoNode.id === 'topiary' ? topiaryEditor.selectedId : null, onStroke: topiaryEditor.onStroke },
-        placed: { selectedId: gizmoNode.id === 'placed' ? placedEditor.selectedId : null },
+        placed: { selectedId: gizmoNode.id === 'placed' ? placedEditor.selectedId : null, part: gizmoNode.id === 'placed' ? placedEditor.part : null },
     // eslint-disable-next-line react-hooks/exhaustive-deps -- pose сравнивается по значениям, не по ссылке
-    }), [playing, transformTool, transformHeld, gizmoSelection, tool, lastTransform, handleGizmoTransform, picking, handlePickObject, gizmoPose?.rotationY, gizmoPose?.scale, activeTool, settings.topiaryObjects.length, gizmoNode.id, topiaryEditor.selectedId, topiaryEditor.onStroke, placedEditor.selectedId]);
+    }), [playing, transformTool, transformHeld, gizmoSelection, tool, lastTransform, handleGizmoTransform, picking, handlePickObject, gizmoPose?.rotationY, gizmoPose?.scale, activeTool, settings.topiaryObjects.length, gizmoNode.id, topiaryEditor.selectedId, topiaryEditor.onStroke, placedEditor.selectedId, placedEditor.part]);
 
     // Курсор во вьюпорте говорит, какой инструмент в руке, не глядя на панель.
     useEffect(() => {
@@ -658,6 +670,7 @@ const HomeEdit = ({ project = null }) => {
         activeCameraId: settings.activeCameraId,
         selectCamera,
         addCamera,
+        addCameras,
         removeCamera,
         moveCamera,
         renameCamera,
@@ -692,6 +705,7 @@ const HomeEdit = ({ project = null }) => {
         currentLayoutKey,
         selectCamera,
         addCamera,
+        addCameras,
         removeCamera,
         moveCamera,
         renameCamera,

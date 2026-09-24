@@ -46,7 +46,31 @@ export const PLACED_SPECIES = Object.freeze({
 });
 const MODEL_FILE = /^[a-z0-9][a-z0-9-]{0,63}$/;
 export const PLACED_TRANSFORM_DEFAULT = Object.freeze({ x: 0, y: 0, z: 0, rotation: 0, scale: 1, seed: 7 });
-export const DEFAULT_PLACED_SETTINGS = Object.freeze({ placedEnabled: true, placedObjects: [] });
+// A model imported from SketchUp has its own entry here, by the placed
+// object's id: its 2D plants turned to the camera or not, their crown discs
+// drawn for the plan shown or not, and the parts (glTF node indices) hidden. Kept beside the objects, not in them: the
+// objects are in every camera's snapshot, and a part hidden in one camera
+// must stay hidden in all of them (sceneCameras.js leaves this key out).
+export const DEFAULT_PLACED_SETTINGS = Object.freeze({ placedEnabled: true, placedObjects: [], sketchupModels: {} });
+export const SKETCHUP_LIMITS = Object.freeze({ models: 256, hidden: 20000 });
+const PLACED_ID = /^[a-zA-Z0-9_-]{1,64}$/;
+
+// Sorted and unique, so a list normalizes to itself; never pruned against
+// the objects, which differ from camera to camera. Past the limit the entries
+// of objects on the stage (`live`) are the ones kept.
+export function normalizeSketchupModels(value, live = new Set()) {
+    const out = {};
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return out;
+    const ids = Object.keys(value).filter((key) => PLACED_ID.test(key)).sort();
+    const kept = new Set([...ids.filter((id) => live.has(id)), ...ids.filter((id) => !live.has(id))].slice(0, SKETCHUP_LIMITS.models));
+    for (const id of ids.filter((key) => kept.has(key))) {
+        const entry = value[id] && typeof value[id] === 'object' ? value[id] : {};
+        const hidden = [...new Set((Array.isArray(entry.hidden) ? entry.hidden : []).filter((node) => Number.isInteger(node) && node >= 0 && node < 1e7))]
+            .sort((a, b) => a - b).slice(0, SKETCHUP_LIMITS.hidden);
+        out[id] = { faceCamera: entry.faceCamera !== false, crowns: entry.crowns === true, hidden };
+    }
+    return out;
+}
 
 const number = (value, fallback, min, max, step) => {
     const parsed = Number(value);
@@ -86,7 +110,7 @@ export function normalizePlacedSettings(settings = {}) {
             while (ids.has(object.id)) object.id = `${base.slice(0, 54)}-${suffix++}`;
             ids.add(object.id); return object;
         });
-    return { placedEnabled: settings.placedEnabled !== false, placedObjects: objects };
+    return { placedEnabled: settings.placedEnabled !== false, placedObjects: objects, sketchupModels: normalizeSketchupModels(settings.sketchupModels, new Set(objects.map((o) => o.id))) };
 }
 
 // The knobs a species brings with it: a placed willow starts as the table's

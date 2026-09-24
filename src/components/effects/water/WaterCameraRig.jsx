@@ -367,8 +367,9 @@ export default function WaterCameraRig({
     };
     // Frames a scene object by name where it is right now: from the shore side
     // with the sea behind it, or straight down. Nothing happens if it is hidden.
+    // By name, or the object itself: a SketchUp part's name repeats in every copy.
     const frameObject = (name, { above = false } = {}) => {
-      const object = scene.getObjectByName(name);
+      const object = typeof name === 'string' ? scene.getObjectByName(name) : name;
       if (!object) {
         return false;
       }

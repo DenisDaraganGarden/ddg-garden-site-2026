@@ -1,11 +1,13 @@
-import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import React, { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
+import { useThree } from '@react-three/fiber';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { activeProjectId, projectModelUrl } from '../features/engine/projectApi.js';
 import { setWakeObstacles, waterWake } from '../components/effects/water/waterWake.js';
 import { waterlineCircles, waterlineCrossings } from './waterline.js';
 import { setSolid, solidHeightfield } from './solidSurface.js';
 import { PLACED_TRANSFORM_DEFAULT } from './settings.js';
+import { applyHidden, findPart, makeFaceCamera, registerSketchupModel, tagNodes } from './sketchupModel.js';
 import { makeCoastTree } from '../plants/treeModel.js';
 import { TREE_SPECIES } from '../plants/treeSpecies.js';
 import { makeOleaster } from '../plants/oleasterModel.js';
@@ -178,7 +180,9 @@ function prepareModel(scene, lit) {
 const models = new Map();
 const modelLoader = new GLTFLoader(new THREE.LoadingManager());
 function loadModel(url) {
-    if (!models.has(url)) models.set(url, modelLoader.loadAsync(url).catch((error) => { models.delete(url); throw error; }));
+    if (!models.has(url)) {
+        models.set(url, modelLoader.loadAsync(url).then((gltf) => { tagNodes(gltf); return gltf; }).catch((error) => { models.delete(url); throw error; }));
+    }
     return models.get(url);
 }
 function useModel(url) {
@@ -193,13 +197,52 @@ function useModel(url) {
     return state.url === url ? state.gltf : null;
 }
 
-function PlacedModel({ object, url, selected }) {
+// The SketchUp part picked in the editor, boxed the way the anchor's ring is
+// drawn: over everything, never in the way of a click.
+function PartBox({ root, node, stamp }) {
+    const helper = useMemo(() => {
+        const box = new THREE.Box3Helper(new THREE.Box3(), '#d9ca8c');
+        box.material.depthTest = false;
+        box.material.transparent = true;
+        box.renderOrder = 5;
+        box.raycast = NO_RAYCAST;
+        return box;
+    }, []);
+    useEffect(() => () => { helper.geometry.dispose(); helper.material.dispose(); }, [helper]);
+    const invalidate = useThree((state) => state.invalidate);
+    useLayoutEffect(() => {
+        const part = findPart(root, node);
+        root.updateWorldMatrix(true, true);
+        helper.box.makeEmpty();
+        if (part) helper.box.setFromObject(part);
+        helper.visible = !helper.box.isEmpty();
+        invalidate();
+    }, [helper, root, node, stamp, invalidate]);
+    return <primitive object={helper} />;
+}
+
+function PlacedModel({ object, url, selected, sketchup, selectedPart }) {
     const gltf = useModel(url);
     const lit = object.species !== 'scan';
     const prepared = useMemo(() => (gltf ? prepareModel(gltf.scene, lit) : null), [gltf, lit]);
     const group = useRef();
+    const invalidate = useThree((state) => state.invalidate);
     useEffect(() => () => prepared?.materials.forEach((material) => material.dispose()), [prepared]);
     useEffect(() => { prepared?.materials.forEach((material) => { material.userData.placedWet.z = object.wet ? 1 : 0; }); }, [prepared, object.wet]);
+    // A SketchUp model: its 2D plants turn to the camera, its hidden parts are
+    // gone for the eye and the click, and the editor's panel can read it.
+    const isSketchup = Boolean(sketchup);
+    const cards = useMemo(() => (prepared && isSketchup ? makeFaceCamera(prepared.root) : null), [prepared, isSketchup]);
+    const faceCamera = sketchup?.faceCamera ?? false;
+    useEffect(() => { cards?.set(faceCamera); invalidate(); }, [cards, faceCamera, invalidate]);
+    const hiddenParts = sketchup?.hidden.join(',') ?? '';
+    const crowns = sketchup?.crowns ?? true;
+    useLayoutEffect(() => {
+        if (!prepared || !isSketchup) return;
+        applyHidden(prepared.root, hiddenParts ? hiddenParts.split(',').map(Number) : [], crowns);
+        invalidate();
+    }, [prepared, isSketchup, hiddenParts, crowns, cards, invalidate]);
+    useEffect(() => (prepared && isSketchup ? registerSketchupModel(object.id, { root: prepared.root, cards: cards?.count ?? 0, crowns: cards?.crowns ?? 0 }) : undefined), [prepared, isSketchup, cards, object.id]);
     // Wet by the sea, it also breaks the water: its waterline, found again
     // whenever it moves, is where the foam field whitens the water running at it.
     const { id, x, y, z, rotation, tiltX, tiltZ, scale, wet, hidden, collision } = object;
@@ -207,13 +250,13 @@ function PlacedModel({ object, url, selected }) {
         if (!prepared || !group.current || !wet || hidden) { setWakeObstacles(waterWake, id, null); return undefined; }
         setWakeObstacles(waterWake, id, waterlineCircles(waterlineCrossings(group.current)));
         return () => setWakeObstacles(waterWake, id, null);
-    }, [prepared, id, x, y, z, rotation, tiltX, tiltZ, scale, wet, hidden]);
+    }, [prepared, id, x, y, z, rotation, tiltX, tiltZ, scale, wet, hidden, hiddenParts]);
     // Solid: its top surface is ground for the board, the rider and planting.
     useEffect(() => {
         if (!prepared || !group.current || !collision || hidden) { setSolid(id, null); return undefined; }
         setSolid(id, solidHeightfield(group.current));
         return () => setSolid(id, null);
-    }, [prepared, id, x, y, z, rotation, tiltX, tiltZ, scale, collision, hidden]);
+    }, [prepared, id, x, y, z, rotation, tiltX, tiltZ, scale, collision, hidden, hiddenParts]);
     if (!prepared) return <Anchor object={object} selected={selected} radius={1} />;
     return <>
         <Anchor object={object} selected={selected} radius={Math.max(.3, Math.max(prepared.size.x, prepared.size.z) * .55)} />
@@ -221,10 +264,11 @@ function PlacedModel({ object, url, selected }) {
             rotation={[deg(object.tiltX), deg(object.rotation), deg(object.tiltZ), 'YXZ']} scale={object.scale}>
             <primitive object={prepared.root} />
         </group>
+        {selectedPart !== null && selectedPart !== undefined ? <PartBox root={prepared.root} node={selectedPart} stamp={`${x},${y},${z},${rotation},${tiltX},${tiltZ},${scale}`} /> : null}
     </>;
 }
 
-export default function PlacedObjects({ objects, selectedId = null, treeAsset, shrubAsset, qualityProfile, lighting, envMapIntensity = 1 }) {
+export default function PlacedObjects({ objects, selectedId = null, selectedPart = null, sketchupModels = {}, treeAsset, shrubAsset, qualityProfile, lighting, envMapIntensity = 1 }) {
     const lowPower = Boolean(qualityProfile?.isLowPower || qualityProfile?.isMobileDevice);
     // A hidden object keeps its anchor: it can still be picked from the list,
     // framed and moved, it only draws nothing.
@@ -238,7 +282,8 @@ export default function PlacedObjects({ objects, selectedId = null, treeAsset, s
             if (object.kind === 'shrub') return <PlacedShrub key={object.id} object={object} asset={shrubAsset} lowPower={lowPower} envMapIntensity={envMapIntensity} selected={selected} />;
             if (object.kind !== 'model') return null;
             const url = modelUrl(object);
-            return url ? <PlacedModel key={object.id} object={object} url={url} selected={selected} />
+            return url ? <PlacedModel key={object.id} object={object} url={url} selected={selected} sketchup={sketchupModels[object.id]}
+                selectedPart={selectedPart?.id === object.id ? selectedPart.node : null} />
                 : <Anchor key={object.id} object={object} selected={selected} radius={1} />;
         })}
         {rocks.length ? <Suspense fallback={null}><PlacedRocks objects={rocks} lowPower={lowPower} lighting={lighting} selectedId={selectedId} /></Suspense> : null}

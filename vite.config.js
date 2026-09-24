@@ -8,6 +8,7 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { publishedHomeSceneKeys } from './src/features/home-scene/data/publishedHomeSceneKeys.js';
 import { isValidId, presets, projects } from './scripts/projectStore.mjs';
+import { prepareSketchupGlb } from './scripts/sketchupGlb.mjs';
 import { poseTuningModule } from './src/components/surfboard/poseTuning.js';
 
 const projectRoot = process.cwd();
@@ -223,11 +224,18 @@ function engineStorePlugin() {
       try {
         // Модели проекта: POST /__projects/<id>/models — тело сам .glb, имя в
         // заголовке X-Model-Name; GET /__projects/<id>/models/<модель>.glb.
+        // X-Model-Source: sketchup — файл сначала готовится (sketchupGlb.mjs),
+        // и ответ говорит, что с ним сделано.
         if (part === 'models' && isValidId(id) && store.writeModel) {
           if (request.method === 'POST' && !file) {
-            const bytes = await readRawBody(request, MODEL_UPLOAD_LIMIT);
+            let bytes = await readRawBody(request, MODEL_UPLOAD_LIMIT);
+            let report;
+            if (request.headers['x-model-source'] === 'sketchup') {
+              if (!(await store.read(id))) { sendJson(response, 404, { ok: false, message: `Проект «${id}» не найден.` }); return; }
+              ({ bytes, report } = await prepareSketchupGlb(bytes));
+            }
             const saved = await store.writeModel(id, decodeURIComponent(String(request.headers['x-model-name'] ?? 'model')), bytes);
-            sendJson(response, saved ? 200 : 404, saved ? { ok: true, ...saved } : { ok: false, message: `Проект «${id}» не найден.` });
+            sendJson(response, saved ? 200 : 404, saved ? { ok: true, ...saved, ...(report ? { report } : {}) } : { ok: false, message: `Проект «${id}» не найден.` });
             return;
           }
           if (request.method === 'GET' && file) {

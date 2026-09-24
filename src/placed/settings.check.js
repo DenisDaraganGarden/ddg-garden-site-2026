@@ -1,6 +1,6 @@
 // Run: node src/placed/settings.check.js
 import assert from 'node:assert/strict';
-import { createPlacedObject, normalizePlacedObject, normalizePlacedSettings, PLACED_LIMITS } from './settings.js';
+import { createPlacedObject, normalizePlacedObject, normalizePlacedSettings, normalizeSketchupModels, PLACED_LIMITS, SKETCHUP_LIMITS } from './settings.js';
 import { makeRockGeometry } from '../terrain/terrainRocks.js';
 
 // A tree keeps its species, its own knobs and its place; junk is clamped.
@@ -38,7 +38,7 @@ assert.equal(normalizePlacedObject({ kind: 'rock', variant: 9 }).variant, 5);
     assert.equal(settings.placedObjects.length, PLACED_LIMITS.objects);
     assert.equal(new Set(settings.placedObjects.map((o) => o.id)).size, PLACED_LIMITS.objects);
     assert.equal(settings.placedEnabled, true);
-    assert.deepEqual(normalizePlacedSettings({}), { placedEnabled: true, placedObjects: [] });
+    assert.deepEqual(normalizePlacedSettings({}), { placedEnabled: true, placedObjects: [], sketchupModels: {} });
 }
 
 // Creating gives a fresh id and seed at the asked place; normalising it again is a no-op.
@@ -68,6 +68,32 @@ assert.equal(normalizePlacedObject({ kind: 'rock', variant: 9 }).variant, 5);
     assert.equal(normalizePlacedObject({ ...model, model: '../../etc/passwd' }), null, 'a file name that is a path is no model');
     assert.equal(normalizePlacedObject({ ...model, model: undefined }), null);
     assert.equal(normalizePlacedObject({ kind: 'tree', scale: 0.02 }).scale, 0.25, 'the other kinds keep their range');
+}
+
+// A SketchUp model's own switches: plants turned and plan crowns off by default, hidden parts as a
+// sorted set of node indices; junk ids and junk nodes go; stable on a second pass.
+{
+    const models = normalizeSketchupModels({
+        'placed-a': { hidden: [7, 3, 3, -1, 2.5, 'x', 12], faceCamera: false, crowns: true },
+        'placed-b': {},
+        '../bad': { hidden: [1] },
+        'placed-c': 'junk',
+    });
+    assert.deepEqual(models, {
+        'placed-a': { faceCamera: false, crowns: true, hidden: [3, 7, 12] },
+        'placed-b': { faceCamera: true, crowns: false, hidden: [] },
+        'placed-c': { faceCamera: true, crowns: false, hidden: [] },
+    });
+    assert.deepEqual(normalizeSketchupModels(models), models);
+    assert.deepEqual(normalizeSketchupModels([1, 2]), {});
+    const many = normalizeSketchupModels({ m: { hidden: Array.from({ length: SKETCHUP_LIMITS.hidden + 9 }, (_, i) => i) } });
+    assert.equal(many.m.hidden.length, SKETCHUP_LIMITS.hidden);
+    const crowd = Object.fromEntries(Array.from({ length: SKETCHUP_LIMITS.models + 3 }, (_, i) => [`placed-${String(i).padStart(4, '0')}`, {}]));
+    crowd['placed-zzzz'] = { hidden: [5] };
+    const trimmed = normalizeSketchupModels(crowd, new Set(['placed-zzzz']));
+    assert.equal(Object.keys(trimmed).length, SKETCHUP_LIMITS.models);
+    assert.deepEqual(trimmed['placed-zzzz'].hidden, [5], 'past the limit a model on the stage keeps its entry');
+    assert.deepEqual(normalizePlacedSettings({ sketchupModels: models }).sketchupModels, models, 'the placed settings carry them');
 }
 
 console.log('placed: all checks passed');

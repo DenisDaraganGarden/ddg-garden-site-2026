@@ -17,6 +17,17 @@ import { sceneHitForObject3D } from '../../lib/sceneObjects';
 // а пара pointerdown/pointerup — так порог протяжки работает одинаково на всех
 // платформах (в Chrome на macOS 'contextmenu' приходит ещё до движения мыши).
 const CLICK_SLOP = 4;
+// Ручка манипулятора, которая сейчас нарисована. Его невидимые части —
+// сборщики, помощники других режимов, линии осей длиной в километры — лежат
+// в скрытых группах, и щелчок сквозь них проходит, как раньше.
+const isShownGizmo = (object) => {
+    let gizmo = false;
+    for (let node = object; node; node = node.parent) {
+        if (!node.visible) return false;
+        if (node.isTransformControlsGizmo) gizmo = true;
+    }
+    return gizmo;
+};
 
 export default function EditorPicker({ enabled, onPick, onContextMenu }) {
     const gl = useThree((state) => state.gl);
@@ -43,6 +54,8 @@ export default function EditorPicker({ enabled, onPick, onContextMenu }) {
             }, camera);
 
             for (const hit of raycaster.intersectObjects(scene.children, true)) {
+                // Щелчок по ручке манипулятора — не выбор того, что за ней.
+                if (isShownGizmo(hit.object)) return null;
                 const found = hit.object.visible ? sceneHitForObject3D(hit.object) : null;
                 if (found) return found;
             }

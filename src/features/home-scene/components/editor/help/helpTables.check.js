@@ -11,10 +11,10 @@ const here = new URL('.', import.meta.url);
 const reference = JSON.parse(readFileSync(new URL('../../../../../../docs/engine-parameters.json', import.meta.url), 'utf8'));
 const keys = new Set(reference.rows.map((row) => row.key));
 // Shown only in some states — a selected placed object of that kind (a model,
-// a shrub, a rock), FSR switched on, the gulls switched on — so the reference,
-// collected without them, cannot list them.
+// a SketchUp model, a shrub, a rock), FSR switched on, the gulls switched on —
+// so the reference, collected without them, cannot list them.
 const CONDITIONAL = [
-    'placedObjects[].tiltX', 'placedObjects[].tiltZ', 'placedObjects[].hidden', 'placedObjects[].wet', 'placedObjects[].collision',
+    'placedObjects[].tiltX', 'placedObjects[].tiltZ', 'placedObjects[].hidden', 'placedObjects[].wet', 'placedObjects[].collision', 'sketchupModels[].faceCamera', 'sketchupModels[].crowns',
     'placedObjects[].dryness', 'placedObjects[].size', 'placedObjects[].squash', 'placedObjects[].stretch', 'placedObjects[].variant', 'placedObjects[].tilt',
     'upscaleQuality', 'upscaleSharpness',
     ...['enabled', 'gain'].map((key) => `audio.tracks.birds.${key}`),

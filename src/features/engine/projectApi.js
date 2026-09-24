@@ -54,11 +54,16 @@ export const renameProject = (id, name) => projectStore.save(id, { name });
 export const saveProjectSettings = (id, settings, options) => projectStore.save(id, { settings }, options);
 
 // Модели проекта (.glb): файл уходит на локальный сервер как есть и ложится в
-// папку проекта; в сцене объект ссылается на него по имени файла.
-export async function uploadProjectModel(projectId, file) {
+// папку проекта; в сцене объект ссылается на него по имени файла. Из SketchUp
+// (source: 'sketchup') сервер сначала готовит файл и отвечает отчётом.
+export async function uploadProjectModel(projectId, file, { source } = {}) {
     const response = await fetch(`/__projects/${encodeURIComponent(projectId)}/models`, {
         method: 'POST',
-        headers: { 'Content-Type': 'model/gltf-binary', 'X-Model-Name': encodeURIComponent(file.name ?? 'model.glb') },
+        headers: {
+            'Content-Type': 'model/gltf-binary',
+            'X-Model-Name': encodeURIComponent(file.name ?? 'model.glb'),
+            ...(source ? { 'X-Model-Source': source } : {}),
+        },
         body: file,
     });
     const payload = await response.json().catch(() => null);

@@ -93,6 +93,14 @@ assert.notStrictEqual(createdScene.scene.layouts.desktop, createdScene.scene.lay
   'the paired formats are independent objects from creation');
 assert.equal(withSceneCamera.activeWorkCameraId, null, 'adding a site camera exits work-camera mode');
 
+// A camera made from a SketchUp scene keeps the scene's name; the next «+»
+// still counts «Камера N» from the numbered cameras only.
+const named = addEditorCamera(withSceneCamera, { kind: 'scene', layoutKey: 'desktop', pose, name: 'Сцена №7' }, SNAPSHOT_KEYS);
+assert.equal(camera(named, named.activeCameraId).name, 'Сцена №7');
+assert.equal(camera(named, named.activeCameraId).id, 'camera-6');
+const afterNamed = addEditorCamera(named, { kind: 'scene', layoutKey: 'desktop', pose }, SNAPSHOT_KEYS);
+assert.equal(camera(afterNamed, afterNamed.activeCameraId).name, 'Камера 6');
+
 const withWorkCamera = addEditorCamera(withSceneCamera, { kind: 'work', layoutKey: 'portrait', pose }, SNAPSHOT_KEYS);
 const createdWork = work(withWorkCamera, withWorkCamera.activeWorkCameraId);
 assert.equal(createdWork.id, 'work-2', 'new work id reserves work-main as the first work slot');

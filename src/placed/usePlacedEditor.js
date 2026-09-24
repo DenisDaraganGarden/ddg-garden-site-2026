@@ -3,6 +3,7 @@ import { createPlacedObject, normalizePlacedObject, placedSpeciesDefaults, PLACE
 import { createTerrainDefinition, createTerrainQuery } from '../terrain/terrainModel.js';
 import { activeProjectId, uploadProjectModel } from '../features/engine/projectApi.js';
 import { solidHeightAt } from './solidSurface.js';
+import { partChain, sketchupModelEntry } from './sketchupModel.js';
 
 const KIND_NAMES = { tree: ['Дерево', 'Tree'], shrub: ['Куст', 'Shrub'], rock: ['Камень', 'Rock'], model: ['Модель', 'Model'] };
 
@@ -36,10 +37,34 @@ function freeName(settings, base) {
 // The editor's hands on the placed objects: select, add at the camera's
 // target, change a knob, seat on the ground, duplicate, remove. Every change
 // goes through the history the sliders use, so undo covers a placement too.
+//
+// In a SketchUp model a click also picks a part: the component it hit at the
+// model's top level, as SketchUp selects, with the chain down to what was hit
+// kept for the panel's breadcrumbs (`trail`, glTF node indices).
 export function usePlacedEditor({ settings, history, setActiveTab, setTool, language, layoutEditor }) {
     const [selectedId, setSelectedId] = useState(null);
+    const [part, setPart] = useState(null);
     const live = useRef(); live.current = { settings, history, language, layoutEditor };
-    const select = useCallback((id) => { setSelectedId(id); setActiveTab('objects/placed'); setTool('select'); }, [setActiveTab, setTool]);
+    const select = useCallback((id, hit = null) => {
+        const root = id && hit ? sketchupModelEntry(id)?.root : null;
+        const trail = root ? partChain(root, hit).map((object) => object.userData.gltfNode) : [];
+        setSelectedId(id);
+        setPart(trail.length ? { id, trail, node: trail[0] } : null);
+        setActiveTab('objects/placed'); setTool('select');
+    }, [setActiveTab, setTool]);
+    const selectPart = useCallback((node) => setPart((current) => (current?.trail.includes(node) ? { ...current, node } : current)), []);
+    // A SketchUp model's own switches, outside the camera snapshots.
+    const setSketchup = useCallback((id, patch) => {
+        const { settings, history } = live.current;
+        const current = settings.sketchupModels?.[id] ?? { faceCamera: true, crowns: false, hidden: [] };
+        history.applySettings({ sketchupModels: { ...settings.sketchupModels, [id]: { ...current, ...patch } } });
+    }, []);
+    const hideParts = useCallback((id, nodes) => {
+        const hidden = live.current.settings.sketchupModels?.[id]?.hidden ?? [];
+        setSketchup(id, { hidden: [...new Set([...hidden, ...nodes])] });
+        setPart(null);
+    }, [setSketchup]);
+    const showParts = useCallback((id) => setSketchup(id, { hidden: [] }), [setSketchup]);
     const update = useCallback((id, patch) => {
         const { settings, history } = live.current;
         history.applySettings({ placedObjects: settings.placedObjects.map((o, i) => (o.id === id ? normalizePlacedObject({ ...o, ...patch }, i) : o)) });
@@ -62,26 +87,34 @@ export function usePlacedEditor({ settings, history, setActiveTab, setTool, lang
     // A .glb from the author's disk: into this project's own folder, then onto
     // the scene where the camera looks, named after its file. Throws with a
     // message for the panel to show: no project, the list is full, not a .glb.
-    const importModel = useCallback(async (file) => {
+    // From SketchUp the server prepares the file first (scripts/sketchupGlb.mjs)
+    // and says what it did; the model gets its own switches and stays dry.
+    const importModel = useCallback(async (file, { sketchup = false } = {}) => {
         const ru = live.current.language === 'ru';
         const project = activeProjectId();
         if (!project) throw new Error(ru ? 'Модели живут в проектах движка: откройте проект.' : 'Models live in engine projects: open one.');
         if (live.current.settings.placedObjects.length >= PLACED_LIMITS.objects) throw new Error(ru ? 'Объектов уже 48 — больше нет места.' : 'There are 48 objects already.');
-        const { model } = await uploadProjectModel(project, file);
+        const { model, report } = await uploadProjectModel(project, file, sketchup ? { source: 'sketchup' } : undefined);
         const name = freeName(live.current.settings, String(file.name ?? '').replace(/\.glb$/i, '').replace(/[_]+/g, ' ').trim().slice(0, 60) || KIND_NAMES.model[ru ? 0 : 1]);
-        const object = createPlacedObject('model', { ...freeSpot(live.current), name, model });
+        const created = createPlacedObject('model', { ...freeSpot(live.current), name, model });
+        const object = sketchup ? normalizePlacedObject({ ...created, wet: false }) : created;
         const { settings, history } = live.current;
-        history.applySettings({ placedEnabled: true, placedObjects: [...settings.placedObjects, object] });
-        setSelectedId(object.id); setActiveTab('objects/placed');
-        return object;
+        history.applySettings({
+            placedEnabled: true,
+            placedObjects: [...settings.placedObjects, object],
+            ...(sketchup ? { sketchupModels: { ...settings.sketchupModels, [object.id]: { faceCamera: true, crowns: false, hidden: [] } } } : {}),
+        });
+        setSelectedId(object.id); setPart(null); setActiveTab('objects/placed');
+        return { object, report };
     }, [setActiveTab]);
     const duplicate = useCallback((id) => {
         const { settings, history } = live.current;
         const source = settings.placedObjects.find((o) => o.id === id);
         if (!source || settings.placedObjects.length >= PLACED_LIMITS.objects) return;
         const copy = normalizePlacedObject({ ...source, id: `placed-${crypto.randomUUID()}`, name: `${source.name} ·`, x: source.x + 2, z: source.z + 2, seed: Math.floor(Math.random() * 199) + 1 });
-        history.applySettings({ placedObjects: [...settings.placedObjects, copy] });
-        setSelectedId(copy.id);
+        const sketchup = settings.sketchupModels?.[id];
+        history.applySettings({ placedObjects: [...settings.placedObjects, copy], ...(sketchup ? { sketchupModels: { ...settings.sketchupModels, [copy.id]: sketchup } } : {}) });
+        setSelectedId(copy.id); setPart(null);
     }, []);
     const seat = useCallback((id) => {
         const object = live.current.settings.placedObjects.find((o) => o.id === id);
@@ -89,8 +122,17 @@ export function usePlacedEditor({ settings, history, setActiveTab, setTool, lang
     }, [update]);
     const remove = useCallback((id) => {
         const { settings, history } = live.current;
-        history.applySettings({ placedObjects: settings.placedObjects.filter((o) => o.id !== id) });
-        setSelectedId(null);
+        // Its SketchUp switches go with it, unless another camera still shows it.
+        const elsewhere = [...(settings.sceneCameras ?? []), ...(settings.workCameras ?? [])]
+            .some((camera) => camera.id !== settings.activeWorkCameraId && camera.id !== (settings.activeWorkCameraId ? null : settings.activeCameraId)
+                && camera.scene?.placedObjects?.some((o) => o.id === id));
+        const { [id]: dropped, ...sketchupModels } = settings.sketchupModels ?? {};
+        history.applySettings({ placedObjects: settings.placedObjects.filter((o) => o.id !== id), ...(dropped && !elsewhere ? { sketchupModels } : {}) });
+        setSelectedId(null); setPart(null);
     }, []);
-    return { selectedId: settings.placedObjects.some((o) => o.id === selectedId) ? selectedId : null, select, update, setSpecies, add, importModel, duplicate, seat, remove };
+    const shown = settings.placedObjects.some((o) => o.id === selectedId) ? selectedId : null;
+    return {
+        selectedId: shown, part: part && part.id === shown ? part : null, select, selectPart, update, setSpecies, add, importModel, duplicate, seat, remove,
+        setSketchup, hideParts, showParts,
+    };
 }

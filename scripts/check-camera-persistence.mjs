@@ -130,7 +130,16 @@ try {
     assert.equal(sanitizeHomeSceneSettingsForPublish(settings)[key], value, `${key} publishes from the root`);
   }
   assert.equal(normalizePublishedHomeSceneSettings({}).surfboardEnabled, false, 'a scene without the key has no board');
-  console.log(`cameraPersistence: ${keys.length} snapshot fields, 60 reload/switch cycles, paired captures, publication and the global surfboard passed`);
+
+  // A SketchUp model's hidden parts and plant switch are the scene's too: a
+  // fence hidden under one camera stays hidden under every other one.
+  const sketchupModels = { 'placed-rostov': { faceCamera: false, crowns: true, hidden: [4, 17] } };
+  settings = commit({ ...selectEditorCamera(settings, workId, 'work', keys), sketchupModels });
+  settings = normalizeHomeSceneDraftSettings(json(selectEditorCamera(settings, firstId, 'scene', keys)));
+  assert.ok(!keys.includes('sketchupModels'), 'sketchupModels is not a camera field');
+  assert.deepEqual(settings.sketchupModels, sketchupModels, 'sketchupModels survives a camera switch and a reload');
+  assert.deepEqual(sanitizeHomeSceneSettingsForPublish(settings).sketchupModels, sketchupModels, 'sketchupModels publishes from the root');
+  console.log(`cameraPersistence: ${keys.length} snapshot fields, 60 reload/switch cycles, paired captures, publication, the global surfboard and SketchUp parts passed`);
 } finally {
   await server.close();
 }
