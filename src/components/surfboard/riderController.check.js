@@ -213,4 +213,57 @@ let swam;
   assert.ok(s.finite() && jointGap(s.rider.world) < 5e-3, 'whole');
 }
 
-console.log(`riderController: lying still and whole, paddling ${paddled.toFixed(2)} m/s, up on the wave in ${rode.stoodAt.toFixed(2)} s and ridden ${rode.travelled.toFixed(1)} m with the soles within ${(rode.worstSole * 1000).toFixed(1)} mm of the deck, knocked off by foam in ${(knocked - 1.2).toFixed(2)} s, a capsize floats him to ${floated.toFixed(2)} m, back on the board in ${recovered.toFixed(1)} s, a stopped board lays him down, a current tows the board ${tow.towed.toFixed(1)} m by the leash (${tow.pull.toFixed(0)} N), he swims ${swam.speed.toFixed(2)} m/s with his head up`);
+// 9. The beach: paddling in over a bottom that rises to dry sand, he steps
+// off where the water is shallow, walks out of it and up the sand on his own
+// feet, runs faster than he walks, and turned back into the sea swims where
+// it is deep.
+let beach;
+{
+  const bottom = (x, z) => -2 + 0.08 * z;
+  const sea = (x, z, t, out) => { out.height = 0; out.vx = 0; out.vy = 0; out.vz = 0; out.whitewater = 0; out.ground = bottom(x, z); return out; };
+  const s = session();
+  s.intent.trim = 1;
+  let steppedAt = null, depthThen = null;
+  s.run(30, sea, sea, (t) => {
+    if (steppedAt === null && s.rider.state === 'walk') { steppedAt = t; depthThen = -bottom(0, s.state.p[2]); }
+  });
+  assert.ok(steppedAt !== null, 'he steps off');
+  assert.ok(depthThen < 0.75, `where it is shallow (${depthThen.toFixed(2)} m)`);
+  assert.equal(s.rider.state, 'walk', 'and is still on his feet');
+  const pelvis = s.rider.world.bodies[SEGMENT.pelvis];
+  const up = pelvis.x[2];
+  assert.ok(bottom(0, up) > 0.3, `out of the water and up the sand (${up.toFixed(1)} m, ${bottom(0, up).toFixed(2)} m up)`);
+  const clearance = pelvis.x[1] - bottom(pelvis.x[0], pelvis.x[2]);
+  assert.ok(clearance > 0.8 && clearance < 1.0, `on his feet, his pelvis ${clearance.toFixed(2)} m over the sand`);
+  let worstSole = 0;
+  const pace = (seconds, each) => {
+    const from = [pelvis.x[0], pelvis.x[2]];
+    s.run(seconds, sea, sea, each);
+    return Math.hypot(pelvis.x[0] - from[0], pelvis.x[2] - from[1]) / seconds;
+  };
+  const walked = pace(3, () => {
+    for (const side of ['L', 'R']) {
+      const foot = s.rider.world.bodies[SEGMENT[`foot${side}`]];
+      const sole = bodyPoint(foot, [0, -foot.half[1], 0], [0, 0, 0]);
+      worstSole = Math.min(worstSole, sole[1] - bottom(sole[0], sole[2]));
+    }
+  });
+  assert.ok(worstSole > -0.03, `his feet do not sink into the sand (${(worstSole * 100).toFixed(1)} cm at worst)`);
+  s.intent.crouch = 1;
+  s.run(1.5, sea, sea);
+  const ran = pace(3);
+  s.intent.crouch = 0;
+  assert.ok(walked > 1.1 && walked < 1.5, `he walks (${walked.toFixed(2)} m/s)`);
+  assert.ok(ran > 2.6, `and runs faster (${ran.toFixed(2)} m/s)`);
+  // Turned round, back into the sea: he swims where it is deep.
+  s.intent.trim = 0; s.intent.lean = 1;
+  s.run(1.4, sea, sea);
+  s.intent.lean = 0; s.intent.trim = 1;
+  let swamAt = null;
+  s.run(60, sea, sea, (t) => { if (swamAt === null && s.rider.state === 'swim') swamAt = t; });
+  assert.ok(swamAt !== null, `back in the sea he swims (${s.rider.state})`);
+  assert.ok(s.finite() && jointGap(s.rider.world) < 8e-3, 'whole throughout');
+  beach = { depthThen, walked, ran };
+}
+
+console.log(`riderController: lying still and whole, paddling ${paddled.toFixed(2)} m/s, up on the wave in ${rode.stoodAt.toFixed(2)} s and ridden ${rode.travelled.toFixed(1)} m with the soles within ${(rode.worstSole * 1000).toFixed(1)} mm of the deck, knocked off by foam in ${(knocked - 1.2).toFixed(2)} s, a capsize floats him to ${floated.toFixed(2)} m, back on the board in ${recovered.toFixed(1)} s, a stopped board lays him down, a current tows the board ${tow.towed.toFixed(1)} m by the leash (${tow.pull.toFixed(0)} N), he swims ${swam.speed.toFixed(2)} m/s with his head up; at a beach he steps off ${beach.depthThen.toFixed(2)} m deep, walks up the sand at ${beach.walked.toFixed(2)} m/s, runs at ${beach.ran.toFixed(2)} m/s and swims back out`);
