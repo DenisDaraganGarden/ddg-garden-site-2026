@@ -29,6 +29,7 @@ export const SCENE_CAMERA_SNAPSHOT_EXCLUDED_KEYS = Object.freeze([
   'sketchupModels',
   'plantingBeds',
   'plantingPoints',
+  'plantingVines',
   'northAngle',
   ...Object.keys(DEFAULT_SURFBOARD_SETTINGS),
   ...Object.keys(DEFAULT_HOUSE_SETTINGS),

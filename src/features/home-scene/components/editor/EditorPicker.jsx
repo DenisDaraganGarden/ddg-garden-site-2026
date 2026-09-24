@@ -56,7 +56,7 @@ export default function EditorPicker({ enabled, onPick, onContextMenu }) {
             for (const hit of raycaster.intersectObjects(scene.children, true)) {
                 // Щелчок по ручке манипулятора — не выбор того, что за ней.
                 if (isShownGizmo(hit.object)) return null;
-                const found = hit.object.visible ? sceneHitForObject3D(hit.object) : null;
+                const found = hit.object.visible ? sceneHitForObject3D(hit.object, hit) : null;
                 if (found) return found;
             }
 

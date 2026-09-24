@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { plantName } from '../plantLibrary.js';
 import { bloomCurve, bloomMonths, conditionMix, risks, scopeRows } from '../insights.js';
+import { vineLength } from '../vines.js';
 import { PlantThumb } from './PlantPicker.jsx';
 
 // Обзор сада — чтение, а не правка: выбрал часть сада и видишь её числами
@@ -109,14 +110,30 @@ function PointList({ points, library, ru, onPointStatus, onRemovePoint, onFrameP
     </section>;
 }
 
-export function PlantingInsights({ beds, fills, points, library, month, ru, focusBedId, onOpenPlant, onPointStatus, onRemovePoint, onFramePoint }) {
-    const [view, setView] = useState(beds.length || !points.length ? 'beds' : 'trees');
+// Лианы поштучно: вид, побеги и длина, выбрать, убрать.
+function VineList({ vines, library, ru, lengths, onSelectVine, onRemoveVine }) {
+    if (!vines.length) return null;
+    return <section className="planting-chart">
+        <h4>{ru ? 'По одной' : 'One by one'}</h4>
+        {vines.map((vine) => { const plant = library.get(vine.plant); return <div key={vine.id} className="planting-point">
+            <PlantThumb plant={plant} size={24} />
+            <span>{plantName(plant, ru) || vine.plant}<small> · {vine.shoots.length} {ru ? 'поб.' : 'sh.'} · {format(lengths.get(vine.id), 1)} м</small></span>
+            <button type="button" className="planting-icon" onClick={() => onSelectVine(vine.id)} title={ru ? 'Выбрать' : 'Select'}>◎</button>
+            <button type="button" className="planting-icon" onClick={() => onRemoveVine(vine.id)} title={ru ? 'Убрать' : 'Remove'}>×</button>
+        </div>; })}
+    </section>;
+}
+
+export function PlantingInsights({ beds, fills, points, vines = [], library, month, ru, focusBedId, focusVineId, onOpenPlant, onPointStatus, onRemovePoint, onFramePoint, onSelectVine, onRemoveVine }) {
+    const [view, setView] = useState(beds.length || !(points.length || vines.length) ? 'beds' : points.length ? 'trees' : 'vines');
     const [bed, setBed] = useState(null);
     const [status, setStatus] = useState('all');
-    // Выбрал цветник в сцене — обзор показывает его.
+    // Выбрал цветник или лиану в сцене — обзор показывает их.
     useEffect(() => { if (focusBedId) { setView('beds'); setBed(focusBedId); } }, [focusBedId]);
-    const scope = view === 'beds' ? { kind: 'beds', bed: beds.some((b) => b.id === bed) ? bed : null } : { kind: 'trees', status };
-    const data = useMemo(() => scopeRows(scope, beds, fills, points, library), [scope.kind, scope.bed, scope.status, beds, fills, points, library]); // eslint-disable-line react-hooks/exhaustive-deps
+    useEffect(() => { if (focusVineId) setView('vines'); }, [focusVineId]);
+    const scope = view === 'beds' ? { kind: 'beds', bed: beds.some((b) => b.id === bed) ? bed : null } : view === 'vines' ? { kind: 'vines' } : { kind: 'trees', status };
+    const data = useMemo(() => scopeRows(scope, beds, fills, points, library, vines), [scope.kind, scope.bed, scope.status, beds, fills, points, library, vines]); // eslint-disable-line react-hooks/exhaustive-deps
+    const lengths = useMemo(() => new Map(vines.map((vine) => [vine.id, vineLength(vine)])), [vines]);
     const existing = points.filter((p) => p.status === 'existing').length;
     const listed = view === 'trees' ? points.filter((p) => status === 'all' || (status === 'existing') === (p.status === 'existing')) : [];
 
@@ -124,8 +141,9 @@ export function PlantingInsights({ beds, fills, points, library, month, ru, focu
         <div className="planting-segment">
             <button type="button" className={view === 'beds' ? 'is-active' : ''} onClick={() => setView('beds')} data-testid="planting-view-beds">{ru ? 'Цветники' : 'Beds'}<small>{beds.length}</small></button>
             <button type="button" className={view === 'trees' ? 'is-active' : ''} onClick={() => setView('trees')} data-testid="planting-view-trees">{ru ? 'Деревья и кусты' : 'Trees and shrubs'}<small>{points.length}</small></button>
+            <button type="button" className={view === 'vines' ? 'is-active' : ''} onClick={() => setView('vines')} data-testid="planting-view-vines">{ru ? 'Лианы' : 'Climbers'}<small>{vines.length}</small></button>
         </div>
-        {view === 'beds'
+        {view === 'vines' ? null : view === 'beds'
             ? <Chips value={scope.bed} onChange={setBed} items={[{ value: null, label: ru ? 'Все' : 'All', count: beds.length }, ...beds.map((b) => ({ value: b.id, label: b.name }))]} />
             : <Chips value={status} onChange={setStatus} items={[
                 { value: 'all', label: ru ? 'Все' : 'All', count: points.length },
@@ -135,7 +153,9 @@ export function PlantingInsights({ beds, fills, points, library, month, ru, focu
         {data.count ? <>
             <Tiles tiles={view === 'beds'
                 ? [[ru ? 'растений' : 'plants', format(data.count)], [ru ? 'видов' : 'species', data.species], [ru ? 'площадь' : 'area', format(data.area, 1), 'м²'], [ru ? 'на м²' : 'per m²', format(data.count / Math.max(0.01, data.area), 1)]]
-                : [[ru ? 'растений' : 'plants', format(data.count)], [ru ? 'видов' : 'species', data.species], [ru ? 'новых' : 'new', points.length - existing], [ru ? 'сущ.' : 'existing', existing]]} />
+                : view === 'vines'
+                    ? [[ru ? 'растений' : 'plants', format(data.count)], [ru ? 'видов' : 'species', data.species], [ru ? 'побегов' : 'shoots', vines.reduce((sum, vine) => sum + vine.shoots.length, 0)], [ru ? 'длина' : 'length', format(data.length, 1), 'м']]
+                    : [[ru ? 'растений' : 'plants', format(data.count)], [ru ? 'видов' : 'species', data.species], [ru ? 'новых' : 'new', points.length - existing], [ru ? 'сущ.' : 'existing', existing]]} />
             <Composition rows={data.rows} ru={ru} onOpenPlant={onOpenPlant} />
             <BloomCalendar rows={data.rows} month={month} ru={ru} />
             <Heights rows={data.rows} ru={ru} />
@@ -150,7 +170,10 @@ export function PlantingInsights({ beds, fills, points, library, month, ru, focu
             </section> : null}
         </> : <p className="planting-empty">{view === 'beds'
             ? (ru ? 'Цветников пока нет — нарисуйте контур инструментом «Цветник» (L).' : 'No beds yet — draw an outline with the Bed tool (L).')
-            : (ru ? 'Деревьев и кустов пока нет — «Посадить» (T) и клик по земле.' : 'No trees or shrubs yet — Plant (T) and click the ground.')}</p>}
+            : view === 'vines'
+                ? (ru ? 'Лиан пока нет — «Лиана» (I) и мазок по стене, кашпо, сетке или земле.' : 'No climbers yet — Climber (I) and a stroke over a wall, planter, mesh or the ground.')
+                : (ru ? 'Деревьев и кустов пока нет — «Посадить» (T) и клик по земле.' : 'No trees or shrubs yet — Plant (T) and click the ground.')}</p>}
         {view === 'trees' ? <PointList points={listed} library={library} ru={ru} onPointStatus={onPointStatus} onRemovePoint={onRemovePoint} onFramePoint={onFramePoint} /> : null}
+        {view === 'vines' ? <VineList vines={vines} library={library} ru={ru} lengths={lengths} onSelectVine={onSelectVine} onRemoveVine={onRemoveVine} /> : null}
     </div>;
 }

@@ -11,27 +11,37 @@ import { clipToSurface } from './clipSurface.js';
 //           протяжка, начатая на поверхности модели, — контур от руки,
 //           обрезанный по ней (clipSurface.js); начатая на плоскости —
 //           просто контур. Отпустил — цветник, одна отмена;
-//   plant — клик ставит выбранное растение; протяжка крутит камеру, как обычно.
+//   plant — клик ставит выбранное растение; протяжка крутит камеру, как обычно;
+//   vine  — мазок по любой поверхности (стена, кашпо, сетка, земля): лиана
+//           растёт от первой точки по мазку (vines.js). Точки — с нормалью
+//           поверхности; мимо модели мазок не пишется.
 // Земля — то, во что упирается луч: ровная плоскость проекта или модель
-// SketchUp (её 2D-растения, круги крон, стекло и листва — не земля); мимо —
-// горизонталь на высоте плоскости. Esc и потеря окна не сохраняют ничего.
+// SketchUp (её 2D-растения, круги крон, стекло и листва — не земля; сетка с
+// вырезами — опора для лианы); мимо — горизонталь на высоте плоскости. Esc и
+// потеря окна не сохраняют ничего.
 const MAX_REACH = 2000;
 const CLICK = 6;
 
-const solid = (object) => {
+const VINE_STEP = 0.04;
+const solid = (object, cutout = false) => {
     for (let node = object; node; node = node.parent) if (!node.visible) return false;
     const material = Array.isArray(object.material) ? object.material[0] : object.material;
-    return !object.userData.faceNormal && !object.userData.crownPlan && !material?.transparent && !(material?.alphaTest > 0);
+    return !object.userData.faceNormal && !object.userData.crownPlan && !material?.transparent && (cutout || !(material?.alphaTest > 0));
 };
+const UP = new THREE.Vector3(0, 1, 0), FACING = new THREE.Vector3(0, 0, 1);
 
-export default function PlantingBrush({ mode, groundY = 0, orbitRef, onBed, onBedSurface, onPlant }) {
+export default function PlantingBrush({ mode, groundY = 0, orbitRef, onBed, onBedSurface, onPlant, onVine }) {
     const { gl, camera, scene, invalidate } = useThree();
     const cursor = useRef();
     const callbacks = useRef({});
-    callbacks.current = { onBed, onBedSurface, onPlant };
+    callbacks.current = { onBed, onBedSurface, onPlant, onVine };
     const [preview, setPreview] = useState(null);
     const [surface, setSurface] = useState(null);
-    const line = useMemo(() => (preview && preview.length > 1 ? new THREE.BufferGeometry().setFromPoints([...preview, preview[0]].map(([x, y, z]) => new THREE.Vector3(x, y + 0.04, z))) : null), [preview]);
+    // Контур цветника замкнут и приподнят над землёй; мазок лианы — открытый,
+    // его точки уже отнесены от поверхности по нормали.
+    const line = useMemo(() => (preview && preview.length > 1
+        ? new THREE.BufferGeometry().setFromPoints((mode === 'vine' ? preview : [...preview, preview[0]]).map(([x, y, z]) => new THREE.Vector3(x, y + (mode === 'vine' ? 0 : 0.04), z)))
+        : null), [preview, mode]);
     useEffect(() => () => line?.dispose(), [line]);
     const highlight = useMemo(() => new THREE.MeshBasicMaterial({ color: '#f2c14e', transparent: true, opacity: 0.38, depthWrite: false, side: THREE.DoubleSide, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }), []);
     useEffect(() => () => highlight.dispose(), [highlight]);
@@ -46,14 +56,17 @@ export default function PlantingBrush({ mode, groundY = 0, orbitRef, onBed, onBe
             ray.setFromCamera({ x: (2 * (event.clientX - box.left)) / box.width - 1, y: 1 - (2 * (event.clientY - box.top)) / box.height }, camera);
             const model = scene.getObjectByName('placed');
             const targets = [scene.getObjectByName('ground-plane'), model].filter(Boolean);
-            const hit = ray.intersectObjects(targets, true).find((item) => item.distance < MAX_REACH && solid(item.object));
+            const hit = ray.intersectObjects(targets, true).find((item) => item.distance < MAX_REACH && solid(item.object, mode === 'vine'));
             if (hit) {
                 let inModel = false;
                 for (let node = hit.object; node; node = node.parent) if (node === model) inModel = true;
-                return { point: hit.point.toArray(), hit: inModel && hit.faceIndex !== undefined && hit.object.isMesh ? hit : null };
+                // Нормаль — к камере: у двусторонней грани лицо может смотреть от нас.
+                const normal = hit.face ? hit.face.normal.clone().transformDirection(hit.object.matrixWorld) : UP.clone();
+                if (normal.dot(ray.ray.direction) > 0) normal.negate();
+                return { point: hit.point.toArray(), normal: normal.toArray(), hit: inModel && hit.faceIndex !== undefined && hit.object.isMesh ? hit : null };
             }
             const at = new THREE.Vector3();
-            return ray.ray.intersectPlane(plane, at) && ray.ray.origin.distanceTo(at) < MAX_REACH ? { point: at.toArray(), hit: null } : null;
+            return ray.ray.intersectPlane(plane, at) && ray.ray.origin.distanceTo(at) < MAX_REACH ? { point: at.toArray(), normal: [0, 1, 0], hit: null } : null;
         };
         // Участок модели под курсором — один раз на участок и положение модели.
         const regionAt = (hit) => {
@@ -73,10 +86,15 @@ export default function PlantingBrush({ mode, groundY = 0, orbitRef, onBed, onBe
             setSurface(next ? next.geometry : null);
             invalidate();
         };
-        const showCursor = (point) => {
+        // Кольцо лежит на поверхности под курсором — на земле и на стене.
+        const turn = new THREE.Vector3();
+        const showCursor = (found) => {
             if (!cursor.current) return;
-            cursor.current.visible = Boolean(point);
-            if (point) cursor.current.position.set(point[0], point[1] + 0.03, point[2]);
+            cursor.current.visible = Boolean(found);
+            if (!found) return;
+            turn.fromArray(found.normal ?? [0, 1, 0]);
+            cursor.current.quaternion.setFromUnitVectors(FACING, turn);
+            cursor.current.position.fromArray(found.point).addScaledVector(turn, 0.03);
         };
         const stop = () => {
             const active = stroke;
@@ -96,23 +114,32 @@ export default function PlantingBrush({ mode, groundY = 0, orbitRef, onBed, onBe
             event.preventDefault(); event.stopImmediatePropagation();
             oldOrbit = orbitRef?.current?.enabled ?? true;
             if (orbitRef?.current) orbitRef.current.enabled = false;
-            stroke = { id: event.pointerId, points: [found.point] };
+            stroke = { id: event.pointerId, points: [found.point], samples: [[...found.point, ...found.normal]] };
             canvas.setPointerCapture(event.pointerId);
-            setPreview([found.point]);
+            setPreview([mode === 'vine' ? lifted(found) : found.point]);
         };
         const move = (event) => {
             // Щелчок — нажатие без движения: замкнутый контур возвращается к началу.
             if (press && event.pointerId === press.id) press.moved = Math.max(press.moved, Math.hypot(event.clientX - press.x, event.clientY - press.y));
             const found = cast(event);
-            showCursor(found?.point);
+            showCursor(found);
             if (mode === 'bed' && !stroke && !hoverFrame) {
                 const hit = found?.hit;
                 hoverFrame = requestAnimationFrame(() => { hoverFrame = 0; showSurface(regionAt(hit)); });
             }
             if (stroke && event.pointerId === stroke.id) {
                 event.preventDefault(); event.stopImmediatePropagation();
-                const point = found?.point, last = stroke.points.at(-1);
-                if (point && Math.hypot(point[0] - last[0], point[2] - last[2]) > 0.12 && stroke.points.length < 4096) stroke.points.push(point);
+                if (mode === 'vine') {
+                    // Мазок лианы — по самой поверхности, в 3D, с нормалью; мимо модели — пропуск.
+                    const last = stroke.samples.at(-1);
+                    if (found && Math.hypot(found.point[0] - last[0], found.point[1] - last[1], found.point[2] - last[2]) > VINE_STEP && stroke.samples.length < 400) {
+                        stroke.samples.push([...found.point, ...found.normal]);
+                        stroke.points.push(lifted(found));
+                    }
+                } else {
+                    const point = found?.point, last = stroke.points.at(-1);
+                    if (point && Math.hypot(point[0] - last[0], point[2] - last[2]) > 0.12 && stroke.points.length < 4096) stroke.points.push(point);
+                }
                 if (!frame) frame = requestAnimationFrame(() => { frame = 0; if (stroke) setPreview([...stroke.points]); });
             }
             invalidate();
@@ -129,8 +156,14 @@ export default function PlantingBrush({ mode, groundY = 0, orbitRef, onBed, onBe
             }
             if (!stroke || event.pointerId !== stroke.id || event.button !== 0) return;
             event.preventDefault(); event.stopImmediatePropagation();
-            const points = stroke.points;
+            const points = stroke.points, samples = stroke.samples;
             stop();
+            if (mode === 'vine') {
+                let length = 0;
+                for (let i = 1; i < samples.length; i += 1) length += Math.hypot(samples[i][0] - samples[i - 1][0], samples[i][1] - samples[i - 1][1], samples[i][2] - samples[i - 1][2]);
+                if (samples.length >= 3 && length >= 0.15) callbacks.current.onVine?.(samples);
+                return;
+            }
             // Щелчок по поверхности модели — цветник на всю поверхность;
             // протяжка по ней — только её часть внутри контура.
             if (start?.region?.ground && (clicked || points.length >= 3)) {
@@ -146,6 +179,7 @@ export default function PlantingBrush({ mode, groundY = 0, orbitRef, onBed, onBe
             callbacks.current.onBed?.(simplifyContour(points.map(([x, , z]) => [x, z])), heights[heights.length >> 1]);
         };
         const cancel = () => { press = null; if (stroke) stop(); };
+        function lifted(found) { return found.point.map((value, i) => value + (found.normal?.[i] ?? (i === 1 ? 1 : 0)) * 0.03); }
         const key = (event) => { if (event.key === 'Escape') cancel(); };
         const leave = () => { if (!stroke) { showCursor(null); showSurface(null); } invalidate(); };
         canvas.addEventListener('pointerdown', down, true);
@@ -174,8 +208,8 @@ export default function PlantingBrush({ mode, groundY = 0, orbitRef, onBed, onBe
 
     if (!mode) return null;
     return <group>
-        <mesh ref={cursor} rotation={[-Math.PI / 2, 0, 0]} visible={false} raycast={() => {}}>
-            <ringGeometry args={[mode === 'bed' ? 0.16 : 0.3, mode === 'bed' ? 0.2 : 0.36, 40]} />
+        <mesh ref={cursor} visible={false} raycast={() => {}}>
+            <ringGeometry args={[mode === 'plant' ? 0.3 : mode === 'vine' ? 0.1 : 0.16, mode === 'plant' ? 0.36 : mode === 'vine' ? 0.13 : 0.2, 40]} />
             <meshBasicMaterial color="#d9ca8c" depthTest={false} transparent opacity={0.85} toneMapped={false} />
         </mesh>
         {surface ? <mesh geometry={surface} material={highlight} raycast={() => {}} renderOrder={6} /> : null}

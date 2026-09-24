@@ -1,5 +1,5 @@
 {
-  "collected": "2026-09-24T19:57:59.650Z",
+  "collected": "2026-09-24T20:41:59.388Z",
   "rows": [
     {
       "key": "cameraFov",
@@ -2041,6 +2041,16 @@
       "unit": " ×"
     },
     {
+      "key": "plantingVines",
+      "group": "greenery",
+      "node": "planting",
+      "label": "Лиана",
+      "kind": "список",
+      "options": [
+        ""
+      ]
+    },
+    {
       "key": "plantingPlant",
       "group": "greenery",
       "node": "planting",
@@ -2058,6 +2068,15 @@
         "berberis-golden-rocket",
         "cornus-alba-elegantissima",
         "spiraea-tor-gold",
+        "vitis-vinifera",
+        "fallopia-baldschuanica",
+        "hydrangea-petiolaris",
+        "parthenocissus-quinquefolia",
+        "parthenocissus-tricuspidata-veitchii",
+        "lonicera-caprifolium",
+        "campsis-radicans",
+        "clematis-jackmanii",
+        "hedera-helix",
         "nassella-tenuissima",
         "miscanthus-sinensis",
         "festuca-glauca",

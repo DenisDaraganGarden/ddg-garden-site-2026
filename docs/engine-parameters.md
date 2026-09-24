@@ -8,7 +8,7 @@
 единицы взяты из его каталога контролов, поэтому параметр не может появиться в
 редакторе и не появиться здесь. Руками не править.
 
-Снято: 2026-09-24 · параметров: 692 · разделов: 43
+Снято: 2026-09-24 · параметров: 693 · разделов: 43
 
 Как этим пользоваться агенту: читать и писать `~/Ouroboros/projects/<id>.json`, поле
 `settings` — плоский объект с этими ключами. `topiaryObjects` — массив форм;
@@ -330,7 +330,8 @@
 | `plantingEnabled` | Посадки | выключатель | да / нет | true |
 | `plantingMonth` | Месяц | число | 1 … 12, шаг 1 | 6 |
 | `plantingPlan` | План в шапках | выключатель | да / нет | false |
-| `plantingPlant` | Растение | список | quercus-robur-fastigiata · acer-tataricum · pinus-nigra · thuja-smaragd · malus-evereste · picea-alberta-globe · juniperus-sabina-mas · buxus-sempervirens-ball · berberis-golden-rocket · cornus-alba-elegantissima · spiraea-tor-gold · nassella-tenuissima · miscanthus-sinensis · festuca-glauca · pennisetum-hameln · deschampsia-cespitosa · gaillardia-grandiflora · iris-germanica · lavandula-angustifolia · liatris-spicata · alchemilla-mollis · leucanthemum-superbum · sedum-herbstfreude · perovskia-atriplicifolia · rudbeckia-goldsturm · vinca-minor |  |
+| `plantingPlant` | Растение | список | quercus-robur-fastigiata · acer-tataricum · pinus-nigra · thuja-smaragd · malus-evereste · picea-alberta-globe · juniperus-sabina-mas · buxus-sempervirens-ball · berberis-golden-rocket · cornus-alba-elegantissima · spiraea-tor-gold · vitis-vinifera · fallopia-baldschuanica · hydrangea-petiolaris · parthenocissus-quinquefolia · parthenocissus-tricuspidata-veitchii · lonicera-caprifolium · campsis-radicans · clematis-jackmanii · hedera-helix · nassella-tenuissima · miscanthus-sinensis · festuca-glauca · pennisetum-hameln · deschampsia-cespitosa · gaillardia-grandiflora · iris-germanica · lavandula-angustifolia · liatris-spicata · alchemilla-mollis · leucanthemum-superbum · sedum-herbstfreude · perovskia-atriplicifolia · rudbeckia-goldsturm · vinca-minor |  |
+| `plantingVines` | Лиана | список |  |  |
 
 ## greenery/shrubs
 

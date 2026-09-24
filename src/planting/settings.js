@@ -1,16 +1,16 @@
 // Посадки: цветники (контур на земле и рецепт — какие растения и в какой
-// доле) и одиночные растения. Растения — записи библиотеки
+// доле), одиночные растения и лианы. Растения — записи библиотеки
 // (~/Ouroboros/library/plants, scripts/plantLibrary.mjs), здесь только их id.
 // Цветник хранит не растения, а правило: сколько и где — считает fillBed.js,
 // одинаково при каждом открытии. Метры; y — высота земли, на которой контур
 // нарисован. Цветники и одиночные растения общие для всех камер, как
 // расстановка (sceneCameras.js их не снимает); месяц и план — у камеры свои,
 // как время суток: «июнь» и «январь» — две камеры.
-export const PLANTING_LIMITS = Object.freeze({ beds: 64, points: 400, recipe: 12, contour: 256, holes: 64, hole: 128, ground: 4400, plants: 30000 });
+export const PLANTING_LIMITS = Object.freeze({ beds: 64, points: 400, recipe: 12, contour: 256, holes: 64, hole: 128, ground: 4400, plants: 30000, vines: 200, shoots: 12, shootPoints: 400 });
 export const PLANTING_RANGES = Object.freeze({ drift: [0.3, 6, 0.1], density: [0.4, 2, 0.05], share: [1, 100, 1], month: [1, 12, 1] });
 // northAngle — север участка (north.js): градусы по часовой от зелёной оси
 // SketchUp; как и цветники, один на все камеры.
-export const DEFAULT_PLANTING_SETTINGS = Object.freeze({ plantingEnabled: true, plantingBeds: [], plantingPoints: [], plantingMonth: 6, plantingPlan: false, northAngle: 0 });
+export const DEFAULT_PLANTING_SETTINGS = Object.freeze({ plantingEnabled: true, plantingBeds: [], plantingPoints: [], plantingVines: [], plantingMonth: 6, plantingPlan: false, northAngle: 0 });
 export const PLANTING_BED_DEFAULT = Object.freeze({ drift: 1.6, density: 1 });
 
 // Градусы в пределах −180…180.
@@ -83,6 +83,21 @@ export function normalizePlantingPoint(value, index = 0) {
     };
 }
 
+// Лиана (vines.js): растение, побеги — мазки кистью по поверхности, каждая
+// точка с нормалью поверхности [x, y, z, nx, ny, nz]; растёт из первой точки.
+const unitPart = (value) => Math.round(Math.min(1, Math.max(-1, value)) * 1000) / 1000;
+export function normalizePlantingVine(value, index = 0) {
+    if (!value || !PLANT.test(String(value.plant ?? '')) || !Array.isArray(value.shoots)) return null;
+    const shoots = value.shoots.slice(0, PLANTING_LIMITS.shoots)
+        .map((shoot) => (Array.isArray(shoot) ? shoot : [])
+            .filter((point) => Array.isArray(point) && point.length >= 6 && point.slice(0, 6).every((v) => Number.isFinite(Number(v))))
+            .slice(0, PLANTING_LIMITS.shootPoints)
+            .map((point) => [...point.slice(0, 3).map((v) => metres(Number(v))), ...point.slice(3, 6).map((v) => unitPart(Number(v)))]))
+        .filter((shoot) => shoot.length >= 2);
+    if (!shoots.length) return null;
+    return { id: ID.test(String(value.id ?? '')) ? value.id : `vine-${index}`, plant: value.plant, shoots, seed: seedOf(value.seed, index + 17) };
+}
+
 const unique = (list, limit, normalize) => {
     const ids = new Set();
     return (Array.isArray(list) ? list : []).slice(0, limit).map(normalize).filter(Boolean).map((item, index) => {
@@ -99,6 +114,7 @@ export function normalizePlantingSettings(settings = {}) {
         plantingEnabled: settings.plantingEnabled !== false,
         plantingBeds: unique(settings.plantingBeds, PLANTING_LIMITS.beds, normalizePlantingBed),
         plantingPoints: unique(settings.plantingPoints, PLANTING_LIMITS.points, normalizePlantingPoint),
+        plantingVines: unique(settings.plantingVines, PLANTING_LIMITS.vines, normalizePlantingVine),
         plantingMonth: number(settings.plantingMonth, DEFAULT_PLANTING_SETTINGS.plantingMonth, PLANTING_RANGES.month),
         plantingPlan: settings.plantingPlan === true,
         northAngle: wrapDegrees(number(settings.northAngle, 0, [-360, 360, 0.5])),

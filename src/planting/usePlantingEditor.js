@@ -1,6 +1,11 @@
 import { useCallback, useRef, useState } from 'react';
-import { normalizePlantingBed, normalizePlantingPoint, PLANTING_BED_DEFAULT, PLANTING_LIMITS } from './settings.js';
+import { normalizePlantingBed, normalizePlantingPoint, normalizePlantingVine, PLANTING_BED_DEFAULT, PLANTING_LIMITS } from './settings.js';
 import { PLANTING_PALETTES } from './palettes.js';
+import { vineRoot } from './vines.js';
+
+// Мазок, начатый у корня лианы того же вида (ближе JOIN м), — ещё один её
+// побег, а не новое растение.
+const JOIN = 0.35;
 
 export const PLANTING_NODE = 'greenery/planting';
 const newSeed = () => Math.floor(Math.random() * 1e7) + 1;
@@ -21,12 +26,14 @@ export function usePlantingEditor({ settings, history, setActiveTab, setTool, to
     const [plantChoice, setPlantChoice] = useState('acer-tataricum');
     // Что сажает клик: новое растение по проекту или существующее на участке.
     const [plantStatus, setPlantStatus] = useState('new');
+    const [vineChoice, setVineChoice] = useState('parthenocissus-quinquefolia');
+    const [vineId, setVineId] = useState(null);
     const live = useRef();
-    live.current = { settings, history, language, library, plantChoice, plantStatus };
+    live.current = { settings, history, language, library, plantChoice, plantStatus, vineChoice };
 
     const beds = settings.plantingBeds ?? [];
     const applyBeds = useCallback((next) => live.current.history.applySettings({ plantingEnabled: true, plantingBeds: next }), []);
-    const select = useCallback((id) => { setSelectedId(id); setActiveTab(PLANTING_NODE); setTool('select'); }, [setActiveTab, setTool]);
+    const select = useCallback((id) => { setSelectedId(id); setVineId(null); setActiveTab(PLANTING_NODE); setTool('select'); }, [setActiveTab, setTool]);
 
     const updateBed = useCallback((id, patch) => {
         const { settings } = live.current;
@@ -57,6 +64,35 @@ export function usePlantingEditor({ settings, history, setActiveTab, setTool, to
         history.applySettings({ plantingEnabled: true, plantingPoints: [...settings.plantingPoints, point] });
     }, []);
 
+    // Лиана — мазок кистью (PlantingBrush, vine): новое растение или побег
+    // той, у чьего корня мазок начат.
+    const vines = settings.plantingVines ?? [];
+    const applyVines = useCallback((next) => live.current.history.applySettings({ plantingEnabled: true, plantingVines: next }), []);
+    const onVine = useCallback((samples) => {
+        const { settings, vineChoice, library } = live.current;
+        if (library.size && !library.has(vineChoice)) return;
+        const list = settings.plantingVines ?? [];
+        const start = samples[0];
+        const near = list.find((vine) => vine.plant === vineChoice && vine.shoots.length < PLANTING_LIMITS.shoots
+            && Math.hypot(...vineRoot(vine).map((value, i) => value - start[i])) < JOIN);
+        if (near) {
+            applyVines(list.map((vine, index) => (vine === near ? normalizePlantingVine({ ...vine, shoots: [...vine.shoots, samples] }, index) : vine)));
+            setVineId(near.id);
+        } else {
+            if (list.length >= PLANTING_LIMITS.vines) return;
+            const vine = normalizePlantingVine({ id: newId('vine'), plant: vineChoice, shoots: [samples], seed: newSeed() }, list.length);
+            if (!vine) return;
+            applyVines([...list, vine]);
+            setVineId(vine.id);
+        }
+        setSelectedId(null);
+    }, [applyVines]);
+    const selectVine = useCallback((id) => { setVineId(id); setSelectedId(null); setActiveTab(PLANTING_NODE); setTool('select'); }, [setActiveTab, setTool]);
+    const updateVine = useCallback((id, patch) => {
+        applyVines((live.current.settings.plantingVines ?? []).map((vine, index) => (vine.id === id ? normalizePlantingVine({ ...vine, ...patch }, index) : vine)));
+    }, [applyVines]);
+    const removeVine = useCallback((id) => { applyVines((live.current.settings.plantingVines ?? []).filter((vine) => vine.id !== id)); setVineId(null); }, [applyVines]);
+
     const removeBed = useCallback((id) => { applyBeds(live.current.settings.plantingBeds.filter((bed) => bed.id !== id)); setSelectedId(null); }, [applyBeds]);
     const removeLastPoint = useCallback(() => {
         const { settings, history } = live.current;
@@ -72,7 +108,10 @@ export function usePlantingEditor({ settings, history, setActiveTab, setTool, to
         select, updateBed, removeBed, applyPalette, onBed, onBedSurface, onPlant, removeLastPoint,
         reseed: (id) => updateBed(id, { seed: newSeed() }),
         plantChoice, setPlantChoice, plantStatus, setPlantStatus,
-        mode: tool === 'bed' || tool === 'plant' ? tool : null,
+        vineId: vines.some((vine) => vine.id === vineId) ? vineId : null,
+        vineChoice, setVineChoice, onVine, selectVine, updateVine, removeVine,
+        reseedVine: (id) => updateVine(id, { seed: newSeed() }),
+        mode: tool === 'bed' || tool === 'plant' || tool === 'vine' ? tool : null,
         begin: (next) => { setActiveTab(PLANTING_NODE); setTool(next); },
         stop: () => setTool('select'),
     };

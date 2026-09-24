@@ -44,11 +44,12 @@ const TOOLS = [
 const PLANT_TOOLS = [
     { id: 'bed', icon: 'bed', ru: 'Цветник', en: 'Bed', key: 'L', group: 'plants' },
     { id: 'plant', icon: 'sprout', ru: 'Посадить', en: 'Plant', key: 'T', group: 'plants' },
+    { id: 'vine', icon: 'vine', ru: 'Лиана', en: 'Climber', key: 'I', group: 'plants' },
     { id: 'topiary', icon: 'leaf', ru: 'Изгородь', en: 'Hedge', key: 'B', group: 'plants' },
 ];
 const ALL_TOOLS = [...TOOLS, ...PLANT_TOOLS];
 // Кольцо на пробеле — по часовой от верха; растения собраны слева.
-const PIE_ORDER = ['select', 'translate', 'rotate', 'scale', 'hand', 'plant', 'bed', 'topiary'];
+const PIE_ORDER = ['select', 'translate', 'rotate', 'scale', 'hand', 'plant', 'bed', 'vine', 'topiary'];
 
 // Растения на линейке — одна кнопка: значок последнего растительного
 // инструмента, клик раскрывает меню из трёх с подписями и клавишами.
@@ -67,7 +68,7 @@ function PlantToolGroup({ gizmo, tr }) {
     }, [open]);
     const shown = active ?? PLANT_TOOLS.find((tool) => tool.id === last);
     return <div ref={ref} className="focus-tool-group">
-        <Button icon={shown.icon} className="focus-tool-group__button" label={tr('Растения — цветник, посадка, изгородь', 'Plants — bed, plant, hedge')} aria-pressed={Boolean(active)} aria-expanded={open} onClick={() => setOpen((value) => !value)} data-testid="focus-tool-plants" />
+        <Button icon={shown.icon} className="focus-tool-group__button" label={tr('Растения — цветник, посадка, лиана, изгородь', 'Plants — bed, plant, climber, hedge')} aria-pressed={Boolean(active)} aria-expanded={open} onClick={() => setOpen((value) => !value)} data-testid="focus-tool-plants" />
         {open ? <div className="focus-tool-flyout focus-glass" role="menu">
             <header>{tr('Растения', 'Plants')}</header>
             {PLANT_TOOLS.map((tool) => <button key={tool.id} type="button" role="menuitemradio" aria-checked={gizmo?.tool === tool.id} onClick={() => { gizmo?.setTool?.(tool.id); setOpen(false); }} data-testid={`focus-tool-${tool.id}`}>
@@ -119,7 +120,7 @@ function NodeSections({ group, node, catalogOnly = false, sectionProps }) {
 }
 
 // Список клавиш один: он и в справке, и в окне настроек.
-const shortcutRows = (tr) => [[tr('Поиск', 'Search'), '⌘ K'], [tr('Отменить / повторить параметр', 'Undo / redo parameter'), '⌘ Z / ⌘ ⇧ Z'], [tr('Пауза', 'Pause'), tr('Пробел', 'Space')], [tr('Круг инструментов: повести мышь и отпустить', 'Tool ring: move the mouse and let go'), tr('держать Пробел', 'hold Space')], [tr('Выбор · перенос · поворот · масштаб · обзор', 'Select · move · rotate · scale · navigate'), 'V · G · R · S · H'], [tr('Цветник · посадить · изгородь', 'Bed · plant · hedge'), 'L · T · B'], [tr('Свободный полёт', 'Free flight'), 'W A S D Q E'], [tr('Скрыть / вернуть панели', 'Hide / show panels'), 'Tab'], [tr('Изменить число', 'Scrub value'), tr('ЛКМ ↔ · Shift точнее', 'LMB ↔ · Shift precise')], [tr('Меню объекта, камеры, параметра', 'Object, camera, parameter menu'), tr('ПКМ', 'RMB')], [tr('Цвет значка', 'Icon colour'), tr('ПКМ в списке', 'RMB in the list')], [tr('Отменить жест / вернуться к выбору', 'Cancel gesture / back to select'), 'Esc'],
+const shortcutRows = (tr) => [[tr('Поиск', 'Search'), '⌘ K'], [tr('Отменить / повторить параметр', 'Undo / redo parameter'), '⌘ Z / ⌘ ⇧ Z'], [tr('Пауза', 'Pause'), tr('Пробел', 'Space')], [tr('Круг инструментов: повести мышь и отпустить', 'Tool ring: move the mouse and let go'), tr('держать Пробел', 'hold Space')], [tr('Выбор · перенос · поворот · масштаб · обзор', 'Select · move · rotate · scale · navigate'), 'V · G · R · S · H'], [tr('Цветник · посадить · лиана · изгородь', 'Bed · plant · climber · hedge'), 'L · T · I · B'], [tr('Свободный полёт', 'Free flight'), 'W A S D Q E'], [tr('Скрыть / вернуть панели', 'Hide / show panels'), 'Tab'], [tr('Изменить число', 'Scrub value'), tr('ЛКМ ↔ · Shift точнее', 'LMB ↔ · Shift precise')], [tr('Меню объекта, камеры, параметра', 'Object, camera, parameter menu'), tr('ПКМ', 'RMB')], [tr('Цвет значка', 'Icon colour'), tr('ПКМ в списке', 'RMB in the list')], [tr('Отменить жест / вернуться к выбору', 'Cancel gesture / back to select'), 'Esc'],
     [tr('Играть на доске / стоп', 'Ride the board / stop'), 'P'], [tr('Доска: вес · гребок', 'Board: weight · paddle'), 'W S'], [tr('Доска: наклон', 'Board: lean'), 'A D'], [tr('Доска: присед', 'Board: crouch'), 'Shift'], [tr('Доска: встать · прыжок', 'Board: stand up · jump'), 'Space'], [tr('Доска: спрыгнуть (W A S D — куда) · залезть · взять под мышку · положить', 'Board: jump off (W A S D — where) · climb on · carry · put down'), 'F'], [tr('Доска: лиш — отстегнуть · пристегнуть', 'Board: leash — off · on'), 'L'], [tr('Доска: оглянуться', 'Board: look back'), tr('Q · средняя кнопка', 'Q · middle button')], [tr('Доска: камера', 'Board: camera'), 'C / 1–4'], [tr('Доска: обзор · ближе/дальше', 'Board: look · closer/further'), tr('тащить · колесо', 'drag · wheel')], [tr('Доска: на чекпоинт', 'Board: back to the checkpoint'), 'R'], [tr('Доска: поставить чекпоинт', 'Board: set the checkpoint'), 'T'], [tr('Доска: выйти', 'Board: leave'), 'Esc'],
     [tr('Доска: захватить мышь', 'Board: capture the mouse'), tr('клик', 'click')], [tr('Доска: наклон и вес', 'Board: lean and weight'), tr('мышь', 'mouse')], [tr('Доска: присед · гребок левой', 'Board: crouch · left stroke'), tr('ЛКМ', 'LMB')], [tr('Доска: хват канта · гребок правой', 'Board: rail grab · right stroke'), tr('ПКМ', 'RMB')], [tr('Доска: отпустить мышь', 'Board: release the mouse'), 'Esc'],
     [tr('Геймпад: наклон и вес', 'Gamepad: lean and weight'), tr('левый стик', 'left stick')], [tr('Геймпад: обзор', 'Gamepad: look'), tr('правый стик', 'right stick')], [tr('Геймпад: присед · гребок правой', 'Gamepad: crouch · right stroke'), 'RT'], [tr('Геймпад: хват канта · гребок левой', 'Gamepad: rail grab · left stroke'), 'LT'], [tr('Геймпад: встать · прыжок', 'Gamepad: stand up · jump'), 'A'], [tr('Геймпад: камера', 'Gamepad: camera'), 'Y'], [tr('Геймпад: оглянуться', 'Gamepad: look back'), 'LB'], [tr('Геймпад: на чекпоинт', 'Gamepad: back to the checkpoint'), 'View'], [tr('Геймпад: поставить чекпоинт', 'Gamepad: set the checkpoint'), tr('крестовина ↑', 'D-pad ↑')], [tr('Геймпад: выйти', 'Gamepad: leave'), 'Menu']];

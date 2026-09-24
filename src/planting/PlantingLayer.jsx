@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { plantingInstances } from './fillBed.js';
 import { plantCardUrl, useBedFills, usePlantLibrary } from './plantLibrary.js';
 import { seasonLook } from './season.js';
+import VineLayer from './VineLayer.jsx';
 
 // Посадки в сцене: одна пачка карточек на вид (InstancedMesh), а не на
 // цветник, — сколько бы цветников ни было, вызовов отрисовки столько, сколько
@@ -120,6 +121,7 @@ function cardGeometry(plant) {
     return geometry;
 }
 
+const NOTHING = () => {};
 const capacityFor = (count) => 2 ** Math.ceil(Math.log2(Math.max(8, count)));
 
 function SpeciesCards({ plant, instances, month, envMapIntensity }) {
@@ -239,19 +241,22 @@ function BedSurface({ bed, selected, plan }) {
     }, [bed.points, bed.holes]);
     const outlines = useMemo(() => [bed.points, ...(bed.holes ?? [])].map((ring) => new THREE.BufferGeometry().setFromPoints(ring.map(([x, z]) => new THREE.Vector3(x, 0, z)))), [bed.points, bed.holes]);
     useEffect(() => () => { geometry.dispose(); outlines.forEach((outline) => outline.dispose()); }, [geometry, outlines]);
+    // Бумага плана на поверхности модели не проверяет глубину — иначе её
+    // прячет сама неровная земля; но только сверху: сбоку её закрывают стены.
+    const topOnly = plan && bed.surface ? (renderer, scene, camera, _geometry, material) => { material.depthTest = camera.matrixWorld.elements[9] < 0.9; } : NOTHING;
     return <group position={[0, bed.y, 0]}>
-        <mesh name={`planting-bed-${bed.id}`} userData={{ plantingBed: bed.id }} geometry={geometry} position={[0, bed.surface ? 0.03 : 0.012, 0]} receiveShadow={!plan && !bed.surface} renderOrder={plan ? 1 : 0}>
+        <mesh name={`planting-bed-${bed.id}`} userData={{ plantingBed: bed.id }} geometry={geometry} position={[0, bed.surface ? 0.03 : 0.012, 0]} receiveShadow={!plan && !bed.surface} renderOrder={plan ? 1 : 0} onBeforeRender={topOnly}>
             {plan ? <meshBasicMaterial color="#ece6d6" toneMapped={false} depthTest={!bed.surface} polygonOffset polygonOffsetFactor={-2} polygonOffsetUnits={-2} />
                 : bed.surface ? <meshBasicMaterial transparent opacity={0} depthWrite={false} />
                     : <meshStandardMaterial color="#4d3d2c" roughness={1} metalness={0} polygonOffset polygonOffsetFactor={-2} polygonOffsetUnits={-2} />}
         </mesh>
-        {selected || plan ? outlines.map((outline, i) => <lineLoop key={i} geometry={outline} position={[0, 0.04, 0]} raycast={() => {}} renderOrder={5}>
+        {selected || plan ? outlines.map((outline, i) => <lineLoop key={i} geometry={outline} position={[0, 0.04, 0]} raycast={() => {}} renderOrder={5} onBeforeRender={selected ? NOTHING : topOnly}>
             <lineBasicMaterial color={selected ? '#f2c14e' : '#3b3326'} depthTest={!selected && !bed.surface} toneMapped={false} />
         </lineLoop>) : null}
     </group>;
 }
 
-export default function PlantingLayer({ settings, selectedBedId = null, envMapIntensity = 1 }) {
+export default function PlantingLayer({ settings, selectedBedId = null, selectedVineId = null, envMapIntensity = 1 }) {
     const { plants: library, status } = usePlantLibrary();
     const beds = settings.plantingBeds, points = settings.plantingPoints;
     const bedFills = useBedFills(beds, library);
@@ -266,5 +271,6 @@ export default function PlantingLayer({ settings, selectedBedId = null, envMapIn
             : [...bySpecies].map(([id, instances]) => (library.has(id)
                 ? <SpeciesCards key={id} plant={library.get(id)} instances={instances} month={settings.plantingMonth} envMapIntensity={envMapIntensity} />
                 : null))}
+        {settings.plantingVines?.length ? <VineLayer vines={settings.plantingVines} library={library} month={settings.plantingMonth} plan={plan} selectedId={selectedVineId} envMapIntensity={envMapIntensity} /> : null}
     </group>;
 }

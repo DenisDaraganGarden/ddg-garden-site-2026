@@ -5,13 +5,14 @@ import { normalizePlantingSettings } from '../planting/settings.js';
 import { bedArea, plantingInstances, plantingSchedule, spacingFor } from '../planting/fillBed.js';
 import { isSeasonSheet, plantCardUrl, plantName, plantPhotoUrl, useBedFills, usePlantLibrary } from '../planting/plantLibrary.js';
 import { bloomMonths, byCategory, CATEGORY_LABELS } from '../planting/insights.js';
+import { vineRoot } from '../planting/vines.js';
 import './PlantingReport.css';
 
 // Отчёт по посадкам проекта — для заказчика и дендролога: план в шапках
 // легенды, календарь цветения, альбом растений с картинками и ведомость.
 // Одна страница, печатается в PDF (⌘P). Числа — те же, что рисует сцена.
 const MONTHS = ['Я', 'Ф', 'М', 'А', 'М', 'И', 'И', 'А', 'С', 'О', 'Н', 'Д'];
-const LEGEND = [['perennial', '#bf6d3f'], ['grass', '#bfb83f'], ['shrub', '#84b03a'], ['conifer', '#414c19'], ['tree', '#98bf71']];
+const LEGEND = [['perennial', '#bf6d3f'], ['grass', '#bfb83f'], ['shrub', '#84b03a'], ['conifer', '#414c19'], ['tree', '#98bf71'], ['climber', '#9a6fb0']];
 
 function Plan({ beds, instances, library }) {
     const all = [...beds.flatMap((bed) => bed.points), ...instances.map((p) => [p.x, p.z])];
@@ -44,7 +45,7 @@ function Plan({ beds, instances, library }) {
 // на снимок простым масштабом: подписи цветников, номера растений по
 // ведомости, масштабная линейка и север — поверх, векторами.
 const DEG = Math.PI / 180;
-function PlanShot({ id, shot, beds, points, numberOf, ru }) {
+function PlanShot({ id, shot, beds, points, vines = [], numberOf, ru }) {
     const [size, setSize] = useState(null);
     const date = new Date(shot.captured).toLocaleString(ru ? 'ru-RU' : 'en-GB', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
     const image = <img src={projectStore.planUrl(id, shot.captured)} alt={ru ? 'Генплан' : 'Site plan'} onLoad={(event) => setSize([event.currentTarget.naturalWidth, event.currentTarget.naturalHeight])} />;
@@ -68,7 +69,7 @@ function PlanShot({ id, shot, beds, points, numberOf, ru }) {
                 const numbers = [...new Set(bed.recipe.map((row) => numberOf.get(row.plant)).filter(Boolean))].sort((a, b) => a - b);
                 return inside(place) ? <text key={bed.id} x={place[0]} y={place[1]} className="report-shot__bed">{bed.name}{numbers.length ? <tspan x={place[0]} dy="1.25em" className="report-shot__numbers">{numbers.join(', ')}</tspan> : null}</text> : null;
             })}
-            {points.length <= 200 ? points.map((point) => {
+            {[...vines.map((vine) => { const [x, y, z] = vineRoot(vine); return { id: vine.id, plant: vine.plant, x, y, z }; }), ...points].length <= 250 ? [...vines.map((vine) => { const [x, y, z] = vineRoot(vine); return { id: vine.id, plant: vine.plant, x, y, z }; }), ...points].map((point) => {
                 const place = at(point.x, point.y, point.z), number = numberOf.get(point.plant);
                 return number && inside(place) ? <g key={point.id} transform={`translate(${place[0]} ${place[1]})`} className="report-shot__point"><circle r={font * 0.8} /><text>{number}</text></g> : null;
             }) : null}
@@ -102,9 +103,11 @@ export default function PlantingReport() {
     const planting = useMemo(() => normalizePlantingSettings(entry?.settings ?? {}), [entry]);
     const fills = useBedFills(planting.plantingBeds, library);
     const instances = useMemo(() => [...plantingInstances(planting.plantingBeds, fills, planting.plantingPoints).values()].flat(), [planting, fills]);
-    const schedule = useMemo(() => plantingSchedule(planting.plantingBeds, fills, planting.plantingPoints, library), [planting, fills, library]);
+    const schedule = useMemo(() => plantingSchedule(planting.plantingBeds, fills, planting.plantingPoints, library, planting.plantingVines), [planting, fills, library]);
     const species = useMemo(() => [...schedule].sort((a, b) => byCategory(a.plant, b.plant)), [schedule]);
     const existing = planting.plantingPoints.filter((p) => p.status === 'existing').length;
+    // Где растёт: цветники, лианы с длиной побегов или поштучно.
+    const where = (r) => [...r.beds, ...(r.length ? [`${ru ? 'лианы' : 'climbers'}, ${r.length.toFixed(1)} ${ru ? 'м побегов' : 'm of shoots'}`] : [])].join(', ') || (ru ? 'одиночные' : 'single');
     const area = planting.plantingBeds.reduce((sum, bed) => sum + bedArea(bed), 0);
     const date = new Date().toLocaleDateString(ru ? 'ru-RU' : 'en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
 
@@ -126,12 +129,12 @@ export default function PlantingReport() {
         </header>
 
         <section className="report-tiles">
-            {[[schedule.reduce((sum, r) => sum + r.count, 0), ru ? 'растений' : 'plants'], [schedule.length, ru ? 'видов' : 'species'], [planting.plantingBeds.length, ru ? 'цветников' : 'beds'], [`${area.toFixed(1)} м²`, ru ? 'цветников по площади' : 'of beds'], [planting.plantingPoints.length - existing, ru ? 'деревьев и кустов — новых' : 'new trees and shrubs'], [existing, ru ? 'существующих' : 'existing']].map(([value, label]) => <div key={label}><b>{value}</b><span>{label}</span></div>)}
+            {[[schedule.reduce((sum, r) => sum + r.count, 0), ru ? 'растений' : 'plants'], [schedule.length, ru ? 'видов' : 'species'], [planting.plantingBeds.length, ru ? 'цветников' : 'beds'], [`${area.toFixed(1)} м²`, ru ? 'цветников по площади' : 'of beds'], [planting.plantingPoints.length - existing, ru ? 'деревьев и кустов — новых' : 'new trees and shrubs'], [existing, ru ? 'существующих' : 'existing'], ...(planting.plantingVines.length ? [[planting.plantingVines.length, ru ? 'лиан' : 'climbers']] : [])].map(([value, label]) => <div key={label}><b>{value}</b><span>{label}</span></div>)}
         </section>
 
         <section className="report-block">
             <h3>{ru ? 'План' : 'Plan'}</h3>
-            {shot ? <PlanShot id={id} shot={shot} beds={planting.plantingBeds} points={planting.plantingPoints} numberOf={new Map(schedule.map((r, i) => [r.plant.id, i + 1]))} ru={ru} />
+            {shot ? <PlanShot id={id} shot={shot} beds={planting.plantingBeds} points={planting.plantingPoints} vines={planting.plantingVines} numberOf={new Map(schedule.map((r, i) => [r.plant.id, i + 1]))} ru={ru} />
                 : <><Plan beds={planting.plantingBeds} instances={instances} library={library} />
                     <p className="report-hint">{ru ? 'Генплан с моделью появится здесь, когда в проекте откроют камеру «Генплан» — кнопка в «Растениях».' : 'The site plan with the model appears here once the “Site plan” camera is opened in the project — the button is in Plants.'}</p></>}
             <div className="report-legend">{LEGEND.map(([id2, color]) => <span key={id2}><i style={{ background: color }} />{CATEGORY_LABELS[id2][ru ? 0 : 1]}</span>)}<span><i className="is-existing" />{ru ? 'существующее' : 'existing'}</span></div>
@@ -152,8 +155,10 @@ export default function PlantingReport() {
                     <div className="report-album__text">
                         <h4>{plantName(r.plant, ru)}</h4>
                         <p className="report-album__latin">{r.plant.latin}</p>
-                        <p><b>{r.count} {ru ? 'шт' : 'pcs'}</b> · {CATEGORY_LABELS[r.plant.category]?.[ru ? 0 : 1]} · {[...r.beds].join(', ') || (ru ? 'одиночные' : 'single')}</p>
-                        <p>{ru ? 'Высота' : 'Height'} {r.plant.height} м · {ru ? 'ширина' : 'spread'} {r.plant.spread} м{r.plant.density && r.plant.category !== 'tree' ? ` · ${r.plant.density} шт/м², ${ru ? 'шаг' : 'spacing'} ${Math.round(spacingFor(r.plant.density) * 100)} см` : ''}</p>
+                        <p><b>{r.count} {ru ? 'шт' : 'pcs'}</b> · {CATEGORY_LABELS[r.plant.category]?.[ru ? 0 : 1]} · {where(r)}</p>
+                        {r.plant.category === 'climber'
+                            ? <p>{ru ? 'Поднимается до' : 'Climbs to'} {r.plant.height} м{r.plant.vine?.support ? ` · ${r.plant.vine.support}` : ''}</p>
+                            : <p>{ru ? 'Высота' : 'Height'} {r.plant.height} м · {ru ? 'ширина' : 'spread'} {r.plant.spread} м{r.plant.density && r.plant.category !== 'tree' ? ` · ${r.plant.density} шт/м², ${ru ? 'шаг' : 'spacing'} ${Math.round(spacingFor(r.plant.density) * 100)} см` : ''}</p>}
                         <p>{[r.plant.light, r.plant.water, r.plant.zone ? `USDA ${r.plant.zone}` : ''].filter(Boolean).join(' · ')}</p>
                         {bloomMonths(r.plant).length ? <div className="report-album__bloom">{MONTHS.map((m, i) => <span key={i} style={bloomMonths(r.plant).includes(i + 1) ? { background: r.plant.bloomColor ?? '#c9b77a' } : undefined}>{m}</span>)}</div> : null}
                         {r.plant.rostov ? <p className="report-album__note">{r.plant.rostov}</p> : null}
@@ -168,7 +173,7 @@ export default function PlantingReport() {
             <table className="report-table"><thead><tr>
                 <th>№</th><th>{ru ? 'Растение' : 'Plant'}</th><th>{ru ? 'Кол-во, шт' : 'Qty'}</th><th>{ru ? 'Площадь, м²' : 'Area, m²'}</th><th>{ru ? 'шт/м²' : '/m²'}</th><th>{ru ? 'Высота, м' : 'Height, m'}</th><th>{ru ? 'Где' : 'Where'}</th><th>{ru ? 'Замечания дендролога' : 'Dendrologist notes'}</th>
             </tr></thead><tbody>{schedule.map((r, i) => <tr key={r.plant.id}>
-                <td>{i + 1}</td><td>{plantName(r.plant, ru)}<small>{r.plant.latin}</small></td><td>{r.count}</td><td>{r.area ? r.area.toFixed(1) : '—'}</td><td>{r.plant.category === 'tree' ? '—' : r.plant.density ?? '—'}</td><td>{r.plant.height}</td><td>{[...r.beds].join(', ') || (ru ? 'одиночные' : 'single')}</td><td />
+                <td>{i + 1}</td><td>{plantName(r.plant, ru)}<small>{r.plant.latin}</small></td><td>{r.count}</td><td>{r.area ? r.area.toFixed(1) : '—'}</td><td>{r.plant.category === 'tree' ? '—' : r.plant.density ?? '—'}</td><td>{r.plant.height}</td><td>{where(r)}</td><td />
             </tr>)}</tbody></table>
         </section>
 

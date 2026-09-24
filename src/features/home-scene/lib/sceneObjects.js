@@ -152,7 +152,15 @@ const matchRoot = (name) => SCENE_OBJECTS.find((object) => object.roots?.include
 // тысячи чужих имён, и компонент «boat» не должен уводить клик к лодке. Для
 // него же отдаётся сам объект, в который попал луч, — по нему редактор
 // находит компонент модели.
-export const sceneHitForObject3D = (object) => {
+export const sceneHitForObject3D = (object, hit = null) => {
+  // Лист лианы — экземпляр в пачке вида: чья он, говорит его номер.
+  if (object.userData?.plantingVines && hit?.instanceId !== undefined) {
+    return { node: 'greenery/planting', root: object.name, plantingVine: object.userData.plantingVines[hit.instanceId] };
+  }
+  // Её ветка — треугольник в общей сетке вида: чья, говорит номер грани.
+  if (object.userData?.plantingVineFaces && hit?.faceIndex !== undefined) {
+    return { node: 'greenery/planting', root: object.name, plantingVine: object.userData.plantingVineFaces[hit.faceIndex] };
+  }
   for (let node = object; node; node = node.parent) {
     if (node.userData?.placedId) return { node: 'objects/placed', root: `placed-${node.userData.placedId}`, placedId: node.userData.placedId, object };
   }

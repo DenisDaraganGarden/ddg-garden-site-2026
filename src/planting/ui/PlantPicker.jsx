@@ -18,13 +18,17 @@ export function PlantThumb({ plant, size = 32, season = 1, className = '' }) {
 const FILTERS = ['all', ...CATEGORY_ORDER];
 
 // Выбор растения по картинкам: Денис узнаёт растение по виду, а не по
-// латыни. Поповер над панелью, у кнопки, которая его открыла.
-export function PlantPicker({ library, value, exclude = [], anchor, onChoose, onClose, ru = true, title }) {
+// латыни. Поповер над панелью, у кнопки, которая его открыла. kinds — какие
+// группы показывать; без него — всё, кроме лиан: лиана растёт по стене, а не
+// в цветнике.
+const allowedIn = (kinds) => (plant) => (kinds ? kinds.includes(plant.category) : plant.category !== 'climber');
+export function PlantPicker({ library, value, exclude = [], kinds = null, anchor, onChoose, onClose, ru = true, title }) {
     const [query, setQuery] = useState('');
     const [filter, setFilter] = useState('all');
     const ref = useRef(null);
     const [place, setPlace] = useState({ left: 0, top: 0 });
-    const plants = useMemo(() => [...library.values()].sort(byCategory), [library]);
+    const kindsKey = kinds?.join(',') ?? '';
+    const plants = useMemo(() => [...library.values()].filter(allowedIn(kindsKey ? kindsKey.split(',') : null)).sort(byCategory), [library, kindsKey]);
     const hidden = useMemo(() => new Set(exclude), [exclude]);
     const shown = plants.filter((plant) => (filter === 'all' || plant.category === filter)
         && (plant.id === value || !hidden.has(plant.id))
@@ -68,7 +72,7 @@ export function PlantPicker({ library, value, exclude = [], anchor, onChoose, on
 }
 
 // Кнопка, открывающая выбор: превью и имя выбранного растения.
-export function PlantChoice({ library, value, onChoose, exclude, ru = true, title, testId }) {
+export function PlantChoice({ library, value, onChoose, exclude, kinds, ru = true, title, testId }) {
     const [anchor, setAnchor] = useState(null);
     const plant = library.get(value);
     return <>
@@ -77,6 +81,6 @@ export function PlantChoice({ library, value, onChoose, exclude, ru = true, titl
             <span>{plant ? plantName(plant, ru) : value || (ru ? 'Выбрать растение' : 'Choose a plant')}</span>
             <svg viewBox="0 0 10 10" aria-hidden="true"><path d="M2 3.5 5 6.5 8 3.5" fill="none" stroke="currentColor" strokeWidth="1.3" /></svg>
         </button>
-        {anchor ? <PlantPicker library={library} value={value} exclude={exclude} anchor={anchor} ru={ru} title={title} onClose={() => setAnchor(null)} onChoose={(id) => { setAnchor(null); onChoose(id); }} /> : null}
+        {anchor ? <PlantPicker library={library} value={value} exclude={exclude} kinds={kinds} anchor={anchor} ru={ru} title={title} onClose={() => setAnchor(null)} onChoose={(id) => { setAnchor(null); onChoose(id); }} /> : null}
     </>;
 }

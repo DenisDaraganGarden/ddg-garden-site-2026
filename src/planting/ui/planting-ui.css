@@ -5,7 +5,7 @@
 .planting-workspace button:disabled{opacity:.35;cursor:default}
 .planting-spacer{flex:1}
 
-.planting-tools{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+.planting-tools{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
 .planting-tools>button{display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 4px 6px;border:1px solid var(--focus-line,#353839);border-radius:5px;background:#ffffff05;font-size:10.5px}
 .planting-tools>button:hover{background:#ffffff0c}
 .planting-tools>button.is-active{border-color:var(--focus-accent,#cfc1a1);background:#cfc1a118;color:#f7f6ee}
@@ -46,7 +46,7 @@
 .plant-chips--static>span:not(:first-child){background:#ffffff14;color:var(--focus-text,#dcddd8)}
 
 .planting-insights{display:flex;flex-direction:column;gap:8px;padding-top:6px}
-.planting-segment{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--focus-line,#353839);border-radius:5px;overflow:hidden}
+.planting-segment{display:grid;grid-template-columns:repeat(3,auto);border:1px solid var(--focus-line,#353839);border-radius:5px;overflow:hidden}
 .planting-segment>button{height:26px;border:0;background:transparent;color:var(--focus-muted,#989d9e);font-size:10.5px}
 .planting-segment>button.is-active{background:#ffffff12;color:var(--focus-text,#dcddd8)}
 .planting-segment small{margin-left:5px;font-size:9px;opacity:.7}
@@ -178,3 +178,5 @@
 .plant-picture__actions{display:flex;align-items:center;gap:5px;font-size:9.5px;color:var(--focus-muted,#989d9e)}
 .plant-picture__actions>span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .plant-picture__actions>button{height:22px;padding:0 8px;border:1px solid var(--focus-line,#353839);border-radius:4px;background:transparent;font-size:10px}
+/* Выбранная лиана (VineCard). */
+.planting-vine{display:flex;flex-direction:column;gap:6px;padding:8px;border:1px solid #ffffff12;border-radius:6px;background:#ffffff05}

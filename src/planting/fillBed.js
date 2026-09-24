@@ -9,6 +9,7 @@
 // шахматном порядке с его шагом: 1.155 / шаг² = шт/м² из записи растения.
 // Крайний ряд — на трети шага от края, как на посадочном чертеже.
 import { PLANTING_LIMITS } from './settings.js';
+import { vineLength } from './vines.js';
 
 export function mulberry32(seed) {
     let a = seed >>> 0;
@@ -221,12 +222,14 @@ export function plantingInstances(beds, bedFills, points) {
 
 // Ведомость: вид → штук, по цветникам и одиночным. Площадь вида в цветнике —
 // его доля от площади контура.
-export function plantingSchedule(beds, fills, points, library) {
+// Лиана в ведомости — штука (растение), и к ней длина побегов по стенам.
+export function plantingSchedule(beds, fills, points, library, vines = []) {
     const rows = new Map();
     const row = (id) => {
-        if (!rows.has(id)) rows.set(id, { plant: library.get(id) ?? { id }, count: 0, area: 0, beds: new Set() });
+        if (!rows.has(id)) rows.set(id, { plant: library.get(id) ?? { id }, count: 0, area: 0, beds: new Set(), length: 0 });
         return rows.get(id);
     };
+    for (const vine of vines) { const r = row(vine.plant); r.count += 1; r.length += vineLength(vine); }
     beds.forEach((bed, index) => {
         const area = bedArea(bed), shares = bed.recipe.filter((r) => library.has(r.plant)), total = shares.reduce((sum, r) => sum + r.share, 0) || 1;
         for (const r of shares) { row(r.plant).area += (area * r.share) / total; row(r.plant).beds.add(bed.name); }
@@ -239,6 +242,7 @@ export function plantingSchedule(beds, fills, points, library) {
 export function scheduleCsv(schedule, ru = true) {
     const head = ru ? ['№', 'Название', 'Латинское', 'Категория', 'Кол-во, шт', 'Площадь, м²', 'Плотность, шт/м²', 'Высота, м', 'Где'] : ['#', 'Name', 'Latin', 'Category', 'Qty', 'Area, m²', 'Density, /m²', 'Height, m', 'Where'];
     const cell = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`;
-    const lines = schedule.map((r, i) => [i + 1, ru ? r.plant.ru : r.plant.en, r.plant.latin, r.plant.category, r.count, r.area ? r.area.toFixed(1) : '', r.plant.density ?? '', r.plant.height ?? '', [...r.beds].join(', ') || (ru ? 'одиночные' : 'single')].map(cell).join(';'));
+    const where = (r) => [...r.beds, ...(r.length ? [`${ru ? 'лианы' : 'climbers'}, ${r.length.toFixed(1)} ${ru ? 'м побегов' : 'm of shoots'}`] : [])].join(', ') || (ru ? 'одиночные' : 'single');
+    const lines = schedule.map((r, i) => [i + 1, ru ? r.plant.ru : r.plant.en, r.plant.latin, r.plant.category, r.count, r.area ? r.area.toFixed(1) : '', r.plant.density ?? '', r.plant.height ?? '', where(r)].map(cell).join(';'));
     return `\uFEFF${[head.map(cell).join(';'), ...lines].join('\r\n')}\r\n`;
 }

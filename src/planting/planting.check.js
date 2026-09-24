@@ -12,6 +12,9 @@ import { clipToSurface } from './clipSurface.js';
 import { bedArea, groundAt, insideBed } from './fillBed.js';
 import { normalizePlantingBed } from './settings.js';
 import { bearingOf, planPose, siteNorth, viewBearing } from './north.js';
+import { growVine, shootRuns, vineLength, vineRoot } from './vines.js';
+import { normalizePlantingVine } from './settings.js';
+import { LEAF_KINDS, leafShape } from './vineLeaves.js';
 
 const plant = (id, fields) => ({ id, ru: id, latin: id, category: 'perennial', height: 0.6, spread: 0.5, density: 5, foliage: 'herbaceous', ...fields });
 const library = new Map([
@@ -189,6 +192,29 @@ for (const north of [0, 30, -120]) {
         const p = new THREE.Vector3(x, 1, z).project(camera);
         assert.ok(Math.abs(p.x) <= 1 && Math.abs(p.y) <= 1, `north ${north}°: corner ${x}, ${z} is in the frame (${p.x.toFixed(2)}, ${p.y.toFixed(2)})`);
     }
+}
+
+// Лиана: мазок по стене (нормаль −Z) снизу вверх, 2.4 м, и разрыв — второй кусок.
+const wallShoot = Array.from({ length: 61 }, (_, i) => [Math.sin(i * 0.2) * 0.2, i * 0.04, 0, 0, 0, -1]);
+const vine = normalizePlantingVine({ id: 'v1', plant: 'ivy', shoots: [[...wallShoot, [3, 1, 0, 0, 0, -1], [3, 1.5, 0, 0, 0, -1], [3, 2, 0, 0, 0, -1]]], seed: 7 });
+assert.equal(shootRuns(vine.shoots[0]).length, 2, 'a gap of more than 0.6 m starts a new piece');
+const wallLength = wallShoot.slice(1).reduce((sum, p, i) => sum + Math.hypot(p[0] - wallShoot[i][0], p[1] - wallShoot[i][1]), 0) + 1;
+assert.ok(Math.abs(vineLength(vine) - wallLength) < 0.1, `the length follows the stroke (${vineLength(vine).toFixed(2)} of ${wallLength.toFixed(2)} m)`);
+assert.deepEqual(vineRoot(vine), [0, 0, 0]);
+const ivyPlant = { id: 'ivy', vine: { leaf: 'ivy', leafSize: 0.1, spread: 0.8, fruit: 'bunch' } };
+const grown = growVine(vine, ivyPlant), regrown = growVine(vine, ivyPlant);
+assert.deepEqual(grown.leaves.slice(0, 20), regrown.leaves.slice(0, 20), 'the same vine grows the same leaves every time');
+assert.ok(grown.leaves.length > 150 && grown.stems.length > 8, `a 3 m climber is a mat of shoots and leaves (${grown.leaves.length} leaves, ${grown.stems.length} stems)`);
+assert.ok(grown.leaves.every((leaf) => leaf.p[2] < 0.1 && leaf.p[2] > -0.1 && leaf.n[2] < -0.3), 'the leaves lie on the wall, facing out of it');
+assert.ok(grown.leaves.every((leaf) => Math.abs(leaf.t[0] * leaf.n[0] + leaf.t[1] * leaf.n[1] + leaf.t[2] * leaf.n[2]) < 1e-6), 'each leaf tip lies in its leaf plane');
+assert.equal(normalizePlantingSettings({ plantingVines: [vine, { plant: 'ivy', shoots: [[[0, 0, 0]]] }] }).plantingVines.length, 1, 'a shoot without normals is dropped');
+const withVines = plantingSchedule([], [], [], new Map([['ivy', { id: 'ivy' }]]), [vine, { ...vine, id: 'v2' }]);
+assert.equal(withVines[0].count, 2, 'a climber is one plant in the schedule');
+assert.ok(withVines[0].length > 6, 'and carries the length of its shoots');
+assert.equal(scopeRows({ kind: 'vines' }, [], [], [], new Map([['ivy', { id: 'ivy' }]]), [vine]).count, 1);
+for (const kind of Object.keys(LEAF_KINDS)) {
+    const shape = leafShape(kind, 1);
+    assert.ok(shape.fills.every((polygon) => polygon.every(([x, y]) => x > -0.02 && x < 1.02 && y > -0.02 && y < 1.02)), `${kind}: the leaf stays in its cell`);
 }
 
 console.log(`planting: settings, fill (${first.length} plants in 60 m², ${smallFill.length} in 20 m² with ${small.recipe.length} species), schedule and seasons hold`);

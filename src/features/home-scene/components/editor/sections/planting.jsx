@@ -6,6 +6,7 @@ import { FocusIcon } from '../focus/FocusIcons';
 import { PLANTING_BED_DEFAULT, PLANTING_LIMITS, PLANTING_RANGES } from '../../../../../planting/settings.js';
 import { PLANTING_PALETTES } from '../../../../../planting/palettes.js';
 import { bedArea } from '../../../../../planting/fillBed.js';
+import { vineLength } from '../../../../../planting/vines.js';
 import { plantName, useBedFills, usePlantLibrary } from '../../../../../planting/plantLibrary.js';
 import { bloomMonths, byCategory } from '../../../../../planting/insights.js';
 import { MONTHS_EN, MONTHS_RU } from '../../../../../planting/season.js';
@@ -20,6 +21,9 @@ import '../../../../../planting/ui/planting-ui.css';
 // в обзоре, а не ползунком; ключ назван здесь для сверки параметров
 // (check-editor-keys.mjs).
 const POINTS_KEY = 'plantingPoints';
+// Лианы правятся кистью «Лиана» (I) и карточкой выбранной лианы.
+const VINES_KEY = 'plantingVines';
+const CLIMBERS = ['climber'];
 const TAB_KEY = 'ddg_planting_tab_v1';
 const LETTERS_RU = ['Я', 'Ф', 'М', 'А', 'М', 'И', 'И', 'А', 'С', 'О', 'Н', 'Д'];
 const LETTERS_EN = ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'];
@@ -42,6 +46,7 @@ function PlantingCatalog({ settings, handleSettingChange, plantingEditor, ru }) 
         <SelectControl controlId="plantingBeds[].palette" label={ru ? 'Палитра' : 'Palette'} value="" options={[{ value: '', label: ru ? 'Своя — заменить на…' : 'Own — replace with…' }, ...PLANTING_PALETTES.map((p) => ({ value: p.id, label: ru ? p.ru : p.en }))]} onChange={() => {}} />
         <RangeControl controlId="plantingBeds[].drift" label={ru ? 'Размер пятна' : 'Drift size'} value={bed.drift} min={PLANTING_RANGES.drift[0]} max={PLANTING_RANGES.drift[1]} step={PLANTING_RANGES.drift[2]} unit=" m" onChange={() => {}} />
         <RangeControl controlId="plantingBeds[].density" label={ru ? 'Густота' : 'Density'} value={bed.density} min={PLANTING_RANGES.density[0]} max={PLANTING_RANGES.density[1]} step={PLANTING_RANGES.density[2]} unit=" ×" onChange={() => {}} />
+        <SelectControl controlId={VINES_KEY} label={ru ? 'Лиана' : 'Climber'} value="" options={[{ value: '', label: ru ? 'Выбрать…' : 'Select…' }, ...(settings[VINES_KEY] ?? []).map((v) => ({ value: v.id, label: plantName(library.get(v.plant), ru) || v.plant }))]} onChange={(event) => event.target.value && plantingEditor?.selectVine(event.target.value)} />
         <SelectControl controlId="plantingPlant" label={ru ? 'Растение' : 'Plant'} value={plantingEditor?.plantChoice ?? ''} options={[...library.values()].sort(byCategory).map((p) => ({ value: p.id, label: plantName(p, ru) }))} onChange={(event) => plantingEditor?.setPlantChoice(event.target.value)} />
     </>;
 }
@@ -100,6 +105,29 @@ function BedEditor({ beds, fills, library, plantingEditor, layoutEditor, ru }) {
     </div>;
 }
 
+// Выбранная лиана: вид (заменить), побеги и длина, перемешать, показать, удалить.
+function VineCard({ vine, library, plantingEditor, layoutEditor, ru }) {
+    const plant = library.get(vine.plant);
+    const length = useMemo(() => vineLength(vine), [vine]);
+    const frame = () => {
+        const all = vine.shoots.flat(), mean = (i) => all.reduce((sum, p) => sum + p[i], 0) / all.length;
+        const center = [0, 1, 2].map(mean), normal = [3, 4, 5].map(mean), reach = Math.max(3, length * 0.7);
+        const k = reach / (Math.hypot(...normal) || 1);
+        layoutEditor?.previewPose?.({ cameraPosition: { x: center[0] + normal[0] * k, y: center[1] + normal[1] * k + 1.2, z: center[2] + normal[2] * k }, cameraTarget: { x: center[0], y: center[1], z: center[2] }, cameraFov: 45 });
+    };
+    return <div className="planting-vine" data-testid="planting-vine-card">
+        <PlantChoice library={library} value={vine.plant} kinds={CLIMBERS} ru={ru} onChoose={(id) => plantingEditor.updateVine(vine.id, { plant: id })} title={ru ? 'Заменить лиану' : 'Replace the climber'} />
+        <p className="planting-status" data-testid="planting-vine-status">{ru
+            ? `Побегов ${vine.shoots.length} · ${length.toFixed(1)} м · в ведомости 1 шт`
+            : `${vine.shoots.length} shoots · ${length.toFixed(1)} m · 1 plant in the schedule`}{plant?.vine?.support ? ` · ${plant.vine.support}` : ''}</p>
+        <div className="planting-actions">
+            <button type="button" onClick={() => plantingEditor.reseedVine(vine.id)} data-testid="planting-vine-reseed">{ru ? 'Перемешать' : 'Reshuffle'}</button>
+            <button type="button" onClick={frame}>{ru ? 'Показать' : 'Frame'}</button>
+            <button type="button" onClick={() => plantingEditor.removeVine(vine.id)} data-testid="planting-vine-delete">{ru ? 'Удалить' : 'Delete'}</button>
+        </div>
+    </div>;
+}
+
 // Рабочее место «Растения»: инструменты, месяц и три вкладки — обзор
 // (читать), цветник (править), библиотека (растения с картинками).
 function PlantingWorkspace({ settings, handleSettingChange, applySettings, plantingEditor, topiaryEditor, layoutEditor, ru }) {
@@ -112,7 +140,8 @@ function PlantingWorkspace({ settings, handleSettingChange, applySettings, plant
     const mode = plantingEditor?.mode;
     const month = settings.plantingMonth;
     const selectedBed = beds.find((bed) => bed.id === plantingEditor?.selectedId);
-    const inBloom = useMemo(() => [...new Set([...fills.flat().map((p) => p.plant), ...points.map((p) => p.plant)])].filter((id) => bloomMonths(library.get(id)).includes(month)), [fills, points, library, month]);
+    const vines = settings[VINES_KEY];
+    const inBloom = useMemo(() => [...new Set([...fills.flat().map((p) => p.plant), ...points.map((p) => p.plant), ...(vines ?? []).map((v) => v.plant)])].filter((id) => bloomMonths(library.get(id)).includes(month)), [fills, points, vines, library, month]);
     const setMonth = (value) => handleSettingChange({ target: { value } }, 'plantingMonth', 'integer');
     const topView = () => {
         const all = [...(selectedBed ? [selectedBed] : beds).flatMap((b) => b.points.map(([x, z]) => [x, b.y, z])), ...(selectedBed ? [] : points.map((p) => [p.x, p.y, p.z]))];
@@ -130,11 +159,19 @@ function PlantingWorkspace({ settings, handleSettingChange, applySettings, plant
         <div className="planting-tools" role="toolbar" aria-label={ru ? 'Инструменты растений' : 'Plant tools'}>
             <button type="button" className={mode === 'bed' ? 'is-active' : ''} onClick={() => (mode === 'bed' ? plantingEditor.stop() : plantingEditor.begin('bed'))} data-testid="planting-draw-bed"><FocusIcon name="bed" />{ru ? 'Цветник' : 'Bed'}<kbd>L</kbd></button>
             <button type="button" className={mode === 'plant' ? 'is-active' : ''} onClick={() => (mode === 'plant' ? plantingEditor.stop() : plantingEditor.begin('plant'))} data-testid="planting-place"><FocusIcon name="sprout" />{ru ? 'Посадить' : 'Plant'}<kbd>T</kbd></button>
+            <button type="button" className={mode === 'vine' ? 'is-active' : ''} onClick={() => (mode === 'vine' ? plantingEditor.stop() : plantingEditor.begin('vine'))} data-testid="planting-vine"><FocusIcon name="vine" />{ru ? 'Лиана' : 'Climber'}<kbd>I</kbd></button>
             <button type="button" onClick={() => topiaryEditor?.begin()} data-testid="planting-hedge"><FocusIcon name="leaf" />{ru ? 'Изгородь' : 'Hedge'}<kbd>B</kbd></button>
         </div>
         {mode === 'bed' ? <p className="planting-hint">{ru
             ? 'Поверхность модели подсвечивается под курсором. Щелчок — цветник на всю поверхность. Протяжка по ней — только та её часть, что внутри контура: дорожки и газон в обводке останутся пустыми. Протяжка по плоскости — просто контур. Палитра «Степной». Esc — выйти.'
             : 'The model’s surface lights up under the cursor. A click plants the whole surface. A drag over it plants only its part inside the outline: paths and lawn inside it stay empty. A drag over the plane is a plain outline. “Steppe” palette. Esc to leave.'}</p> : null}
+        {mode === 'vine' ? <div className="planting-plantrow">
+            <PlantChoice library={library} value={plantingEditor.vineChoice} ru={ru} kinds={CLIMBERS} onChoose={plantingEditor.setVineChoice} title={ru ? 'Какую лиану' : 'Which climber'} testId="planting-vine-plant" />
+            <p className="planting-hint">{ru
+                ? 'Ведите по стене, кашпо, сетке или земле: где начали — там корень, лиана растёт по мазку. Вниз от края кашпо — свисает. Ещё мазок от того же корня — ещё побег того же растения. Esc — выйти.'
+                : 'Drag over a wall, a planter, a mesh or the ground: where you start is the root, the climber grows along the stroke. Down from a planter’s rim it hangs. Another stroke from the same root is another shoot of the same plant. Esc to leave.'}</p>
+        </div> : null}
+        {plantingEditor?.vineId ? <VineCard vine={settings[VINES_KEY].find((v) => v.id === plantingEditor.vineId)} library={library} plantingEditor={plantingEditor} layoutEditor={layoutEditor} ru={ru} /> : null}
         {mode === 'plant' ? <div className="planting-plantrow">
             <PlantChoice library={library} value={plantingEditor.plantChoice} ru={ru} onChoose={plantingEditor.setPlantChoice} title={ru ? 'Что сажать' : 'What to plant'} testId="planting-plant" />
             <div className="planting-toggle">
@@ -161,7 +198,8 @@ function PlantingWorkspace({ settings, handleSettingChange, applySettings, plant
             {[['overview', ru ? 'Обзор' : 'Overview'], ['bed', ru ? 'Цветник' : 'Bed'], ['library', ru ? 'Библиотека' : 'Library']].map(([id, label]) => <button key={id} type="button" role="tab" aria-selected={tab === id} className={tab === id ? 'is-active' : ''} onClick={() => { setTab(id); if (id === 'library') setOpenPlant(null); }} data-testid={`planting-tab-${id}`}>{label}</button>)}
         </nav>
         {tab === 'overview' ? <>
-            <PlantingInsights beds={beds} fills={fills} points={points} library={library} month={month} ru={ru} focusBedId={plantingEditor?.selectedId} onOpenPlant={openPlantCard}
+            <PlantingInsights beds={beds} fills={fills} points={points} vines={settings[VINES_KEY] ?? []} library={library} month={month} ru={ru} focusBedId={plantingEditor?.selectedId} focusVineId={plantingEditor?.vineId} onOpenPlant={openPlantCard}
+                onSelectVine={(id) => plantingEditor?.selectVine(id)} onRemoveVine={(id) => plantingEditor?.removeVine(id)}
                 onPointStatus={(id, value) => applySettings({ [POINTS_KEY]: points.map((p) => (p.id === id ? { ...p, status: value === 'existing' ? 'existing' : undefined } : p)) })}
                 onRemovePoint={(id) => applySettings({ [POINTS_KEY]: points.filter((p) => p.id !== id) })}
                 onFramePoint={(point) => layoutEditor?.previewPose?.({ cameraPosition: { x: point.x + 6, y: point.y + 4, z: point.z + 8 }, cameraTarget: { x: point.x, y: point.y + 1.5, z: point.z }, cameraFov: 45 })} />
