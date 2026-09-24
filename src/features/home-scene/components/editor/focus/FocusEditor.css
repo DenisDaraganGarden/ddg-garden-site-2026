@@ -120,6 +120,14 @@ html[data-editor-tool=hand] .home-editor-render-frame canvas{cursor:grab}
 .focus-pie>button.is-current{border-color:var(--focus-accent)}
 .focus-pie>button.is-hover{background:#e4e2da;color:#1d1f20;border-color:#e4e2da}
 .focus-pie>button:disabled{opacity:.3}
+/* Настройки редактора: без заливки — значки и подписи прямо над сценой (с тенью),
+   без обводки — без рамок, выбранный инструмент отмечен цветом значка. */
+.focus-pie.no-fill .focus-pie__pointer circle{fill:none}
+.focus-pie.no-fill>button:not(.is-hover){background:transparent;backdrop-filter:none;box-shadow:none;text-shadow:0 1px 3px #000c}
+.focus-pie.no-fill>button:not(.is-hover) .focus-icon{filter:drop-shadow(0 1px 2px #000b)}
+.focus-pie.no-outline .focus-pie__pointer circle{stroke:none}
+.focus-pie.no-outline>button{border-color:transparent}
+.focus-pie.no-outline>button.is-current:not(.is-hover){color:var(--focus-accent)}
 .focus-pie>button.is-group:after{content:'';position:absolute;right:6px;top:6px;width:4px;height:4px;border-top:1.5px solid currentColor;border-right:1.5px solid currentColor;transform:rotate(45deg);opacity:.55}
 /* Свиток пункта кольца (озеленение): наружу от пункта. */
 .focus-pie__flyout{position:absolute;min-width:170px;padding:4px;border:1px solid #ffffff26;border-radius:10px;background:#202829f2;backdrop-filter:blur(10px);box-shadow:0 8px 24px #0007;pointer-events:auto}

@@ -34,6 +34,8 @@ const DEV_LOCAL_EDITOR_KEYS = new Set([
   'editorPostProcessing',
   'editorHeadingColor',
   'editorCursor',
+  'editorPieFill',
+  'editorPieOutline',
 ]);
 const FILM_CONTROL_IDS = [
   'home-editor-film-enabled',

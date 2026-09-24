@@ -53,6 +53,7 @@ import { requestEditorThumbnail } from '../components/effects/editorThumbnailCap
 import { leaveAuto, setSurfPlaying, surfPlay } from '../components/surfboard/surfPlayStore.js';
 import { usePlayKeys } from '../components/surfboard/usePlayKeys.js';
 import SurfHud from '../components/surfboard/SurfHud.jsx';
+import WalkHud from '../walk/WalkHud.jsx';
 import '../styles/HomeEditor.css';
 
 const INITIAL_PUBLISHED_SNAPSHOT = JSON.stringify(
@@ -116,7 +117,9 @@ const HomeEdit = ({ project = null }) => {
     // Play mode: the board takes the keyboard and the camera, the editor hides.
     // Only this flag lives in React; the ride itself is in surfPlayStore.
     const [playing, setPlaying] = useState(false);
-    const { tool, setTool, lastTransform } = useEditorTool(!playing);
+    // Прогулка по проекту (WalkMode): как игра — смотреть, не править.
+    const [walking, setWalking] = useState(false);
+    const { tool, setTool, lastTransform } = useEditorTool(!playing && !walking);
     const focusHistory = useFocusHistory(settings, setSettings, handleSettingChange, applySettings);
     const topiaryEditor = useTopiaryEditor({ settings, history: focusHistory, setActiveTab, setTool, tool, language });
     const { update: updateTopiary, select: selectTopiary } = topiaryEditor;
@@ -184,7 +187,7 @@ const HomeEdit = ({ project = null }) => {
     // Space pauses and resumes the animation from anywhere but a text field.
     // While riding, Space is the board's pop.
     useEffect(() => {
-        if (playing) {
+        if (playing || walking) {
             return undefined;
         }
         const isTextTarget = (target) => target instanceof HTMLElement && (
@@ -202,7 +205,7 @@ const HomeEdit = ({ project = null }) => {
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [playing, setSettings]);
+    }, [playing, walking, setSettings]);
 
     // Редактор открывается уже собранным: экран из index.html держит кадр, пока
     // сцена не отчитается, что она построена. Раньше на его месте были шапка
@@ -301,6 +304,8 @@ const HomeEdit = ({ project = null }) => {
             animationPaused: previous.animationPaused,
             editorHeadingColor: previous.editorHeadingColor,
             editorCursor: previous.editorCursor,
+            editorPieFill: previous.editorPieFill,
+            editorPieOutline: previous.editorPieOutline,
         }));
         setCameraPoseRevision((value) => value + 1);
     }, [setSettings]);
@@ -639,7 +644,7 @@ const HomeEdit = ({ project = null }) => {
     const transformTool = GIZMO_MODES.includes(tool);
     const transformHeld = transformTool && gizmoAllows(gizmoSelection, tool);
     // Riding is looking only: no gizmo, no picking, no hedge brush, no menu.
-    const activeTool = playing ? 'hand' : transformTool && !transformHeld ? 'select' : tool;
+    const activeTool = playing || walking ? 'hand' : transformTool && !transformHeld ? 'select' : tool;
     const drawingTool = activeTool === 'topiary' || activeTool === 'bed' || activeTool === 'plant' || activeTool === 'vine' || activeTool === 'mark';
     const picking = activeTool !== 'hand' && !drawingTool;
     // Яв и масштаб выбранного объекта — из настроек: манипулятор их показывает,
@@ -657,13 +662,13 @@ const HomeEdit = ({ project = null }) => {
                     ? { rotationY: settings.houseHeading ?? 0, scale: 1 }
                     : null;
     const editorGizmo = useMemo(() => ({
-        selection: !playing && transformHeld ? gizmoSelection : null,
+        selection: !playing && !walking && transformHeld ? gizmoSelection : null,
         mode: transformTool ? tool : lastTransform,
         pose: gizmoPose,
         onTransform: handleGizmoTransform,
         picking,
         onPick: handlePickObject,
-        onContextMenu: drawingTool || playing ? undefined : setSceneMenu,
+        onContextMenu: drawingTool || playing || walking ? undefined : setSceneMenu,
         topiary: { drawing: activeTool === 'topiary' && settings.topiaryObjects.length < TOPIARY_LIMITS.objects,
             selectedId: gizmoNode.id === 'topiary' ? topiaryEditor.selectedId : null, onStroke: topiaryEditor.onStroke },
         placed: { selectedId: gizmoNode.id === 'placed' ? placedEditor.selectedId : null, part: gizmoNode.id === 'placed' ? placedEditor.part : null },
@@ -672,7 +677,7 @@ const HomeEdit = ({ project = null }) => {
             onBed: plantingEditor.onBed, onBedSurface: plantingEditor.onBedSurface, onPlant: plantingEditor.onPlant, onVine: plantingEditor.onVine, onMark: annotationEditor.onMark },
         annotations: { selectedId: annotationEditor.selectedId, onResnap: annotationEditor.onResnap },
     // eslint-disable-next-line react-hooks/exhaustive-deps -- pose сравнивается по значениям, не по ссылке
-    }), [playing, transformTool, transformHeld, gizmoSelection, tool, lastTransform, handleGizmoTransform, picking, drawingTool, handlePickObject, gizmoPose?.rotationY, gizmoPose?.scale, activeTool, settings.topiaryObjects.length, gizmoNode.id, topiaryEditor.selectedId, topiaryEditor.onStroke, placedEditor.selectedId, placedEditor.part, plantingEditor.selectedId, plantingEditor.vineId, plantingEditor.onBed, plantingEditor.onBedSurface, plantingEditor.onPlant, plantingEditor.onVine, annotationEditor.onMark, annotationEditor.selectedId, annotationEditor.onResnap]);
+    }), [playing, walking, transformTool, transformHeld, gizmoSelection, tool, lastTransform, handleGizmoTransform, picking, drawingTool, handlePickObject, gizmoPose?.rotationY, gizmoPose?.scale, activeTool, settings.topiaryObjects.length, gizmoNode.id, topiaryEditor.selectedId, topiaryEditor.onStroke, placedEditor.selectedId, placedEditor.part, plantingEditor.selectedId, plantingEditor.vineId, plantingEditor.onBed, plantingEditor.onBedSurface, plantingEditor.onPlant, plantingEditor.onVine, annotationEditor.onMark, annotationEditor.selectedId, annotationEditor.onResnap]);
 
     // Курсор во вьюпорте говорит, какой инструмент в руке, не глядя на панель.
     useEffect(() => {
@@ -688,27 +693,35 @@ const HomeEdit = ({ project = null }) => {
     const waterOn = sceneObjectOn(settings, 'water');
     const playPoseRef = useRef(null);
     const startPlay = useCallback(() => {
-        if (surfPlay.playing || !waterOn) return;
+        if (surfPlay.playing || !waterOn || walking) return;
         playPoseRef.current = cameraRigApiRef.current?.capturePose?.() ?? null;
         document.activeElement?.blur?.();
         setSceneMenu(null);
         setSurfPlaying(true);
         setPlaying(true);
-    }, [waterOn]);
+    }, [waterOn, walking]);
     const stopPlay = useCallback(() => {
         if (!surfPlay.playing) return;
         setSurfPlaying(false);
         setPlaying(false);
     }, []);
+    const startWalk = useCallback(() => {
+        if (surfPlay.playing) return;
+        playPoseRef.current = cameraRigApiRef.current?.capturePose?.() ?? null;
+        document.activeElement?.blur?.();
+        setSceneMenu(null);
+        setWalking(true);
+    }, []);
+    const stopWalk = useCallback(() => setWalking(false), []);
     useEffect(() => {
         const pose = playPoseRef.current;
-        if (playing || !pose) return undefined;
+        if (playing || walking || !pose) return undefined;
         playPoseRef.current = null;
         const restore = () => cameraRigApiRef.current?.previewPose?.(pose);
         restore();
         let frame = requestAnimationFrame(() => { frame = requestAnimationFrame(restore); });
         return () => cancelAnimationFrame(frame);
-    }, [playing]);
+    }, [playing, walking]);
     useEffect(() => () => setSurfPlaying(false), []);
     usePlayKeys(playing, startPlay, stopPlay);
     // The scene answers T with the board's place; one undoable write. T sets
@@ -725,8 +738,8 @@ const HomeEdit = ({ project = null }) => {
     // The ride needs a running clock and a moving wave, whatever the editor
     // was paused on; the stored settings stay as they are.
     const sceneSettings = useMemo(
-        () => (playing ? { ...settings, animationPaused: false, seaSurfFreeze: false } : settings),
-        [playing, settings],
+        () => (playing ? { ...settings, animationPaused: false, seaSurfFreeze: false } : walking ? { ...settings, animationPaused: false } : settings),
+        [playing, walking, settings],
     );
 
     const layoutEditor = useMemo(() => ({
@@ -892,11 +905,14 @@ const HomeEdit = ({ project = null }) => {
                             audioRuntime={audioRuntime}
                             playing={playing}
                             onSurfboardCheckpoint={handleSurfboardCheckpoint}
+                            walking={walking}
+                            onWalkExit={stopWalk}
                         />
                     </div>
                     <div className="home-editor-frame-mask home-editor-frame-mask--top" aria-hidden="true" />
                     <div className="home-editor-frame-mask home-editor-frame-mask--bottom" aria-hidden="true" />
                     {playing ? <SurfHud onExit={stopPlay} /> : null}
+                    {walking ? <WalkHud onExit={stopWalk} /> : null}
                 </div>
             </div>
 
@@ -919,8 +935,9 @@ const HomeEdit = ({ project = null }) => {
                 publishState={publishState}
                 hasPublishChanges={hasPublishChanges}
                 project={project}
-                playing={playing}
+                playing={playing || walking}
                 onPlay={waterOn ? startPlay : undefined}
+                onWalk={startWalk}
                 publishEnabled={isLocalPublishAvailable}
                 publishHint={isLocalPublishAvailable
                     ? (project ? t('homeEditor.publish.projectScope') : '')

@@ -24,6 +24,8 @@ export const SCENE_CAMERA_SNAPSHOT_EXCLUDED_KEYS = Object.freeze([
   'animationPaused',
   'editorHeadingColor',
   'editorCursor',
+  'editorPieFill',
+  'editorPieOutline',
   'debugWireframe',
   'audio',
   'placedObjects',

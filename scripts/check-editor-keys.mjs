@@ -42,7 +42,7 @@ try {
   const print = (title, list, f) => { if (!list.length) return; console.log(`\n${title} (${list.length}):`); for (const x of list) console.log(`  ${x.key.padEnd(30)} ${f(x)}`); };
   // Editor-only aids never publish (smoke-test.mjs keeps the same list); camera
   // and object poses live in `layouts`, edited through the pose tools.
-  const EDITOR_LOCAL = new Set(['animationPaused', 'showPerformanceHud', 'showPointerDebug', 'freeCamera', 'debugWireframe', 'editorHeadingColor', 'editorCursor', 'editorPostProcessing']);
+  const EDITOR_LOCAL = new Set(['animationPaused', 'showPerformanceHud', 'showPointerDebug', 'freeCamera', 'debugWireframe', 'editorHeadingColor', 'editorCursor', 'editorPieFill', 'editorPieOutline', 'editorPostProcessing']);
   const PLUMBING = new Set(['layouts', 'cameraPosition', 'cameraTarget', 'cameraFov', 'boatPosition', 'sculpturePosition', 'sceneCameras', 'slideshow', 'audio', 'boatCutoutDebug', 'seaEnabled']);
   // homeSceneLighting reads these only as fallbacks for sunBearing, sunNoonElevation
   // and sunIntensity; a control would edit a value the scene never shows.

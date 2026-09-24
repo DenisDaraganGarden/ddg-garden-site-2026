@@ -22,7 +22,7 @@ const TEXT = (target) => target?.closest?.('textarea,select,[contenteditable=tru
     || (target?.tagName === 'INPUT' && !['range', 'checkbox', 'button'].includes(target.type));
 const inside = (rect, x, y, margin = 14) => rect && x >= rect.left - margin && x <= rect.right + margin && y >= rect.top - margin && y <= rect.bottom + margin;
 
-export default function FocusToolPie({ tools, current, enabled, onChoose, onTap, language }) {
+export default function FocusToolPie({ tools, current, enabled, onChoose, onTap, language, fill = true, outline = true }) {
     const [pie, setPie] = useState(null);
     const [hover, setHover] = useState(-1);
     const [child, setChild] = useState(-1);
@@ -122,7 +122,7 @@ export default function FocusToolPie({ tools, current, enabled, onChoose, onTap,
         const ty = Math.abs(sin) <= 0.3 ? (cos < 0 ? '-100%' : '0%') : '-50%';
         return { left: x, top: y, transform: `translate(${tx}, ${ty})` };
     };
-    return <div className="focus-pie" role="menu" aria-label={ru ? 'Инструменты' : 'Tools'} style={{ left: pie.x, top: pie.y }}>
+    return <div className={`focus-pie${fill ? '' : ' no-fill'}${outline ? '' : ' no-outline'}`} role="menu" aria-label={ru ? 'Инструменты' : 'Tools'} style={{ left: pie.x, top: pie.y }}>
         <svg className="focus-pie__pointer" viewBox="-120 -120 240 240" aria-hidden="true">
             <circle r={DEAD_ZONE} />
             {hover >= 0 ? <path d={`M0 0 L${Math.sin(angleOf(hover)) * 70} ${-Math.cos(angleOf(hover)) * 70}`} /> : null}
