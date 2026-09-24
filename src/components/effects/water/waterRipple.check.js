@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { buildCloudNoise } from '../sky/painterly/cloudNoise.js';
 import { RIPPLE_PLANES } from './waterRipplePlanes.js';
+import { WAVE_CHOPPINESS_DEFAULT, rippleChopFactor } from './seaSettings.js';
 
 // The wind ripple read two axis-aligned slices of the periodic noise volume,
 // so its slope repeated exactly every 1/(2.9 x scale) metres along world x and
@@ -85,5 +86,28 @@ assert.ok(Math.min(...was) > 0.6, `the twin sees the old tile (${was.map((c) => 
 assert.ok(Math.max(...now) < 0.2, `no tile repeat in the ripple slope: ${now.map((c) => c.toFixed(2)).join(', ')}`);
 const ratio = rms(after) / rms(before);
 assert.ok(ratio > 0.85 && ratio < 1.2, `the ripple keeps its strength: ${ratio.toFixed(2)}`);
+
+// The chop (waveChoppiness; waterShading.js waterRippleChop, twinned here):
+// the slope over the Jacobian of a shove toward the crests, a full crest at
+// h = 0.5 + 0.15. That is the ripple's own spread, so the slider is felt over
+// the whole sea rather than on a few peaks, it cannot fold (floor 0.3), and at
+// the slider's default nothing changes at all.
+const chop = (factor, h) => 1 / Math.max(1 - factor * Math.min(Math.max((h - 0.5) / 0.15, -1), 1), 0.3);
+const heights = [];
+for (let j = 0; j < 160; j += 1) for (let i = 0; i < 160; i += 1) {
+  const p = [3.1 + i * 0.37, -7.3 + j * 0.41];
+  heights.push(tilted(p, (noise(p[0] * 0.23 + 5.3, p[1] * 0.23 + 1.7) - 0.5) * 2));
+}
+const inside = heights.filter((h) => Math.abs(h - 0.5) <= 0.15).length / heights.length;
+assert.ok(inside > 0.8 && inside < 0.99, `a full crest is the ripple's own spread: ${(inside * 100).toFixed(0)}% of the sea inside it`);
+assert.equal(rippleChopFactor(WAVE_CHOPPINESS_DEFAULT), 0, 'the default choppiness is no chop');
+assert.ok(heights.every((h) => chop(rippleChopFactor(WAVE_CHOPPINESS_DEFAULT), h) === 1), 'at the default every slope is left exactly as it was');
+const mean = (values) => values.reduce((sum, value) => sum + value, 0) / values.length;
+const crests = heights.filter((h) => h > 0.6), troughs = heights.filter((h) => h < 0.4);
+const pinch = mean(crests.map((h) => chop(rippleChopFactor(1.25), h))), open = mean(troughs.map((h) => chop(rippleChopFactor(1.25), h)));
+assert.ok(pinch > 2 && open < 0.75, `full chop pinches the crests (x${pinch.toFixed(2)}) and opens the troughs (x${open.toFixed(2)})`);
+const round = mean(crests.map((h) => chop(rippleChopFactor(0), h)));
+assert.ok(round < 0.97 && mean(troughs.map((h) => chop(rippleChopFactor(0), h))) > 1.03, `no chop rounds the crests (x${round.toFixed(2)})`);
+assert.ok(heights.every((h) => chop(rippleChopFactor(1.25), h) <= 1 / 0.3 + 1e-9), 'the chop never folds a crest');
 volume.dispose();
-console.log(`waterRipple: slope repeat at the old tile ${was.map((c) => c.toFixed(2)).join('/')} -> ${now.map((c) => c.toFixed(2)).join('/')}, strength x${ratio.toFixed(2)}`);
+console.log(`waterRipple: slope repeat at the old tile ${was.map((c) => c.toFixed(2)).join('/')} -> ${now.map((c) => c.toFixed(2)).join('/')}, strength x${ratio.toFixed(2)}; chop 0..1.25 takes the crests' slope x${round.toFixed(2)}..x${pinch.toFixed(2)}, 1 at the default`);

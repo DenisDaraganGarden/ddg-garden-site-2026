@@ -51,8 +51,14 @@ export const surfPlungeTime = (zRoot, zLand, lift) =>
 // writes the foam field, so the two cannot drift into a diagonal rope.
 const surfPositive = (value) => Number.isFinite(Number(value)) ? Math.max(Number(value), 0) : 0;
 
+// The visible rear-up: the last third of a wavelength at the default break
+// length (16 m of shoaling deforming the whole face turned one small Azov
+// breaker into a long white rope), stretched in proportion to the slider:
+// 4 m rears four times more abruptly, 40 m two and a half times longer. A cap
+// at that third left the slider's whole range doing nothing.
+export const SURF_BREAK_LENGTH_DEFAULT = 16;
 export const surfRearingLength = ({ surfWidth, surfBreakLength }) =>
-  Math.min(surfPositive(surfBreakLength), Math.max(0.75, surfPositive(surfWidth) * SURF_REARING_WIDTH_SHARE));
+  Math.max(0.75, surfPositive(surfWidth) * SURF_REARING_WIDTH_SHARE) * surfPositive(surfBreakLength) / SURF_BREAK_LENGTH_DEFAULT;
 
 export const surfPeelSpan = ({ surfWidth, surfBreakLength, surfBoreLength }) =>
   Math.max(1, surfRearingLength({ surfWidth, surfBreakLength }) + surfPositive(surfBoreLength));
@@ -145,7 +151,7 @@ export function surfProfilePoint(t, dn, H, P) {
   const g = SURF_GRAVITY;
   const plungeFrom = (zRoot, zLand) => (P.lift + Math.sqrt(Math.max(P.lift * P.lift + 2 * g * (zRoot - zLand), 0))) / g;
   const tau = Math.max(dn, 0) / Math.max(P.speed, 0.1);
-  const rearLength = Math.min(P.steepen, Math.max(0.75, P.width * SURF_REARING_WIDTH_SHARE));
+  const rearLength = surfRearingLength({ surfWidth: P.width, surfBreakLength: P.steepen });
   const rearing = smooth(-rearLength, 0, dn);
   const zc = SURF_SHAPE.crest * H;
   const frontScale = lerp(1, 0.32, rearing);
@@ -262,7 +268,7 @@ export const surfProfileShader = /* glsl */`
 #define SURF_CREST ${SURF_SHAPE.crest.toFixed(6)}
 #define SURF_TROUGH ${SURF_SHAPE.trough.toFixed(6)}
 uniform float uWidth;    // one wavelength across the profile, m
-uniform float uSteepen;  // metres of travel over which the face rears up before the lip leaves
+uniform float uSteepen;  // break length, m: the face rears up over max(0.75, 0.35 uWidth) · uSteepen / 16 of travel before the lip leaves
 uniform float uLean;     // how far the crest overtakes the trough at launch, share of H
 uniform float uJet;      // lip throw relative to the crest, m/s
 uniform float uLift;     // upward speed of the lip at launch, m/s
@@ -330,9 +336,9 @@ vec2 surfJetDown(vec2 tangent) {
 SurfPoint surfProfile(float t, float dn, float H) {
   float tau = max(dn, 0.0) / max(uSpeed, 0.1);
   // The water shoals for a long distance, but its visible face only rears in
-  // the last third of a wavelength.  Letting uSteepen deform the full 16 m
-  // default turned one small Azov breaker into a long white rope.
-  float rearLength = min(uSteepen, max(0.75, uWidth * ${SURF_REARING_WIDTH_SHARE.toFixed(2)}));
+  // the last third of a wavelength at the default uSteepen, in proportion to
+  // it otherwise (surfRearingLength is the CPU twin).
+  float rearLength = max(0.75, uWidth * ${SURF_REARING_WIDTH_SHARE.toFixed(2)}) * uSteepen / ${SURF_BREAK_LENGTH_DEFAULT.toFixed(1)};
   float rearing = smoothstep(-rearLength, 0.0, dn);
   float zc = SURF_CREST * H;
   float frontScale = mix(1.0, 0.32, rearing);

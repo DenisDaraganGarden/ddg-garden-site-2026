@@ -28,6 +28,18 @@ const getAudioContextConstructor = () => {
 
 const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, value));
 
+// How much of a spatial sound is left at `distance` once its audibility limit
+// (maxDistance) counts. Web Audio's inverse model never falls silent: Chrome
+// and Safari hold the level reached at maxDistance for ever after, Firefox
+// ignores maxDistance altogether. So the engine lays its own smooth window over
+// the panner's inverse curve, (1 − u⁸)², u running from the reference distance
+// (0) to the limit (1): within 0.1 dB of the old level over the first half of
+// the way, −10 dB at nine tenths, and exactly silent from the limit on.
+const audibleShare = (distance, refDistance, maxDistance) => {
+  const u = clamp((distance - refDistance) / Math.max(0.1, maxDistance - refDistance), 0, 1);
+  return (1 - (u ** 8)) ** 2;
+};
+
 const randomBetween = (range, random = Math.random) => {
   const [minimum, maximum] = range;
   return minimum + ((maximum - minimum) * random());
@@ -365,7 +377,8 @@ export class SoundscapeEngine {
 
   setCameraTransition(phase, fadeSeconds = 0) {
     const nextPhase = ['idle', 'fade-out', 'black', 'fade-in'].includes(phase) ? phase : 'idle';
-    const nextFadeSeconds = clamp(Number(fadeSeconds) || 0, 0, 8);
+    // As long as the slideshow's own fade (up to 30 s): the sound dips with the picture.
+    const nextFadeSeconds = clamp(Number(fadeSeconds) || 0, 0, 30);
     if (
       this.cameraTransition.phase === nextPhase
       && this.cameraTransition.fadeSeconds === nextFadeSeconds
@@ -572,6 +585,7 @@ export class SoundscapeEngine {
     }
 
     let panner = null;
+    let limit = null;
     let spatialMix = null;
     let directMix = null;
 
@@ -582,10 +596,12 @@ export class SoundscapeEngine {
       panner.coneInnerAngle = 360;
       panner.coneOuterAngle = 360;
       panner.coneOuterGain = 1;
+      limit = context.createGain();
       spatialMix = context.createGain();
       directMix = context.createGain();
       signal.connect(panner);
-      panner.connect(spatialMix);
+      panner.connect(limit);
+      limit.connect(spatialMix);
       spatialMix.connect(gain);
       signal.connect(directMix);
       directMix.connect(gain);
@@ -602,6 +618,8 @@ export class SoundscapeEngine {
       gain,
       filter,
       panner,
+      limit,
+      position: null,
       spatialMix,
       directMix,
       sources,
@@ -680,12 +698,39 @@ export class SoundscapeEngine {
     const position = this.emitterPositions.get(track.asset.emitterId)
       ?? this.settings.emitters[track.asset.emitterId];
     if (position) {
-      this.setPannerPosition(track.panner, position.x, position.y, position.z, immediate);
+      this.placeTrack(track, position.x, position.y, position.z, immediate);
     }
   }
 
   refreshTrackSpatialSettings() {
     this.tracks.forEach((track) => this.applyTrackSpatialSettings(track));
+  }
+
+  // Where a track sounds from: its panner, and its audibility limit as seen
+  // from where the listener stands now.
+  placeTrack(track, x, y, z, immediate = false) {
+    track.position = { x, y, z };
+    this.setPannerPosition(track.panner, x, y, z, immediate);
+    this.applyTrackLimit(track, immediate);
+  }
+
+  applyTrackLimit(track, immediate = false) {
+    if (!track.limit || !track.position || !this.context) {
+      return;
+    }
+
+    setSmoothedParam(
+      track.limit.gain,
+      audibleShare(this.listenerDistance(track.position), track.panner.refDistance, track.panner.maxDistance),
+      this.context.currentTime,
+      immediate ? 0.001 : LISTENER_SMOOTH_SECONDS,
+    );
+  }
+
+  // Before the camera reports, the Web Audio listener stands at the origin.
+  listenerDistance({ x, y, z }) {
+    const [lx, ly, lz] = this.listenerPose ?? [0, 0, 0];
+    return Math.hypot(x - lx, y - ly, z - lz);
   }
 
   setPannerPosition(panner, x, y, z, immediate = false) {
@@ -729,7 +774,7 @@ export class SoundscapeEngine {
     }
     this.tracks.forEach((track) => {
       if (track.asset.emitterId === emitterId && track.panner) {
-        this.setPannerPosition(track.panner, x, y, z, immediate);
+        this.placeTrack(track, x, y, z, immediate);
       }
     });
   }
@@ -779,6 +824,7 @@ export class SoundscapeEngine {
       listener.setPosition?.(pose[0], pose[1], pose[2]);
       listener.setOrientation?.(pose[3], pose[4], pose[5], pose[6], pose[7], pose[8]);
     }
+    this.tracks.forEach((track) => this.applyTrackLimit(track));
   }
 
   startTrackTransport(track) {
@@ -917,8 +963,8 @@ export class SoundscapeEngine {
       const base = this.settings.emitters[track.asset.emitterId];
       if (base) {
         const spread = track.asset.id === 'birds' ? 5 : 8;
-        this.setPannerPosition(
-          track.panner,
+        this.placeTrack(
+          track,
           base.x + ((this.random() - 0.5) * spread),
           base.y + ((this.random() - 0.5) * (spread * 0.45)),
           base.z + ((this.random() - 0.5) * spread),
@@ -991,8 +1037,10 @@ export class SoundscapeEngine {
       panner.refDistance = configured.refDistance ?? 4;
       panner.maxDistance = configured.maxDistance ?? 80;
       panner.rolloffFactor = configured.rolloff ?? 1;
-      const position = this.emitterPositions.get(asset.emitterId) ?? configured;
-      this.setPannerPosition(panner, position.x ?? 0, position.y ?? 0, position.z ?? 0, true);
+      const { x = 0, y = 0, z = 0 } = this.emitterPositions.get(asset.emitterId) ?? configured;
+      this.setPannerPosition(panner, x, y, z, true);
+      // A preview is heard as the scene would play it here, limit included.
+      previewGain.gain.value *= audibleShare(this.listenerDistance({ x, y, z }), panner.refDistance, panner.maxDistance);
       previewGain.connect(panner);
       output = panner;
     }
@@ -1068,6 +1116,7 @@ export class SoundscapeEngine {
     track.gain.disconnect();
     track.filter?.disconnect();
     track.panner?.disconnect();
+    track.limit?.disconnect();
     track.spatialMix?.disconnect();
     track.directMix?.disconnect();
   }
@@ -1097,6 +1146,7 @@ if (import.meta.hot) {
 }
 
 export const soundscapeEngineInternals = Object.freeze({
+  audibleShare,
   audioModeHasMusic,
   audioModeHasSoundscape,
   holdAndRamp,

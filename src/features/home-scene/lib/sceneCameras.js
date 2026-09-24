@@ -1,7 +1,7 @@
 // Camera variants are intentionally data-only.  The editor, settings migration
 // and public player can share this module without making either of them depend
 // on React or on a particular scene renderer.
-import { createPairedCameraLayouts } from './layout.js';
+import { createPairedCameraLayouts, HOME_SCENE_CAMERA_FOV_MAX, HOME_SCENE_CAMERA_FOV_MIN } from './layout.js';
 import { DEFAULT_SURFBOARD_SETTINGS } from '../../../components/surfboard/settings.js';
 
 // Keys that stay on the root when a camera is switched. Besides the catalogue
@@ -34,7 +34,8 @@ const CAMERA_NAME_MAX_LENGTH = 80;
 const MIN_HOLD_SECONDS = 1;
 const MAX_HOLD_SECONDS = 3600;
 const MIN_FADE_SECONDS = 0;
-const MAX_FADE_SECONDS = 10;
+// The editor's «Затухание» slider reaches 30 s; a saved slideshow keeps it.
+const MAX_FADE_SECONDS = 30;
 const snapshotExcludedKeySet = new Set(SCENE_CAMERA_SNAPSHOT_EXCLUDED_KEYS);
 
 const isRecord = (value) => (
@@ -163,7 +164,7 @@ export function normalizeWorkCameras(raw, fallbackScene = {}, normalizeSnapshot)
       layouts: createPairedCameraLayouts(fallbackScene, 'desktop', {
         cameraPosition,
         cameraTarget,
-        cameraFov: clampNumber(entry.cameraFov, 1, 75, 36),
+        cameraFov: clampNumber(entry.cameraFov, HOME_SCENE_CAMERA_FOV_MIN, HOME_SCENE_CAMERA_FOV_MAX, 36),
       }),
     };
     const scene = typeof normalizeSnapshot === 'function'

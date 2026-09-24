@@ -122,7 +122,7 @@ const Navigation = () => {
         >
             <div className="nav-brand">
                 <NavLink to={localizePath('/', language)} className="nav-brand__link" data-testid="brand-link">
-                    Denis Daragan
+                    <span className="nav-brand__name">Denis Daragan</span>
                     <span className="brand-subtitle">{t('navigation.brandSubtitle')}</span>
                 </NavLink>
 

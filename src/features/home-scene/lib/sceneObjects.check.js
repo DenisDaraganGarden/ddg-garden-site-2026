@@ -21,6 +21,9 @@ assert.equal(sceneNodeForObject3D(node('coastal-oleaster')), 'greenery/shrubs');
 assert.equal(sceneNodeForObject3D(node('coast-rocks-2')), 'landscape/rocks');
 assert.equal(sceneNodeForObject3D(node('coast-debris-0')), 'landscape/rocks');
 assert.equal(sceneNodeForObject3D(node('coast-pebbles')), 'landscape/pebbles');
+// Ракушки на пляже — рельефа: их число задаёт «Ракушечник», прячет выключатель
+// рельефа, а не гальки. Клик по ракушке ведёт туда, где ими управляют.
+assert.equal(sceneNodeForObject3D(node('coast-shell-fragments')), 'landscape/terrain');
 
 // Попадание приходит в лист, а узел редактора — на предке.
 const boatMesh = node('hull', node('boat', node('boat-anchor')));

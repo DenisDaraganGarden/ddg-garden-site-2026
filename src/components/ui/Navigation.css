@@ -442,7 +442,8 @@
 /* Not scoped to .main-nav--home on purpose: the editor route renders the plain
    header, and the author has to preview the same result. The attribute is the
    scope - it exists only while a home scene is mounted. */
-:root[data-home-hidden~="brand"] .nav-brand {
+/* Only the name: the subtitle and the menu share its block and have their own switches. */
+:root[data-home-hidden~="brand"] .nav-brand__name {
   display: none;
 }
 

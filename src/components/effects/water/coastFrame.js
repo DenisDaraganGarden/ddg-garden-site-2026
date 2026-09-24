@@ -97,7 +97,9 @@ export function createCoastWaterUniforms() {
 // breakQ: where the swell hands over to the breakers (metres from the
 // waterline, negative at sea); fadeWidth 0 leaves the swell alone.
 export function syncCoastWaterUniforms(uniforms, coast, breakQ = -10, fadeWidth = 30) {
-  if (!coast?.definition) { uniforms.uSwellFade.value.set(breakQ, 0); uniforms.uShoreReady.value = 0; return; }
+  // Without a coast nothing may read the last one's: landscape switched off
+  // left its shape set, and its bloom and masks on the open sea.
+  if (!coast?.definition) { uniforms.uSwellFade.value.set(breakQ, 0); uniforms.uShoreReady.value = 0; uniforms.uCoastShape.value.x = 0; return; }
   syncCoastUniforms(uniforms, coast.definition);
   uniforms.uSwellFade.value.set(breakQ, fadeWidth);
   tickShoreDepth(uniforms, coast);

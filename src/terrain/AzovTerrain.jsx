@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import CoastRocksPBR, { useCoastRockMaterials } from './CoastRocksPBR.jsx';
 import { buildTerrainStrip, terrainLod, terrainMetresPerPixel, TERRAIN_LOD_METRES_PER_PIXEL } from './terrainGeometry.js';
 import { createTerrainDefinition, coastCoordinates, shorePosition, coastPoint, coastSurfCoordinates, COAST_STRIP_LENGTH } from './terrainModel.js';
-import { createTerrainMaterial } from './terrainMaterial.js';
+import { createTerrainMaterial, syncSeabedUniforms } from './terrainMaterial.js';
 import { syncCoastUniforms } from './terrainShader.js';
 import { CoastShells, CoastPebbles } from './CoastScatter.jsx';
 import { TERRAIN_MAP_NAMES,createTerrainTextureArrays,terrainMapUrl } from './terrainTextures.js';
@@ -98,7 +98,7 @@ export default function AzovTerrain({ definition, settings, qualityProfile, ligh
       const source=surf.spit?{x:surf.spit.shoreU*definition.landX+surf.spit.shoreS*definition.alongX,z:surf.spit.shoreU*definition.landZ+surf.spit.shoreS*definition.alongZ}:coastPoint(0,s,definition);audioRuntime.updateEmitter('shore',source.x,.15,source.z);
     }
     const seaNormalReady=seaCaustics?.active&&seaCaustics.texture;const pondNormals=seaNormalReady?seaCaustics.texture:(runtime?.normalTargetRef?.current?.texture??null),pondResolution=seaNormalReady?seaCaustics.resolution:(runtime?.effectiveResolution??256),pondExtent=seaNormalReady?seaCaustics.extent:settings.waterExtent,pondTexel=1/Math.max(1,pondResolution);
-    for(const m of Object.values(materials)){const u=m.userData.coastUniforms;syncCoastUniforms(u,definition);syncGrassFieldUniforms(u,settings,definition);
+    for(const m of Object.values(materials)){const u=m.userData.coastUniforms;syncCoastUniforms(u,definition);syncGrassFieldUniforms(u,settings,definition);syncSeabedUniforms(u,settings);
       u.uPondNormalMap.value=pondNormals;u.uPondTexel.value.set(pondTexel,pondTexel);u.uPondExtent.value=pondExtent;
       u.uCausticsParams.value.set(pondNormals?settings.causticsIntensity:0,settings.causticsScale,settings.causticsSharpness,settings.waterTurbidity);
       u.uCausticsLight.value.fromArray(lighting.key.direction);u.uCausticsKey.value=lighting.key.intensity;u.uTerrainTime.value=clock.elapsedTime;

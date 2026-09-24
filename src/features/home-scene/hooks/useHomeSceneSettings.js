@@ -14,6 +14,8 @@ import { publishedHomeSceneKeys } from '../data/publishedHomeSceneKeys';
 import {
   clampLayoutFrameInset,
   DEFAULT_LAYOUT_FRAME_INSETS,
+  HOME_SCENE_CAMERA_FOV_MAX,
+  HOME_SCENE_CAMERA_FOV_MIN,
   resolveLayoutKey,
 } from '../lib/layout';
 import { initializeEditorCameras, syncActiveEditorCamera } from '../lib/editorCameraState.js';
@@ -97,8 +99,6 @@ const DEFAULT_CAMERA_TARGET = { x: 0, y: 0, z: 0 };
 const DEFAULT_SCULPTURE_POSITION = { x: 0.6, z: 1.2 };
 const DEFAULT_BOAT_POSITION = { x: 2.1, z: -1.4 };
 const DEFAULT_CAMERA_FOV = 36;
-export const HOME_SCENE_CAMERA_FOV_MIN = 1;
-export const HOME_SCENE_CAMERA_FOV_MAX = 75;
 const MAX_CAMERA_COORDINATE = 1_000_000;
 
 // One composition bucket (see features/home-scene/lib/layout.js for selection logic).

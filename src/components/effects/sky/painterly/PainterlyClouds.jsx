@@ -75,6 +75,7 @@ function createResources(noise, profile, product, colorType) {
     uMoonDirection: { value: new THREE.Vector3(0, -1, 0) }, uMoonSunDirection: { value: new THREE.Vector3(0, 1, 0) },
     uMoonRadiance: { value: new THREE.Color(0, 0, 0) }, uMoonCosRadius: { value: Math.cos(.26 * Math.PI / 180) },
     uStarAxis: { value: new THREE.Vector3(1, 0, 0) }, uStarRotation: { value: 0 }, uStars: { value: 0 }, uNight: { value: 0 },
+    uSkyHaze: { value: 1 }, uGroundShift: { value: new THREE.Vector3() }, uEnvironmentTint: { value: new THREE.Vector3(1, 1, 1) },
   };
   const target = (w,h,type=THREE.UnsignedByteType) => new THREE.WebGLRenderTarget(w,h,{type,depthBuffer:false,stencilBuffer:false,generateMipmaps:false});
   const volumeTarget=target(1,1,colorType);
@@ -217,6 +218,10 @@ function CloudRuntime({noise,settings,lighting,onStats,onShadow,paused,bakeMs,mo
     u.uMoonCosRadius.value=sky.moonCosRadius??Math.cos(.26*Math.PI/180);
     u.uStarAxis.value.fromArray(sky.starAxis??[1,0,0]).normalize();u.uStarRotation.value=sky.starRotation??0;
     u.uStars.value=sky.starsIntensity??1;u.uNight.value=sky.night??0;
+    // Air and distant surface as authored (identity at the defaults the sky
+    // is painted for), and the environment tone for the atlas the sea reflects.
+    u.uSkyHaze.value=sky.paintedHaze??1;u.uGroundShift.value.fromArray(sky.paintedGroundShift??[0,0,0]);
+    u.uEnvironmentTint.value.fromArray(lighting.environment?.tint??[1,1,1]);
     // Lightning: the state machine runs on the same paused-aware clock; the
     // bolt mesh, the in-cloud glow and the receivers' flash all read one value.
     advanceLightning(lightning,dt||(lightning.force?.012:0),{lightning:settings.lightning??0,listener:camera.position,pickTarget:rng=>pickStrikeTarget(rng,noise,u,camera)});

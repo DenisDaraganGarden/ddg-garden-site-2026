@@ -84,12 +84,35 @@ export const waterShadingShader = /* glsl */`
   uniform float uSeaRippleExtent;
   uniform float uSeaRippleStrength;
   uniform float uSeaRippleAmplitude;
+  uniform float uRippleChop;      // rippleChopFactor(waveChoppiness): 0 at its default
+  uniform float uWaterDebugView;  // DEBUG_VIEW_IDS: 1 height, 2 normals; the rest keep the picture
   uniform sampler2D uSkyIrradianceMap;
   uniform float uSkyIrradianceActive;
   uniform vec4 uWakeRing[${WAKE_RINGS}];
   uniform vec4 uWakeBounds;
   #define WATER_PI 3.14159265
   float gerstnerNoise(vec2 p); // defined by gerstnerShader, which every water fragment includes first
+  // The summer bloom over this water, 0..1 (terrainShader.js coastBloom): a
+  // surface that knows the coast sets it before shadeWater, the rest leave 0.
+  float waterBloom = 0.0;
+
+  // The engine's diagnostic views of the surface: 1 its height over still
+  // water, grey at the still line, black and white at the full swing of the
+  // swell's trains, so any sea state fills the range (the ripple and the surf
+  // ride on it and may clip); 2 its normal as a colour. A measurement, unlit
+  // and not tone-mapped. False for the picture and the seabed's own views.
+  bool waterDebugView(vec3 world, vec3 n, out vec3 color) {
+    color = vec3(0.0);
+    if (uWaterDebugView < 0.5 || uWaterDebugView > 2.5) return false;
+    if (uWaterDebugView > 1.5) {
+      color = n * 0.5 + 0.5;
+      return true;
+    }
+    float swing = 0.0;
+    for (int i = 0; i < GERSTNER_TRAINS; i++) swing += uGerstnerTrain[i].w;
+    color = vec3(clamp(0.5 + 0.5 * world.y / max(swing, 0.01), 0.0, 1.0));
+    return true;
+  }
 
   vec3 waterSkyColor(vec3 ray) {
     vec3 fallback = mix(uSkyHorizon, uSkyZenith, pow(clamp(ray.y, 0.0, 1.0), 0.55));
@@ -299,8 +322,10 @@ export const waterShadingShader = /* glsl */`
     vec3 waterHue = clamp(uWaterColor, vec3(0.0), vec3(1.0));
     vec3 waterTransmissionTint = waterHue / max(max(waterHue.r, waterHue.g), max(waterHue.b, 0.001));
     vec3 hueAbsorption = (vec3(1.0) - waterTransmissionTint) * density * 0.16;
-    vec3 absorption = (vec3(0.008, 0.003, 0.001) + density * vec3(0.13, 0.055, 0.018) + hueAbsorption) * depthScale;
-    float scattering = density * 0.62 * depthScale * clamp(uSeaRefractionScattering, 0.0, 2.0);
+    // The bloom eats the red and the blue as chlorophyll does and thickens the
+    // haze (the retired water's coefficients).
+    vec3 absorption = (vec3(0.008, 0.003, 0.001) + density * vec3(0.13, 0.055, 0.018) + hueAbsorption + waterBloom * vec3(0.05, 0.008, 0.04)) * depthScale;
+    float scattering = density * 0.62 * depthScale * clamp(uSeaRefractionScattering, 0.0, 2.0) * (1.0 + waterBloom * 1.4);
     vec3 transmittance = exp(-(absorption + vec3(scattering)) * path);
     // The dedicated scattering colour remains the art direction for suspended
     // matter. Water hue only tints part of it, so changing either control is
@@ -400,6 +425,15 @@ export const waterShadingShader = /* glsl */`
     }
     return slope;
   }
+  // The chop of the small ripples (waveChoppiness, «Излом поверхности»; the
+  // swell's own is its steepness). A ripple shoved sideways toward its crests,
+  // as a trochoid is, has its crests pinched and its troughs opened: its slope
+  // is the unshoved slope over the Jacobian of the shove, 1 - chop at a full
+  // crest (crest 1) and 1 + chop in a full trough (crest -1), floored so it
+  // cannot fold. 1 while the slider stands at its default.
+  float waterRippleChop(float crest) {
+    return 1.0 / max(1.0 - uRippleChop * clamp(crest, -1.0, 1.0), 0.3);
+  }
   vec3 waterRippleNormal(vec3 n, vec2 p, float pixel, float weight, float wet) {
     float w = 0.0;
     if (uRipple > 0.001 && weight > 0.001 && uNoiseReady > 0.5) {
@@ -418,7 +452,8 @@ export const waterShadingShader = /* glsl */`
       // the Gerstner tangent plane so a steep crest cannot acquire an artificial
       // dark side simply because its fine normal was composed in a different
       // frame.
-      vec3 slope = vec3(-(hx - h) / e * relief, 0.0, -(hz - h) / e * relief);
+      // h is 0.5 ± 0.15 on 90% of the sea (waterRipple.check.js): a full crest at +0.15.
+      vec3 slope = vec3(-(hx - h) / e * relief, 0.0, -(hz - h) / e * relief) * waterRippleChop((h - 0.5) / 0.15);
       slope -= n * dot(n, slope);
       n = normalize(n + slope);
     }
@@ -429,9 +464,13 @@ export const waterShadingShader = /* glsl */`
       vec2 rippleUv = vec2(p.x / uSeaRippleExtent + 0.5, 0.5 - p.y / uSeaRippleExtent);
       float inBounds = step(0.0, rippleUv.x) * step(0.0, rippleUv.y)
         * step(rippleUv.x, 1.0) * step(rippleUv.y, 1.0);
-      vec3 encoded = texture2D(uSeaRippleNormalMap, clamp(rippleUv, vec2(0.0), vec2(1.0))).rgb * 2.0 - 1.0;
+      vec4 ripple = texture2D(uSeaRippleNormalMap, clamp(rippleUv, vec2(0.0), vec2(1.0)));
+      vec3 encoded = ripple.rgb * 2.0 - 1.0;
       float runtimeWeight = waterRippleMapWeight(p) * clamp(wet, 0.0, 1.0);
-      vec3 localSlope = vec3(encoded.x, 0.0, encoded.z) * (0.16 * uSeaRippleStrength * inBounds * runtimeWeight);
+      // Alpha is the smoothed height. The simulation pulls a crest back past
+      // 0.72, so half of that counts as a full one.
+      vec3 localSlope = vec3(encoded.x, 0.0, encoded.z) * (0.16 * uSeaRippleStrength * inBounds * runtimeWeight)
+        * waterRippleChop((ripple.a * 2.0 - 1.0) / 0.35);
       localSlope -= n * dot(n, localSlope);
       n = normalize(n + localSlope);
     }
@@ -633,6 +672,9 @@ export const waterShadingShader = /* glsl */`
     float bodyFacing = clamp(dot(bodyNormal, view), 0.0, 1.0);
     float bodyDiffuse = max(dot(bodyNormal, uSunDirection), 0.0);
     vec3 body = mix(uDeepColor, uWaterColor, pow(bodyFacing, 0.6));
+    // Cyanobacteria in the body of the water: green-yellow by the bloom's
+    // amount (terrainShader.js coastBloomColor, which this chunk cannot reach).
+    body = mix(body, body * vec3(0.64, 1.12, 0.56) + vec3(0.003, 0.008, 0.001), waterBloom * 0.65);
     body *= (uFillIrradiance + uSunRadiance * (0.15 + 0.45 * bodyDiffuse) * keyVisibility) * 0.55 / WATER_PI;
     // Translucency: sun and sky through thin water toward the eye. The wall
     // of a wave lit from behind glows green.
@@ -668,6 +710,17 @@ export const waterShadingShader = /* glsl */`
       + cursorDiffuse * 0.11
       + cursorSpecular * (0.38 + fresnel * 0.82);
     color += cursorLight.radiance * cursorSurfaceResponse;
+    // Scum lines: the bloom gathers into thin streaks the wind draws out and
+    // drifts, gone before they could shimmer (the retired water's recipe).
+    if (waterBloom > 0.001) {
+      vec2 across = vec2(-uWind.y, uWind.x);
+      float lines = smoothstep(0.8, 0.96, gerstnerNoise(vec2(dot(world.xz, uWind) * 0.45 - uTime * 0.12, dot(world.xz, across) * 0.055)))
+        * smoothstep(0.35, 0.75, gerstnerNoise(world.xz * 0.07 + uWind * uTime * 0.03))
+        * smoothstep(0.3, 0.8, gerstnerNoise(world.xz * 0.9))
+        * (1.0 - smoothstep(0.5, 2.5, pixel));
+      vec3 scum = waterFoamLight(waterSkyIrradiance(n) + uFillIrradiance, n, view, keyVisibility, 1.0) * vec3(0.46, 0.56, 0.18);
+      color = mix(color, scum, lines * waterBloom * 0.45);
+    }
     float bubbles;
     float foamHeight;
     float foam = waterFoam(foamUv, foamCoverage, pixel, foamAge, bubbles, foamHeight);

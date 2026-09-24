@@ -9,6 +9,11 @@ export const cloudAtmosphereGLSL = /* glsl */`
   uniform float uFlash;
   uniform vec3 uFlashPos;
   uniform vec3 uFlashColor;
+  // Haze relative to the air this palette is painted for, and the albedo change
+  // of the distant surface (homeSceneLighting paintedHaze / paintedGroundShift):
+  // 1 and zero at the defaults, where the sky below is exactly the painted one.
+  uniform float uSkyHaze;
+  uniform vec3 uGroundShift;
   ${celestialShaderChunk}
 
   // A lightning channel as a light: the closest point on the vertical bolt
@@ -27,8 +32,17 @@ export const cloudAtmosphereGLSL = /* glsl */`
     vec3 zenith = mix(vec3(.021,.14,.34), vec3(.075,.055,.18), warm);
     vec3 horizon = mix(vec3(.38,.57,.73), vec3(.7,.31,.16), warm);
     vec3 sky = mix(horizon, zenith, h);
+    // Thicker air scatters the sun's own light into the low sky, which pales
+    // toward white, and spreads a wider, stronger glow round the sun (skyModel:
+    // Mie grows with turbidity); thinner air does the opposite.
+    float veil = clamp((uSkyHaze - 1.0) * 0.3, -0.3, 0.6) * (1.0 - h);
+    sky = max(mix(sky, vec3(dot(sky, vec3(0.3, 0.59, 0.11))), veil), 0.0);
+    // Below the horizon: what a lighter or darker distant surface returns of
+    // the sky's light (albedo change x irradiance/pi, the sky's mean radiance).
+    float below = 1.0 - smoothstep(-0.025, 0.025, ray.y);
+    sky = max(sky + uGroundShift * (horizon + zenith) * 0.5 * below, 0.0);
     float sun = max(0.0, dot(ray, normalize(uSun)));
-    sky += uSunColor * pow(sun,18.0) * (.04 + warm*.09);
+    sky += uSunColor * pow(sun, 18.0 / uSkyHaze) * (.04 + warm*.09) * uSkyHaze;
     if (disc) {
       float aa = max(fwidth(sun), .000004);
       // At night the key is the moon; its phased body below replaces this disc.

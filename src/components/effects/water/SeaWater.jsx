@@ -7,6 +7,7 @@ import BreakingWaves from './BreakingWaves.jsx';
 import { resolveEffectiveSeaSettings } from './seaSettings.js';
 import { useWaterNoise } from './waterShading.js';
 import { SeaCausticNormals } from './seaCausticNormals.js';
+import { DEBUG_VIEW_IDS } from './constants';
 import {
   createWaterSceneBindingUniforms,
   useWaterSceneBindings,
@@ -87,41 +88,48 @@ function SeaWaterActive({
     sceneSettings,
   });
 
+  // The seabed's own debug views (caustics, depth) are about the bed under an
+  // opaque sea: the surfaces step aside for them, as the retired water's did,
+  // and keep running, so the caustics they cast and the foam stay live.
+  const surfacesVisible = (DEBUG_VIEW_IDS[sceneSettings.debugView] ?? 0) < 3;
+
   return (
     <>
       {definition.terrainEnabled ? <ShoreDepthMap coast={coast} /> : null}
       {seaCaustics && sceneSettings.causticsIntensity > 0 && (definition.terrainEnabled || sceneSettings.seabedVisible) ? <SeaCausticNormals holder={seaCaustics} settings={effectiveSettings} sceneSettings={sceneSettings} coast={definition.terrainEnabled ? coast : null} runtime={runtime} /> : null}
-      <GerstnerWaterSurface
-        settings={effectiveSettings}
-        lighting={lighting}
-        noise={noise}
-        coast={definition.terrainEnabled ? coast : null}
-        foamBores={effectiveSettings.surfEnabled && definition.terrainEnabled ? foamBores : null}
-        sceneBindings={sceneBindings}
-        farVisible={sceneSettings.farWaterVisible !== false}
-        nearExtent={sceneSettings.waterExtent}
-        underwater={underwater}
-      />
-      {definition.terrainEnabled ? <ShoreWater
-        settings={effectiveSettings}
-        lighting={lighting}
-        noise={noise}
-        coast={coast}
-        sceneBindings={sceneBindings}
-        underwater={underwater}
-      /> : null}
-      {effectiveSettings.surfEnabled && definition.terrainEnabled ? (
-        <BreakingWaves
+      <group visible={surfacesVisible}>
+        <GerstnerWaterSurface
+          settings={effectiveSettings}
+          lighting={lighting}
+          noise={noise}
+          coast={definition.terrainEnabled ? coast : null}
+          foamBores={effectiveSettings.surfEnabled && definition.terrainEnabled ? foamBores : null}
+          sceneBindings={sceneBindings}
+          farVisible={sceneSettings.farWaterVisible !== false}
+          nearExtent={sceneSettings.waterExtent}
+          underwater={underwater}
+        />
+        {definition.terrainEnabled ? <ShoreWater
           settings={effectiveSettings}
           lighting={lighting}
           noise={noise}
           coast={coast}
-          foamBores={foamBores}
-          surfRibbons={surfRibbons}
           sceneBindings={sceneBindings}
-          qualityProfile={qualityProfile}
-        />
-      ) : null}
+          underwater={underwater}
+        /> : null}
+        {effectiveSettings.surfEnabled && definition.terrainEnabled ? (
+          <BreakingWaves
+            settings={effectiveSettings}
+            lighting={lighting}
+            noise={noise}
+            coast={coast}
+            foamBores={foamBores}
+            surfRibbons={surfRibbons}
+            sceneBindings={sceneBindings}
+            qualityProfile={qualityProfile}
+          />
+        ) : null}
+      </group>
     </>
   );
 }

@@ -51,12 +51,15 @@ export default function HomeTanker({ settings, seaSettings = null, lighting, aud
     if (document.hidden || !root.current) return;
     const dt = Math.min(delta, 0.1);
     elapsed.current += dt;
-    if (settings.tankerTravel) travel.current += dt * settings.tankerSpeed * KNOTS_TO_METERS_PER_SECOND;
+    // A ship that holds its place is at rest: no way on, so no wake and no
+    // wash, and the diesel at its idle note, whatever «Скорость» says.
+    const knots = settings.tankerTravel ? settings.tankerSpeed : 0;
+    travel.current += dt * knots * KNOTS_TO_METERS_PER_SECOND;
     const length = settings.tankerRouteLength;
     const along = ((travel.current + length / 2) % length) - length / 2;
     // Site bearings are clockwise from north (-Z). The authored bow is +X.
     const motion = sampleTankerMotion(elapsed.current, {
-      speedKnots: settings.tankerSpeed, heading: 90 - settings.tankerBearing,
+      speedKnots: knots, heading: 90 - settings.tankerBearing,
       // The open-water swell of the coast weather; a pond ripple is no sea state.
       seaState: settings.tankerSeaState * (0.4 + 0.6 * coastWeather(settings).swell), travel: false,
     });
@@ -97,12 +100,12 @@ export default function HomeTanker({ settings, seaSettings = null, lighting, aud
     }
     audioRuntime?.updateTanker?.({
       source: [position.x, position.y + 8, position.z], distance,
-      speedKnots: settings.tankerSpeed,
+      speedKnots: knots,
       radialVelocity: lastDistance.current == null ? 0 : THREE.MathUtils.clamp((distance - lastDistance.current) / Math.max(dt, 0.001), -25, 25),
     });
     lastDistance.current = distance;
     if (import.meta.env.DEV && state.clock.elapsedTime % 0.5 < dt) {
-      gl.domElement.dataset.ddgTanker = JSON.stringify({ lod: models.near.group.visible ? 'near' : 'horizon', distance: Math.round(distance), position: position.toArray(), speed: settings.tankerSpeed });
+      gl.domElement.dataset.ddgTanker = JSON.stringify({ lod: models.near.group.visible ? 'near' : 'horizon', distance: Math.round(distance), position: position.toArray(), speed: knots });
     }
   }, -2);
   return <>

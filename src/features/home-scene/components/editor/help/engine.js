@@ -250,12 +250,12 @@ export default {
     'Closer than this, the shore plays at full strength; farther, it starts to fade. More makes the source “bigger”, loud from farther away.',
   ],
   'audio.emitters.shore.maxDistance': [
-    'Дальше этой дистанции шум берега перестаёт стихать и держится на уровне, что был у границы, — совсем он не пропадает.',
-    'Beyond this distance the shore stops fading and holds the level it had at the edge — it never goes fully silent.',
+    'Дальше этой дистанции шума берега не слышно: на подходе к ней звук плавно стихает до тишины, одинаково во всех браузерах. Ближе громкость прежняя — затихание заметно лишь на последней трети пути от «Ближней дистанции».',
+    'Beyond this distance the shore is not heard: it fades smoothly to silence on the way here, the same in every browser. Closer it is as loud as before — the fade shows only over the last third of the way from the “Reference Distance”.',
   ],
   'audio.emitters.shore.rolloff': [
-    'Как быстро шум берега стихает за «Ближней дистанцией»: 0 — не стихает вовсе, 1 — на двойной дистанции вдвое тише, больше — быстрее.',
-    'How fast the shore fades beyond the “Reference Distance”: 0 — not at all, 1 — half as loud at twice that distance, more — faster.',
+    'Как быстро шум берега стихает за «Ближней дистанцией»: 0 — не стихает до подхода к «Пределу слышимости», 1 — на двойной дистанции вдвое тише, больше — быстрее.',
+    'How fast the shore fades beyond the “Reference Distance”: 0 — not until it nears the “Audibility Limit”, 1 — half as loud at twice that distance, more — faster.',
   ],
   'audio.emitters.wind.x': [
     'Где стоит источник ветра в листве по оси X сцены. Слушает камера: с той стороны, где точка, и слышен ветер. Работает с пространственным звуком.',
@@ -274,12 +274,12 @@ export default {
     'Closer than this, the wind plays at full strength; farther, it starts to fade. More makes the source “bigger”, loud from farther away.',
   ],
   'audio.emitters.wind.maxDistance': [
-    'Дальше этой дистанции ветер в листве перестаёт стихать и держится на уровне, что был у границы, — совсем он не пропадает.',
-    'Beyond this distance the wind stops fading and holds the level it had at the edge — it never goes fully silent.',
+    'Дальше этой дистанции ветра в листве не слышно: на подходе к ней звук плавно стихает до тишины, одинаково во всех браузерах. Ближе громкость прежняя — затихание заметно лишь на последней трети пути от «Ближней дистанции».',
+    'Beyond this distance the wind is not heard: it fades smoothly to silence on the way here, the same in every browser. Closer it is as loud as before — the fade shows only over the last third of the way from the “Reference Distance”.',
   ],
   'audio.emitters.wind.rolloff': [
-    'Как быстро ветер в листве стихает за «Ближней дистанцией»: 0 — не стихает вовсе, 1 — на двойной дистанции вдвое тише, больше — быстрее.',
-    'How fast the wind fades beyond the “Reference Distance”: 0 — not at all, 1 — half as loud at twice that distance, more — faster.',
+    'Как быстро ветер в листве стихает за «Ближней дистанцией»: 0 — не стихает до подхода к «Пределу слышимости», 1 — на двойной дистанции вдвое тише, больше — быстрее.',
+    'How fast the wind fades beyond the “Reference Distance”: 0 — not until it nears the “Audibility Limit”, 1 — half as loud at twice that distance, more — faster.',
   ],
   'audio.emitters.thunder.x': [
     'Где гремит гроза по оси X сцены; каждый раскат — в нескольких метрах от точки. Слушает камера: гром приходит с этой стороны. Работает с пространственным звуком.',
@@ -298,12 +298,12 @@ export default {
     'Closer than this, the thunder plays at full strength; farther, it starts to fade. More makes the storm “bigger”, loud from farther away.',
   ],
   'audio.emitters.thunder.maxDistance': [
-    'Дальше этой дистанции гром перестаёт стихать и держится на уровне, что был у границы, — совсем он не пропадает.',
-    'Beyond this distance the thunder stops fading and holds the level it had at the edge — it never goes fully silent.',
+    'Дальше этой дистанции грома не слышно: на подходе к ней звук плавно стихает до тишины, одинаково во всех браузерах. Ближе громкость прежняя — затихание заметно лишь на последней трети пути от «Ближней дистанции».',
+    'Beyond this distance the thunder is not heard: it fades smoothly to silence on the way here, the same in every browser. Closer it is as loud as before — the fade shows only over the last third of the way from the “Reference Distance”.',
   ],
   'audio.emitters.thunder.rolloff': [
-    'Как быстро гром стихает за «Ближней дистанцией»: 0 — не стихает вовсе, 1 — на двойной дистанции вдвое тише, больше — быстрее.',
-    'How fast the thunder fades beyond the “Reference Distance”: 0 — not at all, 1 — half as loud at twice that distance, more — faster.',
+    'Как быстро гром стихает за «Ближней дистанцией»: 0 — не стихает до подхода к «Пределу слышимости», 1 — на двойной дистанции вдвое тише, больше — быстрее.',
+    'How fast the thunder fades beyond the “Reference Distance”: 0 — not until it nears the “Audibility Limit”, 1 — half as loud at twice that distance, more — faster.',
   ],
 
   // Видимость
@@ -366,14 +366,14 @@ export default {
     'A small panel in the corner: frames per second, the slowest frames, memory, texture and triangle counts. Local server only — never on the site.',
   ],
   debugView: [
-    'Служебная картинка. «Beauty» — обычный кадр; остальные гасят постобработку, отражения и тени: «Caustics» — узор бликов на дне, «Seabed Depth» — глубина дна цветом.',
-    'A diagnostic picture. “Beauty” is the normal frame; the others drop post, reflections and shadows: “Caustics” shows the seabed’s light pattern, “Seabed Depth” its depth.',
+    'Служебная картинка. «Beauty» — обычный кадр; остальные гасят постобработку, отражения и тени: «Height» — высота воды серым (средний серый — покой), «Normals» — наклон воды цветом; «Caustics» и «Seabed Depth» — блики и глубина ровного дна, вода прячется.',
+    'A diagnostic picture. “Beauty” is the normal frame; the others drop post, reflections and shadows: “Height” the water’s height in grey (mid grey at rest), “Normals” its tilt in colour; “Caustics” and “Seabed Depth” the flat bed’s light and depth, water hidden.',
   ],
 
   // Интерфейс сайта
   uiBrandVisible: [
-    'Название DENIS DARAGAN в шапке главной. Выключено — прячется весь его блок: вместе с названием уходят подпись БЮРО и меню. Другие страницы не затрагивает.',
-    'The DENIS DARAGAN name in the home page header. Off hides its whole block: the BURO caption and the menu go with it. Other pages keep theirs.',
+    'Название DENIS DARAGAN в шапке главной. Выключено — прячется только оно: подпись БЮРО и меню остаются, у них свои выключатели. Другие страницы не затрагивает.',
+    'The DENIS DARAGAN name in the home page header. Off hides only the name: the BURO caption and the menu stay, each has its own switch. Other pages keep theirs.',
   ],
   uiSubtitleVisible: [
     'Подпись БЮРО рядом с названием в шапке главной. На других страницах остаётся.',

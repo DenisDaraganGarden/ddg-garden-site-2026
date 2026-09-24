@@ -1,6 +1,7 @@
 import {OLEASTER_DEFAULTS} from './oleasterModel.js';
 import {TREE_DEFAULTS} from './treeModel.js';
 import {ECOLOGY_DEFAULTS} from './plantEcology.js';
+import {TREE_SPECIES} from './treeSpecies.js';
 
 export const DEFAULT_SHRUB_SETTINGS=Object.freeze({
  shrubsEnabled:true,shrubsCount:512,shrubsSeed:23,shrubsLength:120,shrubsWidth:24,shrubsAlong:0,shrubsInland:-5,
@@ -72,6 +73,17 @@ export function treeAssetSettings(source,wind){
  return {...OLEASTER_DEFAULTS,...ECOLOGY_DEFAULTS,...TREE_DEFAULTS,...landscapeAssetSettings(source),seed:t.treesSeed,height:t.treesHeight,spread:t.treesSpread,lean:t.treesLean,twist:t.treesTwist,
  density:t.treesDensity,leafSize:t.treesLeafSize,deadwood:t.treesDeadwood,flex:t.treesFlex,translucency:t.treesTranslucency,
  wind:Math.min(26,Math.max(0,wind.speed)),windBearing:wind.bearing,lod:'auto',renderDistance:t.treesRenderDistance};
+}
+// The shape sliders are the oleaster's own numbers; a species without a number
+// of its own (the oleaster) takes them as they are. Every other species takes
+// the same change as a ratio to the slider's default, on its own table form:
+// at the defaults each keeps its form exactly, and a taller, leafier or more
+// wind-bent grove is still willows, elms and plums, each in its proportion.
+const TREE_SHAPE_SLIDERS=Object.freeze({height:'treesHeight',spread:'treesSpread',lean:'treesLean',twist:'treesTwist',density:'treesDensity',leafSize:'treesLeafSize',deadwood:'treesDeadwood'});
+export function treeKindForm(kind,asset){
+ const form=TREE_SPECIES[kind].form,out={...form};
+ for(const [key,slider] of Object.entries(TREE_SHAPE_SLIDERS))out[key]=key in form?form[key]*(asset[key]/DEFAULT_TREE_SETTINGS[slider]):asset[key];
+ return out;
 }
 export function grassAssetSettings(source,wind){
  const g=normalizeGrassSettings(source),landscape=landscapeAssetSettings(source);

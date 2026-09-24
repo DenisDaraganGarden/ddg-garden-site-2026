@@ -1,6 +1,7 @@
 import React,{useMemo} from 'react';
 import {makeCoastTree} from './treeModel.js';
 import {TREE_KINDS,TREE_SPECIES} from './treeSpecies.js';
+import {treeKindForm} from './settings.js';
 import {usePlantAtlas,LEAF_ATLAS,BARK_TILE,barkAtlasSpec} from './usePlantAtlas.js';
 import PlantPopulation from './PlantPopulation.jsx';
 
@@ -9,14 +10,14 @@ import PlantPopulation from './PlantPopulation.jsx';
 const PHONE_KINDS=['oleaster','tamarisk','snag'];
 
 // One population per species of the planting: its own model, leaf tint, bark
-// tile and far card. The oleaster takes the editor's form; the other species
-// their table form, with the editor's seed and the landscape's wind.
+// tile and far card. Every species takes the editor's shape sliders on its own
+// table form (treeKindForm), with the editor's seed and the landscape's wind.
 function TreeKind({kind,placements,settings,lowPower,envMapIntensity}){
  const species=TREE_SPECIES[kind];
  const atlas=usePlantAtlas(useMemo(()=>({...LEAF_ATLAS,bark:barkAtlasSpec(species.bark,lowPower)}),[species.bark,lowPower]));
  // The shape is the same on every device; only the middle-distance budget
  // differs: a phone keeps a quarter of the leaves there and no twigs.
- const shapeKey=JSON.stringify({...(kind==='oleaster'?{seed:settings.seed,height:settings.height,spread:settings.spread,lean:settings.lean,twist:settings.twist,density:settings.density,leafSize:settings.leafSize,deadwood:settings.deadwood}:{...species.form,seed:settings.seed+kind.length*7}),windBearing:settings.windBearing,midEvery:lowPower?4:2,midSkipsThin:lowPower,barkTile:BARK_TILE[species.bark],species:species.latin||species.ru});
+ const shapeKey=JSON.stringify({...treeKindForm(kind,settings),seed:kind==='oleaster'?settings.seed:settings.seed+kind.length*7,windBearing:settings.windBearing,midEvery:lowPower?4:2,midSkipsThin:lowPower,barkTile:BARK_TILE[species.bark],species:species.latin||species.ru});
  const model=useMemo(()=>makeCoastTree(JSON.parse(shapeKey)),[shapeKey]);
  const renderSettings=useMemo(()=>({...settings,leafTint:species.leafTint,barkColor:species.barkColor,barkBleach:species.barkBleach??0,blossom:0,renderDistance:Math.min(settings.renderDistance,lowPower?260:1200)}),[settings,species,lowPower]);
  // A trunk is not a twig. The shared wind field bends by height squared, so a

@@ -319,7 +319,10 @@ export function SurfaceVegetation({ settings, runtime, qualityProfile, lighting,
     uniforms.uMoonIntensity.value = lighting.key.intensity;
     stemWaveUniforms.uStemWaveAmplitude.value = settings.waveAmplitude;
     stemWaveUniforms.uStemFloatOffset.value = settings.surfacePlantFloatOffset;
-  }, [lightDirection, lighting, seaSettings, settings, stemWaveUniforms, uniforms]);
+    // The pads' root AO: the shade pooled on the bed where each stem enters it
+    // follows the shared plant-AO slider, 0.42 at its default 0.55 as tuned.
+    contactMaterial.opacity = Math.min(1, 0.42 * (settings.plantAoStrength / 0.55));
+  }, [contactMaterial, lightDirection, lighting, seaSettings, settings, stemWaveUniforms, uniforms]);
 
   useFrame(({ clock }) => {
     syncCursorFlashlightUniforms(uniforms);

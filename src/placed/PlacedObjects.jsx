@@ -5,6 +5,7 @@ import { activeProjectId, projectModelUrl } from '../features/engine/projectApi.
 import { setWakeObstacles, waterWake } from '../components/effects/water/waterWake.js';
 import { waterlineCircles, waterlineCrossings } from './waterline.js';
 import { setSolid, solidHeightfield } from './solidSurface.js';
+import { PLACED_TRANSFORM_DEFAULT } from './settings.js';
 import { makeCoastTree } from '../plants/treeModel.js';
 import { TREE_SPECIES } from '../plants/treeSpecies.js';
 import { makeOleaster } from '../plants/oleasterModel.js';
@@ -74,21 +75,26 @@ function PlacedShrub({ object, asset, lowPower, envMapIntensity, selected }) {
     </>;
 }
 
-// One geometry per rock variant, shared by every placed rock of that variant.
+// A rock's «Вариант» (seed) is another stone of its «Форма» (variant); at the
+// default seed it is the coast's own rock of that form, as it always was. One
+// geometry per form and seed, shared by every placed rock that has both.
+// ponytail: any change rebuilds them all (~2.5 ms a stone, 48 at most); keep a cache if that shows.
+const rockShape = (object) => `${object.variant}:${object.seed}`;
 function PlacedRocks({ objects, lowPower, lighting, selectedId }) {
     const materials = useCoastRockMaterials(lowPower, lighting);
-    const variantsKey = [...new Set(objects.map((object) => object.variant))].sort((a, b) => a - b).join(',');
+    const shapesKey = [...new Set(objects.map(rockShape))].sort().join(',');
     const geometries = useMemo(() => {
         const out = {};
-        for (const variant of variantsKey.split(',').filter((v) => v !== '').map(Number)) {
-            out[variant] = makeRockGeometry({ variant, detail: lowPower ? 4 : 8 });
-            out[variant].computeBoundingBox();
+        for (const shape of shapesKey.split(',').filter(Boolean)) {
+            const [variant, seed] = shape.split(':').map(Number);
+            out[shape] = makeRockGeometry({ variant, detail: lowPower ? 4 : 8, take: seed - PLACED_TRANSFORM_DEFAULT.seed });
+            out[shape].computeBoundingBox();
         }
         return out;
-    }, [variantsKey, lowPower]);
+    }, [shapesKey, lowPower]);
     useEffect(() => () => Object.values(geometries).forEach((geometry) => geometry.dispose()), [geometries]);
     return objects.map((object) => {
-        const geometry = geometries[object.variant];
+        const geometry = geometries[rockShape(object)];
         if (!geometry) return null;
         const size = object.size * object.scale;
         const scale = [size * object.stretch, size * object.squash, size];

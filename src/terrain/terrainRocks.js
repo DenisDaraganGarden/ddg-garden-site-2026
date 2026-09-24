@@ -4,10 +4,12 @@ import { COASTAL_PEBBLE_PALETTE } from './rocks/rockMaterial.js';
 import { coastPoint,coastHeight,sampleTerrainHeight } from './terrainModel.js';
 import { coastProfile } from './terrainLandforms.js';
 export const COAST_ROCK_TYPES = Object.freeze(['limestone', 'coquina', 'worn', 'limestone', 'coquina', 'limestone']);
-export function makeRockGeometry({variant=0,detail=4}={}) {
+// `take` is another stone of the same variant: its type, a seed of its own
+// (1009 keeps every variant and take apart). Take 0 is the coast's own rock.
+export function makeRockGeometry({variant=0,detail=4,take=0}={}) {
   // Keep welded vertices for seating; triangle indices are shared by physics
   // and rendering so terrain height is sampled once per unique support point.
-  return createCoastalRockGeometry({seed:101+variant*37,type:COAST_ROCK_TYPES[variant%COAST_ROCK_TYPES.length],detail});
+  return createCoastalRockGeometry({seed:101+variant*37+take*1009,type:COAST_ROCK_TYPES[variant%COAST_ROCK_TYPES.length],detail});
 }
 export const PEBBLE_PALETTE=COASTAL_PEBBLE_PALETTE;
 export const createPebbleMaterial=()=>new THREE.MeshStandardMaterial({color:'#ffffff',roughness:.82});

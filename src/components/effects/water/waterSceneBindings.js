@@ -8,6 +8,8 @@ import {
   updateCloudShadowUniforms,
 } from '../sky/painterly/cloudShadowRuntime.js';
 import { reflectionContext } from './reflectionContext';
+import { DEBUG_VIEW_IDS } from './constants';
+import { rippleChopFactor } from './seaSettings.js';
 import { WAKE_RINGS, waterWake, writeWakeRings } from './waterWake.js';
 import {
   createCursorFlashlightUniforms,
@@ -99,6 +101,10 @@ export function createWaterSceneBindingUniforms() {
     uSeaRippleExtent: { value: 24 },
     uSeaRippleStrength: { value: 1 },
     uSeaRippleAmplitude: { value: 0 },
+    // The ripples' chop (waveChoppiness past its default) and the engine's
+    // diagnostic view (debugView): scene settings every sea surface reads.
+    uRippleChop: { value: 0 },
+    uWaterDebugView: { value: 0 },
     uSkyIrradianceMap: { value: EMPTY_SKY_IRRADIANCE },
     uSkyIrradianceActive: { value: 0 },
     // The wakes things moving on the water leave (waterWake.js).
@@ -151,6 +157,8 @@ export function useWaterSceneBindings(uniforms, { lighting, sky, runtime = null,
       0,
       3,
     );
+    uniforms.uRippleChop.value = rippleChopFactor(sceneSettings.waveChoppiness);
+    uniforms.uWaterDebugView.value = DEBUG_VIEW_IDS[sceneSettings.debugView] ?? 0;
     uniforms.uSeaObjectReflectionStrength.value = THREE.MathUtils.clamp(
       Number(sceneSettings.boatReflectionIntensity) || 0,
       0,
@@ -174,7 +182,7 @@ export function useWaterSceneBindings(uniforms, { lighting, sky, runtime = null,
       0,
       lighting.environment.exposure * lighting.environment.reflection,
     );
-  }, [lighting, sceneSettings.boatReflectionIntensity, sceneSettings.normalStrength, sceneSettings.seaBedTurbidity, sceneSettings.waterDepthMeters, sceneSettings.waterExtent, sceneSettings.waterScatteringStrength, sceneSettings.waterTurbidity, sceneSettings.waveAmplitude, uniforms]);
+  }, [lighting, sceneSettings.boatReflectionIntensity, sceneSettings.debugView, sceneSettings.normalStrength, sceneSettings.seaBedTurbidity, sceneSettings.waterDepthMeters, sceneSettings.waterExtent, sceneSettings.waterScatteringStrength, sceneSettings.waterTurbidity, sceneSettings.waveAmplitude, sceneSettings.waveChoppiness, uniforms]);
 
   useFrame(({ gl }) => {
     syncCursorFlashlightUniforms(uniforms);

@@ -160,11 +160,16 @@ const configureSkyTexture = (texture) => {
  * `state` is whatever buildSkyLut takes; `resolution` shrinks the table on weak
  * devices. The sky model itself never scales down - it is CPU work that runs
  * once, so a phone gets the same sky as a desktop, only sampled coarser.
+ *
+ * `tint` (lighting.environment.tint) is baked into the texture and the PMREM:
+ * the sea reflects this texture and objects are lit by the PMREM. SkyDome
+ * divides `tableTint` back out, so the sky in view keeps its own colour.
  */
 export function useSkyEnvironment(state, {
   width = 256,
   height = 128,
   enabled = true,
+  tint = [1, 1, 1],
 } = {}) {
   const { gl } = useThree();
   // State, not a ref: the texture is built in an effect, so a ref would leave
@@ -180,6 +185,10 @@ export function useSkyEnvironment(state, {
   const targetRef = useRef(null);
   const targetSizeRef = useRef({ width: 0, height: 0 });
   const staleTargetsRef = useRef([]);
+  // The tint baked into the current texture, mutated in the same effect that
+  // uploads it, so the dome's division changes on the very frame the pixels do.
+  const tableTintRef = useRef([1, 1, 1]);
+  const tintKey = tint.join(':');
 
   // Rebuilding is the expensive half, so it keys on the sky's own inputs rather
   // than the settings object identity, which changes on every slider anywhere in
@@ -204,23 +213,26 @@ export function useSkyEnvironment(state, {
   // itself is built on a worker now, but its half-float packing, its upload and
   // its PMREM are not, and paying those for every intermediate thumb position
   // is a stall. Hold the last coherent request for a short quiet window.
+  // A colour drag on the tint takes the same window: re-tinting re-uploads the
+  // whole table, although the table itself (cached by `key`) is not rebuilt.
   const [lutRequest, setLutRequest] = useState(() => ({
     key: skyKey,
+    tintKey,
     state,
     width,
     height,
   }));
 
   useEffect(() => {
-    if (lutRequest.key === skyKey) {
+    if (lutRequest.key === skyKey && lutRequest.tintKey === tintKey) {
       return undefined;
     }
 
     const timer = window.setTimeout(() => {
-      setLutRequest({ key: skyKey, state, width, height });
+      setLutRequest({ key: skyKey, tintKey, state, width, height });
     }, 140);
     return () => window.clearTimeout(timer);
-  }, [height, lutRequest.key, skyKey, state, width]);
+  }, [height, lutRequest.key, lutRequest.tintKey, skyKey, state, tintKey, width]);
 
   // The placeholder is synchronous on purpose: without a table there is no sky
   // texture, and SkyDome and the far water both refuse to mount without one.
@@ -332,7 +344,12 @@ export function useSkyEnvironment(state, {
       return undefined;
     }
 
-    const rgb = resampleRgbNearest(lut.data, lut.width, lut.height, width, height);
+    const tableTint = lutRequest.tintKey.split(':').map(Number);
+    let rgb = resampleRgbNearest(lut.data, lut.width, lut.height, width, height);
+    // map() copies: resampling may hand back the cached table itself.
+    if (tableTint.some((value) => value !== 1)) {
+      rgb = rgb.map((value, index) => value * tableTint[index % 3]);
+    }
     const rgba = toHalfFloatRgba(rgb, width, height);
     let skyTexture = textureRef.current;
 
@@ -352,6 +369,7 @@ export function useSkyEnvironment(state, {
       skyTexture.image.data.set(rgba);
       skyTexture.needsUpdate = true;
     }
+    tableTintRef.current.splice(0, 3, ...tableTint);
 
     const environmentWidth = Math.min(width, 256);
     const environmentHeight = Math.min(height, 128);
@@ -402,7 +420,7 @@ export function useSkyEnvironment(state, {
     }
 
     return undefined;
-  }, [enabled, gl, height, lut, width]);
+  }, [enabled, gl, height, lut, lutRequest.tintKey, width]);
 
   // The Environment owner switches to the new PMREM during the layout phase of
   // this render. Dispose old targets only afterwards, never while the scene may
@@ -428,6 +446,7 @@ export function useSkyEnvironment(state, {
   return {
     texture,
     environment,
+    tableTint: tableTintRef.current,
     // True while the coarse inline table is what everything is sampling. The
     // loader waits on this: revealing the scene on a 192x96 sky and sharpening
     // it a second later reads as a glitch, not as loading.

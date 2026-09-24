@@ -27,12 +27,15 @@ import { setUnderside, waterFragmentTail, waterUndersideShader } from './underwa
 // water's own cells there, which the swell is faded to anyway. The columns
 // across the beach stay half a metre everywhere, so neighbouring chunks share
 // their border row and never crack; a chunk out of view is not drawn at all.
+// Both spacings follow the water mesh density (settings.meshDensity).
 
 const COLUMN = 0.5;
 
-// intervals: row intervals along the shore between sMin and sMax.
-function buildShoreBand(definition, sMin, sMax, qMin, qMax, intervals) {
-  const cols = Math.round((qMax - qMin) / COLUMN) + 1;
+// intervals: row intervals along the shore between sMin and sMax; column: the
+// spacing across it, evened out so the last column lies on qMax.
+function buildShoreBand(definition, sMin, sMax, qMin, qMax, intervals, column) {
+  const cols = Math.max(Math.round((qMax - qMin) / column), 1) + 1;
+  const across = (qMax - qMin) / (cols - 1);
   const rows = intervals + 1;
   const row = (sMax - sMin) / intervals;
   const positions = new Float32Array(cols * rows * 3);
@@ -43,7 +46,7 @@ function buildShoreBand(definition, sMin, sMax, qMin, qMax, intervals) {
   for (let r = 0; r < rows; r += 1) {
     const s = r === intervals ? sMax : sMin + r * row;
     for (let c = 0; c < cols; c += 1, v += 1) {
-      const q = qMin + c * COLUMN;
+      const q = qMin + c * across;
       const { x, z } = coastPoint(q, s, definition);
       positions[v * 3] = x; positions[v * 3 + 2] = z;
       coast[v * 2] = q; coast[v * 2 + 1] = s;
@@ -212,6 +215,12 @@ const fragmentShader = /* glsl */`
     n = normalize(mix(n, normalize(vGroundNormal), sand));
     float rippleWet = uShoreReady > 0.5 ? smoothstep(0.4, 0.8, -bed) : 1.0;
     n = waterRippleNormal(n, vWorld.xz, pixel, max(vFade, 0.45) * (1.0 - vFilm), rippleWet);
+    vec3 debugColor;
+    if (waterDebugView(vWorld, n, debugColor)) {
+      gl_FragColor = vec4(debugColor, 1.0);
+      #include <colorspace_fragment>
+      return;
+    }
 #ifdef WATER_UNDERSIDE
     // The eye is under the water and this is the surface from below.
     gl_FragColor = vec4(waterUnderside(vWorld, n, view), 1.0);
@@ -231,6 +240,8 @@ const fragmentShader = /* glsl */`
     // The sand under the water by Beer-Lambert: at the edge the water is the
     // wet sand itself under a gloss, deeper it is the water's own body.
     float thickness = mix(10.0, depth, sand);
+    // The summer bloom (terrainBloom), as over the open water.
+    if (uCoastGeology.w * uCoastShape.x > 0.0) waterBloom = coastBloom(coastLocal(vWorld.xz), uTime, depth);
     vec3 color = shadeWater(vWorld, n, view, pixel, waterFlowUv(vWorld.xz), coverage, age, thickness, lift, exp(-depth * uBedReach));
     // Composite just the draining edge against the existing terrain capture.
     // The sea stays opaque: no extra pass, sorted transparent sheet or dither.
@@ -245,12 +256,12 @@ const fragmentShader = /* glsl */`
 // distance from the camera (checked a few times a second, with hysteresis).
 // Levels it has shown stay built: a camera going back and forth reuses them.
 const Q_MAX = 12;
-function ShoreChunk({ name, definition, s0, s1, qMin, material, cellFactor }) {
+function ShoreChunk({ name, definition, s0, s1, qMin, density, material, cellFactor }) {
   const { camera } = useThree();
   const [level, setLevel] = useState(SHORE_ROW_STEPS.length - 1);
-  const cache = useMemo(() => ({ definition, s0, s1, qMin, levels: new Map() }), [definition, s0, s1, qMin]);
+  const cache = useMemo(() => ({ definition, s0, s1, qMin, density, levels: new Map() }), [definition, s0, s1, qMin, density]);
   const geometry = useMemo(() => cache.levels.get(level)
-    ?? buildShoreBand(cache.definition, cache.s0, cache.s1, cache.qMin, Q_MAX, shoreChunkRows(cache.s1 - cache.s0, level)), [cache, level]);
+    ?? buildShoreBand(cache.definition, cache.s0, cache.s1, cache.qMin, Q_MAX, shoreChunkRows(cache.s1 - cache.s0, level, cache.density), COLUMN / cache.density), [cache, level]);
   // StrictMode replays the cleanup below: take the shown geometry back.
   useLayoutEffect(() => { cache.levels.set(level, geometry); }, [cache, geometry, level]);
   useEffect(() => () => { cache.levels.forEach((built) => built.dispose()); cache.levels.clear(); }, [cache]);
@@ -261,7 +272,7 @@ function ShoreChunk({ name, definition, s0, s1, qMin, material, cellFactor }) {
     wait.current = 0;
     const local = coastCoordinates(camera.position.x, camera.position.z, definition);
     const distance = shoreChunkDistance(local.s, local.u - shorePosition(local.s, definition), s0, s1, qMin, Q_MAX);
-    const next = shoreRowLevel(distance * cellFactor.value, level);
+    const next = shoreRowLevel(distance * cellFactor.value * density, level);
     if (next !== level) setLevel(next);
   });
   return <mesh name={name} geometry={geometry} material={material} />;
@@ -332,7 +343,7 @@ export default function ShoreWater({ settings, lighting, noise = null, coast, ti
     <group name="shore-water">
       {chunks.map(([s0, s1], k) => (
         <ShoreChunk key={s0} name={`shore-water-${k}`} definition={coast.definition} s0={s0} s1={s1} qMin={band.seam - 2}
-          material={material} cellFactor={uniforms.uCellFactor} />
+          density={settings.meshDensity ?? 1} material={material} cellFactor={uniforms.uCellFactor} />
       ))}
     </group>
   );

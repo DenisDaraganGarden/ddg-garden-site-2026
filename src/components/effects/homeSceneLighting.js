@@ -7,6 +7,7 @@
 import {
   SKY,
   buildHomeSceneLightDirection,
+  mieScale,
   solveKeyLight,
   solveMoonElevationAzimuth,
   solveNightWeight,
@@ -110,6 +111,26 @@ const colorLuminance = (color) => (
   0.2126 * color[0] + 0.7152 * color[1] + 0.0722 * color[2]
 );
 
+// «Тон отражений» as the old water applied it to the sky it reflected
+// (waterV2Shaders reflectionTone): the hue as a clamped chroma, the lightness as
+// a 0.45-1 level, laid on at 60%. The scene's default #6b7484 is the neutral
+// point: while nothing read the tint the frame was authored without it.
+const reflectionTone = (color) => {
+  const luminance = colorLuminance(color);
+  const chroma = luminance > 0.001
+    ? color.map((value) => clamp(value / luminance, 0.35, 2.2))
+    : [1, 1, 1];
+  const level = 0.45 + 0.55 * Math.sqrt(clamp(luminance, 0, 1));
+  return chroma.map((value) => 1 + (value * level - 1) * 0.6);
+};
+const NEUTRAL_REFLECTION_TONE = reflectionTone(hexToLightingColor('#6b7484').linear);
+
+// The painterly sky is painted for the default air and distant surface. Other
+// values change it the way the sky model would: haze relative to that air, and
+// the change of the surface's albedo.
+const PAINTED_MIE = mieScale(2.6);
+const PAINTED_SURFACE = hexToLightingColor('#70716d').linear;
+
 /**
  * Converts persisted editor settings into one shared lighting vocabulary.
  * Existing `moon*` field names are intentionally accepted until the editor
@@ -130,6 +151,7 @@ export const buildHomeSceneLighting = (settings = {}) => {
   );
   const waterTint = hexToLightingColor(settings.envTint, '#6b7484');
   const distantSurface = hexToLightingColor(settings.distantSurfaceColor, '#70716d');
+  const envMode = ['sky', 'sky+hdri', 'hdri'].includes(settings.envMode) ? settings.envMode : 'sky';
   const turbidity = clamp(finiteNumber(settings.waterTurbidity, 0), 0, 1);
   const keyLightType = settings.keyLightType === 'moon' ? 'moon' : 'sun';
   const ambientLightColor = hexToLightingColor(settings.ambientColor, '#202635');
@@ -293,6 +315,16 @@ export const buildHomeSceneLighting = (settings = {}) => {
       // from the editor's real fill lights instead of a preset-only colour.
       diffuseIrradiance,
       specularRadiance: scaleColor(horizon.linear, exposure * reflection),
+      // «Небо»: the painted sky lights and backs the scene. «Небо + HDRI»: the
+      // panorama lights it behind the painted sky, or backs it too on request.
+      // «Только HDRI»: the panorama is both the light and the backdrop.
+      hdri: envMode !== 'sky',
+      hdriBackdrop: envMode === 'hdri' || (envMode === 'sky+hdri' && settings.showHdriBackground === true),
+      // A gain on the sky light objects take and on the sky the sea reflects,
+      // never on the sky in view. The panorama's own light stays untinted.
+      tint: reflectionTone(waterTint.linear).map(
+        (value, index) => value / NEUTRAL_REFLECTION_TONE[index],
+      ),
     },
     fill: {
       ambient: {
@@ -332,6 +364,10 @@ export const buildHomeSceneLighting = (settings = {}) => {
       // attenuated disc/key below is what reaches the scene through the mask.
       keyRadiance: clearKeyRadiance,
       skyTurbidity,
+      // For the painterly sky: haze relative to the air it is painted for (1
+      // there), and the albedo change of the distant surface ([0,0,0] there).
+      paintedHaze: mieScale(skyTurbidity) / PAINTED_MIE,
+      paintedGroundShift: distantSurface.linear.map((value, index) => value - PAINTED_SURFACE[index]),
       cloudCover,
       cloudPreset: cloudState.cloudPreset,
       cloudHorizon: cloudState.horizon,

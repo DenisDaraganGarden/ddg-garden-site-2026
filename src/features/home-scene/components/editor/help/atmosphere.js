@@ -66,8 +66,8 @@ export default {
     'Where the wind blows from, on the scene compass: 0° from the north, 90° from the east. Clouds, their shadows and the rain drift downwind.',
   ],
   painterlyCloudShadowStrength: [
-    'Насколько темнеют земля, вода и предметы в тени облаков. При 0 теней нет, но пропадают и «Лучи под облаками», и дождь в кадре.',
-    'How much land, water and objects darken in cloud shadow. At 0 there are no shadows, but the rays beneath clouds and the on-screen rain vanish too.',
+    'Насколько темнеют земля, вода и предметы в тени облаков. При 0 теней нет; «Лучи под облаками» и дождь от неё не зависят.',
+    'How much land, water and objects darken in cloud shadow. At 0 there are no shadows; the rays beneath clouds and the rain do not depend on it.',
   ],
   painterlyCloudShadowSoftness: [
     'Размытость краёв облачных теней: 0 — чёткие пятна, больше — мягкие переходы.',
@@ -144,12 +144,12 @@ export default {
     'Apparent size of the sun disc: 1 matches the real sun. Only the disc and the source of the rays change; light strength and shadows stay the same.',
   ],
   skyTurbidity: [
-    'Дымка в воздухе: низкое солнце тусклее и краснее; без «Живописных облаков» ещё белеет горизонт и шире ореол у солнца. Тени остаются резкими.',
-    'Haze in the air: a low sun gets dimmer and redder; without painterly clouds the horizon also whitens and the glow around the sun widens. Shadows stay sharp.',
+    'Дымка в воздухе: низкое солнце тусклее и краснее, горизонт белеет, ореол у солнца шире — и с «Живописными облаками» тоже. Тени остаются резкими.',
+    'Haze in the air: a low sun gets dimmer and redder, the horizon whitens and the glow around the sun widens — with painterly clouds too. Shadows stay sharp.',
   ],
   distantSurfaceColor: [
-    'Цвет дальней земли и воды ниже горизонта: виден, где кончается сцена, и отражённым светом подсвечивает предметы снизу. С «Живописными облаками» почти не действует.',
-    'Colour of the distant ground and water below the horizon: seen where the scene ends, and it lights objects from below as bounce light. Barely used with painterly clouds.',
+    'Цвет дальней земли и воды ниже горизонта: виден, где кончается сцена, и отражённым светом подсвечивает предметы снизу. Действует и с «Живописными облаками».',
+    'Colour of the distant ground and water below the horizon: seen where the scene ends, and it lights objects from below as bounce light. Works with painterly clouds too.',
   ],
   moonPhase: [
     'Фаза луны: 0 и 1 — новолуние, 0,5 — полнолуние. Задаёт и освещённую часть диска, и где луна в небе: полная стоит напротив солнца.',
@@ -188,8 +188,8 @@ export default {
     'Colour the hemisphere light gives to everything facing down, like light bounced off the ground.',
   ],
   envTint: [
-    'Сейчас на кадр не влияет: этим тоном подкрашивалась прежняя вода, нынешняя его не использует.',
-    'Has no effect on the frame at the moment: the old water used this tint, the current one does not.',
+    'Оттенок света неба на предметах и неба, отражённого в море; видимое небо не меняется. Исходный серо-голубой #6b7484 нейтрален: теплее — теплее, светлее — ярче. В режимах с HDRI свет панорамы не окрашивается.',
+    'Tint of the sky light on objects and of the sky the sea reflects; the visible sky keeps its colour. The default grey-blue #6b7484 is neutral: warmer warms, lighter brightens. The HDRI panorama’s own light is not tinted.',
   ],
   shadowsEnabled: [
     'Тени от солнца, ночью — от луны. Тени живописных облаков от этой галочки не зависят.',
@@ -254,8 +254,8 @@ export default {
     'How the fog is lit by the sun: it brightens around the disc and along the rays. Grows with “Ray strength” and vanishes when that is zero.',
   ],
   fogSkyTint: [
-    'Смешивает «Цвет тумана» с цветом горизонта из палитры «HDRI пресет»: 0 — свой цвет, 1 — цвет горизонта, чтобы даль сливалась с небом.',
-    'Blends “Fog colour” with the horizon colour of the “HDRI preset” palette: 0 keeps its own colour, 1 takes the horizon’s, so the distance meets the sky.',
+    'Смешивает «Цвет тумана» с горизонтом неба, которое видно в кадре (с HDRI-фоном — с горизонтом палитры пресета): 0 — свой цвет, 1 — цвет горизонта, чтобы даль сливалась с небом.',
+    'Blends “Fog colour” with the horizon of the sky actually in view (with an HDRI backdrop, the preset palette’s horizon): 0 keeps its own colour, 1 takes the horizon’s, so the distance meets the sky.',
   ],
 
   // Небо и HDRI
@@ -264,20 +264,20 @@ export default {
     'Shows the sky and clouds as the background. Off leaves a near-black backdrop, but the sky’s light and its reflection in the water remain.',
   ],
   envMode: [
-    '«Небо» — предметы освещает и отражает рисованное небо. Режимы с HDRI берут это из фотопанорамы (сейчас оба одинаковы). Видимое небо и море не меняются.',
-    '“Sky”: objects are lit by and reflect the rendered sky. The HDRI modes take this from the photo panorama (both behave the same now). The visible sky and sea stay.',
+    '«Небо» — рисованное небо и фон, и свет. «Небо + HDRI» — фон рисованный, а предметы освещает и отражается в них фотопанорама. «Только HDRI» — панорама и фон, и свет. Море всегда отражает рисованное небо.',
+    '“Sky”: the rendered sky is backdrop and light. “Sky + HDRI”: the rendered sky stays behind while the photo panorama lights objects and shows in them. “HDRI only”: the panorama is backdrop and light. The sea always reflects the rendered sky.',
   ],
   hdriIntensity: [
     'Яркость HDRI-панорамы: сколько света она даёт предметам и насколько ярка фоном. Только в режимах с HDRI; гроза её приглушает.',
     'Brightness of the HDRI panorama: how much light it gives objects and how bright it is as a background. HDRI modes only; a storm dims it.',
   ],
   hdrPreset: [
-    'Какая фотопанорама используется в режимах с HDRI. Её палитра ещё задаёт цвет горизонта для «Цвета тумана от неба» и слегка тонирует толщу воды.',
-    'Which photo panorama the HDRI modes use. Its palette also sets the horizon colour for “Fog colour from sky” and slightly tints the water body.',
+    'Какая фотопанорама используется в режимах с HDRI. Её палитра ещё окрашивает дождь, даёт туману цвет горизонта, когда панорама стоит фоном, и слегка тонирует толщу воды.',
+    'Which photo panorama the HDRI modes use. Its palette also colours the rain, gives the fog its horizon while the panorama is the backdrop, and slightly tints the water body.',
   ],
   hdrRotation: [
-    'Поворот HDRI-панорамы вокруг вертикали: с какой стороны падает её свет и что отражается в предметах. Фон-панорама при этом не поворачивается.',
-    'Turns the HDRI panorama around the vertical: which side its light comes from and what objects reflect. The panorama background itself does not turn.',
+    'Поворот HDRI-панорамы вокруг вертикали: с какой стороны падает её свет и что отражается в предметах. Панорама-фон поворачивается вместе с ним.',
+    'Turns the HDRI panorama around the vertical: which side its light comes from and what objects reflect. The panorama backdrop turns with it.',
   ],
   hdrExposure: [
     'Яркость всего неба — видимого, облаков, отражённого и его рассеянного света на предметах; действует и в режиме «Небо». Прямое солнце не меняется.',
@@ -288,8 +288,8 @@ export default {
     'How much environment reflection and diffuse light objects, shore and plants take — in any mode, not only HDRI. At 0 only direct and fill light remain.',
   ],
   showHdriBackground: [
-    'Ставит HDRI-панораму фоном вместо неба (в режимах с HDRI); живописные облака при этом скрыты. Море по-прежнему отражает рисованное небо.',
-    'Puts the HDRI panorama behind the scene instead of the sky (HDRI modes only); painterly clouds are hidden. The sea still reflects the rendered sky.',
+    'В режиме «Небо + HDRI» ставит панораму фоном вместо неба; живописные облака при этом скрыты. В «Только HDRI» панорама фоном всегда. Море по-прежнему отражает рисованное небо.',
+    'In “Sky + HDRI” puts the panorama behind the scene instead of the sky; painterly clouds are hidden. In “HDRI only” it is always the backdrop. The sea still reflects the rendered sky.',
   ],
 
   // Лучи
@@ -302,8 +302,8 @@ export default {
     'Brightness of the rays. It also sets how much the fog glows with sunlight.',
   ],
   sunRaysDecay: [
-    'Как быстро лучи гаснут по пути от солнца. Заметно в нижней части шкалы: там лучи вдали от диска короче и тусклее.',
-    'How quickly the rays fade on their way from the sun. Noticeable at the low end of the scale, where rays get shorter and dimmer away from the disc.',
+    'Как быстро лучи гаснут по пути от солнца: меньше — начинают гаснуть у самого диска и кажутся короче, больше — держат силу почти до конца. Докуда они тянутся, задаёт «Длина / плотность лучей».',
+    'How quickly the rays fade on their way from the sun: lower starts the fade at the disc so they look shorter, higher keeps them strong almost to their end. How far they reach is “Ray Length / Density”.',
   ],
   sunRaysDensity: [
     'Как далеко по кадру тянутся лучи: 0 — только сияние у самого диска, максимум — почти через весь кадр.',
@@ -424,8 +424,8 @@ export default {
     'The final pass over the frame: fog, rays, bloom, colour, film, rain drops. Off removes all of these on the site and in the editor.',
   ],
   editorPostProcessing: [
-    'Показывать постобработку в окне редактора. По умолчанию там она выключена, чтобы не мешать работе; на сайт галочка не влияет.',
-    'Show post-processing in the editor view. It is off there by default to keep work comfortable; this switch does not affect the site.',
+    'Показывать постобработку в окне редактора. Выключено — там сырой кадр без тумана, лучей, свечения, цвета и плёнки, в том числе в просмотре кадра сайта. На сайт галочка не влияет.',
+    'Show post-processing in the editor view. Off, the editor shows the raw frame without fog, rays, glow, grading or film, the site-frame preview included. This switch does not affect the site.',
   ],
   filmEnabled: [
     'Имитация киноплёнки: цвет плёнки, зерно, пыль, царапины, мерцание и дрожание кадра.',
@@ -480,8 +480,8 @@ export default {
     'Brightness at which things start to glow: lower makes more of the frame glow, higher keeps it to the brightest glints.',
   ],
   bloomRadius: [
-    'Ширина ореола. Работает примерно до 13%: дальше ореол уже не расширяется.',
-    'Width of the glow. Works up to about 13%; beyond that it no longer spreads.',
+    'Ширина ореола: больше — свечение расходится шире и мягче. Действует по всей шкале; к 100% ореол примерно вдвое шире, чем на 58%.',
+    'Width of the glow: higher spreads it wider and softer. Works across the whole scale; at 100% the glow is about twice as wide as at 58%.',
   ],
   colorExposure: [
     'Экспозиция кадра в ступенях: +1 — вдвое светлее, −1 — вдвое темнее. Как на камере: свет в сцене не меняется.',

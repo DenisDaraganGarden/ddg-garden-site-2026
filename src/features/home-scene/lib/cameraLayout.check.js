@@ -3,12 +3,14 @@
 import assert from 'node:assert/strict';
 import {
   fitCameraFovToLayout,
+  HOME_SCENE_CAMERA_FOV_MAX,
   resolveLayout,
   resolveLayoutKey,
 } from './layout.js';
 import {
   getPlayableSceneCameras,
   normalizeSceneCameras,
+  normalizeSlideshow,
   normalizeWorkCameras,
 } from './sceneCameras.js';
 
@@ -59,8 +61,13 @@ const workCameras = normalizeWorkCameras([
 assert.deepEqual(workCameras.map((camera) => camera.id), ['look', 'look-2'],
   'a work camera without a pose is dropped and ids stay unique');
 assert.equal(workCameras[0].name, 'Overview');
-assert.equal(workCameras[0].scene.layouts.desktop.cameraFov, 75, 'a work camera fov is clamped to the slider range');
+assert.equal(HOME_SCENE_CAMERA_FOV_MAX, 100, 'a saved camera keeps the 100° the inspector slider reaches');
+assert.equal(workCameras[0].scene.layouts.desktop.cameraFov, HOME_SCENE_CAMERA_FOV_MAX, 'a work camera fov is clamped to the slider range');
 assert.equal(workCameras[1].name, 'Рабочая 3', 'an unnamed work camera is named by its slot');
 assert.deepEqual(workCameras[1].scene.layouts.desktop.cameraTarget, { x: 1, y: 1, z: 1 });
+
+// The slideshow fade keeps what its slider allows (30 s) and no more.
+assert.equal(normalizeSlideshow({ fadeSeconds: 30 }).fadeSeconds, 30);
+assert.equal(normalizeSlideshow({ fadeSeconds: 45 }).fadeSeconds, 30);
 
 console.log('cameraLayout: all checks passed');
