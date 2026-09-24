@@ -1,8 +1,10 @@
-import React, { Suspense, useMemo } from 'react';
+import React, { Suspense, useEffect, useMemo, useState } from 'react';
 import * as THREE from 'three';
+import { useLoader } from '@react-three/fiber';
 import BeachHouseModel from './BeachHouseModel';
 import StringLights from './StringLights';
 import SurfCampModel from './SurfCampModel';
+import { houseMapUrls } from './houseMaterial';
 import { campPaintOf, housePaintOf } from './settings';
 import { SHED_TURN, useBeachHouse } from './useBeachHouse';
 
@@ -13,7 +15,15 @@ import { SHED_TURN, useBeachHouse } from './useBeachHouse';
 // gives (the terrain; y = 0 without it) — the shed on its own spot of it.
 
 export default function BeachHouseScene(props) {
-  return <BeachHouseView {...props} built={useBeachHouse(props.settings)} />;
+  const built = useBeachHouse(props.settings);
+  // The maps start loading from an effect, not from inside a render, where
+  // the scene's loading progress would be set while another part renders.
+  const [asked, setAsked] = useState(false);
+  useEffect(() => {
+    useLoader.preload(THREE.TextureLoader, houseMapUrls(props.lowPower));
+    setAsked(true);
+  }, [props.lowPower]);
+  return asked ? <BeachHouseView {...props} built={built} /> : null;
 }
 
 // The same, drawn from buildings already built (the lab builds them itself,

@@ -1,5 +1,5 @@
 {
-  "collected": "2026-09-24T02:15:41.833Z",
+  "collected": "2026-09-24T05:01:20.442Z",
   "rows": [
     {
       "key": "cameraFov",
@@ -4167,6 +4167,370 @@
       "unit": "°"
     },
     {
+      "key": "houseEnabled",
+      "group": "objects",
+      "node": "house",
+      "label": "Дом",
+      "kind": "выключатель"
+    },
+    {
+      "key": "houseX",
+      "group": "objects",
+      "node": "house",
+      "label": "Положение X",
+      "kind": "число",
+      "min": -5000,
+      "max": 5000,
+      "step": 0.1,
+      "unit": " m"
+    },
+    {
+      "key": "houseZ",
+      "group": "objects",
+      "node": "house",
+      "label": "Положение Z",
+      "kind": "число",
+      "min": -5000,
+      "max": 5000,
+      "step": 0.1,
+      "unit": " m"
+    },
+    {
+      "key": "houseHeading",
+      "group": "objects",
+      "node": "house",
+      "label": "Курс",
+      "kind": "число",
+      "min": -180,
+      "max": 180,
+      "step": 1,
+      "unit": "°"
+    },
+    {
+      "key": "houseWidth",
+      "group": "objects",
+      "node": "house",
+      "label": "Ширина дома",
+      "kind": "число",
+      "min": 5,
+      "max": 8,
+      "step": 0.1,
+      "unit": " m"
+    },
+    {
+      "key": "houseLength",
+      "group": "objects",
+      "node": "house",
+      "label": "Длина дома",
+      "kind": "число",
+      "min": 6.5,
+      "max": 11,
+      "step": 0.1,
+      "unit": " m"
+    },
+    {
+      "key": "houseFloorHeight",
+      "group": "objects",
+      "node": "house",
+      "label": "Высота свай",
+      "kind": "число",
+      "min": 0.6,
+      "max": 2.4,
+      "step": 0.02,
+      "unit": " m"
+    },
+    {
+      "key": "houseRoofPitch",
+      "group": "objects",
+      "node": "house",
+      "label": "Уклон крыши",
+      "kind": "число",
+      "min": 22,
+      "max": 50,
+      "step": 1,
+      "unit": "°"
+    },
+    {
+      "key": "housePorchDepth",
+      "group": "objects",
+      "node": "house",
+      "label": "Глубина веранды",
+      "kind": "число",
+      "min": 1.5,
+      "max": 3,
+      "step": 0.05,
+      "unit": " m"
+    },
+    {
+      "key": "houseSeed",
+      "group": "objects",
+      "node": "house",
+      "label": "Вариант досок",
+      "kind": "число",
+      "min": 1,
+      "max": 99,
+      "step": 1
+    },
+    {
+      "key": "houseShed",
+      "group": "objects",
+      "node": "house",
+      "label": "Сарай",
+      "kind": "выключатель"
+    },
+    {
+      "key": "houseWeather",
+      "group": "objects",
+      "node": "house",
+      "label": "Подтёки и выцветание",
+      "kind": "число",
+      "min": 0,
+      "max": 1,
+      "step": 0.01
+    },
+    {
+      "key": "houseDamage",
+      "group": "objects",
+      "node": "house",
+      "label": "Сломанные доски",
+      "kind": "число",
+      "min": 0,
+      "max": 1,
+      "step": 0.01
+    },
+    {
+      "key": "houseSag",
+      "group": "objects",
+      "node": "house",
+      "label": "Проседание",
+      "kind": "число",
+      "min": 0,
+      "max": 1,
+      "step": 0.01
+    },
+    {
+      "key": "houseSidingColor",
+      "group": "objects",
+      "node": "house",
+      "label": "Обшивка",
+      "kind": "цвет"
+    },
+    {
+      "key": "houseShakesColor",
+      "group": "objects",
+      "node": "house",
+      "label": "Дранка пристройки",
+      "kind": "цвет"
+    },
+    {
+      "key": "houseTrimColor",
+      "group": "objects",
+      "node": "house",
+      "label": "Белые доски",
+      "kind": "цвет"
+    },
+    {
+      "key": "houseDeckColor",
+      "group": "objects",
+      "node": "house",
+      "label": "Настил",
+      "kind": "цвет"
+    },
+    {
+      "key": "houseWoodColor",
+      "group": "objects",
+      "node": "house",
+      "label": "Сваи и каркас",
+      "kind": "цвет"
+    },
+    {
+      "key": "houseRoofColor",
+      "group": "objects",
+      "node": "house",
+      "label": "Кровля",
+      "kind": "цвет"
+    },
+    {
+      "key": "houseMetalColor",
+      "group": "objects",
+      "node": "house",
+      "label": "Профлист",
+      "kind": "цвет"
+    },
+    {
+      "key": "houseGlassColor",
+      "group": "objects",
+      "node": "house",
+      "label": "Стекло",
+      "kind": "цвет"
+    },
+    {
+      "key": "houseDoorColor",
+      "group": "objects",
+      "node": "house",
+      "label": "Двери",
+      "kind": "цвет"
+    },
+    {
+      "key": "houseAwningColor",
+      "group": "objects",
+      "node": "house",
+      "label": "Ставни",
+      "kind": "цвет"
+    },
+    {
+      "key": "houseShedWallColor",
+      "group": "objects",
+      "node": "house",
+      "label": "Сарай",
+      "kind": "цвет"
+    },
+    {
+      "key": "houseShedRoofColor",
+      "group": "objects",
+      "node": "house",
+      "label": "Крыша сарая",
+      "kind": "цвет"
+    },
+    {
+      "key": "houseRopeColor",
+      "group": "objects",
+      "node": "house",
+      "label": "Верёвка",
+      "kind": "цвет"
+    },
+    {
+      "key": "houseUnitColor",
+      "group": "objects",
+      "node": "house",
+      "label": "Кондиционер",
+      "kind": "цвет"
+    },
+    {
+      "key": "houseVoidColor",
+      "group": "objects",
+      "node": "house",
+      "label": "Дыры",
+      "kind": "цвет"
+    },
+    {
+      "key": "houseLampColor",
+      "group": "objects",
+      "node": "house",
+      "label": "Фонари",
+      "kind": "цвет"
+    },
+    {
+      "key": "houseLamps",
+      "group": "objects",
+      "node": "house",
+      "label": "Лампы в доме",
+      "kind": "число",
+      "min": 0,
+      "max": 1,
+      "step": 0.01
+    },
+    {
+      "key": "houseGarlands",
+      "group": "objects",
+      "node": "house",
+      "label": "Гирлянды",
+      "kind": "число",
+      "min": 0,
+      "max": 1,
+      "step": 0.01
+    },
+    {
+      "key": "houseCamp",
+      "group": "objects",
+      "node": "house",
+      "label": "Вещи серферов",
+      "kind": "выключатель"
+    },
+    {
+      "key": "houseCampSeed",
+      "group": "objects",
+      "node": "house",
+      "label": "Раскладка",
+      "kind": "число",
+      "min": 1,
+      "max": 99,
+      "step": 1
+    },
+    {
+      "key": "houseCampWind",
+      "group": "objects",
+      "node": "house",
+      "label": "Ветер",
+      "kind": "число",
+      "min": 0,
+      "max": 2,
+      "step": 0.01
+    },
+    {
+      "key": "houseCampHue",
+      "group": "objects",
+      "node": "house",
+      "label": "Оттенок вещей",
+      "kind": "число",
+      "min": -180,
+      "max": 180,
+      "step": 1,
+      "unit": "°"
+    },
+    {
+      "key": "houseCampFade",
+      "group": "objects",
+      "node": "house",
+      "label": "Выгорание на солнце",
+      "kind": "число",
+      "min": 0,
+      "max": 1,
+      "step": 0.01
+    },
+    {
+      "key": "houseCampChairsColor",
+      "group": "objects",
+      "node": "house",
+      "label": "Шезлонги",
+      "kind": "цвет"
+    },
+    {
+      "key": "houseCampHammockColor",
+      "group": "objects",
+      "node": "house",
+      "label": "Гамак",
+      "kind": "цвет"
+    },
+    {
+      "key": "houseCampCurtainColor",
+      "group": "objects",
+      "node": "house",
+      "label": "Занавеска",
+      "kind": "цвет"
+    },
+    {
+      "key": "houseCampFlagsColor",
+      "group": "objects",
+      "node": "house",
+      "label": "Флажки",
+      "kind": "цвет"
+    },
+    {
+      "key": "houseCampMachineColor",
+      "group": "objects",
+      "node": "house",
+      "label": "Автомат",
+      "kind": "цвет"
+    },
+    {
+      "key": "houseCampMachineSideColor",
+      "group": "objects",
+      "node": "house",
+      "label": "Бок автомата",
+      "kind": "цвет"
+    },
+    {
       "key": "seagullsEnabled",
       "group": "creatures",
       "node": "seagulls",
@@ -5945,6 +6309,13 @@
       "kind": "выключатель"
     },
     {
+      "key": "houseEnabled",
+      "group": "render",
+      "node": "visibility",
+      "label": "Дом",
+      "kind": "выключатель"
+    },
+    {
       "key": "seagullsEnabled",
       "group": "render",
       "node": "visibility",
@@ -6465,6 +6836,49 @@
     "surfboardCameraFov": 80,
     "surfboardWakeWaves": 1,
     "surfboardWakeFoam": 1,
+    "houseEnabled": false,
+    "houseX": 0,
+    "houseZ": 0,
+    "houseHeading": 0,
+    "houseWidth": 6,
+    "houseLength": 8.4,
+    "houseFloorHeight": 1.44,
+    "houseRoofPitch": 38,
+    "housePorchDepth": 2.2,
+    "houseWeather": 0.35,
+    "houseDamage": 0.29,
+    "houseSag": 0.93,
+    "houseSeed": 79,
+    "houseSidingColor": "#c2ab91",
+    "houseShakesColor": "#b9b0a5",
+    "houseTrimColor": "#95948b",
+    "houseDeckColor": "#8b867a",
+    "houseWoodColor": "#2c2a28",
+    "houseRoofColor": "#585654",
+    "houseMetalColor": "#9b8e82",
+    "houseGlassColor": "#494e53",
+    "houseDoorColor": "#7f7c7a",
+    "houseAwningColor": "#083a29",
+    "houseShedWallColor": "#7fbcb0",
+    "houseShedRoofColor": "#88775f",
+    "houseRopeColor": "#cdb991",
+    "houseUnitColor": "#dcdbd5",
+    "houseVoidColor": "#534e44",
+    "houseLampColor": "#ffe2b0",
+    "houseShed": true,
+    "houseLamps": 0.8,
+    "houseGarlands": 0.9,
+    "houseCamp": true,
+    "houseCampSeed": 79,
+    "houseCampWind": 1,
+    "houseCampHue": 0,
+    "houseCampFade": 0,
+    "houseCampChairsColor": "#a3291f",
+    "houseCampHammockColor": "#e9dfc8",
+    "houseCampCurtainColor": "#f59f55",
+    "houseCampFlagsColor": "#c62f28",
+    "houseCampMachineColor": "#e8692e",
+    "houseCampMachineSideColor": "#5fb7b0",
     "terrainEnabled": true,
     "terrainSeed": 37,
     "terrainBearing": 90,

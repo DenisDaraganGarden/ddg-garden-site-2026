@@ -41,6 +41,7 @@ for (const page of [
   'fish-lab/FishSchool.jsx',
   'water-plant-lab/WaterPlantLab.jsx',
   'rock-lab/RockLab.jsx',
+  'house-lab/HouseLab.jsx',
 ]) {
   if (!readFileSync(join(root, page), 'utf8').includes('getPublishedHomeSceneSettings')) {
     failures.push(`${page}: does not read the published scene`);

@@ -3,10 +3,12 @@
 // on React or on a particular scene renderer.
 import { createPairedCameraLayouts, HOME_SCENE_CAMERA_FOV_MAX, HOME_SCENE_CAMERA_FOV_MIN } from './layout.js';
 import { DEFAULT_SURFBOARD_SETTINGS } from '../../../components/surfboard/settings.js';
+import { DEFAULT_HOUSE_SETTINGS } from '../../../components/house/settings.js';
 
 // Keys that stay on the root when a camera is switched. Besides the catalogue
-// and the editor's own state this is the sound and the surfboard: a board, or a
-// checkpoint, that changed with the camera would be a trap.
+// and the editor's own state this is the sound, the surfboard and the beach
+// house: a board, a checkpoint or a house that changed with the camera would be
+// a trap.
 export const SCENE_CAMERA_SNAPSHOT_EXCLUDED_KEYS = Object.freeze([
   'sceneCameras',
   'slideshow',
@@ -21,6 +23,7 @@ export const SCENE_CAMERA_SNAPSHOT_EXCLUDED_KEYS = Object.freeze([
   'debugWireframe',
   'audio',
   ...Object.keys(DEFAULT_SURFBOARD_SETTINGS),
+  ...Object.keys(DEFAULT_HOUSE_SETTINGS),
 ]);
 
 export const DEFAULT_SCENE_CAMERA_HOLD_SECONDS = 8;

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { randomSequence } from '../../plants/oleasterModel.js';
 import { boardDimensions, bottomHeight, deckHeight, finLayout, halfWidth } from '../surfboard/boardShape.js';
+import { CAMP_COLORS } from './settings.js';
 
 // Bikini Point: a surf commune's things round the house and the shed, left
 // the way young surfers leave them. Boards leaning on the porch front and on
@@ -37,12 +38,7 @@ export const CAMP_BOARDS = Object.freeze([
   board(1.95, 0.52, 0.064, '#26292b', '#f0c64a', '#f0c64a', 1, '#f0c64a'),
 ]);
 
-// The colours one can pick for the camp's painted things (the boards, rings
-// and signs keep their own); every colour of it can also be turned round the
-// hue circle and faded by the sun (SurfCampModel.jsx).
-export const CAMP_COLORS = Object.freeze({
-  chairs: '#a3291f', hammock: '#e9dfc8', curtain: '#f59f55', flags: '#c62f28', machine: '#e8692e', machineSide: '#5fb7b0',
-});
+export { CAMP_COLORS };
 // The drinks machine's footprint (campProps.js builds it).
 export const VENDING = Object.freeze({ width: 0.76, depth: 0.72, height: 1.8 });
 // How wide what dries on the line is (campProps.js draws it).

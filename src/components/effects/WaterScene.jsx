@@ -15,6 +15,8 @@ import AzovTerrain from '../../terrain/AzovTerrain.jsx';
 import { coastBandCoversPond, createTerrainDefinition, createTerrainQuery } from '../../terrain/terrainModel.js';
 import HomeTanker from '../../tanker/HomeTanker.jsx';
 import React, {
+  Suspense,
+  lazy,
   useCallback,
   useEffect,
   useMemo,
@@ -83,6 +85,9 @@ import Surfboard from '../surfboard/Surfboard.jsx';
 import SurfPlayCamera from '../surfboard/SurfPlayCamera.jsx';
 import { createSurfRibbons } from './water/surfRibbons.js';
 import UnderwaterView from './water/UnderwaterView.jsx';
+
+// Loaded only once a scene switches the house on: the site does not pay for it.
+const BeachHouseScene = lazy(() => import('../house/BeachHouseScene.jsx'));
 
 // Wireframe is a material flag, not a shader mode, so it cannot be one more
 // entry in the debug view list. Sweeping the scene rather than threading a prop
@@ -333,6 +338,9 @@ function WaterRuntimeScene({
   const underwater = useMemo(() => ({ active: false, murk: new THREE.Color() }), []);
   // Play needs the board even while it is switched off in the scene; never without water.
   const surfboardOn = sceneObjectOn(settings, 'surfboard') || (playing && sceneObjectOn(settings, 'water'));
+  // Bikini Point stands on the terrain where there is one, else on y = 0.
+  const houseOn = sceneObjectOn(settings, 'house');
+  const houseGround = useMemo(() => (terrainQuery ? (x, z) => terrainQuery.heightAt(x, z) : null), [terrainQuery]);
   const runtime = useWaterRuntime(settings, qualityProfile, mode, effectiveSeaSettings);
   const landingSitesRef = useRef([]);
   const [landingSurfaces, setLandingSurfaces] = useState({
@@ -610,6 +618,16 @@ function WaterRuntimeScene({
             playing={mode === 'editor' && playing}
             onCheckpoint={onSurfboardCheckpoint}
           />
+        ) : null}
+        {houseOn ? (
+          <Suspense fallback={null}>
+            <BeachHouseScene
+              settings={settings}
+              night={lighting.sky.night}
+              lowPower={Boolean(qualityProfile.isLowPower || qualityProfile.isMobileDevice)}
+              groundAt={houseGround}
+            />
+          </Suspense>
         ) : null}
         {settings.tankerVisible ? <HomeTanker settings={settings} seaSettings={effectiveSeaSettings.enabled ? effectiveSeaSettings : null} lighting={lighting} audioRuntime={audioRuntime} /> : null}
         {settings.planeEnabled ? <GroundPlane settings={settings} lighting={lighting} /> : null}

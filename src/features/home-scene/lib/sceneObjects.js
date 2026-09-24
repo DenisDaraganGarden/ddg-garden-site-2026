@@ -46,6 +46,8 @@ export const SCENE_OBJECTS = Object.freeze([
   { id: 'placed', key: 'placedEnabled', node: 'objects/placed', group: 'objects', roots: ['placed'] },
   // A surfboard that rides the sea and the breaking wave; ridden from the editor.
   { id: 'surfboard', key: 'surfboardEnabled', node: 'objects/surfboard', group: 'objects', roots: ['surfboard-anchor', 'surfboard'], requires: ['water'], newProject: false },
+  // Bikini Point: a beach house on stilts, its shed and the surfers' things.
+  { id: 'house', key: 'houseEnabled', node: 'objects/house', group: 'objects', roots: ['beach-house'] },
   { id: 'seagulls', key: 'seagullsEnabled', node: 'creatures/seagulls', group: 'creatures', roots: ['seagull-flock'], sound: 'birds', requires: ['water'], newProject: false },
   { id: 'fish', key: 'fishEnabled', node: 'creatures/fish', group: 'creatures', roots: ['river-fish-school'], requires: ['water'], newProject: false },
   { id: 'reflections', key: 'reflectionsEnabled', node: null, group: 'render' },

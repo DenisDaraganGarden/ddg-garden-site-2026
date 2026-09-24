@@ -1,10 +1,61 @@
-import { HOUSE_COLORS, HOUSE_DEFAULTS, HOUSE_RANGES } from './beachHouse.js';
-import { CAMP_COLORS } from './surfCamp.js';
-
 // Bikini Point as scene settings: the house, its shed and the surfers'
 // things, flat keys like every object's. Off by default, so a scene only has
 // it once it is switched on in the editor. Global to the scene, not per
 // camera: a house that moved with the camera would be no house.
+// Plain data only: the editor server reads the keys at its start.
+
+// The builder's own numbers (beachHouse.js).
+export const HOUSE_DEFAULTS = Object.freeze({
+  houseWidth: 6, // the gable end, m
+  houseLength: 8.4, // along the ridge, m
+  floorHeight: 1.44, // floor and porch above the sand: the stilts, m
+  roofPitch: 38, // degrees
+  porchDepth: 2.2, // m
+  // Age as Denis set it (2026-09-24): lived in, a few boards gone, settled hard.
+  weather: 0.35, // streaks, faded and peeling paint, rust (the material's)
+  damage: 0.29, // boards gone, snapped or hanging, holes, planks on the sand
+  sag: 0.93, // settling, lean, a swaybacked ridge, a drooping porch
+  seed: 79, // the hand-made unevenness, and which boards the years pick
+});
+export const HOUSE_RANGES = Object.freeze({
+  houseWidth: [5, 8, 0.1],
+  houseLength: [6.5, 11, 0.1],
+  floorHeight: [0.6, 2.4, 0.02],
+  roofPitch: [22, 50, 1],
+  porchDepth: [1.5, 3, 0.05],
+  weather: [0, 1, 0.01],
+  damage: [0, 1, 0.01],
+  sag: [0, 1, 0.01],
+});
+
+// One colour per finish; the textures are tinted by it. Denis's palette from
+// the lab (2026-09-24): pale sandy boards, grey paint, near-black stilts.
+export const HOUSE_COLORS = Object.freeze({
+  siding: '#c2ab91', // clapboard
+  shakes: '#b9b0a5', // the lean-to's cedar shakes
+  trim: '#95948b', // posts, rails, stairs, casings: the paint
+  deck: '#8b867a', // porch boards
+  wood: '#2c2a28', // stilts, skirting, the shed's frame
+  roof: '#585654', // asphalt shingles
+  metal: '#9b8e82', // corrugated iron
+  glass: '#494e53',
+  door: '#7f7c7a',
+  awning: '#083a29', // the Bahama shutters
+  shedWall: '#7fbcb0', // the turquoise shed
+  shedRoof: '#88775f',
+  rope: '#cdb991',
+  unit: '#dcdbd5', // the air conditioner, the meter box
+  void: '#534e44', // where boards and panes are gone
+  lamp: '#ffe2b0', // lantern and bulb glass, lit
+});
+
+// The colours one can pick for the camp's painted things (the boards, rings
+// and signs keep their own); every colour of it can also be turned round the
+// hue circle and faded by the sun (SurfCampModel.jsx).
+export const CAMP_COLORS = Object.freeze({
+  chairs: '#a3291f', hammock: '#e9dfc8', curtain: '#f59f55', flags: '#c62f28', machine: '#e8692e', machineSide: '#5fb7b0',
+});
+
 const title = (word) => word[0].toUpperCase() + word.slice(1);
 
 // Scene key → the builder's own name (beachHouse.js, surfCamp.js).

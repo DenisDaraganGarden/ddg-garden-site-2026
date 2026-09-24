@@ -8,7 +8,7 @@
 единицы взяты из его каталога контролов, поэтому параметр не может появиться в
 редакторе и не появиться здесь. Руками не править.
 
-Снято: 2026-09-24 · параметров: 646 · разделов: 41
+Снято: 2026-09-24 · параметров: 690 · разделов: 42
 
 Как этим пользоваться агенту: читать и писать `projects/<id>.json`, поле
 `settings` — плоский объект с этими ключами. `topiaryObjects` — массив форм;
@@ -702,6 +702,54 @@
 | `boatVisible` | Лодка | выключатель | да / нет | true |
 | `boatYaw` | Поворот лодки | число | -180 … 180, шаг 1, ° | 18 |
 
+## objects/house
+
+| Ключ | Что это | Вид | Пределы | Заводское |
+|---|---|---|---|---|
+| `houseAwningColor` | Ставни | цвет | #rrggbb | #083a29 |
+| `houseCamp` | Вещи серферов | выключатель | да / нет | true |
+| `houseCampChairsColor` | Шезлонги | цвет | #rrggbb | #a3291f |
+| `houseCampCurtainColor` | Занавеска | цвет | #rrggbb | #f59f55 |
+| `houseCampFade` | Выгорание на солнце | число | 0 … 1, шаг 0.01 | 0 |
+| `houseCampFlagsColor` | Флажки | цвет | #rrggbb | #c62f28 |
+| `houseCampHammockColor` | Гамак | цвет | #rrggbb | #e9dfc8 |
+| `houseCampHue` | Оттенок вещей | число | -180 … 180, шаг 1, ° | 0 |
+| `houseCampMachineColor` | Автомат | цвет | #rrggbb | #e8692e |
+| `houseCampMachineSideColor` | Бок автомата | цвет | #rrggbb | #5fb7b0 |
+| `houseCampSeed` | Раскладка | число | 1 … 99, шаг 1 | 79 |
+| `houseCampWind` | Ветер | число | 0 … 2, шаг 0.01 | 1 |
+| `houseDamage` | Сломанные доски | число | 0 … 1, шаг 0.01 | 0.29 |
+| `houseDeckColor` | Настил | цвет | #rrggbb | #8b867a |
+| `houseDoorColor` | Двери | цвет | #rrggbb | #7f7c7a |
+| `houseEnabled` | Дом | выключатель | да / нет | false |
+| `houseFloorHeight` | Высота свай | число | 0.6 … 2.4, шаг 0.02,  m | 1.44 |
+| `houseGarlands` | Гирлянды | число | 0 … 1, шаг 0.01 | 0.9 |
+| `houseGlassColor` | Стекло | цвет | #rrggbb | #494e53 |
+| `houseHeading` | Курс | число | -180 … 180, шаг 1, ° | 0 |
+| `houseLampColor` | Фонари | цвет | #rrggbb | #ffe2b0 |
+| `houseLamps` | Лампы в доме | число | 0 … 1, шаг 0.01 | 0.8 |
+| `houseLength` | Длина дома | число | 6.5 … 11, шаг 0.1,  m | 8.4 |
+| `houseMetalColor` | Профлист | цвет | #rrggbb | #9b8e82 |
+| `housePorchDepth` | Глубина веранды | число | 1.5 … 3, шаг 0.05,  m | 2.2 |
+| `houseRoofColor` | Кровля | цвет | #rrggbb | #585654 |
+| `houseRoofPitch` | Уклон крыши | число | 22 … 50, шаг 1, ° | 38 |
+| `houseRopeColor` | Верёвка | цвет | #rrggbb | #cdb991 |
+| `houseSag` | Проседание | число | 0 … 1, шаг 0.01 | 0.93 |
+| `houseSeed` | Вариант досок | число | 1 … 99, шаг 1 | 79 |
+| `houseShakesColor` | Дранка пристройки | цвет | #rrggbb | #b9b0a5 |
+| `houseShed` | Сарай | выключатель | да / нет | true |
+| `houseShedRoofColor` | Крыша сарая | цвет | #rrggbb | #88775f |
+| `houseShedWallColor` | Сарай | цвет | #rrggbb | #7fbcb0 |
+| `houseSidingColor` | Обшивка | цвет | #rrggbb | #c2ab91 |
+| `houseTrimColor` | Белые доски | цвет | #rrggbb | #95948b |
+| `houseUnitColor` | Кондиционер | цвет | #rrggbb | #dcdbd5 |
+| `houseVoidColor` | Дыры | цвет | #rrggbb | #534e44 |
+| `houseWeather` | Подтёки и выцветание | число | 0 … 1, шаг 0.01 | 0.35 |
+| `houseWidth` | Ширина дома | число | 5 … 8, шаг 0.1,  m | 6 |
+| `houseWoodColor` | Сваи и каркас | цвет | #rrggbb | #2c2a28 |
+| `houseX` | Положение X | число | -5000 … 5000, шаг 0.1,  m | 0 |
+| `houseZ` | Положение Z | число | -5000 … 5000, шаг 0.1,  m | 0 |
+
 ## objects/placed
 
 | Ключ | Что это | Вид | Пределы | Заводское |
@@ -847,6 +895,7 @@
 | `farWaterVisible` | Дальняя вода | выключатель | да / нет | true |
 | `fishEnabled` | Рыбы | выключатель | да / нет | true |
 | `grassEnabled` | Травы | выключатель | да / нет | true |
+| `houseEnabled` | Дом | выключатель | да / нет | false |
 | `liliesVisible` | Кувшинки | выключатель | да / нет | true |
 | `placedEnabled` | Расстановка | выключатель | да / нет | true |
 | `planeEnabled` | Плоскость | выключатель | да / нет | false |
