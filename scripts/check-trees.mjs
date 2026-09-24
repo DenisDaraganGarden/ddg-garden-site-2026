@@ -8,7 +8,7 @@ import {createTerrainDefinition,createTerrainQuery,coastCoordinates,shorePositio
 import {coastProfile} from '../src/terrain/terrainLandforms.js';
 import {buildCoastRocks,attachRockCollisions} from '../src/terrain/terrainRocks.js';
 import {createCoastTreePlanting} from '../src/plants/coastPlanting.js';
-import {DEFAULT_SHRUB_SETTINGS,DEFAULT_TREE_SETTINGS,normalizeTreeSettings,treeAssetSettings} from '../src/plants/settings.js';
+import {DEFAULT_SHRUB_SETTINGS,DEFAULT_TREE_SETTINGS,normalizeTreeSettings,treeAssetSettings,treeKindForm} from '../src/plants/settings.js';
 
 // Crown centroid projected downwind, in the frame the wind bends foliage in.
 const crownOffset=(model)=>{
@@ -90,4 +90,17 @@ for(const kind of TREE_KINDS){
  assert.ok(tri<130000,`${kind}: near budget ${tri}`);species[kind]={leaves:m.leaves.length,branches:m.branches.length,tri,height:Number(m.height.toFixed(2))};
 }
 assert.equal(species.snag.leaves,0,'a snag carries no leaves');
+// The population's shape sliders act on every species (treeKindForm): at their
+// defaults each species grows exactly its table form, the oleaster the sliders'
+// own numbers; moved, every species follows in its own proportion.
+const wind={speed:9,bearing:290},atDefaults=treeAssetSettings(DEFAULT_TREE_SETTINGS,wind);
+const sliders={height:6,spread:5.5,lean:.55,twist:.4,density:.8,leafSize:1.8,deadwood:.3};
+for(const kind of TREE_KINDS)assert.deepEqual(treeKindForm(kind,atDefaults),kind==='oleaster'?sliders:{...TREE_SPECIES[kind].form},`${kind} keeps its form at the slider defaults`);
+const moved=treeAssetSettings({...DEFAULT_TREE_SETTINGS,treesHeight:9,treesSpread:11,treesLean:0,treesDensity:.4,treesLeafSize:.9,treesDeadwood:.6},wind);
+for(const kind of TREE_KINDS){
+ const base=treeKindForm(kind,atDefaults),form=treeKindForm(kind,moved);
+ for(const [key,ratio] of [['height',1.5],['spread',2],['density',.5],['leafSize',.5],['deadwood',2],['twist',1]])assert.ok(Math.abs(form[key]-base[key]*ratio)<1e-9,`${kind}.${key} follows its slider in proportion`);
+ assert.equal(form.lean,0,`${kind} stands straight without lean`);
+}
+assert.ok(makeCoastTree(treeKindForm('elm',moved)).height>makeCoastTree(treeKindForm('elm',atDefaults)).height*1.3,'a taller grove grows taller elms');
 console.log(JSON.stringify({passed:true,attachments,budgets,grove:plants.length,species}));

@@ -115,4 +115,46 @@ const closeTo = (actual, expected, epsilon = 1e-10) => (
   );
 }
 
+// Parameters that used to change nothing: each must act, and each must leave
+// the frame exactly as it was at the value every existing scene carries.
+{
+  const lightingOf = (settings) => buildHomeSceneLighting({ ...publishedHomeSceneSettings, ...settings });
+  const tint = (envTint) => lightingOf({ envTint }).environment.tint;
+
+  // envTint: neutral at the scene default, a tone otherwise, bounded either way.
+  assert.deepEqual(tint('#6b7484'), [1, 1, 1], 'the default reflection tone must be neutral');
+  assert.deepEqual(buildHomeSceneLighting({}).environment.tint, [1, 1, 1]);
+  const warm = tint('#b0805a');
+  assert.ok(warm[0] > 1 && warm[2] < 1, `a warm tone must warm the environment light (${warm})`);
+  const [lighter, darker] = [tint('#ffffff'), tint('#1a1d21')];
+  assert.ok(lighter.every((value, index) => value > darker[index]), 'a lighter tone must give more light');
+  ['#ff0000', '#00ff00', '#0000ff', '#000000', '#ffffff'].forEach((hex) => {
+    tint(hex).forEach((value) => assert.ok(value > 0.4 && value < 2.5, `${hex} stays a tone, not a switch (${value})`));
+  });
+
+  // envMode: «Небо + HDRI» keeps the painted sky in view unless asked; «Только
+  // HDRI» puts the panorama behind the scene as well as into its light.
+  const environment = (envMode, showHdriBackground = false) => {
+    const { hdri, hdriBackdrop } = lightingOf({ envMode, showHdriBackground }).environment;
+    return { hdri, hdriBackdrop };
+  };
+  assert.deepEqual(environment('sky'), { hdri: false, hdriBackdrop: false });
+  assert.deepEqual(environment('sky', true), { hdri: false, hdriBackdrop: false }, 'no panorama without an HDRI mode');
+  assert.deepEqual(environment('sky+hdri'), { hdri: true, hdriBackdrop: false }, 'the site look: HDRI light behind the painted sky');
+  assert.deepEqual(environment('sky+hdri', true), { hdri: true, hdriBackdrop: true });
+  assert.deepEqual(environment('hdri'), { hdri: true, hdriBackdrop: true }, 'HDRI only is the backdrop too');
+
+  // The painterly sky takes turbidity and the distant surface relative to the
+  // defaults it is painted for: identity there, and the right direction away.
+  const painted = (settings) => {
+    const { paintedHaze, paintedGroundShift } = lightingOf(settings).sky;
+    return { paintedHaze, paintedGroundShift };
+  };
+  assert.deepEqual(painted({ skyTurbidity: 2.6, distantSurfaceColor: '#70716d' }), { paintedHaze: 1, paintedGroundShift: [0, 0, 0] });
+  assert.ok(painted({ skyTurbidity: 10 }).paintedHaze > 2.9, 'hazier air must thicken the painted haze');
+  assert.ok(painted({ skyTurbidity: 1 }).paintedHaze < 0.6, 'clear air must thin it');
+  assert.ok(painted({ distantSurfaceColor: '#fafafa' }).paintedGroundShift.every((value) => value > 0.7), 'a white surface returns more light');
+  assert.ok(painted({ distantSurfaceColor: '#000000' }).paintedGroundShift.every((value) => value < 0), 'a black one less');
+}
+
 console.log('homeSceneLighting: all checks passed');

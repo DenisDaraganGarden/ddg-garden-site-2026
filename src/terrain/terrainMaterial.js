@@ -25,6 +25,10 @@ vec4 swashField(vec2 worldXZ){
  return vec4(texture2D(uSwashField,uv).rgb,w);
 }
 uniform sampler2D uPondNormalMap;uniform vec2 uPondTexel;uniform float uPondExtent;uniform vec4 uCausticsParams;uniform vec3 uCausticsLight;uniform float uCausticsKey;
+// The editor's seabed sliders on the shelf, as factors of their defaults
+// (syncSeabedUniforms): x brightness, y saturation, z variation, w AO; and
+// x relief strength, y relief scale, z texture scale. All 1: the shelf as built.
+uniform vec4 uSeabedGrade;uniform vec4 uSeabedRelief;
 struct TerrainSample{vec3 color;vec3 surface;vec3 normal;};
 // The daylight soils of the Taganrog bluffs (linear): fresh scarp #C4A472,
 // weathered crust #9A7C58, humus #5F4C38, dry talus #C6AC80 - and the loam
@@ -36,6 +40,13 @@ const vec3 SOIL_FRESH=vec3(.552,.371,.168),SOIL_CRUST=vec3(.323,.202,.098),SOIL_
 vec3 gradeSaturation(vec3 c,float s){float l=dot(c,vec3(.2126,.7152,.0722));return max(mix(vec3(l),c,s),0.0);}
 vec3 gradeTerrain(vec3 c){c=gradeSaturation(c,uTerrainGrade.x);c=(c-.18)*uTerrainGrade.y+.18;return max(c*uTerrainGrade.z,0.0);}
 vec3 gradeCover(vec3 c,float dryness){return gradeSaturation(c,mix(uTerrainGrade.w,uTerrainGradeDry,dryness));}
+// The seabed's own grade over the terrain's, by how far under water (seabed
+// 0..1): saturation, brightness, and the AO map's dark spots deepened or
+// lifted in the albedo as the pond bed's AO does. Exactly c at the defaults.
+vec3 gradeSeabed(vec3 c,float seabed,float ao){
+ if(uSeabedGrade.y!=1.0)c=gradeSaturation(c,1.0+(uSeabedGrade.y-1.0)*seabed);
+ return c*(1.0+(uSeabedGrade.x-1.0)*seabed)*(1.0+(ao-1.0)*(uSeabedGrade.w-1.0)*seabed*.5);
+}
 vec3 pondNormalAt(vec2 uv){return normalize(texture2D(uPondNormalMap,uv).rgb*2.0-1.0);}
 // The pond's caustics, cast onto the shelf that took over as its bed. The
 // same differential-area focus the old bed used: a refracted patch is bright
@@ -119,7 +130,8 @@ export function createTerrainMaterial(textures,p,rockOnly=false){
   uTerrainGrade:{value:new THREE.Vector4(1,1,1,1)},uTerrainGradeDry:{value:1},
   uTerrainTime:{value:0},uTerrainOptics:{value:0},uTerrainScale:{value:p.terrainTextureScale},uTerrainParallax:{value:p.terrainParallax},uTerrainGroundCover:{value:p.terrainGroundCover},uRockLayer:{value:rockOnly?2:3},uRockOnly:{value:rockOnly?1:0},
   uPondNormalMap:{value:null},uPondTexel:{value:new THREE.Vector2(1/256,1/256)},uPondExtent:{value:34},uCausticsParams:{value:new THREE.Vector4(0,1,1,0)},uCausticsLight:{value:new THREE.Vector3(0,1,0)},uCausticsKey:{value:1},
-  uSwashField:{value:null},uSwashWindow:{value:new THREE.Vector3(0,0,1)},uSwashEnabled:{value:0}};
+  uSwashField:{value:null},uSwashWindow:{value:new THREE.Vector3(0,0,1)},uSwashEnabled:{value:0},
+  uSeabedGrade:{value:new THREE.Vector4(1,1,1,1)},uSeabedRelief:{value:new THREE.Vector4(1,1,1,0)}};
  syncCoastUniforms(uniforms,p);
  const material=new THREE.MeshStandardMaterial({color:'#ffffff',roughness:.85,metalness:0,side:THREE.FrontSide});
  material.name=rockOnly?'azov-sandstone-boulders':'azov-coast-pbr';material.userData.coastUniforms=uniforms;
@@ -160,6 +172,9 @@ export function createTerrainMaterial(textures,p,rockOnly=false){
    // the ground here to within the display error - millimetres on the beach,
    // where wetness and foam read it - and forty transcendentals a pixel cheaper.
    vec2 qs=coastLocal(vTerrainWorld.xz),surfQS=coastSurfLocal(qs);float groundY=vTerrainWorld.y;
+   // How much of the editor's seabed this ground is: none on the beach, all of
+   // it thirty centimetres under the still line.
+   float seabed=smoothstep(.02,.3,-groundY);
    vec3 forms=coastLandforms(qs.y);vec4 profile=coastProfile(qs.y,forms);
    float rockWeight=max(uRockOnly,1.0-smoothstep(.70,.965,abs(terrainN.y)));
    // The swash lives in a band around the waterline; the bluff and plateau skip it.
@@ -224,6 +239,11 @@ export function createTerrainMaterial(textures,p,rockOnly=false){
     vec2 sandUv=terrainParallaxUv(sandNormalUv,viewWorld.xz,viewWorld.y,shellMask>.25?1.0:0.0,.024/1.2*shellMask+.008+loose*.02);
     ground=terrainSample(0.0,sandUv,sandDx,sandDy);
     if(shellMask>.01)ground=terrainBlend(ground,terrainSample(1.0,sandUv,sandDx,sandDy),shellMask);
+    // The seabed's texture scale takes the sand under the water to its own
+    // tiling; its relief scale the sand's bumps alone, apart from their colour.
+    // At the defaults neither is read.
+    if(seabed>0.0&&uSeabedRelief.z!=1.0){float k=uSeabedRelief.z;ground=terrainBlend(ground,terrainSample(0.0,sandNormalUv*k,sandDx*k,sandDy*k),seabed);}
+    if(seabed>0.0&&uSeabedRelief.y!=1.0){float k=uSeabedRelief.z*uSeabedRelief.y;ground.normal=normalize(mix(ground.normal,terrainSample(0.0,sandNormalUv*k,sandDx*k,sandDy*k).normal,seabed));}
     ground.color*=mix(vec3(1.0),vec3(.66,.56,.41),soilCap*uCoastGeology.y*(1.0-shellMask));
     // Loose sand (Denis's photos of the strand): the dry beach is trodden and
     // wind-blown into dents and hollows, rougher and puffier than the packed
@@ -266,6 +286,8 @@ export function createTerrainMaterial(textures,p,rockOnly=false){
      float depth=-groundY;
      vec3 bed=coastBedCover(qs,depth);
      vec2 bedSeed=vec2(uCoastShape.w*.05,0.0);
+     // The seabed's texture scale tiles the cover as it does the sand.
+     vec2 bedUv=sandUv*uSeabedRelief.z,bedDx=sandDx*uSeabedRelief.z,bedDy=sandDy*uSeabedRelief.z;
      // The metre-scale detail shimmers once a pixel spans metres of bed; from
      // there it settles to its mean and only the field itself remains.
      float bedDetail=1.0-smoothstep(.15,.8,fwidth(qs.x)+fwidth(qs.y));
@@ -274,9 +296,9 @@ export function createTerrainMaterial(textures,p,rockOnly=false){
      bed.x=smoothstep(.08,.55,bed.x*mix(.7,1.3,rag))*mix(.6,1.0,streak);
      bed.y=smoothstep(.05,.6,bed.y*mix(.7,1.2,rag));
      bed.z=smoothstep(.12,.6,bed.z*mix(.6,1.4,mix(.5,coastNoise(qs*1.7+vec2(9.0,4.0)),bedDetail)));
-     if(bed.y>.01){TerrainSample silt=terrainSample(3.0,sandUv*.667,sandDx*.667,sandDy*.667);silt.color*=vec3(.42,.44,.38);ground=terrainBlend(ground,silt,bed.y);}
-     if(bed.x>.01){TerrainSample weed=terrainSample(4.0,sandUv*.75,sandDx*.75,sandDy*.75);weed.color*=vec3(.36,.46,.24);weed.surface.r=max(weed.surface.r,.8);ground=terrainBlend(ground,weed,bed.x);}
-     if(bed.z>.01){TerrainSample bank=terrainSample(1.0,sandUv,sandDx,sandDy);bank.color*=vec3(.3,.3,.28);ground=terrainBlend(ground,bank,bed.z);}
+     if(bed.y>.01){TerrainSample silt=terrainSample(3.0,bedUv*.667,bedDx*.667,bedDy*.667);silt.color*=vec3(.42,.44,.38);ground=terrainBlend(ground,silt,bed.y);}
+     if(bed.x>.01){TerrainSample weed=terrainSample(4.0,bedUv*.75,bedDx*.75,bedDy*.75);weed.color*=vec3(.36,.46,.24);weed.surface.r=max(weed.surface.r,.8);ground=terrainBlend(ground,weed,bed.x);}
+     if(bed.z>.01){TerrainSample bank=terrainSample(1.0,bedUv,bedDx,bedDy);bank.color*=vec3(.3,.3,.28);ground=terrainBlend(ground,bank,bed.z);}
      float ripples=uCoastBed.y*smoothstep(.15,.5,depth)*(1.0-smoothstep(2.5,4.0,depth))*(1.0-smoothstep(10.0,28.0,distance(cameraPosition,vTerrainWorld)))*(1.0-bed.x)*(1.0-bed.y*.7);
      if(ripples>.01){
       // Crests parallel to the shore, 14 cm apart, bending and forking.
@@ -386,6 +408,8 @@ export function createTerrainMaterial(textures,p,rockOnly=false){
      ground=terrainBlend(ground,terrainSample(8.0,wornUv,dFdx(wornUv),dFdy(wornUv)),trampled);
     }
     ground.color=mix(ground.color,ground.color*vec3(.72,.66,.53),path*.38);
+    // The seabed's relief strength: the bumps of its sand, cover and ripple marks.
+    if(seabed>0.0&&uSeabedRelief.x!=1.0)ground.normal=normalize(vec3(ground.normal.xy*(1.0+(uSeabedRelief.x-1.0)*seabed),ground.normal.z));
    }
    vec3 rockColor=vec3(0),rockSurface=vec3(0),rockMapX=vec3(0,0,1),rockMapY=vec3(0,0,1),rockMapZ=vec3(0,0,1);
    if(rockWeight>.001){
@@ -433,9 +457,11 @@ export function createTerrainMaterial(textures,p,rockOnly=false){
    vec3 surfaceData=mix(ground.surface,rockSurface,rockW);
    vec3 terrainColor=mix(ground.color,rockColor,rockW);
    float macroVariation=.88+.22*coastNoise(vTerrainWorld.xz*.21+vec2(5.2,42.9));
+   // The seabed's variation: these broad patches, flat at 0, as built at its default.
+   macroVariation+=(macroVariation-.99)*(uSeabedGrade.z-1.0)*seabed;
    // Seepage darkens the ground the way the swash does, without the foam.
    float damp=max(wet,seep*.8);
-   diffuseColor.rgb=mix(gradeTerrain(terrainColor)*mix(1.0,.53,damp),vec3(.86,.87,.82),foamTrace)*macroVariation;
+   diffuseColor.rgb=mix(gradeSeabed(gradeTerrain(terrainColor),seabed,surfaceData.g)*mix(1.0,.53,damp),vec3(.86,.87,.82),foamTrace)*macroVariation;
    diffuseColor.rgb*=1.0+caustic*.5;
   `);
   shader.fragmentShader=shader.fragmentShader.replace('#include <roughnessmap_fragment>','#include <roughnessmap_fragment>\nroughnessFactor=mix(surfaceData.r,.4,damp);');
@@ -445,7 +471,21 @@ export function createTerrainMaterial(textures,p,rockOnly=false){
    if(rockWeight>.001)rockViewN=normalize(terrainNormal(normal,-vViewPosition,rockNormalUvX,rockMapX)*triWeight.x+terrainNormal(normal,-vViewPosition,rockNormalUvY,rockMapY)*triWeight.y+terrainNormal(normal,-vViewPosition,rockNormalUvZ,rockMapZ)*triWeight.z);
    normal=normalize(mix(groundViewN,rockViewN,rockW));
   `);
-  shader.fragmentShader=shader.fragmentShader.replace('#include <aomap_fragment>','#include <aomap_fragment>\nreflectedLight.indirectDiffuse*=surfaceData.g;');
+  // The seabed's AO scales the map's occlusion under the water.
+  shader.fragmentShader=shader.fragmentShader.replace('#include <aomap_fragment>','#include <aomap_fragment>\nreflectedLight.indirectDiffuse*=max(surfaceData.g+(surfaceData.g-1.0)*(uSeabedGrade.w-1.0)*seabed,0.0);');
  };
- material.customProgramCacheKey=()=> 'azov-coast-layered-pbr-v15';return material;
+ material.customProgramCacheKey=()=> 'azov-coast-layered-pbr-v16';return material;
+}
+
+// The editor's seabed sliders («Дно») were made for the flat pond bed
+// (Seabed.jsx), which keeps them as they are. On the terrain's shelf each acts
+// as a factor of its default, so the shelf looks as it did at the defaults.
+export const SEABED_DEFAULTS=Object.freeze({seabedBrightness:1,seabedSaturation:1,seabedVariation:.55,seabedAoStrength:.62,seabedReliefStrength:.42,seabedReliefScale:1.8,seabedTextureScale:1});
+export function seabedFactors(settings={}){
+ const factor=(key)=>{const value=Number(settings[key]);return Number.isFinite(value)?Math.max(value,0)/SEABED_DEFAULTS[key]:1;};
+ return{grade:[factor('seabedBrightness'),factor('seabedSaturation'),factor('seabedVariation'),factor('seabedAoStrength')],relief:[factor('seabedReliefStrength'),factor('seabedReliefScale'),factor('seabedTextureScale')]};
+}
+export function syncSeabedUniforms(uniforms,settings){
+ const {grade,relief}=seabedFactors(settings);
+ uniforms.uSeabedGrade.value.set(...grade);uniforms.uSeabedRelief.value.set(...relief,0);
 }

@@ -65,8 +65,31 @@ export function normalizeSeaSettings(flat = {}) {
   return normalized;
 }
 
+// «Плотность сетки воды» (the scene's waterMeshDensity, 96..384): the density
+// of every water mesh as one factor, 1 at its default 288. It multiplies the
+// open sea's rings and segments here, on top of their own sliders, and the
+// shore band's grid (ShoreWater). The retired pond it was made for had exactly
+// this many cells across the ripple area.
+export const WATER_MESH_DENSITY_DEFAULT = 288;
+export const waterMeshDensityFactor = (value) => {
+  const density = Number(value);
+  return Number.isFinite(density) ? clamp(density, 96, 384) / WATER_MESH_DENSITY_DEFAULT : 1;
+};
+
+// «Излом поверхности» (the scene's waveChoppiness, 0..1.25): the chop of the
+// small ripples, the wind's and the cursor's (waterShading.js waterRippleChop).
+// Measured from its default 0.18, where the water keeps the look it had while
+// only the lilies read the slider: above it the crests pinch, below they round.
+// At 1.25 a full crest's Jacobian reaches the shader's floor, 0.3.
+export const WAVE_CHOPPINESS_DEFAULT = 0.18;
+export const rippleChopFactor = (value) => {
+  const choppiness = Number(value);
+  return Number.isFinite(choppiness) ? 0.65 * (clamp(choppiness, 0, 1.25) - WAVE_CHOPPINESS_DEFAULT) : 0;
+};
+
 export function resolveSeaSettings(flat = {}) {
   const sea = normalizeSeaSettings(flat);
+  const meshDensity = waterMeshDensityFactor(flat.waterMeshDensity);
   return {
     enabled: sea.seaEnabled,
     wavelength: sea.seaWavelength, amplitude: sea.seaAmplitude, steepness: sea.seaSteepness, speed: sea.seaSpeed,
@@ -75,7 +98,7 @@ export function resolveSeaSettings(flat = {}) {
     foamThreshold: sea.seaFoamThreshold, foamSoftness: sea.seaFoamSoftness, laceScale: sea.seaFoamLaceScale, foamVariety: sea.seaFoamVariety, foamBrightness: sea.seaFoamBrightness,
     foamMemory: sea.seaFoamMemory, foamLife: sea.seaFoamLife, foamDeposit: sea.seaFoamDeposit, foamWindow: sea.seaFoamWindow, foamDrift: sea.seaFoamDrift, foamSwirl: sea.seaFoamSwirl, foamDry: sea.seaFoamDry, windPatches: sea.seaWindPatches,
     waterColor: sea.seaWaterColor, deepColor: sea.seaDeepColor, bedColor: sea.seaBedColor, bedTurbidity: sea.seaBedTurbidity, crestGlow: sea.seaCrestGlow, glint: sea.seaGlint, skyReflection: sea.seaSkyReflection,
-    meshRings: sea.seaMeshRings, meshSegments: sea.seaMeshSegments,
+    meshRings: Math.round(sea.seaMeshRings * meshDensity), meshSegments: Math.round(sea.seaMeshSegments * meshDensity), meshDensity,
     surfEnabled: sea.seaSurfEnabled, surfHeight: sea.seaSurfHeight, surfWidth: sea.seaSurfWidth, surfBreakDistance: sea.seaSurfBreakDistance, surfBreakLength: sea.seaSurfBreakLength, surfLean: sea.seaSurfLean, surfJet: sea.seaSurfJet, surfLift: sea.seaSurfLift, surfSheet: sea.seaSurfSheet, surfRoller: sea.seaSurfRoller, surfRollerDensity: sea.seaSurfRollerDensity, surfPeel: sea.seaSurfPeel, surfRefraction: sea.seaSurfRefraction, surfBoreLength: sea.seaSurfBoreLength, surfRunup: sea.seaSurfRunup, surfSpeed: sea.seaSurfSpeed, surfPeriod: sea.seaSurfPeriod, surfSets: sea.seaSurfSets, surfFreeze: sea.seaSurfFreeze, surfPhase: sea.seaSurfPhase, swashFilm: sea.seaSwashFilm,
     surfSmooth: sea.seaSurfSmooth, surfFoamVariety: sea.seaSurfFoamVariety, surfStreaks: sea.seaSurfStreaks, surfMeander: sea.seaSurfMeander,
     sprayAmount: sea.seaSprayAmount, spraySize: sea.seaSpraySize, sprayStreak: sea.seaSprayStreak, sprayCurtain: sea.seaSprayCurtain, sprayLife: sea.seaSprayLife, sprayDensity: sea.seaSprayDensity, spraySpread: sea.seaSpraySpread,

@@ -116,6 +116,7 @@ export const volumeFragment = /* glsl */`
   uniform float uRainInView;
   uniform float uFineStep;
   uniform float uMoonGate;
+  uniform vec3 uEnvironmentTint;
 
   ${cloudDensityGLSL}
   ${cloudAtmosphereGLSL}
@@ -180,7 +181,11 @@ export const volumeFragment = /* glsl */`
   }
 
   void main() {
+    vec3 gain = vec3(uRadianceGain);
     #ifdef CLOUD_SKY_ATLAS
+      // The atlas is the sky the sea reflects and the image light is baked
+      // from: the environment tone belongs here, not on the sky in view.
+      gain *= uEnvironmentTint;
       float azimuth = (vUv.x-.5)*6.28318530718;
       float elevation = (vUv.y-.5)*3.14159265359;
       vec3 ray = vec3(cos(azimuth)*cos(elevation),sin(elevation),sin(azimuth)*cos(elevation));
@@ -231,7 +236,7 @@ export const volumeFragment = /* glsl */`
     }
 
     if (!hitSlab) {
-      gl_FragColor = vec4((radiance + sky * transmittance) * uRadianceGain, 1.0);
+      gl_FragColor = vec4((radiance + sky * transmittance) * gain, 1.0);
       return;
     }
 
@@ -290,7 +295,7 @@ export const volumeFragment = /* glsl */`
     radiance += uSunColor * max(uDay, uMoonGate) * halo * 0.8 * (1.0 - uStorm * 0.7);
     float distanceHaze = 1.0 - exp(-(farT - nearT) * max(uHaze, 0.0) * 0.000025);
     radiance = mix(radiance, uHazeColor * (1.0 - transmittance), distanceHaze);
-    gl_FragColor = vec4((radiance + sky * transmittance) * uRadianceGain, 1.0);
+    gl_FragColor = vec4((radiance + sky * transmittance) * gain, 1.0);
   }
 `;
 

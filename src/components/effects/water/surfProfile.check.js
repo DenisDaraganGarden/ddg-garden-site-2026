@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { SURF_BORE_HEIGHT_FRACTION, SURF_SHAPE, foamBoreDeposit, surfBoreHeightRatio, surfFoamBore, surfFoamBoreFrameQ, surfFrozenTravel as frozenTravelOf, surfProfileParams as paramsOf, surfProfilePoint as pointOf, surfJetDown, surfPeelSpan, surfPeelTravelOffset, surfPlungeTime, surfRearingLength, surfShape, surfSheetThickness } from './surfProfile.js';
+import { SURF_BORE_HEIGHT_FRACTION, SURF_SHAPE, foamBoreDeposit, surfBoreHeightRatio, surfFoamBore, surfFoamBoreFrameQ, surfFrozenTravel as frozenTravelOf, surfProfileParams as paramsOf, surfProfilePoint as pointOf, surfJetDown, surfPeelSpan, surfPeelTravelOffset, surfPlungeTime, surfProfileShader, surfRearingLength, surfShape, surfSheetThickness } from './surfProfile.js';
 
 // The shoaling shape must reproduce the reference figures (Bosboom & Stive,
 // Azov surf sheet): crest phase θp ≈ 0.17662 and range ≈ 2.12365.
@@ -26,6 +26,23 @@ assert.equal(surfPeelSpan(azov), 17.15, 'peel span is the local rear-up plus bor
 assert.ok(Math.abs(surfPeelTravelOffset(1, azov) + 1.029) < 1e-9, 'default end-to-end peel is 1.029 m, not 45.6 m');
 assert.equal(surfPeelTravelOffset(0, azov), 0);
 assert.ok(surfPeelTravelOffset(1, { ...azov, surfPeel: 0.6 }) >= -surfPeelSpan(azov), 'the UI maximum cannot exceed one local event');
+// The break length acts over the slider's whole range, 4..40 m. At its default
+// 16 m the rear-up is the third of the width the old cap gave (which left the
+// range doing nothing); every metre either side changes it, and the frozen
+// inspection still starts before the face begins to rear.
+for (const surfWidth of [3, 4, 9, 17.5, 40]) {
+  const third = Math.max(0.75, surfWidth * 0.35);
+  assert.equal(surfRearingLength({ surfWidth, surfBreakLength: 16 }), third, `the default break length keeps the rear-up at width ${surfWidth}`);
+  for (let length = 5; length <= 40; length += 1) {
+    const rear = surfRearingLength({ surfWidth, surfBreakLength: length });
+    assert.ok(rear > surfRearingLength({ surfWidth, surfBreakLength: length - 1 }), `break length ${length} m acts at width ${surfWidth}`);
+    assert.ok(rear <= length + 3, `the frozen phase 0 (dn = -${length} - 3) is still unreared at width ${surfWidth}`);
+  }
+  const P = (surfBreakLength) => paramsOf({ surfWidth, surfBreakLength, surfLean: 0.29, surfJet: 1.9, surfLift: 0.25, surfSheet: 0.16, surfBoreLength: 14, surfSpeed: 4.5 });
+  const crestAt = (surfBreakLength) => pointOf(0.29, -0.9 * third, 1, P(surfBreakLength)).x;
+  assert.notEqual(crestAt(4), crestAt(40), `the face stands differently for a short and a long break at width ${surfWidth}`);
+}
+assert.ok(surfProfileShader.includes('float rearLength = max(0.75, uWidth * 0.35) * uSteepen / 16.0;'), 'the GLSL rear-up is its CPU twin');
 for (const settings of [{}, { surfWidth: NaN, surfBreakLength: Infinity, surfBoreLength: -2, surfPeel: NaN }, { surfWidth: 3, surfBreakLength: 4, surfBoreLength: 3, surfPeel: 0.6 }]) {
   assert.ok(Number.isFinite(surfRearingLength(settings)) && surfRearingLength(settings) >= 0, 'rearing length stays finite');
   assert.ok(Number.isFinite(surfPeelSpan(settings)) && surfPeelSpan(settings) >= 1, 'peel span stays finite');
@@ -119,4 +136,4 @@ for (const settings of [
   }
 }
 
-console.log(`surfProfile: θp ${SURF_SHAPE.thetaPeak.toFixed(5)}, range ${SURF_SHAPE.range.toFixed(5)}, 1.1 m lip lands in ${fall.toFixed(2)} s; peel span ${surfPeelSpan(azov).toFixed(2)} m`);
+console.log(`surfProfile: θp ${SURF_SHAPE.thetaPeak.toFixed(5)}, range ${SURF_SHAPE.range.toFixed(5)}, 1.1 m lip lands in ${fall.toFixed(2)} s; peel span ${surfPeelSpan(azov).toFixed(2)} m; a 9 m breaker rears over ${surfRearingLength({ ...azov, surfBreakLength: 4 }).toFixed(2)}..${surfRearingLength({ ...azov, surfBreakLength: 40 }).toFixed(2)} m across the break length's 4..40 m`);

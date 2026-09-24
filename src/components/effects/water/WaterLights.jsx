@@ -102,7 +102,7 @@ export default function WaterLights({ settings, mode, qualityProfile, lighting, 
   // lights:true recompile. Read every frame: the map is null until the first
   // shadow render and is recreated when its size changes.
   useFrame(({camera,gl},delta) => {
-    if ((settings.envMode ?? 'sky') === 'sky') {
+    if (!lighting.environment.hdri) {
       const cloudEnvironment = cloudShadowRef.current?.enabled && cloudShadowRef.current.environment;
       scene.environment = cloudEnvironment || sky.environment;
       scene.environmentIntensity = cloudEnvironment ? 1 : lighting.sky.skyLevel;
@@ -186,9 +186,10 @@ export default function WaterLights({ settings, mode, qualityProfile, lighting, 
     reflectionDataRef.current.keyDirectShare = sky?.directShare ?? 0;
   }, -4);
 
-  const envMode = settings.envMode ?? 'sky';
-  const useHdri = envMode === 'hdri' || envMode === 'sky+hdri';
-  const showHdriBackground = useHdri && Boolean(settings.showHdriBackground);
+  const useHdri = lighting.environment.hdri;
+  const showHdriBackground = lighting.environment.hdriBackdrop;
+  // The light and the backdrop are one panorama and turn together.
+  const hdriRotation = [0, lighting.environment.rotationRadians, 0];
   // Under a storm the photographed environment is the only fill that does not
   // darken by itself, so it takes the same dimming the painterly sky applies.
   const hdriEnvironmentIntensity = (settings.hdriIntensity ?? 1)
@@ -234,6 +235,7 @@ export default function WaterLights({ settings, mode, qualityProfile, lighting, 
         <SkyDome
           sky={{
             texture: showHdriBackground ? null : sky.texture,
+            tableTint: sky.tableTint,
             keyDirection: lighting.sky.keyDirection,
             keyRadiance: settings.lightDiscEnabled === false
               ? [0, 0, 0]
@@ -260,7 +262,8 @@ export default function WaterLights({ settings, mode, qualityProfile, lighting, 
           background={showHdriBackground}
           backgroundIntensity={settings.hdriIntensity ?? 1}
           environmentIntensity={hdriEnvironmentIntensity}
-          environmentRotation={[0, THREE.MathUtils.degToRad(settings.hdrRotation), 0]}
+          environmentRotation={hdriRotation}
+          backgroundRotation={hdriRotation}
         />
       ) : sky.environment ? (
         <Environment

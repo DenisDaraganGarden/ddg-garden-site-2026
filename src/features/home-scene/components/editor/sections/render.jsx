@@ -8,12 +8,12 @@ import {
 } from '../../HomeEditorControls';
 import { formatFloat } from '../editorShared';
 import {
-    HOME_SCENE_CAMERA_FOV_MAX,
-    HOME_SCENE_CAMERA_FOV_MIN,
     HOME_SCENE_DEBUG_VIEWS,
     HOME_SCENE_FILM_STOCKS,
 } from '../../../hooks/useHomeSceneSettings';
 import {
+    HOME_SCENE_CAMERA_FOV_MAX,
+    HOME_SCENE_CAMERA_FOV_MIN,
     resolveLayout,
     resolveLayoutFrameInset,
 } from '../../../lib/layout';

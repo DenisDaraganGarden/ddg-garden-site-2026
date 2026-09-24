@@ -3,6 +3,42 @@ import { rcasShaderChunk } from './spatialUpscale.js';
 import { DDG_CLOUD_SHADOW_GLSL, DDG_RAIN_GLSL } from './sky/painterly/cloudShadowRuntime.js';
 export const FILM_NOISE_TEXTURE_SIZE = 512;
 
+const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+
+// Blur steps (texels) of the bloom's tent passes for «Радиус свечения» 0-1.
+// A nine-tap tent stays a tent only while its taps touch: about a texel on the
+// first pass, then the spread of the passes before it. Stretching one pass
+// past that turns the glow into a lattice, which is why the old formula was
+// capped (at ~13%). So the width grows by filling passes up to those steps in
+// turn; a pass starts from a zero step, an exact copy, so it fades in.
+// The spread (sum of squared steps) runs from the old minimum at 0 to exactly
+// the old steps at 58%, which every default scene shows, and on to about twice
+// that width at 100%: the same factor for each step of radius squared.
+const BLOOM_STEP_LIMITS = [1.05, 2, 3, 4];
+export function bloomBlurSteps(radius, lowPower = false) {
+  const floors = lowPower ? [0.8] : [0.8, 1.4];
+  const at58 = lowPower ? [1.05] : [1.05, 2];
+  const spread = (steps) => steps.reduce((sum, step) => sum + step * step, 0);
+  const t = clamp(Number(radius) || 0, 0, 1) / 0.58;
+  let rest = spread(floors) * (spread(at58) / spread(floors)) ** (t * t) - spread(floors);
+  return BLOOM_STEP_LIMITS.map((limit, index) => {
+    const floor = floors[index] ?? 0;
+    const add = clamp(rest, 0, limit * limit - floor * floor);
+    rest -= add;
+    return Math.sqrt(floor * floor + add);
+  }).filter((step) => step > 0.001);
+}
+
+// Where the sun's rays start to fade, as a share of their reach, for
+// «Затухание лучей» (0.72-0.995). The rays are normalised by their own source,
+// so the per-step decay cancels out; this is what the slider now moves. 0.93
+// keeps the 68% the rays have always had, lower draws the fade in to the disc,
+// higher holds them at full strength almost to the end of their reach.
+export function sunRayFadeStart(decay) {
+  const d = clamp(Number.isFinite(decay) ? decay : 0.93, 0.72, 0.995);
+  return d <= 0.93 ? 0.68 * (d - 0.72) / 0.21 : 0.68 + 0.27 * (d - 0.93) / 0.065;
+}
+
 export const postVertexShader = `
   varying vec2 vUv;
 
@@ -148,6 +184,7 @@ export const postFragmentShader = `
   uniform float uSunRaysEnabled;
   uniform float uSunRaysIntensity;
   uniform float uSunRaysDecay;
+  uniform float uSunRaysFadeStart;
   uniform float uSunRaysDensity;
   uniform float uSunRaySampleCount;
   uniform float uSunRadius;
@@ -157,6 +194,9 @@ export const postFragmentShader = `
   uniform float uFogMode;
   uniform vec3 uFogColor;
   uniform vec3 uFogHorizonColor;
+  uniform sampler2D uFogSkyTexture;
+  uniform vec3 uFogSkyGain;
+  uniform float uFogSkyActive;
   uniform float uFogSkyTint;
   uniform float uFogDensity;
   uniform float uFogNear;
@@ -202,6 +242,20 @@ export const postFragmentShader = `
 
   vec3 ddgPostWorldRay(vec2 uv) {
     return normalize(mat3(uCameraWorld) * ddgPostViewRay(uv));
+  }
+
+  // The horizon of the sky actually on screen, above this pixel: the table the
+  // dome draws or the painterly atlas, in the frame's own units. With no
+  // painted sky in view (a panorama backdrop, the sky switched off) it is the
+  // «HDRI пресет» palette's horizon, as before.
+  vec3 fogSkyHorizon(vec2 uv) {
+    if (uFogSkyActive < 0.5) return uFogHorizonColor;
+    vec2 across = ddgPostWorldRay(uv).xz;
+    // Straight up or down has no azimuth; any horizon will do there.
+    if (dot(across, across) < 1e-8) across = vec2(1.0, 0.0);
+    // Two degrees up: the lower half of both tables is the ground.
+    vec2 skyUv = vec2(atan(across.y, across.x) * 0.15915494 + 0.5, 0.5111);
+    return texture2D(uFogSkyTexture, skyUv).rgb * uFogSkyGain;
   }
 
   // getViewDistance is a camera-space Z distance. Convert it to distance along
@@ -353,7 +407,7 @@ export const postFragmentShader = `
     float distanceToSun = length(rayVector * aspectScale);
     float density = clamp(uSunRaysDensity / 1.5, 0.0, 1.0);
     float reach = mix(max(uSunRadius * 7.0, 0.08), 1.25, density);
-    float reachMask = 1.0 - smoothstep(reach * 0.68, reach, distanceToSun);
+    float reachMask = 1.0 - smoothstep(reach * uSunRaysFadeStart, reach, distanceToSun);
     float screenMask = smoothstep(0.0, 0.08, sunUv.x)
       * (1.0 - smoothstep(0.92, 1.0, sunUv.x))
       * smoothstep(0.0, 0.08, sunUv.y)
@@ -645,7 +699,8 @@ export const postFragmentShader = `
       // the slider was discontinuous at zero: with fog on, turning the rays off
       // still left them at full strength inside the fog.
       // The horizon's own colour, so a veil over the far water meets the sky.
-      vec3 scatteredFog = mix(uFogColor, uFogHorizonColor, uFogSkyTint)
+      vec3 fogSky = uFogSkyTint > 0.0 ? fogSkyHorizon(filmUv) : uFogColor;
+      vec3 scatteredFog = mix(uFogColor, fogSky, uFogSkyTint)
         + uSunColor * (rays * 0.82 + sunHalo * 0.12)
           * uFogScattering * clamp(uSunRaysIntensity, 0.0, 2.0);
       // The fog pass runs after all PBR lighting. Without a local allowance it

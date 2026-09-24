@@ -383,18 +383,6 @@ export const seabedFragmentShader = `
 
     float depthValue = clamp((-vSeabedWorldPosition.y) / max(uWaterDepth + 1.5, 0.01), 0.0, 1.0);
 
-    if (uDebugView == 3) {
-      csm_DiffuseColor = vec4(vec3(caustics), 1.0);
-      csm_UnlitFac = 1.0;
-      return;
-    }
-
-    if (uDebugView == 4) {
-      csm_DiffuseColor = vec4(vec3(depthValue, depthValue * 0.6, 1.0 - depthValue), 1.0);
-      csm_UnlitFac = 1.0;
-      return;
-    }
-
     vec2 seabedUv = vUv * uSeabedTextureScale;
     vec3 primaryTexture = texture2D(uSeabedTexture, seabedUv).rgb;
     mat2 detailRotation = mat2(0.819, -0.574, 0.574, 0.819);
@@ -475,5 +463,14 @@ export const seabedFragmentShader = `
       csm_Roughness = clamp(0.78 - caustics * 0.18, 0.45, 0.95);
     }
     csm_Metalness = 0.02;
+    // The bed's debug views, unlit, written over the picture rather than
+    // returned early: CSM inlines this body into three's main, and a return
+    // here skipped the logarithmic depth write after it, so the plane took
+    // the nearest depth and blacked out the whole frame.
+    if (uDebugView == 3 || uDebugView == 4) {
+      csm_DiffuseColor = uDebugView == 3 ? vec4(vec3(caustics), 1.0) : vec4(depthValue, depthValue * 0.6, 1.0 - depthValue, 1.0);
+      csm_Emissive = vec3(0.0);
+      csm_UnlitFac = 1.0;
+    }
   }
 `;

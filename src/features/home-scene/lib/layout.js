@@ -30,6 +30,10 @@ export const LAYOUT_REFERENCE_ASPECTS = Object.freeze({
   portrait: LAYOUT_FRAME_ASPECTS.portrait / LAYOUT_VISIBLE_HEIGHT_RATIOS.portrait,
 });
 export const LAYOUT_PORTRAIT_MAX_ASPECT = 1;
+// The field of view a camera format keeps. One bound for the inspector's
+// slider and for every saved camera, so a lens the slider allows survives a reload.
+export const HOME_SCENE_CAMERA_FOV_MIN = 1;
+export const HOME_SCENE_CAMERA_FOV_MAX = 100;
 
 export function isTouchPrimaryViewport() {
   return typeof window !== 'undefined'

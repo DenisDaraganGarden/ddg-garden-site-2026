@@ -1,6 +1,7 @@
 // Run: node src/placed/settings.check.js
 import assert from 'node:assert/strict';
 import { createPlacedObject, normalizePlacedObject, normalizePlacedSettings, PLACED_LIMITS } from './settings.js';
+import { makeRockGeometry } from '../terrain/terrainRocks.js';
 
 // A tree keeps its species, its own knobs and its place; junk is clamped.
 {
@@ -19,6 +20,16 @@ import { createPlacedObject, normalizePlacedObject, normalizePlacedSettings, PLA
 assert.equal(normalizePlacedObject({ kind: 'boat' }), null);
 assert.equal(normalizePlacedObject({ kind: 'tree', species: 'baobab' }).species, 'elm');
 assert.equal(normalizePlacedObject({ kind: 'rock', variant: 9 }).variant, 5);
+
+// A rock's «Вариант» is another stone of its «Форма» (PlacedObjects.jsx passes
+// seed − default as the take): take 0 is the coast's own rock of the form, so a
+// rock at the default seed looks as before; another take is a new stone of the same type.
+{
+    const shape = (options) => makeRockGeometry({ detail: 2, ...options }).attributes.position.array.join();
+    assert.equal(shape({ variant: 2, take: 0 }), shape({ variant: 2 }), 'the default seed keeps the coast rock');
+    assert.notEqual(shape({ variant: 2, take: 1 }), shape({ variant: 2 }), 'another seed, another stone');
+    assert.notEqual(shape({ variant: 2, take: 1 }), shape({ variant: 3, take: 1 }), 'forms stay apart');
+}
 
 // The list is bounded and ids stay unique.
 {

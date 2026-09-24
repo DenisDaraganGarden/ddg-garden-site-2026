@@ -174,14 +174,17 @@ export function createCloudShadowUniforms() {
   };
 }
 
-export function updateCloudShadowUniforms(uniforms, descriptor) {
-  const active = Boolean(descriptor?.enabled && descriptor?.texture && Number(descriptor?.strength) > 0);
+// Receivers take the authored shadow strength. The post pass passes 1: its
+// shafts, rain and sun-behind-a-cloud belong to the clouds themselves, not to
+// how dark their shadow is painted on land and water.
+export function updateCloudShadowUniforms(uniforms, descriptor, strength = descriptor?.strength) {
+  const active = Boolean(descriptor?.enabled && descriptor?.texture && Number(strength) > 0);
   uniforms.uDdgCloudShadowTexture.value = descriptor?.texture ?? EMPTY_WHITE;
   uniforms.uDdgCloudShadowOrigin.value.copy(descriptor?.origin ?? DEFAULT_ORIGIN);
   uniforms.uDdgCloudShadowExtent.value = Math.max(Number(descriptor?.extent) || 24000, 1);
   uniforms.uDdgCloudShadowSun.value.copy(descriptor?.sun ?? DEFAULT_SUN).normalize();
   uniforms.uDdgCloudShadowAltitude.value = Math.max(Number(descriptor?.altitude) || 2600, 0);
-  uniforms.uDdgCloudShadowStrength.value = THREE.MathUtils.clamp(Number(descriptor?.strength) || 0, 0, 1);
+  uniforms.uDdgCloudShadowStrength.value = THREE.MathUtils.clamp(Number(strength) || 0, 0, 1);
   uniforms.uDdgCloudShadowEnabled.value = active ? 1 : 0;
   uniforms.uDdgFlash.value = descriptor?.enabled ? THREE.MathUtils.clamp(Number(descriptor?.flash) || 0, 0, 1) : 0;
   uniforms.uDdgFlashPosition.value.copy(descriptor?.flashPosition ?? DEFAULT_FLASH_POSITION);

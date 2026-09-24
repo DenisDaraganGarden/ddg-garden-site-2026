@@ -346,6 +346,12 @@ const sheetFragmentShader = /* glsl */`
     // world-XZ pattern would be extruded up the wall; on the swash it is glass.
     float film = sampleSwashFilm(vWorld.xz);
     n = waterRippleNormal(n, vWorld.xz, pixel, max(vSea.z, 0.45) * mix(1.0, smoothstep(0.3, 0.8, n.y), rim) * (1.0 - film), rippleWet);
+    vec3 debugColor;
+    if (waterDebugView(vWorld, n, debugColor)) {
+      gl_FragColor = vec4(debugColor, alpha);
+      #include <colorspace_fragment>
+      return;
+    }
     // Two foams. The profile's own rides with the wave, in the crest-and-arc
     // frame; what the field remembers and the whitecaps lie still on the
     // water, in the world's flow frame, so their lace runs on across the seam
@@ -382,6 +388,8 @@ const sheetFragmentShader = /* glsl */`
     // inside; on sand, the film's own depth as the swash has it.
     float lift = clamp(vSeaLift.x * 1.5, 0.0, 1.0) * (1.0 - vSeaLift.y * 0.5) * (1.0 - rim);
     float thickness = min(mix(10.0, vThickness, rim), mix(10.0, max(column, 0.004), smoothstep(-0.02, 0.02, ground)));
+    // The breaker is the same water: the same summer bloom (terrainBloom).
+    if (uCoastGeology.w * uCoastShape.x > 0.0) waterBloom = coastBloom(coastLocal(vWorld.xz), uTime, column);
     vec3 color = shadeWater(vWorld, n, view, pixel, vFoamUv, own, 0.0, thickness, lift, bed) * clamp(vShade, 0.0, 1.0);
     gl_FragColor = vec4(color, alpha);
     #include <fog_fragment>

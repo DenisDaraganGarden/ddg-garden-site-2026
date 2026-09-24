@@ -5,6 +5,8 @@
 // rows thin out: the half-metre columns across the beach stay, so two chunks
 // share their border row vertex for vertex and never crack, whatever their
 // levels. The band was one even grid, 134 thousand triangles on testy's crest.
+// The half metre and the metre are the default water mesh density's; the
+// density slider scales both (ShoreWater, shoreChunkRows).
 
 export const SHORE_CHUNK = 32;
 export const SHORE_ROW_STEPS = Object.freeze([1, 2, 4, 8]);
@@ -29,8 +31,10 @@ export function shoreRowLevel(cell, previous = null) {
 }
 
 // Row intervals for a chunk this long at this level: its first and last rows
-// sit on its ends, so neighbours meet on the same row.
-export const shoreChunkRows = (length, level) => Math.max(1, Math.round(length / SHORE_ROW_STEPS[level]));
+// sit on its ends, so neighbours meet on the same row. density: the water
+// mesh density factor (seaSettings.js waterMeshDensityFactor), which divides
+// every step; the level is then chosen for the cell times the same factor.
+export const shoreChunkRows = (length, level, density = 1) => Math.max(1, Math.round(length * density / SHORE_ROW_STEPS[level]));
 
 // Horizontal distance (m) from a point to a chunk, in the coast's own frame:
 // along-shore s and across-shore q of the point against the chunk's span.

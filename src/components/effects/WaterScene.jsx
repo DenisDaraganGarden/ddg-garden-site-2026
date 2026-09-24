@@ -167,6 +167,20 @@ function DebugWireframe({ enabled }) {
   return null;
 }
 
+// The editor's «Посмотреть кадр сайта» is on while FocusEditor marks the page
+// (data-focus-preview); the scene follows the mark rather than a prop, since
+// the preview lives in the editor's shell, not in the scene's settings.
+function useSitePreview() {
+  const [on, setOn] = useState(() => typeof document !== 'undefined' && document.documentElement.dataset.focusPreview === 'true');
+  useEffect(() => {
+    const root = document.documentElement;
+    const observer = new MutationObserver(() => setOn(root.dataset.focusPreview === 'true'));
+    observer.observe(root, { attributes: true, attributeFilter: ['data-focus-preview'] });
+    return () => observer.disconnect();
+  }, []);
+  return on;
+}
+
 function SceneReadyBeacon({ onSceneReady, waiting }) {
   const { active } = useProgress();
   const didNotifyRef = useRef(false);
@@ -229,12 +243,14 @@ function WaterRuntimeScene({
     () => buildRuntimeQualityProfile(mode, size.width, renderTargetCapabilities),
     [mode, renderTargetCapabilities, size.width],
   );
+  const sitePreview = useSitePreview();
   const postEnabled = baseQualityProfile.postProcessingSupported !== false
     && baseQualityProfile.postDepthStencilEnabled !== false
     && settings.postProcessingEnabled
     // В редакторе постобработка по умолчанию выключена: открывать редактор и
     // видеть готовый кадр мешает работе. Значение сцены при этом не меняется.
-    && (mode !== 'editor' || Boolean(settings.editorPostProcessing))
+    // «Посмотреть кадр сайта» показывает готовый кадр всегда.
+    && (mode !== 'editor' || Boolean(settings.editorPostProcessing) || sitePreview)
     && settings.debugView === 'beauty';
   const qualityProfile = useRenderBudget({
     baseProfile: baseQualityProfile,
@@ -279,7 +295,7 @@ function WaterRuntimeScene({
   const lighting = useMemo(() => buildHomeSceneLighting(settings), [settings]);
   const cloudSettingsKey = JSON.stringify(Object.fromEntries(Object.entries(settings).filter(([key]) => key.startsWith('painterlyCloud'))));
   const cloudSettings = useMemo(() => resolvePainterlyCloudSettings(JSON.parse(cloudSettingsKey), qualityProfile), [cloudSettingsKey, qualityProfile]);
-  const cloudLightingKey = JSON.stringify({ sky: lighting.sky, key: lighting.key, environment: { exposure: lighting.environment.exposure } });
+  const cloudLightingKey = JSON.stringify({ sky: lighting.sky, key: lighting.key, environment: { exposure: lighting.environment.exposure, tint: lighting.environment.tint } });
   const cloudLighting = useMemo(() => JSON.parse(cloudLightingKey), [cloudLightingKey]);
   // One sky, built once, handed to everything that has to agree about it: the
   // visible dome, the water that reflects it, and (from Phase 2) the image-based
@@ -301,6 +317,7 @@ function WaterRuntimeScene({
       : qualityProfile.isMobileDevice
         ? 512
         : (qualityProfile.qualityTier === QUALITY_TIER.medium ? 512 : 1024),
+    tint: lighting.environment.tint,
   });
   const seaSettings = useMemo(() => resolveSeaSettings(settings), [settings]);
   const effectiveSeaSettings = useMemo(
@@ -475,10 +492,10 @@ function WaterRuntimeScene({
         lighting={cloudLighting}
         onShadow={publishCloudRuntime}
         product
-        environmentEnabled={(settings.envMode ?? 'sky') === 'sky'}
+        environmentEnabled={!lighting.environment.hdri}
         sunPower={(settings.sunIntensity ?? 1.4) / 1.4}
         discVisible={settings.lightDiscEnabled !== false}
-        visible={settings.skyVisible !== false && !((settings.envMode === 'hdri' || settings.envMode === 'sky+hdri') && settings.showHdriBackground)}
+        visible={settings.skyVisible !== false && !lighting.environment.hdriBackdrop}
         onStrike={(clap) => audioRuntime?.playThunder?.({ gain: clap.gain })}
       />}
       <CloudShadowReceivers />
@@ -655,7 +672,7 @@ function WaterRuntimeScene({
             && !qualityProfile.isTouchPrimary}
         />
       </WaterReflections>
-      <ScenePostProcessing settings={settings} qualityProfile={qualityProfile} lighting={lighting} />
+      <ScenePostProcessing settings={settings} qualityProfile={qualityProfile} lighting={lighting} sky={sky} enabled={postEnabled} />
       {/* The editor's cameras can dive; the site's authored ones stay above the water. */}
       {mode === 'editor' && settings.waterVisible && settings.debugView === 'beauty' ? (
         <UnderwaterView

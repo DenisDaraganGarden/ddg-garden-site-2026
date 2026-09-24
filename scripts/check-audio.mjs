@@ -11,8 +11,10 @@ import {
   SoundscapeEngine,
   soundscapeEngineInternals,
 } from '../src/features/audio/engine/SoundscapeEngine.js';
+import { SOUNDSCAPE_ASSETS } from '../src/features/audio/data/soundscapeManifest.js';
 import { publishedHomeSceneSettings } from '../src/features/home-scene/data/publishedHomeSceneSettings.js';
 import { publishedHomeSceneKeys } from '../src/features/home-scene/data/publishedHomeSceneKeys.js';
+import { SCENE_CAMERA_SNAPSHOT_EXCLUDED_KEYS } from '../src/features/home-scene/lib/sceneCameras.js';
 
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -40,13 +42,8 @@ assert.ok(
   'published audio must use one of the supported audible composition modes',
 );
 assert.ok(publishedHomeSceneSettings.audio.tracks.water, 'published soundscape must include tracks');
-const homeSettingsSource = await fs.readFile(
-  path.join(rootDir, 'src', 'features', 'home-scene', 'hooks', 'useHomeSceneSettings.js'),
-  'utf8',
-);
-assert.match(
-  homeSettingsSource,
-  /key !== 'sceneCameras' && key !== 'slideshow' && key !== 'audio'/,
+assert.ok(
+  SCENE_CAMERA_SNAPSHOT_EXCLUDED_KEYS.includes('audio'),
   'camera snapshots must exclude audio so cuts cannot reset transports',
 );
 
@@ -83,6 +80,40 @@ assert.equal(
   1,
   'camera fade-in must restore spatial focus without restarting tracks',
 );
+
+// «Предел слышимости» is a real limit (audibleShare): the panner's inverse level
+// is kept near the source, the sound fades out on the way to maxDistance and is
+// silent from there on, whatever the browser does with maxDistance itself.
+const { audibleShare } = soundscapeEngineInternals;
+assert.equal(audibleShare(3, 5, 80), 1, 'inside the reference distance the level is full');
+assert.ok(audibleShare(5 + 75 * 0.5, 5, 80) > 0.99, 'half way to the limit the level is as it was');
+assert.equal(audibleShare(80, 5, 80), 0, 'silent at the limit');
+assert.equal(audibleShare(400, 5, 80), 0, 'and beyond it');
+for (let d = 5, previous = 1; d <= 80; d += 0.5) {
+  const share = audibleShare(d, 5, 80);
+  assert.ok(share >= 0 && share <= previous, 'the level only falls with distance');
+  previous = share;
+}
+assert.equal(audibleShare(81, 80, 80), 0, 'a limit inside the reference distance still silences');
+
+// The limit follows the listener and the source: a fake context whose params
+// take their target at once, a shore track, a camera walking away and back.
+const param = (value = 1) => ({ value, setTargetAtTime(next) { this.value = next; }, setValueAtTime(next) { this.value = next; }, linearRampToValueAtTime(next) { this.value = next; }, cancelAndHoldAtTime() {} });
+const fakeNode = () => new Proxy({ connect: (next) => next, disconnect() {} }, { get: (node, key) => (key in node ? node[key] : (node[key] = param())) });
+const fakeContext = new Proxy({ currentTime: 0, destination: fakeNode(), listener: fakeNode() }, { get: (context, key) => (key in context ? context[key] : () => fakeNode()) });
+const limitEngine = new SoundscapeEngine({ contextFactory: () => fakeContext });
+limitEngine.ensureContext();
+limitEngine.unlocked = true;
+const shore = limitEngine.createTrack(SOUNDSCAPE_ASSETS.shore, null);
+limitEngine.tracks.set('shore', shore);
+const { x: shoreX, y: shoreY, z: shoreZ } = DEFAULT_SOUNDSCAPE_SETTINGS.emitters.shore;
+const listenAt = (x) => limitEngine.updateListener({ x, y: shoreY, z: shoreZ }, { x: 0, y: 0, z: -1 }, { x: 0, y: 1, z: 0 });
+listenAt(shoreX + 30);
+assert.ok(shore.limit.gain.value > 0.99, 'a camera 30 m from the shore hears it as before');
+listenAt(shoreX + 80);
+assert.equal(shore.limit.gain.value, 0, 'at the shore\'s 80 m limit it is silent');
+limitEngine.updateEmitter('shore', shoreX + 60, shoreY, shoreZ);
+assert.ok(shore.limit.gain.value > 0.99, 'the source coming closer brings it back');
 
 const expectedAssets = [
   'calm-ocean-waves.cc0.hq.mp3',

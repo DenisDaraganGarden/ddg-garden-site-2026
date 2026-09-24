@@ -88,4 +88,38 @@ assert.ok(shore.includes('waterUnrefractedScene(vWorld, color)'), 'draining edge
 assert.ok(shore.includes('gl_FragColor = vec4(color, 1.0);') && !shore.includes('\n        transparent'), 'shore retains one opaque pass without sorted water layers');
 assert.ok(terrain.includes('vTerrainWorld.y>opticsWater+.08&&!swashBed'), 'refraction includes the bed of the new swash instead of clipping it by the old analytic wave');
 
-console.log('waterShading: carrier-bound foam, thin swash optics and depth-only water-hue refraction');
+// The scene settings the sea reads through its shading. terrainBloom: a
+// surface that knows the coast sets waterBloom from the terrain's bloom field
+// before shading (the depth from the shore map, never coastHeight), and the
+// bloom only adds to what 0 left; waveChoppiness: both ripples are chopped by
+// one Jacobian, 1 at no chop; debugView: every surface shows its height and
+// normals before any shading, and nothing else of the picture changes.
+const surfaces = {
+  GerstnerWaterSurface: readFileSync(new URL('./GerstnerWaterSurface.jsx', import.meta.url), 'utf8'),
+  ShoreWater: shore,
+  BreakingWaves: readFileSync(new URL('./BreakingWaves.jsx', import.meta.url), 'utf8'),
+};
+assert.ok(source.includes('float waterBloom = 0.0;'), 'the bloom defaults to none');
+assert.ok(refraction.includes('+ waterBloom * vec3(0.05, 0.008, 0.04)) * depthScale;') && refraction.includes('* (1.0 + waterBloom * 1.4);'), 'the bloom eats red and blue and thickens the haze');
+assert.ok(source.includes('body = mix(body, body * vec3(0.64, 1.12, 0.56) + vec3(0.003, 0.008, 0.001), waterBloom * 0.65);'), 'the bloom tints the body as the terrain chunk does');
+assert.ok(source.includes('if (waterBloom > 0.001) {'), 'scum lines only where there is bloom');
+assert.ok(source.includes('return 1.0 / max(1.0 - uRippleChop * clamp(crest, -1.0, 1.0), 0.3);'), 'one chop Jacobian, floored');
+assert.ok(source.includes('* waterRippleChop((h - 0.5) / 0.15);') && source.includes('* waterRippleChop((ripple.a * 2.0 - 1.0) / 0.35);'), 'both ripples are chopped');
+for (const [name, surface] of Object.entries(surfaces)) {
+  assert.ok(/if \(uCoastGeology\.w \* uCoastShape\.x > 0\.0\) waterBloom = coastBloom\(/.test(surface), `${name} feeds the bloom, and only with a coast`);
+  assert.ok(surface.indexOf('waterBloom = coastBloom(') < surface.indexOf('shadeWater('), `${name} sets the bloom before shading`);
+  assert.ok(surface.includes('if (waterDebugView(vWorld, n, debugColor)) {'), `${name} shows the debug views`);
+  assert.ok(surface.indexOf('waterDebugView(vWorld') < surface.indexOf('shadeWater('), `${name} shows the debug views before shading`);
+}
+assert.ok(!/coastHeight\(/.test(surfaces.GerstnerWaterSurface + surfaces.ShoreWater.slice(surfaces.ShoreWater.indexOf('const fragmentShader')) + source), 'no coastHeight in a sea pixel shader');
+// The seabed's own views (caustics, depth) show the pond bed: the opaque sea
+// steps aside for them, and the bed's shader never returns early — CSM inlines
+// it into three's main, where a return skipped the log-depth write and the
+// bed blacked out the frame.
+const seaWater = readFileSync(new URL('./SeaWater.jsx', import.meta.url), 'utf8');
+const bed = readFileSync(new URL('../shaders/waterRuntimeShaders.js', import.meta.url), 'utf8');
+const bedFragment = bed.slice(bed.indexOf('export const seabedFragmentShader'));
+assert.ok(seaWater.includes('const surfacesVisible = (DEBUG_VIEW_IDS[sceneSettings.debugView] ?? 0) < 3;') && seaWater.includes('<group visible={surfacesVisible}>'), 'the sea steps aside for the seabed views');
+assert.ok(!/\breturn\s*;/.test(bedFragment) && bedFragment.includes('if (uDebugView == 3 || uDebugView == 4) {'), 'the bed writes its debug views without returning early');
+
+console.log('waterShading: carrier-bound foam, thin swash optics and depth-only water-hue refraction; bloom, chop and the debug views wired into all three surfaces');

@@ -99,6 +99,12 @@ const fragmentShader = /* glsl */`
     vec3 n = gerstnerSurfaceNormal(vSurface, vFade);
     float rippleWet = uShoreReady > 0.5 ? smoothstep(0.4, 0.8, -ground) : 1.0;
     n = waterRippleNormal(n, vWorld.xz, pixel, max(vFade, 0.45), rippleWet);
+    vec3 debugColor;
+    if (waterDebugView(vWorld, n, debugColor)) {
+      gl_FragColor = vec4(debugColor, 1.0);
+      #include <colorspace_fragment>
+      return;
+    }
 #ifdef WATER_UNDERSIDE
     // The eye is under the water and this is the surface from below.
     gl_FragColor = vec4(waterUnderside(vWorld, n, view), 1.0);
@@ -113,6 +119,8 @@ const fragmentShader = /* glsl */`
     // keeps the lace the same on both sides of the window's edge.
     float age = mix(0.35, memory.y, memory.z);
     float lift = clamp(vWorld.y * 1.5, 0.0, 1.0) * (1.0 - jacobian * 0.5);
+    // The summer bloom (terrainBloom), fed by the weed under this water.
+    if (uCoastGeology.w * uCoastShape.x > 0.0) waterBloom = coastBloom(qs, uTime, max(vWorld.y - ground, 0.0));
     vec3 color = shadeWater(vWorld, n, view, pixel, waterFlowUv(vWorld.xz), coverage, age, 10.0, lift, bed);
     gl_FragColor = vec4(color, 1.0);
 #endif

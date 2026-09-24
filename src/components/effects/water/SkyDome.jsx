@@ -29,6 +29,9 @@ const skyVertexShader = /* glsl */`
 const skyFragmentShader = /* glsl */`
   uniform float uSkyLevel;
   uniform vec3 uLowerSurfaceColor;
+  // The environment tone baked into the table (skyEnvironment.js) is for the
+  // light and the reflection; the sky in view divides it back out.
+  uniform vec3 uTableTint;
   varying vec3 vRay;
 
   ${skyShaderChunk}
@@ -39,7 +42,7 @@ const skyFragmentShader = /* glsl */`
 
   void main() {
     vec3 ray = normalize(vRay);
-    vec3 color = skyRadiance(ray) * uSkyLevel
+    vec3 color = skyRadiance(ray) / uTableTint * uSkyLevel
       + celestialBody(ray, uKeyDirection, uKeyRadiance, uKeyCosRadius, uKeyGlowPower) * (1.0 - uNight)
       + moonBody(ray) + starField(ray);
 
@@ -54,7 +57,7 @@ const skyFragmentShader = /* glsl */`
     if (lowerMask > 0.0) {
       float lowerDepth = smoothstep(0.0, 0.82, -ray.y);
       vec3 horizonRay = normalize(vec3(ray.x, 0.035, ray.z));
-      vec3 horizonColor = skyRadiance(horizonRay) * uSkyLevel;
+      vec3 horizonColor = skyRadiance(horizonRay) / uTableTint * uSkyLevel;
       vec3 lowerBase = max(uLowerSurfaceColor, vec3(0.001))
         * (0.78 + clamp(uSkyLevel, 0.0, 2.0) * 0.08);
       vec3 lowerSurface = mix(
@@ -97,6 +100,7 @@ export default function SkyDome({ sky }) {
     uKeyGlowStrength: { value: 1 },
     uSkyLevel: { value: 1 },
     uLowerSurfaceColor: { value: new THREE.Color('#70716d') },
+    uTableTint: { value: new THREE.Vector3(1, 1, 1) },
     uInverseProjection: { value: new THREE.Matrix4() },
     uInverseView: { value: new THREE.Matrix4() },
     uMoonDirection: { value: new THREE.Vector3(0, -1, 0) },
@@ -131,6 +135,7 @@ export default function SkyDome({ sky }) {
     uniforms.uKeyGlowStrength.value = sky.keyGlowStrength;
     uniforms.uSkyLevel.value = sky.skyLevel;
     uniforms.uLowerSurfaceColor.value.fromArray(sky.lowerSurfaceColor);
+    uniforms.uTableTint.value.fromArray(sky.tableTint ?? [1, 1, 1]);
     uniforms.uMoonDirection.value.fromArray(sky.moonDirection ?? [0, -1, 0]).normalize();
     uniforms.uMoonSunDirection.value.fromArray(sky.sunDirection ?? [0, 1, 0]).normalize();
     uniforms.uMoonRadiance.value.fromArray(sky.moonRadiance ?? [0, 0, 0]);

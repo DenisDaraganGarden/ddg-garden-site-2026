@@ -89,6 +89,14 @@ try {
     assert.deepEqual(createHomeSceneSnapshot(settings), expected, 'work camera restores every field');
   }
 
+  // The widest lens the inspector allows survives a reload, in the camera
+  // and in its snapshot; so does the longest slideshow fade.
+  settings = commit(updateEditorLayout(settings, 'desktop', { cameraFov: 100 }));
+  settings = normalizeHomeSceneDraftSettings(json({ ...settings, slideshow: { enabled: true, fadeSeconds: 30 } }));
+  assert.equal(settings.layouts.desktop.cameraFov, 100, 'a 100° camera keeps its lens after reload');
+  assert.equal(createHomeSceneSnapshot(settings).layouts.desktop.cameraFov, 100);
+  assert.equal(settings.slideshow.fadeSeconds, 30, 'a 30 s slideshow fade survives reload');
+
   for (const kind of ['scene', 'work']) {
     for (const layoutKey of ['desktop', 'portrait']) {
       const pose = { cameraPosition: { x: 11, y: 23, z: 45 }, cameraTarget: { x: -2, y: 3, z: 1 }, cameraFov: 1.25 };

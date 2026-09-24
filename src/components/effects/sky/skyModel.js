@@ -51,6 +51,10 @@ const smoothstep = (edge0, edge1, x) => {
   return t * t * (3 - 2 * t);
 };
 
+// How much haze (Mie scattering) the air carries for a turbidity, as a multiple
+// of betaM. One formula for the key light, the table and the painterly sky.
+export const mieScale = (turbidity) => 0.4 + clamp(finite(turbidity, 2.6), 1, 10) * 0.36;
+
 // Kasten-Young relative air mass. Clamped at -3 deg: past 93.885 deg zenith the
 // fit goes complex, and a sun just under the horizon is exactly the frame worth
 // looking at.
@@ -141,7 +145,7 @@ export function solveKeyLight({
   moonIllumination = 1,
   moonBrightness = 1,
 } = {}) {
-  const betaM = SKY.betaM * (0.4 + clamp(skyTurbidity, 1, 10) * 0.36);
+  const betaM = SKY.betaM * mieScale(skyTurbidity);
   const extinction = (elevationDeg) => {
     const mass = airMass(elevationDeg);
     return SKY.betaR.map((b) => Math.exp(-(b + betaM) * mass));
@@ -204,7 +208,7 @@ export function buildSkyLut(state = {}) {
   const sunVisibility = solveCloudSunVisibility(keyDirection, cloudState);
 
   const betaR = SKY.betaR;
-  const betaM = SKY.betaM * (0.4 + turbidity * 0.36);
+  const betaM = SKY.betaM * mieScale(turbidity);
   const betaT = [betaR[0] + betaM, betaR[1] + betaM, betaR[2] + betaM];
 
   // Two-point fit of the sun's path length at the scattering altitude. A single

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
-import { postVertexShader, postFragmentShader, bloomPrefilterFragmentShader, bloomBlurFragmentShader, FILM_NOISE_TEXTURE_SIZE } from './scenePostShaders';
+import { postVertexShader, postFragmentShader, bloomPrefilterFragmentShader, bloomBlurFragmentShader, FILM_NOISE_TEXTURE_SIZE, bloomBlurSteps, sunRayFadeStart } from './scenePostShaders';
 import { getRenderTargetCapabilities } from './renderTargetCapabilities';
 import { createSpatialUpscaler, getSpatialUpscaleSize, UPSCALE_SCALES } from './spatialUpscale';
 import { captureContactAoDepth, contactAoFragmentShader, contactAoVertexShader, createContactAoTargets } from './contactAO';
@@ -84,7 +84,9 @@ const filmStockIds = Object.freeze({
 });
 const finiteSetting = (value, fallback) => (Number.isFinite(value) ? value : fallback);
 
-export default function ScenePostProcessing({ settings, qualityProfile, lighting }) {
+// `enabled` is WaterScene's postEnabled: the scene's own switch, the beauty
+// view and, in the editor, «Показывать её в редакторе». The site ignores the last.
+export default function ScenePostProcessing({ settings, qualityProfile, lighting, sky, enabled }) {
   const { gl, scene, camera } = useThree();
   const cloudScene = useCloudScene();
   const isLowPower = qualityProfile?.isLowPower === true;
@@ -101,7 +103,7 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
   );
   const postProcessingSupported = qualityProfile?.postProcessingSupported !== false
     && qualityProfile?.postDepthStencilEnabled !== false;
-  const upscaleEnabled = upscaleRequested && postProcessingSupported && settings.postProcessingEnabled && settings.debugView === 'beauty';
+  const upscaleEnabled = upscaleRequested && postProcessingSupported && enabled;
   // Keep the combined mobile/adaptive scale inside FSR 1's 2x spatial range.
   const renderScale = upscaleEnabled
     ? Math.max(0.5, (qualityProfile?.postRenderScale ?? 1) * (UPSCALE_SCALES[settings.upscaleQuality] ?? UPSCALE_SCALES.quality))
@@ -288,6 +290,7 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
     uSunRaysEnabled: { value: 0 },
     uSunRaysIntensity: { value: 0 },
     uSunRaysDecay: { value: 0.93 },
+    uSunRaysFadeStart: { value: 0.68 },
     uSunRaysDensity: { value: 0.72 },
     uSunRaySampleCount: { value: 18 },
     uSunRadius: { value: 0.01 },
@@ -297,6 +300,9 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
     uFogMode: { value: 0 },
     uFogColor: { value: new THREE.Color('#000000') },
     uFogHorizonColor: { value: new THREE.Color('#000000') },
+    uFogSkyTexture: { value: noiseTexture },
+    uFogSkyGain: { value: new THREE.Vector3(1, 1, 1) },
+    uFogSkyActive: { value: 0 },
     uFogSkyTint: { value: 0 },
     uFogDensity: { value: 0 },
     uFogNear: { value: 1 },
@@ -371,6 +377,10 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
     nextScene.add(quad);
     return nextScene;
   }, [bloomPrefilterMaterial]);
+  const bloomSteps = useMemo(
+    () => bloomBlurSteps(settings.bloomRadius, isLowPower),
+    [isLowPower, settings.bloomRadius],
+  );
   const bloomBlurUniforms = useMemo(() => ({
     uBloomTexture: { value: bloomTargets[0].texture },
     uTexelSize: { value: new THREE.Vector2(1, 1) },
@@ -426,6 +436,7 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
     uniforms.uSunRaysEnabled.value = toEnabledFloat(settings.sunRaysEnabled);
     uniforms.uSunRaysIntensity.value = settings.sunRaysIntensity;
     uniforms.uSunRaysDecay.value = settings.sunRaysDecay;
+    uniforms.uSunRaysFadeStart.value = sunRayFadeStart(settings.sunRaysDecay);
     uniforms.uSunRaysDensity.value = settings.sunRaysDensity;
     uniforms.uSunRaySampleCount.value = sunRaySampleCount;
     uniforms.uPainterlyCloudRays.value = finiteSetting(settings.painterlyCloudRays, 0.35);
@@ -482,7 +493,7 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
       : effectiveFxaa ? 'fxaa' : 'off';
     gl.domElement.dataset.ddgContactAo = contactAoEnabled ? 'half-opaque-depth' : 'off';
     gl.domElement.dataset.ddgPostStatus = postProcessingSupported ? 'ready' : 'default-framebuffer';
-    gl.domElement.dataset.ddgBloomPipeline = isLowPower ? 'quarter-tent-1' : 'quarter-tent-2';
+    gl.domElement.dataset.ddgBloomPipeline = `quarter-tent-${bloomSteps.length}`;
     gl.domElement.dataset.ddgSunRays = `sun-occlusion-${sunRaySampleCount}`;
     gl.domElement.dataset.ddgFogSamples = String(fogSampleCount);
     gl.domElement.dataset.ddgCursorFlashlightFog = 'local-relief';
@@ -498,18 +509,18 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
       delete gl.domElement.dataset.ddgFogSamples;
       delete gl.domElement.dataset.ddgCursorFlashlightFog;
     };
-  }, [contactAoEnabled, effectiveFxaa, fogSampleCount, gl, isLowPower, postProcessingSupported, renderTarget.samples, sunRaySampleCount]);
+  }, [bloomSteps.length, contactAoEnabled, effectiveFxaa, fogSampleCount, gl, isLowPower, postProcessingSupported, renderTarget.samples, sunRaySampleCount]);
 
   useEffect(() => {
     const { dataset } = gl.domElement;
-    const enabled = settings.filmEnabled === true;
-    dataset.ddgFilm = enabled ? 'on' : 'off';
-    dataset.ddgFilmStock = enabled && typeof settings.filmStock === 'string'
+    const film = settings.filmEnabled === true;
+    dataset.ddgFilm = film ? 'on' : 'off';
+    dataset.ddgFilmStock = film && typeof settings.filmStock === 'string'
       ? settings.filmStock
       : 'neutral';
     dataset.ddgFilmFlicker = String(finiteSetting(settings.filmFlickerAmount, 0));
     dataset.ddgFilmGateWeave = String(finiteSetting(settings.filmGateWeaveAmount, 0));
-    dataset.ddgPostActive = settings.postProcessingEnabled ? 'on' : 'off';
+    dataset.ddgPostActive = enabled ? 'on' : 'off';
     dataset.ddgBloomActive = settings.bloomEnabled ? 'on' : 'off';
     dataset.ddgFogMode = settings.fogMode;
     return () => {
@@ -522,6 +533,7 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
       delete dataset.ddgFogMode;
     };
   }, [
+    enabled,
     gl,
     settings.bloomEnabled,
     settings.filmEnabled,
@@ -529,15 +541,12 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
     settings.filmGateWeaveAmount,
     settings.filmStock,
     settings.fogMode,
-    settings.postProcessingEnabled,
   ]);
 
   useFrame(({ clock }) => {
-    const enabled = postProcessingSupported
-      && settings.postProcessingEnabled
-      && settings.debugView === 'beauty';
-    if (cloudScene?.current) cloudScene.current.rainInPost = enabled;
-    if (!enabled) {
+    const active = postProcessingSupported && enabled;
+    if (cloudScene?.current) cloudScene.current.rainInPost = active;
+    if (!active) {
       gl.domElement.dataset.ddgUpscale = 'off';
       gl.setRenderTarget(null);
       gl.render(scene, camera);
@@ -639,9 +648,22 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
     uniforms.uCameraProjectionInverse.value.copy(camera.projectionMatrixInverse);
     uniforms.uCameraWorld.value.copy(camera.matrixWorld);
     uniforms.uCameraWorldPosition.value.setFromMatrixPosition(camera.matrixWorld);
-    updateCloudShadowUniforms(cloudShadowUniforms, cloudScene?.current);
+    updateCloudShadowUniforms(cloudShadowUniforms, cloudScene?.current, 1);
     updateRainUniforms(rainUniforms, cloudScene?.current);
     uniforms.uTime.value = clock.elapsedTime;
+
+    // Fog blends toward the horizon of the sky on screen: the painterly atlas
+    // or the dome's table, each with its environment tone divided back out.
+    const atlas = cloudScene?.current?.enabled ? cloudScene.current.skyTexture : null;
+    const fogSky = settings.skyVisible !== false && !lighting.environment.hdriBackdrop
+      ? atlas ?? sky?.texture ?? null
+      : null;
+    uniforms.uFogSkyTexture.value = fogSky ?? noiseTexture;
+    uniforms.uFogSkyActive.value = fogSky ? 1 : 0;
+    if (fogSky) {
+      const [level, tint] = atlas ? [1, lighting.environment.tint] : [lighting.sky.skyLevel, sky.tableTint];
+      uniforms.uFogSkyGain.value.set(level / tint[0], level / tint[1], level / tint[2]);
+    }
 
     const cursorRuntime = getCursorFlashlightRuntime();
     const cursorWorldRuntime = getCursorFlashlightWorldRuntime();
@@ -677,26 +699,18 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
       gl.clear(true, false, false);
       gl.render(bloomPrefilterScene, postCamera);
 
-      bloomBlurUniforms.uBloomTexture.value = bloomTargets[0].texture;
-      // The 9-tap tent only stays a tent while its taps touch. Past an offset of
-      // about one texel the composed pattern opens holes and the "bloom" becomes
-      // a lattice of replicas of the bright pixel. The published radius, 0.09,
-      // is nowhere near the clamp; the engine default of 0.58 is well past it.
-      bloomBlurUniforms.uOffset.value = Math.min(1.05, 0.8 + settings.bloomRadius * 2.7);
-      gl.setRenderTarget(bloomTargets[1]);
-      gl.clear(true, false, false);
-      gl.render(bloomBlurScene, postCamera);
-
-      if (isLowPower) {
-        uniforms.uBloomTexture.value = bloomTargets[1].texture;
-      } else {
-        bloomBlurUniforms.uBloomTexture.value = bloomTargets[1].texture;
-        bloomBlurUniforms.uOffset.value = Math.min(2.0, 1.4 + settings.bloomRadius * 4.6);
-        gl.setRenderTarget(bloomTargets[0]);
+      // Ping-pong through the tent passes the radius asks for (bloomBlurSteps:
+      // why the width comes from more passes rather than longer steps).
+      let [source, target] = bloomTargets;
+      for (const step of bloomSteps) {
+        bloomBlurUniforms.uBloomTexture.value = source.texture;
+        bloomBlurUniforms.uOffset.value = step;
+        gl.setRenderTarget(target);
         gl.clear(true, false, false);
         gl.render(bloomBlurScene, postCamera);
-        uniforms.uBloomTexture.value = bloomTargets[0].texture;
+        [source, target] = [target, source];
       }
+      uniforms.uBloomTexture.value = source.texture;
     }
 
     if (upscaler && upscalePasses && (width < drawingBufferSize.current.x || height < drawingBufferSize.current.y)) {
