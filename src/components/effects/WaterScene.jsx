@@ -87,6 +87,7 @@ import SeagullLandingHabitat from '../../features/home-scene/creatures/SeagullLa
 import HomeFishSchool from '../../features/home-scene/creatures/HomeFishSchool.jsx';
 import Surfboard from '../surfboard/Surfboard.jsx';
 import WalkMode from '../../walk/WalkMode.jsx';
+import WalkStartMarker from '../../walk/WalkStartMarker.jsx';
 import SurfPlayCamera from '../surfboard/SurfPlayCamera.jsx';
 import { createSurfRibbons } from './water/surfRibbons.js';
 import UnderwaterView from './water/UnderwaterView.jsx';
@@ -726,7 +727,7 @@ function WaterRuntimeScene({
         />
       ) : null}
       {mode === 'editor' && walking ? (
-        <WalkMode orbitRef={orbitRef} planeY={settings.planeEnabled ? settings.planeHeight : null} terrain={houseGround} onExit={onWalkExit} />
+        <WalkMode orbitRef={orbitRef} planeY={settings.planeEnabled ? settings.planeHeight : null} terrain={houseGround} start={settings.walkStart} onSetStart={editorGizmo?.planting?.onStart} onExit={onWalkExit} />
       ) : null}
       {mode === 'editor' && editorGizmo?.selection ? (
         <EditorGizmo
@@ -739,7 +740,8 @@ function WaterRuntimeScene({
       ) : null}
       {mode === 'editor' ? <EditorPicker enabled={Boolean(editorGizmo?.picking)} onPick={editorGizmo?.onPick} onContextMenu={editorGizmo?.onContextMenu} /> : null}
       {mode === 'editor' ? <TopiaryBrush enabled={Boolean(editorGizmo?.topiary?.drawing)} settings={settings} orbitRef={orbitRef} onStroke={editorGizmo?.topiary?.onStroke} /> : null}
-      {mode === 'editor' ? <PlantingBrush mode={editorGizmo?.planting?.mode ?? null} groundY={settings.planeHeight ?? 0} orbitRef={orbitRef} onBed={editorGizmo?.planting?.onBed} onBedSurface={editorGizmo?.planting?.onBedSurface} onPlant={editorGizmo?.planting?.onPlant} onVine={editorGizmo?.planting?.onVine} onMark={editorGizmo?.planting?.onMark} /> : null}
+      {mode === 'editor' ? <PlantingBrush mode={editorGizmo?.planting?.mode ?? null} groundY={settings.planeHeight ?? 0} orbitRef={orbitRef} onBed={editorGizmo?.planting?.onBed} onBedSurface={editorGizmo?.planting?.onBedSurface} onPlant={editorGizmo?.planting?.onPlant} onVine={editorGizmo?.planting?.onVine} onMark={editorGizmo?.planting?.onMark} onStart={editorGizmo?.planting?.onStart} /> : null}
+      {mode === 'editor' ? <WalkStartMarker start={settings.walkStart} ghost={!walking} /> : null}
       {mode === 'editor' && settings.annotationsEnabled && settings.annotationMarks?.length ? <AnnotationLayer settings={settings} selectedId={editorGizmo?.annotations?.selectedId} onResnap={editorGizmo?.annotations?.onResnap} geometryKey={annotationGeometryKey} /> : null}
       {mode === 'editor' && !playing && !walking ? <EditorAxes /> : null}
       <DebugWireframe enabled={mode === 'editor' && Boolean(settings.debugWireframe)} />

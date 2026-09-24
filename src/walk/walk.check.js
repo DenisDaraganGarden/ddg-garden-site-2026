@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import { buildWalkGround, groundHeight, rayDistance } from './walkGround.js';
 import { createWalk, resetWalk, stepWalk } from './walkPlay.js';
+import { normalizeWalkStart } from './settings.js';
 
 // Двор: плита, лестница в пять ступеней по 17 см на площадку 0,85 м, стена,
 // навес на 2,8 м, подиум 0,45 м.
@@ -73,7 +74,16 @@ resetWalk(walk, g, { x: -8, y: 0, z: 0, yaw: 0 });
 run(1.5, { amount: 1, moveYaw: Math.PI, faceYaw: 0, instant: true });
 assert.ok(walk.walker.z < -0.4 && Math.abs(walk.walker.yaw) < 1e-6, `first person backs up facing ahead (z ${walk.walker.z.toFixed(2)}, yaw ${walk.walker.yaw.toFixed(2)})`);
 
+// Старт: мусор — нет старта; числа округлены, лицо — в пределах полуоборота.
+assert.equal(normalizeWalkStart(null), null, 'no start');
+assert.equal(normalizeWalkStart({ x: 'a', y: 0, z: 0 }), null, 'a broken start is none');
+const start = normalizeWalkStart({ x: 0.23456789, y: 0.85, z: 5, yaw: 7 });
+assert.ok(start.x === 0.2346 && Math.abs(start.yaw - (7 - 2 * Math.PI)) < 1e-4, `a start keeps its place and faces within half a turn (${JSON.stringify(start)})`);
+// С него он и встаёт: на площадке, лицом куда смотрит значок.
+resetWalk(walk, g, start);
+assert.ok(Math.abs(walk.walker.groundY - 0.85) < 1e-6 && Math.abs(walk.walker.yaw - start.yaw) < 1e-9, 'he stands on the start, facing its way');
+
 // Кости — числа: ни одного NaN за всё это.
 assert.ok(walk.bodies.every((body) => [...body.x, ...body.q].every(Number.isFinite)), 'every bone is a number');
 
-console.log('walk: up five steps onto a landing and down again, stopped by a wall and sliding along it, a floor under a roof, a podium to jump onto, a fall off an edge, backing up in first person');
+console.log('walk: up five steps onto a landing and down again, stopped by a wall and sliding along it, a floor under a roof, a podium to jump onto, a fall off an edge, backing up in first person, standing on the start');

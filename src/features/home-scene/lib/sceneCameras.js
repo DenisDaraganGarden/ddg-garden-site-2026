@@ -5,6 +5,7 @@ import { createPairedCameraLayouts, HOME_SCENE_CAMERA_FOV_MAX, HOME_SCENE_CAMERA
 import { DEFAULT_SURFBOARD_SETTINGS } from '../../../components/surfboard/settings.js';
 import { DEFAULT_HOUSE_SETTINGS } from '../../../components/house/settings.js';
 import { DEFAULT_ANNOTATION_SETTINGS } from '../../../annotations/settings.js';
+import { DEFAULT_WALK_SETTINGS } from '../../../walk/settings.js';
 
 // Keys that stay on the root when a camera is switched. Besides the catalogue
 // and the editor's own state this is the sound, the surfboard, the beach
@@ -36,6 +37,8 @@ export const SCENE_CAMERA_SNAPSHOT_EXCLUDED_KEYS = Object.freeze([
   'northAngle',
   // Отметки уровня и их вид — у проекта один на все камеры.
   ...Object.keys(DEFAULT_ANNOTATION_SETTINGS),
+  // Старт прогулки — один на проект.
+  ...Object.keys(DEFAULT_WALK_SETTINGS),
   ...Object.keys(DEFAULT_SURFBOARD_SETTINGS),
   ...Object.keys(DEFAULT_HOUSE_SETTINGS),
 ]);

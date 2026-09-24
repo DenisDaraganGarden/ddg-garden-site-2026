@@ -18,8 +18,8 @@ const Hint = ({ keys, words }) => <span className="surf-hud__hint">
     <span className="surf-hud__words">{words}</span>
 </span>;
 const HINTS = {
-    keys: [[[['W'], ['A'], ['S'], ['D']], ['идти', 'walk']], [[['shift', 'wide']], ['бежать', 'run']], [[[['пробел', 'space'], 'wide']], ['прыжок', 'jump']], [[['C']], ['вид', 'view']]],
-    pad: [[[['L', 'stick']], ['идти', 'walk']], [[['R', 'stick']], ['смотреть', 'look']], [[['RT', 'pill']], ['бежать', 'run']], [[['A', 'round']], ['прыжок', 'jump']], [[['Y', 'round']], ['вид', 'view']]],
+    keys: [[[['W'], ['A'], ['S'], ['D']], ['идти', 'walk']], [[['shift', 'wide']], ['бежать', 'run']], [[[['пробел', 'space'], 'wide']], ['прыжок', 'jump']], [[['C']], ['вид', 'view']], [[['T']], ['старт здесь', 'start here']], [[['R']], ['на старт', 'back to start']]],
+    pad: [[[['L', 'stick']], ['идти', 'walk']], [[['R', 'stick']], ['смотреть', 'look']], [[['RT', 'pill']], ['бежать', 'run']], [[['A', 'round']], ['прыжок', 'jump']], [[['Y', 'round']], ['вид', 'view']], [[['↑', 'round']], ['старт здесь', 'start here']], [[['View', 'pill']], ['на старт', 'back to start']]],
 };
 
 export default function WalkHud({ onExit }) {

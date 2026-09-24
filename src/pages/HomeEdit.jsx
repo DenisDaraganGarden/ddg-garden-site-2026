@@ -54,6 +54,7 @@ import { leaveAuto, setSurfPlaying, surfPlay } from '../components/surfboard/sur
 import { usePlayKeys } from '../components/surfboard/usePlayKeys.js';
 import SurfHud from '../components/surfboard/SurfHud.jsx';
 import WalkHud from '../walk/WalkHud.jsx';
+import { normalizeWalkStart } from '../walk/settings.js';
 import '../styles/HomeEditor.css';
 
 const INITIAL_PUBLISHED_SNAPSHOT = JSON.stringify(
@@ -645,7 +646,7 @@ const HomeEdit = ({ project = null }) => {
     const transformHeld = transformTool && gizmoAllows(gizmoSelection, tool);
     // Riding is looking only: no gizmo, no picking, no hedge brush, no menu.
     const activeTool = playing || walking ? 'hand' : transformTool && !transformHeld ? 'select' : tool;
-    const drawingTool = activeTool === 'topiary' || activeTool === 'bed' || activeTool === 'plant' || activeTool === 'vine' || activeTool === 'mark';
+    const drawingTool = activeTool === 'topiary' || activeTool === 'bed' || activeTool === 'plant' || activeTool === 'vine' || activeTool === 'mark' || activeTool === 'start';
     const picking = activeTool !== 'hand' && !drawingTool;
     // Яв и масштаб выбранного объекта — из настроек: манипулятор их показывает,
     // а пишет обратно только через onTransform, сцену напрямую не трогая.
@@ -661,6 +662,12 @@ const HomeEdit = ({ project = null }) => {
                 : gizmoSelection === 'house'
                     ? { rotationY: settings.houseHeading ?? 0, scale: 1 }
                     : null;
+    // Записи из сцены (чекпоинт доски, старт прогулки) — одной отменой, через
+    // историю, которая есть сейчас.
+    const applySettingsRef = useRef(focusHistory.applySettings);
+    useEffect(() => { applySettingsRef.current = focusHistory.applySettings; });
+    // Старт прогулки — инструментом «Старт» или T в самой прогулке.
+    const handleWalkStart = useCallback((start) => applySettingsRef.current({ walkStart: normalizeWalkStart(start) }), []);
     const editorGizmo = useMemo(() => ({
         selection: !playing && !walking && transformHeld ? gizmoSelection : null,
         mode: transformTool ? tool : lastTransform,
@@ -672,12 +679,12 @@ const HomeEdit = ({ project = null }) => {
         topiary: { drawing: activeTool === 'topiary' && settings.topiaryObjects.length < TOPIARY_LIMITS.objects,
             selectedId: gizmoNode.id === 'topiary' ? topiaryEditor.selectedId : null, onStroke: topiaryEditor.onStroke },
         placed: { selectedId: gizmoNode.id === 'placed' ? placedEditor.selectedId : null, part: gizmoNode.id === 'placed' ? placedEditor.part : null },
-        planting: { mode: ['bed', 'plant', 'vine', 'mark'].includes(activeTool) ? activeTool : null, selectedId: gizmoNode.id === 'planting' ? plantingEditor.selectedId : null,
+        planting: { mode: ['bed', 'plant', 'vine', 'mark', 'start'].includes(activeTool) ? activeTool : null, selectedId: gizmoNode.id === 'planting' ? plantingEditor.selectedId : null,
             vineId: gizmoNode.id === 'planting' ? plantingEditor.vineId : null,
-            onBed: plantingEditor.onBed, onBedSurface: plantingEditor.onBedSurface, onPlant: plantingEditor.onPlant, onVine: plantingEditor.onVine, onMark: annotationEditor.onMark },
+            onBed: plantingEditor.onBed, onBedSurface: plantingEditor.onBedSurface, onPlant: plantingEditor.onPlant, onVine: plantingEditor.onVine, onMark: annotationEditor.onMark, onStart: handleWalkStart },
         annotations: { selectedId: annotationEditor.selectedId, onResnap: annotationEditor.onResnap },
     // eslint-disable-next-line react-hooks/exhaustive-deps -- pose сравнивается по значениям, не по ссылке
-    }), [playing, walking, transformTool, transformHeld, gizmoSelection, tool, lastTransform, handleGizmoTransform, picking, drawingTool, handlePickObject, gizmoPose?.rotationY, gizmoPose?.scale, activeTool, settings.topiaryObjects.length, gizmoNode.id, topiaryEditor.selectedId, topiaryEditor.onStroke, placedEditor.selectedId, placedEditor.part, plantingEditor.selectedId, plantingEditor.vineId, plantingEditor.onBed, plantingEditor.onBedSurface, plantingEditor.onPlant, plantingEditor.onVine, annotationEditor.onMark, annotationEditor.selectedId, annotationEditor.onResnap]);
+    }), [playing, walking, transformTool, transformHeld, gizmoSelection, tool, lastTransform, handleGizmoTransform, picking, drawingTool, handlePickObject, gizmoPose?.rotationY, gizmoPose?.scale, activeTool, settings.topiaryObjects.length, gizmoNode.id, topiaryEditor.selectedId, topiaryEditor.onStroke, placedEditor.selectedId, placedEditor.part, plantingEditor.selectedId, plantingEditor.vineId, plantingEditor.onBed, plantingEditor.onBedSurface, plantingEditor.onPlant, plantingEditor.onVine, annotationEditor.onMark, annotationEditor.selectedId, annotationEditor.onResnap, handleWalkStart]);
 
     // Курсор во вьюпорте говорит, какой инструмент в руке, не глядя на панель.
     useEffect(() => {
@@ -726,8 +733,6 @@ const HomeEdit = ({ project = null }) => {
     usePlayKeys(playing, startPlay, stopPlay);
     // The scene answers T with the board's place; one undoable write. T sets
     // all three, so there is nothing left to pin on leaving auto.
-    const applySettingsRef = useRef(focusHistory.applySettings);
-    useEffect(() => { applySettingsRef.current = focusHistory.applySettings; });
     const handleSurfboardCheckpoint = useCallback(({ x, z, yaw }) => {
         applySettingsRef.current(leaveAuto(null, {
             surfboardCheckpointX: Number(x.toFixed(2)),

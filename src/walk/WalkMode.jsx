@@ -10,8 +10,10 @@ import { buildWalkGround, groundHeight, rayDistance } from './walkGround.js';
 import { createWalk, EYE_ABOVE_PELVIS, resetWalk, stepWalk, walkState } from './walkPlay.js';
 import { getWalkSnapshot, setWalk, toggleWalkView } from './walkStore.js';
 
-// Прогулка по проекту (кнопка «Прогулка»): человек с доски встаёт там, куда
-// смотрела камера, и ходит по модели (walkPlay.js). Камера — его глаза или
+// Прогулка по проекту (кнопка «Прогулка»): человек с доски встаёт на старт
+// (белый значок, инструмент «Старт»), а без него — там, куда смотрела камера,
+// и ходит по модели (walkPlay.js). T — старт там, где он стоит, R — назад на
+// старт (геймпад: крестовина ↑ и View, как чекпоинт у доски). Камера — его глаза или
 // сзади и чуть сверху; орбита редактора на это время выключена, её вид
 // редактор вернёт сам (HomeEdit). Клик захватывает мышь в сцену, Esc её
 // отпускает, второй Esc — выход; без захвата вид крутится перетаскиванием,
@@ -66,21 +68,23 @@ function readPad(r, dt, onExit) {
         else if (i === BUTTON.Y) toggleWalkView();
         else if (i === BUTTON.RS) r.pitch = -0.25;
         else if (i === BUTTON.MENU) onExit?.();
+        else if (i === BUTTON.UP) r.mark = true;
+        else if (i === BUTTON.VIEW) r.back = true;
     });
     if (used) setWalk({ device: 'pad' });
 }
 
-export default function WalkMode({ orbitRef, planeY = null, terrain = null, onExit }) {
-    const exitRef = useRef(onExit);
-    useEffect(() => { exitRef.current = onExit; });
+export default function WalkMode({ orbitRef, planeY = null, terrain = null, start = null, onSetStart, onExit }) {
+    const exitRef = useRef(onExit), startRef = useRef(start), setStartRef = useRef(onSetStart);
+    useEffect(() => { exitRef.current = onExit; startRef.current = start; setStartRef.current = onSetStart; });
     const { camera, gl, scene } = useThree();
     const s = useMemo(() => createWalk(), []);
     const rider = useMemo(() => ({ world: { bodies: s.bodies } }), [s]);
     const body = useRiderBody(true);
     const sticksRef = useRef(null);
-    const rig = useRef({ ground: null, held: new Set(), jump: false, yaw: 0, pitch: -0.25, distance: THIRD.distance, reach: THIRD.distance, eye: new THREE.Vector3(), rise: 0, focus: new THREE.Vector3(), focusV: new THREE.Vector3(), roll: 0, view: null, orbit: null, padIndex: -1, padMove: { x: 0, y: 0 }, padRun: 0, padDown: [] });
+    const rig = useRef({ ground: null, held: new Set(), jump: false, yaw: 0, pitch: -0.25, distance: THIRD.distance, reach: THIRD.distance, eye: new THREE.Vector3(), rise: 0, focus: new THREE.Vector3(), focusV: new THREE.Vector3(), roll: 0, view: null, orbit: null, padIndex: -1, padMove: { x: 0, y: 0 }, padRun: 0, padDown: [], spawn: null, mark: false, back: false });
 
-    // Земля — один раз на входе; встаёт туда, куда смотрела камера.
+    // Земля — один раз на входе; встаёт на старт или туда, куда смотрела камера.
     useEffect(() => {
         const r = rig.current;
         const g = buildWalkGround(ROOTS.map((name) => scene.getObjectByName(name)), { planeY, terrain });
@@ -93,8 +97,9 @@ export default function WalkMode({ orbitRef, planeY = null, terrain = null, onEx
         const at = hit < 250
             ? { x: cx + forward.x * hit - Math.sin(flat) * 0.4, y: cy + forward.y * hit, z: cz + forward.z * hit - Math.cos(flat) * 0.4 }
             : { x: cx, y: cy, z: cz };
-        resetWalk(s, g, { ...at, yaw: flat });
-        r.yaw = flat;
+        r.spawn = startRef.current ?? { ...at, yaw: flat };
+        resetWalk(s, g, r.spawn);
+        r.yaw = r.spawn.yaw;
         r.view = null;
     }, [camera, planeY, s, scene, terrain]);
 
@@ -109,6 +114,8 @@ export default function WalkMode({ orbitRef, planeY = null, terrain = null, onEx
             if (code in MOVES) r.held.add(MOVES[code]);
             else if (code === 'Space') { if (!event.repeat) r.jump = true; }
             else if (code === 'KeyC') { if (!event.repeat) toggleWalkView(); }
+            else if (code === 'KeyT') { if (!event.repeat) r.mark = true; }
+            else if (code === 'KeyR') { if (!event.repeat) r.back = true; }
             else if (code === 'Escape') { if (document.pointerLockElement !== canvas) onExit?.(); }
             else return;
             event.preventDefault();
@@ -170,6 +177,17 @@ export default function WalkMode({ orbitRef, planeY = null, terrain = null, onEx
         const dt = Math.min(delta, 0.1);
         readPad(r, dt, exitRef.current);
         const first = getWalkSnapshot().view === 'first';
+        // Старт здесь — где он стоит (в воздухе — где стоял); на старт — туда.
+        if (r.mark) {
+            const w = s.walker, here = s.mode === 'air' ? s.safe : { x: w.x, y: w.groundY, z: w.z, yaw: w.yaw };
+            setStartRef.current?.({ x: here.x, y: here.y, z: here.z, yaw: here.yaw });
+        }
+        if (r.back) {
+            resetWalk(s, g, startRef.current ?? r.spawn);
+            r.yaw = (startRef.current ?? r.spawn).yaw;
+            r.view = null;
+        }
+        r.mark = false; r.back = false;
 
         // Куда идти — от взгляда: вперёд, назад, вбок; клавиши и стик вместе.
         const f = r.held.has('f') - r.held.has('b') + r.padMove.y, side = r.held.has('r') - r.held.has('l') + r.padMove.x;

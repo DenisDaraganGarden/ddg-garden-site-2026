@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { simplifyContour } from './fillBed.js';
 import { regionHighlight, regionOutline, regionTriangles, surfaceRegions } from './surfacePick.js';
 import { clipToSurface } from './clipSurface.js';
+import WalkStartMarker from '../walk/WalkStartMarker.jsx';
 
 // Инструменты посадок в сцене, по образцу кисти изгороди (TopiaryBrush):
 //   bed   — щелчок по поверхности модели (грунт, мульча, земля в кашпо):
@@ -15,7 +16,9 @@ import { clipToSurface } from './clipSurface.js';
 //   vine  — мазок по любой поверхности (стена, кашпо, сетка, земля): лиана
 //           растёт от первой точки по мазку (vines.js). Точки — с нормалью
 //           поверхности; мимо модели мазок не пишется;
-//   mark  — клик ставит отметку уровня (src/annotations), как «Посадить».
+//   mark  — клик ставит отметку уровня (src/annotations), как «Посадить»;
+//   start — старт прогулки (src/walk): нажатие ставит белый значок, протяжка
+//           от него — куда он будет смотреть; щелчок — лицом от камеры.
 // Земля — то, во что упирается луч: ровная плоскость проекта или модель
 // SketchUp (её 2D-растения, круги крон, стекло и листва — не земля; сетка с
 // вырезами — опора для лианы); мимо — горизонталь на высоте плоскости. Esc и
@@ -31,12 +34,13 @@ const solid = (object, cutout = false) => {
 };
 const UP = new THREE.Vector3(0, 1, 0), FACING = new THREE.Vector3(0, 0, 1);
 
-export default function PlantingBrush({ mode, groundY = 0, orbitRef, onBed, onBedSurface, onPlant, onVine, onMark }) {
+export default function PlantingBrush({ mode, groundY = 0, orbitRef, onBed, onBedSurface, onPlant, onVine, onMark, onStart }) {
     const { gl, camera, scene, invalidate } = useThree();
     const cursor = useRef();
     const callbacks = useRef({});
-    callbacks.current = { onBed, onBedSurface, onPlant, onVine, onMark };
+    callbacks.current = { onBed, onBedSurface, onPlant, onVine, onMark, onStart };
     const [preview, setPreview] = useState(null);
+    const [aim, setAim] = useState(null);
     const [surface, setSurface] = useState(null);
     // Контур цветника замкнут и приподнят над землёй; мазок лианы — открытый,
     // его точки уже отнесены от поверхности по нормали.
@@ -104,7 +108,27 @@ export default function PlantingBrush({ mode, groundY = 0, orbitRef, onBed, onBe
             cancelAnimationFrame(frame); frame = 0;
             if (orbitRef?.current) orbitRef.current.enabled = oldOrbit;
             setPreview(null);
+            setAim(null);
             invalidate();
+        };
+        // Куда лицом — по горизонтали через точку старта; щелчок — от камеры.
+        const level = new THREE.Plane(new THREE.Vector3(0, 1, 0)), at = new THREE.Vector3(), look = new THREE.Vector3();
+        // Нажали на стену или бок изгороди — старт на полу у её подножия, со
+        // стороны камеры.
+        const probe = new THREE.Raycaster(), from = new THREE.Vector3(), DOWN = new THREE.Vector3(0, -1, 0);
+        const footOf = (found) => {
+            if ((found.normal?.[1] ?? 1) >= 0.6) return found.point;
+            const d = ray.ray.direction, flat = Math.hypot(d.x, d.z) || 1;
+            probe.set(from.set(found.point[0] - (d.x / flat) * 0.45, found.point[1] + 0.2, found.point[2] - (d.z / flat) * 0.45), DOWN);
+            const hit = probe.intersectObjects([scene.getObjectByName('ground-plane'), scene.getObjectByName('placed')].filter(Boolean), true).find((item) => solid(item.object));
+            return hit ? hit.point.toArray() : found.point;
+        };
+        const aimAt = (event) => {
+            const { point: [x, y, z] } = stroke.aim;
+            level.constant = -y;
+            if (ray.ray.intersectPlane(level, at) && Math.hypot(at.x - x, at.z - z) > 0.25) stroke.aim.yaw = Math.atan2(at.x - x, at.z - z);
+            if (!frame) frame = requestAnimationFrame(() => { frame = 0; if (stroke) setAim({ ...stroke.aim }); });
+            event.preventDefault(); event.stopImmediatePropagation();
         };
         const down = (event) => {
             if (event.button !== 0 || stroke) return;
@@ -117,18 +141,25 @@ export default function PlantingBrush({ mode, groundY = 0, orbitRef, onBed, onBe
             if (orbitRef?.current) orbitRef.current.enabled = false;
             stroke = { id: event.pointerId, points: [found.point], samples: [[...found.point, ...found.normal]] };
             canvas.setPointerCapture(event.pointerId);
+            if (mode === 'start') {
+                camera.getWorldDirection(look);
+                stroke.aim = { point: footOf(found), yaw: Math.atan2(look.x, look.z) };
+                setAim({ ...stroke.aim });
+                return;
+            }
             setPreview([mode === 'vine' ? lifted(found) : found.point]);
         };
         const move = (event) => {
             // Щелчок — нажатие без движения: замкнутый контур возвращается к началу.
             if (press && event.pointerId === press.id) press.moved = Math.max(press.moved, Math.hypot(event.clientX - press.x, event.clientY - press.y));
             const found = cast(event);
-            showCursor(found);
+            showCursor(stroke?.aim ? null : found);
             if (mode === 'bed' && !stroke && !hoverFrame) {
                 const hit = found?.hit;
                 hoverFrame = requestAnimationFrame(() => { hoverFrame = 0; showSurface(regionAt(hit)); });
             }
-            if (stroke && event.pointerId === stroke.id) {
+            if (stroke?.aim && event.pointerId === stroke.id) aimAt(event);
+            else if (stroke && event.pointerId === stroke.id) {
                 event.preventDefault(); event.stopImmediatePropagation();
                 if (mode === 'vine') {
                     // Мазок лианы — по самой поверхности, в 3D, с нормалью; мимо модели — пропуск.
@@ -157,8 +188,13 @@ export default function PlantingBrush({ mode, groundY = 0, orbitRef, onBed, onBe
             }
             if (!stroke || event.pointerId !== stroke.id || event.button !== 0) return;
             event.preventDefault(); event.stopImmediatePropagation();
-            const points = stroke.points, samples = stroke.samples;
+            const points = stroke.points, samples = stroke.samples, placed = stroke.aim;
             stop();
+            if (placed) {
+                const [x, y, z] = placed.point;
+                callbacks.current.onStart?.({ x, y, z, yaw: placed.yaw });
+                return;
+            }
             if (mode === 'vine') {
                 let length = 0;
                 for (let i = 1; i < samples.length; i += 1) length += Math.hypot(samples[i][0] - samples[i - 1][0], samples[i][1] - samples[i - 1][1], samples[i][2] - samples[i - 1][2]);
@@ -210,10 +246,11 @@ export default function PlantingBrush({ mode, groundY = 0, orbitRef, onBed, onBe
     if (!mode) return null;
     return <group>
         <mesh ref={cursor} visible={false} raycast={() => {}}>
-            <ringGeometry args={[mode === 'plant' ? 0.3 : mode === 'vine' || mode === 'mark' ? 0.1 : 0.16, mode === 'plant' ? 0.36 : mode === 'vine' || mode === 'mark' ? 0.13 : 0.2, 40]} />
+            <ringGeometry args={[mode === 'plant' || mode === 'start' ? 0.3 : mode === 'vine' || mode === 'mark' ? 0.1 : 0.16, mode === 'plant' ? 0.36 : mode === 'start' ? 0.335 : mode === 'vine' || mode === 'mark' ? 0.13 : 0.2, 40]} />
             <meshBasicMaterial color="#d9ca8c" depthTest={false} transparent opacity={0.85} toneMapped={false} />
         </mesh>
         {surface ? <mesh geometry={surface} material={highlight} raycast={() => {}} renderOrder={6} /> : null}
         {line ? <line geometry={line} raycast={() => {}}><lineBasicMaterial color="#f2c14e" depthTest={false} toneMapped={false} /></line> : null}
+        {aim ? <WalkStartMarker start={{ x: aim.point[0], y: aim.point[1], z: aim.point[2], yaw: aim.yaw }} /> : null}
     </group>;
 }
