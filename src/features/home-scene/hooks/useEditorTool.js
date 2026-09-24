@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 export const GIZMO_MODES = ['translate', 'rotate', 'scale'];
-export const EDITOR_TOOLS = ['select', ...GIZMO_MODES, 'hand', 'topiary', 'bed', 'plant', 'vine'];
+export const EDITOR_TOOLS = ['select', ...GIZMO_MODES, 'hand', 'topiary', 'bed', 'plant', 'vine', 'mark'];
 
 // Одна линейка инструментов, как в 3ds Max: в каждый момент активен ровно один.
 //
@@ -14,6 +14,7 @@ export const EDITOR_TOOLS = ['select', ...GIZMO_MODES, 'hand', 'topiary', 'bed',
 //   bed        L   контур цветника (src/planting)
 //   plant      T   посадить выбранное растение кликом
 //   vine       I   лиана мазком по стене, кашпо, сетке, земле
+//   mark       M   отметка уровня щелчком по поверхности (src/annotations)
 //
 // Клавиши — Blender'овские G/R/S, потому что манипулятор с него и списан.
 // W/E как псевдонимы больше не принимаются: W/A/S/D/Q/E — полёт камеры, и
@@ -29,6 +30,7 @@ const TOOL_KEYS = {
     l: 'bed',
     t: 'plant',
     i: 'vine',
+    m: 'mark',
 };
 
 const isTypingTarget = (target) => {

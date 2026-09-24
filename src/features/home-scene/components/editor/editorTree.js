@@ -44,6 +44,7 @@ import { EditorSettingsSection } from './sections/editorSettings';
 import { PebblesSection, RocksSection } from './sections/rocks';
 import { ShoreSection } from './sections/shore';
 import { FishSection, SeagullsSection } from './sections/creatures';
+import { AnnotationsSection } from './sections/annotations';
 import {
     AudioMixerSection,
     AudioSpatialSection,
@@ -128,6 +129,14 @@ export const EDITOR_TREE = [
         nodes: [
             { id: 'seagulls', aspects: [{ id: 'flock', Section: SeagullsSection }] },
             { id: 'fish', aspects: [{ id: 'school', Section: FishSection }] },
+        ],
+    },
+    // Аннотации — пометки проектировщика поверх сцены (src/annotations):
+    // пока отметки уровня; следующие виды — новыми узлами здесь.
+    {
+        id: 'annotations',
+        nodes: [
+            { id: 'levels', aspects: [{ id: 'marks', Section: AnnotationsSection }] },
         ],
     },
     {

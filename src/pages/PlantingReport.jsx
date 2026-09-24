@@ -6,6 +6,7 @@ import { bedArea, plantingInstances, plantingSchedule, spacingFor } from '../pla
 import { isSeasonSheet, plantCardUrl, plantName, plantPhotoUrl, useBedFills, usePlantLibrary } from '../planting/plantLibrary.js';
 import { bloomMonths, byCategory, CATEGORY_LABELS } from '../planting/insights.js';
 import { vineRoot } from '../planting/vines.js';
+import { formatLevel, markLevels, normalizeAnnotationSettings } from '../annotations/settings.js';
 import './PlantingReport.css';
 
 // Отчёт по посадкам проекта — для заказчика и дендролога: план в шапках
@@ -45,7 +46,7 @@ function Plan({ beds, instances, library }) {
 // на снимок простым масштабом: подписи цветников, номера растений по
 // ведомости, масштабная линейка и север — поверх, векторами.
 const DEG = Math.PI / 180;
-function PlanShot({ id, shot, beds, points, vines = [], numberOf, ru }) {
+function PlanShot({ id, shot, beds, points, vines = [], numberOf, annotations, ru }) {
     const [size, setSize] = useState(null);
     const date = new Date(shot.captured).toLocaleString(ru ? 'ru-RU' : 'en-GB', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
     const image = <img src={projectStore.planUrl(id, shot.captured)} alt={ru ? 'Генплан' : 'Site plan'} onLoad={(event) => setSize([event.currentTarget.naturalWidth, event.currentTarget.naturalHeight])} />;
@@ -73,6 +74,16 @@ function PlanShot({ id, shot, beds, points, vines = [], numberOf, ru }) {
                 const place = at(point.x, point.y, point.z), number = numberOf.get(point.plant);
                 return number && inside(place) ? <g key={point.id} transform={`translate(${place[0]} ${place[1]})`} className="report-shot__point"><circle r={font * 0.8} /><text>{number}</text></g> : null;
             }) : null}
+            {/* Отметки уровня — как на генплане: крестик в точке, число в рамке. */}
+            {annotations?.annotationMarks.map((mark) => {
+                const [x, y] = at(mark.x, mark.y, mark.z), levels = markLevels(annotations.annotationMarks);
+                const text = formatLevel(levels.get(mark.id), { units: annotations.annotationUnits, step: annotations.annotationStep, ru });
+                return inside([x, y]) ? <g key={mark.id} transform={`translate(${x} ${y})`} className="report-shot__mark" style={{ '--mark-color': annotations.annotationColor }}>
+                    <path d={`M${-font * 0.35} ${-font * 0.35} L${font * 0.35} ${font * 0.35} M${font * 0.35} ${-font * 0.35} L${-font * 0.35} ${font * 0.35}`} />
+                    <rect x={font * 0.5} y={-font * 1.55} width={text.length * font * 0.58 + font * 0.5} height={font * 1.15} rx={font * 0.25} />
+                    <text x={font * 0.75} y={-font * 0.95}>{text}</text>
+                </g> : null;
+            })}
             <g transform={`translate(${w * 0.03} ${h - h * 0.05})`} className="report-shot__scale">
                 <rect x={-font * 0.5} y={-font * 2.2} width={bar / perPixel + font} height={font * 3} rx={font * 0.3} />
                 <path d={`M0 0 H${bar / perPixel}`} />
@@ -101,6 +112,7 @@ export default function PlantingReport() {
     const [shot, setShot] = useState(null);
     useEffect(() => { projectStore.readPlan(id).then(setShot, () => setShot(null)); }, [id]);
     const planting = useMemo(() => normalizePlantingSettings(entry?.settings ?? {}), [entry]);
+    const annotations = useMemo(() => normalizeAnnotationSettings(entry?.settings ?? {}), [entry]);
     const fills = useBedFills(planting.plantingBeds, library);
     const instances = useMemo(() => [...plantingInstances(planting.plantingBeds, fills, planting.plantingPoints).values()].flat(), [planting, fills]);
     const schedule = useMemo(() => plantingSchedule(planting.plantingBeds, fills, planting.plantingPoints, library, planting.plantingVines), [planting, fills, library]);
@@ -134,7 +146,7 @@ export default function PlantingReport() {
 
         <section className="report-block">
             <h3>{ru ? 'План' : 'Plan'}</h3>
-            {shot ? <PlanShot id={id} shot={shot} beds={planting.plantingBeds} points={planting.plantingPoints} vines={planting.plantingVines} numberOf={new Map(schedule.map((r, i) => [r.plant.id, i + 1]))} ru={ru} />
+            {shot ? <PlanShot id={id} shot={shot} beds={planting.plantingBeds} points={planting.plantingPoints} vines={planting.plantingVines} annotations={annotations} numberOf={new Map(schedule.map((r, i) => [r.plant.id, i + 1]))} ru={ru} />
                 : <><Plan beds={planting.plantingBeds} instances={instances} library={library} />
                     <p className="report-hint">{ru ? 'Генплан с моделью появится здесь, когда в проекте откроют камеру «Генплан» — кнопка в «Растениях».' : 'The site plan with the model appears here once the “Site plan” camera is opened in the project — the button is in Plants.'}</p></>}
             <div className="report-legend">{LEGEND.map(([id2, color]) => <span key={id2}><i style={{ background: color }} />{CATEGORY_LABELS[id2][ru ? 0 : 1]}</span>)}<span><i className="is-existing" />{ru ? 'существующее' : 'existing'}</span></div>

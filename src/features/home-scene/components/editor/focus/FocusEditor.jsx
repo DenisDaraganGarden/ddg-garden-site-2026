@@ -49,9 +49,13 @@ const PLANT_TOOLS = [
     { id: 'vine', icon: 'vine', ru: 'Лиана', en: 'Climber', key: 'I', group: 'plants' },
     { id: 'topiary', icon: 'leaf', ru: 'Изгородь', en: 'Hedge', key: 'B', group: 'plants' },
 ];
-const ALL_TOOLS = [...TOOLS, ...PLANT_TOOLS];
-// Кольцо на пробеле — по часовой от верха; растения собраны слева.
-const PIE_ORDER = ['select', 'translate', 'rotate', 'scale', 'hand', 'plant', 'bed', 'vine', 'topiary'];
+// Отметка уровня (src/annotations): щелчок по поверхности ставит отметку.
+const MARK_TOOL = { id: 'mark', icon: 'level', ru: 'Отметка', en: 'Level mark', key: 'M' };
+const ALL_TOOLS = [...TOOLS, ...PLANT_TOOLS, MARK_TOOL];
+// Кольцо на пробеле — по часовой от верха. Растения — один пункт-свиток
+// «Озеленение»: навёл — выпадает список, как у кнопки на линейке.
+const GREENERY = { id: 'greenery', icon: 'sprout', ru: 'Озеленение', en: 'Greenery', key: 'L · T · I · B', children: PLANT_TOOLS };
+const PIE_ORDER = ['select', 'translate', 'rotate', 'scale', 'hand', 'greenery', 'mark'];
 
 // Растения на линейке — одна кнопка: значок последнего растительного
 // инструмента, клик раскрывает меню из трёх с подписями и клавишами.
@@ -122,7 +126,7 @@ function NodeSections({ group, node, catalogOnly = false, sectionProps }) {
 }
 
 // Список клавиш один: он и в справке, и в окне настроек.
-const shortcutRows = (tr) => [[tr('Поиск', 'Search'), '⌘ K'], [tr('Отменить / повторить параметр', 'Undo / redo parameter'), '⌘ Z / ⌘ ⇧ Z'], [tr('Пауза', 'Pause'), tr('Пробел', 'Space')], [tr('Круг инструментов: повести мышь и отпустить', 'Tool ring: move the mouse and let go'), tr('держать Пробел', 'hold Space')], [tr('Выбор · перенос · поворот · масштаб · обзор', 'Select · move · rotate · scale · navigate'), 'V · G · R · S · H'], [tr('Цветник · посадить · лиана · изгородь', 'Bed · plant · climber · hedge'), 'L · T · I · B'], [tr('Свободный полёт', 'Free flight'), 'W A S D Q E'], [tr('Скрыть / вернуть панели', 'Hide / show panels'), 'Tab'], [tr('Изменить число', 'Scrub value'), tr('ЛКМ ↔ · Shift точнее', 'LMB ↔ · Shift precise')], [tr('Меню объекта, камеры, параметра', 'Object, camera, parameter menu'), tr('ПКМ', 'RMB')], [tr('Цвет значка', 'Icon colour'), tr('ПКМ в списке', 'RMB in the list')], [tr('Отменить жест / вернуться к выбору', 'Cancel gesture / back to select'), 'Esc'],
+const shortcutRows = (tr) => [[tr('Поиск', 'Search'), '⌘ K'], [tr('Отменить / повторить параметр', 'Undo / redo parameter'), '⌘ Z / ⌘ ⇧ Z'], [tr('Пауза', 'Pause'), tr('Пробел', 'Space')], [tr('Круг инструментов: повести мышь и отпустить', 'Tool ring: move the mouse and let go'), tr('держать Пробел', 'hold Space')], [tr('Выбор · перенос · поворот · масштаб · обзор', 'Select · move · rotate · scale · navigate'), 'V · G · R · S · H'], [tr('Цветник · посадить · лиана · изгородь', 'Bed · plant · climber · hedge'), 'L · T · I · B'], [tr('Отметка уровня', 'Level mark'), 'M'], [tr('Свободный полёт', 'Free flight'), 'W A S D Q E'], [tr('Скрыть / вернуть панели', 'Hide / show panels'), 'Tab'], [tr('Изменить число', 'Scrub value'), tr('ЛКМ ↔ · Shift точнее', 'LMB ↔ · Shift precise')], [tr('Меню объекта, камеры, параметра', 'Object, camera, parameter menu'), tr('ПКМ', 'RMB')], [tr('Цвет значка', 'Icon colour'), tr('ПКМ в списке', 'RMB in the list')], [tr('Отменить жест / вернуться к выбору', 'Cancel gesture / back to select'), 'Esc'],
     [tr('Играть на доске / стоп', 'Ride the board / stop'), 'P'], [tr('Доска: вес · гребок', 'Board: weight · paddle'), 'W S'], [tr('Доска: наклон', 'Board: lean'), 'A D'], [tr('Доска: присед', 'Board: crouch'), 'Shift'], [tr('Доска: встать · прыжок', 'Board: stand up · jump'), 'Space'], [tr('Доска: спрыгнуть (W A S D — куда) · залезть · взять под мышку · положить', 'Board: jump off (W A S D — where) · climb on · carry · put down'), 'F'], [tr('Доска: лиш — отстегнуть · пристегнуть', 'Board: leash — off · on'), 'L'], [tr('Доска: оглянуться', 'Board: look back'), tr('Q · средняя кнопка', 'Q · middle button')], [tr('Доска: камера', 'Board: camera'), 'C / 1–4'], [tr('Доска: обзор · ближе/дальше', 'Board: look · closer/further'), tr('тащить · колесо', 'drag · wheel')], [tr('Доска: на чекпоинт', 'Board: back to the checkpoint'), 'R'], [tr('Доска: поставить чекпоинт', 'Board: set the checkpoint'), 'T'], [tr('Доска: выйти', 'Board: leave'), 'Esc'],
     [tr('Доска: захватить мышь', 'Board: capture the mouse'), tr('клик', 'click')], [tr('Доска: наклон и вес', 'Board: lean and weight'), tr('мышь', 'mouse')], [tr('Доска: присед · гребок левой', 'Board: crouch · left stroke'), tr('ЛКМ', 'LMB')], [tr('Доска: хват канта · гребок правой', 'Board: rail grab · right stroke'), tr('ПКМ', 'RMB')], [tr('Доска: отпустить мышь', 'Board: release the mouse'), 'Esc'],
     [tr('Геймпад: наклон и вес', 'Gamepad: lean and weight'), tr('левый стик', 'left stick')], [tr('Геймпад: обзор', 'Gamepad: look'), tr('правый стик', 'right stick')], [tr('Геймпад: присед · гребок правой', 'Gamepad: crouch · right stroke'), 'RT'], [tr('Геймпад: хват канта · гребок левой', 'Gamepad: rail grab · left stroke'), 'LT'], [tr('Геймпад: встать · прыжок', 'Gamepad: stand up · jump'), 'A'], [tr('Геймпад: камера', 'Gamepad: camera'), 'Y'], [tr('Геймпад: оглянуться', 'Gamepad: look back'), 'LB'], [tr('Геймпад: на чекпоинт', 'Gamepad: back to the checkpoint'), 'View'], [tr('Геймпад: поставить чекпоинт', 'Gamepad: set the checkpoint'), tr('крестовина ↑', 'D-pad ↑')], [tr('Геймпад: выйти', 'Gamepad: leave'), 'Menu']];
@@ -235,7 +239,7 @@ function FocusShell(props) {
     const groups = getFocusGroups(domain.id, { includeDevOnly: import.meta.env.DEV });
     const currentCamera = layoutEditor.activeWorkCameraId ? layoutEditor.workCameras.find((camera) => camera.id === layoutEditor.activeWorkCameraId) : layoutEditor.cameras.find((camera) => camera.id === layoutEditor.activeCameraId);
     const localScope = selected.group.id === 'editor'; const globalScope = selected.group.id === 'audio';
-    const sectionProps = { settings, handleSettingChange: props.handleSettingChange, applySettings: props.applySettings, layoutEditor, audioLab: props.audioLab, topiaryEditor: props.topiaryEditor, placedEditor: props.placedEditor, plantingEditor: props.plantingEditor };
+    const sectionProps = { settings, handleSettingChange: props.handleSettingChange, applySettings: props.applySettings, layoutEditor, audioLab: props.audioLab, topiaryEditor: props.topiaryEditor, placedEditor: props.placedEditor, plantingEditor: props.plantingEditor, annotationEditor: props.annotationEditor, gizmo: props.gizmo };
     useEffect(() => {
         try { localStorage.setItem(UI_KEY, JSON.stringify({ width, collapsed, stripOpen, solidFrame, pinnedIds: [...controls.pinnedIds], path: selected.path })); } catch { /* local UI only */ }
     }, [width, collapsed, stripOpen, solidFrame, controls.pinnedIds, selected.path]);
@@ -351,7 +355,10 @@ function FocusShell(props) {
         <div className="focus-stage-toolbar"><div className="focus-glass"><Button label={t('homeEditor.controls.technicalFrames')} onClick={() => setViewsOpen((value) => !value)}><FocusIcon name="camera" />{tr('Виды', 'Views')}<FocusIcon name="chevron" /></Button>{viewsOpen ? <FocusTechnicalViews settings={settings} layoutEditor={layoutEditor} frame={{ solid: solidFrame, toggle: () => setSolidFrame((value) => !value) }} /> : null}</div><span className="focus-spacer" /><NorthCompass settings={settings} applySettings={props.applySettings} tr={tr} /><span className="focus-spacer" /><div className="focus-glass"><Button icon="undo" label={tr('Отменить · ⌘Z', 'Undo · ⌘Z')} disabled={!history?.canUndo} onClick={history?.undo} /><Button icon="redo" label={tr('Повторить · ⌘⇧Z', 'Redo · ⌘⇧Z')} disabled={!history?.canRedo} onClick={history?.redo} /></div></div>
         <div className="focus-stage-tools focus-glass" role="toolbar" aria-label={tr('Инструменты', 'Tools')}>
             {TOOLS.map((item) => <React.Fragment key={item.id}>
-                {item.id === 'hand' ? <PlantToolGroup gizmo={gizmo} tr={tr} /> : null}
+                {item.id === 'hand' ? <>
+                    <PlantToolGroup gizmo={gizmo} tr={tr} />
+                    <Button icon={MARK_TOOL.icon} label={`${tr('Отметка уровня', 'Level mark')} · ${MARK_TOOL.key}`} aria-pressed={gizmo?.tool === MARK_TOOL.id} onClick={() => gizmo?.setTool?.(MARK_TOOL.id)} data-testid="focus-tool-mark" />
+                </> : null}
                 <Button icon={item.icon} label={`${tr(item.ru, item.en)} · ${item.key}`} aria-pressed={gizmo?.tool === item.id} disabled={item.transform && !gizmoAllows(gizmo?.movable, item.id)} onClick={() => { gizmo?.setTool?.(item.id); if (item.id === 'hand') document.querySelector('.home-editor-render-frame canvas')?.focus({ preventScroll: true }); }} data-testid={`focus-tool-${item.id}`} />
             </React.Fragment>)}
             <hr />
@@ -373,7 +380,7 @@ function FocusShell(props) {
         ]} onClose={() => setRowMenu(null)} /> : null}
         {palette.popup ? <FocusColorPalette {...palette.popup} colors={colors} language={language} onClose={palette.close} /> : null}<FocusTooltip />
         <FocusToolPie language={language} enabled={!playing && !modal} current={gizmo?.tool} onTap={togglePause}
-            tools={PIE_ORDER.map((id) => ALL_TOOLS.find((tool) => tool.id === id)).map((tool) => ({ ...tool, disabled: Boolean(tool.transform && !gizmoAllows(gizmo?.movable, tool.id)) }))}
+            tools={PIE_ORDER.map((id) => (id === GREENERY.id ? GREENERY : ALL_TOOLS.find((tool) => tool.id === id))).map((tool) => ({ ...tool, disabled: Boolean(tool.transform && !gizmoAllows(gizmo?.movable, tool.id)) }))}
             onChoose={(id) => { gizmo?.setTool?.(id); if (id === 'hand') document.querySelector('.home-editor-render-frame canvas')?.focus({ preventScroll: true }); }} />
         <div hidden aria-hidden="true" data-testid="focus-control-catalog"><FocusCameraParameters settings={settings} layoutEditor={layoutEditor} catalogOnly />{ALL_NODES.filter(({ node }) => node.id !== 'camera').map(({ group, node, path }) => <NodeSections key={path} group={group} node={node} catalogOnly sectionProps={sectionProps} />)}</div>
     </div>;

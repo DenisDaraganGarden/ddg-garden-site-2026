@@ -1,5 +1,5 @@
 {
-  "collected": "2026-09-24T20:41:59.388Z",
+  "collected": "2026-09-24T21:28:00.777Z",
   "rows": [
     {
       "key": "cameraFov",
@@ -4863,6 +4863,78 @@
       "unit": "%"
     },
     {
+      "key": "annotationsEnabled",
+      "group": "annotations",
+      "node": "levels",
+      "label": "Отметки уровня",
+      "kind": "выключатель"
+    },
+    {
+      "key": "annotationMarks",
+      "group": "annotations",
+      "node": "levels",
+      "label": "Отметка",
+      "kind": "список",
+      "options": [
+        ""
+      ]
+    },
+    {
+      "key": "annotationColor",
+      "group": "annotations",
+      "node": "levels",
+      "label": "Цвет",
+      "kind": "цвет"
+    },
+    {
+      "key": "annotationUnits",
+      "group": "annotations",
+      "node": "levels",
+      "label": "Единицы",
+      "kind": "список",
+      "options": [
+        "m",
+        "cm",
+        "mm"
+      ]
+    },
+    {
+      "key": "annotationStep",
+      "group": "annotations",
+      "node": "levels",
+      "label": "Округление",
+      "kind": "список",
+      "options": [
+        "0.001",
+        "0.005",
+        "0.01",
+        "0.05",
+        "0.1"
+      ]
+    },
+    {
+      "key": "annotationSize",
+      "group": "annotations",
+      "node": "levels",
+      "label": "Размер",
+      "kind": "число",
+      "min": 0.5,
+      "max": 2.5,
+      "step": 0.05,
+      "unit": " ×"
+    },
+    {
+      "key": "annotationFade",
+      "group": "annotations",
+      "node": "levels",
+      "label": "Гаснут дальше",
+      "kind": "число",
+      "min": 10,
+      "max": 2000,
+      "step": 5,
+      "unit": " m"
+    },
+    {
       "key": "light1Enabled",
       "group": "lights",
       "node": "light1",
@@ -6391,6 +6463,13 @@
       "kind": "выключатель"
     },
     {
+      "key": "annotationsEnabled",
+      "group": "render",
+      "node": "visibility",
+      "label": "Отметки уровня",
+      "kind": "выключатель"
+    },
+    {
       "key": "reflectionsEnabled",
       "group": "render",
       "node": "visibility",
@@ -7018,6 +7097,12 @@
     "plantingMonth": 6,
     "plantingPlan": false,
     "northAngle": 0,
+    "annotationsEnabled": true,
+    "annotationColor": "#b0473f",
+    "annotationUnits": "m",
+    "annotationStep": 0.001,
+    "annotationSize": 1,
+    "annotationFade": 150,
     "shrubsEnabled": true,
     "shrubsCount": 512,
     "shrubsSeed": 23,

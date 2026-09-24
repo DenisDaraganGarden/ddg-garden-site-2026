@@ -120,6 +120,16 @@ html[data-editor-tool=hand] .home-editor-render-frame canvas{cursor:grab}
 .focus-pie>button.is-current{border-color:var(--focus-accent)}
 .focus-pie>button.is-hover{background:#e4e2da;color:#1d1f20;border-color:#e4e2da}
 .focus-pie>button:disabled{opacity:.3}
+.focus-pie>button.is-group:after{content:'';position:absolute;right:6px;top:6px;width:4px;height:4px;border-top:1.5px solid currentColor;border-right:1.5px solid currentColor;transform:rotate(45deg);opacity:.55}
+/* Свиток пункта кольца (озеленение): наружу от пункта. */
+.focus-pie__flyout{position:absolute;min-width:170px;padding:4px;border:1px solid #ffffff26;border-radius:10px;background:#202829f2;backdrop-filter:blur(10px);box-shadow:0 8px 24px #0007;pointer-events:auto}
+.focus-pie__flyout header{padding:3px 8px 5px;font-size:9px;color:var(--focus-muted);letter-spacing:.3px}
+.focus-pie__flyout>button{display:flex;align-items:center;gap:9px;width:100%;height:30px;padding:0 9px;border:0;border-radius:6px;background:transparent;color:#e2e5df;font-size:11px;text-align:left;cursor:pointer}
+.focus-pie__flyout>button .focus-icon{width:16px;height:16px}
+.focus-pie__flyout>button kbd{margin-left:auto;font:9px ui-monospace,monospace;color:var(--focus-muted)}
+.focus-pie__flyout>button.is-current{box-shadow:inset 0 0 0 1px var(--focus-accent)}
+.focus-pie__flyout>button.is-hover{background:#e4e2da;color:#1d1f20}
+.focus-pie__flyout>button.is-hover kbd{color:#1d1f20aa}
 /* Стрелка севера (NorthCompass.jsx): над кадром посередине. */
 .focus-compass{position:relative;pointer-events:auto;display:flex;flex-direction:column;align-items:center}
 .focus-compass__dial{width:46px;height:46px;border-radius:50%;padding:0;display:grid;place-items:center;cursor:pointer}

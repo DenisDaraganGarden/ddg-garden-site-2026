@@ -14,7 +14,8 @@ import { clipToSurface } from './clipSurface.js';
 //   plant — клик ставит выбранное растение; протяжка крутит камеру, как обычно;
 //   vine  — мазок по любой поверхности (стена, кашпо, сетка, земля): лиана
 //           растёт от первой точки по мазку (vines.js). Точки — с нормалью
-//           поверхности; мимо модели мазок не пишется.
+//           поверхности; мимо модели мазок не пишется;
+//   mark  — клик ставит отметку уровня (src/annotations), как «Посадить».
 // Земля — то, во что упирается луч: ровная плоскость проекта или модель
 // SketchUp (её 2D-растения, круги крон, стекло и листва — не земля; сетка с
 // вырезами — опора для лианы); мимо — горизонталь на высоте плоскости. Esc и
@@ -30,11 +31,11 @@ const solid = (object, cutout = false) => {
 };
 const UP = new THREE.Vector3(0, 1, 0), FACING = new THREE.Vector3(0, 0, 1);
 
-export default function PlantingBrush({ mode, groundY = 0, orbitRef, onBed, onBedSurface, onPlant, onVine }) {
+export default function PlantingBrush({ mode, groundY = 0, orbitRef, onBed, onBedSurface, onPlant, onVine, onMark }) {
     const { gl, camera, scene, invalidate } = useThree();
     const cursor = useRef();
     const callbacks = useRef({});
-    callbacks.current = { onBed, onBedSurface, onPlant, onVine };
+    callbacks.current = { onBed, onBedSurface, onPlant, onVine, onMark };
     const [preview, setPreview] = useState(null);
     const [surface, setSurface] = useState(null);
     // Контур цветника замкнут и приподнят над землёй; мазок лианы — открытый,
@@ -110,7 +111,7 @@ export default function PlantingBrush({ mode, groundY = 0, orbitRef, onBed, onBe
             const found = cast(event);
             if (!found) return;
             press = { x: event.clientX, y: event.clientY, id: event.pointerId, moved: 0, region: mode === 'bed' ? regionAt(found.hit) : null };
-            if (mode === 'plant') return;
+            if (mode === 'plant' || mode === 'mark') return;
             event.preventDefault(); event.stopImmediatePropagation();
             oldOrbit = orbitRef?.current?.enabled ?? true;
             if (orbitRef?.current) orbitRef.current.enabled = false;
@@ -148,10 +149,10 @@ export default function PlantingBrush({ mode, groundY = 0, orbitRef, onBed, onBe
             const start = press;
             press = null;
             const clicked = start && start.id === event.pointerId && Math.max(start.moved, Math.hypot(event.clientX - start.x, event.clientY - start.y)) <= CLICK;
-            if (mode === 'plant') {
+            if (mode === 'plant' || mode === 'mark') {
                 if (!clicked) return;
                 const found = cast(event);
-                if (found) callbacks.current.onPlant?.(found.point);
+                if (found) callbacks.current[mode === 'mark' ? 'onMark' : 'onPlant']?.(found.point, { onModel: Boolean(found.hit) });
                 return;
             }
             if (!stroke || event.pointerId !== stroke.id || event.button !== 0) return;
@@ -209,7 +210,7 @@ export default function PlantingBrush({ mode, groundY = 0, orbitRef, onBed, onBe
     if (!mode) return null;
     return <group>
         <mesh ref={cursor} visible={false} raycast={() => {}}>
-            <ringGeometry args={[mode === 'plant' ? 0.3 : mode === 'vine' ? 0.1 : 0.16, mode === 'plant' ? 0.36 : mode === 'vine' ? 0.13 : 0.2, 40]} />
+            <ringGeometry args={[mode === 'plant' ? 0.3 : mode === 'vine' || mode === 'mark' ? 0.1 : 0.16, mode === 'plant' ? 0.36 : mode === 'vine' || mode === 'mark' ? 0.13 : 0.2, 40]} />
             <meshBasicMaterial color="#d9ca8c" depthTest={false} transparent opacity={0.85} toneMapped={false} />
         </mesh>
         {surface ? <mesh geometry={surface} material={highlight} raycast={() => {}} renderOrder={6} /> : null}

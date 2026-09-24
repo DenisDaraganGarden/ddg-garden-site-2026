@@ -17,6 +17,8 @@ const paths = {
     copy: <><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/></>,
     ground: <><path d="M12 3v11m-4-4 4 4 4-4"/><path d="M3 19h18"/></>,
     trash: <><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6m4-6v6"/></>,
+    // Отметка уровня: стрелка остриём в поверхность, полочка, число.
+    level: <><path d="M3 21h18"/><path d="m5.5 16.5 3 4.5 3-4.5"/><path d="M8.5 21V9h11"/><path d="M11 6h7" strokeWidth="1.2"/></>,
     sun: <><circle cx="12" cy="12" r="4"/><path d="M12 1v2m0 18v2M1 12h2m18 0h2M4.2 4.2l1.5 1.5m12.6 12.6 1.5 1.5m0-15.6-1.5 1.5M5.7 18.3l-1.5 1.5"/></>,
     camera: <><path d="M3 7h4l2-3h6l2 3h4v13H3Z"/><circle cx="12" cy="13" r="4"/></>,
     sliders: <><path d="M4 3v18M12 3v18M20 3v18"/><path d="M1 8h6m2 8h6m2-10h6" strokeWidth="3"/></>,
