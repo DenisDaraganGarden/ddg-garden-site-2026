@@ -529,7 +529,16 @@ function openings(kit, floors = [0]) {
     box('unit', leaf, [w - 0.1, 1.0, 0.045], [0.04, 0.14, 0.05]);
     return leaf;
   };
-  return { sash, door };
+  // A doorway left open, its door swung in out of sight: the threshold, the
+  // casing and the room beyond. It draws its fate as a door would, so the
+  // rest of the building's damage stays where it was.
+  const doorway = (m, u, w, h) => {
+    casing(m, u, 0, w, h, false);
+    box('trim', m, [u, 0.012, 0.05], [w + 0.04, 0.024, 0.1]);
+    wound(0.2);
+    box('void', m, [u, h / 2, 0.006], [w, h, 0.008], [], { layout: 9, uv: 'pane', scale: encodeRoom(w / 2, h / 2, 0) });
+  };
+  return { sash, door, doorway };
 }
 
 const WALL = 0.16; // wall thickness
@@ -554,18 +563,21 @@ export function buildBeachHouse(input = {}) {
   // A rail to lean on: a bottom rail on blocks clear of the boards, three
   // slats of a few widths, none quite level, a sub-rail and over it a wide
   // flat cap — room for elbows and a bottle.
+  const railLow = 0.12, railSub = RAIL - 0.09;
+  // The rail in section, for what leans on it: [from, to, half its depth]
+  // above the boards, the post line at 0.
+  const railSection = [[0, railLow + 0.035, 0.025], [railLow + 0.035, railSub - 0.035, 0.0125], [railSub - 0.035, railSub + 0.035, 0.03], [RAIL - 0.036, RAIL, 0.08]];
   const rail = (a, b, postAtA = true, postAtB = true) => {
     const dx = b[0] - a[0], dz = b[1] - a[1], length = Math.hypot(dx, dz);
     const start = postAtA ? POST / 2 : 0, end = length - (postAtB ? POST / 2 : 0);
     if (end - start < 0.25) return;
     const at = (s, y) => vec(a[0] + (dx / length) * s, y, a[1] + (dz / length) * s);
-    const low = 0.12, sub = RAIL - 0.09;
-    stick('trim', at(start, F + low), at(end, F + low), 0.05, 0.07, 0.1, F + 0.05);
+    stick('trim', at(start, F + railLow), at(end, F + railLow), 0.05, 0.07, 0.1, F + 0.05);
     for (let s = start + 0.25; s < end - 0.15; s += 0.6) box('trim', WORLD, at(s, F + 0.043).toArray(), [0.05, 0.086, 0.05]);
-    stick('trim', at(start, F + sub), at(end, F + sub), 0.06, 0.07, 0.08, F + 0.05);
+    stick('trim', at(start, F + railSub), at(end, F + railSub), 0.06, 0.07, 0.08, F + 0.05);
     stick('trim', at(start, F + RAIL - 0.018), at(end, F + RAIL - 0.018), 0.16, 0.036, 0.04, F + 0.05);
     const widths = [0.1 + jitter(0.025), 0.1 + jitter(0.025), 0.1 + jitter(0.025)];
-    const top = sub - 0.035, bottom = low + 0.035, gap = (top - bottom - widths.reduce((sum, w) => sum + w, 0)) / 4;
+    const top = railSub - 0.035, bottom = railLow + 0.035, gap = (top - bottom - widths.reduce((sum, w) => sum + w, 0)) / 4;
     let y = bottom + gap;
     for (const width of widths) {
       const lift = jitter(0.008), tilt = jitter(0.008);
@@ -613,6 +625,13 @@ export function buildBeachHouse(input = {}) {
       stick('wood', from, to, 0.03, 0.2, 0.3);
     }
   };
+  // The porch's outer face in section, for what leans on it from the sand:
+  // [from, to, how far proud of the band] — the skirt boards, the band, the
+  // nosing of the boards, the rail back on the post line.
+  const porchFace = [
+    ...skirtRows.map((y) => [y - 0.12, y + 0.12, 0.035]), [F - DECK - RIM, F - DECK, 0], [F - DECK, F, 0.03],
+    ...railSection.map(([a, b, d]) => [F + a, F + b, d - POST / 2]),
+  ];
   // A white lattice between the stilts, `length` wide, on a frame at the sand.
   const lattice = (m, length) => {
     const bottom = 0.08, top = F - DECK - RIM - 0.02, half = length / 2, step = 0.3;
@@ -687,9 +706,11 @@ export function buildBeachHouse(input = {}) {
   }
 
   // Doors and windows, wall by wall.
-  open.door(front, -W / 2 + 1.25, 0.9, 2.05);
+  // The front door stands open; a curtain hangs in it (surfCamp.js).
+  const doorU = -W / 2 + 1.25;
+  open.doorway(front, doorU, 0.9, 2.05);
   // A lantern on the wall beside the door: bracket, glass, cap.
-  const lanternU = -W / 2 + 1.25 + 0.72;
+  const lanternU = doorU + 0.72;
   box('wood', front, [lanternU, 1.84, 0.07], [0.05, 0.05, 0.14]);
   box('lamp', front, [lanternU, 1.78, 0.17], [0.13, 0.2, 0.13]);
   box('roof', front, [lanternU, 1.9, 0.17], [0.17, 0.04, 0.17]);
@@ -905,9 +926,17 @@ export function buildBeachHouse(input = {}) {
       eaves: F + EAVES,
       ridge: bounds.max.y,
       upperSill: F + UPPER_SILL,
-      door: { width: 0.9, height: 2.05 },
+      door: { width: 0.9, height: 2.05, rod: bent([doorU, F + 2.02, L / 2 + 0.03]) },
       rail: RAIL,
-      porch: { depth: P, underBeam: POST_HEIGHT, roofAtWall: porchHigh + PORCH_ROOF / Math.cos(porchPitch), pitch: THREE.MathUtils.radToDeg(porchPitch) },
+      porch: {
+        depth: P, underBeam: POST_HEIGHT, roofAtWall: porchHigh + PORCH_ROOF / Math.cos(porchPitch), pitch: THREE.MathUtils.radToDeg(porchPitch),
+        // Where things lean and hang (surfCamp.js): the posts, the faces in
+        // section, the wall between the lantern and the window.
+        posts: { front: frontPosts, side: sidePosts, size: POST }, wrapBack, face: porchFace, railSection,
+        wall: { z: L / 2 + 0.024, from: lanternU + 0.1, to: W / 2 - 2.07 },
+      },
+      // A point as the settled house carries it.
+      bend: bent,
       stairs: { risers, rise, run: RUN, width: STAIR_WIDTH, top: [stairTop, F, zc], foot: [stairFoot, 0, zc] },
       annex,
       // Where rain runs off and streaks the walls below: the eaves, the band
@@ -1054,6 +1083,9 @@ export function buildBeachShed(input = {}) {
       lamps: [bent(bulb.clone())],
       // The garland from the house ties on at the post nearer the house (−z).
       yardAnchor: bent(vec(postX, headerTop - 0.3, Z0 + 0.02)),
+      seed,
+      hut: { front: FRONT, back: X0, z0: Z0, z1: Z1, walls: WALLS, door: stepZ, posts: postX },
+      bend: (point) => bent(vec(...point)),
       deck: H, steps: 3, stepRise: H / 3, door: { width: 0.82, height: 1.9 }, eaves: eaveY, ridge: bounds.max.y, dripLines: [H + WALLS, H + 1.1, H + 0.02, 0.3] },
   };
 }

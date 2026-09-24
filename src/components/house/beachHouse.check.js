@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { HOUSE_DEFAULTS, HOUSE_RANGES, HOUSE_ROLES, buildBeachHouse, buildBeachShed, decodeRoom, disposeBuilding, garlandBulbs } from './beachHouse.js';
 import { RIDER_HEIGHT } from '../surfboard/riderSkeleton.js';
+import * as THREE from 'three';
+import { CAMP_BOARDS, RING_PAINTS, boardPoints, houseCamp, shedCamp } from './surfCamp.js';
 
 // The house is for walking: hold its measures to the surfer's (1.74 m) and to
 // the carpenter's rules, at the defaults and at both ends of every slider.
@@ -82,12 +84,13 @@ assert.deepEqual(
   'the same seed builds the same boards',
 );
 
-// Age. A new house has no gaps; more damage only opens more of them (every
-// piece draws its fate whatever the damage) and takes porch boards away.
+// Age. A new house has no gaps but its open front door (one box); more
+// damage only opens more of them (every piece draws its fate whatever the
+// damage) and takes porch boards away.
 const trianglesOf = (building, role) => (building.parts.get(role)?.attributes.position.count ?? 0) / 3;
 const fresh = buildBeachHouse({ damage: 0, sag: 0 });
-assert.ok(!fresh.parts.has('void'), 'a new house has no holes');
-let holes = 0;
+assert.equal(trianglesOf(fresh, 'void'), 12, 'a new house has no holes but its open door');
+let holes = 12;
 for (const damage of [0.25, 0.5, 0.75, 1]) {
   const aged = buildBeachHouse({ damage, sag: 0 });
   assert.ok(trianglesOf(aged, 'void') >= holes, `damage ${damage}: holes only grow`);
@@ -95,7 +98,7 @@ for (const damage of [0.25, 0.5, 0.75, 1]) {
   if (damage === 1) assert.ok(trianglesOf(aged, 'deck') < trianglesOf(fresh, 'deck'), 'damage takes porch boards away');
   disposeBuilding(aged);
 }
-assert.ok(holes > 0, 'a derelict house has holes');
+assert.ok(holes > 12, 'a derelict house has holes');
 const seedOf = (damage) => buildBeachHouse({ damage, sag: 0 }).parts.get('siding').attributes.aSurface.getX(0);
 assert.equal(seedOf(0), seedOf(1), 'a board keeps its patch of texture whatever the damage');
 // Sagging bends the roof (a straight ridge has no vertex at its middle; a
@@ -121,4 +124,33 @@ assert.ok(triangles(shed) < 15000, `shed: ${triangles(shed)} triangles`);
 const shedTriangles = triangles(shed);
 disposeBuilding(shed);
 
-console.log(`beach house: ${defaultTriangles} + ${shedTriangles} triangles, stairs ${house.plan.stairs.risers} × ${(house.plan.stairs.rise * 100).toFixed(0)} cm, ridge ${house.plan.ridge.toFixed(2)} m; ${Object.keys(HOUSE_RANGES).length * 2 + 2} slider ends hold.`);
+// Bikini Point's things rest on something, whatever the sliders: every board's
+// lowest point on the sand (the one stuck in it 30 cm down) or on the porch
+// boards; every pose a number; the same seed, the same mess.
+const lowest = ({ settings, position, quaternion }) => {
+  const turn = new THREE.Quaternion().fromArray(quaternion);
+  return Math.min(...boardPoints(settings).map((point) => point.clone().applyQuaternion(turn).y)) + position[1];
+};
+const numbers = (camp) => JSON.stringify(camp, (key, value) => (typeof value === 'number' && !Number.isFinite(value) ? 'NaN' : value)).indexOf('NaN') < 0;
+const campChecks = [['default', {}], ...Object.entries(HOUSE_RANGES).flatMap(([key, [min, max]]) => [[`${key} = ${min}`, { [key]: min }], [`${key} = ${max}`, { [key]: max }]])];
+let things = 0;
+for (const [label, settings] of campChecks) {
+  const building = buildBeachHouse({ ...HOUSE_DEFAULTS, ...settings }), camp = houseCamp(building);
+  assert.ok(numbers(camp), `${label}: the camp's poses are numbers`);
+  assert.ok(camp.rings.every(({ paint }) => RING_PAINTS[paint]) && camp.boards.every(({ slot }) => CAMP_BOARDS[slot]), `${label}: rings painted, boards from their slots`);
+  for (const board of camp.boards) {
+    const low = lowest(board), floor = building.plan.floor;
+    const onSand = board.slot === 5 ? Math.abs(low + 0.3) < 0.01 : low > -0.03 && low < 0.02, onPorch = low > floor - 0.35 && low < floor + 0.02;
+    assert.ok(onSand || onPorch, `${label}: board ${board.slot} rests on something (${low.toFixed(3)})`);
+  }
+  things = camp.rings.length + camp.boards.length + camp.chairs.length + camp.flags.length + camp.line.washing.length + 2;
+  disposeBuilding(building);
+}
+{
+  const a = buildBeachHouse(), b = buildBeachHouse();
+  assert.deepEqual(houseCamp(a), houseCamp(b), 'the same seed, the same mess');
+  const shedThings = shedCamp(buildBeachShed());
+  assert.ok(numbers(shedThings) && shedThings.boards.every((board) => lowest(board) > -0.03 && lowest(board) < 0.02), 'the shed\'s board stands on the sand');
+}
+
+console.log(`beach house: ${defaultTriangles} + ${shedTriangles} triangles, stairs ${house.plan.stairs.risers} × ${(house.plan.stairs.rise * 100).toFixed(0)} cm, ridge ${house.plan.ridge.toFixed(2)} m; ${Object.keys(HOUSE_RANGES).length * 2 + 2} slider ends hold; Bikini Point: ${things} things in place.`);

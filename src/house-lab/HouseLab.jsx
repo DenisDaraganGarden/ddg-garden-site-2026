@@ -7,7 +7,9 @@ import LabShell, { LabColor, LabFacts, LabModes, LabRange, LabTabs, LabToggle } 
 import { assetIndex } from '../asset-lab/assetCatalog';
 import BeachHouseModel from '../components/house/BeachHouseModel';
 import StringLights from '../components/house/StringLights';
+import SurfCampModel from '../components/house/SurfCampModel';
 import { HOUSE_COLORS, HOUSE_DEFAULTS, HOUSE_RANGES, buildBeachHouse, buildBeachShed, disposeBuilding } from '../components/house/beachHouse';
+import { houseCamp, shedCamp } from '../components/house/surfCamp';
 import RiderModel from '../components/surfboard/RiderModel';
 import { updateRiderModel } from '../components/surfboard/riderMesh';
 import { createRiderRagdoll } from '../components/surfboard/riderSkeleton';
@@ -38,6 +40,7 @@ const CAMERA_VIEWS = {
   back: aim([-2.2, 3.2, 0], [-0.6, 0.45, -0.66], 35, 3),
   porch: aim([-1.3, 2.3, 4.6], [0.55, 0.12, 0.83], 8.5, 0.7),
   shed: aim([-8.6, 1.6, 7.4], [0.66, 0.34, 0.67], 12, 1.1),
+  beach: aim([-3.3, 1.2, 8.6], [0.3, 0.22, 1], 7.5, 0.8),
   top: aim([-2.6, 0, 2.2], [0, 1, 0.001], 48, 3.5),
 };
 const CAMERA_LIMITS = { minDistance: 1.2, maxDistance: 90, minPolarAngle: 0.02, maxPolarAngle: Math.PI / 2 - 0.02 };
@@ -57,7 +60,7 @@ const DAYTIMES = { day: 11.5, dusk: 20.3, deep: 23.2 };
 const SHED_TURN = 0.12;
 const wearPreset = (settings) => Object.keys(WEAR).find((id) => WEAR_KEYS.every((key) => WEAR[id][key] === settings[key])) ?? null;
 const DEFAULTS = {
-  ...HOUSE_DEFAULTS, colors: HOUSE_COLORS, look: 'color', rider: true, shed: true, wireframe: false,
+  ...HOUSE_DEFAULTS, colors: HOUSE_COLORS, look: 'color', rider: true, camp: true, shed: true, wireframe: false,
   // Late morning: the sun comes from the front left, as in the diorama's
   // photos, where the published scene's early sun leaves the porch in shade.
   timeOfDay: 11.5, cloudCover: PUBLISHED.cloudCover, exposure: 1.04, environmentIntensity: 0.7,
@@ -65,12 +68,12 @@ const DEFAULTS = {
 };
 const TEXT = {
   ru: {
-    title: 'Дом у океана', subtitle: 'Дом на сваях и сарай · процедурные текстуры и износ · по диораме «By the ocean»',
+    title: 'Bikini Point', subtitle: 'Дом на сваях и сарай · процедурные текстуры и износ · по диораме «By the ocean»',
     color: 'Цвет', clay: 'Макет', shape: 'Форма', wear: 'Износ', paint: 'Краски', light: 'Свет',
     fresh: 'Новый', lived: 'Жилой', derelict: 'Заброшенный', weather: 'Подтёки и выцветание', damage: 'Сломанные доски', sag: 'Проседание',
-    full: 'Общий', front: 'Фасад', side: 'Сбоку', back: 'Сзади', porch: 'Веранда', shed: 'Сарай', top: 'План',
+    full: 'Общий', front: 'Фасад', side: 'Сбоку', back: 'Сзади', porch: 'Веранда', shed: 'Сарай', beach: 'Пляж', top: 'План',
     houseWidth: 'Ширина дома', houseLength: 'Длина дома', floorHeight: 'Высота свай', roofPitch: 'Уклон крыши', porchDepth: 'Глубина веранды', seed: 'Вариант досок',
-    rider: 'Серфер для масштаба', showShed: 'Сарай', wire: 'Каркас',
+    rider: 'Серфер для масштаба', camp: 'Доски и круги', showShed: 'Сарай', wire: 'Каркас',
     house: 'Дом', floor: 'Пол над песком', ridge: 'Конёк', stairs: 'Лестница', door: 'Дверь', beam: 'Под балкой веранды', shedFacts: 'Сарай',
     stairsValue: (n, rise, run) => `${n} × ${rise} см, проступь ${run} см`, shedValue: '3,5 × 2,6 м · 3 ступени по 15 см',
     siding: 'Обшивка', shakes: 'Дранка пристройки', trim: 'Белые доски', deck: 'Настил', wood: 'Сваи и каркас', roof: 'Кровля', metal: 'Профлист',
@@ -80,12 +83,12 @@ const TEXT = {
     triangles: 'треугольников', meshes: 'мешей', m: 'м', deg: '°', h: 'ч',
   },
   en: {
-    title: 'House by the ocean', subtitle: 'Stilt house and shed · procedural textures and wear · after the «By the ocean» diorama',
+    title: 'Bikini Point', subtitle: 'Stilt house and shed · procedural textures and wear · after the «By the ocean» diorama',
     color: 'Colour', clay: 'Clay', shape: 'Shape', wear: 'Wear', paint: 'Paint', light: 'Light',
     fresh: 'New', lived: 'Lived-in', derelict: 'Derelict', weather: 'Streaks and fading', damage: 'Broken boards', sag: 'Sagging',
-    full: 'Overview', front: 'Front', side: 'Side', back: 'Back', porch: 'Porch', shed: 'Shed', top: 'Plan',
+    full: 'Overview', front: 'Front', side: 'Side', back: 'Back', porch: 'Porch', shed: 'Shed', beach: 'Beach', top: 'Plan',
     houseWidth: 'House width', houseLength: 'House length', floorHeight: 'Stilt height', roofPitch: 'Roof pitch', porchDepth: 'Porch depth', seed: 'Board variant',
-    rider: 'Surfer for scale', showShed: 'Shed', wire: 'Wireframe',
+    rider: 'Surfer for scale', camp: 'Boards and rings', showShed: 'Shed', wire: 'Wireframe',
     house: 'House', floor: 'Floor above the sand', ridge: 'Ridge', stairs: 'Stairs', door: 'Door', beam: 'Under the porch beam', shedFacts: 'Shed',
     stairsValue: (n, rise, run) => `${n} × ${rise} cm, ${run} cm treads`, shedValue: '3.5 × 2.6 m · 3 steps of 15 cm',
     siding: 'Siding', shakes: 'Lean-to shakes', trim: 'White boards', deck: 'Decking', wood: 'Stilts and frame', roof: 'Roofing', metal: 'Corrugated iron',
@@ -116,6 +119,9 @@ export default function HouseLab() {
   }, [shapeKey]);
   useEffect(() => () => disposeBuilding(house), [house]);
   useEffect(() => () => disposeBuilding(shed), [shed]);
+  // The surfers' boards and life rings, where the seed throws them.
+  const camp = useMemo(() => houseCamp(house), [house]);
+  const shedThings = useMemo(() => shedCamp(shed), [shed]);
   const placeRider = useCallback((mesh) => updateRiderModel(mesh, REST_RIDER), []);
   const { plan } = house;
   const [footX, , footZ] = plan.stairs.foot;
@@ -153,7 +159,7 @@ export default function HouseLab() {
       subtitle={t.subtitle}
       language={language}
       onLanguage={setLanguage}
-      views={['full', 'front', 'side', 'back', 'porch', 'shed', 'top'].map((id) => ({ id, label: t[id] }))}
+      views={['full', 'front', 'side', 'back', 'porch', 'shed', 'beach', 'top'].map((id) => ({ id, label: t[id] }))}
       view={view}
       onView={setView}
       scale={`${t.ridge} ${plan.ridge.toFixed(1)} ${t.m}`}
@@ -168,6 +174,7 @@ export default function HouseLab() {
           {range('porchDepth', metres, t.m)}
           <LabRange label={t.seed} value={settings.seed} min={1} max={99} step={1} onChange={(value) => set('seed', value)} />
           <LabToggle label={t.rider} value={settings.rider} onChange={(value) => set('rider', value)} />
+          <LabToggle label={t.camp} value={settings.camp} onChange={(value) => set('camp', value)} />
           <LabToggle label={t.showShed} value={settings.shed} onChange={(value) => set('shed', value)} />
           <LabToggle label={t.wire} value={settings.wireframe} onChange={(value) => set('wireframe', value)} />
           <LabFacts rows={[
@@ -223,9 +230,11 @@ export default function HouseLab() {
           {settings.shed ? (
             <group position={shedAt} rotation={[0, SHED_TURN, 0]}>
               <BeachHouseModel building={shed} colors={settings.colors} clay={clay} wireframe={settings.wireframe} weather={settings.weather} seed={settings.seed + 5} lamps={settings.lamps} night={night} />
+              {settings.camp ? <SurfCampModel camp={shedThings} clay={clay} wireframe={settings.wireframe} /> : null}
             </group>
           ) : null}
           {clay ? null : <StringLights spans={garlandSpans} power={settings.garlands} night={night} />}
+          {settings.camp ? <SurfCampModel camp={camp} clay={clay} wireframe={settings.wireframe} /> : null}
         </Suspense>
         {settings.rider ? (
           <group position={[footX - 0.45, 0, footZ + 0.75]} rotation={[0, 0.9, 0]}>
