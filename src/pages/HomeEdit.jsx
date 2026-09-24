@@ -38,7 +38,7 @@ import { gizmoAllows } from '../features/home-scene/components/editor/EditorGizm
 import { audioSettingsForScene, sceneObjectOn, sceneObjectsForNode } from '../features/home-scene/lib/sceneObjects';
 import HomeEditorPanel from '../features/home-scene/components/HomeEditorPanel';
 import { useFocusHistory } from '../features/home-scene/components/editor/focus/useFocusHistory';
-import { publishHomeSceneSettings } from '../features/home-scene/lib/homeScenePublishClient';
+import { confirmPublishWithModels, publishHomeSceneSettings } from '../features/home-scene/lib/homeScenePublishClient';
 import { useLanguage } from '../i18n/useLanguage';
 import { useSiteAudio } from '../features/audio/SiteAudioContext';
 import { activeProjectId, readProject } from '../features/engine/projectApi';
@@ -744,6 +744,7 @@ const HomeEdit = ({ project = null }) => {
     // commits it and pushes main, GitHub builds the page. Without deploy the
     // file only lands in the project, which is what the smoke test exercises.
     const handlePublish = async ({ deploy = false } = {}) => {
+        if (project && !confirmPublishWithModels(settings, language === 'ru')) return;
         const currentPreparedSettings = syncActiveCameraScene(settings);
         const currentPublishableSettings = sanitizeHomeSceneSettingsForPublish(
             currentPreparedSettings,

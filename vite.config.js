@@ -1,14 +1,13 @@
-import { execFile } from 'node:child_process';
 import { createReadStream } from 'node:fs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { promisify } from 'node:util';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { publishedHomeSceneKeys } from './src/features/home-scene/data/publishedHomeSceneKeys.js';
 import { isValidId, presets, projects } from './scripts/projectStore.mjs';
 import { prepareSketchupGlb } from './scripts/sketchupGlb.mjs';
+import { deployPublishedHomeScene } from './scripts/deployScene.mjs';
 import { poseTuningModule } from './src/components/surfboard/poseTuning.js';
 
 const projectRoot = process.cwd();
@@ -20,51 +19,12 @@ const publishedHomeSceneSettingsPath = path.join(
   'data',
   'publishedHomeSceneSettings.js',
 );
-const execFileAsync = promisify(execFile);
 const PUBLISHED_HOME_SCENE_SETTINGS_FILE = 'src/features/home-scene/data/publishedHomeSceneSettings.js';
 // Which project the home page scene came from (or null for the site's own
 // editor), so the project list can say what is on the home page right now.
 const PUBLISHED_HOME_SCENE_SOURCE_FILE = 'src/features/home-scene/data/publishedHomeSceneSource.json';
 const publishedHomeSceneSourcePath = path.join(projectRoot, PUBLISHED_HOME_SCENE_SOURCE_FILE);
 const DEPLOY_FILES = [PUBLISHED_HOME_SCENE_SETTINGS_FILE, PUBLISHED_HOME_SCENE_SOURCE_FILE];
-const DEPLOY_REMOTE = 'origin';
-const DEPLOY_BRANCH = 'main';
-
-async function git(args, timeout = 60000) {
-  const { stdout, stderr } = await execFileAsync('git', args, {
-    cwd: projectRoot,
-    timeout,
-    maxBuffer: 1 << 20,
-  });
-  return `${stdout}${stderr}`.trim();
-}
-
-// Publishing writes a file into the checkout; the site only changes when that
-// file reaches main on GitHub, where the Pages workflow builds it. This is the
-// other half of the "to the site" button: commit the published file on its
-// own and push HEAD to main. Fast-forward only - anything else is a merge for
-// a person to look at, and the error says so.
-async function deployPublishedHomeScene() {
-  const branch = await git(['rev-parse', '--abbrev-ref', 'HEAD']);
-  await git(['add', '--', ...DEPLOY_FILES]);
-  const staged = await git(['diff', '--cached', '--name-only', '--', ...DEPLOY_FILES]);
-  let commit = null;
-
-  if (staged) {
-    await git(['commit', '--only', '-m', 'chore(home): publish authored scene', '--', ...DEPLOY_FILES]);
-    commit = await git(['rev-parse', '--short', 'HEAD']);
-  }
-
-  const push = await git(['push', DEPLOY_REMOTE, `HEAD:${DEPLOY_BRANCH}`], 180000);
-
-  return {
-    ok: true,
-    branch,
-    commit,
-    head: await git(['rev-parse', '--short', 'HEAD']),
-    push,
-  };
-}
 
 function sendJson(response, statusCode, payload) {
   response.statusCode = statusCode;
@@ -156,7 +116,7 @@ function homeScenePublishPlugin() {
 
         if (body.deploy === true) {
           try {
-            result.deploy = await deployPublishedHomeScene();
+            result.deploy = await deployPublishedHomeScene({ cwd: projectRoot, files: DEPLOY_FILES });
           } catch (error) {
             // The file is published either way; only the trip to the site failed.
             result.deploy = {

@@ -10,7 +10,7 @@ import {
     getBaseHomeSceneSettings, normalizeHomeSceneDraftSettings, readHomeSceneDraftSettings, sanitizeHomeSceneSettingsForPublish,
 } from '../features/home-scene/hooks/useHomeSceneSettings';
 import { newProjectObjectSettings } from '../features/home-scene/lib/sceneObjects';
-import { publishHomeSceneSettings } from '../features/home-scene/lib/homeScenePublishClient';
+import { confirmPublishWithModels, publishHomeSceneSettings } from '../features/home-scene/lib/homeScenePublishClient';
 import publishedSource from '../features/home-scene/data/publishedHomeSceneSource.json';
 import './Engine.css';
 
@@ -85,6 +85,7 @@ export default function Engine() {
         try {
             setHomeNote(tr(`Ставлю «${project.name}» на заглавную…`, `Putting "${project.name}" on the home page…`));
             const full = await readProject(project.id);
+            if (!confirmPublishWithModels(full.settings, language === 'ru')) { setHomeNote(''); return; }
             await publishHomeSceneSettings(sanitizeHomeSceneSettingsForPublish(full.settings), { source: { projectId: project.id, projectName: project.name } });
             setHomeSource({ projectId: project.id, projectName: project.name, publishedAt: new Date().toISOString() });
             setHomeNote(tr(`«${project.name}» — сцена заглавной. Выложить на сайт: открыть проект → «На сайт».`, `"${project.name}" is the home page scene. To publish: open the project → "To the site".`));
