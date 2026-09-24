@@ -8,7 +8,7 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { publishedHomeSceneKeys } from './src/features/home-scene/data/publishedHomeSceneKeys.js';
 import { isValidId, presets, projects } from './scripts/projectStore.mjs';
-import { proneTuningModule } from './src/components/surfboard/proneTuning.js';
+import { poseTuningModule } from './src/components/surfboard/poseTuning.js';
 
 const projectRoot = process.cwd();
 const publishedHomeSceneSettingsPath = path.join(
@@ -186,8 +186,8 @@ function homeScenePublishPlugin() {
   };
 }
 
-// Поза райдера лёжа: лаборатория доски («Править позу лёжа») присылает
-// поправки Дениса, файл пишется здесь и читается игрой (riderPose.js).
+// Позы райдера (лёжа, гребок, плавание): лаборатория доски («Править позу»)
+// присылает поправки Дениса, файл пишется здесь и читается игрой (riderPose.js).
 const RIDER_POSE_FILE = 'src/components/surfboard/riderPoseTuning.js';
 function riderPosePlugin() {
   const attach = (middlewares) => {
@@ -198,7 +198,7 @@ function riderPosePlugin() {
       }
       try {
         const body = await readJsonBody(request);
-        await fs.writeFile(path.join(projectRoot, RIDER_POSE_FILE), proneTuningModule(body.prone), 'utf8');
+        await fs.writeFile(path.join(projectRoot, RIDER_POSE_FILE), poseTuningModule(body), 'utf8');
         sendJson(response, 200, { ok: true, file: RIDER_POSE_FILE });
       } catch (error) {
         sendJson(response, 500, { ok: false, message: error instanceof Error ? error.message : 'Rider pose save failed' });

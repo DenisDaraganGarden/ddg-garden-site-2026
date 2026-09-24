@@ -67,7 +67,13 @@
     "shinR": 799,
     "footR": 730
   },
-  "influences": 3,
+  "midBoneVertices": {
+    "midShoulderL": 728,
+    "midShoulderR": 806,
+    "midHipL": 1678,
+    "midHipR": 1671
+  },
+  "influences": 4,
   "restPoseShift": 0.2228,
   "atlas": [
     1024,
@@ -76,8 +82,8 @@
   "strip": {
     "height": 64,
     "used": 455,
-    "texelsPerMetre": 294.1
+    "texelsPerMetre": 293.5
   },
-  "glbBytes": 3015988,
+  "glbBytes": 3017420,
   "vertices": 30859
 }

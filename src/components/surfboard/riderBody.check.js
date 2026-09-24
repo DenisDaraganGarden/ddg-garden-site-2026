@@ -1,12 +1,13 @@
 import assert from 'node:assert/strict';
 import { readFileSync, statSync } from 'node:fs';
 import * as THREE from 'three';
-import { bindRiderBody } from './riderBody.js';
+import { MID_BONES, bindRiderBody, updateRiderBody } from './riderBody.js';
 import { JOINTS, SEGMENT, SEGMENT_CENTRE, SEGMENT_NAMES } from './riderSkeleton.js';
 
 // The surfer's body against the physics skeleton it hangs on
 // (public/models/surfer/surfer.glb, assets-source/surfer/generate_surfer_asset.py):
-// its bones are the fourteen bodies; in the rest pose he stands where the
+// its bones are the fourteen bodies and a mid bone at each shoulder and hip;
+// in the rest pose he stands where the
 // bodies stand — feet on the ground, facing +Z, left hand on +X; and posed
 // wide (an arm up, one out forward, the legs apart and bent) nothing of him
 // stretches into a web: every place the scan fused (the arms along the chest,
@@ -31,7 +32,7 @@ function accessor(index) {
 // What it carries.
 const [skin] = gltf.skins;
 const names = skin.joints.map((node) => gltf.nodes[node].name);
-assert.deepEqual([...names].sort(), [...SEGMENT_NAMES].sort(), 'a bone per body, named as the bodies');
+assert.deepEqual([...names].sort(), [...SEGMENT_NAMES, ...Object.keys(MID_BONES)].sort(), 'a bone per body, named as the bodies, and the four mid bones');
 const primitive = gltf.meshes[0].primitives[0];
 const geometry = new THREE.BufferGeometry();
 geometry.setAttribute('position', accessor(primitive.attributes.POSITION));
@@ -71,10 +72,12 @@ assert.ok(restError < 1e-5, `bound in the physics rest pose (${restError})`);
 const box = new THREE.Box3().setFromBufferAttribute(rest);
 assert.ok(Math.abs(box.min.y) < 0.01 && Math.abs(box.max.y - 1.74) < 0.02, `feet on the ground, 1.74 m tall (${box.min.y.toFixed(3)}..${box.max.y.toFixed(3)})`);
 // Which way he faces: his face is the head's front, his left hand on +X.
+// A vertex's leading bone, a mid bone counting as the trunk's body it sits on.
 const dominant = (i) => {
   let best = 0;
   for (let c = 1; c < 4; c += 1) if (weights.getComponent(i, c) > weights.getComponent(i, best)) best = c;
-  return names[joints.getComponent(i, best)];
+  const name = names[joints.getComponent(i, best)];
+  return MID_BONES[name]?.[0] ?? name;
 };
 let nose = null, handL = 0, handR = 0;
 for (let i = 0; i < count; i += 1) {
@@ -117,11 +120,22 @@ for (const joint of JOINTS) {
   }
   world[joint.child] = m.multiply(step.makeTranslation(-x, -y, -z));
 }
-bones.forEach((bone, k) => {
-  const [x, y, z] = SEGMENT_CENTRE[bone.name];
-  bone.matrixWorld.copy(world[SEGMENT_NAMES[mesh.userData.bodies[k]]]).multiply(step.makeTranslation(x, y, z));
+// The bodies there, and the bones from them as the game sets them.
+const bodies = SEGMENT_NAMES.map((name) => {
+  const m = world[name].clone().multiply(step.makeTranslation(...SEGMENT_CENTRE[name]));
+  const p = new THREE.Vector3(), q = new THREE.Quaternion();
+  m.decompose(p, q, new THREE.Vector3());
+  return { x: p.toArray(), q: q.toArray() };
 });
+updateRiderBody(mesh, { world: { bodies } });
 assert.equal(SEGMENT[bones[0].name], mesh.userData.bodies[0]);
+// A mid bone sits at its joint, as its limb's body carries the joint too.
+for (const [name, [, limb, joint]] of Object.entries(MID_BONES)) {
+  const at = new THREE.Vector3().setFromMatrixPosition(bones[names.indexOf(name)].matrixWorld);
+  const anchor = JOINTS.find((j) => j.name === joint).anchor;
+  const fromLimb = new THREE.Vector3(...anchor).applyMatrix4(world[limb]);
+  assert.ok(at.distanceTo(fromLimb) < 1e-6, `${name} at the ${joint} (${at.distanceTo(fromLimb)})`);
+}
 skinAll();
 let longest = 0, worst = 0;
 const index = geometry.index.array;
