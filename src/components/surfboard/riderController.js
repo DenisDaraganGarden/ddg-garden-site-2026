@@ -2,12 +2,17 @@ import {
   JOINTS, SEGMENT, SEGMENT_NAMES, createRiderRagdoll, segmentVolume,
 } from './riderSkeleton.js';
 import {
-  createControls, createPose, jointTargets, popUpControls, proneControls, solvePose, standControls, swimControls,
+  blendControls, captureControls, copyControls, createControls, createPose, jointTargets, popUpControls, proneControls, solvePose,
+  standControls, stepControls, swimControls,
 } from './riderPose.js';
 import {
   bodyPoint, driveKinematic, placeBody, qConj, qFromAxisAngle, qMul, qRotate, qRotateInverse, qSlerp, setKinematic, stepRagdoll,
 } from './ragdoll.js';
-import { createWalker, resetWalker, stepWalker, walkControls } from './riderWalk.js';
+import {
+  RUN_SPEED, carryGrip, carryPose, createWalker, crouchControls, jumpControls, jumpLegs, landWalker, resetWalker, stepWalker,
+  walkControls,
+} from './riderWalk.js';
+import { resetBoard } from './boardPhysics.js';
 
 // The rider: his body on the board and off it, and what it tells the board.
 //
@@ -24,16 +29,25 @@ import { createWalker, resetWalker, stepWalker, walkControls } from './riderWalk
 //   fallen   wiped out: nothing carries him. The muscles keep a little tone,
 //            the water floats him by the density of each part and drags him
 //            with its flow, the leash ties his back ankle to the tail.
-//   swim     he comes up and swims to his board: head-up crawl to the nearest
-//            rail, the arms' pull and the kick driving him, his body kept
-//            level and turned toward the rail by the swimmer's own feel for it.
+//   swim     head-up crawl, the arms' pull and the kick driving him, his body
+//            kept level by the swimmer's own feel for it: after a fall he swims
+//            to the nearest rail and climbs on by himself; in the water by his
+//            own will (a jump, a walk in) he swims where he is steered, treads
+//            water when he is not, and climbs on when asked beside the board.
 //   recover  at the rail he climbs on: pulled up onto the deck, then lying.
-//   walk     on his own feet (riderWalk.js), in the world's frame: pelvis and
-//            feet where the gait puts them, the rest on muscles. He steps off
-//            a board he lies on once the water under it is shallow (and off
-//            one run aground under him), stands up out of a swim or a fall
-//            where he can, swims where it gets deep, and climbs back on the
-//            board when it floats beside him and he asks (the pop-up).
+//   walk     on his own feet (riderWalk.js), in the world's frame, all of him
+//            on the gait's pose: in the water it would push his trunk about
+//            and his arms would lag it. He steps off a board he lies on once
+//            the water under it is shallow (and off one run aground under
+//            him), stands up out of a swim or a fall where he can, swims where
+//            it gets deep; beside the board he climbs on, or picks it up and
+//            carries it under his arm (and walking it into the water, gets on).
+//   jump     off the ground or off the board, all of him on the pose: a
+//            crouch, the flight, and down on his feet or into the water.
+//
+// Going from one posture to another on his feet or in the air is a blend of
+// the controls the poses are built from (riderPose stepControls), his bodies
+// read back into controls where the blend starts: the parts stay joined.
 //
 // He falls when the ride takes him beyond what the pose can hold: the board
 // capsizes or stops dead under him, or the water shoves his chest off his
@@ -95,12 +109,39 @@ const AGROUND_DEPTH = 0.35;
 const SWIM_DEPTH = 1.25;
 const STAND_DEPTH = 1.0;
 const MOUNT_REACH = 1.2;
-const MOUNT_DEPTH = 0.3;
-// Stepping off or standing up, his pelvis and feet go from where they were to
-// where the walker stands him over this long.
-const WALK_BLEND = 0.7;
+// Deeper than he steps off at, or he would step off again at once.
+const MOUNT_DEPTH = 0.8;
+// From a posture to his feet (s): stepping off a board, standing up out of the
+// water, coming down from a jump.
+const STEP_OFF_TIME = 0.9;
+const STAND_UP_TIME = 1.0;
+const LANDING_TIME = 0.22;
+// Jumps: the crouch before (s) off the ground, standing on the board, lying on
+// it (he springs up first); how fast he leaves (m/s), up and, off a board,
+// away from it; how hard the board is kicked back (m/s); how far his knees give
+// landing (m); the water deep enough to jump into rather than land in (m).
+const JUMP_LOAD = { ground: 0.12, stand: 0.2, prone: 0.45 };
+const JUMP_UP = { ground: 2.9, board: 3.1 };
+const JUMP_AWAY = 1.8;
+const JUMP_KICK = 2.0;
+const LANDING_GIVE = 0.13;
+const WATER_LANDING = 0.9;
+// The board under his arm: this close (m) to take it; lifted and put down over
+// this long (s); carried into water this deep, he puts it on it and gets on.
+const CARRY_REACH = 0.9;
+const LIFT_TIME = 0.55;
+const LOWER_TIME = 0.45;
+const CARRY_LAUNCH = 0.9;
+// A board put down floats this deep (m).
+const PUT_DRAFT = 0.05;
+// The leash: back on only with its plug this close (m).
+const LEASH_REACH = 1.0;
+// Stepped off, he keeps a hand on the board this long (s) while it is this
+// close (m): relieved of his weight it bobs up and would glide off.
+const STEADY_TIME = 1.2;
+const STEADY_REACH = 1.3;
 // The leash: 6 ft of urethane that stretches.
-const LEASH_LENGTH = 1.85;
+export const LEASH_LENGTH = 1.85;
 const LEASH_STIFFNESS = 380;
 const LEASH_DAMPING = 32;
 // The legs as a spring under the trunk: an impact sinks the hips, a drop lets
@@ -119,7 +160,8 @@ const CARRIED = {
   popup: ['pelvis', 'abdomen', 'chest', 'footL', 'footR'],
   liedown: ['pelvis', 'abdomen', 'chest', 'footL', 'footR'],
   stand: ['pelvis', 'footL', 'footR'],
-  walk: ['pelvis', 'footL', 'footR'],
+  walk: SEGMENT_NAMES,
+  jump: SEGMENT_NAMES,
   fallen: [],
   swim: [],
   recover: [],
@@ -127,13 +169,17 @@ const CARRIED = {
 // Muscle strength by state, as a share of each joint's own stiffness. It
 // goes slack at once (a fall takes the body's hold away in an instant) but
 // comes back over TONE_RISE: a man gathers himself, he does not snap to.
-const TONE = { prone: 1, popup: 1, liedown: 1, stand: 1, walk: 1, fallen: 0.06, swim: 0.8, recover: 0.35 };
+const TONE = { prone: 1, popup: 1, liedown: 1, stand: 1, walk: 1, jump: 1, fallen: 0.06, swim: 0.8, recover: 0.35 };
 const TONE_RISE = 0.5;
 const IN_WATER = new Set(['fallen', 'swim', 'recover']);
-const OFF_BOARD = new Set([...IN_WATER, 'walk']);
-// On his feet the pose is the world's, not the board's.
+const OFF_BOARD = new Set([...IN_WATER, 'walk', 'jump']);
+// On the board, unless he is off it — crouching on it to jump off, he is on it.
+const onBoardOf = (rider) => !OFF_BOARD.has(rider.state) || (rider.state === 'jump' && rider.leap.from !== 'ground' && !rider.leap.air);
+// On his feet and in the air the pose is the world's, not the board's.
 const WORLD = Object.freeze({ p: [0, 0, 0], q: [0, 0, 0, 1], v: [0, 0, 0], w: [0, 0, 0] });
-const frameFor = (state, board) => (state === 'walk' ? WORLD : board);
+const frameFor = (rider, board) => ((rider.state === 'walk' || (rider.state === 'jump' && !onBoardOf(rider))) ? WORLD : board);
+// States that build all of him and blend between postures themselves.
+const POSED = new Set(['walk', 'jump']);
 const LEG_JOINTS = new Set(['hipL', 'kneeL', 'ankleL', 'hipR', 'kneeR', 'ankleR']);
 
 const clamp = (x, a, b) => (x < a ? a : x > b ? b : x);
@@ -169,8 +215,23 @@ export function createRider(board, options = {}) {
     strokeL: -1, strokeR: -1, nextArm: 'L', queueL: 0, queueR: 0,
     swimPhase: 0, kickPhase: 0, swimYaw: 0, swimEffort: 1,
     walker: createWalker(),
+    // Where a blend of postures starts (his bodies read back), what it heads
+    // for, and over how long.
+    from: createControls(), aim: createControls(), blendFor: 0,
+    // A jump: from where, crouching or in the air, the pelvis's flight.
+    leap: {
+      from: 'ground', air: false, t: 0, load: 0, p: [0, 0, 0], v: [0, 0, 0], dir: [0, 1], yaw: 0, startYaw: 0, facing: 0,
+      floor: -Infinity, tuck: 0, reach: 0, hug: 0,
+    },
+    // The board under his arm: 'none', 'lift', 'held', 'lower'; which side;
+    // where it is, where it came from and goes to; what he does once it is down.
+    carry: { phase: 'none', t: 0, side: -1, p: [0, 0, 0], q: [0, 0, 0, 1], p0: [0, 0, 0], q0: [0, 0, 0, 1], p1: [0, 0, 0], q1: [0, 0, 0, 1], yaw1: 0, then: 'walk' },
+    // Swimming where he is steered, not back to the board.
+    swimFree: false,
+    // How long more he steadies the board he stepped off.
+    steadyFor: 0,
     climb: [0, 0, 0],
-    counters: { popUp: 0, strokeLeft: 0, strokeRight: 0 },
+    counters: { popUp: 0, strokeLeft: 0, strokeRight: 0, board: 0, leash: 0 },
     crouch: 0, crouchRate: 0, lastCrouch: 0,
     sink: 0, sinkV: 0, sway: 0, swayV: 0,
     boardV: null,
@@ -179,6 +240,7 @@ export function createRider(board, options = {}) {
     volume: SEGMENT_NAMES.map((_, i) => segmentVolume(i)),
     leashLocal: [0, board.deckY(0, -board.length / 2 + 0.06) + 0.01, -board.length / 2 + 0.06],
     leashed: options.leash !== false,
+    leashDefault: options.leash !== false,
     leashAnchor: [0, 0, 0], leashVelocity: [0, 0, 0],
     out: {
       onBoard: true,
@@ -186,12 +248,25 @@ export function createRider(board, options = {}) {
       input: { forward: 0, back: 0, left: 0, right: 0, pop: false, pump: 0, stand: 0 },
       leash: null,
       leashForce: { x: 0, y: 0, z: 0, fx: 0, fy: 0, fz: 0 },
-      events: { fell: false, stood: false, landed: 0, hit: 0, flipBoard: false },
+      // For the scene (boardFollows): the board turned over for him, kicked
+      // away by his jump (a change of velocity), put down where he left it.
+      events: { fell: false, stood: false, landed: 0, hit: 0, flipBoard: false, kick: null, putDown: null },
+      // The board's pose while it is in his hands, for the scene to hold it at.
+      carry: null,
+      // For the HUD: what F would do now ('jump', 'climb', 'lift', 'put' or
+      // null) and L ('off', 'on', null); swimming back to the board by
+      // himself; running; carrying the board; what a jump left from.
+      hud: { board: 'jump', leash: 'off', swimBack: false, running: false, carrying: false, jumpFrom: null },
+      leashed: options.leash !== false,
       chest: [0, 0, 0], pelvis: [0, 0, 0],
       // How far his chest is off where the pose holds it (m), standing.
       chestOff: 0,
     },
   };
+  // His bodies as a pose, to read controls off (captureControls), in the
+  // world or in another frame.
+  rider.bodyPose = { position: world.bodies.map((body) => body.x), rotation: world.bodies.map((body) => body.q) };
+  rider.localPose = createPose();
   enter(rider, 'prone');
   return rider;
 }
@@ -220,7 +295,7 @@ function enter(rider, state, board = null) {
       body.v[0] = 0; body.v[1] = 0; body.v[2] = 0;
     }
     if (board) {
-      const frame = frameFor(state, board);
+      const frame = frameFor(rider, board);
       toLocal(frame, body.x, rider.entry.position[i]);
       qConj(frame.q, bqi);
       qMul(bqi, body.q, rider.entry.rotation[i]);
@@ -247,6 +322,8 @@ export function syncRider(rider, intent) {
   rider.counters.popUp = intent?.popUp ?? 0;
   rider.counters.strokeLeft = intent?.strokeLeft ?? 0;
   rider.counters.strokeRight = intent?.strokeRight ?? 0;
+  rider.counters.board = intent?.board ?? 0;
+  rider.counters.leash = intent?.leash ?? 0;
 }
 
 // Put him on the board at once, lying: a respawn.
@@ -266,6 +343,10 @@ export function resetRider(rider, board) {
   rider.strokeL = -1; rider.strokeR = -1; rider.queueL = 0; rider.queueR = 0;
   rider.slowFor = 0;
   rider.boardV = null;
+  rider.carry.phase = 'none';
+  rider.out.carry = null;
+  rider.swimFree = false;
+  rider.leashed = rider.leashDefault;
 }
 
 // --- one frame -------------------------------------------------------------------
@@ -277,6 +358,7 @@ export function stepRider(rider, frame) {
   const out = rider.out;
   const events = out.events;
   events.fell = false; events.stood = false; events.landed = 0; events.hit = 0; events.flipBoard = false;
+  events.kick = null; events.putDown = null;
   if (!(dt > 0)) return out;
   rider.stateTime += dt;
   const world = rider.world;
@@ -297,6 +379,10 @@ export function stepRider(rider, frame) {
   const strokeLeft = intent.strokeLeft !== rider.counters.strokeLeft;
   const strokeRight = intent.strokeRight !== rider.counters.strokeRight;
   rider.counters.strokeLeft = intent.strokeLeft; rider.counters.strokeRight = intent.strokeRight;
+  const boardPress = (intent.board ?? 0) !== rider.counters.board;
+  rider.counters.board = intent.board ?? 0;
+  const leashPress = (intent.leash ?? 0) !== rider.counters.leash;
+  rider.counters.leash = intent.leash ?? 0;
   const lean = clamp(intent.lean || 0, -1, 1);
   const trim = clamp(intent.trim || 0, -1, 1);
   // The crouch eases in like a body, and how fast he rises out of it is his pump.
@@ -304,6 +390,13 @@ export function stepRider(rider, frame) {
   const previousCrouch = rider.crouch;
   rider.crouch += (crouchTarget - rider.crouch) * Math.min(1, dt * 9);
   rider.crouchRate = (rider.crouch - previousCrouch) / dt;
+  // The leash: off at his ankle whenever he likes; back on only where he can
+  // reach its plug (on the board he always can).
+  if (leashPress) {
+    if (rider.leashed) rider.leashed = false;
+    else if (onBoardOf(rider) || plugDistance(rider, board) < LEASH_REACH) rider.leashed = true;
+  }
+  out.leashed = rider.leashed;
 
   // --- the state machine ---------------------------------------------------------
   const state = rider.state;
@@ -326,8 +419,9 @@ export function stepRider(rider, frame) {
     const steer = lean + 0.6 * (pullL - pullR) * (paddling ? 0 : 1);
     input.right = Math.max(steer, 0); input.left = Math.max(-steer, 0);
     input.back = Math.max(-trim, 0) * 0.5;
-    if (popUp) { enter(rider, 'popup', board); events.stood = true; }
-    else if (depthAt(frame, board.p[0], board.p[2]) < STEP_OFF_DEPTH) enterWalk(rider, board, frame, true);
+    if (boardPress) startJump(rider, board, 'prone', lean, trim);
+    else if (popUp) { enter(rider, 'popup', board); events.stood = true; }
+    else if (depthAt(frame, board.p[0], board.p[2]) < STEP_OFF_DEPTH) enterWalk(rider, board, frame, true, events);
   } else if (state === 'popup') {
     if (rider.stateTime >= POPUP_TIME) enter(rider, 'stand', board);
   } else if (state === 'liedown') {
@@ -341,22 +435,35 @@ export function stepRider(rider, frame) {
     // A board that has stopped cannot hold a standing man: he lies back down;
     // one run aground he steps off.
     rider.slowFor = frame.board.speed < SLOW_SPEED ? rider.slowFor + dt : 0;
-    if (depthAt(frame, board.p[0], board.p[2]) < AGROUND_DEPTH) enterWalk(rider, board, frame, true);
+    if (boardPress) startJump(rider, board, 'stand', lean, trim);
+    else if (depthAt(frame, board.p[0], board.p[2]) < AGROUND_DEPTH) enterWalk(rider, board, frame, true, events);
     else if (rider.slowFor > SLOW_TIME) enter(rider, 'liedown', board);
   } else if (state === 'walk') {
-    // Forward and back, turning (A/D), running with the crouch held.
+    // Forward and back, turning (A/D), running with the crouch held; a jump
+    // (the pop-up's key); the board (F): on it, under his arm, put down.
     const walker = rider.walker;
     stepWalker(walker, { dt, forward: trim, turn: -lean, run: crouchTarget, ground: groundOf(frame), depth: (x, z) => depthAt(frame, x, z) });
-    const pelvis = world.bodies[SEGMENT.pelvis];
-    toLocal(board, pelvis.x, tv);
-    const beside = Math.abs(tv[0]) < MOUNT_REACH && Math.abs(tv[2]) < rider.board.length / 2 + 0.3;
-    if (depthAt(frame, walker.x, walker.z) > SWIM_DEPTH) {
+    if (rider.carry.phase !== 'none') stepCarry(rider, board, dt, events);
+    // A hand on the board he stepped off, while it is near.
+    rider.steadyFor = Math.max(0, rider.steadyFor - dt);
+    if (rider.steadyFor > 0 && !events.kick && rider.carry.phase === 'none'
+      && Math.hypot(board.p[0] - walker.x, board.p[2] - walker.z) < STEADY_REACH) {
+      const k = Math.min(1, 10 * dt);
+      kick[0] = -board.v[0] * k; kick[1] = 0; kick[2] = -board.v[2] * k;
+      events.kick = kick;
+    }
+    const carrying = rider.carry.phase !== 'none';
+    const depth = depthAt(frame, walker.x, walker.z);
+    if (rider.state !== 'walk') { /* put the board on the water and got on it */ }
+    else if (depth > SWIM_DEPTH && !carrying) {
       enter(rider, 'swim', board);
       rider.swimYaw = walker.yaw;
-    } else if (popUp && beside && depthAt(frame, board.p[0], board.p[2]) > MOUNT_DEPTH) {
-      enter(rider, 'recover', board);
-      if (up < 0.3) events.flipBoard = true;
-    }
+      rider.swimFree = true;
+    } else if (popUp) startJump(rider, board, 'ground', 0, 0);
+    else if (boardPress) boardAction(rider, board, frame, up, events);
+    else if (rider.carry.phase === 'held' && depth > CARRY_LAUNCH) lowerBoard(rider, frame, 'mount');
+  } else if (state === 'jump') {
+    stepJump(rider, board, frame, dt, events, trim, crouchTarget);
   } else if (state === 'fallen') {
     // The tumble, then he swims for his board, or stands up where he can;
     // asked, he starts sooner.
@@ -365,23 +472,26 @@ export function stepRider(rider, frame) {
     else if (rider.stateTime > FALL_SETTLE || (rider.stateTime > SWIM_AFTER && (popUp || strokeLeft || strokeRight || trim > 0.2))) {
       enter(rider, 'swim', board);
       rider.swimYaw = headingOf(world.bodies[SEGMENT.chest]);
+      rider.swimFree = false;
     }
   } else if (state === 'swim') {
-    // Holding back he treads water (the strokes slow and go nowhere);
-    // holding forward he swims harder.
-    rider.swimEffort = trim < -0.3 ? 0 : trim > 0.2 ? 1.3 : 1;
+    // After a fall he swims back to the board by himself — until he is
+    // steered (A, D). Steered, or in the water by his own will, W swims (Shift
+    // harder), A and D turn him, and let go he treads water. Swimming back,
+    // holding back he treads water and holding forward he swims harder.
+    if (!rider.swimFree && Math.abs(lean) > 0.3) rider.swimFree = true;
+    if (rider.swimFree) {
+      rider.swimEffort = trim > 0.2 ? (crouchTarget > 0.5 ? 1.3 : 1) : 0;
+      rider.swimYaw -= lean * SWIM_TURN * dt;
+    } else rider.swimEffort = trim < -0.3 ? 0 : trim > 0.2 ? 1.3 : 1;
     const beat = Math.max(rider.swimEffort, 0.4);
     rider.swimPhase += dt / SWIM_CYCLE * beat;
     rider.kickPhase += dt * 2.4 * beat;
     climbPoint(rider, board, rider.climb);
     const chest = world.bodies[SEGMENT.chest], pelvis = world.bodies[SEGMENT.pelvis];
-    const near = Math.hypot(chest.x[0] - rider.climb[0], chest.x[2] - rider.climb[2]) < CLIMB_REACH;
-    // A board floating on its deck is turned over as he takes hold of it, or
-    // he would be pulled up under it.
-    if (near || rider.stateTime > SWIM_GIVE_UP) {
-      enter(rider, 'recover', board);
-      if (up < 0.3) events.flipBoard = true;
-    }
+    const toRail = Math.hypot(chest.x[0] - rider.climb[0], chest.x[2] - rider.climb[2]);
+    // He climbs on beside the board when asked (F), or back at it by himself.
+    if ((boardPress && toRail < MOUNT_REACH) || (!rider.swimFree && (toRail < CLIMB_REACH || rider.stateTime > SWIM_GIVE_UP))) climbOn(rider, board, up, events);
     else if (depthAt(frame, pelvis.x[0], pelvis.x[2]) < STAND_DEPTH) enterWalk(rider, board, frame, false);
   }
   // Stand value for the board: how much of him is up on his feet.
@@ -390,8 +500,8 @@ export function stepRider(rider, frame) {
       : rider.state === 'liedown' ? 1 - smoothstep(0.1, 0.7, rider.stateTime / LIEDOWN_TIME) : 0;
   input.stand = out.stand;
 
-  // --- the pose, in the board's frame ---------------------------------------------
-  const onBoard = !OFF_BOARD.has(rider.state);
+  // --- the pose, in the board's frame (on his feet and in the air, the world's) ---
+  const onBoard = onBoardOf(rider);
   if (rider.state === 'stand' || rider.state === 'popup' || rider.state === 'liedown') {
     // The legs as a spring: sinking under an impact, rising as the board drops away.
     const felt = tv2[1] - G;
@@ -415,7 +525,8 @@ export function stepRider(rider, frame) {
   else if (rider.state === 'liedown') popUpControls(rider.board, 1 - rider.stateTime / LIEDOWN_TIME, params, rider.controls);
   else if (rider.state === 'swim') {
     swimControls({ strokeL: rider.swimPhase, strokeR: rider.swimPhase + 0.5, kick: rider.kickPhase, lift: 1 }, rider.controls);
-  } else if (rider.state === 'walk') walkControls(rider.walker, rider.controls);
+  } else if (rider.state === 'walk') walkPose(rider);
+  else if (rider.state === 'jump') jumpPose(rider, params);
   else proneControls(rider.board, { strokeL: rider.strokeL, strokeR: rider.strokeR, arch: 0.6 + 0.4 * Math.max(trim, 0) }, rider.controls);
   solvePose(rider.controls, rider.pose);
 
@@ -429,9 +540,10 @@ export function stepRider(rider, frame) {
   });
 
   // The carried bodies: to their pose on the board, blended in from where
-  // they were when this state began.
-  const blend = smoothstep(0, rider.state === 'walk' ? WALK_BLEND : BLEND_TIME, rider.stateTime);
-  const poseFrame = frameFor(rider.state, board);
+  // they were when this state began — or, where the pose blends postures
+  // itself, right onto it.
+  const blend = POSED.has(rider.state) ? 1 : smoothstep(0, BLEND_TIME, rider.stateTime);
+  const poseFrame = frameFor(rider, board);
   world.bodies.forEach((body, i) => {
     if (!body.kinematic) return;
     const lp = rider.pose.position[i], lq = rider.pose.rotation[i];
@@ -458,13 +570,16 @@ export function stepRider(rider, frame) {
     }
   }
 
-  // Swimming: his trunk held flat and turned toward the rail he swims for,
-  // turning no faster than a swimmer turns; the water holds him up.
+  // Swimming: his trunk held flat and turned where he swims — toward the rail
+  // he swims back for, turning no faster than a swimmer turns, or where he is
+  // steered; the water holds him up.
   if (rider.state === 'swim') {
     const pelvis = world.bodies[SEGMENT.pelvis];
-    const want = Math.atan2(rider.climb[0] - pelvis.x[0], rider.climb[2] - pelvis.x[2]);
-    const turn = Math.atan2(Math.sin(want - rider.swimYaw), Math.cos(want - rider.swimYaw));
-    rider.swimYaw += clamp(turn, -SWIM_TURN * dt, SWIM_TURN * dt);
+    if (!rider.swimFree) {
+      const want = Math.atan2(rider.climb[0] - pelvis.x[0], rider.climb[2] - pelvis.x[2]);
+      const turn = Math.atan2(Math.sin(want - rider.swimYaw), Math.cos(want - rider.swimYaw));
+      rider.swimYaw += clamp(turn, -SWIM_TURN * dt, SWIM_TURN * dt);
+    }
     qFromAxisAngle(UP, rider.swimYaw, swimFrame);
     for (const name of ['pelvis', 'chest']) {
       const i = SEGMENT[name];
@@ -534,7 +649,7 @@ export function stepRider(rider, frame) {
 
   // --- falls ------------------------------------------------------------------------
   // A board turned over throws him off whatever he was doing on it.
-  if ((rider.state === 'prone' || rider.state === 'liedown') && (board.wipeout || up < CAPSIZED)) {
+  if ((rider.state === 'prone' || rider.state === 'liedown' || (rider.state === 'jump' && onBoardOf(rider))) && (board.wipeout || up < CAPSIZED)) {
     enter(rider, 'fallen', board);
     events.fell = true;
   } else if (rider.state === 'stand' || rider.state === 'popup') {
@@ -562,7 +677,16 @@ export function stepRider(rider, frame) {
     }
   }
 
-  out.onBoard = !OFF_BOARD.has(rider.state);
+  out.onBoard = onBoardOf(rider);
+  if (rider.carry.phase === 'none') out.carry = null;
+  // For the HUD: what F and L would do now, and how he goes.
+  const hud = out.hud;
+  hud.board = boardCan(rider, board, frame);
+  hud.leash = rider.leashed ? 'off' : out.onBoard || plugDistance(rider, board) < LEASH_REACH ? 'on' : null;
+  hud.swimBack = rider.state === 'swim' && !rider.swimFree;
+  hud.running = rider.state === 'walk' && rider.walker.run > 0.5;
+  hud.carrying = rider.carry.phase !== 'none';
+  hud.jumpFrom = rider.state === 'jump' ? rider.leap.from : null;
   bodyPoint(world.bodies[SEGMENT.chest], [0, 0, 0], out.chest);
   bodyPoint(world.bodies[SEGMENT.pelvis], [0, 0, 0], out.pelvis);
   return out;
@@ -612,19 +736,351 @@ function depthAt(frame, x, z) {
   return Number.isFinite(depthSample.height) ? depthSample.height - ground : -Infinity;
 }
 
-// Onto his feet: off the board's right rail facing its nose (stepping off),
-// or where he is facing the way he swam (standing up out of the water).
+// Onto his feet: off the board's right rail facing its nose (stepping off —
+// a hand on it, so it stops beside him rather than gliding on), or where he
+// is facing the way he swam (standing up out of the water) — from the posture
+// he was in, over a moment.
 const noseOf = (q) => Math.atan2(2 * (q[0] * q[2] + q[1] * q[3]), 1 - 2 * (q[0] * q[0] + q[1] * q[1]));
 const offRail = [-0.55, 0, -0.2], offAt = [0, 0, 0];
-function enterWalk(rider, board, frame, offBoard) {
+function enterWalk(rider, board, frame, offBoard, events = null) {
   const pelvis = rider.world.bodies[SEGMENT.pelvis];
   let x = pelvis.x[0], z = pelvis.x[2], yaw = headingOf(pelvis);
   if (offBoard) {
     toWorld(board, offRail, offAt);
     x = offAt[0]; z = offAt[2]; yaw = noseOf(board.q);
+    if (events) {
+      kick[0] = -board.v[0]; kick[1] = 0; kick[2] = -board.v[2];
+      events.kick = kick;
+    }
+    rider.steadyFor = STEADY_TIME;
   }
   resetWalker(rider.walker, { x, z, yaw, ground: groundOf(frame) });
   enter(rider, 'walk', board);
+  readBack(rider, WORLD, rider.from);
+  rider.blendFor = offBoard ? STEP_OFF_TIME : STAND_UP_TIME;
+}
+
+// His bodies read back into the controls that would build them, in a frame
+// (the board's, or the world): where a blend of postures starts.
+function readBack(rider, frame, out) {
+  const local = rider.localPose;
+  rider.world.bodies.forEach((body, i) => {
+    toLocal(frame, body.x, local.position[i]);
+    qConj(frame.q, bqi);
+    qMul(bqi, body.q, local.rotation[i]);
+  });
+  return captureControls(local, out);
+}
+
+// Which way a body faces (its front, +Z at rest), as a heading about +Y.
+const frontAxis = [0, 0, 0];
+function facingOf(q) {
+  qRotate(q, [0, 0, 1], frontAxis);
+  return Math.atan2(frontAxis[0], frontAxis[2]);
+}
+
+// How far his hips are from the leash's plug, across the ground (m).
+function plugDistance(rider, board) {
+  toWorld(board, rider.leashLocal, tv);
+  const pelvis = rider.world.bodies[SEGMENT.pelvis].x;
+  return Math.hypot(tv[0] - pelvis[0], tv[2] - pelvis[2]);
+}
+
+// Onto the board beside him. One floating on its deck is turned over as he
+// takes hold of it, or he would be pulled up under it.
+function climbOn(rider, board, up, events) {
+  rider.carry.phase = 'none';
+  enter(rider, 'recover', board);
+  if (up < 0.3) events.flipBoard = true;
+}
+
+// --- jumps -----------------------------------------------------------------------
+
+// A jump: off the ground (the pop-up's key on his feet) or off the board he
+// lies or stands on (F), the way the keys point — the board's left or right
+// (A, D), over its nose or off its tail (W, S) — or else off its right rail,
+// the side he faces standing (regular) and steps off lying.
+function startJump(rider, board, from, lean, trim) {
+  const leap = rider.leap;
+  leap.from = from; leap.air = false; leap.t = 0; leap.load = JUMP_LOAD[from];
+  leap.tuck = 0; leap.reach = 0; leap.hug = 0;
+  if (from === 'ground') leap.yaw = rider.walker.yaw;
+  else {
+    let x = -lean, z = trim;
+    const n = Math.hypot(x, z);
+    if (n < 0.3) { x = -1; z = 0; } else { x /= n; z /= n; }
+    tv[0] = x; tv[1] = 0; tv[2] = z;
+    qRotate(board.q, tv, tv2);
+    leap.yaw = Math.atan2(tv2[0], tv2[2]);
+  }
+  leap.dir[0] = Math.sin(leap.yaw); leap.dir[1] = Math.cos(leap.yaw);
+  enter(rider, 'jump', board);
+  // The crouch starts from where his bodies are: on the board, in its frame.
+  readBack(rider, frameFor(rider, board), rider.from);
+}
+
+// Leaving: from where the crouch has his pelvis, up, and away — off the
+// ground at the speed he ran, off the board at its speed and his spring away
+// from it, the board kicked back the other way.
+const kick = [0, 0, 0];
+function takeoff(rider, board, events) {
+  const leap = rider.leap, pelvis = rider.world.bodies[SEGMENT.pelvis];
+  leap.p[0] = pelvis.x[0]; leap.p[1] = pelvis.x[1]; leap.p[2] = pelvis.x[2];
+  if (leap.from === 'ground') {
+    const w = rider.walker;
+    leap.v[0] = Math.sin(w.yaw) * w.speed; leap.v[1] = JUMP_UP.ground; leap.v[2] = Math.cos(w.yaw) * w.speed;
+  } else {
+    leap.v[0] = board.v[0] + leap.dir[0] * JUMP_AWAY; leap.v[1] = JUMP_UP.board; leap.v[2] = board.v[2] + leap.dir[1] * JUMP_AWAY;
+    kick[0] = -leap.dir[0] * JUMP_KICK; kick[1] = -0.4; kick[2] = -leap.dir[1] * JUMP_KICK;
+    events.kick = kick;
+  }
+  // His soles stay on what he leaves until his legs are straight.
+  const footL = rider.world.bodies[SEGMENT.footL], footR = rider.world.bodies[SEGMENT.footR];
+  leap.floor = Math.min(footL.x[1], footR.x[1]) - footL.half[1];
+  leap.startYaw = facingOf(pelvis.q);
+  leap.facing = leap.startYaw;
+  leap.air = true; leap.t = 0;
+  readBack(rider, WORLD, rider.from);
+}
+
+// One frame of a jump: the crouch, then the flight — down on his feet on the
+// ground (or the bottom of shallow water), or into water deep enough.
+const flightWater = { height: -Infinity, vx: 0, vy: 0, vz: 0, whitewater: 0, ground: -Infinity };
+function stepJump(rider, board, frame, dt, events, trim, run) {
+  const leap = rider.leap, walker = rider.walker;
+  leap.t += dt;
+  if (!leap.air) {
+    // Crouching on the ground the stride goes on under him.
+    if (leap.from === 'ground') stepWalker(walker, { dt, forward: trim, turn: 0, run, ground: groundOf(frame), depth: (x, z) => depthAt(frame, x, z) });
+    if (leap.t >= leap.load) takeoff(rider, board, events);
+    return;
+  }
+  const p = leap.p, v = leap.v;
+  p[0] += v[0] * dt; p[1] += v[1] * dt; p[2] += v[2] * dt;
+  v[1] -= G * dt;
+  const ground = groundAt(frame, p[0], p[2]);
+  flightWater.height = -Infinity;
+  frame.water(p[0], p[2], flightWater);
+  const water = flightWater.height;
+  const intoWater = Number.isFinite(water) && water - (Number.isFinite(ground) ? ground : -Infinity) > WATER_LANDING;
+  const surface = intoWater ? water : Number.isFinite(ground) ? ground : water;
+  leap.tuck = smoothstep(0.04, 0.26, leap.t);
+  leap.hug += ((intoWater ? 1 : 0) - leap.hug) * Math.min(1, dt * 8);
+  // How long till his straight legs would meet what he comes down on.
+  const drop = p[1] - jumpLegs(0, 0) - surface;
+  const untilDown = (v[1] + Math.sqrt(Math.max(v[1] * v[1] + 2 * G * drop, 0))) / G;
+  leap.reach = intoWater ? 0 : 1 - smoothstep(0.08, 0.24, untilDown);
+  // Turning in the air to face the way he goes.
+  const turn = Math.atan2(Math.sin(leap.yaw - leap.startYaw), Math.cos(leap.yaw - leap.startYaw));
+  leap.facing = leap.startYaw + turn * smoothstep(0, 0.3, leap.t);
+  if (v[1] < 0 && p[1] - jumpLegs(leap.tuck, leap.reach) <= surface) {
+    if (intoWater) {
+      // In: the body goes on down with the speed it had, then swims.
+      dropBoard(rider, events);
+      enter(rider, 'swim', board);
+      rider.swimFree = true;
+      rider.swimYaw = leap.facing;
+    } else {
+      // Down on his feet, going on the way he went, the knees giving.
+      const along = v[0] * Math.sin(leap.facing) + v[2] * Math.cos(leap.facing);
+      resetWalker(walker, { x: p[0], z: p[2], yaw: leap.facing, ground: groundOf(frame), speed: clamp(along, 0, RUN_SPEED) });
+      landWalker(walker, LANDING_GIVE * clamp(-v[1] / 4, 0.4, 1.2));
+      events.landed = clamp(-v[1] / 6, 0, 1);
+      enter(rider, 'walk', board);
+      readBack(rider, WORLD, rider.from);
+      rider.blendFor = LANDING_TIME;
+    }
+  } else if (leap.t > 3) {
+    dropBoard(rider, events);
+    enter(rider, 'fallen', board);
+  }
+}
+
+// The jump's pose: the crouch (on the ground, the walk's own, sinking; on the
+// board, the stand's or a quick pop-up's, in its frame), then the flight's —
+// each from where his bodies were when it began.
+const flight = { x: 0, y: 0, z: 0, yaw: 0, t: 0, floor: 0, tuck: 0, reach: 0, hug: 0 };
+function jumpPose(rider, params) {
+  const leap = rider.leap, aim = rider.aim;
+  if (!leap.air) {
+    const u = smoothstep(0, 1, leap.t / leap.load);
+    if (leap.from === 'ground') {
+      const w = rider.walker;
+      walkControls(w, aim, carryHold(rider, w.x, w.pelvisY, w.z, w.yaw));
+      crouchControls(aim, w.yaw, u);
+    } else if (leap.from === 'prone') popUpControls(rider.board, u, { ...params, crouch: 0.9 }, aim);
+    else standControls(rider.board, { ...params, crouch: Math.max(params.crouch, u) }, aim);
+  } else {
+    flight.x = leap.p[0]; flight.y = leap.p[1]; flight.z = leap.p[2]; flight.yaw = leap.facing; flight.t = leap.t;
+    flight.floor = leap.t < 0.3 ? leap.floor : -Infinity;
+    flight.tuck = leap.tuck; flight.reach = leap.reach; flight.hug = leap.hug;
+    jumpControls(flight, aim);
+    const hold = carryHold(rider, flight.x, flight.y, flight.z, flight.yaw);
+    if (hold) {
+      const hand = aim[hold.side > 0 ? 'handL' : 'handR'];
+      hand[0] = hold.grip[0]; hand[1] = hold.grip[1]; hand[2] = hold.grip[2];
+    }
+  }
+  blendControls(rider.from, aim, smoothstep(0, 0.12, leap.t), rider.controls);
+}
+
+// --- on his feet ---------------------------------------------------------------------
+
+// The walk's pose, the board in his hands if he has it (stooping as he picks
+// it up or puts it down), blended in from how he came to his feet.
+function walkPose(rider) {
+  const w = rider.walker, aim = rider.aim, c = rider.carry;
+  walkControls(w, aim, carryHold(rider, w.x, w.pelvisY, w.z, w.yaw));
+  if (c.phase === 'lift' || c.phase === 'lower') {
+    const stoop = Math.sin(Math.PI * clamp(c.t / (c.phase === 'lift' ? LIFT_TIME : LOWER_TIME), 0, 1));
+    aim.pelvis[1] -= 0.12 * stoop;
+    qFromAxisAngle(ACROSS, 0.35 * stoop, tq);
+    qMul(aim.pelvisQ, tq, aim.pelvisQ);
+  }
+  if (rider.stateTime < rider.blendFor) stepControls(rider.from, aim, rider.stateTime / rider.blendFor, rider.controls);
+  else copyControls(aim, rider.controls);
+}
+
+// The board in his hands this frame: rising from where it lay to under his
+// arm, carried there, or going down to where he puts it. Returns the hand on
+// it for the pose (walkControls' carry), and hands the board's pose to the
+// scene (out.carry).
+const ACROSS = [1, 0, 0];
+const carried = { p: [0, 0, 0], q: [0, 0, 0, 1] }, at = { x: 0, y: 0, z: 0, yaw: 0 };
+const hold = { side: -1, grip: [0, 0, 0], amount: 0 };
+function carryHold(rider, x, y, z, yaw) {
+  const c = rider.carry;
+  if (c.phase === 'none') { rider.out.carry = null; return null; }
+  at.x = x; at.y = y; at.z = z; at.yaw = yaw;
+  carryPose(at, c.side, carried.p, carried.q);
+  if (c.phase === 'lift') {
+    const u = smoothstep(0, 1, c.t / LIFT_TIME);
+    for (let k = 0; k < 3; k += 1) c.p[k] = c.p0[k] + (carried.p[k] - c.p0[k]) * u;
+    c.p[1] += 0.12 * Math.sin(Math.PI * u);
+    qSlerp(c.q0, carried.q, u, c.q);
+    hold.amount = smoothstep(0.25, 0.75, c.t / LIFT_TIME);
+  } else if (c.phase === 'lower') {
+    const u = smoothstep(0, 1, c.t / LOWER_TIME);
+    for (let k = 0; k < 3; k += 1) c.p[k] = carried.p[k] + (c.p1[k] - carried.p[k]) * u;
+    qSlerp(carried.q, c.q1, u, c.q);
+    hold.amount = 1 - smoothstep(0.55, 1, c.t / LOWER_TIME);
+  } else {
+    c.p[0] = carried.p[0]; c.p[1] = carried.p[1]; c.p[2] = carried.p[2];
+    c.q[0] = carried.q[0]; c.q[1] = carried.q[1]; c.q[2] = carried.q[2]; c.q[3] = carried.q[3];
+    hold.amount = 1;
+  }
+  rider.out.carry = c;
+  hold.side = c.side;
+  carryGrip(c.p, c.q, c.side, rider.board.halfWidth ? rider.board.halfWidth(0.12) : 0.25, hold.grip);
+  return hold;
+}
+
+// The clock of picking up and putting down; put down, the board is the
+// scene's again (out.events.putDown) — and carried into the water, he gets on.
+function stepCarry(rider, board, dt, events) {
+  const c = rider.carry;
+  c.t += dt;
+  if (c.phase === 'lift' && c.t >= LIFT_TIME) { c.phase = 'held'; c.t = 0; }
+  else if (c.phase === 'lower' && c.t >= LOWER_TIME) {
+    c.phase = 'none';
+    rider.out.carry = null;
+    events.putDown = c.put;
+    if (c.then === 'mount') climbOn(rider, board, 1, events);
+  }
+}
+
+// What F does now — for the HUD as much as for F: on the board, he jumps off
+// it; on his feet, he puts down the board he holds, climbs on one floating
+// deep enough beside him, picks up one in reach; swimming, he climbs on beside
+// it. Nothing else.
+function boardCan(rider, board, frame) {
+  const { state } = rider;
+  if (state === 'prone' || state === 'stand') return 'jump';
+  if (state === 'swim') {
+    const chest = rider.world.bodies[SEGMENT.chest].x;
+    climbPoint(rider, board, tv2);
+    return Math.hypot(chest[0] - tv2[0], chest[2] - tv2[2]) < MOUNT_REACH ? 'climb' : null;
+  }
+  if (state !== 'walk') return null;
+  const c = rider.carry;
+  if (c.phase === 'held') return 'put';
+  if (c.phase !== 'none') return null;
+  toLocal(board, rider.world.bodies[SEGMENT.pelvis].x, tv);
+  const half = rider.board.length / 2;
+  if (Math.abs(tv[0]) < MOUNT_REACH && Math.abs(tv[2]) < half + 0.3 && depthAt(frame, board.p[0], board.p[2]) > MOUNT_DEPTH) return 'climb';
+  // Near enough to take: his hips within reach of the board's middle line.
+  return Math.hypot(tv[0], tv[2] - clamp(tv[2], -half, half)) < CARRY_REACH ? 'lift' : null;
+}
+
+// F on his feet.
+function boardAction(rider, board, frame, up, events) {
+  const can = boardCan(rider, board, frame);
+  if (can === 'put') lowerBoard(rider, frame, 'walk');
+  else if (can === 'climb') climbOn(rider, board, up, events);
+  else if (can === 'lift') {
+    const c = rider.carry, w = rider.walker;
+    c.phase = 'lift'; c.t = 0;
+    // Under the arm on the side it lies.
+    c.side = (board.p[0] - w.x) * Math.cos(w.yaw) - (board.p[2] - w.z) * Math.sin(w.yaw) >= 0 ? 1 : -1;
+    for (let k = 0; k < 3; k += 1) { c.p0[k] = board.p[k]; c.p[k] = board.p[k]; }
+    for (let k = 0; k < 4; k += 1) { c.q0[k] = board.q[k]; c.q[k] = board.q[k]; }
+  }
+}
+
+// Putting it down beside him on its side of him, flat, the nose his way:
+// afloat, or on the sand. `then` 'mount': he gets on it once it is down.
+function lowerBoard(rider, frame, then) {
+  const c = rider.carry, w = rider.walker;
+  c.phase = 'lower'; c.t = 0; c.then = then;
+  const sin = Math.sin(w.yaw), cos = Math.cos(w.yaw);
+  const x = w.x + cos * 0.65 * c.side + sin * 0.15, z = w.z - sin * 0.65 * c.side + cos * 0.15;
+  const ground = groundAt(frame, x, z);
+  flightWater.height = -Infinity;
+  frame.water(x, z, flightWater);
+  let y = Math.max(ground, flightWater.height - PUT_DRAFT);
+  if (!Number.isFinite(y)) y = w.groundY;
+  c.p1[0] = x; c.p1[1] = y; c.p1[2] = z;
+  qFromAxisAngle(UP, w.yaw, c.q1);
+  c.put = { x, y, z, yaw: w.yaw };
+}
+
+// Let go of it where it is (into the water, a fall): the scene's again.
+function dropBoard(rider, events) {
+  const c = rider.carry;
+  if (c.phase === 'none') return;
+  c.phase = 'none';
+  rider.out.carry = null;
+  events.putDown = { x: c.p[0], y: c.p[1], z: c.p[2], yaw: noseOf(c.q) };
+}
+
+// --- the scene's side ----------------------------------------------------------------
+
+// What he does to his board, done by the scene after stepRider (Surfboard.jsx,
+// the lab): held where his hands have it (the scene does not step a board he
+// holds, out.carry), put down where he left it, turned the right way up for
+// him to climb on, kicked back by his jump off it.
+export function boardFollows(rider, state, dt) {
+  const { events, carry } = rider.out;
+  if (carry) {
+    for (let k = 0; k < 3; k += 1) {
+      state.v[k] = dt > 0 ? (carry.p[k] - state.p[k]) / dt : 0;
+      state.p[k] = carry.p[k];
+      state.w[k] = 0;
+    }
+    state.q[0] = carry.q[0]; state.q[1] = carry.q[1]; state.q[2] = carry.q[2]; state.q[3] = carry.q[3];
+  }
+  const put = events.putDown;
+  if (put) resetBoard(state, { x: put.x, y: put.y, z: put.z, yaw: put.yaw });
+  if (events.flipBoard) resetBoard(state, { x: state.p[0], y: state.p[1], z: state.p[2], yaw: noseOf(state.q) });
+  if (events.kick) { state.v[0] += events.kick[0]; state.v[1] += events.kick[1]; state.v[2] += events.kick[2]; }
+}
+
+// The leash's two ends, to draw it: his back ankle and the plug in the tail.
+// Whether it is on.
+export function leashEnds(rider, state, from, to) {
+  bodyPoint(rider.world.bodies[SEGMENT.footR], ANKLE_LOCAL, from);
+  toWorld(state, rider.leashLocal, to);
+  return rider.leashed;
 }
 
 // Where on the board he swims for: the rail beside him, level with where he is

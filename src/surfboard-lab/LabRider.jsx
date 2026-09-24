@@ -4,11 +4,11 @@ import { useFrame } from '@react-three/fiber';
 import { TransformControls } from '@react-three/drei';
 import SurfboardModel from '../components/surfboard/SurfboardModel';
 import RiderModel from '../components/surfboard/RiderModel';
-import { updateRiderModel } from '../components/surfboard/riderMesh';
+import { createLeashCord, updateLeashCord, updateRiderModel } from '../components/surfboard/riderMesh';
 import { lookRiderBody, updateRiderBody, useRiderBody } from '../components/surfboard/riderBody';
-import { createBoardBody, createBoardState, resetBoard, stepBoard } from '../components/surfboard/boardPhysics';
+import { createBoardBody, createBoardState, stepBoard } from '../components/surfboard/boardPhysics';
 import { deckHeight, halfWidth } from '../components/surfboard/boardShape';
-import { createRider, resetRider, stepRider, syncRider } from '../components/surfboard/riderController';
+import { boardFollows, createRider, resetRider, stepRider, syncRider } from '../components/surfboard/riderController';
 import { createControls, createPose, proneControls, solvePose, swimControls } from '../components/surfboard/riderPose';
 import { STROKE_KEYS, SWIM_KEYS } from '../components/surfboard/poseTuning';
 import { REST, SEGMENT, SEGMENT_CENTRE, SEGMENT_NAMES } from '../components/surfboard/riderSkeleton';
@@ -140,12 +140,6 @@ function ShoreScene() {
   </>;
 }
 const noseYaw = (q) => Math.atan2(2 * (q[0] * q[2] + q[1] * q[3]), 1 - 2 * (q[0] * q[0] + q[1] * q[1]));
-// A board floating on its deck is turned over for him to climb on, as the
-// scene does it (Surfboard.jsx): the right way up where it floats, the nose
-// where it pointed.
-function righted(rider, state) {
-  if (rider.out.events.flipBoard) resetBoard(state, { x: state.p[0], y: state.p[1], z: state.p[2], yaw: noseYaw(state.q) });
-}
 
 // A joint's place in the board frame, from the segment that carries it.
 const offset = [0, 0, 0];
@@ -198,7 +192,7 @@ function dragged(name, key, part, start, points, point, delta) {
 export default function LabRider({
   hull, dims, board, lighting, pose, look, pace, wireframe, onState, onClimbed,
   editing = false, editPose = 'prone', editKey = 0, tuning = null, part = null, onPart, onTuning,
-  shore = false, restart = 0, onRestart,
+  shore = false, restart = 0, onRestart, onLeash,
 }) {
   const ridden = useMemo(() => createBoardBody(hull, {
     boardMass: board.surfboardMass, riderMass: board.surfboardRiderMass,
@@ -225,6 +219,9 @@ export default function LabRider({
     // restart: a new session on the same board; shore: the shore's own start.
   }, [dims, restart, shore]); // eslint-disable-line react-hooks/exhaustive-deps
   const body = useRiderBody(look !== 'skeleton');
+  // The leash, from his ankle to the tail while it is on.
+  const cord = useMemo(() => createLeashCord(), []);
+  useEffect(() => () => { cord.geometry.dispose(); cord.material.dispose(); }, [cord]);
   const frame = useRef(null);
   const boardRef = useRef(null);
   const sticks = useRef(null);
@@ -281,6 +278,7 @@ export default function LabRider({
       boardRef.current?.quaternion.set(0, 0, 0, 1);
       updateRiderModel(sticks.current, still.rider);
       updateRiderBody(body, still.rider);
+      cord.visible = false;
       return;
     }
     const dt = Math.min(delta, MAX_FRAME) * pace;
@@ -289,11 +287,12 @@ export default function LabRider({
       // play), over sand under the water.
       s.time += dt;
       const on = rider.out.onBoard;
-      stepBoard(state, on ? ridden : empty, on ? rider.out.input : null, sea, s.time, dt, { substep: SUBSTEP, external: rider.out.leash });
+      // A board in his hands is where his hands have it (boardFollows).
+      if (!rider.out.carry) stepBoard(state, on ? ridden : empty, on ? rider.out.input : null, sea, s.time, dt, { substep: SUBSTEP, external: rider.out.leash });
       view.speed = Math.hypot(state.v[0], state.v[2]);
       view.wipeout = state.wipeout;
       stepRider(rider, { dt, board: view, intent: surfPlay.intent, water: seaAt, ground: bottom });
-      righted(rider, state);
+      boardFollows(rider, state, dt);
       if (!rider.world.bodies.every((b) => Number.isFinite(b.x[0] + b.x[1] + b.x[2] + b.q[3]))) resetRider(rider, view);
       // R, as in play: from the start again.
       if (surfPlay.respawnRequest !== s.respawn) { s.respawn = surfPlay.respawnRequest; onRestart?.(); }
@@ -322,7 +321,7 @@ export default function LabRider({
         rider.world.bodies.forEach((b) => { b.v[0] += SHOVE * sx; b.v[1] += 1; b.v[2] += SHOVE * sz; });
       }
       stepRider(rider, { dt, board: view, intent, water: calmAt, ground: null });
-      righted(rider, state);
+      boardFollows(rider, state, dt);
       if (!rider.world.bodies.every((b) => Number.isFinite(b.x[0] + b.x[1] + b.x[2] + b.q[3]))) resetRider(rider, view);
       // Back on the board after a swim, he lies there till asked again.
       if (!rider.out.onBoard) s.wet = true;
@@ -339,8 +338,10 @@ export default function LabRider({
     boardRef.current?.quaternion.set(state.q[0], state.q[1], state.q[2], state.q[3]);
     updateRiderModel(sticks.current, rider);
     updateRiderBody(body, rider);
-    const shown = rider.state === 'walk' && rider.walker.run > 0.5 ? 'run' : rider.state;
+    updateLeashCord(cord, rider, state);
+    const shown = rider.state !== 'walk' ? rider.state : rider.carry.phase !== 'none' ? 'carry' : rider.walker.run > 0.5 ? 'run' : 'walk';
     if (shown !== s.reported) { s.reported = shown; onState?.(shown); }
+    if (rider.leashed !== s.leashed) { s.leashed = rider.leashed; onLeash?.(rider.leashed); }
   });
 
   return (
@@ -351,6 +352,7 @@ export default function LabRider({
           <SurfboardModel settings={board} lighting={lighting} wireframe={wireframe} />
         </group>
         {body && <primitive object={body} visible={look !== 'skeleton'} />}
+        <primitive object={cord} />
         <RiderModel ref={sticks} visible={look !== 'human' || !body} />
       </group>
       {editing && <>

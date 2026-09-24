@@ -3,11 +3,11 @@ import * as THREE from 'three';
 import { useFrame, useThree } from '@react-three/fiber';
 import SurfboardModel from './SurfboardModel';
 import RiderModel from './RiderModel';
-import { updateRiderModel } from './riderMesh';
+import { createLeashCord, updateLeashCord, updateRiderModel } from './riderMesh';
 import { lookRiderBody, updateRiderBody, useRiderBody } from './riderBody';
 import { boardDimensions, buildBoardHull, deckHeight, halfWidth } from './boardShape';
 import { createBoardBody, createBoardState, resetBoard, stepBoard } from './boardPhysics';
-import { createRider, resetRider, stepRider, syncRider } from './riderController';
+import { boardFollows, createRider, resetRider, stepRider, syncRider } from './riderController';
 import { SEGMENT } from './riderSkeleton';
 import { createSurfWater } from './surfWater';
 import { surfAlongAt, surfLineup } from './lineup';
@@ -112,6 +112,9 @@ export default function Surfboard({
     });
   }, [surfboardLength, surfboardWidth, surfboardThickness, surfboardNoseRocker, surfboardTailRocker]);
   const riderMeshRef = useRef(null);
+  // The leash, from his ankle to the tail while it is on.
+  const leashCord = useMemo(() => createLeashCord(), []);
+  useEffect(() => () => { leashCord.geometry.dispose(); leashCord.material.dispose(); }, [leashCord]);
   // The man on the bones (riderBody.js), loaded on the first play that wants
   // him; until then, and when Denis picks «Скелет», the sticks stand in.
   const look = settings.surfboardRiderLook;
@@ -226,15 +229,12 @@ export default function Surfboard({
   };
   // The water at the rider's parts, at the time of the frame he is stepping.
   const riderWater = (x, z, out) => water.sample(x, z, rideRef.current.riderTime, out);
-  // What the rider's frame did to the board and to the hands on the gamepad.
-  const riderEvents = (who, state) => {
+  // What the rider's frame did to the board (turned over for him to climb on,
+  // kicked away by his jump, in his hands, put down) and to the hands on the
+  // gamepad.
+  const riderEvents = (who, state, dt) => {
     const { events } = who.out;
-    if (events.flipBoard) {
-      // Turned the right way up where it floats, nose where it pointed.
-      const q = state.q;
-      const yaw = Math.atan2(2 * (q[0] * q[2] + q[1] * q[3]), 1 - 2 * (q[0] * q[0] + q[1] * q[1]));
-      resetBoard(state, { x: state.p[0], y: state.p[1], z: state.p[2], yaw });
-    }
+    boardFollows(who, state, dt);
     const rumble = surfPlay.rumble;
     if (!rumble) return;
     if (events.fell) rumble(0.9, 0.6, 420);
@@ -342,20 +342,24 @@ export default function Surfboard({
       if (mode === 'play') {
         // The board under the rider as he left it last frame: his weight and
         // what he does while he is on it, the leash's pull once he is off.
+        // A board in his hands is where his hands have it (riderEvents), not
+        // where the water would take it.
         const on = rider.out.onBoard;
         ride.before ??= [0, 0, 0];
         ride.before[0] = state.p[0]; ride.before[1] = state.p[1]; ride.before[2] = state.p[2];
-        stepBoard(state, on ? riddenBody : emptyBody, on ? rider.out.input : null, boardWater, time, dt, { substep: SUBSTEP, external: rider.out.leash });
-        if (solid && boardAgainstSolid(state.p, state.q, hull.length, surfboardWidth, WALL_STEP)) {
-          state.p[0] = ride.before[0]; state.p[2] = ride.before[2];
-          state.v[0] *= -WALL_BOUNCE; state.v[2] *= -WALL_BOUNCE; state.w[1] *= .5;
+        if (!rider.out.carry) {
+          stepBoard(state, on ? riddenBody : emptyBody, on ? rider.out.input : null, boardWater, time, dt, { substep: SUBSTEP, external: rider.out.leash });
+          if (solid && boardAgainstSolid(state.p, state.q, hull.length, surfboardWidth, WALL_STEP)) {
+            state.p[0] = ride.before[0]; state.p[2] = ride.before[2];
+            state.v[0] *= -WALL_BOUNCE; state.v[2] *= -WALL_BOUNCE; state.w[1] *= .5;
+          }
         }
         // Then the rider on the board where it now is.
         boardView(ride);
         ride.riderTime = time;
         const ground = solid ? (x, z) => Math.max(terrainQuery?.heightAt?.(x, z) ?? -Infinity, solidHeightAt(x, z)) : (terrainQuery?.heightAt ?? null);
         stepRider(rider, { dt, board: ride.view, intent: surfPlay.intent, water: riderWater, ground });
-        riderEvents(rider, state);
+        riderEvents(rider, state, dt);
         if (!rider.world.bodies.every((body) => Number.isFinite(body.x[0] + body.x[1] + body.x[2] + body.q[3]))) resetRider(rider, ride.view);
         emitBoardWake(ride.wake, waterWake, {
           dt, state, length: hull.length, rider,
@@ -447,17 +451,25 @@ export default function Surfboard({
       surfPlay.rider.chest[0] = chest[0]; surfPlay.rider.chest[1] = chest[1]; surfPlay.rider.chest[2] = chest[2];
       surfPlay.rider.pelvis[0] = pelvis[0]; surfPlay.rider.pelvis[1] = pelvis[1]; surfPlay.rider.pelvis[2] = pelvis[2];
       surfPlay.rider.onBoard = rider.out.onBoard;
+      // What F and L would do now, and how he goes, for the HUD's hints.
+      const { hud } = rider.out;
+      surfPlay.rider.board = hud.board; surfPlay.rider.leash = hud.leash;
+      surfPlay.rider.swimBack = hud.swimBack; surfPlay.rider.running = hud.running; surfPlay.rider.carrying = hud.carrying;
+      surfPlay.rider.jumpFrom = hud.jumpFrom;
       const head = rider.world.bodies[SEGMENT.head];
       surfPlay.rider.head = surfPlay.rider.head ?? [0, 0, 0];
       surfPlay.rider.head[0] = head.x[0]; surfPlay.rider.head[1] = head.x[1]; surfPlay.rider.head[2] = head.x[2];
       updateRiderModel(riderMeshRef.current, rider);
       updateRiderBody(riderBodyRef.current, rider, surfPlay.camera === 'first');
+      updateLeashCord(leashCord, rider, state);
     } else {
       surfPlay.rider.state = 'none';
+      leashCord.visible = false;
     }
     const under = water.sample(state.p[0], state.p[2], time, ride.sample);
     out.onBreaker = under.onBreaker;
-    const discrete = `${mode}${out.onFace}${out.airborne}${out.wipeout}${surfPlay.rider.state}`;
+    const { rider: who } = surfPlay;
+    const discrete = `${mode}${out.onFace}${out.airborne}${out.wipeout}${who.state}${who.board}${who.leash}${who.swimBack}${who.running}${who.carrying}${who.jumpFrom}`;
     if (discrete !== ride.discrete || (mode === 'play' && time - ride.publishedAt >= PUBLISH_INTERVAL)) {
       ride.discrete = discrete;
       ride.publishedAt = time;
@@ -497,6 +509,7 @@ export default function Surfboard({
       {/* The rider lives in world coordinates, drawn from his bodies. */}
       {riderBody && <primitive object={riderBody} visible={playing && look !== 'skeleton'} />}
       <RiderModel ref={riderMeshRef} visible={playing && (look !== 'human' || !riderBody)} />
+      <primitive object={leashCord} />
     </>
   );
 }

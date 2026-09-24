@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
-import { RUN_SPEED, WALK_SPEED, createWalker, resetWalker, stepWalker, walkControls } from './riderWalk.js';
-import { createControls, createPose, solvePose } from './riderPose.js';
+import { RUN_SPEED, WALK_SPEED, createWalker, jumpControls, resetWalker, stepWalker, walkControls } from './riderWalk.js';
+import { captureControls, createControls, createPose, solvePose, stepControls } from './riderPose.js';
 import { REST, SEGMENT, SEGMENT_CENTRE } from './riderSkeleton.js';
 import { qRotate } from './ragdoll.js';
 
@@ -106,4 +106,20 @@ function walk({ seconds, forward = 0, turn = 0, run = 0, ground = flat, walker =
   assert.equal(w.phase, phase, 'and the stride waits');
 }
 
-console.log(`riderWalk: walking ${WALK_SPEED} m/s about two steps a second with a moment on both feet, running ${RUN_SPEED} m/s with both feet off, no standing foot ever slides, steps land on a slope and the legs reach them, he turns on the spot by stepping and settles standing when stopped`);
+// Between postures: a pose read back into controls builds the same pose (a
+// blend starts from his bodies read back), and a step from one posture to
+// another starts on the first and ends on the second.
+{
+  const w = walk({ seconds: 2, forward: 1 }).w;
+  const walking = walkControls(w, createControls());
+  const built = solvePose(walking, createPose());
+  const apart = (p, q) => Math.max(...p.position.map((a, i) => Math.hypot(a[0] - q.position[i][0], a[1] - q.position[i][1], a[2] - q.position[i][2])));
+  const readBack = apart(built, solvePose(captureControls(built, createControls()), createPose()));
+  assert.ok(readBack < 1e-3, `a pose read back builds itself (${(readBack * 1000).toFixed(2)} mm off)`);
+  const flying = jumpControls({ x: w.x, y: w.pelvisY + 0.4, z: w.z + 0.5, yaw: w.yaw, t: 0.3, floor: -Infinity, tuck: 1, reach: 0, hug: 1 }, createControls());
+  const first = apart(built, solvePose(stepControls(walking, flying, 0, createControls()), createPose()));
+  const last = apart(solvePose(flying, createPose()), solvePose(stepControls(walking, flying, 1, createControls()), createPose()));
+  assert.ok(first < 1e-6 && last < 1e-6, `a step starts and ends on its postures (${first}, ${last})`);
+}
+
+console.log(`riderWalk: walking ${WALK_SPEED} m/s about two steps a second with a moment on both feet, running ${RUN_SPEED} m/s with both feet off, no standing foot ever slides, steps land on a slope and the legs reach them, he turns on the spot by stepping and settles standing when stopped; a pose reads back into its controls and a step between postures starts and ends on them`);
