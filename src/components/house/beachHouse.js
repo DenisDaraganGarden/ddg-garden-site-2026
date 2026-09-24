@@ -192,10 +192,13 @@ function boxUvs(geometry, size, mode) {
 // 1 clapboard, 2 shakes, 3 upright boards, 4 asphalt shingles, 5 iron,
 // 6 plain, 7 rope, 8 wood shingles, 9 a pane with a room behind it.
 const LAYOUT = { roof: 4, shedRoof: 8, metal: 5, glass: 6, unit: 6, void: 6, rope: 7, lamp: 6 };
-// A room behind a pane reads its scale: the pane's half width (cm) × 10 plus
-// the height of its centre above the room's floor (m).
-export const encodeRoom = (halfWidth, above) => Math.round(halfWidth * 100) * 10 + above;
-export const decodeRoom = (scale) => ({ halfWidth: Math.floor(scale / 10) / 100, above: scale % 10 });
+// A room behind a pane reads its scale: blinds (1) × 10000, the pane's half
+// width (cm) × 10, plus the height of its centre above the room's floor (m).
+export const encodeRoom = (halfWidth, above, blinds = 0) => blinds * 10000 + Math.round(halfWidth * 100) * 10 + above;
+export const decodeRoom = (scale) => {
+  const rest = scale % 10000;
+  return { blinds: Math.floor(scale / 10000), halfWidth: Math.floor(rest / 10) / 100, above: rest % 10 };
+};
 
 // Festoon bulbs along a hanging span {a, b, sag}: a parabola through both
 // anchors, dropping `sag` at its middle; a bulb every `spacing` metres.
@@ -425,66 +428,100 @@ function createKit(seed, damage = 0) {
   return { box, panel, beam, stick, rope, corrugated, roof, courses, hole, gaps, roofWounds, litter, jitter, wound, chance: fate, build };
 }
 
-// Openings: a white casing, the glass with a room behind it, the meeting rail
-// of a sash window, and what the diorama hangs in them — blinds half down,
-// boards nailed across, a louvred Bahama shutter propped open over the glass.
-// Damage cracks a pane (a shard left in its corner), boards a window up, lets
-// a shutter hang from one hinge, swings a door ajar. Each opening keeps the
-// wall's courses off it. `floors`: the storeys' floor heights in the wall's v.
+// Openings, built as a carpenter builds them. A window: a sill with a nose,
+// tipped to shed rain, on an apron; side casings; a head casing under a drip
+// cap; and set back inside them two sashes, the lower proud of the upper so
+// their meeting rails overlap, each with its glazing bars; the glass — a room
+// behind it — sits back in the shade of it all. What the diorama hangs in
+// them: blinds half down (inside, in the room's light), boards nailed across,
+// a louvred Bahama shutter propped open over the glass; an attic vent has
+// louvres instead of glass. Damage cracks a pane (a shard left in its
+// corner), boards a window up, lets a shutter hang from one hinge, swings a
+// door ajar. Each opening keeps the wall's courses off it, tucked 2 cm under
+// its casing. `floors`: the storeys' floor heights in the wall's v.
+const CASING = 0.1, CASING_PROUD = 0.065;
 function openings(kit, floors = [0]) {
   const { box, beam, panel, jitter, wound } = kit;
+  // Side casings up to a head casing, a drip cap over it; for a window a
+  // nosed sill (`sill`) on an apron. Returns the head's top.
   const casing = (m, u, v0, w, h, sill = true) => {
-    box('trim', m, [u, v0 + h + 0.05, 0.03], [w + 0.22, 0.1, 0.06]);
-    if (sill) box('trim', m, [u, v0 - 0.03, 0.05], [w + 0.26, 0.06, 0.1]);
-    for (const s of [-1, 1]) box('trim', m, [u + s * (w / 2 + 0.05), v0 + h / 2, 0.03], [0.1, h, 0.06]);
+    const outer = w / 2 + CASING;
+    for (const s of [-1, 1]) box('trim', m, [u + s * (w / 2 + CASING / 2), v0 + h / 2 + 0.01, CASING_PROUD / 2], [CASING, h + 0.02, CASING_PROUD]);
+    box('trim', m, [u, v0 + h + 0.08, CASING_PROUD / 2], [2 * outer + 0.04, 0.14, CASING_PROUD]);
+    box('trim', m, [u, v0 + h + 0.162, CASING_PROUD / 2 + 0.012], [2 * outer + 0.08, 0.024, CASING_PROUD + 0.024]);
+    if (sill) {
+      box('trim', m, [u, v0 - 0.022, 0.065], [2 * outer + 0.1, 0.044, 0.13], [0.07, 0, 0]);
+      box('trim', m, [u, v0 - 0.11, 0.018], [2 * outer - 0.04, 0.1, 0.036]);
+    }
+    kit.hole(m, u - outer + 0.02, u + outer - 0.02, sill ? v0 - 0.14 : 0, v0 + h + 0.15);
+    return v0 + h + 0.174;
+  };
+  // A sash: stiles, a top and a bottom rail, glazing bars `cols` × `rows`.
+  const sashFrame = (m, u, bottom, w, h, depth, [cols, rows], bottomRail, topRail) => {
+    const stile = 0.045, t = 0.022, inner = w - 2 * stile, clear = h - topRail - bottomRail;
+    for (const s of [-1, 1]) box('trim', m, [u + s * (w / 2 - stile / 2), bottom + h / 2, depth], [stile, h, t]);
+    box('trim', m, [u, bottom + h - topRail / 2, depth], [inner, topRail, t]);
+    box('trim', m, [u, bottom + bottomRail / 2, depth], [inner, bottomRail, t]);
+    for (let c = 1; c < cols; c += 1) box('trim', m, [u - inner / 2 + (inner * c) / cols, bottom + bottomRail + clear / 2, depth - 0.002], [0.018, clear, 0.016]);
+    for (let r = 1; r < rows; r += 1) box('trim', m, [u, bottom + bottomRail + (clear * r) / rows, depth - 0.002], [inner, 0.018, 0.016]);
   };
   const shutter = (m, u, v0, w, h) => {
     const loose = wound(0.45);
     const tilt = loose ? 0.22 : 0.6, spin = loose ? -(0.25 + 0.4 * loose.amount) : 0;
-    const width = w + 0.16, height = h + 0.12, hingeU = u - width / 2, hingeV = v0 + h + 0.1;
+    const width = w + 0.16, height = h + 0.12, hingeU = u - width / 2, hingeV = v0 + h + 0.13;
     // A point of the panel, `x` across from its left hinge and `s` down it.
     const at = (x, s, out = 0) => {
       const du = x * Math.cos(spin) + s * Math.sin(spin), below = s * Math.cos(spin) - x * Math.sin(spin);
-      return [hingeU + du, hingeV - below * Math.cos(tilt) + out * Math.sin(tilt), 0.07 + below * Math.sin(tilt) + out * Math.cos(tilt)];
+      return [hingeU + du, hingeV - below * Math.cos(tilt) + out * Math.sin(tilt), 0.095 + below * Math.sin(tilt) + out * Math.cos(tilt)];
     };
     box('awning', m, at(width / 2, height / 2), [width, height, 0.04], [-tilt, 0, spin]);
     for (let k = 0; k < 6; k += 1) box('awning', m, at(width / 2, (height * (k + 0.5)) / 6, 0.03), [width - 0.06, 0.05, 0.028], [-tilt - 0.4, 0, spin]);
     if (loose) return;
     for (const [x, s] of [[0.1, -1], [width - 0.1, 1]]) {
-      beam('trim', vec(...at(x, height - 0.05)).applyMatrix4(m), vec(u + s * (w / 2 + 0.06), v0 + 0.1, 0.05).applyMatrix4(m), 0.025, 0.025);
+      beam('trim', vec(...at(x, height - 0.05)).applyMatrix4(m), vec(u + s * (w / 2 + 0.06), v0 + 0.1, CASING_PROUD).applyMatrix4(m), 0.025, 0.025);
     }
   };
   const sash = (m, u, v0, w, h, look = 'plain') => {
     casing(m, u, v0, w, h);
-    kit.hole(m, u - w / 2 - 0.1, u + w / 2 + 0.1, v0 - 0.06, v0 + h + 0.1);
     const hit = wound(0.4), nudge = [jitter(0.04), jitter(0.04), jitter(0.04)];
-    const broken = Boolean(hit) && hit.kind < 0.55, boarded = look === 'boarded' || (Boolean(hit) && !broken);
-    // A room behind the glass, its floor the storey's below the pane; an
-    // attic vent stays dark glass.
-    const floor = floors.filter((level) => level <= v0).at(-1) ?? 0;
-    const room = look === 'attic' ? {} : { layout: 9, uv: 'pane', scale: encodeRoom(w / 2, v0 + h / 2 - floor) };
-    if (broken) box('void', m, [u, v0 + h / 2, 0.02], [w, h, 0.02]);
-    else box('glass', m, [u, v0 + h / 2, 0.02], [w, h, 0.02], [], room);
-    if (broken) {
-      const a = 0.3 + 0.4 * hit.amount;
-      panel('glass', m, [[u - w / 2, v0 + h], [u - w / 2 + w * a, v0 + h], [u - w / 2, v0 + h * (1 - a)]], 0.008, 0.028);
+    if (look === 'attic') {
+      // Louvres, dark glass behind them (no room: it is the attic).
+      box('glass', m, [u, v0 + h / 2, 0.006], [w, h, 0.012]);
+      for (let k = 0; k < 6; k += 1) box('trim', m, [u, v0 + (h * (k + 0.5)) / 6, 0.03], [w, 0.07, 0.012], [-0.7, 0, 0]);
+      return;
     }
-    box('trim', m, [u, v0 + h / 2, 0.035], [w, 0.05, 0.03]);
-    if (look === 'blinds' && !broken) box('trim', m, [u, v0 + h * 0.74, 0.034], [w - 0.02, h * 0.52, 0.006]);
+    const broken = Boolean(hit) && hit.kind < 0.55, boarded = look === 'boarded' || (Boolean(hit) && !broken);
+    // A room behind the glass, its floor the storey's below the pane.
+    const floor = floors.filter((level) => level <= v0).at(-1) ?? 0;
+    const room = { layout: 9, uv: 'pane', scale: encodeRoom(w / 2, v0 + h / 2 - floor, look === 'blinds' ? 1 : 0) };
+    if (broken) {
+      box('void', m, [u, v0 + h / 2, 0.006], [w, h, 0.008]);
+      const a = 0.3 + 0.4 * hit.amount;
+      panel('glass', m, [[u - w / 2, v0 + h], [u - w / 2 + w * a, v0 + h], [u - w / 2, v0 + h * (1 - a)]], 0.004, 0.008);
+    } else box('glass', m, [u, v0 + h / 2, 0.006], [w, h, 0.008], [], room);
+    // Double-hung: the upper sash at the back, the lower one proud of it.
+    const bars = w < 0.6 ? [2, 2] : [2, 1], half = h / 2;
+    sashFrame(m, u, v0 + half - 0.02, w, half + 0.02, 0.024, bars, 0.035, 0.045);
+    sashFrame(m, u, v0, w, half + 0.02, 0.047, bars, 0.07, 0.035);
     if (boarded) {
       [[0.22, 0.1], [0.5, -0.07], [0.8, 0.13]].forEach(([at, tilt], i) => {
-        box('door', m, [u + nudge[i], v0 + h * at, 0.085], [w + 0.3, 0.15, 0.03], [0, 0, tilt]);
+        box('door', m, [u + nudge[i], v0 + h * at, 0.095], [w + 0.3, 0.15, 0.03], [0, 0, tilt]);
       });
     }
     if (look === 'shutter') shutter(m, u, v0, w, h);
   };
-  // A door hung on its left edge; damage swings it out on the hinge and shows
-  // the dark behind. Returns the leaf's frame (on the hinge, u across the
-  // leaf) for battens and the like.
+  // A door hung on its left edge, in the same casing and a threshold under
+  // it; damage swings it out on the hinge and shows the dark behind. Returns
+  // the leaf's frame (on the hinge, u across the leaf) for battens and the like.
   const door = (m, u, w, h, role = 'door', casingRole = 'trim', weight = 0.2) => {
-    box(casingRole, m, [u, h + 0.05, 0.03], [w + 0.22, 0.1, 0.06]);
-    for (const s of [-1, 1]) box(casingRole, m, [u + s * (w / 2 + 0.05), h / 2, 0.03], [0.1, h, 0.06]);
-    kit.hole(m, u - w / 2 - 0.1, u + w / 2 + 0.1, 0, h + 0.1);
+    if (casingRole === 'trim') {
+      casing(m, u, 0, w, h, false);
+      box('trim', m, [u, 0.012, 0.05], [w + 0.04, 0.024, 0.1]);
+    } else {
+      box(casingRole, m, [u, h + 0.05, 0.03], [w + 0.22, 0.1, 0.06]);
+      for (const s of [-1, 1]) box(casingRole, m, [u + s * (w / 2 + 0.05), h / 2, 0.03], [0.1, h, 0.06]);
+      kit.hole(m, u - w / 2 - 0.08, u + w / 2 + 0.08, 0, h + 0.08);
+    }
     const hit = wound(weight), swing = hit ? 0.35 + 0.6 * hit.amount : 0;
     if (hit) box('void', m, [u, h / 2, 0.0135], [w, h, 0.027]);
     const leaf = m.clone().multiply(new THREE.Matrix4().makeTranslation(u - w / 2, 0, 0.025)).multiply(new THREE.Matrix4().makeRotationY(-swing));
@@ -514,13 +551,27 @@ export function buildBeachHouse(input = {}) {
   const kit = createKit(p.seed, p.damage);
   const { box, panel, beam, stick, jitter, wound } = kit;
   const open = openings(kit, [0, SECOND, EAVES]);
+  // A rail to lean on: a bottom rail on blocks clear of the boards, three
+  // slats of a few widths, none quite level, a sub-rail and over it a wide
+  // flat cap — room for elbows and a bottle.
   const rail = (a, b, postAtA = true, postAtB = true) => {
     const dx = b[0] - a[0], dz = b[1] - a[1], length = Math.hypot(dx, dz);
     const start = postAtA ? POST / 2 : 0, end = length - (postAtB ? POST / 2 : 0);
     if (end - start < 0.25) return;
     const at = (s, y) => vec(a[0] + (dx / length) * s, y, a[1] + (dz / length) * s);
-    stick('trim', at(start, F + RAIL - 0.03), at(end, F + RAIL - 0.03), 0.13, 0.06, 0.1, F + 0.05);
-    for (const h of [0.2, 0.44, 0.68]) stick('trim', at(start, F + h), at(end, F + h), 0.025, 0.11, 0.3, F + 0.05);
+    const low = 0.12, sub = RAIL - 0.09;
+    stick('trim', at(start, F + low), at(end, F + low), 0.05, 0.07, 0.1, F + 0.05);
+    for (let s = start + 0.25; s < end - 0.15; s += 0.6) box('trim', WORLD, at(s, F + 0.043).toArray(), [0.05, 0.086, 0.05]);
+    stick('trim', at(start, F + sub), at(end, F + sub), 0.06, 0.07, 0.08, F + 0.05);
+    stick('trim', at(start, F + RAIL - 0.018), at(end, F + RAIL - 0.018), 0.16, 0.036, 0.04, F + 0.05);
+    const widths = [0.1 + jitter(0.025), 0.1 + jitter(0.025), 0.1 + jitter(0.025)];
+    const top = sub - 0.035, bottom = low + 0.035, gap = (top - bottom - widths.reduce((sum, w) => sum + w, 0)) / 4;
+    let y = bottom + gap;
+    for (const width of widths) {
+      const lift = jitter(0.008), tilt = jitter(0.008);
+      stick('trim', at(start, F + y + width / 2 + lift - tilt), at(end, F + y + width / 2 + lift + tilt), 0.025, width, 0.3, F + 0.05);
+      y += width + gap;
+    }
   };
 
   // Where things are. The side porch wraps round the right corner; the lean-to
@@ -587,13 +638,15 @@ export function buildBeachHouse(input = {}) {
   stilts(W / 2 + 0.9, W / 2 + P, wrapBack, L / 2);
   band(-W / 2, W / 2 + P, L / 2, L / 2 + P);
   band(W / 2, W / 2 + P, wrapBack, L / 2);
-  // Porch boards run out from the wall, a finger's gap apart, none quite alike.
+  // Porch boards run out from the wall a finger's gap apart, of a few widths,
+  // none quite alike, their ends nosed 3 cm over the band.
   const boards = (x0, x1, z0, z1, alongZ) => {
-    const span = alongZ ? x1 - x0 : z1 - z0, n = Math.round(span / 0.15);
-    for (let i = 0; i < n; i += 1) {
-      const c = (alongZ ? x0 : z0) + ((i + 0.5) * span) / n, y = F - DECK / 2 + jitter(0.004), short = Math.abs(jitter(0.03)) / 2;
-      const from = alongZ ? vec(c, y, z0 + short) : vec(x0 + short, y, c), to = alongZ ? vec(c, y, z1 - short) : vec(x1 - short, y, c);
-      stick('deck', from, to, span / n - 0.012, DECK, 0.3);
+    const first = alongZ ? x0 : z0, last = alongZ ? x1 : z1;
+    for (let c = first; c < last - 0.04;) {
+      const width = Math.min(last - c, 0.13 + jitter(0.03)), y = F - DECK / 2 + jitter(0.004), short = Math.abs(jitter(0.03)) / 2, mid = c + width / 2;
+      const from = alongZ ? vec(mid, y, z0 + short) : vec(x0 + short, y, mid), to = alongZ ? vec(mid, y, z1 + 0.03 - short) : vec(x1 + 0.03 - short, y, mid);
+      stick('deck', from, to, width - 0.01, DECK, 0.3);
+      c += width;
     }
   };
   boards(-W / 2, W / 2 + P, L / 2, L / 2 + P, true);
@@ -687,10 +740,23 @@ export function buildBeachHouse(input = {}) {
   // turns the corner with a hip, rails with three white slats.
   const frontPosts = spread(-W / 2 + POST / 2, sidePostX, 2.6).map((x) => [x, frontPostZ]);
   const sidePosts = spread(frontPostZ, wrapBack + POST / 2, 2.6).slice(1).map((z) => [sidePostX, z]);
+  // Each post on a plinth, a band under the beam; knee braces from the posts
+  // up to the beam along it, wherever there is beam to reach.
   for (const [x, z] of [...frontPosts, ...sidePosts]) {
     const hit = wound(0.6);
     box('trim', WORLD, [x, F + POST_HEIGHT / 2, z], [POST, POST_HEIGHT, POST], hit ? [(hit.kind - 0.5) * 0.08, 0, (hit.amount - 0.5) * 0.08] : []);
+    box('trim', WORLD, [x, F + 0.07, z], [POST + 0.05, 0.14, POST + 0.05]);
+    box('trim', WORLD, [x, F + POST_HEIGHT - 0.09, z], [POST + 0.04, 0.05, POST + 0.04]);
   }
+  const brace = ([x, z], dx, dz) => stick('trim', vec(x + (dx * POST) / 2, F + POST_HEIGHT - 0.5, z + (dz * POST) / 2), vec(x + dx * 0.45, F + POST_HEIGHT - 0.01, z + dz * 0.45), 0.06, 0.07, 0.15, F + 0.05);
+  frontPosts.forEach((post, i) => {
+    if (i > 0) brace(post, -1, 0);
+    if (i < frontPosts.length - 1) brace(post, 1, 0);
+  });
+  [frontPosts.at(-1), ...sidePosts].forEach((post, j, list) => {
+    if (j > 0) brace(post, 0, 1);
+    if (j < list.length - 1) brace(post, 0, -1);
+  });
   const headerY = F + POST_HEIGHT + HEADER / 2;
   box('trim', WORLD, [(-W / 2 + W / 2 + P) / 2, headerY, frontPostZ], [W + P, HEADER, POST + 0.02]);
   box('trim', WORLD, [sidePostX, headerY, (wrapBack + L / 2 + P) / 2], [POST + 0.02, HEADER, L / 2 + P - wrapBack]);

@@ -184,7 +184,8 @@ float houseBoxHit(vec3 p, vec3 d, vec3 lo, vec3 hi, out vec3 n) {
 
 vec3 houseRoom(vec2 uv, vec3 surface, vec3 d) {
   float seed = surface.x;
-  float halfWidth = floor(surface.z / 10.0) / 100.0, above = mod(surface.z, 10.0);
+  float blinds = floor(surface.z / 10000.0), rest = mod(surface.z, 10000.0);
+  float halfWidth = floor(rest / 10.0) / 100.0, above = mod(rest, 10.0);
   float roomHalf = max(1.25, halfWidth + 0.9), depth = 3.2, floorY = -above, ceilY = floorY + 2.55;
   vec3 p = vec3(uv, 0.0);
   d = vec3(abs(d.x) < 1e-4 ? 1e-4 : d.x, abs(d.y) < 1e-4 ? 1e-4 : d.y, min(d.z, -1e-4));
@@ -238,6 +239,13 @@ vec3 houseRoom(vec2 uv, vec3 surface, vec3 d) {
   if (r3 > 0.45 && halfWidth - abs(uv.x) < halfWidth * 0.32) {
     vec3 fabric = mix(vec3(0.55, 0.22, 0.18), vec3(0.78, 0.72, 0.58), r2) * (0.8 + 0.2 * sin(uv.x * 80.0));
     color = fabric * (uInteriorDay * 0.35 + lampOn * 0.7);
+  }
+  // Venetian blinds let halfway down, next to the glass: curved slats lit by
+  // the room and the day, the room showing between them.
+  if (blinds > 0.5 && uv.y > -0.12) {
+    float slat = fract(uv.y / 0.028);
+    if (uv.y < -0.1) color = vec3(0.72, 0.7, 0.64) * (uInteriorDay * 0.5 + lampOn * 0.8 + 0.03);
+    else if (slat < 0.78) color = vec3(0.82, 0.8, 0.74) * (0.72 + 0.28 * sin(slat / 0.78 * 3.14159)) * (uInteriorDay * 0.55 + lampOn * 0.9 + 0.03);
   }
   return color;
 }

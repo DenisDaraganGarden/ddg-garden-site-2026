@@ -34,14 +34,16 @@ function holds(house, label) {
       // A pane's room: the pane's half width and its centre over a floor.
       if (layout === 9) {
         const { halfWidth, above } = decodeRoom(aSurface.getZ(i));
-        assert.ok(halfWidth >= 0.2 && halfWidth <= 0.55 && above >= 1 && above <= 2, `${label}: a room behind a pane ${halfWidth} × ${above}`);
+        const { blinds } = decodeRoom(aSurface.getZ(i));
+        assert.ok(halfWidth >= 0.2 && halfWidth <= 0.55 && above >= 1 && above <= 2 && (blinds === 0 || blinds === 1), `${label}: a room behind a pane ${halfWidth} × ${above}, blinds ${blinds}`);
       }
     }
   }
   const points = [...plan.lamps, plan.yardAnchor, ...plan.garlands.flatMap(({ a, b }) => [a, b])];
   assert.ok(plan.lamps.length > 0 && plan.garlands.length > 4 && points.every((point) => point.every(Number.isFinite)), `${label}: lamps and garlands in place`);
-  // A sagging house is cut short to bend: the biggest one, bent most, ~41k.
-  assert.ok(triangles(house) < 48000, `${label}: ${triangles(house)} triangles`);
+  // A sagging house is cut short to bend; sashes, glazing bars and rails are
+  // most of the rest: the biggest one, bent most, ~46k.
+  assert.ok(triangles(house) < 54000, `${label}: ${triangles(house)} triangles`);
 }
 
 const house = buildBeachHouse();
@@ -57,7 +59,7 @@ holds(house, 'default');
 }
 assert.equal(house.plan.stairs.risers, 8, 'eight risers of 18 cm at the default floor');
 assert.ok(house.plan.ridge > 8 && house.plan.ridge < 10, `a two-storey house: ridge ${house.plan.ridge.toFixed(2)} m`);
-assert.ok(triangles(house) < 32000, `the default house: ${triangles(house)} triangles`);
+assert.ok(triangles(house) < 38000, `the default house: ${triangles(house)} triangles`);
 const defaultTriangles = triangles(house);
 disposeBuilding(house);
 
