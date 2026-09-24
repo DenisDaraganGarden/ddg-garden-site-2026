@@ -8,6 +8,7 @@ import { DEFAULT_SURFBOARD_SETTINGS, normalizeSurfboardSettings } from '../../..
 import { DEFAULT_HOUSE_SETTINGS, normalizeHouseSettings } from '../../../components/house/settings.js';
 import { DEFAULT_SHORE_SETTINGS, normalizeShoreSettings } from '../../../shore/settings.js';
 import { DEFAULT_SURROUNDINGS_SETTINGS, normalizeSurroundingsSettings } from '../../../surroundings/settings.js';
+import { DEFAULT_MATERIAL_SETTINGS, normalizeMaterialSettings } from '../../../materials/settings.js';
 import { DEFAULT_RENDER_QUALITY_SETTINGS, normalizeRenderQualitySettings } from '../../../components/effects/renderQualitySettings.js';
 import { SEA_SETTINGS_DEFAULTS, normalizeSeaSettings } from '../../../components/effects/water/seaSettings.js';
 import { DEFAULT_PAINTERLY_CLOUD_SETTINGS, normalizePainterlyCloudSettings } from '../lib/painterlyCloudSettings.js';
@@ -224,6 +225,7 @@ export const getBaseHomeSceneSettings = () => ({
   ...DEFAULT_GRASS_SETTINGS,
   ...DEFAULT_SHORE_SETTINGS,
   ...DEFAULT_SURROUNDINGS_SETTINGS,
+  ...DEFAULT_MATERIAL_SETTINGS,
   ...SEA_SETTINGS_DEFAULTS,
   waterExtent: 24,
   // Metres over which the pond's look hands over to the far field at its edge.
@@ -1190,6 +1192,7 @@ const normalizeHomeSceneSettings = (savedSettings = {}, includeCameraSystem = tr
     ...normalizeGrassSettings(merged),
     ...normalizeShoreSettings(merged),
     ...normalizeSurroundingsSettings(merged),
+    ...normalizeMaterialSettings(merged),
     ...normalizeRenderQualitySettings(merged),
     bloomEnabled: pickBoolean(merged.bloomEnabled, defaults.bloomEnabled),
     bloomStrength: clampFloat(merged.bloomStrength, 0, 2.5, defaults.bloomStrength),

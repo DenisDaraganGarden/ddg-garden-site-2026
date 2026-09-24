@@ -53,6 +53,7 @@
     "check:seo": "node scripts/seo/build-seo.check.mjs",
     "check:projects": "node scripts/projectStore.check.mjs && node scripts/sketchupGlb.check.mjs",
     "check:surroundings": "node src/surroundings/surroundings.check.js",
+    "check:ai-materials": "node scripts/materialMaps.check.mjs && node scripts/materials.check.mjs",
     "check:deploy": "node scripts/deployScene.check.mjs",
     "app": "node ./node_modules/electron/cli.js electron/main.js",
     "check:app": "node scripts/check-app.mjs",

@@ -21,6 +21,8 @@ import FocusToolPie from './FocusToolPie';
 import { FocusCameraManager, FocusCameraParameters, FocusCameraStrip, FocusTechnicalViews } from './FocusCameras';
 import { NorthCompass } from './NorthCompass';
 import logo from './ouroboros-reference.png';
+// «Сгенерировать / доработать текстуру…» — окно текстуры по ИИ (src/materials).
+import MaterialPanel from '../../../../../materials/MaterialPanel.jsx';
 import './FocusEditor.css';
 
 const UI_KEY = 'ddg_focus_editor_ui_v1';
@@ -221,6 +223,8 @@ function FocusShell(props) {
     const [filter, setFilter] = useState(''); const [paramsTab, setParamsTab] = useState('all'); const [pendingField, setPendingField] = useState(null);
     const [stripOpen, setStripOpen] = useState(stored.stripOpen !== false); const [focus, setFocus] = useState(false); const [preview, setPreview] = useState(false);
     const [modal, setModal] = useState(null); const [viewsOpen, setViewsOpen] = useState(false); const grip = useRef(null); const resize = useRef(null); const lastNodes = useRef({});
+    // Окно текстуры не модальное: живёт рядом с диалогами, модель под ним крутится.
+    const [textureTarget, setTextureTarget] = useState(null);
     // Riding the board hides the chrome the way Tab does; the ride has its own HUD and exit.
     const hidden = focus || preview || playing;
     // Чёрная рамка — это то, как кадр обрежется на сайте; полупрозрачная показывает,
@@ -310,6 +314,7 @@ function FocusShell(props) {
         return [
             target ? { label: tr('Открыть параметры', 'Open parameters'), icon: 'sliders', onSelect: () => selectNode(target.path) } : null,
             target ? { label: tr('Детали объекта…', 'Parts of this object…'), icon: 'folder', onSelect: () => setModal({ kind: 'presets', path: target.path, label: t(`homeEditor.nodes.${target.node.id}`) }) } : null,
+            hit.placedId && hit.object?.material?.name && !Array.isArray(hit.object.material) ? { label: tr('Сгенерировать / доработать текстуру…', 'Generate / refine texture…'), icon: 'grid', onSelect: () => setTextureTarget({ placedId: hit.placedId, materialName: hit.object.material.name, material: hit.object.material }) } : null,
             hit.root ? { label: tr('Смотреть на объект', 'Frame object'), icon: 'target', onSelect: () => layoutEditor.frameObject?.(hit.root) } : null,
             hit.root ? { label: tr('Смотреть сверху', 'Frame from above'), icon: 'camera', onSelect: () => layoutEditor.frameObject?.(hit.root, { above: true }) } : null,
             ...(holding ? GIZMO_MODES.filter((mode) => gizmoAllows(gizmo.movable, mode)).map((mode) => ({
@@ -357,6 +362,7 @@ function FocusShell(props) {
         {(focus || preview) && !playing ? <Button className="focus-return" icon="panel" label={tr('Вернуться к инструментам', 'Return to tools')} onClick={() => { setFocus(false); setPreview(false); }}>{tr('К редактору', 'Editor')}</Button> : null}
         {modal === 'search' ? <SearchDialog onClose={() => setModal(null)} onSelect={selectNode} commands={commands} /> : null}
         {modal?.kind === 'presets' ? <Dialog title={`${tr('Детали', 'Parts')} · ${modal.label}`} onClose={() => setModal(null)}><FocusPresets path={modal.path} label={modal.label} settings={settings} applySettings={props.applySettings} onClose={() => setModal(null)} /></Dialog> : null}
+        {textureTarget ? <MaterialPanel key={`${textureTarget.placedId}:${textureTarget.materialName}`} target={textureTarget} settings={settings} applySettings={props.applySettings} onClose={() => setTextureTarget(null)} /> : null}
         {modal === 'help' ? <Dialog title={tr('Управление', 'Controls')} onClose={() => setModal(null)}><div className="focus-shortcuts">{shortcutRows(tr).map(([label, keys]) => <div key={label}><span>{label}</span><kbd>{keys}</kbd></div>)}</div></Dialog> : null}
         {modal === 'settings' ? <SettingsDialog sectionProps={sectionProps} onClose={() => setModal(null)} /> : null}
         {['save', 'publish', 'revert'].includes(modal) ? <Dialog title={modal === 'revert' ? t('homeEditor.publish.adopt') : modal === 'publish' ? tr('Публикация на сайт', 'Publish to website') : props.project ? tr('Сцена проекта — на заглавную', 'Project scene to the home page') : tr('Сохранение в проект', 'Save to project')} onClose={() => setModal(null)}><div className="focus-save-summary"><p>{modal === 'revert' ? tr('Текущий вид будет заменён опубликованными настройками проекта. Рабочие камеры останутся в браузере.', 'The current view will be replaced with published project settings. Working cameras remain in the browser.') : props.project ? tr(`Сцена проекта «${props.project.name}» станет сценой заглавной страницы: обычные камеры, их Desktop и Mobile, общий звук. Прежняя сцена сайта остаётся в git и в проектах, вернуть её можно так же.`, `The scene of "${props.project.name}" becomes the home page scene: its cameras, Desktop and Mobile views and global audio. The previous site scene stays in git and in the projects; put it back the same way.`) : tr('В проект входят обычные сцены, их Desktop и Mobile, общий звук. Рабочие камеры и настройки редактора остаются локальными.', 'The project includes scenes, their Desktop and Mobile views and global audio. Working cameras and editor preferences remain local.')}</p>{modal !== 'revert' ? <div className="focus-scene-names">{layoutEditor.cameras.map((camera) => <span key={camera.id}>{camera.name}</span>)}</div> : null}{modal === 'publish' ? <p>{tr('Это действие обновит живой сайт.', 'This will update the live website.')}</p> : null}<footer><Button label={tr('Отмена', 'Cancel')} onClick={() => setModal(null)}>{tr('Отмена', 'Cancel')}</Button><Button className="focus-primary" label={tr('Подтвердить действие', 'Confirm action')} onClick={() => { const action = modal === 'revert' ? onAdoptPublished : modal === 'publish' ? onDeploy : onPublish; setModal(null); action?.(); }}>{modal === 'revert' ? tr('Откатить', 'Revert') : modal === 'publish' ? tr('Опубликовать', 'Publish') : props.project ? tr('На заглавную', 'To the home page') : tr('В проект', 'Save')}</Button></footer></div></Dialog> : null}

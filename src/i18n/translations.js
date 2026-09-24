@@ -110,6 +110,7 @@ export const translations = {
       },
       nodes: {
         surroundings: 'Окружение',
+        api: 'API',
         terrain: 'Суша',
         rocks: 'Камни',
         pebbles: 'Галька',
@@ -812,6 +813,7 @@ export const translations = {
       },
       nodes: {
         surroundings: 'Surroundings',
+        api: 'API',
         terrain: 'Land',
         rocks: 'Rocks',
         pebbles: 'Pebbles',

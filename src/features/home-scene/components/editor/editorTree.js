@@ -50,6 +50,7 @@ import {
     AudioTracksSection,
 } from './sections/audio';
 import { SurroundingsSection } from './sections/surroundings';
+import { ApiSection } from './sections/apiKey';
 
 // The editor is organised the way a game engine organises a scene: groups hold
 // objects, and an object exposes its aspects. Aspects render as headings inside
@@ -177,6 +178,8 @@ export const EDITOR_TREE = [
             { id: 'resolution', aspects: [{ id: 'resolution', Section: ResolutionSection }] },
             { id: 'quality', aspects: [{ id: 'quality', Section: PostQualitySection }] },
             { id: 'debug', devOnly: true, aspects: [{ id: 'debug', Section: DebugSection }] },
+            // Ключ OpenAI для текстур по ИИ — только в окне настроек (focusNavigation SETTINGS_PAGES).
+            { id: 'api', aspects: [{ id: 'api', Section: ApiSection }] },
         ],
     },
     {

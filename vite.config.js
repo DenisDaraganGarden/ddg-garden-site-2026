@@ -10,6 +10,7 @@ import { listPlants, plantCardFile, plantPhotoFile, removePlantPhoto, writePlant
 import { mapNodes, modelOrigin, prepareSketchupGlb, readGlb, readGlbJson } from './scripts/sketchupGlb.mjs';
 import { deployPublishedHomeScene } from './scripts/deployScene.mjs';
 import { surroundingsPlugin } from './scripts/surroundings.mjs';
+import { materialsPlugin } from './scripts/materials.mjs';
 import { poseTuningModule } from './src/components/surfboard/poseTuning.js';
 
 const projectRoot = process.cwd();
@@ -421,7 +422,7 @@ const manualChunks = (id) => {
 };
 
 export default defineConfig({
-  plugins: [react(), homeScenePublishPlugin(), engineStorePlugin(), riderPosePlugin(), surroundingsPlugin()],
+  plugins: [react(), homeScenePublishPlugin(), engineStorePlugin(), riderPosePlugin(), surroundingsPlugin(), materialsPlugin()],
   resolve: {
     alias: [
       { find: /^three\/webgpu$/, replacement: fileURLToPath(new URL('./src/lib/threeWebgpuStub.js', import.meta.url)) },

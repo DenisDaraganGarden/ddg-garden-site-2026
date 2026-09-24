@@ -1,0 +1,100 @@
+/* «Текстура» — окно рядом с кадром, как диалоги редактора, но не модальное:
+   модель под ним можно крутить. Цвета — переменные Focus-редактора. */
+.material-panel {
+  position: fixed;
+  top: calc(var(--focus-top, 42px) + 12px);
+  left: 64px;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(460px, calc(100vw - 96px));
+  max-height: calc(100dvh - var(--focus-top, 42px) - var(--focus-bottom, 24px) - 36px);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  padding: 12px 14px 14px;
+  border: 1px solid var(--focus-line, #353839);
+  border-radius: 8px;
+  background: var(--focus-panel, #1d1f20);
+  color: var(--focus-text, #dcddd8);
+  font: 11px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  box-shadow: 0 20px 70px #0009;
+  pointer-events: auto;
+}
+
+.material-panel header { display: flex; align-items: center; gap: 10px; }
+.material-panel h2 { flex: 1; margin: 0; font: 500 14px/1.35 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: var(--focus-text, #dcddd8); overflow-wrap: anywhere; }
+.material-panel button, .material-panel select, .material-panel input, .material-panel textarea { font: inherit; color: inherit; }
+.material-panel button { cursor: pointer; }
+.material-panel button:disabled { cursor: default; opacity: .4; }
+.material-panel__close { width: 24px; height: 24px; border: 0; border-radius: 3px; background: transparent; font-size: 16px !important; line-height: 1; }
+.material-panel__close:hover { background: #ffffff12; }
+.material-panel__caption { display: block; margin-bottom: 4px; color: var(--focus-muted, #989d9e); font-size: 10px; letter-spacing: .06em; text-transform: uppercase; }
+.material-panel small { color: var(--focus-muted, #989d9e); font-size: 10px; }
+
+.material-panel__top { display: grid; grid-template-columns: 1.15fr .8fr 1.5fr; gap: 10px; align-items: start; }
+.material-panel__thumbs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+.material-panel__thumb, .material-panel__add {
+  position: relative; aspect-ratio: 1; border: 1px solid #ffffff1c; border-radius: 3px; background: var(--focus-input, #161819) center / cover no-repeat;
+}
+.material-panel__thumb span { position: absolute; top: 1px; right: 3px; opacity: 0; font-size: 12px; text-shadow: 0 0 3px #000; }
+.material-panel__thumb:hover span { opacity: 1; }
+.material-panel__add { font-size: 16px; color: var(--focus-muted, #989d9e); }
+.material-panel__add:hover { border-color: var(--focus-accent, #cfc1a1); color: var(--focus-text, #dcddd8); }
+.material-panel__swatch { aspect-ratio: 1; border: 1px solid #ffffff1c; border-radius: 3px; background: center / 50% 50% repeat; margin-bottom: 3px; }
+.material-panel__brief { display: flex; flex-direction: column; }
+.material-panel textarea {
+  min-height: 92px; resize: vertical; padding: 6px 8px; border: 1px solid #ffffff1c; border-radius: 3px; background: var(--focus-input, #161819); line-height: 1.4;
+}
+.material-panel textarea:focus, .material-panel select:focus, .material-panel input:focus { outline: 1px solid var(--focus-accent, #cfc1a1); outline-offset: -1px; }
+
+.material-panel__context { display: flex; align-items: center; gap: 8px; color: var(--focus-muted, #989d9e); }
+.material-panel__context img { height: 30px; border-radius: 2px; border: 1px solid #ffffff1c; }
+.material-panel__context button { margin-left: auto; height: 24px; padding: 0 8px; border: 1px solid #ffffff1c; border-radius: 3px; background: transparent; }
+
+.material-panel__row { display: flex; gap: 6px; padding-top: 10px; border-top: 1px solid var(--focus-line, #353839); }
+.material-panel__row button, .material-panel__applied > button, .material-panel__variants > button {
+  flex: 1; min-height: 30px; padding: 0 10px; border: 1px solid #ffffff1c; border-radius: 3px; background: #ffffff0a;
+}
+.material-panel__row button:hover:not(:disabled), .material-panel__applied > button:hover { background: #ffffff14; }
+.material-panel .material-panel__primary { border: 0; background: #e4e4de; color: #242828; font-weight: 550; }
+.material-panel .material-panel__primary:hover:not(:disabled) { background: #f1f1ec; }
+
+.material-panel__settings { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; padding-top: 10px; border-top: 1px solid var(--focus-line, #353839); }
+.material-panel__settings .material-panel__model { grid-column: 1 / -1; }
+
+.material-panel__projection { display: grid; grid-template-columns: 72px 1fr 1fr; gap: 6px; align-items: center; }
+.material-panel__projection span { color: var(--focus-muted, #989d9e); }
+.material-panel__projection button { min-height: 26px; border: 1px solid #ffffff1c; border-radius: 3px; background: transparent; }
+.material-panel__projection button[aria-pressed="true"] { border-color: var(--focus-accent, #cfc1a1); background: #cfc1a11f; color: var(--focus-text, #dcddd8); }
+.material-panel__settings label { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.material-panel__settings label span { color: var(--focus-muted, #989d9e); font-size: 10px; }
+.material-panel__settings select, .material-panel__settings input {
+  width: 100%; height: 26px; padding: 0 5px; border: 1px solid #ffffff1c; border-radius: 3px; background: var(--focus-input, #161819);
+}
+
+.material-panel__status { margin: 0; color: var(--focus-text, #dcddd8); }
+.material-panel__status.is-error { color: #e8a598; }
+.material-panel__note { margin: 0; padding: 7px 9px; border-radius: 3px; background: #cfc1a114; color: var(--focus-accent, #cfc1a1); }
+
+/* Вариант показан плиткой 2×2: шов, если он есть, виден сразу. */
+.material-panel__variants { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; align-items: end; }
+.material-panel__variant { aspect-ratio: 1; border: 1px solid #ffffff1c; border-radius: 3px; background: center / 50% 50% repeat; }
+.material-panel__variant.is-picked { outline: 2px solid var(--focus-accent, #cfc1a1); outline-offset: 1px; }
+.material-panel__variants > button.material-panel__primary { grid-column: 1 / -1; }
+
+.material-panel__applied { display: flex; flex-direction: column; gap: 6px; padding-top: 10px; border-top: 1px solid var(--focus-line, #353839); }
+.material-panel__knob { display: grid; grid-template-columns: 72px 1fr 56px; align-items: center; gap: 8px; }
+.material-panel__knob span { color: var(--focus-muted, #989d9e); }
+.material-panel__knob input { accent-color: var(--focus-accent, #cfc1a1); }
+.material-panel__knob output { text-align: right; font-variant-numeric: tabular-nums; }
+
+.material-panel__library { padding-top: 10px; border-top: 1px solid var(--focus-line, #353839); }
+.material-panel__shelf { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.material-panel__item { position: relative; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.material-panel__item > button:first-child { aspect-ratio: 1; border: 1px solid #ffffff1c; border-radius: 3px; background: center / cover no-repeat; }
+.material-panel__item.is-applied > button:first-child { outline: 2px solid var(--focus-accent, #cfc1a1); outline-offset: 1px; }
+.material-panel__item > span { overflow: hidden; color: var(--focus-muted, #989d9e); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.material-panel__remove { position: absolute; top: 2px; right: 2px; width: 18px; height: 18px; border: 0; border-radius: 2px; background: #000a; opacity: 0; }
+.material-panel__item:hover .material-panel__remove { opacity: 1; }
+.material-panel__shelf > small { grid-column: 1 / -1; }
