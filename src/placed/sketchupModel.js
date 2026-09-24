@@ -58,6 +58,9 @@ function faceTo(mesh, camera) {
 // общим с неподвижными частями модели). Сдвиг — в мире, после поворота к
 // камере; тень карточки стоит.
 const windMaterial = (material, made) => {
+    // Стекло (materials/glass.js) не копируется clone(): в его userData
+    // функции и цвета, JSON-копия их ломает. Стеклянная карточка не качается.
+    if (material.userData?.glassOn || material.userData?.glassBase) return material;
     if (!made.has(material)) {
         const wind = material.clone();
         wind.onBeforeCompile = (shader) => {
