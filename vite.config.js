@@ -247,6 +247,10 @@ function engineStorePlugin() {
 
         if (request.method === 'PUT' && isValidId(id)) {
           const entry = await store.save(id, await readJsonBody(request));
+          if (entry?.conflict) {
+            sendJson(response, 409, { ok: false, conflict: true, message: `Запись «${id}» изменили снаружи.`, entry: entry.conflict });
+            return;
+          }
           sendJson(response, entry ? 200 : 404, entry
             ? { ok: true, entry }
             : { ok: false, message: `Запись «${id}» не найдена.` });

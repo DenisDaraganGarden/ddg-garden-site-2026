@@ -98,6 +98,7 @@ const HomeEdit = ({ project = null }) => {
     const {
         settings,
         setSettings,
+        externalRevision,
         activeTab,
         setActiveTab,
         handleSettingChange,
@@ -127,6 +128,8 @@ const HomeEdit = ({ project = null }) => {
     const [selectedLayoutKey, setSelectedLayoutKey] = useState(() => settings.editorLayoutKey ?? getCurrentLayoutKey());
     const [currentLayoutKey, setCurrentLayoutKey] = useState(getCurrentLayoutKey);
     const [cameraPoseRevision, setCameraPoseRevision] = useState(0);
+    // The project came again from disk (changed outside): the view takes the pose of its camera.
+    useEffect(() => { if (externalRevision) setCameraPoseRevision((value) => value + 1); }, [externalRevision]);
     const [isSceneReady, setIsSceneReady] = useState(false);
     const deferredSettings = useDeferredValue(settings);
     // Дорожки выключенных объектов уходят в движок выключенными: танкера нет —

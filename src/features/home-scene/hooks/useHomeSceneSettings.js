@@ -19,7 +19,7 @@ import {
   HOME_SCENE_CAMERA_FOV_MIN,
   resolveLayoutKey,
 } from '../lib/layout';
-import { initializeEditorCameras, syncActiveEditorCamera } from '../lib/editorCameraState.js';
+import { initializeEditorCameras, selectEditorCamera, syncActiveEditorCamera } from '../lib/editorCameraState.js';
 import {
   applySceneSnapshot,
   createSceneSnapshot,
@@ -32,7 +32,7 @@ import {
   DEFAULT_SOUNDSCAPE_SETTINGS,
   normalizeSoundscapeSettings,
 } from '../../audio/data/soundscapeSettings';
-import { projectStore, saveProjectSettings } from '../../engine/projectApi';
+import { projectStore, readProject, saveProjectSettings } from '../../engine/projectApi';
 import { EDITOR_THUMBNAIL_READY, requestEditorThumbnail } from '../../../components/effects/editorThumbnailCapture';
 
 export const HOME_SCENE_SETTINGS_STORAGE_KEY = 'ddg_home_scene_settings_v1';
@@ -1401,13 +1401,28 @@ export const usePublishedHomeSceneSettings = () => {
 // origin), либо внутри проекта движка — тогда сцена приходит файлом и в файл же
 // возвращается. Ветки не смешиваются: черновик сайта проект не видит и наоборот,
 // поэтому проект не может уехать на сайт.
+// ?camera=<id или имя> — проект открывается на этой камере: так Claude снимает
+// нужный вид (scripts/render-view.mjs), а ссылка ведёт прямо к ракурсу.
+const openAtCamera = (settings) => {
+  const wanted = typeof window === 'undefined' ? null : new URLSearchParams(window.location.search).get('camera');
+  const camera = wanted ? settings.sceneCameras?.find((entry) => entry.id === wanted || entry.name === wanted) : null;
+  return camera ? selectEditorCamera(settings, camera.id, 'scene', HOME_SCENE_SNAPSHOT_KEYS) : settings;
+};
+
 export const useHomeSceneDraftSettings = (project = null) => {
   const lastThumbnailAt = useRef(0);
   // Открыть проект — не значит его править: пока сцена та же, что пришла из
   // файла, на диск ничего не уходит, и «обновлён» не сдвигается от просмотра.
   const untouched = useRef(null);
+  // «Обновлён» записи, которую редактор видел последней. С ним уходит каждое
+  // сохранение: если файл изменили снаружи (Claude правит проект, пока открыт
+  // редактор), сервер не пишет поверх, а отвечает 409 с нынешней записью.
+  // pending — есть правка, ещё не записанная на диск.
+  const known = useRef(project?.updated ?? null);
+  const pending = useRef(false);
+  const [externalRevision, setExternalRevision] = useState(0);
   const [settings, setStoredSettings] = useState(() => (project
-    ? normalizeHomeSceneDraftSettings(project.settings)
+    ? openAtCamera(normalizeHomeSceneDraftSettings(project.settings))
     : readHomeSceneDraftSettings() ?? normalizeHomeSceneDraftSettings(getPublishedHomeSceneSettings())
   ));
   const setSettings = useCallback((update) => {
@@ -1416,6 +1431,37 @@ export const useHomeSceneDraftSettings = (project = null) => {
       return next === previous ? previous : syncActiveEditorCamera(next, HOME_SCENE_SNAPSHOT_KEYS);
     });
   }, []);
+
+  // Запись с диска приходит в редактор целиком, как при открытии: без отмены и
+  // без сохранения обратно; камера встаёт в позу выбранной (externalRevision).
+  const adopt = useCallback((entry) => {
+    const next = normalizeHomeSceneDraftSettings(entry.settings);
+    known.current = entry.updated;
+    untouched.current = next;
+    setStoredSettings(next);
+    setExternalRevision((value) => value + 1);
+  }, []);
+
+  const save = useCallback((next, options = {}) => saveProjectSettings(project.id, next, { ...options, base: known.current })
+    .then((entry) => {
+      if (entry?.updated) known.current = entry.updated;
+    })
+    .catch((error) => {
+      const current = error?.status === 409 ? error.payload?.entry : null;
+      if (!current) {
+        console.error('Не удалось сохранить проект', error);
+        return undefined;
+      }
+      // Окно закрывается — спрашивать некого: остаётся то, что на диске.
+      if (options.keepalive) return undefined;
+      if (window.confirm('Проект изменили снаружи — Claude или другое окно движка. Взять ту версию? Ваши последние правки пропадут.\n«Отмена» — оставить ваши и записать поверх.')) {
+        adopt(current);
+        return undefined;
+      }
+      return saveProjectSettings(project.id, next, { base: current.updated }).then((entry) => {
+        if (entry?.updated) known.current = entry.updated;
+      });
+    }), [project, adopt]);
 
   useEffect(() => {
     if (typeof window === 'undefined' || isScenePreview()) {
@@ -1434,10 +1480,9 @@ export const useHomeSceneDraftSettings = (project = null) => {
     // Эффект перезапускается на каждое движение ползунка, поэтому таймер здесь
     // работает задержкой сам по себе: на диск уходит тишина после правки, а не
     // каждый кадр. Закрытие окна не ждёт таймера — там отдельный сброс.
+    pending.current = true;
     const timer = window.setTimeout(() => {
-      saveProjectSettings(project.id, settings).catch((error) => {
-        console.error('Не удалось сохранить проект', error);
-      });
+      save(settings).finally(() => { pending.current = false; });
       if (Date.now() - lastThumbnailAt.current > PROJECT_THUMBNAIL_EVERY_MS) {
         lastThumbnailAt.current = Date.now();
         requestEditorThumbnail(`project:${project.id}`);
@@ -1445,21 +1490,44 @@ export const useHomeSceneDraftSettings = (project = null) => {
     }, PROJECT_SAVE_DELAY_MS);
     const flush = () => {
       window.clearTimeout(timer);
-      saveProjectSettings(project.id, settings, { keepalive: true }).catch(() => {
-        // Окно уже закрывается — показывать ошибку негде.
-      });
+      void save(settings, { keepalive: true });
     };
     window.addEventListener('pagehide', flush);
     return () => {
       window.clearTimeout(timer);
       window.removeEventListener('pagehide', flush);
     };
-  }, [project, settings]);
+  }, [project, settings, save]);
+
+  // Окно вернулось в фокус — проект мог измениться снаружи: Claude правит файл,
+  // пока Денис в чате. Если своих незаписанных правок нет, берётся запись с диска.
+  useEffect(() => {
+    if (!project || typeof window === 'undefined') return undefined;
+    let busy = false;
+    const check = async () => {
+      if (busy || pending.current || document.visibilityState === 'hidden') return;
+      busy = true;
+      try {
+        const entry = await readProject(project.id);
+        if (entry?.updated && entry.updated !== known.current && !pending.current) adopt(entry);
+      } catch {
+        // Сервер недоступен — остаётся то, что на экране.
+      } finally {
+        busy = false;
+      }
+    };
+    window.addEventListener('focus', check);
+    document.addEventListener('visibilitychange', check);
+    return () => {
+      window.removeEventListener('focus', check);
+      document.removeEventListener('visibilitychange', check);
+    };
+  }, [project, adopt]);
 
   // Кадр приходит после того, как сцена его нарисует; ключ отличает его от
   // миниатюр камер, которые ходят тем же событием.
   useEffect(() => {
-    if (!project || typeof window === 'undefined') return undefined;
+    if (!project || typeof window === 'undefined' || isScenePreview()) return undefined;
     const key = `project:${project.id}`;
     const store = (event) => {
       if (event.detail?.key !== key) return;
@@ -1474,6 +1542,7 @@ export const useHomeSceneDraftSettings = (project = null) => {
   return {
     settings,
     setSettings,
+    externalRevision,
   };
 };
 

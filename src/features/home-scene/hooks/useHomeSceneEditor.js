@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useHomeSceneDraftSettings } from './useHomeSceneSettings';
 
 export const useHomeSceneEditor = (project = null) => {
-    const { settings, setSettings } = useHomeSceneDraftSettings(project);
+    const { settings, setSettings, externalRevision } = useHomeSceneDraftSettings(project);
 
     const [activeTab, setActiveTab] = useState('landscape/water');
     const applySettings = (patch) => setSettings((prev) => ({ ...prev, ...patch }));
@@ -52,6 +52,7 @@ export const useHomeSceneEditor = (project = null) => {
     return {
         settings,
         setSettings,
+        externalRevision,
         activeTab,
         setActiveTab,
         handleSettingChange,

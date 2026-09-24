@@ -127,14 +127,19 @@ export function createStore(folder, payloadKey) {
   };
 
   // Правки приходят по одной: переименование без сцены не должно её стирать.
+  // base — «обновлён», который видел пишущий. Если файл с тех пор изменили
+  // (Claude правит проект, пока открыт редактор), поверх не пишется: пишущий
+  // получает нынешнюю запись и решает сам.
   const save = async (id, patch) => {
     const current = await read(id);
     if (!current) return null;
+    if (patch?.base !== undefined && patch.base !== current.updated) return { conflict: current };
 
     // Личность записи правкой не подменяется: id — это имя файла, created — факт.
     const fields = { ...patch };
     delete fields.id;
     delete fields.created;
+    delete fields.base;
     const next = { ...current, ...fields, updated: new Date().toISOString() };
     if (patch?.name !== undefined) next.name = String(patch.name).trim() || current.name;
     return write(next);

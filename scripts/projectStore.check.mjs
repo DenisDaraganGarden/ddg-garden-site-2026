@@ -53,6 +53,19 @@ const forced = await projects.save('dyuny', { id: 'chuzhoy', created: 'вчер�
 assert.equal(forced.id, 'dyuny');
 assert.equal(forced.created, dunes.created);
 
+// Запись поверх чужой правки: редактор пишет с «обновлён», который видел, а
+// файл тем временем изменил Claude — сервер отдаёт нынешнюю запись, не пишет.
+const race = await projects.create({ name: 'Гонка', settings: { terrainSeed: 3 } });
+await new Promise((resolve) => { setTimeout(resolve, 5); });
+const byClaude = await projects.save(race.id, { settings: { terrainSeed: 99 } });
+const stale = await projects.save(race.id, { settings: { terrainSeed: 1 }, base: race.updated });
+assert.equal(stale.conflict?.settings.terrainSeed, 99, 'a stale write gets the current entry back');
+assert.equal((await projects.read(race.id)).settings.terrainSeed, 99, 'and writes nothing');
+const fresh = await projects.save(race.id, { settings: { terrainSeed: 2 }, base: byClaude.updated });
+assert.equal(fresh.settings.terrainSeed, 2, 'a write on the current entry goes through');
+assert.equal(fresh.base, undefined, 'base is not stored');
+await projects.remove(race.id);
+
 assert.equal(await projects.save('nikogo', { name: 'x' }), null);
 await assert.rejects(() => projects.create({ name: 'Без сцены' }), /не передано поле/);
 
