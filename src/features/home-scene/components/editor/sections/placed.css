@@ -1,0 +1,44 @@
+/* Расстановка (sections/placed.jsx): «Добавить», список объектов, карточка
+   выбранного с действиями. Цвета и линии — те же, что у всего редактора. */
+.placed-bar{display:flex;align-items:center;gap:8px;margin:2px 0 6px}
+.placed-bar__count{margin-left:auto;font-size:10px;color:var(--focus-muted,#989d9e)}
+.placed-add{position:relative}
+.placed-add__button{display:inline-flex;align-items:center;gap:5px;height:26px;padding:0 10px 0 7px;border:1px solid var(--focus-accent,#cfc1a1);border-radius:5px;background:#cfc1a114;color:#f1ede2;font:500 11px/1 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;cursor:pointer}
+.placed-add__button:disabled{opacity:.4;cursor:default}
+.placed-add__button .focus-icon{width:13px;height:13px}
+.placed-menu{position:absolute;left:0;top:30px;z-index:20;width:250px;padding:4px;border:1px solid var(--focus-line,#353839);border-radius:6px;background:var(--focus-panel2,#242627);box-shadow:0 10px 30px #0008}
+.placed-menu hr{border:0;border-top:1px solid var(--focus-line,#353839);margin:4px 2px}
+.placed-menu p{margin:4px 6px 2px;font-size:9.5px;color:var(--focus-muted,#989d9e)}
+.placed-menu__item{display:flex;align-items:center;gap:9px;width:100%;min-height:30px;padding:4px 8px;border:0;border-radius:4px;background:transparent;color:var(--focus-text,#dcddd8);font:11px/1.25 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;text-align:left;cursor:pointer}
+.placed-menu__item:hover:not(:disabled):not(.is-disabled){background:#ffffff0d}
+.placed-menu__item:disabled,.placed-menu__item.is-disabled{opacity:.4;cursor:default}
+.placed-menu__item .focus-icon{width:15px;height:15px;flex:none;color:var(--focus-muted,#989d9e)}
+.placed-menu__item small{display:block;font-size:9.5px;color:var(--focus-muted,#989d9e)}
+.placed-list{display:flex;flex-direction:column;gap:1px;max-height:190px;overflow-y:auto;margin-bottom:6px;padding:3px;border:1px solid var(--focus-line,#353839);border-radius:5px;scrollbar-width:thin}
+.placed-row{display:flex;align-items:center;border-radius:3px}
+.placed-row:hover{background:#ffffff07}
+.placed-row.is-active{background:#cfc1a11c}
+.placed-row__name{display:flex;align-items:center;gap:7px;flex:1;min-width:0;height:26px;padding:0 6px;border:0;background:transparent;color:var(--focus-text,#dcddd8);font:11px/1 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;text-align:left;cursor:pointer}
+.placed-row__name .focus-icon{width:13px;height:13px;flex:none;color:var(--focus-muted,#989d9e)}
+.placed-row__name span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.placed-row__name small{margin-left:auto;padding-left:6px;font-size:9px;color:var(--focus-muted,#989d9e);white-space:nowrap}
+.placed-row.is-hidden .placed-row__name{opacity:.45}
+.placed-row__eye{width:24px;height:24px;padding:0;border:0;background:transparent;color:var(--focus-muted,#989d9e);cursor:pointer}
+.placed-row__eye .focus-icon{width:13px;height:13px}
+.placed-row__eye:hover{color:var(--focus-text,#dcddd8)}
+.placed-card{display:flex;flex-direction:column;gap:6px;margin:4px 0 8px;padding:8px;border:1px solid var(--focus-line,#353839);border-radius:6px;background:#ffffff05}
+.placed-card__title{display:flex;align-items:center;gap:7px}
+.placed-card__title .focus-icon{width:16px;height:16px;flex:none;color:var(--focus-accent,#cfc1a1)}
+.placed-card__title input{flex:1;min-width:0;height:26px;padding:0 6px;border:1px solid transparent;border-radius:4px;background:transparent;color:var(--focus-text,#dcddd8);font:600 13px/1 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.placed-card__title input:hover,.placed-card__title input:focus{border-color:var(--focus-line,#353839);background:var(--focus-input,#161819);outline:0}
+.placed-actions{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
+.placed-actions>button{display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 2px 5px;border:1px solid var(--focus-line,#353839);border-radius:5px;background:#ffffff05;color:var(--focus-text,#dcddd8);font:10px/1.1 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;cursor:pointer}
+.placed-actions>button:hover:not(:disabled){background:#ffffff0d}
+.placed-actions>button:disabled{opacity:.4;cursor:default}
+.placed-actions>button .focus-icon{width:15px;height:15px}
+.placed-actions>button.is-danger{color:#e59a8a}
+.placed-actions>button.is-danger:hover{border-color:#b85a4a;background:#b85a4a22}
+.placed-hint{margin:2px 0 6px;padding:6px 8px;border-radius:4px;background:#cfc1a110;color:#cdc9bb;font-size:10px;line-height:1.45}
+.placed-trail{display:flex;flex-wrap:wrap;align-items:center;gap:3px;margin-bottom:4px;font-size:10px;color:var(--focus-muted,#989d9e)}
+.placed-trail>button{height:22px;padding:0 7px;border:1px solid var(--focus-line,#353839);border-radius:4px;background:transparent;color:var(--focus-text,#dcddd8);font:10px/1 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;cursor:pointer}
+.placed-trail>button.is-active{border-color:var(--focus-accent,#cfc1a1);background:#cfc1a11c}

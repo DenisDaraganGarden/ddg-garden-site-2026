@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLanguage } from '../../../../../i18n/useLanguage';
 import { CheckboxControl, RangeControl, SectionHeading, SelectControl } from '../../HomeEditorControls';
 import {
@@ -6,6 +6,8 @@ import {
 } from '../../../../../placed/settings.js';
 import { activeProjectId } from '../../../../engine/projectApi.js';
 import { useFocusControlScope } from '../focus/FocusControlsContext';
+import { FocusIcon } from '../focus/FocusIcons';
+import './placed.css';
 import { copiesOf, findPart, partName, SKETCHUP_VIEW_FOV, sketchupSceneNodes, sketchupViews, useSketchupModel } from '../../../../../placed/sketchupModel.js';
 
 const KIND_LABELS = { tree: ['Дерево', 'Tree'], shrub: ['Куст', 'Shrub'], rock: ['Камень', 'Rock'], model: ['Модель', 'Model'] };
@@ -35,9 +37,9 @@ function sketchupReport({ name, report }, ru) {
     return `SketchUp «${name}»: ${parts.join(' · ')}`;
 }
 
-// The SketchUp block of a selected model: its 2D plants, the component a click
-// picked (with the chain of groups it sits in, as SketchUp shows it), the
-// parts hidden, and the scenes as cameras.
+// Блок SketchUp у выбранной модели, три части: компонент, выбранный щелчком
+// (с цепочкой групп, как в SketchUp), и скрытые; её 2D-растения; сцены как
+// камеры и их общий объектив.
 function SketchupModel({ object, sketchup, placedEditor, layoutEditor, ru }) {
     const entry = useSketchupModel(object.id);
     const part = placedEditor.part;
@@ -60,46 +62,85 @@ function SketchupModel({ object, sketchup, placedEditor, layoutEditor, ru }) {
     const lenses = sceneCameras.map((camera) => camera.scene?.layouts?.desktop?.cameraFov).filter(Number.isFinite);
     const commonLens = lenses.length ? lenses.sort((a, b) => lenses.filter((v) => v === b).length - lenses.filter((v) => v === a).length)[0] : SKETCHUP_VIEW_FOV;
     const [lens, setLens] = useState(null);
+    if (!entry) return <div className="home-editor-status" data-testid="placed-sketchup-status">{object.hidden ? (ru ? 'Модель скрыта: её части и сцены — когда она снова видна.' : 'The model is hidden: its parts and scenes come back with it.')
+        : !activeProjectId() ? (ru ? 'Файл модели лежит в проекте движка — части видны, когда редактор открыт в проекте.' : 'The model’s file lives in an engine project: open the editor in the project to reach its parts.')
+            : (ru ? 'Модель загружается…' : 'The model is loading…')}</div>;
     return <>
-        <SectionHeading label="SketchUp" subtle />
-        <CheckboxControl controlId="sketchupModels[].faceCamera" testId="placed-sketchup-face" label={ru ? 'Растения к камере' : 'Plants face the camera'} checked={sketchup.faceCamera}
-            onChange={(event) => placedEditor.setSketchup(object.id, { faceCamera: event.target.checked })} />
-        {entry?.crowns ? <CheckboxControl controlId="sketchupModels[].crowns" testId="placed-sketchup-crowns" label={ru ? 'Круги крон' : 'Crown circles'} checked={sketchup.crowns}
-            onChange={(event) => placedEditor.setSketchup(object.id, { crowns: event.target.checked })} /> : null}
-        <div className="home-editor-status" data-testid="placed-sketchup-status">{entry
-            ? `${ru ? '2D-растений' : '2D plants'}: ${entry.cards} · ${ru ? 'кругов крон' : 'crown circles'}: ${entry.crowns} · ${ru ? 'скрыто частей' : 'parts hidden'}: ${sketchup.hidden.length}`
-            : object.hidden ? (ru ? 'Модель скрыта: компоненты и сцены — когда она снова видна.' : 'The model is hidden: its components and scenes come back with it.')
-                : !activeProjectId() ? (ru ? 'Файл модели лежит в проекте движка — компоненты видны, когда редактор открыт в проекте.' : 'The model’s file lives in an engine project: open the editor in the project to reach its parts.')
-                    : (ru ? 'Модель загружается…' : 'The model is loading…')}</div>
+        <SectionHeading label={ru ? 'Части модели' : 'Model parts'} subtle />
         {part && picked ? <>
-            <div className="home-editor-tabs" data-testid="placed-sketchup-trail">
-                {part.trail.map((node) => { const at = findPart(entry.root, node); return at ? <button key={node} type="button" className={`home-editor-tab${node === part.node ? ' active' : ''}`} aria-pressed={node === part.node} onClick={() => placedEditor.selectPart(node)}>{partName(at, ru)}</button> : null; })}
+            <div className="placed-trail" data-testid="placed-sketchup-trail">
+                {part.trail.map((node, i) => { const at = findPart(entry.root, node); return at ? <React.Fragment key={node}>{i ? <span aria-hidden="true">›</span> : null}<button type="button" className={node === part.node ? 'is-active' : ''} aria-pressed={node === part.node} onClick={() => placedEditor.selectPart(node)}>{partName(at, ru)}</button></React.Fragment> : null; })}
             </div>
             <div className="home-editor-tabs">
                 {button(ru ? 'Скрыть' : 'Hide', () => placedEditor.hideParts(object.id, [part.node]), { 'data-testid': 'placed-sketchup-hide' })}
                 {copies.length > 1 ? button(`${ru ? 'Скрыть все такие' : 'Hide all copies'} · ${copies.length}`, () => placedEditor.hideParts(object.id, copies.map((copy) => copy.userData.gltfNode)), { 'data-testid': 'placed-sketchup-hide-copies' }) : null}
                 {button(ru ? 'Показать' : 'Frame', () => layoutEditor?.frameObject?.(picked))}
             </div>
-        </> : <div className="home-editor-status">{ru
-            ? 'Щелчок по модели выделяет компонент целиком, как в SketchUp; кнопки над ним — группы, в которых он лежит, чтобы подняться выше или зайти внутрь.'
-            : 'A click on the model picks a whole component, as in SketchUp; the buttons above it are the groups it sits in, to go up or inside.'}</div>}
-        <div className="home-editor-tabs">
-            {sketchup.hidden.length ? button(`${ru ? 'Показать скрытые' : 'Show hidden'} · ${sketchup.hidden.length}`, () => placedEditor.showParts(object.id), { 'data-testid': 'placed-sketchup-show' }) : null}
-            {views.length ? button(fresh.length ? `${ru ? 'Сцены SketchUp → камеры' : 'SketchUp scenes → cameras'} · ${fresh.length}` : (ru ? 'Сцены SketchUp уже в камерах' : 'SketchUp scenes are cameras already'),
-                () => layoutEditor?.addCameras?.(fresh), { disabled: !fresh.length, 'data-testid': 'placed-sketchup-cameras' }) : null}
-        </div>
-        {sceneCameras.length ? <div className="focus-control-row focus-control-row--range sketchup-lens" data-testid="placed-sketchup-lens">
-            <span /><label title={ru ? 'Угол обзора камер из сцен SketchUp — по высоте кадра, как в SketchUp' : 'Field of view of the cameras made from SketchUp scenes — by height, as in SketchUp'}>{ru ? 'Объектив сцен' : 'Scene lens'}</label>
-            <input type="range" min={15} max={90} step={0.5} value={lens ?? commonLens} onChange={(event) => setLens(Number(event.target.value))} aria-label={ru ? 'Объектив сцен' : 'Scene lens'} />
-            <input type="number" min={15} max={90} step={0.5} value={lens ?? commonLens} onChange={(event) => setLens(Number(event.target.value))} aria-label={ru ? 'Объектив сцен, градусы' : 'Scene lens, degrees'} />
-            <span className="focus-control-unit">°</span>
-        </div> : null}
-        {sceneCameras.length ? <div className="home-editor-tabs">
-            {button(`${ru ? 'Объектив ко всем сценам' : 'Lens to every scene'} · ${sceneCameras.length}`, () => { layoutEditor?.setCamerasFov?.(sceneCameras.map((camera) => camera.id), lens ?? commonLens); setLens(null); }, { disabled: lens === null || lens === commonLens, 'data-testid': 'placed-sketchup-lens-apply' })}
-        </div> : null}
+        </> : <p className="placed-hint">{ru
+            ? 'Щёлкните по модели — выделится компонент целиком, как в SketchUp. Над ним появятся группы, в которых он лежит: подняться выше или зайти внутрь.'
+            : 'Click the model to pick a whole component, as in SketchUp. The groups it sits in appear above it: go up or inside.'}</p>}
+        {sketchup.hidden.length ? <div className="home-editor-tabs">{button(`${ru ? 'Вернуть скрытые' : 'Show hidden'} · ${sketchup.hidden.length}`, () => placedEditor.showParts(object.id), { 'data-testid': 'placed-sketchup-show' })}</div> : null}
+        <SectionHeading label={ru ? '2D-растения SketchUp' : 'SketchUp 2D plants'} subtle />
+        <CheckboxControl controlId="sketchupModels[].faceCamera" testId="placed-sketchup-face" label={ru ? 'Растения к камере' : 'Plants face the camera'} checked={sketchup.faceCamera}
+            onChange={(event) => placedEditor.setSketchup(object.id, { faceCamera: event.target.checked })} />
+        {entry.crowns ? <CheckboxControl controlId="sketchupModels[].crowns" testId="placed-sketchup-crowns" label={ru ? 'Круги крон' : 'Crown circles'} checked={sketchup.crowns}
+            onChange={(event) => placedEditor.setSketchup(object.id, { crowns: event.target.checked })} /> : null}
+        <div className="home-editor-status" data-testid="placed-sketchup-status">{`${ru ? '2D-растений' : '2D plants'}: ${entry.cards} · ${ru ? 'кругов крон' : 'crown circles'}: ${entry.crowns} · ${ru ? 'скрыто частей' : 'parts hidden'}: ${sketchup.hidden.length}`}</div>
+        {views.length ? <>
+            <SectionHeading label={`${ru ? 'Сцены SketchUp' : 'SketchUp scenes'} · ${views.length}`} subtle />
+            <div className="home-editor-tabs">
+                {button(fresh.length ? `${ru ? 'Сделать камерами' : 'Make them cameras'} · ${fresh.length}` : (ru ? 'Все сцены уже камеры' : 'All scenes are cameras'),
+                    () => layoutEditor?.addCameras?.(fresh), { disabled: !fresh.length, 'data-testid': 'placed-sketchup-cameras' })}
+            </div>
+            {sceneCameras.length ? <div className="focus-control-row focus-control-row--range sketchup-lens" data-testid="placed-sketchup-lens">
+                <span /><label title={ru ? 'Угол обзора камер из сцен SketchUp — по высоте кадра, как в SketchUp' : 'Field of view of the cameras made from SketchUp scenes — by height, as in SketchUp'}>{ru ? 'Объектив сцен' : 'Scene lens'}</label>
+                <input type="range" min={15} max={90} step={0.5} value={lens ?? commonLens} onChange={(event) => setLens(Number(event.target.value))} aria-label={ru ? 'Объектив сцен' : 'Scene lens'} />
+                <input type="number" min={15} max={90} step={0.5} value={lens ?? commonLens} onChange={(event) => setLens(Number(event.target.value))} aria-label={ru ? 'Объектив сцен, градусы' : 'Scene lens, degrees'} />
+                <span className="focus-control-unit">°</span>
+            </div> : null}
+            {sceneCameras.length ? <div className="home-editor-tabs">
+                {button(`${ru ? 'Объектив ко всем сценам' : 'Lens to every scene'} · ${sceneCameras.length}`, () => { layoutEditor?.setCamerasFov?.(sceneCameras.map((camera) => camera.id), lens ?? commonLens); setLens(null); }, { disabled: lens === null || lens === commonLens, 'data-testid': 'placed-sketchup-lens-apply' })}
+            </div> : null}
+        </> : null}
     </>;
 }
 
+// «+ Добавить»: что поставить в сцену — одним меню, а не рядом кнопок. Модель
+// .glb и выгрузка SketchUp — файлы, они живут в проекте движка.
+function AddMenu({ placedEditor, full, inProject, busy, importModel, ru }) {
+    const [open, setOpen] = useState(false);
+    const ref = useRef(null);
+    useEffect(() => {
+        if (!open) return undefined;
+        const away = (event) => { if (!ref.current?.contains(event.target)) setOpen(false); };
+        document.addEventListener('pointerdown', away, true);
+        return () => document.removeEventListener('pointerdown', away, true);
+    }, [open]);
+    const fileItem = (sketchup, label, hint, testId) => <label className={`placed-menu__item${full || !inProject || busy ? ' is-disabled' : ''}`} title={inProject ? hint : (ru ? 'Модели импортируются в проект движка' : 'Models are imported into an engine project')} data-testid={testId}>
+        <FocusIcon name="box" /><span>{label}<small>{hint}</small></span>
+        <input type="file" accept=".glb,model/gltf-binary" hidden disabled={full || !inProject || busy}
+            onChange={(event) => { const [file] = event.target.files ?? []; event.target.value = ''; setOpen(false); void importModel(file, { sketchup }); }} />
+    </label>;
+    return <div ref={ref} className="placed-add">
+        <button type="button" className="placed-add__button" onClick={() => setOpen((value) => !value)} aria-expanded={open} disabled={full} data-testid="placed-add"><FocusIcon name="plus" />{ru ? 'Добавить' : 'Add'}</button>
+        {open ? <div className="placed-menu" role="menu">
+            {PLACED_KINDS.filter((id) => id !== 'model').map((id) => <button key={id} type="button" role="menuitem" className="placed-menu__item" disabled={full} data-testid={`placed-add-${id}`} onClick={() => { setOpen(false); placedEditor?.add(id); }}>
+                <FocusIcon name={KIND_ICONS[id]} /><span>{KIND_LABELS[id][ru ? 0 : 1]}</span>
+            </button>)}
+            <hr />
+            {fileItem(true, 'SketchUp .glb', ru ? 'выгрузка SimLab: компоненты, 2D-растения, сцены' : 'a SimLab export: components, 2D plants, scenes', 'placed-import-sketchup')}
+            {fileItem(false, ru ? 'Модель .glb' : 'Model .glb', ru ? 'любой glTF: скан, предмет' : 'any glTF: a scan, an object', 'placed-import-model')}
+            <p>{ru ? 'Встаёт туда, куда смотрит камера, и садится на землю.' : 'It lands where the camera looks and sits on the ground.'}</p>
+        </div> : null}
+    </div>;
+}
+
+const KIND_ICONS = { tree: 'tree', shrub: 'sprout', rock: 'rock', model: 'box' };
+
+// Расстановка: сверху — «Добавить» и список всего, что стоит в сцене (глаз —
+// скрыть); у выбранного — имя и действия сразу под ним (показать, на землю,
+// копия, удалить), дальше разделы, которые сворачиваются: модель, SketchUp,
+// форма, место. Щелчок по объекту в сцене выбирает его в этом списке.
 export function PlacedSection({ settings, placedEditor, layoutEditor }) {
     const { language } = useLanguage(), ru = language === 'ru', scope = useFocusControlScope();
     const objects = settings.placedObjects ?? [], selected = objects.find((o) => o.id === placedEditor?.selectedId);
@@ -119,8 +160,6 @@ export function PlacedSection({ settings, placedEditor, layoutEditor }) {
             setUpload({ name: file.name, error: error.message });
         }
     };
-    const importInput = (sketchup) => <input type="file" accept=".glb,model/gltf-binary" hidden disabled={full || !inProject || Boolean(upload?.megabytes)}
-        onChange={(event) => { const [file] = event.target.files ?? []; event.target.value = ''; void importModel(file, { sketchup }); }} />;
     const replaceModel = async (file) => {
         if (!file || !selected) return;
         setUpload({ name: file.name, megabytes: file.size / 2 ** 20, replacing: true });
@@ -136,54 +175,66 @@ export function PlacedSection({ settings, placedEditor, layoutEditor }) {
         onChange={(event) => selected && placedEditor.update(selected.id, { [key]: Number(event.target.value) })} />;
     const toggle = (key, [r, e], checked) => <CheckboxControl key={key} controlId={`placedObjects[].${key}`} testId={`placed-${key}`} label={ru ? r : e} checked={checked}
         onChange={(event) => selected && placedEditor.update(selected.id, { [key]: event.target.checked })} />;
+    const catalog = Boolean(scope?.catalogOnly);
+    const species = (selected || catalog) && PLACED_SPECIES[kind].length > 1
+        ? <SelectControl controlId="placedObjects[].species" label={kind === 'model' ? (ru ? 'Свет' : 'Light') : (ru ? 'Вид' : 'Species')} value={object.species} options={PLACED_SPECIES[kind].map((id) => ({ value: id, label: placedSpeciesLabel(kind, id, language) }))}
+            onChange={(event) => selected && placedEditor.setSpecies(selected.id, event.target.value)} /> : null;
     return <>
-        <div className="home-editor-tabs">
-            {PLACED_KINDS.filter((id) => id !== 'model').map((id) => <button key={id} type="button" className="home-editor-tab" disabled={full} data-testid={`placed-add-${id}`} onClick={() => placedEditor?.add(id)}>+ {KIND_LABELS[id][ru ? 0 : 1]}</button>)}
-            <label className={`home-editor-tab${full || !inProject || upload?.megabytes ? ' is-disabled' : ''}`} title={inProject ? '' : (ru ? 'Модели импортируются в проект движка' : 'Models are imported into an engine project')} data-testid="placed-import-model">
-                + {ru ? 'Модель .glb' : 'Model .glb'}
-                {importInput(false)}
-            </label>
-            <label className={`home-editor-tab${full || !inProject || upload?.megabytes ? ' is-disabled' : ''}`} title={inProject ? (ru ? 'Выгрузка SketchUp (.glb, плагин SimLab): компоненты, 2D-растения, сцены' : 'A SketchUp export (.glb, SimLab plugin): components, 2D plants, scenes') : (ru ? 'Модели импортируются в проект движка' : 'Models are imported into an engine project')} data-testid="placed-import-sketchup">
-                + SketchUp .glb
-                {importInput(true)}
-            </label>
-            {selected ? <button type="button" className="home-editor-tab" onClick={() => layoutEditor?.frameObject?.(`placed-${selected.id}`)}>{ru ? 'Показать' : 'Frame'}</button> : null}
-        </div>
-        <div className="home-editor-status">{ru ? 'Объект ставится в точку, куда смотрит камера, и садится на землю; дальше — перенос, поворот и масштаб теми же инструментами, что у лодки.' : 'An object lands where the camera looks and sits on the ground; then move, rotate and scale it with the boat’s tools.'}</div>
-        {upload ? <div className="home-editor-status" data-testid="placed-import-status">{upload.error
-            ? `${ru ? 'Не загрузилась' : 'Not imported'} «${upload.name}»: ${upload.error}`
-            : upload.replaced ? `${ru ? 'Новая версия' : 'New version'} «${upload.name}» ${ru ? 'стоит на месте старой' : 'stands where the old one stood'}${upload.replaced.hidden ? ` · ${ru ? 'скрытые части' : 'hidden parts'} ${upload.replaced.kept}/${upload.replaced.hidden}` : ''}${upload.report ? ` · ${sketchupReport(upload, ru)}` : ''}`
-                : upload.report ? sketchupReport(upload, ru)
-                    : `${ru ? (upload.replacing ? 'Заменяю на' : upload.sketchup ? 'Загружаю и готовлю' : 'Загружаю') : (upload.replacing ? 'Replacing with' : upload.sketchup ? 'Importing and preparing' : 'Importing')} «${upload.name}» · ${upload.megabytes.toFixed(1)} ${ru ? 'МБ' : 'MB'}…`}</div> : null}
-        <SectionHeading label={`${ru ? 'Объекты' : 'Objects'} · ${objects.length}/${PLACED_LIMITS.objects}`} subtle />
-        <SelectControl controlId="placedObjects" label={ru ? 'Объект' : 'Object'} value={selected?.id ?? ''} options={[{ value: '', label: ru ? 'Выбрать…' : 'Select…' }, ...objects.map((o) => ({ value: o.id, label: `${o.name} · ${KIND_LABELS[o.kind][ru ? 0 : 1]}` }))]}
-            onChange={(event) => placedEditor?.select(event.target.value || null)} />
-        {selected ? <div className="home-editor-control-group"><input className="home-editor-select" aria-label={ru ? 'Имя объекта' : 'Object name'} value={selected.name} maxLength={64} onChange={(event) => placedEditor.update(selected.id, { name: event.target.value })} /></div> : null}
-        {(selected || scope?.catalogOnly) && PLACED_SPECIES[kind].length > 1 ? <SelectControl controlId="placedObjects[].species" label={kind === 'model' ? (ru ? 'Свет' : 'Light') : (ru ? 'Вид' : 'Species')} value={object.species} options={PLACED_SPECIES[kind].map((species) => ({ value: species, label: placedSpeciesLabel(kind, species, language) }))}
-            onChange={(event) => selected && placedEditor.setSpecies(selected.id, event.target.value)} /> : null}
-        {selected ? toggle('hidden', ['Скрыть', 'Hide'], Boolean(selected.hidden)) : null}
-        {selected?.kind === 'model' ? <>
-            {toggle('wet', ['Реакция на воду', 'Wet by the sea'], selected.wet)}
-            {toggle('collision', ['Коллизия', 'Collision'], selected.collision)}
-            <div className="home-editor-tabs">
+        {catalog ? <>
+            <SelectControl controlId="placedObjects" label={ru ? 'Объект' : 'Object'} value="" options={[{ value: '', label: ru ? 'Выбрать…' : 'Select…' }, ...objects.map((o) => ({ value: o.id, label: o.name }))]} onChange={(event) => placedEditor?.select(event.target.value || null)} />
+        </> : <>
+            <div className="placed-bar">
+                <AddMenu placedEditor={placedEditor} full={full} inProject={inProject} busy={Boolean(upload?.megabytes)} importModel={importModel} ru={ru} />
+                <span className="placed-bar__count">{ru ? 'Объектов' : 'Objects'} {objects.length}/{PLACED_LIMITS.objects}</span>
+            </div>
+            {upload ? <div className="home-editor-status" data-testid="placed-import-status">{upload.error
+                ? `${ru ? 'Не загрузилась' : 'Not imported'} «${upload.name}»: ${upload.error}`
+                : upload.replaced ? `${ru ? 'Новая версия' : 'New version'} «${upload.name}» ${ru ? 'стоит на месте старой' : 'stands where the old one stood'}${upload.replaced.hidden ? ` · ${ru ? 'скрытые части' : 'hidden parts'} ${upload.replaced.kept}/${upload.replaced.hidden}` : ''}${upload.report ? ` · ${sketchupReport(upload, ru)}` : ''}`
+                    : upload.report ? sketchupReport(upload, ru)
+                        : `${ru ? (upload.replacing ? 'Заменяю на' : upload.sketchup ? 'Загружаю и готовлю' : 'Загружаю') : (upload.replacing ? 'Replacing with' : upload.sketchup ? 'Importing and preparing' : 'Importing')} «${upload.name}» · ${upload.megabytes.toFixed(1)} ${ru ? 'МБ' : 'MB'}…`}</div> : null}
+            {objects.length ? <div className="placed-list" role="listbox" aria-label={ru ? 'Объекты расстановки' : 'Placed objects'} data-testid="placed-list">
+                {objects.map((o) => <div key={o.id} className={`placed-row${o.id === selected?.id ? ' is-active' : ''}${o.hidden ? ' is-hidden' : ''}`} role="option" aria-selected={o.id === selected?.id}>
+                    <button type="button" className="placed-row__name" onClick={() => placedEditor?.select(o.id)} onDoubleClick={() => layoutEditor?.frameObject?.(`placed-${o.id}`)} title={ru ? 'Двойной щелчок — показать' : 'Double-click to frame'} data-testid={`placed-row-${o.kind}`}>
+                        <FocusIcon name={KIND_ICONS[o.kind]} /><span>{o.name}</span><small>{settings[SKETCHUP_KEY]?.[o.id] ? 'SketchUp' : KIND_LABELS[o.kind][ru ? 0 : 1]}</small>
+                    </button>
+                    <button type="button" className="placed-row__eye" onClick={() => placedEditor.update(o.id, { hidden: !o.hidden })} aria-pressed={Boolean(o.hidden)} title={o.hidden ? (ru ? 'Показать объект' : 'Show the object') : (ru ? 'Скрыть объект' : 'Hide the object')} data-testid="placed-hidden"><FocusIcon name={o.hidden ? 'eyeoff' : 'eye'} /></button>
+                </div>)}
+            </div> : <p className="placed-hint">{ru ? 'Пока пусто. «Добавить» — дерево, куст, камень или модель; модель SketchUp — её выгрузка .glb.' : 'Nothing yet. “Add” a tree, a shrub, a rock or a model; a SketchUp model is its .glb export.'}</p>}
+            {selected ? <div className="placed-card" data-testid="placed-card">
+                <div className="placed-card__title"><FocusIcon name={KIND_ICONS[kind]} /><input value={selected.name} maxLength={64} aria-label={ru ? 'Имя объекта' : 'Object name'} onChange={(event) => placedEditor.update(selected.id, { name: event.target.value })} /></div>
+                <div className="placed-actions">
+                    <button type="button" onClick={() => layoutEditor?.frameObject?.(`placed-${selected.id}`)} title={ru ? 'Показать в кадре' : 'Frame it'}><FocusIcon name="target" />{ru ? 'Показать' : 'Frame'}</button>
+                    <button type="button" onClick={() => placedEditor.seat(selected.id)} title={ru ? 'Поставить на землю' : 'Seat on the ground'}><FocusIcon name="ground" />{ru ? 'На землю' : 'Ground'}</button>
+                    <button type="button" disabled={full} onClick={() => placedEditor.duplicate(selected.id)} title={ru ? 'Копия рядом' : 'A copy beside it'}><FocusIcon name="copy" />{ru ? 'Копия' : 'Copy'}</button>
+                    <button type="button" className="is-danger" onClick={() => placedEditor.remove(selected.id)} data-testid="placed-delete" title={ru ? 'Удалить из сцены (⌘Z вернёт)' : 'Delete from the scene (⌘Z brings it back)'}><FocusIcon name="trash" />{ru ? 'Удалить' : 'Delete'}</button>
+                </div>
+            </div> : objects.length ? <p className="placed-hint">{ru ? 'Выберите объект в списке или щелчком в сцене.' : 'Pick an object in the list or with a click in the scene.'}</p> : null}
+        </>}
+        {selected?.kind === 'model' || (catalog && kind === 'model') ? <>
+            <SectionHeading label={ru ? 'Модель' : 'Model'} />
+            {species}
+            {toggle('wet', ['Реакция на воду', 'Wet by the sea'], Boolean(selected?.wet))}
+            {toggle('collision', ['Коллизия', 'Collision'], Boolean(selected?.collision))}
+            {selected ? <div className="home-editor-tabs">
                 <label className={`home-editor-tab${upload?.megabytes ? ' is-disabled' : ''}`} title={ru ? 'Новая выгрузка того же файла встанет на место старой; скрытые части переедут' : 'A new export of the same file stands where the old one stood; hidden parts move along'} data-testid="placed-replace-model">
                     {ru ? 'Заменить версию…' : 'Replace version…'}
                     <input type="file" accept=".glb,model/gltf-binary" hidden disabled={Boolean(upload?.megabytes)}
                         onChange={(event) => { const [file] = event.target.files ?? []; event.target.value = ''; void replaceModel(file); }} />
                 </label>
-            </div>
+            </div> : null}
+        </> : species ? <>
+            <SectionHeading label={ru ? 'Вид' : 'Species'} />
+            {species}
         </> : null}
-        {selected?.kind === 'model' && sketchup ? <SketchupModel object={selected} sketchup={sketchup} placedEditor={placedEditor} layoutEditor={layoutEditor} ru={ru} /> : null}
-        {selected || scope?.catalogOnly ? <>
-            <SectionHeading label={ru ? 'Форма' : 'Form'} subtle />
+        {selected?.kind === 'model' && sketchup ? <>
+            <SectionHeading label="SketchUp" />
+            <SketchupModel object={selected} sketchup={sketchup} placedEditor={placedEditor} layoutEditor={layoutEditor} ru={ru} />
+        </> : null}
+        {selected || catalog ? <>
+            <SectionHeading label={ru ? 'Форма' : 'Form'} />
             {Object.entries(PLACED_KIND_RANGES[kind]).map(([key, limits]) => range(key, KNOB_LABELS[key], limits))}
-            <SectionHeading label={ru ? 'Место' : 'Place'} subtle />
+            <SectionHeading label={ru ? 'Место' : 'Place'} />
             {Object.entries(placedTransformRanges(kind)).filter(([key]) => !(kind === 'model' && key === 'seed')).map(([key, limits]) => range(key, TRANSFORM_LABELS[key], limits))}
         </> : null}
-        {selected ? <div className="home-editor-tabs">
-            <button type="button" className="home-editor-tab" onClick={() => placedEditor.seat(selected.id)}>{ru ? 'На землю' : 'Seat on ground'}</button>
-            <button type="button" className="home-editor-tab" disabled={full} onClick={() => placedEditor.duplicate(selected.id)}>{ru ? 'Дублировать' : 'Duplicate'}</button>
-            <button type="button" className="home-editor-tab" onClick={() => placedEditor.remove(selected.id)} data-testid="placed-delete">{ru ? 'Удалить' : 'Delete'}</button>
-        </div> : null}
     </>;
 }
