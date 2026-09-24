@@ -1,0 +1,9435 @@
+{
+ "summary": {
+  "source": "/Users/denisdaragan/Desktop/Библиотека_растений_и_деревьев.glb",
+  "generator": "SimLab GLTF",
+  "units": "SketchUp inches under «ШАБЛОН» (scale 25.4) inside Assembly (0.001) -> metres; position = glTF Y-up metres; positionSU = SketchUp frame (x east, y north, z up) metres",
+  "countsByCategory": {
+   "tree-conifer-existing": 4,
+   "tree-deciduous-existing": 4,
+   "tree-deciduous-new": 10,
+   "tree-conifer-new": 12,
+   "tree-fruit-new": 5,
+   "perennial": 21,
+   "cactus": 15,
+   "exotic": 5,
+   "topiary": 6,
+   "tree-columnar": 6,
+   "shrub-conifer": 6,
+   "shrub-deciduous": 13,
+   "grass": 14,
+   "vine": 3
+  },
+  "countsByCapCategory": {
+   "tree-existing": 8,
+   "tree-deciduous-new": 10,
+   "tree-conifer-new": 12,
+   "none": 37,
+   "tree-fruit-new": 2,
+   "perennial": 22,
+   "shrub-conifer": 6,
+   "shrub-deciduous": 13,
+   "grass": 14
+  },
+  "totalEntries": 124,
+  "withCap": 87,
+  "withoutCap": [
+   "585 knotwilg2",
+   "578 Salix. integra",
+   "574 mand",
+   "624 Component#134",
+   "662 Компонент#225",
+   "628 Component#132",
+   "622 Component#135",
+   "634 Component#129",
+   "638 Component#126",
+   "644 Component#124",
+   "636 Component#128",
+   "632 Component#130",
+   "630 Component#131",
+   "626 Component#133",
+   "646 Component#123",
+   "618 Component#137",
+   "620 Component#136",
+   "582 Bromelia Hijau Lurik",
+   "580 Component#9",
+   "648 Component#146",
+   "541 Agave Hijau",
+   "543 Cica Revoluta",
+   "572 Komponent#3",
+   "594 туя-шар-на-низк-штамбе",
+   "598 Component#6",
+   "592 Component#5",
+   "576 Buxus 'Green Gem'",
+   "587 buxus",
+   "658 Компонент#224",
+   "605 Component#51",
+   "603 Component#139",
+   "601 Quercus robur_fastigiata",
+   "596 Компонент#217",
+   "607 Component#52",
+   "664 null",
+   "144 Component#47",
+   "84 ivy1"
+  ],
+  "billboardsInEngine": 100,
+  "notBillboards": [
+   "515 Компонент#211: cedrus-libani-glauca (MASK -> OPAQUE)",
+   "414 Bannana4: *68 (MASK -> MASK); Bleaf_tattered5_super (MASK -> MASK); BannanaStem1 (MASK -> OPAQUE); BannanaLeaf_full (MASK -> OPAQUE)",
+   "188 Vinca minor#1: Vinca minor (MASK -> OPAQUE)",
+   "103 Lupinus: Lupinus (MASK -> OPAQUE)",
+   "56 Компонент#312: lavendar (MASK -> OPAQUE)",
+   "313 Dicentra spectabilis: Dicentra%20spectablis%20'Bleeding%20Heart'-400 (MASK -> OPAQUE)",
+   "357 Digitalis (white): foxglove#4 (MASK -> OPAQUE)",
+   "331 Astilbe arendsii: AstilbeHeartandSoul (MASK -> OPAQUE)",
+   "352 Component#2: Liatris (BLEND -> BLEND)",
+   "648 Component#146: *45 (BLEND -> BLEND)",
+   "543 Cica Revoluta: s-Cycad-01 (MASK -> MASK)",
+   "587 buxus: buxus1 (MASK -> OPAQUE)",
+   "596 Компонент#217: Taxus x media 'Stefania' (MASK -> OPAQUE)",
+   "248 Picea glauca 'Alberta Globe'#1: Picea glauca 'Alberta Globe' (MASK -> OPAQUE)",
+   "150 Компонент#206: Juniperus sabina 'Mas' (MASK -> OPAQUE)",
+   "285 Euonymus fortunei 'Emerald Gaiety' : Euonymus fortunei 'Emerald Gaiety' (MASK -> OPAQUE)",
+   "52 Corylus avellana 'Contorta': Corylus avellana 'Contorta' (MASK -> OPAQUE)",
+   "99 Alchemilla molis#1: alchemilla (MASK -> OPAQUE)",
+   "369 muhleb2#1: muhlenbergia2 (BLEND -> BLEND)",
+   "303 little bunny fountain grass#1: grass-little bunny fountain (MASK -> OPAQUE)",
+   "196 Component#4: festuca glauca (MASK -> OPAQUE)",
+   "664 null: *76 (MASK -> MASK)",
+   "144 Component#47: vernonia (BLEND -> BLEND)",
+   "84 ivy1: Ivy0062_1_L (MASK -> MASK)"
+  ],
+  "capLegend": {
+   "[Color M00]2 + [Color M07]": {
+    "rgba": [
+     1,
+     1,
+     1,
+     0.59
+    ],
+    "hex": "#ffffff",
+    "categories": {
+     "tree-conifer-existing": 4,
+     "tree-deciduous-existing": 4
+    },
+    "planSymbols": [
+     "Компонент#148"
+    ]
+   },
+   "*42": {
+    "rgba": [
+     0.686,
+     0.839,
+     0.537,
+     0.61
+    ],
+    "hex": "#afd689",
+    "categories": {
+     "tree-deciduous-new": 4
+    },
+    "planSymbols": [
+     "Компонент#145",
+     "Компонент#143",
+     "Компонент#157",
+     "Компонент#149"
+    ]
+   },
+   "[Color M07] + [Color F04]": {
+    "rgba": [
+     0.596,
+     0.749,
+     0.443,
+     0.61
+    ],
+    "hex": "#98bf71",
+    "categories": {
+     "tree-deciduous-new": 3
+    },
+    "planSymbols": [
+     "Компонент#153",
+     "Компонент#164"
+    ]
+   },
+   "[Color F04]": {
+    "rgba": [
+     0.596,
+     0.749,
+     0.443,
+     0.61
+    ],
+    "hex": "#98bf71",
+    "categories": {
+     "tree-deciduous-new": 3
+    },
+    "planSymbols": [
+     "Компонент#144",
+     "Компонент#146"
+    ]
+   },
+   "*43": {
+    "rgba": [
+     0.322,
+     0.424,
+     0.255,
+     0.61
+    ],
+    "hex": "#526c41",
+    "categories": {
+     "tree-conifer-new": 12
+    },
+    "planSymbols": [
+     "Компонент#156",
+     "Компонент#151",
+     "Компонент#150",
+     "Компонент#158",
+     "Компонент#147",
+     "Компонент#154",
+     "Компонент#155",
+     "Компонент#159"
+    ]
+   },
+   "*74": {
+    "rgba": [
+     0.847,
+     0.553,
+     0.169,
+     0.61
+    ],
+    "hex": "#d88d2b",
+    "categories": {
+     "tree-fruit-new": 2
+    },
+    "planSymbols": [
+     "Компонент#160",
+     "Компонент#218"
+    ]
+   },
+   "*41": {
+    "rgba": [
+     0.749,
+     0.427,
+     0.247,
+     0.61
+    ],
+    "hex": "#bf6d3f",
+    "categories": {
+     "perennial": 21,
+     "cactus": 1
+    },
+    "planSymbols": [
+     "Компонент#141",
+     "Компонент#315",
+     "Компонент#142"
+    ]
+   },
+   "*54": {
+    "rgba": [
+     0.255,
+     0.298,
+     0.098,
+     0.61
+    ],
+    "hex": "#414c19",
+    "categories": {
+     "shrub-conifer": 6
+    },
+    "planSymbols": [
+     "Компонент#314",
+     "Компонент#320"
+    ]
+   },
+   "*44": {
+    "rgba": [
+     0.518,
+     0.69,
+     0.227,
+     0.61
+    ],
+    "hex": "#84b03a",
+    "categories": {
+     "shrub-deciduous": 13
+    },
+    "planSymbols": [
+     "Компонент#321"
+    ]
+   },
+   "*61": {
+    "rgba": [
+     0.749,
+     0.722,
+     0.247,
+     0.61
+    ],
+    "hex": "#bfb83f",
+    "categories": {
+     "grass": 14
+    },
+    "planSymbols": [
+     "Компонент#163"
+    ]
+   }
+  },
+  "shelves": [
+   {
+    "plateNode": 511,
+    "plate": "Компонент#186",
+    "yRangeSU": [
+     285.34,
+     301.69
+    ],
+    "label": "Деревья сущ. Хво",
+    "labelNode": 513,
+    "labelIsCopy": false,
+    "holds": "tree-conifer-existing",
+    "entries": 4
+   },
+   {
+    "plateNode": 174,
+    "plate": "Компонент#190",
+    "yRangeSU": [
+     263,
+     279.34
+    ],
+    "label": "Деревья сущ. Лис",
+    "labelNode": 176,
+    "labelIsCopy": false,
+    "holds": "tree-deciduous-existing",
+    "entries": 4
+   },
+   {
+    "plateNode": 178,
+    "plate": "Компонент#175",
+    "yRangeSU": [
+     240.66,
+     257
+    ],
+    "label": "Деревья нов. Лис",
+    "labelNode": 180,
+    "labelIsCopy": false,
+    "holds": "tree-deciduous-new",
+    "entries": 9
+   },
+   {
+    "plateNode": 115,
+    "plate": "Компонент#183",
+    "yRangeSU": [
+     218.32,
+     234.66
+    ],
+    "label": "Деревья нов. Хво",
+    "labelNode": 117,
+    "labelIsCopy": false,
+    "holds": "tree-conifer-new",
+    "entries": 12
+   },
+   {
+    "plateNode": 491,
+    "plate": "Компонент#210",
+    "yRangeSU": [
+     195.49,
+     211.83
+    ],
+    "label": "Деревья нов. Пло",
+    "labelNode": 493,
+    "labelIsCopy": false,
+    "holds": "tree-fruit-new",
+    "entries": 4
+   },
+   {
+    "plateNode": 192,
+    "plate": "Компонент#178",
+    "yRangeSU": [
+     170.95,
+     187.29
+    ],
+    "label": "Деревья нов. Пло",
+    "labelNode": 194,
+    "labelIsCopy": false,
+    "holds": "tree-fruit-new",
+    "entries": 2
+   },
+   {
+    "plateNode": 95,
+    "plate": "Компонент#220",
+    "yRangeSU": [
+     154.51,
+     164.95
+    ],
+    "label": "ЦВЕТНИК МНОГОЛЕТ",
+    "labelNode": 97,
+    "labelIsCopy": false,
+    "holds": "perennial",
+    "entries": 21
+   },
+   {
+    "plateNode": 610,
+    "plate": "Компонент#221",
+    "yRangeSU": [
+     138.07,
+     148.51
+    ],
+    "label": "ЦВЕТНИК МНОГОЛЕТ",
+    "labelNode": 612,
+    "labelIsCopy": true,
+    "holds": "cactus",
+    "entries": 15
+   },
+   {
+    "plateNode": 614,
+    "plate": "Компонент#222",
+    "yRangeSU": [
+     121.64,
+     132.07
+    ],
+    "label": "ЦВЕТНИК МНОГОЛЕТ",
+    "labelNode": 616,
+    "labelIsCopy": true,
+    "holds": "exotic",
+    "entries": 5
+   },
+   {
+    "plateNode": 650,
+    "plate": "Компонент#185",
+    "yRangeSU": [
+     105.2,
+     115.64
+    ],
+    "label": "ЦВЕТНИК МНОГОЛЕТ",
+    "labelNode": 652,
+    "labelIsCopy": true,
+    "holds": "topiary",
+    "entries": 6
+   },
+   {
+    "plateNode": 654,
+    "plate": "Компонент#185_1",
+    "yRangeSU": [
+     88.76,
+     99.2
+    ],
+    "label": "ЦВЕТНИК МНОГОЛЕТ",
+    "labelNode": 656,
+    "labelIsCopy": true,
+    "holds": "tree-columnar",
+    "entries": 6
+   },
+   {
+    "plateNode": 186,
+    "plate": "Компонент#196",
+    "yRangeSU": [
+     67.51,
+     77.95
+    ],
+    "label": "ЦВЕТНИК. КУСТАРН",
+    "labelNode": 311,
+    "labelIsCopy": false,
+    "holds": "shrub-conifer",
+    "entries": 6
+   },
+   {
+    "plateNode": 229,
+    "plate": "Компонент#198",
+    "yRangeSU": [
+     51.08,
+     61.51
+    ],
+    "label": "ЦВЕТНИК. КУСТАРН",
+    "labelNode": 377,
+    "labelIsCopy": false,
+    "holds": "shrub-deciduous",
+    "entries": 13
+   },
+   {
+    "plateNode": 367,
+    "plate": "Компонент#187_1",
+    "yRangeSU": [
+     34.64,
+     45.08
+    ],
+    "label": "ЦВЕТНИК МНОГОЛЕТ",
+    "labelNode": 365,
+    "labelIsCopy": false,
+    "holds": "grass",
+    "entries": 14
+   },
+   {
+    "plateNode": 325,
+    "plate": "Компонент#187",
+    "yRangeSU": [
+     18.2,
+     28.64
+    ],
+    "label": null,
+    "labelNode": null,
+    "labelIsCopy": false,
+    "holds": "vine",
+    "entries": 3
+   }
+  ],
+  "unnamed": [
+   {
+    "node": 86,
+    "name": "Компонент#177",
+    "category": "tree-conifer-existing",
+    "latin": null,
+    "latinConfidence": null,
+    "suggestedName": "tree-conifer-existing placeholder (19.87 m)"
+   },
+   {
+    "node": 204,
+    "name": "Компонент#188",
+    "category": "tree-conifer-existing",
+    "latin": null,
+    "latinConfidence": null,
+    "suggestedName": "tree-conifer-existing placeholder (23.49 m)"
+   },
+   {
+    "node": 290,
+    "name": "Компонент#182",
+    "category": "tree-conifer-existing",
+    "latin": null,
+    "latinConfidence": null,
+    "suggestedName": "tree-conifer-existing placeholder (22.61 m)"
+   },
+   {
+    "node": 74,
+    "name": "Компонент#189",
+    "category": "tree-conifer-existing",
+    "latin": null,
+    "latinConfidence": null,
+    "suggestedName": "tree-conifer-existing placeholder (20.56 m)"
+   },
+   {
+    "node": 214,
+    "name": "Компонент#181",
+    "category": "tree-deciduous-existing",
+    "latin": "Betula pendula",
+    "latinConfidence": "medium",
+    "suggestedName": "Betula pendula"
+   },
+   {
+    "node": 155,
+    "name": "Компонент#173",
+    "category": "tree-deciduous-existing",
+    "latin": "Acer campestre",
+    "latinConfidence": "low",
+    "suggestedName": "Acer campestre"
+   },
+   {
+    "node": 65,
+    "name": "Компонент#176",
+    "category": "tree-deciduous-existing",
+    "latin": "Betula pendula",
+    "latinConfidence": "medium",
+    "suggestedName": "Betula pendula"
+   },
+   {
+    "node": 132,
+    "name": "Компонент#200",
+    "category": "tree-deciduous-new",
+    "latin": null,
+    "latinConfidence": null,
+    "suggestedName": "tree-deciduous-new placeholder (9.25 m)"
+   },
+   {
+    "node": 299,
+    "name": "Компонент#203",
+    "category": "tree-deciduous-new",
+    "latin": null,
+    "latinConfidence": null,
+    "suggestedName": "tree-deciduous-new placeholder (10.23 m)"
+   },
+   {
+    "node": 165,
+    "name": "Компонент#194",
+    "category": "tree-deciduous-new",
+    "latin": null,
+    "latinConfidence": null,
+    "suggestedName": "tree-deciduous-new placeholder (5.82 m)"
+   },
+   {
+    "node": 111,
+    "name": "Компонент#193",
+    "category": "tree-deciduous-new",
+    "latin": "Tilia cordata",
+    "latinConfidence": "low",
+    "suggestedName": "Tilia cordata"
+   },
+   {
+    "node": 169,
+    "name": "Компонент#184",
+    "category": "tree-deciduous-new",
+    "latin": "Tilia cordata",
+    "latinConfidence": "low",
+    "suggestedName": "Tilia cordata"
+   },
+   {
+    "node": 220,
+    "name": "Компонент#204",
+    "category": "tree-deciduous-new",
+    "latin": "Acer platanoides 'Globosum'",
+    "latinConfidence": "low",
+    "suggestedName": "Acer platanoides 'Globosum'"
+   },
+   {
+    "node": 500,
+    "name": "Компонент#208",
+    "category": "tree-deciduous-new",
+    "latin": null,
+    "latinConfidence": null,
+    "suggestedName": "tree-deciduous-new placeholder (13.62 m)"
+   },
+   {
+    "node": 495,
+    "name": "Компонент#207",
+    "category": "tree-deciduous-new",
+    "latin": "Carpinus betulus (multi-stem)",
+    "latinConfidence": "low",
+    "suggestedName": "Carpinus betulus (multi-stem)"
+   },
+   {
+    "node": 535,
+    "name": "Компонент#215",
+    "category": "tree-deciduous-new",
+    "latin": "Acer tataricum",
+    "latinConfidence": "low",
+    "suggestedName": "Acer tataricum"
+   },
+   {
+    "node": 136,
+    "name": "Компонент#197",
+    "category": "tree-conifer-new",
+    "latin": null,
+    "latinConfidence": null,
+    "suggestedName": "tree-conifer-new placeholder (8.98 m)"
+   },
+   {
+    "node": 281,
+    "name": "Компонент#195",
+    "category": "tree-conifer-new",
+    "latin": null,
+    "latinConfidence": null,
+    "suggestedName": "tree-conifer-new placeholder (9.45 m)"
+   },
+   {
+    "node": 140,
+    "name": "Компонент#192_1",
+    "category": "tree-conifer-new",
+    "latin": "Tsuga canadensis",
+    "latinConfidence": "low",
+    "suggestedName": "Tsuga canadensis"
+   },
+   {
+    "node": 40,
+    "name": "Компонент#192",
+    "category": "tree-conifer-new",
+    "latin": "Tsuga canadensis",
+    "latinConfidence": "low",
+    "suggestedName": "Tsuga canadensis"
+   },
+   {
+    "node": 295,
+    "name": "Компонент#180",
+    "category": "tree-conifer-new",
+    "latin": null,
+    "latinConfidence": null,
+    "suggestedName": "tree-conifer-new placeholder (5.98 m)"
+   },
+   {
+    "node": 530,
+    "name": "Компонент#214",
+    "category": "tree-conifer-new",
+    "latin": "Picea abies 'Inversa'",
+    "latinConfidence": "high",
+    "suggestedName": "Picea abies 'Inversa'"
+   },
+   {
+    "node": 525,
+    "name": "Компонент#213",
+    "category": "tree-conifer-new",
+    "latin": null,
+    "latinConfidence": null,
+    "suggestedName": "tree-conifer-new placeholder (6.76 m)"
+   },
+   {
+    "node": 520,
+    "name": "Компонент#212",
+    "category": "tree-conifer-new",
+    "latin": null,
+    "latinConfidence": null,
+    "suggestedName": "tree-conifer-new placeholder (7.95 m)"
+   },
+   {
+    "node": 506,
+    "name": "Компонент#209",
+    "category": "tree-conifer-new",
+    "latin": "Araucaria heterophylla",
+    "latinConfidence": "low",
+    "suggestedName": "Araucaria heterophylla"
+   },
+   {
+    "node": 515,
+    "name": "Компонент#211",
+    "category": "tree-conifer-new",
+    "latin": "Cedrus libani 'Glauca'",
+    "latinConfidence": "high",
+    "suggestedName": "Cedrus libani 'Glauca'"
+   },
+   {
+    "node": 56,
+    "name": "Компонент#312",
+    "category": "perennial",
+    "latin": "Lavandula angustifolia",
+    "latinConfidence": "medium",
+    "suggestedName": "Lavandula angustifolia"
+   },
+   {
+    "node": 327,
+    "name": "Component#1",
+    "category": "perennial",
+    "latin": "Salvia yangii (Perovskia atriplicifolia)",
+    "latinConfidence": "high",
+    "suggestedName": "Salvia yangii (Perovskia atriplicifolia)"
+   },
+   {
+    "node": 307,
+    "name": "Компонент#273",
+    "category": "perennial",
+    "latin": "Iris germanica (TB) 'Accent'",
+    "latinConfidence": "high",
+    "suggestedName": "Iris germanica (TB) 'Accent'"
+   },
+   {
+    "node": 373,
+    "name": "Компонент#273_1",
+    "category": "perennial",
+    "latin": "Iris germanica (TB) 'Accent'",
+    "latinConfidence": "high",
+    "suggestedName": "Iris germanica (TB) 'Accent'"
+   },
+   {
+    "node": 352,
+    "name": "Component#2",
+    "category": "perennial",
+    "latin": "Liatris spicata",
+    "latinConfidence": "high",
+    "suggestedName": "Liatris spicata"
+   },
+   {
+    "node": 624,
+    "name": "Component#134",
+    "category": "cactus",
+    "latin": "Cactaceae (Carnegiea / Opuntia / Cereus / Echinocactus atlas)",
+    "latinConfidence": "low",
+    "suggestedName": "Cactaceae (Carnegiea / Opuntia / Cereus / Echinocactus atlas)"
+   },
+   {
+    "node": 640,
+    "name": "Component#125",
+    "category": "cactus",
+    "latin": "Cactaceae (Carnegiea / Opuntia / Cereus / Echinocactus atlas)",
+    "latinConfidence": "low",
+    "suggestedName": "Cactaceae (Carnegiea / Opuntia / Cereus / Echinocactus atlas)"
+   },
+   {
+    "node": 662,
+    "name": "Компонент#225",
+    "category": "cactus",
+    "latin": "Cactaceae (Carnegiea / Opuntia / Cereus / Echinocactus atlas)",
+    "latinConfidence": "low",
+    "suggestedName": "Cactaceae (Carnegiea / Opuntia / Cereus / Echinocactus atlas)"
+   },
+   {
+    "node": 628,
+    "name": "Component#132",
+    "category": "cactus",
+    "latin": "Cactaceae (Carnegiea / Opuntia / Cereus / Echinocactus atlas)",
+    "latinConfidence": "low",
+    "suggestedName": "Cactaceae (Carnegiea / Opuntia / Cereus / Echinocactus atlas)"
+   },
+   {
+    "node": 622,
+    "name": "Component#135",
+    "category": "cactus",
+    "latin": "Cactaceae (Carnegiea / Opuntia / Cereus / Echinocactus atlas)",
+    "latinConfidence": "low",
+    "suggestedName": "Cactaceae (Carnegiea / Opuntia / Cereus / Echinocactus atlas)"
+   },
+   {
+    "node": 634,
+    "name": "Component#129",
+    "category": "cactus",
+    "latin": "Cactaceae (Carnegiea / Opuntia / Cereus / Echinocactus atlas)",
+    "latinConfidence": "low",
+    "suggestedName": "Cactaceae (Carnegiea / Opuntia / Cereus / Echinocactus atlas)"
+   },
+   {
+    "node": 638,
+    "name": "Component#126",
+    "category": "cactus",
+    "latin": "Cactaceae (Carnegiea / Opuntia / Cereus / Echinocactus atlas)",
+    "latinConfidence": "low",
+    "suggestedName": "Cactaceae (Carnegiea / Opuntia / Cereus / Echinocactus atlas)"
+   },
+   {
+    "node": 644,
+    "name": "Component#124",
+    "category": "cactus",
+    "latin": "Cactaceae (Carnegiea / Opuntia / Cereus / Echinocactus atlas)",
+    "latinConfidence": "low",
+    "suggestedName": "Cactaceae (Carnegiea / Opuntia / Cereus / Echinocactus atlas)"
+   },
+   {
+    "node": 636,
+    "name": "Component#128",
+    "category": "cactus",
+    "latin": "Cactaceae (Carnegiea / Opuntia / Cereus / Echinocactus atlas)",
+    "latinConfidence": "low",
+    "suggestedName": "Cactaceae (Carnegiea / Opuntia / Cereus / Echinocactus atlas)"
+   },
+   {
+    "node": 632,
+    "name": "Component#130",
+    "category": "cactus",
+    "latin": "Cactaceae (Carnegiea / Opuntia / Cereus / Echinocactus atlas)",
+    "latinConfidence": "low",
+    "suggestedName": "Cactaceae (Carnegiea / Opuntia / Cereus / Echinocactus atlas)"
+   },
+   {
+    "node": 630,
+    "name": "Component#131",
+    "category": "cactus",
+    "latin": "Cactaceae (Carnegiea / Opuntia / Cereus / Echinocactus atlas)",
+    "latinConfidence": "low",
+    "suggestedName": "Cactaceae (Carnegiea / Opuntia / Cereus / Echinocactus atlas)"
+   },
+   {
+    "node": 626,
+    "name": "Component#133",
+    "category": "cactus",
+    "latin": "Cactaceae (Carnegiea / Opuntia / Cereus / Echinocactus atlas)",
+    "latinConfidence": "low",
+    "suggestedName": "Cactaceae (Carnegiea / Opuntia / Cereus / Echinocactus atlas)"
+   },
+   {
+    "node": 646,
+    "name": "Component#123",
+    "category": "cactus",
+    "latin": "Cactaceae (Carnegiea / Opuntia / Cereus / Echinocactus atlas)",
+    "latinConfidence": "low",
+    "suggestedName": "Cactaceae (Carnegiea / Opuntia / Cereus / Echinocactus atlas)"
+   },
+   {
+    "node": 618,
+    "name": "Component#137",
+    "category": "cactus",
+    "latin": "Cactaceae (Carnegiea / Opuntia / Cereus / Echinocactus atlas)",
+    "latinConfidence": "low",
+    "suggestedName": "Cactaceae (Carnegiea / Opuntia / Cereus / Echinocactus atlas)"
+   },
+   {
+    "node": 620,
+    "name": "Component#136",
+    "category": "cactus",
+    "latin": "Cactaceae (Carnegiea / Opuntia / Cereus / Echinocactus atlas)",
+    "latinConfidence": "low",
+    "suggestedName": "Cactaceae (Carnegiea / Opuntia / Cereus / Echinocactus atlas)"
+   },
+   {
+    "node": 580,
+    "name": "Component#9",
+    "category": "exotic",
+    "latin": "Agave americana",
+    "latinConfidence": "high",
+    "suggestedName": "Agave americana"
+   },
+   {
+    "node": 648,
+    "name": "Component#146",
+    "category": "exotic",
+    "latin": "Nephrolepis exaltata",
+    "latinConfidence": "low",
+    "suggestedName": "Nephrolepis exaltata"
+   },
+   {
+    "node": 572,
+    "name": "Komponent#3",
+    "category": "topiary",
+    "latin": "Buxus sempervirens (ball)",
+    "latinConfidence": "high",
+    "suggestedName": "Buxus sempervirens (ball)"
+   },
+   {
+    "node": 598,
+    "name": "Component#6",
+    "category": "topiary",
+    "latin": "Buxus sempervirens (ball)",
+    "latinConfidence": "high",
+    "suggestedName": "Buxus sempervirens (ball)"
+   },
+   {
+    "node": 592,
+    "name": "Component#5",
+    "category": "topiary",
+    "latin": "Buxus sempervirens (cloud ball)",
+    "latinConfidence": "medium",
+    "suggestedName": "Buxus sempervirens (cloud ball)"
+   },
+   {
+    "node": 658,
+    "name": "Компонент#224",
+    "category": "tree-columnar",
+    "latin": "Juniperus communis 'Compressa'",
+    "latinConfidence": "high",
+    "suggestedName": "Juniperus communis 'Compressa'"
+   },
+   {
+    "node": 605,
+    "name": "Component#51",
+    "category": "tree-columnar",
+    "latin": "Thuja occidentalis 'Smaragd'",
+    "latinConfidence": "high",
+    "suggestedName": "Thuja occidentalis 'Smaragd'"
+   },
+   {
+    "node": 603,
+    "name": "Component#139",
+    "category": "tree-columnar",
+    "latin": "Thuja occidentalis 'Brabant'",
+    "latinConfidence": "low",
+    "suggestedName": "Thuja occidentalis 'Brabant'"
+   },
+   {
+    "node": 596,
+    "name": "Компонент#217",
+    "category": "tree-columnar",
+    "latin": "Taxus × media 'Stefania'",
+    "latinConfidence": "high",
+    "suggestedName": "Taxus × media 'Stefania'"
+   },
+   {
+    "node": 607,
+    "name": "Component#52",
+    "category": "tree-columnar",
+    "latin": "Picea glauca 'Conica'",
+    "latinConfidence": "high",
+    "suggestedName": "Picea glauca 'Conica'"
+   },
+   {
+    "node": 150,
+    "name": "Компонент#206",
+    "category": "shrub-conifer",
+    "latin": "Juniperus sabina 'Mas'",
+    "latinConfidence": "high",
+    "suggestedName": "Juniperus sabina 'Mas'"
+   },
+   {
+    "node": 260,
+    "name": "Компонент#205",
+    "category": "shrub-deciduous",
+    "latin": "Cornus alba 'Bailhalo' (Ivory Halo®)",
+    "latinConfidence": "high",
+    "suggestedName": "Cornus alba 'Bailhalo' (Ivory Halo®)"
+   },
+   {
+    "node": 343,
+    "name": "Komponent#5",
+    "category": "shrub-deciduous",
+    "latin": "Berberis thunbergii 'Golden Rocket'",
+    "latinConfidence": "low",
+    "suggestedName": "Berberis thunbergii 'Golden Rocket'"
+   },
+   {
+    "node": 231,
+    "name": "Komponent#1",
+    "category": "grass",
+    "latin": "Miscanthus sinensis",
+    "latinConfidence": "medium",
+    "suggestedName": "Miscanthus sinensis"
+   },
+   {
+    "node": 379,
+    "name": "Component#3",
+    "category": "grass",
+    "latin": "Muhlenbergia capillaris",
+    "latinConfidence": "high",
+    "suggestedName": "Muhlenbergia capillaris"
+   },
+   {
+    "node": 196,
+    "name": "Component#4",
+    "category": "grass",
+    "latin": "Festuca glauca",
+    "latinConfidence": "high",
+    "suggestedName": "Festuca glauca"
+   },
+   {
+    "node": 664,
+    "name": null,
+    "category": "vine",
+    "latin": "Hedera helix (on a wall)",
+    "latinConfidence": "high",
+    "suggestedName": "Hedera helix (on a wall)"
+   },
+   {
+    "node": 144,
+    "name": "Component#47",
+    "category": "vine",
+    "latin": null,
+    "latinConfidence": null,
+    "suggestedName": "vine placeholder (2.29 m)"
+   }
+  ],
+  "textureMemoryMB": {
+   "allImagesFull": 980.91,
+   "allImagesAfterImporter4096": 940.65,
+   "plantCardsFull": 728.7,
+   "plantCardsCap2048": 487.38,
+   "plantCardsCap1024": 260.09,
+   "plantCardsCap512": 99.91,
+   "materialSwatchesFull": 249.25,
+   "note": "RGBA8 + full mip chain (x4/3), uncompressed as three.js uploads it; file bytes of all images 190.77 MB"
+  },
+  "duplicateImages": [],
+  "heaviestImages": [
+   {
+    "image": 21,
+    "px": [
+     4813,
+     5000
+    ],
+    "gpuMB": 122.4,
+    "usedBy": []
+   },
+   {
+    "image": 34,
+    "px": [
+     3872,
+     2592
+    ],
+    "gpuMB": 51.05,
+    "usedBy": [
+     "Alchemilla molis#1"
+    ]
+   },
+   {
+    "image": 135,
+    "px": [
+     2697,
+     2109
+    ],
+    "gpuMB": 28.93,
+    "usedBy": [
+     "buxus"
+    ]
+   },
+   {
+    "image": 145,
+    "px": [
+     3000,
+     1800
+    ],
+    "gpuMB": 27.47,
+    "usedBy": [
+     "Component#132",
+     "Component#130",
+     "Component#131",
+     "Component#133"
+    ]
+   },
+   {
+    "image": 141,
+    "px": [
+     1500,
+     3496
+    ],
+    "gpuMB": 26.67,
+    "usedBy": [
+     "Component#139"
+    ]
+   },
+   {
+    "image": 22,
+    "px": [
+     1746,
+     3000
+    ],
+    "gpuMB": 26.64,
+    "usedBy": [
+     "Компонент#192_1",
+     "Компонент#192"
+    ]
+   },
+   {
+    "image": 28,
+    "px": [
+     1746,
+     3000
+    ],
+    "gpuMB": 26.64,
+    "usedBy": [
+     "Компонент#176"
+    ]
+   },
+   {
+    "image": 30,
+    "px": [
+     1746,
+     3000
+    ],
+    "gpuMB": 26.64,
+    "usedBy": [
+     "Компонент#177",
+     "Компонент#188",
+     "Компонент#182",
+     "Компонент#189",
+     "Компонент#200",
+     "Компонент#203",
+     "Компонент#194",
+     "Компонент#208",
+     "Компонент#197",
+     "Компонент#195",
+     "Компонент#180",
+     "Компонент#213",
+     "Компонент#212"
+    ]
+   },
+   {
+    "image": 37,
+    "px": [
+     1746,
+     3000
+    ],
+    "gpuMB": 26.64,
+    "usedBy": [
+     "Компонент#193"
+    ]
+   },
+   {
+    "image": 44,
+    "px": [
+     1746,
+     3000
+    ],
+    "gpuMB": 26.64,
+    "usedBy": [
+     "Компонент#173"
+    ]
+   },
+   {
+    "image": 46,
+    "px": [
+     1746,
+     3000
+    ],
+    "gpuMB": 26.64,
+    "usedBy": [
+     "Компонент#184"
+    ]
+   },
+   {
+    "image": 52,
+    "px": [
+     1746,
+     3000
+    ],
+    "gpuMB": 26.64,
+    "usedBy": [
+     "Компонент#181"
+    ]
+   }
+  ]
+ },
+ "entries": [
+  {
+   "node": 86,
+   "name": "Компонент#177",
+   "definition": "Компонент#177",
+   "category": "tree-conifer-existing",
+   "capCategory": "tree-existing",
+   "shelf": {
+    "plateNode": 511,
+    "label": "Деревья сущ. Хво",
+    "labelIsCopy": false,
+    "holds": "tree-conifer-existing"
+   },
+   "categoryConflict": null,
+   "latin": null,
+   "latinConfidence": null,
+   "note": "unnamed existing CONIFER; generic deciduous placeholder card *64",
+   "heightM": 19.87,
+   "cardHeightM": 19.87,
+   "cardWidthM": 11.73,
+   "cardBelowGroundM": 0,
+   "spreadM": 10.85,
+   "spreadMinM": 10.85,
+   "capElevationM": 19.88,
+   "capMaterial": "[Color M00]2 + [Color M07]",
+   "capColor": [
+    1,
+    1,
+    1,
+    0.59
+   ],
+   "capTris": 174,
+   "planSymbol": "Компонент#148",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 3795,
+    "fill": 0.58,
+    "materials": [
+     "*64 (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 30,
+    "px": [
+     1746,
+     3000
+    ],
+    "bytes": 5322224,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 26.64
+   },
+   "position": [
+    6.616,
+    2.261,
+    -293.516
+   ],
+   "positionSU": [
+    6.62,
+    293.52,
+    2.26
+   ]
+  },
+  {
+   "node": 204,
+   "name": "Компонент#188",
+   "definition": "Компонент#188",
+   "category": "tree-conifer-existing",
+   "capCategory": "tree-existing",
+   "shelf": {
+    "plateNode": 511,
+    "label": "Деревья сущ. Хво",
+    "labelIsCopy": false,
+    "holds": "tree-conifer-existing"
+   },
+   "categoryConflict": null,
+   "latin": null,
+   "latinConfidence": null,
+   "note": "unnamed existing CONIFER; generic deciduous placeholder card *64",
+   "heightM": 23.49,
+   "cardHeightM": 23.49,
+   "cardWidthM": 10.94,
+   "cardBelowGroundM": 0,
+   "spreadM": 9.04,
+   "spreadMinM": 9.04,
+   "capElevationM": 23.72,
+   "capMaterial": "[Color M00]2 + [Color M07]",
+   "capColor": [
+    1,
+    1,
+    1,
+    0.59
+   ],
+   "capTris": 174,
+   "planSymbol": "Компонент#148",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 6574,
+    "fill": 0.27,
+    "materials": [
+     "*64 (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 30,
+    "px": [
+     1746,
+     3000
+    ],
+    "bytes": 5322224,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 26.64
+   },
+   "position": [
+    24.616,
+    2.261,
+    -293.516
+   ],
+   "positionSU": [
+    24.62,
+    293.52,
+    2.26
+   ]
+  },
+  {
+   "node": 290,
+   "name": "Компонент#182",
+   "definition": "Компонент#182",
+   "category": "tree-conifer-existing",
+   "capCategory": "tree-existing",
+   "shelf": {
+    "plateNode": 511,
+    "label": "Деревья сущ. Хво",
+    "labelIsCopy": false,
+    "holds": "tree-conifer-existing"
+   },
+   "categoryConflict": null,
+   "latin": null,
+   "latinConfidence": null,
+   "note": "unnamed existing CONIFER; generic deciduous placeholder card *64",
+   "heightM": 22.61,
+   "cardHeightM": 22.61,
+   "cardWidthM": 11.7,
+   "cardBelowGroundM": 0,
+   "spreadM": 8.74,
+   "spreadMinM": 8.74,
+   "capElevationM": 22.63,
+   "capMaterial": "[Color M00]2 + [Color M07]",
+   "capColor": [
+    1,
+    1,
+    1,
+    0.59
+   ],
+   "capTris": 174,
+   "planSymbol": "Компонент#148",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 4454,
+    "fill": 0.36,
+    "materials": [
+     "*64 (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 30,
+    "px": [
+     1746,
+     3000
+    ],
+    "bytes": 5322224,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 26.64
+   },
+   "position": [
+    42.771,
+    2.261,
+    -293.512
+   ],
+   "positionSU": [
+    42.77,
+    293.51,
+    2.26
+   ]
+  },
+  {
+   "node": 74,
+   "name": "Компонент#189",
+   "definition": "Компонент#189",
+   "category": "tree-conifer-existing",
+   "capCategory": "tree-existing",
+   "shelf": {
+    "plateNode": 511,
+    "label": "Деревья сущ. Хво",
+    "labelIsCopy": false,
+    "holds": "tree-conifer-existing"
+   },
+   "categoryConflict": null,
+   "latin": null,
+   "latinConfidence": null,
+   "note": "unnamed existing CONIFER; card is the generic deciduous placeholder *64 — plan symbol only",
+   "heightM": 20.56,
+   "cardHeightM": 20.56,
+   "cardWidthM": 10.96,
+   "cardBelowGroundM": 0,
+   "spreadM": 8.56,
+   "spreadMinM": 8.56,
+   "capElevationM": 20.48,
+   "capMaterial": "[Color M00]2 + [Color M07]",
+   "capColor": [
+    1,
+    1,
+    1,
+    0.59
+   ],
+   "capTris": 174,
+   "planSymbol": "Компонент#148",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 5326,
+    "fill": 0.51,
+    "materials": [
+     "*64 (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 30,
+    "px": [
+     1746,
+     3000
+    ],
+    "bytes": 5322224,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 26.64
+   },
+   "position": [
+    34.362,
+    2.261,
+    -293.472
+   ],
+   "positionSU": [
+    34.36,
+    293.47,
+    2.26
+   ]
+  },
+  {
+   "node": 214,
+   "name": "Компонент#181",
+   "definition": "Компонент#181",
+   "category": "tree-deciduous-existing",
+   "capCategory": "tree-existing",
+   "shelf": {
+    "plateNode": 174,
+    "label": "Деревья сущ. Лис",
+    "labelIsCopy": false,
+    "holds": "tree-deciduous-existing"
+   },
+   "categoryConflict": null,
+   "latin": "Betula pendula",
+   "latinConfidence": "medium",
+   "note": "unnamed existing deciduous; card *73 slender birch",
+   "heightM": 19.9,
+   "cardHeightM": 19.9,
+   "cardWidthM": 6.87,
+   "cardBelowGroundM": 0,
+   "spreadM": 6.03,
+   "spreadMinM": 6.03,
+   "capElevationM": 19.97,
+   "capMaterial": "[Color M00]2 + [Color M07]",
+   "capColor": [
+    1,
+    1,
+    1,
+    0.59
+   ],
+   "capTris": 174,
+   "planSymbol": "Компонент#148",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 3282,
+    "fill": 0.44,
+    "materials": [
+     "*73 (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 52,
+    "px": [
+     1746,
+     3000
+    ],
+    "bytes": 5608380,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 26.64
+   },
+   "position": [
+    6.616,
+    2.261,
+    -271.174
+   ],
+   "positionSU": [
+    6.62,
+    271.17,
+    2.26
+   ]
+  },
+  {
+   "node": 155,
+   "name": "Компонент#173",
+   "definition": "Компонент#173",
+   "category": "tree-deciduous-existing",
+   "capCategory": "tree-existing",
+   "shelf": {
+    "plateNode": 174,
+    "label": "Деревья сущ. Лис",
+    "labelIsCopy": false,
+    "holds": "tree-deciduous-existing"
+   },
+   "categoryConflict": null,
+   "latin": "Acer campestre",
+   "latinConfidence": "low",
+   "note": "unnamed existing deciduous; card *66",
+   "heightM": 20.6,
+   "cardHeightM": 20.6,
+   "cardWidthM": 12.76,
+   "cardBelowGroundM": 0,
+   "spreadM": 12.06,
+   "spreadMinM": 12.06,
+   "capElevationM": 20.86,
+   "capMaterial": "[Color M00]2 + [Color M07]",
+   "capColor": [
+    1,
+    1,
+    1,
+    0.59
+   ],
+   "capTris": 174,
+   "planSymbol": "Компонент#148",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 8926,
+    "fill": 0.5,
+    "materials": [
+     "*66 (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 44,
+    "px": [
+     1746,
+     3000
+    ],
+    "bytes": 14156240,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 26.64
+   },
+   "position": [
+    24.804,
+    2.261,
+    -271.168
+   ],
+   "positionSU": [
+    24.8,
+    271.17,
+    2.26
+   ]
+  },
+  {
+   "node": 396,
+   "name": "Willow",
+   "definition": "Willow",
+   "category": "tree-deciduous-existing",
+   "capCategory": "tree-existing",
+   "shelf": {
+    "plateNode": 174,
+    "label": "Деревья сущ. Лис",
+    "labelIsCopy": false,
+    "holds": "tree-deciduous-existing"
+   },
+   "categoryConflict": null,
+   "latin": "Aesculus hippocastanum",
+   "latinConfidence": "low",
+   "note": "named \"Willow\" but the card texture is \"arbre marronier\" (horse chestnut); non-uniform cap 1.95×2.83",
+   "heightM": 17.08,
+   "cardHeightM": 17.08,
+   "cardWidthM": 18.3,
+   "cardBelowGroundM": 0,
+   "spreadM": 17.06,
+   "spreadMinM": 17.06,
+   "capElevationM": 17.15,
+   "capMaterial": "[Color M00]2 + [Color M07]",
+   "capColor": [
+    1,
+    1,
+    1,
+    0.59
+   ],
+   "capTris": 174,
+   "planSymbol": "Компонент#148",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 154,
+    "fill": 0.59,
+    "materials": [
+     "arbre marronier grand 01 (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 86,
+    "px": [
+     1272,
+     1200
+    ],
+    "bytes": 2424876,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 7.76
+   },
+   "position": [
+    42.616,
+    2.261,
+    -271.174
+   ],
+   "positionSU": [
+    42.62,
+    271.17,
+    2.26
+   ]
+  },
+  {
+   "node": 65,
+   "name": "Компонент#176",
+   "definition": "Компонент#176",
+   "category": "tree-deciduous-existing",
+   "capCategory": "tree-existing",
+   "shelf": {
+    "plateNode": 174,
+    "label": "Деревья сущ. Лис",
+    "labelIsCopy": false,
+    "holds": "tree-deciduous-existing"
+   },
+   "categoryConflict": null,
+   "latin": "Betula pendula",
+   "latinConfidence": "medium",
+   "note": "unnamed existing tree; card *71 = multi-stem birch",
+   "heightM": 13.65,
+   "cardHeightM": 13.65,
+   "cardWidthM": 7.05,
+   "cardBelowGroundM": 0,
+   "spreadM": 6.03,
+   "spreadMinM": 6.03,
+   "capElevationM": 13.54,
+   "capMaterial": "[Color M00]2 + [Color M07]",
+   "capColor": [
+    1,
+    1,
+    1,
+    0.59
+   ],
+   "capTris": 174,
+   "planSymbol": "Компонент#148",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 3670,
+    "fill": 0.49,
+    "materials": [
+     "*71 (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 28,
+    "px": [
+     1746,
+     3000
+    ],
+    "bytes": 9154780,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 26.64
+   },
+   "position": [
+    15.811,
+    2.261,
+    -271.081
+   ],
+   "positionSU": [
+    15.81,
+    271.08,
+    2.26
+   ]
+  },
+  {
+   "node": 132,
+   "name": "Компонент#200",
+   "definition": "Компонент#200",
+   "category": "tree-deciduous-new",
+   "capCategory": "tree-deciduous-new",
+   "shelf": {
+    "plateNode": 178,
+    "label": "Деревья нов. Лис",
+    "labelIsCopy": false,
+    "holds": "tree-deciduous-new"
+   },
+   "categoryConflict": null,
+   "latin": null,
+   "latinConfidence": null,
+   "note": "unnamed new deciduous; generic placeholder card *64",
+   "heightM": 9.25,
+   "cardHeightM": 9.25,
+   "cardWidthM": 6.45,
+   "cardBelowGroundM": 0,
+   "spreadM": 5.31,
+   "spreadMinM": 5.29,
+   "capElevationM": 9.08,
+   "capMaterial": "*42",
+   "capColor": [
+    0.686,
+    0.839,
+    0.537,
+    0.61
+   ],
+   "capTris": 2259,
+   "planSymbol": "Компонент#145",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 3684,
+    "fill": 0.39,
+    "materials": [
+     "*64 (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 30,
+    "px": [
+     1746,
+     3000
+    ],
+    "bytes": 5322224,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 26.64
+   },
+   "position": [
+    -2.384,
+    2.261,
+    -248.832
+   ],
+   "positionSU": [
+    -2.38,
+    248.83,
+    2.26
+   ]
+  },
+  {
+   "node": 299,
+   "name": "Компонент#203",
+   "definition": "Компонент#203",
+   "category": "tree-deciduous-new",
+   "capCategory": "tree-deciduous-new",
+   "shelf": {
+    "plateNode": 178,
+    "label": "Деревья нов. Лис",
+    "labelIsCopy": false,
+    "holds": "tree-deciduous-new"
+   },
+   "categoryConflict": null,
+   "latin": null,
+   "latinConfidence": null,
+   "note": "unnamed new deciduous; generic placeholder card *64 (11606 tris)",
+   "heightM": 10.23,
+   "cardHeightM": 10.23,
+   "cardWidthM": 5.92,
+   "cardBelowGroundM": 0,
+   "spreadM": 4.63,
+   "spreadMinM": 4.6,
+   "capElevationM": 9.92,
+   "capMaterial": "*42",
+   "capColor": [
+    0.686,
+    0.839,
+    0.537,
+    0.61
+   ],
+   "capTris": 2203,
+   "planSymbol": "Компонент#143",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 11606,
+    "fill": 0.42,
+    "materials": [
+     "*64 (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 30,
+    "px": [
+     1746,
+     3000
+    ],
+    "bytes": 5322224,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 26.64
+   },
+   "position": [
+    6.616,
+    2.261,
+    -248.832
+   ],
+   "positionSU": [
+    6.62,
+    248.83,
+    2.26
+   ]
+  },
+  {
+   "node": 165,
+   "name": "Компонент#194",
+   "definition": "Компонент#194",
+   "category": "tree-deciduous-new",
+   "capCategory": "tree-deciduous-new",
+   "shelf": {
+    "plateNode": 178,
+    "label": "Деревья нов. Лис",
+    "labelIsCopy": false,
+    "holds": "tree-deciduous-new"
+   },
+   "categoryConflict": null,
+   "latin": null,
+   "latinConfidence": null,
+   "note": "unnamed new deciduous; generic placeholder card *64",
+   "heightM": 5.82,
+   "cardHeightM": 5.82,
+   "cardWidthM": 6.32,
+   "cardBelowGroundM": 0,
+   "spreadM": 6.49,
+   "spreadMinM": 6.47,
+   "capElevationM": 5.63,
+   "capMaterial": "*42",
+   "capColor": [
+    0.686,
+    0.839,
+    0.537,
+    0.61
+   ],
+   "capTris": 2677,
+   "planSymbol": "Компонент#157",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 1976,
+    "fill": 0.52,
+    "materials": [
+     "*64 (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 30,
+    "px": [
+     1746,
+     3000
+    ],
+    "bytes": 5322224,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 26.64
+   },
+   "position": [
+    15.616,
+    2.261,
+    -248.832
+   ],
+   "positionSU": [
+    15.62,
+    248.83,
+    2.26
+   ]
+  },
+  {
+   "node": 111,
+   "name": "Компонент#193",
+   "definition": "Компонент#193",
+   "category": "tree-deciduous-new",
+   "capCategory": "tree-deciduous-new",
+   "shelf": {
+    "plateNode": 178,
+    "label": "Деревья нов. Лис",
+    "labelIsCopy": false,
+    "holds": "tree-deciduous-new"
+   },
+   "categoryConflict": null,
+   "latin": "Tilia cordata",
+   "latinConfidence": "low",
+   "note": "unnamed; card *83 young pyramidal deciduous",
+   "heightM": 13.64,
+   "cardHeightM": 13.64,
+   "cardWidthM": 7.89,
+   "cardBelowGroundM": 0,
+   "spreadM": 7.48,
+   "spreadMinM": 7.45,
+   "capElevationM": 13.4,
+   "capMaterial": "*42",
+   "capColor": [
+    0.686,
+    0.839,
+    0.537,
+    0.61
+   ],
+   "capTris": 2720,
+   "planSymbol": "Компонент#149",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 4583,
+    "fill": 0.49,
+    "materials": [
+     "*83 (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 37,
+    "px": [
+     1746,
+     3000
+    ],
+    "bytes": 12105368,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 26.64
+   },
+   "position": [
+    24.616,
+    2.261,
+    -248.832
+   ],
+   "positionSU": [
+    24.62,
+    248.83,
+    2.26
+   ]
+  },
+  {
+   "node": 169,
+   "name": "Компонент#184",
+   "definition": "Компонент#184",
+   "category": "tree-deciduous-new",
+   "capCategory": "tree-deciduous-new",
+   "shelf": {
+    "plateNode": 178,
+    "label": "Деревья нов. Лис",
+    "labelIsCopy": false,
+    "holds": "tree-deciduous-new"
+   },
+   "categoryConflict": null,
+   "latin": "Tilia cordata",
+   "latinConfidence": "low",
+   "note": "unnamed new deciduous; card *78",
+   "heightM": 13.55,
+   "cardHeightM": 13.55,
+   "cardWidthM": 8.31,
+   "cardBelowGroundM": 0,
+   "spreadM": 7.73,
+   "spreadMinM": 7.67,
+   "capElevationM": 13.24,
+   "capMaterial": "[Color M07] + [Color F04]",
+   "capColor": [
+    0.596,
+    0.749,
+    0.443,
+    0.61
+   ],
+   "capTris": 3258,
+   "planSymbol": "Компонент#153",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 2329,
+    "fill": 0.5,
+    "materials": [
+     "*78 (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 46,
+    "px": [
+     1746,
+     3000
+    ],
+    "bytes": 12266556,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 26.64
+   },
+   "position": [
+    33.616,
+    2.261,
+    -248.832
+   ],
+   "positionSU": [
+    33.62,
+    248.83,
+    2.26
+   ]
+  },
+  {
+   "node": 220,
+   "name": "Компонент#204",
+   "definition": "Компонент#204",
+   "category": "tree-deciduous-new",
+   "capCategory": "tree-deciduous-new",
+   "shelf": {
+    "plateNode": 178,
+    "label": "Деревья нов. Лис",
+    "labelIsCopy": false,
+    "holds": "tree-deciduous-new"
+   },
+   "categoryConflict": null,
+   "latin": "Acer platanoides 'Globosum'",
+   "latinConfidence": "low",
+   "note": "unnamed new deciduous; card *86 round-headed small tree",
+   "heightM": 8.21,
+   "cardHeightM": 8.21,
+   "cardWidthM": 7.73,
+   "cardBelowGroundM": 0,
+   "spreadM": 7.74,
+   "spreadMinM": 7.62,
+   "capElevationM": 8.15,
+   "capMaterial": "[Color M07] + [Color F04]",
+   "capColor": [
+    0.596,
+    0.749,
+    0.443,
+    0.61
+   ],
+   "capTris": 3258,
+   "planSymbol": "Компонент#153",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 2876,
+    "fill": 0.63,
+    "materials": [
+     "*86 (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 53,
+    "px": [
+     1746,
+     3000
+    ],
+    "bytes": 5410368,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 26.64
+   },
+   "position": [
+    42.616,
+    2.261,
+    -248.832
+   ],
+   "positionSU": [
+    42.62,
+    248.83,
+    2.26
+   ]
+  },
+  {
+   "node": 500,
+   "name": "Компонент#208",
+   "definition": "Компонент#208",
+   "category": "tree-deciduous-new",
+   "capCategory": "tree-deciduous-new",
+   "shelf": {
+    "plateNode": 178,
+    "label": "Деревья нов. Лис",
+    "labelIsCopy": false,
+    "holds": "tree-deciduous-new"
+   },
+   "categoryConflict": null,
+   "latin": null,
+   "latinConfidence": null,
+   "note": "unnamed new deciduous; generic placeholder card *64 + a hidden 1-tri spruce card (*90) inside the cap",
+   "heightM": 13.62,
+   "cardHeightM": 13.62,
+   "cardWidthM": 8.16,
+   "cardBelowGroundM": 0,
+   "spreadM": 7.51,
+   "spreadMinM": 7.4,
+   "capElevationM": 13.43,
+   "capMaterial": "[Color F04]",
+   "capColor": [
+    0.596,
+    0.749,
+    0.443,
+    0.61
+   ],
+   "capTris": 1462,
+   "planSymbol": "Компонент#144",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 5624,
+    "fill": 0.47,
+    "materials": [
+     "*64 (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 30,
+    "px": [
+     1746,
+     3000
+    ],
+    "bytes": 5322224,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 26.64
+   },
+   "hiddenParts": [
+    "1t *90"
+   ],
+   "position": [
+    56.62,
+    2.261,
+    -244.82
+   ],
+   "positionSU": [
+    56.62,
+    244.82,
+    2.26
+   ]
+  },
+  {
+   "node": 495,
+   "name": "Компонент#207",
+   "definition": "Компонент#207",
+   "category": "tree-deciduous-new",
+   "capCategory": "tree-deciduous-new",
+   "shelf": {
+    "plateNode": 178,
+    "label": "Деревья нов. Лис",
+    "labelIsCopy": false,
+    "holds": "tree-deciduous-new"
+   },
+   "categoryConflict": null,
+   "latin": "Carpinus betulus (multi-stem)",
+   "latinConfidence": "low",
+   "note": "unnamed new deciduous; card *82; card and cap are both sub-components",
+   "heightM": 11.33,
+   "cardHeightM": 11.33,
+   "cardWidthM": 8.23,
+   "cardBelowGroundM": 0,
+   "spreadM": 7.81,
+   "spreadMinM": 7.76,
+   "capElevationM": 11.2,
+   "capMaterial": "[Color F04]",
+   "capColor": [
+    0.596,
+    0.749,
+    0.443,
+    0.61
+   ],
+   "capTris": 3428,
+   "planSymbol": "Компонент#146",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 5635,
+    "fill": 0.63,
+    "materials": [
+     "*82 (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 94,
+    "px": [
+     1746,
+     3000
+    ],
+    "bytes": 6042428,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 26.64
+   },
+   "position": [
+    47.599,
+    2.244,
+    -244.793
+   ],
+   "positionSU": [
+    47.6,
+    244.79,
+    2.24
+   ]
+  },
+  {
+   "node": 535,
+   "name": "Компонент#215",
+   "definition": "Компонент#215",
+   "category": "tree-deciduous-new",
+   "capCategory": "tree-deciduous-new",
+   "shelf": {
+    "plateNode": 178,
+    "label": "Деревья нов. Лис",
+    "labelIsCopy": false,
+    "holds": "tree-deciduous-new"
+   },
+   "categoryConflict": null,
+   "latin": "Acer tataricum",
+   "latinConfidence": "low",
+   "note": "unnamed; same card as klen_tatarskij_2 but 9.1 m and a green F04 cap",
+   "heightM": 9.13,
+   "cardHeightM": 9.13,
+   "cardWidthM": 8.88,
+   "cardBelowGroundM": 0,
+   "spreadM": 8.23,
+   "spreadMinM": 8.1,
+   "capElevationM": 9.26,
+   "capMaterial": "[Color F04]",
+   "capColor": [
+    0.596,
+    0.749,
+    0.443,
+    0.61
+   ],
+   "capTris": 1462,
+   "planSymbol": "Компонент#144",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 1597,
+    "fill": 0.48,
+    "materials": [
+     "tree raymond1 (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 51,
+    "px": [
+     2000,
+     2000
+    ],
+    "bytes": 4033100,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 20.35
+   },
+   "hiddenParts": [
+    "1t no material"
+   ],
+   "position": [
+    65.361,
+    2.261,
+    -244.484
+   ],
+   "positionSU": [
+    65.36,
+    244.48,
+    2.26
+   ]
+  },
+  {
+   "node": 136,
+   "name": "Компонент#197",
+   "definition": "Компонент#197",
+   "category": "tree-conifer-new",
+   "capCategory": "tree-conifer-new",
+   "shelf": {
+    "plateNode": 115,
+    "label": "Деревья нов. Хво",
+    "labelIsCopy": false,
+    "holds": "tree-conifer-new"
+   },
+   "categoryConflict": null,
+   "latin": null,
+   "latinConfidence": null,
+   "note": "unnamed new CONIFER; generic deciduous placeholder card *64",
+   "heightM": 8.98,
+   "cardHeightM": 8.98,
+   "cardWidthM": 4.94,
+   "cardBelowGroundM": 0,
+   "spreadM": 4.07,
+   "spreadMinM": 4.07,
+   "capElevationM": 8.81,
+   "capMaterial": "*43",
+   "capColor": [
+    0.322,
+    0.424,
+    0.255,
+    0.61
+   ],
+   "capTris": 1947,
+   "planSymbol": "Компонент#156",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 2534,
+    "fill": 0.37,
+    "materials": [
+     "*64 (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 30,
+    "px": [
+     1746,
+     3000
+    ],
+    "bytes": 5322224,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 26.64
+   },
+   "position": [
+    51.616,
+    2.261,
+    -226.532
+   ],
+   "positionSU": [
+    51.62,
+    226.53,
+    2.26
+   ]
+  },
+  {
+   "node": 281,
+   "name": "Компонент#195",
+   "definition": "Компонент#195",
+   "category": "tree-conifer-new",
+   "capCategory": "tree-conifer-new",
+   "shelf": {
+    "plateNode": 115,
+    "label": "Деревья нов. Хво",
+    "labelIsCopy": false,
+    "holds": "tree-conifer-new"
+   },
+   "categoryConflict": null,
+   "latin": null,
+   "latinConfidence": null,
+   "note": "unnamed new CONIFER; generic deciduous placeholder card *64",
+   "heightM": 9.45,
+   "cardHeightM": 9.45,
+   "cardWidthM": 4.96,
+   "cardBelowGroundM": 0,
+   "spreadM": 4.58,
+   "spreadMinM": 4.57,
+   "capElevationM": 9.32,
+   "capMaterial": "*43",
+   "capColor": [
+    0.322,
+    0.424,
+    0.255,
+    0.61
+   ],
+   "capTris": 1592,
+   "planSymbol": "Компонент#151",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 2313,
+    "fill": 0.58,
+    "materials": [
+     "*64 (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 30,
+    "px": [
+     1746,
+     3000
+    ],
+    "bytes": 5322224,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 26.64
+   },
+   "position": [
+    42.616,
+    2.261,
+    -226.509
+   ],
+   "positionSU": [
+    42.62,
+    226.51,
+    2.26
+   ]
+  },
+  {
+   "node": 140,
+   "name": "Компонент#192_1",
+   "definition": "Компонент#192",
+   "category": "tree-conifer-new",
+   "capCategory": "tree-conifer-new",
+   "shelf": {
+    "plateNode": 115,
+    "label": "Деревья нов. Хво",
+    "labelIsCopy": false,
+    "holds": "tree-conifer-new"
+   },
+   "categoryConflict": null,
+   "latin": "Tsuga canadensis",
+   "latinConfidence": "low",
+   "note": "duplicate of Компонент#192 (same card and cap)",
+   "heightM": 11.67,
+   "cardHeightM": 11.67,
+   "cardWidthM": 8.2,
+   "cardBelowGroundM": 0,
+   "spreadM": 7.55,
+   "spreadMinM": 7.43,
+   "capElevationM": 11.49,
+   "capMaterial": "*43",
+   "capColor": [
+    0.322,
+    0.424,
+    0.255,
+    0.61
+   ],
+   "capTris": 1511,
+   "planSymbol": "Компонент#150",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 3872,
+    "fill": 0.68,
+    "materials": [
+     "*81 (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 22,
+    "px": [
+     1746,
+     3000
+    ],
+    "bytes": 10004816,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 26.64
+   },
+   "position": [
+    -0.16,
+    2.261,
+    -226.489
+   ],
+   "positionSU": [
+    -0.16,
+    226.49,
+    2.26
+   ]
+  },
+  {
+   "node": 40,
+   "name": "Компонент#192",
+   "definition": "Компонент#192",
+   "category": "tree-conifer-new",
+   "capCategory": "tree-conifer-new",
+   "shelf": {
+    "plateNode": 115,
+    "label": "Деревья нов. Хво",
+    "labelIsCopy": false,
+    "holds": "tree-conifer-new"
+   },
+   "categoryConflict": null,
+   "latin": "Tsuga canadensis",
+   "latinConfidence": "low",
+   "note": "unnamed conifer card (*81); feathery broad-conical conifer, could be Thuja plicata",
+   "heightM": 11.67,
+   "cardHeightM": 11.67,
+   "cardWidthM": 8.2,
+   "cardBelowGroundM": 0,
+   "spreadM": 7.55,
+   "spreadMinM": 7.43,
+   "capElevationM": 11.49,
+   "capMaterial": "*43",
+   "capColor": [
+    0.322,
+    0.424,
+    0.255,
+    0.61
+   ],
+   "capTris": 1511,
+   "planSymbol": "Компонент#150",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 3872,
+    "fill": 0.68,
+    "materials": [
+     "*81 (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 22,
+    "px": [
+     1746,
+     3000
+    ],
+    "bytes": 10004816,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 26.64
+   },
+   "position": [
+    24.616,
+    2.261,
+    -226.49
+   ],
+   "positionSU": [
+    24.62,
+    226.49,
+    2.26
+   ]
+  },
+  {
+   "node": 295,
+   "name": "Компонент#180",
+   "definition": "Компонент#180",
+   "category": "tree-conifer-new",
+   "capCategory": "tree-conifer-new",
+   "shelf": {
+    "plateNode": 115,
+    "label": "Деревья нов. Хво",
+    "labelIsCopy": false,
+    "holds": "tree-conifer-new"
+   },
+   "categoryConflict": null,
+   "latin": null,
+   "latinConfidence": null,
+   "note": "unnamed new CONIFER; generic deciduous placeholder card *64",
+   "heightM": 5.98,
+   "cardHeightM": 5.98,
+   "cardWidthM": 3.69,
+   "cardBelowGroundM": 0,
+   "spreadM": 2.93,
+   "spreadMinM": 2.93,
+   "capElevationM": 5.8,
+   "capMaterial": "*43",
+   "capColor": [
+    0.322,
+    0.424,
+    0.255,
+    0.61
+   ],
+   "capTris": 2668,
+   "planSymbol": "Компонент#158",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 6104,
+    "fill": 0.36,
+    "materials": [
+     "*64 (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 30,
+    "px": [
+     1746,
+     3000
+    ],
+    "bytes": 5322224,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 26.64
+   },
+   "position": [
+    60.616,
+    2.261,
+    -226.49
+   ],
+   "positionSU": [
+    60.62,
+    226.49,
+    2.26
+   ]
+  },
+  {
+   "node": 244,
+   "name": "Austrian Pine#2",
+   "definition": "Austrian Pine#2",
+   "category": "tree-conifer-new",
+   "capCategory": "tree-conifer-new",
+   "shelf": {
+    "plateNode": 115,
+    "label": "Деревья нов. Хво",
+    "labelIsCopy": false,
+    "holds": "tree-conifer-new"
+   },
+   "categoryConflict": null,
+   "latin": "Pinus nigra",
+   "latinConfidence": "high",
+   "note": "Austrian pine; card height 2.7 m = young tree",
+   "heightM": 2.7,
+   "cardHeightM": 2.7,
+   "cardWidthM": 2.58,
+   "cardBelowGroundM": 0,
+   "spreadM": 2.39,
+   "spreadMinM": 2.39,
+   "capElevationM": 2.59,
+   "capMaterial": "*43",
+   "capColor": [
+    0.322,
+    0.424,
+    0.255,
+    0.61
+   ],
+   "capTris": 1244,
+   "planSymbol": "Компонент#147",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 593,
+    "fill": 0.52,
+    "materials": [
+     "leaf Austrian-Pine1 (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 58,
+    "px": [
+     1080,
+     1397
+    ],
+    "bytes": 615900,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 7.67
+   },
+   "position": [
+    78.616,
+    2.261,
+    -226.49
+   ],
+   "positionSU": [
+    78.62,
+    226.49,
+    2.26
+   ]
+  },
+  {
+   "node": 410,
+   "name": "PineTree01",
+   "definition": "PineTree01",
+   "category": "tree-conifer-new",
+   "capCategory": "tree-conifer-new",
+   "shelf": {
+    "plateNode": 115,
+    "label": "Деревья нов. Хво",
+    "labelIsCopy": false,
+    "holds": "tree-conifer-new"
+   },
+   "categoryConflict": null,
+   "latin": "Pinus sylvestris",
+   "latinConfidence": "low",
+   "note": "generic pine clip-art card",
+   "heightM": 7.57,
+   "cardHeightM": 7.57,
+   "cardWidthM": 4.68,
+   "cardBelowGroundM": 0,
+   "spreadM": 3.84,
+   "spreadMinM": 3.81,
+   "capElevationM": 7.54,
+   "capMaterial": "*43",
+   "capColor": [
+    0.322,
+    0.424,
+    0.255,
+    0.61
+   ],
+   "capTris": 1244,
+   "planSymbol": "Компонент#147",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 492,
+    "fill": 0.55,
+    "materials": [
+     "Pine-tree-pine-realistic-tree-clip-art-web-clipart1 (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 89,
+    "px": [
+     514,
+     800
+    ],
+    "bytes": 581256,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 2.09
+   },
+   "position": [
+    105.616,
+    2.261,
+    -226.49
+   ],
+   "positionSU": [
+    105.62,
+    226.49,
+    2.26
+   ]
+  },
+  {
+   "node": 530,
+   "name": "Компонент#214",
+   "definition": "Компонент#214",
+   "category": "tree-conifer-new",
+   "capCategory": "tree-conifer-new",
+   "shelf": {
+    "plateNode": 115,
+    "label": "Деревья нов. Хво",
+    "labelIsCopy": false,
+    "holds": "tree-conifer-new"
+   },
+   "categoryConflict": null,
+   "latin": "Picea abies 'Inversa'",
+   "latinConfidence": "high",
+   "note": "unnamed; texture \"picea inversa\"",
+   "heightM": 3.72,
+   "cardHeightM": 3.72,
+   "cardWidthM": 2.81,
+   "cardBelowGroundM": 0,
+   "spreadM": 2.77,
+   "spreadMinM": 2.75,
+   "capElevationM": 3.73,
+   "capMaterial": "*43",
+   "capColor": [
+    0.322,
+    0.424,
+    0.255,
+    0.61
+   ],
+   "capTris": 1244,
+   "planSymbol": "Компонент#147",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 2539,
+    "fill": 0.68,
+    "materials": [
+     "picea  inversa (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 98,
+    "px": [
+     800,
+     1067
+    ],
+    "bytes": 1785272,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 4.34
+   },
+   "position": [
+    85.963,
+    2.261,
+    -225.092
+   ],
+   "positionSU": [
+    85.96,
+    225.09,
+    2.26
+   ]
+  },
+  {
+   "node": 525,
+   "name": "Компонент#213",
+   "definition": "Компонент#213",
+   "category": "tree-conifer-new",
+   "capCategory": "tree-conifer-new",
+   "shelf": {
+    "plateNode": 115,
+    "label": "Деревья нов. Хво",
+    "labelIsCopy": false,
+    "holds": "tree-conifer-new"
+   },
+   "categoryConflict": null,
+   "latin": null,
+   "latinConfidence": null,
+   "note": "unnamed new CONIFER; generic deciduous placeholder card *64",
+   "heightM": 6.76,
+   "cardHeightM": 6.76,
+   "cardWidthM": 3.99,
+   "cardBelowGroundM": 0,
+   "spreadM": 3.54,
+   "spreadMinM": 3.49,
+   "capElevationM": 6.4,
+   "capMaterial": "*43",
+   "capColor": [
+    0.322,
+    0.424,
+    0.255,
+    0.61
+   ],
+   "capTris": 1906,
+   "planSymbol": "Компонент#154",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 3795,
+    "fill": 0.58,
+    "materials": [
+     "*64 (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 30,
+    "px": [
+     1746,
+     3000
+    ],
+    "bytes": 5322224,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 26.64
+   },
+   "position": [
+    67.492,
+    2.261,
+    -224.771
+   ],
+   "positionSU": [
+    67.49,
+    224.77,
+    2.26
+   ]
+  },
+  {
+   "node": 520,
+   "name": "Компонент#212",
+   "definition": "Компонент#212",
+   "category": "tree-conifer-new",
+   "capCategory": "tree-conifer-new",
+   "shelf": {
+    "plateNode": 115,
+    "label": "Деревья нов. Хво",
+    "labelIsCopy": false,
+    "holds": "tree-conifer-new"
+   },
+   "categoryConflict": null,
+   "latin": null,
+   "latinConfidence": null,
+   "note": "unnamed new CONIFER; generic deciduous placeholder card *64",
+   "heightM": 7.95,
+   "cardHeightM": 7.95,
+   "cardWidthM": 5.57,
+   "cardBelowGroundM": 0,
+   "spreadM": 5.26,
+   "spreadMinM": 5.14,
+   "capElevationM": 7.72,
+   "capMaterial": "*43",
+   "capColor": [
+    0.322,
+    0.424,
+    0.255,
+    0.61
+   ],
+   "capTris": 1673,
+   "planSymbol": "Компонент#155",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 940,
+    "fill": 0.72,
+    "materials": [
+     "*64 (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 30,
+    "px": [
+     1746,
+     3000
+    ],
+    "bytes": 5322224,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 26.64
+   },
+   "position": [
+    30.947,
+    2.177,
+    -223.925
+   ],
+   "positionSU": [
+    30.95,
+    223.93,
+    2.18
+   ]
+  },
+  {
+   "node": 506,
+   "name": "Компонент#209",
+   "definition": "Компонент#209",
+   "category": "tree-conifer-new",
+   "capCategory": "tree-conifer-new",
+   "shelf": {
+    "plateNode": 115,
+    "label": "Деревья нов. Хво",
+    "labelIsCopy": false,
+    "holds": "tree-conifer-new"
+   },
+   "categoryConflict": null,
+   "latin": "Araucaria heterophylla",
+   "latinConfidence": "low",
+   "note": "unnamed new conifer; card *87; sunk 2.26 m below the shelf",
+   "heightM": 10.99,
+   "cardHeightM": 10.99,
+   "cardWidthM": 7.73,
+   "cardBelowGroundM": 0,
+   "spreadM": 6.83,
+   "spreadMinM": 6.78,
+   "capElevationM": 10.74,
+   "capMaterial": "*43",
+   "capColor": [
+    0.322,
+    0.424,
+    0.255,
+    0.61
+   ],
+   "capTris": 1592,
+   "planSymbol": "Компонент#159",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 5738,
+    "fill": 0.58,
+    "materials": [
+     "*87 (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 96,
+    "px": [
+     1746,
+     3000
+    ],
+    "bytes": 10101404,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 26.64
+   },
+   "position": [
+    11.869,
+    0,
+    -223.018
+   ],
+   "positionSU": [
+    11.87,
+    223.02,
+    0
+   ]
+  },
+  {
+   "node": 515,
+   "name": "Компонент#211",
+   "definition": "Компонент#211",
+   "category": "tree-conifer-new",
+   "capCategory": "tree-conifer-new",
+   "shelf": {
+    "plateNode": 115,
+    "label": "Деревья нов. Хво",
+    "labelIsCopy": false,
+    "holds": "tree-conifer-new"
+   },
+   "categoryConflict": null,
+   "latin": "Cedrus libani 'Glauca'",
+   "latinConfidence": "high",
+   "note": "unnamed; JPEG photo with sky background",
+   "heightM": 8.6,
+   "cardHeightM": 8.6,
+   "cardWidthM": 8.02,
+   "cardBelowGroundM": 0,
+   "spreadM": 8.06,
+   "spreadMinM": 7.89,
+   "capElevationM": 8.56,
+   "capMaterial": "*43",
+   "capColor": [
+    0.322,
+    0.424,
+    0.255,
+    0.61
+   ],
+   "capTris": 1244,
+   "planSymbol": "Компонент#147",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": false,
+    "tris": 2989,
+    "fill": 0.47,
+    "materials": [
+     "cedrus-libani-glauca (MASK -> OPAQUE)"
+    ]
+   },
+   "cardImage": {
+    "image": 97,
+    "px": [
+     1024,
+     1365
+    ],
+    "bytes": 256464,
+    "mime": "image/jpeg",
+    "alphaChannel": false,
+    "gpuMB": 7.11
+   },
+   "position": [
+    92.694,
+    1.434,
+    -222.174
+   ],
+   "positionSU": [
+    92.69,
+    222.17,
+    1.43
+   ]
+  },
+  {
+   "node": 585,
+   "name": "knotwilg2",
+   "definition": "knotwilg2",
+   "category": "tree-fruit-new",
+   "capCategory": null,
+   "shelf": {
+    "plateNode": 491,
+    "label": "Деревья нов. Пло",
+    "labelIsCopy": false,
+    "holds": "tree-fruit-new"
+   },
+   "categoryConflict": "on the fruit-tree shelf but a pollard willow, not fruit",
+   "latin": "Salix alba (pollard)",
+   "latinConfidence": "medium",
+   "note": "Dutch \"knotwilg\" = pollard willow; 14.35 m card height is implausible",
+   "heightM": 14.35,
+   "cardHeightM": 14.35,
+   "cardWidthM": 11.17,
+   "cardBelowGroundM": 0,
+   "spreadM": null,
+   "spreadMinM": null,
+   "capElevationM": null,
+   "capMaterial": null,
+   "capColor": null,
+   "capTris": null,
+   "planSymbol": null,
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 27,
+    "fill": 0.67,
+    "materials": [
+     "knotwilg2 klein (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 134,
+    "px": [
+     778,
+     1000
+    ],
+    "bytes": 1360672,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 3.96
+   },
+   "position": [
+    33.308,
+    2.261,
+    -203.67
+   ],
+   "positionSU": [
+    33.31,
+    203.67,
+    2.26
+   ]
+  },
+  {
+   "node": 578,
+   "name": "Salix. integra",
+   "definition": "Salix. integra",
+   "category": "tree-fruit-new",
+   "capCategory": null,
+   "shelf": {
+    "plateNode": 491,
+    "label": "Деревья нов. Пло",
+    "labelIsCopy": false,
+    "holds": "tree-fruit-new"
+   },
+   "categoryConflict": "on the fruit-tree shelf but a willow standard, not fruit",
+   "latin": "Salix integra 'Hakuro-nishiki' (standard)",
+   "latinConfidence": "high",
+   "note": null,
+   "heightM": 5.01,
+   "cardHeightM": 5.01,
+   "cardWidthM": 4.52,
+   "cardBelowGroundM": 0,
+   "spreadM": null,
+   "spreadMinM": null,
+   "capElevationM": null,
+   "capMaterial": null,
+   "capColor": null,
+   "capTris": null,
+   "planSymbol": null,
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 128,
+    "fill": 0.54,
+    "materials": [
+     "Salix integra Hakuro (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 131,
+    "px": [
+     2000,
+     2385
+    ],
+    "bytes": 3997832,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 24.26
+   },
+   "position": [
+    24.546,
+    2.261,
+    -203.663
+   ],
+   "positionSU": [
+    24.55,
+    203.66,
+    2.26
+   ]
+  },
+  {
+   "node": 574,
+   "name": "mand",
+   "definition": "mand",
+   "category": "tree-fruit-new",
+   "capCategory": null,
+   "shelf": {
+    "plateNode": 491,
+    "label": "Деревья нов. Пло",
+    "labelIsCopy": false,
+    "holds": "tree-fruit-new"
+   },
+   "categoryConflict": null,
+   "latin": "Citrus reticulata",
+   "latinConfidence": "high",
+   "note": "mandarin; tub plant in Rostov",
+   "heightM": 5.78,
+   "cardHeightM": 5.82,
+   "cardWidthM": 6.98,
+   "cardBelowGroundM": 0.04,
+   "spreadM": null,
+   "spreadMinM": null,
+   "capElevationM": null,
+   "capMaterial": null,
+   "capColor": null,
+   "capTris": null,
+   "planSymbol": null,
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 1681,
+    "fill": 0.57,
+    "materials": [
+     "*46 (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 129,
+    "px": [
+     812,
+     666
+    ],
+    "bytes": 818664,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 2.75
+   },
+   "position": [
+    15.616,
+    2.287,
+    -203.618
+   ],
+   "positionSU": [
+    15.62,
+    203.62,
+    2.29
+   ]
+  },
+  {
+   "node": 414,
+   "name": "Bannana4",
+   "definition": "Bannana4",
+   "category": "tree-deciduous-new",
+   "capCategory": "tree-deciduous-new",
+   "shelf": {
+    "plateNode": 491,
+    "label": "Деревья нов. Пло",
+    "labelIsCopy": false,
+    "holds": "tree-fruit-new"
+   },
+   "categoryConflict": "cap says tree-deciduous-new, shelf holds tree-fruit-new; banana on the fruit shelf with a green deciduous F04 cap",
+   "latin": "Musa basjoo",
+   "latinConfidence": "low",
+   "note": "3D banana (leaves + trunk), not a card; F04 cap",
+   "heightM": 10.45,
+   "cardHeightM": 10.5,
+   "cardWidthM": 9.96,
+   "cardBelowGroundM": 0.05,
+   "spreadM": 10.73,
+   "spreadMinM": 10.14,
+   "capElevationM": 11.02,
+   "capMaterial": "[Color M07] + [Color F04]",
+   "capColor": [
+    0.596,
+    0.749,
+    0.443,
+    0.61
+   ],
+   "capTris": 2394,
+   "planSymbol": "Компонент#164",
+   "card": {
+    "kind": "multi-plane/3d",
+    "billboardInEngine": false,
+    "tris": 759,
+    "fill": 0.81,
+    "materials": [
+     "*68 (MASK -> MASK)",
+     "Bleaf_tattered5_super (MASK -> MASK)",
+     "BannanaStem1 (MASK -> OPAQUE)",
+     "BannanaLeaf_full (MASK -> OPAQUE)"
+    ]
+   },
+   "cardImage": {
+    "images": [
+     90,
+     91,
+     92,
+     93
+    ],
+    "px": null,
+    "bytes": 94540,
+    "gpuMB": 1.27
+   },
+   "position": [
+    -9.416,
+    2.314,
+    -196.724
+   ],
+   "positionSU": [
+    -9.42,
+    196.72,
+    2.31
+   ]
+  },
+  {
+   "node": 210,
+   "name": "klen_tatarskij_2",
+   "definition": "klen_tatarskij",
+   "category": "tree-fruit-new",
+   "capCategory": "tree-fruit-new",
+   "shelf": {
+    "plateNode": 192,
+    "label": "Деревья нов. Пло",
+    "labelIsCopy": false,
+    "holds": "tree-fruit-new"
+   },
+   "categoryConflict": "orange fruit cap on a maple (Acer tataricum)",
+   "latin": "Acer tataricum (incl. subsp. ginnala)",
+   "latinConfidence": "medium",
+   "note": "card texture \"tree raymond1\" (source photo may be Fraxinus angustifolia 'Raywood'); orange fruit-tree cap",
+   "heightM": 2.89,
+   "cardHeightM": 2.89,
+   "cardWidthM": 2.81,
+   "cardBelowGroundM": 0,
+   "spreadM": 2.39,
+   "spreadMinM": 2.37,
+   "capElevationM": 2.87,
+   "capMaterial": "*74",
+   "capColor": [
+    0.847,
+    0.553,
+    0.169,
+    0.61
+   ],
+   "capTris": 1670,
+   "planSymbol": "Компонент#160",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 1597,
+    "fill": 0.48,
+    "materials": [
+     "tree raymond1 (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 51,
+    "px": [
+     2000,
+     2000
+    ],
+    "bytes": 4033100,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 20.35
+   },
+   "position": [
+    -2.384,
+    2.261,
+    -179.118
+   ],
+   "positionSU": [
+    -2.38,
+    179.12,
+    2.26
+   ]
+  },
+  {
+   "node": 70,
+   "name": "jablonja",
+   "definition": "jablonja",
+   "category": "tree-fruit-new",
+   "capCategory": "tree-fruit-new",
+   "shelf": {
+    "plateNode": 192,
+    "label": "Деревья нов. Пло",
+    "labelIsCopy": false,
+    "holds": "tree-fruit-new"
+   },
+   "categoryConflict": null,
+   "latin": "Malus 'Evereste'",
+   "latinConfidence": "high",
+   "note": "texture \"leaf Malus 'Evereste'\"",
+   "heightM": 3.19,
+   "cardHeightM": 3.19,
+   "cardWidthM": 3.47,
+   "cardBelowGroundM": 0,
+   "spreadM": 3.31,
+   "spreadMinM": 3.09,
+   "capElevationM": 3.26,
+   "capMaterial": "*74",
+   "capColor": [
+    0.847,
+    0.553,
+    0.169,
+    0.61
+   ],
+   "capTris": 1670,
+   "planSymbol": "Компонент#218",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 2147,
+    "fill": 0.4,
+    "materials": [
+     "leaf Malus 'Evereste' (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 29,
+    "px": [
+     645,
+     590
+    ],
+    "bytes": 505748,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 1.94
+   },
+   "position": [
+    6.616,
+    2.261,
+    -179.118
+   ],
+   "positionSU": [
+    6.62,
+    179.12,
+    2.26
+   ]
+  },
+  {
+   "node": 182,
+   "name": "Rudbeckia",
+   "definition": "Rudbeckia",
+   "category": "perennial",
+   "capCategory": "perennial",
+   "shelf": {
+    "plateNode": 95,
+    "label": "ЦВЕТНИК МНОГОЛЕТ",
+    "labelIsCopy": false,
+    "holds": "perennial"
+   },
+   "categoryConflict": null,
+   "latin": "Rudbeckia fulgida 'Goldsturm'",
+   "latinConfidence": "medium",
+   "note": null,
+   "heightM": 0.79,
+   "cardHeightM": 0.87,
+   "cardWidthM": 0.87,
+   "cardBelowGroundM": 0.08,
+   "spreadM": 0.86,
+   "spreadMinM": 0.86,
+   "capElevationM": 0.81,
+   "capMaterial": "*41",
+   "capColor": [
+    0.749,
+    0.427,
+    0.247,
+    0.61
+   ],
+   "capTris": 62,
+   "planSymbol": "Компонент#141",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 46,
+    "fill": 0.74,
+    "materials": [
+     "rudbeckia (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 47,
+    "px": [
+     1000,
+     1000
+    ],
+    "bytes": 1950472,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 5.09
+   },
+   "position": [
+    17.936,
+    2.261,
+    -159.728
+   ],
+   "positionSU": [
+    17.94,
+    159.73,
+    2.26
+   ]
+  },
+  {
+   "node": 252,
+   "name": "Cloudy Days",
+   "definition": "Cloudy Days",
+   "category": "perennial",
+   "capCategory": "perennial",
+   "shelf": {
+    "plateNode": 95,
+    "label": "ЦВЕТНИК МНОГОЛЕТ",
+    "labelIsCopy": false,
+    "holds": "perennial"
+   },
+   "categoryConflict": null,
+   "latin": "Agapanthus orientalis 'Cloudy Days'",
+   "latinConfidence": "medium",
+   "note": "Ozbreed; pot/overwinter indoors in Rostov",
+   "heightM": 0.46,
+   "cardHeightM": 0.51,
+   "cardWidthM": 0.58,
+   "cardBelowGroundM": 0.04,
+   "spreadM": 0.59,
+   "spreadMinM": 0.59,
+   "capElevationM": 0.47,
+   "capMaterial": "*41",
+   "capColor": [
+    0.749,
+    0.427,
+    0.247,
+    0.61
+   ],
+   "capTris": 62,
+   "planSymbol": "Компонент#141",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 1191,
+    "fill": 0.61,
+    "materials": [
+     "Cloudy Days (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 60,
+    "px": [
+     542,
+     476
+    ],
+    "bytes": 380972,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 1.31
+   },
+   "position": [
+    19.936,
+    2.261,
+    -159.728
+   ],
+   "positionSU": [
+    19.94,
+    159.73,
+    2.26
+   ]
+  },
+  {
+   "node": 188,
+   "name": "Vinca minor#1",
+   "definition": "Vinca minor#1",
+   "category": "perennial",
+   "capCategory": "perennial",
+   "shelf": {
+    "plateNode": 95,
+    "label": "ЦВЕТНИК МНОГОЛЕТ",
+    "labelIsCopy": false,
+    "holds": "perennial"
+   },
+   "categoryConflict": null,
+   "latin": "Vinca minor",
+   "latinConfidence": "high",
+   "note": "JPEG photo card",
+   "heightM": 0.31,
+   "cardHeightM": 0.35,
+   "cardWidthM": 0.5,
+   "cardBelowGroundM": 0.03,
+   "spreadM": 0.52,
+   "spreadMinM": 0.52,
+   "capElevationM": 0.31,
+   "capMaterial": "*41",
+   "capColor": [
+    0.749,
+    0.427,
+    0.247,
+    0.61
+   ],
+   "capTris": 62,
+   "planSymbol": "Компонент#141",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": false,
+    "tris": 473,
+    "fill": 0.76,
+    "materials": [
+     "Vinca minor (MASK -> OPAQUE)"
+    ]
+   },
+   "cardImage": {
+    "image": 48,
+    "px": [
+     1100,
+     736
+    ],
+    "bytes": 106520,
+    "mime": "image/jpeg",
+    "alphaChannel": false,
+    "gpuMB": 4.12
+   },
+   "position": [
+    21.936,
+    2.261,
+    -159.728
+   ],
+   "positionSU": [
+    21.94,
+    159.73,
+    2.26
+   ]
+  },
+  {
+   "node": 124,
+   "name": "AERVA JAVANICA",
+   "definition": "AERVA JAVANICA",
+   "category": "perennial",
+   "capCategory": "perennial",
+   "shelf": {
+    "plateNode": 95,
+    "label": "ЦВЕТНИК МНОГОЛЕТ",
+    "labelIsCopy": false,
+    "holds": "perennial"
+   },
+   "categoryConflict": null,
+   "latin": "Aerva javanica",
+   "latinConfidence": "high",
+   "note": "tropical subshrub, annual at best in Rostov",
+   "heightM": 0.43,
+   "cardHeightM": 0.43,
+   "cardWidthM": 1.24,
+   "cardBelowGroundM": 0,
+   "spreadM": 1.1,
+   "spreadMinM": 1.1,
+   "capElevationM": 0.43,
+   "capMaterial": "*41",
+   "capColor": [
+    0.749,
+    0.427,
+    0.247,
+    0.61
+   ],
+   "capTris": 62,
+   "planSymbol": "Компонент#141",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 1503,
+    "fill": 0.66,
+    "materials": [
+     "AERVA JAVANICA1 (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 39,
+    "px": [
+     1417,
+     510
+    ],
+    "bytes": 1736136,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 3.68
+   },
+   "position": [
+    23.936,
+    2.261,
+    -159.728
+   ],
+   "positionSU": [
+    23.94,
+    159.73,
+    2.26
+   ]
+  },
+  {
+   "node": 107,
+   "name": "Grey Box TM Circle",
+   "definition": "Grey Box TM Circle",
+   "category": "perennial",
+   "capCategory": "perennial",
+   "shelf": {
+    "plateNode": 95,
+    "label": "ЦВЕТНИК МНОГОЛЕТ",
+    "labelIsCopy": false,
+    "holds": "perennial"
+   },
+   "categoryConflict": null,
+   "latin": "Westringia 'Grey Box'™",
+   "latinConfidence": "medium",
+   "note": "shrub filed on the perennial shelf with the perennial cap; not hardy in Rostov",
+   "heightM": 0.28,
+   "cardHeightM": 0.31,
+   "cardWidthM": 0.35,
+   "cardBelowGroundM": 0.03,
+   "spreadM": 0.32,
+   "spreadMinM": 0.32,
+   "capElevationM": 0.28,
+   "capMaterial": "*41",
+   "capColor": [
+    0.749,
+    0.427,
+    0.247,
+    0.61
+   ],
+   "capTris": 62,
+   "planSymbol": "Компонент#141",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 817,
+    "fill": 0.74,
+    "materials": [
+     "Grey Box TM Circle (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 36,
+    "px": [
+     350,
+     307
+    ],
+    "bytes": 251972,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 0.55
+   },
+   "position": [
+    25.936,
+    2.261,
+    -159.728
+   ],
+   "positionSU": [
+    25.94,
+    159.73,
+    2.26
+   ]
+  },
+  {
+   "node": 103,
+   "name": "Lupinus",
+   "definition": "Lupinus",
+   "category": "perennial",
+   "capCategory": "perennial",
+   "shelf": {
+    "plateNode": 95,
+    "label": "ЦВЕТНИК МНОГОЛЕТ",
+    "labelIsCopy": false,
+    "holds": "perennial"
+   },
+   "categoryConflict": null,
+   "latin": "Lupinus polyphyllus hybrid (white)",
+   "latinConfidence": "high",
+   "note": "JPEG stock photo with visible watermark text",
+   "heightM": 0.42,
+   "cardHeightM": 0.51,
+   "cardWidthM": 0.58,
+   "cardBelowGroundM": 0.09,
+   "spreadM": 0.52,
+   "spreadMinM": 0.52,
+   "capElevationM": 0.42,
+   "capMaterial": "*41",
+   "capColor": [
+    0.749,
+    0.427,
+    0.247,
+    0.61
+   ],
+   "capTris": 62,
+   "planSymbol": "Компонент#141",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": false,
+    "tris": 442,
+    "fill": 0.62,
+    "materials": [
+     "Lupinus (MASK -> OPAQUE)"
+    ]
+   },
+   "cardImage": {
+    "image": 35,
+    "px": [
+     500,
+     534
+    ],
+    "bytes": 85316,
+    "mime": "image/jpeg",
+    "alphaChannel": false,
+    "gpuMB": 1.36
+   },
+   "position": [
+    27.936,
+    2.261,
+    -159.728
+   ],
+   "positionSU": [
+    27.94,
+    159.73,
+    2.26
+   ]
+  },
+  {
+   "node": 91,
+   "name": "Shasta daisy",
+   "definition": "Shasta daisy",
+   "category": "perennial",
+   "capCategory": "perennial",
+   "shelf": {
+    "plateNode": 95,
+    "label": "ЦВЕТНИК МНОГОЛЕТ",
+    "labelIsCopy": false,
+    "holds": "perennial"
+   },
+   "categoryConflict": null,
+   "latin": "Leucanthemum × superbum",
+   "latinConfidence": "high",
+   "note": null,
+   "heightM": 0.86,
+   "cardHeightM": 0.9,
+   "cardWidthM": 1.3,
+   "cardBelowGroundM": 0.04,
+   "spreadM": 1.2,
+   "spreadMinM": 1.2,
+   "capElevationM": 0.88,
+   "capMaterial": "*41",
+   "capColor": [
+    0.749,
+    0.427,
+    0.247,
+    0.61
+   ],
+   "capTris": 62,
+   "planSymbol": "Компонент#141",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 41,
+    "fill": 0.78,
+    "materials": [
+     "shastadaisy (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 33,
+    "px": [
+     650,
+     488
+    ],
+    "bytes": 707048,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 1.61
+   },
+   "position": [
+    29.936,
+    2.261,
+    -159.728
+   ],
+   "positionSU": [
+    29.94,
+    159.73,
+    2.26
+   ]
+  },
+  {
+   "node": 335,
+   "name": "lavandula_ang",
+   "definition": "lavandula_ang",
+   "category": "perennial",
+   "capCategory": "perennial",
+   "shelf": {
+    "plateNode": 95,
+    "label": "ЦВЕТНИК МНОГОЛЕТ",
+    "labelIsCopy": false,
+    "holds": "perennial"
+   },
+   "categoryConflict": null,
+   "latin": "Lavandula stoechas",
+   "latinConfidence": "medium",
+   "note": "named lavandula_ang(ustifolia) but the card shows butterfly lavender (not hardy in Rostov)",
+   "heightM": 0.33,
+   "cardHeightM": 0.33,
+   "cardWidthM": 0.47,
+   "cardBelowGroundM": 0,
+   "spreadM": 0.39,
+   "spreadMinM": 0.39,
+   "capElevationM": 0.34,
+   "capMaterial": "*41",
+   "capColor": [
+    0.749,
+    0.427,
+    0.247,
+    0.61
+   ],
+   "capTris": 62,
+   "planSymbol": "Компонент#141",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 2,
+    "fill": 1,
+    "materials": [
+     "lavandula (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 74,
+    "px": [
+     575,
+     454
+    ],
+    "bytes": 513112,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 1.33
+   },
+   "position": [
+    31.936,
+    2.261,
+    -159.728
+   ],
+   "positionSU": [
+    31.94,
+    159.73,
+    2.26
+   ]
+  },
+  {
+   "node": 56,
+   "name": "Компонент#312",
+   "definition": "Компонент#312",
+   "category": "perennial",
+   "capCategory": "perennial",
+   "shelf": {
+    "plateNode": 95,
+    "label": "ЦВЕТНИК МНОГОЛЕТ",
+    "labelIsCopy": false,
+    "holds": "perennial"
+   },
+   "categoryConflict": null,
+   "latin": "Lavandula angustifolia",
+   "latinConfidence": "medium",
+   "note": "unnamed; JPEG photo \"lavendar\" with background",
+   "heightM": 0.62,
+   "cardHeightM": 0.62,
+   "cardWidthM": 0.97,
+   "cardBelowGroundM": 0,
+   "spreadM": 0.99,
+   "spreadMinM": 0.99,
+   "capElevationM": 0.63,
+   "capMaterial": "*41",
+   "capColor": [
+    0.749,
+    0.427,
+    0.247,
+    0.61
+   ],
+   "capTris": 62,
+   "planSymbol": "Компонент#141",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": false,
+    "tris": 364,
+    "fill": 0.74,
+    "materials": [
+     "lavendar (MASK -> OPAQUE)"
+    ]
+   },
+   "cardImage": {
+    "image": 26,
+    "px": [
+     275,
+     183
+    ],
+    "bytes": 21640,
+    "mime": "image/jpeg",
+    "alphaChannel": false,
+    "gpuMB": 0.26
+   },
+   "position": [
+    33.936,
+    2.261,
+    -159.728
+   ],
+   "positionSU": [
+    33.94,
+    159.73,
+    2.26
+   ]
+  },
+  {
+   "node": 327,
+   "name": "Component#1",
+   "definition": "Component#1",
+   "category": "perennial",
+   "capCategory": "perennial",
+   "shelf": {
+    "plateNode": 95,
+    "label": "ЦВЕТНИК МНОГОЛЕТ",
+    "labelIsCopy": false,
+    "holds": "perennial"
+   },
+   "categoryConflict": null,
+   "latin": "Salvia yangii (Perovskia atriplicifolia)",
+   "latinConfidence": "high",
+   "note": "unnamed; texture \"perovskia\"",
+   "heightM": 0.93,
+   "cardHeightM": 0.92,
+   "cardWidthM": 0.82,
+   "cardBelowGroundM": 0,
+   "spreadM": 0.69,
+   "spreadMinM": 0.69,
+   "capElevationM": 0.91,
+   "capMaterial": "*41",
+   "capColor": [
+    0.749,
+    0.427,
+    0.247,
+    0.61
+   ],
+   "capTris": 62,
+   "planSymbol": "Компонент#141",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 2104,
+    "fill": 0.68,
+    "materials": [
+     "perovskia (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 72,
+    "px": [
+     1781,
+     2300
+    ],
+    "bytes": 8439044,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 20.83
+   },
+   "position": [
+    35.936,
+    2.261,
+    -159.728
+   ],
+   "positionSU": [
+    35.94,
+    159.73,
+    2.26
+   ]
+  },
+  {
+   "node": 402,
+   "name": "Naringa TM Natural Shape#3",
+   "definition": "Naringa TM Natural Shape#3",
+   "category": "perennial",
+   "capCategory": "perennial",
+   "shelf": {
+    "plateNode": 95,
+    "label": "ЦВЕТНИК МНОГОЛЕТ",
+    "labelIsCopy": false,
+    "holds": "perennial"
+   },
+   "categoryConflict": null,
+   "latin": "Westringia hyb. 'WES01' Naringa™ (natural form)",
+   "latinConfidence": "medium",
+   "note": "shrub filed on the perennial shelf with the perennial cap",
+   "heightM": 0.71,
+   "cardHeightM": 0.76,
+   "cardWidthM": 0.74,
+   "cardBelowGroundM": 0.05,
+   "spreadM": 0.69,
+   "spreadMinM": 0.69,
+   "capElevationM": 0.72,
+   "capMaterial": "*41",
+   "capColor": [
+    0.749,
+    0.427,
+    0.247,
+    0.61
+   ],
+   "capTris": 62,
+   "planSymbol": "Компонент#141",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 1024,
+    "fill": 0.77,
+    "materials": [
+     "Naringa TM Natural Shape (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 87,
+    "px": [
+     400,
+     422
+    ],
+    "bytes": 386004,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 0.86
+   },
+   "position": [
+    37.936,
+    2.261,
+    -159.728
+   ],
+   "positionSU": [
+    37.94,
+    159.73,
+    2.26
+   ]
+  },
+  {
+   "node": 384,
+   "name": "Purple Flowery 02",
+   "definition": "Purple Flowery 02",
+   "category": "perennial",
+   "capCategory": "perennial",
+   "shelf": {
+    "plateNode": 95,
+    "label": "ЦВЕТНИК МНОГОЛЕТ",
+    "labelIsCopy": false,
+    "holds": "perennial"
+   },
+   "categoryConflict": null,
+   "latin": "Consolida regalis",
+   "latinConfidence": "low",
+   "note": "named \"Purple Flowery 02\"; branched larkspur-like card",
+   "heightM": 0.85,
+   "cardHeightM": 0.85,
+   "cardWidthM": 0.76,
+   "cardBelowGroundM": 0,
+   "spreadM": 0.26,
+   "spreadMinM": 0.26,
+   "capElevationM": 0.85,
+   "capMaterial": "*41",
+   "capColor": [
+    0.749,
+    0.427,
+    0.247,
+    0.61
+   ],
+   "capTris": 62,
+   "planSymbol": "Компонент#315",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 2,
+    "fill": 1,
+    "materials": [
+     "Material-473 (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 83,
+    "px": [
+     799,
+     894
+    ],
+    "bytes": 352496,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 3.63
+   },
+   "position": [
+    39.936,
+    2.261,
+    -159.728
+   ],
+   "positionSU": [
+    39.94,
+    159.73,
+    2.26
+   ]
+  },
+  {
+   "node": 307,
+   "name": "Компонент#273",
+   "definition": "Компонент#273",
+   "category": "perennial",
+   "capCategory": "perennial",
+   "shelf": {
+    "plateNode": 95,
+    "label": "ЦВЕТНИК МНОГОЛЕТ",
+    "labelIsCopy": false,
+    "holds": "perennial"
+   },
+   "categoryConflict": null,
+   "latin": "Iris germanica (TB) 'Accent'",
+   "latinConfidence": "high",
+   "note": "unnamed; texture \"Iris barbata elatior 'accent'\"",
+   "heightM": 0.48,
+   "cardHeightM": 0.57,
+   "cardWidthM": 0.65,
+   "cardBelowGroundM": 0.1,
+   "spreadM": 0.46,
+   "spreadMinM": 0.46,
+   "capElevationM": 0.48,
+   "capMaterial": "*41",
+   "capColor": [
+    0.749,
+    0.427,
+    0.247,
+    0.61
+   ],
+   "capTris": 62,
+   "planSymbol": "Компонент#315",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 2,
+    "fill": 1,
+    "materials": [
+     "Iris barbata elatior 'accent' Basse Qualité- LQ (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 69,
+    "px": [
+     700,
+     617
+    ],
+    "bytes": 539000,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 2.2
+   },
+   "position": [
+    40.936,
+    2.261,
+    -159.728
+   ],
+   "positionSU": [
+    40.94,
+    159.73,
+    2.26
+   ]
+  },
+  {
+   "node": 313,
+   "name": "Dicentra spectabilis",
+   "definition": "Dicentra spectabilis",
+   "category": "perennial",
+   "capCategory": "perennial",
+   "shelf": {
+    "plateNode": 95,
+    "label": "ЦВЕТНИК МНОГОЛЕТ",
+    "labelIsCopy": false,
+    "holds": "perennial"
+   },
+   "categoryConflict": null,
+   "latin": "Lamprocapnos (Dicentra) spectabilis",
+   "latinConfidence": "high",
+   "note": "JPEG white-background card",
+   "heightM": 0.89,
+   "cardHeightM": 0.89,
+   "cardWidthM": 0.9,
+   "cardBelowGroundM": 0.01,
+   "spreadM": 0.46,
+   "spreadMinM": 0.46,
+   "capElevationM": 0.85,
+   "capMaterial": "*41",
+   "capColor": [
+    0.749,
+    0.427,
+    0.247,
+    0.61
+   ],
+   "capTris": 62,
+   "planSymbol": "Компонент#315",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": false,
+    "tris": 6101,
+    "fill": 0.31,
+    "materials": [
+     "Dicentra%20spectablis%20'Bleeding%20Heart'-400 (MASK -> OPAQUE)"
+    ]
+   },
+   "cardImage": {
+    "image": 70,
+    "px": [
+     392,
+     400
+    ],
+    "bytes": 26132,
+    "mime": "image/jpeg",
+    "alphaChannel": false,
+    "gpuMB": 0.8
+   },
+   "position": [
+    41.936,
+    2.261,
+    -159.728
+   ],
+   "positionSU": [
+    41.94,
+    159.73,
+    2.26
+   ]
+  },
+  {
+   "node": 361,
+   "name": "verbena_bon",
+   "definition": "verbena_bon",
+   "category": "perennial",
+   "capCategory": "perennial",
+   "shelf": {
+    "plateNode": 95,
+    "label": "ЦВЕТНИК МНОГОЛЕТ",
+    "labelIsCopy": false,
+    "holds": "perennial"
+   },
+   "categoryConflict": null,
+   "latin": "Verbena bonariensis",
+   "latinConfidence": "high",
+   "note": null,
+   "heightM": 1,
+   "cardHeightM": 1.01,
+   "cardWidthM": 0.63,
+   "cardBelowGroundM": 0.01,
+   "spreadM": 0.4,
+   "spreadMinM": 0.4,
+   "capElevationM": 1.01,
+   "capMaterial": "*41",
+   "capColor": [
+    0.749,
+    0.427,
+    0.247,
+    0.61
+   ],
+   "capTris": 62,
+   "planSymbol": "Компонент#315",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 189,
+    "fill": 0.53,
+    "materials": [
+     "verbena (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 80,
+    "px": [
+     1666,
+     2515
+    ],
+    "bytes": 2690588,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 21.31
+   },
+   "position": [
+    42.936,
+    2.261,
+    -159.728
+   ],
+   "positionSU": [
+    42.94,
+    159.73,
+    2.26
+   ]
+  },
+  {
+   "node": 357,
+   "name": "Digitalis (white)",
+   "definition": "Digitalis (white)",
+   "category": "perennial",
+   "capCategory": "perennial",
+   "shelf": {
+    "plateNode": 95,
+    "label": "ЦВЕТНИК МНОГОЛЕТ",
+    "labelIsCopy": false,
+    "holds": "perennial"
+   },
+   "categoryConflict": null,
+   "latin": "Digitalis purpurea f. albiflora",
+   "latinConfidence": "high",
+   "note": "JPEG white-background card",
+   "heightM": 0.77,
+   "cardHeightM": 0.77,
+   "cardWidthM": 0.31,
+   "cardBelowGroundM": 0,
+   "spreadM": 0.25,
+   "spreadMinM": 0.25,
+   "capElevationM": 0.77,
+   "capMaterial": "*41",
+   "capColor": [
+    0.749,
+    0.427,
+    0.247,
+    0.61
+   ],
+   "capTris": 62,
+   "planSymbol": "Компонент#315",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": false,
+    "tris": 3216,
+    "fill": 0.26,
+    "materials": [
+     "foxglove#4 (MASK -> OPAQUE)"
+    ]
+   },
+   "cardImage": {
+    "image": 79,
+    "px": [
+     357,
+     881
+    ],
+    "bytes": 40564,
+    "mime": "image/jpeg",
+    "alphaChannel": false,
+    "gpuMB": 1.6
+   },
+   "position": [
+    43.936,
+    2.261,
+    -159.728
+   ],
+   "positionSU": [
+    43.94,
+    159.73,
+    2.26
+   ]
+  },
+  {
+   "node": 388,
+   "name": "Sedum Autumn Joy",
+   "definition": "Sedum Autumn Joy",
+   "category": "perennial",
+   "capCategory": "perennial",
+   "shelf": {
+    "plateNode": 95,
+    "label": "ЦВЕТНИК МНОГОЛЕТ",
+    "labelIsCopy": false,
+    "holds": "perennial"
+   },
+   "categoryConflict": null,
+   "latin": "Hylotelephium 'Herbstfreude' (Sedum 'Autumn Joy')",
+   "latinConfidence": "high",
+   "note": null,
+   "heightM": 0.42,
+   "cardHeightM": 0.46,
+   "cardWidthM": 0.58,
+   "cardBelowGroundM": 0.04,
+   "spreadM": 0.46,
+   "spreadMinM": 0.46,
+   "capElevationM": 0.43,
+   "capMaterial": "*41",
+   "capColor": [
+    0.749,
+    0.427,
+    0.247,
+    0.61
+   ],
+   "capTris": 62,
+   "planSymbol": "Компонент#315",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 133,
+    "fill": 0.77,
+    "materials": [
+     "Sedum Autumn Joy smaller (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 84,
+    "px": [
+     800,
+     630
+    ],
+    "bytes": 853824,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 2.56
+   },
+   "position": [
+    44.936,
+    2.261,
+    -159.728
+   ],
+   "positionSU": [
+    44.94,
+    159.73,
+    2.26
+   ]
+  },
+  {
+   "node": 373,
+   "name": "Компонент#273_1",
+   "definition": "Компонент#273",
+   "category": "perennial",
+   "capCategory": "perennial",
+   "shelf": {
+    "plateNode": 95,
+    "label": "ЦВЕТНИК МНОГОЛЕТ",
+    "labelIsCopy": false,
+    "holds": "perennial"
+   },
+   "categoryConflict": null,
+   "latin": "Iris germanica (TB) 'Accent'",
+   "latinConfidence": "high",
+   "note": "duplicate of Компонент#273",
+   "heightM": 0.48,
+   "cardHeightM": 0.57,
+   "cardWidthM": 0.65,
+   "cardBelowGroundM": 0.1,
+   "spreadM": 0.46,
+   "spreadMinM": 0.46,
+   "capElevationM": 0.48,
+   "capMaterial": "*41",
+   "capColor": [
+    0.749,
+    0.427,
+    0.247,
+    0.61
+   ],
+   "capTris": 62,
+   "planSymbol": "Компонент#315",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 2,
+    "fill": 1,
+    "materials": [
+     "Iris barbata elatior 'accent' Basse Qualité- LQ (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 69,
+    "px": [
+     700,
+     617
+    ],
+    "bytes": 539000,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 2.2
+   },
+   "position": [
+    45.936,
+    2.261,
+    -159.728
+   ],
+   "positionSU": [
+    45.94,
+    159.73,
+    2.26
+   ]
+  },
+  {
+   "node": 331,
+   "name": "Astilbe arendsii",
+   "definition": "Astilbe arendsii",
+   "category": "perennial",
+   "capCategory": "perennial",
+   "shelf": {
+    "plateNode": 95,
+    "label": "ЦВЕТНИК МНОГОЛЕТ",
+    "labelIsCopy": false,
+    "holds": "perennial"
+   },
+   "categoryConflict": null,
+   "latin": "Astilbe × arendsii 'Heart and Soul'",
+   "latinConfidence": "high",
+   "note": "JPEG photo card",
+   "heightM": 0.87,
+   "cardHeightM": 0.92,
+   "cardWidthM": 0.72,
+   "cardBelowGroundM": 0.05,
+   "spreadM": 0.62,
+   "spreadMinM": 0.62,
+   "capElevationM": 0.88,
+   "capMaterial": "*41",
+   "capColor": [
+    0.749,
+    0.427,
+    0.247,
+    0.61
+   ],
+   "capTris": 62,
+   "planSymbol": "Компонент#315",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": false,
+    "tris": 4191,
+    "fill": 0.61,
+    "materials": [
+     "AstilbeHeartandSoul (MASK -> OPAQUE)"
+    ]
+   },
+   "cardImage": {
+    "image": 73,
+    "px": [
+     900,
+     1169
+    ],
+    "bytes": 242256,
+    "mime": "image/jpeg",
+    "alphaChannel": false,
+    "gpuMB": 5.35
+   },
+   "position": [
+    46.936,
+    2.261,
+    -159.728
+   ],
+   "positionSU": [
+    46.94,
+    159.73,
+    2.26
+   ]
+  },
+  {
+   "node": 352,
+   "name": "Component#2",
+   "definition": "Component#2",
+   "category": "perennial",
+   "capCategory": "perennial",
+   "shelf": {
+    "plateNode": 95,
+    "label": "ЦВЕТНИК МНОГОЛЕТ",
+    "labelIsCopy": false,
+    "holds": "perennial"
+   },
+   "categoryConflict": null,
+   "latin": "Liatris spicata",
+   "latinConfidence": "high",
+   "note": "unnamed; texture \"Liatris\" (BLEND)",
+   "heightM": 0.84,
+   "cardHeightM": 0.87,
+   "cardWidthM": 0.56,
+   "cardBelowGroundM": 0.02,
+   "spreadM": 0.51,
+   "spreadMinM": 0.51,
+   "capElevationM": 0.85,
+   "capMaterial": "*41",
+   "capColor": [
+    0.749,
+    0.427,
+    0.247,
+    0.61
+   ],
+   "capTris": 62,
+   "planSymbol": "Компонент#315",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": false,
+    "tris": 2043,
+    "fill": 0.62,
+    "materials": [
+     "Liatris (BLEND -> BLEND)"
+    ]
+   },
+   "cardImage": {
+    "image": 78,
+    "px": [
+     529,
+     704
+    ],
+    "bytes": 438540,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 1.89
+   },
+   "position": [
+    47.936,
+    2.261,
+    -159.728
+   ],
+   "positionSU": [
+    47.94,
+    159.73,
+    2.26
+   ]
+  },
+  {
+   "node": 320,
+   "name": "Yellow Sunflower Bush",
+   "definition": "Yellow Sunflower Bush",
+   "category": "perennial",
+   "capCategory": "perennial",
+   "shelf": {
+    "plateNode": 95,
+    "label": "ЦВЕТНИК МНОГОЛЕТ",
+    "labelIsCopy": false,
+    "holds": "perennial"
+   },
+   "categoryConflict": null,
+   "latin": "Gaillardia × grandiflora",
+   "latinConfidence": "medium",
+   "note": "named \"Yellow Sunflower Bush\" but the card shows Gaillardia",
+   "heightM": 0.46,
+   "cardHeightM": 0.46,
+   "cardWidthM": 0.64,
+   "cardBelowGroundM": 0,
+   "spreadM": 0.46,
+   "spreadMinM": 0.46,
+   "capElevationM": 0.5,
+   "capMaterial": "*41",
+   "capColor": [
+    0.749,
+    0.427,
+    0.247,
+    0.61
+   ],
+   "capTris": 62,
+   "planSymbol": "Компонент#315",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 1653,
+    "fill": 0.66,
+    "materials": [
+     "Image23 (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 71,
+    "px": [
+     1073,
+     770
+    ],
+    "bytes": 1275728,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 4.2
+   },
+   "position": [
+    48.936,
+    2.261,
+    -159.728
+   ],
+   "positionSU": [
+    48.94,
+    159.73,
+    2.26
+   ]
+  },
+  {
+   "node": 624,
+   "name": "Component#134",
+   "definition": "Component#134",
+   "category": "cactus",
+   "capCategory": null,
+   "shelf": {
+    "plateNode": 610,
+    "label": "ЦВЕТНИК МНОГОЛЕТ",
+    "labelIsCopy": true,
+    "holds": "cactus"
+   },
+   "categoryConflict": null,
+   "latin": "Cactaceae (Carnegiea / Opuntia / Cereus / Echinocactus atlas)",
+   "latinConfidence": "low",
+   "note": "card crops one cactus from a 4-6-cactus atlas image; not hardy in Rostov",
+   "heightM": 3.39,
+   "cardHeightM": 3.39,
+   "cardWidthM": 1.15,
+   "cardBelowGroundM": 0,
+   "spreadM": null,
+   "spreadMinM": null,
+   "capElevationM": null,
+   "capMaterial": null,
+   "capColor": null,
+   "capTris": null,
+   "planSymbol": null,
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 2,
+    "fill": 1,
+    "materials": [
+     "Cactus01 (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 144,
+    "px": [
+     1279,
+     800
+    ],
+    "bytes": 981324,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 5.2
+   },
+   "position": [
+    39.988,
+    2.223,
+    -143.33
+   ],
+   "positionSU": [
+    39.99,
+    143.33,
+    2.22
+   ]
+  },
+  {
+   "node": 640,
+   "name": "Component#125",
+   "definition": "Component#125",
+   "category": "cactus",
+   "capCategory": "perennial",
+   "shelf": {
+    "plateNode": 610,
+    "label": "ЦВЕТНИК МНОГОЛЕТ",
+    "labelIsCopy": true,
+    "holds": "cactus"
+   },
+   "categoryConflict": "cap says perennial, shelf holds cactus; stray perennial cap (Компонент#142) on a cactus card",
+   "latin": "Cactaceae (Carnegiea / Opuntia / Cereus / Echinocactus atlas)",
+   "latinConfidence": "low",
+   "note": "card crops one cactus from a 4-6-cactus atlas image; not hardy in Rostov",
+   "heightM": 0.64,
+   "cardHeightM": 0.65,
+   "cardWidthM": 0.9,
+   "cardBelowGroundM": 0.02,
+   "spreadM": 0.84,
+   "spreadMinM": 0.84,
+   "capElevationM": 0.59,
+   "capMaterial": "*41",
+   "capColor": [
+    0.749,
+    0.427,
+    0.247,
+    0.61
+   ],
+   "capTris": 62,
+   "planSymbol": "Компонент#142",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 2,
+    "fill": 1,
+    "materials": [
+     "Cactus4 (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 147,
+    "px": [
+     1500,
+     938
+    ],
+    "bytes": 1069336,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 7.16
+   },
+   "position": [
+    17.936,
+    2.261,
+    -143.291
+   ],
+   "positionSU": [
+    17.94,
+    143.29,
+    2.26
+   ]
+  },
+  {
+   "node": 662,
+   "name": "Компонент#225",
+   "definition": "Компонент#225",
+   "category": "cactus",
+   "capCategory": null,
+   "shelf": {
+    "plateNode": 610,
+    "label": "ЦВЕТНИК МНОГОЛЕТ",
+    "labelIsCopy": true,
+    "holds": "cactus"
+   },
+   "categoryConflict": null,
+   "latin": "Cactaceae (Carnegiea / Opuntia / Cereus / Echinocactus atlas)",
+   "latinConfidence": "low",
+   "note": "card crops one cactus from a 4-6-cactus atlas image; not hardy in Rostov",
+   "heightM": 1.07,
+   "cardHeightM": 1.08,
+   "cardWidthM": 1.17,
+   "cardBelowGroundM": 0.01,
+   "spreadM": null,
+   "spreadMinM": null,
+   "capElevationM": null,
+   "capMaterial": null,
+   "capColor": null,
+   "capTris": null,
+   "planSymbol": null,
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 533,
+    "fill": 0.83,
+    "materials": [
+     "Cactus4 (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 147,
+    "px": [
+     1500,
+     938
+    ],
+    "bytes": 1069336,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 7.16
+   },
+   "position": [
+    19.936,
+    2.261,
+    -143.291
+   ],
+   "positionSU": [
+    19.94,
+    143.29,
+    2.26
+   ]
+  },
+  {
+   "node": 628,
+   "name": "Component#132",
+   "definition": "Component#132",
+   "category": "cactus",
+   "capCategory": null,
+   "shelf": {
+    "plateNode": 610,
+    "label": "ЦВЕТНИК МНОГОЛЕТ",
+    "labelIsCopy": true,
+    "holds": "cactus"
+   },
+   "categoryConflict": null,
+   "latin": "Cactaceae (Carnegiea / Opuntia / Cereus / Echinocactus atlas)",
+   "latinConfidence": "low",
+   "note": "card crops one cactus from a 4-6-cactus atlas image; not hardy in Rostov",
+   "heightM": 2.96,
+   "cardHeightM": 2.96,
+   "cardWidthM": 1.72,
+   "cardBelowGroundM": 0,
+   "spreadM": null,
+   "spreadMinM": null,
+   "capElevationM": null,
+   "capMaterial": null,
+   "capColor": null,
+   "capTris": null,
+   "planSymbol": null,
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 380,
+    "fill": 0.99,
+    "materials": [
+     "Cactus 02 (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 145,
+    "px": [
+     3000,
+     1800
+    ],
+    "bytes": 3888904,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 27.47
+   },
+   "position": [
+    21.936,
+    2.261,
+    -143.291
+   ],
+   "positionSU": [
+    21.94,
+    143.29,
+    2.26
+   ]
+  },
+  {
+   "node": 622,
+   "name": "Component#135",
+   "definition": "Component#135",
+   "category": "cactus",
+   "capCategory": null,
+   "shelf": {
+    "plateNode": 610,
+    "label": "ЦВЕТНИК МНОГОЛЕТ",
+    "labelIsCopy": true,
+    "holds": "cactus"
+   },
+   "categoryConflict": null,
+   "latin": "Cactaceae (Carnegiea / Opuntia / Cereus / Echinocactus atlas)",
+   "latinConfidence": "low",
+   "note": "card crops one cactus from a 4-6-cactus atlas image; not hardy in Rostov",
+   "heightM": 3.1,
+   "cardHeightM": 3.1,
+   "cardWidthM": 2.05,
+   "cardBelowGroundM": 0,
+   "spreadM": null,
+   "spreadMinM": null,
+   "capElevationM": null,
+   "capMaterial": null,
+   "capColor": null,
+   "capTris": null,
+   "planSymbol": null,
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 2,
+    "fill": 1,
+    "materials": [
+     "Cactus01 (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 144,
+    "px": [
+     1279,
+     800
+    ],
+    "bytes": 981324,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 5.2
+   },
+   "position": [
+    23.936,
+    2.261,
+    -143.291
+   ],
+   "positionSU": [
+    23.94,
+    143.29,
+    2.26
+   ]
+  },
+  {
+   "node": 634,
+   "name": "Component#129",
+   "definition": "Component#129",
+   "category": "cactus",
+   "capCategory": null,
+   "shelf": {
+    "plateNode": 610,
+    "label": "ЦВЕТНИК МНОГОЛЕТ",
+    "labelIsCopy": true,
+    "holds": "cactus"
+   },
+   "categoryConflict": null,
+   "latin": "Cactaceae (Carnegiea / Opuntia / Cereus / Echinocactus atlas)",
+   "latinConfidence": "low",
+   "note": "card crops one cactus from a 4-6-cactus atlas image; not hardy in Rostov",
+   "heightM": 3.41,
+   "cardHeightM": 3.41,
+   "cardWidthM": 1.15,
+   "cardBelowGroundM": 0,
+   "spreadM": null,
+   "spreadMinM": null,
+   "capElevationM": null,
+   "capMaterial": null,
+   "capColor": null,
+   "capTris": null,
+   "planSymbol": null,
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 2,
+    "fill": 1,
+    "materials": [
+     "Cactus3 (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 146,
+    "px": [
+     1500,
+     938
+    ],
+    "bytes": 1213220,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 7.16
+   },
+   "position": [
+    25.936,
+    2.261,
+    -143.291
+   ],
+   "positionSU": [
+    25.94,
+    143.29,
+    2.26
+   ]
+  },
+  {
+   "node": 638,
+   "name": "Component#126",
+   "definition": "Component#126",
+   "category": "cactus",
+   "capCategory": null,
+   "shelf": {
+    "plateNode": 610,
+    "label": "ЦВЕТНИК МНОГОЛЕТ",
+    "labelIsCopy": true,
+    "holds": "cactus"
+   },
+   "categoryConflict": null,
+   "latin": "Cactaceae (Carnegiea / Opuntia / Cereus / Echinocactus atlas)",
+   "latinConfidence": "low",
+   "note": "card crops one cactus from a 4-6-cactus atlas image; not hardy in Rostov",
+   "heightM": 3.2,
+   "cardHeightM": 3.2,
+   "cardWidthM": 1.45,
+   "cardBelowGroundM": 0,
+   "spreadM": null,
+   "spreadMinM": null,
+   "capElevationM": null,
+   "capMaterial": null,
+   "capColor": null,
+   "capTris": null,
+   "planSymbol": null,
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 2,
+    "fill": 1,
+    "materials": [
+     "Cactus3 (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 146,
+    "px": [
+     1500,
+     938
+    ],
+    "bytes": 1213220,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 7.16
+   },
+   "position": [
+    27.936,
+    2.261,
+    -143.291
+   ],
+   "positionSU": [
+    27.94,
+    143.29,
+    2.26
+   ]
+  },
+  {
+   "node": 644,
+   "name": "Component#124",
+   "definition": "Component#124",
+   "category": "cactus",
+   "capCategory": null,
+   "shelf": {
+    "plateNode": 610,
+    "label": "ЦВЕТНИК МНОГОЛЕТ",
+    "labelIsCopy": true,
+    "holds": "cactus"
+   },
+   "categoryConflict": null,
+   "latin": "Cactaceae (Carnegiea / Opuntia / Cereus / Echinocactus atlas)",
+   "latinConfidence": "low",
+   "note": "card crops one cactus from a 4-6-cactus atlas image; not hardy in Rostov",
+   "heightM": 3.04,
+   "cardHeightM": 3.04,
+   "cardWidthM": 1.52,
+   "cardBelowGroundM": 0,
+   "spreadM": null,
+   "spreadMinM": null,
+   "capElevationM": null,
+   "capMaterial": null,
+   "capColor": null,
+   "capTris": null,
+   "planSymbol": null,
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 2,
+    "fill": 1,
+    "materials": [
+     "Cactus4 (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 147,
+    "px": [
+     1500,
+     938
+    ],
+    "bytes": 1069336,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 7.16
+   },
+   "position": [
+    29.936,
+    2.261,
+    -143.291
+   ],
+   "positionSU": [
+    29.94,
+    143.29,
+    2.26
+   ]
+  },
+  {
+   "node": 636,
+   "name": "Component#128",
+   "definition": "Component#128",
+   "category": "cactus",
+   "capCategory": null,
+   "shelf": {
+    "plateNode": 610,
+    "label": "ЦВЕТНИК МНОГОЛЕТ",
+    "labelIsCopy": true,
+    "holds": "cactus"
+   },
+   "categoryConflict": null,
+   "latin": "Cactaceae (Carnegiea / Opuntia / Cereus / Echinocactus atlas)",
+   "latinConfidence": "low",
+   "note": "card crops one cactus from a 4-6-cactus atlas image; not hardy in Rostov",
+   "heightM": 3.4,
+   "cardHeightM": 3.4,
+   "cardWidthM": 1.4,
+   "cardBelowGroundM": 0,
+   "spreadM": null,
+   "spreadMinM": null,
+   "capElevationM": null,
+   "capMaterial": null,
+   "capColor": null,
+   "capTris": null,
+   "planSymbol": null,
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 2,
+    "fill": 1,
+    "materials": [
+     "Cactus3 (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 146,
+    "px": [
+     1500,
+     938
+    ],
+    "bytes": 1213220,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 7.16
+   },
+   "position": [
+    31.936,
+    2.261,
+    -143.291
+   ],
+   "positionSU": [
+    31.94,
+    143.29,
+    2.26
+   ]
+  },
+  {
+   "node": 632,
+   "name": "Component#130",
+   "definition": "Component#130",
+   "category": "cactus",
+   "capCategory": null,
+   "shelf": {
+    "plateNode": 610,
+    "label": "ЦВЕТНИК МНОГОЛЕТ",
+    "labelIsCopy": true,
+    "holds": "cactus"
+   },
+   "categoryConflict": null,
+   "latin": "Cactaceae (Carnegiea / Opuntia / Cereus / Echinocactus atlas)",
+   "latinConfidence": "low",
+   "note": "card crops one cactus from a 4-6-cactus atlas image; not hardy in Rostov",
+   "heightM": 2.95,
+   "cardHeightM": 2.95,
+   "cardWidthM": 1.08,
+   "cardBelowGroundM": 0,
+   "spreadM": null,
+   "spreadMinM": null,
+   "capElevationM": null,
+   "capMaterial": null,
+   "capColor": null,
+   "capTris": null,
+   "planSymbol": null,
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 2,
+    "fill": 1,
+    "materials": [
+     "Cactus 02 (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 145,
+    "px": [
+     3000,
+     1800
+    ],
+    "bytes": 3888904,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 27.47
+   },
+   "position": [
+    33.936,
+    2.261,
+    -143.291
+   ],
+   "positionSU": [
+    33.94,
+    143.29,
+    2.26
+   ]
+  },
+  {
+   "node": 630,
+   "name": "Component#131",
+   "definition": "Component#131",
+   "category": "cactus",
+   "capCategory": null,
+   "shelf": {
+    "plateNode": 610,
+    "label": "ЦВЕТНИК МНОГОЛЕТ",
+    "labelIsCopy": true,
+    "holds": "cactus"
+   },
+   "categoryConflict": null,
+   "latin": "Cactaceae (Carnegiea / Opuntia / Cereus / Echinocactus atlas)",
+   "latinConfidence": "low",
+   "note": "card crops one cactus from a 4-6-cactus atlas image; not hardy in Rostov",
+   "heightM": 3.31,
+   "cardHeightM": 3.31,
+   "cardWidthM": 1.08,
+   "cardBelowGroundM": 0,
+   "spreadM": null,
+   "spreadMinM": null,
+   "capElevationM": null,
+   "capMaterial": null,
+   "capColor": null,
+   "capTris": null,
+   "planSymbol": null,
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 2,
+    "fill": 1,
+    "materials": [
+     "Cactus 02 (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 145,
+    "px": [
+     3000,
+     1800
+    ],
+    "bytes": 3888904,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 27.47
+   },
+   "position": [
+    35.936,
+    2.261,
+    -143.291
+   ],
+   "positionSU": [
+    35.94,
+    143.29,
+    2.26
+   ]
+  },
+  {
+   "node": 626,
+   "name": "Component#133",
+   "definition": "Component#133",
+   "category": "cactus",
+   "capCategory": null,
+   "shelf": {
+    "plateNode": 610,
+    "label": "ЦВЕТНИК МНОГОЛЕТ",
+    "labelIsCopy": true,
+    "holds": "cactus"
+   },
+   "categoryConflict": null,
+   "latin": "Cactaceae (Carnegiea / Opuntia / Cereus / Echinocactus atlas)",
+   "latinConfidence": "low",
+   "note": "card crops one cactus from a 4-6-cactus atlas image; not hardy in Rostov",
+   "heightM": 3.44,
+   "cardHeightM": 3.44,
+   "cardWidthM": 1.65,
+   "cardBelowGroundM": 0,
+   "spreadM": null,
+   "spreadMinM": null,
+   "capElevationM": null,
+   "capMaterial": null,
+   "capColor": null,
+   "capTris": null,
+   "planSymbol": null,
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 2,
+    "fill": 1,
+    "materials": [
+     "Cactus 02 (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 145,
+    "px": [
+     3000,
+     1800
+    ],
+    "bytes": 3888904,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 27.47
+   },
+   "position": [
+    37.936,
+    2.261,
+    -143.291
+   ],
+   "positionSU": [
+    37.94,
+    143.29,
+    2.26
+   ]
+  },
+  {
+   "node": 646,
+   "name": "Component#123",
+   "definition": "Component#123",
+   "category": "cactus",
+   "capCategory": null,
+   "shelf": {
+    "plateNode": 610,
+    "label": "ЦВЕТНИК МНОГОЛЕТ",
+    "labelIsCopy": true,
+    "holds": "cactus"
+   },
+   "categoryConflict": null,
+   "latin": "Cactaceae (Carnegiea / Opuntia / Cereus / Echinocactus atlas)",
+   "latinConfidence": "low",
+   "note": "card crops one cactus from a 4-6-cactus atlas image; not hardy in Rostov",
+   "heightM": 3.31,
+   "cardHeightM": 3.31,
+   "cardWidthM": 1.02,
+   "cardBelowGroundM": 0,
+   "spreadM": null,
+   "spreadMinM": null,
+   "capElevationM": null,
+   "capMaterial": null,
+   "capColor": null,
+   "capTris": null,
+   "planSymbol": null,
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 2,
+    "fill": 1,
+    "materials": [
+     "Cactus4 (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 147,
+    "px": [
+     1500,
+     938
+    ],
+    "bytes": 1069336,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 7.16
+   },
+   "position": [
+    41.936,
+    2.261,
+    -143.29
+   ],
+   "positionSU": [
+    41.94,
+    143.29,
+    2.26
+   ]
+  },
+  {
+   "node": 618,
+   "name": "Component#137",
+   "definition": "Component#137",
+   "category": "cactus",
+   "capCategory": null,
+   "shelf": {
+    "plateNode": 610,
+    "label": "ЦВЕТНИК МНОГОЛЕТ",
+    "labelIsCopy": true,
+    "holds": "cactus"
+   },
+   "categoryConflict": null,
+   "latin": "Cactaceae (Carnegiea / Opuntia / Cereus / Echinocactus atlas)",
+   "latinConfidence": "low",
+   "note": "card crops one cactus from a 4-6-cactus atlas image; not hardy in Rostov",
+   "heightM": 3.7,
+   "cardHeightM": 3.7,
+   "cardWidthM": 1.29,
+   "cardBelowGroundM": 0,
+   "spreadM": null,
+   "spreadMinM": null,
+   "capElevationM": null,
+   "capMaterial": null,
+   "capColor": null,
+   "capTris": null,
+   "planSymbol": null,
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 2,
+    "fill": 1,
+    "materials": [
+     "Cactus01 (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 144,
+    "px": [
+     1279,
+     800
+    ],
+    "bytes": 981324,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 5.2
+   },
+   "position": [
+    43.936,
+    2.261,
+    -143.291
+   ],
+   "positionSU": [
+    43.94,
+    143.29,
+    2.26
+   ]
+  },
+  {
+   "node": 620,
+   "name": "Component#136",
+   "definition": "Component#136",
+   "category": "cactus",
+   "capCategory": null,
+   "shelf": {
+    "plateNode": 610,
+    "label": "ЦВЕТНИК МНОГОЛЕТ",
+    "labelIsCopy": true,
+    "holds": "cactus"
+   },
+   "categoryConflict": null,
+   "latin": "Cactaceae (Carnegiea / Opuntia / Cereus / Echinocactus atlas)",
+   "latinConfidence": "low",
+   "note": "card crops one cactus from a 4-6-cactus atlas image; not hardy in Rostov",
+   "heightM": 3.07,
+   "cardHeightM": 3.07,
+   "cardWidthM": 1.23,
+   "cardBelowGroundM": 0,
+   "spreadM": null,
+   "spreadMinM": null,
+   "capElevationM": null,
+   "capMaterial": null,
+   "capColor": null,
+   "capTris": null,
+   "planSymbol": null,
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 2,
+    "fill": 1,
+    "materials": [
+     "Cactus01 (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 144,
+    "px": [
+     1279,
+     800
+    ],
+    "bytes": 981324,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 5.2
+   },
+   "position": [
+    45.936,
+    2.261,
+    -143.291
+   ],
+   "positionSU": [
+    45.94,
+    143.29,
+    2.26
+   ]
+  },
+  {
+   "node": 582,
+   "name": "Bromelia Hijau Lurik",
+   "definition": "Bromelia Hijau Lurik",
+   "category": "exotic",
+   "capCategory": null,
+   "shelf": {
+    "plateNode": 614,
+    "label": "ЦВЕТНИК МНОГОЛЕТ",
+    "labelIsCopy": true,
+    "holds": "exotic"
+   },
+   "categoryConflict": null,
+   "latin": "Vriesea sp. (bromeliad)",
+   "latinConfidence": "low",
+   "note": "tropical houseplant",
+   "heightM": 0.57,
+   "cardHeightM": 0.86,
+   "cardWidthM": 1.16,
+   "cardBelowGroundM": 0.29,
+   "spreadM": null,
+   "spreadMinM": null,
+   "capElevationM": null,
+   "capMaterial": null,
+   "capColor": null,
+   "capTris": null,
+   "planSymbol": null,
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 1686,
+    "fill": 0.57,
+    "materials": [
+     "Bromelia Hijau Lurik (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 133,
+    "px": [
+     640,
+     480
+    ],
+    "bytes": 761268,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 1.56
+   },
+   "position": [
+    23.936,
+    2.261,
+    -126.854
+   ],
+   "positionSU": [
+    23.94,
+    126.85,
+    2.26
+   ]
+  },
+  {
+   "node": 580,
+   "name": "Component#9",
+   "definition": "Component#9",
+   "category": "exotic",
+   "capCategory": null,
+   "shelf": {
+    "plateNode": 614,
+    "label": "ЦВЕТНИК МНОГОЛЕТ",
+    "labelIsCopy": true,
+    "holds": "exotic"
+   },
+   "categoryConflict": null,
+   "latin": "Agave americana",
+   "latinConfidence": "high",
+   "note": "unnamed; texture \"agave cutout final\"",
+   "heightM": 1.04,
+   "cardHeightM": 1.04,
+   "cardWidthM": 1.31,
+   "cardBelowGroundM": 0,
+   "spreadM": null,
+   "spreadMinM": null,
+   "capElevationM": null,
+   "capMaterial": null,
+   "capColor": null,
+   "capTris": null,
+   "planSymbol": null,
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 44,
+    "fill": 0.77,
+    "materials": [
+     "agave cutout final (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 132,
+    "px": [
+     664,
+     525
+    ],
+    "bytes": 383120,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 1.77
+   },
+   "position": [
+    25.936,
+    2.261,
+    -126.854
+   ],
+   "positionSU": [
+    25.94,
+    126.85,
+    2.26
+   ]
+  },
+  {
+   "node": 648,
+   "name": "Component#146",
+   "definition": "Component#146",
+   "category": "exotic",
+   "capCategory": null,
+   "shelf": {
+    "plateNode": 614,
+    "label": "ЦВЕТНИК МНОГОЛЕТ",
+    "labelIsCopy": true,
+    "holds": "exotic"
+   },
+   "categoryConflict": null,
+   "latin": "Nephrolepis exaltata",
+   "latinConfidence": "low",
+   "note": "unnamed fern (only fern in the library), BLEND card",
+   "heightM": 0.83,
+   "cardHeightM": 1.18,
+   "cardWidthM": 1.62,
+   "cardBelowGroundM": 0.35,
+   "spreadM": null,
+   "spreadMinM": null,
+   "capElevationM": null,
+   "capMaterial": null,
+   "capColor": null,
+   "capTris": null,
+   "planSymbol": null,
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": false,
+    "tris": 152,
+    "fill": 0.69,
+    "materials": [
+     "*45 (BLEND -> BLEND)"
+    ]
+   },
+   "cardImage": {
+    "image": 148,
+    "px": [
+     591,
+     400
+    ],
+    "bytes": 366384,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 1.2
+   },
+   "position": [
+    27.872,
+    2.284,
+    -126.849
+   ],
+   "positionSU": [
+    27.87,
+    126.85,
+    2.28
+   ]
+  },
+  {
+   "node": 541,
+   "name": "Agave Hijau",
+   "definition": "Agave Hijau",
+   "category": "exotic",
+   "capCategory": null,
+   "shelf": {
+    "plateNode": 614,
+    "label": "ЦВЕТНИК МНОГОЛЕТ",
+    "labelIsCopy": true,
+    "holds": "exotic"
+   },
+   "categoryConflict": null,
+   "latin": "Yucca / Cordyline sp.",
+   "latinConfidence": "low",
+   "note": "named \"Agave Hijau\" (Indonesian \"green agave\") but the card shows a trunked sword-leaf rosette",
+   "heightM": 2.22,
+   "cardHeightM": 2.25,
+   "cardWidthM": 1.94,
+   "cardBelowGroundM": 0.03,
+   "spreadM": null,
+   "spreadMinM": null,
+   "capElevationM": null,
+   "capMaterial": null,
+   "capColor": null,
+   "capTris": null,
+   "planSymbol": null,
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 2,
+    "fill": 1,
+    "materials": [
+     "Material-616 (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 99,
+    "px": [
+     992,
+     1152
+    ],
+    "bytes": 814736,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 5.81
+   },
+   "position": [
+    15.928,
+    2.293,
+    -126.845
+   ],
+   "positionSU": [
+    15.93,
+    126.84,
+    2.29
+   ]
+  },
+  {
+   "node": 543,
+   "name": "Cica Revoluta",
+   "definition": "Cica Revoluta",
+   "category": "exotic",
+   "capCategory": null,
+   "shelf": {
+    "plateNode": 614,
+    "label": "ЦВЕТНИК МНОГОЛЕТ",
+    "labelIsCopy": true,
+    "holds": "exotic"
+   },
+   "categoryConflict": null,
+   "latin": "Cycas revoluta",
+   "latinConfidence": "high",
+   "note": "3D: 28 leaf textures; not hardy in Rostov",
+   "heightM": 1.58,
+   "cardHeightM": 1.58,
+   "cardWidthM": 2.56,
+   "cardBelowGroundM": 0,
+   "spreadM": null,
+   "spreadMinM": null,
+   "capElevationM": null,
+   "capMaterial": null,
+   "capColor": null,
+   "capTris": null,
+   "planSymbol": null,
+   "card": {
+    "kind": "multi-plane/3d",
+    "billboardInEngine": false,
+    "tris": 162,
+    "fill": 1.59,
+    "materials": [
+     "s-Cycad-01 (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "images": [
+     100,
+     101,
+     102,
+     103,
+     104,
+     105,
+     106,
+     107,
+     108,
+     109,
+     110,
+     111,
+     112,
+     113,
+     114,
+     115,
+     116,
+     117,
+     118,
+     119,
+     120,
+     121,
+     122,
+     123,
+     124,
+     125,
+     126,
+     127
+    ],
+    "px": null,
+    "bytes": 5496236,
+    "gpuMB": 13.87
+   },
+   "position": [
+    18.435,
+    2.226,
+    -125.739
+   ],
+   "positionSU": [
+    18.44,
+    125.74,
+    2.23
+   ]
+  },
+  {
+   "node": 572,
+   "name": "Komponent#3",
+   "definition": "Komponent#3",
+   "category": "topiary",
+   "capCategory": null,
+   "shelf": {
+    "plateNode": 650,
+    "label": "ЦВЕТНИК МНОГОЛЕТ",
+    "labelIsCopy": true,
+    "holds": "topiary"
+   },
+   "categoryConflict": null,
+   "latin": "Buxus sempervirens (ball)",
+   "latinConfidence": "high",
+   "note": "unnamed; texture \"bukszpan\"",
+   "heightM": 0.69,
+   "cardHeightM": 0.69,
+   "cardWidthM": 0.78,
+   "cardBelowGroundM": 0,
+   "spreadM": null,
+   "spreadMinM": null,
+   "capElevationM": null,
+   "capMaterial": null,
+   "capColor": null,
+   "capTris": null,
+   "planSymbol": null,
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 2765,
+    "fill": 0.71,
+    "materials": [
+     "bukszpan copy (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 128,
+    "px": [
+     564,
+     474
+    ],
+    "bytes": 307032,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 1.36
+   },
+   "position": [
+    23.882,
+    2.238,
+    -110.444
+   ],
+   "positionSU": [
+    23.88,
+    110.44,
+    2.24
+   ]
+  },
+  {
+   "node": 594,
+   "name": "туя-шар-на-низк-штамбе",
+   "definition": "туя-шар-на-низк-штамбе",
+   "category": "topiary",
+   "capCategory": null,
+   "shelf": {
+    "plateNode": 650,
+    "label": "ЦВЕТНИК МНОГОЛЕТ",
+    "labelIsCopy": true,
+    "holds": "topiary"
+   },
+   "categoryConflict": null,
+   "latin": "Thuja occidentalis 'Danica' on a low standard",
+   "latinConfidence": "medium",
+   "note": null,
+   "heightM": 1.7,
+   "cardHeightM": 1.7,
+   "cardWidthM": 1.46,
+   "cardBelowGroundM": 0,
+   "spreadM": null,
+   "spreadMinM": null,
+   "capElevationM": null,
+   "capMaterial": null,
+   "capColor": null,
+   "capTris": null,
+   "planSymbol": null,
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 79,
+    "fill": 0.63,
+    "materials": [
+     "туя-шар-на-низк-штамбе (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 137,
+    "px": [
+     366,
+     425
+    ],
+    "bytes": 287376,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 0.79
+   },
+   "position": [
+    15.936,
+    2.261,
+    -110.417
+   ],
+   "positionSU": [
+    15.94,
+    110.42,
+    2.26
+   ]
+  },
+  {
+   "node": 598,
+   "name": "Component#6",
+   "definition": "Component#6",
+   "category": "topiary",
+   "capCategory": null,
+   "shelf": {
+    "plateNode": 650,
+    "label": "ЦВЕТНИК МНОГОЛЕТ",
+    "labelIsCopy": true,
+    "holds": "topiary"
+   },
+   "categoryConflict": null,
+   "latin": "Buxus sempervirens (ball)",
+   "latinConfidence": "high",
+   "note": "unnamed; texture \"Boxwood8\"",
+   "heightM": 1.03,
+   "cardHeightM": 1.05,
+   "cardWidthM": 1.21,
+   "cardBelowGroundM": 0.02,
+   "spreadM": null,
+   "spreadMinM": null,
+   "capElevationM": null,
+   "capMaterial": null,
+   "capColor": null,
+   "capTris": null,
+   "planSymbol": null,
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 254,
+    "fill": 0.78,
+    "materials": [
+     "Boxwood8 (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 139,
+    "px": [
+     1024,
+     880
+    ],
+    "bytes": 1796780,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 4.58
+   },
+   "hiddenParts": [
+    "1t no material"
+   ],
+   "position": [
+    17.936,
+    2.261,
+    -110.417
+   ],
+   "positionSU": [
+    17.94,
+    110.42,
+    2.26
+   ]
+  },
+  {
+   "node": 592,
+   "name": "Component#5",
+   "definition": "Component#5",
+   "category": "topiary",
+   "capCategory": null,
+   "shelf": {
+    "plateNode": 650,
+    "label": "ЦВЕТНИК МНОГОЛЕТ",
+    "labelIsCopy": true,
+    "holds": "topiary"
+   },
+   "categoryConflict": null,
+   "latin": "Buxus sempervirens (cloud ball)",
+   "latinConfidence": "medium",
+   "note": "unnamed; texture \"Buxus\"",
+   "heightM": 0.94,
+   "cardHeightM": 0.98,
+   "cardWidthM": 1.27,
+   "cardBelowGroundM": 0.04,
+   "spreadM": null,
+   "spreadMinM": null,
+   "capElevationM": null,
+   "capMaterial": null,
+   "capColor": null,
+   "capTris": null,
+   "planSymbol": null,
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 3578,
+    "fill": 0.73,
+    "materials": [
+     "Buxus (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 136,
+    "px": [
+     1174,
+     915
+    ],
+    "bytes": 2176048,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 5.46
+   },
+   "position": [
+    19.936,
+    2.261,
+    -110.417
+   ],
+   "positionSU": [
+    19.94,
+    110.42,
+    2.26
+   ]
+  },
+  {
+   "node": 576,
+   "name": "Buxus 'Green Gem'",
+   "definition": "Buxus 'Green Gem'",
+   "category": "topiary",
+   "capCategory": null,
+   "shelf": {
+    "plateNode": 650,
+    "label": "ЦВЕТНИК МНОГОЛЕТ",
+    "labelIsCopy": true,
+    "holds": "topiary"
+   },
+   "categoryConflict": null,
+   "latin": "Buxus 'Green Gem'",
+   "latinConfidence": "high",
+   "note": null,
+   "heightM": 0.57,
+   "cardHeightM": 0.59,
+   "cardWidthM": 0.82,
+   "cardBelowGroundM": 0.02,
+   "spreadM": null,
+   "spreadMinM": null,
+   "capElevationM": null,
+   "capMaterial": null,
+   "capColor": null,
+   "capTris": null,
+   "planSymbol": null,
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 149,
+    "fill": 0.75,
+    "materials": [
+     "boxwood (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 130,
+    "px": [
+     1024,
+     768
+    ],
+    "bytes": 1882728,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 4
+   },
+   "position": [
+    25.936,
+    2.261,
+    -110.417
+   ],
+   "positionSU": [
+    25.94,
+    110.42,
+    2.26
+   ]
+  },
+  {
+   "node": 587,
+   "name": "buxus",
+   "definition": "buxus",
+   "category": "topiary",
+   "capCategory": null,
+   "shelf": {
+    "plateNode": 650,
+    "label": "ЦВЕТНИК МНОГОЛЕТ",
+    "labelIsCopy": true,
+    "holds": "topiary"
+   },
+   "categoryConflict": null,
+   "latin": "Buxus sempervirens (clipped block)",
+   "latinConfidence": "high",
+   "note": "3D textured solid, not a card",
+   "heightM": 0.58,
+   "cardHeightM": 0.58,
+   "cardWidthM": 0.69,
+   "cardBelowGroundM": 0,
+   "spreadM": null,
+   "spreadMinM": null,
+   "capElevationM": null,
+   "capMaterial": null,
+   "capColor": null,
+   "capTris": null,
+   "planSymbol": null,
+   "card": {
+    "kind": "multi-plane/3d",
+    "billboardInEngine": false,
+    "tris": 1998,
+    "fill": 3.03,
+    "materials": [
+     "buxus1 (MASK -> OPAQUE)"
+    ]
+   },
+   "cardImage": {
+    "image": 135,
+    "px": [
+     2697,
+     2109
+    ],
+    "bytes": 1049016,
+    "mime": "image/jpeg",
+    "alphaChannel": false,
+    "gpuMB": 28.93
+   },
+   "hiddenParts": [
+    "46t no material"
+   ],
+   "position": [
+    25.132,
+    2.264,
+    -109.32
+   ],
+   "positionSU": [
+    25.13,
+    109.32,
+    2.26
+   ]
+  },
+  {
+   "node": 658,
+   "name": "Компонент#224",
+   "definition": "Компонент#224",
+   "category": "tree-columnar",
+   "capCategory": null,
+   "shelf": {
+    "plateNode": 654,
+    "label": "ЦВЕТНИК МНОГОЛЕТ",
+    "labelIsCopy": true,
+    "holds": "tree-columnar"
+   },
+   "categoryConflict": null,
+   "latin": "Juniperus communis 'Compressa'",
+   "latinConfidence": "high",
+   "note": "modelled 4.5 m; the cultivar stays under 1 m",
+   "heightM": 4.54,
+   "cardHeightM": 4.54,
+   "cardWidthM": 1.32,
+   "cardBelowGroundM": 0.01,
+   "spreadM": null,
+   "spreadMinM": null,
+   "capElevationM": null,
+   "capMaterial": null,
+   "capColor": null,
+   "capTris": null,
+   "planSymbol": null,
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 32,
+    "fill": 0.75,
+    "materials": [
+     "Juniperus communis Compressa (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 149,
+    "px": [
+     1000,
+     1000
+    ],
+    "bytes": 562860,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 5.09
+   },
+   "position": [
+    15.936,
+    2.261,
+    -93.98
+   ],
+   "positionSU": [
+    15.94,
+    93.98,
+    2.26
+   ]
+  },
+  {
+   "node": 605,
+   "name": "Component#51",
+   "definition": "Component#51",
+   "category": "tree-columnar",
+   "capCategory": null,
+   "shelf": {
+    "plateNode": 654,
+    "label": "ЦВЕТНИК МНОГОЛЕТ",
+    "labelIsCopy": true,
+    "holds": "tree-columnar"
+   },
+   "categoryConflict": null,
+   "latin": "Thuja occidentalis 'Smaragd'",
+   "latinConfidence": "high",
+   "note": "unnamed; texture \"emerald green arb\"",
+   "heightM": 4.95,
+   "cardHeightM": 4.95,
+   "cardWidthM": 2.32,
+   "cardBelowGroundM": 0,
+   "spreadM": null,
+   "spreadMinM": null,
+   "capElevationM": null,
+   "capMaterial": null,
+   "capColor": null,
+   "capTris": null,
+   "planSymbol": null,
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 107,
+    "fill": 0.73,
+    "materials": [
+     "emerald green arb (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 142,
+    "px": [
+     402,
+     600
+    ],
+    "bytes": 632732,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 1.23
+   },
+   "position": [
+    19.936,
+    2.261,
+    -93.98
+   ],
+   "positionSU": [
+    19.94,
+    93.98,
+    2.26
+   ]
+  },
+  {
+   "node": 603,
+   "name": "Component#139",
+   "definition": "Component#139",
+   "category": "tree-columnar",
+   "capCategory": null,
+   "shelf": {
+    "plateNode": 654,
+    "label": "ЦВЕТНИК МНОГОЛЕТ",
+    "labelIsCopy": true,
+    "holds": "tree-columnar"
+   },
+   "categoryConflict": null,
+   "latin": "Thuja occidentalis 'Brabant'",
+   "latinConfidence": "low",
+   "note": "unnamed columnar conifer; texture \"T1_032_Conifer\"",
+   "heightM": 6.78,
+   "cardHeightM": 6.82,
+   "cardWidthM": 2.41,
+   "cardBelowGroundM": 0.04,
+   "spreadM": null,
+   "spreadMinM": null,
+   "capElevationM": null,
+   "capMaterial": null,
+   "capColor": null,
+   "capTris": null,
+   "planSymbol": null,
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 4335,
+    "fill": 0.63,
+    "materials": [
+     "T1_032_âqâo_Conifer (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 141,
+    "px": [
+     1500,
+     3496
+    ],
+    "bytes": 6267932,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 26.67
+   },
+   "position": [
+    23.936,
+    2.261,
+    -93.98
+   ],
+   "positionSU": [
+    23.94,
+    93.98,
+    2.26
+   ]
+  },
+  {
+   "node": 601,
+   "name": "Quercus robur_fastigiata",
+   "definition": "Quercus robur_fastigiata",
+   "category": "tree-columnar",
+   "capCategory": null,
+   "shelf": {
+    "plateNode": 654,
+    "label": "ЦВЕТНИК МНОГОЛЕТ",
+    "labelIsCopy": true,
+    "holds": "tree-columnar"
+   },
+   "categoryConflict": null,
+   "latin": "Quercus robur 'Fastigiata'",
+   "latinConfidence": "high",
+   "note": null,
+   "heightM": 6.95,
+   "cardHeightM": 6.95,
+   "cardWidthM": 2.71,
+   "cardBelowGroundM": 0,
+   "spreadM": null,
+   "spreadMinM": null,
+   "capElevationM": null,
+   "capMaterial": null,
+   "capColor": null,
+   "capTris": null,
+   "planSymbol": null,
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 1789,
+    "fill": 0.56,
+    "materials": [
+     "quercus-saeuleneiche_flx141853f5e75467590 (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 140,
+    "px": [
+     900,
+     1200
+    ],
+    "bytes": 1099436,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 5.49
+   },
+   "position": [
+    27.936,
+    2.261,
+    -93.98
+   ],
+   "positionSU": [
+    27.94,
+    93.98,
+    2.26
+   ]
+  },
+  {
+   "node": 596,
+   "name": "Компонент#217",
+   "definition": "Компонент#217",
+   "category": "tree-columnar",
+   "capCategory": null,
+   "shelf": {
+    "plateNode": 654,
+    "label": "ЦВЕТНИК МНОГОЛЕТ",
+    "labelIsCopy": true,
+    "holds": "tree-columnar"
+   },
+   "categoryConflict": null,
+   "latin": "Taxus × media 'Stefania'",
+   "latinConfidence": "high",
+   "note": "unnamed; texture name; JPEG photo with logo",
+   "heightM": 2.53,
+   "cardHeightM": 2.53,
+   "cardWidthM": 1.36,
+   "cardBelowGroundM": 0,
+   "spreadM": null,
+   "spreadMinM": null,
+   "capElevationM": null,
+   "capMaterial": null,
+   "capColor": null,
+   "capTris": null,
+   "planSymbol": null,
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": false,
+    "tris": 2157,
+    "fill": 0.78,
+    "materials": [
+     "Taxus x media 'Stefania' (MASK -> OPAQUE)"
+    ]
+   },
+   "cardImage": {
+    "image": 138,
+    "px": [
+     578,
+     750
+    ],
+    "bytes": 141432,
+    "mime": "image/jpeg",
+    "alphaChannel": false,
+    "gpuMB": 2.2
+   },
+   "position": [
+    31.936,
+    2.261,
+    -93.98
+   ],
+   "positionSU": [
+    31.94,
+    93.98,
+    2.26
+   ]
+  },
+  {
+   "node": 607,
+   "name": "Component#52",
+   "definition": "Component#52",
+   "category": "tree-columnar",
+   "capCategory": null,
+   "shelf": {
+    "plateNode": 654,
+    "label": "ЦВЕТНИК МНОГОЛЕТ",
+    "labelIsCopy": true,
+    "holds": "tree-columnar"
+   },
+   "categoryConflict": null,
+   "latin": "Picea glauca 'Conica'",
+   "latinConfidence": "high",
+   "note": "unnamed; texture \"DwarfAlbertaSpruce\"",
+   "heightM": 2.24,
+   "cardHeightM": 2.31,
+   "cardWidthM": 1.52,
+   "cardBelowGroundM": 0.07,
+   "spreadM": null,
+   "spreadMinM": null,
+   "capElevationM": null,
+   "capMaterial": null,
+   "capColor": null,
+   "capTris": null,
+   "planSymbol": null,
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 4224,
+    "fill": 0.66,
+    "materials": [
+     "DwarfAlbertaSpruce (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 143,
+    "px": [
+     838,
+     1271
+    ],
+    "bytes": 2029940,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 5.42
+   },
+   "hiddenParts": [
+    "6t no material"
+   ],
+   "position": [
+    35.936,
+    2.261,
+    -93.98
+   ],
+   "positionSU": [
+    35.94,
+    93.98,
+    2.26
+   ]
+  },
+  {
+   "node": 44,
+   "name": "Lime Glow Juniper",
+   "definition": "Lime Glow Juniper",
+   "category": "shrub-conifer",
+   "capCategory": "shrub-conifer",
+   "shelf": {
+    "plateNode": 186,
+    "label": "ЦВЕТНИК. КУСТАРН",
+    "labelIsCopy": false,
+    "holds": "shrub-conifer"
+   },
+   "categoryConflict": null,
+   "latin": "Juniperus horizontalis 'Lime Glow'",
+   "latinConfidence": "high",
+   "note": null,
+   "heightM": 1.06,
+   "cardHeightM": 1.15,
+   "cardWidthM": 1.8,
+   "cardBelowGroundM": 0.08,
+   "spreadM": 1.5,
+   "spreadMinM": 1.5,
+   "capElevationM": 1.06,
+   "capMaterial": "*54",
+   "capColor": [
+    0.255,
+    0.298,
+    0.098,
+    0.61
+   ],
+   "capTris": 62,
+   "planSymbol": "Компонент#314",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 453,
+    "fill": 0.62,
+    "materials": [
+     "Lime Glow Juniper (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 23,
+    "px": [
+     528,
+     351
+    ],
+    "bytes": 248208,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 0.94
+   },
+   "position": [
+    15.936,
+    2.261,
+    -72.733
+   ],
+   "positionSU": [
+    15.94,
+    72.73,
+    2.26
+   ]
+  },
+  {
+   "node": 160,
+   "name": "хвойник подушка заланый",
+   "definition": "хвойник подушка заланый",
+   "category": "shrub-conifer",
+   "capCategory": "shrub-conifer",
+   "shelf": {
+    "plateNode": 186,
+    "label": "ЦВЕТНИК. КУСТАРН",
+    "labelIsCopy": false,
+    "holds": "shrub-conifer"
+   },
+   "categoryConflict": null,
+   "latin": "Cryptomeria japonica (dwarf, e.g. 'Globosa Nana')",
+   "latinConfidence": "medium",
+   "note": "texture \"7CRYJAP0\"; name has a typo (заланый = зелёный); marginal hardiness in Rostov",
+   "heightM": 0.89,
+   "cardHeightM": 0.89,
+   "cardWidthM": 1.13,
+   "cardBelowGroundM": 0,
+   "spreadM": 1.1,
+   "spreadMinM": 1.1,
+   "capElevationM": 0.88,
+   "capMaterial": "*54",
+   "capColor": [
+    0.255,
+    0.298,
+    0.098,
+    0.61
+   ],
+   "capTris": 62,
+   "planSymbol": "Компонент#314",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 1145,
+    "fill": 0.82,
+    "materials": [
+     "7CRYJAP0 (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 45,
+    "px": [
+     994,
+     780
+    ],
+    "bytes": 1367032,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 3.94
+   },
+   "hiddenParts": [
+    "6t no material"
+   ],
+   "position": [
+    17.936,
+    2.261,
+    -72.733
+   ],
+   "positionSU": [
+    17.94,
+    72.73,
+    2.26
+   ]
+  },
+  {
+   "node": 248,
+   "name": "Picea glauca 'Alberta Globe'#1",
+   "definition": "Picea glauca 'Alberta Globe'#1",
+   "category": "shrub-conifer",
+   "capCategory": "shrub-conifer",
+   "shelf": {
+    "plateNode": 186,
+    "label": "ЦВЕТНИК. КУСТАРН",
+    "labelIsCopy": false,
+    "holds": "shrub-conifer"
+   },
+   "categoryConflict": null,
+   "latin": "Picea glauca 'Alberta Globe'",
+   "latinConfidence": "high",
+   "note": "JPEG photo card",
+   "heightM": 0.83,
+   "cardHeightM": 0.93,
+   "cardWidthM": 0.97,
+   "cardBelowGroundM": 0.1,
+   "spreadM": 0.88,
+   "spreadMinM": 0.88,
+   "capElevationM": 0.83,
+   "capMaterial": "*54",
+   "capColor": [
+    0.255,
+    0.298,
+    0.098,
+    0.61
+   ],
+   "capTris": 62,
+   "planSymbol": "Компонент#314",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": false,
+    "tris": 2214,
+    "fill": 0.66,
+    "materials": [
+     "Picea glauca 'Alberta Globe' (MASK -> OPAQUE)"
+    ]
+   },
+   "cardImage": {
+    "image": 59,
+    "px": [
+     640,
+     853
+    ],
+    "bytes": 168608,
+    "mime": "image/jpeg",
+    "alphaChannel": false,
+    "gpuMB": 2.78
+   },
+   "position": [
+    21.936,
+    2.261,
+    -72.733
+   ],
+   "positionSU": [
+    21.94,
+    72.73,
+    2.26
+   ]
+  },
+  {
+   "node": 200,
+   "name": "Yareena TM Hanging",
+   "definition": "Yareena TM Hanging",
+   "category": "shrub-conifer",
+   "capCategory": "shrub-conifer",
+   "shelf": {
+    "plateNode": 186,
+    "label": "ЦВЕТНИК. КУСТАРН",
+    "labelIsCopy": false,
+    "holds": "shrub-conifer"
+   },
+   "categoryConflict": null,
+   "latin": "Myoporum parvifolium 'Yareena'™",
+   "latinConfidence": "medium",
+   "note": "Ozbreed groundcover on the conifer shelf/cap; not hardy in Rostov",
+   "heightM": 0.47,
+   "cardHeightM": 0.87,
+   "cardWidthM": 2.16,
+   "cardBelowGroundM": 0.39,
+   "spreadM": 2.02,
+   "spreadMinM": 2.02,
+   "capElevationM": 0.46,
+   "capMaterial": "*54",
+   "capColor": [
+    0.255,
+    0.298,
+    0.098,
+    0.61
+   ],
+   "capTris": 62,
+   "planSymbol": "Компонент#314",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 1364,
+    "fill": 0.48,
+    "materials": [
+     "Yareena TM Hanging over rock (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 50,
+    "px": [
+     800,
+     321
+    ],
+    "bytes": 431280,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 1.31
+   },
+   "position": [
+    23.936,
+    2.261,
+    -72.733
+   ],
+   "positionSU": [
+    23.94,
+    72.73,
+    2.26
+   ]
+  },
+  {
+   "node": 80,
+   "name": "Low Horizon TM",
+   "definition": "Low Horizon TM",
+   "category": "shrub-conifer",
+   "capCategory": "shrub-conifer",
+   "shelf": {
+    "plateNode": 186,
+    "label": "ЦВЕТНИК. КУСТАРН",
+    "labelIsCopy": false,
+    "holds": "shrub-conifer"
+   },
+   "categoryConflict": null,
+   "latin": "Westringia fruticosa 'WES06' Low Horizon™",
+   "latinConfidence": "medium",
+   "note": "broadleaf shrub filed on the conifer shelf with the conifer cap; not hardy in Rostov",
+   "heightM": 0.39,
+   "cardHeightM": 0.49,
+   "cardWidthM": 1.23,
+   "cardBelowGroundM": 0.1,
+   "spreadM": 1.12,
+   "spreadMinM": 1.12,
+   "capElevationM": 0.41,
+   "capMaterial": "*54",
+   "capColor": [
+    0.255,
+    0.298,
+    0.098,
+    0.61
+   ],
+   "capTris": 62,
+   "planSymbol": "Компонент#314",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 1085,
+    "fill": 0.63,
+    "materials": [
+     "Low Horizon TM - Low Res (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 31,
+    "px": [
+     700,
+     281
+    ],
+    "bytes": 396712,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 1
+   },
+   "position": [
+    25.936,
+    2.261,
+    -72.733
+   ],
+   "positionSU": [
+    25.94,
+    72.73,
+    2.26
+   ]
+  },
+  {
+   "node": 150,
+   "name": "Компонент#206",
+   "definition": "Компонент#206",
+   "category": "shrub-conifer",
+   "capCategory": "shrub-conifer",
+   "shelf": {
+    "plateNode": 186,
+    "label": "ЦВЕТНИК. КУСТАРН",
+    "labelIsCopy": false,
+    "holds": "shrub-conifer"
+   },
+   "categoryConflict": null,
+   "latin": "Juniperus sabina 'Mas'",
+   "latinConfidence": "high",
+   "note": "unnamed; JPEG photo with background; own cap Компонент#320",
+   "heightM": 0.28,
+   "cardHeightM": 0.55,
+   "cardWidthM": 1.84,
+   "cardBelowGroundM": 0.27,
+   "spreadM": 1.75,
+   "spreadMinM": 1.75,
+   "capElevationM": 0.11,
+   "capMaterial": "*54",
+   "capColor": [
+    0.255,
+    0.298,
+    0.098,
+    0.61
+   ],
+   "capTris": 62,
+   "planSymbol": "Компонент#320",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": false,
+    "tris": 714,
+    "fill": 0.74,
+    "materials": [
+     "Juniperus sabina 'Mas' (MASK -> OPAQUE)"
+    ]
+   },
+   "cardImage": {
+    "image": 43,
+    "px": [
+     640,
+     480
+    ],
+    "bytes": 109944,
+    "mime": "image/jpeg",
+    "alphaChannel": false,
+    "gpuMB": 1.56
+   },
+   "position": [
+    19.937,
+    2.47,
+    -71.917
+   ],
+   "positionSU": [
+    19.94,
+    71.92,
+    2.47
+   ]
+  },
+  {
+   "node": 285,
+   "name": "Euonymus fortunei 'Emerald Gaiety' ",
+   "definition": "Euonymus fortunei 'Emerald Gaiety' ",
+   "category": "shrub-deciduous",
+   "capCategory": "shrub-deciduous",
+   "shelf": {
+    "plateNode": 229,
+    "label": "ЦВЕТНИК. КУСТАРН",
+    "labelIsCopy": false,
+    "holds": "shrub-deciduous"
+   },
+   "categoryConflict": null,
+   "latin": "Euonymus fortunei 'Emerald Gaiety'",
+   "latinConfidence": "high",
+   "note": "PNG without alpha channel = opaque photo rectangle",
+   "heightM": 1.06,
+   "cardHeightM": 1.09,
+   "cardWidthM": 1.74,
+   "cardBelowGroundM": 0.03,
+   "spreadM": 1.52,
+   "spreadMinM": 1.52,
+   "capElevationM": 1.07,
+   "capMaterial": "*44",
+   "capColor": [
+    0.518,
+    0.69,
+    0.227,
+    0.61
+   ],
+   "capTris": 62,
+   "planSymbol": "Компонент#321",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": false,
+    "tris": 1206,
+    "fill": 0.66,
+    "materials": [
+     "Euonymus fortunei 'Emerald Gaiety' (MASK -> OPAQUE)"
+    ]
+   },
+   "cardImage": {
+    "image": 67,
+    "px": [
+     600,
+     400
+    ],
+    "bytes": 565132,
+    "mime": "image/png",
+    "alphaChannel": false,
+    "gpuMB": 1.22
+   },
+   "hiddenParts": [
+    "1t no material"
+   ],
+   "position": [
+    15.936,
+    2.261,
+    -56.296
+   ],
+   "positionSU": [
+    15.94,
+    56.3,
+    2.26
+   ]
+  },
+  {
+   "node": 52,
+   "name": "Corylus avellana 'Contorta'",
+   "definition": "Corylus avellana 'Contorta'",
+   "category": "shrub-deciduous",
+   "capCategory": "shrub-deciduous",
+   "shelf": {
+    "plateNode": 229,
+    "label": "ЦВЕТНИК. КУСТАРН",
+    "labelIsCopy": false,
+    "holds": "shrub-deciduous"
+   },
+   "categoryConflict": null,
+   "latin": "Corylus avellana 'Contorta'",
+   "latinConfidence": "high",
+   "note": "card is an opaque JPEG photo with background",
+   "heightM": 1.12,
+   "cardHeightM": 1.3,
+   "cardWidthM": 1.65,
+   "cardBelowGroundM": 0.17,
+   "spreadM": 1.52,
+   "spreadMinM": 1.52,
+   "capElevationM": 1.12,
+   "capMaterial": "*44",
+   "capColor": [
+    0.518,
+    0.69,
+    0.227,
+    0.61
+   ],
+   "capTris": 62,
+   "planSymbol": "Компонент#321",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": false,
+    "tris": 1540,
+    "fill": 0.64,
+    "materials": [
+     "Corylus avellana 'Contorta' (MASK -> OPAQUE)"
+    ]
+   },
+   "cardImage": {
+    "image": 25,
+    "px": [
+     780,
+     519
+    ],
+    "bytes": 109136,
+    "mime": "image/jpeg",
+    "alphaChannel": false,
+    "gpuMB": 2.06
+   },
+   "position": [
+    17.936,
+    2.261,
+    -56.296
+   ],
+   "positionSU": [
+    17.94,
+    56.3,
+    2.26
+   ]
+  },
+  {
+   "node": 146,
+   "name": "Ozbreed Aussie Box (R) Circle",
+   "definition": "Ozbreed Aussie Box (R) Circle",
+   "category": "shrub-deciduous",
+   "capCategory": "shrub-deciduous",
+   "shelf": {
+    "plateNode": 229,
+    "label": "ЦВЕТНИК. КУСТАРН",
+    "labelIsCopy": false,
+    "holds": "shrub-deciduous"
+   },
+   "categoryConflict": null,
+   "latin": "Westringia hyb. 'WES08' Aussie Box®",
+   "latinConfidence": "high",
+   "note": "Ozbreed; not hardy in Rostov",
+   "heightM": 0.71,
+   "cardHeightM": 0.78,
+   "cardWidthM": 0.95,
+   "cardBelowGroundM": 0.07,
+   "spreadM": 0.93,
+   "spreadMinM": 0.93,
+   "capElevationM": 0.71,
+   "capMaterial": "*44",
+   "capColor": [
+    0.518,
+    0.69,
+    0.227,
+    0.61
+   ],
+   "capTris": 62,
+   "planSymbol": "Компонент#321",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 1196,
+    "fill": 0.7,
+    "materials": [
+     "Ozbreed AUSSIE BOX® Circle (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 42,
+    "px": [
+     500,
+     412
+    ],
+    "bytes": 426552,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 1.05
+   },
+   "position": [
+    19.936,
+    2.261,
+    -56.296
+   ],
+   "positionSU": [
+    19.94,
+    56.3,
+    2.26
+   ]
+  },
+  {
+   "node": 48,
+   "name": "Naringa TM Round Hedge",
+   "definition": "Naringa TM Round Hedge",
+   "category": "shrub-deciduous",
+   "capCategory": "shrub-deciduous",
+   "shelf": {
+    "plateNode": 229,
+    "label": "ЦВЕТНИК. КУСТАРН",
+    "labelIsCopy": false,
+    "holds": "shrub-deciduous"
+   },
+   "categoryConflict": null,
+   "latin": "Westringia hyb. 'WES01' Naringa™ (clipped ball)",
+   "latinConfidence": "medium",
+   "note": "Ozbreed (Australia), USDA 9-11: not hardy in Rostov",
+   "heightM": 0.73,
+   "cardHeightM": 0.77,
+   "cardWidthM": 1.02,
+   "cardBelowGroundM": 0.05,
+   "spreadM": 1,
+   "spreadMinM": 1,
+   "capElevationM": 0.78,
+   "capMaterial": "*44",
+   "capColor": [
+    0.518,
+    0.69,
+    0.227,
+    0.61
+   ],
+   "capTris": 62,
+   "planSymbol": "Компонент#321",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 919,
+    "fill": 0.72,
+    "materials": [
+     "Naringa TM Round Hedge (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 24,
+    "px": [
+     450,
+     340
+    ],
+    "bytes": 348884,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 0.78
+   },
+   "position": [
+    21.936,
+    2.261,
+    -56.296
+   ],
+   "positionSU": [
+    21.94,
+    56.3,
+    2.26
+   ]
+  },
+  {
+   "node": 61,
+   "name": "Purple Fusion TM",
+   "definition": "Purple Fusion TM",
+   "category": "shrub-deciduous",
+   "capCategory": "shrub-deciduous",
+   "shelf": {
+    "plateNode": 229,
+    "label": "ЦВЕТНИК. КУСТАРН",
+    "labelIsCopy": false,
+    "holds": "shrub-deciduous"
+   },
+   "categoryConflict": null,
+   "latin": "Scaevola 'Purple Fusion'™",
+   "latinConfidence": "medium",
+   "note": "Ozbreed groundcover, not hardy in Rostov",
+   "heightM": 0.58,
+   "cardHeightM": 0.72,
+   "cardWidthM": 1.5,
+   "cardBelowGroundM": 0.14,
+   "spreadM": 1.52,
+   "spreadMinM": 1.52,
+   "capElevationM": 0.62,
+   "capMaterial": "*44",
+   "capColor": [
+    0.518,
+    0.69,
+    0.227,
+    0.61
+   ],
+   "capTris": 62,
+   "planSymbol": "Компонент#321",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 1099,
+    "fill": 0.68,
+    "materials": [
+     "Purple Fusion TM (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 27,
+    "px": [
+     794,
+     254
+    ],
+    "bytes": 453576,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 1.03
+   },
+   "position": [
+    23.936,
+    2.261,
+    -56.296
+   ],
+   "positionSU": [
+    23.94,
+    56.3,
+    2.26
+   ]
+  },
+  {
+   "node": 348,
+   "name": "Spiraea betulifolia#1",
+   "definition": "Spiraea betulifolia#1",
+   "category": "shrub-deciduous",
+   "capCategory": "shrub-deciduous",
+   "shelf": {
+    "plateNode": 229,
+    "label": "ЦВЕТНИК. КУСТАРН",
+    "labelIsCopy": false,
+    "holds": "shrub-deciduous"
+   },
+   "categoryConflict": null,
+   "latin": "Spiraea betulifolia 'Tor Gold' (Glow Girl®)",
+   "latinConfidence": "high",
+   "note": "texture \"Spiraea bet Glow Girl\"",
+   "heightM": 0.56,
+   "cardHeightM": 0.6,
+   "cardWidthM": 0.69,
+   "cardBelowGroundM": 0.04,
+   "spreadM": 0.76,
+   "spreadMinM": 0.76,
+   "capElevationM": 0.56,
+   "capMaterial": "*44",
+   "capColor": [
+    0.518,
+    0.69,
+    0.227,
+    0.61
+   ],
+   "capTris": 62,
+   "planSymbol": "Компонент#321",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 13,
+    "fill": 0.74,
+    "materials": [
+     "Spiraea bet Glow Girl_IMG_0686 (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 77,
+    "px": [
+     500,
+     750
+    ],
+    "bytes": 248120,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 1.91
+   },
+   "position": [
+    25.936,
+    2.261,
+    -56.296
+   ],
+   "positionSU": [
+    25.94,
+    56.3,
+    2.26
+   ]
+  },
+  {
+   "node": 277,
+   "name": "Lady's Mantle#1",
+   "definition": "Lady's Mantle#1",
+   "category": "shrub-deciduous",
+   "capCategory": "shrub-deciduous",
+   "shelf": {
+    "plateNode": 229,
+    "label": "ЦВЕТНИК. КУСТАРН",
+    "labelIsCopy": false,
+    "holds": "shrub-deciduous"
+   },
+   "categoryConflict": null,
+   "latin": "Alchemilla mollis",
+   "latinConfidence": "high",
+   "note": "second Alchemilla card on the shrub shelf",
+   "heightM": 0.43,
+   "cardHeightM": 0.56,
+   "cardWidthM": 0.81,
+   "cardBelowGroundM": 0.13,
+   "spreadM": 0.76,
+   "spreadMinM": 0.76,
+   "capElevationM": 0.43,
+   "capMaterial": "*44",
+   "capColor": [
+    0.518,
+    0.69,
+    0.227,
+    0.61
+   ],
+   "capTris": 62,
+   "planSymbol": "Компонент#321",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 76,
+    "fill": 0.71,
+    "materials": [
+     "Alchemilla mollis1 (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 66,
+    "px": [
+     490,
+     363
+    ],
+    "bytes": 501220,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 0.9
+   },
+   "position": [
+    27.936,
+    2.261,
+    -56.296
+   ],
+   "positionSU": [
+    27.94,
+    56.3,
+    2.26
+   ]
+  },
+  {
+   "node": 99,
+   "name": "Alchemilla molis#1",
+   "definition": "Alchemilla molis#1",
+   "category": "shrub-deciduous",
+   "capCategory": "shrub-deciduous",
+   "shelf": {
+    "plateNode": 229,
+    "label": "ЦВЕТНИК. КУСТАРН",
+    "labelIsCopy": false,
+    "holds": "shrub-deciduous"
+   },
+   "categoryConflict": null,
+   "latin": "Alchemilla mollis",
+   "latinConfidence": "high",
+   "note": "perennial filed on the shrub shelf with the shrub cap; JPEG 3872×2592 (51 MB GPU) for a 0.3 m plant",
+   "heightM": 0.29,
+   "cardHeightM": 0.29,
+   "cardWidthM": 0.41,
+   "cardBelowGroundM": 0,
+   "spreadM": 0.41,
+   "spreadMinM": 0.41,
+   "capElevationM": 0.29,
+   "capMaterial": "*44",
+   "capColor": [
+    0.518,
+    0.69,
+    0.227,
+    0.61
+   ],
+   "capTris": 62,
+   "planSymbol": "Компонент#321",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": false,
+    "tris": 7940,
+    "fill": 0.75,
+    "materials": [
+     "alchemilla (MASK -> OPAQUE)"
+    ]
+   },
+   "cardImage": {
+    "image": 34,
+    "px": [
+     3872,
+     2592
+    ],
+    "bytes": 995304,
+    "mime": "image/jpeg",
+    "alphaChannel": false,
+    "gpuMB": 51.05
+   },
+   "position": [
+    29.936,
+    2.261,
+    -56.296
+   ],
+   "positionSU": [
+    29.94,
+    56.3,
+    2.26
+   ]
+  },
+  {
+   "node": 256,
+   "name": "Dense Fence TM#1",
+   "definition": "Dense Fence TM#1",
+   "category": "shrub-deciduous",
+   "capCategory": "shrub-deciduous",
+   "shelf": {
+    "plateNode": 229,
+    "label": "ЦВЕТНИК. КУСТАРН",
+    "labelIsCopy": false,
+    "holds": "shrub-deciduous"
+   },
+   "categoryConflict": null,
+   "latin": "Viburnum 'Dense Fence'™",
+   "latinConfidence": "medium",
+   "note": "Ozbreed hedge shrub; modelled 0.21 m tall — scale wrong",
+   "heightM": 0.19,
+   "cardHeightM": 0.21,
+   "cardWidthM": 0.23,
+   "cardBelowGroundM": 0.02,
+   "spreadM": 0.2,
+   "spreadMinM": 0.2,
+   "capElevationM": 0.2,
+   "capMaterial": "*44",
+   "capColor": [
+    0.518,
+    0.69,
+    0.227,
+    0.61
+   ],
+   "capTris": 62,
+   "planSymbol": "Компонент#321",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 1751,
+    "fill": 0.69,
+    "materials": [
+     "Dense Fence TM (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 61,
+    "px": [
+     454,
+     420
+    ],
+    "bytes": 359924,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 0.97
+   },
+   "position": [
+    31.936,
+    2.261,
+    -56.296
+   ],
+   "positionSU": [
+    31.94,
+    56.3,
+    2.26
+   ]
+  },
+  {
+   "node": 260,
+   "name": "Компонент#205",
+   "definition": "Компонент#205",
+   "category": "shrub-deciduous",
+   "capCategory": "shrub-deciduous",
+   "shelf": {
+    "plateNode": 229,
+    "label": "ЦВЕТНИК. КУСТАРН",
+    "labelIsCopy": false,
+    "holds": "shrub-deciduous"
+   },
+   "categoryConflict": null,
+   "latin": "Cornus alba 'Bailhalo' (Ivory Halo®)",
+   "latinConfidence": "high",
+   "note": "unnamed; texture \"Ivory Halo Dogwood\"",
+   "heightM": 0.19,
+   "cardHeightM": 0.23,
+   "cardWidthM": 0.31,
+   "cardBelowGroundM": 0.04,
+   "spreadM": 0.27,
+   "spreadMinM": 0.27,
+   "capElevationM": 0.19,
+   "capMaterial": "*44",
+   "capColor": [
+    0.518,
+    0.69,
+    0.227,
+    0.61
+   ],
+   "capTris": 62,
+   "planSymbol": "Компонент#321",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 604,
+    "fill": 0.61,
+    "materials": [
+     "Ivory Halo Dogwood (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 62,
+    "px": [
+     736,
+     552
+    ],
+    "bytes": 1111864,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 2.07
+   },
+   "position": [
+    33.936,
+    2.261,
+    -56.296
+   ],
+   "positionSU": [
+    33.94,
+    56.3,
+    2.26
+   ]
+  },
+  {
+   "node": 269,
+   "name": "O So Fine TM",
+   "definition": "O So Fine TM",
+   "category": "shrub-deciduous",
+   "capCategory": "shrub-deciduous",
+   "shelf": {
+    "plateNode": 229,
+    "label": "ЦВЕТНИК. КУСТАРН",
+    "labelIsCopy": false,
+    "holds": "shrub-deciduous"
+   },
+   "categoryConflict": null,
+   "latin": "Gardenia jasminoides 'O So Fine'™",
+   "latinConfidence": "medium",
+   "note": "Ozbreed; not hardy in Rostov",
+   "heightM": 0.6,
+   "cardHeightM": 0.7,
+   "cardWidthM": 1.75,
+   "cardBelowGroundM": 0.1,
+   "spreadM": 1.69,
+   "spreadMinM": 1.69,
+   "capElevationM": 0.61,
+   "capMaterial": "*44",
+   "capColor": [
+    0.518,
+    0.69,
+    0.227,
+    0.61
+   ],
+   "capTris": 62,
+   "planSymbol": "Компонент#321",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 1558,
+    "fill": 0.67,
+    "materials": [
+     "O So Fine TM (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 64,
+    "px": [
+     650,
+     256
+    ],
+    "bytes": 348616,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 0.85
+   },
+   "position": [
+    35.936,
+    2.261,
+    -56.296
+   ],
+   "positionSU": [
+    35.94,
+    56.3,
+    2.26
+   ]
+  },
+  {
+   "node": 225,
+   "name": "Дерен белый#1",
+   "definition": "Дерен белый#1",
+   "category": "shrub-deciduous",
+   "capCategory": "shrub-deciduous",
+   "shelf": {
+    "plateNode": 229,
+    "label": "ЦВЕТНИК. КУСТАРН",
+    "labelIsCopy": false,
+    "holds": "shrub-deciduous"
+   },
+   "categoryConflict": null,
+   "latin": "Cornus alba 'Elegantissima'",
+   "latinConfidence": "high",
+   "note": "texture \"Дерен_белый_пестролистный\"",
+   "heightM": 0.67,
+   "cardHeightM": 0.67,
+   "cardWidthM": 1,
+   "cardBelowGroundM": 0,
+   "spreadM": 1.11,
+   "spreadMinM": 1.11,
+   "capElevationM": 0.68,
+   "capMaterial": "*44",
+   "capColor": [
+    0.518,
+    0.69,
+    0.227,
+    0.61
+   ],
+   "capTris": 62,
+   "planSymbol": "Компонент#321",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 230,
+    "fill": 0.8,
+    "materials": [
+     "Дерен_белый_пестролистный (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 54,
+    "px": [
+     1024,
+     702
+    ],
+    "bytes": 1819488,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 3.66
+   },
+   "position": [
+    37.936,
+    2.261,
+    -56.296
+   ],
+   "positionSU": [
+    37.94,
+    56.3,
+    2.26
+   ]
+  },
+  {
+   "node": 343,
+   "name": "Komponent#5",
+   "definition": "Komponent#5",
+   "category": "shrub-deciduous",
+   "capCategory": "shrub-deciduous",
+   "shelf": {
+    "plateNode": 229,
+    "label": "ЦВЕТНИК. КУСТАРН",
+    "labelIsCopy": false,
+    "holds": "shrub-deciduous"
+   },
+   "categoryConflict": null,
+   "latin": "Berberis thunbergii 'Golden Rocket'",
+   "latinConfidence": "low",
+   "note": "unnamed; columnar yellow-green shrub, texture \"3f62992f111a9748 copy\"",
+   "heightM": 0.85,
+   "cardHeightM": 0.85,
+   "cardWidthM": 0.56,
+   "cardBelowGroundM": 0,
+   "spreadM": 0.52,
+   "spreadMinM": 0.52,
+   "capElevationM": 0.82,
+   "capMaterial": "*44",
+   "capColor": [
+    0.518,
+    0.69,
+    0.227,
+    0.61
+   ],
+   "capTris": 62,
+   "planSymbol": "Компонент#321",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 6787,
+    "fill": 0.66,
+    "materials": [
+     "3f62992f111a9748 copy (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 76,
+    "px": [
+     800,
+     1000
+    ],
+    "bytes": 1267284,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 4.07
+   },
+   "hiddenParts": [
+    "1t no material"
+   ],
+   "position": [
+    39.936,
+    2.261,
+    -56.296
+   ],
+   "positionSU": [
+    39.94,
+    56.3,
+    2.26
+   ]
+  },
+  {
+   "node": 273,
+   "name": "SACCHA#1",
+   "definition": "SACCHA#1",
+   "category": "grass",
+   "capCategory": "grass",
+   "shelf": {
+    "plateNode": 367,
+    "label": "ЦВЕТНИК МНОГОЛЕТ",
+    "labelIsCopy": false,
+    "holds": "grass"
+   },
+   "categoryConflict": null,
+   "latin": "Saccharum ravennae (Erianthus ravennae)",
+   "latinConfidence": "medium",
+   "note": "name \"SACCHA\"; 2.75 m cane grass",
+   "heightM": 2.63,
+   "cardHeightM": 2.75,
+   "cardWidthM": 1.94,
+   "cardBelowGroundM": 0.12,
+   "spreadM": 1.8,
+   "spreadMinM": 1.8,
+   "capElevationM": 2.63,
+   "capMaterial": "*61",
+   "capColor": [
+    0.749,
+    0.722,
+    0.247,
+    0.61
+   ],
+   "capTris": 62,
+   "planSymbol": "Компонент#163",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 181,
+    "fill": 0.55,
+    "materials": [
+     "*75 (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 65,
+    "px": [
+     338,
+     500
+    ],
+    "bytes": 243428,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 0.86
+   },
+   "position": [
+    15.936,
+    2.261,
+    -39.859
+   ],
+   "positionSU": [
+    15.94,
+    39.86,
+    2.26
+   ]
+  },
+  {
+   "node": 265,
+   "name": "Stipa tenuifolia#1",
+   "definition": "Stipa tenuifolia#1",
+   "category": "grass",
+   "capCategory": "grass",
+   "shelf": {
+    "plateNode": 367,
+    "label": "ЦВЕТНИК МНОГОЛЕТ",
+    "labelIsCopy": false,
+    "holds": "grass"
+   },
+   "categoryConflict": null,
+   "latin": "Nassella tenuissima (Stipa tenuifolia)",
+   "latinConfidence": "high",
+   "note": null,
+   "heightM": 1.48,
+   "cardHeightM": 1.54,
+   "cardWidthM": 1.59,
+   "cardBelowGroundM": 0.06,
+   "spreadM": 1.48,
+   "spreadMinM": 1.48,
+   "capElevationM": 1.45,
+   "capMaterial": "*61",
+   "capColor": [
+    0.749,
+    0.722,
+    0.247,
+    0.61
+   ],
+   "capTris": 62,
+   "planSymbol": "Компонент#163",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 471,
+    "fill": 0.57,
+    "materials": [
+     "Stipa tenuifolia (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 63,
+    "px": [
+     1575,
+     1170
+    ],
+    "bytes": 3078340,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 9.37
+   },
+   "position": [
+    17.936,
+    2.261,
+    -39.859
+   ],
+   "positionSU": [
+    17.94,
+    39.86,
+    2.26
+   ]
+  },
+  {
+   "node": 231,
+   "name": "Komponent#1",
+   "definition": "Komponent#1",
+   "category": "grass",
+   "capCategory": "grass",
+   "shelf": {
+    "plateNode": 367,
+    "label": "ЦВЕТНИК МНОГОЛЕТ",
+    "labelIsCopy": false,
+    "holds": "grass"
+   },
+   "categoryConflict": null,
+   "latin": "Miscanthus sinensis",
+   "latinConfidence": "medium",
+   "note": "unnamed; texture \"miskant kopia\"",
+   "heightM": 1.24,
+   "cardHeightM": 1.36,
+   "cardWidthM": 1.17,
+   "cardBelowGroundM": 0.12,
+   "spreadM": 1.18,
+   "spreadMinM": 1.18,
+   "capElevationM": 1.25,
+   "capMaterial": "*61",
+   "capColor": [
+    0.749,
+    0.722,
+    0.247,
+    0.61
+   ],
+   "capTris": 62,
+   "planSymbol": "Компонент#163",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 2329,
+    "fill": 0.64,
+    "materials": [
+     "miskant kopia (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 55,
+    "px": [
+     1352,
+     1015
+    ],
+    "bytes": 1707352,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 6.98
+   },
+   "hiddenParts": [
+    "1t no material"
+   ],
+   "position": [
+    19.936,
+    2.261,
+    -39.859
+   ],
+   "positionSU": [
+    19.94,
+    39.86,
+    2.26
+   ]
+  },
+  {
+   "node": 240,
+   "name": "Nyalla (R)#1",
+   "definition": "Nyalla (R)#1",
+   "category": "grass",
+   "capCategory": "grass",
+   "shelf": {
+    "plateNode": 367,
+    "label": "ЦВЕТНИК МНОГОЛЕТ",
+    "labelIsCopy": false,
+    "holds": "grass"
+   },
+   "categoryConflict": null,
+   "latin": "Lomandra longifolia 'LM400' Nyalla®",
+   "latinConfidence": "medium",
+   "note": "Ozbreed; not reliably hardy in Rostov",
+   "heightM": 0.79,
+   "cardHeightM": 0.8,
+   "cardWidthM": 1.51,
+   "cardBelowGroundM": 0.01,
+   "spreadM": 1.41,
+   "spreadMinM": 1.41,
+   "capElevationM": 0.8,
+   "capMaterial": "*61",
+   "capColor": [
+    0.749,
+    0.722,
+    0.247,
+    0.61
+   ],
+   "capTris": 62,
+   "planSymbol": "Компонент#163",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 1116,
+    "fill": 0.65,
+    "materials": [
+     "Nyalla® (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 57,
+    "px": [
+     396,
+     208
+    ],
+    "bytes": 180716,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 0.42
+   },
+   "position": [
+    21.936,
+    2.261,
+    -39.859
+   ],
+   "positionSU": [
+    21.94,
+    39.86,
+    2.26
+   ]
+  },
+  {
+   "node": 369,
+   "name": "muhleb2#1",
+   "definition": "muhleb2#1",
+   "category": "grass",
+   "capCategory": "grass",
+   "shelf": {
+    "plateNode": 367,
+    "label": "ЦВЕТНИК МНОГОЛЕТ",
+    "labelIsCopy": false,
+    "holds": "grass"
+   },
+   "categoryConflict": null,
+   "latin": "Muhlenbergia capillaris",
+   "latinConfidence": "high",
+   "note": "BLEND card",
+   "heightM": 1.2,
+   "cardHeightM": 1.29,
+   "cardWidthM": 2.14,
+   "cardBelowGroundM": 0.09,
+   "spreadM": 2.19,
+   "spreadMinM": 2.19,
+   "capElevationM": 1.21,
+   "capMaterial": "*61",
+   "capColor": [
+    0.749,
+    0.722,
+    0.247,
+    0.61
+   ],
+   "capTris": 62,
+   "planSymbol": "Компонент#163",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": false,
+    "tris": 298,
+    "fill": 0.82,
+    "materials": [
+     "muhlenbergia2 (BLEND -> BLEND)"
+    ]
+   },
+   "cardImage": {
+    "image": 81,
+    "px": [
+     900,
+     741
+    ],
+    "bytes": 1548304,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 3.39
+   },
+   "position": [
+    23.936,
+    2.261,
+    -39.859
+   ],
+   "positionSU": [
+    23.94,
+    39.86,
+    2.26
+   ]
+  },
+  {
+   "node": 379,
+   "name": "Component#3",
+   "definition": "Component#3",
+   "category": "grass",
+   "capCategory": "grass",
+   "shelf": {
+    "plateNode": 367,
+    "label": "ЦВЕТНИК МНОГОЛЕТ",
+    "labelIsCopy": false,
+    "holds": "grass"
+   },
+   "categoryConflict": null,
+   "latin": "Muhlenbergia capillaris",
+   "latinConfidence": "high",
+   "note": "unnamed; texture \"Muhlenbergia capillaris\"",
+   "heightM": 1.09,
+   "cardHeightM": 1.19,
+   "cardWidthM": 1.65,
+   "cardBelowGroundM": 0.1,
+   "spreadM": 1.6,
+   "spreadMinM": 1.6,
+   "capElevationM": 1.07,
+   "capMaterial": "*61",
+   "capColor": [
+    0.749,
+    0.722,
+    0.247,
+    0.61
+   ],
+   "capTris": 62,
+   "planSymbol": "Компонент#163",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 2988,
+    "fill": 0.65,
+    "materials": [
+     "Muhlenbergia capillaris (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 82,
+    "px": [
+     917,
+     656
+    ],
+    "bytes": 1544668,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 3.06
+   },
+   "position": [
+    25.936,
+    2.261,
+    -39.859
+   ],
+   "positionSU": [
+    25.94,
+    39.86,
+    2.26
+   ]
+  },
+  {
+   "node": 119,
+   "name": "Dwarf Fountain Grass 'Hameln'#1",
+   "definition": "Dwarf Fountain Grass 'Hameln'#1",
+   "category": "grass",
+   "capCategory": "grass",
+   "shelf": {
+    "plateNode": 367,
+    "label": "ЦВЕТНИК МНОГОЛЕТ",
+    "labelIsCopy": false,
+    "holds": "grass"
+   },
+   "categoryConflict": null,
+   "latin": "Pennisetum alopecuroides 'Hameln'",
+   "latinConfidence": "high",
+   "note": null,
+   "heightM": 1.25,
+   "cardHeightM": 1.45,
+   "cardWidthM": 1.98,
+   "cardBelowGroundM": 0.2,
+   "spreadM": 1.6,
+   "spreadMinM": 1.6,
+   "capElevationM": 1.29,
+   "capMaterial": "*61",
+   "capColor": [
+    0.749,
+    0.722,
+    0.247,
+    0.61
+   ],
+   "capTris": 62,
+   "planSymbol": "Компонент#163",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 3084,
+    "fill": 0.56,
+    "materials": [
+     "Pennisitum 'Hameln Dwarf Fountain Grass'_LowRes (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 38,
+    "px": [
+     1000,
+     600
+    ],
+    "bytes": 1190016,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 3.05
+   },
+   "hiddenParts": [
+    "3t no material"
+   ],
+   "position": [
+    27.936,
+    2.261,
+    -39.859
+   ],
+   "positionSU": [
+    27.94,
+    39.86,
+    2.26
+   ]
+  },
+  {
+   "node": 236,
+   "name": "deschampsia#1",
+   "definition": "deschampsia#1",
+   "category": "grass",
+   "capCategory": "grass",
+   "shelf": {
+    "plateNode": 367,
+    "label": "ЦВЕТНИК МНОГОЛЕТ",
+    "labelIsCopy": false,
+    "holds": "grass"
+   },
+   "categoryConflict": null,
+   "latin": "Deschampsia cespitosa",
+   "latinConfidence": "high",
+   "note": null,
+   "heightM": 0.57,
+   "cardHeightM": 0.63,
+   "cardWidthM": 0.8,
+   "cardBelowGroundM": 0.06,
+   "spreadM": 0.71,
+   "spreadMinM": 0.71,
+   "capElevationM": 0.57,
+   "capMaterial": "*61",
+   "capColor": [
+    0.749,
+    0.722,
+    0.247,
+    0.61
+   ],
+   "capTris": 62,
+   "planSymbol": "Компонент#163",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 332,
+    "fill": 0.77,
+    "materials": [
+     "deschampsia (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 56,
+    "px": [
+     607,
+     476
+    ],
+    "bytes": 682140,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 1.47
+   },
+   "position": [
+    29.936,
+    2.261,
+    -39.859
+   ],
+   "positionSU": [
+    29.94,
+    39.86,
+    2.26
+   ]
+  },
+  {
+   "node": 128,
+   "name": "Revelation (R)#1",
+   "definition": "Revelation (R)#1",
+   "category": "grass",
+   "capCategory": "grass",
+   "shelf": {
+    "plateNode": 367,
+    "label": "ЦВЕТНИК МНОГОЛЕТ",
+    "labelIsCopy": false,
+    "holds": "grass"
+   },
+   "categoryConflict": null,
+   "latin": "Dianella 'Revelation'®",
+   "latinConfidence": "medium",
+   "note": "Ozbreed strap-leaf, not hardy in Rostov",
+   "heightM": 0.41,
+   "cardHeightM": 0.5,
+   "cardWidthM": 0.71,
+   "cardBelowGroundM": 0.09,
+   "spreadM": 0.48,
+   "spreadMinM": 0.48,
+   "capElevationM": 0.41,
+   "capMaterial": "*61",
+   "capColor": [
+    0.749,
+    0.722,
+    0.247,
+    0.61
+   ],
+   "capTris": 62,
+   "planSymbol": "Компонент#163",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 1421,
+    "fill": 0.41,
+    "materials": [
+     "Revelation® (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 40,
+    "px": [
+     500,
+     350
+    ],
+    "bytes": 249084,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 0.89
+   },
+   "position": [
+    31.936,
+    2.261,
+    -39.859
+   ],
+   "positionSU": [
+    31.94,
+    39.86,
+    2.26
+   ]
+  },
+  {
+   "node": 303,
+   "name": "little bunny fountain grass#1",
+   "definition": "little bunny fountain grass#1",
+   "category": "grass",
+   "capCategory": "grass",
+   "shelf": {
+    "plateNode": 367,
+    "label": "ЦВЕТНИК МНОГОЛЕТ",
+    "labelIsCopy": false,
+    "holds": "grass"
+   },
+   "categoryConflict": null,
+   "latin": "Pennisetum alopecuroides 'Little Bunny'",
+   "latinConfidence": "high",
+   "note": "photo with background",
+   "heightM": 0.71,
+   "cardHeightM": 0.73,
+   "cardWidthM": 0.99,
+   "cardBelowGroundM": 0.02,
+   "spreadM": 1.05,
+   "spreadMinM": 1.05,
+   "capElevationM": 0.71,
+   "capMaterial": "*61",
+   "capColor": [
+    0.749,
+    0.722,
+    0.247,
+    0.61
+   ],
+   "capTris": 62,
+   "planSymbol": "Компонент#163",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": false,
+    "tris": 652,
+    "fill": 0.46,
+    "materials": [
+     "grass-little bunny fountain (MASK -> OPAQUE)"
+    ]
+   },
+   "cardImage": {
+    "image": 68,
+    "px": [
+     250,
+     202
+    ],
+    "bytes": 138048,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 0.26
+   },
+   "position": [
+    33.936,
+    2.261,
+    -39.859
+   ],
+   "positionSU": [
+    33.94,
+    39.86,
+    2.26
+   ]
+  },
+  {
+   "node": 339,
+   "name": "Evergreen Baby TM #1",
+   "definition": "Evergreen Baby TM #1",
+   "category": "grass",
+   "capCategory": "grass",
+   "shelf": {
+    "plateNode": 367,
+    "label": "ЦВЕТНИК МНОГОЛЕТ",
+    "labelIsCopy": false,
+    "holds": "grass"
+   },
+   "categoryConflict": null,
+   "latin": "Lomandra labill. 'LM600' Evergreen Baby™",
+   "latinConfidence": "medium",
+   "note": "Ozbreed; not reliably hardy in Rostov",
+   "heightM": 0.27,
+   "cardHeightM": 0.46,
+   "cardWidthM": 0.51,
+   "cardBelowGroundM": 0.18,
+   "spreadM": 0.43,
+   "spreadMinM": 0.43,
+   "capElevationM": 0.28,
+   "capMaterial": "*61",
+   "capColor": [
+    0.749,
+    0.722,
+    0.247,
+    0.61
+   ],
+   "capTris": 62,
+   "planSymbol": "Компонент#163",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 9079,
+    "fill": 0.37,
+    "materials": [
+     "Evergreen Baby TM (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 75,
+    "px": [
+     280,
+     249
+    ],
+    "bytes": 123580,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 0.35
+   },
+   "position": [
+    35.936,
+    2.261,
+    -39.859
+   ],
+   "positionSU": [
+    35.94,
+    39.86,
+    2.26
+   ]
+  },
+  {
+   "node": 196,
+   "name": "Component#4",
+   "definition": "Component#4",
+   "category": "grass",
+   "capCategory": "grass",
+   "shelf": {
+    "plateNode": 367,
+    "label": "ЦВЕТНИК МНОГОЛЕТ",
+    "labelIsCopy": false,
+    "holds": "grass"
+   },
+   "categoryConflict": null,
+   "latin": "Festuca glauca",
+   "latinConfidence": "high",
+   "note": "unnamed; texture \"festuca glauca\" (JPEG with background)",
+   "heightM": 0.48,
+   "cardHeightM": 0.56,
+   "cardWidthM": 0.67,
+   "cardBelowGroundM": 0.08,
+   "spreadM": 0.59,
+   "spreadMinM": 0.59,
+   "capElevationM": 0.5,
+   "capMaterial": "*61",
+   "capColor": [
+    0.749,
+    0.722,
+    0.247,
+    0.61
+   ],
+   "capTris": 62,
+   "planSymbol": "Компонент#163",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": false,
+    "tris": 3613,
+    "fill": 0.55,
+    "materials": [
+     "festuca glauca (MASK -> OPAQUE)"
+    ]
+   },
+   "cardImage": {
+    "image": 49,
+    "px": [
+     1280,
+     892
+    ],
+    "bytes": 224772,
+    "mime": "image/jpeg",
+    "alphaChannel": false,
+    "gpuMB": 5.81
+   },
+   "position": [
+    37.936,
+    2.261,
+    -39.859
+   ],
+   "positionSU": [
+    37.94,
+    39.86,
+    2.26
+   ]
+  },
+  {
+   "node": 392,
+   "name": "Katie Belles TM",
+   "definition": "Katie Belles TM",
+   "category": "grass",
+   "capCategory": "grass",
+   "shelf": {
+    "plateNode": 367,
+    "label": "ЦВЕТНИК МНОГОЛЕТ",
+    "labelIsCopy": false,
+    "holds": "grass"
+   },
+   "categoryConflict": null,
+   "latin": "Lomandra hystrix 'Katie Belles'™",
+   "latinConfidence": "medium",
+   "note": "Ozbreed; not hardy in Rostov",
+   "heightM": 0.74,
+   "cardHeightM": 1.12,
+   "cardWidthM": 1.62,
+   "cardBelowGroundM": 0.38,
+   "spreadM": 1.19,
+   "spreadMinM": 1.19,
+   "capElevationM": 0.76,
+   "capMaterial": "*61",
+   "capColor": [
+    0.749,
+    0.722,
+    0.247,
+    0.61
+   ],
+   "capTris": 62,
+   "planSymbol": "Компонент#163",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 1578,
+    "fill": 0.57,
+    "materials": [
+     "Katie Belles TM (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 85,
+    "px": [
+     396,
+     275
+    ],
+    "bytes": 205108,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 0.55
+   },
+   "position": [
+    39.936,
+    2.261,
+    -39.859
+   ],
+   "positionSU": [
+    39.94,
+    39.86,
+    2.26
+   ]
+  },
+  {
+   "node": 406,
+   "name": "Miscanthus",
+   "definition": "Miscanthus",
+   "category": "grass",
+   "capCategory": "grass",
+   "shelf": {
+    "plateNode": 367,
+    "label": "ЦВЕТНИК МНОГОЛЕТ",
+    "labelIsCopy": false,
+    "holds": "grass"
+   },
+   "categoryConflict": null,
+   "latin": "Miscanthus sinensis 'Variegatus'",
+   "latinConfidence": "medium",
+   "note": null,
+   "heightM": 0.82,
+   "cardHeightM": 1.07,
+   "cardWidthM": 1.13,
+   "cardBelowGroundM": 0.26,
+   "spreadM": 1.01,
+   "spreadMinM": 1.01,
+   "capElevationM": 0.84,
+   "capMaterial": "*61",
+   "capColor": [
+    0.749,
+    0.722,
+    0.247,
+    0.61
+   ],
+   "capTris": 62,
+   "planSymbol": "Компонент#163",
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": true,
+    "tris": 53,
+    "fill": 0.81,
+    "materials": [
+     "miscanthus (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 88,
+    "px": [
+     329,
+     325
+    ],
+    "bytes": 223736,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 0.54
+   },
+   "position": [
+    41.936,
+    2.261,
+    -39.859
+   ],
+   "positionSU": [
+    41.94,
+    39.86,
+    2.26
+   ]
+  },
+  {
+   "node": 664,
+   "name": null,
+   "definition": null,
+   "category": "vine",
+   "capCategory": null,
+   "shelf": {
+    "plateNode": 325,
+    "label": null,
+    "labelIsCopy": false,
+    "holds": "vine"
+   },
+   "categoryConflict": null,
+   "latin": "Hedera helix (on a wall)",
+   "latinConfidence": "high",
+   "note": "unnamed node; texture *76",
+   "heightM": 3.01,
+   "cardHeightM": 3.01,
+   "cardWidthM": 3.28,
+   "cardBelowGroundM": 0,
+   "spreadM": null,
+   "spreadMinM": null,
+   "capElevationM": null,
+   "capMaterial": null,
+   "capColor": null,
+   "capTris": null,
+   "planSymbol": null,
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": false,
+    "tris": 777,
+    "fill": 0.49,
+    "materials": [
+     "*76 (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 150,
+    "px": [
+     1282,
+     1186
+    ],
+    "bytes": 2064112,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 7.73
+   },
+   "position": [
+    27.211,
+    2.261,
+    -23.585
+   ],
+   "positionSU": [
+    27.21,
+    23.59,
+    2.26
+   ]
+  },
+  {
+   "node": 144,
+   "name": "Component#47",
+   "definition": "Component#47",
+   "category": "vine",
+   "capCategory": null,
+   "shelf": {
+    "plateNode": 325,
+    "label": null,
+    "labelIsCopy": false,
+    "holds": "vine"
+   },
+   "categoryConflict": null,
+   "latin": null,
+   "latinConfidence": null,
+   "note": "unnamed hanging green curtain (texture \"vernonia\", BLEND); no cap",
+   "heightM": 2.29,
+   "cardHeightM": 2.29,
+   "cardWidthM": 3.97,
+   "cardBelowGroundM": 2.33,
+   "spreadM": null,
+   "spreadMinM": null,
+   "capElevationM": null,
+   "capMaterial": null,
+   "capColor": null,
+   "capTris": null,
+   "planSymbol": null,
+   "card": {
+    "kind": "multi-plane/3d",
+    "billboardInEngine": false,
+    "tris": 8,
+    "fill": 1.05,
+    "materials": [
+     "vernonia (BLEND -> BLEND)"
+    ]
+   },
+   "cardImage": {
+    "image": 41,
+    "px": [
+     500,
+     323
+    ],
+    "bytes": 433396,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 0.82
+   },
+   "position": [
+    19.93,
+    4.594,
+    -23.422
+   ],
+   "positionSU": [
+    19.93,
+    23.42,
+    4.59
+   ]
+  },
+  {
+   "node": 84,
+   "name": "ivy1",
+   "definition": "ivy1",
+   "category": "vine",
+   "capCategory": null,
+   "shelf": {
+    "plateNode": 325,
+    "label": null,
+    "labelIsCopy": false,
+    "holds": "vine"
+   },
+   "categoryConflict": null,
+   "latin": "Hedera helix",
+   "latinConfidence": "high",
+   "note": "trailing curtain card, no cap",
+   "heightM": 2.78,
+   "cardHeightM": 2.76,
+   "cardWidthM": 4.68,
+   "cardBelowGroundM": 0,
+   "spreadM": null,
+   "spreadMinM": null,
+   "capElevationM": null,
+   "capMaterial": null,
+   "capColor": null,
+   "capTris": null,
+   "planSymbol": null,
+   "card": {
+    "kind": "flat-card",
+    "billboardInEngine": false,
+    "tris": 684,
+    "fill": 0.57,
+    "materials": [
+     "Ivy0062_1_L (MASK -> MASK)"
+    ]
+   },
+   "cardImage": {
+    "image": 32,
+    "px": [
+     1023,
+     600
+    ],
+    "bytes": 634124,
+    "mime": "image/png",
+    "alphaChannel": true,
+    "gpuMB": 3.12
+   },
+   "position": [
+    34.62,
+    2.245,
+    -23.422
+   ],
+   "positionSU": [
+    34.62,
+    23.42,
+    2.24
+   ]
+  }
+ ],
+ "materialsGroup": {
+  "node": 4,
+  "name": "MATERIALS",
+  "swatches": [
+   {
+    "node": 5,
+    "name": "*6",
+    "texture": {
+     "image": 0,
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 162072,
+     "gpuMB": 5.33
+    },
+    "extraMaps": [],
+    "alphaMode": "MASK",
+    "rgba": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "sizeM": [
+     47,
+     47,
+     0
+    ],
+    "tris": 411,
+    "centerSU": [
+     51.22,
+     -24.07,
+     0
+    ],
+    "looksLike": "dry / meadow lawn"
+   },
+   {
+    "node": 6,
+    "name": "[Granite Light Gray]",
+    "texture": {
+     "image": 1,
+     "px": [
+      1200,
+      1200
+     ],
+     "bytes": 118076,
+     "gpuMB": 7.32
+    },
+    "extraMaps": [],
+    "alphaMode": "MASK",
+    "rgba": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "sizeM": [
+     55,
+     55,
+     0
+    ],
+    "tris": 513,
+    "centerSU": [
+     51.22,
+     -24.07,
+     0
+    ],
+    "looksLike": "light concrete / granite plaster"
+   },
+   {
+    "node": 7,
+    "name": "*3",
+    "texture": {
+     "image": 4,
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 340808,
+     "gpuMB": 5.33
+    },
+    "extraMaps": [
+     "normalTexture:img2",
+     "occlusionTexture:img3",
+     "specularGlossinessTexture:img5"
+    ],
+    "alphaMode": "MASK",
+    "rgba": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "sizeM": [
+     23,
+     23,
+     0
+    ],
+    "tris": 632,
+    "centerSU": [
+     51.22,
+     -24.07,
+     0
+    ],
+    "looksLike": "granite setts (PBR: normal, AO, spec)"
+   },
+   {
+    "node": 8,
+    "name": "Трава",
+    "texture": {
+     "image": 7,
+     "px": [
+      1000,
+      1000
+     ],
+     "bytes": 157560,
+     "gpuMB": 5.09
+    },
+    "extraMaps": [],
+    "alphaMode": "MASK",
+    "rgba": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "sizeM": [
+     33,
+     33,
+     0
+    ],
+    "tris": 296,
+    "centerSU": [
+     51.22,
+     -24.07,
+     0
+    ],
+    "looksLike": "striped mown lawn"
+   },
+   {
+    "node": 9,
+    "name": "Metal_18_1K",
+    "texture": {
+     "image": 9,
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 1170044,
+     "gpuMB": 5.33
+    },
+    "extraMaps": [
+     "normalTexture:img8",
+     "specularGlossinessTexture:img10"
+    ],
+    "alphaMode": "MASK",
+    "rgba": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "sizeM": [
+     14,
+     36.59,
+     0
+    ],
+    "tris": 1492,
+    "centerSU": [
+     51.22,
+     -12.78,
+     0
+    ],
+    "looksLike": "dark stained metal / concrete (PBR)"
+   },
+   {
+    "node": 10,
+    "name": "WOOD1",
+    "texture": {
+     "image": 12,
+     "px": [
+      564,
+      957
+     ],
+     "bytes": 95320,
+     "gpuMB": 2.75
+    },
+    "extraMaps": [],
+    "alphaMode": "MASK",
+    "rgba": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "sizeM": [
+     19,
+     19,
+     0
+    ],
+    "tris": 438,
+    "centerSU": [
+     51.22,
+     -24.07,
+     0
+    ],
+    "looksLike": "grey timber boards / decking"
+   },
+   {
+    "node": 11,
+    "name": "*30",
+    "texture": {
+     "image": 13,
+     "px": [
+      2048,
+      2048
+     ],
+     "bytes": 726876,
+     "gpuMB": 21.33
+    },
+    "extraMaps": [],
+    "alphaMode": "MASK",
+    "rgba": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "sizeM": [
+     16,
+     16,
+     0
+    ],
+    "tris": 387,
+    "centerSU": [
+     51.22,
+     -24.07,
+     0
+    ],
+    "looksLike": "travertine / pitted limestone"
+   },
+   {
+    "node": 12,
+    "name": "[Water Light Blue]",
+    "texture": {
+     "image": 14,
+     "px": [
+      500,
+      281
+     ],
+     "bytes": 21216,
+     "gpuMB": 0.71
+    },
+    "extraMaps": [],
+    "alphaMode": "BLEND",
+    "rgba": [
+     1,
+     1,
+     1,
+     0.54
+    ],
+    "sizeM": [
+     13.01,
+     13.13,
+     0
+    ],
+    "tris": 711,
+    "centerSU": [
+     51.54,
+     -23.81,
+     0
+    ],
+    "looksLike": "water caustics (BLEND 0.54)"
+   },
+   {
+    "node": 13,
+    "name": "[Water Light Blue]1",
+    "texture": {
+     "image": 17,
+     "px": [
+      1024,
+      575
+     ],
+     "bytes": 63932,
+     "gpuMB": 2.99
+    },
+    "extraMaps": [
+     "normalTexture:img15",
+     "occlusionTexture:img16",
+     "specularGlossinessTexture:img18"
+    ],
+    "alphaMode": "BLEND",
+    "rgba": [
+     1,
+     1,
+     1,
+     0.72
+    ],
+    "sizeM": [
+     13.39,
+     9.94,
+     0
+    ],
+    "tris": 634,
+    "centerSU": [
+     51.08,
+     -25.93,
+     0
+    ],
+    "looksLike": "water caustics (BLEND 0.72, PBR)"
+   },
+   {
+    "node": 14,
+    "name": "(no material: 384-tri frame/labels)",
+    "texture": null,
+    "extraMaps": [],
+    "alphaMode": null,
+    "rgba": null,
+    "sizeM": [
+     13.66,
+     13.66,
+     0.25
+    ],
+    "tris": 384,
+    "centerSU": [
+     51.22,
+     -24.07,
+     -0.13
+    ],
+    "looksLike": null
+   },
+   {
+    "node": 15,
+    "name": "*28",
+    "texture": {
+     "image": 20,
+     "px": [
+      2048,
+      2048
+     ],
+     "bytes": 1356144,
+     "gpuMB": 21.33
+    },
+    "extraMaps": [],
+    "alphaMode": "MASK",
+    "rgba": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "sizeM": [
+     61,
+     61,
+     0
+    ],
+    "tris": 388,
+    "centerSU": [
+     51.22,
+     -24.07,
+     0
+    ],
+    "looksLike": "fine gravel / pebble"
+   },
+   {
+    "node": 16,
+    "name": "BRICK1",
+    "texture": {
+     "image": 21,
+     "px": [
+      4813,
+      5000
+     ],
+     "bytes": 5792192,
+     "gpuMB": 122.4
+    },
+    "extraMaps": [],
+    "alphaMode": "MASK",
+    "rgba": [
+     1,
+     1,
+     1,
+     1
+    ],
+    "sizeM": [
+     33.51,
+     33.51,
+     0.7
+    ],
+    "tris": 768,
+    "centerSU": [
+     51.22,
+     -24.07,
+     0.35
+    ],
+    "looksLike": "white-cream brick (4813×5000!)"
+   }
+  ]
+ },
+ "people": [
+  {
+   "node": 17,
+   "name": "2D_Man_Standing_Mason",
+   "heightM": 1.77,
+   "positionSU": [
+    46.86,
+    -17.98,
+    0
+   ]
+  },
+  {
+   "node": 28,
+   "name": "2D_Man_Standing_Mason_1",
+   "heightM": 1.77,
+   "positionSU": [
+    32.53,
+    -8.47,
+    0
+   ]
+  }
+ ],
+ "placedInstances": [
+  {
+   "node": 666,
+   "name": "Salix. integra_1",
+   "definition": "Salix. integra",
+   "heightM": 5.01,
+   "spreadM": null,
+   "capMaterial": null,
+   "positionSU": [
+    44.79,
+    -4.98,
+    0
+   ]
+  },
+  {
+   "node": 668,
+   "name": "Salix. integra_1",
+   "definition": "Salix. integra",
+   "heightM": 5.01,
+   "spreadM": null,
+   "capMaterial": null,
+   "positionSU": [
+    65.78,
+    -7.43,
+    0
+   ]
+  },
+  {
+   "node": 670,
+   "name": "Salix. integra_1",
+   "definition": "Salix. integra",
+   "heightM": 5.01,
+   "spreadM": null,
+   "capMaterial": null,
+   "positionSU": [
+    65.78,
+    -34.62,
+    0
+   ]
+  },
+  {
+   "node": 672,
+   "name": "Quercus robur_fastigiata_1",
+   "definition": "Quercus robur_fastigiata",
+   "heightM": 18.08,
+   "spreadM": null,
+   "capMaterial": null,
+   "positionSU": [
+    37.83,
+    -8.38,
+    0
+   ]
+  },
+  {
+   "node": 674,
+   "name": "Quercus robur_fastigiata_1",
+   "definition": "Quercus robur_fastigiata",
+   "heightM": 18.08,
+   "spreadM": null,
+   "capMaterial": null,
+   "positionSU": [
+    47.87,
+    -43.76,
+    0
+   ]
+  },
+  {
+   "node": 676,
+   "name": "Quercus robur_fastigiata_1",
+   "definition": "Quercus robur_fastigiata",
+   "heightM": 18.08,
+   "spreadM": null,
+   "capMaterial": null,
+   "positionSU": [
+    73.1,
+    -23.02,
+    0
+   ]
+  },
+  {
+   "node": 678,
+   "name": "Component#52_1",
+   "definition": "Component#52",
+   "heightM": 8.1,
+   "spreadM": null,
+   "capMaterial": null,
+   "positionSU": [
+    71.92,
+    -28.08,
+    0.08
+   ]
+  },
+  {
+   "node": 681,
+   "name": "Component#52_1",
+   "definition": "Component#52",
+   "heightM": 5.66,
+   "spreadM": null,
+   "capMaterial": null,
+   "positionSU": [
+    69.59,
+    -13.86,
+    0
+   ]
+  },
+  {
+   "node": 684,
+   "name": "Component#52_1",
+   "definition": "Component#52",
+   "heightM": 5.66,
+   "spreadM": null,
+   "capMaterial": null,
+   "positionSU": [
+    69.46,
+    -13.87,
+    0
+   ]
+  },
+  {
+   "node": 687,
+   "name": "Component#52_1",
+   "definition": "Component#52",
+   "heightM": 4.25,
+   "spreadM": null,
+   "capMaterial": null,
+   "positionSU": [
+    62,
+    -39.45,
+    -0.05
+   ]
+  },
+  {
+   "node": 690,
+   "name": "Компонент#215_1",
+   "definition": "Компонент#215",
+   "heightM": 9.13,
+   "spreadM": 8.23,
+   "capMaterial": "[Color F04]",
+   "positionSU": [
+    53.68,
+    -16.73,
+    0
+   ]
+  },
+  {
+   "node": 696,
+   "name": "Компонент#215_1",
+   "definition": "Компонент#215",
+   "heightM": 9.13,
+   "spreadM": 8.23,
+   "capMaterial": "[Color F04]",
+   "positionSU": [
+    48.67,
+    -42.1,
+    0
+   ]
+  }
+ ],
+ "sketchupViews": [
+  {
+   "node": 2,
+   "name": "Сцена №1",
+   "positionSU": [
+    0.19,
+    -10.42,
+    1.69
+   ]
+  },
+  {
+   "node": 3,
+   "name": "Active View",
+   "positionSU": [
+    -85.17,
+    -143.77,
+    116.74
+   ]
+  }
+ ],
+ "orphans": [
+  {
+   "node": 660,
+   "name": "Компонент#141_1",
+   "note": "stray perennial cap (*41) on the cactus shelf, no card"
+  }
+ ]
+}
