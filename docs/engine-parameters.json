@@ -1,5 +1,5 @@
 {
-  "collected": "2026-09-24T16:23:53.050Z",
+  "collected": "2026-09-24T19:57:59.650Z",
   "rows": [
     {
       "key": "cameraFov",
@@ -1981,6 +1981,17 @@
       "node": "planting",
       "label": "План в шапках",
       "kind": "выключатель"
+    },
+    {
+      "key": "northAngle",
+      "group": "greenery",
+      "node": "planting",
+      "label": "Север",
+      "kind": "число",
+      "min": -180,
+      "max": 180,
+      "step": 0.5,
+      "unit": "°"
     },
     {
       "key": "plantingBeds",
@@ -6987,6 +6998,7 @@
     "plantingEnabled": true,
     "plantingMonth": 6,
     "plantingPlan": false,
+    "northAngle": 0,
     "shrubsEnabled": true,
     "shrubsCount": 512,
     "shrubsSeed": 23,

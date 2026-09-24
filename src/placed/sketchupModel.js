@@ -161,9 +161,9 @@ export function copiesOf(root, part) {
 
 // Hidden to the eye and to the click: the picker and the solid and waterline
 // probes look at each mesh's own visibility, not its parents'.
-export function applyHidden(root, hidden, crowns = true) {
+export function applyHidden(root, hidden, crowns = true, noCards = false) {
     const set = new Set(hidden);
-    root.traverse((object) => { object.visible = crowns || !object.userData.crownPlan; });
+    root.traverse((object) => { object.visible = (crowns || !object.userData.crownPlan) && !(noCards && object.userData.faceNormal); });
     root.traverse((object) => { if (set.has(object.userData.gltfNode)) object.traverse((inner) => { inner.visible = false; }); });
 }
 

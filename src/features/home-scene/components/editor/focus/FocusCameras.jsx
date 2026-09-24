@@ -37,7 +37,8 @@ function writeThumbnails(value) {
 function useCameraThumbnails() {
     const [thumbnails, setThumbnails] = useState(readThumbnails);
     useEffect(() => {
-        const update = (event) => setThumbnails((previous) => {
+        // Снимок генплана (usePlanCapture) — кадр для отчёта, не миниатюра.
+        const update = (event) => !String(event.detail?.key).startsWith('plan:') && setThumbnails((previous) => {
             const next = { ...previous, [event.detail.key]: event.detail.image };
             writeThumbnails(next);
             return next;
@@ -257,7 +258,7 @@ export function FocusCameraStrip({ layoutEditor, className = '' }) {
             {all.map((camera, index) => <React.Fragment key={camera.id}>{index === 0 || camera.kind !== all[index - 1].kind ? <span className={`focus-film-label focus-film-label--${camera.kind}`}>{camera.kind === 'work' ? t('homeEditor.controls.workCameras') : t('homeEditor.controls.cameras')}</span> : null}<FocusCameraTile camera={camera} active={active(camera)} onSelect={() => select(camera)} onMenu={(event) => { if (event.shiftKey) return; event.preventDefault(); setTileMenu({ x: event.clientX, y: event.clientY, camera }); }} thumbnail={thumbnails[thumbnailKey(camera.id, layoutEditor.selectedKey)]} /></React.Fragment>)}
         </div>
         {tileMenu ? <FocusContextMenu x={tileMenu.x} y={tileMenu.y} title={tileMenu.camera.name} items={tileMenuItems(tileMenu.camera)} onClose={() => setTileMenu(null)} /> : null}
-        <div className="focus-film-add"><IconButton label={t('homeEditor.controls.cameraAdd')} onClick={() => setMenuOpen((value) => !value)} aria-expanded={menuOpen}>+</IconButton>{menuOpen ? <div role="menu"><button type="button" role="menuitem" onClick={() => { setMenuOpen(false); layoutEditor.addWorkCamera(); }}>{t('homeEditor.controls.workCameraAdd')}</button><button type="button" role="menuitem" onClick={() => { setMenuOpen(false); layoutEditor.addCamera(); }}>{t('homeEditor.controls.cameraAdd')}</button><button type="button" role="menuitem" onClick={() => { setMenuOpen(false); captureActive(); }}>{t('homeEditor.controls.layoutCapture')}</button></div> : null}</div>
+        <div className="focus-film-add"><IconButton label={t('homeEditor.controls.cameraAdd')} onClick={() => setMenuOpen((value) => !value)} aria-expanded={menuOpen}>+</IconButton>{menuOpen ? <div role="menu"><button type="button" role="menuitem" onClick={() => { setMenuOpen(false); layoutEditor.addWorkCamera(); }}>{t('homeEditor.controls.workCameraAdd')}</button><button type="button" role="menuitem" onClick={() => { setMenuOpen(false); layoutEditor.addCamera(); }}>{t('homeEditor.controls.cameraAdd')}</button><button type="button" role="menuitem" onClick={() => { setMenuOpen(false); captureActive(); }}>{t('homeEditor.controls.layoutCapture')}</button>{layoutEditor.openPlanCamera ? <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); layoutEditor.openPlanCamera(); }} data-testid="camera-add-plan">{language === 'ru' ? 'Генплан — сверху, север вверху' : 'Site plan — from above, north up'}</button> : null}</div> : null}</div>
     </div>;
 }
 

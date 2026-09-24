@@ -23,10 +23,13 @@ import {
     updateEditorLayout,
 } from '../features/home-scene/lib/editorCameraState.js';
 import {
+    createPairedCameraLayouts,
     DEFAULT_LAYOUT_FRAME_INSETS,
     resolveLayoutFrameInset,
     resolveLayoutKey,
 } from '../features/home-scene/lib/layout';
+import { PLAN_CAMERA, siteNorth } from '../planting/north.js';
+import { usePlanCapture } from '../planting/usePlanCapture.js';
 import { useHomeSceneEditor } from '../features/home-scene/hooks/useHomeSceneEditor';
 import { useHomeChromeVisibility } from '../features/home-scene/hooks/useHomeChromeVisibility';
 import { useTopiaryEditor } from '../topiary/useTopiaryEditor.js';
@@ -201,6 +204,8 @@ const HomeEdit = ({ project = null }) => {
     // Редактор открывается уже собранным: экран из index.html держит кадр, пока
     // сцена не отчитается, что она построена. Раньше на его месте были шапка
     // сайта и общий спиннер маршрута, а потом резкая подмена на редактор.
+    usePlanCapture({ projectId: project?.id, settings, capturePose: () => cameraRigApiRef.current?.capturePose?.() });
+
     const handleSceneReady = useCallback(() => {
         setIsSceneReady(true);
         // Первая миниатюра проекта — сразу как сцена собралась, а не после первой
@@ -450,6 +455,22 @@ const HomeEdit = ({ project = null }) => {
         setSettings((previous) => addEditorCamera(previous, {
             kind: 'work', layoutKey: selectedLayoutKey, pose,
         }, HOME_SCENE_SNAPSHOT_KEYS));
+    }, [selectedLayoutKey, setSettings]);
+
+    // Генплан — рабочая камера прямо сверху, север вверху кадра, растения
+    // шапками плана (north.js). Есть уже — выбирается и снова наводится на
+    // участок: модель повернули или дорисовали — кадр догоняет.
+    const openPlanCamera = useCallback(() => {
+        setSettings((previous) => {
+            const pose = cameraRigApiRef.current?.planView?.(siteNorth(previous));
+            if (!pose) return previous;
+            const found = (previous.workCameras ?? []).find((camera) => camera.name === PLAN_CAMERA);
+            const chosen = found
+                ? selectEditorCamera(previous, found.id, 'work', HOME_SCENE_SNAPSHOT_KEYS)
+                : addEditorCamera(previous, { kind: 'work', layoutKey: selectedLayoutKey, pose, name: PLAN_CAMERA }, HOME_SCENE_SNAPSHOT_KEYS);
+            return syncActiveEditorCamera({ ...chosen, layouts: createPairedCameraLayouts(chosen, selectedLayoutKey, pose), plantingPlan: true }, HOME_SCENE_SNAPSHOT_KEYS);
+        });
+        setCameraPoseRevision((value) => value + 1);
     }, [selectedLayoutKey, setSettings]);
 
     const removeWorkCamera = useCallback((id) => {
@@ -734,6 +755,7 @@ const HomeEdit = ({ project = null }) => {
         activeWorkCameraId,
         selectWorkCamera,
         addWorkCamera,
+        openPlanCamera,
         removeWorkCamera,
         moveWorkCamera,
         renameWorkCamera,
@@ -764,6 +786,7 @@ const HomeEdit = ({ project = null }) => {
         activeWorkCameraId,
         selectWorkCamera,
         addWorkCamera,
+        openPlanCamera,
         removeWorkCamera,
         moveWorkCamera,
         renameWorkCamera,

@@ -89,6 +89,15 @@ assert.equal((await projects.list()).find((entry) => entry.id === 'dyuny').thumb
 assert.equal((await projects.list()).find((entry) => entry.id === 'dyuny-2').thumbnail, false);
 assert.ok(!('thumbnail' in (await projects.read('dyuny'))), 'в самой записи миниатюры нет');
 
+// Генплан: кадр и где стояла камера — в папке проекта, без камеры не пишется.
+const planView = { position: { x: 1, y: 140, z: 2.01 }, target: { x: 1, y: 0, z: 2 }, fov: 12, bearing: 0, north: 0 };
+assert.equal(await projects.readPlan('dyuny'), null);
+assert.equal((await projects.writePlan('dyuny', pixel, planView)).fov, 12);
+assert.equal(await projects.writePlan('nikogo', pixel, planView), false);
+await assert.rejects(() => projects.writePlan('dyuny', pixel, { fov: 12 }), /положения камеры/);
+assert.equal((await projects.readPlan('dyuny')).position.y, 140);
+assert.ok((await projects.planImage('dyuny')).length > 0);
+
 // Модели проекта: только .glb, свои у проекта, копия уносит их, удаление стирает.
 const glb = Buffer.concat([Buffer.from('glTF'), Buffer.alloc(16)]);
 await assert.rejects(() => projects.writeModel('dyuny', 'скала.obj', Buffer.from('not a glb at all')), /не .glb/);
@@ -105,6 +114,7 @@ assert.equal(await projects.remove(copy.id), true);
 
 assert.equal(await projects.remove('dyuny'), true);
 assert.equal(await projects.readThumbnail('dyuny'), null, 'миниатюра уходит вместе с записью');
+assert.equal(await projects.readPlan('dyuny'), null, 'генплан уходит вместе с записью');
 assert.equal(await projects.modelFile('dyuny', rock.model), null, 'модели уходят вместе с проектом');
 assert.equal(await projects.remove('dyuny'), false);
 assert.equal((await projects.list()).length, 1);

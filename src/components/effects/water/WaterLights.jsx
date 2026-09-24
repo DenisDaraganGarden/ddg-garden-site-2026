@@ -109,9 +109,14 @@ export default function WaterLights({ settings, mode, qualityProfile, lighting, 
       scene.environmentIntensity = cloudEnvironment ? 1 : lighting.sky.skyLevel;
     }
     if (csmAdapter) {
+      // Генплан (planting/north.js): прямо вниз выше дальности теней. Дальняя
+      // зона ложится на участок — от 45 м над нулём до 25 м под ним, — а не
+      // на пустой воздух над ним; остальные виды не меняются.
+      const above = camera.position.y;
+      const plan = camera.matrixWorld.elements[9] > 0.999 && above > 140;
       csmAdapter.configure({
-        maxFar: settings.shadowDistance ?? 160,
-        nearDistance: settings.shadowNearDistance ?? 25,
+        maxFar: plan ? above + 25 : settings.shadowDistance ?? 160,
+        nearDistance: plan ? above - 45 : settings.shadowNearDistance ?? 25,
         lightDirection: lightDirection.clone().negate(),
         lightColor: keyColor,
         lightIntensity: lighting.key.sceneIntensity,

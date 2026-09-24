@@ -87,7 +87,7 @@ const finiteSetting = (value, fallback) => (Number.isFinite(value) ? value : fal
 // `enabled` is WaterScene's postEnabled: the scene's own switch, the beauty
 // view and, in the editor, «Показывать её в редакторе». The site ignores the last.
 export default function ScenePostProcessing({ settings, qualityProfile, lighting, sky, enabled }) {
-  const { gl, scene, camera } = useThree();
+  const { gl, scene, camera, invalidate } = useThree();
   const cloudScene = useCloudScene();
   const isLowPower = qualityProfile?.isLowPower === true;
   const capabilities = useMemo(() => getRenderTargetCapabilities(gl), [gl]);
@@ -150,22 +150,23 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
   const thumbnailRequest = useRef(null);
   useEffect(() => {
     const receive = (event) => {
-      const requested = consumeEditorThumbnailRequest();
-      const key = requested ?? event.detail?.key;
-      if (typeof key === 'string' && key) thumbnailRequest.current = key;
+      const requested = consumeEditorThumbnailRequest() ?? event.detail;
+      if (typeof requested?.key === 'string' && requested.key) thumbnailRequest.current = requested;
+      // На паузе кадр рисуется по требованию: запрос сам его просит.
+      invalidate();
     };
     window.addEventListener(EDITOR_THUMBNAIL_REQUEST, receive);
     const queued = consumeEditorThumbnailRequest();
     if (queued) thumbnailRequest.current = queued;
     return () => window.removeEventListener(EDITOR_THUMBNAIL_REQUEST, receive);
-  }, []);
+  }, [invalidate]);
   const publishThumbnail = () => {
-    const key = thumbnailRequest.current;
-    if (!key) return;
+    const request = thumbnailRequest.current;
+    if (!request) return;
     thumbnailRequest.current = null;
     try {
       const source = gl.domElement;
-      const width = Math.min(320, source.width);
+      const width = Math.min(request.width ?? 320, source.width);
       const height = Math.max(1, Math.round(source.height * (width / source.width)));
       const thumbnail = document.createElement('canvas');
       thumbnail.width = width;
@@ -173,7 +174,7 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
       const context = thumbnail.getContext('2d');
       if (!context) return;
       context.drawImage(source, 0, 0, width, height);
-      publishEditorThumbnail(key, thumbnail.toDataURL('image/webp', 0.68));
+      publishEditorThumbnail(request.key, thumbnail.toDataURL('image/webp', request.quality ?? 0.68));
     } catch {
       // A context loss or a strict canvas may decline a thumbnail; the editor
       // keeps its neutral tile and the scene render remains untouched.

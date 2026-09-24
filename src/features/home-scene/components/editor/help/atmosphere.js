@@ -124,8 +124,8 @@ export default {
     'The hour along the sun’s path: highest at 12, on the horizon at 6 and 18. At night the moon becomes the key light and the stars come out.',
   ],
   sunBearing: [
-    'Сторона, где солнце стоит в полдень, по компасу сцены (0° — север, 90° — восток). Восход и закат — в 90° от неё; луна и звёзды поворачиваются вместе.',
-    'Where the sun stands at noon, on the scene compass (0° north, 90° east). Sunrise and sunset lie 90° to either side; the moon and stars turn with it.',
+    'Сторона, где солнце стоит в полдень. Где это относительно севера — жёлтая точка на стрелке «С» над кадром. Восход и закат — в 90° от неё; луна и звёзды поворачиваются вместе.',
+    'Where the sun stands at noon. Where that is against north shows as the yellow dot on the “N” arrow over the frame. Sunrise and sunset lie 90° to either side; the moon and stars turn with it.',
   ],
   sunNoonElevation: [
     'Как высоко солнце поднимается к полудню, градусы над горизонтом. Низко — длинные тени и тёплый свет весь день; высоко — короткие тени.',

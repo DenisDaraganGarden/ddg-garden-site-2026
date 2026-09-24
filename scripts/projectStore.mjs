@@ -177,6 +177,46 @@ export function createStore(folder, payloadKey) {
     }
   };
 
+  // Снимок камеры «Генплан» для отчёта: <папка>/<id>/plan.webp и рядом
+  // plan.json — где стояла камера (отчёт по нему подписывает цветники и
+  // ставит масштаб). Кадр целиком, webp; перезаписывается каждым снимком.
+  const planPath = (id, ext) => path.join(dir, id, `plan.${ext}`);
+  const writePlan = async (id, dataUrl, view) => {
+    if (!isValidId(id) || !(await read(id))) return false;
+    const match = /^data:image\/webp;base64,([A-Za-z0-9+/=]+)$/.exec(String(dataUrl ?? ''));
+    if (!match) throw new Error('Снимок генплана должен быть webp в data URL.');
+    const numbers = (value, keys) => Object.fromEntries(keys.map((key) => [key, Number(value?.[key])]));
+    const meta = {
+      captured: new Date().toISOString(),
+      position: numbers(view?.position, ['x', 'y', 'z']),
+      target: numbers(view?.target, ['x', 'y', 'z']),
+      fov: Number(view?.fov), bearing: Number(view?.bearing), north: Number(view?.north),
+    };
+    if (![...Object.values(meta.position), ...Object.values(meta.target), meta.fov, meta.bearing].every(Number.isFinite)) throw new Error('У снимка генплана нет положения камеры.');
+    await fs.mkdir(path.join(dir, id), { recursive: true });
+    await fs.writeFile(planPath(id, 'webp'), Buffer.from(match[1], 'base64'));
+    await fs.writeFile(planPath(id, 'json'), `${JSON.stringify(meta, null, 2)}\n`, 'utf8');
+    return meta;
+  };
+  const readPlan = async (id) => {
+    if (!isValidId(id)) return null;
+    try {
+      return JSON.parse(await fs.readFile(planPath(id, 'json'), 'utf8'));
+    } catch (error) {
+      if (error.code === 'ENOENT') return null;
+      throw error;
+    }
+  };
+  const planImage = async (id) => {
+    if (!isValidId(id)) return null;
+    try {
+      return await fs.readFile(planPath(id, 'webp'));
+    } catch (error) {
+      if (error.code === 'ENOENT') return null;
+      throw error;
+    }
+  };
+
   // Модели записи (.glb, импорт из редактора): <папка>/<id>/models/<модель>.glb.
   // Свои у каждого проекта: копия уносит их с собой, удаление стирает. Имя
   // файла — читаемое имя модели и метка времени: адрес модели никогда не
@@ -214,7 +254,7 @@ export function createStore(folder, payloadKey) {
     }
   }
 
-  return { dir, list, read, create, save, remove, writeThumbnail, readThumbnail, writeModel, modelFile };
+  return { dir, list, read, create, save, remove, writeThumbnail, readThumbnail, writePlan, readPlan, planImage, writeModel, modelFile };
 }
 
 export const projects = createStore('projects', 'settings');

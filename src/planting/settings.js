@@ -8,8 +8,13 @@
 // как время суток: «июнь» и «январь» — две камеры.
 export const PLANTING_LIMITS = Object.freeze({ beds: 64, points: 400, recipe: 12, contour: 256, holes: 64, hole: 128, ground: 4400, plants: 30000 });
 export const PLANTING_RANGES = Object.freeze({ drift: [0.3, 6, 0.1], density: [0.4, 2, 0.05], share: [1, 100, 1], month: [1, 12, 1] });
-export const DEFAULT_PLANTING_SETTINGS = Object.freeze({ plantingEnabled: true, plantingBeds: [], plantingPoints: [], plantingMonth: 6, plantingPlan: false });
+// northAngle — север участка (north.js): градусы по часовой от зелёной оси
+// SketchUp; как и цветники, один на все камеры.
+export const DEFAULT_PLANTING_SETTINGS = Object.freeze({ plantingEnabled: true, plantingBeds: [], plantingPoints: [], plantingMonth: 6, plantingPlan: false, northAngle: 0 });
 export const PLANTING_BED_DEFAULT = Object.freeze({ drift: 1.6, density: 1 });
+
+// Градусы в пределах −180…180.
+export const wrapDegrees = (value) => ((((value + 180) % 360) + 360) % 360) - 180;
 
 const ID = /^[a-zA-Z0-9_-]{1,64}$/;
 const PLANT = /^[a-z0-9][a-z0-9-]{0,63}$/;
@@ -96,5 +101,6 @@ export function normalizePlantingSettings(settings = {}) {
         plantingPoints: unique(settings.plantingPoints, PLANTING_LIMITS.points, normalizePlantingPoint),
         plantingMonth: number(settings.plantingMonth, DEFAULT_PLANTING_SETTINGS.plantingMonth, PLANTING_RANGES.month),
         plantingPlan: settings.plantingPlan === true,
+        northAngle: wrapDegrees(number(settings.northAngle, 0, [-360, 360, 0.5])),
     };
 }

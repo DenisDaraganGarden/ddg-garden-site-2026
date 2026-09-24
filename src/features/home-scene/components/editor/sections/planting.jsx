@@ -37,6 +37,7 @@ function PlantingCatalog({ settings, handleSettingChange, plantingEditor, ru }) 
         <RangeControl controlId="plantingMonth" label={ru ? 'Месяц' : 'Month'} value={settings.plantingMonth} min={PLANTING_RANGES.month[0]} max={PLANTING_RANGES.month[1]} step={1}
             formatValue={(value) => months[Math.round(value) - 1] ?? value} onChange={(event) => handleSettingChange(event, 'plantingMonth', 'integer')} />
         <CheckboxControl controlId="plantingPlan" label={ru ? 'План в шапках' : 'Plan with caps'} checked={settings.plantingPlan} onChange={(event) => handleSettingChange(event, 'plantingPlan', 'boolean')} />
+        <RangeControl controlId="northAngle" label={ru ? 'Север' : 'North'} value={settings.northAngle ?? 0} min={-180} max={180} step={0.5} unit="°" onChange={(event) => handleSettingChange(event, 'northAngle')} />
         <SelectControl controlId="plantingBeds" label={ru ? 'Цветник' : 'Bed'} value="" options={[{ value: '', label: ru ? 'Выбрать…' : 'Select…' }, ...settings.plantingBeds.map((b) => ({ value: b.id, label: b.name }))]} onChange={(event) => plantingEditor?.select(event.target.value || null)} />
         <SelectControl controlId="plantingBeds[].palette" label={ru ? 'Палитра' : 'Palette'} value="" options={[{ value: '', label: ru ? 'Своя — заменить на…' : 'Own — replace with…' }, ...PLANTING_PALETTES.map((p) => ({ value: p.id, label: ru ? p.ru : p.en }))]} onChange={() => {}} />
         <RangeControl controlId="plantingBeds[].drift" label={ru ? 'Размер пятна' : 'Drift size'} value={bed.drift} min={PLANTING_RANGES.drift[0]} max={PLANTING_RANGES.drift[1]} step={PLANTING_RANGES.drift[2]} unit=" m" onChange={() => {}} />
@@ -152,6 +153,7 @@ function PlantingWorkspace({ settings, handleSettingChange, applySettings, plant
             <span className="planting-spacer" />
             <button type="button" onClick={topView} data-testid="planting-top-view" title={ru ? 'Камера сверху' : 'Camera from above'}>{ru ? 'Сверху' : 'Top'}</button>
             <button type="button" className={settings.plantingPlan ? 'is-active' : ''} onClick={() => handleSettingChange({ target: { checked: !settings.plantingPlan } }, 'plantingPlan', 'boolean')} data-testid="planting-plan" title={ru ? 'План в шапках легенды' : 'Plan with legend caps'}>{ru ? 'План' : 'Plan'}</button>
+            <button type="button" onClick={() => layoutEditor?.openPlanCamera?.()} data-testid="planting-plan-camera" title={ru ? 'Камера «Генплан»: весь участок сверху, север вверху, растения шапками. Её снимок идёт в отчёт.' : 'The “Site plan” camera: the whole site from above, north up, plants as caps. Its frame goes to the report.'}>{ru ? 'Генплан' : 'Site plan'}</button>
         </div>
         {status === 'missing' ? <p className="planting-hint">{ru ? 'Библиотеки растений нет: она лежит в ~/Ouroboros/library/plants и видна только в локальном редакторе.' : 'No plant library: it lives in ~/Ouroboros/library/plants and is seen by the local editor only.'}</p> : null}
 

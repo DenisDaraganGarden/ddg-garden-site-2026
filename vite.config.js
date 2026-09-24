@@ -224,6 +224,27 @@ function engineStorePlugin() {
           }
         }
 
+        // Генплан: PUT /__projects/<id>/plan {image, view} — снимок камеры
+        // «Генплан»; GET …/plan — где стояла камера; GET …/plan.webp — кадр.
+        if ((part === 'plan' || part === 'plan.webp') && isValidId(id) && store.writePlan) {
+          if (request.method === 'PUT' && part === 'plan') {
+            const body = await readJsonBody(request);
+            const meta = await store.writePlan(id, body.image, body.view);
+            sendJson(response, meta ? 200 : 404, meta ? { ok: true, ...meta } : { ok: false, message: `Проект «${id}» не найден.` });
+            return;
+          }
+          if (request.method === 'GET') {
+            const found = part === 'plan' ? await store.readPlan(id) : await store.planImage(id);
+            if (!found) { sendJson(response, 404, { ok: false, message: 'Генплана ещё нет.' }); return; }
+            if (part === 'plan') { sendJson(response, 200, { ok: true, ...found }); return; }
+            response.statusCode = 200;
+            response.setHeader('Content-Type', 'image/webp');
+            response.setHeader('Cache-Control', 'no-cache');
+            response.end(found);
+            return;
+          }
+        }
+
         // Миниатюра: /__projects/<id>/thumbnail — файл рядом с записью.
         if (part === 'thumbnail' && isValidId(id)) {
           if (request.method === 'GET') {

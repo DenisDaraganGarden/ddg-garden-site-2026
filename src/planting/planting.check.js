@@ -11,6 +11,7 @@ import { regionOutline, regionTriangles, surfaceRegions } from './surfacePick.js
 import { clipToSurface } from './clipSurface.js';
 import { bedArea, groundAt, insideBed } from './fillBed.js';
 import { normalizePlantingBed } from './settings.js';
+import { bearingOf, planPose, siteNorth, viewBearing } from './north.js';
 
 const plant = (id, fields) => ({ id, ru: id, latin: id, category: 'perennial', height: 0.6, spread: 0.5, density: 5, foliage: 'herbaceous', ...fields });
 const library = new Map([
@@ -170,5 +171,24 @@ const across = clipToSurface([[2, 1], [4, 1], [4, 5], [2, 5]], twoStrips);
 assert.equal(across.length, 2, 'an outline across a path makes two beds, one on each side');
 assert.ok(across.every((piece) => Math.abs(piece.area - 2) < 0.2), `each is 2 m² (${across.map((piece) => piece.area.toFixed(2)).join(', ')})`);
 assert.equal(clipToSurface([[20, 20], [22, 20], [22, 22]], twoStrips).length, 0, 'an outline off the surface makes nothing');
+
+// Север: −Z сцены, поворот модели уносит его с собой, поправка — по часовой.
+assert.equal(bearingOf(0, -1), 0); assert.equal(bearingOf(1, 0), 90); assert.equal(bearingOf(0, 1), 180);
+assert.equal(siteNorth({}), 0);
+assert.equal(siteNorth({ northAngle: 15, placedObjects: [{ id: 'm', kind: 'model', rotation: 40 }], sketchupModels: { m: {} } }), -25, 'the model turned 40° to the left takes north with it');
+assert.equal(normalizePlantingSettings({ northAngle: 190 }).northAngle, -170, 'north is kept within ±180°');
+// Генплан: камера над серединой, взгляд прямо вниз, верх кадра — север, участок в кадре.
+for (const north of [0, 30, -120]) {
+    const pose = planPose({ min: { x: -10, y: 1, z: -4 }, max: { x: 30, y: 5, z: 16 } }, north, 1.5);
+    const camera = new THREE.PerspectiveCamera(pose.cameraFov, 1.5, 0.1, 5000);
+    camera.position.set(pose.cameraPosition.x, pose.cameraPosition.y, pose.cameraPosition.z);
+    camera.lookAt(pose.cameraTarget.x, pose.cameraTarget.y, pose.cameraTarget.z);
+    camera.updateMatrixWorld(); camera.updateProjectionMatrix();
+    assert.ok(Math.abs(((viewBearing(camera.matrixWorld) - north + 540) % 360) - 180) < 0.05, `north ${north}°: the top of the frame is north (${viewBearing(camera.matrixWorld).toFixed(3)})`);
+    for (const [x, z] of [[-10, -4], [30, -4], [30, 16], [-10, 16]]) {
+        const p = new THREE.Vector3(x, 1, z).project(camera);
+        assert.ok(Math.abs(p.x) <= 1 && Math.abs(p.y) <= 1, `north ${north}°: corner ${x}, ${z} is in the frame (${p.x.toFixed(2)}, ${p.y.toFixed(2)})`);
+    }
+}
 
 console.log(`planting: settings, fill (${first.length} plants in 60 m², ${smallFill.length} in 20 m² with ${small.recipe.length} species), schedule and seasons hold`);

@@ -39,6 +39,10 @@ const store = (base) => ({
     saveThumbnail: (id, image, { keepalive = false } = {}) => call(base, `/${encodeURIComponent(id)}/thumbnail`, {
         method: 'PUT', body: JSON.stringify({ image }), keepalive,
     }),
+    // Снимок камеры «Генплан» для отчёта и где она стояла.
+    savePlan: (id, image, view) => call(base, `/${encodeURIComponent(id)}/plan`, { method: 'PUT', body: JSON.stringify({ image, view }) }),
+    readPlan: (id) => call(base, `/${encodeURIComponent(id)}/plan`).catch((error) => { if (error.status === 404) return null; throw error; }),
+    planUrl: (id, captured = '') => `${base}/${encodeURIComponent(id)}/plan.webp?${encodeURIComponent(captured)}`,
 });
 
 // Проект — сцена целиком. Деталь — настроенный вариант одного объекта.

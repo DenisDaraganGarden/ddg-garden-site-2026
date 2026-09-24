@@ -120,3 +120,17 @@ html[data-editor-tool=hand] .home-editor-render-frame canvas{cursor:grab}
 .focus-pie>button.is-current{border-color:var(--focus-accent)}
 .focus-pie>button.is-hover{background:#e4e2da;color:#1d1f20;border-color:#e4e2da}
 .focus-pie>button:disabled{opacity:.3}
+/* Стрелка севера (NorthCompass.jsx): над кадром посередине. */
+.focus-compass{position:relative;pointer-events:auto;display:flex;flex-direction:column;align-items:center}
+.focus-compass__dial{width:46px;height:46px;border-radius:50%;padding:0;display:grid;place-items:center;cursor:pointer}
+.focus-compass__dial svg{width:44px;height:44px;overflow:visible}
+.focus-compass__ring{fill:none;stroke:#ffffff2e;stroke-width:1}
+.focus-compass__tick{stroke:#ffffff70;stroke-width:1.2}
+.focus-compass__north{fill:#e0654f}.focus-compass__south{fill:#c9ccc566}
+.focus-compass__letter{fill:#f1eee6;font:600 8px/1 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;text-anchor:middle;dominant-baseline:central}
+.focus-compass__sun{fill:#f2c14e;stroke:#202829;stroke-width:.8}
+.focus-compass__panel{position:absolute;top:52px;width:230px;padding:9px 10px;display:flex;flex-direction:column;gap:6px;font-size:10px}
+.focus-compass__panel strong{font-weight:600;font-size:11px}
+.focus-compass__panel label{display:flex;align-items:center;gap:6px}.focus-compass__panel input[type=range]{flex:1}
+.focus-compass__panel input[type=number]{width:46px;height:22px;background:var(--focus-input);border:1px solid #ffffff12;border-radius:3px;color:inherit;font:inherit;padding:0 4px}
+.focus-compass__panel p{margin:0;color:var(--focus-muted);line-height:1.45}

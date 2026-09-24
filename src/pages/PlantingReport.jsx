@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLanguage } from '../i18n/useLanguage';
-import { readProject } from '../features/engine/projectApi';
+import { projectStore, readProject } from '../features/engine/projectApi';
 import { normalizePlantingSettings } from '../planting/settings.js';
 import { bedArea, plantingInstances, plantingSchedule, spacingFor } from '../planting/fillBed.js';
 import { isSeasonSheet, plantCardUrl, plantName, plantPhotoUrl, useBedFills, usePlantLibrary } from '../planting/plantLibrary.js';
@@ -39,6 +39,53 @@ function Plan({ beds, instances, library }) {
     </svg>;
 }
 
+// Генплан — снимок камеры «Генплан» (usePlanCapture.js): модель сверху,
+// растения шапками. Камера смотрела прямо вниз, поэтому точка земли ложится
+// на снимок простым масштабом: подписи цветников, номера растений по
+// ведомости, масштабная линейка и север — поверх, векторами.
+const DEG = Math.PI / 180;
+function PlanShot({ id, shot, beds, points, numberOf, ru }) {
+    const [size, setSize] = useState(null);
+    const date = new Date(shot.captured).toLocaleString(ru ? 'ru-RU' : 'en-GB', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
+    const image = <img src={projectStore.planUrl(id, shot.captured)} alt={ru ? 'Генплан' : 'Site plan'} onLoad={(event) => setSize([event.currentTarget.naturalWidth, event.currentTarget.naturalHeight])} />;
+    if (!size) return <figure className="report-shot">{image}</figure>;
+    const [w, h] = size, f = h / 2 / Math.tan((shot.fov / 2) * DEG);
+    const up = [Math.sin(shot.bearing * DEG), -Math.cos(shot.bearing * DEG)], right = [Math.cos(shot.bearing * DEG), Math.sin(shot.bearing * DEG)];
+    const at = (x, y, z) => {
+        const depth = shot.position.y - y, dx = x - shot.position.x, dz = z - shot.position.z;
+        return [w / 2 + (f * (dx * right[0] + dz * right[1])) / depth, h / 2 - (f * (dx * up[0] + dz * up[1])) / depth];
+    };
+    const font = w / 80, perPixel = (shot.position.y - shot.target.y) / f;
+    const bar = [1, 2, 5, 10, 20, 50, 100].find((m) => m / perPixel >= w * 0.1) ?? 100;
+    const turn = (Number.isFinite(shot.north) ? shot.north : 0) - shot.bearing;
+    const inside = ([x, y]) => x > 0 && y > 0 && x < w && y < h;
+    return <figure className="report-shot">
+        {image}
+        <svg viewBox={`0 0 ${w} ${h}`} className="report-shot__marks" aria-hidden="true" style={{ '--mark': `${font}px` }}>
+            {beds.map((bed) => {
+                const [cx, cz] = bed.points.reduce(([a, b], [x, z]) => [a + x / bed.points.length, b + z / bed.points.length], [0, 0]);
+                const place = at(cx, bed.y, cz);
+                const numbers = [...new Set(bed.recipe.map((row) => numberOf.get(row.plant)).filter(Boolean))].sort((a, b) => a - b);
+                return inside(place) ? <text key={bed.id} x={place[0]} y={place[1]} className="report-shot__bed">{bed.name}{numbers.length ? <tspan x={place[0]} dy="1.25em" className="report-shot__numbers">{numbers.join(', ')}</tspan> : null}</text> : null;
+            })}
+            {points.length <= 200 ? points.map((point) => {
+                const place = at(point.x, point.y, point.z), number = numberOf.get(point.plant);
+                return number && inside(place) ? <g key={point.id} transform={`translate(${place[0]} ${place[1]})`} className="report-shot__point"><circle r={font * 0.8} /><text>{number}</text></g> : null;
+            }) : null}
+            <g transform={`translate(${w * 0.03} ${h - h * 0.05})`} className="report-shot__scale">
+                <rect x={-font * 0.5} y={-font * 2.2} width={bar / perPixel + font} height={font * 3} rx={font * 0.3} />
+                <path d={`M0 0 H${bar / perPixel}`} />
+                <text x={bar / perPixel / 2} y={-font * 0.7}>{bar} {ru ? 'м' : 'm'}</text>
+            </g>
+            <g transform={`translate(${w - font * 5} ${font * 5}) rotate(${turn})`} className="report-shot__north">
+                <circle r={font * 2.6} /><path d={`M0 ${-font * 1.9} L${font * 0.75} ${font * 0.9} L0 ${font * 0.3} L${-font * 0.75} ${font * 0.9} Z`} />
+                <text y={-font * 3.6} transform={`rotate(${-turn} 0 ${-font * 3.6})`}>{ru ? 'С' : 'N'}</text>
+            </g>
+        </svg>
+        <figcaption>{ru ? `Камера «Генплан», снимок ${date}. Номера — строки ведомости.` : `The “Site plan” camera, frame of ${date}. Numbers are schedule rows.`}</figcaption>
+    </figure>;
+}
+
 export default function PlantingReport() {
     const { language } = useLanguage(), ru = language !== 'en';
     const id = new URLSearchParams(window.location.search).get('project');
@@ -50,6 +97,8 @@ export default function PlantingReport() {
         return () => { delete document.documentElement.dataset.plantingReport; };
     }, []);
     useEffect(() => { readProject(id).then(setEntry, (reason) => setError(reason.message)); }, [id]);
+    const [shot, setShot] = useState(null);
+    useEffect(() => { projectStore.readPlan(id).then(setShot, () => setShot(null)); }, [id]);
     const planting = useMemo(() => normalizePlantingSettings(entry?.settings ?? {}), [entry]);
     const fills = useBedFills(planting.plantingBeds, library);
     const instances = useMemo(() => [...plantingInstances(planting.plantingBeds, fills, planting.plantingPoints).values()].flat(), [planting, fills]);
@@ -82,7 +131,9 @@ export default function PlantingReport() {
 
         <section className="report-block">
             <h3>{ru ? 'План' : 'Plan'}</h3>
-            <Plan beds={planting.plantingBeds} instances={instances} library={library} />
+            {shot ? <PlanShot id={id} shot={shot} beds={planting.plantingBeds} points={planting.plantingPoints} numberOf={new Map(schedule.map((r, i) => [r.plant.id, i + 1]))} ru={ru} />
+                : <><Plan beds={planting.plantingBeds} instances={instances} library={library} />
+                    <p className="report-hint">{ru ? 'Генплан с моделью появится здесь, когда в проекте откроют камеру «Генплан» — кнопка в «Растениях».' : 'The site plan with the model appears here once the “Site plan” camera is opened in the project — the button is in Plants.'}</p></>}
             <div className="report-legend">{LEGEND.map(([id2, color]) => <span key={id2}><i style={{ background: color }} />{CATEGORY_LABELS[id2][ru ? 0 : 1]}</span>)}<span><i className="is-existing" />{ru ? 'существующее' : 'existing'}</span></div>
         </section>
 
