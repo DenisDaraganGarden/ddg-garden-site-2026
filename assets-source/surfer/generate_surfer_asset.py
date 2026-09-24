@@ -533,8 +533,19 @@ SCALED = {'upperArmL', 'upperArmR', 'thighL', 'thighR', 'shinL', 'shinR'}
 TRUNK = {'pelvis', 'abdomen', 'chest', 'head'}
 
 # How far over the skin each joint's blend reaches on either side (m).
-BLEND = {'abdomen': 0.10, 'chest': 0.10, 'head': 0.05, 'upperArm': 0.07, 'forearm': 0.05,
-         'thigh': 0.08, 'shin': 0.05, 'foot': 0.035}
+BLEND = {'abdomen': 0.10, 'chest': 0.10, 'head': 0.05, 'upperArm': 0.10, 'forearm': 0.05,
+         'thigh': 0.10, 'shin': 0.05, 'foot': 0.035}
+# Bones that are no body's, at the joints that swing furthest: halfway between
+# the two bodies they join (riderBody.js turns each by half the angle between
+# them, about their joint). A shoulder blend is chest to blade to arm, not chest
+# to arm, as a real shoulder blade follows a raised arm halfway: blending two
+# turns half as far apart, the skin over a shoulder or a hip neither folds nor
+# thins. name: (the body on the trunk's side, the limb's, the joint).
+MID_BONES = {
+    'midShoulderL': ('chest', 'upperArmL', 'shoulderL'), 'midShoulderR': ('chest', 'upperArmR', 'shoulderR'),
+    'midHipL': ('pelvis', 'thighL', 'hipL'), 'midHipR': ('pelvis', 'thighR', 'hipR'),
+}
+BONE_NAMES = SEGMENT_NAMES + list(MID_BONES)
 # Over the shoulder the arm ends at a plane tilted 25° out from the vertical through
 # the armpit's top (the deltoid is the arm's, the trapezius the chest's); below the
 # armpit, at the crease plane. The hip: a plane through the trochanter, the groin and
@@ -666,7 +677,7 @@ def blend(obj, label, neighbours):
     skin (geodesic, so no share leaks through the air to a part that only touched)."""
     co = np.array([v.co for v in obj.data.vertices])
     n = len(co)
-    weights = np.zeros((n, len(SEGMENT_NAMES)))
+    weights = np.zeros((n, len(BONE_NAMES)))
     weights[np.arange(n), label] = 1.0
     for child, parent in JOINT_PARENT.items():
         reach = BLEND[child.rstrip('LR')]
@@ -676,6 +687,18 @@ def blend(obj, label, neighbours):
             near = np.flatnonzero((label == own) & (dist < reach))
             t = dist[near] / reach
             weights[near, other] += 1 - t * t * (3 - 2 * t)
+    weights /= weights.sum(1, keepdims=True)
+    # Across a shoulder and a hip the two bodies' shares, t the limb's, become
+    # (1 - t)², 2t(1 - t) the mid bone's and t²: the same sum, three ways.
+    for mid, (trunk, limb, _) in MID_BONES.items():
+        a, b, m = SEGMENT_NAMES.index(trunk), SEGMENT_NAMES.index(limb), BONE_NAMES.index(mid)
+        both = np.flatnonzero((weights[:, a] > 0) & (weights[:, b] > 0))
+        total = weights[both, a] + weights[both, b]
+        t = weights[both, b] / total
+        weights[both, a] = total * (1 - t) ** 2
+        weights[both, m] = total * 2 * t * (1 - t)
+        weights[both, b] = total * t ** 2
+        manifest.setdefault('midBoneVertices', {})[mid] = len(both)
     # At most MAX_INFLUENCES bones a vertex, the strongest.
     order = np.argsort(-weights, axis=1)
     weights[np.arange(n)[:, None], order[:, MAX_INFLUENCES:]] = 0
@@ -704,7 +727,7 @@ def geodesic(co, neighbours, sources, reach):
 def write_weights(obj, weights):
     for g in list(obj.vertex_groups):
         obj.vertex_groups.remove(g)
-    for j, name in enumerate(SEGMENT_NAMES):
+    for j, name in enumerate(BONE_NAMES):
         group = obj.vertex_groups.new(name=name)
         values = np.round(weights[:, j], 4)
         for w in np.unique(values):
@@ -716,7 +739,12 @@ def write_weights(obj, weights):
 
 def bone_map(name):
     """The affine map taking this bone's part of the scan to its place in the physics
-    rest pose (Blender frame)."""
+    rest pose (Blender frame). A mid bone's is its two bodies' mean: its share came
+    out of theirs, so the rest pose is the one they alone gave."""
+    if name in MID_BONES:
+        trunk, limb, _ = MID_BONES[name]
+        a, b = bone_map(trunk), bone_map(limb)
+        return Matrix([[(a[i][j] + b[i][j]) / 2 for j in range(4)] for i in range(4)])
     a, b = BONE_JOINTS[name]
     head, tail = scan_bone(name)
     sa, sb = B(head), B(tail)
@@ -739,7 +767,7 @@ def bone_map(name):
 def to_rest_pose(obj, weights):
     co = np.array([v.co for v in obj.data.vertices])
     out = np.zeros_like(co)
-    for j, name in enumerate(SEGMENT_NAMES):
+    for j, name in enumerate(BONE_NAMES):
         m = np.array(bone_map(name))
         out += weights[:, j:j + 1] * (co @ m[:3, :3].T + m[:3, 3])
     obj.data.vertices.foreach_set('co', out.ravel())
@@ -761,6 +789,13 @@ def physics_rig(obj):
         bone.head, bone.tail = B(PHYSICS_JOINT[a]), B(PHYSICS_JOINT[b])
     for child, parent in JOINT_PARENT.items():
         data.edit_bones[child].parent = data.edit_bones[parent]
+    # A mid bone at its joint, a hand's length toward the limb, on the trunk's body.
+    for name, (trunk, limb, joint) in MID_BONES.items():
+        bone = data.edit_bones.new(name)
+        head = B(PHYSICS_JOINT[joint])
+        bone.head = head
+        bone.tail = head + (B(PHYSICS_JOINT[BONE_JOINTS[limb][1]]) - head).normalized() * 0.1
+        bone.parent = data.edit_bones[trunk]
     bpy.ops.object.mode_set(mode='OBJECT')
     obj.parent = rig
     mod = obj.modifiers.new('rider', 'ARMATURE')

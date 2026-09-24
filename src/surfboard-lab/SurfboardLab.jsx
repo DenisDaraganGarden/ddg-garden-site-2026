@@ -5,8 +5,9 @@ import { assetIndex } from '../asset-lab/assetCatalog';
 import { buildHomeSceneLighting } from '../components/effects/homeSceneLighting';
 import SurfboardModel from '../components/surfboard/SurfboardModel';
 import LabRider from './LabRider';
-import { proneTuning, setProneTuning } from '../components/surfboard/riderPose';
-import { PRONE_FACTORY } from '../components/surfboard/proneTuning';
+import { poseTuning, setPoseTuning } from '../components/surfboard/riderPose';
+import { POSE_FACTORY, normalizePoseTuning } from '../components/surfboard/poseTuning';
+import SAVED_POSE from '../components/surfboard/riderPoseTuning';
 import { createBoardBody, createBoardState, stepBoard } from '../components/surfboard/boardPhysics';
 import { boardDimensions, buildBoardHull } from '../components/surfboard/boardShape';
 import { SURFBOARD_CHOICES, SURFBOARD_RANGES, normalizeSurfboardSettings } from '../components/surfboard/settings';
@@ -58,7 +59,9 @@ const TEXT = {
     prone: 'Лежит', paddle: 'Гребёт', stand: 'Стоит', swim: 'В воду', human: 'Человек', skeleton: 'Скелет', both: 'Человек и скелет',
     doing: 'Что делает', look: 'Вид', pace: 'Скорость времени', now: 'Сейчас',
     states: { prone: 'лежит', popup: 'встаёт', stand: 'стоит', liedown: 'ложится', fallen: 'падает', swim: 'плывёт', recover: 'забирается' },
-    editPose: 'Править позу лёжа', part: 'Часть', how: 'Как', howText: 'точка на теле — выбрать, стрелки — тянуть',
+    editPose: 'Править позу', part: 'Часть', how: 'Как', howText: 'точка на теле — выбрать, стрелки — тянуть',
+    poseProne: 'Лёжа', posePaddle: 'Гребок', poseSwim: 'Плывёт', moment: 'Момент гребка',
+    keys: ['Вход', 'Глубже', 'Выход', 'Над водой'], draft: 'Не сохранено — в игре пока прежняя',
     save: 'Сохранить позу', factory: 'Сбросить позу', saved: 'Сохранено — в игре так же', restart: 'Перезапустите приложение: сохранение появится после перезапуска', failed: 'Не сохранилось',
     parts: { pelvis: 'таз', chest: 'грудь', head: 'голова', handL: 'левая кисть', handR: 'правая кисть', elbowL: 'левый локоть', elbowR: 'правый локоть', kneeL: 'левое колено', kneeR: 'правое колено', footL: 'левая стопа', footR: 'правая стопа' },
     length: 'Длина', width: 'Ширина', thickness: 'Толщина', noseRocker: 'Подъём носа', tailRocker: 'Подъём хвоста', wire: 'Каркас',
@@ -74,7 +77,9 @@ const TEXT = {
     prone: 'Lying', paddle: 'Paddling', stand: 'Riding', swim: 'Into the water', human: 'Human', skeleton: 'Skeleton', both: 'Human and skeleton',
     doing: 'What he does', look: 'Look', pace: 'Time', now: 'Now',
     states: { prone: 'lying', popup: 'getting up', stand: 'riding', liedown: 'lying down', fallen: 'falling', swim: 'swimming', recover: 'climbing on' },
-    editPose: 'Edit the lying pose', part: 'Part', how: 'How', howText: 'a point on him — pick, the arrows — drag',
+    editPose: 'Edit the pose', part: 'Part', how: 'How', howText: 'a point on him — pick, the arrows — drag',
+    poseProne: 'Lying', posePaddle: 'Stroke', poseSwim: 'Swimming', moment: 'Moment of the stroke',
+    keys: ['In', 'Deeper', 'Out', 'Over'], draft: 'Not saved — the game has the old one',
     save: 'Save the pose', factory: 'Reset the pose', saved: 'Saved — the game has it too', restart: 'Restart the app: saving arrives with the restart', failed: 'Not saved',
     parts: { pelvis: 'pelvis', chest: 'chest', head: 'head', handL: 'left hand', handR: 'right hand', elbowL: 'left elbow', elbowR: 'right elbow', kneeL: 'left knee', kneeR: 'right knee', footL: 'left foot', footR: 'right foot' },
     length: 'Length', width: 'Width', thickness: 'Thickness', noseRocker: 'Nose rocker', tailRocker: 'Tail rocker', wire: 'Wireframe',
@@ -84,6 +89,31 @@ const TEXT = {
     l: 'L', m: 'm', cm: 'cm', m2: 'm²', h: 'h',
   },
 };
+
+// Pose corrections not yet saved to the game stay in this browser, so a
+// reload (or a restart of the app, which saving may need) does not lose them.
+const DRAFT_KEY = 'ddg.lab.riderPose.draft.v1';
+const poseTuningSaved = normalizePoseTuning(SAVED_POSE);
+function writeDraft(tuning) {
+  try {
+    if (tuning) window.localStorage.setItem(DRAFT_KEY, JSON.stringify(tuning));
+    else window.localStorage.removeItem(DRAFT_KEY);
+  } catch {
+    // No storage (a private window): the draft lives as long as the page.
+  }
+}
+function startingTuning() {
+  let draft = null;
+  try {
+    draft = JSON.parse(window.localStorage.getItem(DRAFT_KEY) ?? 'null');
+  } catch {
+    draft = null;
+  }
+  if (!draft) return poseTuning();
+  const tuning = normalizePoseTuning(draft);
+  setPoseTuning(tuning);
+  return tuning;
+}
 
 // 1.78 × 0.5 × 0.062 m → 5'10" × 19.7" × 2.44", the way a surfer reads a board.
 function imperial({ length, width, thickness }) {
@@ -102,14 +132,22 @@ export default function SurfboardLab() {
   // physics; this is the panel's copy), the part the arrows are on, and how
   // the last save went.
   const [editing, setEditing] = useState(false);
-  const [tuning, setTuning] = useState(proneTuning);
+  const [editPose, setEditPose] = useState('prone');
+  const [editKey, setEditKey] = useState(0);
+  const [tuning, setTuning] = useState(startingTuning);
   const [part, setPart] = useState('handL');
   const [saved, setSaved] = useState(null);
-  const retune = (next) => { setProneTuning(next); setTuning(next); setSaved(null); };
+  const retune = (next) => {
+    setPoseTuning(next);
+    setTuning(next);
+    setSaved(null);
+    writeDraft(next);
+  };
   const savePose = async () => {
     try {
-      const response = await fetch('/__rider-pose', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prone: tuning }) });
+      const response = await fetch('/__rider-pose', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(tuning) });
       setSaved(response.ok ? 'saved' : response.status === 404 ? 'restart' : 'failed');
+      if (response.ok) writeDraft(null);
     } catch {
       setSaved('failed');
     }
@@ -184,11 +222,16 @@ export default function SurfboardLab() {
           <LabRange label={t.pace} value={settings.pace} min={0.05} max={1} step={0.05} onChange={(value) => set('pace', value)} />
           <LabFacts rows={[[t.now, t.states[riderState] ?? riderState]]} />
           <LabToggle label={t.editPose} value={editing} onChange={(value) => { setEditing(value); if (value) set('pose', 'prone'); }} />
-          {editing && <LabFacts rows={[
-            [t.part, t.parts[part]],
-            [t.how, t.howText],
-            ...(saved ? [['', t[saved]]] : []),
-          ]} />}
+          {editing && <>
+            <LabModes label={t.editPose} items={[['prone', t.poseProne], ['paddle', t.posePaddle], ['swim', t.poseSwim]].map(([id, label]) => ({ id, label }))} value={editPose}
+              onChange={(value) => { setEditPose(value); if (value === 'paddle' && !/^(hand|elbow)/.test(part)) setPart('handL'); }} />
+            {editPose !== 'prone' && <LabModes label={t.moment} items={t.keys.map((label, id) => ({ id, label }))} value={editKey} onChange={setEditKey} />}
+            <LabFacts rows={[
+              [t.part, t.parts[part]],
+              [t.how, t.howText],
+              ...(saved ? [['', t[saved]]] : JSON.stringify(tuning) !== JSON.stringify(poseTuningSaved) ? [['', t.draft]] : []),
+            ]} />
+          </>}
         </>}
         {tab === 'shape' && <>
           {range('surfboardLength', t.length, (value) => value.toFixed(2), t.m)}
@@ -220,7 +263,7 @@ export default function SurfboardLab() {
       </>}
       transport={editing ? <>
         <button type="button" onClick={savePose}>{t.save}</button>
-        <button type="button" onClick={() => retune(PRONE_FACTORY)}>{t.factory}</button>
+        <button type="button" onClick={() => retune(normalizePoseTuning(POSE_FACTORY))}>{t.factory}</button>
       </> : <button type="button" onClick={() => { setSettings(DEFAULTS); setView('full'); setTab('shape'); setEditing(false); }}>{t.reset}</button>}
       stats={<>
         <span><b>{(hull.volume * 1000).toFixed(1)}</b> {t.l}</span>
@@ -241,7 +284,7 @@ export default function SurfboardLab() {
             hull={hull} dims={dims} board={board} lighting={lighting}
             pose={settings.pose} look={board.surfboardRiderLook} pace={settings.pace} wireframe={settings.wireframe}
             onState={setRiderState} onClimbed={() => set('pose', 'prone')}
-            editing={editing} tuning={tuning} part={part} onPart={setPart} onTuning={retune}
+            editing={editing} editPose={editPose} editKey={editKey} tuning={tuning} part={part} onPart={setPart} onTuning={retune}
           />
         ) : (
           <group
