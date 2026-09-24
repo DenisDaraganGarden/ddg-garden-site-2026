@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { fillBed, insidePolygon, plantingSchedule, polygonArea, quotas, scheduleCsv, simplifyContour, spacingFor } from './fillBed.js';
 import { seasonLook } from './season.js';
 import { normalizePlantingSettings, PLANTING_LIMITS } from './settings.js';
+import { PLANTING_PALETTES } from './palettes.js';
+import { paletteRecipe } from './usePlantingEditor.js';
 
 const plant = (id, fields) => ({ id, ru: id, latin: id, category: 'perennial', height: 0.6, spread: 0.5, density: 5, foliage: 'herbaceous', ...fields });
 const library = new Map([
@@ -93,5 +95,10 @@ assert.ok(simple.length <= PLANTING_LIMITS.contour && simple.length > 30, `a han
 const loop = [...circle.filter((_, i) => i % 50 === 0), circle[0]];
 const kept = simplifyContour(loop);
 assert.ok(kept.length >= 20 && Math.abs(polygonArea(kept) - Math.PI * 400) / (Math.PI * 400) < 0.05, `a loop closed on its first point stays a bed (${kept.length} points)`);
+
+// Палитра без библиотеки — целиком (цветник не остаётся голым), с
+// библиотекой — только её растения.
+assert.equal(paletteRecipe(PLANTING_PALETTES[0], new Map()).length, PLANTING_PALETTES[0].recipe.length);
+assert.deepEqual(paletteRecipe(PLANTING_PALETTES[0], new Map([['festuca-glauca', {}]])), [{ plant: 'festuca-glauca', share: 5 }]);
 
 console.log(`planting: settings, fill (${first.length} plants in 60 m², ${smallFill.length} in 20 m² with ${small.recipe.length} species), schedule and seasons hold`);

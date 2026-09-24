@@ -6,9 +6,12 @@ export const PLANTING_NODE = 'greenery/planting';
 const newSeed = () => Math.floor(Math.random() * 1e7) + 1;
 const newId = (prefix) => `${prefix}-${crypto.randomUUID().slice(0, 12)}`;
 
-// Рецепт палитры — из тех растений, что есть в библиотеке.
+// Рецепт палитры — из тех растений, что есть в библиотеке. Пока библиотека
+// не пришла (сервер без неё, первая загрузка), рецепт берётся целиком: это
+// данные цветника, а растения появятся вместе с библиотекой — пустой рецепт
+// оставил бы голую землю.
 export const paletteRecipe = (palette, library) => palette.recipe
-    .filter(([plant]) => library.has(plant))
+    .filter(([plant]) => !library.size || library.has(plant))
     .map(([plant, share]) => ({ plant, share }));
 
 // Правки посадок идут через историю редактора: цветник от руки, растение
