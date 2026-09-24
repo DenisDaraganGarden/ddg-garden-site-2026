@@ -942,6 +942,20 @@ export function buildBeachHouse(input = {}) {
       // Where rain runs off and streaks the walls below: the eaves, the band
       // at the upper floor, the upper and the lower sills (houseMaterial.js).
       dripLines: [F + EAVES, F + SECOND - 0.08, F + UPPER_SILL - 0.06, F + 0.84],
+      // What stands over what, for the sky light the material lets through
+      // (houseMaterial.js): rectangles [x0, z0, x1, z1] at a height — the
+      // undersides of the floors and the eaves of the roofs, as settled.
+      covers: [
+        [-W / 2, -L / 2, W / 2, L / 2, F - RIM],
+        [-W / 2, L / 2, W / 2 + P, L / 2 + P, F - DECK - RIM],
+        [W / 2, wrapBack, W / 2 + P, L / 2, F - DECK - RIM],
+        [annex.x0, annex.z0, annex.x1, annex.z1, F - RIM],
+        // Under the eaves' edge, so the roof's own slopes stay clear of it.
+        [-W / 2 - EAVE_OUT, -L / 2 - RAKE_OUT, W / 2 + EAVE_OUT, L / 2 + RAKE_OUT, F + EAVES - EAVE_OUT * tan - 0.05],
+        [-W / 2 - 0.35, L / 2, W / 2 + reach, L / 2 + reach, porchHigh - reach * porchTan],
+        [W / 2, wrapBack - 0.3, W / 2 + reach, L / 2 + reach, porchHigh - reach * porchTan],
+        [annex.x0 - 0.35, annex.z0 - 0.25, annex.x1, annex.z1 + 0.25, F + low],
+      ].map(([x0, z0, x1, z1, y]) => [x0, z0, x1, z1, bent([(x0 + x1) / 2, y, (z0 + z1) / 2])[1]]),
     },
   };
 }
@@ -1089,7 +1103,9 @@ export function buildBeachShed(input = {}) {
       seed,
       hut: { front: FRONT, back: X0, z0: Z0, z1: Z1, walls: WALLS, door: stepZ, posts: postX, header: headerTop - 0.18, stubs },
       bend: (point) => bent(vec(...point)),
-      deck: H, steps: 3, stepRise: H / 3, door: { width: 0.82, height: 1.9 }, eaves: eaveY, ridge: bounds.max.y, dripLines: [H + WALLS, H + 1.1, H + 0.02, 0.3] },
+      deck: H, steps: 3, stepRise: H / 3, door: { width: 0.82, height: 1.9 }, eaves: eaveY, ridge: bounds.max.y, dripLines: [H + WALLS, H + 1.1, H + 0.02, 0.3],
+      covers: [[X0, Z0, X1, Z1, H - 0.2], [RX0, RZ0, RX1, RZ1, eaveY]].map(([x0, z0, x1, z1, y]) => [x0, z0, x1, z1, bent(vec((x0 + x1) / 2, y, (z0 + z1) / 2))[1]]),
+    },
   };
 }
 

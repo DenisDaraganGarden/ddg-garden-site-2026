@@ -513,6 +513,13 @@ const HomeEdit = ({ project = null }) => {
             if (checkpoint) setSettings((previous) => ({ ...previous, ...leaveAuto(previous, checkpoint) }));
             return;
         }
+        // Bikini Point: where it stands and which way its porch faces.
+        if (id === 'house') {
+            const place = patch.position ? { houseX: patch.position.x, houseZ: patch.position.z }
+                : typeof patch.rotationY === 'number' ? { houseHeading: Math.round(wrapDegrees(patch.rotationY)) } : null;
+            if (place) setSettings((previous) => ({ ...previous, ...place }));
+            return;
+        }
         const lightMatch = /^light([12])(target)?$/.exec(id);
         if (lightMatch && patch.position) {
             const prefix = `light${lightMatch[1]}${lightMatch[2] ? 'Target' : ''}`;
@@ -578,7 +585,9 @@ const HomeEdit = ({ project = null }) => {
                 // At the wave the ring starts from the board's real heading,
                 // the one leaving auto would pin, not the stored one.
                 ? { rotationY: leaveAuto(settings, {}).surfboardCheckpointYaw ?? settings.surfboardCheckpointYaw ?? 0, scale: 1 }
-                : null;
+                : gizmoSelection === 'house'
+                    ? { rotationY: settings.houseHeading ?? 0, scale: 1 }
+                    : null;
     const editorGizmo = useMemo(() => ({
         selection: !playing && transformHeld ? gizmoSelection : null,
         mode: transformTool ? tool : lastTransform,

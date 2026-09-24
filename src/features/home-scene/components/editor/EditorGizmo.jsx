@@ -42,6 +42,16 @@ const GIZMO_TARGETS = {
         scale: false,
         uniformScale: true,
     },
+    // Bikini Point moves and turns as one: the house, its shed and its things.
+    // It stands on the ground, so the ground owns its height; its size is its
+    // shape, set in its own section, so it has no scale handle.
+    house: {
+        objectName: 'beach-house',
+        translate: { x: true, y: false, z: true },
+        rotate: { x: false, y: true, z: false },
+        scale: false,
+        uniformScale: true,
+    },
     // A light and the point it looks at are two separate handles, the way a
     // Corona Light works: drag the body to place it, drag the pivot to aim it.
     // Both move freely in all three axes - a light is not standing on anything.
@@ -82,6 +92,7 @@ const GIZMO_NOTES = {
     boat: { ru: 'высота — от воды', en: 'height comes from the water' },
     sculpture: { ru: 'высота — от дна', en: 'height comes from the seabed' },
     surfboard: { ru: 'высота — от воды', en: 'height follows the water' },
+    house: { ru: 'высота — от грунта', en: 'height comes from the ground' },
 };
 
 const targetRule = selection => {
