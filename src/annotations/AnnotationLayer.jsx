@@ -18,7 +18,7 @@ import { drawMark, hash, SHELF, snapHeight } from './marks.js';
 // бледный «призрак» поверх всего — отметку за деревом или стеной видно и
 // можно выбрать, а открытая рисуется ярко поверх своего призрака.
 const GHOST = 0.3;
-function Mark({ mark, text, color, size, fade, level, selected, zero }) {
+function Mark({ mark, text, color, fill, outline, size, fade, level, selected, zero }) {
     const { invalidate } = useThree();
     const canvas = useMemo(() => document.createElement('canvas'), []);
     const texture = useMemo(() => {
@@ -37,13 +37,13 @@ function Mark({ mark, text, color, size, fade, level, selected, zero }) {
     const box = useRef({ width: 1, height: 1, tipX: 0 });
     const sprites = useRef([]);
     useEffect(() => {
-        box.current = drawMark(canvas, { text, color, level, selected, zero, seed: hash(mark.id) });
+        box.current = drawMark(canvas, { text, color, fill, outline, level, selected, zero, seed: hash(mark.id) });
         texture.dispose();
         texture.image = canvas;
         texture.needsUpdate = true;
         for (const sprite of sprites.current) sprite?.center.set(box.current.tipX / box.current.width, 0);
         invalidate();
-    }, [canvas, texture, text, color, level, selected, zero, mark.id, invalidate]);
+    }, [canvas, texture, text, color, fill, outline, level, selected, zero, mark.id, invalidate]);
 
     // Каждый кадр: чуть ближе к камере по лучу, размер в пикселях экрана,
     // прозрачность по расстоянию. Вызывается как метод спрайта (this).
@@ -115,7 +115,7 @@ export default function AnnotationLayer({ settings, selectedId = null, geometryK
     });
 
     return <group name="annotations">
-        {marks.map((mark) => <Mark key={mark.id} mark={mark} text={texts.get(mark.id)} color={settings.annotationColor} size={settings.annotationSize} fade={settings.annotationFade}
+        {marks.map((mark) => <Mark key={mark.id} mark={mark} text={texts.get(mark.id)} color={settings.annotationColor} fill={settings.annotationFill !== false} outline={settings.annotationOutline !== false} size={settings.annotationSize} fade={settings.annotationFade}
             level={shelves.get(mark.id) ?? 0} selected={mark.id === selectedId} zero={Boolean(mark.zero)} />)}
     </group>;
 }

@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { useLanguage } from '../../../../../i18n/useLanguage';
-import { ColorControl, RangeControl, SectionHeading, SelectControl } from '../../HomeEditorControls';
+import { CheckboxControl, ColorControl, RangeControl, SectionHeading, SelectControl } from '../../HomeEditorControls';
 import { useFocusControlScope } from '../focus/FocusControlsContext';
 import { FocusIcon } from '../focus/FocusIcons';
 import { ANNOTATION_LIMITS, ANNOTATION_RANGES, ANNOTATION_STEPS, formatLevel, markLevels } from '../../../../../annotations/settings.js';
@@ -43,6 +43,8 @@ export function AnnotationsSection({ settings, handleSettingChange, annotationEd
         </>}
         <SectionHeading label={ru ? 'Вид отметок' : 'How marks look'} />
         <ColorControl controlId="annotationColor" label={ru ? 'Цвет' : 'Colour'} value={settings.annotationColor} onChange={(event) => handleSettingChange(event, 'annotationColor', 'color')} />
+        <CheckboxControl controlId="annotationFill" label={ru ? 'Заливка под числом' : 'Fill under the number'} checked={settings.annotationFill !== false} onChange={(event) => handleSettingChange(event, 'annotationFill', 'boolean')} testId="annotations-fill" />
+        <CheckboxControl controlId="annotationOutline" label={ru ? 'Обводка числа' : 'Frame round the number'} checked={settings.annotationOutline !== false} onChange={(event) => handleSettingChange(event, 'annotationOutline', 'boolean')} testId="annotations-outline" />
         <SelectControl controlId="annotationUnits" label={ru ? 'Единицы' : 'Units'} value={settings.annotationUnits} options={UNIT_OPTIONS.map(([value, r, e]) => ({ value, label: ru ? r : e }))} onChange={(event) => handleSettingChange(event, 'annotationUnits', 'string')} />
         <SelectControl controlId="annotationStep" label={ru ? 'Округление' : 'Rounding'} value={String(settings.annotationStep)} options={ANNOTATION_STEPS.map((step) => ({ value: String(step), label: STEP_LABELS[step][ru ? 0 : 1] }))} onChange={(event) => handleSettingChange(event, 'annotationStep')} />
         <RangeControl controlId="annotationSize" label={ru ? 'Размер' : 'Size'} value={settings.annotationSize} min={ANNOTATION_RANGES.size[0]} max={ANNOTATION_RANGES.size[1]} step={ANNOTATION_RANGES.size[2]} unit=" ×" onChange={(event) => handleSettingChange(event, 'annotationSize')} />

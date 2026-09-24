@@ -1,5 +1,5 @@
 {
-  "collected": "2026-09-24T22:09:59.179Z",
+  "collected": "2026-09-24T23:06:36.711Z",
   "rows": [
     {
       "key": "cameraFov",
@@ -971,6 +971,134 @@
       "max": 30,
       "step": 0.1,
       "unit": "с"
+    },
+    {
+      "key": "surroundingsEnabled",
+      "group": "landscape",
+      "node": "surroundings",
+      "label": "Окружение",
+      "kind": "выключатель"
+    },
+    {
+      "key": "surroundingsRadius",
+      "group": "landscape",
+      "node": "surroundings",
+      "label": "Радиус карты",
+      "kind": "число",
+      "min": 100,
+      "max": 1500,
+      "step": 10,
+      "unit": "m"
+    },
+    {
+      "key": "surroundingsBuildings",
+      "group": "landscape",
+      "node": "surroundings",
+      "label": "Здания",
+      "kind": "выключатель"
+    },
+    {
+      "key": "surroundingsTrees",
+      "group": "landscape",
+      "node": "surroundings",
+      "label": "Деревья и лес",
+      "kind": "выключатель"
+    },
+    {
+      "key": "surroundingsFences",
+      "group": "landscape",
+      "node": "surroundings",
+      "label": "Заборы и изгороди",
+      "kind": "выключатель"
+    },
+    {
+      "key": "surroundingsRelief",
+      "group": "landscape",
+      "node": "surroundings",
+      "label": "Рельеф",
+      "kind": "число",
+      "min": 0,
+      "max": 2,
+      "step": 0.05
+    },
+    {
+      "key": "northAngle",
+      "group": "landscape",
+      "node": "surroundings",
+      "label": "Север",
+      "kind": "число",
+      "min": -180,
+      "max": 180,
+      "step": 0.5,
+      "unit": "°"
+    },
+    {
+      "key": "surroundingsOffsetX",
+      "group": "landscape",
+      "node": "surroundings",
+      "label": "Сдвиг X",
+      "kind": "число",
+      "min": -300,
+      "max": 300,
+      "step": 0.1,
+      "unit": "m"
+    },
+    {
+      "key": "surroundingsOffsetZ",
+      "group": "landscape",
+      "node": "surroundings",
+      "label": "Сдвиг Z",
+      "kind": "число",
+      "min": -300,
+      "max": 300,
+      "step": 0.1,
+      "unit": "m"
+    },
+    {
+      "key": "surroundingsClear",
+      "group": "landscape",
+      "node": "surroundings",
+      "label": "Круг участка",
+      "kind": "число",
+      "min": 0,
+      "max": 150,
+      "step": 1,
+      "unit": "m"
+    },
+    {
+      "key": "surroundingsBuildingColor",
+      "group": "landscape",
+      "node": "surroundings",
+      "label": "Дома",
+      "kind": "цвет"
+    },
+    {
+      "key": "surroundingsGroundColor",
+      "group": "landscape",
+      "node": "surroundings",
+      "label": "Земля",
+      "kind": "цвет"
+    },
+    {
+      "key": "surroundingsRoadColor",
+      "group": "landscape",
+      "node": "surroundings",
+      "label": "Дороги",
+      "kind": "цвет"
+    },
+    {
+      "key": "surroundingsGreenColor",
+      "group": "landscape",
+      "node": "surroundings",
+      "label": "Зелень",
+      "kind": "цвет"
+    },
+    {
+      "key": "surroundingsWaterColor",
+      "group": "landscape",
+      "node": "surroundings",
+      "label": "Вода",
+      "kind": "цвет"
     },
     {
       "key": "terrainEnabled",
@@ -4887,6 +5015,20 @@
       "kind": "цвет"
     },
     {
+      "key": "annotationFill",
+      "group": "annotations",
+      "node": "levels",
+      "label": "Заливка под числом",
+      "kind": "выключатель"
+    },
+    {
+      "key": "annotationOutline",
+      "group": "annotations",
+      "node": "levels",
+      "label": "Обводка числа",
+      "kind": "выключатель"
+    },
+    {
       "key": "annotationUnits",
       "group": "annotations",
       "node": "levels",
@@ -7113,10 +7255,13 @@
     "northAngle": 0,
     "annotationsEnabled": true,
     "annotationColor": "#b0473f",
+    "annotationFill": true,
+    "annotationOutline": true,
     "annotationUnits": "m",
     "annotationStep": 0.001,
     "annotationSize": 1,
     "annotationFade": 150,
+    "walkStart": null,
     "shrubsEnabled": true,
     "shrubsCount": 512,
     "shrubsSeed": 23,
@@ -7204,6 +7349,24 @@
     "shoreBark": 0.28,
     "shoreWetness": 0,
     "shoreRenderDistance": 280,
+    "surroundingsEnabled": true,
+    "geoLatitude": null,
+    "geoLongitude": null,
+    "geoAddress": "",
+    "surroundingsRadius": 300,
+    "surroundingsClear": 15,
+    "surroundingsRelief": 1,
+    "surroundingsOffsetX": 0,
+    "surroundingsOffsetZ": 0,
+    "surroundingsBuildings": true,
+    "surroundingsTrees": true,
+    "surroundingsFences": true,
+    "surroundingsBuildingColor": "#eceae5",
+    "surroundingsGroundColor": "#d8d5cc",
+    "surroundingsRoadColor": "#b3b0a8",
+    "surroundingsGreenColor": "#b4bda6",
+    "surroundingsWaterColor": "#a7bac4",
+    "surroundingsStamp": "",
     "seaEnabled": true,
     "seaWavelength": 11.5,
     "seaAmplitude": 0.57,

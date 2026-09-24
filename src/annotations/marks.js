@@ -30,7 +30,9 @@ function sketch(ctx, points, color, width, rand) {
 
 // Знак отметки на холсте. Остриё — внизу слева (tip), полочка — на высоте
 // level · SHELF над ним. Размеры — css-пиксели; холст в RATIO раз плотнее.
-export function drawMark(canvas, { text, color, level = 0, selected = false, zero = false, seed = 1 }) {
+// fill, outline — белая заливка под числом и рамка вокруг него; без заливки
+// у числа белый ореол, как у линий, — читается и так.
+export function drawMark(canvas, { text, color, level = 0, selected = false, zero = false, seed = 1, fill = true, outline = true }) {
     const ctx = canvas.getContext('2d');
     const font = `bold 19px ${FONT}`;
     ctx.font = font;
@@ -52,11 +54,17 @@ export function drawMark(canvas, { text, color, level = 0, selected = false, zer
     if (zero) sketch(ctx, [[tipX + 4, top + 4], [tipX + width + 18, top + 4]], color, 1.1, rand);
     // Число в рамке над полочкой.
     const box = { x: tipX + 5, y: top - 28, w: width + 14, h: 24 };
-    ctx.fillStyle = selected ? 'rgba(255, 246, 214, 0.96)' : 'rgba(255, 255, 255, 0.93)';
-    ctx.beginPath(); ctx.roundRect(box.x, box.y, box.w, box.h, 7); ctx.fill();
-    sketch(ctx, [[box.x + 5, box.y], [box.x + box.w - 5, box.y + 0.5], [box.x + box.w, box.y + 6], [box.x + box.w - 0.5, box.y + box.h - 5], [box.x + box.w - 6, box.y + box.h], [box.x + 5, box.y + box.h - 0.5], [box.x, box.y + box.h - 6], [box.x + 0.5, box.y + 5], [box.x + 5, box.y]], selected ? '#d19a2a' : color, 1.2, rand);
-    ctx.fillStyle = color;
+    if (fill) {
+        ctx.fillStyle = selected ? 'rgba(255, 246, 214, 0.96)' : 'rgba(255, 255, 255, 0.93)';
+        ctx.beginPath(); ctx.roundRect(box.x, box.y, box.w, box.h, 7); ctx.fill();
+    }
+    if (outline) sketch(ctx, [[box.x + 5, box.y], [box.x + box.w - 5, box.y + 0.5], [box.x + box.w, box.y + 6], [box.x + box.w - 0.5, box.y + box.h - 5], [box.x + box.w - 6, box.y + box.h], [box.x + 5, box.y + box.h - 0.5], [box.x, box.y + box.h - 6], [box.x + 0.5, box.y + 5], [box.x + 5, box.y]], selected ? '#d19a2a' : color, 1.2, rand);
     ctx.textBaseline = 'middle';
+    if (!fill) {
+        ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 3.5;
+        ctx.strokeText(text, box.x + 7, box.y + box.h / 2 + 1);
+    }
+    ctx.fillStyle = color;
     ctx.fillText(text, box.x + 7, box.y + box.h / 2 + 1);
     return { width: W, height: H, tipX };
 }

@@ -8,7 +8,7 @@
 единицы взяты из его каталога контролов, поэтому параметр не может появиться в
 редакторе и не появиться здесь. Руками не править.
 
-Снято: 2026-09-24 · параметров: 703 · разделов: 44
+Снято: 2026-09-24 · параметров: 720 · разделов: 45
 
 Как этим пользоваться агенту: читать и писать `~/Ouroboros/projects/<id>.json`, поле
 `settings` — плоский объект с этими ключами. `topiaryObjects` — массив форм;
@@ -21,7 +21,9 @@
 |---|---|---|---|---|
 | `annotationColor` | Цвет | цвет | #rrggbb | #b0473f |
 | `annotationFade` | Гаснут дальше | число | 10 … 2000, шаг 5,  m | 150 |
+| `annotationFill` | Заливка под числом | выключатель | да / нет | true |
 | `annotationMarks` | Отметка | список |  |  |
+| `annotationOutline` | Обводка числа | выключатель | да / нет | true |
 | `annotationsEnabled` | Отметки уровня | выключатель | да / нет | true |
 | `annotationSize` | Размер | число | 0.5 … 2.5, шаг 0.05,  × | 1 |
 | `annotationStep` | Округление | список | 0.001 · 0.005 · 0.01 · 0.05 · 0.1 | 0.001 |
@@ -502,6 +504,26 @@
 | `shoreSize` | Размер | число | 0.5 … 1.7, шаг 0.05, × | 1 |
 | `shoreStakes` | Из песка | число | 0 … 1, шаг 0.01 | 0.15 |
 | `shoreWetness` | Влажность | число | 0 … 1, шаг 0.01 | 0 |
+
+## landscape/surroundings
+
+| Ключ | Что это | Вид | Пределы | Заводское |
+|---|---|---|---|---|
+| `northAngle` | Север | число | -180 … 180, шаг 0.5, ° | 0 |
+| `surroundingsBuildingColor` | Дома | цвет | #rrggbb | #eceae5 |
+| `surroundingsBuildings` | Здания | выключатель | да / нет | true |
+| `surroundingsClear` | Круг участка | число | 0 … 150, шаг 1, m | 15 |
+| `surroundingsEnabled` | Окружение | выключатель | да / нет | true |
+| `surroundingsFences` | Заборы и изгороди | выключатель | да / нет | true |
+| `surroundingsGreenColor` | Зелень | цвет | #rrggbb | #b4bda6 |
+| `surroundingsGroundColor` | Земля | цвет | #rrggbb | #d8d5cc |
+| `surroundingsOffsetX` | Сдвиг X | число | -300 … 300, шаг 0.1, m | 0 |
+| `surroundingsOffsetZ` | Сдвиг Z | число | -300 … 300, шаг 0.1, m | 0 |
+| `surroundingsRadius` | Радиус карты | число | 100 … 1500, шаг 10, m | 300 |
+| `surroundingsRelief` | Рельеф | число | 0 … 2, шаг 0.05 | 1 |
+| `surroundingsRoadColor` | Дороги | цвет | #rrggbb | #b3b0a8 |
+| `surroundingsTrees` | Деревья и лес | выключатель | да / нет | true |
+| `surroundingsWaterColor` | Вода | цвет | #rrggbb | #a7bac4 |
 
 ## landscape/terrain
 

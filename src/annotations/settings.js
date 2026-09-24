@@ -17,6 +17,9 @@ export const DEFAULT_ANNOTATION_SETTINGS = Object.freeze({
     annotationsEnabled: true,
     annotationMarks: [],
     annotationColor: '#b0473f',
+    // Число в рамке: белая заливка под ним и рамка от руки — порознь.
+    annotationFill: true,
+    annotationOutline: true,
     annotationUnits: 'm',
     annotationStep: 0.001,
     annotationSize: 1,
@@ -53,6 +56,8 @@ export function normalizeAnnotationSettings(settings = {}) {
         annotationsEnabled: settings.annotationsEnabled !== false,
         annotationMarks: marks,
         annotationColor: COLOR.test(String(settings.annotationColor ?? '')) ? settings.annotationColor : d.annotationColor,
+        annotationFill: settings.annotationFill !== false,
+        annotationOutline: settings.annotationOutline !== false,
         annotationUnits: ANNOTATION_UNITS.includes(settings.annotationUnits) ? settings.annotationUnits : d.annotationUnits,
         annotationStep: ANNOTATION_STEPS.includes(Number(settings.annotationStep)) ? Number(settings.annotationStep) : d.annotationStep,
         annotationSize: clamp(settings.annotationSize, ANNOTATION_RANGES.size, d.annotationSize),
