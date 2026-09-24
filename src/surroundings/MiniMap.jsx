@@ -8,6 +8,15 @@ import 'leaflet/dist/leaflet.css';
 // видно свой забор, по схеме — адреса. Leaflet грузится только с этой панелью.
 const ROSTOV = [47.2357, 39.7015];
 
+// Leaflet меряет коробку карты: пока панель свёрнута или ещё раскрывается, она
+// нулевая, fitBounds даёт NaN и бросает — а с ним падал весь редактор. Такой
+// показ круга ждёт первого настоящего размера.
+function fit(current) {
+    const size = current.map.getSize();
+    current.fitLater = !size.x || !size.y;
+    if (!current.fitLater) current.map.fitBounds(current.circle.getBounds(), { padding: [10, 10] });
+}
+
 export default function MiniMap({ lat, lon, radius, loaded, layer, onPick }) {
     const box = useRef(null);
     const parts = useRef(null);
@@ -29,10 +38,13 @@ export default function MiniMap({ lat, lon, radius, loaded, layer, onPick }) {
         const circle = L.circle(located ? [lat, lon] : ROSTOV, { radius, weight: 1.5, color: '#f2d27c', fillOpacity: 0.06, interactive: false }).addTo(map);
         const done = L.circle(ROSTOV, { radius: 1, weight: 1, color: '#ffffff', dashArray: '4 4', fill: false, opacity: 0, interactive: false }).addTo(map);
         map.on('click', (event) => pick.current(event.latlng.lat, event.latlng.lng));
-        if (located) map.fitBounds(circle.getBounds(), { padding: [10, 10] });
-        parts.current = { map, marker, circle, done, layers };
+        parts.current = { map, marker, circle, done, layers, fitLater: false };
+        if (located) fit(parts.current);
         // Панель могла ещё раскрываться, когда Leaflet мерил коробку.
-        const resize = new ResizeObserver(() => map.invalidateSize());
+        const resize = new ResizeObserver(() => {
+            map.invalidateSize();
+            if (parts.current?.fitLater) fit(parts.current);
+        });
         resize.observe(box.current);
         return () => {
             resize.disconnect();
@@ -57,13 +69,14 @@ export default function MiniMap({ lat, lon, radius, loaded, layer, onPick }) {
         if (!current || !located) return;
         current.marker.setLatLng([lat, lon]).setOpacity(1);
         current.circle.setLatLng([lat, lon]);
-        current.map.fitBounds(current.circle.getBounds(), { padding: [10, 10] });
+        fit(current);
     }, [located, lat, lon]);
     useEffect(() => {
         const current = parts.current;
         if (!current || !located) return;
         current.circle.setRadius(radius);
-        if (!current.map.getBounds().contains(current.circle.getBounds())) current.map.fitBounds(current.circle.getBounds(), { padding: [10, 10] });
+        const size = current.map.getSize();
+        if (!size.x || !size.y || !current.map.getBounds().contains(current.circle.getBounds())) fit(current);
     }, [located, radius]);
 
     const { lat: doneLat, lon: doneLon, radius: doneRadius } = loaded ?? {};
