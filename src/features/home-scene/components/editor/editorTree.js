@@ -1,3 +1,4 @@
+import { isEditorNodeHidden } from './hiddenNodes.js';
 import {TopiarySection} from './sections/topiary';
 import {PlacedSection} from './sections/placed';
 import {ShrubsSection} from './sections/shrubs';
@@ -200,7 +201,7 @@ export const DEFAULT_EDITOR_PATH = 'landscape/water';
 export function resolveEditorPath(path, { includeDevOnly = false } = {}) {
     const groups = EDITOR_TREE.map((group) => ({
         ...group,
-        nodes: group.nodes.filter((node) => includeDevOnly || !node.devOnly),
+        nodes: group.nodes.filter((node) => (includeDevOnly || !node.devOnly) && !isEditorNodeHidden(`${group.id}/${node.id}`)),
     })).filter((group) => group.nodes.length > 0);
 
     const [groupId, nodeId] = String(path ?? '').split('/');

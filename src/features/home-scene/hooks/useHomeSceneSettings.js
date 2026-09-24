@@ -33,6 +33,7 @@ import {
   normalizeSoundscapeSettings,
 } from '../../audio/data/soundscapeSettings';
 import { projectStore, readProject, saveProjectSettings } from '../../engine/projectApi';
+import { siteObjectsOff } from '../lib/sceneObjects.js';
 import { EDITOR_THUMBNAIL_READY, requestEditorThumbnail } from '../../../components/effects/editorThumbnailCapture';
 
 export const HOME_SCENE_SETTINGS_STORAGE_KEY = 'ddg_home_scene_settings_v1';
@@ -1401,6 +1402,13 @@ export const usePublishedHomeSceneSettings = () => {
 // origin), либо внутри проекта движка — тогда сцена приходит файлом и в файл же
 // возвращается. Ветки не смешиваются: черновик сайта проект не видит и наоборот,
 // поэтому проект не может уехать на сайт.
+// Проект с диска: «Участок» (kind 'design') — без вещей сайта, даже если
+// файл их включает (старая копия, чужая правка).
+const fromProject = (entry) => {
+  const settings = normalizeHomeSceneDraftSettings(entry.settings);
+  return entry.kind === 'design' ? siteObjectsOff(settings) : settings;
+};
+
 // ?camera=<id или имя> — проект открывается на этой камере: так Claude снимает
 // нужный вид (scripts/render-view.mjs), а ссылка ведёт прямо к ракурсу.
 const openAtCamera = (settings) => {
@@ -1422,7 +1430,7 @@ export const useHomeSceneDraftSettings = (project = null) => {
   const pending = useRef(false);
   const [externalRevision, setExternalRevision] = useState(0);
   const [settings, setStoredSettings] = useState(() => (project
-    ? openAtCamera(normalizeHomeSceneDraftSettings(project.settings))
+    ? openAtCamera(fromProject(project))
     : readHomeSceneDraftSettings() ?? normalizeHomeSceneDraftSettings(getPublishedHomeSceneSettings())
   ));
   const setSettings = useCallback((update) => {
@@ -1435,7 +1443,7 @@ export const useHomeSceneDraftSettings = (project = null) => {
   // Запись с диска приходит в редактор целиком, как при открытии: без отмены и
   // без сохранения обратно; камера встаёт в позу выбранной (externalRevision).
   const adopt = useCallback((entry) => {
-    const next = normalizeHomeSceneDraftSettings(entry.settings);
+    const next = fromProject(entry);
     known.current = entry.updated;
     untouched.current = next;
     setStoredSettings(next);

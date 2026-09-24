@@ -9,7 +9,7 @@ import {
 import {
     getBaseHomeSceneSettings, normalizeHomeSceneDraftSettings, readHomeSceneDraftSettings, sanitizeHomeSceneSettingsForPublish,
 } from '../features/home-scene/hooks/useHomeSceneSettings';
-import { newProjectObjectSettings } from '../features/home-scene/lib/sceneObjects';
+import { designProjectObjectSettings, newProjectObjectSettings } from '../features/home-scene/lib/sceneObjects';
 import { confirmPublishWithModels, publishHomeSceneSettings } from '../features/home-scene/lib/homeScenePublishClient';
 import publishedSource from '../features/home-scene/data/publishedHomeSceneSource.json';
 import './Engine.css';
@@ -23,7 +23,14 @@ import './Engine.css';
 // черновик и свои кнопки публикации, а проект движка на сайт уехать не может.
 // Заводской берег — без вещей сайта и без того, что пока не умеет жить вдоль
 // воды само: что именно выключено, записано в реестре объектов одним флагом.
-const factoryScene = () => normalizeHomeSceneDraftSettings({ ...getBaseHomeSceneSettings(), ...newProjectObjectSettings() });
+//
+// Второй вид проекта — «Участок» (kind 'design'): проектирование сада, а не
+// берег сайта. Пустая сцена — небо, ровная земля, расстановка для модели
+// SketchUp; моря, лодки, дома и прочих вещей сайта в нём нет совсем
+// (sceneObjects.js, `site`).
+const factoryScene = (kind) => normalizeHomeSceneDraftSettings({
+    ...getBaseHomeSceneSettings(), ...newProjectObjectSettings(), ...(kind === 'design' ? designProjectObjectSettings() : {}),
+});
 
 const openEditor = (id) => { window.location.href = `/home/edit?project=${encodeURIComponent(id)}`; };
 
@@ -113,10 +120,10 @@ export default function Engine() {
     }, []);
 
     // from: the project a copy is made of; its imported models go with it.
-    const create = async (name, settings, from) => {
+    const create = async (name, settings, from, kind) => {
         setEditing(null);
         try {
-            openEditor((await createProject({ name, settings: settings ?? factoryScene(), engine: version, from })).id);
+            openEditor((await createProject({ name, settings: settings ?? factoryScene(kind), engine: version, from, ...(kind ? { kind } : {}) })).id);
         } catch (error) { fail(error); }
     };
 
@@ -132,7 +139,7 @@ export default function Engine() {
     // диска, а не берётся из списка: список нарочно приходит без настроек.
     const duplicate = async (project) => {
         try {
-            await create(`${project.name} · ${tr('копия', 'copy')}`, (await readProject(project.id)).settings, project.id);
+            await create(`${project.name} · ${tr('копия', 'copy')}`, (await readProject(project.id)).settings, project.id, project.kind);
         } catch (error) { fail(error); }
     };
 
@@ -162,7 +169,7 @@ export default function Engine() {
         placeholder={tr('Название проекта', 'Project name')}
         onCommit={(name) => (project
             ? rename(project.id, name)
-            : (name.trim() ? create(name) : setEditing(null)))}
+            : (name.trim() ? create(name, undefined, undefined, editing?.kind) : setEditing(null)))}
         onCancel={() => setEditing(null)}
     />;
 
@@ -196,12 +203,19 @@ export default function Engine() {
             )}</p> : null}
 
             <div className="engine-grid">
-                {editing && editing.id === null
+                {editing && editing.id === null && !editing.kind
                     ? <div className="engine-card engine-card--new is-naming">{naming(null)}</div>
                     : <button type="button" className="engine-card engine-card--new" onClick={() => setEditing({ id: null, name: '' })} disabled={state.status !== 'ready'}>
                         <FocusIcon name="plus" />
                         <span>{tr('Новый проект', 'New project')}</span>
                         <small>{tr('Заводской берег', 'Factory coast')}</small>
+                    </button>}
+                {editing && editing.id === null && editing.kind === 'design'
+                    ? <div className="engine-card engine-card--new is-naming">{naming(null)}</div>
+                    : <button type="button" className="engine-card engine-card--new" onClick={() => setEditing({ id: null, name: '', kind: 'design' })} disabled={state.status !== 'ready'} data-testid="engine-new-design">
+                        <FocusIcon name="plus" />
+                        <span>{tr('Новый участок', 'New garden plot')}</span>
+                        <small>{tr('Пустая сцена · SketchUp · посадки', 'Empty scene · SketchUp · planting')}</small>
                     </button>}
 
                 <article className="engine-card engine-card--site">
@@ -229,6 +243,7 @@ export default function Engine() {
                             <span className="engine-card__name">{project.name}</span>
                             <small>{formatDate(project.updated, language)} · {project.id}</small>
                         </button>}
+                    {project.kind === 'design' ? <span className="engine-card__tag">{tr('участок', 'plot')}</span> : null}
                 </article>)}
             </div>
 

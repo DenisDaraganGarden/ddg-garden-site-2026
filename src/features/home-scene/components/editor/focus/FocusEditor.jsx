@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useSta
 import { useLanguage } from '../../../../../i18n/useLanguage';
 import { version } from '../../../../../../package.json';
 import { EDITOR_TREE, resolveEditorPath } from '../editorTree';
+import { isEditorNodeHidden } from '../hiddenNodes.js';
 import { sceneObjectBlockedBy, sceneObjectsForNode } from '../../../lib/sceneObjects';
 import { HOME_SCENE_CAMERA_FOV_MAX } from '../../../lib/layout';
 import { GIZMO_MODES } from '../../../hooks/useEditorTool';
@@ -110,7 +111,7 @@ function SettingsDialog({ sectionProps, onClose }) {
 function SearchDialog({ onClose, onSelect, commands }) {
     const { t, language } = useLanguage(); const [query, setQuery] = useState(''); const [index, setIndex] = useState(0); const catalog = useCatalog();
     const source = useMemo(() => [
-        ...ALL_NODES.map(({ group, node, path }) => ({ id: path, label: t(`homeEditor.nodes.${node.id}`), trail: t(`homeEditor.groups.${group.id}`), path, icon: getNodeIcon(node.id) })),
+        ...ALL_NODES.filter(({ path }) => !isEditorNodeHidden(path)).map(({ group, node, path }) => ({ id: path, label: t(`homeEditor.nodes.${node.id}`), trail: t(`homeEditor.groups.${group.id}`), path, icon: getNodeIcon(node.id) })),
         ...catalog.map((item) => ({ ...item, trail: `${item.groupLabel} / ${item.nodeLabel}`, icon: getNodeIcon(item.path.split('/')[1]), field: true })),
         ...commands,
     ], [catalog, commands, t]);

@@ -35,13 +35,14 @@ import { TOPIARY_LIMITS } from '../topiary/settings.js';
 import { GIZMO_MODES, useEditorTool } from '../features/home-scene/hooks/useEditorTool';
 import { resolveEditorPath } from '../features/home-scene/components/editor/editorTree';
 import { gizmoAllows } from '../features/home-scene/components/editor/EditorGizmo';
-import { audioSettingsForScene, sceneObjectOn, sceneObjectsForNode } from '../features/home-scene/lib/sceneObjects';
+import { audioSettingsForScene, sceneObjectOn, sceneObjectsForNode, SITE_ONLY_NODES } from '../features/home-scene/lib/sceneObjects';
 import HomeEditorPanel from '../features/home-scene/components/HomeEditorPanel';
 import { useFocusHistory } from '../features/home-scene/components/editor/focus/useFocusHistory';
 import { confirmPublishWithModels, publishHomeSceneSettings } from '../features/home-scene/lib/homeScenePublishClient';
 import { useLanguage } from '../i18n/useLanguage';
 import { useSiteAudio } from '../features/audio/SiteAudioContext';
 import { activeProjectId, readProject } from '../features/engine/projectApi';
+import { setHiddenEditorNodes } from '../features/home-scene/components/editor/hiddenNodes.js';
 import { requestEditorThumbnail } from '../components/effects/editorThumbnailCapture';
 import { leaveAuto, setSurfPlaying, surfPlay } from '../components/surfboard/surfPlayStore.js';
 import { usePlayKeys } from '../components/surfboard/usePlayKeys.js';
@@ -887,7 +888,11 @@ const HomeEditRoute = () => {
         if (!id) return undefined;
         let alive = true;
         readProject(id)
-            .then((loaded) => { if (alive) setProject(loaded); })
+            .then((loaded) => {
+                if (!alive) return;
+                setHiddenEditorNodes(loaded?.kind === 'design' ? SITE_ONLY_NODES : []);
+                setProject(loaded);
+            })
             .catch((error) => { if (alive) setFailure(error); });
         return () => { alive = false; };
     }, [id]);

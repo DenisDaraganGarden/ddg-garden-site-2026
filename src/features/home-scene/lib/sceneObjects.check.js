@@ -1,7 +1,19 @@
 import assert from 'node:assert/strict';
 import {
-  SCENE_OBJECTS, audioSettingsForScene, newProjectObjectSettings, sceneHitForObject3D, sceneNodeForObject3D,
-  sceneObjectBlockedBy, sceneObjectForName, sceneObjectOn, sceneObjectsForNode, silencedSoundTracks, technicalFrameAvailable,
+  SCENE_OBJECTS,
+  audioSettingsForScene,
+  newProjectObjectSettings,
+  sceneHitForObject3D,
+  sceneNodeForObject3D,
+  sceneObjectBlockedBy,
+  sceneObjectForName,
+  sceneObjectOn,
+  sceneObjectsForNode,
+  silencedSoundTracks,
+  technicalFrameAvailable,
+  SITE_ONLY_NODES,
+  designProjectObjectSettings,
+  siteObjectsOff,
 } from './sceneObjects.js';
 
 // Клик по сцене разбирается по именам, под которыми объекты в ней лежат.
@@ -82,7 +94,7 @@ assert.equal(sceneObjectOn(desert, 'terrain'), true, 'суша воды не т�
 assert.equal(sceneObjectOn({ ...desert, waterVisible: true }, 'seagulls'), true, 'вернул воду — чайки вернулись');
 assert.deepEqual(sceneObjectBlockedBy(desert, SCENE_OBJECTS.find((o) => o.id === 'seagulls')).map((o) => o.id), ['water']);
 assert.deepEqual(sceneObjectBlockedBy({ ...desert, waterVisible: true }, SCENE_OBJECTS.find((o) => o.id === 'seagulls')), []);
-assert.deepEqual([...silencedSoundTracks(desert)], ['birds']);
+assert.deepEqual([...silencedSoundTracks(desert)].sort(), ['birds', 'water'], 'без воды молчат и море, и чайки');
 assert.equal(technicalFrameAvailable({ id: 'lilies', object: 'surface-vegetation' }, desert), false);
 for (const object of SCENE_OBJECTS) {
   for (const id of object.requires ?? []) assert.ok(SCENE_OBJECTS.some((o) => o.id === id), `${object.id} требует неизвестное «${id}»`);
@@ -93,6 +105,23 @@ const fresh = newProjectObjectSettings();
 assert.deepEqual(Object.keys(fresh).sort(), ['algaeVisible', 'boatVisible', 'fishEnabled', 'liliesVisible', 'planeEnabled', 'sculptureVisible', 'seagullsEnabled', 'shoreEnabled', 'surfboardEnabled', 'tankerVisible'].sort());
 assert.ok(Object.values(fresh).every((value) => value === false));
 assert.equal(fresh.terrainEnabled, undefined, 'суша в новом проекте не трогается');
+
+// «Участок»: вещи сайта и моря выключены — в корне и в снимках камер, где
+// ключ есть; их узлы спрятаны целиком; пустая сцена — небо, земля, расстановка.
+assert.deepEqual([...SITE_ONLY_NODES].sort(), ['creatures/fish', 'creatures/seagulls', 'greenery/algae', 'greenery/lilies', 'landscape/seabed', 'landscape/shore', 'landscape/water', 'objects/boat', 'objects/house', 'objects/sculpture', 'objects/surfboard', 'objects/tanker'].sort());
+const plot = designProjectObjectSettings();
+assert.equal(plot.waterVisible, false);
+assert.equal(plot.houseEnabled, false);
+assert.equal(plot.terrainEnabled, false);
+assert.equal(plot.planeEnabled, true);
+assert.equal(plot.placedEnabled, true);
+assert.equal(plot.skyVisible, undefined, 'небо остаётся');
+const forced = siteObjectsOff({ waterVisible: true, boatVisible: true, houseEnabled: true, treesEnabled: true, sceneCameras: [{ id: 'c', scene: { waterVisible: true, treesEnabled: true } }] });
+assert.equal(forced.waterVisible, false);
+assert.equal(forced.treesEnabled, true, 'растения участку оставлены');
+assert.equal(forced.sceneCameras[0].scene.waterVisible, false, 'камера не вернёт воду');
+assert.ok(!('houseEnabled' in forced.sceneCameras[0].scene), 'в снимок не попадает то, чего там нет');
+assert.deepEqual([...silencedSoundTracks(forced)].sort(), ['birds', 'boat', 'shore', 'tanker', 'water'].sort(), 'море и берег молчат');
 
 // У каждой звуковой связи есть дорожка с таким именем в настройках звука.
 for (const object of SCENE_OBJECTS) {

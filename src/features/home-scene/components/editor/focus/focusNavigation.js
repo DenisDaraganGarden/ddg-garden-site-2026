@@ -1,4 +1,5 @@
 import { EDITOR_TREE } from '../editorTree';
+import { isEditorNodeHidden } from '../hiddenNodes.js';
 
 // Focus groups the existing stable editor tree into six working domains.
 // The original group/node path stays the selection and persistence contract.
@@ -40,7 +41,7 @@ export function getFocusGroups(domainId, { includeDevOnly = false } = {}) {
         .filter(Boolean)
         .map((group) => ({
             ...group,
-            nodes: group.nodes.filter((node) => includeDevOnly || !node.devOnly),
+            nodes: group.nodes.filter((node) => (includeDevOnly || !node.devOnly) && !isEditorNodeHidden(`${group.id}/${node.id}`)),
         }))
         .filter((group) => group.nodes.length > 0);
 }

@@ -18,6 +18,9 @@
 // `requires` — без чего объекта не бывает: чайкам, рыбам, кувшинкам и
 // водорослям нужна вода. Выключил воду — их нет, хотя их собственный
 // выключатель не тронут: делаем пустыню, и чайки уходят сами.
+//
+// `site: true` — вещь сайта и моря, которой нет в проекте «Участок» (kind
+// 'design'): там она выключена и пропадает из дерева, поиска и видимости.
 export const SCENE_OBJECT_GROUPS = Object.freeze(['landscape', 'greenery', 'objects', 'creatures', 'render']);
 
 export const SCENE_OBJECTS = Object.freeze([
@@ -26,30 +29,30 @@ export const SCENE_OBJECTS = Object.freeze([
   { id: 'terrain', key: 'terrainEnabled', node: 'landscape/terrain', group: 'landscape', roots: ['azov-terrain', 'coast-shell-fragments'] },
   { id: 'rocks', key: 'terrainRocksEnabled', node: 'landscape/rocks', group: 'landscape', roots: ['coast-rocks', 'coast-debris'] },
   { id: 'pebbles', key: 'terrainPebblesEnabled', node: 'landscape/pebbles', group: 'landscape', roots: ['coast-pebbles'] },
-  { id: 'shore', key: 'shoreEnabled', node: 'landscape/shore', group: 'landscape', roots: ['coastal-shore-finds', 'shore'], newProject: false },
-  { id: 'water', key: 'waterVisible', node: 'landscape/water', group: 'landscape', roots: ['gerstner-water', 'shore-water', 'foam-volume'] },
-  { id: 'farWater', key: 'farWaterVisible', node: 'landscape/water', group: 'landscape' },
-  { id: 'seabed', key: 'seabedVisible', node: 'landscape/seabed', group: 'landscape', roots: ['seabed'] },
+  { id: 'shore', key: 'shoreEnabled', node: 'landscape/shore', group: 'landscape', roots: ['coastal-shore-finds', 'shore'], newProject: false, sound: 'shore', site: true },
+  { id: 'water', key: 'waterVisible', node: 'landscape/water', group: 'landscape', roots: ['gerstner-water', 'shore-water', 'foam-volume'], sound: 'water', site: true },
+  { id: 'farWater', key: 'farWaterVisible', node: 'landscape/water', group: 'landscape', site: true },
+  { id: 'seabed', key: 'seabedVisible', node: 'landscape/seabed', group: 'landscape', roots: ['seabed'], site: true },
   { id: 'sky', key: 'skyVisible', node: 'atmosphere/hdri', group: 'landscape', roots: ['sky-dome'] },
-  { id: 'lilies', key: 'liliesVisible', node: 'greenery/lilies', group: 'greenery', roots: ['surface-vegetation'], requires: ['water'], newProject: false },
-  { id: 'algae', key: 'algaeVisible', node: 'greenery/algae', group: 'greenery', roots: ['underwater-algae'], requires: ['water'], newProject: false },
+  { id: 'lilies', key: 'liliesVisible', node: 'greenery/lilies', group: 'greenery', roots: ['surface-vegetation'], requires: ['water'], newProject: false, site: true },
+  { id: 'algae', key: 'algaeVisible', node: 'greenery/algae', group: 'greenery', roots: ['underwater-algae'], requires: ['water'], newProject: false, site: true },
   { id: 'topiary', key: 'topiaryEnabled', node: 'greenery/topiary', group: 'greenery', roots: ['topiary'] },
   { id: 'shrubs', key: 'shrubsEnabled', node: 'greenery/shrubs', group: 'greenery', roots: ['coastal-oleaster'] },
   { id: 'trees', key: 'treesEnabled', node: 'greenery/trees', group: 'greenery', roots: ['coastal-trees'] },
   { id: 'grass', key: 'grassEnabled', node: 'greenery/grass', group: 'greenery', roots: ['coastal-grass'] },
-  { id: 'tanker', key: 'tankerVisible', node: 'objects/tanker', group: 'objects', roots: ['tanker-anchor', 'tanker-wake'], sound: 'tanker', newProject: false },
-  { id: 'boat', key: 'boatVisible', node: 'objects/boat', group: 'objects', roots: ['boat', 'boat-anchor'], sound: 'boat', newProject: false },
-  { id: 'sculpture', key: 'sculptureVisible', node: 'objects/sculpture', group: 'objects', roots: ['sculpture', 'sculpture-anchor'], newProject: false },
+  { id: 'tanker', key: 'tankerVisible', node: 'objects/tanker', group: 'objects', roots: ['tanker-anchor', 'tanker-wake'], sound: 'tanker', newProject: false, site: true },
+  { id: 'boat', key: 'boatVisible', node: 'objects/boat', group: 'objects', roots: ['boat', 'boat-anchor'], sound: 'boat', newProject: false, site: true },
+  { id: 'sculpture', key: 'sculptureVisible', node: 'objects/sculpture', group: 'objects', roots: ['sculpture', 'sculpture-anchor'], newProject: false, site: true },
   // A blank flat ground for a scene that starts from nothing; off by default everywhere.
   { id: 'plane', key: 'planeEnabled', node: 'objects/plane', group: 'objects', roots: ['ground-plane'], newProject: false },
   // Single trees, shrubs and rocks placed by hand, each with its own knobs.
   { id: 'placed', key: 'placedEnabled', node: 'objects/placed', group: 'objects', roots: ['placed'] },
   // A surfboard that rides the sea and the breaking wave; ridden from the editor.
-  { id: 'surfboard', key: 'surfboardEnabled', node: 'objects/surfboard', group: 'objects', roots: ['surfboard-anchor', 'surfboard'], requires: ['water'], newProject: false },
+  { id: 'surfboard', key: 'surfboardEnabled', node: 'objects/surfboard', group: 'objects', roots: ['surfboard-anchor', 'surfboard'], requires: ['water'], newProject: false, site: true },
   // Bikini Point: a beach house on stilts, its shed and the surfers' things.
-  { id: 'house', key: 'houseEnabled', node: 'objects/house', group: 'objects', roots: ['beach-house'] },
-  { id: 'seagulls', key: 'seagullsEnabled', node: 'creatures/seagulls', group: 'creatures', roots: ['seagull-flock'], sound: 'birds', requires: ['water'], newProject: false },
-  { id: 'fish', key: 'fishEnabled', node: 'creatures/fish', group: 'creatures', roots: ['river-fish-school'], requires: ['water'], newProject: false },
+  { id: 'house', key: 'houseEnabled', node: 'objects/house', group: 'objects', roots: ['beach-house'], site: true },
+  { id: 'seagulls', key: 'seagullsEnabled', node: 'creatures/seagulls', group: 'creatures', roots: ['seagull-flock'], sound: 'birds', requires: ['water'], newProject: false, site: true },
+  { id: 'fish', key: 'fishEnabled', node: 'creatures/fish', group: 'creatures', roots: ['river-fish-school'], requires: ['water'], newProject: false, site: true },
   { id: 'reflections', key: 'reflectionsEnabled', node: null, group: 'render' },
 ]);
 
@@ -66,6 +69,31 @@ export const sceneObjectOn = (settings, id) => isSceneObjectOn(settings, byId(id
 export const sceneObjectBlockedBy = (settings, object) => (object.requires ?? [])
   .map(byId)
   .filter((required) => required && !isSceneObjectOn(settings, required));
+
+// Проект «Участок»: вещи сайта выключены — в корне и в снимках камер (там
+// только те ключи, что в снимке есть), чтобы камера не вернула лодку.
+const SITE_OFF = () => Object.fromEntries(SCENE_OBJECTS.filter((object) => object.site).map((object) => [object.key, false]));
+export const siteObjectsOff = (settings) => {
+  const off = SITE_OFF();
+  const inScene = (scene) => (scene ? { ...scene, ...Object.fromEntries(Object.entries(off).filter(([key]) => key in scene)) } : scene);
+  return {
+    ...settings,
+    ...off,
+    ...(settings.sceneCameras ? { sceneCameras: settings.sceneCameras.map((camera) => ({ ...camera, scene: inScene(camera.scene) })) } : {}),
+    ...(settings.workCameras ? { workCameras: settings.workCameras.map((camera) => ({ ...camera, scene: inScene(camera.scene) })) } : {}),
+  };
+};
+// Узлы редактора, у которых все объекты — вещи сайта: в «Участке» их нет.
+export const SITE_ONLY_NODES = Object.freeze([...new Set(SCENE_OBJECTS.filter((object) => object.node).map((object) => object.node))]
+  .filter((node) => SCENE_OBJECTS.filter((object) => object.node === node).every((object) => object.site)));
+// Заводской «Участок»: пустая сцена — небо, ровная земля и расстановка; берег,
+// растения побережья и изгороди можно включить, вещей сайта нет совсем.
+export const designProjectObjectSettings = () => ({
+  ...SITE_OFF(),
+  ...Object.fromEntries(['terrain', 'rocks', 'pebbles', 'topiary', 'shrubs', 'trees', 'grass'].map((id) => [byId(id).key, false])),
+  planeEnabled: true,
+  placedEnabled: true,
+});
 
 // Заводские значения нового проекта: всё, что помечено newProject: false, выключено.
 export const newProjectObjectSettings = () => Object.fromEntries(

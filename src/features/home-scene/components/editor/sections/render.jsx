@@ -18,6 +18,7 @@ import {
     resolveLayoutFrameInset,
 } from '../../../lib/layout';
 import { SCENE_OBJECTS, SCENE_OBJECT_GROUPS } from '../../../lib/sceneObjects';
+import { isEditorNodeHidden } from '../hiddenNodes.js';
 import { WORK_CAMERA_MAIN_ID } from '../../../lib/sceneCameras';
 import { TECHNICAL_FRAMES } from '../../../lib/technicalCameras';
 
@@ -35,7 +36,7 @@ export const VisibilitySection = ({ settings, handleSettingChange }) => {
     return (
         <>
             {SCENE_OBJECT_GROUPS.map((group) => {
-                const objects = SCENE_OBJECTS.filter((object) => object.group === group);
+                const objects = SCENE_OBJECTS.filter((object) => object.group === group && !(object.node && isEditorNodeHidden(object.node)));
                 if (objects.length === 0) {
                     return null;
                 }
