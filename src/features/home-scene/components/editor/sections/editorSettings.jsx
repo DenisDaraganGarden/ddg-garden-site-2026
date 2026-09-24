@@ -25,6 +25,18 @@ export const EditorSettingsSection = ({ settings, handleSettingChange }) => {
                 onChange={(event) => handleSettingChange(event, 'editorCursor', 'boolean')}
                 testId="home-editor-editor-cursor"
             />
+            <CheckboxControl controlId={'editorPieFill'}
+                label={t('homeEditor.controls.editorPieFill')}
+                checked={settings.editorPieFill !== false}
+                onChange={(event) => handleSettingChange(event, 'editorPieFill', 'boolean')}
+                testId="home-editor-pie-fill"
+            />
+            <CheckboxControl controlId={'editorPieOutline'}
+                label={t('homeEditor.controls.editorPieOutline')}
+                checked={settings.editorPieOutline !== false}
+                onChange={(event) => handleSettingChange(event, 'editorPieOutline', 'boolean')}
+                testId="home-editor-pie-outline"
+            />
             <div className="home-editor-status">{t('homeEditor.controls.editorSettingsHint')}</div>
         </>
     );

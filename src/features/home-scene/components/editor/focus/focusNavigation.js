@@ -55,7 +55,7 @@ const NODE_ICONS = {
     terrain: 'terrain', rocks: 'terrain', pebbles: 'terrain', shore: 'terrain', water: 'water', seabed: 'water',
     planting: 'sprout', topiary: 'leaf', lilies: 'leaf', algae: 'leaf', trees: 'leaf', shrubs: 'leaf', grass: 'leaf',
     tanker: 'box', boat: 'box', sculpture: 'box', surfboard: 'box', house: 'box',
-    seagulls: 'bird', fish: 'fish', levels: 'level',
+    seagulls: 'bird', fish: 'fish', levels: 'level', walkStart: 'flag',
     light1: 'light', light1target: 'target', light2: 'light', light2target: 'target',
     light: 'sun', hdri: 'cloud', fog: 'cloud', rays: 'sun', clouds: 'cloud',
     audioMixer: 'sound', audioTracks: 'sound', audioSpatial: 'sound',

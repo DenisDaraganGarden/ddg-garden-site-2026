@@ -17,12 +17,17 @@ export const DEFAULT_ANNOTATION_SETTINGS = Object.freeze({
     annotationsEnabled: true,
     annotationMarks: [],
     annotationColor: '#b0473f',
+    // Число в рамке: белая заливка под ним и рамка от руки — порознь.
+    annotationFill: true,
+    annotationOutline: true,
+    // Толщина линий от руки — множитель.
+    annotationLine: 1,
     annotationUnits: 'm',
     annotationStep: 0.001,
     annotationSize: 1,
     annotationFade: 150,
 });
-export const ANNOTATION_RANGES = Object.freeze({ size: [0.5, 2.5, 0.05], fade: [10, 2000, 5] });
+export const ANNOTATION_RANGES = Object.freeze({ size: [0.5, 2.5, 0.05], fade: [10, 2000, 5], line: [0.4, 3, 0.05] });
 
 const ID = /^[a-zA-Z0-9_-]{1,64}$/;
 const COLOR = /^#[0-9a-f]{6}$/i;
@@ -53,6 +58,9 @@ export function normalizeAnnotationSettings(settings = {}) {
         annotationsEnabled: settings.annotationsEnabled !== false,
         annotationMarks: marks,
         annotationColor: COLOR.test(String(settings.annotationColor ?? '')) ? settings.annotationColor : d.annotationColor,
+        annotationFill: settings.annotationFill !== false,
+        annotationOutline: settings.annotationOutline !== false,
+        annotationLine: clamp(settings.annotationLine, ANNOTATION_RANGES.line, d.annotationLine),
         annotationUnits: ANNOTATION_UNITS.includes(settings.annotationUnits) ? settings.annotationUnits : d.annotationUnits,
         annotationStep: ANNOTATION_STEPS.includes(Number(settings.annotationStep)) ? Number(settings.annotationStep) : d.annotationStep,
         annotationSize: clamp(settings.annotationSize, ANNOTATION_RANGES.size, d.annotationSize),

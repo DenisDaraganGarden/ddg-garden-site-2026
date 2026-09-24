@@ -10,7 +10,8 @@ import { FocusIcon } from './FocusIcons';
 // раскрывается список (озеленение: цветник, посадить, лиана, изгородь). Мышь
 // идёт к списку по тому же лучу, поэтому кольцо не перескакивает на соседа;
 // над списком угол не считается. Отпустил на строке — она; на самом пункте —
-// последний выбранный из свитка.
+// его главное действие (main, у «Прогулки» — идти), иначе последний
+// выбранный из свитка.
 const HOLD_MS = 170;
 const RADIUS = 96;
 const DEAD_ZONE = 26;
@@ -22,7 +23,7 @@ const TEXT = (target) => target?.closest?.('textarea,select,[contenteditable=tru
     || (target?.tagName === 'INPUT' && !['range', 'checkbox', 'button'].includes(target.type));
 const inside = (rect, x, y, margin = 14) => rect && x >= rect.left - margin && x <= rect.right + margin && y >= rect.top - margin && y <= rect.bottom + margin;
 
-export default function FocusToolPie({ tools, current, enabled, onChoose, onTap, language }) {
+export default function FocusToolPie({ tools, current, enabled, onChoose, onTap, language, fill = true, outline = true }) {
     const [pie, setPie] = useState(null);
     const [hover, setHover] = useState(-1);
     const [child, setChild] = useState(-1);
@@ -35,7 +36,7 @@ export default function FocusToolPie({ tools, current, enabled, onChoose, onTap,
     // Свиток: что выбрать, если отпустили на самом пункте.
     const fallback = (item) => {
         const { last: remembered, current: now } = live.current;
-        return item.children.find((tool) => tool.id === now)?.id ?? remembered[item.id] ?? item.children[0].id;
+        return item.main ?? item.children.find((tool) => tool.id === now)?.id ?? remembered[item.id] ?? item.children[0].id;
     };
     const choose = (item, id = item.children ? fallback(item) : item.id) => {
         if (item.children) setLast((value) => ({ ...value, [item.id]: id }));
@@ -122,7 +123,7 @@ export default function FocusToolPie({ tools, current, enabled, onChoose, onTap,
         const ty = Math.abs(sin) <= 0.3 ? (cos < 0 ? '-100%' : '0%') : '-50%';
         return { left: x, top: y, transform: `translate(${tx}, ${ty})` };
     };
-    return <div className="focus-pie" role="menu" aria-label={ru ? 'Инструменты' : 'Tools'} style={{ left: pie.x, top: pie.y }}>
+    return <div className={`focus-pie${fill ? '' : ' no-fill'}${outline ? '' : ' no-outline'}`} role="menu" aria-label={ru ? 'Инструменты' : 'Tools'} style={{ left: pie.x, top: pie.y }}>
         <svg className="focus-pie__pointer" viewBox="-120 -120 240 240" aria-hidden="true">
             <circle r={DEAD_ZONE} />
             {hover >= 0 ? <path d={`M0 0 L${Math.sin(angleOf(hover)) * 70} ${-Math.cos(angleOf(hover)) * 70}`} /> : null}

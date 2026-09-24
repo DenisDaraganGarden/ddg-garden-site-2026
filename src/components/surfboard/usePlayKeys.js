@@ -33,13 +33,13 @@ const CLICK_SLOP = 4;
 // is a stroke when pulled past TRIGGER_ON and ready for the next one below
 // TRIGGER_OFF, so a finger resting near half does not stroke twice. The right
 // stick turns the view at these rates (rad/s) at full deflection.
-const PAD_DEADZONE = 0.15;
+export const PAD_DEADZONE = 0.15;
 const TRIGGER_DEADZONE = 0.05;
 const TRIGGER_ON = 0.5;
 const TRIGGER_OFF = 0.35;
-const LOOK_YAW_RATE = 2.5;
-const LOOK_PITCH_RATE = 1.5;
-const BUTTON = { A: 0, B: 1, X: 2, Y: 3, LB: 4, LT: 6, RT: 7, VIEW: 8, MENU: 9, RS: 11, UP: 12, DOWN: 13 };
+export const LOOK_YAW_RATE = 2.5;
+export const LOOK_PITCH_RATE = 1.5;
+export const BUTTON = { A: 0, B: 1, X: 2, Y: 3, LB: 4, LT: 6, RT: 7, VIEW: 8, MENU: 9, LS: 10, RS: 11, UP: 12, DOWN: 13 };
 const PAD_BUTTONS = 17;
 const AXES = ['lean', 'trim', 'crouch', 'grab', 'lookBack'];
 
@@ -53,13 +53,13 @@ const slew = (value, target, dt) => {
 };
 // A radial deadzone rescaled from its edge: the stick keeps its direction, and
 // full deflection is still full. Writes into `out`, so a frame allocates nothing.
-const radial = (out, x, y, deadzone) => {
+export const radial = (out, x, y, deadzone) => {
   const r = Math.hypot(x, y);
   const k = r > deadzone ? Math.min(1, (r - deadzone) / (1 - deadzone)) / r : 0;
   out.x = x * k; out.y = y * k;
   return out;
 };
-const trigger = (value) => clamp((value - TRIGGER_DEADZONE) / (1 - TRIGGER_DEADZONE), 0, 1);
+export const trigger = (value) => clamp((value - TRIGGER_DEADZONE) / (1 - TRIGGER_DEADZONE), 0, 1);
 const buttonDown = (button, index, was) => (index === BUTTON.LT || index === BUTTON.RT
   ? button.value > (was ? TRIGGER_OFF : TRIGGER_ON)
   : button.pressed);

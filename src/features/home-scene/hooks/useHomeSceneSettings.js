@@ -2,6 +2,7 @@ import { DEFAULT_TOPIARY_SETTINGS, normalizeTopiarySettings } from '../../../top
 import { DEFAULT_PLACED_SETTINGS, normalizePlacedSettings } from '../../../placed/settings.js';
 import { DEFAULT_PLANTING_SETTINGS, normalizePlantingSettings } from '../../../planting/settings.js';
 import { DEFAULT_ANNOTATION_SETTINGS, normalizeAnnotationSettings } from '../../../annotations/settings.js';
+import { DEFAULT_WALK_SETTINGS, normalizeWalkSettings } from '../../../walk/settings.js';
 import {DEFAULT_GRASS_SETTINGS,DEFAULT_SHRUB_SETTINGS,DEFAULT_TREE_SETTINGS,normalizeGrassSettings,normalizeShrubSettings,normalizeTreeSettings} from '../../../plants/settings.js';
 import { DEFAULT_TERRAIN_SETTINGS, normalizeTerrainSettings } from '../../../terrain/settings.js';
 import { DEFAULT_TANKER_SETTINGS, normalizeTankerSettings } from '../../../tanker/settings.js';
@@ -222,6 +223,7 @@ export const getBaseHomeSceneSettings = () => ({
   ...DEFAULT_PLACED_SETTINGS,
   ...DEFAULT_PLANTING_SETTINGS,
   ...DEFAULT_ANNOTATION_SETTINGS,
+  ...DEFAULT_WALK_SETTINGS,
   ...DEFAULT_SHRUB_SETTINGS,
   ...DEFAULT_TREE_SETTINGS,
   ...DEFAULT_GRASS_SETTINGS,
@@ -535,6 +537,9 @@ export const getBaseHomeSceneSettings = () => ({
   debugWireframe: false,
   editorHeadingColor: '#8d8d8d',
   editorCursor: false,
+  // Круг инструментов (пробел): заливка кнопок и их обводка — порознь.
+  editorPieFill: true,
+  editorPieOutline: true,
   // Плёнка и грейд — это итоговый кадр, а работать удобнее по сырому. Ключ
   // редакторский: его нет ни в publishedHomeSceneKeys, ни в снимках камер,
   // поэтому он не уезжает на сайт и не подменяет авторское значение
@@ -1190,6 +1195,7 @@ const normalizeHomeSceneSettings = (savedSettings = {}, includeCameraSystem = tr
     ...normalizePlacedSettings(merged),
     ...normalizePlantingSettings(merged),
     ...normalizeAnnotationSettings(merged),
+    ...normalizeWalkSettings(merged),
     ...normalizeShrubSettings(merged),
     ...normalizeTreeSettings(merged),
     ...normalizeGrassSettings(merged),
@@ -1238,6 +1244,8 @@ const normalizeHomeSceneSettings = (savedSettings = {}, includeCameraSystem = tr
     debugWireframe: pickBoolean(merged.debugWireframe, defaults.debugWireframe),
     editorHeadingColor: pickColor(merged.editorHeadingColor, defaults.editorHeadingColor),
     editorCursor: pickBoolean(merged.editorCursor, defaults.editorCursor),
+    editorPieFill: pickBoolean(merged.editorPieFill, defaults.editorPieFill),
+    editorPieOutline: pickBoolean(merged.editorPieOutline, defaults.editorPieOutline),
     editorPostProcessing: pickBoolean(merged.editorPostProcessing, defaults.editorPostProcessing),
   };
 

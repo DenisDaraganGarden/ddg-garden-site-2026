@@ -435,4 +435,12 @@ export default {
     'Показывать курсор сайта — точку и фонарь — и в редакторе. По умолчанию выключено, чтобы работать обычной стрелкой. Живёт в этом браузере.',
     'Show the site’s cursor — the dot and the flashlight — in the editor too. Off by default, so you work with the usual arrow. Lives in this browser.',
   ],
+  editorPieFill: [
+    'Тёмная подложка под кнопками круга инструментов (долгий пробел). Выключите — останутся значки и подписи прямо над сценой. Обводка — отдельно. Живёт в этом браузере.',
+    'The dark backing under the tool ring’s buttons (hold Space). Off — only the icons and labels stay, right over the scene. The outline is separate. Lives in this browser.',
+  ],
+  editorPieOutline: [
+    'Тонкая рамка вокруг кнопок круга инструментов. Выключите — без рамок; выбранный инструмент тогда отмечен цветом значка. Заливка — отдельно. Живёт в этом браузере.',
+    'The thin frame around the tool ring’s buttons. Off — no frames; the current tool is then marked by the colour of its icon. The fill is separate. Lives in this browser.',
+  ],
 };

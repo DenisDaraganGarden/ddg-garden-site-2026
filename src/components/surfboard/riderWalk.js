@@ -119,12 +119,13 @@ export function resetWalker(w, { x = 0, z = 0, yaw = 0, ground = null, speed = 0
 }
 
 // The ground's pitch along his heading under a foot (rad, + where it falls
-// away ahead): a foot lies along it.
+// away ahead): a foot lies along it — at most 20°, so a foot by a step's
+// edge does not stand on its toes over the drop.
 function slopeUnder(w, f, ground) {
   if (!ground) return 0;
   const x = f.swing ? f.to[0] : f.at[0], z = f.swing ? f.to[2] : f.at[2];
   const dx = Math.sin(w.yaw) * 0.12, dz = Math.cos(w.yaw) * 0.12;
-  return -Math.atan2(ground(x + dx, z + dz) - ground(x - dx, z - dz), 0.24);
+  return clamp(-Math.atan2(ground(x + dx, z + dz) - ground(x - dx, z - dz), 0.24), -0.35, 0.35);
 }
 
 // The foot as the pose takes it: turned to his heading (toes a little out)
@@ -207,7 +208,11 @@ export function stepWalker(w, frame) {
     const lift = mix(LIFT, w.run) * Math.sin(Math.PI * u) * clamp(v / 0.4 + 0.4, 0, 1);
     f.at[0] = lerp(f.from[0], f.to[0], e);
     f.at[2] = lerp(f.from[2], f.to[2], e);
-    f.at[1] = lerp(f.from[1], f.to[1], e) + lift;
+    // Onto a higher step the foot rises first and then goes over it; down
+    // one it goes over and then drops — never through the step's edge.
+    const climb = f.to[1] - f.from[1];
+    const ey = climb > 0.03 ? smoothstep(0, 0.55, u) : climb < -0.03 ? smoothstep(0.4, 1, u) : e;
+    f.at[1] = lerp(f.from[1], f.to[1], ey) + lift;
     f.u = u; f.p = 1;
     // Toes down as it leaves (as the stance ended), up as it comes to land.
     f.pitch = lerp(TOE_OFF, -HEEL_STRIKE, smoothstep(0, 1, u)) * (1 - Math.sin(Math.PI * u) * 0.3);

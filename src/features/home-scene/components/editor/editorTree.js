@@ -45,6 +45,7 @@ import { PebblesSection, RocksSection } from './sections/rocks';
 import { ShoreSection } from './sections/shore';
 import { FishSection, SeagullsSection } from './sections/creatures';
 import { AnnotationsSection } from './sections/annotations';
+import { WalkStartSection } from './sections/walkStart';
 import {
     AudioMixerSection,
     AudioSpatialSection,
@@ -132,11 +133,13 @@ export const EDITOR_TREE = [
         ],
     },
     // Аннотации — пометки проектировщика поверх сцены (src/annotations):
-    // пока отметки уровня; следующие виды — новыми узлами здесь.
+    // отметки уровня и старт прогулки (src/walk); следующие виды — новыми
+    // узлами здесь.
     {
         id: 'annotations',
         nodes: [
             { id: 'levels', aspects: [{ id: 'marks', Section: AnnotationsSection }] },
+            { id: 'walkStart', aspects: [{ id: 'start', Section: WalkStartSection }] },
         ],
     },
     {

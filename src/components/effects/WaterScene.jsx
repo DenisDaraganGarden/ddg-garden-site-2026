@@ -86,6 +86,8 @@ import HomeSeagullFlock from '../../features/home-scene/creatures/HomeSeagullFlo
 import SeagullLandingHabitat from '../../features/home-scene/creatures/SeagullLandingHabitat.jsx';
 import HomeFishSchool from '../../features/home-scene/creatures/HomeFishSchool.jsx';
 import Surfboard from '../surfboard/Surfboard.jsx';
+import WalkMode from '../../walk/WalkMode.jsx';
+import WalkStartMarker from '../../walk/WalkStartMarker.jsx';
 import SurfPlayCamera from '../surfboard/SurfPlayCamera.jsx';
 import { createSurfRibbons } from './water/surfRibbons.js';
 import UnderwaterView from './water/UnderwaterView.jsx';
@@ -242,6 +244,8 @@ function WaterRuntimeScene({
   audioRuntime,
   playing = false,
   onSurfboardCheckpoint,
+  walking = false,
+  onWalkExit,
 }) {
   const { gl, size } = useThree();
   const cloudSceneRef = useRef(null);
@@ -501,7 +505,7 @@ function WaterRuntimeScene({
         orbitRef={orbitRef}
         freeCamera={mode === 'editor'}
         poseKey={cameraPoseKey}
-        playActive={mode === 'editor' && playing}
+        playActive={mode === 'editor' && (playing || walking)}
       />
       <HomeSoundscapeBridge runtime={audioRuntime} />
       {cloudSettings.enabled && <PainterlyClouds
@@ -725,6 +729,9 @@ function WaterRuntimeScene({
           surfRibbons={surfRibbons}
         />
       ) : null}
+      {mode === 'editor' && walking ? (
+        <WalkMode orbitRef={orbitRef} planeY={settings.planeEnabled ? settings.planeHeight : null} terrain={houseGround} start={settings.walkStart} onSetStart={editorGizmo?.planting?.onStart} onExit={onWalkExit} />
+      ) : null}
       {mode === 'editor' && editorGizmo?.selection ? (
         <EditorGizmo
           selection={editorGizmo.selection}
@@ -736,9 +743,10 @@ function WaterRuntimeScene({
       ) : null}
       {mode === 'editor' ? <EditorPicker enabled={Boolean(editorGizmo?.picking)} onPick={editorGizmo?.onPick} onContextMenu={editorGizmo?.onContextMenu} /> : null}
       {mode === 'editor' ? <TopiaryBrush enabled={Boolean(editorGizmo?.topiary?.drawing)} settings={settings} orbitRef={orbitRef} onStroke={editorGizmo?.topiary?.onStroke} /> : null}
-      {mode === 'editor' ? <PlantingBrush mode={editorGizmo?.planting?.mode ?? null} groundY={settings.planeHeight ?? 0} orbitRef={orbitRef} onBed={editorGizmo?.planting?.onBed} onBedSurface={editorGizmo?.planting?.onBedSurface} onPlant={editorGizmo?.planting?.onPlant} onVine={editorGizmo?.planting?.onVine} onMark={editorGizmo?.planting?.onMark} /> : null}
+      {mode === 'editor' ? <PlantingBrush mode={editorGizmo?.planting?.mode ?? null} groundY={settings.planeHeight ?? 0} orbitRef={orbitRef} onBed={editorGizmo?.planting?.onBed} onBedSurface={editorGizmo?.planting?.onBedSurface} onPlant={editorGizmo?.planting?.onPlant} onVine={editorGizmo?.planting?.onVine} onMark={editorGizmo?.planting?.onMark} onStart={editorGizmo?.planting?.onStart} /> : null}
+      {mode === 'editor' ? <WalkStartMarker start={settings.walkStart} ghost={!walking} /> : null}
       {mode === 'editor' && settings.annotationsEnabled && settings.annotationMarks?.length ? <AnnotationLayer settings={settings} selectedId={editorGizmo?.annotations?.selectedId} onResnap={editorGizmo?.annotations?.onResnap} geometryKey={annotationGeometryKey} /> : null}
-      {mode === 'editor' && !playing ? <EditorAxes /> : null}
+      {mode === 'editor' && !playing && !walking ? <EditorAxes /> : null}
       <DebugWireframe enabled={mode === 'editor' && Boolean(settings.debugWireframe)} />
       <SceneReadyBeacon onSceneReady={onSceneReady} waiting={sky.isPlaceholder} />
       {showDebugHelpers ? <axesHelper args={[2]} /> : null}
@@ -768,6 +776,8 @@ const WaterScene = ({
   audioRuntime,
   playing = false,
   onSurfboardCheckpoint,
+  walking = false,
+  onWalkExit,
 }) => {
   const settings = settingsProp ?? getBaseHomeSceneSettings();
 
@@ -794,6 +804,8 @@ const WaterScene = ({
         audioRuntime={audioRuntime}
         playing={playing}
         onSurfboardCheckpoint={onSurfboardCheckpoint}
+        walking={walking}
+        onWalkExit={onWalkExit}
       />
     </SceneCanvas>
   );

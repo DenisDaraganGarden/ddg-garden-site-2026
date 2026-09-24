@@ -2,6 +2,7 @@ import { DEFAULT_TOPIARY_SETTINGS } from '../../../topiary/settings.js';
 import { DEFAULT_PLACED_SETTINGS } from '../../../placed/settings.js';
 import { DEFAULT_PLANTING_SETTINGS } from '../../../planting/settings.js';
 import { DEFAULT_ANNOTATION_SETTINGS } from '../../../annotations/settings.js';
+import { DEFAULT_WALK_SETTINGS } from '../../../walk/settings.js';
 import {DEFAULT_GRASS_SETTINGS,DEFAULT_SHRUB_SETTINGS,DEFAULT_TREE_SETTINGS} from '../../../plants/settings.js';
 import { DEFAULT_TERRAIN_SETTINGS } from '../../../terrain/settings.js';
 import { DEFAULT_TANKER_SETTINGS } from '../../../tanker/settings.js';
@@ -16,6 +17,7 @@ const keys = [
   ...Object.keys(DEFAULT_PLACED_SETTINGS),
   ...Object.keys(DEFAULT_PLANTING_SETTINGS),
   ...Object.keys(DEFAULT_ANNOTATION_SETTINGS),
+  ...Object.keys(DEFAULT_WALK_SETTINGS),
   ...Object.keys(DEFAULT_TANKER_SETTINGS),
   ...Object.keys(DEFAULT_SURFBOARD_SETTINGS),
   ...Object.keys(DEFAULT_HOUSE_SETTINGS),

@@ -5,6 +5,7 @@ import { boardDimensions, deckHeight } from './boardShape';
 import { createSurfWater } from './surfWater';
 import { surfPlay } from './surfPlayStore';
 import { BELLY } from './riderSkeleton';
+import { follow, followVector } from './cameraFollow.js';
 
 // The camera while riding. It drives the scene's one default camera (the
 // shadows, the mirror, the sky and the final render all read that one), after
@@ -50,20 +51,6 @@ const smoothstep = (a, b, x) => {
   const t = clamp((x - a) / (b - a), 0, 1);
   return t * t * (3 - 2 * t);
 };
-// A critically damped follow (the Game Programming Gems 4 form of it): the
-// camera eases onto a moving target without overshoot, at any frame rate.
-function follow(value, velocity, target, omega, dt) {
-  const x = omega * dt;
-  const decay = 1 / (1 + x + 0.48 * x * x + 0.235 * x * x * x);
-  const change = value - target;
-  const temp = (velocity + omega * change) * dt;
-  return [target + (change + temp) * decay, (velocity - omega * temp) * decay];
-}
-function followVector(value, velocity, target, omega, dt) {
-  for (const axis of ['x', 'y', 'z']) {
-    [value[axis], velocity[axis]] = follow(value[axis], velocity[axis], target[axis], omega, dt);
-  }
-}
 
 // How far seaward of the camera a breaker's crest is looked for (m), so the
 // camera climbs over it before the lip gets to it.
