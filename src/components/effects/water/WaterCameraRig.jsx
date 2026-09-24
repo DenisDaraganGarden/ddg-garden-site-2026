@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useLayoutEffect, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { fitCameraFovToLayout } from '../../../features/home-scene/lib/layout';
+import { planPose, publishView } from '../../../planting/north.js';
 
 // Owns the camera: applies the authored pose for the active composition bucket,
 // fits the field of view to the frame, and in the editor hands back a capture
@@ -286,6 +287,11 @@ export default function WaterCameraRig({
       controls.update();
       pendingControlsTargetRef.current = false;
     }
+    // Компас и снимок генплана в редакторе знают, куда смотрит кадр.
+    if (mode === 'editor') {
+      camera.updateMatrixWorld();
+      publishView(camera.matrixWorld);
+    }
   });
 
   useEffect(() => {
@@ -395,7 +401,21 @@ export default function WaterCameraRig({
       previewPose({ cameraPosition: center.clone().add(offset), cameraTarget: center, cameraFov: camera.fov });
       return true;
     };
-    onCameraRigApi({ capturePose, restorePose, previewPose, frameObject });
+    // Генплан: всё, что стоит в расстановке, и цветники — сверху, север вверху
+    // кадра (north.js). Скрытое и выключенное в рамку не входит.
+    const planView = (north) => {
+      const box = new THREE.Box3(), part = new THREE.Box3();
+      for (const name of ['placed', 'planting']) {
+        scene.getObjectByName(name)?.traverseVisible((object) => {
+          if (!object.isMesh || object.isInstancedMesh || !object.geometry) return;
+          if (!object.geometry.boundingBox) object.geometry.computeBoundingBox();
+          box.union(part.copy(object.geometry.boundingBox).applyMatrix4(object.matrixWorld));
+        });
+      }
+      if (box.isEmpty()) box.set(new THREE.Vector3(-20, 0, -20), new THREE.Vector3(20, 0, 20));
+      return planPose(box, north, size.width / Math.max(1, size.height));
+    };
+    onCameraRigApi({ capturePose, restorePose, previewPose, frameObject, planView });
 
     return () => {
       onCameraRigApi(null);
@@ -414,6 +434,8 @@ export default function WaterCameraRig({
     invalidate,
     onCameraRigApi,
     scene,
+    size.height,
+    size.width,
   ]);
 
   if (mode !== 'editor') {

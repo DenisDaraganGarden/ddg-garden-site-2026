@@ -936,3 +936,18 @@
 .home-editor-project-failure a{color:#cfc1a1}
 
 html[data-editor-tool="topiary"] .home-editor-render-frame canvas { cursor: crosshair; }
+html[data-editor-tool="bed"] .home-editor-render-frame canvas,
+html[data-editor-tool="plant"] .home-editor-render-frame canvas { cursor: crosshair; }
+
+/* Посадки: рецепт цветника (вид, доля, ×) и ведомость. Строка рецепта — та же
+   сетка, что у ползунка: кружок шапки на месте звёздочки, вид — на месте
+   подписи и полосы. */
+.planting-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; justify-self: center; opacity: .9; }
+.planting-recipe-row select { grid-column: 2 / 4; }
+.planting-remove { width: 14px; height: 18px; padding: 0; border: 0; background: transparent; color: rgba(255, 255, 255, .45); font-size: 12px; cursor: pointer; }
+.planting-remove:hover { color: #fff; }
+.planting-schedule { display: grid; gap: 2px; font: 10px/1.3 var(--font-secondary, system-ui); color: rgba(255, 255, 255, .8); }
+.planting-schedule-row { display: grid; grid-template-columns: 15px 1fr auto; gap: 5px; align-items: center; min-height: 18px; }
+.planting-schedule-row span:nth-child(2) { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.planting-schedule-row b { font: 10px ui-monospace, SFMono-Regular, monospace; font-weight: 400; color: #fff; }
+.planting-schedule-total { border-top: 1px solid rgba(255, 255, 255, .1); padding-top: 3px; }

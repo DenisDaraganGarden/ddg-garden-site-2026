@@ -7,16 +7,17 @@ export const EDITOR_THUMBNAIL_READY = 'ddg-editor-camera-thumbnail';
 // the most recent explicit request until that render owner begins listening.
 let pendingKey = null;
 
-export function requestEditorThumbnail(key) {
+// width/quality: кадр крупнее миниатюры (снимок генплана для отчёта).
+export function requestEditorThumbnail(key, { width = 320, quality = 0.68 } = {}) {
   if (typeof window === 'undefined' || typeof key !== 'string' || !key) return;
-  pendingKey = key;
-  window.dispatchEvent(new CustomEvent(EDITOR_THUMBNAIL_REQUEST, { detail: { key } }));
+  pendingKey = { key, width, quality };
+  window.dispatchEvent(new CustomEvent(EDITOR_THUMBNAIL_REQUEST, { detail: pendingKey }));
 }
 
 export function consumeEditorThumbnailRequest() {
-  const key = pendingKey;
+  const request = pendingKey;
   pendingKey = null;
-  return key;
+  return request;
 }
 
 export function publishEditorThumbnail(key, image) {

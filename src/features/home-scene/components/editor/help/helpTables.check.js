@@ -11,14 +11,17 @@ const here = new URL('.', import.meta.url);
 const reference = JSON.parse(readFileSync(new URL('../../../../../../docs/engine-parameters.json', import.meta.url), 'utf8'));
 const keys = new Set(reference.rows.map((row) => row.key));
 // Shown only in some states — a selected placed object of that kind (a model,
-// a SketchUp model, a shrub, a rock), FSR switched on, the gulls switched on —
-// so the reference, collected without them, cannot list them.
+// a SketchUp model, a shrub, a rock), FSR switched on, the gulls or the shore
+// switched on (a silent object's track leaves the mixer) — so the reference,
+// collected without them, cannot list them.
 const CONDITIONAL = [
     'placedObjects[].tiltX', 'placedObjects[].tiltZ', 'placedObjects[].hidden', 'placedObjects[].wet', 'placedObjects[].collision', 'sketchupModels[].faceCamera', 'sketchupModels[].crowns',
     'placedObjects[].dryness', 'placedObjects[].size', 'placedObjects[].squash', 'placedObjects[].stretch', 'placedObjects[].variant', 'placedObjects[].tilt',
     'upscaleQuality', 'upscaleSharpness',
-    ...['enabled', 'gain'].map((key) => `audio.tracks.birds.${key}`),
-    ...['x', 'y', 'z', 'refDistance', 'maxDistance', 'rolloff'].map((key) => `audio.emitters.birds.${key}`),
+    ...['birds', 'shore'].flatMap((track) => [
+        ...['enabled', 'gain'].map((key) => `audio.tracks.${track}.${key}`),
+        ...['x', 'y', 'z', 'refDistance', 'maxDistance', 'rolloff'].map((key) => `audio.emitters.${track}.${key}`),
+    ]),
 ];
 CONDITIONAL.forEach((key) => keys.add(key));
 const MAX = 260;

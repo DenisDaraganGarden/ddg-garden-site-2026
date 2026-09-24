@@ -96,3 +96,41 @@ html[data-editor-tool=hand] .home-editor-render-frame canvas{cursor:grab}
    what it folds is hidden by the fold's own mark, since a row's display:grid outranks [hidden]. */
 .focus-sections [data-folded-away]{display:none!important}
 .focus-inspector .home-editor-section-heading.is-foldable{cursor:pointer;user-select:none}.focus-inspector .home-editor-section-heading.is-foldable:before{content:'›';flex:none;width:9px;margin-right:3px;font-size:11px;opacity:.5;transform:rotate(90deg);transition:transform .12s}.focus-inspector .home-editor-section-heading.is-foldable[data-folded=true]:before{transform:rotate(0)}.focus-inspector .home-editor-section-heading.is-foldable:hover:before{opacity:.9}.focus-inspector .home-editor-section-heading.is-foldable:focus-visible{outline:1px solid var(--focus-line);outline-offset:-1px}
+/* Растения на линейке: одна кнопка с уголком, меню — справа от линейки. */
+.focus-tool-group{position:relative}
+.focus-tool-group__button{width:28px;height:28px;padding:0}.focus-tool-group__button .focus-icon{width:16px;height:16px}
+.focus-tool-group__button:after{content:'';position:absolute;right:3px;bottom:3px;border:3px solid transparent;border-right-color:currentColor;border-bottom-color:currentColor;opacity:.5}
+.focus-tool-group__button[aria-pressed=true]{background:#ffffff18;color:#f7f6ee;box-shadow:inset 0 0 0 1px #ffffff14}
+.focus-tool-flyout{position:absolute;left:34px;top:-4px;z-index:6;display:flex;flex-direction:column;min-width:150px;padding:4px}
+.focus-tool-flyout>header{padding:3px 7px 5px;font-size:9px;color:var(--focus-muted);letter-spacing:.04em}
+.focus-tool-flyout>button{display:grid;grid-template-columns:18px 1fr auto;gap:8px;align-items:center;height:28px;padding:0 7px;border:0;border-radius:4px;background:transparent;text-align:left;font-size:11px}
+.focus-tool-flyout>button:hover{background:#ffffff10}
+.focus-tool-flyout>button[aria-checked=true]{background:#ffffff18;color:#f7f6ee}
+.focus-tool-flyout kbd{font:9px ui-monospace,monospace;color:var(--focus-muted)}
+/* Круг инструментов на пробеле (FocusToolPie). */
+.focus-pie{position:fixed;z-index:185;width:0;height:0;pointer-events:none}
+.focus-pie__pointer{position:absolute;left:-120px;top:-120px;width:240px;height:240px;overflow:visible}
+.focus-pie__pointer circle{fill:#1d1f20e8;stroke:#ffffff24}
+.focus-pie__pointer path{stroke:var(--focus-accent);stroke-width:2;stroke-linecap:round;opacity:.8}
+.focus-pie__center{position:absolute;left:-60px;top:36px;width:120px;display:flex;flex-direction:column;align-items:center;text-align:center;color:#f1efe6;text-shadow:0 1px 3px #000c}
+.focus-pie__center b{font-size:12px;font-weight:550}.focus-pie__center small{font:10px ui-monospace,monospace;color:#cfd1cb}
+.focus-pie>button{position:absolute;left:-33px;top:-25px;width:66px;height:50px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:0;border:1px solid #ffffff26;border-radius:10px;background:#202829e6;backdrop-filter:blur(10px);color:#e2e5df;font-size:10px;pointer-events:auto;box-shadow:0 6px 20px #0006}
+.focus-pie>button .focus-icon{width:17px;height:17px}
+.focus-pie>button.is-plants{border-color:#9dc17a66}
+.focus-pie>button.is-current{border-color:var(--focus-accent)}
+.focus-pie>button.is-hover{background:#e4e2da;color:#1d1f20;border-color:#e4e2da}
+.focus-pie>button:disabled{opacity:.3}
+/* Стрелка севера (NorthCompass.jsx): над кадром посередине. */
+.focus-compass{position:relative;pointer-events:auto;display:flex;flex-direction:column;align-items:center}
+.focus-compass__dial{width:46px;height:46px;border-radius:50%;padding:0;display:grid;place-items:center;cursor:pointer}
+.focus-compass__dial svg{width:44px;height:44px;overflow:visible}
+.focus-compass__ring{fill:none;stroke:#ffffff2e;stroke-width:1}
+.focus-compass__tick{stroke:#ffffff70;stroke-width:1.2}
+.focus-compass__north{fill:#e0654f}.focus-compass__south{fill:#c9ccc566}
+.focus-compass__letter{fill:#f1eee6;font:600 8px/1 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;text-anchor:middle;dominant-baseline:central}
+.focus-compass__sun{fill:#f2c14e;stroke:#202829;stroke-width:.8}
+.focus-compass__panel{position:absolute;top:52px;width:230px;padding:9px 10px;display:flex;flex-direction:column;gap:6px;font-size:10px}
+.focus-compass__panel strong{font-weight:600;font-size:11px}
+.focus-compass__panel label{display:flex;align-items:center;gap:6px}.focus-compass__panel input[type=range]{flex:1}
+.focus-compass__panel input[type=number]{width:46px;height:22px;background:var(--focus-input);border:1px solid #ffffff12;border-radius:3px;color:inherit;font:inherit;padding:0 4px}
+.focus-compass__panel p{margin:0;color:var(--focus-muted);line-height:1.45}

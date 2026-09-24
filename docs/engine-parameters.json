@@ -1,5 +1,5 @@
 {
-  "collected": "2026-09-24T05:01:20.442Z",
+  "collected": "2026-09-24T20:41:59.388Z",
   "rows": [
     {
       "key": "cameraFov",
@@ -1957,6 +1957,142 @@
       "min": 0.5,
       "max": 6,
       "step": 0.05
+    },
+    {
+      "key": "plantingEnabled",
+      "group": "greenery",
+      "node": "planting",
+      "label": "Посадки",
+      "kind": "выключатель"
+    },
+    {
+      "key": "plantingMonth",
+      "group": "greenery",
+      "node": "planting",
+      "label": "Месяц",
+      "kind": "число",
+      "min": 1,
+      "max": 12,
+      "step": 1
+    },
+    {
+      "key": "plantingPlan",
+      "group": "greenery",
+      "node": "planting",
+      "label": "План в шапках",
+      "kind": "выключатель"
+    },
+    {
+      "key": "northAngle",
+      "group": "greenery",
+      "node": "planting",
+      "label": "Север",
+      "kind": "число",
+      "min": -180,
+      "max": 180,
+      "step": 0.5,
+      "unit": "°"
+    },
+    {
+      "key": "plantingBeds",
+      "group": "greenery",
+      "node": "planting",
+      "label": "Цветник",
+      "kind": "список",
+      "options": [
+        ""
+      ]
+    },
+    {
+      "key": "plantingBeds[].palette",
+      "group": "greenery",
+      "node": "planting",
+      "label": "Палитра",
+      "kind": "список",
+      "options": [
+        "",
+        "steppe",
+        "prairie",
+        "flowering",
+        "shade",
+        "evergreen"
+      ]
+    },
+    {
+      "key": "plantingBeds[].drift",
+      "group": "greenery",
+      "node": "planting",
+      "label": "Размер пятна",
+      "kind": "число",
+      "min": 0.3,
+      "max": 6,
+      "step": 0.1,
+      "unit": " m"
+    },
+    {
+      "key": "plantingBeds[].density",
+      "group": "greenery",
+      "node": "planting",
+      "label": "Густота",
+      "kind": "число",
+      "min": 0.4,
+      "max": 2,
+      "step": 0.05,
+      "unit": " ×"
+    },
+    {
+      "key": "plantingVines",
+      "group": "greenery",
+      "node": "planting",
+      "label": "Лиана",
+      "kind": "список",
+      "options": [
+        ""
+      ]
+    },
+    {
+      "key": "plantingPlant",
+      "group": "greenery",
+      "node": "planting",
+      "label": "Растение",
+      "kind": "список",
+      "options": [
+        "quercus-robur-fastigiata",
+        "acer-tataricum",
+        "pinus-nigra",
+        "thuja-smaragd",
+        "malus-evereste",
+        "picea-alberta-globe",
+        "juniperus-sabina-mas",
+        "buxus-sempervirens-ball",
+        "berberis-golden-rocket",
+        "cornus-alba-elegantissima",
+        "spiraea-tor-gold",
+        "vitis-vinifera",
+        "fallopia-baldschuanica",
+        "hydrangea-petiolaris",
+        "parthenocissus-quinquefolia",
+        "parthenocissus-tricuspidata-veitchii",
+        "lonicera-caprifolium",
+        "campsis-radicans",
+        "clematis-jackmanii",
+        "hedera-helix",
+        "nassella-tenuissima",
+        "miscanthus-sinensis",
+        "festuca-glauca",
+        "pennisetum-hameln",
+        "deschampsia-cespitosa",
+        "gaillardia-grandiflora",
+        "iris-germanica",
+        "lavandula-angustifolia",
+        "liatris-spicata",
+        "alchemilla-mollis",
+        "leucanthemum-superbum",
+        "sedum-herbstfreude",
+        "perovskia-atriplicifolia",
+        "rudbeckia-goldsturm",
+        "vinca-minor"
+      ]
     },
     {
       "key": "liliesVisible",
@@ -5889,23 +6025,6 @@
       "step": 0.01
     },
     {
-      "key": "audio.tracks.shore.enabled",
-      "group": "audio",
-      "node": "audioTracks",
-      "label": "Волна у берега: включить дорожку",
-      "kind": "выключатель"
-    },
-    {
-      "key": "audio.tracks.shore.gain",
-      "group": "audio",
-      "node": "audioTracks",
-      "label": "Волна у берега · Объём",
-      "kind": "число",
-      "min": 0,
-      "max": 1.5,
-      "step": 0.01
-    },
-    {
       "key": "audio.tracks.boat.enabled",
       "group": "audio",
       "node": "audioTracks",
@@ -5972,71 +6091,6 @@
       "min": 0,
       "max": 1.5,
       "step": 0.01
-    },
-    {
-      "key": "audio.emitters.shore.x",
-      "group": "audio",
-      "node": "audioSpatial",
-      "label": "X",
-      "kind": "число",
-      "min": -80,
-      "max": 80,
-      "step": 0.1,
-      "unit": " m"
-    },
-    {
-      "key": "audio.emitters.shore.y",
-      "group": "audio",
-      "node": "audioSpatial",
-      "label": "Y",
-      "kind": "число",
-      "min": -20,
-      "max": 80,
-      "step": 0.1,
-      "unit": " m"
-    },
-    {
-      "key": "audio.emitters.shore.z",
-      "group": "audio",
-      "node": "audioSpatial",
-      "label": "Z",
-      "kind": "число",
-      "min": -80,
-      "max": 80,
-      "step": 0.1,
-      "unit": " m"
-    },
-    {
-      "key": "audio.emitters.shore.refDistance",
-      "group": "audio",
-      "node": "audioSpatial",
-      "label": "Ближняя дистанция",
-      "kind": "число",
-      "min": 0.25,
-      "max": 80,
-      "step": 0.25,
-      "unit": " m"
-    },
-    {
-      "key": "audio.emitters.shore.maxDistance",
-      "group": "audio",
-      "node": "audioSpatial",
-      "label": "Предел слышимости",
-      "kind": "число",
-      "min": 1,
-      "max": 240,
-      "step": 1,
-      "unit": " m"
-    },
-    {
-      "key": "audio.emitters.shore.rolloff",
-      "group": "audio",
-      "node": "audioSpatial",
-      "label": "Затухание с расстоянием",
-      "kind": "число",
-      "min": 0,
-      "max": 4,
-      "step": 0.05
     },
     {
       "key": "audio.emitters.wind.x",
@@ -6236,6 +6290,13 @@
       "group": "render",
       "node": "visibility",
       "label": "Водоросли",
+      "kind": "выключатель"
+    },
+    {
+      "key": "plantingEnabled",
+      "group": "render",
+      "node": "visibility",
+      "label": "Посадки",
       "kind": "выключатель"
     },
     {
@@ -6953,6 +7014,10 @@
     "topiaryBrushHeight": 2.4,
     "topiaryPlaneY": 0,
     "placedEnabled": true,
+    "plantingEnabled": true,
+    "plantingMonth": 6,
+    "plantingPlan": false,
+    "northAngle": 0,
     "shrubsEnabled": true,
     "shrubsCount": 512,
     "shrubsSeed": 23,

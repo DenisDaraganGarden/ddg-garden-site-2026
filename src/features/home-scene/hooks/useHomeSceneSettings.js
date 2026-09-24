@@ -1,5 +1,6 @@
 import { DEFAULT_TOPIARY_SETTINGS, normalizeTopiarySettings } from '../../../topiary/settings.js';
 import { DEFAULT_PLACED_SETTINGS, normalizePlacedSettings } from '../../../placed/settings.js';
+import { DEFAULT_PLANTING_SETTINGS, normalizePlantingSettings } from '../../../planting/settings.js';
 import {DEFAULT_GRASS_SETTINGS,DEFAULT_SHRUB_SETTINGS,DEFAULT_TREE_SETTINGS,normalizeGrassSettings,normalizeShrubSettings,normalizeTreeSettings} from '../../../plants/settings.js';
 import { DEFAULT_TERRAIN_SETTINGS, normalizeTerrainSettings } from '../../../terrain/settings.js';
 import { DEFAULT_TANKER_SETTINGS, normalizeTankerSettings } from '../../../tanker/settings.js';
@@ -39,6 +40,11 @@ import { EDITOR_THUMBNAIL_READY, requestEditorThumbnail } from '../../../compone
 
 export const HOME_SCENE_SETTINGS_STORAGE_KEY = 'ddg_home_scene_settings_v1';
 const PROJECT_SAVE_DELAY_MS = 700;
+// Незаписанная правка проекта, если она есть: уход со страницы (к проектам,
+// в отчёт) сначала дописывает её обычным запросом. Сброс при закрытии окна
+// идёт keepalive, а у него предел 64 КБ — сцена проекта больше.
+let pendingProjectSave = null;
+export const flushProjectSave = async () => { await pendingProjectSave?.(); };
 // Миниатюра проекта — не чаще раза в несколько секунд: кадр снимается с холста,
 // и на каждое движение ползунка это лишнее.
 const PROJECT_THUMBNAIL_EVERY_MS = 6000;
@@ -212,6 +218,7 @@ export const getBaseHomeSceneSettings = () => ({
   ...DEFAULT_TERRAIN_SETTINGS,
   ...DEFAULT_TOPIARY_SETTINGS,
   ...DEFAULT_PLACED_SETTINGS,
+  ...DEFAULT_PLANTING_SETTINGS,
   ...DEFAULT_SHRUB_SETTINGS,
   ...DEFAULT_TREE_SETTINGS,
   ...DEFAULT_GRASS_SETTINGS,
@@ -1177,6 +1184,7 @@ const normalizeHomeSceneSettings = (savedSettings = {}, includeCameraSystem = tr
     ...normalizeTerrainSettings(merged),
     ...normalizeTopiarySettings(merged),
     ...normalizePlacedSettings(merged),
+    ...normalizePlantingSettings(merged),
     ...normalizeShrubSettings(merged),
     ...normalizeTreeSettings(merged),
     ...normalizeGrassSettings(merged),
@@ -1503,9 +1511,12 @@ export const useHomeSceneDraftSettings = (project = null) => {
       window.clearTimeout(timer);
       void save(settings, { keepalive: true });
     };
+    const now = () => { window.clearTimeout(timer); pendingProjectSave = null; return save(settings).finally(() => { pending.current = false; }); };
+    pendingProjectSave = now;
     window.addEventListener('pagehide', flush);
     return () => {
       window.clearTimeout(timer);
+      if (pendingProjectSave === now) pendingProjectSave = null;
       window.removeEventListener('pagehide', flush);
     };
   }, [project, settings, save]);

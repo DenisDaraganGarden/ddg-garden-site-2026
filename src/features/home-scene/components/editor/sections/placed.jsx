@@ -6,7 +6,7 @@ import {
 } from '../../../../../placed/settings.js';
 import { activeProjectId } from '../../../../engine/projectApi.js';
 import { useFocusControlScope } from '../focus/FocusControlsContext';
-import { copiesOf, findPart, partName, sketchupSceneNodes, sketchupViews, useSketchupModel } from '../../../../../placed/sketchupModel.js';
+import { copiesOf, findPart, partName, SKETCHUP_VIEW_FOV, sketchupSceneNodes, sketchupViews, useSketchupModel } from '../../../../../placed/sketchupModel.js';
 
 const KIND_LABELS = { tree: ['Дерево', 'Tree'], shrub: ['Куст', 'Shrub'], rock: ['Камень', 'Rock'], model: ['Модель', 'Model'] };
 const KNOB_LABELS = {
@@ -55,6 +55,11 @@ function SketchupModel({ object, sketchup, placedEditor, layoutEditor, ru }) {
     });
     const fresh = views.filter((view) => !isCamera(view));
     const button = (label, onClick, extra = {}) => <button type="button" className="home-editor-tab" onClick={onClick} {...extra}>{label}</button>;
+    // Камеры из сцен этой модели и их общий объектив: SimLab его не передаёт.
+    const sceneCameras = (layoutEditor?.cameras ?? []).filter((camera) => views.some((view) => camera.name === view.name));
+    const lenses = sceneCameras.map((camera) => camera.scene?.layouts?.desktop?.cameraFov).filter(Number.isFinite);
+    const commonLens = lenses.length ? lenses.sort((a, b) => lenses.filter((v) => v === b).length - lenses.filter((v) => v === a).length)[0] : SKETCHUP_VIEW_FOV;
+    const [lens, setLens] = useState(null);
     return <>
         <SectionHeading label="SketchUp" subtle />
         <CheckboxControl controlId="sketchupModels[].faceCamera" testId="placed-sketchup-face" label={ru ? 'Растения к камере' : 'Plants face the camera'} checked={sketchup.faceCamera}
@@ -83,6 +88,15 @@ function SketchupModel({ object, sketchup, placedEditor, layoutEditor, ru }) {
             {views.length ? button(fresh.length ? `${ru ? 'Сцены SketchUp → камеры' : 'SketchUp scenes → cameras'} · ${fresh.length}` : (ru ? 'Сцены SketchUp уже в камерах' : 'SketchUp scenes are cameras already'),
                 () => layoutEditor?.addCameras?.(fresh), { disabled: !fresh.length, 'data-testid': 'placed-sketchup-cameras' }) : null}
         </div>
+        {sceneCameras.length ? <div className="focus-control-row focus-control-row--range sketchup-lens" data-testid="placed-sketchup-lens">
+            <span /><label title={ru ? 'Угол обзора камер из сцен SketchUp — по высоте кадра, как в SketchUp' : 'Field of view of the cameras made from SketchUp scenes — by height, as in SketchUp'}>{ru ? 'Объектив сцен' : 'Scene lens'}</label>
+            <input type="range" min={15} max={90} step={0.5} value={lens ?? commonLens} onChange={(event) => setLens(Number(event.target.value))} aria-label={ru ? 'Объектив сцен' : 'Scene lens'} />
+            <input type="number" min={15} max={90} step={0.5} value={lens ?? commonLens} onChange={(event) => setLens(Number(event.target.value))} aria-label={ru ? 'Объектив сцен, градусы' : 'Scene lens, degrees'} />
+            <span className="focus-control-unit">°</span>
+        </div> : null}
+        {sceneCameras.length ? <div className="home-editor-tabs">
+            {button(`${ru ? 'Объектив ко всем сценам' : 'Lens to every scene'} · ${sceneCameras.length}`, () => { layoutEditor?.setCamerasFov?.(sceneCameras.map((camera) => camera.id), lens ?? commonLens); setLens(null); }, { disabled: lens === null || lens === commonLens, 'data-testid': 'placed-sketchup-lens-apply' })}
+        </div> : null}
     </>;
 }
 

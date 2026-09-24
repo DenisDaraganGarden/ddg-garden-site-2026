@@ -6,6 +6,7 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { publishedHomeSceneKeys } from './src/features/home-scene/data/publishedHomeSceneKeys.js';
 import { isValidId, presets, projects } from './scripts/projectStore.mjs';
+import { listPlants, plantCardFile, plantPhotoFile, removePlantPhoto, writePlantPhoto } from './scripts/plantLibrary.mjs';
 import { mapNodes, modelOrigin, prepareSketchupGlb, readGlb, readGlbJson } from './scripts/sketchupGlb.mjs';
 import { deployPublishedHomeScene } from './scripts/deployScene.mjs';
 import { surroundingsPlugin } from './scripts/surroundings.mjs';
@@ -63,6 +64,7 @@ function buildPublishedHomeSceneSettingsModule(settings) {
 // A model upload is the file itself, not JSON. Bounded, so a wrong drop cannot
 // fill the memory: a photogrammetry scan is a few hundred megabytes at most.
 const MODEL_UPLOAD_LIMIT = 512 * 2 ** 20;
+const PHOTO_UPLOAD_LIMIT = 40 * 1024 * 1024;
 
 async function readRawBody(request, limit) {
   const chunks = [];
@@ -223,6 +225,27 @@ function engineStorePlugin() {
           }
         }
 
+        // Генплан: PUT /__projects/<id>/plan {image, view} — снимок камеры
+        // «Генплан»; GET …/plan — где стояла камера; GET …/plan.webp — кадр.
+        if ((part === 'plan' || part === 'plan.webp') && isValidId(id) && store.writePlan) {
+          if (request.method === 'PUT' && part === 'plan') {
+            const body = await readJsonBody(request);
+            const meta = await store.writePlan(id, body.image, body.view);
+            sendJson(response, meta ? 200 : 404, meta ? { ok: true, ...meta } : { ok: false, message: `Проект «${id}» не найден.` });
+            return;
+          }
+          if (request.method === 'GET') {
+            const found = part === 'plan' ? await store.readPlan(id) : await store.planImage(id);
+            if (!found) { sendJson(response, 404, { ok: false, message: 'Генплана ещё нет.' }); return; }
+            if (part === 'plan') { sendJson(response, 200, { ok: true, ...found }); return; }
+            response.statusCode = 200;
+            response.setHeader('Content-Type', 'image/webp');
+            response.setHeader('Cache-Control', 'no-cache');
+            response.end(found);
+            return;
+          }
+        }
+
         // Миниатюра: /__projects/<id>/thumbnail — файл рядом с записью.
         if (part === 'thumbnail' && isValidId(id)) {
           if (request.method === 'GET') {
@@ -285,9 +308,39 @@ function engineStorePlugin() {
     });
   };
 
+  // Библиотека растений (scripts/plantLibrary.mjs): записи — GET
+  // /__library/plants, карточка сцены — GET …/<id>/card.webp; картинка Дениса
+  // к растению — GET …/<id>/photo.webp, POST …/<id>/photo (тело — сама
+  // картинка), DELETE …/<id>/photo.
+  const attachLibrary = (middlewares) => {
+    middlewares.use('/__library/plants', async (request, response, next) => {
+      const [id, file] = decodeURIComponent(request.url.replace(/^\/+|\?.*$/g, '')).split('/');
+      try {
+        if (file === 'photo' && request.method === 'POST') {
+          const saved = await writePlantPhoto(id, await readRawBody(request, PHOTO_UPLOAD_LIMIT));
+          sendJson(response, saved ? 200 : 404, saved ? { ok: true, ...saved } : { ok: false, message: `Растения «${id}» нет в библиотеке.` });
+          return;
+        }
+        if (file === 'photo' && request.method === 'DELETE') { sendJson(response, 200, { ok: await removePlantPhoto(id) }); return; }
+        if (request.method !== 'GET') { next(); return; }
+        if (!id) { sendJson(response, 200, { ok: true, plants: await listPlants() }); return; }
+        const found = file === 'card.webp' ? await plantCardFile(id) : file === 'photo.webp' ? await plantPhotoFile(id) : null;
+        if (!found) { sendJson(response, 404, { ok: false, message: 'Картинки нет.' }); return; }
+        response.statusCode = 200;
+        response.setHeader('Content-Type', 'image/webp');
+        response.setHeader('Content-Length', String(found.size));
+        response.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        createReadStream(found.file).pipe(response);
+      } catch (error) {
+        sendJson(response, 500, { ok: false, message: error instanceof Error ? error.message : 'Ошибка библиотеки растений' });
+      }
+    });
+  };
+
   const attachAll = (middlewares) => {
     attach(middlewares, '/__projects', projects);
     attach(middlewares, '/__presets', presets);
+    attachLibrary(middlewares);
   };
 
   return {

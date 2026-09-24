@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 export const GIZMO_MODES = ['translate', 'rotate', 'scale'];
-export const EDITOR_TOOLS = ['select', ...GIZMO_MODES, 'hand', 'topiary'];
+export const EDITOR_TOOLS = ['select', ...GIZMO_MODES, 'hand', 'topiary', 'bed', 'plant', 'vine'];
 
 // Одна линейка инструментов, как в 3ds Max: в каждый момент активен ровно один.
 //
@@ -10,6 +10,10 @@ export const EDITOR_TOOLS = ['select', ...GIZMO_MODES, 'hand', 'topiary'];
 //   rotate     R ├ манипулятор в этом режиме; клик по-прежнему выбирает
 //   scale      S ┘
 //   hand       H   только обзор: манипулятор спрятан, клики ничего не выбирают
+//   topiary    B   кисть изгороди
+//   bed        L   контур цветника (src/planting)
+//   plant      T   посадить выбранное растение кликом
+//   vine       I   лиана мазком по стене, кашпо, сетке, земле
 //
 // Клавиши — Blender'овские G/R/S, потому что манипулятор с него и списан.
 // W/E как псевдонимы больше не принимаются: W/A/S/D/Q/E — полёт камеры, и
@@ -22,6 +26,9 @@ const TOOL_KEYS = {
     s: 'scale',
     h: 'hand',
     b: 'topiary',
+    l: 'bed',
+    t: 'plant',
+    i: 'vine',
 };
 
 const isTypingTarget = (target) => {

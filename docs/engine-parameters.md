@@ -8,9 +8,9 @@
 единицы взяты из его каталога контролов, поэтому параметр не может появиться в
 редакторе и не появиться здесь. Руками не править.
 
-Снято: 2026-09-24 · параметров: 690 · разделов: 42
+Снято: 2026-09-24 · параметров: 693 · разделов: 43
 
-Как этим пользоваться агенту: читать и писать `projects/<id>.json`, поле
+Как этим пользоваться агенту: читать и писать `~/Ouroboros/projects/<id>.json`, поле
 `settings` — плоский объект с этими ключами. `topiaryObjects` — массив форм;
 `topiaryObjects[].…` обозначает поле одной формы. Пределы ниже — это пределы
 редактора; движок нормализует значение при загрузке, выходить за них не нужно.
@@ -136,12 +136,6 @@
 
 | Ключ | Что это | Вид | Пределы | Заводское |
 |---|---|---|---|---|
-| `audio.emitters.shore.maxDistance` | Предел слышимости | число | 1 … 240, шаг 1,  m |  |
-| `audio.emitters.shore.refDistance` | Ближняя дистанция | число | 0.25 … 80, шаг 0.25,  m |  |
-| `audio.emitters.shore.rolloff` | Затухание с расстоянием | число | 0 … 4, шаг 0.05 |  |
-| `audio.emitters.shore.x` | X | число | -80 … 80, шаг 0.1,  m |  |
-| `audio.emitters.shore.y` | Y | число | -20 … 80, шаг 0.1,  m |  |
-| `audio.emitters.shore.z` | Z | число | -80 … 80, шаг 0.1,  m |  |
 | `audio.emitters.thunder.maxDistance` | Предел слышимости | число | 1 … 240, шаг 1,  m |  |
 | `audio.emitters.thunder.refDistance` | Ближняя дистанция | число | 0.25 … 80, шаг 0.25,  m |  |
 | `audio.emitters.thunder.rolloff` | Затухание с расстоянием | число | 0 … 4, шаг 0.05 |  |
@@ -161,8 +155,6 @@
 |---|---|---|---|---|
 | `audio.tracks.boat.enabled` | Волна о лодку: включить дорожку | выключатель | да / нет |  |
 | `audio.tracks.boat.gain` | Волна о лодку · Объём | число | 0 … 1.5, шаг 0.01 |  |
-| `audio.tracks.shore.enabled` | Волна у берега: включить дорожку | выключатель | да / нет |  |
-| `audio.tracks.shore.gain` | Волна у берега · Объём | число | 0 … 1.5, шаг 0.01 |  |
 | `audio.tracks.tanker.enabled` | Танкер · дизель / гудок: включить дорожку | выключатель | да / нет |  |
 | `audio.tracks.tanker.gain` | Танкер · дизель / гудок · Объём | число | 0 … 1.5, шаг 0.01 |  |
 | `audio.tracks.thunder.enabled` | Далёкий гром: включить дорожку | выключатель | да / нет |  |
@@ -325,6 +317,21 @@
 | `surfacePlantSize` | Размер листьев | число | 0 … 0.6, шаг 0.01, m | 0.36 |
 | `surfacePlantStiffness` | Жёсткость листа | число | 0 … 1, шаг 0.01, % | 0.3 |
 | `surfacePlantTranslucency` | Просвет листьев | число | 0 … 1, шаг 0.01, % | 0.62 |
+
+## greenery/planting
+
+| Ключ | Что это | Вид | Пределы | Заводское |
+|---|---|---|---|---|
+| `northAngle` | Север | число | -180 … 180, шаг 0.5, ° | 0 |
+| `plantingBeds` | Цветник | список |  |  |
+| `plantingBeds[].density` | Густота | число | 0.4 … 2, шаг 0.05,  × |  |
+| `plantingBeds[].drift` | Размер пятна | число | 0.3 … 6, шаг 0.1,  m |  |
+| `plantingBeds[].palette` | Палитра | список |  · steppe · prairie · flowering · shade · evergreen |  |
+| `plantingEnabled` | Посадки | выключатель | да / нет | true |
+| `plantingMonth` | Месяц | число | 1 … 12, шаг 1 | 6 |
+| `plantingPlan` | План в шапках | выключатель | да / нет | false |
+| `plantingPlant` | Растение | список | quercus-robur-fastigiata · acer-tataricum · pinus-nigra · thuja-smaragd · malus-evereste · picea-alberta-globe · juniperus-sabina-mas · buxus-sempervirens-ball · berberis-golden-rocket · cornus-alba-elegantissima · spiraea-tor-gold · vitis-vinifera · fallopia-baldschuanica · hydrangea-petiolaris · parthenocissus-quinquefolia · parthenocissus-tricuspidata-veitchii · lonicera-caprifolium · campsis-radicans · clematis-jackmanii · hedera-helix · nassella-tenuissima · miscanthus-sinensis · festuca-glauca · pennisetum-hameln · deschampsia-cespitosa · gaillardia-grandiflora · iris-germanica · lavandula-angustifolia · liatris-spicata · alchemilla-mollis · leucanthemum-superbum · sedum-herbstfreude · perovskia-atriplicifolia · rudbeckia-goldsturm · vinca-minor |  |
+| `plantingVines` | Лиана | список |  |  |
 
 ## greenery/shrubs
 
@@ -899,6 +906,7 @@
 | `liliesVisible` | Кувшинки | выключатель | да / нет | true |
 | `placedEnabled` | Расстановка | выключатель | да / нет | true |
 | `planeEnabled` | Плоскость | выключатель | да / нет | false |
+| `plantingEnabled` | Посадки | выключатель | да / нет | true |
 | `reflectionsEnabled` | Отражения | выключатель | да / нет | true |
 | `sculptureVisible` | Скульптура | выключатель | да / нет | true |
 | `seabedVisible` | Дно | выключатель | да / нет | true |

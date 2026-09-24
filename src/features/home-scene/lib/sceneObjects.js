@@ -39,6 +39,8 @@ export const SCENE_OBJECTS = Object.freeze([
   { id: 'surroundings', key: 'surroundingsEnabled', node: 'landscape/surroundings', group: 'landscape', roots: ['surroundings'], design: true },
   { id: 'lilies', key: 'liliesVisible', node: 'greenery/lilies', group: 'greenery', roots: ['surface-vegetation'], requires: ['water'], newProject: false, site: true },
   { id: 'algae', key: 'algaeVisible', node: 'greenery/algae', group: 'greenery', roots: ['underwater-algae'], requires: ['water'], newProject: false, site: true },
+  // Цветники и одиночные растения из библиотеки растений (src/planting).
+  { id: 'planting', key: 'plantingEnabled', node: 'greenery/planting', group: 'greenery', roots: ['planting'] },
   { id: 'topiary', key: 'topiaryEnabled', node: 'greenery/topiary', group: 'greenery', roots: ['topiary'] },
   { id: 'shrubs', key: 'shrubsEnabled', node: 'greenery/shrubs', group: 'greenery', roots: ['coastal-oleaster'] },
   { id: 'trees', key: 'treesEnabled', node: 'greenery/trees', group: 'greenery', roots: ['coastal-trees'] },
@@ -155,12 +157,21 @@ const matchRoot = (name) => SCENE_OBJECTS.find((object) => object.roots?.include
 // тысячи чужих имён, и компонент «boat» не должен уводить клик к лодке. Для
 // него же отдаётся сам объект, в который попал луч, — по нему редактор
 // находит компонент модели.
-export const sceneHitForObject3D = (object) => {
+export const sceneHitForObject3D = (object, hit = null) => {
+  // Лист лианы — экземпляр в пачке вида: чья он, говорит его номер.
+  if (object.userData?.plantingVines && hit?.instanceId !== undefined) {
+    return { node: 'greenery/planting', root: object.name, plantingVine: object.userData.plantingVines[hit.instanceId] };
+  }
+  // Её ветка — треугольник в общей сетке вида: чья, говорит номер грани.
+  if (object.userData?.plantingVineFaces && hit?.faceIndex !== undefined) {
+    return { node: 'greenery/planting', root: object.name, plantingVine: object.userData.plantingVineFaces[hit.faceIndex] };
+  }
   for (let node = object; node; node = node.parent) {
     if (node.userData?.placedId) return { node: 'objects/placed', root: `placed-${node.userData.placedId}`, placedId: node.userData.placedId, object };
   }
   for (let node = object; node; node = node.parent) {
     if (node.userData?.topiaryId) return { node: 'greenery/topiary', root: node.name, topiaryId: node.userData.topiaryId };
+    if (node.userData?.plantingBed) return { node: 'greenery/planting', root: node.name, plantingBed: node.userData.plantingBed };
     const match = node.name ? matchRoot(node.name) : null;
     if (match?.node) return { node: match.node, root: node.name };
   }

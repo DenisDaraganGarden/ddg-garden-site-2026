@@ -18,6 +18,7 @@ const ProjectDetail = lazy(() => import('./pages/ProjectDetail'));
 const Map = lazy(() => import('./pages/Map'));
 const HomeEdit = lazy(() => import('./pages/HomeEdit'));
 const Engine = lazy(() => import('./pages/Engine'));
+const PlantingReport = lazy(() => import('./pages/PlantingReport'));
 const CursorConceptLab = lazy(() => import('./components/ui/CursorConceptLab'));
 
 function AppShell() {
@@ -63,6 +64,8 @@ function AppShell() {
         // Главное меню движка: проекты и лаборатория. Редактор открывается
         // отсюда с ?project=<id>; без параметра он остаётся редактором сайта.
         { path: '/engine', element: <Engine /> },
+        // Отчёт по посадкам проекта для заказчика и дендролога (печать в PDF).
+        { path: '/engine/report', element: <PlantingReport /> },
         { path: '/home/edit', element: <HomeEdit /> },
     ];
 

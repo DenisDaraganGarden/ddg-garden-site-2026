@@ -223,7 +223,7 @@ function PartBox({ root, node, stamp }) {
     return <primitive object={helper} />;
 }
 
-function PlacedModel({ object, url, selected, sketchup, selectedPart }) {
+function PlacedModel({ object, url, selected, sketchup, selectedPart, plan = false }) {
     const gltf = useModel(url);
     const lit = object.species !== 'scan';
     const originKey = object.origin ? `${object.origin.x},${object.origin.y},${object.origin.z}` : '';
@@ -239,12 +239,14 @@ function PlacedModel({ object, url, selected, sketchup, selectedPart }) {
     const faceCamera = sketchup?.faceCamera ?? false;
     useEffect(() => { cards?.set(faceCamera); invalidate(); }, [cards, faceCamera, invalidate]);
     const hiddenParts = sketchup?.hidden.join(',') ?? '';
-    const crowns = sketchup?.crowns ?? true;
+    // План (у камеры, как у генплана): круги крон вместо 2D-деревьев — сверху
+    // картинка на ребре видна чертой.
+    const crowns = (sketchup?.crowns ?? true) || plan;
     useLayoutEffect(() => {
         if (!prepared || !isSketchup) return;
-        applyHidden(prepared.root, hiddenParts ? hiddenParts.split(',').map(Number) : [], crowns);
+        applyHidden(prepared.root, hiddenParts ? hiddenParts.split(',').map(Number) : [], crowns, plan);
         invalidate();
-    }, [prepared, isSketchup, hiddenParts, crowns, cards, invalidate]);
+    }, [prepared, isSketchup, hiddenParts, crowns, plan, cards, invalidate]);
     useEffect(() => (prepared && isSketchup ? registerSketchupModel(object.id, { root: prepared.root, cards: cards?.count ?? 0, crowns: cards?.crowns ?? 0 }) : undefined), [prepared, isSketchup, cards, object.id]);
     // Wet by the sea, it also breaks the water: its waterline, found again
     // whenever it moves, is where the foam field whitens the water running at it.
@@ -271,7 +273,7 @@ function PlacedModel({ object, url, selected, sketchup, selectedPart }) {
     </>;
 }
 
-export default function PlacedObjects({ objects, selectedId = null, selectedPart = null, sketchupModels = {}, treeAsset, shrubAsset, qualityProfile, lighting, envMapIntensity = 1 }) {
+export default function PlacedObjects({ objects, selectedId = null, selectedPart = null, sketchupModels = {}, plan = false, treeAsset, shrubAsset, qualityProfile, lighting, envMapIntensity = 1 }) {
     const lowPower = Boolean(qualityProfile?.isLowPower || qualityProfile?.isMobileDevice);
     // A hidden object keeps its anchor: it can still be picked from the list,
     // framed and moved, it only draws nothing.
@@ -285,7 +287,7 @@ export default function PlacedObjects({ objects, selectedId = null, selectedPart
             if (object.kind === 'shrub') return <PlacedShrub key={object.id} object={object} asset={shrubAsset} lowPower={lowPower} envMapIntensity={envMapIntensity} selected={selected} />;
             if (object.kind !== 'model') return null;
             const url = modelUrl(object);
-            return url ? <PlacedModel key={object.id} object={object} url={url} selected={selected} sketchup={sketchupModels[object.id]}
+            return url ? <PlacedModel key={object.id} object={object} url={url} selected={selected} sketchup={sketchupModels[object.id]} plan={plan}
                 selectedPart={selectedPart?.id === object.id ? selectedPart.node : null} />
                 : <Anchor key={object.id} object={object} selected={selected} radius={1} />;
         })}

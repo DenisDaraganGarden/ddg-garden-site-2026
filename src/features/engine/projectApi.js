@@ -39,6 +39,10 @@ const store = (base) => ({
     saveThumbnail: (id, image, { keepalive = false } = {}) => call(base, `/${encodeURIComponent(id)}/thumbnail`, {
         method: 'PUT', body: JSON.stringify({ image }), keepalive,
     }),
+    // Снимок камеры «Генплан» для отчёта и где она стояла.
+    savePlan: (id, image, view) => call(base, `/${encodeURIComponent(id)}/plan`, { method: 'PUT', body: JSON.stringify({ image, view }) }),
+    readPlan: (id) => call(base, `/${encodeURIComponent(id)}/plan`).catch((error) => { if (error.status === 404) return null; throw error; }),
+    planUrl: (id, captured = '') => `${base}/${encodeURIComponent(id)}/plan.webp?${encodeURIComponent(captured)}`,
 });
 
 // Проект — сцена целиком. Деталь — настроенный вариант одного объекта.
@@ -50,6 +54,9 @@ export const readProject = projectStore.read;
 export const createProject = projectStore.create;
 export const removeProject = projectStore.remove;
 export const renameProject = (id, name) => projectStore.save(id, { name });
+// Вкладка меню проектов: 'site' — сцены сайта, без вида — игры. Участок
+// ('design') так не переносится: у него другая сцена (sceneObjects.js, site).
+export const setProjectKind = (id, kind) => projectStore.save(id, { kind: kind ?? null });
 
 // Сохранение сцены уходит часто и не должно ничего блокировать. keepalive нужен
 // для последнего сохранения при закрытии окна — обычный запрос браузер в этот

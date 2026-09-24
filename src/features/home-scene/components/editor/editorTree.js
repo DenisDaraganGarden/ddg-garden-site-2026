@@ -1,5 +1,6 @@
 import { isEditorNodeHidden } from './hiddenNodes.js';
 import {TopiarySection} from './sections/topiary';
+import { PlantingSection } from './sections/planting';
 import {PlacedSection} from './sections/placed';
 import {ShrubsSection} from './sections/shrubs';
 import {TreesSection} from './sections/trees';
@@ -83,6 +84,8 @@ export const EDITOR_TREE = [
     {
         id: 'greenery',
         nodes: [
+            // workspace: своё рабочее место вместо «Параметры / Избранное» (FocusEditor).
+            { id: 'planting', workspace: true, aspects: [{ id: 'scatter', Section: PlantingSection }] },
             { id: 'lilies', aspects: [{ id: 'scatter', Section: LiliesSection }] },
             { id: 'algae', aspects: [{ id: 'scatter', Section: AlgaeSection }] },
             { id: 'trees', aspects: [{ id: 'scatter', Section: TreesSection }] },

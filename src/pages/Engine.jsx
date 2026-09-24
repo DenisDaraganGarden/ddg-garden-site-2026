@@ -4,7 +4,7 @@ import { version } from '../../package.json';
 import { FocusIcon } from '../features/home-scene/components/editor/focus/FocusIcons';
 import { FocusContextMenu } from '../features/home-scene/components/editor/focus/FocusContextMenu';
 import {
-    createProject, listProjects, projectStore, readProject, removeProject, renameProject,
+    createProject, listProjects, projectStore, readProject, removeProject, renameProject, setProjectKind,
 } from '../features/engine/projectApi';
 import {
     getBaseHomeSceneSettings, normalizeHomeSceneDraftSettings, readHomeSceneDraftSettings, sanitizeHomeSceneSettingsForPublish,
@@ -33,6 +33,19 @@ const factoryScene = (kind) => normalizeHomeSceneDraftSettings({
 });
 
 const openEditor = (id) => { window.location.href = `/home/edit?project=${encodeURIComponent(id)}`; };
+
+// Три вкладки меню — три рода работы. Игры — сцены движка на заводском
+// берегу (вид не указан), сайт — заглавная страница и её сохранённые сцены
+// (kind 'site'), ландшафт — участки (kind 'design'). Выбранная вкладка
+// помнится в этом браузере; впервые — вкладка самого свежего проекта.
+const TABS = [
+    { id: 'game', ru: 'Игры', en: 'Games', lead: ['Сцены движка на заводском берегу: вода, свет, доска, живность.', 'Engine scenes on the factory coast: water, light, the board, creatures.'] },
+    { id: 'site', ru: 'Сайт', en: 'Website', lead: ['Заглавная страница сайта и её сохранённые сцены.', 'The website home page and its saved scenes.'] },
+    { id: 'design', ru: 'Ландшафт', en: 'Landscape', lead: ['Участки: модель SketchUp, цветники и деревья, план в шапках, ведомость.', 'Garden plots: the SketchUp model, beds and trees, the plan in caps, the schedule.'] },
+];
+const tabOf = (project) => (project.kind === 'design' ? 'design' : project.kind === 'site' ? 'site' : 'game');
+const TAB_KEY = 'ddg_engine_tab_v1';
+const readTab = () => { try { return localStorage.getItem(TAB_KEY); } catch { return null; } };
 
 // Сайт — не проект движка, а его собственный редактор: черновик в этом браузере,
 // свои кнопки «В проект» и «На сайт». В меню он стоит первым и отдельно, чтобы
@@ -81,6 +94,8 @@ export default function Engine() {
     const [editing, setEditing] = useState(null);
     const [menu, setMenu] = useState(null);
     const [sitePreview] = useState(siteThumbnail);
+    const [tab, setTab] = useState(readTab);
+    useEffect(() => { if (tab) { try { localStorage.setItem(TAB_KEY, tab); } catch { /* local UI only */ } } }, [tab]);
     // The source file is bundled: it says who was on the home page when this
     // page loaded; a publish from here updates the note without a reload.
     const [homeSource, setHomeSource] = useState(publishedSource);
@@ -111,7 +126,8 @@ export default function Engine() {
         }
     }, []);
 
-    const fail = (error) => setState((current) => ({ ...current, message: error.message }));
+    const fail = (error) => setState((previous) => ({ ...previous, message: error.message }));
+    const current = TABS.some((item) => item.id === tab) ? tab : state.projects[0] ? tabOf(state.projects[0]) : 'design';
 
     useEffect(() => { void reload(); }, [reload]);
     useEffect(() => {
@@ -155,11 +171,21 @@ export default function Engine() {
         } catch (error) { fail(error); }
     };
 
+    const moveTo = async (project, kind) => {
+        try {
+            await setProjectKind(project.id, kind);
+            await reload();
+        } catch (error) { fail(error); }
+    };
+
     const projectMenu = (project) => [
         { label: tr('Открыть', 'Open'), icon: 'right', onSelect: () => openEditor(project.id) },
         { label: tr('Переименовать', 'Rename'), icon: 'sliders', onSelect: () => setEditing({ id: project.id, name: project.name }) },
         { label: tr('Сделать копию', 'Duplicate'), icon: 'folder', onSelect: () => duplicate(project) },
         { label: tr('На заглавную сайта', 'To the site home page'), icon: 'upload', onSelect: () => toHomePage(project) },
+        project.kind === 'design' ? null : project.kind === 'site'
+            ? { label: tr('Во вкладку «Игры»', 'Move to “Games”'), icon: 'grid', onSelect: () => moveTo(project, null) }
+            : { label: tr('Во вкладку «Сайт»', 'Move to “Website”'), icon: 'grid', onSelect: () => moveTo(project, 'site') },
         '-',
         { label: tr('Удалить', 'Delete'), icon: 'close', danger: true, onSelect: () => remove(project) },
     ];
@@ -190,10 +216,12 @@ export default function Engine() {
 
         <main className="engine-body">
             <h1>{tr('Проекты', 'Projects')}</h1>
-            <p className="engine-lead">{tr(
-                'Проект — это сцена в числах: ландшафт, вода, свет, растения. Ассеты общие для всех проектов и в проект не копируются.',
-                'A project is a scene in numbers: land, water, light, plants. Assets are shared by every project and are never copied into one.',
-            )}</p>
+            <nav className="engine-tabs" role="tablist" aria-label={tr('Вкладки проектов', 'Project tabs')}>
+                {TABS.map((item) => <button key={item.id} type="button" role="tab" aria-selected={item.id === current} className={item.id === current ? 'is-active' : ''} onClick={() => setTab(item.id)} data-testid={`engine-tab-${item.id}`}>
+                    {tr(item.ru, item.en)}<small>{state.projects.filter((project) => tabOf(project) === item.id).length + (item.id === 'site' ? 1 : 0)}</small>
+                </button>)}
+            </nav>
+            <p className="engine-lead">{tr(...TABS.find((item) => item.id === current).lead)}</p>
 
             {state.message ? <p className="engine-note" role="status">{state.message}</p> : null}
             {homeNote ? <p className="engine-note" role="status">{homeNote}</p> : null}
@@ -202,23 +230,23 @@ export default function Engine() {
                 'The project store answers only on the engine’s local server. Start the editor from the app.',
             )}</p> : null}
 
-            <div className="engine-grid">
-                {editing && editing.id === null && !editing.kind
+            <div className="engine-grid" role="tabpanel">
+                {current === 'game' ? (editing && editing.id === null && !editing.kind
                     ? <div className="engine-card engine-card--new is-naming">{naming(null)}</div>
                     : <button type="button" className="engine-card engine-card--new" onClick={() => setEditing({ id: null, name: '' })} disabled={state.status !== 'ready'}>
                         <FocusIcon name="plus" />
-                        <span>{tr('Новый проект', 'New project')}</span>
+                        <span>{tr('Новая игра', 'New game')}</span>
                         <small>{tr('Заводской берег', 'Factory coast')}</small>
-                    </button>}
-                {editing && editing.id === null && editing.kind === 'design'
+                    </button>) : null}
+                {current === 'design' ? (editing && editing.id === null && editing.kind === 'design'
                     ? <div className="engine-card engine-card--new is-naming">{naming(null)}</div>
                     : <button type="button" className="engine-card engine-card--new" onClick={() => setEditing({ id: null, name: '', kind: 'design' })} disabled={state.status !== 'ready'} data-testid="engine-new-design">
                         <FocusIcon name="plus" />
                         <span>{tr('Новый участок', 'New garden plot')}</span>
                         <small>{tr('Пустая сцена · SketchUp · посадки', 'Empty scene · SketchUp · planting')}</small>
-                    </button>}
+                    </button>) : null}
 
-                <article className="engine-card engine-card--site">
+                {current === 'site' ? <article className="engine-card engine-card--site">
                     <button type="button" className="engine-card__open" onClick={() => { window.location.href = '/home/edit'; }}>
                         {sitePreview ? <img className="engine-card__preview" src={sitePreview} alt="" /> : <span className="engine-card__preview" aria-hidden="true" />}
                         <span className="engine-card__name">{tr('Сайт · заглавная страница', 'Website · home page')}</span>
@@ -227,9 +255,9 @@ export default function Engine() {
                             : tr('свой черновик · публикуется на сайт', 'own draft · publishes to the site')}</small>
                     </button>
                     <span className="engine-card__tag">{tr('сайт', 'site')}</span>
-                </article>
+                </article> : null}
 
-                {state.projects.map((project) => <article
+                {state.projects.filter((project) => tabOf(project) === current).map((project) => <article
                     key={project.id}
                     className="engine-card"
                     onContextMenu={(event) => { if (event.shiftKey) return; event.preventDefault(); setMenu({ x: event.clientX, y: event.clientY, project }); }}
@@ -243,7 +271,7 @@ export default function Engine() {
                             <span className="engine-card__name">{project.name}</span>
                             <small>{formatDate(project.updated, language)} · {project.id}</small>
                         </button>}
-                    {project.kind === 'design' ? <span className="engine-card__tag">{tr('участок', 'plot')}</span> : null}
+                    {homeSource?.projectId === project.id ? <span className="engine-card__tag">{tr('на заглавной', 'on the home page')}</span> : null}
                 </article>)}
             </div>
 
