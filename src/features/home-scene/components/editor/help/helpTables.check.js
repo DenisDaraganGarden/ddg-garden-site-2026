@@ -19,13 +19,14 @@ const CONDITIONAL = [
     'upscaleQuality', 'upscaleSharpness',
     ...['enabled', 'gain'].map((key) => `audio.tracks.birds.${key}`),
     ...['x', 'y', 'z', 'refDistance', 'maxDistance', 'rolloff'].map((key) => `audio.emitters.birds.${key}`),
-    // Окружение — только в проекте «Участок» (help/surroundings.js).
-    'surroundingsEnabled', 'surroundingsRadius', 'surroundingsBuildings', 'surroundingsTrees', 'surroundingsFences', 'surroundingsRelief', 'northAngle',
-    'surroundingsOffsetX', 'surroundingsOffsetZ', 'surroundingsClear', 'surroundingsBuildingColor', 'surroundingsGroundColor', 'surroundingsRoadColor',
-    'surroundingsGreenColor', 'surroundingsWaterColor',
 ];
 CONDITIONAL.forEach((key) => keys.add(key));
 const MAX = 260;
+// Окружение — только в проекте «Участок» (help/surroundings.js), а справочник
+// собран на редакторе сайта.
+['surroundingsEnabled', 'surroundingsRadius', 'surroundingsBuildings', 'surroundingsTrees', 'surroundingsFences', 'surroundingsRelief', 'northAngle',
+    'surroundingsOffsetX', 'surroundingsOffsetZ', 'surroundingsClear', 'surroundingsBuildingColor', 'surroundingsGroundColor', 'surroundingsRoadColor',
+    'surroundingsGreenColor', 'surroundingsWaterColor'].forEach((key) => keys.add(key));
 
 const help = new Map();
 for (const file of readdirSync(here).filter((name) => name.endsWith('.js') && name !== 'index.js' && !name.endsWith('.check.js'))) {
