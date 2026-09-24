@@ -4,6 +4,7 @@ import { useFrame, useThree } from '@react-three/fiber';
 import { boardDimensions, deckHeight } from './boardShape';
 import { createSurfWater } from './surfWater';
 import { surfPlay } from './surfPlayStore';
+import { BELLY } from './riderSkeleton';
 
 // The camera while riding. It drives the scene's one default camera (the
 // shadows, the mirror, the sky and the final render all read that one), after
@@ -31,8 +32,9 @@ const CHASE = { distance: 4.8, elevation: 0.3, ahead: 2.5, fov: 62 };
 const SIDE = { along: 9, shoreward: 6, up: 2.5, fov: 45 };
 const ORBIT = { distance: 6, elevation: 0.35, fov: 55 };
 // The rider's eye above the deck, and how far from the middle along it:
-// lying, the head is ahead of the middle; standing, over the back foot.
-const EYE = { prone: 0.45, standing: 1.55, proneZ: 0.35, standingZ: -0.12 };
+// lying, the head is ahead of the middle (and up by his belly, riderSkeleton
+// BELLY, over the lean man's 10 cm); standing, over the back foot.
+const EYE = { prone: 0.45 + BELLY - 0.1, standing: 1.55, proneZ: 0.35, standingZ: -0.12 };
 // The share of the board's roll the first-person horizon follows.
 const EYE_ROLL = 0.35;
 // Clearance over the water and the ground at the camera, m.

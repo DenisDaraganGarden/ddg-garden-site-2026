@@ -78,6 +78,12 @@ export const REST = Object.freeze({
 });
 // Bone lengths the IK keeps.
 export const BONES = Object.freeze({ thigh: 0.42, shin: 0.43, upperArm: 0.30, forearm: 0.26, hand: 0.18, footToAnkle: 0.08 });
+// His body (riderBody.js, a stout man) round his bones: the belly stands out
+// 25 cm before the hips' line, so lying he rests his pelvis this high over the
+// deck — a little less, the belly gives — and pushing up he sets his hands this
+// far out to either side, past his chest.
+export const BELLY = 0.22;
+export const PUSH_WIDTH = 0.22;
 
 // A segment's centre in its own rest frame is its offset from each rest joint:
 // the pose builder places a segment by its proximal joint.

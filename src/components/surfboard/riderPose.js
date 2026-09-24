@@ -1,5 +1,5 @@
 import { qConj, qFromAxisAngle, qMul, qNormalize, qRotate, qSlerp } from './ragdoll.js';
-import { BONES, REST, SEGMENT, SEGMENT_CENTRE, SEGMENT_NAMES } from './riderSkeleton.js';
+import { BELLY, BONES, PUSH_WIDTH, REST, SEGMENT, SEGMENT_CENTRE, SEGMENT_NAMES } from './riderSkeleton.js';
 
 // Where every segment of the rider should be, in the board's frame: the pose
 // the physics body is carried by (pelvis, feet) and pulled toward (the rest,
@@ -318,9 +318,9 @@ export function proneControls(board, p, out) {
   const chestZ = 0.08 + 0.0 * board.length;
   const deck = (z) => board.deckY(0, z);
   const arch = clamp(p.arch ?? 0.6, 0, 1);
-  // Pelvis flat on the deck, chest raised by the arch of the back.
+  // Pelvis on the deck by his belly (BELLY), chest raised by the arch of the back.
   const pelvisZ = chestZ - 0.37;
-  out.pelvis[0] = 0; out.pelvis[1] = deck(pelvisZ) + 0.1; out.pelvis[2] = pelvisZ;
+  out.pelvis[0] = 0; out.pelvis[1] = deck(pelvisZ) + BELLY; out.pelvis[2] = pelvisZ;
   qFromAxisAngle(X, -4 * DEG, qTmp);
   qMul(PRONE_BASE, qTmp, out.pelvisQ);
   qFromAxisAngle(X, -(10 + 14 * arch) * DEG, out.lumbarQ);
@@ -331,7 +331,7 @@ export function proneControls(board, p, out) {
   const kick = p.kick ?? 0;
   for (const [side, x] of [['L', 0.07], ['R', -0.07]]) {
     const s = out[`sole${side}`];
-    s[0] = x; s[1] = deck(Math.max(tail + 0.05, pelvisZ - 0.8)) + 0.12 + 0.05 * kick; s[2] = pelvisZ - 0.86;
+    s[0] = x; s[1] = deck(Math.max(tail + 0.05, pelvisZ - 0.8)) + BELLY + 0.08 + 0.05 * kick; s[2] = pelvisZ - 0.86;
     // Relaxed, the toes hang down and back from the ankle.
     qFromAxisAngle(X, 0.65, qTmp);
     qMul(PRONE_BASE, qTmp, out[`footQ${side}`]);
@@ -423,8 +423,8 @@ export function popUpControls(board, t, standParams, out) {
   proneControls(board, { strokeL: -1, strokeR: -1, arch: 1 }, popA);
   // Hands flat on the deck beside the chest, pushing.
   const chestZ = 0.08;
-  popA.handL[0] = 0.16; popA.handL[1] = board.deckY(0.16, chestZ) + 0.01; popA.handL[2] = chestZ;
-  popA.handR[0] = -0.16; popA.handR[1] = board.deckY(-0.16, chestZ) + 0.01; popA.handR[2] = chestZ;
+  popA.handL[0] = PUSH_WIDTH; popA.handL[1] = board.deckY(PUSH_WIDTH, chestZ) + 0.01; popA.handL[2] = chestZ;
+  popA.handR[0] = -PUSH_WIDTH; popA.handR[1] = board.deckY(-PUSH_WIDTH, chestZ) + 0.01; popA.handR[2] = chestZ;
   standControls(board, { ...standParams, crouch: Math.max(standParams.crouch ?? 0, 0.55) }, popB);
   const body = smoothstep(0.08, 0.9, t);
   const feet = smoothstep(0.3, 0.78, t);

@@ -4,6 +4,7 @@ import { useFrame, useThree } from '@react-three/fiber';
 import SurfboardModel from './SurfboardModel';
 import RiderModel from './RiderModel';
 import { updateRiderModel } from './riderMesh';
+import { lookRiderBody, updateRiderBody, useRiderBody } from './riderBody';
 import { boardDimensions, buildBoardHull, deckHeight, halfWidth } from './boardShape';
 import { createBoardBody, createBoardState, resetBoard, stepBoard } from './boardPhysics';
 import { createRider, resetRider, stepRider, syncRider } from './riderController';
@@ -111,6 +112,17 @@ export default function Surfboard({
     });
   }, [surfboardLength, surfboardWidth, surfboardThickness, surfboardNoseRocker, surfboardTailRocker]);
   const riderMeshRef = useRef(null);
+  // The man on the bones (riderBody.js), loaded on the first play that wants
+  // him; until then, and when Denis picks «Скелет», the sticks stand in.
+  const look = settings.surfboardRiderLook;
+  const riderBody = useRiderBody(playing && look !== 'skeleton');
+  const riderBodyRef = useRef(null);
+  riderBodyRef.current = riderBody;
+  useEffect(() => {
+    if (!riderBody) return;
+    lookRiderBody(riderBody, look);
+    invalidate();
+  }, [invalidate, look, riderBody]);
   const water = useMemo(() => createSurfWater({
     seaSettings,
     coastDefinition: terrainDefinition,
@@ -439,6 +451,7 @@ export default function Surfboard({
       surfPlay.rider.head = surfPlay.rider.head ?? [0, 0, 0];
       surfPlay.rider.head[0] = head.x[0]; surfPlay.rider.head[1] = head.x[1]; surfPlay.rider.head[2] = head.x[2];
       updateRiderModel(riderMeshRef.current, rider);
+      updateRiderBody(riderBodyRef.current, rider, surfPlay.camera === 'first');
     } else {
       surfPlay.rider.state = 'none';
     }
@@ -482,7 +495,8 @@ export default function Surfboard({
         </group>
       </group>
       {/* The rider lives in world coordinates, drawn from his bodies. */}
-      <RiderModel ref={riderMeshRef} visible={playing} />
+      {riderBody && <primitive object={riderBody} visible={playing && look !== 'skeleton'} />}
+      <RiderModel ref={riderMeshRef} visible={playing && (look !== 'human' || !riderBody)} />
     </>
   );
 }

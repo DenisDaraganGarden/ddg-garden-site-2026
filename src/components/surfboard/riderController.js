@@ -91,7 +91,8 @@ const SINK_RANGE = [-0.07, 0.22];
 
 // Which bodies the pose carries in each state.
 const CARRIED = {
-  prone: ['pelvis', 'abdomen', 'chest'],
+  // Lying, his thighs too: loose, a stout man's would sag through the deck.
+  prone: ['pelvis', 'abdomen', 'chest', 'thighL', 'thighR'],
   popup: ['pelvis', 'abdomen', 'chest', 'footL', 'footR'],
   liedown: ['pelvis', 'abdomen', 'chest', 'footL', 'footR'],
   stand: ['pelvis', 'footL', 'footR'],

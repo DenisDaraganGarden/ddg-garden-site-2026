@@ -9,3 +9,6 @@ CleanShot*.mp4
 
 .claude/
 _src_boat/
+
+# The surfer scan (20 MB, from Sketchfab — assets-source/surfer/README.md)
+assets-source/surfer/source/

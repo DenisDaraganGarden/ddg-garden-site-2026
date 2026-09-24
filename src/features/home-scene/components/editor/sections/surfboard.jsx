@@ -1,7 +1,7 @@
 import React from 'react';
 import { useLanguage } from '../../../../../i18n/useLanguage';
-import { CheckboxControl, ColorControl, RangeControl } from '../../HomeEditorControls';
-import { SURFBOARD_RANGES } from '../../../../../components/surfboard/settings.js';
+import { CheckboxControl, ColorControl, RangeControl, SelectControl } from '../../HomeEditorControls';
+import { SURFBOARD_CHOICES, SURFBOARD_RANGES } from '../../../../../components/surfboard/settings.js';
 import { leaveAuto } from '../../../../../components/surfboard/surfPlayStore.js';
 
 // Limits and steps come from the settings module, so a slider can never offer
@@ -51,10 +51,17 @@ export function SurfboardBoardSection({ settings, handleSettingChange }) {
   </>;
 }
 
+const looks = { human: ['Человек', 'Human'], skeleton: ['Скелет', 'Skeleton'], both: ['Человек и скелет', 'Human and skeleton'] };
+
 export function SurfboardRideSection({ settings, handleSettingChange }) {
   const { language } = useLanguage();
   const ru = language === 'ru';
-  return <>{ride.map(([key, r, e, unit]) => range(key, r, e, unit, event => handleSettingChange(event, key), settings, ru))}</>;
+  return <>
+    <SelectControl controlId="surfboardRiderLook" label={ru ? 'Райдер' : 'Rider'} value={settings.surfboardRiderLook}
+      options={SURFBOARD_CHOICES.surfboardRiderLook.map((value) => ({ value, label: looks[value][ru ? 0 : 1] }))}
+      onChange={event => handleSettingChange(event, 'surfboardRiderLook', 'string')} />
+    {ride.map(([key, r, e, unit]) => range(key, r, e, unit, event => handleSettingChange(event, key), settings, ru))}
+  </>;
 }
 
 // The checkpoint is where the board waits in the editor and where play starts

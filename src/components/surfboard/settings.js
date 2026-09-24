@@ -13,8 +13,11 @@ export const DEFAULT_SURFBOARD_SETTINGS = Object.freeze({
   surfboardNoseRocker: 0.115, surfboardTailRocker: 0.045,
   surfboardDeckColor: '#f2efe6', surfboardRailColor: '#2a2e2e', surfboardStripeColor: '#0b0b0b',
   surfboardStringerColor: '#c9a46a', surfboardFinColor: '#2b2d2e', surfboardStripes: 2,
-  // Weight and feel. The rider has no body yet, only mass and balance.
+  // Weight and feel.
   surfboardMass: 3.2, surfboardRiderMass: 75,
+  // How the rider shows in play: the man (riderBody.js), the physics bones as
+  // wooden sticks (RiderModel), or the man see-through with the sticks inside.
+  surfboardRiderLook: 'human',
   surfboardPaddle: 1, surfboardCarve: 1, surfboardBalance: 1,
   // First-person field of view in play.
   surfboardCameraFov: 80,
@@ -34,12 +37,15 @@ export const SURFBOARD_RANGES = Object.freeze({
   surfboardWakeWaves: [0, 2, 0.05], surfboardWakeFoam: [0, 2, 0.05],
 });
 
+export const SURFBOARD_CHOICES = Object.freeze({ surfboardRiderLook: Object.freeze(['human', 'skeleton', 'both']) });
+
 const COLOR = /^#[0-9a-f]{6}$/i;
 
 export function normalizeSurfboardSettings(source = {}) {
   return Object.fromEntries(Object.entries(DEFAULT_SURFBOARD_SETTINGS).map(([key, fallback]) => {
     const value = source[key];
     if (typeof fallback === 'boolean') return [key, typeof value === 'boolean' ? value : fallback];
+    if (key in SURFBOARD_CHOICES) return [key, SURFBOARD_CHOICES[key].includes(value) ? value : fallback];
     if (typeof fallback === 'string') return [key, typeof value === 'string' && COLOR.test(value) ? value : fallback];
     const number = Number(value), [min, max] = SURFBOARD_RANGES[key];
     const clamped = value != null && Number.isFinite(number) ? Math.max(min, Math.min(max, number)) : fallback;

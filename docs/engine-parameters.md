@@ -8,7 +8,7 @@
 единицы взяты из его каталога контролов, поэтому параметр не может появиться в
 редакторе и не появиться здесь. Руками не править.
 
-Снято: 2026-09-23 · параметров: 645 · разделов: 41
+Снято: 2026-09-24 · параметров: 646 · разделов: 41
 
 Как этим пользоваться агенту: читать и писать `projects/<id>.json`, поле
 `settings` — плоский объект с этими ключами. `topiaryObjects` — массив форм;
@@ -729,7 +729,7 @@
 | Ключ | Что это | Вид | Пределы | Заводское |
 |---|---|---|---|---|
 | `planeColor` | Цвет плоскости | цвет | #rrggbb | #8a8f94 |
-| `planeEnabled` | homeEditor.controls.planeEnabled | выключатель | да / нет | false |
+| `planeEnabled` | Плоскость | выключатель | да / нет | false |
 | `planeHeight` | Высота плоскости | число | -50 … 50, шаг 0.1, m | 0 |
 | `planeRoughness` | Шероховатость плоскости | число | 0 … 1, шаг 0.01 | 0.9 |
 | `planeSize` | Размер плоскости | число | 10 … 5000, шаг 10, m | 400 |
@@ -781,6 +781,7 @@
 | `surfboardNoseRocker` | Прогиб носа | число | 0.04 … 0.2, шаг 0.005,  m | 0.115 |
 | `surfboardPaddle` | Гребок | число | 0 … 3, шаг 0.05 | 1 |
 | `surfboardRailColor` | Канты | цвет | #rrggbb | #2a2e2e |
+| `surfboardRiderLook` | Райдер | список | human · skeleton · both | human |
 | `surfboardRiderMass` | Вес райдера | число | 0 … 120, шаг 1,  kg | 75 |
 | `surfboardStringerColor` | Стрингер | цвет | #rrggbb | #c9a46a |
 | `surfboardStripeColor` | Цвет полос | цвет | #rrggbb | #0b0b0b |
@@ -848,7 +849,7 @@
 | `grassEnabled` | Травы | выключатель | да / нет | true |
 | `liliesVisible` | Кувшинки | выключатель | да / нет | true |
 | `placedEnabled` | Расстановка | выключатель | да / нет | true |
-| `planeEnabled` | homeEditor.controls.planeEnabled | выключатель | да / нет | false |
+| `planeEnabled` | Плоскость | выключатель | да / нет | false |
 | `reflectionsEnabled` | Отражения | выключатель | да / нет | true |
 | `sculptureVisible` | Скульптура | выключатель | да / нет | true |
 | `seabedVisible` | Дно | выключатель | да / нет | true |
