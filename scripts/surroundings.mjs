@@ -357,7 +357,9 @@ async function cli(args) {
   const lat = at?.[0] ?? project.settings.geoLatitude, lon = at?.[1] ?? project.settings.geoLongitude;
   const radius = Number(option('radius')) || project.settings.surroundingsRadius || 300;
   const data = await reload(id, { lat, lon, radius });
-  await stampProject(id, { geoLatitude: data.center.lat, geoLongitude: data.center.lon, surroundingsRadius: data.radius, surroundingsStamp: data.stamp });
+  // Первая загрузка, как кнопкой в редакторе: ровная «Плоскость» легла бы поверх рельефа.
+  const first = !project.settings.surroundingsStamp;
+  await stampProject(id, { geoLatitude: data.center.lat, geoLongitude: data.center.lon, surroundingsRadius: data.radius, surroundingsStamp: data.stamp, ...(first ? { planeEnabled: false } : {}) });
   console.log(`${surroundingsPath(id)}\n${formatSummary(summarizeSurroundings(data))}\nисточник: ${data.source.osm}, рельеф: ${data.source.terrain ?? 'нет'}${data.elevation !== null ? `, высота точки ${data.elevation} м` : ''}${data.notes ? `\n${data.notes.join('\n')}` : ''}`);
 }
 
