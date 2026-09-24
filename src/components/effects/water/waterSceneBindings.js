@@ -25,6 +25,8 @@ const SKY_IRRADIANCE_SHADER = /* glsl */`
   precision highp float;
   uniform sampler2D uSky;
   uniform float uScale;
+  // The panorama's turn (hdrRotation) as an azimuth offset; 0 for painted skies.
+  uniform float uAzimuth;
   varying vec2 vUv;
   void main() {
     int i = int(gl_FragCoord.x);
@@ -37,7 +39,7 @@ const SKY_IRRADIANCE_SHADER = /* glsl */`
         float a = (float(x) + 0.5) / 96.0 * 6.28318531 - 3.14159265;
         vec3 w = vec3(ce * cos(a), sin(e), ce * sin(a));
         float c = max(dot(axis, w), 0.0);
-        vec3 radiance = textureLod(uSky, vec2(a * 0.15915494 + 0.5, abs(e) * 0.31830989 + 0.5), 0.0).rgb;
+        vec3 radiance = textureLod(uSky, vec2((a + uAzimuth) * 0.15915494 + 0.5, abs(e) * 0.31830989 + 0.5), 0.0).rgb;
         sum += radiance * (w.y < 0.0 ? 0.06 : 1.0) * c * ce;
       }
     }
@@ -59,6 +61,9 @@ export function createWaterSceneBindingUniforms() {
   return {
     uSkyLut: { value: null },
     uSkyLutTexel: { value: new THREE.Vector2(1 / 256, 1 / 128) },
+    // cos and sin of the turn of the sky the water reflects (waterSkyRay):
+    // the panorama's in «Только HDRI», none for the painted skies.
+    uSkyRotation: { value: new THREE.Vector2(1, 0) },
     uWaterSceneSkyActive: { value: 0 },
     uReflectionTexture: { value: null },
     uRefractionTexture: { value: null },
@@ -135,7 +140,7 @@ export function useWaterSceneBindings(uniforms, { lighting, sky, runtime = null,
   const emptyShadow = useEmptyShadow();
   const irradiance = useMemo(() => ({
     target: createTarget(6, 1, { type: THREE.HalfFloatType, minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter }),
-    pass: createPass(SKY_IRRADIANCE_SHADER, { uSky: { value: null }, uScale: { value: 1 } }),
+    pass: createPass(SKY_IRRADIANCE_SHADER, { uSky: { value: null }, uScale: { value: 1 }, uAzimuth: { value: 0 } }),
   }), []);
   useEffect(() => () => { irradiance.target.dispose(); disposePass(irradiance.pass); }, [irradiance]);
 
@@ -188,17 +193,27 @@ export function useWaterSceneBindings(uniforms, { lighting, sky, runtime = null,
     syncCursorFlashlightUniforms(uniforms);
     const cloudDescriptor = cloudScene?.current;
     updateCloudShadowUniforms(uniforms, cloudDescriptor);
-    const activeSky = cloudDescriptor?.enabled && cloudDescriptor?.skyTexture
-      ? cloudDescriptor.skyTexture
-      : sky?.texture ?? null;
+    // «Только HDRI»: every water surface reflects the panorama itself, as
+    // PanoramaEnvironment publishes it (toned like the light it gives objects),
+    // turned with the backdrop.
+    const panorama = lighting.environment?.hdriSea ? reflectionDataRef.current.skyPanorama ?? null : null;
+    const activeSky = panorama
+      ? panorama.sky
+      : (cloudDescriptor?.enabled && cloudDescriptor?.skyTexture ? cloudDescriptor.skyTexture : sky?.texture ?? null);
+    const turn = panorama ? lighting.environment.rotationRadians : 0;
+    uniforms.uSkyRotation.value.set(Math.cos(turn), Math.sin(turn));
     uniforms.uSkyLut.value = activeSky;
     uniforms.uWaterSceneSkyActive.value = activeSky ? 1 : 0;
     if (activeSky) {
       // The scale the terrain takes the same sky at (WaterLights'
-      // environmentIntensity): foam and sand are lit alike.
+      // environmentIntensity): foam and sand are lit alike. The panorama is
+      // integrated from its averaged small copy, where its sun cannot alias.
       const cloudSky = Boolean(cloudDescriptor?.enabled && cloudDescriptor?.skyTexture);
-      irradiance.pass.material.uniforms.uSky.value = activeSky;
-      irradiance.pass.material.uniforms.uScale.value = cloudSky ? 1 : (lighting.sky?.skyLevel ?? 1);
+      irradiance.pass.material.uniforms.uSky.value = panorama ? panorama.small : activeSky;
+      irradiance.pass.material.uniforms.uScale.value = panorama
+        ? lighting.environment.hdriLevel
+        : (cloudSky ? 1 : (lighting.sky?.skyLevel ?? 1));
+      irradiance.pass.material.uniforms.uAzimuth.value = turn;
       const previous = gl.getRenderTarget();
       gl.setRenderTarget(irradiance.target);
       gl.render(irradiance.pass.scene, irradiance.pass.camera);
@@ -212,9 +227,9 @@ export function useWaterSceneBindings(uniforms, { lighting, sky, runtime = null,
     }
     if (activeSky?.image) {
       uniforms.uSkyLutTexel.value.set(
-        cloudDescriptor?.enabled && cloudDescriptor?.skyTexel
+        !panorama && cloudDescriptor?.enabled && cloudDescriptor?.skyTexel
           ? cloudDescriptor.skyTexel.x : 1 / activeSky.image.width,
-        cloudDescriptor?.enabled && cloudDescriptor?.skyTexel
+        !panorama && cloudDescriptor?.enabled && cloudDescriptor?.skyTexel
           ? cloudDescriptor.skyTexel.y : 1 / activeSky.image.height,
       );
     }
