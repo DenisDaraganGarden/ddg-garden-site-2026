@@ -1,6 +1,6 @@
 import fs from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 
 // Файловые хранилища движка. Два вида записей, одна механика:
 //
@@ -14,10 +14,14 @@ import { fileURLToPath } from 'node:url';
 // файла делается читаемым по той же причине — чтобы «projects/azovskiy-bereg.json»
 // можно было открыть, не спрашивая редактор.
 //
-// Папка переопределяется переменной окружения: так проверка пишет во временный
-// каталог, а собранное приложение — в свою папку данных, не в исходники.
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const HOME = process.env.DDG_PROJECTS_DIR ? path.resolve(process.env.DDG_PROJECTS_DIR) : ROOT;
+// Дом один на все чекауты: ~/Ouroboros (projects/, presets/). Пока проекты
+// лежали в папке чекаута, у каждого воркдерева был свой список, приложение
+// показывало проекты той копии, из которой его запустили, а удаление копии
+// уносило проекты с собой; модели заказчиков лежали в публичном репозитории.
+// Переменная окружения переопределяет дом: так проверка пишет во временный
+// каталог, а собранное приложение — в свою папку данных. Старые папки
+// переносит scripts/migrate-projects-home.mjs.
+export const HOME = process.env.DDG_PROJECTS_DIR ? path.resolve(process.env.DDG_PROJECTS_DIR) : path.join(os.homedir(), 'Ouroboros');
 
 const TRANSLIT = {
   а: 'a', б: 'b', в: 'v', г: 'g', д: 'd', е: 'e', ё: 'e', ж: 'zh', з: 'z', и: 'i',

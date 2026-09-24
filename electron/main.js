@@ -3,6 +3,7 @@ import fs from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { app, BrowserWindow, Menu, shell } from 'electron';
 import { createServer } from 'vite';
+import { projects } from '../scripts/projectStore.mjs';
 
 // Оболочка движка. Окно показывает тот же редактор, что и в браузере, — второй
 // реализации интерфейса не заводится. Сервер поднимается внутри приложения, а не
@@ -68,7 +69,7 @@ function buildMenu() {
         },
         {
           label: 'Папка проектов',
-          click: () => shell.openPath(path.join(ROOT, 'projects')),
+          click: () => shell.openPath(projects.dir),
         },
         { type: 'separator' },
         isMac ? { role: 'close' } : { role: 'quit' },
