@@ -36,6 +36,7 @@ import { useTopiaryEditor } from '../topiary/useTopiaryEditor.js';
 import { usePlacedEditor } from '../placed/usePlacedEditor.js';
 import { PLANTING_NODE, usePlantingEditor } from '../planting/usePlantingEditor.js';
 import { usePlantLibrary } from '../planting/plantLibrary.js';
+import { useAnnotationEditor } from '../annotations/useAnnotationEditor.js';
 import { TOPIARY_LIMITS } from '../topiary/settings.js';
 import { GIZMO_MODES, useEditorTool } from '../features/home-scene/hooks/useEditorTool';
 import { resolveEditorPath } from '../features/home-scene/components/editor/editorTree';
@@ -123,6 +124,8 @@ const HomeEdit = ({ project = null }) => {
     const { plants: plantLibrary } = usePlantLibrary();
     const plantingEditor = usePlantingEditor({ settings, history: focusHistory, setActiveTab, setTool, tool, language, library: plantLibrary });
     const { select: selectBed, selectVine } = plantingEditor;
+    const annotationEditor = useAnnotationEditor({ settings, history: focusHistory, setSettings, setActiveTab, setTool });
+    const { select: selectMark } = annotationEditor;
     useEffect(() => { if (tool === 'bed' || tool === 'plant') setActiveTab(PLANTING_NODE); }, [tool, setActiveTab]);
     const isLocalPublishAvailable = typeof window !== 'undefined'
         && LOCAL_EDIT_HOSTS.has(window.location.hostname);
@@ -616,9 +619,10 @@ const HomeEdit = ({ project = null }) => {
     const handlePickObject = useCallback((path, hit) => {
         if (hit?.plantingBed) { selectBed(hit.plantingBed); return; }
         if (hit?.plantingVine) { selectVine(hit.plantingVine); return; }
+        if (hit?.annotationMark) { selectMark(hit.annotationMark); return; }
         if (hit?.topiaryId) selectTopiary(hit.topiaryId); else if (hit?.placedId) selectPlaced(hit.placedId, hit.object); else setActiveTab(path);
         setTool(lastTransform);
-    }, [setActiveTab, setTool, lastTransform, selectTopiary, selectPlaced, selectBed, selectVine]);
+    }, [setActiveTab, setTool, lastTransform, selectTopiary, selectPlaced, selectBed, selectVine, selectMark]);
 
     const { group: gizmoGroup, node: gizmoNode } = resolveEditorPath(activeTab, { includeDevOnly: true });
     // An object switched off has left the scene graph; the gizmo has nothing to hold.
@@ -636,7 +640,7 @@ const HomeEdit = ({ project = null }) => {
     const transformHeld = transformTool && gizmoAllows(gizmoSelection, tool);
     // Riding is looking only: no gizmo, no picking, no hedge brush, no menu.
     const activeTool = playing ? 'hand' : transformTool && !transformHeld ? 'select' : tool;
-    const drawingTool = activeTool === 'topiary' || activeTool === 'bed' || activeTool === 'plant' || activeTool === 'vine';
+    const drawingTool = activeTool === 'topiary' || activeTool === 'bed' || activeTool === 'plant' || activeTool === 'vine' || activeTool === 'mark';
     const picking = activeTool !== 'hand' && !drawingTool;
     // Яв и масштаб выбранного объекта — из настроек: манипулятор их показывает,
     // а пишет обратно только через onTransform, сцену напрямую не трогая.
@@ -663,11 +667,12 @@ const HomeEdit = ({ project = null }) => {
         topiary: { drawing: activeTool === 'topiary' && settings.topiaryObjects.length < TOPIARY_LIMITS.objects,
             selectedId: gizmoNode.id === 'topiary' ? topiaryEditor.selectedId : null, onStroke: topiaryEditor.onStroke },
         placed: { selectedId: gizmoNode.id === 'placed' ? placedEditor.selectedId : null, part: gizmoNode.id === 'placed' ? placedEditor.part : null },
-        planting: { mode: ['bed', 'plant', 'vine'].includes(activeTool) ? activeTool : null, selectedId: gizmoNode.id === 'planting' ? plantingEditor.selectedId : null,
+        planting: { mode: ['bed', 'plant', 'vine', 'mark'].includes(activeTool) ? activeTool : null, selectedId: gizmoNode.id === 'planting' ? plantingEditor.selectedId : null,
             vineId: gizmoNode.id === 'planting' ? plantingEditor.vineId : null,
-            onBed: plantingEditor.onBed, onBedSurface: plantingEditor.onBedSurface, onPlant: plantingEditor.onPlant, onVine: plantingEditor.onVine },
+            onBed: plantingEditor.onBed, onBedSurface: plantingEditor.onBedSurface, onPlant: plantingEditor.onPlant, onVine: plantingEditor.onVine, onMark: annotationEditor.onMark },
+        annotations: { selectedId: annotationEditor.selectedId, onResnap: annotationEditor.onResnap },
     // eslint-disable-next-line react-hooks/exhaustive-deps -- pose сравнивается по значениям, не по ссылке
-    }), [playing, transformTool, transformHeld, gizmoSelection, tool, lastTransform, handleGizmoTransform, picking, drawingTool, handlePickObject, gizmoPose?.rotationY, gizmoPose?.scale, activeTool, settings.topiaryObjects.length, gizmoNode.id, topiaryEditor.selectedId, topiaryEditor.onStroke, placedEditor.selectedId, placedEditor.part, plantingEditor.selectedId, plantingEditor.vineId, plantingEditor.onBed, plantingEditor.onBedSurface, plantingEditor.onPlant, plantingEditor.onVine]);
+    }), [playing, transformTool, transformHeld, gizmoSelection, tool, lastTransform, handleGizmoTransform, picking, drawingTool, handlePickObject, gizmoPose?.rotationY, gizmoPose?.scale, activeTool, settings.topiaryObjects.length, gizmoNode.id, topiaryEditor.selectedId, topiaryEditor.onStroke, placedEditor.selectedId, placedEditor.part, plantingEditor.selectedId, plantingEditor.vineId, plantingEditor.onBed, plantingEditor.onBedSurface, plantingEditor.onPlant, plantingEditor.onVine, annotationEditor.onMark, annotationEditor.selectedId, annotationEditor.onResnap]);
 
     // Курсор во вьюпорте говорит, какой инструмент в руке, не глядя на панель.
     useEffect(() => {
@@ -905,6 +910,7 @@ const HomeEdit = ({ project = null }) => {
                 topiaryEditor={topiaryEditor}
                 placedEditor={placedEditor}
                 plantingEditor={plantingEditor}
+                annotationEditor={annotationEditor}
                 layoutEditor={layoutEditor}
                 gizmo={{ tool: activeTool, setTool, lastTransform, movable: gizmoSelection, selection: editorGizmo.selection, picking, sceneMenu, closeSceneMenu: () => setSceneMenu(null) }}
                 onPublish={isLocalPublishAvailable ? () => handlePublish() : undefined}

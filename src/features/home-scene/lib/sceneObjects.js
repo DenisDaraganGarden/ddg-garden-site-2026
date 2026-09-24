@@ -21,7 +21,7 @@
 //
 // `site: true` — вещь сайта и моря, которой нет в проекте «Участок» (kind
 // 'design'): там она выключена и пропадает из дерева, поиска и видимости.
-export const SCENE_OBJECT_GROUPS = Object.freeze(['landscape', 'greenery', 'objects', 'creatures', 'render']);
+export const SCENE_OBJECT_GROUPS = Object.freeze(['landscape', 'greenery', 'objects', 'creatures', 'annotations', 'render']);
 
 export const SCENE_OBJECTS = Object.freeze([
   // The loose shells on the beach are the terrain's: «Ракушечник» sets how many,
@@ -55,6 +55,8 @@ export const SCENE_OBJECTS = Object.freeze([
   { id: 'house', key: 'houseEnabled', node: 'objects/house', group: 'objects', roots: ['beach-house'], site: true },
   { id: 'seagulls', key: 'seagullsEnabled', node: 'creatures/seagulls', group: 'creatures', roots: ['seagull-flock'], sound: 'birds', requires: ['water'], newProject: false, site: true },
   { id: 'fish', key: 'fishEnabled', node: 'creatures/fish', group: 'creatures', roots: ['river-fish-school'], requires: ['water'], newProject: false, site: true },
+  // Отметки уровня — пометки проектировщика (src/annotations), только в редакторе.
+  { id: 'annotations', key: 'annotationsEnabled', node: 'annotations/levels', group: 'annotations', roots: ['annotations'] },
   { id: 'reflections', key: 'reflectionsEnabled', node: null, group: 'render' },
 ]);
 
@@ -153,6 +155,7 @@ const matchRoot = (name) => SCENE_OBJECTS.find((object) => object.roots?.include
 // него же отдаётся сам объект, в который попал луч, — по нему редактор
 // находит компонент модели.
 export const sceneHitForObject3D = (object, hit = null) => {
+  if (object.userData?.annotationMark) return { node: 'annotations/levels', root: object.name, annotationMark: object.userData.annotationMark };
   // Лист лианы — экземпляр в пачке вида: чья он, говорит его номер.
   if (object.userData?.plantingVines && hit?.instanceId !== undefined) {
     return { node: 'greenery/planting', root: object.name, plantingVine: object.userData.plantingVines[hit.instanceId] };

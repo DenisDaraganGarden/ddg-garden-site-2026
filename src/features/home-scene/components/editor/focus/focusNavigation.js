@@ -7,6 +7,8 @@ export const FOCUS_DOMAINS = [
     { id: 'scene', ru: 'Сцена', en: 'Scene', icon: 'grid', groupIds: ['landscape', 'objects', 'creatures'] },
     // Растения — своё рабочее место: цветники, посадки, библиотека, изгороди.
     { id: 'plants', ru: 'Растения', en: 'Plants', icon: 'sprout', groupIds: ['greenery'] },
+    // Аннотации — отметки уровня и следующие пометки проектировщика.
+    { id: 'annotations', ru: 'Аннотации', en: 'Annotations', icon: 'level', groupIds: ['annotations'] },
     { id: 'environment', ru: 'Среда', en: 'Environment', icon: 'sun', groupIds: ['atmosphere', 'lights'] },
     { id: 'cameras', ru: 'Камеры', en: 'Cameras', icon: 'camera', groupIds: ['cameras'] },
     { id: 'render', ru: 'Рендер', en: 'Render', icon: 'sliders', groupIds: ['render'] },
@@ -52,7 +54,7 @@ const NODE_ICONS = {
     terrain: 'terrain', rocks: 'terrain', pebbles: 'terrain', shore: 'terrain', water: 'water', seabed: 'water',
     planting: 'sprout', topiary: 'leaf', lilies: 'leaf', algae: 'leaf', trees: 'leaf', shrubs: 'leaf', grass: 'leaf',
     tanker: 'box', boat: 'box', sculpture: 'box', surfboard: 'box', house: 'box',
-    seagulls: 'bird', fish: 'fish',
+    seagulls: 'bird', fish: 'fish', levels: 'level',
     light1: 'light', light1target: 'target', light2: 'light', light2target: 'target',
     light: 'sun', hdri: 'cloud', fog: 'cloud', rays: 'sun', clouds: 'cloud',
     audioMixer: 'sound', audioTracks: 'sound', audioSpatial: 'sound',

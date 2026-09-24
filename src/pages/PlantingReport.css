@@ -38,6 +38,9 @@ html[data-planting-report=true] body{background:#e9e8e3}
 .report-shot__north circle{fill:#ffffffe6;stroke:#1f2321;stroke-width:calc(var(--mark) * .08)}
 .report-shot__north path{fill:#c9503a}
 .report-shot__north text{font-size:calc(var(--mark) * 1.1);font-weight:700;fill:#1f2321;text-anchor:middle;dominant-baseline:central}
+.report-shot__mark path{stroke:var(--mark-color);stroke-width:calc(var(--mark) * .14);stroke-linecap:round}
+.report-shot__mark rect{fill:#fffffff0;stroke:var(--mark-color);stroke-width:calc(var(--mark) * .07)}
+.report-shot__mark text{font:700 calc(var(--mark) * .85) "Noteworthy","Marker Felt",-apple-system,sans-serif;fill:var(--mark-color);dominant-baseline:central}
 .report-shot figcaption{margin-top:5px;font-size:10px;color:#6a706d}
 .report-legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:8px;font-size:10.5px;color:#474d4a}
 .report-legend span{display:inline-flex;align-items:center;gap:5px}

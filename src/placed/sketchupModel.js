@@ -220,3 +220,7 @@ export const registerSketchupModel = (placedId, entry) => {
 export const sketchupModelEntry = (placedId) => loaded.get(placedId) ?? null;
 const subscribe = (listener) => { listeners.add(listener); return () => listeners.delete(listener); };
 export const useSketchupModel = (placedId) => useSyncExternalStore(subscribe, () => loaded.get(placedId) ?? null);
+// Какие модели загружены сейчас — ключ для тех, кто ищет по ним поверхность (отметки уровня).
+let loadedKey = '';
+listeners.add(() => { loadedKey = [...loaded.keys()].sort().join(','); });
+export const useLoadedSketchupModels = () => useSyncExternalStore(subscribe, () => loadedKey);

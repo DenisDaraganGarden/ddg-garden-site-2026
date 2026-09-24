@@ -3,6 +3,8 @@ import PlacedObjects from '../../placed/PlacedObjects.jsx';
 import TopiaryBrush from '../../topiary/TopiaryBrush.jsx';
 import PlantingLayer from '../../planting/PlantingLayer.jsx';
 import PlantingBrush from '../../planting/PlantingBrush.jsx';
+import AnnotationLayer from '../../annotations/AnnotationLayer.jsx';
+import { useLoadedSketchupModels } from '../../placed/sketchupModel.js';
 import CoastShrubs from '../../plants/CoastShrubs.jsx';
 import CoastTrees from '../../plants/CoastTrees.jsx';
 import CoastGrass from '../../plants/CoastGrass.jsx';
@@ -251,6 +253,9 @@ function WaterRuntimeScene({
     [mode, renderTargetCapabilities, size.width],
   );
   const sitePreview = useSitePreview();
+  // Отметки уровня ищут поверхность заново, когда модель пришла, заменена или сдвинута.
+  const loadedModels = useLoadedSketchupModels();
+  const annotationGeometryKey = `${loadedModels}|${JSON.stringify(settings.placedObjects ?? [])}|${JSON.stringify(settings.sketchupModels ?? {})}`;
   const postEnabled = baseQualityProfile.postProcessingSupported !== false
     && baseQualityProfile.postDepthStencilEnabled !== false
     && settings.postProcessingEnabled
@@ -728,7 +733,8 @@ function WaterRuntimeScene({
       ) : null}
       {mode === 'editor' ? <EditorPicker enabled={Boolean(editorGizmo?.picking)} onPick={editorGizmo?.onPick} onContextMenu={editorGizmo?.onContextMenu} /> : null}
       {mode === 'editor' ? <TopiaryBrush enabled={Boolean(editorGizmo?.topiary?.drawing)} settings={settings} orbitRef={orbitRef} onStroke={editorGizmo?.topiary?.onStroke} /> : null}
-      {mode === 'editor' ? <PlantingBrush mode={editorGizmo?.planting?.mode ?? null} groundY={settings.planeHeight ?? 0} orbitRef={orbitRef} onBed={editorGizmo?.planting?.onBed} onBedSurface={editorGizmo?.planting?.onBedSurface} onPlant={editorGizmo?.planting?.onPlant} onVine={editorGizmo?.planting?.onVine} /> : null}
+      {mode === 'editor' ? <PlantingBrush mode={editorGizmo?.planting?.mode ?? null} groundY={settings.planeHeight ?? 0} orbitRef={orbitRef} onBed={editorGizmo?.planting?.onBed} onBedSurface={editorGizmo?.planting?.onBedSurface} onPlant={editorGizmo?.planting?.onPlant} onVine={editorGizmo?.planting?.onVine} onMark={editorGizmo?.planting?.onMark} /> : null}
+      {mode === 'editor' && settings.annotationsEnabled && settings.annotationMarks?.length ? <AnnotationLayer settings={settings} selectedId={editorGizmo?.annotations?.selectedId} onResnap={editorGizmo?.annotations?.onResnap} geometryKey={annotationGeometryKey} /> : null}
       {mode === 'editor' && !playing ? <EditorAxes /> : null}
       <DebugWireframe enabled={mode === 'editor' && Boolean(settings.debugWireframe)} />
       <SceneReadyBeacon onSceneReady={onSceneReady} waiting={sky.isPlaceholder} />
