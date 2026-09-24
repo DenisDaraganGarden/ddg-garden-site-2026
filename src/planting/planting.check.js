@@ -10,6 +10,7 @@ import * as THREE from 'three';
 import { regionOutline, regionTriangles, surfaceRegions } from './surfacePick.js';
 import { clipToSurface } from './clipSurface.js';
 import { bedArea, groundAt, insideBed } from './fillBed.js';
+import { gardenWind, plantFlex, updateGardenWind } from './wind.js';
 import { normalizePlantingBed } from './settings.js';
 import { bearingOf, planPose, siteNorth, viewBearing } from './north.js';
 import { growVine, shootRuns, vineLength, vineRoot } from './vines.js';
@@ -217,4 +218,14 @@ for (const kind of Object.keys(LEAF_KINDS)) {
     assert.ok(shape.fills.every((polygon) => polygon.every(([x, y]) => x > -0.02 && x < 1.02 && y > -0.02 && y < 1.02)), `${kind}: the leaf stays in its cell`);
 }
 
-console.log(`planting: settings, fill (${first.length} plants in 60 m², ${smallFill.length} in 20 m² with ${small.recipe.length} species), schedule and seasons hold`);
+// Ветер сада: 90° — на восток (+X), 0° — на север (−Z); шторм +8 м/с; злаки
+// гибче деревьев, стриженое почти стоит; качание сада — от 0 до 2.
+updateGardenWind({ terrainWindBearing: 90, terrainWindSpeed: 4, terrainStorm: 0 }, 1, 3);
+assert.ok(Math.abs(gardenWind.uWind.value.x - 4) < 1e-9 && Math.abs(gardenWind.uWind.value.y) < 1e-9 && gardenWind.uWindTime.value === 3, 'the wind blows east at 90°');
+updateGardenWind({ terrainWindBearing: 0, terrainWindSpeed: 4, terrainStorm: 1 }, 1, 3);
+assert.ok(Math.abs(gardenWind.uWind.value.y + 12) < 1e-9, 'north at 0°, a storm adds 8 m/s');
+assert.ok(plantFlex('grass')[0] > plantFlex('perennial')[0] && plantFlex('perennial')[0] > plantFlex('tree')[0] && plantFlex('topiary')[0] < 0.01, 'grasses bend most, clipped forms hardly');
+assert.equal(normalizePlantingSettings({}).plantingSway, 1);
+assert.equal(normalizePlantingSettings({ plantingSway: 5 }).plantingSway, 2);
+
+console.log(`planting: settings, fill (${first.length} plants in 60 m², ${smallFill.length} in 20 m² with ${small.recipe.length} species), schedule and seasons hold, garden wind blows the right way`);

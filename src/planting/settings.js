@@ -7,10 +7,12 @@
 // расстановка (sceneCameras.js их не снимает); месяц и план — у камеры свои,
 // как время суток: «июнь» и «январь» — две камеры.
 export const PLANTING_LIMITS = Object.freeze({ beds: 64, points: 400, recipe: 12, contour: 256, holes: 64, hole: 128, ground: 4400, plants: 30000, vines: 200, shoots: 12, shootPoints: 400 });
-export const PLANTING_RANGES = Object.freeze({ drift: [0.3, 6, 0.1], density: [0.4, 2, 0.05], share: [1, 100, 1], month: [1, 12, 1] });
+export const PLANTING_RANGES = Object.freeze({ drift: [0.3, 6, 0.1], density: [0.4, 2, 0.05], share: [1, 100, 1], month: [1, 12, 1], sway: [0, 2, 0.05] });
 // northAngle — север участка (north.js): градусы по часовой от зелёной оси
-// SketchUp; как и цветники, один на все камеры.
-export const DEFAULT_PLANTING_SETTINGS = Object.freeze({ plantingEnabled: true, plantingBeds: [], plantingPoints: [], plantingVines: [], plantingMonth: 6, plantingPlan: false, northAngle: 0 });
+// SketchUp; как и цветники, один на все камеры. plantingSway — насколько
+// растения сада (посадки, лианы, 2D-растения модели) качаются на ветру
+// (wind.js), у камеры своё, как и сам ветер.
+export const DEFAULT_PLANTING_SETTINGS = Object.freeze({ plantingEnabled: true, plantingBeds: [], plantingPoints: [], plantingVines: [], plantingMonth: 6, plantingPlan: false, northAngle: 0, plantingSway: 1 });
 export const PLANTING_BED_DEFAULT = Object.freeze({ drift: 1.6, density: 1 });
 
 // Градусы в пределах −180…180.
@@ -118,5 +120,6 @@ export function normalizePlantingSettings(settings = {}) {
         plantingMonth: number(settings.plantingMonth, DEFAULT_PLANTING_SETTINGS.plantingMonth, PLANTING_RANGES.month),
         plantingPlan: settings.plantingPlan === true,
         northAngle: wrapDegrees(number(settings.northAngle, 0, [-360, 360, 0.5])),
+        plantingSway: number(settings.plantingSway, DEFAULT_PLANTING_SETTINGS.plantingSway, PLANTING_RANGES.sway),
     };
 }

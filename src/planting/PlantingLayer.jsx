@@ -5,16 +5,19 @@ import { plantingInstances } from './fillBed.js';
 import { plantCardUrl, useBedFills, usePlantLibrary } from './plantLibrary.js';
 import { seasonLook } from './season.js';
 import VineLayer from './VineLayer.jsx';
+import { gardenWind, GARDEN_WIND_GLSL, plantFlex } from './wind.js';
 
 // Посадки в сцене: одна пачка карточек на вид (InstancedMesh), а не на
 // цветник, — сколько бы цветников ни было, вызовов отрисовки столько, сколько
 // видов. Карточка — 2D-картинка из библиотеки, повёрнутая к камере вокруг
 // вертикали; в проходе теней «камера» — солнце, и тень падает от всей
-// картинки. План — шапки легенды Дениса вместо картинок.
+// картинки. На ветру (wind.js) верх карточки ходит по ветру, низ стоит —
+// с гибкостью и частотой её вида; тень качается вместе с ней. План — шапки
+// легенды Дениса вместо картинок.
 
 // Карточка чуть утоплена: на неровной земле низ не висит в воздухе.
 const SINK = 0.03;
-const CARD_SHADER_KEY = 'planting-card-v1';
+const CARD_SHADER_KEY = 'planting-card-v2';
 
 const hexHsv = (hex) => {
     const [r, g, b] = [1, 3, 5].map((i) => parseInt(String(hex).slice(i, i + 2), 16) / 255);
@@ -31,8 +34,9 @@ const flowerUniform = (hex) => {
 
 const CARD_COMMON_VERTEX = /* glsl */`
 attribute vec2 aVary;
-uniform vec2 uGrow;
+uniform vec2 uGrow, uCard, uFlex;
 varying float vPlantTone;
+${GARDEN_WIND_GLSL}
 float plantYaw() {
     vec3 root = (modelMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
     vec2 toView = cameraPosition.xz - root.xz;
@@ -85,13 +89,13 @@ const CARD_SEASON_FRAGMENT = /* glsl */`
 
 function makeCardMaterials(texture, plant, envMapIntensity) {
     const uniforms = {
-        uGrow: { value: new THREE.Vector2(1, 1) }, uCardPx: { value: new THREE.Vector2(...(plant.card.px ?? [512, 512])) },
+        uGrow: { value: new THREE.Vector2(1, 1) }, uCard: { value: new THREE.Vector2(plant.height, SINK) }, uFlex: { value: new THREE.Vector2(...plantFlex(plant.category)) }, uCardPx: { value: new THREE.Vector2(...(plant.card.px ?? [512, 512])) },
         uBloom: { value: 1 }, uSeed: { value: 0 }, uTintAmount: { value: 0 }, uBare: { value: 0 },
         uTint: { value: new THREE.Color() }, uTwig: { value: new THREE.Color() }, uLeaf: { value: new THREE.Color(plant.leafColor ?? '#4a5e34') },
         uFlowerA: { value: flowerUniform(plant.bloomColor) }, uFlowerB: { value: flowerUniform(plant.bloomColor2) },
     };
     const compile = (shader) => {
-        Object.assign(shader.uniforms, uniforms);
+        Object.assign(shader.uniforms, uniforms, gardenWind);
         shader.vertexShader = shader.vertexShader
             .replace('#include <common>', `#include <common>\n${CARD_COMMON_VERTEX}`)
             .replace('#include <beginnormal_vertex>', `float plantNormalYaw = plantYaw();
@@ -99,7 +103,11 @@ function makeCardMaterials(texture, plant, envMapIntensity) {
             .replace('#include <begin_vertex>', `float plantTurn = plantYaw();
     float plantX = position.x * aVary.x * uGrow.x;
     vec3 transformed = vec3(plantX * cos(plantTurn), position.y * uGrow.y, -plantX * sin(plantTurn));
-    vPlantTone = aVary.y;`);
+    vPlantTone = aVary.y;
+    // Ветер: высота карточки uCard.x, низ утоплен на uCard.y её доли.
+    float plantScale = length(instanceMatrix[0].xyz);
+    float plantBendAt = clamp(position.y / uCard.x + uCard.y, 0.0, 1.0);
+    transformed.xz += gardenSway((modelMatrix * instanceMatrix[3]).xz, uCard.x * uGrow.y * plantScale, uFlex.x, uFlex.y) * plantBendAt * plantBendAt / plantScale;`);
         shader.fragmentShader = shader.fragmentShader
             .replace('#include <common>', `#include <common>\n${CARD_COMMON_FRAGMENT}`)
             .replace('#include <map_fragment>', `#include <map_fragment>\n${CARD_SEASON_FRAGMENT}`);

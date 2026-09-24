@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react';
 import * as THREE from 'three';
+import { GARDEN_WIND_GLSL, gardenWind } from '../planting/wind.js';
 
 // A SketchUp model in the scene (imported with «+ SketchUp .glb», prepared by
 // scripts/sketchupGlb.mjs). Its parts are its SketchUp components, kept by the
@@ -50,6 +51,51 @@ function faceTo(mesh, camera) {
     return mesh.matrixWorld.multiplyMatrices(turn, base);
 }
 
+// 2D-растения на ветру (planting/wind.js): верх карточки ходит по ветру, низ
+// стоит; гибкость — по высоте, низкое гибче. Вес по высоте, высота и место
+// растения — атрибутом aWindCard, поэтому у каждой карточки своя геометрия
+// (копии компонента делят одну) и свой материал с ветром (материал бывает
+// общим с неподвижными частями модели). Сдвиг — в мире, после поворота к
+// камере; тень карточки стоит.
+const windMaterial = (material, made) => {
+    if (!made.has(material)) {
+        const wind = material.clone();
+        wind.onBeforeCompile = (shader) => {
+            Object.assign(shader.uniforms, gardenWind);
+            shader.vertexShader = shader.vertexShader
+                .replace('#include <common>', `#include <common>\nattribute vec4 aWindCard;\n${GARDEN_WIND_GLSL}`)
+                .replace('#include <project_vertex>', `vec4 mvPosition = vec4(transformed, 1.0);
+    #ifdef USE_INSTANCING
+    mvPosition = instanceMatrix * mvPosition;
+    #endif
+    vec4 windWorld = modelMatrix * mvPosition;
+    windWorld.xz += gardenSwayByHeight(aWindCard.zw, aWindCard.y) * aWindCard.x;
+    mvPosition = viewMatrix * windWorld;
+    gl_Position = projectionMatrix * mvPosition;`);
+        };
+        wind.customProgramCacheKey = () => 'sketchup-card-wind';
+        made.set(material, wind);
+    }
+    return made.get(material);
+};
+function windCard(mesh, shared, made) {
+    if (mesh.userData.windCard) return;
+    mesh.userData.windCard = true;
+    const box = new THREE.Box3().setFromObject(mesh), point = new THREE.Vector3();
+    const height = box.max.y - box.min.y;
+    if (!(height > 0.1)) return;
+    if (shared.has(mesh.geometry)) mesh.geometry = mesh.geometry.clone();
+    shared.add(mesh.geometry);
+    const position = mesh.geometry.attributes.position, data = new Float32Array(position.count * 4);
+    const x = (box.min.x + box.max.x) / 2, z = (box.min.z + box.max.z) / 2;
+    for (let i = 0; i < position.count; i += 1) {
+        const up = (point.fromBufferAttribute(position, i).applyMatrix4(mesh.matrixWorld).y - box.min.y) / height;
+        data.set([up * up, height, x, z], i * 4);
+    }
+    mesh.geometry.setAttribute('aWindCard', new THREE.BufferAttribute(data, 4));
+    mesh.material = Array.isArray(mesh.material) ? mesh.material.map((m) => windMaterial(m, made)) : windMaterial(mesh.material, made);
+}
+
 // Every mesh of a marked node turns while `set(true)`. Three draws with the
 // matrix onBeforeRender leaves (WebGLRenderer renderObject), but a shadow's
 // model-view is taken before onBeforeShadow, so it is taken again here. A
@@ -67,6 +113,7 @@ export function makeFaceCamera(root) {
     let crowns = 0;
     root.updateWorldMatrix(true, true);
     const box = new THREE.Box3(), size = new THREE.Vector3();
+    const shared = new Set(), made = new Map();
     root.traverse((node) => {
         if (!node.userData.faceCamera) return;
         node.traverse((mesh) => {
@@ -84,6 +131,7 @@ export function makeFaceCamera(root) {
             };
             cards.push(mesh);
         });
+        node.traverse((mesh) => { if (mesh.userData.faceNormal) windCard(mesh, shared, made); });
         node.parent?.traverse((mesh) => {
             if (!mesh.isMesh || mesh.userData.faceNormal || mesh.userData.crownPlan || !mesh.material?.transparent) return;
             box.setFromObject(mesh).getSize(size);

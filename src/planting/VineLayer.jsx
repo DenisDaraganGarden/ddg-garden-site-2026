@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { flowerShape, leafShape } from './vineLeaves.js';
 import { growVine, vineParams, vineRoot } from './vines.js';
 import { seasonLook } from './season.js';
+import { gardenWind, GARDEN_WIND_GLSL } from './wind.js';
 
 // Лианы в сцене (правило роста — vines.js). На вид — атлас из четырёх
 // клеток: три варианта листа и цветок или плод, серые: цвет у каждого листа
@@ -120,6 +121,27 @@ function stemGeometry(stems) {
     return geometry;
 }
 
+// Листья (и цветки) трепещут на ветру (wind.js): приподнимаются от стены на
+// черешке и поворачиваются вокруг него — по порывам, у каждого свой такт.
+// Тот же сдвиг — в тени (depth), побеги стоят.
+function leafWind(material, key) {
+    material.onBeforeCompile = (shader) => {
+        Object.assign(shader.uniforms, gardenWind);
+        shader.vertexShader = shader.vertexShader
+            .replace('#include <common>', `#include <common>\n${GARDEN_WIND_GLSL}`)
+            .replace('#include <begin_vertex>', `#include <begin_vertex>
+    #ifdef USE_INSTANCING
+    {
+        vec2 leafSway = gardenSway((modelMatrix * instanceMatrix[3]).xz, 1.0, 0.3, 2.6);
+        float lift = min(length(leafSway) * 1.8, 0.7), twist = clamp((leafSway.x - leafSway.y) * 1.2, -0.45, 0.45);
+        transformed = vec3(transformed.x * cos(twist), transformed.y * cos(lift), transformed.y * sin(lift) + transformed.x * sin(twist));
+    }
+    #endif`);
+    };
+    material.customProgramCacheKey = () => key;
+    return material;
+}
+
 const inMonths = (months, month) => Array.isArray(months) && (months[0] <= months[1] ? month >= months[0] && month <= months[1] : month >= months[0] || month <= months[1]);
 const frac = (value) => value - Math.floor(value);
 
@@ -129,8 +151,8 @@ function SpeciesVines({ plant, vines, month, plan, envMapIntensity }) {
     const grown = useMemo(() => vines.map((vine) => ({ vine, growth: growVine(vine, plant) })), [vines, plant]);
     const resources = useMemo(() => {
         const atlas = drawAtlas(plant);
-        const leaf = new THREE.MeshStandardMaterial({ map: atlas, alphaTest: 0.5, alphaToCoverage: true, side: THREE.DoubleSide, roughness: params.gloss ? 0.42 : 0.74, metalness: 0 });
-        const depth = new THREE.MeshDepthMaterial({ map: atlas, alphaTest: 0.5, depthPacking: THREE.RGBADepthPacking, side: THREE.DoubleSide });
+        const leaf = leafWind(new THREE.MeshStandardMaterial({ map: atlas, alphaTest: 0.5, alphaToCoverage: true, side: THREE.DoubleSide, roughness: params.gloss ? 0.42 : 0.74, metalness: 0 }), 'vine-leaf-wind');
+        const depth = leafWind(new THREE.MeshDepthMaterial({ map: atlas, alphaTest: 0.5, depthPacking: THREE.RGBADepthPacking, side: THREE.DoubleSide }), 'vine-leaf-wind-depth');
         const twig = new THREE.MeshStandardMaterial({ color: plant.twigColor ?? '#6b5a4a', roughness: 0.9, metalness: 0 });
         return { atlas, leaf, depth, twig, cells: [0, 1, 2, 3].map(cellGeometry) };
     // params выводятся из plant.

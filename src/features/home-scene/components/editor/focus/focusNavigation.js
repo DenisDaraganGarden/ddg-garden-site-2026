@@ -57,7 +57,7 @@ const NODE_ICONS = {
     tanker: 'box', boat: 'box', sculpture: 'box', surfboard: 'box', house: 'box',
     seagulls: 'bird', fish: 'fish', levels: 'level', walkStart: 'flag',
     light1: 'light', light1target: 'target', light2: 'light', light2target: 'target',
-    light: 'sun', hdri: 'cloud', fog: 'cloud', rays: 'sun', clouds: 'cloud',
+    light: 'sun', hdri: 'cloud', fog: 'cloud', rays: 'sun', clouds: 'cloud', wind: 'wind',
     audioMixer: 'sound', audioTracks: 'sound', audioSpatial: 'sound',
     camera: 'camera', visibility: 'eye', resolution: 'sliders', quality: 'sliders', post: 'sliders', debug: 'bug',
     ui: 'panel', cursor: 'cursor', settings: 'settings',

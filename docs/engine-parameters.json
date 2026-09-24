@@ -1,5 +1,5 @@
 {
-  "collected": "2026-09-24T23:16:36.272Z",
+  "collected": "2026-09-24T23:47:28.635Z",
   "rows": [
     {
       "key": "cameraFov",
@@ -1600,38 +1600,6 @@
       "group": "landscape",
       "node": "terrain",
       "label": "Выброшенная тина",
-      "kind": "число",
-      "min": 0,
-      "max": 1,
-      "step": 0.01
-    },
-    {
-      "key": "terrainWindBearing",
-      "group": "landscape",
-      "node": "terrain",
-      "label": "Направление ветра от севера",
-      "kind": "число",
-      "min": 0,
-      "max": 360,
-      "step": 1,
-      "unit": "°"
-    },
-    {
-      "key": "terrainWindSpeed",
-      "group": "landscape",
-      "node": "terrain",
-      "label": "Скорость ветра",
-      "kind": "число",
-      "min": 0,
-      "max": 18,
-      "step": 0.1,
-      "unit": " m/s"
-    },
-    {
-      "key": "terrainStorm",
-      "group": "landscape",
-      "node": "terrain",
-      "label": "Шторм",
       "kind": "число",
       "min": 0,
       "max": 1,
@@ -6090,6 +6058,49 @@
       "unit": "%"
     },
     {
+      "key": "terrainWindBearing",
+      "group": "atmosphere",
+      "node": "wind",
+      "label": "Направление ветра",
+      "kind": "число",
+      "min": 0,
+      "max": 360,
+      "step": 1,
+      "unit": "°"
+    },
+    {
+      "key": "terrainWindSpeed",
+      "group": "atmosphere",
+      "node": "wind",
+      "label": "Скорость ветра",
+      "kind": "число",
+      "min": 0,
+      "max": 18,
+      "step": 0.1,
+      "unit": " m/s"
+    },
+    {
+      "key": "terrainStorm",
+      "group": "atmosphere",
+      "node": "wind",
+      "label": "Шторм",
+      "kind": "число",
+      "min": 0,
+      "max": 1,
+      "step": 0.01
+    },
+    {
+      "key": "plantingSway",
+      "group": "atmosphere",
+      "node": "wind",
+      "label": "Качание сада",
+      "kind": "число",
+      "min": 0,
+      "max": 2,
+      "step": 0.05,
+      "unit": " ×"
+    },
+    {
       "key": "audio.enabled",
       "group": "audio",
       "node": "audioMixer",
@@ -7264,6 +7275,7 @@
     "plantingMonth": 6,
     "plantingPlan": false,
     "northAngle": 0,
+    "plantingSway": 1,
     "annotationsEnabled": true,
     "annotationColor": "#b0473f",
     "annotationFill": true,

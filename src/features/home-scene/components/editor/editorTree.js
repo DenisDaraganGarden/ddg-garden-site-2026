@@ -46,6 +46,7 @@ import { ShoreSection } from './sections/shore';
 import { FishSection, SeagullsSection } from './sections/creatures';
 import { AnnotationsSection } from './sections/annotations';
 import { WalkStartSection } from './sections/walkStart';
+import { WindSection } from './sections/wind';
 import {
     AudioMixerSection,
     AudioSpatialSection,
@@ -159,6 +160,8 @@ export const EDITOR_TREE = [
             { id: 'fog', aspects: [{ id: 'fog', Section: FogSection }] },
             { id: 'rays', aspects: [{ id: 'rays', Section: RaysSection }] },
             { id: 'clouds', aspects: [{ id: 'clouds', Section: CloudsSection }] },
+            // Ветер: берег, сад и прибой (sections/wind.jsx).
+            { id: 'wind', aspects: [{ id: 'wind', Section: WindSection }] },
         ],
     },
     {

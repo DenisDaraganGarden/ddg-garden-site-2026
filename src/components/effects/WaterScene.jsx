@@ -2,6 +2,7 @@ import TopiaryObjects from '../../topiary/TopiaryObjects.jsx';
 import PlacedObjects from '../../placed/PlacedObjects.jsx';
 import TopiaryBrush from '../../topiary/TopiaryBrush.jsx';
 import PlantingLayer from '../../planting/PlantingLayer.jsx';
+import GardenWind from '../../planting/GardenWind.jsx';
 import PlantingBrush from '../../planting/PlantingBrush.jsx';
 import AnnotationLayer from '../../annotations/AnnotationLayer.jsx';
 import { useLoadedSketchupModels } from '../../placed/sketchupModel.js';
@@ -548,6 +549,7 @@ function WaterRuntimeScene({
         {terrainQuery&&settings.shrubsEnabled ? <CoastShrubs settings={shrubAsset} plants={shrubPlants} qualityProfile={qualityProfile} envMapIntensity={lighting.environment.reflection}/> : null}
         {terrainQuery&&settings.treesEnabled ? <CoastTrees settings={treeAsset} plants={treePlants} qualityProfile={qualityProfile} envMapIntensity={lighting.environment.reflection}/> : null}
         {settings.placedEnabled && settings.placedObjects?.length ? <PlacedObjects objects={settings.placedObjects} selectedId={mode === 'editor' ? editorGizmo?.placed?.selectedId : null} selectedPart={mode === 'editor' ? editorGizmo?.placed?.part : null} sketchupModels={settings.sketchupModels} modelMaterials={settings.modelMaterials} plan={settings.plantingPlan} treeAsset={treeAsset} shrubAsset={shrubAsset} qualityProfile={qualityProfile} lighting={lighting} envMapIntensity={lighting.environment.reflection} settings={settings} /> : null}
+        <GardenWind terrain={terrainDefinition} sway={settings.plantingSway ?? 1} />
         {settings.plantingEnabled && (settings.plantingBeds?.length || settings.plantingPoints?.length || settings.plantingVines?.length) ? <PlantingLayer settings={settings} selectedBedId={mode === 'editor' ? editorGizmo?.planting?.selectedId : null} selectedVineId={mode === 'editor' ? editorGizmo?.planting?.vineId : null} envMapIntensity={lighting.environment.reflection} /> : null}
         {terrainQuery&&settings.grassEnabled ? <CoastGrass query={terrainQuery} definition={queryDefinition} settings={grassSettings} asset={grassAsset} qualityProfile={qualityProfile} envMapIntensity={lighting.environment.reflection}/> : null}
         {settings.terrainEnabled ? <AzovTerrain plantCover={shrubCover} rocks={terrainRocks} onTerrainReady={handleLandingSurfaceReady} audioRuntime={audioRuntime} runtime={runtime} definition={terrainDefinition} settings={settings} qualityProfile={qualityProfile} lighting={lighting} swash={seaSwash} seaCaustics={seaCaustics} /> : null}

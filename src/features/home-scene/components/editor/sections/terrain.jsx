@@ -21,8 +21,9 @@ const groups=[
   ['terrainSaturation','Насыщенность','Saturation','×'],['terrainContrast','Контраст','Contrast','×'],['terrainBrightness','Яркость','Brightness','×'],['terrainGreen','Зелень покрова','Cover green','×'],['terrainDry','Жухлость покрова','Cover straw','×']]],
  ['Прибой','Surf',[
   ['terrainWaveHeight','Высота прибрежной волны','Shore wave height',' m'],['terrainWavePeriod','Период волны','Wave period',' s'],['terrainFoam','Пена прибоя','Surf foam',''],['terrainWetBand','Влажная кромка','Wet margin',' m'],['terrainWrack','Выброшенная тина','Wrack line','']]],
- ['Ветер и среда','Wind and habitat',[
-  ['terrainWindBearing','Направление ветра от севера','Wind bearing','°'],['terrainWindSpeed','Скорость ветра','Wind speed',' m/s'],['terrainStorm','Шторм','Storm',''],['terrainBloom','Цветение воды','Water bloom','']]],
+ // Ветер и шторм — в «Атмосфера → Ветер» (sections/wind.jsx): один на сцену.
+ ['Среда','Habitat',[
+  ['terrainBloom','Цветение воды','Water bloom','']]],
 ];
 // The terrain inspection views are technical frames in the camera tab
 // (lib/technicalCameras.js), next to the other frames.
