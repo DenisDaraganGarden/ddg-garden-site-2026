@@ -626,6 +626,8 @@ function WaterRuntimeScene({
               night={lighting.sky.night}
               lowPower={Boolean(qualityProfile.isLowPower || qualityProfile.isMobileDevice)}
               groundAt={houseGround}
+              skyEnvironment={sky.environment}
+              skyLevel={lighting.sky.skyLevel}
             />
           </Suspense>
         ) : null}

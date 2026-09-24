@@ -1,6 +1,7 @@
-import React, { Suspense, useEffect, useMemo, useState } from 'react';
+import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { useLoader } from '@react-three/fiber';
+import { useFrame, useLoader } from '@react-three/fiber';
+import { useCloudScene } from '../effects/sky/painterly/CloudSceneContext';
 import BeachHouseModel from './BeachHouseModel';
 import StringLights from './StringLights';
 import SurfCampModel from './SurfCampModel';
@@ -14,8 +15,38 @@ import { SHED_TURN, useBeachHouse } from './useBeachHouse';
 // at (houseX, houseZ), turned houseHeading, on the ground `groundAt(x, z)`
 // gives (the terrain; y = 0 without it) — the shed on its own spot of it.
 
-export default function BeachHouseScene(props) {
+// The house is lit by the painted sky, as the engine lights everything in
+// «Небо», and by the clouds' light when they cast it — whatever panorama the
+// scene lights its other things with (Denis's rule for the house). Only the
+// house's own materials are pointed at that light; the scene's sun and moon,
+// fill lights, shadows, fog and panorama are its own and untouched.
+function useSkyLight(root, sky) {
+  const clouds = useCloudScene();
+  const latest = useRef(sky);
+  useEffect(() => { latest.current = sky; });
+  useFrame(() => {
+    const { environment, level } = latest.current ?? {};
+    if (!root.current || !environment) return;
+    const cloudLight = clouds.current?.enabled && clouds.current.environment;
+    const map = cloudLight || environment, intensity = cloudLight ? 1 : level;
+    root.current.traverse((object) => {
+      if (!object.material) return;
+      for (const material of Array.isArray(object.material) ? object.material : [object.material]) {
+        if (!material.isMeshStandardMaterial) continue;
+        if (material.envMap !== map) {
+          material.envMap = map;
+          material.needsUpdate = true;
+        }
+        material.envMapIntensity = intensity;
+      }
+    });
+  });
+}
+
+export default function BeachHouseScene({ skyEnvironment = null, skyLevel = 1, ...props }) {
   const built = useBeachHouse(props.settings);
+  const root = useRef();
+  useSkyLight(root, { environment: skyEnvironment, level: skyLevel });
   // The maps start loading from an effect, not from inside a render, where
   // the scene's loading progress would be set while another part renders.
   const [asked, setAsked] = useState(false);
@@ -23,7 +54,7 @@ export default function BeachHouseScene(props) {
     useLoader.preload(THREE.TextureLoader, houseMapUrls(props.lowPower));
     setAsked(true);
   }, [props.lowPower]);
-  return asked ? <BeachHouseView {...props} built={built} /> : null;
+  return <group ref={root}>{asked ? <BeachHouseView {...props} built={built} /> : null}</group>;
 }
 
 // The same, drawn from buildings already built (the lab builds them itself,
