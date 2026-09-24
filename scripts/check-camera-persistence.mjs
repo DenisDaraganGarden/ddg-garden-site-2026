@@ -131,15 +131,26 @@ try {
   }
   assert.equal(normalizePublishedHomeSceneSettings({}).surfboardEnabled, false, 'a scene without the key has no board');
 
-  // A SketchUp model's hidden parts and plant switch are the scene's too: a
-  // fence hidden under one camera stays hidden under every other one.
+  // What is placed by hand, with a SketchUp model's hidden parts and plant
+  // switch, is the scene's too: a model imported or a fence hidden under one
+  // camera is there under every other one.
+  const placedObjects = [{ id: 'placed-rostov', name: 'Ростов', kind: 'model', species: 'lit', x: 1, y: 0, z: 2, rotation: 0, scale: 1, seed: 7, tiltX: 0, tiltZ: 0, model: 'rostov-mufkrbnh', wet: false, collision: false }];
   const sketchupModels = { 'placed-rostov': { faceCamera: false, crowns: true, hidden: [4, 17] } };
-  settings = commit({ ...selectEditorCamera(settings, workId, 'work', keys), sketchupModels });
+  settings = commit({ ...selectEditorCamera(settings, workId, 'work', keys), placedObjects, sketchupModels });
   settings = normalizeHomeSceneDraftSettings(json(selectEditorCamera(settings, firstId, 'scene', keys)));
-  assert.ok(!keys.includes('sketchupModels'), 'sketchupModels is not a camera field');
-  assert.deepEqual(settings.sketchupModels, sketchupModels, 'sketchupModels survives a camera switch and a reload');
-  assert.deepEqual(sanitizeHomeSceneSettingsForPublish(settings).sketchupModels, sketchupModels, 'sketchupModels publishes from the root');
-  console.log(`cameraPersistence: ${keys.length} snapshot fields, 60 reload/switch cycles, paired captures, publication, the global surfboard and SketchUp parts passed`);
+  for (const [key, value] of Object.entries({ placedObjects, sketchupModels })) {
+    assert.ok(!keys.includes(key), `${key} is not a camera field`);
+    assert.deepEqual(settings[key], value, `${key} survives a camera switch and a reload`);
+    assert.deepEqual(sanitizeHomeSceneSettingsForPublish(settings)[key], value, `${key} publishes from the root`);
+  }
+  // A project saved before, with a camera still holding its own objects: the
+  // root's win, on load and on publication.
+  const stale = json(settings);
+  stale.sceneCameras[0].scene.placedObjects = [{ ...placedObjects[0], id: 'placed-old', model: 'rostov-old' }];
+  const reloaded = normalizeHomeSceneDraftSettings(stale);
+  assert.deepEqual(selectEditorCamera(reloaded, firstId, 'scene', keys).placedObjects, placedObjects, 'an old camera does not bring its own objects back');
+  assert.deepEqual(sanitizeHomeSceneSettingsForPublish(stale).placedObjects, placedObjects);
+  console.log(`cameraPersistence: ${keys.length} snapshot fields, 60 reload/switch cycles, paired captures, publication, the global surfboard, placed objects and SketchUp parts passed`);
 } finally {
   await server.close();
 }

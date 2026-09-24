@@ -7,8 +7,11 @@ import { DEFAULT_HOUSE_SETTINGS } from '../../../components/house/settings.js';
 
 // Keys that stay on the root when a camera is switched. Besides the catalogue
 // and the editor's own state this is the sound, the surfboard, the beach
-// house and a SketchUp model's hidden parts: a board, a checkpoint, a house or
-// a hidden fence that changed with the camera would be a trap.
+// house and what is placed by hand with a SketchUp model's hidden parts: a
+// board, a checkpoint, a house, an imported site or a hidden fence that
+// changed with the camera would be a trap (a new model version imported under
+// one camera stayed the old one under the other 23). Hedges stay per camera:
+// the published site's second camera has its own.
 export const SCENE_CAMERA_SNAPSHOT_EXCLUDED_KEYS = Object.freeze([
   'sceneCameras',
   'slideshow',
@@ -22,6 +25,7 @@ export const SCENE_CAMERA_SNAPSHOT_EXCLUDED_KEYS = Object.freeze([
   'editorCursor',
   'debugWireframe',
   'audio',
+  'placedObjects',
   'sketchupModels',
   ...Object.keys(DEFAULT_SURFBOARD_SETTINGS),
   ...Object.keys(DEFAULT_HOUSE_SETTINGS),
