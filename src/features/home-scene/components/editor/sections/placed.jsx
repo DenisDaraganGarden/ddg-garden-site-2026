@@ -43,14 +43,15 @@ function SketchupModel({ object, sketchup, placedEditor, layoutEditor, ru }) {
     const part = placedEditor.part;
     const picked = useMemo(() => (entry && part ? findPart(entry.root, part.node) : null), [entry, part]);
     const copies = useMemo(() => (entry && picked ? copiesOf(entry.root, picked) : []), [entry, picked]);
-    // A scene is a camera already when one stands there under its name, with
-    // the model where it stands now.
+    // A scene is a camera already when one stands within half a metre of it
+    // under its name, with the model where it stands now: a model moved on
+    // further gets its scenes anew.
     const scenes = useMemo(() => (entry ? sketchupSceneNodes(entry.root) : null), [entry]);
     const { x, y, z, rotation, tiltX, tiltZ, scale } = object;
     const views = useMemo(() => (scenes ? sketchupViews(scenes, { x, y, z, rotation, tiltX, tiltZ, scale }) : []), [scenes, x, y, z, rotation, tiltX, tiltZ, scale]);
     const isCamera = (view) => (layoutEditor?.cameras ?? []).some((camera) => {
         const at = camera.name === view.name ? camera.scene?.layouts?.desktop?.cameraPosition : null;
-        return at && Math.hypot(at.x - view.cameraPosition.x, at.y - view.cameraPosition.y, at.z - view.cameraPosition.z) < 0.05;
+        return at && Math.hypot(at.x - view.cameraPosition.x, at.y - view.cameraPosition.y, at.z - view.cameraPosition.z) < 0.5;
     });
     const fresh = views.filter((view) => !isCamera(view));
     const button = (label, onClick, extra = {}) => <button type="button" className="home-editor-tab" onClick={onClick} {...extra}>{label}</button>;
