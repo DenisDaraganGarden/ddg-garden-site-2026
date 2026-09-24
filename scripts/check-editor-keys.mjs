@@ -47,7 +47,11 @@ try {
   // homeSceneLighting reads these only as fallbacks for sunBearing, sunNoonElevation
   // and sunIntensity; a control would edit a value the scene never shows.
   const LEGACY_FALLBACK = new Set(['keyLightType', 'moonIntensity', 'moonAzimuth', 'moonElevation']);
-  const lost = rows.filter((x) => x.control && !x.published && !EDITOR_LOCAL.has(x.key) && x.used.length);
+  // Адрес, координаты и окружение участка — данные заказчика: живут в
+  // проекте и на сайт не уходят никогда (src/surroundings/settings.js).
+  const { DEFAULT_SURROUNDINGS_SETTINGS } = await server.ssrLoadModule('/src/surroundings/settings.js');
+  const PROJECT_LOCAL = new Set(Object.keys(DEFAULT_SURROUNDINGS_SETTINGS));
+  const lost = rows.filter((x) => x.control && !x.published && !EDITOR_LOCAL.has(x.key) && !PROJECT_LOCAL.has(x.key) && x.used.length);
   const unreachable = rows.filter((x) => !x.control && x.published && x.used.length && !PLUMBING.has(x.key) && !LEGACY_FALLBACK.has(x.key));
   print('FAIL: control the renderer reads, but publication drops it', lost, (x) => `${x.control}  used by: ${x.used.join(', ')}`);
   print('FAIL: published key the renderer reads, but the editor has no control', unreachable, (x) => x.used.slice(0, 3).join(', '));

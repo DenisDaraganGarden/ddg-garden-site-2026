@@ -41,7 +41,7 @@ import { TOPIARY_LIMITS } from '../topiary/settings.js';
 import { GIZMO_MODES, useEditorTool } from '../features/home-scene/hooks/useEditorTool';
 import { resolveEditorPath } from '../features/home-scene/components/editor/editorTree';
 import { gizmoAllows } from '../features/home-scene/components/editor/EditorGizmo';
-import { audioSettingsForScene, sceneObjectOn, sceneObjectsForNode, SITE_ONLY_NODES } from '../features/home-scene/lib/sceneObjects';
+import { audioSettingsForScene, DESIGN_ONLY_NODES, sceneObjectOn, sceneObjectsForNode, SITE_ONLY_NODES } from '../features/home-scene/lib/sceneObjects';
 import HomeEditorPanel from '../features/home-scene/components/HomeEditorPanel';
 import { useFocusHistory } from '../features/home-scene/components/editor/focus/useFocusHistory';
 import { confirmPublishWithModels, publishHomeSceneSettings } from '../features/home-scene/lib/homeScenePublishClient';
@@ -974,7 +974,7 @@ const HomeEditRoute = () => {
         readProject(id)
             .then((loaded) => {
                 if (!alive) return;
-                setHiddenEditorNodes(loaded?.kind === 'design' ? SITE_ONLY_NODES : []);
+                setHiddenEditorNodes(loaded?.kind === 'design' ? SITE_ONLY_NODES : DESIGN_ONLY_NODES);
                 setProject(loaded);
             })
             .catch((error) => { if (alive) setFailure(error); });

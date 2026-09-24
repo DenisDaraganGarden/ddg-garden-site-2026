@@ -1,0 +1,54 @@
+/* Мини-карта панели «Окружение»: тёмная рамка редактора, светлая карта. */
+.surroundings-map {
+  width: 100%;
+  height: 230px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  overflow: hidden;
+  background: #1b1b1b;
+  font-family: var(--font-secondary);
+}
+
+.surroundings-map .leaflet-control-attribution {
+  font-size: 9px;
+  line-height: 1.3;
+}
+
+.surroundings-map .leaflet-control-layers-list {
+  font-size: 11px;
+}
+
+.surroundings-pin {
+  border: 2px solid #111;
+  border-radius: 50%;
+  background: #f2d27c;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.85);
+}
+
+.surroundings-search {
+  display: flex;
+  gap: 0.35rem;
+  align-items: stretch;
+}
+
+.surroundings-search .home-editor-select {
+  flex: 1 1 auto;
+  min-width: 0;
+  cursor: text;
+}
+
+.surroundings-places {
+  display: grid;
+  gap: 0.2rem;
+}
+
+/* Адрес из Nominatim длинный: две строки, остальное — многоточием. */
+.surroundings-places .home-editor-tab {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  white-space: normal;
+  text-align: left;
+  line-height: 1.3;
+}

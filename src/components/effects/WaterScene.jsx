@@ -94,6 +94,8 @@ import UnderwaterView from './water/UnderwaterView.jsx';
 
 // Loaded only once a scene switches the house on: the site does not pay for it.
 const BeachHouseScene = lazy(() => import('../house/BeachHouseScene.jsx'));
+// Окружение участка по адресу — только в проекте «Участок» с загруженной картой.
+const Surroundings = lazy(() => import('../../surroundings/Surroundings.jsx'));
 
 // Wireframe is a material flag, not a shader mode, so it cannot be one more
 // entry in the debug view list. Sweeping the scene rather than threading a prop
@@ -545,7 +547,7 @@ function WaterRuntimeScene({
         {settings.topiaryEnabled && settings.topiaryObjects?.length ? <TopiaryObjects objects={settings.topiaryObjects} selectedId={mode === 'editor' ? editorGizmo?.topiary?.selectedId : null} qualityProfile={qualityProfile} envMapIntensity={lighting.environment.reflection} /> : null}
         {terrainQuery&&settings.shrubsEnabled ? <CoastShrubs settings={shrubAsset} plants={shrubPlants} qualityProfile={qualityProfile} envMapIntensity={lighting.environment.reflection}/> : null}
         {terrainQuery&&settings.treesEnabled ? <CoastTrees settings={treeAsset} plants={treePlants} qualityProfile={qualityProfile} envMapIntensity={lighting.environment.reflection}/> : null}
-        {settings.placedEnabled && settings.placedObjects?.length ? <PlacedObjects objects={settings.placedObjects} selectedId={mode === 'editor' ? editorGizmo?.placed?.selectedId : null} selectedPart={mode === 'editor' ? editorGizmo?.placed?.part : null} sketchupModels={settings.sketchupModels} plan={settings.plantingPlan} treeAsset={treeAsset} shrubAsset={shrubAsset} qualityProfile={qualityProfile} lighting={lighting} envMapIntensity={lighting.environment.reflection} /> : null}
+        {settings.placedEnabled && settings.placedObjects?.length ? <PlacedObjects objects={settings.placedObjects} selectedId={mode === 'editor' ? editorGizmo?.placed?.selectedId : null} selectedPart={mode === 'editor' ? editorGizmo?.placed?.part : null} sketchupModels={settings.sketchupModels} modelMaterials={settings.modelMaterials} plan={settings.plantingPlan} treeAsset={treeAsset} shrubAsset={shrubAsset} qualityProfile={qualityProfile} lighting={lighting} envMapIntensity={lighting.environment.reflection} /> : null}
         {settings.plantingEnabled && (settings.plantingBeds?.length || settings.plantingPoints?.length || settings.plantingVines?.length) ? <PlantingLayer settings={settings} selectedBedId={mode === 'editor' ? editorGizmo?.planting?.selectedId : null} selectedVineId={mode === 'editor' ? editorGizmo?.planting?.vineId : null} envMapIntensity={lighting.environment.reflection} /> : null}
         {terrainQuery&&settings.grassEnabled ? <CoastGrass query={terrainQuery} definition={queryDefinition} settings={grassSettings} asset={grassAsset} qualityProfile={qualityProfile} envMapIntensity={lighting.environment.reflection}/> : null}
         {settings.terrainEnabled ? <AzovTerrain plantCover={shrubCover} rocks={terrainRocks} onTerrainReady={handleLandingSurfaceReady} audioRuntime={audioRuntime} runtime={runtime} definition={terrainDefinition} settings={settings} qualityProfile={qualityProfile} lighting={lighting} swash={seaSwash} seaCaustics={seaCaustics} /> : null}
@@ -645,6 +647,7 @@ function WaterRuntimeScene({
         ) : null}
         {settings.tankerVisible ? <HomeTanker settings={settings} seaSettings={effectiveSeaSettings.enabled ? effectiveSeaSettings : null} lighting={lighting} audioRuntime={audioRuntime} /> : null}
         {settings.planeEnabled ? <GroundPlane settings={settings} lighting={lighting} /> : null}
+        {settings.surroundingsEnabled && settings.surroundingsStamp ? <Suspense fallback={null}><Surroundings settings={settings} lighting={lighting} /></Suspense> : null}
         {settings.sculptureVisible ? (
           <StaticSculpture
             terrainQuery={terrainQuery}

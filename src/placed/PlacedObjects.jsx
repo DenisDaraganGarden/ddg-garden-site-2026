@@ -8,6 +8,7 @@ import { waterlineCircles, waterlineCrossings } from './waterline.js';
 import { setSolid, solidHeightfield } from './solidSurface.js';
 import { PLACED_TRANSFORM_DEFAULT } from './settings.js';
 import { applyHidden, findPart, makeFaceCamera, registerSketchupModel, tagNodes } from './sketchupModel.js';
+import { applyModelMaterials } from '../materials/modelMaterials.js';
 import { makeCoastTree } from '../plants/treeModel.js';
 import { TREE_SPECIES } from '../plants/treeSpecies.js';
 import { makeOleaster } from '../plants/oleasterModel.js';
@@ -223,7 +224,7 @@ function PartBox({ root, node, stamp }) {
     return <primitive object={helper} />;
 }
 
-function PlacedModel({ object, url, selected, sketchup, selectedPart, plan = false }) {
+function PlacedModel({ object, url, selected, sketchup, selectedPart, plan = false, materials = null }) {
     const gltf = useModel(url);
     const lit = object.species !== 'scan';
     const originKey = object.origin ? `${object.origin.x},${object.origin.y},${object.origin.z}` : '';
@@ -248,6 +249,14 @@ function PlacedModel({ object, url, selected, sketchup, selectedPart, plan = fal
         invalidate();
     }, [prepared, isSketchup, hiddenParts, crowns, plan, cards, invalidate]);
     useEffect(() => (prepared && isSketchup ? registerSketchupModel(object.id, { root: prepared.root, cards: cards?.count ?? 0, crowns: cards?.crowns ?? 0 }) : undefined), [prepared, isSketchup, cards, object.id]);
+    // Материалы из библиотеки вместо материалов SketchUp (src/materials): по имени материала.
+    const gl = useThree((state) => state.gl);
+    const materialsKey = materials ? JSON.stringify(materials) : '';
+    useEffect(() => {
+        if (!prepared) return undefined;
+        const job = applyModelMaterials(prepared, materialsKey ? JSON.parse(materialsKey) : null, { root: prepared.root, anisotropy: Math.min(8, gl.capabilities.getMaxAnisotropy()), onChange: invalidate });
+        return () => job.cancel();
+    }, [prepared, materialsKey, gl, invalidate]);
     // Wet by the sea, it also breaks the water: its waterline, found again
     // whenever it moves, is where the foam field whitens the water running at it.
     const { id, x, y, z, rotation, tiltX, tiltZ, scale, wet, hidden, collision } = object;
@@ -273,7 +282,7 @@ function PlacedModel({ object, url, selected, sketchup, selectedPart, plan = fal
     </>;
 }
 
-export default function PlacedObjects({ objects, selectedId = null, selectedPart = null, sketchupModels = {}, plan = false, treeAsset, shrubAsset, qualityProfile, lighting, envMapIntensity = 1 }) {
+export default function PlacedObjects({ objects, selectedId = null, selectedPart = null, sketchupModels = {}, modelMaterials = {}, plan = false, treeAsset, shrubAsset, qualityProfile, lighting, envMapIntensity = 1 }) {
     const lowPower = Boolean(qualityProfile?.isLowPower || qualityProfile?.isMobileDevice);
     // A hidden object keeps its anchor: it can still be picked from the list,
     // framed and moved, it only draws nothing.
@@ -287,7 +296,7 @@ export default function PlacedObjects({ objects, selectedId = null, selectedPart
             if (object.kind === 'shrub') return <PlacedShrub key={object.id} object={object} asset={shrubAsset} lowPower={lowPower} envMapIntensity={envMapIntensity} selected={selected} />;
             if (object.kind !== 'model') return null;
             const url = modelUrl(object);
-            return url ? <PlacedModel key={object.id} object={object} url={url} selected={selected} sketchup={sketchupModels[object.id]} plan={plan}
+            return url ? <PlacedModel key={object.id} object={object} url={url} selected={selected} sketchup={sketchupModels[object.id]} plan={plan} materials={modelMaterials?.[object.id] ?? null}
                 selectedPart={selectedPart?.id === object.id ? selectedPart.node : null} />
                 : <Anchor key={object.id} object={object} selected={selected} radius={1} />;
         })}

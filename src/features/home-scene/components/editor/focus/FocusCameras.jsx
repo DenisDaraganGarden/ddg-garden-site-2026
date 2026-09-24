@@ -37,8 +37,10 @@ function writeThumbnails(value) {
 function useCameraThumbnails() {
     const [thumbnails, setThumbnails] = useState(readThumbnails);
     useEffect(() => {
-        // Снимок генплана (usePlanCapture) — кадр для отчёта, не миниатюра.
-        const update = (event) => !String(event.detail?.key).startsWith('plan:') && setThumbnails((previous) => {
+        // Снимок генплана (usePlanCapture) — кадр для отчёта, кадр для текстуры
+        // по ИИ (MaterialPanel) — контекст модели, миниатюра проекта — меню:
+        // не миниатюры камер.
+        const update = (event) => !/^(plan|material|project):/.test(String(event.detail?.key)) && setThumbnails((previous) => {
             const next = { ...previous, [event.detail.key]: event.detail.image };
             writeThumbnails(next);
             return next;

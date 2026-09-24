@@ -27,6 +27,7 @@ export const SETTINGS_PAGES = [
     { id: 'editor', ru: 'Редактор', en: 'Editor', icon: 'settings', paths: ['editor/settings'] },
     { id: 'keys', ru: 'Клавиши', en: 'Shortcuts', icon: 'help', paths: [] },
     { id: 'debug', ru: 'Отладка', en: 'Debug', icon: 'bug', paths: ['engine/debug'], devOnly: true },
+    { id: 'api', ru: 'API', en: 'API', icon: 'lock', paths: ['engine/api'] },
 ];
 
 const groupToDomain = new Map(
@@ -60,6 +61,7 @@ const NODE_ICONS = {
     audioMixer: 'sound', audioTracks: 'sound', audioSpatial: 'sound',
     camera: 'camera', visibility: 'eye', resolution: 'sliders', quality: 'sliders', post: 'sliders', debug: 'bug',
     ui: 'panel', cursor: 'cursor', settings: 'settings',
+    surroundings: 'terrain', api: 'lock',
 };
 
 export function getNodeIcon(nodeId) {
