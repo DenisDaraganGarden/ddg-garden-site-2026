@@ -107,6 +107,16 @@ export function PlacedSection({ settings, placedEditor, layoutEditor }) {
     };
     const importInput = (sketchup) => <input type="file" accept=".glb,model/gltf-binary" hidden disabled={full || !inProject || Boolean(upload?.megabytes)}
         onChange={(event) => { const [file] = event.target.files ?? []; event.target.value = ''; void importModel(file, { sketchup }); }} />;
+    const replaceModel = async (file) => {
+        if (!file || !selected) return;
+        setUpload({ name: file.name, megabytes: file.size / 2 ** 20, replacing: true });
+        try {
+            const { report, kept, hidden } = await placedEditor.replaceModel(selected.id, file);
+            setUpload({ name: file.name, replaced: { kept, hidden }, report });
+        } catch (error) {
+            setUpload({ name: file.name, error: error.message });
+        }
+    };
     const sketchup = selected ? settings[SKETCHUP_KEY]?.[selected.id] : null;
     const range = (key, [r, e, unit], [min, max, step]) => <RangeControl key={key} controlId={`placedObjects[].${key}`} testId={`placed-${key}`} label={ru ? r : e} value={object[key]} min={min} max={max} step={step} unit={unit}
         onChange={(event) => selected && placedEditor.update(selected.id, { [key]: Number(event.target.value) })} />;
@@ -128,8 +138,9 @@ export function PlacedSection({ settings, placedEditor, layoutEditor }) {
         <div className="home-editor-status">{ru ? 'Объект ставится в точку, куда смотрит камера, и садится на землю; дальше — перенос, поворот и масштаб теми же инструментами, что у лодки.' : 'An object lands where the camera looks and sits on the ground; then move, rotate and scale it with the boat’s tools.'}</div>
         {upload ? <div className="home-editor-status" data-testid="placed-import-status">{upload.error
             ? `${ru ? 'Не загрузилась' : 'Not imported'} «${upload.name}»: ${upload.error}`
-            : upload.report ? sketchupReport(upload, ru)
-                : `${ru ? (upload.sketchup ? 'Загружаю и готовлю' : 'Загружаю') : (upload.sketchup ? 'Importing and preparing' : 'Importing')} «${upload.name}» · ${upload.megabytes.toFixed(1)} ${ru ? 'МБ' : 'MB'}…`}</div> : null}
+            : upload.replaced ? `${ru ? 'Новая версия' : 'New version'} «${upload.name}» ${ru ? 'стоит на месте старой' : 'stands where the old one stood'}${upload.replaced.hidden ? ` · ${ru ? 'скрытые части' : 'hidden parts'} ${upload.replaced.kept}/${upload.replaced.hidden}` : ''}${upload.report ? ` · ${sketchupReport(upload, ru)}` : ''}`
+                : upload.report ? sketchupReport(upload, ru)
+                    : `${ru ? (upload.replacing ? 'Заменяю на' : upload.sketchup ? 'Загружаю и готовлю' : 'Загружаю') : (upload.replacing ? 'Replacing with' : upload.sketchup ? 'Importing and preparing' : 'Importing')} «${upload.name}» · ${upload.megabytes.toFixed(1)} ${ru ? 'МБ' : 'MB'}…`}</div> : null}
         <SectionHeading label={`${ru ? 'Объекты' : 'Objects'} · ${objects.length}/${PLACED_LIMITS.objects}`} subtle />
         <SelectControl controlId="placedObjects" label={ru ? 'Объект' : 'Object'} value={selected?.id ?? ''} options={[{ value: '', label: ru ? 'Выбрать…' : 'Select…' }, ...objects.map((o) => ({ value: o.id, label: `${o.name} · ${KIND_LABELS[o.kind][ru ? 0 : 1]}` }))]}
             onChange={(event) => placedEditor?.select(event.target.value || null)} />
@@ -140,6 +151,13 @@ export function PlacedSection({ settings, placedEditor, layoutEditor }) {
         {selected?.kind === 'model' ? <>
             {toggle('wet', ['Реакция на воду', 'Wet by the sea'], selected.wet)}
             {toggle('collision', ['Коллизия', 'Collision'], selected.collision)}
+            <div className="home-editor-tabs">
+                <label className={`home-editor-tab${upload?.megabytes ? ' is-disabled' : ''}`} title={ru ? 'Новая выгрузка того же файла встанет на место старой; скрытые части переедут' : 'A new export of the same file stands where the old one stood; hidden parts move along'} data-testid="placed-replace-model">
+                    {ru ? 'Заменить версию…' : 'Replace version…'}
+                    <input type="file" accept=".glb,model/gltf-binary" hidden disabled={Boolean(upload?.megabytes)}
+                        onChange={(event) => { const [file] = event.target.files ?? []; event.target.value = ''; void replaceModel(file); }} />
+                </label>
+            </div>
         </> : null}
         {selected?.kind === 'model' && sketchup ? <SketchupModel object={selected} sketchup={sketchup} placedEditor={placedEditor} layoutEditor={layoutEditor} ru={ru} /> : null}
         {selected || scope?.catalogOnly ? <>

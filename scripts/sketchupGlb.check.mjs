@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import sharp from 'sharp';
-import { isFlatVertical, prepareSketchupGlb, readGlb, writeGlb } from './sketchupGlb.mjs';
+import { isFlatVertical, mapNodes, modelOrigin, prepareSketchupGlb, readGlb, writeGlb } from './sketchupGlb.mjs';
 
 // Маленький «SketchUp»: двадцать кубиков участка, обломок и павильон в 5 км,
 // 2D-куст на родителе, забор-сетка с точкой вставки в углу, лежачий диск с той
@@ -152,5 +152,20 @@ assert.equal(isFlatVertical([[0, 0, 0], [1, 0, 1], [1, 2, 1], [0, 2, 0]]), true,
 assert.equal(isFlatVertical([[0, 0, 0], [1, 0, 1], [1, 2, 1], [0, 2, 0]], [0.5, 0, 0.5]), true, 'a trunk in the middle is a pivot');
 assert.equal(isFlatVertical([[0, 0, 0], [1, 0, 1], [1, 2, 1], [0, 2, 0]], [0, 0, 0]), false, 'a corner is not');
 assert.equal(isFlatVertical([[0, 0, 0], [1, 0, 0], [0, 2, 0.5]]), false, 'a leaning shape is not');
+
+// «Низ середины»: середина габарита в плане, самая низкая точка — по ящикам.
+const box = modelOrigin({
+  scenes: [{ nodes: [0] }], scene: 0,
+  nodes: [{ children: [1, 2] }, { mesh: 0, translation: [10, 2, 0] }, { mesh: 0, translation: [-2, -1, 4] }],
+  meshes: [{ primitives: [{ attributes: { POSITION: 0 } }] }],
+  accessors: [{ min: [0, 0, 0], max: [2, 3, 1] }],
+});
+assert.deepEqual(box, { x: 5, y: -1, z: 2.5 });
+
+// Новая выгрузка: перед знакомыми узлами появился новый, у двух одинаковых
+// имён поменялся порядок нет — узлы находят себя по пути имён.
+const previous = { scenes: [{ nodes: [0] }], nodes: [{ name: 'root', children: [1, 2, 3] }, { name: 'Куст' }, { name: 'Куст' }, { name: 'Забор' }] };
+const next = { scenes: [{ nodes: [0] }], nodes: [{ name: 'root', children: [4, 1, 2, 3] }, { name: 'Куст' }, { name: 'Куст' }, { name: 'Скамья' }, { name: 'Беседка' }] };
+assert.deepEqual(mapNodes(previous, next), [0, 1, 2, -1], 'the root and both bushes are found, the fence is gone');
 
 console.log('sketchupGlb: ok');

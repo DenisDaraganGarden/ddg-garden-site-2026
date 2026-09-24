@@ -95,6 +95,13 @@ export function normalizePlacedObject(value, index = 0) {
         // The file it shows, in the project's folder: no file, no object.
         if (!MODEL_FILE.test(String(value.model ?? ''))) return null;
         result.model = value.model;
+        // The point of the file standing on the place (its footprint's middle,
+        // its lowest point), kept from the import: a new version of the file
+        // stands where the old one stood, not on its own new middle.
+        const origin = value.origin;
+        if (origin && ['x', 'y', 'z'].every((axis) => Number.isFinite(Number(origin[axis])) && Math.abs(Number(origin[axis])) < 1e7)) {
+            result.origin = { x: Math.round(Number(origin.x) * 1000) / 1000, y: Math.round(Number(origin.y) * 1000) / 1000, z: Math.round(Number(origin.z) * 1000) / 1000 };
+        }
         result.wet = value.wet !== false;
         result.collision = value.collision === true;
     }

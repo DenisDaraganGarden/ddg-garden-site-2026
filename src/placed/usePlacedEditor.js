@@ -94,10 +94,10 @@ export function usePlacedEditor({ settings, history, setActiveTab, setTool, lang
         const project = activeProjectId();
         if (!project) throw new Error(ru ? 'Модели живут в проектах движка: откройте проект.' : 'Models live in engine projects: open one.');
         if (live.current.settings.placedObjects.length >= PLACED_LIMITS.objects) throw new Error(ru ? 'Объектов уже 48 — больше нет места.' : 'There are 48 objects already.');
-        const { model, report } = await uploadProjectModel(project, file, sketchup ? { source: 'sketchup' } : undefined);
+        const { model, report, origin } = await uploadProjectModel(project, file, sketchup ? { source: 'sketchup' } : undefined);
         const name = freeName(live.current.settings, String(file.name ?? '').replace(/\.glb$/i, '').replace(/[_]+/g, ' ').trim().slice(0, 60) || KIND_NAMES.model[ru ? 0 : 1]);
         const created = createPlacedObject('model', { ...freeSpot(live.current), name, model });
-        const object = sketchup ? normalizePlacedObject({ ...created, wet: false }) : created;
+        const object = normalizePlacedObject({ ...created, origin, ...(sketchup ? { wet: false } : {}) });
         const { settings, history } = live.current;
         history.applySettings({
             placedEnabled: true,
@@ -107,6 +107,26 @@ export function usePlacedEditor({ settings, history, setActiveTab, setTool, lang
         setSelectedId(object.id); setPart(null); setActiveTab('objects/placed');
         return { object, report };
     }, [setActiveTab]);
+    // A new version of a model's file: the same object, place and switches, the
+    // file stands where the old one stood (its kept origin, or the old file's
+    // own), and hidden SketchUp parts move to the parts with the same path.
+    const replaceModel = useCallback(async (id, file) => {
+        const project = activeProjectId();
+        const { settings } = live.current;
+        const object = settings.placedObjects.find((o) => o.id === id);
+        if (!project || object?.kind !== 'model') return null;
+        const sketchup = settings.sketchupModels?.[id];
+        const { model, report, origin, replaced } = await uploadProjectModel(project, file, { source: sketchup ? 'sketchup' : undefined, replaces: object.model });
+        const map = replaced?.nodeMap ?? [];
+        const hidden = sketchup ? sketchup.hidden.map((node) => map[node]).filter((node) => Number.isInteger(node) && node >= 0) : [];
+        const { settings: now, history } = live.current;
+        history.applySettings({
+            placedObjects: now.placedObjects.map((o, i) => (o.id === id ? normalizePlacedObject({ ...o, model, origin: object.origin ?? replaced?.origin ?? origin }, i) : o)),
+            ...(sketchup ? { sketchupModels: { ...now.sketchupModels, [id]: { ...sketchup, hidden } } } : {}),
+        });
+        setPart(null);
+        return { report, kept: hidden.length, hidden: sketchup?.hidden.length ?? 0 };
+    }, []);
     const duplicate = useCallback((id) => {
         const { settings, history } = live.current;
         const source = settings.placedObjects.find((o) => o.id === id);
@@ -132,7 +152,7 @@ export function usePlacedEditor({ settings, history, setActiveTab, setTool, lang
     }, []);
     const shown = settings.placedObjects.some((o) => o.id === selectedId) ? selectedId : null;
     return {
-        selectedId: shown, part: part && part.id === shown ? part : null, select, selectPart, update, setSpecies, add, importModel, duplicate, seat, remove,
+        selectedId: shown, part: part && part.id === shown ? part : null, select, selectPart, update, setSpecies, add, importModel, replaceModel, duplicate, seat, remove,
         setSketchup, hideParts, showParts,
     };
 }

@@ -144,9 +144,10 @@ function wetMaterial(material) {
 // One instance of a loaded model: its own materials (so its switches are its
 // own), shadows both ways, and its own middle over the place with its lowest
 // point on it — a scan's origin is wherever the scanner stood, often metres
-// away. A scan's unlit material (its light baked in) is lit by the scene when
+// away. `origin`, kept from the import, is that point once and for all: a new
+// version of the file with other extents stands where the old one stood. A scan's unlit material (its light baked in) is lit by the scene when
 // asked: then it takes shadows and the wet line, a little darker in shade.
-function prepareModel(scene, lit) {
+function prepareModel(scene, lit, origin = null) {
     const root = scene.clone(true);
     const converted = new Map();
     const convert = (material) => {
@@ -169,7 +170,8 @@ function prepareModel(scene, lit) {
     });
     root.updateMatrixWorld(true);
     const box = new THREE.Box3().setFromObject(root);
-    root.position.set(-(box.min.x + box.max.x) / 2, -box.min.y, -(box.min.z + box.max.z) / 2);
+    const at = origin ?? { x: (box.min.x + box.max.x) / 2, y: box.min.y, z: (box.min.z + box.max.z) / 2 };
+    root.position.set(-at.x, -at.y, -at.z);
     return { root, materials: [...converted.values()], size: box.getSize(new THREE.Vector3()) };
 }
 
@@ -224,7 +226,8 @@ function PartBox({ root, node, stamp }) {
 function PlacedModel({ object, url, selected, sketchup, selectedPart }) {
     const gltf = useModel(url);
     const lit = object.species !== 'scan';
-    const prepared = useMemo(() => (gltf ? prepareModel(gltf.scene, lit) : null), [gltf, lit]);
+    const originKey = object.origin ? `${object.origin.x},${object.origin.y},${object.origin.z}` : '';
+    const prepared = useMemo(() => (gltf ? prepareModel(gltf.scene, lit, originKey ? object.origin : null) : null), [gltf, lit, originKey]); // eslint-disable-line react-hooks/exhaustive-deps -- origin by value
     const group = useRef();
     const invalidate = useThree((state) => state.invalidate);
     useEffect(() => () => prepared?.materials.forEach((material) => material.dispose()), [prepared]);

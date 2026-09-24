@@ -66,6 +66,11 @@ assert.equal(normalizePlacedObject({ kind: 'rock', variant: 9 }).variant, 5);
     assert.equal(scaled.hidden, true);
     assert.equal(scaled.collision, true);
     assert.equal(normalizePlacedObject({ ...model, model: '../../etc/passwd' }), null, 'a file name that is a path is no model');
+    assert.ok(!('origin' in model), 'no origin unless the import gave one');
+    const fixed = normalizePlacedObject({ ...model, origin: { x: 130.61234, y: '0', z: -64.2 } });
+    assert.deepEqual(fixed.origin, { x: 130.612, y: 0, z: -64.2 }, 'a kept origin, rounded to the millimetre');
+    assert.deepEqual(normalizePlacedObject(fixed), fixed);
+    assert.ok(!('origin' in normalizePlacedObject({ ...model, origin: { x: 1, y: 'nope', z: 2 } })), 'a broken origin is dropped');
     assert.equal(normalizePlacedObject({ ...model, model: undefined }), null);
     assert.equal(normalizePlacedObject({ kind: 'tree', scale: 0.02 }).scale, 0.25, 'the other kinds keep their range');
 }

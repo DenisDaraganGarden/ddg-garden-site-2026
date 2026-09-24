@@ -6,7 +6,7 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { publishedHomeSceneKeys } from './src/features/home-scene/data/publishedHomeSceneKeys.js';
 import { isValidId, presets, projects } from './scripts/projectStore.mjs';
-import { prepareSketchupGlb } from './scripts/sketchupGlb.mjs';
+import { mapNodes, modelOrigin, prepareSketchupGlb, readGlb, readGlbJson } from './scripts/sketchupGlb.mjs';
 import { deployPublishedHomeScene } from './scripts/deployScene.mjs';
 import { poseTuningModule } from './src/components/surfboard/poseTuning.js';
 
@@ -185,17 +185,29 @@ function engineStorePlugin() {
         // Модели проекта: POST /__projects/<id>/models — тело сам .glb, имя в
         // заголовке X-Model-Name; GET /__projects/<id>/models/<модель>.glb.
         // X-Model-Source: sketchup — файл сначала готовится (sketchupGlb.mjs),
-        // и ответ говорит, что с ним сделано.
+        // и ответ говорит, что с ним сделано. Ответ несёт и «низ середины»
+        // файла (origin), который объект запоминает. X-Replaces: <модель> —
+        // новая версия прежнего файла: ответ добавляет его origin и какие его
+        // узлы нашлись в новом (replaced.nodeMap) — скрытые части переезжают.
         if (part === 'models' && isValidId(id) && store.writeModel) {
           if (request.method === 'POST' && !file) {
             let bytes = await readRawBody(request, MODEL_UPLOAD_LIMIT);
+            if (!(await store.read(id))) { sendJson(response, 404, { ok: false, message: `Проект «${id}» не найден.` }); return; }
             let report;
-            if (request.headers['x-model-source'] === 'sketchup') {
-              if (!(await store.read(id))) { sendJson(response, 404, { ok: false, message: `Проект «${id}» не найден.` }); return; }
-              ({ bytes, report } = await prepareSketchupGlb(bytes));
+            if (request.headers['x-model-source'] === 'sketchup') ({ bytes, report } = await prepareSketchupGlb(bytes));
+            let json = null;
+            try { json = readGlb(bytes).json; } catch { /* не glTF 2.0 — writeModel скажет сам */ }
+            let replaced;
+            const replaces = String(request.headers['x-replaces'] ?? '');
+            const previous = json && isValidId(replaces) ? await store.modelFile(id, replaces) : null;
+            if (previous) {
+              const old = await readGlbJson(previous.file);
+              replaced = { model: replaces, origin: modelOrigin(old), nodeMap: mapNodes(old, json) };
             }
             const saved = await store.writeModel(id, decodeURIComponent(String(request.headers['x-model-name'] ?? 'model')), bytes);
-            sendJson(response, saved ? 200 : 404, saved ? { ok: true, ...saved, ...(report ? { report } : {}) } : { ok: false, message: `Проект «${id}» не найден.` });
+            sendJson(response, saved ? 200 : 404, saved
+              ? { ok: true, ...saved, origin: json ? modelOrigin(json) : null, ...(report ? { report } : {}), ...(replaced ? { replaced } : {}) }
+              : { ok: false, message: `Проект «${id}» не найден.` });
             return;
           }
           if (request.method === 'GET' && file) {

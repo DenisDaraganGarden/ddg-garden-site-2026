@@ -86,6 +86,80 @@ function walkScene(json) {
   return { world, parent };
 }
 
+// Ящик меша в мире файла — по min/max его аксессоров, как считает сцена
+// (Box3.setFromObject в PlacedObjects.prepareModel).
+function meshBox(json, index, matrix) {
+  const min = [Infinity, Infinity, Infinity], max = [-Infinity, -Infinity, -Infinity];
+  for (const primitive of json.meshes[json.nodes[index].mesh].primitives) {
+    const accessor = json.accessors[primitive.attributes.POSITION];
+    if (!accessor?.min || !accessor?.max) continue;
+    for (let corner = 0; corner < 8; corner += 1) {
+      const point = transform(matrix, [0, 1, 2].map((axis) => ((corner >> axis) & 1 ? accessor.max : accessor.min)[axis]));
+      for (let axis = 0; axis < 3; axis += 1) { min[axis] = Math.min(min[axis], point[axis]); max[axis] = Math.max(max[axis], point[axis]); }
+    }
+  }
+  return { min, max };
+}
+
+// «Низ середины» файла: середина габарита в плане и самая низкая точка. Объект
+// запоминает её при импорте, и новая версия того же SketchUp встаёт на её
+// место, а не на середину своих новых габаритов: камеры и посадки не съезжают.
+export function modelOrigin(json) {
+  const { world } = walkScene(json);
+  const min = [Infinity, Infinity, Infinity], max = [-Infinity, -Infinity, -Infinity];
+  for (const [index, matrix] of world) {
+    if (json.nodes[index].mesh === undefined) continue;
+    const box = meshBox(json, index, matrix);
+    for (let axis = 0; axis < 3; axis += 1) { min[axis] = Math.min(min[axis], box.min[axis]); max[axis] = Math.max(max[axis], box.max[axis]); }
+  }
+  if (!Number.isFinite(min[0])) return null;
+  const round = (value) => Math.round(value * 1000) / 1000;
+  return { x: round((min[0] + max[0]) / 2), y: round(min[1]), z: round((min[2] + max[2]) / 2) };
+}
+
+// Путь узла от корня: имя и номер среди соседей с тем же именем. По нему
+// скрытые части старой версии находят себя в новой выгрузке того же файла.
+function nodePaths(json) {
+  const paths = new Map();
+  const walk = (indices, prefix) => {
+    const seen = new Map();
+    for (const index of indices ?? []) {
+      const name = json.nodes[index].name ?? '';
+      const count = seen.get(name) ?? 0;
+      seen.set(name, count + 1);
+      const path = `${prefix}\u0001${name}#${count}`;
+      paths.set(index, path);
+      walk(json.nodes[index].children, path);
+    }
+  };
+  walk(json.scenes?.[json.scene ?? 0]?.nodes, '');
+  return paths;
+}
+
+// Для каждого узла старого файла — узел нового с тем же путём, или −1.
+export function mapNodes(previous, next) {
+  const byPath = new Map([...nodePaths(next)].map(([index, path]) => [path, index]));
+  const map = new Array(previous.nodes?.length ?? 0).fill(-1);
+  for (const [index, path] of nodePaths(previous)) map[index] = byPath.get(path) ?? -1;
+  return map;
+}
+
+// JSON файла на диске без чтения всей двоичной части.
+export async function readGlbJson(file) {
+  const { open } = await import('node:fs/promises');
+  const handle = await open(file, 'r');
+  try {
+    const header = Buffer.alloc(20);
+    await handle.read(header, 0, 20, 0);
+    if (header.toString('ascii', 0, 4) !== 'glTF') throw new Error('Это не .glb.');
+    const chunk = Buffer.alloc(header.readUInt32LE(12));
+    await handle.read(chunk, 0, chunk.length, 20);
+    return JSON.parse(chunk.toString('utf8'));
+  } finally {
+    await handle.close();
+  }
+}
+
 // Вершины примитива, на которые ссылаются его треугольники. Экспортёры
 // SketchUp пишут float VEC3 и целые индексы; другое сюда не попадает.
 function positionsOf(json, bin, primitive) {
@@ -145,14 +219,7 @@ export async function prepareSketchupGlb(bytes, { maxTexture = MAX_TEXTURE } = {
   // 90% кусков вокруг их медианы (и не ближе 50 м). Длинная дорога от дома или
   // соседний павильон остаются.
   const pieces = [...world].filter(([index]) => json.nodes[index].mesh !== undefined).map(([index, matrix]) => {
-    const min = [Infinity, Infinity, Infinity], max = [-Infinity, -Infinity, -Infinity];
-    for (const primitive of json.meshes[json.nodes[index].mesh].primitives) {
-      const accessor = json.accessors[primitive.attributes.POSITION];
-      for (let corner = 0; corner < 8; corner += 1) {
-        const point = transform(matrix, [0, 1, 2].map((axis) => ((corner >> axis) & 1 ? accessor.max : accessor.min)[axis]));
-        for (let axis = 0; axis < 3; axis += 1) { min[axis] = Math.min(min[axis], point[axis]); max[axis] = Math.max(max[axis], point[axis]); }
-      }
-    }
+    const { min, max } = meshBox(json, index, matrix);
     return { index, min, max, x: (min[0] + max[0]) / 2, z: (min[2] + max[2]) / 2, size: Math.max(max[0] - min[0], max[1] - min[1], max[2] - min[2]) };
   });
   if (pieces.length > 2) {

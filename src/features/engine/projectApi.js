@@ -59,14 +59,16 @@ export const saveProjectSettings = (id, settings, { base, ...options } = {}) => 
 
 // Модели проекта (.glb): файл уходит на локальный сервер как есть и ложится в
 // папку проекта; в сцене объект ссылается на него по имени файла. Из SketchUp
-// (source: 'sketchup') сервер сначала готовит файл и отвечает отчётом.
-export async function uploadProjectModel(projectId, file, { source } = {}) {
+// (source: 'sketchup') сервер сначала готовит файл и отвечает отчётом;
+// replaces — модель, чью версию файл заменяет (см. vite.config.js).
+export async function uploadProjectModel(projectId, file, { source, replaces } = {}) {
     const response = await fetch(`/__projects/${encodeURIComponent(projectId)}/models`, {
         method: 'POST',
         headers: {
             'Content-Type': 'model/gltf-binary',
             'X-Model-Name': encodeURIComponent(file.name ?? 'model.glb'),
             ...(source ? { 'X-Model-Source': source } : {}),
+            ...(replaces ? { 'X-Replaces': replaces } : {}),
         },
         body: file,
     });
