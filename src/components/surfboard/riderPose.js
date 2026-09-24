@@ -431,8 +431,9 @@ export function proneControls(board, p, out) {
       // over the rail's edge, so the fingers hang over it rather than into it.
       hand[0] = sign * (rail + 0.02) + moved[0]; hand[1] = deck(shoulderZ) + 0.12 + moved[1]; hand[2] = shoulderZ - 0.05 + moved[2];
     } else if (phase < 0.55) {
-      const t = phase / 0.55;
-      hand[0] = sign * (rail + 0.08); hand[1] = deck(shoulderZ) - 0.12 - 0.22 * Math.sin(Math.PI * t); hand[2] = shoulderZ + 0.42 - 0.8 * t;
+      // Sweeping to turn (p.sweepL/R 0..1), the pull arcs wide out from the rail.
+      const t = phase / 0.55, sweep = p[`sweep${side}`] || 0;
+      hand[0] = sign * (rail + 0.08 + 0.24 * sweep * Math.sin(Math.PI * t)); hand[1] = deck(shoulderZ) - 0.12 - 0.22 * Math.sin(Math.PI * t); hand[2] = shoulderZ + 0.42 - 0.8 * t;
     } else {
       const t = (phase - 0.55) / 0.45;
       hand[0] = sign * (rail + 0.14 + 0.08 * Math.sin(Math.PI * t)); hand[1] = deck(shoulderZ) + 0.02 + 0.22 * Math.sin(Math.PI * t); hand[2] = shoulderZ - 0.38 + 0.8 * t;

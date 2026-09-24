@@ -462,4 +462,75 @@ let carried;
   carried = { far, at };
 }
 
-console.log(`riderController: lying still and whole, paddling ${paddled.toFixed(2)} m/s, up on the wave in ${rode.stoodAt.toFixed(2)} s and ridden ${rode.travelled.toFixed(1)} m with the soles within ${(rode.worstSole * 1000).toFixed(1)} mm of the deck, knocked off by foam in ${(knocked - 1.2).toFixed(2)} s, a capsize floats him to ${floated.toFixed(2)} m, back on the board in ${recovered.toFixed(1)} s, a stopped board lays him down, a current tows the board ${tow.towed.toFixed(1)} m by the leash (${tow.pull.toFixed(0)} N), he swims ${swam.speed.toFixed(2)} m/s with his head up; at a beach he steps off ${beach.depthThen.toFixed(2)} m deep, walks up the sand at ${beach.walked.toFixed(2)} m/s, runs at ${beach.ran.toFixed(2)} m/s and swims back out; stepping off nothing jumps (${(stepOff.jump * 100).toFixed(1)} cm a frame), his chest rocks ${stepOff.roll.toFixed(1)}°; he jumps ${jumps.standing.air.toFixed(2)} s standing and ${jumps.running.far.toFixed(1)} m running; off the board he leaps ${leapt.top.toFixed(2)} m up into the sea and swims where steered; the leash comes off; he carries the board up the sand at his side and walks it back out to ${carried.at.toFixed(2)} m to paddle`);
+// 15. Turning lying down: A held, the right arm sweeps wide stroke after
+// stroke and the board comes round half a turn in about two seconds, from
+// rest or paddling (Denis: it handled badly — 27° in three seconds).
+let turning;
+{
+  const yawOf = (q) => Math.atan2(2 * (q[0] * q[2] + q[1] * q[3]), 1 - 2 * (q[0] * q[0] + q[1] * q[1]));
+  const halfTurn = (warm) => {
+    const s = session();
+    s.intent.trim = warm ? 1 : 0;
+    s.run(warm ? 4 : 0.5, calm);
+    s.intent.lean = -1;
+    let turned = 0, last = yawOf(s.state.q), at = null, swept = 0, other = 0;
+    s.run(3, calm, calm, (t) => {
+      const y = yawOf(s.state.q);
+      turned += Math.atan2(Math.sin(y - last), Math.cos(y - last));
+      last = y;
+      if (at === null && turned >= Math.PI) at = t;
+      if (s.rider.strokeR >= 0) swept += 1;
+      if (s.rider.strokeL >= 0) other += 1;
+    });
+    return { at: at === null ? Infinity : at - s.time() + 3, swept, other, sweep: s.rider.sweepR };
+  };
+  const still = halfTurn(false), paddling = halfTurn(true);
+  turning = { still: still.at, paddling: paddling.at };
+  assert.ok(still.at < 2.5, `from rest, half a turn in ${still.at.toFixed(2)} s`);
+  assert.ok(paddling.at < 2.8, `paddling, half a turn in ${paddling.at.toFixed(2)} s`);
+  assert.ok(still.swept > 120 && still.other === 0 && still.sweep > 0.9, `from rest the right arm sweeps alone, wide (${still.swept} frames stroking, the left ${still.other})`);
+}
+
+// 16. Life in the pose: coming down from a jump his hands dip and swing back
+// (never far), standing they settle on the pose; no two jumps look the same,
+// yet the same jumps come out the same.
+let alive;
+{
+  const s = shore();
+  ashore(s);
+  const flightOf = () => {
+    let apex = null, dip = 0, far = 0;
+    s.intent.popUp += 1;
+    s.until(() => s.rider.state === 'jump', 0.2);
+    s.until(() => {
+      const f = s.rider.follow, pelvis = s.body('pelvis').x;
+      far = Math.max(far, Math.hypot(...f.handL), Math.hypot(...f.handR));
+      if (s.rider.leap.air && s.rider.leap.v[1] < 0 && apex === null) {
+        const hand = s.body('forearmL').x;
+        apex = [hand[0] - pelvis[0], hand[1] - pelvis[1], hand[2] - pelvis[2]];
+      }
+      return s.rider.state === 'walk';
+    }, 3);
+    s.run(0.5, () => { dip = Math.min(dip, s.rider.follow.handL[1]); far = Math.max(far, Math.hypot(...s.rider.follow.handL)); });
+    s.run(2.5);
+    return { apex, dip, far, settled: Math.hypot(...s.rider.follow.handL) };
+  };
+  const first = flightOf(), second = flightOf();
+  const apart = Math.hypot(first.apex[0] - second.apex[0], first.apex[1] - second.apex[1], first.apex[2] - second.apex[2]);
+  assert.ok(first.dip < -0.03, `landing, his hands dip (${(first.dip * 100).toFixed(1)} cm)`);
+  assert.ok(first.far <= 0.15 + 1e-9 && second.far <= 0.15 + 1e-9, `and never far (${(Math.max(first.far, second.far) * 100).toFixed(1)} cm)`);
+  assert.ok(first.settled < 0.005, `standing, they settle on the pose (${(first.settled * 1000).toFixed(1)} mm)`);
+  assert.ok(apart > 0.05, `two jumps, two flights (the left hand ${(apart * 100).toFixed(0)} cm apart at the top)`);
+  const firstStyle = () => {
+    const t = shore({ z: -20 });
+    t.run(0.5);
+    t.intent.board += 1;
+    t.until(() => t.rider.state === 'jump', 0.2);
+    return JSON.stringify(t.rider.leap.style);
+  };
+  assert.equal(firstStyle(), firstStyle(), 'the same first jump, the same style');
+  assert.ok(s.whole(), 'whole');
+  alive = { dip: first.dip, apart };
+}
+
+console.log(`riderController: lying still and whole, paddling ${paddled.toFixed(2)} m/s, up on the wave in ${rode.stoodAt.toFixed(2)} s and ridden ${rode.travelled.toFixed(1)} m with the soles within ${(rode.worstSole * 1000).toFixed(1)} mm of the deck, knocked off by foam in ${(knocked - 1.2).toFixed(2)} s, a capsize floats him to ${floated.toFixed(2)} m, back on the board in ${recovered.toFixed(1)} s, a stopped board lays him down, a current tows the board ${tow.towed.toFixed(1)} m by the leash (${tow.pull.toFixed(0)} N), he swims ${swam.speed.toFixed(2)} m/s with his head up; at a beach he steps off ${beach.depthThen.toFixed(2)} m deep, walks up the sand at ${beach.walked.toFixed(2)} m/s, runs at ${beach.ran.toFixed(2)} m/s and swims back out; stepping off nothing jumps (${(stepOff.jump * 100).toFixed(1)} cm a frame), his chest rocks ${stepOff.roll.toFixed(1)}°; he jumps ${jumps.standing.air.toFixed(2)} s standing and ${jumps.running.far.toFixed(1)} m running; off the board he leaps ${leapt.top.toFixed(2)} m up into the sea and swims where steered; the leash comes off; he carries the board up the sand at his side and walks it back out to ${carried.at.toFixed(2)} m to paddle; lying he turns half round in ${turning.still.toFixed(1)} s from rest, ${turning.paddling.toFixed(1)} s paddling; landing his hands dip ${(-alive.dip * 100).toFixed(0)} cm and two jumps differ by ${(alive.apart * 100).toFixed(0)} cm`);

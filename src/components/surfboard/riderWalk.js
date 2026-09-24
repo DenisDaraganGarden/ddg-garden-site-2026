@@ -60,6 +60,9 @@ const WADE_DEPTH = 1.0, WADE_SPEED = 0.35;
 // A landing's give: the pelvis lower by the landing's depth at its deepest,
 // this long (s) after the feet come down, and up again soon after.
 const DIP_TIME = 0.12;
+// Standing still: a breath every ~5 s lifting the chest (°), his weight
+// drifting side to side every ~8 s (m, °), a look about every ~20 s (°).
+const IDLE = { breath: 0.21, breathe: 1.4, drift: 0.13, shift: 0.012, tilt: 1.5, look: 0.05, turn: 7 };
 
 const DEG = Math.PI / 180;
 const clamp = (x, a, b) => (x < a ? a : x > b ? b : x);
@@ -87,7 +90,7 @@ function turned(out, yaw, pitch, roll) {
 const foot = () => ({ at: [0, 0, 0], from: [0, 0, 0], to: [0, 0, 0], swing: false, u: 0, p: 0, pitch: 0, sole: [0, 0, 0], q: [0, 0, 0, 1] });
 export function createWalker() {
   return {
-    x: 0, z: 0, yaw: 0, speed: 0, run: 0, phase: 0, idle: true, groundY: 0, pelvisY: PELVIS_HEIGHT, dip: 0, dipT: 0, over: 0,
+    x: 0, z: 0, yaw: 0, speed: 0, run: 0, phase: 0, idle: true, groundY: 0, pelvisY: PELVIS_HEIGHT, dip: 0, dipT: 0, over: 0, clock: 0,
     feet: { L: foot(), R: foot() },
   };
 }
@@ -154,6 +157,7 @@ const spot = [0, 0, 0];
 export function stepWalker(w, frame) {
   const { dt, ground = null } = frame;
   if (!(dt > 0)) return w;
+  w.clock += dt;
   const forward = clamp(frame.forward || 0, -1, 1), turn = clamp(frame.turn || 0, -1, 1), run = clamp(frame.run || 0, 0, 1);
   // How fast he wants to go, slowed by the water he wades.
   const depth = frame.depth ? Math.max(frame.depth(w.x, w.z), 0) : 0;
@@ -264,16 +268,22 @@ export function walkControls(w, out, carry = null) {
   // The hips turn with the forward leg (the left forward as the left foot
   // lands), the shoulders the other way: one smooth swing a stride.
   const twist = mix([5, 8], r) * DEG * Math.cos(cycle) * stepping;
-  const shift = mix(SWAY, r) * over, tilt = mix(TILT, r) * DEG * over;
+  // Standing still he is not a statue: he breathes, his weight drifts from
+  // one foot to the other, now and then he looks about.
+  const still = 1 - stepping, t = w.clock;
+  const breath = still * Math.sin(2 * Math.PI * IDLE.breath * t);
+  const drift = still * Math.sin(2 * Math.PI * IDLE.drift * t);
+  const look = still * Math.sin(2 * Math.PI * IDLE.look * t + 1);
+  const shift = mix(SWAY, r) * over + IDLE.shift * drift, tilt = mix(TILT, r) * DEG * over + IDLE.tilt * DEG * drift;
   const lean = mix(LEAN, r) * DEG * clamp(v / 1.2, 0, 1) * Math.sign(w.speed || 1);
   const sin = Math.sin(w.yaw), cos = Math.cos(w.yaw);
   const px = w.x + cos * shift, pz = w.z - sin * shift;
   out.pelvis[0] = px; out.pelvis[1] = w.pelvisY; out.pelvis[2] = pz;
   turned(out.pelvisQ, w.yaw - twist, 0.3 * lean, tilt);
   turned(out.lumbarQ, 0.9 * twist, 0.35 * lean, -0.9 * tilt);
-  turned(out.thoracicQ, 0.9 * twist, 0.35 * lean, -0.6 * tilt);
+  turned(out.thoracicQ, 0.9 * twist, 0.35 * lean - IDLE.breathe * DEG * breath, -0.6 * tilt);
   // The head level and ahead, over all of that.
-  turned(out.neckQ, -0.8 * twist, -lean + 6 * DEG, 0.5 * tilt);
+  turned(out.neckQ, -0.8 * twist + IDLE.turn * DEG * look, -lean + 6 * DEG, 0.5 * tilt);
   for (const [side, sign] of SIDES) {
     const f = w.feet[side];
     const s = out[`sole${side}`], fq = out[`footQ${side}`];
@@ -330,32 +340,41 @@ const LEG_STRAIGHT = 0.93, LEG_TUCKED = 0.45;
 export const jumpLegs = (tuck, reach) => lerp(LEG_STRAIGHT, LEG_TUCKED, tuck * (1 - reach));
 // The hands, from the pelvis in his own frame: across, up, ahead (m).
 const HANDS = {
-  throw: [0.26, 0.62, 0.3], out: [0.62, 0.42, 0.05], hug: [0.13, -0.14, 0.36], land: [0.3, 0.2, 0.28],
+  throw: [0.26, 0.62, 0.3], out: [0.62, 0.42, 0.05], hug: [0.13, -0.14, 0.36], land: [0.3, 0.2, 0.28], up: [0.22, 0.86, 0.08],
 };
+// Where an arm goes through a flight — a jump is never quite the last one
+// (riderController draws a style for each): out, overhead, ahead, back, wide
+// and high.
+export const SPREADS = Object.freeze([
+  HANDS.out, HANDS.up, [0.3, 0.36, 0.42], [0.42, 0.2, -0.22], [0.55, 0.66, 0.1],
+]);
+// style: { handL, handR (a spread each), hugUp ('L', 'R' or null: that arm
+// thrown up going into the water, the other round the shins), legs (−1..1:
+// the left knee higher, or the right), head [pitch, roll] (rad) }.
+const PLAIN = Object.freeze({ handL: HANDS.out, handR: HANDS.out, hugUp: null, legs: 0, head: [0, 0] });
 export function jumpControls(j, out) {
-  const sin = Math.sin(j.yaw), cos = Math.cos(j.yaw);
+  const sin = Math.sin(j.yaw), cos = Math.cos(j.yaw), style = j.style ?? PLAIN;
   const curl = j.tuck * (1 - j.reach);
   out.pelvis[0] = j.x; out.pelvis[1] = j.y; out.pelvis[2] = j.z;
   turned(out.pelvisQ, j.yaw, (6 + 16 * curl) * DEG, 0);
   turned(out.lumbarQ, 0, 12 * curl * DEG, 0);
   turned(out.thoracicQ, 0, 14 * curl * DEG, 0);
-  turned(out.neckQ, 0, -(10 + 22 * curl) * DEG, 0);
+  turned(out.neckQ, 0, -(10 + 22 * curl) * DEG + style.head[0] * curl, style.head[1] * curl);
   const legs = jumpLegs(j.tuck, j.reach);
   const thrown = 1 - smoothstep(0.1, 0.32, j.t);
   const hug = (1 - thrown) * j.hug, land = (1 - thrown) * (1 - j.hug) * j.reach;
-  const weights = [['throw', thrown], ['out', 1 - thrown - hug - land], ['hug', hug], ['land', land]];
   for (const [side, sign] of SIDES) {
+    const weights = [[HANDS.throw, thrown], [style[`hand${side}`], 1 - thrown - hug - land], [style.hugUp === side ? HANDS.up : HANDS.hug, hug], [HANDS.land, land]];
     const s = out[`sole${side}`];
     const back = -0.12 * curl;
     s[0] = j.x + cos * 0.11 * sign + sin * back;
     s[2] = j.z - sin * 0.11 * sign + cos * back;
-    s[1] = Math.max(j.y - legs, j.floor);
+    s[1] = Math.max(j.y - legs + 0.07 * style.legs * sign * curl, j.floor);
     turned(out[`footQ${side}`], j.yaw + TOE_OUT * sign, 0.6 * curl, 0);
     const knee = out[`kneePole${side}`];
     knee[0] = sin + 0.2 * cos * sign; knee[1] = 0.2 * curl; knee[2] = cos - 0.2 * sin * sign;
     let across = 0, up = 0, ahead = 0;
-    for (const [key, weight] of weights) {
-      const h = HANDS[key];
+    for (const [h, weight] of weights) {
       across += h[0] * weight; up += h[1] * weight; ahead += h[2] * weight;
     }
     const hand = out[`hand${side}`];

@@ -121,9 +121,12 @@ const PADDLE_ACCEL = 1;
 const PADDLE_TOP = 2.2;
 // Pumping the board on a wave (and W while planing, at half).
 const PUMP_ACCEL = 0.6;
-// Paddle steering at low speed: a turn rate he reaches in STEER_TIME.
-const STEER_RATE = 1.2; // rad/s
-const STEER_TIME = 0.25;
+// Paddle steering at low speed: a turn rate he reaches in STEER_TIME — held
+// against the water and the fins, which at 1.2 rad/s and 0.25 s let a
+// paddler turn 27° in three seconds. Now half a turn takes about two, lying
+// still or paddling, the way a paddler sweeping one arm turns his board.
+const STEER_RATE = 2.2; // rad/s
+const STEER_TIME = 0.04;
 // S digs the tail: a braking rate, 1/s.
 const TAIL_DIG = 0.6;
 // Pop: an upward kick and the time before the next.

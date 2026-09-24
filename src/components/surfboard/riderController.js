@@ -9,7 +9,7 @@ import {
   bodyPoint, driveKinematic, placeBody, qConj, qFromAxisAngle, qMul, qRotate, qRotateInverse, qSlerp, setKinematic, stepRagdoll,
 } from './ragdoll.js';
 import {
-  RUN_SPEED, carryGrip, carryPose, createWalker, crouchControls, jumpControls, jumpLegs, landWalker, resetWalker, stepWalker,
+  RUN_SPEED, SPREADS, carryGrip, carryPose, createWalker, crouchControls, jumpControls, jumpLegs, landWalker, resetWalker, stepWalker,
   walkControls,
 } from './riderWalk.js';
 import { resetBoard } from './boardPhysics.js';
@@ -134,6 +134,14 @@ const LOWER_TIME = 0.45;
 const CARRY_LAUNCH = 0.9;
 // A board put down floats this deep (m).
 const PUT_DRAFT = 0.05;
+// Follow-through on his feet and in the air: the hands and the head go on a
+// moment when his body starts, stops or lands, and swing back — springs on
+// the pose in the pelvis's frame (Hz, damping ratio), shaken by how the
+// pelvis accelerates (at most this, m/s²; the head by this much per m/s²,
+// nodding by this much, rad per m/s²). Landing from a jump the hands dip
+// ~10 cm and the head nods ~7°; a walker's own bob moves the hands a
+// centimetre or two and the head a degree; setting off it tips back ~3°.
+const FOLLOW = { handFreq: 2.2, handDamping: 0.45, handReach: 0.15, headFreq: 2.6, headDamping: 0.5, headSway: 0.02, headNod: 0.006, shake: 40 };
 // The leash: back on only with its plug this close (m).
 const LEASH_REACH = 1.0;
 // Stepped off, he keeps a hand on the board this long (s) while it is this
@@ -212,7 +220,7 @@ export function createRider(board, options = {}) {
     stateTime: 0,
     // Where each body stood on the board when its state began, for the blend.
     entry: { position: SEGMENT_NAMES.map(() => [0, 0, 0]), rotation: SEGMENT_NAMES.map(() => [0, 0, 0, 1]) },
-    strokeL: -1, strokeR: -1, nextArm: 'L', queueL: 0, queueR: 0,
+    strokeL: -1, strokeR: -1, nextArm: 'L', queueL: 0, queueR: 0, sweepL: 0, sweepR: 0,
     swimPhase: 0, kickPhase: 0, swimYaw: 0, swimEffort: 1,
     walker: createWalker(),
     // Where a blend of postures starts (his bodies read back), what it heads
@@ -222,6 +230,7 @@ export function createRider(board, options = {}) {
     leap: {
       from: 'ground', air: false, t: 0, load: 0, p: [0, 0, 0], v: [0, 0, 0], dir: [0, 1], yaw: 0, startYaw: 0, facing: 0,
       floor: -Infinity, tuck: 0, reach: 0, hug: 0,
+      style: { tuck: 1, handL: SPREADS[0], handR: SPREADS[0], hugUp: null, legs: 0, spin: 0, give: 1, head: [0, 0] },
     },
     // The board under his arm: 'none', 'lift', 'held', 'lower'; which side;
     // where it is, where it came from and goes to; what he does once it is down.
@@ -230,6 +239,12 @@ export function createRider(board, options = {}) {
     swimFree: false,
     // How long more he steadies the board he stepped off.
     steadyFor: 0,
+    // Jumps so far, each drawn its own style; the follow-through's springs.
+    jumps: 0,
+    follow: {
+      ready: false, p: [0, 0, 0], v: [0, 0, 0], a: [0, 0, 0],
+      handL: [0, 0, 0], handLv: [0, 0, 0], handR: [0, 0, 0], handRv: [0, 0, 0], head: [0, 0], headV: [0, 0],
+    },
     climb: [0, 0, 0],
     counters: { popUp: 0, strokeLeft: 0, strokeRight: 0, board: 0, leash: 0 },
     crouch: 0, crouchRate: 0, lastCrouch: 0,
@@ -285,6 +300,7 @@ function setState(rider, state) {
 
 // Change what carries him. A body the pose now carries starts from where it is.
 function enter(rider, state, board = null) {
+  if (POSED.has(state) && !POSED.has(rider.state)) rider.follow.ready = false;
   setState(rider, state);
   const carried = new Set(CARRIED[state]);
   rider.world.bodies.forEach((body, i) => {
@@ -340,7 +356,7 @@ export function resetRider(rider, board) {
   });
   enter(rider, 'prone', board);
   rider.sink = 0; rider.sinkV = 0; rider.sway = 0; rider.swayV = 0;
-  rider.strokeL = -1; rider.strokeR = -1; rider.queueL = 0; rider.queueR = 0;
+  rider.strokeL = -1; rider.strokeR = -1; rider.queueL = 0; rider.queueR = 0; rider.sweepL = 0; rider.sweepR = 0;
   rider.slowFor = 0;
   rider.boardV = null;
   rider.carry.phase = 'none';
@@ -405,12 +421,17 @@ export function stepRider(rider, frame) {
 
   if (state === 'prone') {
     // Strokes: asked for one arm at a time, or both in turn while he holds
-    // forward; a stroke already under way finishes first.
+    // forward; turning (A, D), the outside arm sweeps wide — stroke after
+    // stroke on its own if he is not paddling; a stroke under way finishes.
     if (strokeLeft) rider.queueL += 1;
     if (strokeRight) rider.queueR += 1;
     const paddling = trim > 0.2;
-    advanceStroke(rider, 'L', dt, paddling);
-    advanceStroke(rider, 'R', dt, paddling);
+    const sweeping = lean < -0.3 ? 'R' : lean > 0.3 ? 'L' : null;
+    advanceStroke(rider, 'L', dt, paddling, sweeping === 'L' && !paddling);
+    advanceStroke(rider, 'R', dt, paddling, sweeping === 'R' && !paddling);
+    const ease = Math.min(1, dt * 6);
+    rider.sweepL += ((sweeping === 'L' ? 1 : 0) - rider.sweepL) * ease;
+    rider.sweepR += ((sweeping === 'R' ? 1 : 0) - rider.sweepR) * ease;
     // Each arm in the water pushes; one arm alone also turns the board away
     // from its side.
     const pullL = rider.strokeL >= 0 && rider.strokeL < STROKE_PULL ? Math.sin(Math.PI * rider.strokeL / STROKE_PULL) : 0;
@@ -527,7 +548,8 @@ export function stepRider(rider, frame) {
     swimControls({ strokeL: rider.swimPhase, strokeR: rider.swimPhase + 0.5, kick: rider.kickPhase, lift: 1 }, rider.controls);
   } else if (rider.state === 'walk') walkPose(rider);
   else if (rider.state === 'jump') jumpPose(rider, params);
-  else proneControls(rider.board, { strokeL: rider.strokeL, strokeR: rider.strokeR, arch: 0.6 + 0.4 * Math.max(trim, 0) }, rider.controls);
+  else proneControls(rider.board, { strokeL: rider.strokeL, strokeR: rider.strokeR, sweepL: rider.sweepL, sweepR: rider.sweepR, arch: 0.6 + 0.4 * Math.max(trim, 0) }, rider.controls);
+  if (POSED.has(rider.state)) followThrough(rider, dt);
   solvePose(rider.controls, rider.pose);
 
   // Muscles: toward the pose's joint rotations on the board or swimming,
@@ -804,6 +826,7 @@ function startJump(rider, board, from, lean, trim) {
   const leap = rider.leap;
   leap.from = from; leap.air = false; leap.t = 0; leap.load = JUMP_LOAD[from];
   leap.tuck = 0; leap.reach = 0; leap.hug = 0;
+  drawStyle(rider, leap.style);
   if (from === 'ground') leap.yaw = rider.walker.yaw;
   else {
     let x = -lean, z = trim;
@@ -864,7 +887,7 @@ function stepJump(rider, board, frame, dt, events, trim, run) {
   const water = flightWater.height;
   const intoWater = Number.isFinite(water) && water - (Number.isFinite(ground) ? ground : -Infinity) > WATER_LANDING;
   const surface = intoWater ? water : Number.isFinite(ground) ? ground : water;
-  leap.tuck = smoothstep(0.04, 0.26, leap.t);
+  leap.tuck = Math.min(1, smoothstep(0.04, 0.26, leap.t) * leap.style.tuck);
   leap.hug += ((intoWater ? 1 : 0) - leap.hug) * Math.min(1, dt * 8);
   // How long till his straight legs would meet what he comes down on.
   const drop = p[1] - jumpLegs(0, 0) - surface;
@@ -872,7 +895,7 @@ function stepJump(rider, board, frame, dt, events, trim, run) {
   leap.reach = intoWater ? 0 : 1 - smoothstep(0.08, 0.24, untilDown);
   // Turning in the air to face the way he goes.
   const turn = Math.atan2(Math.sin(leap.yaw - leap.startYaw), Math.cos(leap.yaw - leap.startYaw));
-  leap.facing = leap.startYaw + turn * smoothstep(0, 0.3, leap.t);
+  leap.facing = leap.startYaw + turn * smoothstep(0, 0.3, leap.t) + leap.style.spin * smoothstep(0.05, 0.5, leap.t);
   if (v[1] < 0 && p[1] - jumpLegs(leap.tuck, leap.reach) <= surface) {
     if (intoWater) {
       // In: the body goes on down with the speed it had, then swims.
@@ -884,7 +907,7 @@ function stepJump(rider, board, frame, dt, events, trim, run) {
       // Down on his feet, going on the way he went, the knees giving.
       const along = v[0] * Math.sin(leap.facing) + v[2] * Math.cos(leap.facing);
       resetWalker(walker, { x: p[0], z: p[2], yaw: leap.facing, ground: groundOf(frame), speed: clamp(along, 0, RUN_SPEED) });
-      landWalker(walker, LANDING_GIVE * clamp(-v[1] / 4, 0.4, 1.2));
+      landWalker(walker, LANDING_GIVE * leap.style.give * clamp(-v[1] / 4, 0.4, 1.2));
       events.landed = clamp(-v[1] / 6, 0, 1);
       enter(rider, 'walk', board);
       readBack(rider, WORLD, rider.from);
@@ -899,7 +922,7 @@ function stepJump(rider, board, frame, dt, events, trim, run) {
 // The jump's pose: the crouch (on the ground, the walk's own, sinking; on the
 // board, the stand's or a quick pop-up's, in its frame), then the flight's —
 // each from where his bodies were when it began.
-const flight = { x: 0, y: 0, z: 0, yaw: 0, t: 0, floor: 0, tuck: 0, reach: 0, hug: 0 };
+const flight = { x: 0, y: 0, z: 0, yaw: 0, t: 0, floor: 0, tuck: 0, reach: 0, hug: 0, style: null };
 function jumpPose(rider, params) {
   const leap = rider.leap, aim = rider.aim;
   if (!leap.air) {
@@ -913,7 +936,7 @@ function jumpPose(rider, params) {
   } else {
     flight.x = leap.p[0]; flight.y = leap.p[1]; flight.z = leap.p[2]; flight.yaw = leap.facing; flight.t = leap.t;
     flight.floor = leap.t < 0.3 ? leap.floor : -Infinity;
-    flight.tuck = leap.tuck; flight.reach = leap.reach; flight.hug = leap.hug;
+    flight.tuck = leap.tuck; flight.reach = leap.reach; flight.hug = leap.hug; flight.style = leap.style;
     jumpControls(flight, aim);
     const hold = carryHold(rider, flight.x, flight.y, flight.z, flight.yaw);
     if (hold) {
@@ -1111,8 +1134,9 @@ function swimThrust(rider, w) {
 }
 
 // One arm's stroke: its phase runs 0..1 over STROKE_TIME; a new one starts
-// when asked (or, paddling, when the other arm is half way through its own).
-function advanceStroke(rider, arm, dt, paddling) {
+// when asked, paddling when the other arm is half way through its own, and
+// sweeping (turning) as soon as its last one is done.
+function advanceStroke(rider, arm, dt, paddling, sweeping = false) {
   const key = `stroke${arm}`, queue = `queue${arm}`;
   if (rider[key] >= 0) {
     rider[key] += dt / STROKE_TIME;
@@ -1120,7 +1144,7 @@ function advanceStroke(rider, arm, dt, paddling) {
   }
   if (rider[key] < 0) {
     const other = rider[arm === 'L' ? 'strokeR' : 'strokeL'];
-    const turn = paddling && rider.nextArm === arm && (other < 0 || other >= 0.5);
+    const turn = sweeping || (paddling && rider.nextArm === arm && (other < 0 || other >= 0.5));
     if (rider[queue] > 0 || turn) {
       rider[key] = 0;
       rider[queue] = Math.max(0, rider[queue] - 1);
@@ -1181,3 +1205,81 @@ function leashPull(rider, foot) {
 }
 
 export { SEGMENT_NAMES };
+
+// --- life in the pose ------------------------------------------------------------
+
+// A jump is never quite the last one: how deep he tucks, where each arm goes
+// through the flight, an arm thrown up going into the water, one knee higher,
+// a twist in the air, how far his knees give, the head's tilt. Drawn from his
+// count of jumps, so the same jumps come out the same (the checks).
+function drawStyle(rider, style) {
+  let seed = (0x5eed + (rider.jumps += 1) * 0x9e3779b1) >>> 0;
+  const random = () => {
+    seed = (seed + 0x6d2b79f5) >>> 0;
+    let t = seed;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  const either = () => random() * 2 - 1;
+  style.tuck = 0.75 + 0.35 * random();
+  style.handL = SPREADS[Math.floor(random() * SPREADS.length)];
+  style.handR = SPREADS[Math.floor(random() * SPREADS.length)];
+  style.hugUp = random() < 0.3 ? (random() < 0.5 ? 'L' : 'R') : null;
+  style.legs = either();
+  style.spin = either() * 0.35;
+  style.give = 0.8 + 0.4 * random();
+  style.head[0] = either() * 0.14; style.head[1] = either() * 0.1;
+  return style;
+}
+
+// The follow-through (FOLLOW), on the pose's controls just built: each hand
+// held to its place from the pelvis by a spring, the head to its turn by
+// another, both thrown by the pelvis's acceleration as the body they hang on
+// speeds up, slows down or lands. Standing at rest they sit exactly on the
+// pose; in the air, weightless, the arms float up a little.
+const shake = [0, 0, 0], held = [0, 0, 0], followQ = [0, 0, 0, 1], nodQ = [0, 0, 0, 1];
+function followThrough(rider, dt) {
+  const f = rider.follow, c = rider.controls, p = c.pelvis;
+  if (!f.ready) {
+    f.ready = true;
+    for (let k = 0; k < 3; k += 1) { f.p[k] = p[k]; f.v[k] = 0; f.handL[k] = 0; f.handLv[k] = 0; f.handR[k] = 0; f.handRv[k] = 0; }
+    f.head[0] = 0; f.head[1] = 0; f.headV[0] = 0; f.headV[1] = 0;
+    return;
+  }
+  // The pelvis's acceleration, from its path, in its own frame.
+  for (let k = 0; k < 3; k += 1) {
+    const v = (p[k] - f.p[k]) / dt;
+    shake[k] = (v - f.v[k]) / dt;
+    f.v[k] = v; f.p[k] = p[k];
+  }
+  const size = Math.hypot(shake[0], shake[1], shake[2]);
+  if (size > FOLLOW.shake) for (let k = 0; k < 3; k += 1) shake[k] *= FOLLOW.shake / size;
+  qRotateInverse(c.pelvisQ, shake, shake);
+  const wh = 2 * Math.PI * FOLLOW.handFreq, zh = FOLLOW.handDamping;
+  for (const side of ['L', 'R']) {
+    const o = f[`hand${side}`], ov = f[`hand${side}v`];
+    for (let k = 0; k < 3; k += 1) {
+      ov[k] += (-wh * wh * o[k] - 2 * zh * wh * ov[k] - shake[k]) * dt;
+      o[k] += ov[k] * dt;
+    }
+    const size2 = Math.hypot(o[0], o[1], o[2]);
+    if (size2 > FOLLOW.handReach) for (let k = 0; k < 3; k += 1) o[k] *= FOLLOW.handReach / size2;
+    qRotate(c.pelvisQ, o, held);
+    const hand = c[`hand${side}`];
+    hand[0] += held[0]; hand[1] += held[1]; hand[2] += held[2];
+  }
+  // The head: nodding back as he speeds up and forward as he lands, tilting
+  // away from a turn's pull.
+  const wn = 2 * Math.PI * FOLLOW.headFreq, zn = FOLLOW.headDamping;
+  const pushes = [-FOLLOW.headSway * shake[2] + FOLLOW.headNod * shake[1], FOLLOW.headSway * shake[0]];
+  for (let k = 0; k < 2; k += 1) {
+    f.headV[k] += (-wn * wn * f.head[k] - 2 * zn * wn * f.headV[k] + wn * wn * pushes[k]) * dt;
+    f.head[k] += f.headV[k] * dt;
+  }
+  qFromAxisAngle(ACROSS, f.head[0], followQ);
+  qFromAxisAngle(ALONG, f.head[1], nodQ);
+  qMul(c.neckQ, followQ, c.neckQ);
+  qMul(c.neckQ, nodQ, c.neckQ);
+}
+const ALONG = [0, 0, 1];
