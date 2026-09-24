@@ -1,6 +1,6 @@
 import { qConj, qFromAxisAngle, qMul, qNormalize, qRotate, qSlerp } from './ragdoll.js';
 import { BELLY, BONES, PUSH_WIDTH, REST, SEGMENT, SEGMENT_CENTRE, SEGMENT_NAMES } from './riderSkeleton.js';
-import { normalizeProneTuning } from './proneTuning.js';
+import { STROKE_KEYS, SWIM_KEYS, normalizePoseTuning, strokeOffset } from './poseTuning.js';
 import SAVED_POSE from './riderPoseTuning.js';
 
 // Where every segment of the rider should be, in the board's frame: the pose
@@ -314,11 +314,16 @@ function footForward(q, out) {
   return qRotate(q, Z, out);
 }
 
-// Denis's corrections to the lying pose (proneTuning.js): the saved ones, or
-// the ones the lab's manipulators hold while he drags them.
-let prone = normalizeProneTuning(SAVED_POSE.prone);
-export const proneTuning = () => prone;
-export function setProneTuning(tuning) { prone = normalizeProneTuning(tuning); }
+// Denis's corrections to the poses (poseTuning.js): the saved ones, or the
+// ones the lab's manipulators hold while he drags them.
+let tuned = normalizePoseTuning(SAVED_POSE);
+let prone = tuned.prone;
+export const poseTuning = () => tuned;
+export function setPoseTuning(tuning) {
+  tuned = normalizePoseTuning(tuning);
+  prone = tuned.prone;
+}
+const moved = [0, 0, 0];
 
 // Lying, paddling. p: { strokeL, strokeR: the phase 0..1 of each arm's
 // stroke or −1 resting on the rail, arch 0..1 (chest up), kick 0..1 }.
@@ -370,10 +375,11 @@ export function proneControls(board, p, out) {
       const t = (phase - 0.55) / 0.45;
       hand[0] = sign * (rail + 0.14 + 0.08 * Math.sin(Math.PI * t)); hand[1] = deck(shoulderZ) + 0.02 + 0.22 * Math.sin(Math.PI * t); hand[2] = shoulderZ - 0.38 + 0.8 * t;
     }
+    if (!resting) add(hand, strokeOffset(tuned.paddle[`stroke${side}`], STROKE_KEYS, phase, moved), hand);
     // Resting, the elbows fold back along his sides, a little out; paddling,
     // they ride high and wide over the water.
-    const pole = out[`elbowPole${side}`], set = prone[`elbow${side}`];
-    if (resting && set) copy(set, pole);
+    const pole = out[`elbowPole${side}`], set = resting ? prone[`elbow${side}`] : tuned.paddle[`elbow${side}`];
+    if (set) copy(set, pole);
     else if (resting) { pole[0] = sign * 0.45; pole[1] = 0.35; pole[2] = -0.8; }
     else { pole[0] = sign * 0.6; pole[1] = 0.8; pole[2] = -0.2; }
     normalize(pole);
@@ -388,27 +394,31 @@ export function proneControls(board, p, out) {
 // p: { strokeL, strokeR (0..1 phase of each arm), kick (phase 0..1), lift 0..1
 // (how far the head is held up) }.
 export function swimControls(p, out) {
-  out.pelvis[0] = 0; out.pelvis[1] = -0.16; out.pelvis[2] = 0;
+  const swim = tuned.swim;
+  out.pelvis[0] = swim.pelvis[0]; out.pelvis[1] = -0.16 + swim.pelvis[1]; out.pelvis[2] = swim.pelvis[2];
   qFromAxisAngle(X, 6 * DEG, qTmp);
   qMul(PRONE_BASE, qTmp, out.pelvisQ);
   const lift = clamp(p.lift ?? 1, 0, 1);
-  qFromAxisAngle(X, -(8 + 8 * lift) * DEG, out.lumbarQ);
-  qFromAxisAngle(X, -(6 + 8 * lift) * DEG, out.thoracicQ);
+  qFromAxisAngle(X, -(8 + 8 * lift + 0.6 * swim.chest) * DEG, out.lumbarQ);
+  qFromAxisAngle(X, -(6 + 8 * lift + 0.4 * swim.chest) * DEG, out.thoracicQ);
   // The head rolls a little with the arms, held up to see where he goes.
   const roll = Math.sin(2 * Math.PI * (p.strokeL ?? 0)) * 8 * DEG;
   qFromAxisAngle(Z, roll, qTmp);
-  qFromAxisAngle(X, -(22 + 26 * lift) * DEG, qTmp2);
-  qMul(qTmp, qTmp2, out.neckQ);
+  qFromAxisAngle(X, -(22 + 26 * lift + swim.head[0]) * DEG, qTmp2);
+  qMul(qTmp, qTmp2, qTmp);
+  qFromAxisAngle(Y, swim.head[1] * DEG, qTmp2);
+  qMul(qTmp2, qTmp, out.neckQ);
   // Flutter kick: each leg up and down from the hip, half a beat apart, toes
   // pointed back.
   const kick = p.kick ?? 0;
   for (const [side, x, beat] of [['L', 0.09, 0], ['R', -0.09, 0.5]]) {
-    const s = out[`sole${side}`];
-    s[0] = x; s[1] = -0.3 + 0.13 * Math.sin(2 * Math.PI * (kick + beat)); s[2] = -0.9;
+    const s = out[`sole${side}`], foot = swim[`foot${side}`];
+    s[0] = x + foot[0]; s[1] = -0.3 + 0.13 * Math.sin(2 * Math.PI * (kick + beat)) + foot[1]; s[2] = -0.9 + foot[2];
     qFromAxisAngle(X, 0.75, qTmp);
     qMul(PRONE_BASE, qTmp, out[`footQ${side}`]);
-    const pole = out[`kneePole${side}`];
-    pole[0] = 0; pole[1] = -1; pole[2] = -0.1;
+    const pole = out[`kneePole${side}`], set = swim[`knee${side}`];
+    if (set) copy(set, pole);
+    else { pole[0] = 0; pole[1] = -1; pole[2] = -0.1; }
   }
   // Crawl: in ahead of the shoulder, pulled down and back under the chest to
   // the hip, out of the water there and swung forward over it, elbow high.
@@ -430,6 +440,8 @@ export function swimControls(p, out) {
       hand[2] = shoulderZ - 0.43 + 0.95 * smoothstep(0, 1, t);
       pole[0] = sign * 0.35; pole[1] = 1; pole[2] = -0.2;
     }
+    add(hand, strokeOffset(swim[`stroke${side}`], SWIM_KEYS, phase, moved), hand);
+    if (swim[`elbow${side}`]) copy(swim[`elbow${side}`], pole);
     normalize(pole);
   }
   return out;

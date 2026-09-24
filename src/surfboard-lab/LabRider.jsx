@@ -9,7 +9,8 @@ import { lookRiderBody, updateRiderBody, useRiderBody } from '../components/surf
 import { createBoardBody, createBoardState, stepBoard } from '../components/surfboard/boardPhysics';
 import { deckHeight, halfWidth } from '../components/surfboard/boardShape';
 import { createRider, resetRider, stepRider } from '../components/surfboard/riderController';
-import { createControls, createPose, proneControls, solvePose } from '../components/surfboard/riderPose';
+import { createControls, createPose, proneControls, solvePose, swimControls } from '../components/surfboard/riderPose';
+import { STROKE_KEYS, SWIM_KEYS } from '../components/surfboard/poseTuning';
 import { REST, SEGMENT, SEGMENT_CENTRE, SEGMENT_NAMES } from '../components/surfboard/riderSkeleton';
 import { qRotate } from '../components/surfboard/ragdoll';
 
@@ -21,12 +22,13 @@ import { qRotate } from '../components/surfboard/ragdoll';
 // picture follows the board — the group under it is shifted back by the
 // board's travel — so he stays in the studio's frame however far he goes.
 //
-// Editing the lying pose, the physics stops: the board rests on the water
-// line and he lies on it exactly as the pose builder (riderPose.js) puts him,
-// nothing pulling at him. A point on each part he can be moved by — pelvis,
-// chest, head, hands, elbows, knees, feet — and the arrows on the chosen one
-// move it; what moves is Denis's correction (proneTuning.js), on top of the
-// pose the code builds.
+// Editing a pose, the physics stops and he is shown exactly as the pose
+// builder (riderPose.js) puts him, nothing pulling at him: lying on the board
+// resting on the water line; paddling, the same at one of the four moments of
+// a stroke; swimming, alone at the surface, at a moment of the crawl. A point
+// on each part he can be moved by — pelvis, chest, head, hands, elbows,
+// knees, feet — and the arrows on the chosen one move it; what moves is
+// Denis's correction (poseTuning.js), on top of the pose the code builds.
 
 const MAX_FRAME = 0.05;
 const SUBSTEP = 1 / 120;
@@ -40,7 +42,10 @@ const TOW_POP = 1.4;
 const SHOVE = 2.2;
 // Editing: the board's height, the draft his weight gives it.
 const REST_DRAFT = -0.07;
-const POSE_PARTS = ['pelvis', 'chest', 'head', 'handL', 'handR', 'elbowL', 'elbowR', 'kneeL', 'kneeR', 'footL', 'footR'];
+const ALL_PARTS = ['pelvis', 'chest', 'head', 'handL', 'handR', 'elbowL', 'elbowR', 'kneeL', 'kneeR', 'footL', 'footR'];
+// What each pose lets be moved: paddling moves only the arms (lying holds
+// the rest of him).
+const POSE_PARTS = { prone: ALL_PARTS, paddle: ['handL', 'handR', 'elbowL', 'elbowR'], swim: ALL_PARTS };
 // A drag of the chest or the head turns it about its joint: this far is a
 // radian (m).
 const CHEST_ARM = 0.3, HEAD_ARM = 0.15;
@@ -81,23 +86,28 @@ const poleTowards = (point, from, to) => {
   return pole.lengthSq() > 1e-8 ? pole.normalize().toArray() : null;
 };
 
-// The correction a drag makes: the part's point, now at `point`, moved by
-// `delta` (board frame) from where it was when the drag began (`start` the
-// corrections then, `points` the parts' points then).
-function dragged(part, start, points, point, delta) {
-  const t = structuredClone(start);
+// The correction a drag makes in pose `name` (at stroke moment `key`): the
+// part's point, now at `point`, moved by `delta` (the pose's frame) from where
+// it was when the drag began (`start` the corrections then, `points` the
+// parts' points then). A hand, paddling or swimming, moves its stroke at
+// that moment.
+function dragged(name, key, part, start, points, point, delta) {
+  const all = structuredClone(start), t = all[name];
   const move = [delta.x, delta.y, delta.z];
-  if (part === 'pelvis' || part.startsWith('hand') || part.startsWith('foot')) t[part] = t[part].map((v, i) => v + move[i]);
+  const shift = (value) => value.map((v, i) => v + move[i]);
+  const side = part.slice(-1);
+  if (part.startsWith('hand') && name !== 'prone') t[`stroke${side}`][key] = shift(t[`stroke${side}`][key]);
+  else if (part === 'pelvis' || part.startsWith('hand') || part.startsWith('foot')) t[part] = shift(t[part]);
   else if (part === 'chest') t.chest += Math.atan2(delta.y, CHEST_ARM) * DEG;
   else if (part === 'head') t.head = [t.head[0] + Math.atan2(delta.y, HEAD_ARM) * DEG, t.head[1] + Math.atan2(delta.x, HEAD_ARM) * DEG];
-  else if (part.startsWith('elbow')) t[part] = poleTowards(point, points[`shoulder${part.slice(-1)}`], points[`hand${part.slice(-1)}`]);
-  else if (part.startsWith('knee')) t[part] = poleTowards(point, points[`hip${part.slice(-1)}`], points[`ankle${part.slice(-1)}`]);
-  return t;
+  else if (part.startsWith('elbow')) t[part] = poleTowards(point, points[`shoulder${side}`], points[`hand${side}`]);
+  else if (part.startsWith('knee')) t[part] = poleTowards(point, points[`hip${side}`], points[`ankle${side}`]);
+  return all;
 }
 
 export default function LabRider({
   hull, dims, board, lighting, pose, look, pace, wireframe, onState, onClimbed,
-  editing = false, tuning = null, part = null, onPart, onTuning,
+  editing = false, editPose = 'prone', editKey = 0, tuning = null, part = null, onPart, onTuning,
 }) {
   const ridden = useMemo(() => createBoardBody(hull, {
     boardMass: board.surfboardMass, riderMass: board.surfboardRiderMass,
@@ -128,34 +138,41 @@ export default function LabRider({
   useEffect(() => { if (pose === 'swim') session.shove = true; }, [pose, session]);
   useEffect(() => { if (body) lookRiderBody(body, look); }, [body, look]);
 
-  // The lying pose the code builds with the corrections of the moment
-  // (riderPose holds them: the lab sets them there, so the physics has them
-  // too), with the board at rest on its draft, and the parts' points.
+  // The pose the code builds with the corrections of the moment (riderPose
+  // holds them: the lab sets them there, so the physics has them too) — on
+  // the board resting on its draft, or swimming at the surface — and the
+  // parts' points.
+  const swimming = editPose === 'swim';
+  const lift = useMemo(() => new THREE.Vector3(0, swimming ? 0 : REST_DRAFT, 0), [swimming]);
   const still = useMemo(() => {
     const controls = createControls(), built = createPose();
-    proneControls(session.rider.board, { strokeL: -1, strokeR: -1, arch: 0.6, kick: 0 }, controls);
+    if (swimming) swimControls({ strokeL: SWIM_KEYS[editKey], strokeR: SWIM_KEYS[editKey], kick: 0, lift: 1 }, controls);
+    else {
+      const phase = editPose === 'paddle' ? STROKE_KEYS[editKey] : -1;
+      proneControls(session.rider.board, { strokeL: phase, strokeR: phase, arch: 0.6, kick: 0 }, controls);
+    }
     solvePose(controls, built);
     const bodies = SEGMENT_NAMES.map((_, i) => ({
-      x: [built.position[i][0], built.position[i][1] + REST_DRAFT, built.position[i][2]],
+      x: [built.position[i][0], built.position[i][1] + lift.y, built.position[i][2]],
       q: built.rotation[i],
     }));
     return { rider: { world: { bodies } }, points: posePoints(built, controls) };
-  }, [session, tuning]); // eslint-disable-line react-hooks/exhaustive-deps -- tuning is read through riderPose
-  const lift = useMemo(() => new THREE.Vector3(0, REST_DRAFT, 0), []);
+  }, [editKey, editPose, lift, session, swimming, tuning]); // eslint-disable-line react-hooks/exhaustive-deps -- tuning is read through riderPose
+  const parts = POSE_PARTS[editPose];
 
   // The arrows ride an empty put on the chosen part; a drag turns how far it
   // went from where it began into the correction.
   const target = useMemo(() => new THREE.Object3D(), []);
   const drag = useRef(null);
   useEffect(() => {
-    if (editing && part && !drag.current) target.position.copy(still.points[part]).add(lift);
-  }, [editing, lift, part, still, target]);
+    if (editing && parts.includes(part) && !drag.current) target.position.copy(still.points[part]).add(lift);
+  }, [editing, lift, part, parts, still, target]);
   const startDrag = () => { drag.current = { tuning: structuredClone(tuning), points: still.points, from: target.position.clone() }; };
   const moveDrag = () => {
     const d = drag.current;
     if (!d || !part) return;
     const delta = target.position.clone().sub(d.from);
-    onTuning?.(dragged(part, d.tuning, d.points, target.position.clone().sub(lift), delta));
+    onTuning?.(dragged(editPose, editKey, part, d.tuning, d.points, target.position.clone().sub(lift), delta));
   };
   const endDrag = () => { drag.current = null; };
 
@@ -164,6 +181,7 @@ export default function LabRider({
     const { state, rider, intent, view } = s;
     if (editing) {
       frame.current?.position.set(0, 0, 0);
+      if (boardRef.current) boardRef.current.visible = !swimming;
       boardRef.current?.position.set(0, REST_DRAFT, 0);
       boardRef.current?.quaternion.set(0, 0, 0, 1);
       updateRiderModel(sticks.current, still.rider);
@@ -202,6 +220,7 @@ export default function LabRider({
       if (s.wet && rider.state === 'prone') { s.wet = false; onClimbed?.(); }
     }
     frame.current?.position.set(-state.p[0], 0, -state.p[2]);
+    if (boardRef.current) boardRef.current.visible = true;
     boardRef.current?.position.set(state.p[0], state.p[1], state.p[2]);
     boardRef.current?.quaternion.set(state.q[0], state.q[1], state.q[2], state.q[3]);
     updateRiderModel(sticks.current, rider);
@@ -219,7 +238,7 @@ export default function LabRider({
         <RiderModel ref={sticks} visible={look !== 'human' || !body} />
       </group>
       {editing && <>
-        {POSE_PARTS.map((name) => (
+        {parts.map((name) => (
           <mesh
             key={name}
             position={still.points[name].clone().add(lift)}
@@ -231,7 +250,7 @@ export default function LabRider({
           </mesh>
         ))}
         <primitive object={target} />
-        {part && <TransformControls object={target} mode="translate" size={0.7} onMouseDown={startDrag} onObjectChange={moveDrag} onMouseUp={endDrag} />}
+        {parts.includes(part) && <TransformControls object={target} mode="translate" size={0.7} onMouseDown={startDrag} onObjectChange={moveDrag} onMouseUp={endDrag} />}
       </>}
     </>
   );
