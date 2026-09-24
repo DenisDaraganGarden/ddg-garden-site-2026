@@ -320,6 +320,12 @@ export const buildHomeSceneLighting = (settings = {}) => {
       // «Только HDRI»: the panorama is both the light and the backdrop.
       hdri: envMode !== 'sky',
       hdriBackdrop: envMode === 'hdri' || (envMode === 'sky+hdri' && settings.showHdriBackground === true),
+      // «Только HDRI» only: every water surface reflects the panorama too.
+      hdriSea: envMode === 'hdri',
+      // The panorama's light on objects (their environmentIntensity) and the
+      // level the sea reflects it at, so the two agree. Under a storm it is the
+      // only fill that does not darken by itself, so it takes the storm's dimming.
+      hdriLevel: finiteNumber(settings.hdriIntensity, 1) * exposure * (1 - 0.5 * storm),
       // A gain on the sky light objects take and on the sky the sea reflects,
       // never on the sky in view. The panorama's own light stays untinted.
       tint: reflectionTone(waterTint.linear).map(

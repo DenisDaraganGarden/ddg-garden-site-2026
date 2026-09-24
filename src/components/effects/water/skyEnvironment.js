@@ -171,7 +171,7 @@ export function useSkyEnvironment(state, {
   enabled = true,
   tint = [1, 1, 1],
 } = {}) {
-  const { gl } = useThree();
+  const { gl, invalidate } = useThree();
   // State, not a ref: the texture is built in an effect, so a ref would leave
   // every consumer that reads it during render holding the null from the first
   // pass forever. That is exactly what kept the sky dome from ever mounting -
@@ -418,9 +418,12 @@ export function useSkyEnvironment(state, {
       targetRef.current = nextTarget;
       setEnvironment(nextTarget.texture);
     }
+    // The table lands after a quiet window, so a paused editor (drawing on
+    // demand) has already spent the frames its settings change asked for.
+    invalidate(2);
 
     return undefined;
-  }, [enabled, gl, height, lut, lutRequest.tintKey, width]);
+  }, [enabled, gl, height, invalidate, lut, lutRequest.tintKey, width]);
 
   // The Environment owner switches to the new PMREM during the layout phase of
   // this render. Dispose old targets only afterwards, never while the scene may

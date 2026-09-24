@@ -143,6 +143,13 @@ const closeTo = (actual, expected, epsilon = 1e-10) => (
   assert.deepEqual(environment('sky+hdri'), { hdri: true, hdriBackdrop: false }, 'the site look: HDRI light behind the painted sky');
   assert.deepEqual(environment('sky+hdri', true), { hdri: true, hdriBackdrop: true });
   assert.deepEqual(environment('hdri'), { hdri: true, hdriBackdrop: true }, 'HDRI only is the backdrop too');
+  // Only «Только HDRI» hands the sea the panorama; the painted-sky modes keep theirs.
+  assert.deepEqual(['sky', 'sky+hdri', 'hdri'].map((envMode) => lightingOf({ envMode, showHdriBackground: true }).environment.hdriSea), [false, false, true]);
+  // The sea reflects the panorama at the level it lights objects with: one
+  // number, the old light formula (hdriIntensity x exposure, dimmed by a storm).
+  const panoramaLevel = (settings) => lightingOf(settings).environment.hdriLevel;
+  assert.equal(panoramaLevel({ hdriIntensity: 0.37, hdrExposure: 90 }), 0.37 * 0.9 * 1);
+  assert.equal(panoramaLevel({ hdriIntensity: 1, hdrExposure: 64, painterlyCloudsEnabled: true, painterlyCloudStormEnabled: true, painterlyCloudStorm: 0.5 }), 1 * 0.64 * (1 - 0.5 * 0.5));
 
   // The painterly sky takes turbidity and the distant surface relative to the
   // defaults it is painted for: identity there, and the right direction away.

@@ -62,6 +62,7 @@ export const waterShadingShader = /* glsl */`
   uniform float uShadowIntensity;
   uniform float uWaterShadowStrength;
   uniform float uWaterSceneSkyActive;
+  uniform vec2 uSkyRotation;
   uniform sampler2D uReflectionTexture;
   uniform sampler2D uRefractionTexture;
   uniform mat4 uReflectionMatrix;
@@ -114,18 +115,24 @@ export const waterShadingShader = /* glsl */`
     return true;
   }
 
+  // The panorama the sea reflects in «Только HDRI» turns with «Поворот HDRI»
+  // exactly as three turns it for objects (envMapRotation, about y by minus
+  // the angle); the painted skies are never turned, (1, 0) leaves the ray be.
+  vec3 waterSkyRay(vec3 ray) {
+    return vec3(ray.x * uSkyRotation.x - ray.z * uSkyRotation.y, ray.y, ray.x * uSkyRotation.y + ray.z * uSkyRotation.x);
+  }
   vec3 waterSkyColor(vec3 ray) {
     vec3 fallback = mix(uSkyHorizon, uSkyZenith, pow(clamp(ray.y, 0.0, 1.0), 0.55));
     // In the product use exactly the LUT the dome and PMREM use. The colour
     // anchors remain a complete lab fallback before a scene sky is available.
     if (uWaterSceneSkyActive < 0.5) return fallback * uSkyLevel;
-    return skyRadiance(ray) * uSkyLevel;
+    return skyRadiance(waterSkyRay(ray)) * uSkyLevel;
   }
   // One bilinear tap of the same sky, for taps that are averaged anyway: the
   // nine-tap Catmull-Rom is for the one ray that is seen sharp.
   vec3 waterSkyColorSoft(vec3 ray) {
     if (uWaterSceneSkyActive < 0.5) return waterSkyColor(ray);
-    vec3 r = normalize(ray);
+    vec3 r = normalize(waterSkyRay(ray));
     vec2 uv = vec2(atan(r.z, r.x) * 0.15915494 + 0.5, asin(clamp(r.y, -1.0, 1.0)) * 0.31830989 + 0.5);
     return textureLod(uSkyLut, uv, 0.0).rgb * uSkyLevel;
   }
@@ -823,7 +830,11 @@ export function syncWaterShadingUniforms(uniforms, settings, lighting) {
   vec3From(uniforms.uFillIrradiance.value, lighting?.fill?.irradiance, [0.7, 0.8, 1]);
   uniforms.uSkyHorizon.value.fromArray(lighting?.environment?.horizon?.linear ?? [0.55, 0.65, 0.75]);
   uniforms.uSkyZenith.value.fromArray(lighting?.environment?.zenith?.linear ?? [0.15, 0.3, 0.55]);
-  uniforms.uSkyLevel.value = (settings.skyReflection ?? 1) * (lighting?.sky?.skyLevel ?? 1);
+  // The panorama («Только HDRI») at the level it lights objects with; the
+  // painted skies at theirs.
+  uniforms.uSkyLevel.value = (settings.skyReflection ?? 1) * (lighting?.environment?.hdriSea
+    ? lighting.environment.hdriLevel
+    : lighting?.sky?.skyLevel ?? 1);
 }
 
 // Per frame: the clock and the noise volume, once it has been built.

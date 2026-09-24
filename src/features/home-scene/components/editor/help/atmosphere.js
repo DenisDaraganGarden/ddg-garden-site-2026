@@ -188,8 +188,8 @@ export default {
     'Colour the hemisphere light gives to everything facing down, like light bounced off the ground.',
   ],
   envTint: [
-    'Оттенок света неба на предметах и неба, отражённого в море; видимое небо не меняется. Исходный серо-голубой #6b7484 нейтрален: теплее — теплее, светлее — ярче. В режимах с HDRI свет панорамы не окрашивается.',
-    'Tint of the sky light on objects and of the sky the sea reflects; the visible sky keeps its colour. The default grey-blue #6b7484 is neutral: warmer warms, lighter brightens. The HDRI panorama’s own light is not tinted.',
+    'Оттенок света неба на предметах и неба, отражённого в море, — и рисованного, и HDRI-панорамы; видимое небо и фон не меняются. Исходный серо-голубой #6b7484 нейтрален: теплее — теплее, светлее — ярче.',
+    'Tint of the sky light on objects and of the sky the sea reflects, painted or HDRI panorama alike; the visible sky and backdrop keep their colour. The default grey-blue #6b7484 is neutral: warmer warms, lighter brightens.',
   ],
   shadowsEnabled: [
     'Тени от солнца, ночью — от луны. Тени живописных облаков от этой галочки не зависят.',
@@ -264,20 +264,20 @@ export default {
     'Shows the sky and clouds as the background. Off leaves a near-black backdrop, but the sky’s light and its reflection in the water remain.',
   ],
   envMode: [
-    '«Небо» — рисованное небо и фон, и свет. «Небо + HDRI» — фон рисованный, а предметы освещает и отражается в них фотопанорама. «Только HDRI» — панорама и фон, и свет. Море всегда отражает рисованное небо.',
-    '“Sky”: the rendered sky is backdrop and light. “Sky + HDRI”: the rendered sky stays behind while the photo panorama lights objects and shows in them. “HDRI only”: the panorama is backdrop and light. The sea always reflects the rendered sky.',
+    '«Небо» — рисованное небо и фон, и свет. «Небо + HDRI» — фон рисованный, а предметы освещает и отражается в них фотопанорама. «Только HDRI» — панорама и фон, и свет, и её же отражает море; в других режимах море отражает рисованное небо.',
+    '“Sky”: the rendered sky is backdrop and light. “Sky + HDRI”: the rendered sky stays behind, the photo panorama lights objects and shows in them. “HDRI only”: the panorama is backdrop, light and the sea’s reflection; otherwise the sea shows the rendered sky.',
   ],
   hdriIntensity: [
-    'Яркость HDRI-панорамы: сколько света она даёт предметам и насколько ярка фоном. Только в режимах с HDRI; гроза её приглушает.',
-    'Brightness of the HDRI panorama: how much light it gives objects and how bright it is as a background. HDRI modes only; a storm dims it.',
+    'Яркость HDRI-панорамы: сколько света она даёт предметам и насколько ярка фоном, а в «Только HDRI» — и в отражении моря. Только в режимах с HDRI; гроза её приглушает.',
+    'Brightness of the HDRI panorama: how much light it gives objects and how bright it is as a background, and in “HDRI only” in the sea’s reflection too. HDRI modes only; a storm dims it.',
   ],
   hdrPreset: [
     'Какая фотопанорама используется в режимах с HDRI. Её палитра ещё окрашивает дождь, даёт туману цвет горизонта, когда панорама стоит фоном, и слегка тонирует толщу воды.',
     'Which photo panorama the HDRI modes use. Its palette also colours the rain, gives the fog its horizon while the panorama is the backdrop, and slightly tints the water body.',
   ],
   hdrRotation: [
-    'Поворот HDRI-панорамы вокруг вертикали: с какой стороны падает её свет и что отражается в предметах. Панорама-фон поворачивается вместе с ним.',
-    'Turns the HDRI panorama around the vertical: which side its light comes from and what objects reflect. The panorama backdrop turns with it.',
+    'Поворот HDRI-панорамы вокруг вертикали: с какой стороны падает её свет и что отражается в предметах. Панорама-фон и её отражение в море («Только HDRI») поворачиваются вместе с ним.',
+    'Turns the HDRI panorama around the vertical: which side its light comes from and what objects reflect. The panorama backdrop and its reflection in the sea (“HDRI only”) turn with it.',
   ],
   hdrExposure: [
     'Яркость всего неба — видимого, облаков, отражённого и его рассеянного света на предметах; действует и в режиме «Небо». Прямое солнце не меняется.',
@@ -288,8 +288,8 @@ export default {
     'How much environment reflection and diffuse light objects, shore and plants take — in any mode, not only HDRI. At 0 only direct and fill light remain.',
   ],
   showHdriBackground: [
-    'В режиме «Небо + HDRI» ставит панораму фоном вместо неба; живописные облака при этом скрыты. В «Только HDRI» панорама фоном всегда. Море по-прежнему отражает рисованное небо.',
-    'In “Sky + HDRI” puts the panorama behind the scene instead of the sky; painterly clouds are hidden. In “HDRI only” it is always the backdrop. The sea still reflects the rendered sky.',
+    'В режиме «Небо + HDRI» ставит панораму фоном вместо неба; живописные облака скрыты, а море по-прежнему отражает рисованное небо. В «Только HDRI» панорама фоном всегда, и море отражает её.',
+    'In “Sky + HDRI” puts the panorama behind the scene instead of the sky; painterly clouds are hidden and the sea still reflects the rendered sky. In “HDRI only” it is always the backdrop, and the sea reflects it.',
   ],
 
   // Лучи

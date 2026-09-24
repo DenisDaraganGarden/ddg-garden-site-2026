@@ -5,6 +5,7 @@ import { SELF_HOSTED_HDRI } from './constants';
 import { useFrame, useThree } from '@react-three/fiber';
 import { reflectionContext } from './reflectionContext';
 import SkyDome from './SkyDome';
+import PanoramaEnvironment from './PanoramaEnvironment';
 import {fitTerrainShadow} from '../../../terrain/terrainShadow.js';
 import { resolveDirectionalShadowContact } from '../shadowContactContract.js';
 import { resolveShadowCascadeCount } from '../shadowCascadePolicy.js';
@@ -188,12 +189,6 @@ export default function WaterLights({ settings, mode, qualityProfile, lighting, 
 
   const useHdri = lighting.environment.hdri;
   const showHdriBackground = lighting.environment.hdriBackdrop;
-  // The light and the backdrop are one panorama and turn together.
-  const hdriRotation = [0, lighting.environment.rotationRadians, 0];
-  // Under a storm the photographed environment is the only fill that does not
-  // darken by itself, so it takes the same dimming the painterly sky applies.
-  const hdriEnvironmentIntensity = (settings.hdriIntensity ?? 1)
-    * lighting.environment.exposure * (1 - 0.5 * (lighting.sky.storm ?? 0));
   const localHdriFile = SELF_HOSTED_HDRI[settings.hdrPreset] ?? SELF_HOSTED_HDRI.night;
 
   return (
@@ -257,13 +252,16 @@ export default function WaterLights({ settings, mode, qualityProfile, lighting, 
         />
       )}
       {useHdri ? (
-        <Environment
-          files={`${import.meta.env.BASE_URL}${localHdriFile}`}
-          background={showHdriBackground}
-          backgroundIntensity={settings.hdriIntensity ?? 1}
-          environmentIntensity={hdriEnvironmentIntensity}
-          environmentRotation={hdriRotation}
-          backgroundRotation={hdriRotation}
+        // The light, the backdrop and (in «Только HDRI») the sea's sky turn
+        // together, and the light and the sea take the environment tone.
+        <PanoramaEnvironment
+          url={`${import.meta.env.BASE_URL}${localHdriFile}`}
+          level={lighting.environment.hdriLevel}
+          backdrop={showHdriBackground}
+          backdropLevel={settings.hdriIntensity ?? 1}
+          rotation={lighting.environment.rotationRadians}
+          tint={lighting.environment.tint}
+          sea={lighting.environment.hdriSea}
         />
       ) : sky.environment ? (
         <Environment
