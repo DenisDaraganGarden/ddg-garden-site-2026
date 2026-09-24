@@ -1,9 +1,12 @@
 import React, { Suspense, useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
 import * as THREE from 'three';
 import AssetStudio from '../asset-lab/AssetStudio';
+import { useLabLightMode } from '../asset-lab/labLighting';
+import { buildHomeSceneLighting } from '../components/effects/homeSceneLighting';
 import LabShell, { LabColor, LabFacts, LabModes, LabRange, LabTabs, LabToggle } from '../asset-lab/LabShell';
 import { assetIndex } from '../asset-lab/assetCatalog';
 import BeachHouseModel from '../components/house/BeachHouseModel';
+import StringLights from '../components/house/StringLights';
 import { HOUSE_COLORS, HOUSE_DEFAULTS, HOUSE_RANGES, buildBeachHouse, buildBeachShed, disposeBuilding } from '../components/house/beachHouse';
 import RiderModel from '../components/surfboard/RiderModel';
 import { updateRiderModel } from '../components/surfboard/riderMesh';
@@ -44,15 +47,21 @@ const PAINT_KEYS = Object.keys(HOUSE_COLORS);
 const WEAR_KEYS = ['weather', 'damage', 'sag'];
 const WEAR = {
   fresh: { weather: 0, damage: 0, sag: 0 },
-  lived: { weather: HOUSE_DEFAULTS.weather, damage: HOUSE_DEFAULTS.damage, sag: HOUSE_DEFAULTS.sag },
+  lived: { weather: 0.35, damage: 0.15, sag: 0.2 },
   derelict: { weather: 0.9, damage: 0.8, sag: 0.75 },
 };
+// Quick times for the lights: late morning, just after sunset, deep night.
+const DAYTIMES = { day: 11.5, dusk: 20.3, deep: 23.2 };
+// The shed stands off the foot of the stairs, its steps a metre and a bit
+// from theirs, turned a little.
+const SHED_TURN = 0.12;
 const wearPreset = (settings) => Object.keys(WEAR).find((id) => WEAR_KEYS.every((key) => WEAR[id][key] === settings[key])) ?? null;
 const DEFAULTS = {
   ...HOUSE_DEFAULTS, colors: HOUSE_COLORS, look: 'color', rider: true, shed: true, wireframe: false,
   // Late morning: the sun comes from the front left, as in the diorama's
   // photos, where the published scene's early sun leaves the porch in shade.
   timeOfDay: 11.5, cloudCover: PUBLISHED.cloudCover, exposure: 1.04, environmentIntensity: 0.7,
+  lamps: 0.8, garlands: 0.9,
 };
 const TEXT = {
   ru: {
@@ -67,6 +76,7 @@ const TEXT = {
     siding: 'Обшивка', shakes: 'Дранка пристройки', trim: 'Белые доски', deck: 'Настил', wood: 'Сваи и каркас', roof: 'Кровля', metal: 'Профлист',
     glass: 'Стекло', doorColor: 'Двери', awning: 'Ставни', shedWall: 'Сарай', shedRoof: 'Крыша сарая', rope: 'Верёвка', unit: 'Кондиционер', void: 'Дыры',
     hour: 'Время суток', clouds: 'Облачность', exposure: 'Экспозиция', environment: 'Отражения среды', reset: 'Исходный вид',
+    daytime: 'Время', day: 'День', dusk: 'Сумерки', deep: 'Ночь', lamps: 'Лампы в доме', garlands: 'Гирлянды',
     triangles: 'треугольников', meshes: 'мешей', m: 'м', deg: '°', h: 'ч',
   },
   en: {
@@ -81,6 +91,7 @@ const TEXT = {
     siding: 'Siding', shakes: 'Lean-to shakes', trim: 'White boards', deck: 'Decking', wood: 'Stilts and frame', roof: 'Roofing', metal: 'Corrugated iron',
     glass: 'Glass', doorColor: 'Doors', awning: 'Shutters', shedWall: 'Shed', shedRoof: 'Shed roof', rope: 'Rope', unit: 'Air conditioner', void: 'Holes',
     hour: 'Time of day', clouds: 'Cloud cover', exposure: 'Exposure', environment: 'Environment reflections', reset: 'Initial view',
+    daytime: 'Time', day: 'Day', dusk: 'Dusk', deep: 'Night', lamps: 'House lamps', garlands: 'String lights',
     triangles: 'triangles', meshes: 'meshes', m: 'm', deg: '°', h: 'h',
   },
 };
@@ -109,6 +120,16 @@ export default function HouseLab() {
   const { plan } = house;
   const [footX, , footZ] = plan.stairs.foot;
   const clay = settings.look === 'clay';
+  const shedAt = useMemo(() => [footX - 3.6, 0, footZ + 1.4], [footX, footZ]);
+  // How dark it is under the scene's sky at this hour; the studio is day.
+  const lightMode = useLabLightMode();
+  const night = useMemo(() => (lightMode === 'scene' ? buildHomeSceneLighting({ ...PUBLISHED, timeOfDay: settings.timeOfDay, cloudCover: settings.cloudCover }).sky.night : 0), [lightMode, settings.cloudCover, settings.timeOfDay]);
+  // The porch's zig-zag, and a strand across the yard to the shed's post.
+  const garlandSpans = useMemo(() => {
+    if (!settings.shed) return plan.garlands;
+    const post = new THREE.Vector3(...shed.plan.yardAnchor).applyEuler(new THREE.Euler(0, SHED_TURN, 0)).add(new THREE.Vector3(...shedAt));
+    return [...plan.garlands, { a: plan.yardAnchor, b: post.toArray(), sag: 0.35 }];
+  }, [plan, settings.shed, shed, shedAt]);
 
   useEffect(() => {
     const onVisibility = () => setHidden(document.hidden);
@@ -170,6 +191,9 @@ export default function HouseLab() {
           <LabColor key={key} label={t[key === 'door' ? 'doorColor' : key]} value={settings.colors[key]} onChange={(value) => setColor(key, value)} />
         ))}
         {tab === 'light' && <>
+          <LabModes label={t.daytime} items={Object.keys(DAYTIMES).map((id) => ({ id, label: t[id] }))} value={Object.keys(DAYTIMES).find((id) => DAYTIMES[id] === settings.timeOfDay) ?? null} onChange={(id) => set('timeOfDay', DAYTIMES[id])} />
+          <LabRange label={t.lamps} value={settings.lamps} onChange={(value) => set('lamps', value)} />
+          <LabRange label={t.garlands} value={settings.garlands} onChange={(value) => set('garlands', value)} />
           <LabRange label={t.hour} value={settings.timeOfDay} min={0} max={24} step={0.1} unit={t.h} onChange={(value) => set('timeOfDay', value)} />
           <LabRange label={t.clouds} value={settings.cloudCover} onChange={(value) => set('cloudCover', value)} />
           <LabRange label={t.exposure} value={settings.exposure} min={0.2} max={2.4} onChange={(value) => set('exposure', value)} />
@@ -195,13 +219,13 @@ export default function HouseLab() {
           <meshStandardMaterial color="#f0eee9" roughness={0.96} />
         </mesh>
         <Suspense fallback={null}>
-          <BeachHouseModel building={house} colors={settings.colors} clay={clay} wireframe={settings.wireframe} weather={settings.weather} seed={settings.seed} />
+          <BeachHouseModel building={house} colors={settings.colors} clay={clay} wireframe={settings.wireframe} weather={settings.weather} seed={settings.seed} lamps={settings.lamps} night={night} />
           {settings.shed ? (
-            // Off the foot of the stairs, its steps a metre and a bit from theirs.
-            <group position={[footX - 3.6, 0, footZ + 1.4]} rotation={[0, 0.12, 0]}>
-              <BeachHouseModel building={shed} colors={settings.colors} clay={clay} wireframe={settings.wireframe} weather={settings.weather} seed={settings.seed + 5} />
+            <group position={shedAt} rotation={[0, SHED_TURN, 0]}>
+              <BeachHouseModel building={shed} colors={settings.colors} clay={clay} wireframe={settings.wireframe} weather={settings.weather} seed={settings.seed + 5} lamps={settings.lamps} night={night} />
             </group>
           ) : null}
+          {clay ? null : <StringLights spans={garlandSpans} power={settings.garlands} night={night} />}
         </Suspense>
         {settings.rider ? (
           <group position={[footX - 0.45, 0, footZ + 0.75]} rotation={[0, 0.9, 0]}>

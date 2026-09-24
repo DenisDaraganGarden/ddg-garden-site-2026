@@ -5,8 +5,10 @@ import { HOUSE_COLORS, HOUSE_ROLES } from './beachHouse';
 import { houseMapUrls, houseMaps, houseMaterial } from './houseMaterial';
 
 // A building from beachHouse.js as meshes, one per finish, in its textured
-// material (houseMaterial.js) aged by `weather`. `clay` shows it as an
-// architect's white card model instead: no maps, no age. Suspends while the
+// material (houseMaterial.js) aged by `weather`. `lamps` 0…1 lights the rooms
+// behind the windows and the lanterns, more as `night` (0…1) falls; each
+// lantern also lights what is round it. `clay` shows it as an architect's
+// white card model instead: no maps, no age, no light. Suspends while the
 // maps load.
 const FINISH = {
   glass: { roughness: 0.08 },
@@ -15,15 +17,16 @@ const FINISH = {
   awning: { roughness: 0.62 },
   unit: { roughness: 0.55 },
   void: { roughness: 1 },
+  lamp: { roughness: 0.25, emissive: '#ffb45a' },
 };
 const CLAY = '#e8e3d9';
 const CLAY_DARK = '#9ca2a6';
 
-export default function BeachHouseModel({ building, colors = HOUSE_COLORS, clay = false, wireframe = false, weather = 0, seed = 0, lowPower = false }) {
+export default function BeachHouseModel({ building, colors = HOUSE_COLORS, clay = false, wireframe = false, weather = 0, seed = 0, lamps = 0, night = 0, lowPower = false }) {
   const { gl } = useThree();
   const textures = useLoader(THREE.TextureLoader, houseMapUrls(lowPower));
   const maps = useMemo(() => houseMaps(textures, gl), [gl, textures]);
-  const shared = useMemo(() => ({ uTextured: { value: 1 }, uWeather: { value: 0 }, uWeatherSeed: { value: 0 }, uDripLines: { value: new THREE.Vector4() } }), []);
+  const shared = useMemo(() => ({ uTextured: { value: 1 }, uWeather: { value: 0 }, uWeatherSeed: { value: 0 }, uDripLines: { value: new THREE.Vector4() }, uLampPower: { value: 0 }, uInteriorDay: { value: 1 } }), []);
   const materials = useMemo(() => Object.fromEntries(HOUSE_ROLES.map((role) => [role, houseMaterial(role, maps, shared, FINISH[role])])), [maps, shared]);
   useEffect(() => () => Object.values(materials).forEach((material) => material.dispose()), [materials]);
   useEffect(() => {
@@ -39,11 +42,22 @@ export default function BeachHouseModel({ building, colors = HOUSE_COLORS, clay 
     shared.uWeatherSeed.value = (seed * 7.31) % 97;
     shared.uDripLines.value.fromArray(building.plan.dripLines);
   }, [building, clay, seed, shared, weather]);
+  // Lamps are on day and night; by day the rooms are lit mostly through the
+  // windows and the lamps hardly show.
+  const lampLight = clay ? 0 : lamps * (0.12 + 0.88 * night);
+  useEffect(() => {
+    shared.uLampPower.value = lampLight;
+    shared.uInteriorDay.value = clay ? 0 : 0.15 + 0.85 * (1 - night);
+    materials.lamp.emissiveIntensity = clay ? 0 : lamps * (0.3 + 2.7 * night);
+  }, [clay, lampLight, lamps, materials, night, shared]);
 
   return (
     <group>
       {[...building.parts].map(([role, geometry]) => (
         <mesh key={role} name={`house-${role}`} geometry={geometry} material={materials[role]} castShadow receiveShadow />
+      ))}
+      {building.plan.lamps.map((position, i) => (
+        <pointLight key={i} position={position} color="#ffbe78" intensity={clay ? 0 : lamps * night * 6} distance={9} decay={2} />
       ))}
     </group>
   );

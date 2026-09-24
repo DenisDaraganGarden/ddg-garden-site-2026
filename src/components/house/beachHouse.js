@@ -29,10 +29,11 @@ export const HOUSE_DEFAULTS = Object.freeze({
   floorHeight: 1.44, // floor and porch above the sand: the stilts, m
   roofPitch: 38, // degrees
   porchDepth: 2.2, // m
+  // Age as Denis set it (2026-09-24): lived in, a few boards gone, settled hard.
   weather: 0.35, // streaks, faded and peeling paint, rust (the material's)
-  damage: 0.15, // boards gone, snapped or hanging, holes, planks on the sand
-  sag: 0.2, // settling, lean, a swaybacked ridge, a drooping porch
-  seed: 7, // the hand-made unevenness, and which boards the years pick
+  damage: 0.29, // boards gone, snapped or hanging, holes, planks on the sand
+  sag: 0.93, // settling, lean, a swaybacked ridge, a drooping porch
+  seed: 79, // the hand-made unevenness, and which boards the years pick
 });
 export const HOUSE_RANGES = Object.freeze({
   houseWidth: [5, 8, 0.1],
@@ -45,23 +46,25 @@ export const HOUSE_RANGES = Object.freeze({
   sag: [0, 1, 0.01],
 });
 
-// One flat colour per finish, read off the diorama.
+// One colour per finish; the textures are tinted by it. Denis's palette from
+// the lab (2026-09-24): pale sandy boards, grey paint, near-black stilts.
 export const HOUSE_COLORS = Object.freeze({
-  siding: '#9a8e7f', // weathered clapboard
-  shakes: '#8a6d55', // the lean-to's cedar shakes
-  trim: '#ebe7de', // posts, rails, stairs, casings
-  deck: '#9c9385', // porch boards
-  wood: '#6b5a49', // stilts, skirting, the shed's frame
-  roof: '#4a3f38', // asphalt shingles
+  siding: '#c2ab91', // clapboard
+  shakes: '#b9b0a5', // the lean-to's cedar shakes
+  trim: '#95948b', // posts, rails, stairs, casings: the paint
+  deck: '#8b867a', // porch boards
+  wood: '#2c2a28', // stilts, skirting, the shed's frame
+  roof: '#585654', // asphalt shingles
   metal: '#9b8e82', // corrugated iron
-  glass: '#2a3139',
-  door: '#857563',
-  awning: '#2f8a68', // the Bahama shutters
+  glass: '#494e53',
+  door: '#7f7c7a',
+  awning: '#083a29', // the Bahama shutters
   shedWall: '#7fbcb0', // the turquoise shed
-  shedRoof: '#b09878',
+  shedRoof: '#88775f',
   rope: '#cdb991',
   unit: '#dcdbd5', // the air conditioner, the meter box
-  void: '#16130f', // where boards and panes are gone
+  void: '#534e44', // where boards and panes are gone
+  lamp: '#ffe2b0', // lantern and bulb glass, lit
 });
 export const HOUSE_ROLES = Object.freeze(Object.keys(HOUSE_COLORS));
 
@@ -176,16 +179,33 @@ function boxUvs(geometry, size, mode) {
     const n = [normal.getX(i), normal.getY(i), normal.getZ(i)].map(Math.abs);
     const axis = n.indexOf(Math.max(...n)), plane = [0, 1, 2].filter((k) => k !== axis);
     let a, b;
-    if (mode === 'wall') [a, b] = axis === 1 ? [0, 2] : [plane.find((k) => k !== 1), 1];
+    if (mode === 'pane') [a, b] = [0, 1];
+    else if (mode === 'wall') [a, b] = axis === 1 ? [0, 2] : [plane.find((k) => k !== 1), 1];
     else [a, b] = plane.includes(long) ? [long, plane.find((k) => k !== long)] : plane;
-    uv.setXY(i, p[a] + size[a] / 2, p[b] + size[b] / 2);
+    // A pane counts from its centre, where its room is centred.
+    const origin = mode === 'pane' ? 0 : 0.5;
+    uv.setXY(i, p[a] + size[a] * origin, p[b] + size[b] * origin);
   }
 }
 
 // How each finish lays its texture by default (houseMaterial.js): 0 a board,
 // 1 clapboard, 2 shakes, 3 upright boards, 4 asphalt shingles, 5 iron,
-// 6 plain, 7 rope, 8 wood shingles.
-const LAYOUT = { roof: 4, shedRoof: 8, metal: 5, glass: 6, unit: 6, void: 6, rope: 7 };
+// 6 plain, 7 rope, 8 wood shingles, 9 a pane with a room behind it.
+const LAYOUT = { roof: 4, shedRoof: 8, metal: 5, glass: 6, unit: 6, void: 6, rope: 7, lamp: 6 };
+// A room behind a pane reads its scale: the pane's half width (cm) × 10 plus
+// the height of its centre above the room's floor (m).
+export const encodeRoom = (halfWidth, above) => Math.round(halfWidth * 100) * 10 + above;
+export const decodeRoom = (scale) => ({ halfWidth: Math.floor(scale / 10) / 100, above: scale % 10 });
+
+// Festoon bulbs along a hanging span {a, b, sag}: a parabola through both
+// anchors, dropping `sag` at its middle; a bulb every `spacing` metres.
+export function garlandBulbs({ a, b, sag }, spacing = 0.3) {
+  const length = Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]), count = Math.max(1, Math.round(length / spacing));
+  return Array.from({ length: count }, (_, k) => {
+    const t = (k + 0.5) / count;
+    return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t - 4 * sag * t * (1 - t), a[2] + (b[2] - a[2]) * t];
+  });
+}
 
 // The pieces, collected per finish and merged at the end.
 function createKit(seed, damage = 0) {
@@ -303,20 +323,38 @@ function createKit(seed, damage = 0) {
       if (b - a > 0.15) box(role, plane.m, [(a + b) / 2, v + jitter(0.012), thickness + 0.012], [b - a - 0.04, 0.05, 0.024]);
     }
   };
+  // Openings in a wall, per wall frame: [u0, u1, v0, v1] its courses keep off.
+  const holes = new Map();
+  const hole = (m, u0, u1, v0, v1) => {
+    if (!holes.has(m)) holes.set(m, []);
+    holes.get(m).push([u0, u1, v0, v1]);
+  };
   // Horizontal courses on a wall: `span(v)` gives the wall's [u0, u1] at a
   // height. Clapboard is one shadow line per course; shakes break into
-  // shingles of uneven width.
-  const courses = (role, m, span, from, to, step, broken = false) => {
+  // shingles of uneven width. They wait for the wall's windows and doors and
+  // are laid round them when the building is built.
+  const deferred = [];
+  const courses = (...args) => deferred.push(args);
+  const layCourses = (role, m, span, from, to, step, broken = false) => {
+    const cut = holes.get(m) ?? [];
     for (let v = from; v < to - 0.04; v += step) {
-      const [u0, u1] = span(v);
-      if (!broken) {
-        if (u1 - u0 > 0.1) box(role, m, [(u0 + u1) / 2, v, 0.012], [u1 - u0, 0.035, 0.024]);
-        continue;
+      const [u0, u1] = span(v), runs = [];
+      let start = u0;
+      for (const [a, b] of cut.filter(([, , low, high]) => v > low - 0.04 && v < high + 0.04).sort((p, q) => p[0] - q[0])) {
+        if (a > start) runs.push([start, Math.min(a, u1)]);
+        start = Math.max(start, b);
       }
-      for (let u = u0; u < u1 - 0.06;) {
-        const width = Math.min(u1 - u, 0.1 + rand() * 0.25);
-        box(role, m, [u + width / 2, v + jitter(0.012), 0.014 + jitter(0.006)], [width - 0.012, 0.05, 0.028]);
-        u += width;
+      if (start < u1) runs.push([start, u1]);
+      for (const [a, b] of runs) {
+        if (!broken) {
+          if (b - a > 0.1) box(role, m, [(a + b) / 2, v, 0.012], [b - a, 0.035, 0.024]);
+          continue;
+        }
+        for (let u = a; u < b - 0.06;) {
+          const width = Math.min(b - u, 0.1 + rand() * 0.25);
+          box(role, m, [u + width / 2, v + jitter(0.012), 0.014 + jitter(0.006)], [width - 0.012, 0.05, 0.028]);
+          u += width;
+        }
       }
     }
   };
@@ -363,7 +401,11 @@ function createKit(seed, damage = 0) {
   };
   // Merge per finish; a sagging building is cut short where it bends
   // (`bends`, a test on a vertex) and bent by `warp`.
-  const build = (warp = null, bends = null, maxEdge = 1.5) => new Map([...parts].map(([role, list]) => {
+  const build = (warp = null, bends = null, maxEdge = 1.5) => {
+    deferred.splice(0).forEach((args) => layCourses(...args));
+    return merge(warp, bends, maxEdge);
+  };
+  const merge = (warp, bends, maxEdge) => new Map([...parts].map(([role, list]) => {
     let merged = mergeGeometries(list, false);
     list.forEach((geometry) => geometry.dispose());
     if (warp) {
@@ -380,15 +422,16 @@ function createKit(seed, damage = 0) {
     merged.computeBoundingSphere();
     return [role, merged];
   }));
-  return { box, panel, beam, stick, rope, corrugated, roof, courses, gaps, roofWounds, litter, jitter, wound, chance: fate, build };
+  return { box, panel, beam, stick, rope, corrugated, roof, courses, hole, gaps, roofWounds, litter, jitter, wound, chance: fate, build };
 }
 
-// Openings: a white casing, the glass, the meeting rail of a sash window, and
-// what the diorama hangs in them — blinds half down, boards nailed across, a
-// louvred Bahama shutter propped open over the glass. Damage cracks a pane
-// (a shard left in its corner), boards a window up, lets a shutter hang from
-// one hinge, swings a door ajar.
-function openings(kit) {
+// Openings: a white casing, the glass with a room behind it, the meeting rail
+// of a sash window, and what the diorama hangs in them — blinds half down,
+// boards nailed across, a louvred Bahama shutter propped open over the glass.
+// Damage cracks a pane (a shard left in its corner), boards a window up, lets
+// a shutter hang from one hinge, swings a door ajar. Each opening keeps the
+// wall's courses off it. `floors`: the storeys' floor heights in the wall's v.
+function openings(kit, floors = [0]) {
   const { box, beam, panel, jitter, wound } = kit;
   const casing = (m, u, v0, w, h, sill = true) => {
     box('trim', m, [u, v0 + h + 0.05, 0.03], [w + 0.22, 0.1, 0.06]);
@@ -413,9 +456,15 @@ function openings(kit) {
   };
   const sash = (m, u, v0, w, h, look = 'plain') => {
     casing(m, u, v0, w, h);
+    kit.hole(m, u - w / 2 - 0.1, u + w / 2 + 0.1, v0 - 0.06, v0 + h + 0.1);
     const hit = wound(0.4), nudge = [jitter(0.04), jitter(0.04), jitter(0.04)];
     const broken = Boolean(hit) && hit.kind < 0.55, boarded = look === 'boarded' || (Boolean(hit) && !broken);
-    box(broken ? 'void' : 'glass', m, [u, v0 + h / 2, 0.02], [w, h, 0.02]);
+    // A room behind the glass, its floor the storey's below the pane; an
+    // attic vent stays dark glass.
+    const floor = floors.filter((level) => level <= v0).at(-1) ?? 0;
+    const room = look === 'attic' ? {} : { layout: 9, uv: 'pane', scale: encodeRoom(w / 2, v0 + h / 2 - floor) };
+    if (broken) box('void', m, [u, v0 + h / 2, 0.02], [w, h, 0.02]);
+    else box('glass', m, [u, v0 + h / 2, 0.02], [w, h, 0.02], [], room);
     if (broken) {
       const a = 0.3 + 0.4 * hit.amount;
       panel('glass', m, [[u - w / 2, v0 + h], [u - w / 2 + w * a, v0 + h], [u - w / 2, v0 + h * (1 - a)]], 0.008, 0.028);
@@ -435,6 +484,7 @@ function openings(kit) {
   const door = (m, u, w, h, role = 'door', casingRole = 'trim', weight = 0.2) => {
     box(casingRole, m, [u, h + 0.05, 0.03], [w + 0.22, 0.1, 0.06]);
     for (const s of [-1, 1]) box(casingRole, m, [u + s * (w / 2 + 0.05), h / 2, 0.03], [0.1, h, 0.06]);
+    kit.hole(m, u - w / 2 - 0.1, u + w / 2 + 0.1, 0, h + 0.1);
     const hit = wound(weight), swing = hit ? 0.35 + 0.6 * hit.amount : 0;
     if (hit) box('void', m, [u, h / 2, 0.0135], [w, h, 0.027]);
     const leaf = m.clone().multiply(new THREE.Matrix4().makeTranslation(u - w / 2, 0, 0.025)).multiply(new THREE.Matrix4().makeRotationY(-swing));
@@ -463,7 +513,7 @@ export function buildBeachHouse(input = {}) {
   const pitch = THREE.MathUtils.degToRad(p.roofPitch);
   const kit = createKit(p.seed, p.damage);
   const { box, panel, beam, stick, jitter, wound } = kit;
-  const open = openings(kit);
+  const open = openings(kit, [0, SECOND, EAVES]);
   const rail = (a, b, postAtA = true, postAtB = true) => {
     const dx = b[0] - a[0], dz = b[1] - a[1], length = Math.hypot(dx, dz);
     const start = postAtA ? POST / 2 : 0, end = length - (postAtB ? POST / 2 : 0);
@@ -585,11 +635,17 @@ export function buildBeachHouse(input = {}) {
 
   // Doors and windows, wall by wall.
   open.door(front, -W / 2 + 1.25, 0.9, 2.05);
+  // A lantern on the wall beside the door: bracket, glass, cap.
+  const lanternU = -W / 2 + 1.25 + 0.72;
+  box('wood', front, [lanternU, 1.84, 0.07], [0.05, 0.05, 0.14]);
+  box('lamp', front, [lanternU, 1.78, 0.17], [0.13, 0.2, 0.13]);
+  box('roof', front, [lanternU, 1.9, 0.17], [0.17, 0.04, 0.17]);
+  const lamps = [vec(lanternU, 1.78, 0.17).applyMatrix4(front)];
   open.sash(front, W / 2 - 1.45, 0.9, 1.0, 1.25, 'blinds');
   for (const s of [-1, 1]) open.sash(front, s * W * 0.19, UPPER_SILL, 0.8, 1.15, 'shutter');
   const vent = (m) => {
     const v0 = EAVES + 0.3, h = 0.5;
-    if (W / 2 - (v0 + h + 0.15 - EAVES) / tan > 0.45) open.sash(m, 0, v0, 0.5, h);
+    if (W / 2 - (v0 + h + 0.15 - EAVES) / tan > 0.45) open.sash(m, 0, v0, 0.5, h, 'attic');
   };
   vent(front);
   vent(back);
@@ -657,6 +713,22 @@ export function buildBeachHouse(input = {}) {
   const sideOutline = [[W / 2, L / 2], [W / 2 + reach, L / 2 + reach], [W / 2 + reach, wrapBack - 0.3], [W / 2, wrapBack - 0.3]].map(sideRoof.plan);
   kit.roof('roof', sideRoof, sideOutline, PORCH_ROOF, 0.3);
   kit.roofWounds(sideRoof, sideOutline, PORCH_ROOF, 1);
+  // Festoon lights under the porch roof: a zig-zag from a post, up to the wall
+  // under the roof, down to the next post, round the corner and along the
+  // side; nowhere lower than 2.2 m over the boards.
+  const hung = POST_HEIGHT - 0.06, underRoof = porchHigh - F - 0.1, garlands = [];
+  const zigzag = (posts, wall) => posts.slice(1).forEach(([x1, z1], i) => {
+    const [x0, z0] = posts[i], mid = wall(x0, z0, x1, z1);
+    garlands.push({ a: [x0, F + hung, z0], b: [mid[0], F + underRoof, mid[1]], sag: 0.07 }, { a: [mid[0], F + underRoof, mid[1]], b: [x1, F + hung, z1], sag: 0.07 });
+  });
+  zigzag(frontPosts, (x0, z0, x1) => [(x0 + x1) / 2, L / 2 + 0.08]);
+  zigzag([frontPosts.at(-1), ...sidePosts], (x0, z0, x1, z1) => [W / 2 + 0.08, (z0 + z1) / 2]);
+  // And swags on the porch's outer face, post to post, to be seen from the yard.
+  const swags = (posts, out) => posts.slice(1).forEach((post, i) => garlands.push({ a: out(posts[i]), b: out(post), sag: 0.1 }));
+  swags(frontPosts, ([x, z]) => [x, F + POST_HEIGHT - 0.04, z + POST / 2 + 0.02]);
+  swags([frontPosts.at(-1), ...sidePosts], ([x, z]) => [x + POST / 2 + 0.02, F + POST_HEIGHT - 0.04, z]);
+  // Where a strand leaves the porch for the yard: the post at the stairs.
+  const yardAnchor = vec(-W / 2, F + hung - 0.1, frontPostZ);
   const lip = PORCH_ROOF / Math.cos(porchPitch) + 0.02;
   beam('roof', vec(W / 2, porchHigh + lip, L / 2), vec(W / 2 + reach, porchHigh - reach * porchTan + lip, L / 2 + reach), 0.16, 0.06);
   const porchEave = reach / Math.cos(porchPitch);
@@ -737,7 +809,7 @@ export function buildBeachHouse(input = {}) {
     if (out > 0) {
       let near = Infinity;
       for (const [x, z] of porchPosts) near = Math.min(near, Math.hypot(v.x - x, v.z - z));
-      drop += 0.1 * out * Math.sin((Math.PI / 2) * clamp(near / (postGap / 2), 0, 1)) * clamp((v.y - F + 0.8) / 0.5, 0, 1);
+      drop += 0.1 * out * Math.sin((Math.PI / 2) * clamp(near / (postGap / 2), 0, 1)) * clamp((v.y - F + 0.8) / 0.5, 0, 1) * clamp(v.y / F, 0, 1);
     }
     v.x += 0.014 * sink[0] * v.y * s;
     v.y -= s * drop;
@@ -749,11 +821,20 @@ export function buildBeachHouse(input = {}) {
   const parts = kit.build(warp, bends);
   const bounds = new THREE.Box3();
   parts.forEach((geometry) => bounds.union(geometry.boundingBox));
+  // Points that hang on the house bend with it.
+  const bent = (point) => {
+    const v = Array.isArray(point) ? vec(...point) : point.clone();
+    if (warp) warp(v);
+    return v.toArray();
+  };
   return {
     parts,
     bounds,
     plan: {
       ...p,
+      lamps: lamps.map(bent),
+      garlands: garlands.map(({ a, b, sag }) => ({ a: bent(a), b: bent(b), sag })),
+      yardAnchor: bent(yardAnchor),
       floor: F,
       eaves: F + EAVES,
       ridge: bounds.max.y,
@@ -858,6 +939,10 @@ export function buildBeachShed(input = {}) {
     box('wood', WORLD, [(FRONT + postX) / 2, headerTop - 0.09, z], [postX - FRONT, 0.18, 0.1]);
   }
   box('wood', WORLD, [postX, headerTop - 0.09, 0], [0.12, 0.18, Z1 - Z0]);
+  // A bare bulb on a flex under the beam, over the steps.
+  const bulb = vec((FRONT + postX) / 2, headerTop - 0.5, stepZ);
+  beam('rope', bulb.clone().setY(headerTop - 0.18), bulb.clone().setY(bulb.y + 0.06), 0.012, 0.012);
+  box('lamp', WORLD, bulb.toArray(), [0.07, 0.1, 0.07]);
 
   // Steps to the door, and rope rails: stubby posts beside the steps, two
   // ropes to the corner posts and along both sides of the deck. A rope that
@@ -892,10 +977,18 @@ export function buildBeachShed(input = {}) {
   const parts = kit.build(warp, (x, y) => y > H + WALLS + 0.05, 1);
   const bounds = new THREE.Box3();
   parts.forEach((geometry) => bounds.union(geometry.boundingBox));
+  const bent = (v) => {
+    if (warp) warp(v);
+    return v.toArray();
+  };
   return {
     parts,
     bounds,
-    plan: { deck: H, steps: 3, stepRise: H / 3, door: { width: 0.82, height: 1.9 }, eaves: eaveY, ridge: bounds.max.y, dripLines: [H + WALLS, H + 1.1, H + 0.02, 0.3] },
+    plan: {
+      lamps: [bent(bulb.clone())],
+      // The garland from the house ties on at the post nearer the house (−z).
+      yardAnchor: bent(vec(postX, headerTop - 0.3, Z0 + 0.02)),
+      deck: H, steps: 3, stepRise: H / 3, door: { width: 0.82, height: 1.9 }, eaves: eaveY, ridge: bounds.max.y, dripLines: [H + WALLS, H + 1.1, H + 0.02, 0.3] },
   };
 }
 

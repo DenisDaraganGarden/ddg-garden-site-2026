@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { HOUSE_DEFAULTS, HOUSE_RANGES, HOUSE_ROLES, buildBeachHouse, buildBeachShed, disposeBuilding } from './beachHouse.js';
+import { HOUSE_DEFAULTS, HOUSE_RANGES, HOUSE_ROLES, buildBeachHouse, buildBeachShed, decodeRoom, disposeBuilding, garlandBulbs } from './beachHouse.js';
 import { RIDER_HEIGHT } from '../surfboard/riderSkeleton.js';
 
 // The house is for walking: hold its measures to the surfer's (1.74 m) and to
@@ -30,15 +30,31 @@ function holds(house, label) {
     assert.ok(uv?.itemSize === 2 && aSurface?.itemSize === 3, `${label}: ${role} has uv and aSurface`);
     for (let i = 0; i < aSurface.count; i += 1) {
       const seed = aSurface.getX(i), layout = aSurface.getY(i);
-      assert.ok(seed >= 0 && seed < 1 && Number.isInteger(layout) && layout >= 0 && layout <= 8, `${label}: ${role} surface ${seed}, ${layout}`);
+      assert.ok(seed >= 0 && seed < 1 && Number.isInteger(layout) && layout >= 0 && layout <= 9, `${label}: ${role} surface ${seed}, ${layout}`);
+      // A pane's room: the pane's half width and its centre over a floor.
+      if (layout === 9) {
+        const { halfWidth, above } = decodeRoom(aSurface.getZ(i));
+        assert.ok(halfWidth >= 0.2 && halfWidth <= 0.55 && above >= 1 && above <= 2, `${label}: a room behind a pane ${halfWidth} × ${above}`);
+      }
     }
   }
+  const points = [...plan.lamps, plan.yardAnchor, ...plan.garlands.flatMap(({ a, b }) => [a, b])];
+  assert.ok(plan.lamps.length > 0 && plan.garlands.length > 4 && points.every((point) => point.every(Number.isFinite)), `${label}: lamps and garlands in place`);
   // A sagging house is cut short to bend: the biggest one, bent most, ~41k.
   assert.ok(triangles(house) < 48000, `${label}: ${triangles(house)} triangles`);
 }
 
 const house = buildBeachHouse();
 holds(house, 'default');
+// Festoon lights hang where one walks: on a porch that has not settled, no
+// bulb's foot (9 cm under the flex, StringLights.jsx) lower than 2.15 m over
+// the boards.
+{
+  const level = buildBeachHouse({ sag: 0 });
+  const lowest = Math.min(...level.plan.garlands.flatMap((span) => garlandBulbs(span).map(([, y]) => y - 0.09))) - level.plan.floor;
+  assert.ok(lowest >= 2.15, `garland headroom ${lowest.toFixed(2)} m`);
+  disposeBuilding(level);
+}
 assert.equal(house.plan.stairs.risers, 8, 'eight risers of 18 cm at the default floor');
 assert.ok(house.plan.ridge > 8 && house.plan.ridge < 10, `a two-storey house: ridge ${house.plan.ridge.toFixed(2)} m`);
 assert.ok(triangles(house) < 32000, `the default house: ${triangles(house)} triangles`);

@@ -51,6 +51,8 @@ uniform float uWeather;
 uniform float uWeatherKind;
 uniform float uWeatherSeed;
 uniform vec4 uDripLines;
+uniform float uLampPower;
+uniform float uInteriorDay;
 varying vec3 vHouseSurface;
 varying vec3 vWeatherPosition;
 varying vec3 vWeatherNormal;
@@ -166,6 +168,89 @@ float weatherNoise(vec2 p) {
 }
 float weatherFbm(vec2 p) { return 0.5 * weatherNoise(p) + 0.3 * weatherNoise(p * 2.13 + 7.1) + 0.2 * weatherNoise(p * 4.37 + 3.3); }
 
+// A room behind a pane, by interior mapping: the eye's ray, in the pane's
+// frame (x along it, y up, z out of the wall), runs into a box — back wall,
+// side walls, floor, ceiling — past a sofa, a table and a cupboard, and a
+// lamp lights it. Each pane its own room: wallpaper, furniture, lamp and
+// curtains by its seed; the pane's half width and its height over the floor
+// come in its scale (beachHouse.js encodeRoom).
+float houseBoxHit(vec3 p, vec3 d, vec3 lo, vec3 hi, out vec3 n) {
+  vec3 t0 = (lo - p) / d, t1 = (hi - p) / d;
+  vec3 tNear = min(t0, t1), tFar = max(t0, t1);
+  float enter = max(max(tNear.x, tNear.y), tNear.z), leave = min(min(tFar.x, tFar.y), tFar.z);
+  n = enter == tNear.x ? vec3(-sign(d.x), 0.0, 0.0) : enter == tNear.y ? vec3(0.0, -sign(d.y), 0.0) : vec3(0.0, 0.0, -sign(d.z));
+  return enter < leave && enter > 0.0 ? enter : 1e6;
+}
+
+vec3 houseRoom(vec2 uv, vec3 surface, vec3 d) {
+  float seed = surface.x;
+  float halfWidth = floor(surface.z / 10.0) / 100.0, above = mod(surface.z, 10.0);
+  float roomHalf = max(1.25, halfWidth + 0.9), depth = 3.2, floorY = -above, ceilY = floorY + 2.55;
+  vec3 p = vec3(uv, 0.0);
+  d = vec3(abs(d.x) < 1e-4 ? 1e-4 : d.x, abs(d.y) < 1e-4 ? 1e-4 : d.y, min(d.z, -1e-4));
+  float tx = ((d.x > 0.0 ? roomHalf : -roomHalf) - p.x) / d.x;
+  float ty = ((d.y > 0.0 ? ceilY : floorY) - p.y) / d.y;
+  float tz = -depth / d.z;
+  float t = min(tx, min(ty, tz));
+  float r1 = houseHash(seed * 3.7), r2 = houseHash(seed * 5.3), r3 = houseHash(seed * 9.1), r4 = houseHash(seed * 11.3);
+  vec3 paper = r1 < 0.2 ? vec3(0.42, 0.45, 0.33) : r1 < 0.4 ? vec3(0.55, 0.42, 0.25) : r1 < 0.6 ? vec3(0.3, 0.38, 0.45) : r1 < 0.8 ? vec3(0.52, 0.34, 0.33) : vec3(0.6, 0.56, 0.46);
+  vec3 hit = p + d * t, n, base;
+  if (t == tz) {
+    n = vec3(0.0, 0.0, 1.0);
+    base = paper;
+  } else if (t == tx) {
+    n = vec3(-sign(d.x), 0.0, 0.0);
+    base = paper * 0.9;
+  } else if (d.y < 0.0) {
+    n = vec3(0.0, 1.0, 0.0);
+    base = vec3(0.2, 0.13, 0.08) * (0.8 + 0.4 * houseHash(floor(hit.x / 0.14) + seed * 7.0));
+  } else {
+    n = vec3(0.0, -1.0, 0.0);
+    base = vec3(0.62, 0.6, 0.55);
+  }
+  if (t != ty) {
+    float height = hit.y - floorY;
+    if (height < 0.1) base = vec3(0.55, 0.52, 0.46);
+    else if (height < 0.95 && r2 > 0.5) base *= 0.75;
+    vec2 frame = abs(hit.xy - vec2((r3 - 0.5) * roomHalf, floorY + 1.6));
+    if (t == tz && r4 > 0.35 && frame.x < 0.34 && frame.y < 0.24) base = frame.x < 0.3 && frame.y < 0.2 ? mix(vec3(0.5, 0.42, 0.28), vec3(0.25, 0.35, 0.42), r4) : vec3(0.15, 0.11, 0.07);
+  }
+  vec3 fn;
+  float side = r4 > 0.5 ? 1.0 : -1.0, sofaX = (r2 - 0.5) * (roomHalf - 1.0);
+  float ts = r1 > 0.25 ? houseBoxHit(p, d, vec3(sofaX - 0.95, floorY, -depth), vec3(sofaX + 0.95, floorY + 0.82, -depth + 0.9), fn) : 1e6;
+  if (ts < t) { t = ts; n = fn; base = mix(vec3(0.35, 0.18, 0.12), vec3(0.2, 0.26, 0.3), r3); }
+  float tt = houseBoxHit(p, d, vec3(-0.45, floorY, -1.95), vec3(0.45, floorY + 0.74, -1.35), fn);
+  if (tt < t) { t = tt; n = fn; base = vec3(0.24, 0.15, 0.09); }
+  float tc = r3 > 0.3 ? houseBoxHit(p, d, vec3(side > 0.0 ? roomHalf - 0.5 : -roomHalf, floorY, -2.7), vec3(side > 0.0 ? roomHalf : -roomHalf + 0.5, floorY + 1.85, -1.7), fn) : 1e6;
+  if (tc < t) { t = tc; n = fn; base = vec3(0.3, 0.22, 0.15); }
+  hit = p + d * t;
+  // A pendant, a floor lamp in a corner or a lamp on the table.
+  vec3 lamp = r4 < 0.33 ? vec3(0.0, ceilY - 0.55, -depth * 0.5) : r4 < 0.66 ? vec3(-side * (roomHalf - 0.35), floorY + 1.45, -depth + 0.4) : vec3(0.2, floorY + 0.98, -1.6);
+  float lampOn = step(0.28, houseHash(seed * 7.3)) * uLampPower;
+  vec3 warm = vec3(1.0, 0.7, 0.4), toLamp = lamp - hit;
+  float d2 = dot(toLamp, toLamp);
+  vec3 light = lampOn * warm * (0.3 + max(dot(n, toLamp * inversesqrt(d2)), 0.0)) * 3.5 / (1.0 + d2 * 0.55);
+  light += uInteriorDay * vec3(0.85, 0.9, 1.0) * 0.4 * exp(hit.z * 0.3);
+  vec3 color = base * light;
+  float along = dot(lamp - p, d);
+  if (along > 0.0 && along < t + 0.05) color += lampOn * warm * 4.0 * (1.0 - smoothstep(0.07, 0.15, length(p + d * along - lamp)));
+  // Curtains drawn to the sides of some panes, lit through from inside.
+  if (r3 > 0.45 && halfWidth - abs(uv.x) < halfWidth * 0.32) {
+    vec3 fabric = mix(vec3(0.55, 0.22, 0.18), vec3(0.78, 0.72, 0.58), r2) * (0.8 + 0.2 * sin(uv.x * 80.0));
+    color = fabric * (uInteriorDay * 0.35 + lampOn * 0.7);
+  }
+  return color;
+}
+// What a pane gives off: its room, seen along the eye's ray in the pane's
+// tangent frame (view space).
+vec3 houseGlow(vec2 uv, vec3 surface, mat3 frame, vec3 viewPosition) {
+  if (uTextured < 0.5 || int(surface.y + 0.5) != 9) return vec3(0.0);
+  vec3 eye = normalize(viewPosition);
+  vec3 ray = vec3(dot(eye, normalize(frame[0])), dot(eye, normalize(frame[1])), dot(eye, normalize(frame[2])));
+  if (ray.z >= -1e-3) return vec3(0.0);
+  return houseRoom(uv, surface, normalize(ray)) * 1.2;
+}
+
 // The finish's colour on the sample, painted or bare, and aged: the relief and
 // roughness of bared wood come back where paint flakes off.
 vec3 houseShade(vec3 finish, inout HouseSample h) {
@@ -225,8 +310,8 @@ vec3 houseShade(vec3 finish, inout HouseSample h) {
 `;
 
 // A finish's material. `shared` holds the building's own uniforms (uTextured,
-// uWeather, uWeatherSeed, uDripLines), one set for all its finishes; `maps` the
-// loaded textures (houseMaps).
+// uWeather, uWeatherSeed, uDripLines, uLampPower, uInteriorDay), one set for
+// all its finishes; `maps` the loaded textures (houseMaps).
 export function houseMaterial(role, maps, shared, options = {}) {
   const material = new THREE.MeshStandardMaterial({ name: `house-${role}`, roughness: 0.86, metalness: 0, ...options });
   // Any normal map turns on the tangent frame; the relief itself is ours.
@@ -252,7 +337,8 @@ export function houseMaterial(role, maps, shared, options = {}) {
       .replace('#include <common>', `#include <common>\n${GLSL}`)
       .replace('#include <color_fragment>', '#include <color_fragment>\n  HouseSample houseSample = houseSurface(vNormalMapUv, vHouseSurface);\n  diffuseColor.rgb = houseShade(diffuseColor.rgb, houseSample);')
       .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n  roughnessFactor = clamp(roughnessFactor * houseSample.roughness, 0.04, 1.0);')
-      .replace('#include <normal_fragment_maps>', '  normal = normalize(tbn * vec3(houseSample.normal.xy * normalScale, houseSample.normal.z));');
+      .replace('#include <normal_fragment_maps>', '  normal = normalize(tbn * vec3(houseSample.normal.xy * normalScale, houseSample.normal.z));')
+      .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n  totalEmissiveRadiance += houseGlow(vNormalMapUv, vHouseSurface, tbn, -vViewPosition);');
   };
   material.customProgramCacheKey = () => 'beach-house-material';
   return material;
