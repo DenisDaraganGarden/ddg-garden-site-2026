@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { boardDimensions, buildBoardHull, deckHeight, halfWidth } from './boardShape.js';
 import { createBoardBody, createBoardState, stepBoard } from './boardPhysics.js';
-import { createRider, resetRider, stepRider } from './riderController.js';
+import { boardFollows, createRider, resetRider, stepRider } from './riderController.js';
 import { bodyPoint, jointGap } from './ragdoll.js';
 import { SEGMENT } from './riderSkeleton.js';
 
@@ -266,4 +266,200 @@ let beach;
   beach = { depthThen, walked, ran };
 }
 
-console.log(`riderController: lying still and whole, paddling ${paddled.toFixed(2)} m/s, up on the wave in ${rode.stoodAt.toFixed(2)} s and ridden ${rode.travelled.toFixed(1)} m with the soles within ${(rode.worstSole * 1000).toFixed(1)} mm of the deck, knocked off by foam in ${(knocked - 1.2).toFixed(2)} s, a capsize floats him to ${floated.toFixed(2)} m, back on the board in ${recovered.toFixed(1)} s, a stopped board lays him down, a current tows the board ${tow.towed.toFixed(1)} m by the leash (${tow.pull.toFixed(0)} N), he swims ${swam.speed.toFixed(2)} m/s with his head up; at a beach he steps off ${beach.depthThen.toFixed(2)} m deep, walks up the sand at ${beach.walked.toFixed(2)} m/s, runs at ${beach.ran.toFixed(2)} m/s and swims back out`);
+// The same beach as the scene runs it (Surfboard.jsx, the lab's «Берег»): the
+// board not stepped while he holds it, and what he does to it done after him.
+const bottom = (x, z) => -2 + 0.08 * z;
+const sea = (x, z, t, out) => { out.height = 0; out.vx = 0; out.vy = 0; out.vz = 0; out.whitewater = 0; out.ground = bottom(x, z); return out; };
+function shore({ z = 5, leash = true } = {}) {
+  const state = createBoardState({ y: -0.07, z });
+  const rider = createRider(board, { leash });
+  const intent = { ...intentOf(), board: 0, leash: 0 };
+  const view = () => ({ p: state.p, q: state.q, v: state.v, w: state.w, speed: Math.hypot(state.v[0], state.v[2]), wipeout: state.wipeout });
+  resetRider(rider, view());
+  let t = 0;
+  const step = () => {
+    t += 1 / 60;
+    const on = rider.out.onBoard;
+    if (!rider.out.carry) stepBoard(state, on ? ridden : empty, on ? rider.out.input : null, sea, t, 1 / 60, { substep: 1 / 120, external: rider.out.leash });
+    stepRider(rider, { dt: 1 / 60, board: view(), intent, water: (x, z2, out) => sea(x, z2, t, out), ground: bottom });
+    boardFollows(rider, state, 1 / 60);
+  };
+  const run = (seconds, each) => { for (let k = 0; k < Math.round(seconds * 60); k += 1) { step(); each?.(t); } };
+  const until = (test, seconds) => { for (let k = 0; k < Math.round(seconds * 60) && !test(); k += 1) step(); return test(); };
+  const body = (name) => rider.world.bodies[SEGMENT[name]];
+  const whole = () => rider.world.bodies.every((b) => Number.isFinite(b.x[0] + b.x[1] + b.x[2] + b.q[3])) && jointGap(rider.world) < 8e-3;
+  return { state, rider, intent, run, until, body, whole, time: () => t };
+}
+// Out of the water on his feet, facing up the beach, standing.
+function ashore(s) {
+  s.intent.trim = 1;
+  s.until(() => s.rider.state === 'walk', 40);
+  s.until(() => bottom(0, s.body('pelvis').x[2]) > 0.3, 30);
+  s.intent.trim = 0;
+  s.run(1.5);
+}
+
+// 10. Off the board he steps smoothly — no part of him jumps between frames —
+// and in the shallows his trunk rocks only as a walker's does.
+let stepOff;
+{
+  const s = shore();
+  s.intent.trim = 1;
+  s.until(() => s.rider.state === 'walk', 40);
+  const last = s.rider.world.bodies.map((b) => [...b.x]);
+  let jump = 0, roll = 0;
+  s.run(3, () => {
+    s.rider.world.bodies.forEach((b, i) => {
+      jump = Math.max(jump, Math.hypot(b.x[0] - last[i][0], b.x[1] - last[i][1], b.x[2] - last[i][2]));
+      last[i][0] = b.x[0]; last[i][1] = b.x[1]; last[i][2] = b.x[2];
+    });
+    const q = s.body('chest').q, yaw = s.rider.walker.yaw;
+    const ux = 2 * (q[0] * q[1] - q[2] * q[3]), uz = 2 * (q[1] * q[2] + q[0] * q[3]);
+    roll = Math.max(roll, Math.abs(Math.asin(ux * Math.cos(yaw) - uz * Math.sin(yaw))));
+  });
+  stepOff = { jump, roll: roll * 180 / Math.PI };
+  assert.ok(jump < 0.09, `stepping off and wading, no part of him jumps (${(jump * 100).toFixed(1)} cm in a frame at most, a swinging foot's)`);
+  assert.ok(stepOff.roll < 2.5, `his chest rocks as a walker's (${stepOff.roll.toFixed(1)}° at most)`);
+  assert.ok(s.whole(), 'whole');
+}
+
+// 11. Jumps on the sand: standing and running, up and down on his feet.
+let jumps;
+{
+  const s = shore();
+  ashore(s);
+  const leap = (running) => {
+    s.intent.trim = running ? 1 : 0; s.intent.crouch = running ? 1 : 0;
+    if (running) s.run(2);
+    const from = [...s.body('pelvis').x];
+    let top = -Infinity, air = 0;
+    s.intent.popUp += 1;
+    s.until(() => s.rider.state === 'jump', 0.2);
+    const ok = s.until(() => {
+      top = Math.max(top, s.body('pelvis').x[1] - bottom(s.body('pelvis').x[0], s.body('pelvis').x[2]));
+      if (s.rider.leap.air) air += 1 / 60;
+      return s.rider.state === 'walk';
+    }, 3);
+    const far = Math.hypot(s.body('pelvis').x[0] - from[0], s.body('pelvis').x[2] - from[2]);
+    s.intent.trim = 0; s.intent.crouch = 0;
+    s.run(1.5);
+    return { ok, top, air, far };
+  };
+  const standing = leap(false), running = leap(true);
+  jumps = { standing, running };
+  assert.ok(standing.ok && running.ok, 'he comes down on his feet');
+  assert.ok(standing.top > 1.2, `a standing jump lifts him (pelvis ${standing.top.toFixed(2)} m over the sand at the top)`);
+  assert.ok(standing.air > 0.45 && standing.air < 0.8, `for a moment (${standing.air.toFixed(2)} s in the air)`);
+  assert.ok(running.far > 1.8, `a running jump goes far (${running.far.toFixed(2)} m)`);
+  assert.equal(s.rider.state, 'walk');
+  assert.ok(s.whole(), 'whole');
+}
+
+// 12. Off the board into the sea (F, D held: over the right rail): the board
+// kicked back the other way, he goes in, comes up and swims where he is
+// steered — not back to the board by himself — and on F beside it climbs on.
+let leapt;
+{
+  const s = shore({ z: -20 });
+  s.run(1);
+  const toLocalX = (p) => {
+    const q = s.state.q, dx = p[0] - s.state.p[0], dz = p[2] - s.state.p[2];
+    const yaw = Math.atan2(2 * (q[0] * q[2] + q[1] * q[3]), 1 - 2 * (q[0] * q[0] + q[1] * q[1]));
+    return dx * Math.cos(yaw) - dz * Math.sin(yaw);
+  };
+  s.intent.lean = 1; s.intent.board += 1;
+  s.until(() => s.rider.state === 'jump' && s.rider.leap.air, 1);
+  s.intent.lean = 0;
+  const kicked = toLocalX(s.state.v.map((v, k) => v + s.state.p[k]));
+  let top = -Infinity;
+  s.until(() => { top = Math.max(top, s.body('pelvis').x[1]); return s.rider.state !== 'jump'; }, 3);
+  const inAt = [...s.body('pelvis').x];
+  assert.equal(s.rider.state, 'swim', 'into the water');
+  assert.ok(toLocalX(inAt) < -1.0, `off the right rail (${toLocalX(inAt).toFixed(2)} m across)`);
+  assert.ok(kicked > 0.5, `the board kicked the other way (${kicked.toFixed(2)} m/s)`);
+  assert.ok(top > 0.9, `high (${top.toFixed(2)} m over the water at the top)`);
+  s.run(4);
+  assert.equal(s.rider.state, 'swim', 'let go, he stays in the water and does not swim back by himself');
+  // Steered to the board, and asked, he climbs on.
+  const steer = () => {
+    const pelvis = s.body('pelvis').x, want = Math.atan2(s.state.p[0] - pelvis[0], s.state.p[2] - pelvis[2]);
+    const off = Math.atan2(Math.sin(want - s.rider.swimYaw), Math.cos(want - s.rider.swimYaw));
+    s.intent.lean = Math.max(-1, Math.min(1, -off * 3)); s.intent.trim = Math.abs(off) < 0.5 ? 1 : 0;
+  };
+  s.until(() => { steer(); s.intent.board += 1; return s.rider.state === 'recover'; }, 20);
+  s.intent.lean = 0; s.intent.trim = 0;
+  assert.equal(s.rider.state, 'recover', 'steered to the board and asked, he climbs on');
+  s.until(() => s.rider.state === 'prone', 5);
+  assert.equal(s.rider.state, 'prone');
+  assert.ok(s.whole(), 'whole');
+  leapt = { top, across: toLocalX(inAt), kicked };
+}
+
+// 13. The leash off at the ankle: walking away he leaves the board behind;
+// back on only near its plug.
+{
+  const s = shore();
+  ashore(s);
+  s.intent.leash += 1;
+  s.run(0.1);
+  assert.equal(s.rider.leashed, false, 'L takes the leash off');
+  const from = [...s.state.p];
+  s.intent.trim = 1;
+  s.run(4);
+  s.intent.trim = 0;
+  const pelvis = s.body('pelvis').x;
+  assert.ok(Math.hypot(pelvis[0] - s.state.p[0], pelvis[2] - s.state.p[2]) > 4 && Math.hypot(s.state.p[0] - from[0], s.state.p[2] - from[2]) < 0.3, 'walking off, he leaves the board where it was');
+  s.intent.leash += 1;
+  s.run(0.1);
+  assert.equal(s.rider.leashed, false, 'far from its plug it stays off');
+}
+
+// 14. The board under his arm: off it in the shallows he picks it up (F), it
+// stays at his side as he walks up the sand, he puts it down there (F), picks
+// it up again, and walked back into the sea, puts it on the water and lies on it.
+let carried;
+{
+  const s = shore();
+  s.intent.trim = 1;
+  s.until(() => s.rider.state === 'walk', 40);
+  s.intent.trim = 0;
+  s.run(1);
+  const stopped = Math.hypot(s.state.v[0], s.state.v[2]);
+  assert.ok(stopped < 0.2, `stepping off, he stops the board beside him (${stopped.toFixed(2)} m/s)`);
+  s.intent.board += 1;
+  s.until(() => s.rider.carry.phase === 'held', 1.5);
+  assert.equal(s.rider.carry.phase, 'held', 'F beside the board in the shallows: he picks it up');
+  let far = 0;
+  s.intent.trim = 1;
+  s.until(() => {
+    const p = s.body('pelvis').x;
+    far = Math.max(far, Math.hypot(s.state.p[0] - p[0], s.state.p[2] - p[2]));
+    return bottom(p[0], p[2]) > 0.3;
+  }, 25);
+  s.intent.trim = 0;
+  s.run(1);
+  const p = s.body('pelvis').x;
+  assert.ok(bottom(p[0], p[2]) > 0.1, `up the sand with it (${bottom(p[0], p[2]).toFixed(2)} m up)`);
+  assert.ok(far < 0.45, `the board at his side all the way (${far.toFixed(2)} m from his hips at most)`);
+  s.intent.board += 1;
+  s.until(() => s.rider.carry.phase === 'none', 1.5);
+  s.run(1);
+  const lying = up(s.state.q), rest = s.state.p[1] - bottom(s.state.p[0], s.state.p[2]);
+  assert.ok(lying > 0.95 && Math.abs(rest) < 0.1, `F again: it lies on the sand beside him (up ${lying.toFixed(2)}, ${rest.toFixed(2)} m over it)`);
+  s.intent.board += 1;
+  s.until(() => s.rider.carry.phase === 'held', 1.5);
+  assert.equal(s.rider.carry.phase, 'held', 'and he picks it up again');
+  // Back down the beach into the sea.
+  s.intent.lean = 1;
+  s.until(() => Math.cos(s.rider.walker.yaw) < -0.98, 4);
+  s.intent.lean = 0; s.intent.trim = 1;
+  s.until(() => s.rider.state === 'prone', 30);
+  s.intent.trim = 0;
+  assert.equal(s.rider.state, 'prone', `walked into the sea, he lies on it (${s.rider.state})`);
+  const at = -bottom(s.state.p[0], s.state.p[2]);
+  assert.ok(at > 0.8 && at < 1.3, `where it is deep enough to float him (${at.toFixed(2)} m)`);
+  assert.ok(s.whole(), 'whole');
+  carried = { far, at };
+}
+
+console.log(`riderController: lying still and whole, paddling ${paddled.toFixed(2)} m/s, up on the wave in ${rode.stoodAt.toFixed(2)} s and ridden ${rode.travelled.toFixed(1)} m with the soles within ${(rode.worstSole * 1000).toFixed(1)} mm of the deck, knocked off by foam in ${(knocked - 1.2).toFixed(2)} s, a capsize floats him to ${floated.toFixed(2)} m, back on the board in ${recovered.toFixed(1)} s, a stopped board lays him down, a current tows the board ${tow.towed.toFixed(1)} m by the leash (${tow.pull.toFixed(0)} N), he swims ${swam.speed.toFixed(2)} m/s with his head up; at a beach he steps off ${beach.depthThen.toFixed(2)} m deep, walks up the sand at ${beach.walked.toFixed(2)} m/s, runs at ${beach.ran.toFixed(2)} m/s and swims back out; stepping off nothing jumps (${(stepOff.jump * 100).toFixed(1)} cm a frame), his chest rocks ${stepOff.roll.toFixed(1)}°; he jumps ${jumps.standing.air.toFixed(2)} s standing and ${jumps.running.far.toFixed(1)} m running; off the board he leaps ${leapt.top.toFixed(2)} m up into the sea and swims where steered; the leash comes off; he carries the board up the sand at his side and walks it back out to ${carried.at.toFixed(2)} m to paddle`);

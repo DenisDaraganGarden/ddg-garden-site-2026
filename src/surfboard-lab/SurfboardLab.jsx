@@ -68,8 +68,13 @@ const TEXT = {
     full: 'Общий', deck: 'Палуба', bottom: 'Дно', side: 'Прогиб', tail: 'Хвост', rail: 'Кант', face: 'Лицо', abeam: 'Сбоку', fromSea: 'С моря', fromBeach: 'С берега', along: 'Сбоку',
     prone: 'Лежит', paddle: 'Гребёт', stand: 'Стоит', swim: 'В воду', human: 'Человек', skeleton: 'Скелет', both: 'Человек и скелет',
     doing: 'Что делает', look: 'Вид', pace: 'Скорость времени', now: 'Сейчас',
-    states: { prone: 'лежит', popup: 'встаёт', stand: 'стоит', liedown: 'ложится', fallen: 'падает', swim: 'плывёт', recover: 'забирается', walk: 'идёт', run: 'бежит' },
-    again: 'Заново', controls: [['W A S D', 'грести, идти, поворачивать'], ['Shift', 'бежать'], ['Пробел', 'встать на доске · залезть на неё'], ['R', 'заново'], ['Геймпад', 'стик · RT бег · A встать']],
+    states: { prone: 'лежит', popup: 'встаёт', stand: 'стоит', liedown: 'ложится', fallen: 'падает', swim: 'плывёт', recover: 'забирается', walk: 'идёт', run: 'бежит', jump: 'прыгает', carry: 'несёт доску' },
+    leash: 'Лиш', leashOn: 'на ноге', leashOff: 'отстёгнут',
+    again: 'Заново', controls: [
+      ['W A S D', 'грести, идти, плыть, поворачивать'], ['Shift', 'бежать'], ['Пробел', 'встать на доске · прыжок'],
+      ['F', 'с доски — прыжок (W A S D — куда); у доски — залезть, взять под мышку; с доской — положить'],
+      ['L', 'лиш: отстегнуть · пристегнуть у доски'], ['R', 'заново'], ['Геймпад', 'стик · RT бег · A прыжок · X доска · ↓ лиш'],
+    ],
     editPose: 'Править позу', part: 'Часть', how: 'Как', howText: 'точка на теле — выбрать, стрелки — тянуть',
     poseProne: 'Лёжа', posePaddle: 'Гребок', poseSwim: 'Плывёт', moment: 'Момент гребка',
     keys: ['Вход', 'Глубже', 'Выход', 'Над водой'], draft: 'Не сохранено — в игре пока прежняя',
@@ -87,8 +92,13 @@ const TEXT = {
     full: 'Overview', deck: 'Deck', bottom: 'Bottom', side: 'Rocker', tail: 'Tail', rail: 'Rail', face: 'Face', abeam: 'Abeam', fromSea: 'From the sea', fromBeach: 'From the beach', along: 'Abeam',
     prone: 'Lying', paddle: 'Paddling', stand: 'Riding', swim: 'Into the water', human: 'Human', skeleton: 'Skeleton', both: 'Human and skeleton',
     doing: 'What he does', look: 'Look', pace: 'Time', now: 'Now',
-    states: { prone: 'lying', popup: 'getting up', stand: 'riding', liedown: 'lying down', fallen: 'falling', swim: 'swimming', recover: 'climbing on', walk: 'walking', run: 'running' },
-    again: 'Start over', controls: [['W A S D', 'paddle, walk, turn'], ['Shift', 'run'], ['Space', 'stand up on the board · climb on'], ['R', 'start over'], ['Gamepad', 'stick · RT run · A stand']],
+    states: { prone: 'lying', popup: 'getting up', stand: 'riding', liedown: 'lying down', fallen: 'falling', swim: 'swimming', recover: 'climbing on', walk: 'walking', run: 'running', jump: 'jumping', carry: 'carrying the board' },
+    leash: 'Leash', leashOn: 'on his ankle', leashOff: 'off',
+    again: 'Start over', controls: [
+      ['W A S D', 'paddle, walk, swim, turn'], ['Shift', 'run'], ['Space', 'stand up on the board · jump'],
+      ['F', 'on the board — jump off (W A S D — where); beside it — climb on, carry it; carrying — put it down'],
+      ['L', 'leash: off · back on near the board'], ['R', 'start over'], ['Gamepad', 'stick · RT run · A jump · X board · ↓ leash'],
+    ],
     editPose: 'Edit the pose', part: 'Part', how: 'How', howText: 'a point on him — pick, the arrows — drag',
     poseProne: 'Lying', posePaddle: 'Stroke', poseSwim: 'Swimming', moment: 'Moment of the stroke',
     keys: ['In', 'Deeper', 'Out', 'Over'], draft: 'Not saved — the game has the old one',
@@ -141,6 +151,7 @@ export default function SurfboardLab() {
   const [tab, setTab] = useState('shape');
   const [riderState, setRiderState] = useState('prone');
   const [restart, setRestart] = useState(0);
+  const [leashed, setLeashed] = useState(true);
   const again = () => setRestart((count) => count + 1);
   // The lying pose's corrections (riderPose holds the live ones for the
   // physics; this is the panel's copy), the part the arrows are on, and how
@@ -235,7 +246,7 @@ export default function SurfboardLab() {
         {tab === 'rider' && shore && <>
           <LabModes label={t.look} items={SURFBOARD_CHOICES.surfboardRiderLook.map((id) => ({ id, label: t[id] }))} value={settings.surfboardRiderLook} onChange={(value) => set('surfboardRiderLook', value)} />
           <LabRange label={t.pace} value={settings.pace} min={0.05} max={1} step={0.05} onChange={(value) => set('pace', value)} />
-          <LabFacts rows={[[t.now, t.states[riderState] ?? riderState], ...t.controls]} />
+          <LabFacts rows={[[t.now, t.states[riderState] ?? riderState], [t.leash, leashed ? t.leashOn : t.leashOff], ...t.controls]} />
         </>}
         {tab === 'rider' && !shore && <>
           <LabModes label={t.doing} items={['prone', 'paddle', 'stand', 'swim'].map((id) => ({ id, label: t[id] }))} value={settings.pose} onChange={(value) => set('pose', value)} />
@@ -309,7 +320,7 @@ export default function SurfboardLab() {
             pose={settings.pose} look={board.surfboardRiderLook} pace={settings.pace} wireframe={settings.wireframe}
             onState={setRiderState} onClimbed={() => set('pose', 'prone')}
             editing={editing} editPose={editPose} editKey={editKey} tuning={tuning} part={part} onPart={setPart} onTuning={retune}
-            shore={shore} restart={restart} onRestart={again}
+            shore={shore} restart={restart} onRestart={again} onLeash={setLeashed}
           />
         ) : (
           <group

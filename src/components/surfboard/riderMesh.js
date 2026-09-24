@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { JOINTS, JOINT_BLOCK, SEGMENT, SEGMENT_CENTRE, SEGMENT_NAMES, STICKS } from './riderSkeleton.js';
+import { LEASH_LENGTH, leashEnds } from './riderController.js';
 
 // The rider's sticks and joint blocks as instances of one box, and how the
 // bodies write them each frame (RiderModel draws them).
@@ -53,3 +54,34 @@ export function updateRiderModel(mesh, rider) {
   mesh.instanceMatrix.needsUpdate = true;
 }
 
+
+// The leash: a cord from his back ankle to the plug in the tail, hanging in a
+// curve while it is slack (as long as its own length), straight once taut;
+// gone when it is off his ankle.
+const CORD_POINTS = 16;
+const cordFrom = [0, 0, 0], cordTo = [0, 0, 0];
+export function createLeashCord() {
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(CORD_POINTS * 3), 3));
+  const cord = new THREE.Line(geometry, new THREE.LineBasicMaterial({ color: '#1c1d20' }));
+  cord.name = 'surfboard-leash-cord';
+  // It moves every frame; a bounding sphere would be stale by the next one.
+  cord.frustumCulled = false;
+  return cord;
+}
+export function updateLeashCord(cord, rider, board, visible = true) {
+  if (!cord) return;
+  cord.visible = visible && leashEnds(rider, board, cordFrom, cordTo);
+  if (!cord.visible) return;
+  const d = Math.hypot(cordTo[0] - cordFrom[0], cordTo[1] - cordFrom[1], cordTo[2] - cordFrom[2]);
+  // A shallow parabola as long as the cord: 8·sag²/(3·d) longer than the chord.
+  const sag = d < LEASH_LENGTH ? Math.sqrt(0.375 * d * (LEASH_LENGTH - d)) : 0;
+  const points = cord.geometry.attributes.position.array;
+  for (let i = 0; i < CORD_POINTS; i += 1) {
+    const u = i / (CORD_POINTS - 1);
+    points[i * 3] = cordFrom[0] + (cordTo[0] - cordFrom[0]) * u;
+    points[i * 3 + 1] = cordFrom[1] + (cordTo[1] - cordFrom[1]) * u - 4 * sag * u * (1 - u);
+    points[i * 3 + 2] = cordFrom[2] + (cordTo[2] - cordFrom[2]) * u;
+  }
+  cord.geometry.attributes.position.needsUpdate = true;
+}

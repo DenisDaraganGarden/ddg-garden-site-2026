@@ -12,7 +12,7 @@ const HELD = {
 // frames. It stays true this long after the press; the board's pop cooldown
 // (0.8 s) makes that one pop, and the scene may clear it on reading.
 export const POP_HOLD_MS = 250;
-const EDGE = /^(Space|KeyC|KeyR|KeyT|KeyP|Escape|Tab|Digit[1-4])$/;
+const EDGE = /^(Space|KeyC|KeyF|KeyL|KeyR|KeyT|KeyP|Escape|Tab|Digit[1-4])$/;
 const PITCH_LIMIT = 1.2;
 const ZOOM_LIMITS = [0.4, 3];
 // A held key or button goes from rest to full in RISE seconds and back in
@@ -39,7 +39,7 @@ const TRIGGER_ON = 0.5;
 const TRIGGER_OFF = 0.35;
 const LOOK_YAW_RATE = 2.5;
 const LOOK_PITCH_RATE = 1.5;
-const BUTTON = { A: 0, B: 1, Y: 3, LB: 4, LT: 6, RT: 7, VIEW: 8, MENU: 9, RS: 11, UP: 12 };
+const BUTTON = { A: 0, B: 1, X: 2, Y: 3, LB: 4, LT: 6, RT: 7, VIEW: 8, MENU: 9, RS: 11, UP: 12, DOWN: 13 };
 const PAD_BUTTONS = 17;
 const AXES = ['lean', 'trim', 'crouch', 'grab', 'lookBack'];
 
@@ -191,6 +191,9 @@ export function createPlayControls(stop, env = browser) {
     // A held edge key fires once: P held down would leave and come back.
     else if (event.repeat) { /* swallowed */ }
     else if (code === 'Space') popUp();
+    // The board (jump off it, climb on, carry it, put it down) and the leash.
+    else if (code === 'KeyF') surfPlay.intent.board += 1;
+    else if (code === 'KeyL') surfPlay.intent.leash += 1;
     else if (code === 'KeyC') cycleSurfCamera();
     else if (code.startsWith('Digit')) setSurfCamera(SURF_CAMERAS[Number(code.slice(5)) - 1]);
     else if (code === 'KeyR') surfPlay.respawnRequest += 1;
@@ -339,6 +342,8 @@ export function createPlayControls(stop, env = browser) {
       if (!down || was) continue;
       if (i === BUTTON.A) popUp();
       else if (i === BUTTON.B) intent.duck += 1;
+      else if (i === BUTTON.X) intent.board += 1;
+      else if (i === BUTTON.DOWN) intent.leash += 1;
       else if (i === BUTTON.Y) cycleSurfCamera();
       else if (i === BUTTON.LT) intent.strokeLeft += 1;
       else if (i === BUTTON.RT) intent.strokeRight += 1;
