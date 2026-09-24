@@ -12,6 +12,7 @@ import { Readable } from 'node:stream';
 import sharp from 'sharp';
 import * as THREE from 'three';
 
+const near = (actual, expected, tolerance, message) => assert.ok(Math.abs(actual - expected) <= tolerance, `${message}: ${actual} ≠ ${expected}`);
 const home = await fs.mkdtemp(path.join(os.tmpdir(), 'ddg-materials-'));
 const N = 256;
 const calls = [];
@@ -139,19 +140,83 @@ try {
   const floor = new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0, 0, 0, 2, 4, 0, 0], 3));
   assert.deepEqual(Array.from(boxUvGeometry(floor, new THREE.Matrix4(), [2, 2]).attributes.uv.array), [0, 0, 0, 1, 2, 0], 'пол: как план, в масштабе SketchUp');
 
+  // Стекло: серое прозрачное окно — стекло; цветной кружок кроны и плоский
+  // знак на плане — нет; своё слово в окне материала — главнее.
+  const { looksLikeGlass, glassDefaults, tuneGlass, unmakeGlass, setGlassProbe } = await import('../src/materials/glass.js');
+  const scene = new THREE.Group();
+  const pane = (color, opacity, vertical = true, name = 'Материал') => {
+    const material = new THREE.MeshStandardMaterial({ name, color, transparent: opacity < 1, opacity });
+    const geometry = new THREE.PlaneGeometry(1, 1);
+    if (!vertical) geometry.rotateX(-Math.PI / 2);
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.castShadow = true; // как у сеток модели в сцене (prepareModel)
+    scene.add(mesh);
+    return { material, mesh };
+  };
+  const window = pane('#1e1e1e', 0.58, true, '[Color H08]1');
+  assert.ok(looksLikeGlass(window.material, [window.mesh], scene), 'серое окно 58 % — стекло');
+  const cap = pane('#bf6d3f', 0.61, true, '*5');
+  assert.ok(!looksLikeGlass(cap.material, [cap.mesh], scene), 'цвет легенды — не стекло');
+  const disc = pane('#ffffff', 0.61, false, '*62');
+  assert.ok(!looksLikeGlass(disc.material, [disc.mesh], scene), 'белый плоский знак на плане — не стекло');
+  const named = pane('#8fb3c9', 1, false, 'Glass_Blue');
+  assert.ok(looksLikeGlass(named.material, [named.mesh], scene), '«glass» в имени — стекло, даже голубое и плашмя');
+  const crown = pane('#888888', 0.6);
+  crown.mesh.userData.crownPlan = true;
+  assert.ok(!looksLikeGlass(crown.material, [crown.mesh], scene), 'круг кроны SketchUp — не стекло');
+  near(glassDefaults(window.material).clarity, 0.42, 1e-6, 'насквозь видно столько, сколько окно прозрачно');
+
+  const { material: glassy, mesh: glassMesh } = window;
+  glassy.onBeforeCompile = (shader) => { shader.fragmentShader = `// wet\n${shader.fragmentShader}`; };
+  tuneGlass(glassy, [glassMesh], { ...glassDefaults(glassy), reflect: 2 });
+  assert.ok(glassy.premultipliedAlpha && !glassy.depthWrite && glassy.transparent, 'стекло смешивается с предумноженной альфой');
+  assert.ok(!glassMesh.castShadow, 'стекло не бросает чёрной тени');
+  const shader = { uniforms: {}, vertexShader: THREE.ShaderLib.physical.vertexShader, fragmentShader: THREE.ShaderLib.physical.fragmentShader };
+  glassy.onBeforeCompile(shader);
+  assert.match(shader.fragmentShader, /glassFresnel/);
+  assert.match(shader.fragmentShader, /\/\/ wet/, 'прежняя правка шейдера (мокрая линия) остаётся');
+  assert.ok(!shader.fragmentShader.includes('premultiplied_alpha_fragment'), 'отражение не гасится прозрачностью');
+  assert.match(shader.fragmentShader, /if \( uGlassBox > 0\.5 \) reflectVec = glassBox\( reflectVec \);/, 'снимок окружения сдвинут на коробку участка (строка three нашлась)');
+  assert.match(shader.fragmentShader, /radiance \*= mix\( uGlassReflect/, 'отражение — сила напыления, и со светом сцены тоже');
+  assert.match(shader.vertexShader, /vGlassWorld = \( modelMatrix \* glassWorld \)\.xyz;/);
+  near(shader.uniforms.uGlassAbsorb.value, 0.58, 1e-6, 'в упор закрыто 58 %');
+  assert.equal(shader.uniforms.uGlassReflect.value, 2, '«Отражение» доходит до шейдера (envMapIntensity three при небе сцены не берёт)');
+  assert.match(glassy.customProgramCacheKey(), /placed-glass/);
+  const shot = { texture: new THREE.CubeTexture(), center: new THREE.Vector3(1, 2, 3), box: new THREE.Box3(new THREE.Vector3(-20, 0, -20), new THREE.Vector3(20, 30, 20)) };
+  setGlassProbe(glassy, shot);
+  assert.ok(glassy.envMap === shot.texture && shader.uniforms.uGlassBox.value === 1 && shader.uniforms.uGlassProbe.value.y === 2 && shader.uniforms.uGlassBoxMax.value.y === 30, 'снимок окружения — отражение стекла');
+  setGlassProbe(glassy, null);
+  assert.ok(glassy.envMap === null && shader.uniforms.uGlassBox.value === 0, 'без снимка — небо сцены');
+  setGlassProbe(glassy, shot);
+  unmakeGlass(glassy, [glassMesh]);
+  assert.ok(!glassy.premultipliedAlpha && glassy.opacity === 0.58 && glassMesh.castShadow && glassy.envMap === null, 'снял «стекло» — всё как было');
+  const plain = { uniforms: {}, vertexShader: THREE.ShaderLib.physical.vertexShader, fragmentShader: THREE.ShaderLib.physical.fragmentShader };
+  glassy.onBeforeCompile(plain);
+  assert.ok(!/glassFresnel/.test(plain.fragmentShader) && !/placed-glass/.test(glassy.customProgramCacheKey()), 'без стекла шейдер свой');
+  // three, вернувшись к собранной программе, onBeforeCompile не зовёт и берёт
+  // юниформы последней сборки: они должны быть те же, что крутят ползунки.
+  assert.equal(plain.uniforms.uGlassAbsorb, shader.uniforms.uGlassAbsorb, 'юниформы стекла — в каждой сборке, одни и те же');
+  tuneGlass(glassy, [glassMesh], { ...glassDefaults(glassy), clarity: 0.9 });
+  near(plain.uniforms.uGlassAbsorb.value, 0.1, 1e-6, 'снял и поставил снова — ползунок доходит до собранной раньше программы');
+  assert.ok(glassy.premultipliedAlpha && /placed-glass/.test(glassy.customProgramCacheKey()), 'поставил снова — снова стекло');
+
   // Настройки проекта: чужое отбрасывается, «как в SketchUp» (null) остаётся.
   const { normalizeMaterialSettings } = await import('../src/materials/settings.js');
   const normalized = normalizeMaterialSettings({ modelMaterials: {
     'placed-1': { 'Дерево_фасад': { material: 'planken-abc', tile: 999, normal: 1.5, projection: 'box' }, bad: { material: '../../etc' }, maps: { material: 'kirpich-1', tile: null, projection: 'sideways' } },
     '../x': { a: { material: 'm' } },
+    'placed-2': { '[Color H08]1': { glass: { clarity: 0.7, tint: '#AABBCC' } }, '<auto>': { glass: { on: false } } },
   } });
   assert.deepEqual(normalized, { modelMaterials: { 'placed-1': {
     'Дерево_фасад': { material: 'planken-abc', tile: 50, normal: 1.5, roughness: 1, projection: 'box' },
     maps: { material: 'kirpich-1', tile: null, normal: 1, roughness: 1 },
-  } } });
+  }, 'placed-2': {
+    '[Color H08]1': { glass: { on: true, clarity: 0.7, frost: 0.03, reflect: 2, tint: '#aabbcc' } },
+    '<auto>': { glass: { on: false, clarity: 0.6, frost: 0.03, reflect: 2, tint: null } },
+  } } }, 'запись только про стекло держится; «не стекло» — тоже слово');
   assert.deepEqual(normalizeMaterialSettings(normalized), normalized, 'нормализация неподвижна');
 
-  console.log(`materials: ключ, модели, задание, варианты, аналоги, шов крестом (${before.toFixed(1)} → ${after.toFixed(1)}), карты, библиотека, «только карты», масштаб SketchUp, проекция, настройки — ok`);
+  console.log(`materials: ключ, модели, задание, варианты, аналоги, шов крестом (${before.toFixed(1)} → ${after.toFixed(1)}), карты, библиотека, «только карты», масштаб SketchUp, проекция, стекло, настройки — ok`);
 } finally {
   server.close();
   await fs.rm(home, { recursive: true, force: true });

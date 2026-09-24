@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { glassDefaults, looksLikeGlass, tuneGlass, unmakeGlass } from './glass.js';
 
 // Материал модели SketchUp → материал библиотеки: цвет, нормали, матовость,
 // затенение щелей. Раскладка текстуры — та, что Денис задал в SketchUp: его
@@ -17,13 +18,18 @@ const KEPT = ['map', 'normalMap', 'roughnessMap', 'aoMap', 'metalnessMap'];
 
 const toRoot = new THREE.Matrix4();
 const relative = (mesh, root) => toRoot.copy(root.matrixWorld).invert().multiply(mesh.matrixWorld);
-const meshesOf = (root, material) => {
-    const found = [];
+// Сетки модели по материалам — один обход на всю модель.
+export function meshesByMaterial(root) {
+    const found = new Map();
     root.traverse((object) => {
-        if (object.isMesh && (Array.isArray(object.material) ? object.material.includes(material) : object.material === material)) found.push(object);
+        if (!object.isMesh) return;
+        for (const material of Array.isArray(object.material) ? object.material : [object.material]) {
+            if (!found.has(material)) found.set(material, []);
+            found.get(material).push(object);
+        }
     });
     return found;
-};
+}
 
 const median = (values, fallback) => {
     if (!values.length) return fallback;
@@ -186,16 +192,21 @@ function layOutBack(mesh) {
 export function applyModelMaterials(prepared, overrides, { root, anisotropy = 4, onChange } = {}) {
     let cancelled = false;
     const jobs = [];
+    const byMaterial = meshesByMaterial(root);
     for (const material of prepared.materials) {
         const override = overrides?.[material.name];
+        const meshes = byMaterial.get(material) ?? [];
+        // Стекло: как сказано в окне материала, иначе — узнанное само (glass.js).
+        const glass = material.isMeshStandardMaterial && (override?.glass ? override.glass.on : looksLikeGlass(material, meshes, root));
+        if (glass) tuneGlass(material, meshes, { ...glassDefaults(material), ...(override?.glass ?? {}) });
+        else unmakeGlass(material, meshes);
         // Скан без света сцены (MeshBasicMaterial) карт рельефа не знает.
-        if (!override || !material.isMeshStandardMaterial) {
-            if (material.userData.original) meshesOf(root, material).forEach(layOutBack);
+        if (!override?.material || !material.isMeshStandardMaterial) {
+            if (material.userData.original) meshes.forEach(layOutBack);
             restore(material);
             continue;
         }
         const original = remember(material);
-        const meshes = meshesOf(root, material);
         if (!material.userData.scale) material.userData.scale = uvScale(meshes, root);
         const projection = override.tile !== null && override.projection === 'box' ? 'box' : 'uv';
         for (const mesh of meshes) layOut(mesh, root, projection, material.userData.scale);
@@ -228,6 +239,7 @@ export function applyModelMaterials(prepared, overrides, { root, anisotropy = 4,
                 onChange?.();
             }));
     }
+    onChange?.();
     return { cancel: () => { cancelled = true; }, ready: Promise.all(jobs) };
 }
 

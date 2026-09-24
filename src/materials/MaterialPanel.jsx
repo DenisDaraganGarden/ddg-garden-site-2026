@@ -4,6 +4,7 @@ import { EDITOR_THUMBNAIL_READY, requestEditorThumbnail } from '../components/ef
 import { sketchupModelEntry } from '../placed/sketchupModel.js';
 import { MATERIAL_RANGES } from './settings.js';
 import { libraryFile, textureDataUrl, uvScale } from './modelMaterials.js';
+import { glassDefaults, looksLikeGlass } from './glass.js';
 import {
     finishMaterial, generateMaterial, listImageModels, listMaterials, mapsFromTexture, readKeyStatus, removeMaterial,
 } from './api.js';
@@ -44,16 +45,19 @@ export default function MaterialPanel({ target, settings, applySettings, onClose
     const override = settings.modelMaterials?.[placedId]?.[materialName] ?? null;
     const prefs = useMemo(readPrefs, []);
 
-    // Сколько метров в плитке текстуры SketchUp — с этого размера и начинаем.
-    const scale = useMemo(() => {
-        const root = sketchupModelEntry(placedId)?.root;
-        if (!root || !material) return [1, 1];
-        const meshes = [];
-        root.traverse((object) => { if (object.isMesh && object.material === material) meshes.push(object); });
-        return material.userData.scale ?? uvScale(meshes, root);
+    // Сетки этого материала в модели: по ним — размер плитки SketchUp (с него
+    // и начинаем) и стекло ли это.
+    const { root, meshes } = useMemo(() => {
+        const found = sketchupModelEntry(placedId)?.root ?? null;
+        const list = [];
+        found?.traverse((object) => { if (object.isMesh && object.material === material) list.push(object); });
+        return { root: found, meshes: list };
     }, [placedId, material]);
+    const scale = useMemo(() => (root && material ? material.userData.scale ?? uvScale(meshes, root) : [1, 1]), [root, meshes, material]);
     const current = useMemo(() => (material ? textureDataUrl(material, 512) : null), [material]);
-    const swatch = material?.userData.original?.color ?? material?.color;
+    const swatch = material?.userData.glassBase?.color ?? material?.userData.original?.color ?? material?.color;
+    const glassAuto = useMemo(() => Boolean(material && looksLikeGlass(material, meshes, root)), [material, meshes, root]);
+    const glass = { ...glassDefaults(material), on: glassAuto, ...(override?.glass ?? {}) };
 
     const [references, setReferences] = useState([]);
     const [context, setContext] = useState({ on: true, image: null });
@@ -134,7 +138,12 @@ export default function MaterialPanel({ target, settings, applySettings, onClose
         if (Object.keys(materials).length) models[placedId] = materials; else delete models[placedId];
         applySettings({ modelMaterials: models });
     };
-    const apply = (entry) => setOverride({ material: entry.id, tile: entry.tile ?? null, normal: override?.normal ?? 1, roughness: override?.roughness ?? 1 });
+    // Материал библиотеки — со своими плиткой, рельефом и матовостью (их правит
+    // лаборатория «Материалы»); своё слово о стекле при этом не теряется.
+    const keepGlass = override?.glass ? { glass: override.glass } : {};
+    const apply = (entry) => setOverride({ ...keepGlass, material: entry.id, tile: entry.tile ?? null, normal: entry.normal ?? override?.normal ?? 1, roughness: entry.roughness ?? override?.roughness ?? 1 });
+    const unapply = () => setOverride(override?.glass ? keepGlass : null);
+    const setGlass = (patch) => setOverride({ ...(override ?? {}), glass: { ...glass, ...patch } });
 
     const run = async (text, job) => {
         const started = Date.now();
@@ -172,7 +181,7 @@ export default function MaterialPanel({ target, settings, applySettings, onClose
     const remove = async (entry) => {
         if (!window.confirm(tr(`Удалить «${entry.name}» из библиотеки?`, `Delete “${entry.name}” from the library?`))) return;
         await removeMaterial(entry.id).catch(() => {});
-        if (override?.material === entry.id) setOverride(null);
+        if (override?.material === entry.id) unapply();
         await reloadLibrary();
     };
 
@@ -183,15 +192,40 @@ export default function MaterialPanel({ target, settings, applySettings, onClose
         <input type="range" min={min} max={max} step={step} value={override[name] ?? 1} onChange={(event) => setOverride({ ...override, [name]: Number(event.target.value) })} />
         <output>{Number(override[name] ?? 1).toFixed(2)}{unit}</output>
     </label>;
-    const applied = override ? library.find((entry) => entry.id === override.material) : null;
+    const applied = override?.material ? library.find((entry) => entry.id === override.material) : null;
+    const glassKnob = (name, [label, labelEn], [min, max, step]) => <label className="material-panel__knob">
+        <span>{tr(label, labelEn)}</span>
+        <input type="range" min={min} max={max} step={step} value={glass[name]} onChange={(event) => setGlass({ [name]: Number(event.target.value) })} data-testid={`material-glass-${name}`} />
+        <output>{Number(glass[name]).toFixed(2)}</output>
+    </label>;
 
     return <section className="material-panel focus-glass" aria-label={tr('Текстура', 'Texture')} data-testid="material-panel"
         onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); void addFiles(event.dataTransfer.files); }}>
         <header>
-            <h2>{tr('Текстура', 'Texture')} · «{materialName}»</h2>
+            <h2>{glass.on ? tr('Стекло', 'Glass') : tr('Текстура', 'Texture')} · «{materialName}»</h2>
             <button type="button" className="material-panel__close" onClick={onClose} aria-label={tr('Закрыть', 'Close')}>×</button>
         </header>
 
+        <div className="material-panel__glass">
+            <label className="material-panel__check">
+                <input type="checkbox" checked={glass.on} onChange={(event) => setGlass({ on: event.target.checked })} data-testid="material-glass" />
+                <span>{tr('Это стекло', 'This is glass')}</span>
+                {glassAuto && !override?.glass ? <small>{tr('узнано само', 'recognised')}</small> : null}
+            </label>
+            {glass.on ? <>
+                {glassKnob('clarity', ['Прозрачность', 'Clarity'], MATERIAL_RANGES.clarity)}
+                {glassKnob('frost', ['Матовость', 'Frost'], MATERIAL_RANGES.frost)}
+                {glassKnob('reflect', ['Отражение', 'Reflection'], MATERIAL_RANGES.reflect)}
+                <label className="material-panel__knob">
+                    <span>{tr('Оттенок', 'Tint')}</span>
+                    <input type="color" value={glass.tint ?? '#888888'} onChange={(event) => setGlass({ tint: event.target.value })} />
+                    <output />
+                </label>
+                <small>{tr('Стеклу текстура не нужна: снимите «Это стекло», чтобы сделать ему текстуру.', 'Glass needs no texture: untick “This is glass” to give it one.')}</small>
+            </> : null}
+        </div>
+
+        {!glass.on ? <>
         <div className="material-panel__top">
             <div className="material-panel__refs">
                 <span className="material-panel__caption">{tr('Аналоги', 'References')}</span>
@@ -257,7 +291,7 @@ export default function MaterialPanel({ target, settings, applySettings, onClose
             <button type="button" className="material-panel__primary" disabled={busy} onClick={() => void finish()} data-testid="material-apply">{tr('Применить', 'Apply')}</button>
         </div> : null}
 
-        {override ? <div className="material-panel__applied">
+        {override?.material ? <div className="material-panel__applied">
             <span className="material-panel__caption">{tr('На модели', 'On the model')}: {applied?.name ?? override.material}</span>
             {override.tile !== null ? <div className="material-panel__projection" role="group" aria-label={tr('Раскладка', 'Layout')}>
                 <span>{tr('Раскладка', 'Layout')}</span>
@@ -271,7 +305,7 @@ export default function MaterialPanel({ target, settings, applySettings, onClose
             </label> : null}
             {knob('normal', ['Рельеф', 'Relief'], MATERIAL_RANGES.normal)}
             {knob('roughness', ['Матовость', 'Roughness'], MATERIAL_RANGES.roughness)}
-            <button type="button" onClick={() => setOverride(null)}>{tr('Вернуть материал SketchUp', 'Back to the SketchUp material')}</button>
+            <button type="button" onClick={unapply}>{tr('Вернуть материал SketchUp', 'Back to the SketchUp material')}</button>
         </div> : null}
 
         <div className="material-panel__library">
@@ -286,5 +320,6 @@ export default function MaterialPanel({ target, settings, applySettings, onClose
                 {!library.length ? <small>{tr('Пока пусто: применённые материалы ложатся сюда и доступны в любом проекте.', 'Empty so far: applied materials land here for every project.')}</small> : null}
             </div>
         </div>
+        </> : null}
     </section>;
 }

@@ -9,6 +9,7 @@ import { setSolid, solidHeightfield } from './solidSurface.js';
 import { PLACED_TRANSFORM_DEFAULT } from './settings.js';
 import { applyHidden, findPart, makeFaceCamera, registerSketchupModel, tagNodes } from './sketchupModel.js';
 import { applyModelMaterials } from '../materials/modelMaterials.js';
+import { useGlassReflections } from '../materials/GlassReflections.js';
 import { makeCoastTree } from '../plants/treeModel.js';
 import { TREE_SPECIES } from '../plants/treeSpecies.js';
 import { makeOleaster } from '../plants/oleasterModel.js';
@@ -282,13 +283,16 @@ function PlacedModel({ object, url, selected, sketchup, selectedPart, plan = fal
     </>;
 }
 
-export default function PlacedObjects({ objects, selectedId = null, selectedPart = null, sketchupModels = {}, modelMaterials = {}, plan = false, treeAsset, shrubAsset, qualityProfile, lighting, envMapIntensity = 1 }) {
+export default function PlacedObjects({ objects, selectedId = null, selectedPart = null, sketchupModels = {}, modelMaterials = {}, plan = false, treeAsset, shrubAsset, qualityProfile, lighting, envMapIntensity = 1, settings = null }) {
     const lowPower = Boolean(qualityProfile?.isLowPower || qualityProfile?.isMobileDevice);
     // A hidden object keeps its anchor: it can still be picked from the list,
     // framed and moved, it only draws nothing.
     const shown = objects.filter((object) => !object.hidden);
     const rocks = shown.filter((object) => object.kind === 'rock');
-    return <group name="placed">
+    // Стёкла моделей отражают сцену вокруг камеры, а не только небо.
+    const group = useRef();
+    useGlassReflections(group, settings);
+    return <group ref={group} name="placed">
         {objects.filter((object) => object.hidden).map((object) => <Anchor key={object.id} object={object} selected={object.id === selectedId} radius={1} />)}
         {shown.map((object) => {
             const selected = object.id === selectedId;
