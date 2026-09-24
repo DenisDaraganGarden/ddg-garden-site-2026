@@ -5,6 +5,8 @@ import { assetIndex } from '../asset-lab/assetCatalog';
 import { buildHomeSceneLighting } from '../components/effects/homeSceneLighting';
 import SurfboardModel from '../components/surfboard/SurfboardModel';
 import LabRider from './LabRider';
+import { proneTuning, setProneTuning } from '../components/surfboard/riderPose';
+import { PRONE_FACTORY } from '../components/surfboard/proneTuning';
 import { createBoardBody, createBoardState, stepBoard } from '../components/surfboard/boardPhysics';
 import { boardDimensions, buildBoardHull } from '../components/surfboard/boardShape';
 import { SURFBOARD_CHOICES, SURFBOARD_RANGES, normalizeSurfboardSettings } from '../components/surfboard/settings';
@@ -56,6 +58,9 @@ const TEXT = {
     prone: 'Лежит', paddle: 'Гребёт', stand: 'Стоит', swim: 'В воду', human: 'Человек', skeleton: 'Скелет', both: 'Человек и скелет',
     doing: 'Что делает', look: 'Вид', pace: 'Скорость времени', now: 'Сейчас',
     states: { prone: 'лежит', popup: 'встаёт', stand: 'стоит', liedown: 'ложится', fallen: 'падает', swim: 'плывёт', recover: 'забирается' },
+    editPose: 'Править позу лёжа', part: 'Часть', how: 'Как', howText: 'точка на теле — выбрать, стрелки — тянуть',
+    save: 'Сохранить позу', factory: 'Сбросить позу', saved: 'Сохранено — в игре так же', restart: 'Перезапустите приложение: сохранение появится после перезапуска', failed: 'Не сохранилось',
+    parts: { pelvis: 'таз', chest: 'грудь', head: 'голова', handL: 'левая кисть', handR: 'правая кисть', elbowL: 'левый локоть', elbowR: 'правый локоть', kneeL: 'левое колено', kneeR: 'правое колено', footL: 'левая стопа', footR: 'правая стопа' },
     length: 'Длина', width: 'Ширина', thickness: 'Толщина', noseRocker: 'Подъём носа', tailRocker: 'Подъём хвоста', wire: 'Каркас',
     deckColor: 'Стекло палубы', railColor: 'Кант · карбон', stripeColor: 'Полосы', stringerColor: 'Стрингер', finColor: 'Плавники', stripes: 'Число полос',
     volume: 'Объём', area: 'Площадь в плане', size: 'Размер',
@@ -69,6 +74,9 @@ const TEXT = {
     prone: 'Lying', paddle: 'Paddling', stand: 'Riding', swim: 'Into the water', human: 'Human', skeleton: 'Skeleton', both: 'Human and skeleton',
     doing: 'What he does', look: 'Look', pace: 'Time', now: 'Now',
     states: { prone: 'lying', popup: 'getting up', stand: 'riding', liedown: 'lying down', fallen: 'falling', swim: 'swimming', recover: 'climbing on' },
+    editPose: 'Edit the lying pose', part: 'Part', how: 'How', howText: 'a point on him — pick, the arrows — drag',
+    save: 'Save the pose', factory: 'Reset the pose', saved: 'Saved — the game has it too', restart: 'Restart the app: saving arrives with the restart', failed: 'Not saved',
+    parts: { pelvis: 'pelvis', chest: 'chest', head: 'head', handL: 'left hand', handR: 'right hand', elbowL: 'left elbow', elbowR: 'right elbow', kneeL: 'left knee', kneeR: 'right knee', footL: 'left foot', footR: 'right foot' },
     length: 'Length', width: 'Width', thickness: 'Thickness', noseRocker: 'Nose rocker', tailRocker: 'Tail rocker', wire: 'Wireframe',
     deckColor: 'Deck glass', railColor: 'Rails · carbon', stripeColor: 'Stripes', stringerColor: 'Stringer', finColor: 'Fins', stripes: 'Stripe count',
     volume: 'Volume', area: 'Plan area', size: 'Size',
@@ -90,6 +98,22 @@ export default function SurfboardLab() {
   const [view, setView] = useState('full');
   const [tab, setTab] = useState('shape');
   const [riderState, setRiderState] = useState('prone');
+  // The lying pose's corrections (riderPose holds the live ones for the
+  // physics; this is the panel's copy), the part the arrows are on, and how
+  // the last save went.
+  const [editing, setEditing] = useState(false);
+  const [tuning, setTuning] = useState(proneTuning);
+  const [part, setPart] = useState('handL');
+  const [saved, setSaved] = useState(null);
+  const retune = (next) => { setProneTuning(next); setTuning(next); setSaved(null); };
+  const savePose = async () => {
+    try {
+      const response = await fetch('/__rider-pose', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prone: tuning }) });
+      setSaved(response.ok ? 'saved' : response.status === 404 ? 'restart' : 'failed');
+    } catch {
+      setSaved('failed');
+    }
+  };
   const [hidden, setHidden] = useState(document.hidden);
   const set = (key, value) => setSettings((current) => ({ ...current, [key]: value }));
   const lighting = useMemo(() => buildHomeSceneLighting({
@@ -130,6 +154,7 @@ export default function SurfboardLab() {
   const tabs = riding ? ['rider', 'shape', 'paint', 'light'] : ['shape', 'paint', 'light'];
   const setMode = (mode) => {
     set('mode', mode);
+    if (mode !== 'rider') setEditing(false);
     // The rider's views frame a standing man; the board's, the board.
     if (mode === 'rider') { setView('rider'); setTab('rider'); } else {
       if (!BOARD_VIEWS.includes(view)) setView('full');
@@ -158,6 +183,12 @@ export default function SurfboardLab() {
           <LabModes label={t.look} items={SURFBOARD_CHOICES.surfboardRiderLook.map((id) => ({ id, label: t[id] }))} value={settings.surfboardRiderLook} onChange={(value) => set('surfboardRiderLook', value)} />
           <LabRange label={t.pace} value={settings.pace} min={0.05} max={1} step={0.05} onChange={(value) => set('pace', value)} />
           <LabFacts rows={[[t.now, t.states[riderState] ?? riderState]]} />
+          <LabToggle label={t.editPose} value={editing} onChange={(value) => { setEditing(value); if (value) set('pose', 'prone'); }} />
+          {editing && <LabFacts rows={[
+            [t.part, t.parts[part]],
+            [t.how, t.howText],
+            ...(saved ? [['', t[saved]]] : []),
+          ]} />}
         </>}
         {tab === 'shape' && <>
           {range('surfboardLength', t.length, (value) => value.toFixed(2), t.m)}
@@ -187,7 +218,10 @@ export default function SurfboardLab() {
           <LabRange label={t.environment} value={settings.environmentIntensity} min={0} max={2} onChange={(value) => set('environmentIntensity', value)} />
         </>}
       </>}
-      transport={<button type="button" onClick={() => { setSettings(DEFAULTS); setView('full'); setTab('shape'); }}>{t.reset}</button>}
+      transport={editing ? <>
+        <button type="button" onClick={savePose}>{t.save}</button>
+        <button type="button" onClick={() => retune(PRONE_FACTORY)}>{t.factory}</button>
+      </> : <button type="button" onClick={() => { setSettings(DEFAULTS); setView('full'); setTab('shape'); setEditing(false); }}>{t.reset}</button>}
       stats={<>
         <span><b>{(hull.volume * 1000).toFixed(1)}</b> {t.l}</span>
         <span><b>{imperial(hull)}</b></span>
@@ -207,6 +241,7 @@ export default function SurfboardLab() {
             hull={hull} dims={dims} board={board} lighting={lighting}
             pose={settings.pose} look={board.surfboardRiderLook} pace={settings.pace} wireframe={settings.wireframe}
             onState={setRiderState} onClimbed={() => set('pose', 'prone')}
+            editing={editing} tuning={tuning} part={part} onPart={setPart} onTuning={retune}
           />
         ) : (
           <group
