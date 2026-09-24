@@ -1,0 +1,83 @@
+{
+  "source": "bearded_beachcomber.glb",
+  "sourceTriangles": 279491,
+  "droppedCrumbs": 6,
+  "triangles": 61764,
+  "cuts": {
+    "armR": 131,
+    "armL": 73,
+    "thighs": 149,
+    "fingersL": 17
+  },
+  "patches": [
+    {
+      "key": "armR",
+      "part": "upperArmR",
+      "faces": 283
+    },
+    {
+      "key": "armR",
+      "part": "chest",
+      "faces": 289
+    },
+    {
+      "key": "armL",
+      "part": "upperArmL",
+      "faces": 178
+    },
+    {
+      "key": "armL",
+      "part": "chest",
+      "faces": 180
+    },
+    {
+      "key": "thighs",
+      "part": "thighL",
+      "faces": 402
+    },
+    {
+      "key": "thighs",
+      "part": "thighR",
+      "faces": 404
+    },
+    {
+      "key": "fingersL",
+      "part": "forearmL",
+      "faces": 14
+    },
+    {
+      "key": "fingersL",
+      "part": "pelvis",
+      "faces": 14
+    }
+  ],
+  "segments": {
+    "pelvis": 1760,
+    "abdomen": 729,
+    "chest": 2994,
+    "head": 14559,
+    "upperArmL": 649,
+    "forearmL": 1436,
+    "upperArmR": 625,
+    "forearmR": 1458,
+    "thighL": 1899,
+    "shinL": 689,
+    "footL": 722,
+    "thighR": 1810,
+    "shinR": 799,
+    "footR": 730
+  },
+  "influences": 3,
+  "restPoseShift": 0.2228,
+  "atlas": [
+    1024,
+    1088
+  ],
+  "strip": {
+    "height": 64,
+    "used": 455,
+    "texelsPerMetre": 294.1
+  },
+  "glbBytes": 3015988,
+  "vertices": 30859
+}

@@ -74,6 +74,10 @@ export default {
     'Вес самой доски. Тяжелее — сидит в воде глубже и инертнее на волне. В игре к нему добавляется «Вес райдера».',
     'The board’s own weight. Heavier sits deeper and responds more slowly on a wave. In play the “Rider weight” is added to it.',
   ],
+  surfboardRiderLook: [
+    'Каким видно райдера в игре: человек — скан, подвешенный на кости физики; скелет — сами эти кости деревянными брусками; оба — тело насквозь, скелет внутри.',
+    'How the rider shows in play: human — a scan hung on the physics bones; skeleton — those bones as wooden sticks; both — a see-through body with the skeleton inside.',
+  ],
   surfboardRiderMass: [
     'Вес райдера для физики доски в игре: тяжелее — доска садится глубже и позже выходит на глиссирование. 0 — не чувствует ни веса, ни наклонов. Фигура та же.',
     'The rider’s weight as the board feels it in play: heavier sinks it deeper and it planes later. 0 — the board feels neither weight nor lean. The figure stays the same.',

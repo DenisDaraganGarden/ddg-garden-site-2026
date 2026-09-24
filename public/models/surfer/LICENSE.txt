@@ -1,0 +1,11 @@
+"Bearded Beachcomber" by restore50 (https://sketchfab.com/restore50)
+https://sketchfab.com/3d-models/bearded-beachcomber-5c088e467c444655bb1fc1b3375d9fe0
+
+Licensed under Creative Commons Attribution 4.0 (CC BY 4.0):
+http://creativecommons.org/licenses/by/4.0/
+
+Changes: decimated from 279 491 to about 60 000 triangles; the fused armpits,
+thighs and a fingertip cut apart and closed with patches painted from the scan's
+own colours; weighted and posed onto the rider's fourteen-bone physics skeleton;
+maps re-encoded as WebP. Made by assets-source/surfer/generate_surfer_asset.py
+for denisdaragan.com.
