@@ -149,6 +149,68 @@ export function blendControls(a, b, t, out) {
   return out;
 }
 export function copyControls(a, out) { return blendControls(a, a, 0, out); }
+// Stepping from one posture to another on his own feet (off a board, up out
+// of the water, down from a jump). The pelvis goes over before it turns up,
+// so lying he slides off a rail before his legs swing down. The feet and the
+// hands go from where they were to where they will be as seen from the
+// pelvis, in its own frame, so they turn with it and the legs stay under it —
+// never level with the hips, where a knee cannot tell which way to bend — and
+// the feet do not go under what they end on. Through the middle the knees
+// point where the pelvis faces and the elbows back from the chest, never along
+// the limb.
+const stepQ = [0, 0, 0, 1], chestQ = [0, 0, 0, 1], local = [0, 0, 0], localB = [0, 0, 0];
+const KNEE_AHEAD = { L: [0.15, 0, 1], R: [-0.15, 0, 1] }, ELBOW_BACK = { L: [0.35, -0.25, -1], R: [-0.35, -0.25, -1] };
+function fromPelvis(c, point, out) {
+  sub(point, c.pelvis, out);
+  return qRotate(qConj(c.pelvisQ, stepQ), out, out);
+}
+export function stepControls(a, b, t, out) {
+  const move = smoothstep(0, 0.7, t), turn = smoothstep(0.2, 1, t), body = smoothstep(0, 1, t);
+  const early = smoothstep(0, 0.2, t), late = smoothstep(0.8, 1, t);
+  lerp3(a.pelvis, b.pelvis, move, out.pelvis);
+  for (const key of QUAT_KEYS) qSlerp(a[key], b[key], turn, out[key]);
+  qMul(qMul(out.pelvisQ, out.lumbarQ, chestQ), out.thoracicQ, chestQ);
+  for (const side of ['L', 'R']) {
+    for (const [key, clock] of [[`sole${side}`, turn], [`hand${side}`, body]]) {
+      lerp3(fromPelvis(a, a[key], local), fromPelvis(b, b[key], localB), clock, local);
+      add(qRotate(out.pelvisQ, local, local), out.pelvis, out[key]);
+    }
+    const s = out[`sole${side}`];
+    s[1] = Math.max(s[1], Math.min(a[`sole${side}`][1], b[`sole${side}`][1]));
+    for (const [pole, ahead, q] of [[`kneePole${side}`, KNEE_AHEAD[side], out.pelvisQ], [`elbowPole${side}`, ELBOW_BACK[side], chestQ]]) {
+      const p = qRotate(q, ahead, out[pole]);
+      lerp3(a[pole], p, early, p);
+      lerp3(p, b[pole], late, p);
+    }
+  }
+  return out;
+}
+
+// The controls a pose would be built from, read back off one: his bodies as
+// they are (a swim, a fall, lying on the board), so any posture can blend
+// into a built one without the parts coming apart. The knees and elbows point
+// where their upper segments turn them (their rest poles, turned).
+const KNEE_POLE = [0, 0, 1], ELBOW_POLE = [0, 0, -1];
+const readQ = [0, 0, 0, 1];
+const relative = (a, b, out) => qMul(qConj(a, readQ), b, out);
+const copy4 = (a, out) => { out[0] = a[0]; out[1] = a[1]; out[2] = a[2]; out[3] = a[3]; return out; };
+export function captureControls(pose, out) {
+  const r = pose.rotation;
+  copy(pose.position[SEGMENT.pelvis], out.pelvis);
+  copy4(r[SEGMENT.pelvis], out.pelvisQ);
+  relative(r[SEGMENT.pelvis], r[SEGMENT.abdomen], out.lumbarQ);
+  relative(r[SEGMENT.abdomen], r[SEGMENT.chest], out.thoracicQ);
+  relative(r[SEGMENT.chest], r[SEGMENT.head], out.neckQ);
+  for (const side of ['L', 'R']) {
+    const footQ = copy4(r[SEGMENT[`foot${side}`]], out[`footQ${side}`]);
+    jointOf(pose, `foot${side}`, REST[`ankle${side}`], ankle);
+    add(ankle, qRotate(footQ, sole, tC), out[`sole${side}`]);
+    qRotate(r[SEGMENT[`thigh${side}`]], KNEE_POLE, out[`kneePole${side}`]);
+    jointOf(pose, `forearm${side}`, REST[`wrist${side}`], out[`hand${side}`]);
+    qRotate(r[SEGMENT[`upperArm${side}`]], ELBOW_POLE, out[`elbowPole${side}`]);
+  }
+  return out;
+}
 
 const sole = [0, -0.08, 0]; // the sole under the ankle, in the foot's frame
 const tA = [0, 0, 0], tB = [0, 0, 0], tC = [0, 0, 0], tQ = [0, 0, 0, 1];

@@ -24,8 +24,11 @@ export const surfPlay = {
     lookBack: 0,    // 0..1 the head, and the camera, turn to the wave behind
     strokeLeft: 0,  // counters: one stroke of that arm while lying down
     strokeRight: 0,
-    popUp: 0,       // counter: lying, stand up; standing, jump
+    popUp: 0,       // counter: lying, stand up; standing, jump; on his feet, jump
     duck: 0,        // counter: duck dive, later (B on the gamepad)
+    board: 0,       // counter: on the board, jump off it (the keys point where);
+                    // beside it, climb on, pick it up; carrying it, put it down
+    leash: 0,       // counter: the leash off his ankle, or back on near the board
     device: 'keyboard',
   },
   // The mouse as a stick: captured (pointer lock) it steers; x/y is where the

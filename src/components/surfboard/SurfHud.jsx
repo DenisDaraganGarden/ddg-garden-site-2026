@@ -18,6 +18,8 @@ const LEGENDS = {
     ['A D', 'наклон', 'lean'],
     ['Shift', 'присед', 'crouch'],
     ['Space', 'встать · прыжок', 'stand up · jump'],
+    ['F', 'доска: спрыгнуть · залезть · взять', 'board: jump off · climb on · carry'],
+    ['L', 'лиш', 'leash'],
     ['Q', 'оглянуться', 'look back'],
     ['C 1–4', 'камера', 'camera'],
     ['R', 'на чекпоинт', 'to checkpoint'],
@@ -31,6 +33,7 @@ const LEGENDS = {
     [['ПКМ', 'RMB'], 'хват · гребок', 'grab · stroke'],
     [['средняя', 'middle'], 'оглянуться', 'look back'],
     ['Space', 'встать · прыжок', 'stand up · jump'],
+    ['F', 'доска: спрыгнуть · залезть · взять', 'board: jump off · climb on · carry'],
     ['C 1–4', 'камера', 'camera'],
     [['колесо', 'wheel'], 'ближе/дальше', 'closer/further'],
     ['Esc', 'отпустить мышь', 'release the mouse'],
@@ -41,6 +44,8 @@ const LEGENDS = {
     ['RT', 'присед · гребок', 'crouch · stroke'],
     ['LT', 'хват · гребок', 'grab · stroke'],
     ['A', 'встать · прыжок', 'stand up · jump'],
+    ['X', 'доска: спрыгнуть · залезть · взять', 'board: jump off · climb on · carry'],
+    ['↓', 'лиш', 'leash'],
     ['Y', 'камера', 'camera'],
     ['LB', 'оглянуться', 'look back'],
     ['View', 'на чекпоинт', 'to checkpoint'],
@@ -54,14 +59,16 @@ const RESTING_SPEED = 1.5;
 const STICK_REACH = 16;
 
 // What the rider is doing, from his own state first: in the water he is
-// fallen, swimming back or climbing on (all by himself, R is not asked for),
-// getting up is its own moment; on his feet, the worst thing that is true
-// wins. «On the wave» means a breaker under the board, not any slope of the
+// fallen, swimming or climbing on (R is not asked for), getting up is its own
+// moment, off the board he walks or jumps; on the board, the worst thing that
+// is true wins. «On the wave» means a breaker under the board, not any slope of the
 // swell. The breaker share and the stroke are read live: the snapshot only
 // says when to look again.
 const rideState = ({ rider, wipeout, airborne, planing, speed }) => (
   rider === 'fallen' ? ['упал', 'wiped out']
-    : rider === 'swim' ? ['плывёт к доске', 'swimming back']
+    : rider === 'swim' ? ['плывёт', 'swimming']
+      : rider === 'walk' ? ['идёт', 'walking']
+      : rider === 'jump' ? ['прыжок', 'jumping']
       : rider === 'recover' ? ['забирается на доску', 'climbing on']
       : rider === 'popup' ? ['встаёт', 'getting up']
         : rider === 'liedown' ? ['ложится', 'lying down']

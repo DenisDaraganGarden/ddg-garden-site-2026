@@ -91,6 +91,12 @@ assert.equal(input.pop, true);
 run(0.1);
 assert.equal(input.pop, false, 'pop is a short pulse');
 
+const [boards, leashes] = [intent.board, intent.leash];
+controls.keydown(key('KeyF'));
+controls.keydown(key('KeyF', { repeat: true }));
+controls.keydown(key('KeyL'));
+assert.deepEqual([intent.board, intent.leash], [boards + 1, leashes + 1], 'F is the board and L the leash, once a press');
+
 controls.keydown(key('KeyC'));
 assert.equal(surfPlay.camera, 'first');
 controls.keydown(key('KeyC', { repeat: true }));
@@ -280,13 +286,15 @@ press(6, 0);
 controls.frame(0);
 assert.deepEqual([intent.crouch, intent.grab], [0, 0], 'the triggers let go at once, as the hand does');
 
-const before = [surfPlay.camera, intent.duck, surfPlay.respawnRequest, surfPlay.checkpointRequest];
+const before = [surfPlay.camera, intent.duck, surfPlay.respawnRequest, surfPlay.checkpointRequest, intent.board, intent.leash];
 tap(3);
 tap(1);
 tap(8);
 tap(12);
-assert.deepEqual([surfPlay.camera, intent.duck, surfPlay.respawnRequest, surfPlay.checkpointRequest],
-  ['orbit', before[1] + 1, before[2] + 1, before[3] + 1], 'Y, B, View and D-pad ↑ fire once per press');
+tap(2);
+tap(13);
+assert.deepEqual([surfPlay.camera, intent.duck, surfPlay.respawnRequest, surfPlay.checkpointRequest, intent.board, intent.leash],
+  ['orbit', before[1] + 1, before[2] + 1, before[3] + 1, before[4] + 1, before[5] + 1], 'Y, B, View, D-pad ↑, X (the board) and D-pad ↓ (the leash) fire once per press');
 look.yaw = 0.5; look.pitch = 0.3; look.zoom = 2;
 tap(11);
 assert.deepEqual([look.yaw, look.pitch, look.zoom], [0, 0, 1], 'the right stick click puts the view back');
