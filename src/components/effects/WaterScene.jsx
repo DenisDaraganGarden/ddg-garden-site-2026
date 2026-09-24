@@ -626,8 +626,8 @@ function WaterRuntimeScene({
               night={lighting.sky.night}
               lowPower={Boolean(qualityProfile.isLowPower || qualityProfile.isMobileDevice)}
               groundAt={houseGround}
-              skyEnvironment={sky.environment}
-              skyLevel={lighting.sky.skyLevel}
+              hdri={lighting.environment.hdri}
+              sunElevation={THREE.MathUtils.radToDeg(Math.asin(lighting.sky.sunDirection[1]))}
             />
           </Suspense>
         ) : null}

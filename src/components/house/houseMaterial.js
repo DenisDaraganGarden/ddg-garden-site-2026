@@ -53,7 +53,13 @@ uniform float uWeatherSeed;
 uniform vec4 uDripLines;
 uniform float uLampPower;
 uniform float uInteriorDay;
+uniform vec4 uCovers[8];
+uniform float uCoverHeights[8];
+uniform int uCoverCount;
+uniform float uCoverStrength;
 varying vec3 vHouseSurface;
+varying vec3 vHouseLocal;
+varying vec3 vHouseLocalNormal;
 varying vec3 vWeatherPosition;
 varying vec3 vWeatherNormal;
 
@@ -182,7 +188,7 @@ float houseBoxHit(vec3 p, vec3 d, vec3 lo, vec3 hi, out vec3 n) {
   return enter < leave && enter > 0.0 ? enter : 1e6;
 }
 
-vec3 houseRoom(vec2 uv, vec3 surface, vec3 d) {
+vec3 houseRoom(vec2 uv, vec3 surface, vec3 d, float day) {
   float seed = surface.x;
   float blinds = floor(surface.z / 10000.0), rest = mod(surface.z, 10000.0);
   float halfWidth = floor(rest / 10.0) / 100.0, above = mod(rest, 10.0);
@@ -231,32 +237,67 @@ vec3 houseRoom(vec2 uv, vec3 surface, vec3 d) {
   vec3 warm = vec3(1.0, 0.7, 0.4), toLamp = lamp - hit;
   float d2 = dot(toLamp, toLamp);
   vec3 light = lampOn * warm * (0.3 + max(dot(n, toLamp * inversesqrt(d2)), 0.0)) * 3.5 / (1.0 + d2 * 0.55);
-  light += uInteriorDay * vec3(0.85, 0.9, 1.0) * 0.4 * exp(hit.z * 0.3);
+  light += uInteriorDay * day * vec3(0.85, 0.9, 1.0) * exp(hit.z * 0.3);
   vec3 color = base * light;
   float along = dot(lamp - p, d);
   if (along > 0.0 && along < t + 0.05) color += lampOn * warm * 4.0 * (1.0 - smoothstep(0.07, 0.15, length(p + d * along - lamp)));
   // Curtains drawn to the sides of some panes, lit through from inside.
   if (r3 > 0.45 && halfWidth - abs(uv.x) < halfWidth * 0.32) {
     vec3 fabric = mix(vec3(0.55, 0.22, 0.18), vec3(0.78, 0.72, 0.58), r2) * (0.8 + 0.2 * sin(uv.x * 80.0));
-    color = fabric * (uInteriorDay * 0.35 + lampOn * 0.7);
+    color = fabric * (uInteriorDay * day * 1.4 + lampOn * 0.7);
   }
   // Venetian blinds let halfway down, next to the glass: curved slats lit by
   // the room and the day, the room showing between them.
   if (blinds > 0.5 && uv.y > -0.12) {
     float slat = fract(uv.y / 0.028);
-    if (uv.y < -0.1) color = vec3(0.72, 0.7, 0.64) * (uInteriorDay * 0.5 + lampOn * 0.8 + 0.03);
-    else if (slat < 0.78) color = vec3(0.82, 0.8, 0.74) * (0.72 + 0.28 * sin(slat / 0.78 * 3.14159)) * (uInteriorDay * 0.55 + lampOn * 0.9 + 0.03);
+    if (uv.y < -0.1) color = vec3(0.72, 0.7, 0.64) * (uInteriorDay * day * 2.0 + lampOn * 0.8 + 0.03);
+    else if (slat < 0.78) color = vec3(0.82, 0.8, 0.74) * (0.72 + 0.28 * sin(slat / 0.78 * 3.14159)) * (uInteriorDay * day * 2.2 + lampOn * 0.9 + 0.03);
   }
   return color;
 }
+// How much sky a point sees past the floors and roofs over it (the plan's
+// covers, in the building's own frame): eleven directions round its normal,
+// cosine-weighted — straight out, four at 35 degrees, six at 65 — each one
+// blocked or not by a cover above. Under the eaves, the porch roof and
+// between the stilts the sky light is mostly gone; the sun keeps its own
+// shadows.
+float houseSkyOpen(vec3 p, vec3 n) {
+  vec3 t = normalize(abs(n.y) < 0.9 ? cross(n, vec3(0.0, 1.0, 0.0)) : cross(n, vec3(1.0, 0.0, 0.0)));
+  vec3 b = cross(n, t);
+  float open = 0.0, total = 0.0;
+  for (int k = 0; k < 11; k++) {
+    float theta = k == 0 ? 0.0 : (k < 5 ? 0.61 : 1.13);
+    float phi = k < 5 ? float(k - 1) * 1.5708 + 0.4 : float(k - 5) * 1.0472;
+    vec3 d = normalize(n * cos(theta) + (t * cos(phi) + b * sin(phi)) * sin(theta));
+    float w = cos(theta), seen = 1.0;
+    total += w;
+    if (d.y > 0.02) {
+      for (int i = 0; i < 8; i++) {
+        if (i >= uCoverCount) break;
+        float h = uCoverHeights[i] - p.y;
+        if (h < 0.03) continue;
+        vec2 q = p.xz + d.xz * (h / d.y);
+        vec4 r = uCovers[i];
+        if (q.x > r.x && q.x < r.z && q.y > r.y && q.y < r.w) { seen = 0.0; break; }
+      }
+    }
+    open += w * seen;
+  }
+  // Low down, the sides of things lose the low sky to the sand round them.
+  float ground = mix(0.78, 1.0, clamp(smoothstep(0.0, 0.7, p.y) + max(n.y, 0.0), 0.0, 1.0));
+  return clamp(open / total * ground, 0.0, 1.0);
+}
+
 // What a pane gives off: its room, seen along the eye's ray in the pane's
-// tangent frame (view space).
-vec3 houseGlow(vec2 uv, vec3 surface, mat3 frame, vec3 viewPosition) {
+// tangent frame (view space). The day argument is the daylight that comes in through it
+// — a share of what falls on the glass from outside, so a room is lit by the
+// scene's own hour and sky, and stays darker than the walls outside by day.
+vec3 houseGlow(vec2 uv, vec3 surface, mat3 frame, vec3 viewPosition, float day) {
   if (uTextured < 0.5 || int(surface.y + 0.5) != 9) return vec3(0.0);
   vec3 eye = normalize(viewPosition);
   vec3 ray = vec3(dot(eye, normalize(frame[0])), dot(eye, normalize(frame[1])), dot(eye, normalize(frame[2])));
   if (ray.z >= -1e-3) return vec3(0.0);
-  return houseRoom(uv, surface, normalize(ray)) * 1.2;
+  return houseRoom(uv, surface, normalize(ray), day) * 1.2;
 }
 
 // The finish's colour on the sample, painted or bare, and aged: the relief and
@@ -339,14 +380,27 @@ export function houseMaterial(role, maps, shared, options = {}) {
   material.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, uniforms);
     shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', '#include <common>\nattribute vec3 aSurface;\nvarying vec3 vHouseSurface;\nvarying vec3 vWeatherPosition;\nvarying vec3 vWeatherNormal;')
-      .replace('#include <fog_vertex>', '#include <fog_vertex>\n  vHouseSurface = aSurface;\n  vWeatherPosition = (modelMatrix * vec4(transformed, 1.0)).xyz;\n  vWeatherNormal = normalize(mat3(modelMatrix) * objectNormal);');
+      .replace('#include <common>', '#include <common>\nattribute vec3 aSurface;\nvarying vec3 vHouseSurface;\nvarying vec3 vWeatherPosition;\nvarying vec3 vWeatherNormal;\nvarying vec3 vHouseLocal;\nvarying vec3 vHouseLocalNormal;')
+      .replace('#include <fog_vertex>', '#include <fog_vertex>\n  vHouseSurface = aSurface;\n  vWeatherPosition = (modelMatrix * vec4(transformed, 1.0)).xyz;\n  vWeatherNormal = normalize(mat3(modelMatrix) * objectNormal);\n  vHouseLocal = transformed;\n  vHouseLocalNormal = objectNormal;');
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', `#include <common>\n${GLSL}`)
-      .replace('#include <color_fragment>', '#include <color_fragment>\n  HouseSample houseSample = houseSurface(vNormalMapUv, vHouseSurface);\n  diffuseColor.rgb = houseShade(diffuseColor.rgb, houseSample);')
+      // Glass keeps almost no colour of its own: what shows is what it
+      // reflects and the room behind it.
+      .replace('#include <color_fragment>', '#include <color_fragment>\n  HouseSample houseSample = houseSurface(vNormalMapUv, vHouseSurface);\n  diffuseColor.rgb = houseShade(diffuseColor.rgb, houseSample);\n  if (uTextured > 0.5 && int(vHouseSurface.y + 0.5) == 9) diffuseColor.rgb *= 0.12;')
       .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n  roughnessFactor = clamp(roughnessFactor * houseSample.roughness, 0.04, 1.0);')
       .replace('#include <normal_fragment_maps>', '  normal = normalize(tbn * vec3(houseSample.normal.xy * normalScale, houseSample.normal.z));')
-      .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n  totalEmissiveRadiance += houseGlow(vNormalMapUv, vHouseSurface, tbn, -vViewPosition);');
+      // The sky light (ambient, hemisphere, environment) the covers take away.
+      .replace('#include <aomap_fragment>', `#include <aomap_fragment>
+  float houseOpen = mix(1.0, houseSkyOpen(vHouseLocal, normalize(vHouseLocalNormal)), uCoverStrength);
+  reflectedLight.indirectDiffuse *= houseOpen;
+  reflectedLight.indirectSpecular *= mix(1.0, houseOpen, 0.8);`)
+      .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+  #ifdef USE_ENVMAP
+    float houseDay = 0.05 * dot(getIBLIrradiance(normal), vec3(0.2126, 0.7152, 0.0722));
+  #else
+    float houseDay = 0.3;
+  #endif
+  totalEmissiveRadiance += houseGlow(vNormalMapUv, vHouseSurface, tbn, -vViewPosition, houseDay);`);
   };
   material.customProgramCacheKey = () => 'beach-house-material';
   return material;

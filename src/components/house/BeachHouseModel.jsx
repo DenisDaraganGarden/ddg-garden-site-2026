@@ -27,7 +27,10 @@ export default function BeachHouseModel({ building, colors = HOUSE_COLORS, clay 
   const { gl } = useThree();
   const textures = useLoader(THREE.TextureLoader, houseMapUrls(lowPower));
   const maps = useMemo(() => houseMaps(textures, gl), [gl, textures]);
-  const shared = useMemo(() => ({ uTextured: { value: 1 }, uWeather: { value: 0 }, uWeatherSeed: { value: 0 }, uDripLines: { value: new THREE.Vector4() }, uLampPower: { value: 0 }, uInteriorDay: { value: 1 } }), []);
+  const shared = useMemo(() => ({
+    uTextured: { value: 1 }, uWeather: { value: 0 }, uWeatherSeed: { value: 0 }, uDripLines: { value: new THREE.Vector4() }, uLampPower: { value: 0 }, uInteriorDay: { value: 1 },
+    uCovers: { value: Array.from({ length: 8 }, () => new THREE.Vector4()) }, uCoverHeights: { value: new Float32Array(8) }, uCoverCount: { value: 0 }, uCoverStrength: { value: 0.9 },
+  }), []);
   const materials = useMemo(() => Object.fromEntries(HOUSE_ROLES.map((role) => [role, houseMaterial(role, maps, shared, FINISH[role])])), [maps, shared]);
   useEffect(() => () => Object.values(materials).forEach((material) => material.dispose()), [materials]);
   useEffect(() => {
@@ -42,6 +45,12 @@ export default function BeachHouseModel({ building, colors = HOUSE_COLORS, clay 
     shared.uWeather.value = clay ? 0 : weather;
     shared.uWeatherSeed.value = (seed * 7.31) % 97;
     shared.uDripLines.value.fromArray(building.plan.dripLines);
+    const covers = (building.plan.covers ?? []).slice(0, 8);
+    covers.forEach(([x0, z0, x1, z1, y], i) => {
+      shared.uCovers.value[i].set(x0, z0, x1, z1);
+      shared.uCoverHeights.value[i] = y;
+    });
+    shared.uCoverCount.value = covers.length;
   }, [building, clay, seed, shared, weather]);
   // Lamps are on day and night; by day the rooms are lit mostly through the
   // windows and the lamps hardly show.

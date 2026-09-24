@@ -10,6 +10,7 @@ import {
   hammockGeometry, hangingBoard, lifeRingParts, plate, signPlate, vendingGeometry,
 } from './campProps';
 import { DIAMOND_BOLTS, bikiniFace, chillFace, nakedSurfingFace, noBadDaysFace, unpaidFace, vendingFaces } from './campSigns';
+import GroundShade from './GroundShade';
 
 // Bikini Point's things (surfCamp.js) drawn. The life rings are one model in
 // instances, each ring in its own two colours; the boards the surfboard's
@@ -455,6 +456,31 @@ function VendingMachine({ machine, look, night }) {
   );
 }
 
+// Where the things on the sand shade it: under the chairs, round the feet of
+// poles and flags, at the tails of the boards standing on the sand, along
+// the one lying on it, under the ring propped on it.
+const Z = new THREE.Vector3(0, 0, 1);
+function sandSpots(camp) {
+  const spots = [];
+  for (const { position, quaternion, settings } of camp.boards) {
+    const axis = Z.clone().applyQuaternion(new THREE.Quaternion().fromArray(quaternion));
+    const half = settings.surfboardLength / 2;
+    const tail = new THREE.Vector3(...position).addScaledVector(axis, -half);
+    if (Math.abs(axis.y) > 0.5) {
+      if (tail.y < 0.3) spots.push({ x: tail.x, z: tail.z, rx: 0.32, rz: 0.26, yaw: Math.atan2(axis.x, axis.z), strength: 0.42 });
+    } else if (position[1] < 0.4) {
+      spots.push({ x: position[0], z: position[2], rx: settings.surfboardWidth / 2 + 0.14, rz: half + 0.12, yaw: Math.atan2(axis.x, axis.z), strength: 0.5 });
+    }
+  }
+  for (const ring of camp.rings) if (ring.position[1] < 0.6) spots.push({ x: ring.position[0], z: ring.position[2], rx: 0.42, rz: 0.42, strength: 0.32 });
+  for (const { position, yaw } of camp.chairs ?? []) spots.push({ x: position[0], z: position[2] - 0.05, rx: 0.46, rz: 0.56, yaw, strength: 0.55 });
+  if (camp.sign) spots.push({ x: camp.sign.position[0], z: camp.sign.position[2], rx: 0.16, rz: 0.16, strength: 0.4 });
+  for (const { position } of camp.posts ?? []) spots.push({ x: position[0], z: position[2], rx: 0.14, rz: 0.14, strength: 0.35 });
+  for (const { foot } of camp.flags ?? []) spots.push({ x: foot[0], z: foot[2], rx: 0.1, rz: 0.1, strength: 0.35 });
+  if (camp.line) spots.push({ x: camp.line.pole[0], z: camp.line.pole[1], rx: 0.14, rz: 0.14, strength: 0.4 });
+  return spots;
+}
+
 export default function SurfCampModel({ camp, clay = false, wireframe = false, wind = 1, night = 0, hue = 0, fade = 0, colors = CAMP_COLORS, near = 45, far = 110 }) {
   const root = useRef(), live = useRef(true);
   const look = useMemo(() => ({ clay, wireframe, wind, live, colors: { ...CAMP_COLORS, ...colors } }), [clay, colors, wind, wireframe]);
@@ -468,6 +494,7 @@ export default function SurfCampModel({ camp, clay = false, wireframe = false, w
     return points.reduce((sum, point) => sum.add(point), new THREE.Vector3()).divideScalar(Math.max(1, points.length));
   }, [camp]);
   const point = useMemo(() => new THREE.Vector3(), []);
+  const spots = useMemo(() => sandSpots(camp), [camp]);
   useFrame(({ camera }) => {
     if (!root.current) return;
     const distance = camera.position.distanceTo(root.current.localToWorld(point.copy(centre)));
@@ -487,6 +514,7 @@ export default function SurfCampModel({ camp, clay = false, wireframe = false, w
       {camp.machine ? <VendingMachine machine={camp.machine} look={look} night={night} /> : null}
       {camp.hanging?.map((sign) => <HangingSign key={sign.face} sign={sign} look={look} />)}
       {camp.posts?.map((sign) => <PostSign key={sign.face} sign={sign} look={look} />)}
+      {spots.length ? <GroundShade spots={spots} visible={!clay} /> : null}
     </group>
   );
 }
