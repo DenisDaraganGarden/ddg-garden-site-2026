@@ -1,4 +1,5 @@
 import { ShapeUtils, Vector2 } from 'three';
+import { siteNorth } from '../planting/north.js';
 import { BARRIER_HEIGHT, insideRing, ringArea, ringCentroid } from './osm.js';
 
 // Геометрия окружения из файла данных (osm.js): земля кругом с рельефом,
@@ -206,9 +207,9 @@ export function treeInstances(data, ground, { radius, clear = 0, spacing = 7, li
 
 // Где окружение стоит в сцене. Точка карты садится на модель участка —
 // первую модель SketchUp в расстановке (как у компаса) — со сдвигом в её осях;
-// север карты смотрит туда, где север по northAngle: градусы по часовой
-// стрелке от зелёной оси SketchUp (−Z модели) до истинного севера. Повернули
-// модель — окружение повернулось вместе с ней.
+// север карты смотрит туда же, куда стрелка «С» компаса (siteNorth: northAngle
+// от зелёной оси SketchUp плюс поворот модели). Повернули модель — окружение
+// повернулось вместе с ней.
 export function surroundingsAnchor(settings) {
   const model = (settings.placedObjects ?? []).find((object) => object.kind === 'model' && settings.sketchupModels?.[object.id]);
   const base = model ?? { x: 0, y: 0, z: 0, rotation: 0 };
@@ -219,6 +220,6 @@ export function surroundingsAnchor(settings) {
     x: (Number(base.x) || 0) + ox * Math.cos(yaw) + oz * Math.sin(yaw),
     y: Number(base.y) || 0,
     z: (Number(base.z) || 0) - ox * Math.sin(yaw) + oz * Math.cos(yaw),
-    yaw: (turn - (Number(settings.northAngle) || 0)) * DEG,
+    yaw: (0 - siteNorth(settings)) * DEG,
   };
 }

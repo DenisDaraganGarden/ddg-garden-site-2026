@@ -27,7 +27,7 @@ CONDITIONAL.forEach((key) => keys.add(key));
 const MAX = 260;
 // Окружение — только в проекте «Участок» (help/surroundings.js), а справочник
 // собран на редакторе сайта.
-['surroundingsEnabled', 'surroundingsRadius', 'surroundingsBuildings', 'surroundingsTrees', 'surroundingsFences', 'surroundingsRelief', 'northAngle',
+['surroundingsEnabled', 'surroundingsRadius', 'surroundingsBuildings', 'surroundingsTrees', 'surroundingsFences', 'surroundingsRelief',
     'surroundingsOffsetX', 'surroundingsOffsetZ', 'surroundingsClear', 'surroundingsBuildingColor', 'surroundingsGroundColor', 'surroundingsRoadColor',
     'surroundingsGreenColor', 'surroundingsWaterColor'].forEach((key) => keys.add(key));
 

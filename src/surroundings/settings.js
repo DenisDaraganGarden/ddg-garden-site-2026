@@ -5,8 +5,8 @@
 //
 // Ключи не публикуются и не входят в снимки камер (их нет в
 // publishedHomeSceneKeys): адрес и координаты заказчика не уходят на сайт, а
-// окружение одно на все камеры. northAngle — тот же север, что у компаса
-// участка: градусы по часовой стрелке от зелёной оси SketchUp до истинного севера.
+// окружение одно на все камеры. Север — общий с компасом и генпланом
+// (northAngle, src/planting/north.js): окружение поворачивается по нему.
 export const SURROUNDINGS_RANGES = Object.freeze({
     radius: [100, 1500, 10], clear: [0, 150, 1], relief: [0, 2, 0.05], offset: [-300, 300, 0.1], north: [-180, 180, 0.5],
 });
@@ -27,7 +27,6 @@ export const DEFAULT_SURROUNDINGS_SETTINGS = Object.freeze({
     surroundingsRelief: 1,
     surroundingsOffsetX: 0,
     surroundingsOffsetZ: 0,
-    northAngle: 0,
     surroundingsBuildings: true,
     surroundingsTrees: true,
     surroundingsFences: true,
@@ -42,10 +41,6 @@ const number = (value, fallback, [min, max, step]) => {
     if (value === null || value === '' || !Number.isFinite(parsed)) return fallback;
     const clamped = Math.min(max, Math.max(min, parsed));
     return step >= 1 ? Math.round(clamped) : Math.round(clamped * 1000) / 1000;
-};
-const degrees = (value) => {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? Math.round(((((parsed + 180) % 360) + 360) % 360 - 180) * 1000) / 1000 : 0;
 };
 const coordinate = (value, limit) => {
     if (value === null || value === undefined || value === '') return null;
@@ -67,7 +62,6 @@ export function normalizeSurroundingsSettings(settings = {}) {
         surroundingsRelief: number(settings.surroundingsRelief, DEFAULT_SURROUNDINGS_SETTINGS.surroundingsRelief, SURROUNDINGS_RANGES.relief),
         surroundingsOffsetX: number(settings.surroundingsOffsetX, 0, SURROUNDINGS_RANGES.offset),
         surroundingsOffsetZ: number(settings.surroundingsOffsetZ, 0, SURROUNDINGS_RANGES.offset),
-        northAngle: degrees(settings.northAngle),
         surroundingsBuildings: settings.surroundingsBuildings !== false,
         surroundingsTrees: settings.surroundingsTrees !== false,
         surroundingsFences: settings.surroundingsFences !== false,

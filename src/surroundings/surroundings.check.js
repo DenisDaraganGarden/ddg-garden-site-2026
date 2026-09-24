@@ -227,9 +227,8 @@ const flat = () => 0;
 
 // Настройки: пустые координаты — пусто, мусор — заводское.
 {
-    const normalized = normalizeSurroundingsSettings({ geoLatitude: '47.2225', geoLongitude: 39.7188, northAngle: 190, surroundingsRadius: 5000, surroundingsRoadColor: 'red' });
+    const normalized = normalizeSurroundingsSettings({ geoLatitude: '47.2225', geoLongitude: 39.7188, surroundingsRadius: 5000, surroundingsRoadColor: 'red' });
     assert.equal(normalized.geoLatitude, 47.2225);
-    assert.equal(normalized.northAngle, -170);
     assert.equal(normalized.surroundingsRadius, 1500);
     assert.equal(normalized.surroundingsRoadColor, DEFAULT_SURROUNDINGS_SETTINGS.surroundingsRoadColor);
     assert.equal(normalizeSurroundingsSettings({ geoLatitude: null, geoLongitude: 39 }).geoLongitude, null, 'точка — обе координаты или ни одной');
