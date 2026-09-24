@@ -5,6 +5,7 @@ import { seasonLook } from './season.js';
 import { normalizePlantingSettings, PLANTING_LIMITS } from './settings.js';
 import { PLANTING_PALETTES } from './palettes.js';
 import { paletteRecipe } from './usePlantingEditor.js';
+import { bloomCurve, scopeRows } from './insights.js';
 
 const plant = (id, fields) => ({ id, ru: id, latin: id, category: 'perennial', height: 0.6, spread: 0.5, density: 5, foliage: 'herbaceous', ...fields });
 const library = new Map([
@@ -54,7 +55,7 @@ assert.ok(denser > first.length * 1.3, `density ×1.5 plants more (${denser} vs 
 assert.ok(Math.abs(spacingFor(12.8) - 0.3) < 0.002, '30 cm spacing is 12.8 plants/m²');
 
 // Маленький цветник на восемь видов — все восемь в нём есть.
-const small = { ...bed, points: [[0, 0], [5, 0], [5, 4], [0, 4]], recipe: [...library.keys()].filter((id) => id !== 'cornus').map((id) => ({ plant: id, share: 10 })), drift: 3 };
+const small = { ...bed, id: 'small', points: [[0, 0], [5, 0], [5, 4], [0, 4]], recipe: [...library.keys()].filter((id) => id !== 'cornus').map((id) => ({ plant: id, share: 10 })), drift: 3 };
 const smallFill = fillBed(small, library);
 assert.equal(new Set(smallFill.map((p) => p.plant)).size, small.recipe.length, 'a small bed still holds every species of its recipe');
 
@@ -100,5 +101,15 @@ assert.ok(kept.length >= 20 && Math.abs(polygonArea(kept) - Math.PI * 400) / (Ma
 // библиотекой — только её растения.
 assert.equal(paletteRecipe(PLANTING_PALETTES[0], new Map()).length, PLANTING_PALETTES[0].recipe.length);
 assert.deepEqual(paletteRecipe(PLANTING_PALETTES[0], new Map([['festuca-glauca', {}]])), [{ plant: 'festuca-glauca', share: 5 }]);
+
+// Обзор: часть сада — один цветник, все цветники, деревья новые и существующие.
+const points = [{ plant: 'cornus', status: 'existing' }, { plant: 'cornus' }, { plant: 'lavender' }];
+const all = scopeRows({ kind: 'beds', bed: null }, [bed, small], [first, smallFill], points, library);
+assert.equal(all.count, first.length + smallFill.length, 'all beds hold every drawn plant');
+assert.equal(scopeRows({ kind: 'beds', bed: bed.id }, [bed, small], [first, smallFill], points, library).count, first.length, 'one bed holds its own');
+assert.equal(scopeRows({ kind: 'trees', status: 'existing' }, [], [], points, library).count, 1);
+assert.equal(scopeRows({ kind: 'trees', status: 'new' }, [], [], points, library).count, 2);
+assert.equal(Math.round(all.area), 80, 'the area is the outlines’');
+assert.deepEqual(bloomCurve(all.rows).slice(6, 9), [3, 4, 4], 'July to September: species in bloom');
 
 console.log(`planting: settings, fill (${first.length} plants in 60 m², ${smallFill.length} in 20 m² with ${small.recipe.length} species), schedule and seasons hold`);

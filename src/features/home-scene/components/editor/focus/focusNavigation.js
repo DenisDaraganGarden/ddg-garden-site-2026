@@ -1,10 +1,12 @@
 import { EDITOR_TREE } from '../editorTree';
 import { isEditorNodeHidden } from '../hiddenNodes.js';
 
-// Focus groups the existing stable editor tree into six working domains.
+// Focus groups the existing stable editor tree into seven working domains.
 // The original group/node path stays the selection and persistence contract.
 export const FOCUS_DOMAINS = [
-    { id: 'scene', ru: 'Сцена', en: 'Scene', icon: 'grid', groupIds: ['landscape', 'greenery', 'objects', 'creatures'] },
+    { id: 'scene', ru: 'Сцена', en: 'Scene', icon: 'grid', groupIds: ['landscape', 'objects', 'creatures'] },
+    // Растения — своё рабочее место: цветники, посадки, библиотека, изгороди.
+    { id: 'plants', ru: 'Растения', en: 'Plants', icon: 'sprout', groupIds: ['greenery'] },
     { id: 'environment', ru: 'Среда', en: 'Environment', icon: 'sun', groupIds: ['atmosphere', 'lights'] },
     { id: 'cameras', ru: 'Камеры', en: 'Cameras', icon: 'camera', groupIds: ['cameras'] },
     { id: 'render', ru: 'Рендер', en: 'Render', icon: 'sliders', groupIds: ['render'] },
@@ -48,7 +50,7 @@ export function getFocusGroups(domainId, { includeDevOnly = false } = {}) {
 
 const NODE_ICONS = {
     terrain: 'terrain', rocks: 'terrain', pebbles: 'terrain', shore: 'terrain', water: 'water', seabed: 'water',
-    planting: 'leaf', topiary: 'leaf', lilies: 'leaf', algae: 'leaf', trees: 'leaf', shrubs: 'leaf', grass: 'leaf',
+    planting: 'sprout', topiary: 'leaf', lilies: 'leaf', algae: 'leaf', trees: 'leaf', shrubs: 'leaf', grass: 'leaf',
     tanker: 'box', boat: 'box', sculpture: 'box', surfboard: 'box', house: 'box',
     seagulls: 'bird', fish: 'fish',
     light1: 'light', light1target: 'target', light2: 'light', light2target: 'target',

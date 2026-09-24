@@ -50,6 +50,9 @@ export const readProject = projectStore.read;
 export const createProject = projectStore.create;
 export const removeProject = projectStore.remove;
 export const renameProject = (id, name) => projectStore.save(id, { name });
+// Вкладка меню проектов: 'site' — сцены сайта, без вида — игры. Участок
+// ('design') так не переносится: у него другая сцена (sceneObjects.js, site).
+export const setProjectKind = (id, kind) => projectStore.save(id, { kind: kind ?? null });
 
 // Сохранение сцены уходит часто и не должно ничего блокировать. keepalive нужен
 // для последнего сохранения при закрытии окна — обычный запрос браузер в этот

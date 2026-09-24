@@ -44,6 +44,9 @@ export function normalizePlantingBed(value, index = 0) {
     };
 }
 
+// Одиночное растение — новое (посадка по проекту) или существующее (растёт
+// на участке, сохраняется): у существующего белая шапка с тёмным центром, как
+// в легенде Дениса, и своя строка в обзоре. Новое — без поля.
 export function normalizePlantingPoint(value, index = 0) {
     if (!value || !PLANT.test(String(value.plant ?? '')) || ![value.x, value.z].every((v) => Number.isFinite(Number(v)))) return null;
     return {
@@ -53,6 +56,7 @@ export function normalizePlantingPoint(value, index = 0) {
         y: Number.isFinite(Number(value.y)) ? Math.round(Math.min(60, Math.max(-20, Number(value.y))) * 1000) / 1000 : 0,
         z: metres(Number(value.z)),
         seed: seedOf(value.seed, index + 3),
+        ...(value.status === 'existing' ? { status: 'existing' } : {}),
     };
 }
 

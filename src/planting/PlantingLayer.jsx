@@ -194,7 +194,7 @@ function PlanCaps({ instances, library }) {
         const edge = new THREE.RingGeometry(0.47, 0.5, 40).rotateX(-Math.PI / 2);
         const fillMaterial = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.61, depthWrite: false, toneMapped: false });
         const ringMaterial = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.85, depthWrite: false, toneMapped: false });
-        return { disc, edge, fillMaterial, ringMaterial };
+        return { disc, edge, fillMaterial, ringMaterial, core: new THREE.CircleGeometry(0.09, 20).rotateX(-Math.PI / 2), coreMaterial: new THREE.MeshBasicMaterial({ color: '#2d2f2c', transparent: true, opacity: 0.85, depthWrite: false, toneMapped: false }) };
     }, []);
     useEffect(() => () => Object.values(resources).forEach((item) => item.dispose()), [resources]);
     useLayoutEffect(() => {
@@ -207,9 +207,10 @@ function PlanCaps({ instances, library }) {
             matrix.makeScale(size, 1, size).setPosition(p.x, p.y + (CAP_LAYER[plant?.category] ?? 0.03) + i * 1e-6, p.z);
             fill.current.setMatrixAt(i, matrix);
             ring.current.setMatrixAt(i, matrix);
-            color.set(plant?.cap ?? '#888888');
+            // Существующее дерево — белая шапка с тёмным кольцом, как в легенде библиотеки.
+            color.set(p.existing ? '#f4f3ee' : plant?.cap ?? '#888888');
             fill.current.setColorAt(i, color);
-            ring.current.setColorAt(i, dark.copy(color).multiplyScalar(0.55));
+            ring.current.setColorAt(i, p.existing ? dark.set('#2d2f2c') : dark.copy(color).multiplyScalar(0.55));
         });
         for (const target of [fill.current, ring.current]) {
             target.count = ordered.length;
@@ -218,9 +219,12 @@ function PlanCaps({ instances, library }) {
         }
         invalidate();
     }, [instances, library, capacity, invalidate]);
+    // Тёмный центр существующих деревьев — отдельной пачкой поверх шапок.
+    const existing = instances.filter((p) => p.existing);
     return <group>
         <instancedMesh ref={fill} args={[resources.disc, resources.fillMaterial, capacity]} frustumCulled={false} raycast={() => {}} renderOrder={2} />
         <instancedMesh ref={ring} args={[resources.edge, resources.ringMaterial, capacity]} frustumCulled={false} raycast={() => {}} renderOrder={3} />
+        {existing.map((p, i) => <mesh key={i} geometry={resources.core} material={resources.coreMaterial} position={[p.x, p.y + 0.12, p.z]} scale={Math.max(1, (library.get(p.plant)?.spread ?? 1) * p.scale * 0.6)} raycast={() => {}} renderOrder={4} />)}
     </group>;
 }
 

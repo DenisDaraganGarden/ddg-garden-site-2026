@@ -40,6 +40,22 @@ export function usePlantLibrary() {
 }
 
 export const plantCardUrl = (plant) => `/__library/plants/${plant.id}/card.webp?v=${plant.cardVersion ?? 0}`;
+// Картинка Дениса к растению — если он её приложил (scripts/plantLibrary.mjs).
+export const plantPhotoUrl = (plant) => (plant?.photoVersion ? `/__library/plants/${plant.id}/photo.webp?v=${plant.photoVersion}` : null);
+// Лист «четыре сезона в ряд» — картинка вчетверо шире высоты.
+export const isSeasonSheet = (size) => Boolean(size && size.width >= size.height * 2.6);
+
+export async function uploadPlantPhoto(id, file) {
+    const response = await fetch(`/__library/plants/${encodeURIComponent(id)}/photo`, { method: 'POST', headers: { 'Content-Type': file.type || 'application/octet-stream' }, body: file });
+    const payload = await response.json().catch(() => null);
+    if (!response.ok || !payload?.ok) throw new Error(payload?.message ?? `Картинка не загрузилась (${response.status})`);
+    await load();
+}
+
+export async function removePlantPhoto(id) {
+    await fetch(`/__library/plants/${encodeURIComponent(id)}/photo`, { method: 'DELETE' });
+    await load();
+}
 export const plantName = (plant, ru = true) => (plant ? (ru ? plant.ru : plant.en) || plant.latin || plant.id : '');
 
 // Заполнения цветников — по тексту цветника, на каждую библиотеку свои:

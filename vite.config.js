@@ -6,7 +6,7 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { publishedHomeSceneKeys } from './src/features/home-scene/data/publishedHomeSceneKeys.js';
 import { isValidId, presets, projects } from './scripts/projectStore.mjs';
-import { listPlants, plantCardFile } from './scripts/plantLibrary.mjs';
+import { listPlants, plantCardFile, plantPhotoFile, removePlantPhoto, writePlantPhoto } from './scripts/plantLibrary.mjs';
 import { mapNodes, modelOrigin, prepareSketchupGlb, readGlb, readGlbJson } from './scripts/sketchupGlb.mjs';
 import { deployPublishedHomeScene } from './scripts/deployScene.mjs';
 import { poseTuningModule } from './src/components/surfboard/poseTuning.js';
@@ -63,6 +63,7 @@ function buildPublishedHomeSceneSettingsModule(settings) {
 // A model upload is the file itself, not JSON. Bounded, so a wrong drop cannot
 // fill the memory: a photogrammetry scan is a few hundred megabytes at most.
 const MODEL_UPLOAD_LIMIT = 512 * 2 ** 20;
+const PHOTO_UPLOAD_LIMIT = 40 * 1024 * 1024;
 
 async function readRawBody(request, limit) {
   const chunks = [];
@@ -285,15 +286,23 @@ function engineStorePlugin() {
     });
   };
 
-  // Библиотека растений (scripts/plantLibrary.mjs), только чтение: записи —
-  // GET /__library/plants, картинка — GET /__library/plants/<id>/card.webp.
+  // Библиотека растений (scripts/plantLibrary.mjs): записи — GET
+  // /__library/plants, карточка сцены — GET …/<id>/card.webp; картинка Дениса
+  // к растению — GET …/<id>/photo.webp, POST …/<id>/photo (тело — сама
+  // картинка), DELETE …/<id>/photo.
   const attachLibrary = (middlewares) => {
     middlewares.use('/__library/plants', async (request, response, next) => {
-      if (request.method !== 'GET') { next(); return; }
       const [id, file] = decodeURIComponent(request.url.replace(/^\/+|\?.*$/g, '')).split('/');
       try {
+        if (file === 'photo' && request.method === 'POST') {
+          const saved = await writePlantPhoto(id, await readRawBody(request, PHOTO_UPLOAD_LIMIT));
+          sendJson(response, saved ? 200 : 404, saved ? { ok: true, ...saved } : { ok: false, message: `Растения «${id}» нет в библиотеке.` });
+          return;
+        }
+        if (file === 'photo' && request.method === 'DELETE') { sendJson(response, 200, { ok: await removePlantPhoto(id) }); return; }
+        if (request.method !== 'GET') { next(); return; }
         if (!id) { sendJson(response, 200, { ok: true, plants: await listPlants() }); return; }
-        const found = file === 'card.webp' ? await plantCardFile(id) : null;
+        const found = file === 'card.webp' ? await plantCardFile(id) : file === 'photo.webp' ? await plantPhotoFile(id) : null;
         if (!found) { sendJson(response, 404, { ok: false, message: 'Картинки нет.' }); return; }
         response.statusCode = 200;
         response.setHeader('Content-Type', 'image/webp');

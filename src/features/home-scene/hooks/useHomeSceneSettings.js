@@ -39,6 +39,11 @@ import { EDITOR_THUMBNAIL_READY, requestEditorThumbnail } from '../../../compone
 
 export const HOME_SCENE_SETTINGS_STORAGE_KEY = 'ddg_home_scene_settings_v1';
 const PROJECT_SAVE_DELAY_MS = 700;
+// Незаписанная правка проекта, если она есть: уход со страницы (к проектам,
+// в отчёт) сначала дописывает её обычным запросом. Сброс при закрытии окна
+// идёт keepalive, а у него предел 64 КБ — сцена проекта больше.
+let pendingProjectSave = null;
+export const flushProjectSave = async () => { await pendingProjectSave?.(); };
 // Миниатюра проекта — не чаще раза в несколько секунд: кадр снимается с холста,
 // и на каждое движение ползунка это лишнее.
 const PROJECT_THUMBNAIL_EVERY_MS = 6000;
@@ -1503,9 +1508,12 @@ export const useHomeSceneDraftSettings = (project = null) => {
       window.clearTimeout(timer);
       void save(settings, { keepalive: true });
     };
+    const now = () => { window.clearTimeout(timer); pendingProjectSave = null; return save(settings).finally(() => { pending.current = false; }); };
+    pendingProjectSave = now;
     window.addEventListener('pagehide', flush);
     return () => {
       window.clearTimeout(timer);
+      if (pendingProjectSave === now) pendingProjectSave = null;
       window.removeEventListener('pagehide', flush);
     };
   }, [project, settings, save]);

@@ -81,7 +81,8 @@ export const EDITOR_TREE = [
     {
         id: 'greenery',
         nodes: [
-            { id: 'planting', aspects: [{ id: 'scatter', Section: PlantingSection }] },
+            // workspace: своё рабочее место вместо «Параметры / Избранное» (FocusEditor).
+            { id: 'planting', workspace: true, aspects: [{ id: 'scatter', Section: PlantingSection }] },
             { id: 'lilies', aspects: [{ id: 'scatter', Section: LiliesSection }] },
             { id: 'algae', aspects: [{ id: 'scatter', Section: AlgaeSection }] },
             { id: 'trees', aspects: [{ id: 'scatter', Section: TreesSection }] },

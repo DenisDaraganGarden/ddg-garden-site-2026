@@ -1,0 +1,180 @@
+/* Рабочее место «Растения» (sections/planting.jsx): тёмная панель редактора,
+   картинки растений — на светлом «студийном» фоне, как в питомнике. */
+.planting-workspace{display:flex;flex-direction:column;gap:8px;padding:2px 2px 16px;font:11px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--focus-text,#dcddd8)}
+.planting-workspace button{font:inherit;color:inherit;cursor:pointer}
+.planting-workspace button:disabled{opacity:.35;cursor:default}
+.planting-spacer{flex:1}
+
+.planting-tools{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+.planting-tools>button{display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 4px 6px;border:1px solid var(--focus-line,#353839);border-radius:5px;background:#ffffff05;font-size:10.5px}
+.planting-tools>button:hover{background:#ffffff0c}
+.planting-tools>button.is-active{border-color:var(--focus-accent,#cfc1a1);background:#cfc1a118;color:#f7f6ee}
+.planting-tools .focus-icon{width:18px;height:18px}
+.planting-tools kbd{font:9px ui-monospace,monospace;color:var(--focus-muted,#989d9e)}
+.planting-hint{margin:0;padding:6px 8px;border-radius:4px;background:#cfc1a110;color:#cdc9bb;font-size:10px;line-height:1.45}
+.planting-plantrow{display:flex;flex-direction:column;gap:5px}
+
+.planting-toggle{display:inline-flex;border:1px solid var(--focus-line,#353839);border-radius:4px;overflow:hidden;flex-shrink:0}
+.planting-toggle>button{height:22px;padding:0 8px;border:0;background:transparent;color:var(--focus-muted,#989d9e);font-size:10px}
+.planting-toggle>button.is-active{background:#ffffff14;color:var(--focus-text,#dcddd8)}
+
+.planting-months{display:grid;grid-template-columns:repeat(12,1fr);gap:2px}
+.planting-months>button{height:26px;padding:0;border:0;border-bottom:2px solid transparent;border-radius:3px 3px 0 0;background:#ffffff06;color:var(--focus-muted,#989d9e);font-size:10px;font-weight:550}
+.planting-months>button.is-winter{border-bottom-color:#7f93a6}
+.planting-months>button.is-spring{border-bottom-color:#9dc17a}
+.planting-months>button.is-summer{border-bottom-color:#5f9a4c}
+.planting-months>button.is-autumn{border-bottom-color:#c98f45}
+.planting-months>button:hover{background:#ffffff10;color:var(--focus-text,#dcddd8)}
+.planting-months>button.is-active{background:#e4e2da;color:#1d1f20}
+.planting-monthline{display:flex;align-items:center;gap:6px;min-height:24px}
+.planting-monthline>span:first-child{font-size:12px;font-weight:550;text-transform:capitalize}
+.planting-monthline>small{min-width:0;overflow:hidden;color:var(--focus-muted,#989d9e);font-size:10px;text-overflow:ellipsis;white-space:nowrap}
+.planting-monthline>button{height:22px;padding:0 8px;border:1px solid var(--focus-line,#353839);border-radius:4px;background:transparent;font-size:10px}
+.planting-monthline>button.is-active{border-color:var(--focus-accent,#cfc1a1);background:#cfc1a11c}
+
+.planting-tabs{display:flex;gap:14px;height:32px;margin-top:2px;border-bottom:1px solid var(--focus-line,#353839)}
+.planting-tabs>button{padding:0 2px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--focus-muted,#989d9e);font-size:11px}
+.planting-tabs>button.is-active{border-bottom-color:var(--focus-accent,#cfc1a1);color:var(--focus-text,#dcddd8)}
+
+.plant-chips{display:flex;flex-wrap:wrap;gap:4px}
+.plant-chips>button,.plant-chips--static>span{display:inline-flex;align-items:baseline;gap:5px;height:22px;padding:0 8px;border:1px solid var(--focus-line,#353839);border-radius:11px;background:transparent;color:var(--focus-muted,#989d9e);font-size:10px;line-height:20px;white-space:nowrap}
+.plant-chips>button:hover{color:var(--focus-text,#dcddd8)}
+.plant-chips>button.is-active{border-color:#e4e2da;background:#e4e2da;color:#1d1f20}
+.plant-chips small{font-size:9px;opacity:.7}
+.plant-chips__add{border-style:dashed!important}
+.plant-chips--static>span{color:#1d1f20;border:0}
+.plant-chips--static>span:not(:first-child){background:#ffffff14;color:var(--focus-text,#dcddd8)}
+
+.planting-insights{display:flex;flex-direction:column;gap:8px;padding-top:6px}
+.planting-segment{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--focus-line,#353839);border-radius:5px;overflow:hidden}
+.planting-segment>button{height:26px;border:0;background:transparent;color:var(--focus-muted,#989d9e);font-size:10.5px}
+.planting-segment>button.is-active{background:#ffffff12;color:var(--focus-text,#dcddd8)}
+.planting-segment small{margin-left:5px;font-size:9px;opacity:.7}
+.planting-tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
+.planting-tiles>div{display:flex;flex-direction:column;padding:7px 6px 6px;border-radius:5px;background:#ffffff07}
+.planting-tiles b{font-size:16px;font-weight:550;line-height:1.1;color:#f1efe6}
+.planting-tiles b small{font-size:10px;font-weight:400;color:var(--focus-muted,#989d9e)}
+.planting-tiles span{margin-top:2px;font-size:9px;color:var(--focus-muted,#989d9e)}
+
+.planting-chart{display:flex;flex-direction:column;gap:3px;padding-top:6px;border-top:1px solid #ffffff08}
+.planting-chart>h4{margin:0 0 3px;font-size:10px;font-weight:550;color:var(--focus-muted,#989d9e);letter-spacing:.02em;text-transform:none}
+.planting-bar{display:grid;grid-template-columns:28px minmax(0,1.3fr) minmax(40px,1fr) 34px;gap:7px;align-items:center;width:100%;padding:2px;border:0;border-radius:4px;background:transparent;text-align:left}
+.planting-bar:hover{background:#ffffff08}
+.planting-bar__name{display:flex;flex-direction:column;min-width:0;font-size:10.5px;line-height:1.25;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.planting-bar__name small{overflow:hidden;color:var(--focus-muted,#989d9e);font-size:8.5px;font-style:italic;text-overflow:ellipsis}
+.planting-bar__track{height:8px;border-radius:4px;background:#ffffff0a;overflow:hidden}
+.planting-bar__track>i{display:block;height:100%;border-radius:4px}
+.planting-bar>b{font:10px ui-monospace,monospace;text-align:right;color:#f1efe6;font-weight:400}
+
+.planting-bloom{display:grid;grid-template-columns:minmax(0,96px) 1fr;gap:2px 6px;align-items:center}
+.planting-bloom__curve{display:grid;grid-template-columns:repeat(12,1fr);gap:2px;height:26px;align-items:end}
+.planting-bloom__curve>i{display:block;min-height:1px;border-radius:2px 2px 0 0;background:#ffffff26}
+.planting-bloom__curve>i.is-now{background:#e4e2da}
+.planting-bloom__months,.planting-bloom__row{display:grid;grid-template-columns:repeat(12,1fr);gap:2px}
+.planting-bloom__months>span{font-size:8.5px;text-align:center;color:var(--focus-muted,#989d9e)}
+.planting-bloom__months>span.is-now{color:#f1efe6;font-weight:600}
+.planting-bloom__row>i{display:block;height:13px;border-radius:2px;background:#ffffff08}
+.planting-bloom__row>i.is-now{box-shadow:inset 0 0 0 1px #ffffff40}
+.planting-bloom__name{display:flex;align-items:center;gap:4px;min-width:0;font-size:9.5px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+
+.planting-heights{width:100%;height:auto;overflow:visible}
+.planting-heights line{stroke:#ffffff26}
+.planting-heights text{fill:var(--focus-muted,#989d9e);font:8px ui-monospace,monospace;text-anchor:middle}
+.planting-heights .planting-heights__label{font:8px -apple-system,BlinkMacSystemFont,sans-serif}
+.planting-heights__person{fill:#8f9695}
+
+.planting-mix{display:grid;grid-template-columns:42px 1fr;gap:3px 6px;align-items:center;margin-bottom:4px}
+.planting-mix>span{font-size:10px;color:var(--focus-muted,#989d9e)}
+.planting-mix__bar{display:flex;height:9px;border-radius:5px;overflow:hidden;background:#ffffff0a}
+.planting-mix__bar>i{display:block;height:100%}
+.planting-mix__legend{grid-column:2;display:flex;flex-wrap:wrap;gap:2px 9px}
+.planting-mix__legend small{display:inline-flex;align-items:center;gap:4px;font-size:9px;color:var(--focus-muted,#989d9e)}
+.planting-mix__legend i{display:inline-block;width:7px;height:7px;border-radius:50%}
+.planting-risks p{margin:0 0 4px;padding:5px 7px;border-left:2px solid #d8964c;border-radius:0 4px 4px 0;background:#d8964c12;font-size:10px;line-height:1.45;color:#d9d3c4}
+
+.planting-point{display:grid;grid-template-columns:24px minmax(0,1fr) auto 20px 20px;gap:6px;align-items:center;min-height:30px}
+.planting-point>span{min-width:0;overflow:hidden;font-size:10.5px;text-overflow:ellipsis;white-space:nowrap}
+.planting-icon{width:20px;height:22px;padding:0;border:0;border-radius:3px;background:transparent;color:var(--focus-muted,#989d9e);font-size:13px}
+.planting-icon:hover{background:#ffffff0d;color:var(--focus-text,#dcddd8)}
+.planting-empty{margin:6px 0;color:var(--focus-muted,#989d9e);font-size:10.5px;line-height:1.5}
+
+.planting-bed{display:flex;flex-direction:column;gap:7px;padding-top:6px}
+.planting-name{height:26px;padding:0 8px;border:1px solid var(--focus-line,#353839);border-radius:4px;background:var(--focus-input,#161819);color:var(--focus-text,#dcddd8);font:12px/1 -apple-system,BlinkMacSystemFont,sans-serif}
+.planting-status{margin:0;color:var(--focus-muted,#989d9e);font-size:10px}
+.planting-select{display:grid;grid-template-columns:64px 1fr;gap:6px;align-items:center;font-size:10px;color:var(--focus-muted,#989d9e)}
+.planting-select select{height:23px;border:1px solid var(--focus-line,#353839);border-radius:3px;background:var(--focus-input,#161819);color:var(--focus-text,#dcddd8);font-size:10.5px}
+.planting-recipe{display:flex;flex-direction:column;gap:3px}
+.planting-recipe__row{display:grid;grid-template-columns:minmax(0,1fr) 40px 30px 20px;gap:5px;align-items:center}
+.planting-recipe__row input{width:100%;height:24px;padding:0 4px;border:1px solid transparent;border-radius:3px;background:var(--focus-input,#161819);color:inherit;font:10px ui-monospace,monospace;text-align:right}
+.planting-recipe__row input:hover{border-color:var(--focus-line,#353839)}
+.planting-recipe__pct{font:9.5px ui-monospace,monospace;text-align:right;color:var(--focus-muted,#989d9e)}
+.planting-add{align-self:flex-start;height:24px;padding:0 10px;border:1px dashed var(--focus-line,#353839);border-radius:4px;background:transparent;color:var(--focus-muted,#989d9e);font-size:10.5px}
+.planting-add:hover{color:var(--focus-text,#dcddd8);border-color:#ffffff40}
+.planting-range{display:grid;grid-template-columns:78px 1fr 42px;gap:6px;align-items:center;font-size:10.5px}
+.planting-range>span{color:var(--focus-muted,#989d9e)}
+.planting-range>b{font:10px ui-monospace,monospace;font-weight:400;text-align:right}
+.planting-actions{display:flex;gap:4px;flex-wrap:wrap}
+.planting-actions>button{height:24px;padding:0 9px;border:1px solid var(--focus-line,#353839);border-radius:4px;background:#ffffff05;font-size:10.5px}
+.planting-actions>button:hover{background:#ffffff10}
+.planting-report{display:flex;align-items:center;justify-content:center;gap:7px;height:32px;margin-top:6px;border:1px solid #cfc1a166;border-radius:5px;background:#cfc1a114;color:#efe7d4;font-size:11px}
+.planting-report:hover:not(:disabled){background:#cfc1a124}
+.planting-report .focus-icon{width:13px;height:13px}
+
+/* Превью растения — светлая «студия», как фото из питомника. */
+.plant-thumb{display:inline-flex;flex:none;align-items:center;justify-content:center;overflow:hidden;border-radius:4px;background:#e4e2da;background-repeat:no-repeat}
+.plant-thumb>img{width:92%;height:92%;object-fit:contain}
+.plant-choice{display:grid;grid-template-columns:26px minmax(0,1fr) 10px;gap:7px;align-items:center;width:100%;min-height:30px;padding:2px 6px 2px 2px;border:1px solid transparent;border-radius:4px;background:#ffffff06;text-align:left;font-size:10.5px}
+.plant-choice:hover{border-color:var(--focus-line,#353839);background:#ffffff0c}
+.plant-choice>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.plant-choice>svg{width:10px;height:10px;color:var(--focus-muted,#989d9e)}
+
+.plant-picker{position:fixed;z-index:190;display:flex;flex-direction:column;width:318px;max-height:min(460px,calc(100dvh - 16px));padding:8px;border:1px solid var(--focus-line,#353839);border-radius:7px;background:var(--focus-panel,#1d1f20);box-shadow:0 18px 60px #0009;color:var(--focus-text,#dcddd8);font:11px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.plant-picker button{font:inherit;color:inherit;cursor:pointer}
+.plant-picker>header{display:flex;gap:8px;align-items:center;margin-bottom:6px}
+.plant-picker>header>span{font-weight:550;white-space:nowrap}
+.plant-picker>header>input{flex:1;min-width:0;height:24px;padding:0 7px;border:1px solid var(--focus-line,#353839);border-radius:4px;background:var(--focus-input,#161819);color:inherit;font:inherit}
+.plant-picker .plant-chips{margin-bottom:6px}
+.plant-picker__grid{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--focus-line,#353839) transparent}
+.plant-picker__grid>button{display:flex;flex-direction:column;align-items:center;gap:3px;padding:5px 3px;border:1px solid transparent;border-radius:5px;background:transparent;text-align:center}
+.plant-picker__grid>button:hover{background:#ffffff0a}
+.plant-picker__grid>button.is-active{border-color:var(--focus-accent,#cfc1a1)}
+.plant-picker__grid>button>span{font-size:10px;line-height:1.2;max-height:2.4em;overflow:hidden}
+.plant-picker__grid>button>small{font-size:8.5px;color:var(--focus-muted,#989d9e)}
+.plant-picker__grid>p{grid-column:1/-1;margin:10px 0;color:var(--focus-muted,#989d9e);text-align:center}
+
+.plant-library{display:flex;flex-direction:column;gap:8px;padding-top:6px}
+.plant-library__grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:6px}
+.plant-library__grid>button{display:flex;flex-direction:column;align-items:center;gap:3px;padding:4px 2px 6px;border:1px solid transparent;border-radius:6px;background:transparent;text-align:center}
+.plant-library__grid>button:hover{border-color:var(--focus-line,#353839);background:#ffffff06}
+.plant-library__grid>button>span{font-size:10px;line-height:1.2;max-height:2.4em;overflow:hidden}
+.plant-library__grid>button>small{width:100%;overflow:hidden;color:var(--focus-muted,#989d9e);font-size:8.5px;font-style:italic;text-overflow:ellipsis;white-space:nowrap}
+
+.plant-card{display:flex;flex-direction:column;gap:6px;padding-top:6px}
+.plant-card__back{align-self:flex-start;height:22px;padding:0 6px;border:0;border-radius:3px;background:transparent;color:var(--focus-muted,#989d9e);font-size:10.5px}
+.plant-card__back:hover{background:#ffffff0c;color:var(--focus-text,#dcddd8)}
+.plant-card>h3{margin:4px 0 0;font:550 16px/1.25 -apple-system,BlinkMacSystemFont,sans-serif;color:#f1efe6;text-transform:none;letter-spacing:0}
+.plant-card__latin{margin:0;color:var(--focus-muted,#989d9e);font-size:11px;font-style:italic}
+.plant-card__bloom{display:grid;grid-template-columns:repeat(12,1fr);gap:2px}
+.plant-card__bloom>span{height:18px;border-radius:3px;background:#ffffff08;color:var(--focus-muted,#989d9e);font-size:8.5px;line-height:18px;text-align:center}
+.plant-card__facts{display:grid;grid-template-columns:auto 1fr;gap:3px 10px;margin:4px 0}
+.plant-card__facts dt{color:var(--focus-muted,#989d9e);font-size:10px}
+.plant-card__facts dd{margin:0;font-size:10.5px}
+.plant-card__note{margin:0;padding:6px 8px;border-radius:4px;background:#ffffff07;font-size:10.5px;line-height:1.45}
+.plant-card__note--risk{border-left:2px solid #d8964c;border-radius:0 4px 4px 0;background:#d8964c12}
+.plant-card__source{margin:0;color:var(--focus-muted,#989d9e);font-size:9.5px}
+.plant-card__actions{display:flex;gap:5px;flex-wrap:wrap;margin-top:4px}
+.plant-card__actions>button{height:28px;padding:0 11px;border:1px solid var(--focus-line,#353839);border-radius:4px;background:#ffffff06;font-size:10.5px}
+.plant-card__actions>button.is-primary{border-color:#e4e2da;background:#e4e2da;color:#1d1f20;font-weight:550}
+
+.plant-picture{display:flex;flex-direction:column;gap:5px;border-radius:6px}
+.plant-picture.is-over{outline:1px dashed var(--focus-accent,#cfc1a1);outline-offset:3px}
+.plant-picture__image{position:relative;display:flex;align-items:center;justify-content:center;min-height:150px;overflow:hidden;border-radius:6px;background:#e4e2da}
+.plant-picture__image>img{display:block;max-width:100%;max-height:260px;object-fit:contain}
+.plant-picture__image.is-card>img{max-height:210px;padding:10px}
+.plant-picture__image.is-sheet{min-height:0}
+.plant-picture__image.is-sheet>img{width:100%;max-height:none}
+.plant-picture__seasons{position:absolute;left:0;right:0;bottom:4px;display:grid;grid-template-columns:repeat(4,1fr)}
+.plant-picture__seasons>span{justify-self:center;padding:1px 6px;border-radius:8px;background:#1d1f20b0;color:#f1efe6;font-size:9px}
+.plant-picture__actions{display:flex;align-items:center;gap:5px;font-size:9.5px;color:var(--focus-muted,#989d9e)}
+.plant-picture__actions>span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.plant-picture__actions>button{height:22px;padding:0 8px;border:1px solid var(--focus-line,#353839);border-radius:4px;background:transparent;font-size:10px}

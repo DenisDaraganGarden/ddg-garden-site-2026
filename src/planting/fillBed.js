@@ -181,7 +181,7 @@ export function plantingInstances(beds, bedFills, points) {
     beds.forEach((bed, index) => { for (const p of bedFills[index] ?? []) add(p.plant, { plant: p.plant, x: p.x, y: bed.y, z: p.z, scale: p.scale, flip: p.flip }); });
     for (const point of points) {
         const hash = ((point.seed * 2654435761) >>> 0) / 4294967296;
-        add(point.plant, { plant: point.plant, x: point.x, y: point.y, z: point.z, scale: 0.94 + 0.12 * hash, flip: hash < 0.5 ? -1 : 1 });
+        add(point.plant, { plant: point.plant, x: point.x, y: point.y, z: point.z, scale: 0.94 + 0.12 * hash, flip: hash < 0.5 ? -1 : 1, existing: point.status === 'existing' });
     }
     return bySpecies;
 }

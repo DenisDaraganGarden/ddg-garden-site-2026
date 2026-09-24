@@ -19,8 +19,10 @@ export const paletteRecipe = (palette, library) => palette.recipe
 export function usePlantingEditor({ settings, history, setActiveTab, setTool, tool, language, library }) {
     const [selectedId, setSelectedId] = useState(null);
     const [plantChoice, setPlantChoice] = useState('acer-tataricum');
+    // Что сажает клик: новое растение по проекту или существующее на участке.
+    const [plantStatus, setPlantStatus] = useState('new');
     const live = useRef();
-    live.current = { settings, history, language, library, plantChoice };
+    live.current = { settings, history, language, library, plantChoice, plantStatus };
 
     const beds = settings.plantingBeds ?? [];
     const applyBeds = useCallback((next) => live.current.history.applySettings({ plantingEnabled: true, plantingBeds: next }), []);
@@ -45,9 +47,9 @@ export function usePlantingEditor({ settings, history, setActiveTab, setTool, to
     }, [applyBeds]);
 
     const onPlant = useCallback(([x, y, z]) => {
-        const { settings, history, plantChoice, library } = live.current;
+        const { settings, history, plantChoice, plantStatus, library } = live.current;
         if (settings.plantingPoints.length >= PLANTING_LIMITS.points || !library.has(plantChoice)) return;
-        const point = normalizePlantingPoint({ id: newId('plant'), plant: plantChoice, x, y, z, seed: newSeed() }, settings.plantingPoints.length);
+        const point = normalizePlantingPoint({ id: newId('plant'), plant: plantChoice, x, y, z, seed: newSeed(), status: plantStatus }, settings.plantingPoints.length);
         history.applySettings({ plantingEnabled: true, plantingPoints: [...settings.plantingPoints, point] });
     }, []);
 
@@ -65,7 +67,7 @@ export function usePlantingEditor({ settings, history, setActiveTab, setTool, to
         selectedId: beds.some((bed) => bed.id === selectedId) ? selectedId : null,
         select, updateBed, removeBed, applyPalette, onBed, onPlant, removeLastPoint,
         reseed: (id) => updateBed(id, { seed: newSeed() }),
-        plantChoice, setPlantChoice,
+        plantChoice, setPlantChoice, plantStatus, setPlantStatus,
         mode: tool === 'bed' || tool === 'plant' ? tool : null,
         begin: (next) => { setActiveTab(PLANTING_NODE); setTool(next); },
         stop: () => setTool('select'),
