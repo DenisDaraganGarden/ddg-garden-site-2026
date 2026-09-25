@@ -13,6 +13,7 @@ import { mapNodes, modelOrigin, prepareSketchupGlb, readGlb, readGlbJson } from 
 import { deployPublishedHomeScene } from './scripts/deployScene.mjs';
 import { surroundingsPlugin } from './scripts/surroundings.mjs';
 import { materialsPlugin, trusted } from './scripts/materials.mjs';
+import { photoRendersPlugin } from './scripts/photoRenders.mjs';
 import { poseTuningModule } from './src/components/surfboard/poseTuning.js';
 
 const projectRoot = process.cwd();
@@ -512,7 +513,7 @@ const manualChunks = (id) => {
 };
 
 export default defineConfig({
-  plugins: [react(), homeScenePublishPlugin(), engineStorePlugin(), riderPosePlugin(), surroundingsPlugin(), materialsPlugin()],
+  plugins: [react(), homeScenePublishPlugin(), engineStorePlugin(), riderPosePlugin(), surroundingsPlugin(), materialsPlugin(), photoRendersPlugin()],
   resolve: {
     alias: [
       { find: /^three\/webgpu$/, replacement: fileURLToPath(new URL('./src/lib/threeWebgpuStub.js', import.meta.url)) },

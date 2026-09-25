@@ -8,9 +8,9 @@ export const EDITOR_THUMBNAIL_READY = 'ddg-editor-camera-thumbnail';
 let pendingKey = null;
 
 // width/quality: кадр крупнее миниатюры (снимок генплана для отчёта).
-export function requestEditorThumbnail(key, { width = 320, quality = 0.68 } = {}) {
+export function requestEditorThumbnail(key, { width = 320, quality = 0.68, format = 'image/webp', aspect, prepare } = {}) {
   if (typeof window === 'undefined' || typeof key !== 'string' || !key) return;
-  pendingKey = { key, width, quality };
+  pendingKey = { key, width, quality, format, aspect, prepare };
   window.dispatchEvent(new CustomEvent(EDITOR_THUMBNAIL_REQUEST, { detail: pendingKey }));
 }
 

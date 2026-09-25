@@ -166,15 +166,18 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
     thumbnailRequest.current = null;
     try {
       const source = gl.domElement;
-      const width = Math.min(request.width ?? 320, source.width);
-      const height = Math.max(1, Math.round(source.height * (width / source.width)));
+      const aspect = request.aspect > 0 ? request.aspect : source.width / source.height;
+      const cropWidth = Math.min(source.width, source.height * aspect);
+      const cropHeight = Math.min(source.height, source.width / aspect);
+      const width = Math.max(1, Math.round(Math.min(request.width ?? 320, cropWidth)));
+      const height = Math.max(1, Math.round(cropHeight * (width / cropWidth)));
       const thumbnail = document.createElement('canvas');
       thumbnail.width = width;
       thumbnail.height = height;
       const context = thumbnail.getContext('2d');
       if (!context) return;
-      context.drawImage(source, 0, 0, width, height);
-      publishEditorThumbnail(request.key, thumbnail.toDataURL('image/webp', request.quality ?? 0.68));
+      context.drawImage(source, (source.width - cropWidth) / 2, (source.height - cropHeight) / 2, cropWidth, cropHeight, 0, 0, width, height);
+      publishEditorThumbnail(request.key, thumbnail.toDataURL(request.format || 'image/webp', request.quality ?? 0.68));
     } catch {
       // A context loss or a strict canvas may decline a thumbnail; the editor
       // keeps its neutral tile and the scene render remains untouched.
@@ -559,6 +562,10 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
   ]);
 
   useFrame(({ clock }) => {
+    // An explicit photo capture can temporarily hide editor helpers and inspect
+    // the exact camera. Always restore, including fallback and render errors.
+    const restoreCapture = thumbnailRequest.current?.prepare?.({ scene, camera });
+    try {
     const active = postProcessingSupported && enabled;
     if (cloudScene?.current) cloudScene.current.rainInPost = active;
     if (!active) {
@@ -746,6 +753,9 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
       gl.domElement.dataset.ddgUpscale = upscaler ? 'native-small-frame' : 'off';
     }
     publishThumbnail();
+    } finally {
+      if (restoreCapture) { restoreCapture(); invalidate(); }
+    }
   }, 100);
 
   return null;
