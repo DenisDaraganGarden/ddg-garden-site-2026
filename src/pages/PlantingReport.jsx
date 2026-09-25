@@ -3,6 +3,7 @@ import { useLanguage } from '../i18n/useLanguage';
 import { projectStore, readProject } from '../features/engine/projectApi';
 import { normalizePlantingSettings } from '../planting/settings.js';
 import { bedArea, plantingInstances, plantingSchedule, spacingFor } from '../planting/fillBed.js';
+import { LAWN_MOWING_LABELS, lawnSeed, lawnTurf } from '../planting/lawnGround.js';
 import { isSeasonSheet, plantCardUrl, plantName, plantPhotoUrl, useBedFills, usePlantLibrary } from '../planting/plantLibrary.js';
 import { bloomMonths, byCategory, CATEGORY_LABELS } from '../planting/insights.js';
 import { vineRoot } from '../planting/vines.js';
@@ -27,7 +28,7 @@ function Plan({ beds, instances, library }) {
     const layer = { tree: 3, conifer: 2, shrub: 2, topiary: 2 };
     const ordered = [...instances].sort((a, b) => (layer[library.get(a.plant)?.category] ?? 1) - (layer[library.get(b.plant)?.category] ?? 1));
     return <svg className="report-plan" viewBox={`${x0} ${z0} ${width} ${z1 - z0}`} role="img" aria-label="План посадок">
-        {beds.map((bed) => <path key={bed.id} d={[bed.points, ...(bed.holes ?? [])].map((ring) => `M${ring.map((p) => p.join(',')).join('L')}Z`).join('')} fillRule="evenodd" className="report-plan__bed" style={{ strokeWidth: width / 500 }} />)}
+        {beds.map((bed) => <path key={bed.id} d={[bed.points, ...(bed.holes ?? [])].map((ring) => `M${ring.map((p) => p.join(',')).join('L')}Z`).join('')} fillRule="evenodd" className={`report-plan__bed${bed.kind === 'lawn' ? ' is-lawn' : ''}`} style={{ strokeWidth: width / 500 }} />)}
         {ordered.map((p, i) => {
             const plant = library.get(p.plant), r = ((plant?.spread ?? 0.5) * p.scale) / 2;
             return <g key={i}>
@@ -127,7 +128,11 @@ export default function PlantingReport() {
     const existing = planting.plantingPoints.filter((p) => p.status === 'existing').length;
     // Где растёт: цветники, лианы с длиной побегов или поштучно.
     const where = (r) => [...r.beds, ...(r.length ? [`${ru ? 'лианы' : 'climbers'}, ${r.length.toFixed(1)} ${ru ? 'м побегов' : 'm of shoots'}`] : [])].join(', ') || (ru ? 'одиночные' : 'single');
-    const area = planting.plantingBeds.reduce((sum, bed) => sum + bedArea(bed), 0);
+    // Газоны — отдельно: площадь и сколько брать, растений в них нет.
+    const flowerBeds = planting.plantingBeds.filter((bed) => bed.kind !== 'lawn');
+    const lawns = planting.plantingBeds.filter((bed) => bed.kind === 'lawn');
+    const area = flowerBeds.reduce((sum, bed) => sum + bedArea(bed), 0);
+    const lawnArea = lawns.reduce((sum, bed) => sum + bedArea(bed), 0);
     const date = new Date().toLocaleDateString(ru ? 'ru-RU' : 'en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
     const lighting = useLightingReport(id, entry?.settings);
 
@@ -149,7 +154,7 @@ export default function PlantingReport() {
         </header>
 
         <section className="report-tiles">
-            {[[schedule.reduce((sum, r) => sum + r.count, 0), ru ? 'растений' : 'plants'], [schedule.length, ru ? 'видов' : 'species'], [planting.plantingBeds.length, ru ? 'цветников' : 'beds'], [`${area.toFixed(1)} м²`, ru ? 'цветников по площади' : 'of beds'], [planting.plantingPoints.length - existing, ru ? 'деревьев и кустов — новых' : 'new trees and shrubs'], [existing, ru ? 'существующих' : 'existing'], ...(planting.plantingVines.length ? [[planting.plantingVines.length, ru ? 'лиан' : 'climbers']] : [])].map(([value, label]) => <div key={label}><b>{value}</b><span>{label}</span></div>)}
+            {[[schedule.reduce((sum, r) => sum + r.count, 0), ru ? 'растений' : 'plants'], [schedule.length, ru ? 'видов' : 'species'], [flowerBeds.length, ru ? 'цветников' : 'beds'], [`${area.toFixed(1)} м²`, ru ? 'цветников по площади' : 'of beds'], ...(lawns.length ? [[`${lawnArea.toFixed(1)} м²`, ru ? 'газонов' : 'of lawns']] : []), [planting.plantingPoints.length - existing, ru ? 'деревьев и кустов — новых' : 'new trees and shrubs'], [existing, ru ? 'существующих' : 'existing'], ...(planting.plantingVines.length ? [[planting.plantingVines.length, ru ? 'лиан' : 'climbers']] : [])].map(([value, label]) => <div key={label}><b>{value}</b><span>{label}</span></div>)}
         </section>
 
         <section className="report-block">
@@ -196,6 +201,16 @@ export default function PlantingReport() {
                 <td>{i + 1}</td><td>{plantName(r.plant, ru)}<small>{r.plant.latin}</small></td><td>{r.count}</td><td>{r.area ? r.area.toFixed(1) : '—'}</td><td>{r.plant.category === 'tree' ? '—' : r.plant.density ?? '—'}</td><td>{r.plant.height}</td><td>{where(r)}</td><td />
             </tr>)}</tbody></table>
         </section>
+
+        {lawns.length ? <section className="report-block">
+            <h3>{ru ? 'Газоны' : 'Lawns'}</h3>
+            <table className="report-table"><thead><tr>
+                <th>{ru ? 'Газон' : 'Lawn'}</th><th>{ru ? 'Площадь, м²' : 'Area, m²'}</th><th>{ru ? 'Стрижка' : 'Mowing'}</th><th>{ru ? 'Высота, см' : 'Height, cm'}</th><th>{ru ? 'Рулонный, м² (+5 %)' : 'Turf, m² (+5 %)'}</th><th>{ru ? 'Семена, кг (35 г/м²)' : 'Seed, kg (35 g/m²)'}</th><th>{ru ? 'Полив' : 'Irrigation'}</th>
+            </tr></thead><tbody>{lawns.map((bed) => {
+                const size = bedArea(bed), striped = ['stripes', 'checker', 'diamond'].includes(bed.lawn.mowing);
+                return <tr key={bed.id}><td>{bed.name}</td><td>{size.toFixed(1)}</td><td>{LAWN_MOWING_LABELS[bed.lawn.mowing][ru ? 0 : 1]}{striped ? <small>{ru ? `проход ${bed.lawn.stripe} м` : `${bed.lawn.stripe} m passes`}</small> : null}</td><td>{bed.lawn.cut}</td><td>{Math.round(lawnTurf(size))}</td><td>{lawnSeed(size).toFixed(1)}</td><td>{bed.lawn.irrigated ? (ru ? 'да' : 'yes') : (ru ? 'нет' : 'no')}</td></tr>;
+            })}{lawns.length > 1 ? <tr><td><b>{ru ? 'Всего' : 'Total'}</b></td><td><b>{lawnArea.toFixed(1)}</b></td><td /><td /><td><b>{Math.round(lawnTurf(lawnArea))}</b></td><td><b>{lawnSeed(lawnArea).toFixed(1)}</b></td><td /></tr> : null}</tbody></table>
+        </section> : null}
 
         <LightingReportBlocks report={lighting} ru={ru} />
 

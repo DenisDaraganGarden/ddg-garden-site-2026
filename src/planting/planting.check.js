@@ -289,4 +289,18 @@ assert.ok(plantFlex('grass')[0] > plantFlex('perennial')[0] && plantFlex('perenn
 assert.equal(normalizePlantingSettings({}).plantingSway, 1);
 assert.equal(normalizePlantingSettings({ plantingSway: 5 }).plantingSway, 2);
 
+// Газон: цветник без растений, со стрижкой; мусор в стрижке — по умолчанию.
+{
+    const raw = { id: 'l', kind: 'lawn', points: [[0, 0], [4, 0], [4, 3], [0, 3]], recipe: [{ plant: 'x', share: 5 }], lawn: { mowing: 'zigzag', stripe: 9, angle: 270, cut: 1, contrast: 0.3, irrigated: false } };
+    const lawn = normalizePlantingSettings({ plantingBeds: [raw] }).plantingBeds[0];
+    assert.equal(lawn.kind, 'lawn');
+    assert.deepEqual(lawn.recipe, [], 'a lawn holds no plants');
+    assert.deepEqual(lawn.lawn, { mowing: 'stripes', stripe: 3, angle: -90, cut: 2, contrast: 0.3, irrigated: false }, '270° is −90°');
+    assert.equal(lawn.name, 'Газон 1');
+    assert.deepEqual(fillBed(lawn, new Map()), []);
+    assert.equal(bedArea(lawn), 12);
+    assert.deepEqual(normalizePlantingSettings({ plantingBeds: [lawn] }).plantingBeds[0], lawn, 'a lawn normalizes to itself');
+    assert.ok(!('kind' in normalizePlantingSettings({ plantingBeds: [{ ...raw, kind: 'bed' }] }).plantingBeds[0]), 'a bed stays a bed');
+}
+
 console.log(`planting: settings, fill (${first.length} plants in 60 m², ${smallFill.length} in 20 m² with ${small.recipe.length} species), schedule and seasons hold, season pictures by month, bed ground by plants and month, garden wind blows the right way`);

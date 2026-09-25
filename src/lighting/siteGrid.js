@@ -129,8 +129,11 @@ export function buildSiteGrid({ roots = [], bounds, planeY = null, beds = [], tr
     for (let i = 0; i < n; i += 1) {
         if (grid.kind[i] === KIND.building || grid.kind[i] === KIND.water) continue;
         const x = grid.x0 + ((i % grid.cols) + 0.5) * grid.cell, z = grid.z0 + (Math.floor(i / grid.cols) + 0.5) * grid.cell;
-        if (beds.some((bed) => insideBed(bed, x, z))) { grid.kind[i] = KIND.bed; continue; }
-        if (trees.some((tree) => Math.hypot(tree.x - x, tree.z - z) < Math.min(3, Math.max(0.8, (tree.spread ?? 2) * 0.35)))) grid.kind[i] = KIND.roots;
+        // Газон (цветник kind: 'lawn') — газон; цветник поверх него — цветник;
+        // корни дерева на газоне — корни.
+        if (beds.some((bed) => bed.kind !== 'lawn' && insideBed(bed, x, z))) { grid.kind[i] = KIND.bed; continue; }
+        if (trees.some((tree) => Math.hypot(tree.x - x, tree.z - z) < Math.min(3, Math.max(0.8, (tree.spread ?? 2) * 0.35)))) { grid.kind[i] = KIND.roots; continue; }
+        if (beds.some((bed) => bed.kind === 'lawn' && insideBed(bed, x, z))) grid.kind[i] = KIND.lawn;
     }
     return grid;
 }

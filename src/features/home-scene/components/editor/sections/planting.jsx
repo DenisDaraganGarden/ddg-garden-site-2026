@@ -4,6 +4,7 @@ import { CheckboxControl, RangeControl, SelectControl } from '../../HomeEditorCo
 import { useFocusControlScope } from '../focus/FocusControlsContext';
 import { FocusIcon } from '../focus/FocusIcons';
 import { PLANTING_BED_DEFAULT, PLANTING_LIMITS, PLANTING_RANGES } from '../../../../../planting/settings.js';
+import { LAWN_MOWING_LABELS, lawnAngleFor, lawnNeeds, lawnNumber } from '../../../../../planting/lawnGround.js';
 import { PLANTING_PALETTES } from '../../../../../planting/palettes.js';
 import { bedArea } from '../../../../../planting/fillBed.js';
 import { vineLength } from '../../../../../planting/vines.js';
@@ -57,6 +58,51 @@ function PlainRange({ label, value, min, max, step, unit = '', onChange, testId 
         <b>{Number(value.toFixed(2))}{unit}</b></label>;
 }
 
+// Газон (цветник kind: 'lawn', lawnGround.js): стрижка — узор, ширина
+// прохода, направление, высота травы, контраст полос; полив. Площадь — и
+// сколько брать (lawnNeeds).
+function LawnEditor({ bed, plantingEditor, layoutEditor, ru }) {
+    const lawn = bed.lawn, set = (patch) => plantingEditor.updateBed(bed.id, { lawn: { ...lawn, ...patch } });
+    const area = bedArea(bed), striped = ['stripes', 'checker', 'diamond'].includes(lawn.mowing);
+    return <>
+        <input className="planting-name" value={bed.name} maxLength={64} aria-label={ru ? 'Имя газона' : 'Lawn name'} onChange={(event) => plantingEditor.updateBed(bed.id, { name: event.target.value })} />
+        <p className="planting-status" data-testid="planting-lawn-status">{`${ru ? 'Площадь' : 'Area'} ${lawnNumber(area, ru)} ${ru ? 'м²' : 'm²'} · ${lawnNeeds(area, ru)}`}</p>
+        <div className="plant-chips" role="radiogroup" aria-label={ru ? 'Стрижка' : 'Mowing'}>
+            {Object.entries(LAWN_MOWING_LABELS).map(([id, labels]) => <button key={id} type="button" role="radio" aria-checked={lawn.mowing === id} className={lawn.mowing === id ? 'is-active' : ''} onClick={() => set({ mowing: id, ...(id === 'meadow' && lawn.cut < 12 ? { cut: 18 } : id !== 'meadow' && lawn.cut > 12 ? { cut: 4 } : {}) })} data-testid={`planting-lawn-${id}`}>{labels[ru ? 0 : 1]}</button>)}
+        </div>
+        {striped ? <PlainRange label={ru ? 'Ширина прохода' : 'Pass width'} value={lawn.stripe} min={PLANTING_RANGES.stripe[0]} max={PLANTING_RANGES.stripe[1]} step={PLANTING_RANGES.stripe[2]} unit={ru ? ' м' : ' m'} onChange={(stripe) => set({ stripe })} testId="planting-lawn-stripe" /> : null}
+        {striped ? <PlainRange label={ru ? 'Направление' : 'Direction'} value={lawn.angle} min={-90} max={90} step={1} unit="°" onChange={(angle) => set({ angle })} testId="planting-lawn-angle" /> : null}
+        <PlainRange label={ru ? 'Высота травы' : 'Grass height'} value={lawn.cut} min={PLANTING_RANGES.cut[0]} max={PLANTING_RANGES.cut[1]} step={PLANTING_RANGES.cut[2]} unit={ru ? ' см' : ' cm'} onChange={(cut) => set({ cut })} testId="planting-lawn-cut" />
+        {striped ? <PlainRange label={ru ? 'Контраст полос' : 'Stripe contrast'} value={lawn.contrast} min={PLANTING_RANGES.contrast[0]} max={PLANTING_RANGES.contrast[1]} step={PLANTING_RANGES.contrast[2]} onChange={(contrast) => set({ contrast })} testId="planting-lawn-contrast" /> : null}
+        <div className="planting-lawn-water"><span>{ru ? 'Полив' : 'Irrigation'}</span>
+            <div className="planting-toggle">
+                <button type="button" className={lawn.irrigated ? 'is-active' : ''} onClick={() => set({ irrigated: true })}>{ru ? 'Есть' : 'Yes'}</button>
+                <button type="button" className={lawn.irrigated ? '' : 'is-active'} onClick={() => set({ irrigated: false })} data-testid="planting-lawn-dry">{ru ? 'Нет — летом выгорает' : 'No — burns in summer'}</button>
+            </div>
+        </div>
+        <div className="planting-actions">
+            {striped ? <button type="button" onClick={() => set({ angle: lawnAngleFor(bed.points) })} title={ru ? 'Проходы косилки — вдоль длинной стороны газона' : 'Mower passes along the lawn’s long side'}>{ru ? 'Вдоль длинной стороны' : 'Along the long side'}</button> : null}
+            <button type="button" onClick={() => plantingEditor.reseed(bed.id)} title={ru ? 'Другие пятна сочности и выгорания' : 'Other patches of lush and dry grass'}>{ru ? 'Перемешать' : 'Reshuffle'}</button>
+            <button type="button" onClick={() => layoutEditor?.frameObject?.(`planting-bed-${bed.id}`)}>{ru ? 'Показать' : 'Frame'}</button>
+            <button type="button" onClick={() => plantingEditor.removeBed(bed.id)} data-testid="planting-delete">{ru ? 'Удалить' : 'Delete'}</button>
+        </div>
+    </>;
+}
+
+// Газоны в обзоре: общая площадь и строка на газон — выбрать и править.
+function LawnSummary({ lawns, ru, selectedId, onSelect }) {
+    if (!lawns.length) return null;
+    const total = lawns.reduce((sum, lawn) => sum + bedArea(lawn), 0);
+    return <section className="planting-chart planting-lawns" data-testid="planting-lawns">
+        <h4>{ru ? 'Газоны' : 'Lawns'} · {lawnNumber(total, ru)} {ru ? 'м²' : 'm²'}</h4>
+        {lawns.map((lawn) => <button key={lawn.id} type="button" className={`planting-lawn-row${lawn.id === selectedId ? ' is-active' : ''}`} onClick={() => onSelect(lawn.id)}>
+            <i className={`planting-lawn-swatch is-${lawn.lawn.mowing}`} />
+            <span>{lawn.name}<small>{LAWN_MOWING_LABELS[lawn.lawn.mowing][ru ? 0 : 1]} · {lawnNumber(lawn.lawn.cut, ru)} {ru ? 'см' : 'cm'}{lawn.lawn.irrigated ? '' : (ru ? ' · без полива' : ' · not irrigated')}</small></span>
+            <b>{lawnNumber(bedArea(lawn), ru)} {ru ? 'м²' : 'm²'}</b>
+        </button>)}
+    </section>;
+}
+
 // Цветник: выбор, имя, палитра, рецепт с картинками, пятна и густота.
 function BedEditor({ beds, fills, library, plantingEditor, layoutEditor, ru }) {
     const selected = beds.find((bed) => bed.id === plantingEditor.selectedId) ?? null;
@@ -66,12 +112,12 @@ function BedEditor({ beds, fills, library, plantingEditor, layoutEditor, ru }) {
     const total = selected ? selected.recipe.reduce((sum, row) => sum + row.share, 0) || 1 : 1;
     return <div className="planting-bed">
         <div className="plant-chips">
-            {beds.map((bed) => <button key={bed.id} type="button" className={bed.id === selected?.id ? 'is-active' : ''} onClick={() => plantingEditor.select(bed.id)} data-testid="planting-bed-chip">{bed.name}</button>)}
+            {beds.map((bed) => <button key={bed.id} type="button" className={`${bed.id === selected?.id ? 'is-active' : ''}${bed.kind === 'lawn' ? ' is-lawn' : ''}`} onClick={() => plantingEditor.select(bed.id)} data-testid="planting-bed-chip">{bed.name}</button>)}
             <button type="button" className="plant-chips__add" onClick={() => plantingEditor.begin('bed')} disabled={beds.length >= PLANTING_LIMITS.beds}>+ {ru ? 'Нарисовать' : 'Draw'}</button>
         </div>
         {!selected ? <p className="planting-empty">{beds.length
             ? (ru ? 'Выберите цветник выше или щёлкните по нему в сцене.' : 'Pick a bed above or click it in the scene.')
-            : (ru ? 'Цветников пока нет — «Цветник» (L) и контур по земле.' : 'No beds yet — Bed (L) and an outline on the ground.')}</p> : <>
+            : (ru ? 'Цветников пока нет — «Цветник» (L) и контур по земле.' : 'No beds yet — Bed (L) and an outline on the ground.')}</p> : selected.kind === 'lawn' ? <LawnEditor bed={selected} plantingEditor={plantingEditor} layoutEditor={layoutEditor} ru={ru} /> : <>
             <input className="planting-name" value={selected.name} maxLength={64} aria-label={ru ? 'Имя цветника' : 'Bed name'} onChange={(event) => set({ name: event.target.value })} />
             <p className="planting-status" data-testid="planting-bed-status">{ru
                 ? `Площадь ${bedArea(selected).toFixed(1)} м² · растений ${count}${selected.surface ? ' · поверхность модели' : ''}`
@@ -138,7 +184,11 @@ function PlantingWorkspace({ settings, handleSettingChange, applySettings, plant
     const [openPlant, setOpenPlant] = useState(null);
     useEffect(() => { try { localStorage.setItem(TAB_KEY, tab); } catch { /* local UI only */ } }, [tab]);
     const mode = plantingEditor?.mode;
+    const lawnMode = mode === 'bed' && plantingEditor?.bedKind === 'lawn';
     const month = settings.plantingMonth;
+    const flowerBeds = useMemo(() => beds.filter((bed) => bed.kind !== 'lawn'), [beds]);
+    const flowerFills = useMemo(() => fills.filter((_, index) => beds[index]?.kind !== 'lawn'), [fills, beds]);
+    const lawns = useMemo(() => beds.filter((bed) => bed.kind === 'lawn'), [beds]);
     const selectedBed = beds.find((bed) => bed.id === plantingEditor?.selectedId);
     const vines = settings[VINES_KEY];
     const inBloom = useMemo(() => [...new Set([...fills.flat().map((p) => p.plant), ...points.map((p) => p.plant), ...(vines ?? []).map((v) => v.plant)])].filter((id) => bloomMonths(library.get(id)).includes(month)), [fills, points, vines, library, month]);
@@ -156,13 +206,17 @@ function PlantingWorkspace({ settings, handleSettingChange, applySettings, plant
     const months = ru ? MONTHS_RU : MONTHS_EN;
 
     return <div className="planting-workspace" data-testid="planting-workspace">
-        <div className="planting-tools" role="toolbar" aria-label={ru ? 'Инструменты растений' : 'Plant tools'}>
-            <button type="button" className={mode === 'bed' ? 'is-active' : ''} onClick={() => (mode === 'bed' ? plantingEditor.stop() : plantingEditor.begin('bed'))} data-testid="planting-draw-bed"><FocusIcon name="bed" />{ru ? 'Цветник' : 'Bed'}<kbd>L</kbd></button>
+        <div className="planting-tools planting-tools--five" role="toolbar" aria-label={ru ? 'Инструменты растений' : 'Plant tools'}>
+            <button type="button" className={mode === 'bed' && lawnMode === false ? 'is-active' : ''} onClick={() => (mode === 'bed' && !lawnMode ? plantingEditor.stop() : plantingEditor.begin('bed'))} data-testid="planting-draw-bed"><FocusIcon name="bed" />{ru ? 'Цветник' : 'Bed'}<kbd>L</kbd></button>
+            <button type="button" className={lawnMode ? 'is-active' : ''} onClick={() => (lawnMode ? plantingEditor.stop() : plantingEditor.beginLawn())} data-testid="planting-draw-lawn"><FocusIcon name="ground" />{ru ? 'Газон' : 'Lawn'}<kbd>&nbsp;</kbd></button>
             <button type="button" className={mode === 'plant' ? 'is-active' : ''} onClick={() => (mode === 'plant' ? plantingEditor.stop() : plantingEditor.begin('plant'))} data-testid="planting-place"><FocusIcon name="sprout" />{ru ? 'Посадить' : 'Plant'}<kbd>T</kbd></button>
             <button type="button" className={mode === 'vine' ? 'is-active' : ''} onClick={() => (mode === 'vine' ? plantingEditor.stop() : plantingEditor.begin('vine'))} data-testid="planting-vine"><FocusIcon name="vine" />{ru ? 'Лиана' : 'Climber'}<kbd>I</kbd></button>
             <button type="button" onClick={() => topiaryEditor?.begin()} data-testid="planting-hedge"><FocusIcon name="leaf" />{ru ? 'Изгородь' : 'Hedge'}<kbd>B</kbd></button>
         </div>
-        {mode === 'bed' ? <p className="planting-hint">{ru
+        {lawnMode ? <p className="planting-hint">{ru
+            ? 'Газон рисуется как цветник: щелчок по поверхности модели — газон на всю поверхность, протяжка по ней или по плоскости — контур. Трава — само покрытие, со стрижкой полосами вдоль длинной стороны; узор, высота и полив — в карточке газона. Esc — выйти.'
+            : 'A lawn is drawn as a bed: a click on the model’s surface lays it over the whole surface, a drag over it or the plane is an outline. The grass is the surface itself, mown in stripes along the long side; pattern, height and irrigation are in the lawn’s card. Esc to leave.'}</p> : null}
+        {mode === 'bed' && !lawnMode ? <p className="planting-hint">{ru
             ? 'Поверхность модели подсвечивается под курсором. Щелчок — цветник на всю поверхность. Протяжка по ней — только та её часть, что внутри контура: дорожки и газон в обводке останутся пустыми. Протяжка по плоскости — просто контур. Палитра «Степной». Esc — выйти.'
             : 'The model’s surface lights up under the cursor. A click plants the whole surface. A drag over it plants only its part inside the outline: paths and lawn inside it stay empty. A drag over the plane is a plain outline. “Steppe” palette. Esc to leave.'}</p> : null}
         {mode === 'vine' ? <div className="planting-plantrow">
@@ -198,7 +252,8 @@ function PlantingWorkspace({ settings, handleSettingChange, applySettings, plant
             {[['overview', ru ? 'Обзор' : 'Overview'], ['bed', ru ? 'Цветник' : 'Bed'], ['library', ru ? 'Библиотека' : 'Library']].map(([id, label]) => <button key={id} type="button" role="tab" aria-selected={tab === id} className={tab === id ? 'is-active' : ''} onClick={() => { setTab(id); if (id === 'library') setOpenPlant(null); }} data-testid={`planting-tab-${id}`}>{label}</button>)}
         </nav>
         {tab === 'overview' ? <>
-            <PlantingInsights beds={beds} fills={fills} points={points} vines={settings[VINES_KEY] ?? []} library={library} month={month} ru={ru} focusBedId={plantingEditor?.selectedId} focusVineId={plantingEditor?.vineId} onOpenPlant={openPlantCard}
+            <LawnSummary lawns={lawns} ru={ru} selectedId={plantingEditor?.selectedId} onSelect={(id) => { plantingEditor.select(id); setTab('bed'); }} />
+            <PlantingInsights beds={flowerBeds} fills={flowerFills} points={points} vines={settings[VINES_KEY] ?? []} library={library} month={month} ru={ru} focusBedId={plantingEditor?.selectedId} focusVineId={plantingEditor?.vineId} onOpenPlant={openPlantCard}
                 onSelectVine={(id) => plantingEditor?.selectVine(id)} onRemoveVine={(id) => plantingEditor?.removeVine(id)}
                 onPointStatus={(id, value) => applySettings({ [POINTS_KEY]: points.map((p) => (p.id === id ? { ...p, status: value === 'existing' ? 'existing' : undefined } : p)) })}
                 onRemovePoint={(id) => applySettings({ [POINTS_KEY]: points.filter((p) => p.id !== id) })}

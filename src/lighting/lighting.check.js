@@ -164,7 +164,12 @@ const house = new THREE.Mesh(new THREE.PlaneGeometry(3, 3).rotateX(-Math.PI / 2)
 root.add(wallMesh, lowWall, curb, house);
 const grid = buildSiteGrid({
     roots: [root], bounds: { minX: -10, maxX: 10, minZ: -10, maxZ: 10 },
-    beds: [{ points: [[-9, -9], [-7, -9], [-7, -7], [-9, -7]] }], trees: [{ x: -3, z: 6, spread: 4 }],
+    beds: [
+        { points: [[-9, -9], [-7, -9], [-7, -7], [-9, -7]] },
+        // Газон поверх плитки и цветник в нём; газон вокруг дерева.
+        { kind: 'lawn', points: [[1, 7], [3, 7], [3, 9], [1, 9]] }, { points: [[2.2, 8.2], [2.8, 8.2], [2.8, 8.8], [2.2, 8.8]] },
+        { kind: 'lawn', points: [[-5, 4], [-1, 4], [-1, 8], [-5, 8]] },
+    ], trees: [{ x: -3, z: 6, spread: 4 }],
     surfaces: { Lawn: 'lawn', Paving: 'paving', Floor: 'building' },
 });
 const kindAt = (x, z) => grid.kind[cellOf(grid, x, z)];
@@ -179,7 +184,9 @@ assert.equal(kindAt(-6, 1), KIND.wall, 'стенка в полметра — т�
 assert.equal(kindAt(-3, -4), KIND.lawn, 'бордюр в 15 см — не помеха');
 assert.equal(kindAt(8.5, -8.5), KIND.building, 'пол, названный зданием, — не копают');
 assert.equal(kindAt(-8, -8), KIND.bed);
-assert.equal(kindAt(-3, 6), KIND.roots);
+assert.equal(kindAt(-3, 6), KIND.roots, 'корни дерева на газоне — корни');
+assert.equal(kindAt(1.5, 7.5), KIND.lawn, 'нарисованный газон — газон, хоть под ним плитка модели');
+assert.equal(kindAt(2.5, 8.5), KIND.bed, 'цветник в газоне — цветник');
 assert.equal(kindAt(12, 12), KIND.outside, 'за моделью — чужая земля');
 
 // Файл сетки: туда и обратно — те же клетки, земля до сантиметра.

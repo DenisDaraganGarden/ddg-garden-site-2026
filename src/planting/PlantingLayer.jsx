@@ -3,6 +3,7 @@ import { useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { plantingInstances } from './fillBed.js';
 import { bakeGroundTiles, bedGroundGeometry, groundSeason, makeGroundMaterial, plantGroundMaps, plantMapTextures } from './bedGround.js';
+import { bakeLawnTile, makeLawnMaterial, setLawnUniforms } from './lawnGround.js';
 import { plantCardUrl, plantSeasonUrl, useBedFills, usePlantLibrary } from './plantLibrary.js';
 import { seasonImage, seasonLook } from './season.js';
 import VineLayer from './VineLayer.jsx';
@@ -336,7 +337,7 @@ function BedSurface({ bed, selected, plan }) {
     const topOnly = plan && bed.surface ? (renderer, scene, camera, _geometry, material) => { material.depthTest = camera.matrixWorld.elements[9] < 0.9; } : NOTHING;
     return <group position={[0, bed.y, 0]}>
         <mesh name={`planting-bed-${bed.id}`} userData={{ plantingBed: bed.id }} geometry={geometry} position={[0, bed.surface ? 0.03 : 0.012, 0]} receiveShadow={!plan && !bed.surface} renderOrder={plan ? 1 : 0} onBeforeRender={topOnly}>
-            {plan ? <meshBasicMaterial color="#ece6d6" toneMapped={false} depthTest={!bed.surface} polygonOffset polygonOffsetFactor={-2} polygonOffsetUnits={-2} />
+            {plan ? <meshBasicMaterial color={bed.kind === 'lawn' ? '#dfe7cc' : '#ece6d6'} toneMapped={false} depthTest={!bed.surface} polygonOffset polygonOffsetFactor={-2} polygonOffsetUnits={-2} />
                 : <meshBasicMaterial transparent opacity={0} depthWrite={false} />}
         </mesh>
         {selected || plan ? outlines.map((outline, i) => <lineLoop key={i} geometry={outline} position={[0, 0.04, 0]} raycast={() => {}} renderOrder={5} onBeforeRender={selected ? NOTHING : topOnly}>
@@ -374,6 +375,32 @@ function BedGround({ bed, fill, library, month }) {
     return <mesh name={`planting-ground-${bed.id}`} geometry={geometry} material={ground.material} receiveShadow raycast={NOTHING} />;
 }
 
+// Газон (lawnGround.js): само покрытие — трава с глубиной, стрижка полосами,
+// цвет месяца; опад и тень — от деревьев и кустов, посаженных поштучно.
+function LawnGround({ bed, points, library, month }) {
+    const gl = useThree((state) => state.gl);
+    const invalidate = useThree((state) => state.invalidate);
+    const shapeKey = JSON.stringify([bed.points, bed.holes ?? null, bed.ground ?? null, bed.y]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- форма газона по значению
+    const geometry = useMemo(() => bedGroundGeometry(bed), [shapeKey]);
+    useEffect(() => () => geometry.dispose(), [geometry]);
+    const lawn = useMemo(() => makeLawnMaterial(bakeLawnTile(gl), bakeGroundTiles(gl).litter), [gl]);
+    useEffect(() => () => lawn.material.dispose(), [lawn]);
+    const maps = useMemo(() => plantGroundMaps(bed, points, library, month), [bed, points, library, month]);
+    const textures = useRef(null);
+    useLayoutEffect(() => {
+        textures.current = plantMapTextures(maps, textures.current);
+        const u = lawn.uniforms;
+        u.uPlantLitter.value = textures.current.litter;
+        u.uPlantKind.value = textures.current.kind;
+        u.uPlantFrame.value.set(...maps.frame);
+        setLawnUniforms(u, bed.lawn, month, bed.seed);
+        invalidate();
+    }, [maps, month, lawn, bed.lawn, bed.seed, invalidate]);
+    useEffect(() => () => { textures.current?.litter.dispose(); textures.current?.kind.dispose(); }, []);
+    return <mesh name={`planting-lawn-${bed.id}`} geometry={geometry} material={lawn.material} receiveShadow raycast={NOTHING} />;
+}
+
 export default function PlantingLayer({ settings, selectedBedId = null, selectedVineId = null, envMapIntensity = 1 }) {
     const { plants: library, status } = usePlantLibrary();
     const beds = settings.plantingBeds, points = settings.plantingPoints;
@@ -385,7 +412,9 @@ export default function PlantingLayer({ settings, selectedBedId = null, selected
     if (status !== 'ready') return null;
     return <group name="planting">
         {beds.map((bed) => <BedSurface key={bed.id} bed={bed} selected={bed.id === selectedBedId} plan={plan} />)}
-        {plan ? null : beds.map((bed, i) => <BedGround key={bed.id} bed={bed} fill={bedFills[i]} library={library} month={settings.plantingMonth} />)}
+        {plan ? null : beds.map((bed, i) => (bed.kind === 'lawn'
+            ? <LawnGround key={bed.id} bed={bed} points={points} library={library} month={settings.plantingMonth} />
+            : <BedGround key={bed.id} bed={bed} fill={bedFills[i]} library={library} month={settings.plantingMonth} />))}
         {plan ? <PlanCaps instances={all} library={library} />
             : [...bySpecies].map(([id, instances]) => (library.has(id)
                 ? <SpeciesCards key={id} plant={library.get(id)} instances={instances} month={settings.plantingMonth} envMapIntensity={envMapIntensity} />

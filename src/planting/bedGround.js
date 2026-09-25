@@ -164,11 +164,11 @@ export function bedGroundGeometry(bed, lift = GROUND_LIFT) {
 
 // --- плитки: рисуются один раз на рендерер ---------------------------------------
 
-const BAKE_VERTEX = /* glsl */`
+export const BAKE_VERTEX = /* glsl */`
 varying vec2 vUv;
 void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`;
 
-const BAKE_COMMON = /* glsl */`
+export const BAKE_COMMON = /* glsl */`
 precision highp float;
 varying vec2 vUv;
 float hash12(vec2 p) { vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }

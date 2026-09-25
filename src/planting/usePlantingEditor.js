@@ -1,5 +1,6 @@
-import { useCallback, useRef, useState } from 'react';
-import { normalizePlantingBed, normalizePlantingPoint, normalizePlantingVine, PLANTING_BED_DEFAULT, PLANTING_LIMITS } from './settings.js';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { LAWN_DEFAULT, normalizePlantingBed, normalizePlantingPoint, normalizePlantingVine, PLANTING_BED_DEFAULT, PLANTING_LIMITS } from './settings.js';
+import { lawnAngleFor } from './lawnGround.js';
 import { PLANTING_PALETTES } from './palettes.js';
 import { vineRoot } from './vines.js';
 
@@ -28,8 +29,12 @@ export function usePlantingEditor({ settings, history, setActiveTab, setTool, to
     const [plantStatus, setPlantStatus] = useState('new');
     const [vineChoice, setVineChoice] = useState('parthenocissus-quinquefolia');
     const [vineId, setVineId] = useState(null);
+    // Что рисует инструмент «Цветник»: цветник или газон (тот же контур, та же
+    // поверхность модели). Ушёл с инструмента — дальше снова цветник: L — цветник.
+    const [bedKind, setBedKind] = useState('bed');
+    useEffect(() => { if (tool !== 'bed') setBedKind('bed'); }, [tool]);
     const live = useRef();
-    live.current = { settings, history, language, library, plantChoice, plantStatus, vineChoice };
+    live.current = { settings, history, language, library, plantChoice, plantStatus, vineChoice, bedKind };
 
     const beds = settings.plantingBeds ?? [];
     const applyBeds = useCallback((next) => live.current.history.applySettings({ plantingEnabled: true, plantingBeds: next }), []);
@@ -41,15 +46,19 @@ export function usePlantingEditor({ settings, history, setActiveTab, setTool, to
     }, [applyBeds]);
 
     // Новый цветник — контур от руки или поверхность модели (holes, ground,
-    // surface — surfacePick.js); засаживается первой палитрой.
+    // surface — surfacePick.js); засаживается первой палитрой. Газон — тот же
+    // контур без растений, проходы косилки вдоль его длинной стороны.
     const addBed = useCallback((shape) => {
-        const { settings, language, library } = live.current;
+        const { settings, language, library, bedKind: kind } = live.current;
         if (settings.plantingBeds.length >= PLANTING_LIMITS.beds) return;
+        const lawn = kind === 'lawn', ru = language === 'ru';
         const used = new Set(settings.plantingBeds.map((bed) => bed.name));
         let n = 1, name;
-        do { name = `${language === 'ru' ? 'Цветник' : 'Bed'} ${n++}`; } while (used.has(name));
+        do { name = `${lawn ? (ru ? 'Газон' : 'Lawn') : (ru ? 'Цветник' : 'Bed')} ${n++}`; } while (used.has(name));
         const palette = PLANTING_PALETTES[0];
-        const bed = normalizePlantingBed({ id: newId('bed'), name, ...shape, recipe: paletteRecipe(palette, library), drift: palette.drift ?? PLANTING_BED_DEFAULT.drift, density: 1, seed: newSeed() }, settings.plantingBeds.length);
+        const bed = normalizePlantingBed(lawn
+            ? { id: newId('lawn'), name, ...shape, kind: 'lawn', lawn: { ...LAWN_DEFAULT, angle: lawnAngleFor(shape.points) }, seed: newSeed() }
+            : { id: newId('bed'), name, ...shape, recipe: paletteRecipe(palette, library), drift: palette.drift ?? PLANTING_BED_DEFAULT.drift, density: 1, seed: newSeed() }, settings.plantingBeds.length);
         if (!bed) return;
         applyBeds([...settings.plantingBeds, bed]);
         setSelectedId(bed.id);
@@ -112,7 +121,9 @@ export function usePlantingEditor({ settings, history, setActiveTab, setTool, to
         vineChoice, setVineChoice, onVine, selectVine, updateVine, removeVine,
         reseedVine: (id) => updateVine(id, { seed: newSeed() }),
         mode: tool === 'bed' || tool === 'plant' || tool === 'vine' ? tool : null,
-        begin: (next) => { setActiveTab(PLANTING_NODE); setTool(next); },
+        bedKind,
+        begin: (next) => { setActiveTab(PLANTING_NODE); setBedKind('bed'); setTool(next); },
+        beginLawn: () => { setActiveTab(PLANTING_NODE); setBedKind('lawn'); setTool('bed'); },
         stop: () => setTool('select'),
     };
 }
