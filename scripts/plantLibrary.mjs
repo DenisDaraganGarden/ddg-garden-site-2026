@@ -17,6 +17,10 @@ import { HOME, isValidId } from './projectStore.mjs';
 //   карточки растения и отчёта заказчику. Сцена рисует карточку SketchUp.
 export const PLANTS_DIR = path.join(HOME, 'library', 'plants');
 const PHOTO_SIZE = 1600;
+//   library/plants/<id>/season-<фаза>.webp — сезон, нарисованный ИИ по карточке
+//   (scripts/plantSeasons.mjs); фазы — как в src/planting/season.js.
+export const SEASON_PHASES = Object.freeze(['leaf', 'spring', 'autumn', 'winter']);
+const SEASON_FILE = /^season-(leaf|spring|autumn|winter)\.webp$/;
 
 export async function listPlants(dir = PLANTS_DIR) {
   let names = [];
@@ -35,7 +39,13 @@ export async function listPlants(dir = PLANTS_DIR) {
       const card = await fs.stat(path.join(dir, plant.id, 'card.webp')).catch(() => null);
       const photo = await fs.stat(path.join(dir, plant.id, 'photo.webp')).catch(() => null);
       const photoSize = photo ? await fs.readFile(path.join(dir, plant.id, 'photo.json'), 'utf8').then(JSON.parse, () => null) : null;
-      return card ? { ...plant, cardVersion: Math.round(card.mtimeMs), ...(photo ? { photoVersion: Math.round(photo.mtimeMs), photoSize } : {}) } : null;
+      // Сезоны — версии картинок по фазам: {autumn: время файла, …}.
+      const seasons = Object.fromEntries((await Promise.all(SEASON_PHASES.map(async (phase) => [phase, await fs.stat(path.join(dir, plant.id, `season-${phase}.webp`)).catch(() => null)])))
+        .filter(([, stat]) => stat).map(([phase, stat]) => [phase, Math.round(stat.mtimeMs)]));
+      return card ? {
+        ...plant, cardVersion: Math.round(card.mtimeMs), ...(photo ? { photoVersion: Math.round(photo.mtimeMs), photoSize } : {}),
+        ...(Object.keys(seasons).length ? { seasons } : {}),
+      } : null;
     } catch {
       return null;
     }
@@ -56,6 +66,7 @@ export async function plantCardFile(id, dir = PLANTS_DIR, name = 'card.webp') {
 }
 
 export const plantPhotoFile = (id, dir = PLANTS_DIR) => plantCardFile(id, dir, 'photo.webp');
+export const plantSeasonFile = (id, name, dir = PLANTS_DIR) => (SEASON_FILE.test(String(name)) ? plantCardFile(id, dir, name) : null);
 
 // Картинка Дениса к растению: любой формат, который читает sharp, — в webp до
 // 1600 px по длинной стороне. Запись растения должна быть: картинка без

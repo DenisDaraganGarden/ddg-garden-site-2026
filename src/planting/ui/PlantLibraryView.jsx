@@ -3,6 +3,7 @@ import { isSeasonSheet, plantCardUrl, plantName, plantPhotoUrl, removePlantPhoto
 import { bloomMonths, byCategory, CATEGORY_LABELS, CATEGORY_ORDER } from '../insights.js';
 import { spacingFor } from '../fillBed.js';
 import { PlantThumb } from './PlantPicker.jsx';
+import PlantSeasons from './PlantSeasons.jsx';
 
 const MONTHS_RU = ['Я', 'Ф', 'М', 'А', 'М', 'И', 'И', 'А', 'С', 'О', 'Н', 'Д'];
 const SEASONS_RU = ['весна', 'лето', 'осень', 'зима'];
@@ -54,6 +55,7 @@ function PlantCard({ plant, ru, onBack, onPlantWith, onAddToBed, bedName }) {
     return <article className="plant-card" data-testid="plant-card">
         <button type="button" className="plant-card__back" onClick={onBack}>← {ru ? 'Библиотека' : 'Library'}</button>
         <PlantPicture plant={plant} ru={ru} />
+        <PlantSeasons plant={plant} ru={ru} />
         <h3>{plantName(plant, ru)}</h3>
         <p className="plant-card__latin">{plant.latin}</p>
         <div className="plant-chips plant-chips--static"><span style={{ background: plant.cap }}>{CATEGORY_LABELS[plant.category]?.[ru ? 0 : 1]}</span>{plant.zone ? <span>USDA {plant.zone}</span> : null}</div>

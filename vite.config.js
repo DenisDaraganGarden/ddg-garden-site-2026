@@ -6,11 +6,12 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { publishedHomeSceneKeys } from './src/features/home-scene/data/publishedHomeSceneKeys.js';
 import { isValidId, presets, projects } from './scripts/projectStore.mjs';
-import { listPlants, plantCardFile, plantPhotoFile, removePlantPhoto, writePlantPhoto } from './scripts/plantLibrary.mjs';
+import { listPlants, plantCardFile, plantPhotoFile, plantSeasonFile, removePlantPhoto, writePlantPhoto } from './scripts/plantLibrary.mjs';
+import { generatePlantSeasons, removePlantSeason } from './scripts/plantSeasons.mjs';
 import { mapNodes, modelOrigin, prepareSketchupGlb, readGlb, readGlbJson } from './scripts/sketchupGlb.mjs';
 import { deployPublishedHomeScene } from './scripts/deployScene.mjs';
 import { surroundingsPlugin } from './scripts/surroundings.mjs';
-import { materialsPlugin } from './scripts/materials.mjs';
+import { materialsPlugin, trusted } from './scripts/materials.mjs';
 import { poseTuningModule } from './src/components/surfboard/poseTuning.js';
 
 const projectRoot = process.cwd();
@@ -312,11 +313,23 @@ function engineStorePlugin() {
   // Библиотека растений (scripts/plantLibrary.mjs): записи — GET
   // /__library/plants, карточка сцены — GET …/<id>/card.webp; картинка Дениса
   // к растению — GET …/<id>/photo.webp, POST …/<id>/photo (тело — сама
-  // картинка), DELETE …/<id>/photo.
+  // картинка), DELETE …/<id>/photo. Сезоны по ИИ (scripts/plantSeasons.mjs) —
+  // POST …/<id>/seasons {phases, model, quality}, GET и DELETE
+  // …/<id>/season-<фаза>.webp; рисование тратит деньги — только со своего адреса.
   const attachLibrary = (middlewares) => {
     middlewares.use('/__library/plants', async (request, response, next) => {
       const [id, file] = decodeURIComponent(request.url.replace(/^\/+|\?.*$/g, '')).split('/');
       try {
+        if (file === 'seasons' && request.method === 'POST') {
+          if (!trusted(request)) { sendJson(response, 403, { ok: false, message: 'Только из редактора на этом компьютере.' }); return; }
+          const results = await generatePlantSeasons(id, JSON.parse((await readRawBody(request, 64 * 1024)).toString('utf8') || '{}'));
+          sendJson(response, 200, { ok: true, results });
+          return;
+        }
+        if (/^season-/.test(file ?? '') && request.method === 'DELETE') {
+          sendJson(response, 200, { ok: await removePlantSeason(id, file.replace(/^season-|\.webp$/g, '')) });
+          return;
+        }
         if (file === 'photo' && request.method === 'POST') {
           const saved = await writePlantPhoto(id, await readRawBody(request, PHOTO_UPLOAD_LIMIT));
           sendJson(response, saved ? 200 : 404, saved ? { ok: true, ...saved } : { ok: false, message: `Растения «${id}» нет в библиотеке.` });
@@ -325,7 +338,7 @@ function engineStorePlugin() {
         if (file === 'photo' && request.method === 'DELETE') { sendJson(response, 200, { ok: await removePlantPhoto(id) }); return; }
         if (request.method !== 'GET') { next(); return; }
         if (!id) { sendJson(response, 200, { ok: true, plants: await listPlants() }); return; }
-        const found = file === 'card.webp' ? await plantCardFile(id) : file === 'photo.webp' ? await plantPhotoFile(id) : null;
+        const found = file === 'card.webp' ? await plantCardFile(id) : file === 'photo.webp' ? await plantPhotoFile(id) : await plantSeasonFile(id, file);
         if (!found) { sendJson(response, 404, { ok: false, message: 'Картинки нет.' }); return; }
         response.statusCode = 200;
         response.setHeader('Content-Type', 'image/webp');
@@ -333,7 +346,7 @@ function engineStorePlugin() {
         response.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
         createReadStream(found.file).pipe(response);
       } catch (error) {
-        sendJson(response, 500, { ok: false, message: error instanceof Error ? error.message : 'Ошибка библиотеки растений' });
+        sendJson(response, error.status ?? 500, { ok: false, message: error instanceof Error ? error.message : 'Ошибка библиотеки растений' });
       }
     });
   };

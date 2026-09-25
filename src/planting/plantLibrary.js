@@ -40,6 +40,23 @@ export function usePlantLibrary() {
 }
 
 export const plantCardUrl = (plant) => `/__library/plants/${plant.id}/card.webp?v=${plant.cardVersion ?? 0}`;
+// Картинка сезона, нарисованная по карточке (scripts/plantSeasons.mjs).
+export const plantSeasonUrl = (plant, phase) => `/__library/plants/${plant.id}/season-${phase}.webp?v=${plant.seasons?.[phase] ?? 0}`;
+
+// Нарисовать фазы растения ИИ ({phases, model, quality}): ответ — по фазе
+// {ok, message}; библиотека перечитывается, и сцена берёт новые картинки.
+export async function generatePlantSeasons(id, body) {
+    const response = await fetch(`/__library/plants/${encodeURIComponent(id)}/seasons`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const payload = await response.json().catch(() => null);
+    await load();
+    if (!response.ok || !payload?.ok) throw new Error(payload?.message ?? `Сезоны не нарисовались (${response.status})`);
+    return payload.results;
+}
+
+export async function removePlantSeason(id, phase) {
+    await fetch(`/__library/plants/${encodeURIComponent(id)}/season-${phase}.webp`, { method: 'DELETE' });
+    await load();
+}
 // Картинка Дениса к растению — если он её приложил (scripts/plantLibrary.mjs).
 export const plantPhotoUrl = (plant) => (plant?.photoVersion ? `/__library/plants/${plant.id}/photo.webp?v=${plant.photoVersion}` : null);
 // Лист «четыре сезона в ряд» — картинка вчетверо шире высоты.

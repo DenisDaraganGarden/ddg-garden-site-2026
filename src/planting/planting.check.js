@@ -1,7 +1,7 @@
 // Run: node src/planting/planting.check.js
 import assert from 'node:assert/strict';
 import { fillBed, insidePolygon, plantingSchedule, polygonArea, quotas, scheduleCsv, simplifyContour, spacingFor } from './fillBed.js';
-import { seasonLook } from './season.js';
+import { seasonImage, seasonLook, seasonPhases } from './season.js';
 import { normalizePlantingSettings, PLANTING_LIMITS } from './settings.js';
 import { PLANTING_PALETTES } from './palettes.js';
 import { paletteRecipe } from './usePlantingEditor.js';
@@ -97,6 +97,38 @@ assert.equal(at('cornus', 7).bare, 0);
 assert.equal(at('cornus', 10).tint, '#b0433a', 'autumn colour in October');
 assert.equal(at('lavender', 1).visible, true, 'evergreen stays');
 assert.equal(at('sedum', 12).visible, true);
+
+// Картинки сезона: какие нужны и какая в каком месяце.
+const phase = (id, month) => seasonImage(library.get(id), month);
+const coloured = (id, fields) => ({ ...library.get(id), bloomColor: '#caa', ...fields });
+assert.deepEqual(seasonPhases(library.get('cornus')), ['spring', 'autumn', 'winter'], 'dogwood: leaf-out, autumn, bare');
+assert.deepEqual(seasonPhases(coloured('iris')), ['leaf', 'spring', 'autumn'], 'iris goes under the ground: no winter picture');
+assert.deepEqual(seasonPhases(coloured('lavender')), ['leaf'], 'an evergreen only loses its flowers');
+assert.deepEqual(seasonPhases({ ...library.get('cornus'), bloom: [4, 5], bloomColor: '#fee' }), ['leaf', 'autumn', 'winter'], 'an apple in blossom at leaf-out: the card is its spring');
+assert.equal(phase('cornus', 1).phase, 'winter');
+assert.equal(phase('cornus', 4).phase, 'spring');
+assert.equal(phase('cornus', 7).phase, 'card', 'in summer leaf the card is right');
+assert.equal(phase('cornus', 10).phase, 'autumn');
+assert.deepEqual([phase('cornus', 11).phase, phase('cornus', 11).next], ['autumn', 'winter'], 'November: the leaves are falling');
+assert.equal(seasonImage(coloured('iris'), 5).phase, 'card', 'iris in bloom');
+assert.equal(seasonImage(coloured('iris'), 8).phase, 'leaf', 'iris out of bloom');
+assert.equal(seasonImage(coloured('iris'), 4).phase, 'spring');
+assert.equal(seasonImage(coloured('iris'), 1).visible, false);
+assert.equal(seasonImage(coloured('rudbeckia'), 10).phase, 'autumn', 'seed heads after bloom');
+assert.equal(seasonImage(coloured('rudbeckia'), 1).phase, 'winter', 'rudbeckia stands dry');
+assert.deepEqual(seasonImage(coloured('rudbeckia'), 3).grow, [0.6, 0.12], 'cut back in March');
+assert.equal(seasonImage(coloured('grass'), 9).phase, 'card', 'grass plumes stand after bloom');
+assert.equal(seasonImage(coloured('grass'), 6).phase, 'leaf', 'no plumes before August');
+assert.equal(seasonImage(coloured('lavender'), 7).phase, 'card');
+assert.equal(seasonImage(coloured('lavender'), 1).tintAmount, 0.2, 'evergreens keep their winter tone');
+for (const [id, fields] of [['cornus'], ['iris', { bloomColor: '#caa' }], ['rudbeckia', { bloomColor: '#caa' }], ['grass', { bloomColor: '#caa' }], ['sedum', { bloomColor: '#caa' }]]) {
+    const record = { ...library.get(id), ...fields };
+    const needed = new Set(seasonPhases(record));
+    for (let month = 1; month <= 12; month += 1) {
+        const image = seasonImage(record, month);
+        for (const used of [image.phase, image.next].filter((p) => p && p !== 'card')) assert.ok(needed.has(used), `${id} in month ${month} uses ${used}, which it never gets`);
+    }
+}
 
 // Контур от руки редеет до предела точек.
 const circle = Array.from({ length: 2000 }, (_, i) => [Math.cos(i / 2000 * Math.PI * 2) * 20, Math.sin(i / 2000 * Math.PI * 2) * 20]);
@@ -228,4 +260,4 @@ assert.ok(plantFlex('grass')[0] > plantFlex('perennial')[0] && plantFlex('perenn
 assert.equal(normalizePlantingSettings({}).plantingSway, 1);
 assert.equal(normalizePlantingSettings({ plantingSway: 5 }).plantingSway, 2);
 
-console.log(`planting: settings, fill (${first.length} plants in 60 m², ${smallFill.length} in 20 m² with ${small.recipe.length} species), schedule and seasons hold, garden wind blows the right way`);
+console.log(`planting: settings, fill (${first.length} plants in 60 m², ${smallFill.length} in 20 m² with ${small.recipe.length} species), schedule and seasons hold, season pictures by month, garden wind blows the right way`);

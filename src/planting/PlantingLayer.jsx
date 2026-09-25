@@ -2,8 +2,8 @@ import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 're
 import { useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { plantingInstances } from './fillBed.js';
-import { plantCardUrl, useBedFills, usePlantLibrary } from './plantLibrary.js';
-import { seasonLook } from './season.js';
+import { plantCardUrl, plantSeasonUrl, useBedFills, usePlantLibrary } from './plantLibrary.js';
+import { seasonImage, seasonLook } from './season.js';
 import VineLayer from './VineLayer.jsx';
 import { gardenWind, GARDEN_WIND_GLSL, plantFlex } from './wind.js';
 
@@ -13,11 +13,13 @@ import { gardenWind, GARDEN_WIND_GLSL, plantFlex } from './wind.js';
 // вертикали; в проходе теней «камера» — солнце, и тень падает от всей
 // картинки. На ветру (wind.js) верх карточки ходит по ветру, низ стоит —
 // с гибкостью и частотой её вида; тень качается вместе с ней. План — шапки
-// легенды Дениса вместо картинок.
+// легенды Дениса вместо картинок. Сезон — картинками, нарисованными по
+// карточке (season-<фаза>.webp, scripts/plantSeasons.mjs); где картинки фазы
+// нет — правкой самой карточки (seasonLook).
 
 // Карточка чуть утоплена: на неровной земле низ не висит в воздухе.
 const SINK = 0.03;
-const CARD_SHADER_KEY = 'planting-card-v2';
+const CARD_SHADER_KEY = 'planting-card-v3';
 
 const hexHsv = (hex) => {
     const [r, g, b] = [1, 3, 5].map((i) => parseInt(String(hex).slice(i, i + 2), 16) / 255);
@@ -43,7 +45,8 @@ float plantYaw() {
     return dot(toView, toView) > 1e-8 ? atan(toView.x, toView.y) : 0.0;
 }`;
 const CARD_COMMON_FRAGMENT = /* glsl */`
-uniform float uBloom, uSeed, uTintAmount, uBare;
+uniform float uBloom, uSeed, uTintAmount, uBare, uSeasonMix;
+uniform sampler2D uSeasonA, uSeasonB;
 uniform vec2 uCardPx;
 uniform vec3 uTint, uTwig, uLeaf;
 uniform vec4 uFlowerA, uFlowerB;
@@ -64,7 +67,26 @@ float plantFlower(vec3 hsv, vec4 f) {
     return (1.0 - smoothstep(0.06, 0.1, d)) * smoothstep(0.45 * f.y, 0.75 * f.y, hsv.y) * smoothstep(0.25, 0.36, hsv.z);
 }
 float plantLum(vec3 c) { return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
+// Листопад пятнами размером с кисть листвы (≈9 пикселей картинки), а не
+// по пикселю: в переходный месяц часть кроны уже с картинки следующей фазы.
+float plantHash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
+float plantDissolve(vec2 uv) {
+    vec2 p = uv * uCardPx / 9.0, i = floor(p), f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);
+    return mix(mix(plantHash(i), plantHash(i + vec2(1.0, 0.0)), f.x), mix(plantHash(i + vec2(0.0, 1.0)), plantHash(i + 1.0), f.x), f.y);
+}
 vec3 plantShade(vec3 target, float lum) { return target * (lum / max(plantLum(target), 0.02)); }`;
+// Картинка сезона вместо карточки: фаза A, в переходный месяц пятнами — B.
+// Та же замена стоит и в тени (материал глубины), чтобы тень была от неё.
+const CARD_MAP_FRAGMENT = /* glsl */`
+#ifdef USE_MAP
+    vec4 sampledDiffuseColor = texture2D( map, vMapUv );
+    #ifdef PLANT_SEASON
+        vec4 plantA = texture2D( uSeasonA, vMapUv ), plantB = texture2D( uSeasonB, vMapUv );
+        sampledDiffuseColor = mix( plantA, plantB, step( plantDissolve( vMapUv ), uSeasonMix ) );
+    #endif
+    diffuseColor *= sampledDiffuseColor;
+#endif`;
 // Сезон поверх картинки (season.js): цветки вне цветения — листвой или
 // сухими головками, общий тон (осень, солома), голые ветки — редкой сеткой
 // из точек картинки цвета веточек; ствол и ветви (бурое и тёмное) остаются.
@@ -93,6 +115,7 @@ function makeCardMaterials(texture, plant, envMapIntensity) {
         uBloom: { value: 1 }, uSeed: { value: 0 }, uTintAmount: { value: 0 }, uBare: { value: 0 },
         uTint: { value: new THREE.Color() }, uTwig: { value: new THREE.Color() }, uLeaf: { value: new THREE.Color(plant.leafColor ?? '#4a5e34') },
         uFlowerA: { value: flowerUniform(plant.bloomColor) }, uFlowerB: { value: flowerUniform(plant.bloomColor2) },
+        uSeasonA: { value: texture }, uSeasonB: { value: texture }, uSeasonMix: { value: 0 },
     };
     const compile = (shader) => {
         Object.assign(shader.uniforms, uniforms, gardenWind);
@@ -110,13 +133,15 @@ function makeCardMaterials(texture, plant, envMapIntensity) {
     transformed.xz += gardenSway((modelMatrix * instanceMatrix[3]).xz, uCard.x * uGrow.y * plantScale, uFlex.x, uFlex.y) * plantBendAt * plantBendAt / plantScale;`);
         shader.fragmentShader = shader.fragmentShader
             .replace('#include <common>', `#include <common>\n${CARD_COMMON_FRAGMENT}`)
-            .replace('#include <map_fragment>', `#include <map_fragment>\n${CARD_SEASON_FRAGMENT}`);
+            .replace('#include <map_fragment>', `${CARD_MAP_FRAGMENT}\n${CARD_SEASON_FRAGMENT}`);
     };
     const material = new THREE.MeshStandardMaterial({ map: texture, alphaTest: 0.5, alphaToCoverage: true, side: THREE.DoubleSide, roughness: 0.85, metalness: 0, envMapIntensity });
     const depth = new THREE.MeshDepthMaterial({ map: texture, alphaTest: 0.5, depthPacking: THREE.RGBADepthPacking, side: THREE.DoubleSide });
     for (const m of [material, depth]) {
         m.onBeforeCompile = compile;
         m.customProgramCacheKey = () => CARD_SHADER_KEY;
+        // Есть картинки сезона — карточка смешивает их; нет — как было, одна выборка.
+        if (plant.seasons) m.defines = { ...m.defines, PLANT_SEASON: '' };
     }
     return { material, depth, uniforms };
 }
@@ -130,6 +155,44 @@ function cardGeometry(plant) {
 }
 
 const NOTHING = () => {};
+
+// Картинки сезона вида: грузятся, когда месяц их просит; пока новые грузятся,
+// на экране прежние (а не правка карточки на кадр). Ненужные — освобождаются.
+function useSeasonPictures(plant, image, invalidate) {
+    const wanted = [image.phase, image.next].filter((phase) => phase && phase !== 'card');
+    const ready = image.visible && wanted.every((phase) => plant.seasons?.[phase]);
+    const ids = ready ? wanted.map((phase) => `${phase}@${plant.seasons[phase]}`) : [];
+    const key = `${plant.id}|${ids.join(',')}`;
+    const cache = useRef(new Map());
+    const [shown, setShown] = useState(null);
+    useEffect(() => {
+        if (!ready) { setShown(null); return undefined; }
+        const store = cache.current;
+        let live = true;
+        const done = () => {
+            if (!live || !ids.every((id) => store.get(id)?.image)) return;
+            setShown({ key, image, maps: Object.fromEntries(ids.map((id) => [id.split('@')[0], store.get(id)])) });
+            invalidate();
+        };
+        for (const id of ids) {
+            if (store.has(id)) continue;
+            const map = new THREE.TextureLoader().load(plantSeasonUrl(plant, id.split('@')[0]), done);
+            map.colorSpace = THREE.SRGBColorSpace;
+            map.anisotropy = 4;
+            store.set(id, map);
+        }
+        done();
+        return () => { live = false; };
+    // ids и image — из key и месяца; картинки перечитываются только с ними.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [key, ready, image]);
+    useEffect(() => {
+        const keep = new Set([...ids, ...Object.entries(shown?.maps ?? {}).map(([phase]) => `${phase}@${plant.seasons?.[phase]}`)]);
+        for (const [id, map] of cache.current) if (!keep.has(id)) { map.dispose(); cache.current.delete(id); }
+    });
+    useEffect(() => () => { cache.current.forEach((map) => map.dispose()); cache.current.clear(); }, []);
+    return ready ? shown : null;
+}
 const capacityFor = (count) => 2 ** Math.ceil(Math.log2(Math.max(8, count)));
 
 function SpeciesCards({ plant, instances, month, envMapIntensity }) {
@@ -173,22 +236,41 @@ function SpeciesCards({ plant, instances, month, envMapIntensity }) {
     }, [instances, resources, invalidate]);
 
     const look = useMemo(() => seasonLook(plant, month), [plant, month]);
+    const image = useMemo(() => seasonImage(plant, month), [plant, month]);
+    const pictures = useSeasonPictures(plant, image, invalidate);
     useLayoutEffect(() => {
         if (!resources) return;
         const u = resources.uniforms;
-        u.uGrow.value.set(look.grow[0], look.grow[1]);
-        u.uBloom.value = look.bloom;
-        u.uSeed.value = look.seed;
-        u.uTintAmount.value = look.tint ? look.tintAmount : 0;
-        if (look.tint) u.uTint.value.set(look.tint);
-        u.uBare.value = look.bare;
-        u.uTwig.value.set(look.twig);
+        if (pictures) {
+            // Всё уже нарисовано: карточка — только рост и зимний тон вечнозелёных.
+            const { image: shown, maps } = pictures;
+            u.uSeasonA.value = maps[shown.phase] ?? texture;
+            u.uSeasonB.value = shown.next ? maps[shown.next] ?? texture : u.uSeasonA.value;
+            u.uSeasonMix.value = shown.next ? shown.mix : 0;
+            u.uGrow.value.set(shown.grow[0], shown.grow[1]);
+            u.uBloom.value = 1;
+            u.uSeed.value = 0;
+            u.uBare.value = 0;
+            u.uTintAmount.value = shown.tint ? shown.tintAmount : 0;
+            if (shown.tint) u.uTint.value.set(shown.tint);
+        } else {
+            u.uSeasonA.value = texture;
+            u.uSeasonB.value = texture;
+            u.uSeasonMix.value = 0;
+            u.uGrow.value.set(look.grow[0], look.grow[1]);
+            u.uBloom.value = look.bloom;
+            u.uSeed.value = look.seed;
+            u.uTintAmount.value = look.tint ? look.tintAmount : 0;
+            if (look.tint) u.uTint.value.set(look.tint);
+            u.uBare.value = look.bare;
+            u.uTwig.value.set(look.twig);
+        }
         invalidate();
-    }, [look, resources, invalidate]);
+    }, [look, pictures, texture, resources, invalidate]);
 
     if (!resources) return null;
     return <instancedMesh ref={mesh} name={`planting-${plant.id}`} args={[resources.geometry, resources.material, capacity]} customDepthMaterial={resources.depth}
-        visible={look.visible} castShadow receiveShadow frustumCulled={false} raycast={() => {}} />;
+        visible={pictures ? pictures.image.visible : look.visible} castShadow receiveShadow frustumCulled={false} raycast={() => {}} />;
 }
 
 // План: шапка на каждое растение — круг цвета категории (легенда библиотеки

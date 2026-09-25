@@ -104,10 +104,13 @@ export async function imageModels(key) {
 
 const decode = (data) => (data ?? []).map((item) => Buffer.from(item.b64_json, 'base64'));
 
-export async function generateImages({ model, prompt, n = 1, size = 1024, quality = 'high', images = [], mask = null }) {
+// size — сторона квадрата или готовое «ШxВ» (растения: по пропорциям
+// карточки); background: 'transparent' — картинка с альфой.
+export async function generateImages({ model, prompt, n = 1, size = 1024, quality = 'high', images = [], mask = null, background = null }) {
   const key = await apiKey();
   const side = requestSize(model, size);
-  const fields = { model, prompt, n: String(n), size: `${side}x${side}`, quality: requestQuality(model, quality), output_format: 'png' };
+  const dims = /^\d+x\d+$/.test(String(size)) ? String(size) : `${side}x${side}`;
+  const fields = { model, prompt, n: String(n), size: dims, quality: requestQuality(model, quality), output_format: 'png', ...(background ? { background } : {}) };
   if (!images.length) return decode((await openai('/images/generations', { key, json: { ...fields, n } })).data);
   const form = new FormData();
   for (const [name, value] of Object.entries(fields)) form.append(name, value);
@@ -299,7 +302,7 @@ async function readJson(request, limit = 64 * 2 ** 20) {
 // Эти маршруты тратят деньги с ключа Дениса: чужая страница в браузере не
 // должна их дёрнуть. Только свой адрес (localhost) и только JSON — запрос
 // с другого сайта браузер не пропустит без предварительной проверки CORS.
-function trusted(request) {
+export function trusted(request) {
   const origin = request.headers.origin;
   if (origin) {
     try {

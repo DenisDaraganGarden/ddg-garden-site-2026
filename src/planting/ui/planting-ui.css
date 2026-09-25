@@ -180,3 +180,25 @@
 .plant-picture__actions>button{height:22px;padding:0 8px;border:1px solid var(--focus-line,#353839);border-radius:4px;background:transparent;font-size:10px}
 /* Выбранная лиана (VineCard). */
 .planting-vine{display:flex;flex-direction:column;gap:6px;padding:8px;border:1px solid #ffffff12;border-radius:6px;background:#ffffff05}
+/* Сезоны по ИИ (PlantSeasons.jsx): полоса картинок фаз и кнопка. */
+.plant-seasons{display:flex;flex-direction:column;gap:6px}
+.plant-seasons>header{display:flex;align-items:baseline;gap:6px;font-size:10.5px}
+.plant-seasons>header>small{color:var(--focus-muted,#989d9e);font-size:9.5px}
+.plant-seasons__strip{display:grid;grid-template-columns:repeat(5,1fr);gap:4px}
+.plant-seasons__strip>figure{position:relative;display:flex;flex-direction:column;gap:2px;margin:0}
+.plant-seasons__strip>figure>img,.plant-seasons__strip>figure>span{display:flex;align-items:center;justify-content:center;width:100%;aspect-ratio:1;border-radius:4px;background:#e4e2da;object-fit:contain;padding:3px;box-sizing:border-box}
+.plant-seasons__strip>figure>span{border:1px dashed var(--focus-line,#353839);background:transparent;color:var(--focus-muted,#989d9e);font-size:8.5px;text-align:center}
+.plant-seasons__strip>figure.is-busy>span,.plant-seasons__strip>figure.is-busy>img{opacity:.45}
+.plant-seasons__strip figcaption{color:var(--focus-muted,#989d9e);font-size:8.5px;text-align:center}
+.plant-seasons__tools{position:absolute;top:2px;right:2px;display:none;gap:2px}
+.plant-seasons__strip>figure:hover .plant-seasons__tools{display:flex}
+.plant-seasons__tools>button{width:18px;height:18px;padding:0;border:0;border-radius:3px;background:#1d1f20c0;color:#f1efe6;font-size:10px;line-height:18px}
+.plant-seasons__actions{display:flex;flex-direction:column;gap:5px}
+.plant-seasons__actions>div{display:flex;align-items:center;gap:3px;color:var(--focus-muted,#989d9e);font-size:9.5px}
+.plant-seasons__actions>div>span{flex:1}
+.plant-seasons__actions>div>button{height:22px;padding:0 8px;border:1px solid var(--focus-line,#353839);border-radius:4px;background:transparent;font-size:9.5px}
+.plant-seasons__actions>div>button[aria-pressed="true"]{border-color:var(--focus-accent,#cfc1a1);color:var(--focus-accent,#cfc1a1)}
+.plant-seasons__actions>button{height:28px;border:1px solid #e4e2da;border-radius:4px;background:#e4e2da;color:#1d1f20;font-size:10.5px;font-weight:550}
+.plant-seasons__actions>button:disabled{opacity:.6}
+.plant-seasons__note{margin:0;color:var(--focus-muted,#989d9e);font-size:9.5px;line-height:1.4}
+.plant-seasons__note.is-error{color:#d8964c}

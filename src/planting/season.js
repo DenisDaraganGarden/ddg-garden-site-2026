@@ -65,5 +65,71 @@ export function seasonLook(plant, month) {
     return { ...look, ...dry, grow: [1, 0.95], tintAmount: 0.8 };
 }
 
+// Картинки сезона (scripts/plantSeasons.mjs): ИИ перерисовывает карточку
+// растения таким, какое оно в это время года, — голые ветки, осенний цвет
+// листа, солома, сухие головки уже нарисованы, а не выведены из летней
+// картинки. Фазы:
+//   leaf   — лето без цветков (у кого карточка снята в цвету);
+//   spring — распускание листа, у злаков и многолетников — молодая поросль;
+//   autumn — осенний цвет, метёлки, семенные головки;
+//   winter — голые ветки, солома, сухие стебли.
+// «card» — сама карточка: растение в цвету или в летней листве.
+export const SEASON_PHASES = ['leaf', 'spring', 'autumn', 'winter'];
+
+// Какие фазы нужны растению: у вечнозелёных — только лето без цветков; весна
+// у листопадного, цветущего в распускание (яблоня), — сама карточка; ушедший
+// под землю многолетник зимой не рисуется.
+export function seasonPhases(plant) {
+    const foliage = plant.foliage ?? 'evergreen';
+    const phases = plant.bloomColor ? ['leaf'] : [];
+    if (foliage === 'evergreen') return phases;
+    if (!(foliage === 'deciduous' && inBloom(plant, plant.leafOut ?? 4))) phases.push('spring');
+    phases.push('autumn');
+    if (!(foliage === 'herbaceous' && plant.winter === 'gone')) phases.push('winter');
+    return phases;
+}
+
+// Месяц → картинка сезона: phase, а в переходный месяц ещё next с долей mix
+// (листопад: часть кроны уже голая). Рост и срезка — те же, что у правки
+// картинки (seasonLook); зимний тон у вечнозелёных остаётся.
+export function seasonImage(plant, month) {
+    const foliage = plant.foliage ?? 'evergreen';
+    const blooming = inBloom(plant, month);
+    const look = { visible: true, phase: blooming || !plant.bloomColor ? 'card' : 'leaf', next: null, mix: 0, grow: [1, 1], tint: null, tintAmount: 0 };
+    if (foliage === 'evergreen') {
+        if (month === 12 || month <= 2) Object.assign(look, { tint: WINTER_GREEN, tintAmount: 0.2 });
+        return look;
+    }
+    if (foliage === 'deciduous') {
+        const leafOut = plant.leafOut ?? 4;
+        if (blooming) return look;
+        if (month === leafOut) return { ...look, phase: 'spring' };
+        if (month === 10) return { ...look, phase: 'autumn' };
+        if (month === FROST) return { ...look, phase: 'autumn', next: 'winter', mix: 0.6 };
+        if (since(leafOut, month) > since(leafOut, FROST)) return { ...look, phase: 'winter' };
+        return look;
+    }
+    const grass = foliage === 'grass';
+    const cut = plant.cutBack ?? 3;
+    const gone = plant.winter === 'gone';
+    const start = gone ? 4 : (cut % 12) + 1;
+    const age = since(start, month);
+    if (age < since(start, FROST)) {
+        if (age === 0) return { ...look, phase: 'spring' };
+        if (month === 10 && !blooming) return { ...look, phase: 'autumn' };
+        if (!blooming) look.grow = GROWTH[age] ?? [1, 1];
+        // Отцвёл: у злака метёлки стоят (сама карточка); у многолетника до
+        // сентября — листва, потом — семенные головки и осенний лист.
+        if (!blooming && Array.isArray(plant.bloom) && age > since(start, plant.bloom[1])) {
+            look.phase = grass ? 'card' : month >= 9 && plant.winter === 'stands' ? 'autumn' : 'leaf';
+        }
+        return look;
+    }
+    if (gone) return { ...look, visible: false };
+    if (month === cut) return { ...look, phase: 'winter', grow: [0.6, plant.cutHeight ?? 0.12] };
+    if (month === FROST) return { ...look, phase: 'autumn', next: 'winter', mix: 0.5 };
+    return { ...look, phase: 'winter' };
+}
+
 export const MONTHS_RU = ['январь', 'февраль', 'март', 'апрель', 'май', 'июнь', 'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь'];
 export const MONTHS_EN = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
