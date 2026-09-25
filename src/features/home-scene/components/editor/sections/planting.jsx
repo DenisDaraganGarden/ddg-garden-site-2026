@@ -262,7 +262,7 @@ function PlantingWorkspace({ settings, handleSettingChange, applySettings, plant
                 onPointStatus={(id, value) => applySettings({ [POINTS_KEY]: points.map((p) => (p.id === id ? { ...p, status: value === 'existing' ? 'existing' : undefined } : p)) })}
                 onRemovePoint={(id) => applySettings({ [POINTS_KEY]: points.filter((p) => p.id !== id) })}
                 onFramePoint={(point) => layoutEditor?.previewPose?.({ cameraPosition: { x: point.x + 6, y: point.y + 4, z: point.z + 8 }, cameraTarget: { x: point.x, y: point.y + 1.5, z: point.z }, cameraFov: 45 })} />
-            <button type="button" className="planting-report" disabled={!project} onClick={async () => { await flushProjectSave(); window.location.href = `/engine/report?project=${encodeURIComponent(project)}`; }} data-testid="planting-report">
+            <button type="button" className="planting-report" disabled={!project} onClick={async () => { if (await flushProjectSave()) window.location.href = `/engine/report?project=${encodeURIComponent(project)}`; }} data-testid="planting-report">
                 <FocusIcon name="upload" />{project ? (ru ? 'Отчёт для заказчика и дендролога' : 'Report for the client and the dendrologist') : (ru ? 'Отчёт — в проекте движка' : 'Report — in an engine project')}</button>
         </> : null}
         {tab === 'bed' ? <BedEditor beds={beds} fills={fills} library={library} plantingEditor={plantingEditor} layoutEditor={layoutEditor} ru={ru} /> : null}

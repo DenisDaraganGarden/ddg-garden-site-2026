@@ -61,11 +61,10 @@ export const renameProject = (id, name) => projectStore.save(id, { name });
 // ('design') так не переносится: у него другая сцена (sceneObjects.js, site).
 export const setProjectKind = (id, kind) => projectStore.save(id, { kind: kind ?? null });
 
-// Сохранение сцены уходит часто и не должно ничего блокировать. keepalive нужен
-// для последнего сохранения при закрытии окна — обычный запрос браузер в этот
-// момент отменяет. base — «обновлён» записи, которую редактор видел последней:
-// если файл изменили снаружи, сервер отвечает 409 с нынешней записью.
-export const saveProjectSettings = (id, settings, { base, ...options } = {}) => projectStore.save(id, { settings, ...(base ? { base } : {}) }, options);
+// base — последняя подтверждённая ревизия (старые клиенты передают updated).
+// При конфликте сервер отвечает 409 с нынешней записью. Незавершённые записи
+// при закрытии окна восстанавливает локальный журнал projectAutosave.
+export const saveProjectSettings = (id, settings, { base, ...options } = {}) => projectStore.save(id, { settings, ...(base !== undefined ? { base } : {}) }, options);
 
 // Модели проекта (.glb): файл уходит на локальный сервер как есть и ложится в
 // папку проекта; в сцене объект ссылается на него по имени файла. Из SketchUp

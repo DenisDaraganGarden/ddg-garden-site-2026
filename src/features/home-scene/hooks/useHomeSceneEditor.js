@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useHomeSceneDraftSettings } from './useHomeSceneSettings';
 
 export const useHomeSceneEditor = (project = null) => {
-    const { settings, setSettings, externalRevision } = useHomeSceneDraftSettings(project);
+    const { settings, setSettings, externalRevision, saveStatus } = useHomeSceneDraftSettings(project);
 
     // «Участок» открывается на расстановке: воды в нём нет.
     const [activeTab, setActiveTab] = useState(project?.kind === 'design' ? 'objects/placed' : 'landscape/water');
@@ -54,6 +54,7 @@ export const useHomeSceneEditor = (project = null) => {
         settings,
         setSettings,
         externalRevision,
+        saveStatus,
         activeTab,
         setActiveTab,
         handleSettingChange,

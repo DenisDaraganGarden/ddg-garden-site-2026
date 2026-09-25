@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { applyBriefOp, briefCounts, normalizeBrief } from '../src/brief/brief.js';
+import { withStoreLock, writeJsonAtomic } from './storeFiles.mjs';
 
 // Файловые хранилища движка. Два вида записей, одна механика:
 //
@@ -53,6 +54,15 @@ export function createStore(folder, payloadKey) {
   // Поля записи, которые правка может менять (id, created, updated — нет).
   const EDITABLE = new Set(['name', 'kind', 'engine', 'node', 'object', payloadKey]);
   const filePath = (id) => path.join(dir, `${id}.json`);
+  const transaction = (run) => withStoreLock(dir, run);
+  const fieldsOf = (patch) => {
+    const fields = Object.fromEntries(Object.entries(patch ?? {}).filter(([key]) => EDITABLE.has(key)));
+    if ('kind' in fields && !(fields.kind === null || (typeof fields.kind === 'string' && fields.kind.length <= 32))) delete fields.kind;
+    if (payloadKey in fields && (!fields[payloadKey] || typeof fields[payloadKey] !== 'object' || Array.isArray(fields[payloadKey]))) {
+      throw new Error(`Поле «${payloadKey}» должно быть объектом.`);
+    }
+    return fields;
+  };
 
   const readAll = async () => {
     let names = [];
@@ -99,21 +109,22 @@ export function createStore(folder, payloadKey) {
 
   const freeId = async (name) => {
     const base = slugify(name);
-    const taken = new Set((await list()).map((entry) => entry.id));
+    // Even unreadable records own their names and must never be overwritten.
+    const taken = new Set((await fs.readdir(dir)).filter((file) => file.endsWith('.json')).map((file) => file.slice(0, -5)));
     if (!taken.has(base)) return base;
     for (let index = 2; ; index += 1) {
       if (!taken.has(`${base}-${index}`)) return `${base}-${index}`;
     }
   };
 
-  const write = async (entry) => {
-    await fs.mkdir(dir, { recursive: true });
-    await fs.writeFile(filePath(entry.id), `${JSON.stringify(entry, null, 2)}\n`, 'utf8');
+  const write = async (entry, previous) => {
+    if (!isValidId(entry.id)) throw new Error('Недопустимый ID записи.');
+    await writeJsonAtomic(filePath(entry.id), entry, previous);
     return entry;
   };
 
   // from: копия другой записи — её модели едут вместе с числами.
-  const create = async ({ name, from, ...rest }) => {
+  const create = async ({ name, from, ...rest }) => transaction(async () => {
     if (!rest[payloadKey] || typeof rest[payloadKey] !== 'object' || Array.isArray(rest[payloadKey])) {
       throw new Error(`Запись не создана: не передано поле «${payloadKey}».`);
     }
@@ -124,36 +135,42 @@ export function createStore(folder, payloadKey) {
       name: String(name ?? '').trim() || 'Без названия',
       created: now,
       updated: now,
-      ...rest,
+      revision: 1,
+      ...fieldsOf(rest),
     });
     if (isValidId(from) && from !== entry.id) await copyModels(from, entry.id);
     return entry;
-  };
+  });
 
   // Правки приходят по одной: переименование без сцены не должно её стирать.
-  // base — «обновлён», который видел пишущий. Если файл с тех пор изменили
+  // base — ревизия (или updated старого клиента), которую видел пишущий.
+  // Если файл с тех пор изменили
   // (Claude правит проект, пока открыт редактор), поверх не пишется: пишущий
   // получает нынешнюю запись и решает сам.
-  const save = async (id, patch) => {
+  const save = async (id, patch) => transaction(async () => {
     const current = await read(id);
     if (!current) return null;
-    if (patch?.base !== undefined && patch.base !== current.updated) return { conflict: current };
+    if (patch?.base !== undefined && patch.base !== (current.revision ?? current.updated) && patch.base !== current.updated) return { conflict: current };
 
     // Личность записи правкой не подменяется: id — это имя файла, created — факт.
     // И в корень записи попадают только её поля: чужое тело, пришедшее не по
     // адресу (2026-09-25 сетка участка влилась в корень «Ростова» и затёрла
     // kind), отбрасывается, а не пишется поверх.
-    const fields = Object.fromEntries(Object.entries(patch ?? {}).filter(([key]) => EDITABLE.has(key)));
-    if ('kind' in fields && !(fields.kind === null || (typeof fields.kind === 'string' && fields.kind.length <= 32))) delete fields.kind;
-    const next = { ...current, ...fields, updated: new Date().toISOString() };
+    const fields = fieldsOf(patch);
+    const revision = (Number.isSafeInteger(current.revision) ? current.revision : 0) + 1;
+    // Old CLI clients still send updated as base: it must advance even when
+    // two writes fall in one millisecond or the system clock goes backwards.
+    const updated = new Date(Math.max(Date.now(), (Date.parse(current.updated) || 0) + 1)).toISOString();
+    const next = { ...current, ...fields, revision, updated };
     if (patch?.name !== undefined) next.name = String(patch.name).trim() || current.name;
-    return write(next);
-  };
+    return write(next, current);
+  });
 
-  const remove = async (id) => {
+  const remove = async (id) => transaction(async () => {
     if (!isValidId(id)) return false;
     try {
       await fs.unlink(filePath(id));
+      await fs.rm(`${filePath(id)}.previous`, { force: true });
       await fs.rm(thumbnailPath(id), { force: true });
       await fs.rm(path.join(dir, id), { recursive: true, force: true });
       return true;
@@ -161,7 +178,7 @@ export function createStore(folder, payloadKey) {
       if (error.code === 'ENOENT') return false;
       throw error;
     }
-  };
+  });
 
   // Кадр приходит из редактора как data URL (webp, 320 px по ширине).
   const writeThumbnail = async (id, dataUrl) => {
@@ -285,9 +302,7 @@ export function createStore(folder, payloadKey) {
   // ТЗ проекта (src/brief/brief.js): <папка>/<id>/brief.json — заказчик и
   // задания. Не в записи: данные заказчика не должны уехать ни в сцену, ни на
   // сайт. Пишется только операцией: прочитать, применить, записать через
-  // временный файл. Правки одного проекта в этом процессе идут по очереди;
-  // агент из терминала — другой процесс, но его правка — одна операция поверх
-  // того, что на диске, а не весь файл из памяти.
+  // временный файл под той же межпроцессной блокировкой, что сцена проекта.
   const briefPath = (id) => path.join(dir, id, 'brief.json');
   const readBrief = async (id) => {
     if (!isValidId(id) || !(await fs.access(filePath(id)).then(() => true, () => false))) return null;
@@ -305,22 +320,13 @@ export function createStore(folder, payloadKey) {
       throw new Error(`ТЗ проекта «${id}» не читается (${briefPath(id)}): ${error.message}`);
     }
   };
-  const briefQueue = new Map();
-  const updateBrief = (id, op) => {
-    const run = async () => {
-      const current = await readBrief(id);
-      if (!current) return null;
-      const next = applyBriefOp(current, op);
-      const tmp = `${briefPath(id)}.${process.pid}.tmp`;
-      await fs.mkdir(path.join(dir, id), { recursive: true });
-      await fs.writeFile(tmp, `${JSON.stringify(next, null, 2)}\n`, 'utf8');
-      await fs.rename(tmp, briefPath(id));
-      return next;
-    };
-    const result = (briefQueue.get(id) ?? Promise.resolve()).then(run);
-    briefQueue.set(id, result.catch(() => {}));
-    return result;
-  };
+  const updateBrief = (id, op) => transaction(async () => {
+    const current = await readBrief(id);
+    if (!current) return null;
+    const next = applyBriefOp(current, op);
+    await writeJsonAtomic(briefPath(id), next, current);
+    return next;
+  });
   const reviewOf = async (id) => {
     try {
       const { review } = briefCounts(await readBrief(id));

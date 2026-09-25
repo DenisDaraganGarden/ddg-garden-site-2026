@@ -93,13 +93,7 @@ function urlParts(request) {
 }
 
 async function readJsonBody(request) {
-  const chunks = [];
-
-  for await (const chunk of request) {
-    chunks.push(Buffer.from(chunk));
-  }
-
-  return JSON.parse(Buffer.concat(chunks).toString('utf8'));
+  return JSON.parse((await readRawBody(request, 32 * 2 ** 20)).toString('utf8'));
 }
 
 function homeScenePublishPlugin() {
@@ -200,6 +194,18 @@ function engineStorePlugin() {
       const [id, part, file] = parts;
 
       try {
+        if (['POST', 'PUT', 'DELETE'].includes(request.method)) {
+          // Local files must not be writable by a page on another origin.
+          const origin = request.headers.origin;
+          if (origin && origin !== `${request.socket.encrypted ? 'https' : 'http'}://${request.headers.host}`) {
+            sendJson(response, 403, { ok: false, message: 'Запись разрешена только из этого движка.' });
+            return;
+          }
+          if (request.method !== 'DELETE' && part !== 'models' && !/^application\/json(?:\s*;|$)/i.test(request.headers['content-type'] ?? '')) {
+            sendJson(response, 415, { ok: false, message: 'Ожидается JSON.' });
+            return;
+          }
+        }
         // Модели проекта: POST /__projects/<id>/models — тело сам .glb, имя в
         // заголовке X-Model-Name; GET /__projects/<id>/models/<модель>.glb.
         // X-Model-Source: sketchup — файл сначала готовится (sketchupGlb.mjs),

@@ -15,7 +15,7 @@ import { DEFAULT_LIGHTING_SETTINGS, normalizeLightingSettings } from '../../../l
 import { DEFAULT_RENDER_QUALITY_SETTINGS, normalizeRenderQualitySettings } from '../../../components/effects/renderQualitySettings.js';
 import { SEA_SETTINGS_DEFAULTS, normalizeSeaSettings } from '../../../components/effects/water/seaSettings.js';
 import { DEFAULT_PAINTERLY_CLOUD_SETTINGS, normalizePainterlyCloudSettings } from '../lib/painterlyCloudSettings.js';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { publishedHomeSceneSettings } from '../data/publishedHomeSceneSettings';
 import { publishedHomeSceneKeys } from '../data/publishedHomeSceneKeys';
 import {
@@ -39,16 +39,18 @@ import {
   normalizeSoundscapeSettings,
 } from '../../audio/data/soundscapeSettings';
 import { projectStore, readProject, saveProjectSettings } from '../../engine/projectApi';
+import { createProjectAutosave, projectRevision, readProjectRecoveries } from '../../engine/projectAutosave';
 import { siteObjectsOff } from '../lib/sceneObjects.js';
 import { EDITOR_THUMBNAIL_READY, requestEditorThumbnail } from '../../../components/effects/editorThumbnailCapture';
 
 export const HOME_SCENE_SETTINGS_STORAGE_KEY = 'ddg_home_scene_settings_v1';
-const PROJECT_SAVE_DELAY_MS = 700;
 // Незаписанная правка проекта, если она есть: уход со страницы (к проектам,
-// в отчёт) сначала дописывает её обычным запросом. Сброс при закрытии окна
-// идёт keepalive, а у него предел 64 КБ — сцена проекта больше.
+// в отчёт) сначала дописывает её обычным запросом. При закрытии окна правки
+// остаются в локальном журнале: сцена больше лимита keepalive в 64 КБ.
 let pendingProjectSave = null;
-export const flushProjectSave = async () => { await pendingProjectSave?.(); };
+export const flushProjectSave = async () => {
+  try { await pendingProjectSave?.(); return true; } catch { return false; }
+};
 // Миниатюра проекта — не чаще раза в несколько секунд: кадр снимается с холста,
 // и на каждое движение ползунка это лишнее.
 const PROJECT_THUMBNAIL_EVERY_MS = 6000;
@@ -1455,12 +1457,8 @@ export const useHomeSceneDraftSettings = (project = null) => {
   // Открыть проект — не значит его править: пока сцена та же, что пришла из
   // файла, на диск ничего не уходит, и «обновлён» не сдвигается от просмотра.
   const untouched = useRef(null);
-  // «Обновлён» записи, которую редактор видел последней. С ним уходит каждое
-  // сохранение: если файл изменили снаружи (Claude правит проект, пока открыт
-  // редактор), сервер не пишет поверх, а отвечает 409 с нынешней записью.
-  // pending — есть правка, ещё не записанная на диск.
-  const known = useRef(project?.updated ?? null);
-  const pending = useRef(false);
+  const [saveStatus, setSaveStatus] = useState({ phase: 'saved', error: null });
+  const recoveryChecked = useRef(false);
   const [externalRevision, setExternalRevision] = useState(0);
   const [settings, setStoredSettings] = useState(() => (project
     ? openAtCamera(fromProject(project))
@@ -1477,83 +1475,101 @@ export const useHomeSceneDraftSettings = (project = null) => {
   // без сохранения обратно; камера встаёт в позу выбранной (externalRevision).
   const adopt = useCallback((entry) => {
     const next = fromProject(entry);
-    known.current = entry.updated;
     untouched.current = next;
     setStoredSettings(next);
     setExternalRevision((value) => value + 1);
   }, []);
 
-  const save = useCallback((next, options = {}) => saveProjectSettings(project.id, next, { ...options, base: known.current })
-    .then((entry) => {
-      if (entry?.updated) known.current = entry.updated;
-    })
-    .catch((error) => {
-      const current = error?.status === 409 ? error.payload?.entry : null;
-      if (!current) {
-        console.error('Не удалось сохранить проект', error);
-        return undefined;
-      }
-      // Окно закрывается — спрашивать некого: остаётся то, что на диске.
-      if (options.keepalive) return undefined;
-      if (window.confirm('Проект изменили снаружи — Claude или другое окно движка. Взять ту версию? Ваши последние правки пропадут.\n«Отмена» — оставить ваши и записать поверх.')) {
-        adopt(current);
-        return undefined;
-      }
-      return saveProjectSettings(project.id, next, { base: current.updated }).then((entry) => {
-        if (entry?.updated) known.current = entry.updated;
-      });
-    }), [project, adopt]);
+  const [autosave] = useState(() => (project && !isScenePreview() ? createProjectAutosave({
+    project,
+    // Access can itself throw when browser storage is disabled. Defer access
+    // until persist(), which reports the failure and protects beforeunload.
+    storage: {
+      setItem: (...args) => window.localStorage.setItem(...args),
+      getItem: (...args) => window.localStorage.getItem(...args),
+      removeItem: (...args) => window.localStorage.removeItem(...args),
+    },
+    send: saveProjectSettings,
+    onStatus: setSaveStatus,
+    onAdopt: adopt,
+    onConflict: () => {
+      if (document.visibilityState === 'hidden') throw new Error('Проект изменён снаружи. Вернитесь в редактор, чтобы выбрать версию.');
+      return window.confirm('Проект изменили снаружи — Claude или другое окно движка. Взять ту версию? Ваши последние правки пропадут.\n«Отмена» — оставить ваши и записать поверх.');
+    },
+  }) : null));
 
   useEffect(() => {
-    if (typeof window === 'undefined' || isScenePreview()) {
-      return undefined;
-    }
+    if (!autosave || recoveryChecked.current) return;
+    recoveryChecked.current = true;
+    try {
+      const recovery = readProjectRecoveries(window.localStorage, project)[0];
+      if (recovery && window.confirm('Остались несохранённые правки проекта. Восстановить их?\n«Отмена» — открыть версию с диска; копия правок останется в этом браузере.')) {
+        const next = fromProject({ ...project, settings: recovery.settings });
+        autosave.restore(recovery);
+        setStoredSettings(next);
+        setExternalRevision((value) => value + 1);
+      }
+    } catch (error) { setSaveStatus({ phase: 'recovery-error', error: error.message }); }
+  }, [autosave, project]);
 
-    if (!project) {
-      window.localStorage.setItem(HOME_SCENE_SETTINGS_STORAGE_KEY, JSON.stringify(settings));
-      removeLegacyHomeSceneKeys();
-      return undefined;
-    }
+  useEffect(() => {
+    if (project || typeof window === 'undefined' || isScenePreview()) return;
+    window.localStorage.setItem(HOME_SCENE_SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+    removeLegacyHomeSceneKeys();
+  }, [project, settings]);
 
+  useLayoutEffect(() => {
+    if (!autosave || typeof window === 'undefined') return undefined;
     if (untouched.current === null) untouched.current = settings;
     if (settings === untouched.current) return undefined;
 
-    // Эффект перезапускается на каждое движение ползунка, поэтому таймер здесь
-    // работает задержкой сам по себе: на диск уходит тишина после правки, а не
-    // каждый кадр. Закрытие окна не ждёт таймера — там отдельный сброс.
-    pending.current = true;
-    const timer = window.setTimeout(() => {
-      save(settings).finally(() => { pending.current = false; });
-      if (Date.now() - lastThumbnailAt.current > PROJECT_THUMBNAIL_EVERY_MS) {
-        lastThumbnailAt.current = Date.now();
-        requestEditorThumbnail(`project:${project.id}`);
-      }
-    }, PROJECT_SAVE_DELAY_MS);
-    const flush = () => {
-      window.clearTimeout(timer);
-      void save(settings, { keepalive: true });
-    };
-    const now = () => { window.clearTimeout(timer); pendingProjectSave = null; return save(settings).finally(() => { pending.current = false; }); };
+    // Journal the committed state before paint. Large scenes survive closure
+    // locally; HTTP writes use the ordinary, serialized autosave queue.
+    autosave.stage(settings);
+    if (Date.now() - lastThumbnailAt.current > PROJECT_THUMBNAIL_EVERY_MS) {
+      lastThumbnailAt.current = Date.now();
+      requestEditorThumbnail(`project:${project.id}`);
+    }
+    return undefined;
+  }, [project, settings, autosave]);
+
+  useEffect(() => {
+    if (!autosave) return undefined;
+    autosave.resume();
+    const now = () => autosave.flush();
     pendingProjectSave = now;
+    const flush = () => {
+      autosave.pause();
+      void autosave.flush().catch(() => {});
+    };
+    const resume = () => { autosave.resume(); };
+    const protect = (event) => {
+      if (autosave.dirty && !autosave.durable) { event.preventDefault(); event.returnValue = ''; }
+    };
     window.addEventListener('pagehide', flush);
+    window.addEventListener('pageshow', resume);
+    window.addEventListener('beforeunload', protect);
     return () => {
-      window.clearTimeout(timer);
+      autosave.pause();
       if (pendingProjectSave === now) pendingProjectSave = null;
       window.removeEventListener('pagehide', flush);
+      window.removeEventListener('pageshow', resume);
+      window.removeEventListener('beforeunload', protect);
     };
-  }, [project, settings, save]);
+  }, [autosave]);
 
   // Окно вернулось в фокус — проект мог измениться снаружи: Claude правит файл,
   // пока Денис в чате. Если своих незаписанных правок нет, берётся запись с диска.
   useEffect(() => {
-    if (!project || typeof window === 'undefined') return undefined;
+    if (!autosave || typeof window === 'undefined') return undefined;
     let busy = false;
     const check = async () => {
-      if (busy || pending.current || document.visibilityState === 'hidden') return;
+      if (busy || document.visibilityState === 'hidden') return;
       busy = true;
       try {
+        if (autosave.dirty) { await autosave.flush(); return; }
         const entry = await readProject(project.id);
-        if (entry?.updated && entry.updated !== known.current && !pending.current) adopt(entry);
+        if (entry && projectRevision(entry) !== autosave.revision && !autosave.dirty) autosave.adopt(entry);
       } catch {
         // Сервер недоступен — остаётся то, что на экране.
       } finally {
@@ -1561,12 +1577,14 @@ export const useHomeSceneDraftSettings = (project = null) => {
       }
     };
     window.addEventListener('focus', check);
+    window.addEventListener('online', check);
     document.addEventListener('visibilitychange', check);
     return () => {
       window.removeEventListener('focus', check);
+      window.removeEventListener('online', check);
       document.removeEventListener('visibilitychange', check);
     };
-  }, [project, adopt]);
+  }, [project, autosave]);
 
   // Кадр приходит после того, как сцена его нарисует; ключ отличает его от
   // миниатюр камер, которые ходят тем же событием.
@@ -1587,6 +1605,7 @@ export const useHomeSceneDraftSettings = (project = null) => {
     settings,
     setSettings,
     externalRevision,
+    saveStatus,
   };
 };
 

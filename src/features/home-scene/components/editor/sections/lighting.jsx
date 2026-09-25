@@ -89,7 +89,7 @@ function LightingWorkspace({ settings, lightingEditor, layoutEditor, gizmo, type
     };
     const openCard = (id) => { setOpenType(id); setTab('library'); };
     const project = activeProjectId();
-    const report = async () => { await flushProjectSave(); window.location.href = `/engine/report?project=${encodeURIComponent(project)}`; };
+    const report = async () => { if (await flushProjectSave()) window.location.href = `/engine/report?project=${encodeURIComponent(project)}`; };
 
     return <div className="planting-workspace lighting-workspace" data-testid="lighting-workspace">
         <div className="planting-tools" role="toolbar" aria-label={ru ? 'Инструменты освещения' : 'Lighting tools'}>
