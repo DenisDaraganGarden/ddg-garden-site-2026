@@ -254,6 +254,15 @@ function engineStorePlugin() {
           }
         }
 
+        // ТЗ проекта (src/brief/brief.js): GET /__projects/<id>/brief — ТЗ
+        // (пустое, если файла ещё нет); POST {op, …} — одна операция поверх
+        // того, что на диске сейчас; в ответ — ТЗ после неё.
+        if (part === 'brief' && isValidId(id) && store.updateBrief && (request.method === 'GET' || request.method === 'POST')) {
+          const brief = request.method === 'GET' ? await store.readBrief(id) : await store.updateBrief(id, await readJsonBody(request));
+          sendJson(response, brief ? 200 : 404, brief ? { ok: true, brief } : { ok: false, message: `Проект «${id}» не найден.` });
+          return;
+        }
+
         // Генплан: PUT /__projects/<id>/plan {image, view} — снимок камеры
         // «Генплан»; GET …/plan — где стояла камера; GET …/plan.webp — кадр.
         if ((part === 'plan' || part === 'plan.webp') && isValidId(id) && store.writePlan) {

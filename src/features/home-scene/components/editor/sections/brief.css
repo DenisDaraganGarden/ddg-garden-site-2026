@@ -1,0 +1,78 @@
+/* Рабочее место «Проект» (sections/brief.jsx): оболочка, вкладки, чипы,
+   переключатели, поля и кнопки — из «Растений» (planting-ui.css); здесь —
+   свиток, строка задания, галочка, «ждёт проверки» и значок на рейке.
+   «Ждёт проверки» — янтарный, как риски посадок. */
+.brief-new{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:4px}
+.brief-new>button{height:26px;padding:0 9px;border:1px solid var(--focus-line,#353839);border-radius:4px;background:#ffffff05;font-size:10.5px}
+.brief-new>button:hover:not(:disabled){background:#ffffff10}
+.brief-workspace input[type=date].planting-name{color-scheme:dark;font-size:11px}
+.brief-workspace textarea.planting-name{height:auto;min-height:44px;padding:6px 8px;font-size:11px;line-height:1.45;resize:vertical}
+
+.brief-awaiting{display:flex;align-items:center;gap:8px;min-height:30px;padding:4px 9px;border:1px solid #d8964c66;border-radius:5px;background:#d8964c14;color:#efd9bd;font-size:10.5px;text-align:left}
+.brief-awaiting:hover{background:#d8964c24}
+.brief-awaiting>b{font:600 13px ui-monospace,monospace;color:#f1c89a}
+
+.brief-scroll{padding-top:4px;border-top:1px solid #ffffff0d}
+.brief-scroll>summary{display:flex;align-items:center;gap:7px;min-height:28px;list-style:none;cursor:pointer}
+.brief-scroll>summary::-webkit-details-marker{display:none}
+.brief-scroll>summary:before{content:'›';width:8px;color:var(--focus-muted,#989d9e);font-size:12px}
+.brief-scroll[open]>summary:before{transform:rotate(90deg)}
+.brief-scroll__date{font-size:12px;font-weight:550;color:#f1efe6;white-space:nowrap}
+.brief-scroll__title{min-width:0;overflow:hidden;color:var(--focus-muted,#989d9e);font-size:10.5px;text-overflow:ellipsis;white-space:nowrap}
+.brief-scroll>summary>small{min-width:0;margin-left:auto;overflow:hidden;color:var(--focus-muted,#989d9e);font-size:9.5px;text-overflow:ellipsis;white-space:nowrap}
+/* Открытый свиток правит тему в поле под заголовком — второй раз её не пишем. */
+.brief-scroll[open]>summary>.brief-scroll__title{display:none}
+.brief-scroll__body{display:flex;flex-direction:column;gap:3px;padding:0 0 8px 12px}
+.brief-scroll__topic,.brief-task__text{min-width:0;height:24px;padding:0 5px;border:1px solid transparent;border-radius:3px;background:transparent;color:var(--focus-text,#dcddd8);font:11px/1 -apple-system,BlinkMacSystemFont,sans-serif}
+.brief-scroll__topic{color:var(--focus-muted,#989d9e);font-size:10.5px}
+.brief-scroll__topic:hover,.brief-task__text:hover{border-color:var(--focus-line,#353839)}
+.brief-scroll__topic:focus,.brief-task__text:focus{border-color:var(--focus-line,#353839);background:var(--focus-input,#161819);outline:0}
+/* Текст задания переносится целиком, а не режется: поле растёт по тексту. */
+.brief-task__text{display:block;width:100%;height:auto;min-height:24px;padding:4px 5px;box-sizing:border-box;line-height:1.35;overflow:hidden;resize:none;field-sizing:content}
+
+.brief-task{display:flex;flex-direction:column;gap:4px;padding:3px 3px 4px;border-radius:5px}
+.brief-task:hover{background:#ffffff05}
+.brief-task__row{display:grid;grid-template-columns:18px minmax(0,1fr) auto 20px;gap:5px;align-items:start}
+.brief-task__row>.brief-priority{margin-top:4px}
+.brief-check{display:flex;align-items:center;justify-content:center;width:16px;height:16px;margin-top:4px;padding:0;border:1px solid #ffffff45;border-radius:3px;background:transparent}
+.brief-check:hover{border-color:#e4e2da}
+.brief-check .focus-icon{width:12px;height:12px;stroke-width:2.4}
+.brief-task.is-done .brief-check{border-color:#e4e2da;background:#e4e2da;color:#1d1f20}
+.brief-task.is-review .brief-check{border-color:#d8964c;background:radial-gradient(circle,#d8964c 0 3px,transparent 3.5px)}
+.brief-task.is-done .brief-task__text{color:var(--focus-muted,#989d9e);text-decoration:line-through;text-decoration-color:#ffffff40}
+.brief-priority{padding:0 6px;border-radius:8px;font-size:9px;line-height:16px;white-space:nowrap}
+.brief-priority.is-high{background:#d8964c26;color:#f1c89a}
+.brief-priority.is-low{background:#ffffff0c;color:var(--focus-muted,#989d9e)}
+.brief-markers,.brief-task__desc,.brief-review,.brief-task__more{margin:0 0 0 23px}
+.brief-markers{display:flex;flex-wrap:wrap;gap:3px}
+.brief-markers>span{height:18px;padding:0 7px;border:1px solid var(--focus-line,#353839);border-radius:9px;color:var(--focus-muted,#989d9e);font-size:9.5px;line-height:16px;white-space:nowrap}
+.brief-task__desc{overflow:hidden;color:var(--focus-muted,#989d9e);font-size:10px;text-overflow:ellipsis;white-space:nowrap}
+.brief-review{display:flex;flex-direction:column;gap:5px;padding:6px 8px;border-left:2px solid #d8964c;border-radius:0 4px 4px 0;background:#d8964c12}
+.brief-review>b{font-size:10px;font-weight:550;color:#f1c89a}
+.brief-review>p{margin:0;color:#d9d3c4;font-size:10.5px;line-height:1.45;white-space:pre-wrap}
+.brief-review .planting-actions>button.is-primary{border-color:#e4e2da;background:#e4e2da;color:#1d1f20;font-weight:550}
+.brief-task__more{display:flex;flex-direction:column;gap:6px;padding:2px 0 4px}
+.brief-task__line{display:flex;align-items:center;gap:8px;font-size:10px;color:var(--focus-muted,#989d9e)}
+.brief-note{margin:0;padding:6px 8px;border-radius:4px;background:#ffffff07;color:#d9d3c4;font-size:10.5px;line-height:1.45;white-space:pre-wrap}
+.brief-note>b{font-weight:550;color:var(--focus-muted,#989d9e)}
+.brief-add{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px;margin:3px 0 0 23px}
+.brief-add>.planting-add{align-self:center}
+.brief-error{border-left:2px solid #d8964c}
+
+.brief-picker__list{display:flex;flex-direction:column;gap:7px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--focus-line,#353839) transparent}
+.brief-picker__list>section{display:flex;flex-direction:column;gap:3px}
+.brief-picker__group{align-self:flex-start;padding:0 2px;border:0;background:transparent;color:var(--focus-muted,#989d9e);font-size:10px;font-weight:550}
+.brief-picker__group:hover,.brief-picker__group.is-active{color:var(--focus-accent,#cfc1a1)}
+.brief-picker .planting-add{align-self:flex-start}
+
+.brief-client{display:flex;flex-direction:column;gap:7px;padding-top:6px}
+.brief-client>h4{margin:6px 0 0;padding-top:7px;border-top:1px solid #ffffff0a;font-size:10px;font-weight:550;color:var(--focus-muted,#989d9e);letter-spacing:.02em;text-transform:none}
+.brief-field{display:grid;grid-template-columns:64px minmax(0,1fr);gap:6px;align-items:center;font-size:10px;color:var(--focus-muted,#989d9e)}
+.brief-field:has(textarea){align-items:start}
+.brief-field:has(textarea)>span{padding-top:7px}
+.brief-field .planting-toggle{justify-self:start}
+
+/* Рейка (FocusEditor): сколько заданий ждут проверки — значок на кнопке «Проект». */
+.focus-rail .focus-rail-badge{position:absolute;top:1px;right:1px;min-width:14px;height:14px;padding:0 3px;border-radius:7px;background:#d8964c;color:#1d1f20;font:600 9px/14px ui-monospace,monospace;text-align:center;box-sizing:border-box}
+/* ТЗ — не сцена: строка «Сцена в проекте · FOV» над ним ни к чему. */
+.focus-inspector:has(.brief-workspace) .focus-scope{display:none}

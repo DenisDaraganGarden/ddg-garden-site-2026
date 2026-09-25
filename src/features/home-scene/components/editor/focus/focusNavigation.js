@@ -15,6 +15,8 @@ export const FOCUS_DOMAINS = [
     { id: 'cameras', ru: 'Камеры', en: 'Cameras', icon: 'camera', groupIds: ['cameras'] },
     { id: 'render', ru: 'Рендер', en: 'Render', icon: 'sliders', groupIds: ['render'] },
     { id: 'audio', ru: 'Звук', en: 'Audio', icon: 'sound', groupIds: ['audio'] },
+    // Проект — ТЗ и заказчик (src/brief); только в проекте движка.
+    { id: 'project', ru: 'Проект', en: 'Project', icon: 'brief', groupIds: ['project'] },
     // Настройки движка — то, что про кадр и рабочее место, а не про сцену:
     // разрешение, качество кадра, интерфейс, редактор, клавиши. Открываются
     // отдельным окном, а не в правой панели. Видимость объектов и плёнка — это
@@ -63,7 +65,7 @@ const NODE_ICONS = {
     audioMixer: 'sound', audioTracks: 'sound', audioSpatial: 'sound',
     camera: 'camera', visibility: 'eye', resolution: 'sliders', quality: 'sliders', post: 'sliders', debug: 'bug',
     ui: 'panel', cursor: 'cursor', settings: 'settings',
-    surroundings: 'terrain', api: 'lock',
+    surroundings: 'terrain', api: 'lock', brief: 'brief',
 };
 
 export function getNodeIcon(nodeId) {
