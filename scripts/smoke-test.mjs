@@ -745,15 +745,29 @@ async function runDraftMigrationChecks(browser) {
   return issues;
 }
 
+// Ключи проекта — окружение участка и освещение сада: данные заказчика и
+// библиотека этого компьютера, на сайт не уходят никогда (тот же список, что
+// в check-editor-keys.mjs).
+async function readProjectLocalKeys() {
+  const [{ DEFAULT_SURROUNDINGS_SETTINGS }, { DEFAULT_LIGHTING_SETTINGS }] = await Promise.all([
+    import(pathToFileURL(path.join(rootDir, 'src', 'surroundings', 'settings.js')).href),
+    import(pathToFileURL(path.join(rootDir, 'src', 'lighting', 'settings.js')).href),
+  ]);
+  return new Set([...Object.keys(DEFAULT_SURROUNDINGS_SETTINGS), ...Object.keys(DEFAULT_LIGHTING_SETTINGS)]);
+}
+
 async function runEditorPublishCoverageChecks() {
-  const [publishedKeys, editorKeys] = await Promise.all([
+  const [publishedKeys, editorKeys, projectLocalKeys] = await Promise.all([
     readPublishedKeys(),
     readEditorControlKeys(),
+    readProjectLocalKeys(),
   ]);
   const publishedKeySet = new Set(publishedKeys);
   const missingKeys = editorKeys.filter(
-    (key) => !publishedKeySet.has(key) && !DEV_LOCAL_EDITOR_KEYS.has(key),
+    (key) => !publishedKeySet.has(key) && !DEV_LOCAL_EDITOR_KEYS.has(key) && !projectLocalKeys.has(key),
   );
+  const leakedProjectKeys = [...projectLocalKeys].filter((key) => publishedKeySet.has(key));
+  assert(leakedProjectKeys.length === 0, `Project data must not publish to the site: ${leakedProjectKeys.join(', ')}`);
   const leakedLocalKeys = [...DEV_LOCAL_EDITOR_KEYS].filter(key => publishedKeySet.has(key));
 
   assert(leakedLocalKeys.length === 0, `Editor preferences must remain local: ${leakedLocalKeys.join(', ')}`);
