@@ -565,8 +565,18 @@ function assertStableMetricSeries(samples, selector, label, tolerance = 2) {
   );
 }
 
+// The CI runner renders in software: leaving the editor's scene and loading the
+// next page there took over Playwright's default 30 s (route 404 after
+// /home/edit). Every context gets a minute and a half per navigation.
+const NAVIGATION_MS = 90000;
+async function newSmokeContext(browser, options) {
+  const context = await browser.newContext(options);
+  context.setDefaultNavigationTimeout(NAVIGATION_MS);
+  return context;
+}
+
 async function runRouteChecks(browser) {
-  const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  const context = await newSmokeContext(browser, { viewport: { width: 1440, height: 900 } });
   const page = await context.newPage();
   const issues = [];
   collectPageIssues(page, issues);
@@ -621,7 +631,7 @@ async function runRouteChecks(browser) {
 }
 
 async function runWebglFallbackChecks(browser) {
-  const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  const context = await newSmokeContext(browser, { viewport: { width: 1440, height: 900 } });
   await context.addInitScript(() => {
     const originalGetContext = HTMLCanvasElement.prototype.getContext;
     HTMLCanvasElement.prototype.getContext = function patchedGetContext(type, ...args) {
@@ -651,7 +661,7 @@ async function runWebglFallbackChecks(browser) {
 }
 
 async function runAudioLifecycleChecks(browser) {
-  const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  const context = await newSmokeContext(browser, { viewport: { width: 1440, height: 900 } });
   await context.addInitScript(() => {
     localStorage.removeItem('ddg_site_audio_preference_v1');
   });
@@ -724,7 +734,7 @@ async function runAudioLifecycleChecks(browser) {
 }
 
 async function runDraftMigrationChecks(browser) {
-  const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  const context = await newSmokeContext(browser, { viewport: { width: 1440, height: 900 } });
   const page = await context.newPage();
   const issues = [];
   collectPageIssues(page, issues);
@@ -842,7 +852,7 @@ async function runEditorPublishCoverageChecks() {
 }
 
 async function runCameraSystemChecks(browser) {
-  const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  const context = await newSmokeContext(browser, { viewport: { width: 1440, height: 900 } });
   const page = await context.newPage();
   const issues = [];
   collectPageIssues(page, issues);
@@ -1015,7 +1025,7 @@ async function runPublishChecks(browser) {
 
   const originalPublishedSource = await fs.readFile(publishedSettingsPath, 'utf8');
   const originalPublishedSourceInfo = await fs.readFile(publishedSourcePath, 'utf8');
-  const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  const context = await newSmokeContext(browser, { viewport: { width: 1440, height: 900 } });
   const page = await context.newPage();
   const issues = [];
   collectPageIssues(page, issues);
@@ -1138,7 +1148,7 @@ async function runPublishChecks(browser) {
 }
 
 async function runLongSessionMemoryChecks(browser) {
-  const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  const context = await newSmokeContext(browser, { viewport: { width: 1440, height: 900 } });
   const page = await context.newPage();
   const issues = [];
   collectPageIssues(page, issues);
@@ -1179,7 +1189,7 @@ async function runLongSessionMemoryChecks(browser) {
 
 async function runRuntimeStabilityChecks(browser) {
   const navigationTimeout = 60000;
-  const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  const context = await newSmokeContext(browser, { viewport: { width: 1440, height: 900 } });
   const page = await context.newPage();
   const issues = [];
   collectPageIssues(page, issues);
@@ -1205,7 +1215,7 @@ async function runRuntimeStabilityChecks(browser) {
 }
 
 async function runMobileChecks(browser) {
-  const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const context = await newSmokeContext(browser, { viewport: { width: 390, height: 844 } });
   const page = await context.newPage();
   const issues = [];
   collectPageIssues(page, issues);
