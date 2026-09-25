@@ -175,7 +175,8 @@ vec2 lawnLean(vec2 xz) {
 // Глубина нужна, пока травинку видно: решает не расстояние, а сколько
 // текселей плитки ложится на пиксель — дальше на пиксель приходятся десятки
 // травинок, и луч выхватывал бы то кончик, то дно (крупа). Там — усреднённый
-// цвет плитки, каким трава видна вскользь (больше кончики, меньше дно);
+// цвет плитки, каким трава видна вскользь (больше кончики, меньше дно),
+// но с оставшейся после фильтрации фактурой;
 // смешиваются готовые цвета, а не глубина: убывающая глубина сдвигала бы
 // плитку кольцами вокруг камеры.
 // Плитка сдвинута по высоте в сторону наклона стрижки — травинка над точкой
@@ -188,7 +189,6 @@ vec3 lawnView = normalize(cameraPosition - vLawnWorld);
 vec3 lawnTv = vec3(dot(lawnView, lawnT), dot(lawnView, lawnB), dot(lawnView, lawnN));
 vec2 lawnBase = vec2(vLawnWorld.x, -vLawnWorld.z) / uLawnTileSize;
 vec2 lawnDx = dFdx(lawnBase), lawnDy = dFdy(lawnBase);
-float lawnDistance = length(cameraPosition - vLawnWorld);
 vec2 lawnXZ = vLawnWorld.xz;
 vec2 lawnLeanXZ = lawnLean(lawnXZ);
 float lawnDepthUv = uLawnDepth / uLawnTileSize;
@@ -219,8 +219,13 @@ if (lawnMarch > 1e-6) {
     lawnHit = clamp(mix(rayH, rayH + stepH, k), 0.0, 1.0);
 }
 float lawnTop = clamp(lawnTv.z, 0.0, 1.0);
-vec4 lawnFar = vec4(textureGrad(uLawnTile, lawnBase, lawnDx, lawnDy).r, mix(0.72, 0.55, lawnTop), mix(1.0, 0.85, lawnTop), mix(0.8, 0.55, lawnTop));
-vec4 lawnSample = mix(textureGrad(uLawnTile, lawnUv - lawnShear * lawnHit, lawnDx, lawnDy), lawnFar, lawnFlatness);
+vec2 lawnNormalUv = lawnUv - lawnShear * lawnHit;
+vec4 lawnNear = textureGrad(uLawnTile, lawnNormalUv, lawnDx, lawnDy);
+vec4 lawnFar = textureGrad(uLawnTile, lawnBase, lawnDx, lawnDy);
+// Вскользь дно закрыто кончиками. Поднимаем средний уровень, сохраняя
+// вариацию покрытия и высоты из mipmap, а не заменяя их константой.
+lawnFar.gba = mix(lawnFar.gba, vec3(1.0), vec3(0.35, 0.65, 0.5) * (1.0 - 0.5 * lawnTop));
+vec4 lawnSample = mix(lawnNear, lawnFar, lawnFlatness);
 lawnHit = mix(lawnHit, lawnFar.a, lawnFlatness);
 lawnUv = mix(lawnUv, lawnBase, lawnFlatness);
 float lawnBlade = lawnSample.b, lawnTone = lawnSample.r, lawnAlong = lawnSample.g, lawnHeight = lawnSample.a;
@@ -301,14 +306,17 @@ float lawnRough = mix(0.95, 0.84 - 0.08 * uLawnMow.w * max(lawnStripe, 0.0), law
 lawnRough = mix(lawnRough, 0.95, lawnFrost);
 float lawnAO = mix(mix(0.45, 1.0, pow(max(lawnHeight, 0.0), 0.8)), 0.92, lawnOnTop) * mix(1.0, 0.85, lawnPlantKind.a);`;
 
-// Нормаль — из высоты травы в найденной точке, мягко: травинки стоят.
+// Нормаль — из одной и той же карты высот в центре и соседях. Высота
+// для дальнего цвета учитывает закрытое дно и не является геометрией.
+// Mipmap сглаживает рельеф; подпиксельный наклон смягчаем вместе с LOD,
+// чтобы нормализация не усиливала его обратно в контрастную крупу.
 const LAWN_NORMAL_FRAGMENT = /* glsl */`
 {
     vec2 texel = vec2(1.0 / ${LAWN_TILE_PX.toFixed(1)});
-    float hx = textureGrad(uLawnTile, lawnUv - lawnShear * lawnHit + vec2(texel.x, 0.0), lawnDx, lawnDy).a;
-    float hy = textureGrad(uLawnTile, lawnUv - lawnShear * lawnHit + vec2(0.0, texel.y), lawnDx, lawnDy).a;
-    float bump = 0.7 * uLawnDepth / (uLawnTileSize / ${LAWN_TILE_PX.toFixed(1)}) * (1.0 - smoothstep(10.0, 30.0, lawnDistance));
-    vec3 tangentNormal = normalize(vec3((lawnHeight - hx) * bump + lawnShear.x * 0.8, (lawnHeight - hy) * bump + lawnShear.y * 0.8, 1.0));
+    float hx = textureGrad(uLawnTile, lawnNormalUv + vec2(texel.x, 0.0), lawnDx, lawnDy).a;
+    float hy = textureGrad(uLawnTile, lawnNormalUv + vec2(0.0, texel.y), lawnDx, lawnDy).a;
+    float bump = 0.7 * uLawnDepth / (uLawnTileSize / ${LAWN_TILE_PX.toFixed(1)}) * mix(1.0, 0.45, lawnFlatness);
+    vec3 tangentNormal = normalize(vec3((lawnNear.a - hx) * bump + lawnShear.x * 0.8, (lawnNear.a - hy) * bump + lawnShear.y * 0.8, 1.0));
     vec3 worldNormal = normalize(lawnT * tangentNormal.x + lawnB * tangentNormal.y + lawnN * tangentNormal.z);
     normal = normalize((viewMatrix * vec4(worldNormal, 0.0)).xyz);
 }`;
@@ -357,7 +365,7 @@ export function makeLawnMaterial(tile, litterTile) {
             .replace('#include <normal_fragment_maps>', LAWN_NORMAL_FRAGMENT)
             .replace('#include <aomap_fragment>', '#include <aomap_fragment>\n    reflectedLight.indirectDiffuse *= lawnAO;\n    reflectedLight.indirectSpecular *= lawnAO * 0.45;\n    reflectedLight.directDiffuse *= mix(1.0, lawnAO, 0.5);');
     };
-    material.customProgramCacheKey = () => 'planting-lawn-v8';
+    material.customProgramCacheKey = () => 'planting-lawn-v9';
     return { material, uniforms };
 }
 
