@@ -73,12 +73,16 @@ export async function luminairePhotoFile(id, dir = LUMINAIRES_DIR) {
 }
 
 // Картинка изделия: любой формат, который читает sharp, — в webp до 1200 px
-// по длинной стороне. Запись изделия должна быть: картинка без него — мусор.
+// по длинной стороне. Ровный фон вокруг предметной съёмки обрезается: в
+// маленьком превью видно изделие, а не поля. Запись изделия должна быть:
+// картинка без него — мусор.
 export async function writeLuminairePhoto(id, bytes, dir = LUMINAIRES_DIR) {
     if (!isValidId(id)) return null;
     try { await fs.access(path.join(dir, `${id}.json`)); } catch { return null; }
     const { default: sharp } = await import('sharp');
-    const webp = await sharp(bytes).rotate().resize(PHOTO_SIZE, PHOTO_SIZE, { fit: 'inside', withoutEnlargement: true }).webp({ quality: 86 }).toBuffer();
+    const upright = await sharp(bytes).rotate().toBuffer();
+    const trimmed = await sharp(upright).trim({ threshold: 14 }).toBuffer().catch(() => upright);
+    const webp = await sharp(trimmed).resize(PHOTO_SIZE, PHOTO_SIZE, { fit: 'inside', withoutEnlargement: true }).webp({ quality: 86 }).toBuffer();
     await fs.mkdir(path.join(dir, id), { recursive: true });
     await fs.writeFile(path.join(dir, id, 'photo.webp'), webp);
     return { bytes: webp.length };
