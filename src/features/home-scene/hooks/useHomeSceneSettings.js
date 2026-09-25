@@ -1440,12 +1440,14 @@ const fromProject = (entry) => {
   return entry.kind === 'design' ? siteObjectsOff(settings) : settings;
 };
 
-// ?camera=<id или имя> — проект открывается на этой камере: так Claude снимает
-// нужный вид (scripts/render-view.mjs), а ссылка ведёт прямо к ракурсу.
+// ?camera=<id или имя> — проект открывается на этой камере (обычной или
+// рабочей): так Claude снимает нужный вид (scripts/render-view.mjs), а ссылка
+// ведёт прямо к ракурсу.
 const openAtCamera = (settings) => {
   const wanted = typeof window === 'undefined' ? null : new URLSearchParams(window.location.search).get('camera');
-  const camera = wanted ? settings.sceneCameras?.find((entry) => entry.id === wanted || entry.name === wanted) : null;
-  return camera ? selectEditorCamera(settings, camera.id, 'scene', HOME_SCENE_SNAPSHOT_KEYS) : settings;
+  const match = (entry) => entry.id === wanted || entry.name === wanted;
+  const kind = !wanted ? null : settings.sceneCameras?.some(match) ? 'scene' : settings.workCameras?.some(match) ? 'work' : null;
+  return kind ? selectEditorCamera(settings, settings[kind === 'work' ? 'workCameras' : 'sceneCameras'].find(match).id, kind, HOME_SCENE_SNAPSHOT_KEYS) : settings;
 };
 
 export const useHomeSceneDraftSettings = (project = null) => {
