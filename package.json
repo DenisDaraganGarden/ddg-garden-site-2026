@@ -61,6 +61,7 @@
     "check:deploy": "node scripts/deployScene.check.mjs",
     "app": "node ./node_modules/electron/cli.js electron/main.js",
     "check:app": "node scripts/check-app.mjs",
+    "check:app-navigation": "node ./node_modules/electron/cli.js scripts/electronNavigation.check.mjs",
     "build:reference": "node scripts/build-engine-reference.mjs"
   },
   "dependencies": {

@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { app, BrowserWindow, Menu, shell } from 'electron';
 import { createServer } from 'vite';
 import { projects } from '../scripts/projectStore.mjs';
+import { loadEnginePage } from './navigation.js';
 
 // Оболочка движка. Окно показывает тот же редактор, что и в браузере, — второй
 // реализации интерфейса не заводится. Сервер поднимается внутри приложения, а не
@@ -65,7 +66,11 @@ function buildMenu() {
         {
           label: 'К списку проектов',
           accelerator: 'CmdOrCtrl+Shift+O',
-          click: () => BrowserWindow.getFocusedWindow()?.loadURL(`http://127.0.0.1:${PORT}${START}`),
+          click: () => {
+            const window = BrowserWindow.getFocusedWindow();
+            if (window) void loadEnginePage(window, `http://127.0.0.1:${PORT}${START}`)
+              .catch((error) => console.error('Не удалось открыть меню проектов:', error));
+          },
         },
         {
           label: 'Папка проектов',
@@ -111,7 +116,7 @@ async function createWindow(url) {
   });
 
   window.once('ready-to-show', () => window.show());
-  await window.loadURL(`${url}${START}`);
+  await loadEnginePage(window, `${url}${START}`);
   return window;
 }
 
