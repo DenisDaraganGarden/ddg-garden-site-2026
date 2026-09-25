@@ -54,6 +54,7 @@ function FixtureCard({ fixture, label, types, lightingEditor, ru }) {
             {fixture.target ? <button type="button" className={lightingEditor.handle === 'aim' ? 'is-active' : ''} onClick={() => lightingEditor.setHandle(lightingEditor.handle === 'aim' ? 'body' : 'aim')}>{lightingEditor.handle === 'aim' ? (ru ? 'Ручка: цель' : 'Handle: target') : (ru ? 'Ручка: корпус' : 'Handle: body')}</button> : null}
             {fixture.target ? <button type="button" onClick={() => set({ target: null })}>{ru ? 'Снять наводку' : 'Clear the aim'}</button> : null}
             <button type="button" className={fixture.locked ? 'is-active' : ''} onClick={() => set({ locked: !fixture.locked })} title={ru ? 'Утверждённый светильник агент не двигает молча' : 'An approved luminaire is never moved silently by the agent'}>{fixture.locked ? (ru ? 'Утверждён' : 'Approved') : (ru ? 'Утвердить' : 'Approve')}</button>
+            <button type="button" className="is-danger" onClick={() => lightingEditor.remove(fixture.id)} title={ru ? 'Убрать из сцены (⌘Z вернёт) · Delete' : 'Remove from the scene (⌘Z brings it back) · Delete'} data-testid="lighting-delete"><FocusIcon name="trash" />{ru ? 'Удалить' : 'Delete'}</button>
         </div>
         {fixture.note ? <p>{fixture.note}</p> : null}
     </div>;
@@ -87,7 +88,7 @@ export function LightingSection({ settings, handleSettingChange, lightingEditor,
             ? (ru ? 'Щелчок — на что светит выбранный светильник. Esc — выйти.' : 'Click what the selected luminaire lights. Esc to leave.')
             : active
                 ? (ru ? 'Щелчок по поверхности — светильник там; не отпуская, протянуть к дереву или стене — на это он и светит. Настенные встают на стену. Esc — выйти.' : 'Click a surface to place it there; drag to a tree or a wall before letting go to aim it at that. Wall types go on the wall. Esc to leave.')
-                : (ru ? 'Выберите тип и ставьте. Свет виден ночью — время суток в «Среде»; «Горят: включены» — и днём.' : 'Pick a type and place. The light shows at night — time of day is in Environment; “On” shows it by day too.')}</p>
+                : (ru ? 'Выберите тип и ставьте. Свет виден ночью — время суток в «Среде»; «Горят: включены» — и днём. Убрать выбранный — Delete, корзина в списке или правый щелчок по нему.' : 'Pick a type and place. The light shows at night — time of day is in Environment; “On” shows it by day too. Delete removes the selected one, as do the bin in the list and a right-click on it.')}</p>
         <div className="lighting-types" data-testid="lighting-types">
             {[...types.values()].map((type) => <button key={type.id} type="button" className={`lighting-type${lightingEditor?.placeType === type.id ? ' is-active' : ''}`} onClick={() => lightingEditor?.begin(type.id)} title={spec(type, ru)}>
                 <span>{luminaireName(type, ru)}</span><small>{spec(type, ru)}</small>{type.generic ? null : <i>{[type.maker, type.article].filter(Boolean).join(' ')}</i>}

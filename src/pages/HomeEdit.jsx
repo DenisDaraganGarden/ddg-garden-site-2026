@@ -730,6 +730,21 @@ const HomeEdit = ({ project = null }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- pose сравнивается по значениям, не по ссылке
     }), [playing, walking, transformTool, transformHeld, gizmoSelection, tool, lastTransform, handleGizmoTransform, picking, drawingTool, handlePickObject, gizmoPose?.rotationY, gizmoPose?.scale, activeTool, settings.topiaryObjects.length, gizmoNode.id, topiaryEditor.selectedId, topiaryEditor.onStroke, placedEditor.selectedId, placedEditor.part, plantingEditor.selectedId, plantingEditor.vineId, plantingEditor.onBed, plantingEditor.onBedSurface, plantingEditor.onPlant, plantingEditor.onVine, annotationEditor.onMark, annotationEditor.selectedId, annotationEditor.onResnap, handleWalkStart, aiming, lightingEditor.selectedId, lightingEditor.onLight, lightingEditor.onAim, lightingEditor.placeType, luminaireTypes, settings.lightingConnections, gizmoGroup.id]);
 
+    // Delete (и Backspace) убирает выбранный светильник или щиток — одной отменой.
+    const lightingDelete = useRef();
+    lightingDelete.current = selectedFixture ? () => lightingEditor.remove(selectedFixture.id) : selectedPanel ? () => lightingEditor.removePanel(selectedPanel.id) : null;
+    useEffect(() => {
+        const key = (event) => {
+            if ((event.key !== 'Delete' && event.key !== 'Backspace') || !lightingDelete.current || event.metaKey || event.ctrlKey || event.altKey) return;
+            const target = event.target;
+            if (target?.closest?.('input,textarea,select,[contenteditable=true],dialog')) return;
+            event.preventDefault();
+            lightingDelete.current();
+        };
+        window.addEventListener('keydown', key);
+        return () => window.removeEventListener('keydown', key);
+    }, []);
+
     // Курсор во вьюпорте говорит, какой инструмент в руке, не глядя на панель.
     useEffect(() => {
         document.documentElement.dataset.editorTool = activeTool;

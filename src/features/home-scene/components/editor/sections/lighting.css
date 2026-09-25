@@ -18,4 +18,7 @@
 .lighting-actions button{height:24px;padding:0 8px;border:1px solid var(--focus-line,#353839);border-radius:4px;background:#ffffff05;color:var(--focus-text,#dcddd8);font-size:10px;cursor:pointer}
 .lighting-actions button:hover{background:#ffffff0c}
 .lighting-actions button.is-active{border-color:var(--focus-accent,#cfc1a1);background:#cfc1a118}
+.lighting-actions button.is-danger{display:inline-flex;align-items:center;gap:4px;margin-left:auto;color:#e59a8a}
+.lighting-actions button.is-danger:hover{border-color:#b85a4a;background:#b85a4a22}
+.lighting-actions button .focus-icon{width:12px;height:12px}
 .lighting-row-meta{margin-left:auto;font:9px ui-monospace,monospace;color:var(--focus-muted,#989d9e)}

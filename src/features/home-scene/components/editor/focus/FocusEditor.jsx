@@ -327,6 +327,8 @@ function FocusShell(props) {
             target ? { label: tr('Открыть параметры', 'Open parameters'), icon: 'sliders', onSelect: () => selectNode(target.path) } : null,
             target ? { label: tr('Детали объекта…', 'Parts of this object…'), icon: 'folder', onSelect: () => setModal({ kind: 'presets', path: target.path, label: t(`homeEditor.nodes.${target.node.id}`) }) } : null,
             hit.placedId && hit.object?.material?.name && !Array.isArray(hit.object.material) ? { label: tr('Сгенерировать / доработать текстуру…', 'Generate / refine texture…'), icon: 'grid', onSelect: () => setTextureTarget({ placedId: hit.placedId, materialName: hit.object.material.name, material: hit.object.material }) } : null,
+            hit.lightingFixture ? { label: tr('Удалить светильник', 'Delete luminaire'), icon: 'trash', hint: 'Del', onSelect: () => props.lightingEditor?.remove(hit.lightingFixture) } : null,
+            hit.lightingPanel ? { label: tr('Удалить щиток и его цепи', 'Delete panel and its circuits'), icon: 'trash', hint: 'Del', onSelect: () => props.lightingEditor?.removePanel(hit.lightingPanel) } : null,
             hit.root ? { label: tr('Смотреть на объект', 'Frame object'), icon: 'target', onSelect: () => layoutEditor.frameObject?.(hit.root) } : null,
             hit.root ? { label: tr('Смотреть сверху', 'Frame from above'), icon: 'camera', onSelect: () => layoutEditor.frameObject?.(hit.root, { above: true }) } : null,
             ...(holding ? GIZMO_MODES.filter((mode) => gizmoAllows(gizmo.movable, mode)).map((mode) => ({
