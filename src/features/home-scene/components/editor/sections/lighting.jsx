@@ -1,6 +1,6 @@
 import React, { useMemo, useRef } from 'react';
 import { useLanguage } from '../../../../../i18n/useLanguage';
-import { RangeControl, SectionHeading, SelectControl } from '../../HomeEditorControls';
+import { CheckboxControl, RangeControl, SectionHeading, SelectControl } from '../../HomeEditorControls';
 import { useFocusControlScope, useFocusControls } from '../focus/FocusControlsContext';
 import { FocusIcon } from '../focus/FocusIcons';
 import { LIGHTING_LIMITS, LIGHTING_RANGES } from '../../../../../lighting/settings.js';
@@ -73,6 +73,7 @@ export function LightingSection({ settings, handleSettingChange, lightingEditor,
         <SectionHeading label={ru ? 'Свет' : 'Light'} />
         <SelectControl controlId="lightingMode" label={ru ? 'Горят' : 'On'} value={settings.lightingMode ?? 'auto'} options={MODES.map(([value, r, e]) => ({ value, label: ru ? r : e }))} onChange={(event) => handleSettingChange(event, 'lightingMode', 'string')} />
         <RangeControl controlId="lightingExposure" label={ru ? 'Экспозиция света' : 'Light exposure'} value={settings.lightingExposure ?? 0} min={LIGHTING_RANGES.exposure[0]} max={LIGHTING_RANGES.exposure[1]} step={LIGHTING_RANGES.exposure[2]} unit=" EV" onChange={(event) => handleSettingChange(event, 'lightingExposure')} />
+        <CheckboxControl controlId="lightingShadows" label={ru ? 'Тени от светильников' : 'Luminaire shadows'} checked={settings.lightingShadows !== false} onChange={(event) => handleSettingChange(event, 'lightingShadows', 'boolean')} testId="lighting-shadows" />
     </>;
     if (catalog) return <>
         <SelectControl controlId={FIXTURES_KEY} label={ru ? 'Светильник' : 'Luminaire'} value="" options={[{ value: '', label: ru ? 'Выбрать…' : 'Select…' }, ...fixtures.map((fixture) => ({ value: fixture.id, label: labels.get(fixture.id) }))]} onChange={(event) => event.target.value && lightingEditor?.select(event.target.value)} />

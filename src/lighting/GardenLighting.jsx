@@ -1,8 +1,9 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { gardenLights, housingOf, typePhotometry } from './fixtures.js';
-import { gardenLightUniforms, setGardenLightField } from './gardenLightShader.js';
+import { gardenLightUniforms, setGardenLightField, setGardenShadowMap } from './gardenLightShader.js';
+import { allocateShadows, createShadowAtlas, renderShadowTiles, SHADOW_TILE, shadowJobs } from './gardenShadows.js';
 import { packLightField } from './lightField.js';
 import { useLuminaireTypes } from './luminaireLibrary.js';
 import { LUX_TO_SCENE } from './photometry.js';
@@ -116,19 +117,80 @@ function Selection({ fixture, pose }) {
     </>;
 }
 
-export default function GardenLighting({ settings, night = 0, selectedId = null }) {
+// Тени светильников — атлас глубины (gardenShadows.js): 4096 пикселей, 256
+// плиток; на слабой видеокарте — 2048 и 64. Плитки рисуются по нескольку за
+// кадр и только когда свет горит; пока плитка не нарисована — тени нет.
+const TILES_PER_FRAME = 6;
+const REDRAW_AFTER = 2000;
+
+export default function GardenLighting({ settings, night = 0, selectedId = null, geometryKey = '' }) {
+    const { gl, scene } = useThree();
     const types = useLuminaireTypes();
     const fixtures = settings.lightingFixtures;
     const built = useMemo(() => gardenLights(fixtures ?? [], types), [fixtures, types]);
-    // Выше крон и фасадов освещать нечего: потолок полосы высот отрезает у
-    // бьющих вверх светов клетки, до которых они не достают, и списки клеток
-    // не переполняются. Пола нет — земля может быть сколь угодно ниже
-    // светильника на фасаде или в кроне.
+    const shadowsOn = settings.lightingShadows !== false;
+    const atlas = useMemo(() => (shadowsOn ? createShadowAtlas(gl.capabilities.maxTextureSize >= 4096 && !gl.capabilities.isWebGL1 ? 4096 : 2048) : null), [gl, shadowsOn]);
+    const plans = useMemo(() => (atlas ? allocateShadows(built.lights, atlas.capacity) : []), [atlas, built]);
+    const lights = useMemo(() => built.lights.map((light, i) => (plans[i] ? { ...light, shadow: plans[i] } : light)), [built, plans]);
+    // Полоса высот светового поля: от самой низкой земли сцены (модель,
+    // плоскость проекта) до крон и фасадов над светильниками — выше и ниже
+    // освещать нечего, и списки клеток не забиваются светами, которые туда не
+    // достают. Пол — земля, а не светильник: свет на фасаде достаёт до неё.
+    const floor = useMemo(() => {
+        const box = new THREE.Box3();
+        const model = scene.getObjectByName('placed');
+        if (model) box.setFromObject(model);
+        const plane = settings.planeEnabled ? settings.planeHeight ?? 0 : Infinity;
+        return Math.min(box.isEmpty() ? Infinity : box.min.y, plane) - 1;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- рамка модели меняется с geometryKey
+    }, [scene, geometryKey, settings.planeEnabled, settings.planeHeight]);
     useEffect(() => {
-        const heights = built.lights.map((light) => light.y);
-        const band = heights.length ? [-Infinity, Math.max(...heights) + 15] : undefined;
-        setGardenLightField(packLightField(built.lights, band ? { band } : {}), built.profiles, built.rows);
-    }, [built]);
+        const heights = lights.map((light) => light.y);
+        const band = heights.length ? [Math.min(Number.isFinite(floor) ? floor : -Infinity, Math.min(...heights) - 1), Math.max(...heights) + 15] : undefined;
+        setGardenLightField(packLightField(lights, band ? { band } : {}), built.profiles, built.rows);
+    }, [lights, built, floor]);
+
+    // Очередь плиток: перенос света — его плитки; сцена или посадки
+    // изменились — через пару секунд все (модели и карточки растений
+    // приходят не сразу, листопад по месяцу меняет кроны).
+    const shadowState = useRef({ signatures: new Map(), queue: [], cleared: false });
+    useEffect(() => {
+        const state = shadowState.current;
+        const { jobs, signatures } = shadowJobs(lights, plans, state.signatures);
+        const fresh = new Set(jobs.map((job) => job.tile));
+        state.queue = [...state.queue.filter((job) => !fresh.has(job.tile) && signatures.has(job.tile)), ...jobs];
+        state.signatures = signatures;
+    }, [lights, plans]);
+    const plantings = [settings.plantingBeds, settings.plantingPoints, settings.plantingVines, settings.plantingMonth, settings.topiaryObjects];
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            const state = shadowState.current;
+            state.queue = shadowJobs(lights, plans, new Map()).jobs;
+        }, REDRAW_AFTER);
+        return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- перерисовка всех плиток по сцене, свет — своим эффектом
+    }, [geometryKey, ...plantings]);
+    useEffect(() => {
+        if (!atlas) { setGardenShadowMap(null, 0, SHADOW_TILE, false); return undefined; }
+        shadowState.current.cleared = false;
+        setGardenShadowMap(atlas.target.depthTexture, atlas.perRow, SHADOW_TILE, gl.capabilities.logarithmicDepthBuffer);
+        return () => { setGardenShadowMap(null, 0, SHADOW_TILE, false); atlas.target.dispose(); };
+    }, [atlas, gl]);
+    useFrame(() => {
+        const state = shadowState.current;
+        if (!atlas || gardenLightUniforms.uGardenLevel.value <= 0) return;
+        if (!state.cleared) {
+            // Новый атлас — пустой: глубина 1, «до тени далеко».
+            const previous = gl.getRenderTarget();
+            atlas.target.scissorTest = false;
+            gl.setRenderTarget(atlas.target);
+            gl.clear(false, true, false);
+            gl.setRenderTarget(previous);
+            state.cleared = true;
+        }
+        if (!state.queue.length) return;
+        renderShadowTiles(gl, scene, atlas, state.queue.splice(0, TILES_PER_FRAME));
+    }, -2);
 
     const on = settings.lightingMode === 'on' ? 1 : settings.lightingMode === 'off' ? 0 : night;
     const exposure = 2 ** (settings.lightingExposure ?? 0);

@@ -231,7 +231,9 @@ stash, ветки с незалитыми коммитами, воркдерев
   Светильники — не источники three.js: их свет — световое поле
   (`lightField.js` + `gardenLightShader.js`, вставлено в
   `applyCloudShadowShader`, цена пикселя ограничена 16 светами клетки);
-  корпуса — пачка экземпляров на тип (`housings.js`, `GardenLighting.jsx`).
+  корпуса — пачка экземпляров на тип (`housings.js`, `GardenLighting.jsx`);
+  тени — атлас глубины по плиткам на свет (`gardenShadows.js`), рисуется при
+  перестановке, не каждый кадр.
   Типы — заготовки `types.js` и изделия библиотеки
   `~/Ouroboros/library/luminaires/<id>.json` с происхождением каждого поля
   (паспорт / Денис / догадка), фотометрия — `photometry.js` (IES/LDT или

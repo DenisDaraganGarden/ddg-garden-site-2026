@@ -42,6 +42,8 @@ export const DEFAULT_LIGHTING_SETTINGS = Object.freeze({
     lightingExposure: 0,
     // Слой «Подключения»: щитки, кабели и траншеи поверх сцены.
     lightingConnections: false,
+    // Тени от светильников: модель и растения заслоняют свет (gardenShadows.js).
+    lightingShadows: true,
 });
 
 const ID = /^[a-zA-Z0-9_-]{1,64}$/;
@@ -178,6 +180,7 @@ export function normalizeLightingSettings(settings = {}) {
         lightingMode: LIGHTING_MODES.includes(settings.lightingMode) ? settings.lightingMode : d.lightingMode,
         lightingExposure: within(settings.lightingExposure, LIGHTING_RANGES.exposure, d.lightingExposure),
         lightingConnections: settings.lightingConnections === true,
+        lightingShadows: settings.lightingShadows !== false,
     };
 }
 

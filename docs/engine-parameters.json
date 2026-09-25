@@ -1,5 +1,5 @@
 {
-  "collected": "2026-09-25T02:14:23.628Z",
+  "collected": "2026-09-25T11:17:35.906Z",
   "rows": [
     {
       "key": "cameraFov",
@@ -5096,6 +5096,13 @@
       "unit": " EV"
     },
     {
+      "key": "lightingShadows",
+      "group": "lighting",
+      "node": "luminaires",
+      "label": "Тени от светильников",
+      "kind": "выключатель"
+    },
+    {
       "key": "lightingConnections",
       "group": "lighting",
       "node": "power",
@@ -7453,6 +7460,7 @@
     "lightingMode": "auto",
     "lightingExposure": 0,
     "lightingConnections": false,
+    "lightingShadows": true,
     "seaEnabled": true,
     "seaWavelength": 11.5,
     "seaAmplitude": 0.57,

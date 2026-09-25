@@ -11,6 +11,7 @@ import { packLightField, shadeReference } from './lightField.js';
 import { illuminance } from './photometry.js';
 import { typePhotometry } from './fixtures.js';
 import { buildSiteGrid } from './siteGrid.js';
+import { allocateShadows, CUBE_FACES, tileCamera, tileProject } from './gardenShadows.js';
 import { cellOf, KIND } from './electric.js';
 import { decodeGrid, encodeGrid } from './gridCodec.js';
 import { electricInputs, lightingNetwork } from './network.js';
@@ -100,6 +101,35 @@ const direct = built.lights.reduce((sum, light) => {
     return sum + illuminance({ ...light, peak: light.peak, fn: typePhotometry(type).fn }, point, [0, 1, 0]);
 }, 0);
 assert.ok(Math.abs(fieldLux - direct) / direct < 0.12, `поле ≈ паспорту: ${fieldLux.toFixed(2)} лк против ${direct.toFixed(2)} (окно дальности и размер излучателя)`);
+
+// Тени: боллард (вниз, до 92°) — пять граней куба без верхней; узкий спот —
+// одна плитка по оси; атлас кончился — без тени. Камера плитки и зеркало
+// шейдера (tileProject) видят точку одинаково: ndc и глубина взгляда.
+{
+    const plans = allocateShadows([
+        { axis: [0, -1, 0], cutoff: (92 * Math.PI) / 180, range: 10, peak: 100 },
+        { axis: [0, 1, 0], cutoff: (26 * Math.PI) / 180, range: 20, peak: 5000 },
+        { axis: [1, 0, 0], cutoff: Math.PI, range: 5, peak: 10 },
+    ], 7);
+    assert.equal(plans[1].base, 0, 'сильный первым');
+    assert.equal(plans[1].tiles.length, 1);
+    assert.equal(plans[0].tiles.length, 5, 'боллард — пять граней');
+    assert.equal(plans[0].mask & (1 << 2), 0, 'верхней грани нет');
+    assert.equal(plans[2], null, 'шесть граней не влезли в семь плиток после шести занятых');
+    const camera = tileCamera(new THREE.PerspectiveCamera(), [1, 2, 3], plans[1].tiles[0].dir, plans[1].tan, 20);
+    for (const point of [[1.3, 6, 3.2], [0.2, 9, 2.5], [2, 4, 3.9]]) {
+        const clip = new THREE.Vector4(...point, 1).applyMatrix4(camera.matrixWorldInverse).applyMatrix4(camera.projectionMatrix);
+        const mirror = tileProject([1, 2, 3], plans[1].tiles[0].dir, plans[1].tan, point);
+        near(clip.x / clip.w, mirror.x, 1e-6, 'ndc x плитки');
+        near(clip.y / clip.w, mirror.y, 1e-6, 'ndc y плитки');
+        near(clip.w, mirror.w, 1e-6, 'глубина взгляда');
+    }
+    for (const face of CUBE_FACES) {
+        const cube = tileCamera(new THREE.PerspectiveCamera(), [0, 0, 0], face, 1, 10);
+        const ahead = new THREE.Vector3(...face).multiplyScalar(3).applyMatrix4(cube.matrixWorldInverse);
+        near(ahead.z, -3, 1e-9, `грань ${face} смотрит по своей оси`);
+    }
+}
 
 const labels = fixtureLabels(settings.lightingFixtures, types);
 assert.deepEqual([...labels.values()], ['Б-1', 'Г-1', 'Н-1', 'Б-2']);

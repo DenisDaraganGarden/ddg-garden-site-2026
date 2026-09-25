@@ -21,7 +21,8 @@ const MAX_ROWS = 1024;
 const clamp = (x, a, b) => (x < a ? a : x > b ? b : x);
 
 // Строка света i — 4 текселя: (x, y, z, range), (ось, row), (цвет · peak,
-// radius), (cos cutoff, 0, 0, 0). Высота текстуры — степень двойки не меньше
+// radius), (cos cutoff, плитка теней или −1, 0 — спот / 64 + грани куба,
+// тангенс половины угла плитки) — тени по gardenShadows.js. Высота текстуры — степень двойки не меньше
 // 16, чтобы добавление приборов редко меняло её размер. Свет с NaN или ∞ в
 // числах (сломанный паспорт даёт peak NaN, а rangeFor — дальность NaN) или
 // без дальности остаётся нулевой строкой: дальность 0 не светит, в рамку и
@@ -30,9 +31,10 @@ function packLights(lights) {
     let capacity = 16;
     while (capacity < lights.length) capacity *= 2;
     const data = new Float32Array(capacity * LIGHT_TEXELS * 4), stride = LIGHT_TEXELS * 4;
-    lights.forEach(({ x, y, z, axis, peak, color, row, cutoff, range, radius }, i) => {
+    lights.forEach(({ x, y, z, axis, peak, color, row, cutoff, range, radius, shadow }, i) => {
         const texels = data.subarray(i * stride, (i + 1) * stride);
-        texels.set([x, y, z, range, axis[0], axis[1], axis[2], row, color[0] * peak, color[1] * peak, color[2] * peak, radius, Math.cos(cutoff), 0, 0, 0]);
+        texels.set([x, y, z, range, axis[0], axis[1], axis[2], row, color[0] * peak, color[1] * peak, color[2] * peak, radius, Math.cos(cutoff),
+            shadow ? shadow.base : -1, shadow ? (shadow.mask ? 64 + shadow.mask : 0) : 0, shadow ? shadow.tan : 0]);
         if (!(texels[3] > 0 && texels.every(Number.isFinite))) texels.fill(0);
     });
     return { capacity, data };

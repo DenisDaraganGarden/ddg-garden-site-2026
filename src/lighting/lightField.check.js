@@ -135,9 +135,13 @@ assert.deepEqual(cellOf(twins, crowd[0].x, crowd[0].z).list, [...Array(16).keys(
 assert.ok(field.count === 300 && field.capacity === 512 && field.lightData.length === 512 * STRIDE, 'capacity is a power of two');
 for (const i of [0, 137, 299]) {
     const L = lights[i], o = i * STRIDE, got = [...field.lightData.subarray(o, o + STRIDE)];
-    const want = [L.x, L.y, L.z, L.range, ...L.axis, L.row, L.color[0] * L.peak, L.color[1] * L.peak, L.color[2] * L.peak, L.radius, Math.cos(L.cutoff), 0, 0, 0].map(Math.fround);
+    const want = [L.x, L.y, L.z, L.range, ...L.axis, L.row, L.color[0] * L.peak, L.color[1] * L.peak, L.color[2] * L.peak, L.radius, Math.cos(L.cutoff), -1, 0, 0].map(Math.fround);
     assert.deepEqual(got, want, `light ${i} reads back`);
 }
+// Тени (gardenShadows.js): плитка, грани куба (64 + биты) и тангенс — в четвёртом текселе.
+const shaded = packLightField([{ ...lights[0], shadow: { base: 12, mask: 0b101111, tan: 1 } }, { ...lights[1], shadow: { base: 3, mask: 0, tan: 0.4 } }]).lightData;
+assert.deepEqual([...shaded.subarray(12, 16)], [Math.cos(lights[0].cutoff), 12, 64 + 0b101111, 1].map(Math.fround), 'cube shadow texel');
+assert.deepEqual([...shaded.subarray(STRIDE + 12, STRIDE + 16)], [Math.cos(lights[1].cutoff), 3, 0, 0.4].map(Math.fround), 'spot shadow texel');
 assert.ok(field.lightData.subarray(300 * STRIDE).every((v) => v === 0), 'unused rows are zero');
 const one = packLightField([{ ...needle[1], x: 3, z: 4 }]), { grid } = one;
 const slot = (col, row, k) => grid.data[(row * grid.width + col * 4 + (k >> 2)) * 4 + (k & 3)];
