@@ -408,7 +408,10 @@ async function waitForRuntimeMetrics(page, sceneId, timeoutMs = 20000) {
 // A memory baseline taken before that work completes mistakes the real boat and
 // sculpture for a leak. Wait for several fresh diagnostic writes with unchanged
 // GPU resource counts; a genuine continuous leak never reaches this plateau.
-async function waitForSettledRuntimeMetrics(page, sceneId, timeoutMs = 30000) {
+// In software WebGL (CI) the home scene reaches it after 35–40 s at 1–2 fps,
+// so the budget is a minute; the leak tolerances are unchanged.
+const SETTLE_MS = 60000;
+async function waitForSettledRuntimeMetrics(page, sceneId, timeoutMs = SETTLE_MS) {
   const startedAt = Date.now();
   const stableWindowMs = 3500;
   let previous = null;
@@ -1145,7 +1148,7 @@ async function runLongSessionMemoryChecks(browser) {
     // The CI runner renders in software; a route change there can take longer
     // than the default 30 s, as the stability checks already allow for.
     await page.goto(`${baseUrl}${urlPath}`, { waitUntil: 'domcontentloaded', timeout: 60000 });
-    samples.push(await waitForSettledRuntimeMetrics(page, sceneId, 30000));
+    samples.push(await waitForSettledRuntimeMetrics(page, sceneId, SETTLE_MS));
 
     for (let index = 0; index < 5; index += 1) {
       await settlePage(page, 2500);
@@ -1185,10 +1188,10 @@ async function runRuntimeStabilityChecks(browser) {
 
   for (let cycle = 0; cycle < 2; cycle += 1) {
     await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: navigationTimeout });
-    homeSamples.push(await waitForSettledRuntimeMetrics(page, 'water-scene', 30000));
+    homeSamples.push(await waitForSettledRuntimeMetrics(page, 'water-scene', SETTLE_MS));
 
     await page.goto(`${baseUrl}/home/edit`, { waitUntil: 'domcontentloaded', timeout: navigationTimeout });
-    editorSamples.push(await waitForSettledRuntimeMetrics(page, 'home-scene-editor', 30000));
+    editorSamples.push(await waitForSettledRuntimeMetrics(page, 'home-scene-editor', SETTLE_MS));
   }
 
   assertStableMetricSeries(homeSamples, (sample) => sample.renderer.geometries, 'Home geometries', 4);
