@@ -6,6 +6,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
 import { chromium } from 'playwright';
 import { cleanupPlaywrightProcesses } from './cleanup-playwright.mjs';
+import { HOME_SCENE_CAMERA_FOV_MAX, HOME_SCENE_CAMERA_FOV_MIN } from '../src/features/home-scene/lib/layout.js';
 
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const host = '127.0.0.1';
@@ -57,6 +58,15 @@ const publishedSettingsPath = path.join(
   'home-scene',
   'data',
   'publishedHomeSceneSettings.js',
+);
+// «В проект» also records which project the home scene came from.
+const publishedSourcePath = path.join(
+  rootDir,
+  'src',
+  'features',
+  'home-scene',
+  'data',
+  'publishedHomeSceneSource.json',
 );
 const publishedKeysPath = path.join(
   rootDir,
@@ -170,10 +180,21 @@ async function waitForServer(url, timeoutMs = 30000) {
 }
 
 function startDevServer() {
-  const viteBin = path.join(rootDir, 'node_modules', 'vite', 'bin', 'vite.js');
+  // The same dev server as `vite`, with its own dependency cache (AGENTS.md §4,
+  // rule 6): re-optimizing a shared node_modules/.vite breaks every other dev
+  // server of that node_modules, and a worktree often links it from another.
+  const serverModule = `
+    import { createServer } from 'vite';
+    const server = await createServer({
+      cacheDir: 'output/smoke-vite-cache',
+      server: { host: ${JSON.stringify(host)}, port: ${port}, strictPort: true },
+    });
+    await server.listen();
+    server.printUrls();
+  `;
   const child = spawn(
     process.execPath,
-    [viteBin, '--host', host, '--port', String(port), '--strictPort'],
+    ['--input-type=module', '--eval', serverModule],
     {
       cwd: rootDir,
       env: { ...process.env, BROWSER: 'none' },
@@ -438,9 +459,41 @@ async function setRangeValue(locator, value) {
   }, value);
 }
 
-async function openEditorSection(page, group, node) {
-  await page.getByTestId(`home-editor-group-${group}`).click();
-  await page.getByTestId(`home-editor-tab-${node}`).click();
+// The editor keeps its boot screen (#engine-boot, index.html) over the whole UI
+// until the scene reports it is built, or BOOT_SAFETY_MS (25 s, HomeEdit.jsx)
+// of running page has passed; nothing under it takes a click. In software
+// WebGL the full default scene takes one to two minutes to build.
+async function waitForEditorReady(page) {
+  try {
+    await page.waitForFunction(() => !document.getElementById('engine-boot'), null, { timeout: 180000, polling: 250 });
+  } catch (error) {
+    const snapshot = await readFailureSnapshot(page);
+    throw new Error(`Editor boot screen did not clear: ${error.message}\nPage: ${JSON.stringify(snapshot)}`);
+  }
+}
+
+// The focus editor: workspaces on the rail (focus-domain-<domain>, FOCUS_DOMAINS
+// in focusNavigation.js), one navigator row per node (home-editor-tab-<node>),
+// rendered only while the list is open, and choosing a node closes the list.
+async function openEditorSection(page, domain, node) {
+  const rail = page.getByTestId(`focus-domain-${domain}`);
+  if (await rail.getAttribute('aria-pressed') !== 'true') {
+    await rail.click();
+    await page.locator(`[data-testid="focus-domain-${domain}"][aria-pressed="true"]`).waitFor();
+  }
+  // Another workspace opens its list by itself when it has several nodes; the
+  // list button toggles, so it is pressed only while the list is closed.
+  const list = page.getByTestId('focus-tool-list');
+  if (await list.getAttribute('aria-pressed') !== 'true') await list.click();
+  const row = page.getByTestId(`home-editor-tab-${node}`);
+  await row.click();
+  await row.waitFor({ state: 'detached' });
+}
+
+// An inspector control by node path and key, as FocusControlComponents.jsx
+// writes it: data-focus-control-id="landscape/water:waterExtent".
+function editorControl(page, id, input = 'input[type="range"]') {
+  return page.locator(`[data-focus-control-id="${id}"] ${input}`);
 }
 
 async function importFresh(modulePath) {
@@ -547,6 +600,10 @@ async function runRouteChecks(browser) {
 
   await page.goto(`${baseUrl}/home/edit`, { waitUntil: 'domcontentloaded' });
   await expectVisible(page, page.getByTestId('home-editor-page'), 'home editor page');
+  // The editor opens on the water: its controls in the inspector, its row in the list.
+  await expectVisible(page, editorControl(page, 'landscape/water:waterExtent'), 'home editor water controls');
+  await waitForEditorReady(page);
+  await page.getByTestId('focus-tool-list').click();
   await expectVisible(page, page.getByTestId('home-editor-tab-water'), 'home editor water tab');
   await expectVisible(page, page.getByTestId('home-editor-scene'), 'home editor scene');
   await waitForRuntimeMetrics(page, 'home-scene-editor');
@@ -795,6 +852,7 @@ async function runCameraSystemChecks(browser) {
 
   await page.goto(`${baseUrl}/home/edit`, { waitUntil: 'domcontentloaded' });
   await expectVisible(page, page.getByTestId('home-editor-page'), 'camera editor');
+  await waitForEditorReady(page);
   await openEditorSection(page, 'render', 'post');
   for (const testId of FILM_CONTROL_IDS) {
     await expectVisible(page, page.getByTestId(testId), `film control ${testId}`);
@@ -802,11 +860,12 @@ async function runCameraSystemChecks(browser) {
   await openEditorSection(page, 'cameras', 'camera');
   await expectVisible(page, page.getByTestId('home-editor-camera-list'), 'camera list');
   assert(await page.getByTestId('home-editor-free-camera-badge').count() === 0, 'Free-camera badge should stay removed');
-  assert(await page.locator('.home-editor-camera-row').count() === 1, 'Legacy scene should migrate to one camera');
+  const sceneCameraRows = page.locator('[data-testid^="home-editor-camera-select-"]');
+  assert(await sceneCameraRows.count() === 1, 'Legacy scene should migrate to one camera');
 
   await page.getByTestId('home-editor-camera-add').click();
   await waitForCondition(
-    async () => (await page.locator('.home-editor-camera-row').count()) === 2,
+    async () => (await sceneCameraRows.count()) === 2,
     'Adding a camera should create a second row',
   );
 
@@ -856,15 +915,20 @@ async function runCameraSystemChecks(browser) {
 
   await openEditorSection(page, 'cameras', 'camera');
 
-  let ranges = page.locator('.home-editor-controls input[type="range"]');
-  assert(Number(await ranges.nth(0).getAttribute('min')) === 1, 'Camera FOV slider should allow 1 degree');
-  await setRangeValue(ranges.nth(0), 1);
+  // The Focus inspector's FOV runs 15–100° (as in its design sketch), while a
+  // saved camera keeps 1–100° (layout.js): every lens the slider reaches must
+  // survive, and the slider's own minimum is the extreme exercised here.
+  const fov = page.getByTestId('focus-camera-fov');
+  const fovMin = Number(await fov.getAttribute('min'));
+  assert(
+    fovMin >= HOME_SCENE_CAMERA_FOV_MIN && Number(await fov.getAttribute('max')) === HOME_SCENE_CAMERA_FOV_MAX,
+    'Camera FOV slider should reach only lenses a saved camera keeps',
+  );
+  await setRangeValue(fov, fovMin);
   await page.getByTestId('home-editor-camera-variant-portrait').click();
-  ranges = page.locator('.home-editor-controls input[type="range"]');
-  await setRangeValue(ranges.nth(0), 46);
+  await setRangeValue(fov, 46);
   await page.getByTestId('home-editor-camera-variant-desktop').click();
-  ranges = page.locator('.home-editor-controls input[type="range"]');
-  assert(Number(await ranges.nth(0).inputValue()) === 1, 'Desktop camera FOV should retain the 1 degree minimum');
+  assert(Number(await fov.inputValue()) === fovMin, 'Desktop camera FOV should retain the slider minimum');
 
   await openEditorSection(page, 'render', 'visibility');
   const boatVisibility = page.getByTestId('home-editor-visible-boatVisible');
@@ -891,11 +955,17 @@ async function runCameraSystemChecks(browser) {
   );
 
   await openEditorSection(page, 'cameras', 'camera');
+  // Name, duration and order live in the camera's settings dialog (•••);
+  // moving the camera closes it.
+  await page.getByTestId('home-editor-camera-settings-camera-2').click();
   await page.getByTestId('home-editor-camera-name-camera-2').fill('Second shot');
   await page.getByTestId('home-editor-camera-duration-camera-2').fill('1');
   await page.getByTestId('home-editor-camera-up-camera-2').click();
-  await page.getByTestId('home-editor-slideshow-enabled').check();
-  await page.getByTestId('home-editor-slideshow-fade').fill('0.2');
+  // The slideshow sits in the folded «Frame and playback» block under the cameras.
+  const tuning = page.getByTestId('home-editor-camera-tuning');
+  if (!(await tuning.evaluate((details) => details.open))) await tuning.locator('summary').click();
+  await editorControl(page, 'cameras/camera:slideshowEnabled', 'input[type="checkbox"]').check();
+  await editorControl(page, 'cameras/camera:slideshowFade', 'input[type="number"]').fill('0.2');
   await settlePage(page, 250);
 
   const draft = await page.evaluate((key) => {
@@ -911,7 +981,7 @@ async function runCameraSystemChecks(browser) {
   assert(draft.sceneCameras[0].id === 'camera-2', 'Camera reorder should persist array order');
   assert(draft.sceneCameras[0].name === 'Second shot', 'Camera rename should persist');
   assert(draft.sceneCameras[0].holdSeconds === 1, 'Per-camera duration should persist');
-  assert(draft.sceneCameras[0].scene.layouts.desktop.cameraFov === 1, 'Desktop 1 degree FOV should persist in Camera 2');
+  assert(draft.sceneCameras[0].scene.layouts.desktop.cameraFov === fovMin, 'Desktop minimum FOV should persist in Camera 2');
   assert(draft.sceneCameras[0].scene.layouts.portrait.cameraFov === 46, 'Portrait FOV should persist in Camera 2');
   assert(draft.sceneCameras[0].scene.boatVisible === false, 'Full scene visibility should persist in Camera 2');
   assert(draft.sceneCameras[1].scene.boatVisible === true, 'Camera 1 visibility should remain independent');
@@ -941,6 +1011,7 @@ async function runPublishChecks(browser) {
   }
 
   const originalPublishedSource = await fs.readFile(publishedSettingsPath, 'utf8');
+  const originalPublishedSourceInfo = await fs.readFile(publishedSourcePath, 'utf8');
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   const page = await context.newPage();
   const issues = [];
@@ -949,6 +1020,7 @@ async function runPublishChecks(browser) {
   try {
     await page.goto(`${baseUrl}/home/edit`, { waitUntil: 'domcontentloaded' });
     await expectVisible(page, page.getByTestId('home-editor-page'), 'home editor page for publish');
+    await waitForEditorReady(page);
     await expectVisible(page, page.getByTestId('home-editor-publish'), 'home editor publish button');
     const publishButton = page.getByTestId('home-editor-publish');
     assert(
@@ -956,22 +1028,25 @@ async function runPublishChecks(browser) {
       'Publish button should be disabled when there are no unsaved changes',
     );
 
-    await openEditorSection(page, 'landscape', 'water');
-    const ranges = page.locator('.home-editor-controls input[type="range"]');
-    await expectVisible(page, ranges.nth(1), 'water tab sliders');
+    // A fresh editor starts on its local work camera («Рабочая 1»), whose
+    // snapshot never publishes: edit the first scene camera, the publish root.
+    await openEditorSection(page, 'cameras', 'camera');
+    await page.locator('[data-testid^="home-editor-camera-select-"]').first().click();
 
-    await setRangeValue(ranges.nth(0), 31.5); // waterExtent
-    await setRangeValue(ranges.nth(1), 0.08); // waveAmplitude
+    await openEditorSection(page, 'scene', 'water');
+    const waveAmplitude = editorControl(page, 'landscape/water:waveAmplitude');
+    await expectVisible(page, waveAmplitude, 'water tab sliders');
+
+    await setRangeValue(editorControl(page, 'landscape/water:waterExtent'), 31.5);
+    await setRangeValue(waveAmplitude, 0.08);
     await settlePage(page, 200);
 
-    await openEditorSection(page, 'objects', 'boat');
-    // Sliders are addressed positionally, so this list mirrors BoatSection's order:
-    // 0 position.x, 1 position.z, 2 yaw, 3 height, 4 scale, 5 roughness, 6 reflection.
-    const boatRanges = page.locator('.home-editor-controls input[type="range"]');
-    await expectVisible(page, boatRanges.nth(5), 'boat tab sliders');
-    await setRangeValue(boatRanges.nth(0), 3.45); // boatPosition.x
-    await setRangeValue(boatRanges.nth(1), -2.2); // boatPosition.z
-    await setRangeValue(boatRanges.nth(5), 0.41); // boatRoughness
+    await openEditorSection(page, 'scene', 'boat');
+    const boatRoughness = editorControl(page, 'objects/boat:boatRoughness');
+    await expectVisible(page, boatRoughness, 'boat tab sliders');
+    await setRangeValue(editorControl(page, 'objects/boat:boatPositionX'), 3.45);
+    await setRangeValue(editorControl(page, 'objects/boat:boatPositionZ'), -2.2);
+    await setRangeValue(boatRoughness, 0.41);
     await settlePage(page, 220);
 
     await openEditorSection(page, 'render', 'post');
@@ -1007,7 +1082,9 @@ async function runPublishChecks(browser) {
     assert(draftSettings.filmGateWeaveRate === 4.5, 'filmGateWeaveRate was not saved to draft settings');
     await waitForCondition(async () => !(await publishButton.isDisabled()), 'Publish button did not enable');
 
+    // «В проект» asks first, in a dialog that names the scenes it saves.
     await publishButton.click();
+    await page.getByTestId('home-editor-dialog-confirm').click();
 
     await waitForCondition(async () => {
       const settings = await readPublishedSettings();
@@ -1049,6 +1126,7 @@ async function runPublishChecks(browser) {
     log('OK publish flow');
   } finally {
     await fs.writeFile(publishedSettingsPath, originalPublishedSource, 'utf8');
+    await fs.writeFile(publishedSourcePath, originalPublishedSourceInfo, 'utf8');
     await delay(300);
     await context.close();
   }
