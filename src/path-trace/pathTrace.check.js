@@ -5,7 +5,7 @@ import { gardenLightUniforms } from '../lighting/gardenLightShader.js';
 import { registerTraceSource, acquireTraceSource, isTraceLocked } from './bridge.js';
 import { renderDimensions, uploadTextureArray } from './render.js';
 import { physicalCopy } from './bake.js';
-import { renderableMesh, posedPlantGeometry } from './snapshot.js';
+import { renderableMesh, posedPlantGeometry, snapshotScene } from './snapshot.js';
 
 const source = new THREE.Scene(), target = new THREE.Scene(), owned = [];
 source.pathTraceLighting = { lighting: { key: { direction: [1, 2, 3], colorLinear: [1, .8, .5], sceneIntensity: 2 } } };
@@ -41,4 +41,7 @@ let restored = 0; const controller = new AbortController(); const unregister = r
 const lock = acquireTraceSource(controller); assert.ok(isTraceLocked());
 assert.throws(() => acquireTraceSource(new AbortController())); lock.release(); lock.release(); assert.equal(restored, 1); assert.ok(!isTraceLocked());
 acquireTraceSource(controller); unregister(); assert.ok(controller.signal.aborted); lock.release();
-console.log('pathTrace: single sun, fixtures/profile, UV restoration, cards, dimensions and renderer ownership passed');
+const plain = new THREE.Scene(); plain.add(new THREE.Mesh(new THREE.PlaneGeometry().toNonIndexed(), new THREE.MeshStandardMaterial()));
+const shot = await snapshotScene({ scene: plain, camera: new THREE.PerspectiveCamera(), gl: null });
+assert.equal(shot.stats.triangles, 2, 'a non-indexed single-material mesh is counted, not dereferenced'); shot.dispose();
+console.log('pathTrace: single sun, fixtures/profile, UV restoration, cards, non-indexed meshes, dimensions and renderer ownership passed');

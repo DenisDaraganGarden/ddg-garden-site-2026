@@ -139,7 +139,9 @@ export async function snapshotScene({ scene: source, camera, gl }, { signal, tex
                 for (const part of parts) {
                     const mesh = new THREE.Mesh(own(part.geometry), part.material);
                     mesh.matrixAutoUpdate = false; mesh.matrix.copy(matrix); scene.add(mesh);
-                    stats.meshes++; stats.triangles += Math.floor(part.geometry.index.count / 3);
+                    // A whole single-material mesh keeps its own geometry, which may be non-indexed.
+                    const vertices = part.geometry.index?.count ?? part.geometry.attributes.position.count;
+                    stats.meshes++; stats.triangles += Math.floor(vertices / 3);
                 }
                 if (!parts.some((part) => part.geometry === geometry)) { geometry.dispose(); resources.delete(geometry); }
                 if (stats.triangles > 12_000_000) throw new Error('Сцена превышает бюджет 12 млн треугольников. / Scene exceeds the 12 million triangle budget.');
