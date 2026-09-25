@@ -49,6 +49,8 @@ export const isValidId = (id) => typeof id === 'string' && /^[a-z0-9][a-z0-9-]{0
 // ключей на запись, а меню их не показывает.
 export function createStore(folder, payloadKey) {
   const dir = path.join(HOME, folder);
+  // Поля записи, которые правка может менять (id, created, updated — нет).
+  const EDITABLE = new Set(['name', 'kind', 'engine', 'node', 'object', payloadKey]);
   const filePath = (id) => path.join(dir, `${id}.json`);
 
   const readAll = async () => {
@@ -136,10 +138,11 @@ export function createStore(folder, payloadKey) {
     if (patch?.base !== undefined && patch.base !== current.updated) return { conflict: current };
 
     // Личность записи правкой не подменяется: id — это имя файла, created — факт.
-    const fields = { ...patch };
-    delete fields.id;
-    delete fields.created;
-    delete fields.base;
+    // И в корень записи попадают только её поля: чужое тело, пришедшее не по
+    // адресу (2026-09-25 сетка участка влилась в корень «Ростова» и затёрла
+    // kind), отбрасывается, а не пишется поверх.
+    const fields = Object.fromEntries(Object.entries(patch ?? {}).filter(([key]) => EDITABLE.has(key)));
+    if ('kind' in fields && !(fields.kind === null || (typeof fields.kind === 'string' && fields.kind.length <= 32))) delete fields.kind;
     const next = { ...current, ...fields, updated: new Date().toISOString() };
     if (patch?.name !== undefined) next.name = String(patch.name).trim() || current.name;
     return write(next);

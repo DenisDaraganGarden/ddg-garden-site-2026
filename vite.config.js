@@ -293,6 +293,10 @@ function engineStorePlugin() {
           }
         }
 
+        // Общие правки — только самой записи (/__projects/<id>): тело, пришедшее
+        // на неизвестный подадрес, в запись не вливается и её не удаляет.
+        if (part !== undefined) { next(); return; }
+
         if (request.method === 'GET') {
           if (!id) {
             sendJson(response, 200, { ok: true, entries: await store.list() });

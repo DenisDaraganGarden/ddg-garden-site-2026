@@ -85,11 +85,13 @@ export default function ConnectionsLayer({ settings, geometryKey, show, modelsRe
             if (cancelled) return;
             const box = bounds(scene, lists.current);
             if (!box) return;
+            const started = performance.now();
             const model = scene.getObjectByName('placed');
             // Корни — у 2D-деревьев модели и у посаженных деревьев библиотеки.
             const planted = (points ?? []).filter((p) => ['tree', 'conifer'].includes(library.get(p.plant)?.category)).map((p) => ({ x: p.x, z: p.z, spread: library.get(p.plant)?.spread ?? 4 }));
             const next = buildSiteGrid({ roots: [model], bounds: box, planeY, beds, trees: [...sceneTrees(model), ...planted], surfaces });
             setGrid(next);
+            if (import.meta.env?.DEV) console.info(`lighting: сетка участка ${next.cols}×${next.rows} за ${Math.round(performance.now() - started)} мс`);
             // В папку проекта — для агента и отчёта; просмотр (?preview=1) не пишет.
             const project = activeProjectId();
             if (project && new URLSearchParams(window.location.search).get('preview') !== '1') projectStore.saveSiteGrid(project, encodeGrid(next)).catch(() => {});

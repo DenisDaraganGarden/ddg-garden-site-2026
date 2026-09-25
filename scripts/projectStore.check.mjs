@@ -50,6 +50,12 @@ assert.equal(saved.settings.terrainSeed, 42);
 
 // Правка не должна подменять личность записи.
 const forced = await projects.save('dyuny', { id: 'chuzhoy', created: 'вчера' });
+// Чужое тело, пришедшее не по адресу, в корень записи не вливается.
+const stray = await projects.save('dyuny', { x0: 1, cols: 3, kind: 'x'.repeat(4000), image: 'data:' });
+assert.equal(stray.x0, undefined);
+assert.equal(stray.cols, undefined);
+assert.equal(stray.image, undefined);
+assert.notEqual(String(stray.kind ?? '').length, 4000, 'длинный kind не пишется');
 assert.equal(forced.id, 'dyuny');
 assert.equal(forced.created, dunes.created);
 
