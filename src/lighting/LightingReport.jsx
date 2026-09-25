@@ -14,6 +14,15 @@ const sourceOf = (type, ru) => {
     return guessed ? (ru ? `паспорт, ${guessed} полей — догадка` : `datasheet, ${guessed} fields guessed`) : (ru ? 'паспорт' : 'datasheet');
 };
 
+// Цена — из магазина, где агент нашёл изделие, на дату, когда смотрел:
+// за штуку и за строку ведомости.
+const price = (row, ru) => {
+    const rub = Number(row.type?.price?.rub);
+    if (!(rub > 0)) return '—';
+    const money = (value) => Math.round(value).toLocaleString(ru ? 'ru-RU' : 'en-GB');
+    return <>{money(rub * row.labels.length)}<small>{money(rub)} × {row.labels.length}{row.type.price.at ? ` · ${row.type.price.at}${row.type.price.date ? `, ${row.type.price.date}` : ''}` : ''}</small></>;
+};
+
 export function LightingReportBlocks({ report, ru }) {
     if (!report) return null;
     const { lighting, rows, network } = report;
@@ -24,13 +33,14 @@ export function LightingReportBlocks({ report, ru }) {
         <section className="report-block">
             <h3>{ru ? 'Ведомость светильников' : 'Luminaire schedule'}</h3>
             <table className="report-table"><thead><tr>
-                <th>{ru ? 'Номера' : 'Marks'}</th><th>{ru ? 'Светильник' : 'Luminaire'}</th><th>{ru ? 'Кол-во' : 'Qty'}</th><th>{ru ? 'лм' : 'lm'}</th><th>K</th><th>{ru ? 'Вт' : 'W'}</th><th>{ru ? 'В' : 'V'}</th><th>{ru ? 'Управление' : 'Control'}</th><th>{ru ? 'Данные' : 'Data'}</th>
+                <th>{ru ? 'Номера' : 'Marks'}</th><th>{ru ? 'Светильник' : 'Luminaire'}</th><th>{ru ? 'Кол-во' : 'Qty'}</th><th>{ru ? 'лм' : 'lm'}</th><th>K</th><th>{ru ? 'Вт' : 'W'}</th><th>{ru ? 'В' : 'V'}</th><th>{ru ? 'Управление' : 'Control'}</th><th>{ru ? 'Цена, ₽' : 'Price, ₽'}</th><th>{ru ? 'Данные' : 'Data'}</th>
             </tr></thead><tbody>{rows.map((row) => <tr key={row.id}>
                 <td>{row.labels.join(', ')}</td>
                 <td>{luminaireName(row.type, ru) || row.id}{row.type && !row.type.generic ? <small>{[row.type.maker, row.type.model, row.type.article].filter(Boolean).join(' ')}</small> : null}</td>
                 <td>{row.labels.length}</td><td>{row.type?.optics?.lumens ?? '—'}</td><td>{row.type?.optics?.cct ?? '—'}</td><td>{row.type?.power?.watts ?? '—'}</td><td>{row.type?.power?.volts ?? '—'}</td>
-                <td>{(row.type?.control ?? []).join(', ') || '—'}</td><td>{sourceOf(row.type, ru)}</td>
+                <td>{(row.type?.control ?? []).join(', ') || '—'}</td><td>{price(row, ru)}</td><td>{sourceOf(row.type, ru)}</td>
             </tr>)}</tbody></table>
+            {rows.some((row) => row.type?.price?.rub > 0) ? <p className="report-hint">{ru ? 'Итого по известным ценам' : 'Total of known prices'}: {Math.round(rows.reduce((sum, row) => sum + (Number(row.type?.price?.rub) || 0) * row.labels.length, 0)).toLocaleString(ru ? 'ru-RU' : 'en-GB')} ₽{rows.some((row) => !(row.type?.price?.rub > 0)) ? (ru ? ' — у изделий без цены (Flos — по запросу у дилера) её нет в сумме.' : ' — items without a price (Flos is priced by dealers) are not included.') : '.'}</p> : null}
         </section>
         <section className="report-block">
             <h3>{ru ? 'Питание — предварительная схема' : 'Power — preliminary scheme'}</h3>
