@@ -6,6 +6,7 @@ import { FocusIcon } from '../focus/FocusIcons';
 import { LIGHTING_LIMITS, LIGHTING_RANGES } from '../../../../../lighting/settings.js';
 import { cableSchedule } from '../../../../../lighting/electric.js';
 import { useLightingState } from '../../../../../lighting/lightingStore.js';
+import { LightingRange } from './lighting';
 import './annotations.css';
 import './lighting.css';
 
@@ -17,11 +18,6 @@ import './lighting.css';
 const COLORS = ['#e8b04a', '#5fb3d9', '#d46a6a', '#8cc46b', '#b58ad6', '#e08a3c', '#4fc1a6', '#d9d36a'];
 const metres = (value) => `${Math.round(value * 10) / 10}`;
 
-function PlainRange({ label, value, min, max, step, unit = '', onChange }) {
-    return <label className="lighting-range"><span>{label}</span>
-        <input type="range" min={min} max={max} step={step} value={value} onChange={(event) => onChange(Number(event.target.value))} />
-        <b>{Number(value.toFixed(2))}{unit}</b></label>;
-}
 
 export function LightingPowerSection({ settings, handleSettingChange, applySettings, lightingEditor, gizmo }) {
     const { language } = useLanguage(), ru = language === 'ru', scope = useFocusControlScope();
@@ -79,7 +75,7 @@ export function LightingPowerSection({ settings, handleSettingChange, applySetti
             </div>
         </> : null}
         <SectionHeading label={ru ? 'Участок' : 'Site'} />
-        <PlainRange label={ru ? 'Глубина траншеи' : 'Trench depth'} value={site.depth ?? 0.6} min={LIGHTING_RANGES.depth[0]} max={LIGHTING_RANGES.depth[1]} step={LIGHTING_RANGES.depth[2]} unit={ru ? ' м' : ' m'} onChange={(depth) => setSite({ depth })} />
-        <PlainRange label={ru ? 'Предел ΔU' : 'ΔU limit'} value={site.drop ?? 3} min={LIGHTING_RANGES.drop[0]} max={LIGHTING_RANGES.drop[1]} step={LIGHTING_RANGES.drop[2]} unit="%" onChange={(drop) => setSite({ drop })} />
+        <LightingRange label={ru ? 'Глубина траншеи' : 'Trench depth'} value={site.depth ?? 0.6} min={LIGHTING_RANGES.depth[0]} max={LIGHTING_RANGES.depth[1]} step={LIGHTING_RANGES.depth[2]} unit={ru ? ' м' : ' m'} onChange={(depth) => setSite({ depth })} />
+        <LightingRange label={ru ? 'Предел ΔU' : 'ΔU limit'} value={site.drop ?? 3} min={LIGHTING_RANGES.drop[0]} max={LIGHTING_RANGES.drop[1]} step={LIGHTING_RANGES.drop[2]} unit="%" onChange={(drop) => setSite({ drop })} />
     </>;
 }

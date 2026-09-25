@@ -120,12 +120,13 @@ export default function GardenLighting({ settings, night = 0, selectedId = null 
     const types = useLuminaireTypes();
     const fixtures = settings.lightingFixtures;
     const built = useMemo(() => gardenLights(fixtures ?? [], types), [fixtures, types]);
-    // Высоты, где есть что освещать: от земли под приборами до крон и фасадов
-    // над ними — отрезает у бьющих вверх светов клетки, до которых они не
-    // достают, и списки клеток не переполняются.
+    // Выше крон и фасадов освещать нечего: потолок полосы высот отрезает у
+    // бьющих вверх светов клетки, до которых они не достают, и списки клеток
+    // не переполняются. Пола нет — земля может быть сколь угодно ниже
+    // светильника на фасаде или в кроне.
     useEffect(() => {
         const heights = built.lights.map((light) => light.y);
-        const band = heights.length ? [Math.min(...heights) - 2, Math.max(...heights) + 15] : undefined;
+        const band = heights.length ? [-Infinity, Math.max(...heights) + 15] : undefined;
         setGardenLightField(packLightField(built.lights, band ? { band } : {}), built.profiles, built.rows);
     }, [built]);
 

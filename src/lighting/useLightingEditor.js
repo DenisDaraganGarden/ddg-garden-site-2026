@@ -1,12 +1,24 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { fixturePose } from './fixtures.js';
 import { proposeCircuits } from './electric.js';
 import { electricInputs } from './network.js';
-import { LIGHTING_LIMITS, normalizeLightingCircuit, normalizeLightingFixture, normalizeLightingPanel } from './settings.js';
+import { aimAt, LIGHTING_LIMITS, normalizeLightingCircuit, normalizeLightingFixture, normalizeLightingPanel } from './settings.js';
 
 export const LIGHTING_NODE = 'lighting/luminaires';
 export const POWER_NODE = 'lighting/power';
 const newId = (prefix) => `${prefix}-${crypto.randomUUID().slice(0, 10)}`;
 const heading = (nx, nz) => Math.round((Math.atan2(nx, nz) * 180) / Math.PI * 10) / 10;
+
+// Наведённый на цель: yaw и pitch — по фактической оси луча, чтобы «Снять
+// наводку» оставила луч там же, а не повернула его к камере.
+function withAim(fixture, types) {
+    const type = types.get(fixture.type);
+    if (!fixture.target || !type) return fixture;
+    try {
+        const aim = aimAt([0, 0, 0], fixturePose(fixture, type).axis.toArray());
+        return aim ? { ...fixture, ...aim } : fixture;
+    } catch { return fixture; }
+}
 
 // Правки освещения идут через историю редактора (⌘Z): поставить
 // инструментом «Светильник» (O) — щелчок ставит, протяжка от места наводит на
@@ -15,13 +27,21 @@ const heading = (nx, nz) => Math.round((Math.atan2(nx, nz) * 180) / Math.PI * 10
 // тем же светильником: номер, место, подключение — его. Тем же инструментом
 // ставится щиток; «Разложить по цепям» подключает только ещё не подключённые
 // приборы — уже разложенное остаётся как было.
-export function useLightingEditor({ settings, history, setActiveTab, setTool, types }) {
+export function useLightingEditor({ settings, history, setActiveTab, setTool, types, tool }) {
     const [selectedId, setSelectedId] = useState(null);
     const [panelId, setPanelId] = useState(null);
     const [placeType, setPlaceType] = useState('bollard-80');
     const [placeKind, setPlaceKind] = useState('fixture');
     const [handle, setHandle] = useState('body');
     const [aiming, setAiming] = useState(false);
+    // Ушёл с инструмента — дальше снова ставится светильник, не щиток.
+    useEffect(() => { if (tool !== 'luminaire') setPlaceKind('fixture'); }, [tool]);
+    useEffect(() => {
+        if (!aiming) return undefined;
+        const key = (event) => { if (event.key === 'Escape') setAiming(false); };
+        window.addEventListener('keydown', key);
+        return () => window.removeEventListener('keydown', key);
+    }, [aiming]);
     const live = useRef();
     live.current = { settings, history, types, placeType, placeKind, selectedId };
     const read = (key) => live.current.settings[key] ?? [];
@@ -31,7 +51,9 @@ export function useLightingEditor({ settings, history, setActiveTab, setTool, ty
         if (live.current.placeKind === 'panel') {
             const panels = read('lightingPanels');
             if (panels.length >= LIGHTING_LIMITS.panels) return;
-            const panel = normalizeLightingPanel({ id: newId('panel'), name: `Щ${panels.length + 1}`, x, y, z, yaw: (yaw * 180) / Math.PI + 180, by: 'denis' }, panels.length);
+            let number = panels.length, name;
+            do { name = `Щ${++number}`; } while (panels.some((panel) => panel.name === name));
+            const panel = normalizeLightingPanel({ id: newId('panel'), name, x, y, z, yaw: (yaw * 180) / Math.PI + 180, by: 'denis' }, panels.length);
             apply({ lightingPanels: [...panels, panel] });
             setPanelId(panel.id); setPlaceKind('fixture'); setActiveTab(POWER_NODE); setTool('select');
             return;
@@ -41,17 +63,18 @@ export function useLightingEditor({ settings, history, setActiveTab, setTool, ty
         if (!type || fixtures.length >= LIGHTING_LIMITS.fixtures) return;
         // Настенный — лицом из стены; на земле — куда протянули, иначе от камеры.
         const wall = Math.abs(ny) < 0.6;
-        const fixture = normalizeLightingFixture({
+        const fixture = normalizeLightingFixture(withAim({
             id: newId('lum'), type: type.id, x, y, z, nx, ny, nz,
             yaw: wall ? heading(nx, nz) : (yaw * 180) / Math.PI, pitch: type.pitch ?? -90,
             ...(target ? { target } : {}), dim: 1, by: 'denis',
-        });
+        }, live.current.types));
         apply({ lightingFixtures: [...fixtures, fixture] });
         setSelectedId(fixture.id);
     }, [apply, setActiveTab, setTool]);
 
     const update = useCallback((id, patch) => {
-        apply({ lightingFixtures: read('lightingFixtures').map((fixture, index) => (fixture.id === id ? normalizeLightingFixture({ ...fixture, ...patch }, index) ?? fixture : fixture)) });
+        const next = (fixture) => ('target' in patch && patch.target ? withAim({ ...fixture, ...patch }, live.current.types) : { ...fixture, ...patch });
+        apply({ lightingFixtures: read('lightingFixtures').map((fixture, index) => (fixture.id === id ? normalizeLightingFixture(next(fixture), index) ?? fixture : fixture)) });
     }, [apply]);
     // Замена типа: тот же светильник, другое изделие; наведение — по новому типу,
     // если он сам не наводится.
@@ -59,13 +82,13 @@ export function useLightingEditor({ settings, history, setActiveTab, setTool, ty
         const type = live.current.types.get(typeId);
         if (type) update(id, { type: typeId, pitch: type.pitch ?? -90 });
     }, [update]);
-    const remove = useCallback((id) => { apply({ lightingFixtures: read('lightingFixtures').filter((fixture) => fixture.id !== id) }); setSelectedId(null); }, [apply]);
+    const remove = useCallback((id) => { apply({ lightingFixtures: read('lightingFixtures').filter((fixture) => fixture.id !== id) }); setSelectedId(null); setAiming(false); }, [apply]);
     const onAim = useCallback((point) => {
         const id = live.current.selectedId;
         if (id) update(id, { target: point });
         setAiming(false);
     }, [update]);
-    const select = useCallback((id) => { setSelectedId(id); setPanelId(null); setHandle('body'); setActiveTab(LIGHTING_NODE); setTool('select'); }, [setActiveTab, setTool]);
+    const select = useCallback((id) => { setSelectedId(id); setPanelId(null); setHandle('body'); setAiming(false); setActiveTab(LIGHTING_NODE); setTool('select'); }, [setActiveTab, setTool]);
 
     const updatePanel = useCallback((id, patch) => {
         apply({ lightingPanels: read('lightingPanels').map((panel, index) => (panel.id === id ? normalizeLightingPanel({ ...panel, ...patch }, index) ?? panel : panel)) });
@@ -80,7 +103,7 @@ export function useLightingEditor({ settings, history, setActiveTab, setTool, ty
         });
         setPanelId(null);
     }, [apply]);
-    const selectPanel = useCallback((id) => { setPanelId(id); setSelectedId(null); setActiveTab(POWER_NODE); setTool('select'); }, [setActiveTab, setTool]);
+    const selectPanel = useCallback((id) => { setPanelId(id); setSelectedId(null); setAiming(false); setActiveTab(POWER_NODE); setTool('select'); }, [setActiveTab, setTool]);
     const updateCircuit = useCallback((id, patch) => {
         apply({ lightingCircuits: read('lightingCircuits').map((circuit, index) => (circuit.id === id ? normalizeLightingCircuit({ ...circuit, ...patch }, index) ?? circuit : circuit)) });
     }, [apply]);

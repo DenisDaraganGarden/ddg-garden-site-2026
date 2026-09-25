@@ -36,6 +36,13 @@ const solid = (object, cutout = false) => {
     const material = Array.isArray(object.material) ? object.material[0] : object.material;
     return !object.userData.faceNormal && !object.userData.crownPlan && !material?.transparent && (cutout || !(material?.alphaTest > 0));
 };
+// Цель луча светильника — то, что видно: 2D-дерево модели, листва-вырезка,
+// посадки; мимо — только стекло и круги крон на плане.
+const visible = (object) => {
+    for (let node = object; node; node = node.parent) if (!node.visible) return false;
+    const material = Array.isArray(object.material) ? object.material[0] : object.material;
+    return !object.userData.crownPlan && !material?.transparent;
+};
 const UP = new THREE.Vector3(0, 1, 0), FACING = new THREE.Vector3(0, 0, 1);
 
 export default function PlantingBrush({ mode, groundY = 0, orbitRef, onBed, onBedSurface, onPlant, onVine, onMark, onStart, onLight, onAim, lightMount = 'ground' }) {
@@ -60,12 +67,12 @@ export default function PlantingBrush({ mode, groundY = 0, orbitRef, onBed, onBe
         const canvas = gl.domElement, ray = new THREE.Raycaster(), plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -groundY);
         const regions = new Map();
         let stroke = null, press = null, frame = 0, hoverFrame = 0, oldOrbit = true, shown = null;
-        const cast = (event) => {
+        const cast = (event, aimTarget = false) => {
             const box = canvas.getBoundingClientRect();
             ray.setFromCamera({ x: (2 * (event.clientX - box.left)) / box.width - 1, y: 1 - (2 * (event.clientY - box.top)) / box.height }, camera);
             const model = scene.getObjectByName('placed');
-            const targets = [scene.getObjectByName('ground-plane'), model].filter(Boolean);
-            const hit = ray.intersectObjects(targets, true).find((item) => item.distance < MAX_REACH && solid(item.object, mode === 'vine'));
+            const targets = [scene.getObjectByName('ground-plane'), model, aimTarget ? scene.getObjectByName('planting') : null].filter(Boolean);
+            const hit = ray.intersectObjects(targets, true).find((item) => item.distance < MAX_REACH && (aimTarget ? visible(item.object) : solid(item.object, mode === 'vine')));
             if (hit) {
                 let inModel = false;
                 for (let node = hit.object; node; node = node.parent) if (node === model) inModel = true;
@@ -163,7 +170,7 @@ export default function PlantingBrush({ mode, groundY = 0, orbitRef, onBed, onBe
         const move = (event) => {
             // Щелчок — нажатие без движения: замкнутый контур возвращается к началу.
             if (press && event.pointerId === press.id) press.moved = Math.max(press.moved, Math.hypot(event.clientX - press.x, event.clientY - press.y));
-            const found = cast(event);
+            const found = cast(event, Boolean(stroke?.light) || mode === 'aim');
             showCursor(stroke?.aim ? null : found);
             if (mode === 'bed' && !stroke && !hoverFrame) {
                 const hit = found?.hit;
@@ -199,7 +206,7 @@ export default function PlantingBrush({ mode, groundY = 0, orbitRef, onBed, onBe
             const clicked = start && start.id === event.pointerId && Math.max(start.moved, Math.hypot(event.clientX - start.x, event.clientY - start.y)) <= CLICK;
             if (mode === 'plant' || mode === 'mark' || mode === 'aim') {
                 if (!clicked) return;
-                const found = cast(event);
+                const found = cast(event, mode === 'aim');
                 if (found) callbacks.current[mode === 'mark' ? 'onMark' : mode === 'aim' ? 'onAim' : 'onPlant']?.(found.point, { onModel: Boolean(found.hit) });
                 return;
             }

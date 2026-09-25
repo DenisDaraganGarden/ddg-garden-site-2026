@@ -49,12 +49,16 @@ const isTypingTarget = (target) => {
 // Выбор объекта приходит из дерева редактора — второго источника истины нет.
 // Здесь только инструмент: какой активен и какой из трёх трансформаций был
 // последним, чтобы выбранный объект сразу получал привычный манипулятор.
-export function useEditorTool(enabled = true) {
+// unavailable — инструменты, которых в этом редакторе нет (светильник — только
+// в «Участке»): ни клавиша, ни меню, ни кнопка раздела их не включат.
+export function useEditorTool(enabled = true, unavailable = null) {
     const [tool, setToolState] = useState('translate');
     const lastTransform = useRef('translate');
+    const off = useRef(unavailable);
+    off.current = unavailable;
 
     const setTool = useCallback((next) => {
-        if (!EDITOR_TOOLS.includes(next)) return;
+        if (!EDITOR_TOOLS.includes(next) || off.current?.includes(next)) return;
         if (GIZMO_MODES.includes(next)) lastTransform.current = next;
         setToolState(next);
     }, []);
@@ -77,7 +81,7 @@ export function useEditorTool(enabled = true) {
             }
 
             const next = TOOL_KEYS[event.key.toLowerCase()];
-            if (next) {
+            if (next && !off.current?.includes(next)) {
                 event.preventDefault();
                 setTool(next);
             }

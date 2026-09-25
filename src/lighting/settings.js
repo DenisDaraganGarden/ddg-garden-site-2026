@@ -56,7 +56,9 @@ const within = (value, [min, max, step], fallback) => {
     const clamped = Math.min(max, Math.max(min, number));
     return Math.round(Math.round(clamped / step) * step * 1000) / 1000;
 };
-const degrees = (value) => Math.round(((((Number(value) + 180) % 360) + 360) % 360 - 180) * 10) / 10;
+// Градусы в [−180, 180) десятыми: сначала округлить, потом завернуть — иначе
+// 179,96 стало бы 180, а следующая нормализация — −180.
+const degrees = (value) => { const tenths = Math.round(Number(value) * 10); return (((((tenths + 1800) % 3600) + 3600) % 3600) - 1800) / 10 + 0; };
 const text = (value) => String(value ?? '').slice(0, LIGHTING_LIMITS.note);
 const by = (value) => (value === 'agent' ? 'agent' : 'denis');
 const optional = (key, value, keep) => (keep ? { [key]: value } : {});

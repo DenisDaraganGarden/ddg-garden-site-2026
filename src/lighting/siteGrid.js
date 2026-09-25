@@ -7,9 +7,12 @@ import { KIND, makeGrid } from './electric.js';
 // один раз на модель из её треугольников, цветников и деревьев; в проект не
 // пишется (docs/garden-lighting-2026-09-25.md, «Электрика»).
 //
-// Земля клетки — самая низкая горизонтальная грань над её центром: под
-// навесом — пол, а не крыша. Грани SketchUp двусторонние и часто вывернуты
-// (земля смотрит вниз), поэтому горизонталь — в обе стороны. Её материал
+// Земля клетки — верх того, что лежит на самой низкой горизонтальной грани
+// над её центром: самая высокая горизонталь не выше 0,6 м над ней (плитка на
+// газоне, настил над землёй, верх плиты, а не её низ); под навесом — пол, а
+// не крыша. Грани SketchUp двусторонние и часто вывернуты (земля смотрит
+// вниз), поэтому горизонталь — в обе стороны, а при равной высоте верх
+// берётся у грани, что смотрит вверх. Её материал
 // SketchUp по таблице проекта (lightingSurfaces) говорит, что это; клетка
 // без поверхности модели — за участком; не названный — «не определено» (чуть
 // дороже газона: при равном пути трасса обойдёт). Стена — вертикальная грань
@@ -21,7 +24,7 @@ const solid = (mesh) => {
     const material = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
     return !mesh.userData.faceNormal && !mesh.userData.crownPlan && !(material?.alphaTest > 0);
 };
-const WALL = 0.4;
+const WALL = 0.4, LAYER = 0.6;
 
 // Треугольники корня сцены в мире: вершины, нормаль, имя материала.
 function triangles(root, visit) {
@@ -86,13 +89,23 @@ export function buildSiteGrid({ roots = [], bounds, planeY = null, beds = [], tr
     size = Math.round(size * 100) / 100;
     const grid = makeGrid({ x0: bounds.minX - pad, z0: bounds.minZ - pad, cell: size, cols: Math.ceil(width / size), rows: Math.ceil(depth / size) });
     const n = grid.cols * grid.rows;
-    const ground = new Float32Array(n).fill(Infinity);
-    const names = new Array(n).fill(null);
+    const earth = new Float32Array(n).fill(Infinity), ground = new Float32Array(n).fill(-Infinity);
+    const names = new Array(n).fill(null), up = new Uint8Array(n);
     const walls = [];
+    // Первый проход — самая низкая горизонталь, второй — верх слоя над ней.
+    for (const root of roots.filter(Boolean)) {
+        triangles(root, (a, b, c, normal) => {
+            if (Math.abs(normal.y) > 0.7) rasterize(grid, a, b, c, (i, y) => { if (y < earth[i]) earth[i] = y; });
+        });
+    }
     for (const root of roots.filter(Boolean)) {
         triangles(root, (a, b, c, normal, name) => {
             if (Math.abs(normal.y) > 0.7) {
-                rasterize(grid, a, b, c, (i, y) => { if (y < ground[i]) { ground[i] = y; names[i] = name; } });
+                const facing = normal.y > 0 ? 1 : 0;
+                rasterize(grid, a, b, c, (i, y) => {
+                    if (y > earth[i] + LAYER) return;
+                    if (y > ground[i] + 1e-3 || (Math.abs(y - ground[i]) <= 1e-3 && facing > up[i])) { ground[i] = y; names[i] = name; up[i] = facing; }
+                });
             } else if (Math.abs(normal.y) < 0.3) {
                 // Вертикальная грань: её след на плане — отрезок между крайними вершинами.
                 const points = [a, b, c].sort((p, q) => p.x + p.z * 1e-3 - (q.x + q.z * 1e-3));

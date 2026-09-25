@@ -96,7 +96,8 @@ export const siteObjectsOff = (settings) => {
 export const SITE_ONLY_NODES = Object.freeze([...new Set(SCENE_OBJECTS.filter((object) => object.node).map((object) => object.node))]
   .filter((node) => SCENE_OBJECTS.filter((object) => object.node === node).every((object) => object.site)));
 // Узлы только «Участка» (`design: true`): у сайта и берега их нет.
-export const DESIGN_ONLY_NODES = Object.freeze([...new Set(SCENE_OBJECTS.filter((object) => object.design).map((object) => object.node))]);
+// Питание освещения — узел без своего объекта, при светильниках «Участка».
+export const DESIGN_ONLY_NODES = Object.freeze([...new Set([...SCENE_OBJECTS.filter((object) => object.design).map((object) => object.node), 'lighting/power'])]);
 // Заводской «Участок»: пустая сцена — небо, ровная земля и расстановка; берег,
 // растения побережья и изгороди можно включить, вещей сайта нет совсем.
 export const designProjectObjectSettings = () => ({

@@ -1,7 +1,7 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef } from 'react';
 import { useLanguage } from '../../../../../i18n/useLanguage';
 import { RangeControl, SectionHeading, SelectControl } from '../../HomeEditorControls';
-import { useFocusControlScope } from '../focus/FocusControlsContext';
+import { useFocusControlScope, useFocusControls } from '../focus/FocusControlsContext';
 import { FocusIcon } from '../focus/FocusIcons';
 import { LIGHTING_LIMITS, LIGHTING_RANGES } from '../../../../../lighting/settings.js';
 import { fixtureLabels } from '../../../../../lighting/fixtures.js';
@@ -19,9 +19,20 @@ const MODES = [['auto', 'По темноте', 'At dusk'], ['on', 'Включе�
 const spec = (type, ru) => [type.optics?.lumens ? `${type.optics.lumens} ${ru ? 'лм' : 'lm'}` : null, type.optics?.cct ? `${type.optics.cct} K` : null,
     type.power?.watts ? `${type.power.watts} ${ru ? 'Вт' : 'W'}` : null, type.power?.volts ? `${type.power.volts} ${ru ? 'В' : 'V'}` : null].filter(Boolean).join(' · ');
 
-function PlainRange({ label, value, min, max, step, unit = '', format = (v) => Number(v.toFixed(2)), onChange, testId }) {
+// Ползунок карточки: одна протяжка — один шаг отмены (как у ползунков
+// редактора: жест истории от нажатия до отпускания). В каталог параметров
+// не входит — он про выбранный светильник, а не про сцену.
+export function LightingRange({ label, value, min, max, step, unit = '', format = (v) => Number(v.toFixed(2)), onChange, testId }) {
+    const controls = useFocusControls(), start = useRef(null);
+    const end = (kind, event) => {
+        if (start.current === null) return;
+        controls?.gesture(kind, { id: 'lighting', value: event?.currentTarget?.value ?? start.current, initial: start.current });
+        start.current = null;
+    };
     return <label className="lighting-range"><span>{label}</span>
-        <input type="range" min={min} max={max} step={step} value={value} onChange={(event) => onChange(Number(event.target.value))} data-testid={testId} />
+        <input type="range" min={min} max={max} step={step} value={value} onChange={(event) => onChange(Number(event.target.value))} data-testid={testId}
+            onPointerDown={(event) => { if (event.button) return; start.current = value; controls?.gesture('Start', { id: 'lighting', value, initial: value }); }}
+            onPointerUp={(event) => end('Commit', event)} onLostPointerCapture={(event) => end('Commit', event)} />
         <b>{format(value)}{unit}</b></label>;
 }
 
@@ -35,9 +46,9 @@ function FixtureCard({ fixture, label, types, lightingEditor, ru }) {
             {[...types.values()].map((item) => <option key={item.id} value={item.id}>{luminaireName(item, ru)}{item.generic ? '' : ` — ${item.maker ?? ''}`}</option>)}
         </select>
         {type ? <p>{spec(type, ru)}</p> : <p>{ru ? 'Типа нет в библиотеке — светильник не светит.' : 'The type is missing from the library — the luminaire is dark.'}</p>}
-        <PlainRange label={ru ? 'Яркость' : 'Output'} value={fixture.dim} min={LIGHTING_RANGES.dim[0]} max={LIGHTING_RANGES.dim[1]} step={LIGHTING_RANGES.dim[2]} format={(v) => Math.round(v * 100)} unit="%" onChange={(dim) => set({ dim })} testId="lighting-dim" />
-        {aimable && !fixture.target ? <PlainRange label={ru ? 'Наклон' : 'Tilt'} value={fixture.pitch} min={LIGHTING_RANGES.pitch[0]} max={LIGHTING_RANGES.pitch[1]} step={1} unit="°" onChange={(pitch) => set({ pitch })} testId="lighting-pitch" /> : null}
-        {aimable && !fixture.target ? <PlainRange label={ru ? 'Поворот' : 'Heading'} value={fixture.yaw} min={-180} max={180} step={1} unit="°" onChange={(yaw) => set({ yaw })} testId="lighting-yaw" /> : null}
+        <LightingRange label={ru ? 'Яркость' : 'Output'} value={fixture.dim} min={LIGHTING_RANGES.dim[0]} max={LIGHTING_RANGES.dim[1]} step={LIGHTING_RANGES.dim[2]} format={(v) => Math.round(v * 100)} unit="%" onChange={(dim) => set({ dim })} testId="lighting-dim" />
+        {aimable && !fixture.target ? <LightingRange label={ru ? 'Наклон' : 'Tilt'} value={fixture.pitch} min={LIGHTING_RANGES.pitch[0]} max={LIGHTING_RANGES.pitch[1]} step={1} unit="°" onChange={(pitch) => set({ pitch })} testId="lighting-pitch" /> : null}
+        {aimable && !fixture.target ? <LightingRange label={ru ? 'Поворот' : 'Heading'} value={fixture.yaw} min={-180} max={180} step={1} unit="°" onChange={(yaw) => set({ yaw })} testId="lighting-yaw" /> : null}
         <div className="lighting-actions">
             {aimable ? <button type="button" className={lightingEditor.aiming ? 'is-active' : ''} onClick={() => lightingEditor.setAiming(!lightingEditor.aiming)} data-testid="lighting-aim">{ru ? 'Навести щелчком' : 'Aim by a click'}</button> : null}
             {fixture.target ? <button type="button" className={lightingEditor.handle === 'aim' ? 'is-active' : ''} onClick={() => lightingEditor.setHandle(lightingEditor.handle === 'aim' ? 'body' : 'aim')}>{lightingEditor.handle === 'aim' ? (ru ? 'Ручка: цель' : 'Handle: target') : (ru ? 'Ручка: корпус' : 'Handle: body')}</button> : null}

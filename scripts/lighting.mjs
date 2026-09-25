@@ -14,7 +14,8 @@
 //   node scripts/lighting.mjs <проект> apply план.json [--force]
 //        записать план: {fixtures, panels, circuits, runs, surfaces, site, remove}
 //        — новые добавляются (by: 'agent'), с тем же id — правятся;
-//        утверждённые (locked) без --force не трогаются, а называются.
+//        утверждённые (locked) без --force не трогаются, а называются;
+//        светильник или щиток без y встаёт на землю по сетке участка.
 //
 // Трассы считаются по сетке участка, которую редактор кладёт в папку проекта
 // (site-grid.json), когда модель загружена: нет сетки — открыть проект в
@@ -26,7 +27,7 @@ import { BUILTIN_LUMINAIRES } from '../src/lighting/types.js';
 import { normalizeLightingSettings, normalizeLightingCircuit, normalizeLightingFixture, normalizeLightingPanel, normalizeLightingRun } from '../src/lighting/settings.js';
 import { fixtureLabels, gardenLights, typePhotometry } from '../src/lighting/fixtures.js';
 import { illuminance } from '../src/lighting/photometry.js';
-import { proposeCircuits, rankPanelSpots, cableSchedule } from '../src/lighting/electric.js';
+import { cableSchedule, cellOf, proposeCircuits, rankPanelSpots } from '../src/lighting/electric.js';
 import { electricInputs, lightingNetwork } from '../src/lighting/network.js';
 import { decodeGrid } from '../src/lighting/gridCodec.js';
 
@@ -114,17 +115,27 @@ async function main() {
         return undefined;
     }
     if (command === 'circuits') {
-        const known = new Set(settings.lightingCircuits.map((circuit) => circuit.id));
-        const free = electricInputs(settings, types, grid).fixtures.filter((f) => !f.circuit || !known.has(f.circuit));
-        const proposal = proposeCircuits({ fixtures: free, panels: settings.lightingPanels });
-        let next = settings.lightingCircuits.length;
-        const rename = new Map(proposal.circuits.map((c) => { let fresh; do { fresh = `c${++next}`; } while (known.has(fresh)); return [c.id, fresh]; }));
+        // План считается из тех самых данных, поверх которых пишется: правка
+        // в редакторе между чтением и записью — план заново.
+        const plan = (raw) => {
+            const current = { ...raw, ...normalizeLightingSettings(raw) };
+            const known = new Set(current.lightingCircuits.map((circuit) => circuit.id));
+            const free = electricInputs(current, types, grid).fixtures.filter((f) => !f.circuit || !known.has(f.circuit));
+            const proposal = proposeCircuits({ fixtures: free, panels: current.lightingPanels });
+            let next = current.lightingCircuits.length;
+            const rename = new Map(proposal.circuits.map((c) => { let fresh; do { fresh = `c${++next}`; } while (known.has(fresh)); return [c.id, fresh]; }));
+            return { current, proposal, rename };
+        };
+        const { proposal, rename } = plan(project.settings);
         for (const c of proposal.circuits) console.log(`  ${rename.get(c.id)}: щиток ${c.panel}, ${c.volts} В ${c.current}, ${c.control}, ${Object.values(proposal.assign).filter((v) => v === c.id).length} шт.`);
         if (!flags.has('--apply')) { console.log('Ничего не записано: --apply запишет.'); return undefined; }
-        await write((current) => ({
-            lightingCircuits: [...(current.lightingCircuits ?? []), ...proposal.circuits.map((c) => normalizeLightingCircuit({ ...c, id: rename.get(c.id), name: `Гр.${rename.get(c.id).slice(1)}` }))],
-            lightingFixtures: (current.lightingFixtures ?? []).map((f) => (proposal.assign[f.id] ? { ...f, circuit: rename.get(proposal.assign[f.id]) } : f)),
-        }));
+        await write((raw) => {
+            const { current, proposal: fresh, rename: names } = plan(raw);
+            return {
+                lightingCircuits: [...current.lightingCircuits, ...fresh.circuits.map((c) => normalizeLightingCircuit({ ...c, id: names.get(c.id), name: `Гр.${names.get(c.id).slice(1)}` }))],
+                lightingFixtures: current.lightingFixtures.map((f) => (fresh.assign[f.id] ? { ...f, circuit: names.get(fresh.assign[f.id]) } : f)),
+            };
+        });
         console.log('Записано.');
         return undefined;
     }
@@ -132,33 +143,52 @@ async function main() {
         const fs = await import('node:fs/promises');
         const plan = JSON.parse(await fs.readFile(args[0], 'utf8'));
         const force = flags.has('--force'), skipped = [];
+        const given = [];
+        // Новому без высоты — земля клетки (настенным высоту надо дать);
+        // правка существующего высоту не трогает.
+        const grounded = (item) => {
+            if (item.y !== undefined && item.y !== null) return item;
+            const i = grid ? cellOf(grid, Number(item.x), Number(item.z)) : -1;
+            if (i < 0) { console.error(`  ${item.id ?? '?'}: нет y, а сетки участка под ним нет — пропущен`); return item; }
+            return { ...item, y: Math.round(grid.ground[i] * 1000) / 1000 };
+        };
         await write((current) => {
-            const merge = (list, incoming, normalize, key) => {
+            const merge = (list, incoming, normalize, key, { ground = false, circuit = false } = {}) => {
                 const out = (list ?? []).filter((item) => {
                     if (!(plan.remove ?? []).includes(item.id)) return true;
                     if (item.locked && !force) { skipped.push(item.id); return true; }
                     return false;
                 });
-                for (const [index, raw] of (incoming ?? []).entries()) {
+                for (const raw of incoming ?? []) {
                     const at = out.findIndex((item) => item.id === raw.id);
                     if (at >= 0 && out[at].locked && !force) { skipped.push(raw.id); continue; }
-                    const item = normalize(at >= 0 ? { ...out[at], ...raw } : { by: 'agent', ...raw }, out.length + index);
+                    let merged = at >= 0 ? { ...out[at], ...raw } : { by: 'agent', ...(ground ? grounded(raw) : raw) };
+                    // Сменили напряжение цепи, не назвав род тока, — он выводится заново.
+                    if (circuit && at >= 0 && 'volts' in raw && !('current' in raw) && Number(raw.volts) !== out[at].volts) { merged = { ...merged }; delete merged.current; }
+                    const item = normalize(merged, out.length);
                     if (!item) { console.error(`  ${key}: запись ${JSON.stringify(raw).slice(0, 80)} не прошла проверку`); continue; }
+                    // Новое — со свободным номером: чужой id в файле не повторится.
+                    if (at < 0) {
+                        const base = item.id;
+                        for (let n = 2; out.some((other) => other.id === item.id); n += 1) item.id = `${base.slice(0, 54)}-${n}`;
+                        given.push(item.id);
+                    }
                     if (at >= 0) out[at] = item; else out.push(item);
                 }
                 return out;
             };
             return {
                 lightingEnabled: true,
-                lightingFixtures: merge(current.lightingFixtures, plan.fixtures, normalizeLightingFixture, 'светильник'),
-                lightingPanels: merge(current.lightingPanels, plan.panels, normalizeLightingPanel, 'щиток'),
-                lightingCircuits: merge(current.lightingCircuits, plan.circuits, normalizeLightingCircuit, 'цепь'),
+                lightingFixtures: merge(current.lightingFixtures, plan.fixtures, normalizeLightingFixture, 'светильник', { ground: true }),
+                lightingPanels: merge(current.lightingPanels, plan.panels, normalizeLightingPanel, 'щиток', { ground: true }),
+                lightingCircuits: merge(current.lightingCircuits, plan.circuits, normalizeLightingCircuit, 'цепь', { circuit: true }),
                 lightingRuns: merge(current.lightingRuns, plan.runs, normalizeLightingRun, 'трасса'),
                 ...(plan.surfaces ? { lightingSurfaces: { ...(current.lightingSurfaces ?? {}), ...plan.surfaces } } : {}),
                 ...(plan.site ? { lightingSite: { ...(current.lightingSite ?? {}), ...plan.site } } : {}),
             };
         });
         if (skipped.length) console.log(`Утверждены — не тронуты (нужен --force): ${[...new Set(skipped)].join(', ')}`);
+        if (given.length) console.log(`Новые: ${[...new Set(given)].join(', ')}`);
         console.log('Записано.');
         return undefined;
     }

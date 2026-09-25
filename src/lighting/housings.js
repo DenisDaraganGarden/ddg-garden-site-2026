@@ -160,6 +160,8 @@ const SHAPES = {
 // housing = { shape, h, d, w? }, pitch — градусы, ось ненаводимых (pitch типа)
 // → { base, head, lens, pivot, aimable, tilt, emitter, size: [w, h, d] } —
 // size с подставленными умолчаниями, у круглых w = d.
+export const HOUSING_SHAPES = Object.freeze(Object.keys(SHAPES));
+
 export function buildHousing(housing, lod = 0, pitch) {
     const build = SHAPES[housing?.shape];
     if (!build) throw new Error(`Неизвестный корпус светильника: ${housing?.shape}`);

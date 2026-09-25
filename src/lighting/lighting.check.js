@@ -47,6 +47,10 @@ assert.deepEqual(normalizeLightingSettings(settings), settings, 'нормали�
 
 // Наведение: yaw 0 — к +Z, pitch 90 — вверх; aimAt обратен beamAxis.
 near(beamAxis(0, 0)[2], 1, 1e-9, 'yaw 0 к +Z');
+for (const yaw of [179.95, 179.97, 180, -180.04, 12.34, -0.04]) {
+    const once = normalizeLightingSettings({ lightingFixtures: [{ type: 'spike-24', x: 0, y: 0, z: 0, yaw }] }).lightingFixtures[0];
+    assert.deepEqual(normalizeLightingSettings({ lightingFixtures: [once] }).lightingFixtures[0], once, `yaw ${yaw} — нормализация идемпотентна`);
+}
 near(beamAxis(90, 0)[0], 1, 1e-9, 'yaw 90 к +X');
 near(beamAxis(0, 90)[1], 1, 1e-9, 'pitch 90 вверх');
 const aim = aimAt([0, 0, 0], [3, 4, 0]);
@@ -69,6 +73,15 @@ const wallPose = fixturePose(wall, types.get('wall-down'));
 near(wallPose.axis.y, -1, 1e-6, 'настенный светит вниз');
 assert.ok(wallPose.emitter.z > -3 && wallPose.emitter.z < -2.6, `настенный — у стены, перед ней: ${wallPose.emitter.z}`);
 assert.ok(new THREE.Vector3().setFromMatrixColumn(wallPose.mount, 1).z > 0.99, 'основание настенного — +Y из стены');
+
+// Спот на колышке вниз (−90°) — голова у предела наклона в сторону поворота,
+// а не вверх; боллард на склоне — отвесно; поворот оптики 0 — не наводится.
+const down = fixturePose({ ...normalizeLightingSettings({ lightingFixtures: [{ type: 'spike-24', x: 0, y: 0, z: 0, pitch: -90 }] }).lightingFixtures[0] }, types.get('spike-24'));
+assert.ok(new THREE.Vector3().setFromMatrixColumn(down.head, 1).y < 0, 'голова спота смотрит вниз, а не вверх');
+const slope = fixturePose({ ...bollard, nx: 0.3, ny: 0.95, nz: 0 }, types.get('bollard-80'));
+near(new THREE.Vector3().setFromMatrixColumn(slope.mount, 1).y, 1, 1e-9, 'боллард на склоне — отвесно');
+const fixed = { ...types.get('uplight-15'), optics: { ...types.get('uplight-15').optics, tilt: 0 } };
+near(fixturePose(uplight, fixed).axis.y, 1, 1e-9, 'оптика без поворота — строго вверх');
 
 // Светы поля: строка профиля на тип, яркость — множителем силы.
 const built = gardenLights(settings.lightingFixtures, types);
@@ -100,6 +113,8 @@ const floor = (name, x0, x1, z0, z1, y = 0, flip = false) => {
     root.add(new THREE.Mesh(geometry, material(name)));
 };
 floor('Lawn', -10, 0, -10, 10);
+floor('Lawn', 0, 3, -2, 2, -0.2); // газон под плиткой — плитка сверху решает
+floor('SlabBottom', 5, 6, 5, 6, -0.25, true); // низ плиты под мощением
 floor('Paving', 0, 10, -7, 10, 0, true); // вывернутая грань — всё равно земля
 floor('Paving', 0, 7, -10, -7, 0);
 floor('Roof', 4, 10, -10, 10, 3.2); // крыша над мощением — не земля
@@ -116,6 +131,9 @@ const grid = buildSiteGrid({
 const kindAt = (x, z) => grid.kind[cellOf(grid, x, z)];
 assert.equal(kindAt(-2, -2), KIND.lawn);
 assert.equal(kindAt(2, -2), KIND.paving, 'вывернутая плитка — мощение');
+assert.equal(kindAt(1, 0), KIND.paving, 'плитка на газоне — мощение, не газон под ней');
+assert.equal(kindAt(5.5, 5.5), KIND.paving, 'верх плиты, а не её низ');
+near(grid.ground[cellOf(grid, 5.5, 5.5)], 0, 1e-6, 'земля — верх плиты');
 near(grid.ground[cellOf(grid, 7, 0)], 0, 1e-6, 'под крышей земля — пол, а не крыша');
 assert.equal(kindAt(4, 3), KIND.wall, 'стена в 3 м — насквозь гильзой');
 assert.equal(kindAt(-6, 1), KIND.wall, 'стенка в полметра — тоже');

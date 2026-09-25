@@ -118,7 +118,7 @@ assert.equal(plot.planeEnabled, true);
 assert.equal(plot.placedEnabled, true);
 assert.equal(plot.skyVisible, undefined, 'небо остаётся');
 // Окружение по адресу — наоборот, только у «Участка»; щелчок по нему открывает его узел.
-assert.deepEqual([...DESIGN_ONLY_NODES], ['landscape/surroundings', 'lighting/luminaires']);
+assert.deepEqual([...DESIGN_ONLY_NODES], ['landscape/surroundings', 'lighting/luminaires', 'lighting/power']);
 assert.equal(sceneNodeForObject3D(node('building', node('surroundings'))), 'landscape/surroundings');
 const forced = siteObjectsOff({ waterVisible: true, boatVisible: true, houseEnabled: true, treesEnabled: true, sceneCameras: [{ id: 'c', scene: { waterVisible: true, treesEnabled: true } }] });
 assert.equal(forced.waterVisible, false);

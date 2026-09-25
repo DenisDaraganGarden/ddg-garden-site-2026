@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import {preserveRenderer} from './plantAtlases.js';
 import {getBaseMaterialHooks} from '../components/effects/csmAdapter.js';
+import {gardenLightUniforms} from '../lighting/gardenLightShader.js';
 
 // One light on every level. On the first frame the card is rendered beside the
 // geometry it stands for - under the scene's own environment and key light, the
@@ -115,6 +116,9 @@ export function* calibratePlantCard(renderer,scene,geometry,materials,farGeometr
   const diagnose=!lastReadback;let reads=null,errors=null;
   preserveRenderer(renderer,()=>{
    const shadows={enabled:renderer.shadowMap.enabled,auto:renderer.shadowMap.autoUpdate};renderer.shadowMap.enabled=true;renderer.shadowMap.autoUpdate=true;
+   // The stage holds only the transplanted sun and sky: the garden's
+   // luminaires (src/lighting) stand in the world, not around the specimen.
+   const garden=gardenLightUniforms.uGardenLevel,gardenLevel=garden.value;garden.value=0;
    const gl=renderer.getContext();
    try{
     // The window lives on the target itself: the shadow pass inside render()
@@ -129,7 +133,7 @@ export function* calibratePlantCard(renderer,scene,geometry,materials,farGeometr
     const whiteRead=renderer.readRenderTargetPixelsAsync(rt,0,0,s,s,white);
     const whiteReadError=diagnose?gl.getError():0;
     reads=Promise.all([black,whiteRead]);errors={blackRenderError,blackReadError,whiteRenderError,whiteReadError};
-   }finally{renderer.shadowMap.enabled=shadows.enabled;renderer.shadowMap.autoUpdate=shadows.auto;}
+   }finally{renderer.shadowMap.enabled=shadows.enabled;renderer.shadowMap.autoUpdate=shadows.auto;garden.value=gardenLevel;}
   });
   // A lost context rejects the read: measure nothing, the card keeps its gains.
   try{await reads;}catch{return {n:0,solid:0,lum:0,sat:0};}

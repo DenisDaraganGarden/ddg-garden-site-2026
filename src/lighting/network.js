@@ -11,9 +11,17 @@ export function electricInputs(settings, types, grid) {
     const groundAt = (x, z) => { const i = grid ? cellOf(grid, x, z) : -1; return i >= 0 ? grid.ground[i] : null; };
     const fixtures = (settings.lightingFixtures ?? []).filter((f) => types.has(f.type)).map((f) => {
         const { power = {}, control = [] } = types.get(f.type);
-        const ground = groundAt(f.x, f.z);
+        // Настенный: кабель подходит к стене из клетки перед ней — траншея не
+        // роется «сквозь стену», подъём — от земли перед фасадом.
+        let x = f.x, z = f.z;
+        if (grid && Math.abs(f.ny ?? 1) < 0.6) {
+            const flat = Math.hypot(f.nx ?? 0, f.nz ?? 0) || 1, d = grid.cell * Math.SQRT2;
+            const ax = f.x + ((f.nx ?? 0) / flat) * d, az = f.z + ((f.nz ?? 0) / flat) * d;
+            if (groundAt(ax, az) !== null) { x = ax; z = az; }
+        }
+        const ground = groundAt(x, z);
         return {
-            id: f.id, label: labels.get(f.id), x: f.x, y: f.y, z: f.z, circuit: f.circuit ?? null,
+            id: f.id, label: labels.get(f.id), x, y: f.y, z, circuit: f.circuit ?? null,
             watts: (Number(power.watts) || 0) * 1, volts: Number(power.volts) || 230, current: power.current ?? ((Number(power.volts) || 230) < 48 ? 'dc' : 'ac'),
             ...(power.pf ? { pf: power.pf } : {}), control, ...(power.perBreaker ? { perBreaker: power.perBreaker } : {}),
             rise: ground === null ? 0 : Math.max(0, Math.round((f.y - ground) * 100) / 100),

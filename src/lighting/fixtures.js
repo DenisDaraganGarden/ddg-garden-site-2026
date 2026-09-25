@@ -26,11 +26,12 @@ export function housingOf(type, lod = 0) {
 // (optics.tilt; у грунтовых оптика ходит внутри корпуса, ~20°), видимая
 // голова — до того, что держит её геометрия (housing.tilt; у грунтового
 // ~7°, дальше линза вышла бы из кольца).
-function clampTilt(axis, normal, tilt) {
+// Ось ровно против нормали — к пределу в сторону fallback (куда повёрнут прибор).
+function clampTilt(axis, normal, tilt, fallback) {
     const limit = (tilt * Math.PI) / 180, angle = axis.angleTo(normal);
     if (!(angle > limit) || tilt >= 180) return axis;
     const side = axis.clone().addScaledVector(normal, -axis.dot(normal));
-    if (side.lengthSq() < 1e-12) return normal.clone();
+    if (side.lengthSq() < 1e-12) side.copy(fallback).addScaledVector(normal, -fallback.dot(normal));
     return normal.clone().multiplyScalar(Math.cos(limit)).addScaledVector(side.normalize(), Math.sin(limit));
 }
 
@@ -43,31 +44,42 @@ const basis = (y, ref, fallback) => {
 };
 
 export function fixturePose(fixture, type, housing = housingOf(type)) {
-    const normal = new THREE.Vector3(fixture.nx ?? 0, fixture.ny ?? 1, fixture.nz ?? 0).normalize();
+    // Стоящее на земле стоит отвесно и на склоне; вровень с поверхностью
+    // ложится только грунтовый. Стена — стена.
+    const surface = new THREE.Vector3(fixture.nx ?? 0, fixture.ny ?? 1, fixture.nz ?? 0).normalize();
+    const normal = surface.y >= 0.6 && type.housing?.shape !== 'inground' ? UP.clone() : surface;
     const heading = new THREE.Vector3(...beamAxis(fixture.yaw ?? 0, 0));
     const mount = basis(normal, Math.abs(normal.y) > 0.9 ? heading : UP, new THREE.Vector3(1, 0, 0)).setPosition(fixture.x, fixture.y, fixture.z);
     const pivot = new THREE.Vector3(...housing.pivot).applyMatrix4(mount);
     const aimed = housing.aimable && fixture.target ? aimAt(pivot.toArray(), fixture.target) : null;
     const wanted = new THREE.Vector3(...(aimed ? beamAxis(aimed.yaw, aimed.pitch)
         : beamAxis(fixture.yaw ?? 0, housing.aimable ? fixture.pitch ?? type.pitch ?? -90 : type.pitch ?? -90)));
-    const optics = Number(type.optics?.tilt) || (type.housing?.shape === 'inground' ? 20 : 180);
-    const axis = housing.aimable ? clampTilt(wanted, normal, optics) : wanted;
-    const look = housing.aimable && Number.isFinite(housing.tilt) ? clampTilt(axis, normal, housing.tilt) : axis;
+    const tilt = type.optics?.tilt;
+    const optics = Number.isFinite(tilt) && tilt >= 0 ? tilt : type.housing?.shape === 'inground' ? 20 : 180;
     const mountZ = new THREE.Vector3().setFromMatrixColumn(mount, 2);
+    const axis = housing.aimable ? clampTilt(wanted, normal, optics, mountZ) : wanted;
+    const look = housing.aimable && Number.isFinite(housing.tilt) ? clampTilt(axis, normal, housing.tilt, mountZ) : axis;
     const head = basis(look, normal, mountZ).setPosition(pivot);
     const emitter = new THREE.Vector3(...housing.emitter.offset).applyMatrix4(head);
     return { mount, head, emitter, axis, radius: housing.emitter.radius };
 }
 
 // Фотометрия типа на полную яркость: профиль (128 отсчётов), сила на оси
-// (кд), угол, за которым света нет, цвет.
+// (кд), угол, за которым света нет, цвет. Кривая — та же строка, что читает
+// шейдер (линейно между отсчётами), и сила на оси посчитана по ней: у узкого
+// луча строка иначе несла бы больше люменов, чем паспорт, а люксы агента
+// (scripts/lighting.mjs) разошлись бы с картинкой.
 const photometries = new Map();
+const rowFunction = (samples) => (theta) => {
+    const u = Math.min(Math.max(theta, 0), Math.PI) * ((samples.length - 1) / Math.PI), i = Math.min(Math.floor(u), samples.length - 2);
+    return samples[i] + (samples[i + 1] - samples[i]) * (u - i);
+};
 export function typePhotometry(type) {
     const optics = type.optics ?? {};
     const key = JSON.stringify(optics);
     if (!photometries.has(key)) {
-        const fn = shapeFunction(optics);
-        const samples = profileSamples(fn);
+        const samples = profileSamples(shapeFunction(optics));
+        const fn = rowFunction(samples);
         let last = samples.length - 1;
         while (last > 0 && samples[last] <= 1e-5) last -= 1;
         photometries.set(key, {
@@ -86,9 +98,11 @@ export function gardenLights(fixtures, types) {
     for (const fixture of fixtures) {
         const type = types.get(fixture.type);
         if (!type) continue;
-        const pose = fixturePose(fixture, type);
+        // Второй рубеж после проверки библиотеки: тип, который не строится,
+        // не светит и не рисуется — поза только у тех, у кого вышло всё.
+        let pose, photometry;
+        try { pose = fixturePose(fixture, type); photometry = typePhotometry(type); } catch { continue; }
         poses.set(fixture.id, pose);
-        const photometry = typePhotometry(type);
         if (!rows.has(type.id)) rows.set(type.id, rows.size);
         const peak = photometry.peak * (fixture.dim ?? 1);
         if (peak <= 0) continue;

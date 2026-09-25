@@ -82,6 +82,16 @@ async function readRawBody(request, limit) {
   return Buffer.concat(chunks);
 }
 
+// Части адреса после маршрута. Кривая %-последовательность — не исключение
+// посреди сервера (оно уронило бы процесс), а ответ 400.
+function urlParts(request) {
+  try {
+    return decodeURIComponent(request.url.replace(/^\/+|\?.*$/g, '')).split('/');
+  } catch {
+    return null;
+  }
+}
+
 async function readJsonBody(request) {
   const chunks = [];
 
@@ -185,7 +195,9 @@ function riderPosePlugin() {
 function engineStorePlugin() {
   const attach = (middlewares, route, store) => {
     middlewares.use(route, async (request, response, next) => {
-      const [id, part, file] = decodeURIComponent(request.url.replace(/^\/+|\?.*$/g, '')).split('/');
+      const parts = urlParts(request);
+      if (!parts) { sendJson(response, 400, { ok: false, message: 'Кривой адрес.' }); return; }
+      const [id, part, file] = parts;
 
       try {
         // Модели проекта: POST /__projects/<id>/models — тело сам .glb, имя в
@@ -333,7 +345,9 @@ function engineStorePlugin() {
   // …/<id>/season-<фаза>.webp; рисование тратит деньги — только со своего адреса.
   const attachLibrary = (middlewares) => {
     middlewares.use('/__library/plants', async (request, response, next) => {
-      const [id, file] = decodeURIComponent(request.url.replace(/^\/+|\?.*$/g, '')).split('/');
+      const parts = urlParts(request);
+      if (!parts) { sendJson(response, 400, { ok: false, message: 'Кривой адрес.' }); return; }
+      const [id, file] = parts;
       try {
         if (file === 'seasons' && request.method === 'POST') {
           if (!trusted(request)) { sendJson(response, 403, { ok: false, message: 'Только из редактора на этом компьютере.' }); return; }
@@ -368,8 +382,8 @@ function engineStorePlugin() {
     // /__library/luminaires, фотометрия паспорта — GET …/<id>/photometry.ies|ldt.
     middlewares.use('/__library/luminaires', async (request, response, next) => {
       if (request.method !== 'GET') { next(); return; }
-      const [id, file] = decodeURIComponent(request.url.replace(/^\/+|\?.*$/g, '')).split('/');
       try {
+        const [id, file] = decodeURIComponent(request.url.replace(/^\/+|\?.*$/g, '')).split('/');
         if (!id) { sendJson(response, 200, { ok: true, luminaires: await listLuminaires() }); return; }
         const found = await luminairePhotometryFile(id, file);
         if (!found) { sendJson(response, 404, { ok: false, message: 'Фотометрии нет.' }); return; }

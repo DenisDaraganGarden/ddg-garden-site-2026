@@ -1,9 +1,10 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { cellOf } from './electric.js';
 import { encodeGrid } from './gridCodec.js';
 import { activeProjectId, projectStore } from '../features/engine/projectApi.js';
+import { usePlantLibrary } from '../planting/plantLibrary.js';
 import { useLuminaireTypes } from './luminaireLibrary.js';
 import { setLightingState } from './lightingStore.js';
 import { lightingNetwork } from './network.js';
@@ -63,20 +64,31 @@ function cables(grid, circuits) {
     return geometry;
 }
 
-export default function ConnectionsLayer({ settings, geometryKey, show }) {
+// modelsReady — все модели SketchUp расстановки загружены (WaterScene): до них
+// сетка вышла бы пустой, «за участком», и затёрла бы хороший файл.
+export default function ConnectionsLayer({ settings, geometryKey, show, modelsReady = true }) {
     const { scene } = useThree();
     const types = useLuminaireTypes();
+    const { plants: library } = usePlantLibrary();
     const [grid, setGrid] = useState(null);
+    const [extent, setExtent] = useState(0);
     const beds = settings.plantingBeds, surfaces = settings.lightingSurfaces, planeY = settings.planeEnabled ? settings.planeHeight ?? 0 : null;
-    // Модели приходят не сразу: сетка — через полторы и через восемь секунд.
+    const points = settings.plantingEnabled === false ? null : settings.plantingPoints;
+    const lists = useRef();
+    lists.current = { lightingFixtures: settings.lightingFixtures, lightingPanels: settings.lightingPanels };
+    // Модели приходят не сразу: сетка — через полторы и через восемь секунд
+    // после того, как все пришли.
     useEffect(() => {
+        if (!modelsReady) return undefined;
         let cancelled = false;
         const build = () => {
             if (cancelled) return;
-            const box = bounds(scene, { lightingFixtures: settings.lightingFixtures, lightingPanels: settings.lightingPanels });
+            const box = bounds(scene, lists.current);
             if (!box) return;
             const model = scene.getObjectByName('placed');
-            const next = buildSiteGrid({ roots: [model], bounds: box, planeY, beds, trees: sceneTrees(model), surfaces });
+            // Корни — у 2D-деревьев модели и у посаженных деревьев библиотеки.
+            const planted = (points ?? []).filter((p) => ['tree', 'conifer'].includes(library.get(p.plant)?.category)).map((p) => ({ x: p.x, z: p.z, spread: library.get(p.plant)?.spread ?? 4 }));
+            const next = buildSiteGrid({ roots: [model], bounds: box, planeY, beds, trees: [...sceneTrees(model), ...planted], surfaces });
             setGrid(next);
             // В папку проекта — для агента и отчёта; просмотр (?preview=1) не пишет.
             const project = activeProjectId();
@@ -84,9 +96,11 @@ export default function ConnectionsLayer({ settings, geometryKey, show }) {
         };
         const timers = [1500, 8000].map((delay) => setTimeout(build, delay));
         return () => { cancelled = true; timers.forEach(clearTimeout); };
-    // Расстановка светильников не перестраивает сетку, пока они внутри неё.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [scene, geometryKey, beds, surfaces, planeY]);
+    }, [scene, geometryKey, beds, surfaces, planeY, points, library, modelsReady, extent]);
+    // Светильник или щиток за краем сетки — сетка перестраивается шире.
+    useEffect(() => {
+        if (grid && [...(settings.lightingFixtures ?? []), ...(settings.lightingPanels ?? [])].some((item) => cellOf(grid, item.x, item.z) < 0)) setExtent((value) => value + 1);
+    }, [grid, settings.lightingFixtures, settings.lightingPanels]);
 
     // Пересчёт — только от данных освещения и через четверть секунды после
     // последней правки: протяжка светильника манипулятором не ждёт трасс.

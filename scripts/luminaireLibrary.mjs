@@ -1,6 +1,8 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { HOME, isValidId } from './projectStore.mjs';
+import { HOUSING_SHAPES } from '../src/lighting/housings.js';
+import { shapeFunction } from '../src/lighting/photometry.js';
 
 // Библиотека светильников — общая для проектов, в доме данных, как растения
 // и материалы (docs/garden-lighting-2026-09-25.md): конкретные изделия,
@@ -10,6 +12,11 @@ import { HOME, isValidId } from './projectStore.mjs';
 //
 //   library/luminaires/<id>.json              — запись;
 //   library/luminaires/<id>/photometry.ies|ldt — фотометрия из паспорта.
+//
+// Запись, которую движок не умеет нарисовать (неизвестный корпус или форма
+// кривой, нет профиля), отбрасывается здесь, как битый JSON: её светильники
+// становятся «типа нет в библиотеке» — не светят, но сцена не падает.
+// Профиль нужен и изделию с IES/LDT: файл пока идёт в отчёт, не в сцену.
 export const LUMINAIRES_DIR = path.join(HOME, 'library', 'luminaires');
 const PHOTOMETRY = /^photometry\.(ies|ldt)$/;
 
@@ -25,6 +32,8 @@ export async function listLuminaires(dir = LUMINAIRES_DIR) {
         try {
             const record = JSON.parse(await fs.readFile(path.join(dir, name), 'utf8'));
             if (!isValidId(record?.id) || `${record.id}.json` !== name) return null;
+            if (!HOUSING_SHAPES.includes(record.housing?.shape)) return null;
+            shapeFunction(record.optics ?? {});
             // Файл фотометрии рядом — его имя и версия (время файла).
             const files = await fs.readdir(path.join(dir, record.id)).catch(() => []);
             const file = files.find((entry) => PHOTOMETRY.test(entry));
