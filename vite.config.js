@@ -8,7 +8,7 @@ import { publishedHomeSceneKeys } from './src/features/home-scene/data/published
 import { isValidId, presets, projects } from './scripts/projectStore.mjs';
 import { listPlants, plantCardFile, plantPhotoFile, plantSeasonFile, removePlantPhoto, writePlantPhoto } from './scripts/plantLibrary.mjs';
 import { generatePlantSeasons, removePlantSeason } from './scripts/plantSeasons.mjs';
-import { listLuminaires, luminairePhotometryFile } from './scripts/luminaireLibrary.mjs';
+import { listLuminaires, luminairePhotoFile, luminairePhotometryFile, removeLuminairePhoto, writeLuminairePhoto } from './scripts/luminaireLibrary.mjs';
 import { mapNodes, modelOrigin, prepareSketchupGlb, readGlb, readGlbJson } from './scripts/sketchupGlb.mjs';
 import { deployPublishedHomeScene } from './scripts/deployScene.mjs';
 import { surroundingsPlugin } from './scripts/surroundings.mjs';
@@ -383,16 +383,27 @@ function engineStorePlugin() {
       }
     });
     // Библиотека светильников (scripts/luminaireLibrary.mjs): записи — GET
-    // /__library/luminaires, фотометрия паспорта — GET …/<id>/photometry.ies|ldt.
+    // /__library/luminaires, фотометрия паспорта — GET …/<id>/photometry.ies|ldt,
+    // картинка изделия — GET …/<id>/photo.webp, POST …/<id>/photo (тело — сама
+    // картинка), DELETE …/<id>/photo.
     middlewares.use('/__library/luminaires', async (request, response, next) => {
-      if (request.method !== 'GET') { next(); return; }
+      const parts = urlParts(request);
+      if (!parts) { sendJson(response, 400, { ok: false, message: 'Кривой адрес.' }); return; }
+      const [id, file] = parts;
       try {
-        const [id, file] = decodeURIComponent(request.url.replace(/^\/+|\?.*$/g, '')).split('/');
+        if (file === 'photo' && request.method === 'POST') {
+          const saved = await writeLuminairePhoto(id, await readRawBody(request, PHOTO_UPLOAD_LIMIT));
+          sendJson(response, saved ? 200 : 404, saved ? { ok: true, ...saved } : { ok: false, message: `Светильника «${id}» нет в библиотеке.` });
+          return;
+        }
+        if (file === 'photo' && request.method === 'DELETE') { sendJson(response, 200, { ok: await removeLuminairePhoto(id) }); return; }
+        if (request.method !== 'GET') { next(); return; }
         if (!id) { sendJson(response, 200, { ok: true, luminaires: await listLuminaires() }); return; }
-        const found = await luminairePhotometryFile(id, file);
-        if (!found) { sendJson(response, 404, { ok: false, message: 'Фотометрии нет.' }); return; }
+        const photo = file === 'photo.webp';
+        const found = photo ? await luminairePhotoFile(id) : await luminairePhotometryFile(id, file);
+        if (!found) { sendJson(response, 404, { ok: false, message: photo ? 'Картинки нет.' : 'Фотометрии нет.' }); return; }
         response.statusCode = 200;
-        response.setHeader('Content-Type', 'text/plain; charset=utf-8');
+        response.setHeader('Content-Type', photo ? 'image/webp' : 'text/plain; charset=utf-8');
         response.setHeader('Content-Length', String(found.size));
         response.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
         createReadStream(found.file).pipe(response);

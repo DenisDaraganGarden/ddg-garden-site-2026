@@ -1,6 +1,8 @@
 import React from 'react';
 import { cableSchedule } from './electric.js';
 import { luminaireName } from './luminaireLibrary.js';
+import { LuminaireThumb } from './ui/LuminairePicker.jsx';
+import './ui/lighting-ui.css';
 
 // Освещение в отчёте проекта (docs/garden-lighting-2026-09-25.md): ведомость
 // светильников с происхождением данных, цепи с длинами, нагрузками, ΔU,
@@ -25,8 +27,8 @@ const price = (row, ru) => {
 
 export function LightingReportBlocks({ report, ru }) {
     if (!report) return null;
-    const { lighting, rows, network } = report;
-    const schedule = network ? cableSchedule(network) : null;
+    const { lighting, schedule, network } = report;
+    const cables = network ? cableSchedule(network) : null;
     const circuitName = new Map(lighting.lightingCircuits.map((circuit) => [circuit.id, circuit.name]));
     const panelName = new Map(lighting.lightingPanels.map((panel) => [panel.id, panel.name]));
     return <>
@@ -34,13 +36,15 @@ export function LightingReportBlocks({ report, ru }) {
             <h3>{ru ? 'Ведомость светильников' : 'Luminaire schedule'}</h3>
             <table className="report-table"><thead><tr>
                 <th>{ru ? 'Номера' : 'Marks'}</th><th>{ru ? 'Светильник' : 'Luminaire'}</th><th>{ru ? 'Кол-во' : 'Qty'}</th><th>{ru ? 'лм' : 'lm'}</th><th>K</th><th>{ru ? 'Вт' : 'W'}</th><th>{ru ? 'В' : 'V'}</th><th>{ru ? 'Управление' : 'Control'}</th><th>{ru ? 'Цена, ₽' : 'Price, ₽'}</th><th>{ru ? 'Данные' : 'Data'}</th>
-            </tr></thead><tbody>{rows.map((row) => <tr key={row.id}>
+            </tr></thead><tbody>{schedule.groups.map((group) => <React.Fragment key={group.kind?.id ?? 'other'}>
+                <tr className="report-table__group"><th colSpan={10}>{group.kind ? (ru ? group.kind.ru : group.kind.en) : (ru ? 'Нет в библиотеке' : 'Not in the library')} · {group.count} {ru ? 'шт.' : 'pcs'}</th></tr>
+                {group.rows.map((row) => <tr key={row.id}>
                 <td>{row.labels.join(', ')}</td>
-                <td>{luminaireName(row.type, ru) || row.id}{row.type && !row.type.generic ? <small>{[row.type.maker, row.type.model, row.type.article].filter(Boolean).join(' ')}</small> : null}</td>
+                <td><span className="report-luminaire"><LuminaireThumb type={row.type} size={46} /><span>{luminaireName(row.type, ru) || row.id}{row.type && !row.type.generic ? <small>{[row.type.maker, row.type.model, row.type.article].filter(Boolean).join(' ')}</small> : null}</span></span></td>
                 <td>{row.labels.length}</td><td>{row.type?.optics?.lumens ?? '—'}</td><td>{row.type?.optics?.cct ?? '—'}</td><td>{row.type?.power?.watts ?? '—'}</td><td>{row.type?.power?.volts ?? '—'}</td>
                 <td>{(row.type?.control ?? []).join(', ') || '—'}</td><td>{price(row, ru)}</td><td>{sourceOf(row.type, ru)}</td>
-            </tr>)}</tbody></table>
-            {rows.some((row) => row.type?.price?.rub > 0) ? <p className="report-hint">{ru ? 'Итого по известным ценам' : 'Total of known prices'}: {Math.round(rows.reduce((sum, row) => sum + (Number(row.type?.price?.rub) || 0) * row.labels.length, 0)).toLocaleString(ru ? 'ru-RU' : 'en-GB')} ₽{rows.some((row) => !(row.type?.price?.rub > 0)) ? (ru ? ' — у изделий без цены (Flos — по запросу у дилера) её нет в сумме.' : ' — items without a price (Flos is priced by dealers) are not included.') : '.'}</p> : null}
+            </tr>)}</React.Fragment>)}</tbody></table>
+            <p className="report-hint">{ru ? 'Всего' : 'Total'}: {schedule.totals.count} {ru ? 'шт.' : 'pcs'}, {schedule.totals.types} {ru ? 'типов' : 'types'}, {Math.round(schedule.totals.watts)} {ru ? 'Вт' : 'W'}.{schedule.totals.sum ? ` ${ru ? 'По известным ценам' : 'Known prices'}: ${Math.round(schedule.totals.sum).toLocaleString(ru ? 'ru-RU' : 'en-GB')} ₽${schedule.totals.unpriced ? (ru ? ` — ${schedule.totals.unpriced} шт. без цены (Flos — по запросу у дилера) в сумму не вошли.` : ` — ${schedule.totals.unpriced} pcs without a price (Flos is priced by dealers) are not included.`) : '.'}` : ''}</p>
         </section>
         <section className="report-block">
             <h3>{ru ? 'Питание — предварительная схема' : 'Power — preliminary scheme'}</h3>
@@ -53,7 +57,7 @@ export function LightingReportBlocks({ report, ru }) {
                     <td>{circuit.section}</td><td>{circuit.breaker.curve}{circuit.breaker.amps}{circuit.perBreaker === 'unknown' ? (ru ? ' · пусковые — по паспорту драйвера' : ' · inrush — check driver datasheet') : circuit.perBreaker === 'over' ? (ru ? ' · больше, чем допускает паспорт' : ' · over the datasheet limit') : ''}</td>
                     <td>{circuit.dropPct.toFixed(1)}</td>
                 </tr>)}</tbody></table> : <p className="report-hint">{ru ? 'Цепей ещё нет.' : 'No circuits yet.'}</p>}
-                {schedule ? <p>{ru ? 'Траншеи' : 'Trenches'}: {Math.round(network.totals.trenchLength * 10) / 10} {ru ? 'м' : 'm'}{schedule.trenches.length ? ` (${schedule.trenches.map((row) => `${ru ? row.ru : row.en} ${row.length}`).join(', ')})` : ''}. {schedule.cables.map((row) => `${ru ? 'Кабель' : 'Cable'} ${row.section} ${ru ? 'мм²' : 'mm²'} — ${row.length} ${ru ? 'м' : 'm'}`).join('; ')}.</p> : null}
+                {cables ? <p>{ru ? 'Траншеи' : 'Trenches'}: {Math.round(network.totals.trenchLength * 10) / 10} {ru ? 'м' : 'm'}{cables.trenches.length ? ` (${cables.trenches.map((row) => `${ru ? row.ru : row.en} ${row.length}`).join(', ')})` : ''}. {cables.cables.map((row) => `${ru ? 'Кабель' : 'Cable'} ${row.section} ${ru ? 'мм²' : 'mm²'} — ${row.length} ${ru ? 'м' : 'm'}`).join('; ')}.</p> : null}
                 {network.conflicts.length ? <ul>{network.conflicts.map((conflict, index) => <li key={index}>{ru ? conflict.ru : conflict.en}</li>)}</ul> : null}
             </>}
             <p className="report-hint">{ru

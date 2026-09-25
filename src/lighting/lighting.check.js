@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import { BUILTIN_LUMINAIRES } from './types.js';
 import { aimAt, beamAxis, normalizeLightingSettings } from './settings.js';
-import { fixtureLabels, fixturePose, gardenLights } from './fixtures.js';
+import { fixtureLabels, fixturePose, gardenLights, luminaireSchedule } from './fixtures.js';
 import { packLightField, shadeReference } from './lightField.js';
 import { illuminance } from './photometry.js';
 import { typePhotometry } from './fixtures.js';
@@ -133,6 +133,15 @@ assert.ok(Math.abs(fieldLux - direct) / direct < 0.12, `поле ≈ паспо�
 
 const labels = fixtureLabels(settings.lightingFixtures, types);
 assert.deepEqual([...labels.values()], ['Б-1', 'Г-1', 'Н-1', 'Б-2']);
+
+// Спецификация: виды в порядке библиотеки, штуки и мощность по типу, цена —
+// только известная; тип, которого нет в библиотеке, — в конце, без вида.
+const priced = new Map([...types, ['cs-test', { ...types.get('bollard-80'), id: 'cs-test', price: { rub: 1000 } }]]);
+const schedule = luminaireSchedule([...settings.lightingFixtures, { id: 'x', type: 'cs-test' }, { id: 'y', type: 'gone' }], priced, new Map([...labels, ['x', 'Б-3'], ['y', 'Л-1']]));
+assert.deepEqual(schedule.groups.map((group) => group.kind?.id ?? null), ['bollard', 'inground', 'wall', null]);
+assert.deepEqual(schedule.groups[0].rows.map((row) => [row.id, row.count, row.labels.join()]), [['bollard-80', 2, 'Б-1,Б-2'], ['cs-test', 1, 'Б-3']]);
+assert.equal(schedule.groups[0].count, 3);
+assert.deepEqual(schedule.totals, { count: 6, types: 5, watts: 8 * 2 + 12 + 7 + 8, lumens: 450 * 2 + 900 + 450 + 450, sum: 1000, unpriced: 5 });
 
 // Сетка участка из модели: пол газоном и мощением, стена здания, низкая
 // стенка, цветник, корни у дерева.

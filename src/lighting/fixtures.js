@@ -117,9 +117,18 @@ export function gardenLights(fixtures, types) {
     return { lights, profiles, rows: Math.max(1, rows.size), poses };
 }
 
-// Номера на плане и в ведомости: буква вида и порядковый номер внутри вида
-// (Б-1, Б-2, Г-1…), по порядку расстановки.
-const LETTERS = { bollard: ['Б', 'B'], spike: ['П', 'S'], inground: ['Г', 'G'], wall: ['Н', 'W'], step: ['С', 'T'], post: ['Ф', 'P'] };
+// Виды светильников — по форме корпуса: так их узнаёт глаз, так они
+// разложены в библиотеке и идут в спецификации. Буква — начало номера на
+// плане и в ведомости (Б-1, Б-2, Г-1…), по порядку расстановки.
+export const LUMINAIRE_KINDS = Object.freeze([
+    { id: 'bollard', ru: 'Болларды', en: 'Bollards', letter: ['Б', 'B'] },
+    { id: 'inground', ru: 'Грунтовые', en: 'In-ground', letter: ['Г', 'G'] },
+    { id: 'spike', ru: 'На пике', en: 'Spike spots', letter: ['П', 'S'] },
+    { id: 'wall', ru: 'Настенные', en: 'Wall lights', letter: ['Н', 'W'] },
+    { id: 'step', ru: 'Для ступеней', en: 'Step lights', letter: ['С', 'T'] },
+    { id: 'post', ru: 'Фонари', en: 'Posts', letter: ['Ф', 'P'] },
+]);
+const LETTERS = Object.fromEntries(LUMINAIRE_KINDS.map((kind) => [kind.id, kind.letter]));
 export function fixtureLabels(fixtures, types, ru = true) {
     const counts = new Map(), labels = new Map();
     for (const fixture of fixtures) {
@@ -129,4 +138,36 @@ export function fixtureLabels(fixtures, types, ru = true) {
         labels.set(fixture.id, `${letter}-${counts.get(letter)}`);
     }
     return labels;
+}
+
+// Спецификация: строка на тип — номера, штуки, мощность и световой поток
+// всех штук, цена за штуку и за строку; строки — по видам, в порядке
+// LUMINAIRE_KINDS, тип без записи в библиотеке — в конце. Цена — только
+// известная (Flos — у дилера): итог говорит, сколько штук без цены.
+export function luminaireSchedule(fixtures, types, labels) {
+    const byType = new Map();
+    for (const fixture of fixtures) {
+        if (!byType.has(fixture.type)) byType.set(fixture.type, { id: fixture.type, type: types.get(fixture.type) ?? null, labels: [] });
+        byType.get(fixture.type).labels.push(labels.get(fixture.id));
+    }
+    const rows = [...byType.values()].map((row) => {
+        const count = row.labels.length, rub = Number(row.type?.price?.rub);
+        return {
+            ...row, kind: row.type?.housing?.shape ?? null, count,
+            watts: (Number(row.type?.power?.watts) || 0) * count, lumens: (Number(row.type?.optics?.lumens) || 0) * count,
+            price: rub > 0 ? rub : null, sum: rub > 0 ? rub * count : null,
+        };
+    });
+    const groups = [...LUMINAIRE_KINDS, null].map((kind) => ({ kind, rows: rows.filter((row) => (kind ? row.kind === kind.id : !LETTERS[row.kind])) }))
+        .filter((group) => group.rows.length)
+        .map((group) => ({ ...group, count: group.rows.reduce((sum, row) => sum + row.count, 0) }));
+    const all = groups.flatMap((group) => group.rows);
+    return {
+        rows: all, groups,
+        totals: {
+            count: fixtures.length, types: all.length,
+            watts: all.reduce((sum, row) => sum + row.watts, 0), lumens: all.reduce((sum, row) => sum + row.lumens, 0),
+            sum: all.reduce((sum, row) => sum + (row.sum ?? 0), 0), unpriced: all.reduce((sum, row) => sum + (row.price ? 0 : row.count), 0),
+        },
+    };
 }

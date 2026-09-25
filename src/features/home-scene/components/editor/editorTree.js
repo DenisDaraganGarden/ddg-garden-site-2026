@@ -149,7 +149,8 @@ export const EDITOR_TREE = [
     {
         id: 'lighting',
         nodes: [
-            { id: 'luminaires', aspects: [{ id: 'fixtures', Section: LightingSection }] },
+            // workspace: рабочее место, как «Посадки» (библиотека, спецификация).
+            { id: 'luminaires', workspace: true, aspects: [{ id: 'fixtures', Section: LightingSection }] },
             { id: 'power', aspects: [{ id: 'power', Section: LightingPowerSection }] },
         ],
     },
