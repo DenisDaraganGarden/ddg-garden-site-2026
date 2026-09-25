@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { useThree } from '@react-three/fiber';
 import { buildSkyLut } from '../sky/skyModel.js';
+import { useRendererContextRevision } from '../useRendererContextRevision.js';
 
 // The bridge between the sky model and three: one detailed equirectangular
 // texture, and one pre-filtered environment map built from a smaller copy of
@@ -172,6 +173,7 @@ export function useSkyEnvironment(state, {
   tint = [1, 1, 1],
 } = {}) {
   const { gl, invalidate } = useThree();
+  const contextRevision = useRendererContextRevision(gl);
   // State, not a ref: the texture is built in an effect, so a ref would leave
   // every consumer that reads it during render holding the null from the first
   // pass forever. That is exactly what kept the sky dome from ever mounting -
@@ -423,7 +425,7 @@ export function useSkyEnvironment(state, {
     invalidate(2);
 
     return undefined;
-  }, [enabled, gl, height, invalidate, lut, lutRequest.tintKey, width]);
+  }, [enabled, gl, height, invalidate, lut, lutRequest.tintKey, width, contextRevision]);
 
   // The Environment owner switches to the new PMREM during the layout phase of
   // this render. Dispose old targets only afterwards, never while the scene may

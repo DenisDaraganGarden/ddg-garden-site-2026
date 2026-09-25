@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { applyRenderBudget, createGpuFrameTimer, createRenderBudgetController, RENDER_BUDGET } from './renderBudget.js';
+import { rendererContextRevision, useRendererContextRevision } from './useRendererContextRevision.js';
 
 export function useRenderBudget({ baseProfile, enabled, postEnabled }) {
   const { gl } = useThree();
+  const contextRevision = useRendererContextRevision(gl);
   const measureEnabled = enabled || import.meta.env.DEV;
   const controllerRef = useRef(createRenderBudgetController());
   const timerRef = useRef(null);
@@ -11,14 +13,19 @@ export function useRenderBudget({ baseProfile, enabled, postEnabled }) {
   const [level, setLevel] = useState(0);
 
   useEffect(() => {
-    timerRef.current = createGpuFrameTimer(gl);
-    return () => timerRef.current?.dispose();
-  }, [gl]);
+    const timer = createGpuFrameTimer(gl);
+    timerRef.current = timer;
+    return () => {
+      // Query handles from a lost context cannot be polled or reused.
+      timer?.dispose({ contextLost: rendererContextRevision(gl) !== contextRevision });
+      if (timerRef.current === timer) timerRef.current = null;
+    };
+  }, [gl, contextRevision]);
 
   useEffect(() => {
     controllerRef.current.reset();
     setLevel(0);
-  }, [enabled, baseProfile]);
+  }, [enabled, baseProfile, contextRevision]);
 
   useEffect(() => {
     if (!measureEnabled) delete gl.domElement.dataset.ddgRenderBudget;

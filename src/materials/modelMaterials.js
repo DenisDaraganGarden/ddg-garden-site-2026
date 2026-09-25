@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { glassDefaults, looksLikeGlass, tuneGlass, unmakeGlass } from './glass.js';
+import { createSharedTextureCache } from './sharedTextureCache.js';
 
 // Материал модели SketchUp → материал библиотеки: цвет, нормали, матовость,
 // затенение щелей. Раскладка текстуры — та, что Денис задал в SketchUp: его
@@ -111,7 +112,17 @@ const loadTexture = (url, color) => new Promise((resolve, reject) => {
 
 // Карты материала библиотеки — [[ключ материала three, текстура], …]: их же
 // показывает лаборатория «Материалы».
-export const loadLibraryMaps = (id) => Promise.all(Object.entries(MAPS).map(([key, [file, color]]) => loadTexture(libraryFile(id, file), color).then((texture) => [key, texture])));
+const loadSharedTexture = createSharedTextureCache(loadTexture);
+export async function loadLibraryMaps(id) {
+    const results = await Promise.allSettled(Object.entries(MAPS).map(async ([key, [file, color]]) => [key, await loadSharedTexture(libraryFile(id, file), color)]));
+    const failed = results.find((result) => result.status === 'rejected');
+    const loaded = results.filter((result) => result.status === 'fulfilled').map((result) => result.value);
+    if (failed) {
+        loaded.forEach(([, texture]) => texture.dispose());
+        throw failed.reason;
+    }
+    return loaded;
+}
 
 function remember(material) {
     if (material.userData.original) return material.userData.original;
@@ -260,8 +271,25 @@ function unsplit(mesh) {
     delete mesh.userData.faceSplit;
 }
 function disposeRuled(material) {
+    material.userData.disposed = true;
     for (const texture of material.userData.loaded ?? []) texture.dispose();
+    material.userData.loaded = [];
     material.dispose();
+}
+
+// Only release derivatives owned by this instance. GLTF source geometry and
+// maps are shared by all copies of the imported model and must stay alive.
+export function disposeModelMaterials(prepared) {
+    prepared.root.traverse((mesh) => {
+        if (!mesh.isMesh) return;
+        unsplit(mesh);
+        layOutBack(mesh);
+    });
+    for (const material of prepared.materials) {
+        material.userData.faceRules?.materials.forEach(disposeRuled);
+        delete material.userData.faceRules;
+        restore(material);
+    }
 }
 
 // Подмены материалов одной модели. Возвращает отмену: пока текстуры грузятся,

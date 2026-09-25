@@ -107,9 +107,10 @@ void main() {
 }`;
 
 const tiles = new WeakMap();
-export function bakeLawnTile(renderer) {
-    if (tiles.has(renderer)) return tiles.get(renderer);
-    const target = new THREE.WebGLRenderTarget(LAWN_TILE_PX, LAWN_TILE_PX, {
+export function bakeLawnTile(renderer, revision = 0) {
+    const cached = tiles.get(renderer);
+    if (cached?.revision === revision) return cached.target;
+    const target = cached?.target ?? new THREE.WebGLRenderTarget(LAWN_TILE_PX, LAWN_TILE_PX, {
         type: THREE.HalfFloatType, generateMipmaps: true, minFilter: THREE.LinearMipmapLinearFilter, magFilter: THREE.LinearFilter,
         wrapS: THREE.RepeatWrapping, wrapT: THREE.RepeatWrapping, depthBuffer: false,
     });
@@ -121,14 +122,17 @@ export function bakeLawnTile(renderer) {
     const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
     const previous = renderer.getRenderTarget();
     const xr = renderer.xr.enabled;
-    renderer.xr.enabled = false;
-    renderer.setRenderTarget(target);
-    renderer.render(scene, camera);
-    renderer.setRenderTarget(previous);
-    renderer.xr.enabled = xr;
-    quad.geometry.dispose();
-    material.dispose();
-    tiles.set(renderer, target);
+    try {
+        renderer.xr.enabled = false;
+        renderer.setRenderTarget(target);
+        renderer.render(scene, camera);
+    } finally {
+        renderer.setRenderTarget(previous);
+        renderer.xr.enabled = xr;
+        quad.geometry.dispose();
+        material.dispose();
+    }
+    tiles.set(renderer, { target, revision });
     return target;
 }
 

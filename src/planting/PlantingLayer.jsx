@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { plantingInstances } from './fillBed.js';
 import { bakeGroundTiles, bedGroundGeometry, GROUND_LIFT, groundSeason, makeGroundMaterial, plantGroundMaps, plantMapTextures } from './bedGround.js';
 import { bakeLawnTile, makeLawnMaterial, setLawnUniforms } from './lawnGround.js';
+import { useRendererContextRevision } from '../components/effects/useRendererContextRevision.js';
 import { plantCardUrl, plantSeasonUrl, useBedFills, usePlantLibrary } from './plantLibrary.js';
 import { seasonImage, seasonLook } from './season.js';
 import VineLayer from './VineLayer.jsx';
@@ -357,12 +358,13 @@ const layerLift = (index) => GROUND_LIFT + index * 0.0005;
 
 function BedGround({ bed, fill, library, month, lift }) {
     const gl = useThree((state) => state.gl);
+    const contextRevision = useRendererContextRevision(gl);
     const invalidate = useThree((state) => state.invalidate);
     const shapeKey = JSON.stringify([bed.points, bed.holes ?? null, bed.ground ?? null, bed.y, lift]);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- форма цветника по значению
     const geometry = useMemo(() => bedGroundGeometry(bed, lift), [shapeKey]);
     useEffect(() => () => geometry.dispose(), [geometry]);
-    const ground = useMemo(() => makeGroundMaterial(bakeGroundTiles(gl)), [gl]);
+    const ground = useMemo(() => makeGroundMaterial(bakeGroundTiles(gl, 1024, contextRevision)), [gl, contextRevision]);
     useEffect(() => () => ground.material.dispose(), [ground]);
     const maps = useMemo(() => plantGroundMaps(bed, fill ?? [], library, month), [bed, fill, library, month]);
     const textures = useRef(null);
@@ -385,12 +387,13 @@ function BedGround({ bed, fill, library, month, lift }) {
 // цвет месяца; опад и тень — от деревьев и кустов, посаженных поштучно.
 function LawnGround({ bed, points, library, month, hour, keyDirection, lift }) {
     const gl = useThree((state) => state.gl);
+    const contextRevision = useRendererContextRevision(gl);
     const invalidate = useThree((state) => state.invalidate);
     const shapeKey = JSON.stringify([bed.points, bed.holes ?? null, bed.ground ?? null, bed.y, lift]);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- форма газона по значению
     const geometry = useMemo(() => bedGroundGeometry(bed, lift), [shapeKey]);
     useEffect(() => () => geometry.dispose(), [geometry]);
-    const lawn = useMemo(() => makeLawnMaterial(bakeLawnTile(gl), bakeGroundTiles(gl).litter), [gl]);
+    const lawn = useMemo(() => makeLawnMaterial(bakeLawnTile(gl, contextRevision), bakeGroundTiles(gl, 1024, contextRevision).litter), [gl, contextRevision]);
     useEffect(() => () => lawn.material.dispose(), [lawn]);
     const maps = useMemo(() => plantGroundMaps(bed, points, library, month), [bed, points, library, month]);
     const textures = useRef(null);

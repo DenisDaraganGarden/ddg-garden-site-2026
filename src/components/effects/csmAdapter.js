@@ -1,6 +1,7 @@
 import { CSM } from 'three/addons/csm/CSM.js';
 import { CSMShader } from 'three/addons/csm/CSMShader.js';
 import { resolveDirectionalShadowContact } from './shadowContactContract.js';
+import { fitCsmDepthBounds } from './csmDepthBounds.js';
 import {
   applyCloudShadowShader,
   createCloudShadowUniforms,
@@ -197,11 +198,11 @@ export function createCsmAdapter({
     const nextKey = makeFrustumKey(camera, current);
     if (!force && nextKey === frustumKey) return;
     csm.maxFar = current.maxFar;
+    csm.shadowMapSize = current.shadowMapSize;
     csm.mode = 'custom';
     csm.customSplitsCallback = makeSplitCallback(current.nearDistance);
     csm.lights.forEach((light) => {
       light.shadow.mapSize.set(current.shadowMapSize, current.shadowMapSize);
-      light.shadow.camera.far = current.maxFar + 80;
     });
     csm.updateFrustums();
     frustumKey = nextKey;
@@ -241,6 +242,10 @@ export function createCsmAdapter({
       refreshFrustums();
       csm.lights.forEach((light) => { light.visible = true; });
       csm.update();
+      fitCsmDepthBounds(csm);
+      // Contact offsets are physical lengths: re-normalize for the fitted
+      // depth span, rather than changing their appearance with the camera.
+      applyLightParameters();
       if (cloudShadowRef) {
         materials.forEach((previous) => updateCloudShadowUniforms(previous.cloudShadowUniforms, cloudShadowRef.current));
       }

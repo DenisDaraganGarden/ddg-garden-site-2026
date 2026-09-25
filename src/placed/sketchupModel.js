@@ -81,14 +81,16 @@ const windMaterial = (material, made) => {
     }
     return made.get(material);
 };
-function windCard(mesh, shared, made) {
+function windCard(mesh, geometries, made) {
     if (mesh.userData.windCard) return;
     mesh.userData.windCard = true;
     const box = new THREE.Box3().setFromObject(mesh), point = new THREE.Vector3();
     const height = box.max.y - box.min.y;
     if (!(height > 0.1)) return;
-    if (shared.has(mesh.geometry)) mesh.geometry = mesh.geometry.clone();
-    shared.add(mesh.geometry);
+    // Even the first card shares its source with the cached GLTF and other
+    // placed instances. Never add per-instance wind attributes to that source.
+    mesh.geometry = mesh.geometry.clone();
+    geometries.add(mesh.geometry);
     const position = mesh.geometry.attributes.position, data = new Float32Array(position.count * 4);
     const x = (box.min.x + box.max.x) / 2, z = (box.min.z + box.max.z) / 2;
     for (let i = 0; i < position.count; i += 1) {
@@ -110,13 +112,15 @@ function windCard(mesh, shared, made) {
 // plan: a flat see-through disc at crown height. In a perspective view it is
 // a beige plate over the tree, or a band across the frame at eye level; it is
 // marked here (userData.crownPlan) for the model's own switch.
+const faceCameras = new WeakMap();
 export function makeFaceCamera(root) {
+    if (faceCameras.has(root)) return faceCameras.get(root);
     const state = { on: false };
     const cards = [];
     let crowns = 0;
     root.updateWorldMatrix(true, true);
     const box = new THREE.Box3(), size = new THREE.Vector3();
-    const shared = new Set(), made = new Map();
+    const geometries = new Set(), made = new Map();
     root.traverse((node) => {
         if (!node.userData.faceCamera) return;
         node.traverse((mesh) => {
@@ -134,21 +138,27 @@ export function makeFaceCamera(root) {
             };
             cards.push(mesh);
         });
-        node.traverse((mesh) => { if (mesh.userData.faceNormal) windCard(mesh, shared, made); });
+        node.traverse((mesh) => { if (mesh.userData.faceNormal) windCard(mesh, geometries, made); });
         node.parent?.traverse((mesh) => {
             if (!mesh.isMesh || mesh.userData.faceNormal || mesh.userData.crownPlan || !mesh.material?.transparent) return;
             box.setFromObject(mesh).getSize(size);
             if (size.y < 0.05 && Math.max(size.x, size.z) > 0.3) { mesh.userData.crownPlan = true; crowns += 1; }
         });
     });
-    return {
+    const controller = {
         count: cards.length,
         crowns,
         set(on) {
             state.on = on;
             for (const mesh of cards) mesh.receiveShadow = !on;
         },
+        dispose() {
+            geometries.forEach((geometry) => geometry.dispose());
+            made.forEach((material) => material.dispose());
+        },
     };
+    faceCameras.set(root, controller);
+    return controller;
 }
 
 // Parts: the model's own top level is where its components sit, under the

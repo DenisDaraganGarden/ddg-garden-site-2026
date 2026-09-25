@@ -296,10 +296,11 @@ void main() {
 const tiles = new WeakMap();
 // Плитки грунта и опада: HalfFloat (тёмная земля в 8 битах шла бы ступенями),
 // с мипмапами и повтором.
-export function bakeGroundTiles(renderer, size = 1024) {
-    if (tiles.has(renderer)) return tiles.get(renderer);
-    const make = (fragmentShader) => {
-        const target = new THREE.WebGLRenderTarget(size, size, {
+export function bakeGroundTiles(renderer, size = 1024, revision = 0) {
+    const cached = tiles.get(renderer);
+    if (cached?.revision === revision) return cached.baked;
+    const make = (fragmentShader, previousTarget) => {
+        const target = previousTarget ?? new THREE.WebGLRenderTarget(size, size, {
             type: THREE.HalfFloatType, generateMipmaps: true, minFilter: THREE.LinearMipmapLinearFilter, magFilter: THREE.LinearFilter,
             wrapS: THREE.RepeatWrapping, wrapT: THREE.RepeatWrapping, depthBuffer: false,
         });
@@ -311,17 +312,20 @@ export function bakeGroundTiles(renderer, size = 1024) {
         const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
         const previous = renderer.getRenderTarget();
         const xr = renderer.xr.enabled;
-        renderer.xr.enabled = false;
-        renderer.setRenderTarget(target);
-        renderer.render(scene, camera);
-        renderer.setRenderTarget(previous);
-        renderer.xr.enabled = xr;
-        quad.geometry.dispose();
-        material.dispose();
+        try {
+            renderer.xr.enabled = false;
+            renderer.setRenderTarget(target);
+            renderer.render(scene, camera);
+        } finally {
+            renderer.setRenderTarget(previous);
+            renderer.xr.enabled = xr;
+            quad.geometry.dispose();
+            material.dispose();
+        }
         return target;
     };
-    const baked = { ground: make(MULCH_FRAGMENT), litter: make(LITTER_FRAGMENT) };
-    tiles.set(renderer, baked);
+    const baked = { ground: make(MULCH_FRAGMENT, cached?.baked.ground), litter: make(LITTER_FRAGMENT, cached?.baked.litter) };
+    tiles.set(renderer, { baked, revision });
     return baked;
 }
 

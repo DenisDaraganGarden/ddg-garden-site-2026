@@ -98,12 +98,15 @@ export function createCloudGpuTimer(renderer) {
       return milliseconds;
     },
 
-    dispose() {
+    dispose({ contextLost = false } = {}) {
       if (disposed) return;
       disposed = true;
-      if (gl && query) {
+      if (gl && query && !contextLost) {
         try {
-          if (gl.isContextLost?.() !== true) gl.deleteQuery(query);
+          if (gl.isContextLost?.() !== true) {
+            if (begun) gl.endQuery(extension.TIME_ELAPSED_EXT);
+            gl.deleteQuery(query);
+          }
         } catch {
           // A lost WebGL context has already released its query objects.
         }

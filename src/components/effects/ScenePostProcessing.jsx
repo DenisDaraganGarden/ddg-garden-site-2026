@@ -488,6 +488,20 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
   useEffect(() => () => { contactAo.depthTarget.dispose(); contactAo.aoTarget.dispose(); contactAoScene.children[0]?.geometry?.dispose(); contactAoMaterial.dispose(); }, [contactAo, contactAoMaterial, contactAoScene]);
 
   useEffect(() => {
+    if (enabled && postProcessingSupported) return undefined;
+    // Brief toggles can reuse allocations. A disabled pipeline must not keep
+    // a viewport-sized HDR/MSAA/AO buffer indefinitely, even while paused.
+    const release = setTimeout(() => {
+      renderTarget.setSize(1, 1);
+      bloomTargets.forEach((target) => target.setSize(1, 1));
+      contactAo.depthTarget.setSize(1, 1);
+      contactAo.aoTarget.setSize(1, 1);
+      lastTargetSize.current.set(0, 0);
+    }, 500);
+    return () => clearTimeout(release);
+  }, [enabled, postProcessingSupported, renderTarget, bloomTargets, contactAo]);
+
+  useEffect(() => {
     gl.domElement.dataset.ddgPostSamples = String(renderTarget.samples);
     gl.domElement.dataset.ddgEffectiveAa = renderTarget.samples > 0
       ? `msaa-${renderTarget.samples}`

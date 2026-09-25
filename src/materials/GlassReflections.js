@@ -3,6 +3,7 @@ import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { NO_REFLECTION_LAYER } from '../components/effects/water/SceneLightObjects';
 import { setGlassProbe } from './glass.js';
+import { useRendererContextRevision } from '../components/effects/useRendererContextRevision.js';
 
 // Отражения в стёклах моделей: сцена, снятая в куб с места камеры. Стекло
 // отражает то, что вокруг смотрящего, — сад за спиной, деревья, соседей, небо
@@ -89,6 +90,7 @@ function snapshot(gl, scene, camera, placed, probe) {
 // любая правка — повод переснять, когда она закончится.
 export function useGlassReflections(placed, settings) {
     const gl = useThree((state) => state.gl);
+    const contextRevision = useRendererContextRevision(gl);
     const scene = useThree((state) => state.scene);
     const camera = useThree((state) => state.camera);
     const invalidate = useThree((state) => state.invalidate);
@@ -105,6 +107,12 @@ export function useGlassReflections(placed, settings) {
     };
     useEffect(() => { probe.settleAt = at('settle', SETTLE)[0]; }, [probe, settings]); // eslint-disable-line react-hooks/exhaustive-deps -- at только ставит таймер
     useEffect(() => { probe.loadAt = at('load', AFTER_LOAD); }, [probe]); // eslint-disable-line react-hooks/exhaustive-deps -- at только ставит таймер
+    useEffect(() => {
+        if (contextRevision === 0) return;
+        // The cube allocation survives on the JS side, its pixels do not.
+        probe.settleAt = -Infinity;
+        invalidate();
+    }, [contextRevision, invalidate, probe]);
 
     useFrame(() => {
         const now = performance.now();

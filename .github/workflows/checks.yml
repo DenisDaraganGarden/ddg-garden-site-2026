@@ -44,6 +44,9 @@ jobs:
       - name: Check the sky model
         run: npm run check:sky
 
+      - name: Check GPU resource lifetime and shadow coverage
+        run: npm run check:render-resources
+
       - name: Install Chromium for Playwright
         run: npx playwright install --with-deps chromium
 

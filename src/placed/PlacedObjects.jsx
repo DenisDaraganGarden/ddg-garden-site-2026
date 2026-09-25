@@ -8,7 +8,7 @@ import { waterlineCircles, waterlineCrossings } from './waterline.js';
 import { setSolid, solidHeightfield } from './solidSurface.js';
 import { PLACED_TRANSFORM_DEFAULT } from './settings.js';
 import { applyHidden, findPart, isolation, makeFaceCamera, registerSketchupModel, selectedNodes, tagNodes } from './sketchupModel.js';
-import { applyModelMaterials } from '../materials/modelMaterials.js';
+import { applyModelMaterials, disposeModelMaterials } from '../materials/modelMaterials.js';
 import { useGlassReflections } from '../materials/GlassReflections.js';
 import { makeCoastTree } from '../plants/treeModel.js';
 import { TREE_SPECIES } from '../plants/treeSpecies.js';
@@ -275,12 +275,17 @@ function PlacedModel({ object, url, selected, sketchup, selectedParts = [], open
     const prepared = useMemo(() => (gltf ? prepareModel(gltf.scene, lit, originKey ? object.origin : null) : null), [gltf, lit, originKey]); // eslint-disable-line react-hooks/exhaustive-deps -- origin by value
     const group = useRef();
     const invalidate = useThree((state) => state.invalidate);
-    useEffect(() => () => prepared?.materials.forEach((material) => material.dispose()), [prepared]);
     useEffect(() => { prepared?.materials.forEach((material) => { material.userData.placedWet.z = object.wet ? 1 : 0; }); }, [prepared, object.wet]);
     // A SketchUp model: its 2D plants turn to the camera, its hidden parts are
     // gone for the eye and the click, and the editor's panel can read it.
     const isSketchup = Boolean(sketchup);
     const cards = useMemo(() => (prepared && isSketchup ? makeFaceCamera(prepared.root) : null), [prepared, isSketchup]);
+    useEffect(() => () => {
+        if (!prepared) return;
+        disposeModelMaterials(prepared);
+        cards?.dispose();
+        prepared.materials.forEach((material) => material.dispose());
+    }, [prepared, cards]);
     const faceCamera = sketchup?.faceCamera ?? false;
     useEffect(() => { cards?.set(faceCamera); invalidate(); }, [cards, faceCamera, invalidate]);
     // Удалённые части — как скрытые: их нет ни для глаза, ни для щелчка.

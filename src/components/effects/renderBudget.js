@@ -164,6 +164,7 @@ export function createGpuFrameTimer(gl) {
 
   return {
     begin() {
+      if (context.isContextLost?.()) return;
       availableMs = poll() ?? availableMs;
       if (active || pending.length >= 4) return;
       active = context.createQuery();
@@ -171,6 +172,7 @@ export function createGpuFrameTimer(gl) {
       context.beginQuery(extension.TIME_ELAPSED_EXT, active);
     },
     end() {
+      if (context.isContextLost?.()) return null;
       if (active) {
         context.endQuery(extension.TIME_ELAPSED_EXT);
         pending.push(active);
@@ -180,10 +182,17 @@ export function createGpuFrameTimer(gl) {
       availableMs = null;
       return completedMs;
     },
-    dispose() {
-      if (active) context.deleteQuery(active);
+    dispose({ contextLost = false } = {}) {
+      if (!contextLost && !context.isContextLost?.()) {
+        if (active) {
+          context.endQuery(extension.TIME_ELAPSED_EXT);
+          context.deleteQuery(active);
+        }
+        pending.forEach((query) => context.deleteQuery(query));
+      }
       active = null;
-      pending.splice(0).forEach((query) => context.deleteQuery(query));
+      pending.length = 0;
+      availableMs = null;
     },
   };
 }

@@ -8,6 +8,7 @@ import { createCloudGpuTimer } from './gpuCloudTimer';
 import { getRenderTargetCapabilities } from '../../renderTargetCapabilities';
 import LightningBolt from './LightningBolt';
 import { advanceLightning, createLightningState, takeThunder } from './lightning';
+import { rendererContextRevision, useRendererContextRevision } from '../../useRendererContextRevision.js';
 
 const EXTENT = 24000;
 const PROFILE = {
@@ -150,6 +151,7 @@ function pickStrikeTarget(rng,noise,u,camera) {
 
 function CloudRuntime({noise,settings,lighting,onStats,onShadow,paused,bakeMs,motion,product=false,visible=true,discVisible=true,sunPower=1,environmentEnabled=false,onStrike,strikeRequest=0}) {
   const {gl,camera,size,invalidate}=useThree();
+  const contextRevision=useRendererContextRevision(gl);
   const lightning=useMemo(()=>createLightningState(settings.seed),[settings.seed]);
   const bolt=useRef(null),handledStrike=useRef(0);
   // "Strike now" also works while paused: the forced strike advances the storm
@@ -161,10 +163,10 @@ function CloudRuntime({noise,settings,lighting,onStats,onShadow,paused,bakeMs,mo
   const supportsHdr=useMemo(()=>getRenderTargetCapabilities(gl).post.halfFloatDepthStencil,[gl]);
   const colorType=supportsHdr?THREE.HalfFloatType:THREE.UnsignedByteType;
   const resources=useMemo(()=>createResources(noise,profile,product,colorType),[noise,profile,product,colorType]);
-  const timer=useMemo(()=>createCloudGpuTimer(gl),[gl]);
+  const timer=useMemo(()=>createCloudGpuTimer(gl),[gl,contextRevision]); // eslint-disable-line react-hooks/exhaustive-deps -- GPU queries belong to one context generation
   const pmrem=useMemo(()=>product && supportsHdr ? new THREE.PMREMGenerator(gl) : null,[gl,product,supportsHdr]);
   const state=useRef({lastBake:-1,lastEnvironment:-100,frames:0,report:0,viewport:new THREE.Vector4(),scissor:new THREE.Vector4()});
-  useEffect(()=>()=>timer.dispose(),[timer]);
+  useEffect(()=>()=>timer.dispose({contextLost:rendererContextRevision(gl)!==contextRevision}),[gl,timer,contextRevision]);
   useEffect(()=>()=>pmrem?.dispose(),[pmrem]);
   useEffect(()=>()=>resources.descriptor.environmentTarget?.dispose(),[resources]);
   useEffect(()=>()=>{for(const key of ['ddgClouds','cloudWind','cloudResolution','ddgLightning','ddgStorm'])delete gl.domElement.dataset[key];},[gl]);
@@ -240,7 +242,10 @@ function CloudRuntime({noise,settings,lighting,onStats,onShadow,paused,bakeMs,mo
     // Recenter only on large camera excursions, on the same frame as the map.
     // Ordinary scene motion keeps stable world texels and does not swim shadows.
     const moved=Math.hypot(camera.position.x-u.uOrigin.value.x,camera.position.z-u.uOrigin.value.y)>EXTENT*.18;
-    const changed=s.settings!==settings||s.lighting!==lighting||s.visible!==visible||s.sunPower!==sunPower||s.environmentEnabled!==environmentEnabled;
+    // Cached GPU pixels disappear on context loss, even if the weather clock
+    // is paused. Refill the shadow, sky atlas and PMREM before the next draw.
+    const contextChanged=s.contextRevision!==contextRevision;
+    const changed=contextChanged||s.settings!==settings||s.lighting!==lighting||s.visible!==visible||s.sunPower!==sunPower||s.environmentEnabled!==environmentEnabled;
     timer.poll();
     // The shadow map has no flash term and keeps its own cadence. A live stroke
     // re-bakes only the atlas every frame, so the water sees the flash rather
@@ -270,13 +275,14 @@ function CloudRuntime({noise,settings,lighting,onStats,onShadow,paused,bakeMs,mo
           s.offscreenCalls++;
           // A small cached PMREM follows weather slowly. Reuse its target and
           // never push generated pixels back to the CPU or into authored state.
-          if(pmrem&&environmentEnabled&&(!d.environment||((changed||m.elapsed-s.lastEnvironment>4)&&!flashing))){
+          if(pmrem&&environmentEnabled&&(!d.environment||contextChanged||((changed||m.elapsed-s.lastEnvironment>4)&&!flashing))){
             d.environmentTarget=pmrem.fromEquirectangular(resources.atlasTarget.texture,d.environmentTarget??null);
             d.environment=d.environmentTarget.texture;
             s.lastEnvironment=m.elapsed;
           }
         }
         d.enabled=settings.enabled;
+        s.contextRevision=contextRevision;
       });
     }
     gl.domElement.dataset.cloudWind=`${m.offset.x.toFixed(2)},${m.offset.y.toFixed(2)}`;
