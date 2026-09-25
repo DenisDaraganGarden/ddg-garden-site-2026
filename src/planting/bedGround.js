@@ -448,6 +448,7 @@ export function makeGroundMaterial(baked) {
             .replace('#include <normal_fragment_maps>', GROUND_NORMAL_FRAGMENT)
             .replace('#include <aomap_fragment>', '#include <aomap_fragment>\n    reflectedLight.indirectDiffuse *= groundAO;\n    reflectedLight.indirectSpecular *= groundAO;');
     };
+    material.pathTraceSurface = { kind: 'ground', uniforms, compile: material.onBeforeCompile };
     material.customProgramCacheKey = () => 'planting-bed-ground-v1';
     return { material, uniforms };
 }

@@ -146,6 +146,7 @@ function makeCardMaterials(texture, plant, envMapIntensity) {
         // Есть картинки сезона — карточка смешивает их; нет — как было, одна выборка.
         if (plant.seasons) m.defines = { ...m.defines, PLANT_SEASON: '' };
     }
+    material.pathTraceSurface = { kind: 'plant', uniforms, compile };
     return { material, depth, uniforms };
 }
 
