@@ -295,7 +295,7 @@ assert.equal(normalizePlantingSettings({ plantingSway: 5 }).plantingSway, 2);
     const lawn = normalizePlantingSettings({ plantingBeds: [raw] }).plantingBeds[0];
     assert.equal(lawn.kind, 'lawn');
     assert.deepEqual(lawn.recipe, [], 'a lawn holds no plants');
-    assert.deepEqual(lawn.lawn, { mowing: 'stripes', stripe: 3, angle: -90, cut: 2, contrast: 0.3, irrigated: false }, '270° is −90°');
+    assert.deepEqual(lawn.lawn, { mowing: 'stripes', stripe: 3, angle: -90, cut: 2, contrast: 0.3, patches: 0.3, irrigated: false }, '270° is −90°');
     assert.equal(lawn.name, 'Газон 1');
     assert.deepEqual(fillBed(lawn, new Map()), []);
     assert.equal(bedArea(lawn), 12);

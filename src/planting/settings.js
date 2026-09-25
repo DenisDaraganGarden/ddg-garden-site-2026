@@ -7,7 +7,7 @@
 // расстановка (sceneCameras.js их не снимает); месяц и план — у камеры свои,
 // как время суток: «июнь» и «январь» — две камеры.
 export const PLANTING_LIMITS = Object.freeze({ beds: 64, points: 400, recipe: 12, contour: 256, holes: 64, hole: 128, ground: 4400, plants: 30000, vines: 200, shoots: 12, shootPoints: 400 });
-export const PLANTING_RANGES = Object.freeze({ drift: [0.3, 6, 0.1], density: [0.4, 2, 0.05], share: [1, 100, 1], month: [1, 12, 1], sway: [0, 2, 0.05], stripe: [0.3, 3, 0.05], cut: [2, 30, 0.5], contrast: [0, 1, 0.05] });
+export const PLANTING_RANGES = Object.freeze({ drift: [0.3, 6, 0.1], density: [0.4, 2, 0.05], share: [1, 100, 1], month: [1, 12, 1], sway: [0, 2, 0.05], stripe: [0.3, 3, 0.05], cut: [2, 30, 0.5], contrast: [0, 1, 0.05], patches: [0, 1, 0.05] });
 // northAngle — север участка (north.js): градусы по часовой от зелёной оси
 // SketchUp; как и цветники, один на все камеры. plantingSway — насколько
 // растения сада (посадки, лианы, 2D-растения модели) качаются на ветру
@@ -19,9 +19,10 @@ export const PLANTING_BED_DEFAULT = Object.freeze({ drift: 1.6, density: 1 });
 // клетка и ромбы (два прохода накрест), ровно — без узора, луг — некошеный.
 // stripe — ширина прохода, м; angle — направление проходов, ° (как север в
 // north.js: по часовой от оси +X сцены); cut — высота травы, см; contrast —
-// насколько разнятся полосы; irrigated — полив (без него летом выгорает).
+// насколько разнятся полосы (у луга — волны ветра по траве); patches —
+// пятна сочности и пестрота; irrigated — полив (без него летом выгорает).
 export const LAWN_MOWING = Object.freeze(['stripes', 'checker', 'diamond', 'plain', 'meadow']);
-export const LAWN_DEFAULT = Object.freeze({ mowing: 'stripes', stripe: 0.9, angle: 0, cut: 4, contrast: 0.55, irrigated: true });
+export const LAWN_DEFAULT = Object.freeze({ mowing: 'stripes', stripe: 0.9, angle: 0, cut: 4, contrast: 0.3, patches: 0.3, irrigated: true });
 export function normalizeLawn(value) {
     const v = value && typeof value === 'object' ? value : {};
     const angle = Number(v.angle);
@@ -31,6 +32,7 @@ export function normalizeLawn(value) {
         angle: Math.round(wrapDegrees(Number.isFinite(angle) ? angle : LAWN_DEFAULT.angle)),
         cut: number(v.cut, LAWN_DEFAULT.cut, PLANTING_RANGES.cut),
         contrast: number(v.contrast, LAWN_DEFAULT.contrast, PLANTING_RANGES.contrast),
+        patches: number(v.patches, LAWN_DEFAULT.patches, PLANTING_RANGES.patches),
         irrigated: v.irrigated !== false,
     };
 }

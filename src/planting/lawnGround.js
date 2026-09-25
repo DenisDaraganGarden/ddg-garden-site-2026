@@ -42,7 +42,8 @@ function mixHex(a, b, t) {
 // север), ширина прохода, узор, контраст полос.
 export function lawnMow(lawn) {
     const pattern = LAWN_PATTERNS[lawn?.mowing] ?? LAWN_PATTERNS.stripes;
-    const contrast = pattern === LAWN_PATTERNS.meadow ? 0.4 : pattern === LAWN_PATTERNS.plain ? 0.14 : lawn?.contrast ?? 0.55;
+    // Ровный газон — без полос: его пестрота — от «пятен».
+    const contrast = pattern === LAWN_PATTERNS.plain ? 0.35 * (lawn?.patches ?? 0.3) : lawn?.contrast ?? 0.3;
     return [((lawn?.angle ?? 0) * Math.PI) / 180, lawn?.stripe ?? 0.9, pattern, contrast];
 }
 
@@ -140,7 +141,7 @@ const LAWN_FRAGMENT_DECL = /* glsl */`
 uniform sampler2D uLawnTile, uLitterTile, uPlantLitter, uPlantKind;
 uniform vec4 uPlantFrame, uLawnMow;
 uniform vec3 uLawnGreen, uLawnTip, uLawnThatch, uLawnDry;
-uniform float uLawnDryAmount, uLawnFrost, uLawnDepth, uLawnSeed;
+uniform float uLawnDryAmount, uLawnFrost, uLawnDepth, uLawnSeed, uLawnPatches;
 varying vec3 vLawnWorld;
 varying vec3 vLawnUp;
 const float LAWN_TILE = ${LAWN_TILE.toFixed(3)};
@@ -156,15 +157,15 @@ float lawnNoise(vec2 p) {
 vec2 lawnLean(vec2 xz) {
     float pattern = uLawnMow.z;
     if (pattern < 0.5 || pattern > 3.5) {
-        float swirl = lawnNoise(xz * 0.22 + uLawnSeed) * 7.0 + lawnNoise(xz * 0.6 + 11.0 + uLawnSeed) * 2.5;
-        return vec2(cos(swirl), sin(swirl)) * (pattern > 3.5 ? 0.85 : 0.6);
+        float swirl = lawnNoise(xz * 0.14 + uLawnSeed) * 6.0 + lawnNoise(xz * 0.37 + 11.0 + uLawnSeed) * 1.6;
+        return vec2(cos(swirl), sin(swirl)) * (pattern > 3.5 ? 0.8 : 0.6);
     }
     float width = max(uLawnMow.y, 0.05);
     vec2 along = vec2(cos(uLawnMow.x), sin(uLawnMow.x));
     if (pattern > 2.5) along = normalize(along + vec2(-along.y, along.x));
     vec2 across = vec2(-along.y, along.x);
-    vec2 lean = along * clamp(cos(3.14159265 * dot(xz, across) / width) * 4.0, -1.0, 1.0);
-    if (pattern > 1.5) lean = (lean + across * clamp(cos(3.14159265 * dot(xz, along) / width) * 4.0, -1.0, 1.0)) * 0.7071;
+    vec2 lean = along * clamp(cos(3.14159265 * dot(xz, across) / width) * 2.2, -1.0, 1.0);
+    if (pattern > 1.5) lean = (lean + across * clamp(cos(3.14159265 * dot(xz, along) / width) * 2.2, -1.0, 1.0)) * 0.7071;
     return lean;
 }`;
 
@@ -210,10 +211,11 @@ vec4 lawnSample = textureGrad(uLawnTile, lawnUv - lawnShear * lawnHit, lawnDx, l
 float lawnBlade = lawnSample.b, lawnTone = lawnSample.r, lawnAlong = lawnSample.g, lawnHeight = lawnSample.a;
 
 // Зелень пятнами (где трава сочнее, где светлее) и выгорание без полива.
-float lawnPatch = lawnNoise(lawnXZ * 0.35 + uLawnSeed) * 0.6 + lawnNoise(lawnXZ * 1.3 + 7.1 + uLawnSeed) * 0.4;
-vec3 lawnGreen = uLawnGreen * mix(0.84, 1.14, lawnPatch);
-float lawnDryField = lawnNoise(lawnXZ * 0.22 + 3.7 + uLawnSeed) * 0.7 + lawnNoise(lawnXZ * 0.9 + uLawnSeed * 1.7) * 0.3;
-float lawnDry = uLawnDryAmount > 0.001 ? smoothstep(1.0 - uLawnDryAmount - 0.12, 1.0 - uLawnDryAmount + 0.12, lawnDryField) : 0.0;
+float lawnPatch = lawnNoise(lawnXZ * 0.16 + uLawnSeed) * 0.65 + lawnNoise(lawnXZ * 0.55 + 7.1 + uLawnSeed) * 0.35;
+vec3 lawnGreen = uLawnGreen * (1.0 + (lawnPatch - 0.5) * 0.5 * uLawnPatches);
+lawnGreen = mix(lawnGreen, lawnGreen * vec3(1.06, 1.03, 0.86), smoothstep(0.55, 0.9, lawnPatch) * uLawnPatches * 0.5);
+float lawnDryField = lawnNoise(lawnXZ * 0.15 + 3.7 + uLawnSeed) * 0.75 + lawnNoise(lawnXZ * 0.5 + uLawnSeed * 1.7) * 0.25;
+float lawnDry = uLawnDryAmount > 0.001 ? smoothstep(1.0 - uLawnDryAmount - 0.25, 1.0 - uLawnDryAmount + 0.25, lawnDryField) * 0.85 : 0.0;
 lawnGreen = mix(lawnGreen, uLawnDry, lawnDry);
 vec3 lawnTipColour = mix(uLawnTip, uLawnDry * 1.12, lawnDry);
 vec3 lawnBladeColour = mix(lawnGreen, lawnTipColour, smoothstep(0.55, 1.0, lawnAlong) * 0.8);
@@ -271,7 +273,7 @@ export function makeLawnMaterial(tile, litterTile) {
         uPlantLitter: { value: null }, uPlantKind: { value: null }, uPlantFrame: { value: new THREE.Vector4(0, 0, 1, 1) },
         uLawnMow: { value: new THREE.Vector4(0, 0.9, 1, 0.55) },
         uLawnGreen: { value: linear(GREEN[5]) }, uLawnTip: { value: linear(TIP[5]) }, uLawnThatch: { value: linear('#2f2a1c') }, uLawnDry: { value: linear('#a8995c') },
-        uLawnDryAmount: { value: 0 }, uLawnFrost: { value: 0 }, uLawnDepth: { value: 0.04 }, uLawnSeed: { value: 0 },
+        uLawnDryAmount: { value: 0 }, uLawnFrost: { value: 0 }, uLawnDepth: { value: 0.04 }, uLawnSeed: { value: 0 }, uLawnPatches: { value: 0.3 },
     };
     const material = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.85, metalness: 0, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
     material.onBeforeCompile = (shader) => {
@@ -288,7 +290,7 @@ export function makeLawnMaterial(tile, litterTile) {
             .replace('#include <normal_fragment_maps>', LAWN_NORMAL_FRAGMENT)
             .replace('#include <aomap_fragment>', '#include <aomap_fragment>\n    reflectedLight.indirectDiffuse *= lawnAO;\n    reflectedLight.indirectSpecular *= lawnAO;\n    reflectedLight.directDiffuse *= mix(1.0, lawnAO, 0.6);');
     };
-    material.customProgramCacheKey = () => 'planting-lawn-v1';
+    material.customProgramCacheKey = () => 'planting-lawn-v2';
     return { material, uniforms };
 }
 
@@ -304,4 +306,5 @@ export function setLawnUniforms(uniforms, lawn, month, seed = 0) {
     uniforms.uLawnMow.value.set(...lawnMow(lawn));
     uniforms.uLawnDepth.value = Math.max(0.02, (lawn?.cut ?? 4) / 100);
     uniforms.uLawnSeed.value = (seed % 997) * 0.37;
+    uniforms.uLawnPatches.value = lawn?.patches ?? 0.3;
 }
