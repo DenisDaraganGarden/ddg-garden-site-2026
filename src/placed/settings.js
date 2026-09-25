@@ -48,7 +48,8 @@ const MODEL_FILE = /^[a-z0-9][a-z0-9-]{0,63}$/;
 export const PLACED_TRANSFORM_DEFAULT = Object.freeze({ x: 0, y: 0, z: 0, rotation: 0, scale: 1, seed: 7 });
 // A model imported from SketchUp has its own entry here, by the placed
 // object's id: its 2D plants turned to the camera or not, their crown discs
-// drawn for the plan shown or not, and the parts (glTF node indices) hidden. Kept beside the objects, not in them: the
+// drawn for the plan shown or not, and the parts (glTF node indices) hidden or deleted — a deleted part is
+// hidden too, but «show hidden» leaves it gone (only its own «restore» brings it back). Kept beside the objects, not in them: the
 // objects are in every camera's snapshot, and a part hidden in one camera
 // must stay hidden in all of them (sceneCameras.js leaves this key out).
 export const DEFAULT_PLACED_SETTINGS = Object.freeze({ placedEnabled: true, placedObjects: [], sketchupModels: {} });
@@ -63,11 +64,13 @@ export function normalizeSketchupModels(value, live = new Set()) {
     if (!value || typeof value !== 'object' || Array.isArray(value)) return out;
     const ids = Object.keys(value).filter((key) => PLACED_ID.test(key)).sort();
     const kept = new Set([...ids.filter((id) => live.has(id)), ...ids.filter((id) => !live.has(id))].slice(0, SKETCHUP_LIMITS.models));
+    const nodes = (list) => [...new Set((Array.isArray(list) ? list : []).filter((node) => Number.isInteger(node) && node >= 0 && node < 1e7))]
+        .sort((a, b) => a - b).slice(0, SKETCHUP_LIMITS.hidden);
     for (const id of ids.filter((key) => kept.has(key))) {
         const entry = value[id] && typeof value[id] === 'object' ? value[id] : {};
-        const hidden = [...new Set((Array.isArray(entry.hidden) ? entry.hidden : []).filter((node) => Number.isInteger(node) && node >= 0 && node < 1e7))]
-            .sort((a, b) => a - b).slice(0, SKETCHUP_LIMITS.hidden);
-        out[id] = { faceCamera: entry.faceCamera !== false, crowns: entry.crowns === true, hidden };
+        const removed = nodes(entry.removed), gone = new Set(removed);
+        const hidden = nodes(entry.hidden).filter((node) => !gone.has(node));
+        out[id] = { faceCamera: entry.faceCamera !== false, crowns: entry.crowns === true, hidden, ...(removed.length ? { removed } : {}) };
     }
     return out;
 }

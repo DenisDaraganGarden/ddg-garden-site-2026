@@ -210,6 +210,47 @@ export function copiesOf(root, part) {
     });
 }
 
+// What a click selects, as SketchUp does: at the top level the component
+// under the cursor; inside an open group (the parts above the selected one)
+// its part under the cursor, a click past it leaves it for the top level; a
+// double click opens the selected part and selects its part under the cursor.
+// current — { id, trail, node } or null; trail — node indices, top first.
+export function nextPart(current, id, trail, double = false) {
+    if (!trail.length) return null;
+    const mine = current?.id === id ? current : null;
+    const level = mine ? mine.trail.indexOf(mine.node) : -1;
+    const under = (depth) => depth >= 0 && trail.length > depth && mine.trail.slice(0, depth + 1).every((node, i) => trail[i] === node);
+    let depth = 0;
+    if (mine && double && under(level)) depth = Math.min(level + 1, trail.length - 1);
+    else if (mine && level > 0 && under(level - 1)) depth = Math.min(level, trail.length - 1);
+    return { id, trail, node: trail[depth] };
+}
+
+// Esc: out of the open group — its own part is selected; at the top the part
+// selection ends.
+export function outerPart(current) {
+    const level = current ? current.trail.indexOf(current.node) : -1;
+    return level > 0 ? { ...current, node: current.trail[level - 1] } : null;
+}
+
+// Состав модели для панели (как «Структура» в SketchUp): части, в которых
+// есть что рисовать, — без сцен-камер и пустых узлов; безымянная геометрия
+// внутри компонента — его часть, отдельной строкой не идёт.
+const drawsSomething = (object) => { let found = false; object.traverse((inner) => { if (inner.isMesh) found = true; }); return found; };
+export const outlinePart = (object) => isPart(object) && (object.isMesh ? /\S/.test(object.userData.name ?? '') && !/^Geom3D_?$/.test(object.userData.name) : drawsSomething(object));
+export const outlineChildren = (object) => object.children.filter(outlinePart);
+// Копии компонента в SketchUp — «имя#1», «имя#2»: одной строкой по имени.
+export const componentName = (object) => String(object.userData.name ?? '').replace(/(#\d+)+(_\d+)*$/, '').trim();
+export function outlineGroups(root) {
+    const groups = new Map();
+    for (const object of topLevel(root).filter(outlinePart)) {
+        const key = componentName(object) || partName(object);
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(object);
+    }
+    return [...groups].map(([name, items]) => ({ name, items }));
+}
+
 // Hidden to the eye and to the click: the picker and the solid and waterline
 // probes look at each mesh's own visibility, not its parents'.
 export function applyHidden(root, hidden, crowns = true, noCards = false) {

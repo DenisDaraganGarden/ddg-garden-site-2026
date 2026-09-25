@@ -1,6 +1,7 @@
 // Run: node src/placed/settings.check.js
 import assert from 'node:assert/strict';
 import { createPlacedObject, normalizePlacedObject, normalizePlacedSettings, normalizeSketchupModels, PLACED_LIMITS, SKETCHUP_LIMITS } from './settings.js';
+import { nextPart, outerPart } from './sketchupModel.js';
 import { makeRockGeometry } from '../terrain/terrainRocks.js';
 
 // A tree keeps its species, its own knobs and its place; junk is clamped.
@@ -91,6 +92,9 @@ assert.equal(normalizePlacedObject({ kind: 'rock', variant: 9 }).variant, 5);
     });
     assert.deepEqual(normalizeSketchupModels(models), models);
     assert.deepEqual(normalizeSketchupModels([1, 2]), {});
+    const deleted = normalizeSketchupModels({ d: { hidden: [4, 2], removed: [9, 2, 'x', 9] } });
+    assert.deepEqual(deleted.d, { faceCamera: true, crowns: false, hidden: [4], removed: [2, 9] }, 'a deleted part is not also hidden');
+    assert.deepEqual(normalizeSketchupModels(deleted), deleted);
     const many = normalizeSketchupModels({ m: { hidden: Array.from({ length: SKETCHUP_LIMITS.hidden + 9 }, (_, i) => i) } });
     assert.equal(many.m.hidden.length, SKETCHUP_LIMITS.hidden);
     const crowd = Object.fromEntries(Array.from({ length: SKETCHUP_LIMITS.models + 3 }, (_, i) => [`placed-${String(i).padStart(4, '0')}`, {}]));
@@ -99,6 +103,27 @@ assert.equal(normalizePlacedObject({ kind: 'rock', variant: 9 }).variant, 5);
     assert.equal(Object.keys(trimmed).length, SKETCHUP_LIMITS.models);
     assert.deepEqual(trimmed['placed-zzzz'].hidden, [5], 'past the limit a model on the stage keeps its entry');
     assert.deepEqual(normalizePlacedSettings({ sketchupModels: models }).sketchupModels, models, 'the placed settings carry them');
+}
+
+// Выбор части, как в SketchUp: щелчок — компонент верхнего уровня, двойной —
+// зайти в выбранное, щелчок внутри открытой группы — её часть, мимо — наверх,
+// Esc — выйти на уровень выше.
+{
+    const a = [1, 2, 3], b = [1, 2, 4], c = [5, 6];
+    let part = nextPart(null, 'm', a);
+    assert.deepEqual(part, { id: 'm', trail: a, node: 1 });
+    part = nextPart(part, 'm', a, true);
+    assert.equal(part.node, 2, 'a double click opens the component');
+    part = nextPart(part, 'm', a, true);
+    assert.equal(part.node, 3, 'and the group inside it');
+    part = nextPart(part, 'm', b);
+    assert.deepEqual([part.node, part.trail], [4, b], 'inside the open group a click takes its part under the cursor');
+    assert.equal(nextPart(part, 'm', b, true).node, 4, 'the deepest part stays when there is nothing to open');
+    assert.equal(nextPart(part, 'm', c).node, 5, 'a click past the open group goes back to the top');
+    assert.equal(nextPart(part, 'other', b).node, 1, 'another model starts at its top');
+    assert.equal(outerPart(part).node, 2);
+    assert.equal(outerPart(outerPart(outerPart(part))), null, 'Esc at the top ends the part selection');
+    assert.equal(nextPart(null, 'm', []), null);
 }
 
 console.log('placed: all checks passed');

@@ -659,7 +659,7 @@ const HomeEdit = ({ project = null }) => {
         if (hit?.annotationMark) { selectMark(hit.annotationMark); return; }
         if (hit?.lightingFixture) { selectFixture(hit.lightingFixture); setTool(lastTransform); return; }
         if (hit?.lightingPanel) { selectPanel(hit.lightingPanel); setTool(lastTransform); return; }
-        if (hit?.topiaryId) selectTopiary(hit.topiaryId); else if (hit?.placedId) selectPlaced(hit.placedId, hit.object); else setActiveTab(path);
+        if (hit?.topiaryId) selectTopiary(hit.topiaryId); else if (hit?.placedId) selectPlaced(hit.placedId, hit.object, hit.double); else setActiveTab(path);
         setTool(lastTransform);
     }, [setActiveTab, setTool, lastTransform, selectTopiary, selectPlaced, selectBed, selectVine, selectMark, selectFixture, selectPanel]);
 
@@ -730,16 +730,23 @@ const HomeEdit = ({ project = null }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- pose сравнивается по значениям, не по ссылке
     }), [playing, walking, transformTool, transformHeld, gizmoSelection, tool, lastTransform, handleGizmoTransform, picking, drawingTool, handlePickObject, gizmoPose?.rotationY, gizmoPose?.scale, activeTool, settings.topiaryObjects.length, gizmoNode.id, topiaryEditor.selectedId, topiaryEditor.onStroke, placedEditor.selectedId, placedEditor.part, plantingEditor.selectedId, plantingEditor.vineId, plantingEditor.onBed, plantingEditor.onBedSurface, plantingEditor.onPlant, plantingEditor.onVine, annotationEditor.onMark, annotationEditor.selectedId, annotationEditor.onResnap, handleWalkStart, aiming, lightingEditor.selectedId, lightingEditor.onLight, lightingEditor.onAim, lightingEditor.placeType, luminaireTypes, settings.lightingConnections, gizmoGroup.id]);
 
-    // Delete (и Backspace) убирает выбранный светильник или щиток — одной отменой.
-    const lightingDelete = useRef();
-    lightingDelete.current = selectedFixture ? () => lightingEditor.remove(selectedFixture.id) : selectedPanel ? () => lightingEditor.removePanel(selectedPanel.id) : null;
+    // Delete (и Backspace) убирает выбранное — одной отменой: светильник или
+    // щиток; часть модели SketchUp (в «Удалённые», как в SketchUp); объект
+    // расстановки, если часть не выбрана. Esc выходит из открытой группы модели.
+    const placedPart = selectedPlaced ? placedEditor.part : null;
+    const sceneKeys = useRef();
+    sceneKeys.current = {
+        remove: selectedFixture ? () => lightingEditor.remove(selectedFixture.id) : selectedPanel ? () => lightingEditor.removePanel(selectedPanel.id)
+            : placedPart ? () => placedEditor.removeParts(placedPart.id, [placedPart.node]) : selectedPlaced ? () => placedEditor.remove(selectedPlaced.id) : null,
+        escape: placedPart && !drawingTool ? placedEditor.exitPart : null,
+    };
     useEffect(() => {
         const key = (event) => {
-            if ((event.key !== 'Delete' && event.key !== 'Backspace') || !lightingDelete.current || event.metaKey || event.ctrlKey || event.altKey) return;
-            const target = event.target;
-            if (target?.closest?.('input,textarea,select,[contenteditable=true],dialog')) return;
+            if (event.metaKey || event.ctrlKey || event.altKey || event.target?.closest?.('input,textarea,select,[contenteditable=true],dialog')) return;
+            if (event.key === 'Escape') { sceneKeys.current.escape?.(); return; }
+            if ((event.key !== 'Delete' && event.key !== 'Backspace') || !sceneKeys.current.remove) return;
             event.preventDefault();
-            lightingDelete.current();
+            sceneKeys.current.remove();
         };
         window.addEventListener('keydown', key);
         return () => window.removeEventListener('keydown', key);

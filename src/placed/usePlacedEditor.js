@@ -3,7 +3,7 @@ import { createPlacedObject, normalizePlacedObject, placedSpeciesDefaults, PLACE
 import { createTerrainDefinition, createTerrainQuery } from '../terrain/terrainModel.js';
 import { activeProjectId, uploadProjectModel } from '../features/engine/projectApi.js';
 import { solidHeightAt } from './solidSurface.js';
-import { partChain, sketchupModelEntry } from './sketchupModel.js';
+import { copiesOf, findPart, nextPart, outerPart, partChain, partName, sketchupModelEntry } from './sketchupModel.js';
 
 const KIND_NAMES = { tree: ['Дерево', 'Tree'], shrub: ['Куст', 'Shrub'], rock: ['Камень', 'Rock'], model: ['Модель', 'Model'] };
 
@@ -38,33 +38,69 @@ function freeName(settings, base) {
 // target, change a knob, seat on the ground, duplicate, remove. Every change
 // goes through the history the sliders use, so undo covers a placement too.
 //
-// In a SketchUp model a click also picks a part: the component it hit at the
-// model's top level, as SketchUp selects, with the chain down to what was hit
-// kept for the panel's breadcrumbs (`trail`, glTF node indices).
+// In a SketchUp model a click also picks a part, as SketchUp selects: the
+// component it hit at the model's top level; a double click opens it and
+// picks its part under the cursor, Esc steps back out (nextPart, outerPart).
+// The chain down to what was hit is kept for the panel's breadcrumbs
+// (`trail`, glTF node indices). A part is hidden (comes back with «show
+// hidden») or deleted (gone until restored one by one or by undo).
 export function usePlacedEditor({ settings, history, setActiveTab, setTool, language, layoutEditor }) {
     const [selectedId, setSelectedId] = useState(null);
     const [part, setPart] = useState(null);
     const live = useRef(); live.current = { settings, history, language, layoutEditor };
-    const select = useCallback((id, hit = null) => {
+    const partRef = useRef(null); partRef.current = part;
+    const trailOf = (id, hit) => {
         const root = id && hit ? sketchupModelEntry(id)?.root : null;
-        const trail = root ? partChain(root, hit).map((object) => object.userData.gltfNode) : [];
+        return root ? partChain(root, hit).map((object) => object.userData.gltfNode) : [];
+    };
+    const select = useCallback((id, hit = null, double = false) => {
+        const trail = trailOf(id, hit);
         setSelectedId(id);
-        setPart(trail.length ? { id, trail, node: trail[0] } : null);
+        setPart((current) => nextPart(current, id, trail, double));
         setActiveTab('objects/placed'); setTool('select');
     }, [setActiveTab, setTool]);
     const selectPart = useCallback((node) => setPart((current) => (current?.trail.includes(node) ? { ...current, node } : current)), []);
+    // Из «Состава модели»: часть по номеру узла, с цепочкой групп над ней.
+    const selectNode = useCallback((id, node) => {
+        const root = sketchupModelEntry(id)?.root, object = root ? findPart(root, node) : null;
+        const trail = object ? partChain(root, object).map((item) => item.userData.gltfNode) : [];
+        setSelectedId(id);
+        setPart(trail.length ? { id, trail, node } : null);
+        setActiveTab('objects/placed');
+    }, [setActiveTab]);
+    const exitPart = useCallback(() => setPart((current) => outerPart(current)), []);
+    // Что выберет щелчок в этой точке — для меню правой кнопки: имя и копии.
+    const partAt = useCallback((id, hit) => {
+        const chosen = nextPart(partRef.current, id, trailOf(id, hit));
+        const root = sketchupModelEntry(id)?.root, object = chosen && root ? findPart(root, chosen.node) : null;
+        return object ? { node: chosen.node, name: partName(object, live.current.language === 'ru'), copies: copiesOf(root, object).map((copy) => copy.userData.gltfNode) } : null;
+    }, []);
     // A SketchUp model's own switches, outside the camera snapshots.
     const setSketchup = useCallback((id, patch) => {
         const { settings, history } = live.current;
         const current = settings.sketchupModels?.[id] ?? { faceCamera: true, crowns: false, hidden: [] };
         history.applySettings({ sketchupModels: { ...settings.sketchupModels, [id]: { ...current, ...patch } } });
     }, []);
+    const lists = (id) => { const entry = live.current.settings.sketchupModels?.[id]; return { hidden: entry?.hidden ?? [], removed: entry?.removed ?? [] }; };
     const hideParts = useCallback((id, nodes) => {
-        const hidden = live.current.settings.sketchupModels?.[id]?.hidden ?? [];
-        setSketchup(id, { hidden: [...new Set([...hidden, ...nodes])] });
+        const { hidden, removed } = lists(id), gone = new Set(nodes);
+        setSketchup(id, { hidden: [...new Set([...hidden, ...nodes])], removed: removed.filter((node) => !gone.has(node)) });
         setPart(null);
     }, [setSketchup]);
-    const showParts = useCallback((id) => setSketchup(id, { hidden: [] }), [setSketchup]);
+    // Без списка — все скрытые; удалённые остаются удалёнными.
+    const showParts = useCallback((id, nodes = null) => {
+        const back = nodes && new Set(nodes);
+        setSketchup(id, { hidden: back ? lists(id).hidden.filter((node) => !back.has(node)) : [] });
+    }, [setSketchup]);
+    const removeParts = useCallback((id, nodes) => {
+        const { hidden, removed } = lists(id), gone = new Set(nodes);
+        setSketchup(id, { removed: [...new Set([...removed, ...nodes])], hidden: hidden.filter((node) => !gone.has(node)) });
+        setPart(null);
+    }, [setSketchup]);
+    const restoreParts = useCallback((id, nodes = null) => {
+        const back = nodes && new Set(nodes);
+        setSketchup(id, { removed: back ? lists(id).removed.filter((node) => !back.has(node)) : [] });
+    }, [setSketchup]);
     const update = useCallback((id, patch) => {
         const { settings, history } = live.current;
         history.applySettings({ placedObjects: settings.placedObjects.map((o, i) => (o.id === id ? normalizePlacedObject({ ...o, ...patch }, i) : o)) });
@@ -118,14 +154,15 @@ export function usePlacedEditor({ settings, history, setActiveTab, setTool, lang
         const sketchup = settings.sketchupModels?.[id];
         const { model, report, origin, replaced } = await uploadProjectModel(project, file, { source: sketchup ? 'sketchup' : undefined, replaces: object.model });
         const map = replaced?.nodeMap ?? [];
-        const hidden = sketchup ? sketchup.hidden.map((node) => map[node]).filter((node) => Number.isInteger(node) && node >= 0) : [];
+        const moved = (list) => (list ?? []).map((node) => map[node]).filter((node) => Number.isInteger(node) && node >= 0);
+        const hidden = sketchup ? moved(sketchup.hidden) : [], removed = sketchup ? moved(sketchup.removed) : [];
         const { settings: now, history } = live.current;
         history.applySettings({
             placedObjects: now.placedObjects.map((o, i) => (o.id === id ? normalizePlacedObject({ ...o, model, origin: object.origin ?? replaced?.origin ?? origin }, i) : o)),
-            ...(sketchup ? { sketchupModels: { ...now.sketchupModels, [id]: { ...sketchup, hidden } } } : {}),
+            ...(sketchup ? { sketchupModels: { ...now.sketchupModels, [id]: { ...sketchup, hidden, removed } } } : {}),
         });
         setPart(null);
-        return { report, kept: hidden.length, hidden: sketchup?.hidden.length ?? 0 };
+        return { report, kept: hidden.length + removed.length, hidden: (sketchup?.hidden.length ?? 0) + (sketchup?.removed?.length ?? 0) };
     }, []);
     const duplicate = useCallback((id) => {
         const { settings, history } = live.current;
@@ -152,7 +189,7 @@ export function usePlacedEditor({ settings, history, setActiveTab, setTool, lang
     }, []);
     const shown = settings.placedObjects.some((o) => o.id === selectedId) ? selectedId : null;
     return {
-        selectedId: shown, part: part && part.id === shown ? part : null, select, selectPart, update, setSpecies, add, importModel, replaceModel, duplicate, seat, remove,
-        setSketchup, hideParts, showParts,
+        selectedId: shown, part: part && part.id === shown ? part : null, select, selectPart, selectNode, exitPart, partAt, update, setSpecies, add, importModel, replaceModel, duplicate, seat, remove,
+        setSketchup, hideParts, showParts, removeParts, restoreParts,
     };
 }

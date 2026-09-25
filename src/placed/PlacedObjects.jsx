@@ -202,16 +202,18 @@ function useModel(url) {
 }
 
 // The SketchUp part picked in the editor, boxed the way the anchor's ring is
-// drawn: over everything, never in the way of a click.
-function PartBox({ root, node, stamp }) {
+// drawn: over everything, never in the way of a click. The group it was
+// opened in (a double click, as in SketchUp) gets a fainter box of its own.
+function PartBox({ root, node, stamp, open = false }) {
     const helper = useMemo(() => {
-        const box = new THREE.Box3Helper(new THREE.Box3(), '#d9ca8c');
+        const box = new THREE.Box3Helper(new THREE.Box3(), open ? '#8f8b78' : '#d9ca8c');
         box.material.depthTest = false;
         box.material.transparent = true;
+        if (open) box.material.opacity = 0.55;
         box.renderOrder = 5;
         box.raycast = NO_RAYCAST;
         return box;
-    }, []);
+    }, [open]);
     useEffect(() => () => { helper.geometry.dispose(); helper.material.dispose(); }, [helper]);
     const invalidate = useThree((state) => state.invalidate);
     useLayoutEffect(() => {
@@ -225,7 +227,7 @@ function PartBox({ root, node, stamp }) {
     return <primitive object={helper} />;
 }
 
-function PlacedModel({ object, url, selected, sketchup, selectedPart, plan = false, materials = null }) {
+function PlacedModel({ object, url, selected, sketchup, selectedPart, openPart = null, plan = false, materials = null }) {
     const gltf = useModel(url);
     const lit = object.species !== 'scan';
     const originKey = object.origin ? `${object.origin.x},${object.origin.y},${object.origin.z}` : '';
@@ -240,7 +242,8 @@ function PlacedModel({ object, url, selected, sketchup, selectedPart, plan = fal
     const cards = useMemo(() => (prepared && isSketchup ? makeFaceCamera(prepared.root) : null), [prepared, isSketchup]);
     const faceCamera = sketchup?.faceCamera ?? false;
     useEffect(() => { cards?.set(faceCamera); invalidate(); }, [cards, faceCamera, invalidate]);
-    const hiddenParts = sketchup?.hidden.join(',') ?? '';
+    // Удалённые части — как скрытые: их нет ни для глаза, ни для щелчка.
+    const hiddenParts = sketchup ? [...sketchup.hidden, ...(sketchup.removed ?? [])].join(',') : '';
     // План (у камеры, как у генплана): круги крон вместо 2D-деревьев — сверху
     // картинка на ребре видна чертой.
     const crowns = (sketchup?.crowns ?? true) || plan;
@@ -279,6 +282,7 @@ function PlacedModel({ object, url, selected, sketchup, selectedPart, plan = fal
             rotation={[deg(object.tiltX), deg(object.rotation), deg(object.tiltZ), 'YXZ']} scale={object.scale}>
             <primitive object={prepared.root} />
         </group>
+        {openPart !== null && openPart !== undefined ? <PartBox root={prepared.root} node={openPart} stamp={`${x},${y},${z},${rotation},${tiltX},${tiltZ},${scale}`} open /> : null}
         {selectedPart !== null && selectedPart !== undefined ? <PartBox root={prepared.root} node={selectedPart} stamp={`${x},${y},${z},${rotation},${tiltX},${tiltZ},${scale}`} /> : null}
     </>;
 }
@@ -300,8 +304,9 @@ export default function PlacedObjects({ objects, selectedId = null, selectedPart
             if (object.kind === 'shrub') return <PlacedShrub key={object.id} object={object} asset={shrubAsset} lowPower={lowPower} envMapIntensity={envMapIntensity} selected={selected} />;
             if (object.kind !== 'model') return null;
             const url = modelUrl(object);
+            const part = selectedPart?.id === object.id ? selectedPart : null, level = part ? part.trail.indexOf(part.node) : -1;
             return url ? <PlacedModel key={object.id} object={object} url={url} selected={selected} sketchup={sketchupModels[object.id]} plan={plan} materials={modelMaterials?.[object.id] ?? null}
-                selectedPart={selectedPart?.id === object.id ? selectedPart.node : null} />
+                selectedPart={part ? part.node : null} openPart={level > 0 ? part.trail[level - 1] : null} />
                 : <Anchor key={object.id} object={object} selected={selected} radius={1} />;
         })}
         {rocks.length ? <Suspense fallback={null}><PlacedRocks objects={rocks} lowPower={lowPower} lighting={lighting} selectedId={selectedId} /></Suspense> : null}

@@ -323,10 +323,15 @@ function FocusShell(props) {
         // Манипулятор предлагается только тому объекту, который уже выбран:
         // правило «что можно двигать» живёт в HomeEdit и второй копии не заводит.
         const holding = Boolean(gizmo?.movable) && selected.path === target?.path;
+        // Часть модели SketchUp под курсором — та, что выбрал бы щелчок.
+        const modelPart = hit.placedId && hit.object ? props.placedEditor?.partAt?.(hit.placedId, hit.object) : null;
         return [
             target ? { label: tr('Открыть параметры', 'Open parameters'), icon: 'sliders', onSelect: () => selectNode(target.path) } : null,
             target ? { label: tr('Детали объекта…', 'Parts of this object…'), icon: 'folder', onSelect: () => setModal({ kind: 'presets', path: target.path, label: t(`homeEditor.nodes.${target.node.id}`) }) } : null,
             hit.placedId && hit.object?.material?.name && !Array.isArray(hit.object.material) ? { label: tr('Сгенерировать / доработать текстуру…', 'Generate / refine texture…'), icon: 'grid', onSelect: () => setTextureTarget({ placedId: hit.placedId, materialName: hit.object.material.name, material: hit.object.material }) } : null,
+            modelPart ? { label: tr(`Скрыть «${modelPart.name}»`, `Hide “${modelPart.name}”`), icon: 'eyeoff', onSelect: () => props.placedEditor.hideParts(hit.placedId, [modelPart.node]) } : null,
+            modelPart?.copies.length > 1 ? { label: tr(`Скрыть все такие · ${modelPart.copies.length}`, `Hide all copies · ${modelPart.copies.length}`), icon: 'eyeoff', onSelect: () => props.placedEditor.hideParts(hit.placedId, modelPart.copies) } : null,
+            modelPart ? { label: tr(`Удалить «${modelPart.name}»`, `Delete “${modelPart.name}”`), icon: 'trash', hint: 'Del', onSelect: () => props.placedEditor.removeParts(hit.placedId, [modelPart.node]) } : null,
             hit.lightingFixture ? { label: tr('Удалить светильник', 'Delete luminaire'), icon: 'trash', hint: 'Del', onSelect: () => props.lightingEditor?.remove(hit.lightingFixture) } : null,
             hit.lightingPanel ? { label: tr('Удалить щиток и его цепи', 'Delete panel and its circuits'), icon: 'trash', hint: 'Del', onSelect: () => props.lightingEditor?.removePanel(hit.lightingPanel) } : null,
             hit.root ? { label: tr('Смотреть на объект', 'Frame object'), icon: 'target', onSelect: () => layoutEditor.frameObject?.(hit.root) } : null,

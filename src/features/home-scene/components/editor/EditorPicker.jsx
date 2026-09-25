@@ -17,6 +17,9 @@ import { sceneHitForObject3D } from '../../lib/sceneObjects';
 // а пара pointerdown/pointerup — так порог протяжки работает одинаково на всех
 // платформах (в Chrome на macOS 'contextmenu' приходит ещё до движения мыши).
 const CLICK_SLOP = 4;
+// Двойной щелчок — два коротких нажатия в одном месте подряд: в модели
+// SketchUp он открывает выбранный компонент (usePlacedEditor).
+const DOUBLE_MS = 400, DOUBLE_SLOP = 6;
 // Ручка манипулятора, которая сейчас нарисована. Его невидимые части —
 // сборщики, помощники других режимов, линии осей длиной в километры — лежат
 // в скрытых группах, и щелчок сквозь них проходит, как раньше.
@@ -42,7 +45,7 @@ export default function EditorPicker({ enabled, onPick, onContextMenu }) {
 
     useEffect(() => {
         const element = gl.domElement;
-        let pressed = null;
+        let pressed = null, last = null;
 
         // Первое попадание, за которым стоит объект редактора: служебные
         // плоскости и отладочные помощники имени не имеют и пропускаются.
@@ -84,7 +87,9 @@ export default function EditorPicker({ enabled, onPick, onContextMenu }) {
 
             if (!enabled || typeof onPick !== 'function') return;
             const found = hitAt(event);
-            if (found) onPick(found.node, found);
+            const double = Boolean(last && event.timeStamp - last.at < DOUBLE_MS && Math.hypot(event.clientX - last.x, event.clientY - last.y) < DOUBLE_SLOP);
+            last = double ? null : { at: event.timeStamp, x: event.clientX, y: event.clientY };
+            if (found) onPick(found.node, { ...found, double });
         };
 
         element.addEventListener('pointerdown', handlePointerDown);

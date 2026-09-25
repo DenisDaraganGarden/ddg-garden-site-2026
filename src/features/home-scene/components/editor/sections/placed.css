@@ -42,3 +42,38 @@
 .placed-trail{display:flex;flex-wrap:wrap;align-items:center;gap:3px;margin-bottom:4px;font-size:10px;color:var(--focus-muted,#989d9e)}
 .placed-trail>button{height:22px;padding:0 7px;border:1px solid var(--focus-line,#353839);border-radius:4px;background:transparent;color:var(--focus-text,#dcddd8);font:10px/1 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;cursor:pointer}
 .placed-trail>button.is-active{border-color:var(--focus-accent,#cfc1a1);background:#cfc1a11c}
+/* Часть модели SketchUp (SketchupModel) и «Состав модели» (SketchupOutliner):
+   дерево как «Структура» в SketchUp — строка, глаз, корзина. */
+.placed-hint--open{border-left:2px solid var(--focus-accent,#cfc1a1);border-radius:0 4px 4px 0}
+.placed-actions--part{grid-template-columns:repeat(3,1fr);margin-bottom:4px}
+.placed-outline{display:flex;flex-direction:column;gap:4px;margin-bottom:8px}
+.placed-outline__search{display:flex;align-items:center;gap:6px;height:26px;padding:0 7px;border:1px solid var(--focus-line,#353839);border-radius:4px;background:var(--focus-input,#161819)}
+.placed-outline__search .focus-icon{width:12px;height:12px;flex:none;color:var(--focus-muted,#989d9e)}
+.placed-outline__search input{flex:1;min-width:0;border:0;background:transparent;color:var(--focus-text,#dcddd8);font:11px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;outline:0}
+.placed-outline__tree{max-height:min(420px,50vh);overflow-y:auto;padding:2px 0;border:1px solid #ffffff0a;border-radius:5px;scrollbar-width:thin;scrollbar-color:var(--focus-line,#353839) transparent}
+.placed-outline__row{display:grid;grid-template-columns:16px minmax(0,1fr) 22px 22px;align-items:center;min-height:24px;padding-left:calc(var(--depth,0) * 12px + 2px);border-radius:3px}
+.placed-outline__row:hover{background:#ffffff08}
+.placed-outline__row.is-selected{background:#cfc1a11f;box-shadow:inset 2px 0 0 var(--focus-accent,#cfc1a1)}
+.placed-outline__row.is-hidden .placed-outline__name{opacity:.42;font-style:italic}
+.placed-outline__open{width:16px;height:22px;padding:0;border:0;background:transparent;color:var(--focus-muted,#989d9e);font-size:9px;cursor:pointer}
+.placed-outline__open:disabled{cursor:default}
+.placed-outline__name{display:flex;align-items:baseline;gap:6px;min-width:0;height:22px;padding:0 4px;border:0;background:transparent;color:var(--focus-text,#dcddd8);font:10.5px/22px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;text-align:left;cursor:pointer}
+.placed-outline__name>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.placed-outline__name>small{flex:none;padding:0 5px;border-radius:7px;background:#ffffff12;color:var(--focus-muted,#989d9e);font:9px/14px ui-monospace,monospace}
+.placed-outline__icon{width:22px;height:22px;padding:0;border:0;border-radius:3px;background:transparent;color:var(--focus-muted,#989d9e);cursor:pointer;opacity:.55}
+.placed-outline__row:hover .placed-outline__icon,.placed-outline__row.is-selected .placed-outline__icon,.placed-outline__icon[aria-pressed="true"]{opacity:1}
+.placed-outline__icon:hover{background:#ffffff10;color:var(--focus-text,#dcddd8)}
+.placed-outline__icon.is-danger:hover{background:#b85a4a22;color:#e59a8a}
+.placed-outline__icon .focus-icon{width:12px;height:12px}
+.placed-outline__empty{margin:6px 8px;color:var(--focus-muted,#989d9e);font-size:10px}
+.placed-outline__foot{display:flex;align-items:center;gap:6px;min-height:24px;font-size:10px;color:var(--focus-muted,#989d9e)}
+.placed-outline__foot>span{flex:1}
+.placed-outline__foot>button{height:22px;padding:0 8px;border:1px solid var(--focus-line,#353839);border-radius:4px;background:transparent;color:var(--focus-text,#dcddd8);font:10px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;cursor:pointer}
+.placed-outline__foot>button:hover{background:#ffffff0c}
+.placed-outline__foot>button.placed-outline__fold{flex:1;border:0;padding:0;text-align:left;color:var(--focus-muted,#989d9e)}
+.placed-outline__gone{display:flex;align-items:center;gap:6px;min-height:24px;padding-left:14px;font-size:10.5px}
+.placed-outline__gone>span{flex:1;min-width:0;overflow:hidden;color:var(--focus-muted,#989d9e);text-decoration:line-through;text-overflow:ellipsis;white-space:nowrap}
+.placed-outline__gone>button{height:20px;padding:0 7px;border:1px solid var(--focus-line,#353839);border-radius:4px;background:transparent;color:var(--focus-text,#dcddd8);font-size:9.5px;cursor:pointer}
+.placed-outline__name>em{flex:none;color:var(--focus-muted,#989d9e);font:9px ui-monospace,monospace;font-style:normal}
+.placed-outline__foot>button.is-danger{color:#e59a8a}
+.placed-outline__foot>button.is-danger:hover{border-color:#b85a4a;background:#b85a4a22}
