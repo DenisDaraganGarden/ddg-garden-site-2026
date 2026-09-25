@@ -9,6 +9,8 @@ export const FOCUS_DOMAINS = [
     { id: 'plants', ru: 'Растения', en: 'Plants', icon: 'sprout', groupIds: ['greenery'] },
     // Аннотации — отметки уровня и следующие пометки проектировщика.
     { id: 'annotations', ru: 'Аннотации', en: 'Annotations', icon: 'level', groupIds: ['annotations'] },
+    // Освещение сада — светильники и питание (src/lighting). «Свет» в «Среде» — прожекторы сцены.
+    { id: 'lighting', ru: 'Освещение', en: 'Lighting', icon: 'light', groupIds: ['lighting'] },
     { id: 'environment', ru: 'Среда', en: 'Environment', icon: 'sun', groupIds: ['atmosphere', 'lights'] },
     { id: 'cameras', ru: 'Камеры', en: 'Cameras', icon: 'camera', groupIds: ['cameras'] },
     { id: 'render', ru: 'Рендер', en: 'Render', icon: 'sliders', groupIds: ['render'] },
@@ -55,7 +57,7 @@ const NODE_ICONS = {
     terrain: 'terrain', rocks: 'terrain', pebbles: 'terrain', shore: 'terrain', water: 'water', seabed: 'water',
     planting: 'sprout', topiary: 'leaf', lilies: 'leaf', algae: 'leaf', trees: 'leaf', shrubs: 'leaf', grass: 'leaf',
     tanker: 'box', boat: 'box', sculpture: 'box', surfboard: 'box', house: 'box',
-    seagulls: 'bird', fish: 'fish', levels: 'level', walkStart: 'flag',
+    seagulls: 'bird', fish: 'fish', levels: 'level', walkStart: 'flag', luminaires: 'light', power: 'box',
     light1: 'light', light1target: 'target', light2: 'light', light2target: 'target',
     light: 'sun', hdri: 'cloud', fog: 'cloud', rays: 'sun', clouds: 'cloud', wind: 'wind',
     audioMixer: 'sound', audioTracks: 'sound', audioSpatial: 'sound',

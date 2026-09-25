@@ -46,6 +46,8 @@ import { ShoreSection } from './sections/shore';
 import { FishSection, SeagullsSection } from './sections/creatures';
 import { AnnotationsSection } from './sections/annotations';
 import { WalkStartSection } from './sections/walkStart';
+import { LightingSection } from './sections/lighting';
+import { LightingPowerSection } from './sections/lightingPower';
 import { WindSection } from './sections/wind';
 import {
     AudioMixerSection,
@@ -141,6 +143,14 @@ export const EDITOR_TREE = [
         nodes: [
             { id: 'levels', aspects: [{ id: 'marks', Section: AnnotationsSection }] },
             { id: 'walkStart', aspects: [{ id: 'start', Section: WalkStartSection }] },
+        ],
+    },
+    // Освещение сада (src/lighting): светильники и их свет; питание — щитки, цепи, трассы.
+    {
+        id: 'lighting',
+        nodes: [
+            { id: 'luminaires', aspects: [{ id: 'fixtures', Section: LightingSection }] },
+            { id: 'power', aspects: [{ id: 'power', Section: LightingPowerSection }] },
         ],
     },
     {

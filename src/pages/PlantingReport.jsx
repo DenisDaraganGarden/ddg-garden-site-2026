@@ -7,6 +7,8 @@ import { isSeasonSheet, plantCardUrl, plantName, plantPhotoUrl, useBedFills, use
 import { bloomMonths, byCategory, CATEGORY_LABELS } from '../planting/insights.js';
 import { vineRoot } from '../planting/vines.js';
 import { formatLevel, markLevels, normalizeAnnotationSettings } from '../annotations/settings.js';
+import { LightingReportBlocks } from '../lighting/LightingReport.jsx';
+import { useLightingReport } from '../lighting/lightingReport.js';
 import './PlantingReport.css';
 
 // Отчёт по посадкам проекта — для заказчика и дендролога: план в шапках
@@ -46,7 +48,7 @@ function Plan({ beds, instances, library }) {
 // на снимок простым масштабом: подписи цветников, номера растений по
 // ведомости, масштабная линейка и север — поверх, векторами.
 const DEG = Math.PI / 180;
-function PlanShot({ id, shot, beds, points, vines = [], numberOf, annotations, ru }) {
+function PlanShot({ id, shot, beds, points, vines = [], numberOf, annotations, lighting, ru }) {
     const [size, setSize] = useState(null);
     const date = new Date(shot.captured).toLocaleString(ru ? 'ru-RU' : 'en-GB', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
     const image = <img src={projectStore.planUrl(id, shot.captured)} alt={ru ? 'Генплан' : 'Site plan'} onLoad={(event) => setSize([event.currentTarget.naturalWidth, event.currentTarget.naturalHeight])} />;
@@ -74,6 +76,11 @@ function PlanShot({ id, shot, beds, points, vines = [], numberOf, annotations, r
                 const place = at(point.x, point.y, point.z), number = numberOf.get(point.plant);
                 return number && inside(place) ? <g key={point.id} transform={`translate(${place[0]} ${place[1]})`} className="report-shot__point"><circle r={font * 0.8} /><text>{number}</text></g> : null;
             }) : null}
+            {/* Светильники — кружок и номер по ведомости освещения. */}
+            {lighting?.lighting.lightingFixtures.map((fixture) => {
+                const place = at(fixture.x, fixture.y, fixture.z);
+                return inside(place) ? <g key={fixture.id} transform={`translate(${place[0]} ${place[1]})`} className="report-shot__light"><circle r={font * 0.45} /><text x={font * 0.7} y={font * 0.35}>{lighting.labels.get(fixture.id)}</text></g> : null;
+            })}
             {/* Отметки уровня — как на генплане: крестик в точке, число в рамке. */}
             {annotations?.annotationMarks.map((mark) => {
                 const [x, y] = at(mark.x, mark.y, mark.z), levels = markLevels(annotations.annotationMarks);
@@ -122,6 +129,7 @@ export default function PlantingReport() {
     const where = (r) => [...r.beds, ...(r.length ? [`${ru ? 'лианы' : 'climbers'}, ${r.length.toFixed(1)} ${ru ? 'м побегов' : 'm of shoots'}`] : [])].join(', ') || (ru ? 'одиночные' : 'single');
     const area = planting.plantingBeds.reduce((sum, bed) => sum + bedArea(bed), 0);
     const date = new Date().toLocaleDateString(ru ? 'ru-RU' : 'en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+    const lighting = useLightingReport(id, entry?.settings);
 
     if (error) return <main className="report"><p className="report-note">{error}</p></main>;
     if (!entry || status === 'loading' || status === 'idle') return <main className="report"><p className="report-note">{ru ? 'Собираю отчёт…' : 'Building the report…'}</p></main>;
@@ -136,7 +144,7 @@ export default function PlantingReport() {
         <header className="report-head">
             <p>DDG buro · Ouroboros</p>
             <h1>{entry.name}</h1>
-            <h2>{ru ? 'Посадки: план, цветение, альбом растений и ведомость' : 'Planting: plan, bloom, plant album and schedule'}</h2>
+            <h2>{ru ? `Посадки: план, цветение, альбом растений и ведомость${lighting ? '; освещение' : ''}` : `Planting: plan, bloom, plant album and schedule${lighting ? '; lighting' : ''}`}</h2>
             <p>{date}</p>
         </header>
 
@@ -146,7 +154,7 @@ export default function PlantingReport() {
 
         <section className="report-block">
             <h3>{ru ? 'План' : 'Plan'}</h3>
-            {shot ? <PlanShot id={id} shot={shot} beds={planting.plantingBeds} points={planting.plantingPoints} vines={planting.plantingVines} annotations={annotations} numberOf={new Map(schedule.map((r, i) => [r.plant.id, i + 1]))} ru={ru} />
+            {shot ? <PlanShot id={id} shot={shot} beds={planting.plantingBeds} points={planting.plantingPoints} vines={planting.plantingVines} annotations={annotations} lighting={lighting} numberOf={new Map(schedule.map((r, i) => [r.plant.id, i + 1]))} ru={ru} />
                 : <><Plan beds={planting.plantingBeds} instances={instances} library={library} />
                     <p className="report-hint">{ru ? 'Генплан с моделью появится здесь, когда в проекте откроют камеру «Генплан» — кнопка в «Растениях».' : 'The site plan with the model appears here once the “Site plan” camera is opened in the project — the button is in Plants.'}</p></>}
             <div className="report-legend">{LEGEND.map(([id2, color]) => <span key={id2}><i style={{ background: color }} />{CATEGORY_LABELS[id2][ru ? 0 : 1]}</span>)}<span><i className="is-existing" />{ru ? 'существующее' : 'existing'}</span></div>
@@ -188,6 +196,8 @@ export default function PlantingReport() {
                 <td>{i + 1}</td><td>{plantName(r.plant, ru)}<small>{r.plant.latin}</small></td><td>{r.count}</td><td>{r.area ? r.area.toFixed(1) : '—'}</td><td>{r.plant.category === 'tree' ? '—' : r.plant.density ?? '—'}</td><td>{r.plant.height}</td><td>{where(r)}</td><td />
             </tr>)}</tbody></table>
         </section>
+
+        <LightingReportBlocks report={lighting} ru={ru} />
 
         <footer className="report-foot">{ru
             ? 'Высоты, плотность и календарь — справочные данные библиотеки растений (уверенность средняя), не заключение дендролога. Количества посчитаны по нарисованным цветникам.'

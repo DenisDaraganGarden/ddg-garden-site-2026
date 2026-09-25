@@ -74,6 +74,7 @@ const keys = [
   'starsIntensity',
   'envMode',
   'hdriIntensity',
+  'hdriAtNight',
   'showHdriBackground',
   'shadowsEnabled',
   'shadowIntensity',

@@ -8,6 +8,7 @@ import { publishedHomeSceneKeys } from './src/features/home-scene/data/published
 import { isValidId, presets, projects } from './scripts/projectStore.mjs';
 import { listPlants, plantCardFile, plantPhotoFile, plantSeasonFile, removePlantPhoto, writePlantPhoto } from './scripts/plantLibrary.mjs';
 import { generatePlantSeasons, removePlantSeason } from './scripts/plantSeasons.mjs';
+import { listLuminaires, luminairePhotometryFile } from './scripts/luminaireLibrary.mjs';
 import { mapNodes, modelOrigin, prepareSketchupGlb, readGlb, readGlbJson } from './scripts/sketchupGlb.mjs';
 import { deployPublishedHomeScene } from './scripts/deployScene.mjs';
 import { surroundingsPlugin } from './scripts/surroundings.mjs';
@@ -227,6 +228,20 @@ function engineStorePlugin() {
           }
         }
 
+        // Сетка участка для трасс освещения: PUT/GET /__projects/<id>/site-grid.
+        if (part === 'site-grid' && isValidId(id) && store.writeSiteGrid) {
+          if (request.method === 'PUT') {
+            const saved = await store.writeSiteGrid(id, JSON.parse((await readRawBody(request, 16 * 2 ** 20)).toString('utf8')));
+            sendJson(response, saved ? 200 : 404, saved ? { ok: true } : { ok: false, message: `Проект «${id}» не найден.` });
+            return;
+          }
+          if (request.method === 'GET') {
+            const found = await store.readSiteGrid(id);
+            sendJson(response, found ? 200 : 404, found ? { ok: true, grid: found } : { ok: false, message: 'Сетки участка ещё нет.' });
+            return;
+          }
+        }
+
         // Генплан: PUT /__projects/<id>/plan {image, view} — снимок камеры
         // «Генплан»; GET …/plan — где стояла камера; GET …/plan.webp — кадр.
         if ((part === 'plan' || part === 'plan.webp') && isValidId(id) && store.writePlan) {
@@ -347,6 +362,24 @@ function engineStorePlugin() {
         createReadStream(found.file).pipe(response);
       } catch (error) {
         sendJson(response, error.status ?? 500, { ok: false, message: error instanceof Error ? error.message : 'Ошибка библиотеки растений' });
+      }
+    });
+    // Библиотека светильников (scripts/luminaireLibrary.mjs): записи — GET
+    // /__library/luminaires, фотометрия паспорта — GET …/<id>/photometry.ies|ldt.
+    middlewares.use('/__library/luminaires', async (request, response, next) => {
+      if (request.method !== 'GET') { next(); return; }
+      const [id, file] = decodeURIComponent(request.url.replace(/^\/+|\?.*$/g, '')).split('/');
+      try {
+        if (!id) { sendJson(response, 200, { ok: true, luminaires: await listLuminaires() }); return; }
+        const found = await luminairePhotometryFile(id, file);
+        if (!found) { sendJson(response, 404, { ok: false, message: 'Фотометрии нет.' }); return; }
+        response.statusCode = 200;
+        response.setHeader('Content-Type', 'text/plain; charset=utf-8');
+        response.setHeader('Content-Length', String(found.size));
+        response.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        createReadStream(found.file).pipe(response);
+      } catch (error) {
+        sendJson(response, error.status ?? 500, { ok: false, message: error instanceof Error ? error.message : 'Ошибка библиотеки светильников' });
       }
     });
   };

@@ -325,7 +325,10 @@ export const buildHomeSceneLighting = (settings = {}) => {
       // The panorama's light on objects (their environmentIntensity) and the
       // level the sea reflects it at, so the two agree. Under a storm it is the
       // only fill that does not darken by itself, so it takes the storm's dimming.
-      hdriLevel: finiteNumber(settings.hdriIntensity, 1) * exposure * (1 - 0.5 * storm),
+      hdriLevel: finiteNumber(settings.hdriIntensity, 1) * exposure * (1 - 0.5 * storm)
+        // A daytime panorama does not light the night: hdriAtNight is its share
+        // once the sun is down (1 keeps the old look; a lit garden wants ~0.05).
+        * (1 + (clamp(finiteNumber(settings.hdriAtNight, 1), 0, 1) - 1) * night),
       // A gain on the sky light objects take and on the sky the sea reflects,
       // never on the sky in view. The panorama's own light stays untinted.
       tint: reflectionTone(waterTint.linear).map(

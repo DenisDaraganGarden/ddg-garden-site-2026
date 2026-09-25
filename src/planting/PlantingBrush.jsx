@@ -19,6 +19,10 @@ import WalkStartMarker from '../walk/WalkStartMarker.jsx';
 //   mark  — клик ставит отметку уровня (src/annotations), как «Посадить»;
 //   start — старт прогулки (src/walk): нажатие ставит белый значок, протяжка
 //           от него — куда он будет смотреть; щелчок — лицом от камеры.
+//   light — светильник (src/lighting): нажатие ставит его на поверхность (на
+//           стену — настенный; стоящий на земле — у подножия стены), протяжка
+//           от него наводит луч на то, что под курсором: дерево, фасад;
+//   aim   — навести выбранный светильник: щелчок — на что он светит.
 // Земля — то, во что упирается луч: ровная плоскость проекта или модель
 // SketchUp (её 2D-растения, круги крон, стекло и листва — не земля; сетка с
 // вырезами — опора для лианы); мимо — горизонталь на высоте плоскости. Esc и
@@ -34,18 +38,18 @@ const solid = (object, cutout = false) => {
 };
 const UP = new THREE.Vector3(0, 1, 0), FACING = new THREE.Vector3(0, 0, 1);
 
-export default function PlantingBrush({ mode, groundY = 0, orbitRef, onBed, onBedSurface, onPlant, onVine, onMark, onStart }) {
+export default function PlantingBrush({ mode, groundY = 0, orbitRef, onBed, onBedSurface, onPlant, onVine, onMark, onStart, onLight, onAim, lightMount = 'ground' }) {
     const { gl, camera, scene, invalidate } = useThree();
     const cursor = useRef();
     const callbacks = useRef({});
-    callbacks.current = { onBed, onBedSurface, onPlant, onVine, onMark, onStart };
+    callbacks.current = { onBed, onBedSurface, onPlant, onVine, onMark, onStart, onLight, onAim, lightMount };
     const [preview, setPreview] = useState(null);
     const [aim, setAim] = useState(null);
     const [surface, setSurface] = useState(null);
     // Контур цветника замкнут и приподнят над землёй; мазок лианы — открытый,
     // его точки уже отнесены от поверхности по нормали.
     const line = useMemo(() => (preview && preview.length > 1
-        ? new THREE.BufferGeometry().setFromPoints((mode === 'vine' ? preview : [...preview, preview[0]]).map(([x, y, z]) => new THREE.Vector3(x, y + (mode === 'vine' ? 0 : 0.04), z)))
+        ? new THREE.BufferGeometry().setFromPoints((mode === 'vine' || mode === 'light' ? preview : [...preview, preview[0]]).map(([x, y, z]) => new THREE.Vector3(x, y + (mode === 'vine' || mode === 'light' ? 0 : 0.04), z)))
         : null), [preview, mode]);
     useEffect(() => () => line?.dispose(), [line]);
     const highlight = useMemo(() => new THREE.MeshBasicMaterial({ color: '#f2c14e', transparent: true, opacity: 0.38, depthWrite: false, side: THREE.DoubleSide, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }), []);
@@ -135,7 +139,7 @@ export default function PlantingBrush({ mode, groundY = 0, orbitRef, onBed, onBe
             const found = cast(event);
             if (!found) return;
             press = { x: event.clientX, y: event.clientY, id: event.pointerId, moved: 0, region: mode === 'bed' ? regionAt(found.hit) : null };
-            if (mode === 'plant' || mode === 'mark') return;
+            if (mode === 'plant' || mode === 'mark' || mode === 'aim') return;
             event.preventDefault(); event.stopImmediatePropagation();
             oldOrbit = orbitRef?.current?.enabled ?? true;
             if (orbitRef?.current) orbitRef.current.enabled = false;
@@ -145,6 +149,13 @@ export default function PlantingBrush({ mode, groundY = 0, orbitRef, onBed, onBe
                 camera.getWorldDirection(look);
                 stroke.aim = { point: footOf(found), yaw: Math.atan2(look.x, look.z) };
                 setAim({ ...stroke.aim });
+                return;
+            }
+            if (mode === 'light') {
+                // Стоящий на земле, нажатый на стену, — у её подножия; настенный — на ней.
+                const ground = callbacks.current.lightMount !== 'wall' && (found.normal?.[1] ?? 1) < 0.6;
+                camera.getWorldDirection(look);
+                stroke.light = { point: ground ? footOf(found) : found.point, normal: ground ? [0, 1, 0] : found.normal, target: null, yaw: Math.atan2(look.x, look.z) };
                 return;
             }
             setPreview([mode === 'vine' ? lifted(found) : found.point]);
@@ -158,7 +169,13 @@ export default function PlantingBrush({ mode, groundY = 0, orbitRef, onBed, onBe
                 const hit = found?.hit;
                 hoverFrame = requestAnimationFrame(() => { hoverFrame = 0; showSurface(regionAt(hit)); });
             }
-            if (stroke?.aim && event.pointerId === stroke.id) aimAt(event);
+            if (stroke?.light && event.pointerId === stroke.id) {
+                const { point } = stroke.light;
+                // Наводка — точка под курсором, дальше полуметра от места.
+                if (found && Math.hypot(found.point[0] - point[0], found.point[1] - point[1], found.point[2] - point[2]) > 0.5) stroke.light.target = found.point;
+                if (!frame) frame = requestAnimationFrame(() => { frame = 0; if (stroke?.light) setPreview(stroke.light.target ? [stroke.light.point, stroke.light.target] : null); });
+                event.preventDefault(); event.stopImmediatePropagation();
+            } else if (stroke?.aim && event.pointerId === stroke.id) aimAt(event);
             else if (stroke && event.pointerId === stroke.id) {
                 event.preventDefault(); event.stopImmediatePropagation();
                 if (mode === 'vine') {
@@ -180,16 +197,20 @@ export default function PlantingBrush({ mode, groundY = 0, orbitRef, onBed, onBe
             const start = press;
             press = null;
             const clicked = start && start.id === event.pointerId && Math.max(start.moved, Math.hypot(event.clientX - start.x, event.clientY - start.y)) <= CLICK;
-            if (mode === 'plant' || mode === 'mark') {
+            if (mode === 'plant' || mode === 'mark' || mode === 'aim') {
                 if (!clicked) return;
                 const found = cast(event);
-                if (found) callbacks.current[mode === 'mark' ? 'onMark' : 'onPlant']?.(found.point, { onModel: Boolean(found.hit) });
+                if (found) callbacks.current[mode === 'mark' ? 'onMark' : mode === 'aim' ? 'onAim' : 'onPlant']?.(found.point, { onModel: Boolean(found.hit) });
                 return;
             }
             if (!stroke || event.pointerId !== stroke.id || event.button !== 0) return;
             event.preventDefault(); event.stopImmediatePropagation();
-            const points = stroke.points, samples = stroke.samples, placed = stroke.aim;
+            const points = stroke.points, samples = stroke.samples, placed = stroke.aim, light = stroke.light;
             stop();
+            if (light) {
+                callbacks.current.onLight?.(light);
+                return;
+            }
             if (placed) {
                 const [x, y, z] = placed.point;
                 callbacks.current.onStart?.({ x, y, z, yaw: placed.yaw });
@@ -246,7 +267,7 @@ export default function PlantingBrush({ mode, groundY = 0, orbitRef, onBed, onBe
     if (!mode) return null;
     return <group>
         <mesh ref={cursor} visible={false} raycast={() => {}}>
-            <ringGeometry args={[mode === 'plant' || mode === 'start' ? 0.3 : mode === 'vine' || mode === 'mark' ? 0.1 : 0.16, mode === 'plant' ? 0.36 : mode === 'start' ? 0.335 : mode === 'vine' || mode === 'mark' ? 0.13 : 0.2, 40]} />
+            <ringGeometry args={[mode === 'plant' || mode === 'start' ? 0.3 : mode === 'vine' || mode === 'mark' || mode === 'light' || mode === 'aim' ? 0.1 : 0.16, mode === 'plant' ? 0.36 : mode === 'start' ? 0.335 : mode === 'vine' || mode === 'mark' || mode === 'light' || mode === 'aim' ? 0.13 : 0.2, 40]} />
             <meshBasicMaterial color="#d9ca8c" depthTest={false} transparent opacity={0.85} toneMapped={false} />
         </mesh>
         {surface ? <mesh geometry={surface} material={highlight} raycast={() => {}} renderOrder={6} /> : null}

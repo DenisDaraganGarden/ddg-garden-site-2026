@@ -50,7 +50,10 @@ try {
   // Адрес, координаты и окружение участка — данные заказчика: живут в
   // проекте и на сайт не уходят никогда (src/surroundings/settings.js).
   const { DEFAULT_SURROUNDINGS_SETTINGS } = await server.ssrLoadModule('/src/surroundings/settings.js');
-  const PROJECT_LOCAL = new Set(Object.keys(DEFAULT_SURROUNDINGS_SETTINGS));
+  // Освещение сада — проектное, как окружение: типы живут в библиотеке
+  // этого компьютера, на сайт световой проект не уходит (src/lighting/settings.js).
+  const { DEFAULT_LIGHTING_SETTINGS } = await server.ssrLoadModule('/src/lighting/settings.js');
+  const PROJECT_LOCAL = new Set([...Object.keys(DEFAULT_SURROUNDINGS_SETTINGS), ...Object.keys(DEFAULT_LIGHTING_SETTINGS)]);
   const lost = rows.filter((x) => x.control && !x.published && !EDITOR_LOCAL.has(x.key) && !PROJECT_LOCAL.has(x.key) && x.used.length);
   const unreachable = rows.filter((x) => !x.control && x.published && x.used.length && !PLUMBING.has(x.key) && !LEGACY_FALLBACK.has(x.key));
   print('FAIL: control the renderer reads, but publication drops it', lost, (x) => `${x.control}  used by: ${x.used.join(', ')}`);

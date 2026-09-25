@@ -32,6 +32,8 @@ html[data-planting-report=true] body{background:#e9e8e3}
 .report-shot__numbers{font-weight:500;font-size:calc(var(--mark) * .85)}
 .report-shot__point circle{fill:#fff;stroke:#1f2321;stroke-width:calc(var(--mark) * .1)}
 .report-shot__point text{font-size:calc(var(--mark) * .8);font-weight:600;fill:#1f2321;text-anchor:middle;dominant-baseline:central}
+.report-shot__light circle{fill:#f2c14e;stroke:#1f2321;stroke-width:calc(var(--mark) * .08)}
+.report-shot__light text{font-size:calc(var(--mark) * .7);font-weight:600;fill:#1f2321;paint-order:stroke;stroke:#fff;stroke-width:calc(var(--mark) * .2)}
 .report-shot__scale rect{fill:#ffffffe6}
 .report-shot__scale path{stroke:#1f2321;stroke-width:calc(var(--mark) * .3)}
 .report-shot__scale text{font-size:var(--mark);fill:#1f2321;text-anchor:middle}

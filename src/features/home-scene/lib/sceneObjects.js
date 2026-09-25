@@ -22,7 +22,7 @@
 // `site: true` — вещь сайта и моря, которой нет в проекте «Участок» (kind
 // 'design'): там она выключена и пропадает из дерева, поиска и видимости.
 // `design: true` — наоборот, только «Участка»: окружение по адресу.
-export const SCENE_OBJECT_GROUPS = Object.freeze(['landscape', 'greenery', 'objects', 'creatures', 'annotations', 'render']);
+export const SCENE_OBJECT_GROUPS = Object.freeze(['landscape', 'greenery', 'objects', 'lighting', 'creatures', 'annotations', 'render']);
 
 export const SCENE_OBJECTS = Object.freeze([
   // The loose shells on the beach are the terrain's: «Ракушечник» sets how many,
@@ -58,6 +58,8 @@ export const SCENE_OBJECTS = Object.freeze([
   { id: 'house', key: 'houseEnabled', node: 'objects/house', group: 'objects', roots: ['beach-house'], site: true },
   { id: 'seagulls', key: 'seagullsEnabled', node: 'creatures/seagulls', group: 'creatures', roots: ['seagull-flock'], sound: 'birds', requires: ['water'], newProject: false, site: true },
   { id: 'fish', key: 'fishEnabled', node: 'creatures/fish', group: 'creatures', roots: ['river-fish-school'], requires: ['water'], newProject: false, site: true },
+  // Освещение сада — светильники, их свет и питание (src/lighting); проект «Участок».
+  { id: 'lighting', key: 'lightingEnabled', node: 'lighting/luminaires', group: 'lighting', roots: ['luminaires'], design: true },
   // Отметки уровня — пометки проектировщика (src/annotations), только в редакторе.
   { id: 'annotations', key: 'annotationsEnabled', node: 'annotations/levels', group: 'annotations', roots: ['annotations'] },
   { id: 'reflections', key: 'reflectionsEnabled', node: null, group: 'render' },
@@ -164,6 +166,11 @@ export const sceneHitForObject3D = (object, hit = null) => {
   // Лист лианы — экземпляр в пачке вида: чья он, говорит его номер.
   if (object.userData?.plantingVines && hit?.instanceId !== undefined) {
     return { node: 'greenery/planting', root: object.name, plantingVine: object.userData.plantingVines[hit.instanceId] };
+  }
+  if (object.userData?.lightingPanel) return { node: 'lighting/power', root: object.name, lightingPanel: object.userData.lightingPanel };
+  // Светильник — экземпляр в пачке своего типа: чей он, говорит номер.
+  if (object.userData?.lightingFixtures && hit?.instanceId !== undefined) {
+    return { node: 'lighting/luminaires', root: object.name, lightingFixture: object.userData.lightingFixtures[hit.instanceId] };
   }
   // Её ветка — треугольник в общей сетке вида: чья, говорит номер грани.
   if (object.userData?.plantingVineFaces && hit?.faceIndex !== undefined) {

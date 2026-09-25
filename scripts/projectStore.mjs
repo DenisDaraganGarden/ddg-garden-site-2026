@@ -254,7 +254,30 @@ export function createStore(folder, payloadKey) {
     }
   }
 
-  return { dir, list, read, create, save, remove, writeThumbnail, readThumbnail, writePlan, readPlan, planImage, writeModel, modelFile };
+  // Сетка участка для трасс освещения (src/lighting/gridCodec.js): её строит
+  // редактор из модели, агент и отчёт считают по ней без сцены.
+  const gridPath = (id) => path.join(dir, id, 'site-grid.json');
+  const writeSiteGrid = async (id, grid) => {
+    if (!isValidId(id) || !(await read(id))) return false;
+    const ok = grid && ['x0', 'z0', 'cell', 'cols', 'rows'].every((key) => Number.isFinite(grid[key])) && typeof grid.kind === 'string' && typeof grid.ground === 'string';
+    if (!ok) throw new Error('Сетка участка: x0, z0, cell, cols, rows и kind/ground в base64.');
+    await fs.mkdir(path.join(dir, id), { recursive: true });
+    const tmp = `${gridPath(id)}.tmp`;
+    await fs.writeFile(tmp, JSON.stringify({ ...grid, built: new Date().toISOString() }), 'utf8');
+    await fs.rename(tmp, gridPath(id));
+    return true;
+  };
+  const readSiteGrid = async (id) => {
+    if (!isValidId(id)) return null;
+    try {
+      return JSON.parse(await fs.readFile(gridPath(id), 'utf8'));
+    } catch (error) {
+      if (error.code === 'ENOENT') return null;
+      throw error;
+    }
+  };
+
+  return { dir, list, read, create, save, remove, writeThumbnail, readThumbnail, writePlan, readPlan, planImage, writeModel, modelFile, writeSiteGrid, readSiteGrid };
 }
 
 export const projects = createStore('projects', 'settings');

@@ -1,5 +1,5 @@
 {
-  "collected": "2026-09-24T23:47:28.635Z",
+  "collected": "2026-09-25T02:14:23.628Z",
   "rows": [
     {
       "key": "cameraFov",
@@ -5056,6 +5056,53 @@
       "unit": " m"
     },
     {
+      "key": "lightingEnabled",
+      "group": "lighting",
+      "node": "luminaires",
+      "label": "Освещение сада",
+      "kind": "выключатель"
+    },
+    {
+      "key": "lightingFixtures",
+      "group": "lighting",
+      "node": "luminaires",
+      "label": "Светильник",
+      "kind": "список",
+      "options": [
+        ""
+      ]
+    },
+    {
+      "key": "lightingMode",
+      "group": "lighting",
+      "node": "luminaires",
+      "label": "Горят",
+      "kind": "список",
+      "options": [
+        "auto",
+        "on",
+        "off"
+      ]
+    },
+    {
+      "key": "lightingExposure",
+      "group": "lighting",
+      "node": "luminaires",
+      "label": "Экспозиция света",
+      "kind": "число",
+      "min": -4,
+      "max": 4,
+      "step": 0.1,
+      "unit": " EV"
+    },
+    {
+      "key": "lightingConnections",
+      "group": "lighting",
+      "node": "power",
+      "label": "Показать подключения",
+      "kind": "выключатель"
+    },
+    {
       "key": "light1Enabled",
       "group": "lights",
       "node": "light1",
@@ -5568,6 +5615,17 @@
       "kind": "число",
       "min": 0,
       "max": 2,
+      "step": 0.01,
+      "unit": "x"
+    },
+    {
+      "key": "hdriAtNight",
+      "group": "atmosphere",
+      "node": "hdri",
+      "label": "HDRI ночью",
+      "kind": "число",
+      "min": 0,
+      "max": 1,
       "step": 0.01,
       "unit": "x"
     },
@@ -7391,6 +7449,10 @@
     "surroundingsGreenColor": "#b4bda6",
     "surroundingsWaterColor": "#a7bac4",
     "surroundingsStamp": "",
+    "lightingEnabled": true,
+    "lightingMode": "auto",
+    "lightingExposure": 0,
+    "lightingConnections": false,
     "seaEnabled": true,
     "seaWavelength": 11.5,
     "seaAmplitude": 0.57,
@@ -7532,6 +7594,7 @@
     "starsIntensity": 1,
     "envMode": "sky",
     "hdriIntensity": 1,
+    "hdriAtNight": 1,
     "showHdriBackground": false,
     "shadowsEnabled": true,
     "frameRateLimit": 0,

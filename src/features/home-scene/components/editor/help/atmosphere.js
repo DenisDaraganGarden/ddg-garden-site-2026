@@ -271,6 +271,10 @@ export default {
     'Яркость HDRI-панорамы: сколько света она даёт предметам и насколько ярка фоном, а в «Только HDRI» — и в отражении моря. Только в режимах с HDRI; гроза её приглушает.',
     'Brightness of the HDRI panorama: how much light it gives objects and how bright it is as a background, and in “HDRI only” in the sea’s reflection too. HDRI modes only; a storm dims it.',
   ],
+  hdriAtNight: [
+    'Какая доля света HDRI остаётся ночью, когда солнце ушло под горизонт. Дневная панорама ночью светит сад как пасмурный день — 1 оставляет так; для вечернего освещения сада ставьте около 0,05, тогда светят светильники и луна.',
+    'How much of the HDRI light remains at night, once the sun is below the horizon. A daytime panorama lights a night garden like an overcast day — 1 keeps that; for evening garden lighting use about 0.05, so the luminaires and the moon do the lighting.',
+  ],
   hdrPreset: [
     'Какая фотопанорама используется в режимах с HDRI. Её палитра ещё окрашивает дождь, даёт туману цвет горизонта, когда панорама стоит фоном, и слегка тонирует толщу воды.',
     'Which photo panorama the HDRI modes use. Its palette also colours the rain, gives the fog its horizon while the panorama is the backdrop, and slightly tints the water body.',

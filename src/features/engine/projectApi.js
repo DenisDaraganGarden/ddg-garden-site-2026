@@ -42,6 +42,9 @@ const store = (base) => ({
     // Снимок камеры «Генплан» для отчёта и где она стояла.
     savePlan: (id, image, view) => call(base, `/${encodeURIComponent(id)}/plan`, { method: 'PUT', body: JSON.stringify({ image, view }) }),
     readPlan: (id) => call(base, `/${encodeURIComponent(id)}/plan`).catch((error) => { if (error.status === 404) return null; throw error; }),
+    // Сетка участка для трасс освещения (src/lighting/gridCodec.js).
+    saveSiteGrid: (id, grid) => call(base, `/${encodeURIComponent(id)}/site-grid`, { method: 'PUT', body: JSON.stringify(grid) }),
+    readSiteGrid: (id) => call(base, `/${encodeURIComponent(id)}/site-grid`).then((payload) => payload.grid, (error) => { if (error.status === 404) return null; throw error; }),
     planUrl: (id, captured = '') => `${base}/${encodeURIComponent(id)}/plan.webp?${encodeURIComponent(captured)}`,
 });
 

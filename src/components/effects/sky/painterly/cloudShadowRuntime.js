@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { applyGardenLightShader } from '../../../../lighting/gardenLightShader.js';
 
 // The cloud target already integrates density along the sun ray and stores
 // transmittance (white = clear, black = blocked). Receivers only project their
@@ -197,6 +198,9 @@ export function applyCloudShadowShader(shader, uniforms, { csmPending = false } 
   // A fallback wrapper can be captured by CSM later. Leave CSM's source
   // intact; csmAdapter calls this function again after its chunk replacement.
   if (csmPending) return;
+  // Свет сада (src/lighting) — в ту же единственную точку, что проходят все
+  // освещённые материалы, и в обоих путях: без CSM и после его подмены.
+  applyGardenLightShader(shader);
   if (!shader.vertexShader.includes('vDdgCloudShadowWorldPosition')) {
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', '#include <common>\nvarying vec3 vDdgCloudShadowWorldPosition;')
@@ -253,7 +257,7 @@ export function bindCloudShadowMaterial(material, cloudShadowRef) {
     });
   };
   const cloudKey = function ddgCloudShadowCacheKey() {
-    return `${previousKey?.call(material) ?? material.type}|ddg-cloud-shadow-v3`;
+    return `${previousKey?.call(material) ?? material.type}|ddg-cloud-shadow-v3|ddg-garden-v1`;
   };
   material.onBeforeCompile = cloudCompile;
   material.customProgramCacheKey = cloudKey;

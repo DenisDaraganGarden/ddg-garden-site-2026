@@ -226,6 +226,24 @@ stash, ветки с незалитыми коммитами, воркдерев
   Старт — `walkStart` (один на проект, `src/walk/settings.js`), ставится
   инструментом «Старт» (K) через `PlantingBrush` и узлом «Аннотации → Старт
   прогулки».
+- Освещение сада (рейка «Освещение», `src/lighting`, решение —
+  `docs/garden-lighting-2026-09-25.md`) — светильники и слой питания.
+  Светильники — не источники three.js: их свет — световое поле
+  (`lightField.js` + `gardenLightShader.js`, вставлено в
+  `applyCloudShadowShader`, цена пикселя ограничена 16 светами клетки);
+  корпуса — пачка экземпляров на тип (`housings.js`, `GardenLighting.jsx`).
+  Типы — заготовки `types.js` и изделия библиотеки
+  `~/Ouroboros/library/luminaires/<id>.json` с происхождением каждого поля
+  (паспорт / Денис / догадка), фотометрия — `photometry.js` (IES/LDT или
+  люмены и угол). Трассы, длины, нагрузки и ΔU не хранятся — их считает
+  `electric.js` по сетке участка (`siteGrid.js`; редактор кладёт её в
+  `projects/<id>/site-grid.json`); хранятся щитки, цепи и закреплённые трассы
+  (`lightingRuns`). Агент работает через `node scripts/lighting.mjs <проект>
+  report|lux|panels|circuits|apply`, не считая сам; утверждённые (`locked`)
+  светильники без `--force` не трогает. Покрытия под материалами SketchUp —
+  таблица `lightingSurfaces`; здание, где не копают, — только названное там.
+  Ночь, в которой свет читается, — `hdriAtNight` (доля HDRI ночью, «Среда →
+  HDRI»). Проверки — `check:garden-lighting`.
 
 ## 6. Ядро рендера
 

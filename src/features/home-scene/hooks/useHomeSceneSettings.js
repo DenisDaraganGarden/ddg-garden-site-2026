@@ -11,6 +11,7 @@ import { DEFAULT_HOUSE_SETTINGS, normalizeHouseSettings } from '../../../compone
 import { DEFAULT_SHORE_SETTINGS, normalizeShoreSettings } from '../../../shore/settings.js';
 import { DEFAULT_SURROUNDINGS_SETTINGS, normalizeSurroundingsSettings } from '../../../surroundings/settings.js';
 import { DEFAULT_MATERIAL_SETTINGS, normalizeMaterialSettings } from '../../../materials/settings.js';
+import { DEFAULT_LIGHTING_SETTINGS, normalizeLightingSettings } from '../../../lighting/settings.js';
 import { DEFAULT_RENDER_QUALITY_SETTINGS, normalizeRenderQualitySettings } from '../../../components/effects/renderQualitySettings.js';
 import { SEA_SETTINGS_DEFAULTS, normalizeSeaSettings } from '../../../components/effects/water/seaSettings.js';
 import { DEFAULT_PAINTERLY_CLOUD_SETTINGS, normalizePainterlyCloudSettings } from '../lib/painterlyCloudSettings.js';
@@ -230,6 +231,7 @@ export const getBaseHomeSceneSettings = () => ({
   ...DEFAULT_SHORE_SETTINGS,
   ...DEFAULT_SURROUNDINGS_SETTINGS,
   ...DEFAULT_MATERIAL_SETTINGS,
+  ...DEFAULT_LIGHTING_SETTINGS,
   ...SEA_SETTINGS_DEFAULTS,
   waterExtent: 24,
   // Metres over which the pond's look hands over to the far field at its edge.
@@ -280,6 +282,8 @@ export const getBaseHomeSceneSettings = () => ({
   starsIntensity: 1,
   envMode: 'sky',
   hdriIntensity: 1,
+  // Доля HDRI ночью: дневная панорама не должна светить ночной сад.
+  hdriAtNight: 1,
   showHdriBackground: false,
   shadowsEnabled: true,
   ...DEFAULT_RENDER_QUALITY_SETTINGS,
@@ -844,6 +848,7 @@ const normalizeHomeSceneSettings = (savedSettings = {}, includeCameraSystem = tr
       ? merged.envMode
       : defaults.envMode,
     hdriIntensity: clampFloat(merged.hdriIntensity, 0, 2, defaults.hdriIntensity),
+    hdriAtNight: clampFloat(merged.hdriAtNight, 0, 1, defaults.hdriAtNight),
     showHdriBackground: pickBoolean(merged.showHdriBackground, defaults.showHdriBackground),
     shadowsEnabled: pickBoolean(merged.shadowsEnabled, defaults.shadowsEnabled),
     shadowIntensity: clampFloat(merged.shadowIntensity, 0, 1, defaults.shadowIntensity),
@@ -1202,6 +1207,7 @@ const normalizeHomeSceneSettings = (savedSettings = {}, includeCameraSystem = tr
     ...normalizeShoreSettings(merged),
     ...normalizeSurroundingsSettings(merged),
     ...normalizeMaterialSettings(merged),
+    ...normalizeLightingSettings(merged),
     ...normalizeRenderQualitySettings(merged),
     bloomEnabled: pickBoolean(merged.bloomEnabled, defaults.bloomEnabled),
     bloomStrength: clampFloat(merged.bloomStrength, 0, 2.5, defaults.bloomStrength),

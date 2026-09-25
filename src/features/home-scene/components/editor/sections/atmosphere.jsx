@@ -397,6 +397,16 @@ export const HdriSection = ({ settings, handleSettingChange }) => {
                 formatValue={(value) => formatFloat(value)}
                 onChange={(event) => handleSettingChange(event, 'hdriIntensity')}
             />
+            <RangeControl controlId={'hdriAtNight'}
+                label={t('homeEditor.controls.hdriAtNight')}
+                value={settings.hdriAtNight}
+                min={0}
+                max={1}
+                step={0.01}
+                unit="x"
+                formatValue={(value) => formatFloat(value)}
+                onChange={(event) => handleSettingChange(event, 'hdriAtNight')}
+            />
             <SelectControl controlId={'hdrPreset'}
                 label={t('homeEditor.controls.hdrPreset')}
                 value={settings.hdrPreset}

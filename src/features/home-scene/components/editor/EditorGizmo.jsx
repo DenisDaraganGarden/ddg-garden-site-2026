@@ -99,6 +99,10 @@ const targetRule = selection => {
     if (selection?.startsWith('topiary:')) return { objectName: `topiary-${selection.slice(8)}`, translate: { x: true, y: true, z: true }, rotate: { x: false, y: true, z: false }, uniformScale: true };
     // A placed object stands on its anchor: free in XYZ, yaws, scales as one.
     if (selection?.startsWith('placed:')) return { objectName: `placed-${selection.slice(7)}`, translate: { x: true, y: true, z: true }, rotate: { x: false, y: true, z: false }, uniformScale: true };
+    // Светильник: корпус переносится и поворачивается; его цель — отдельная ручка.
+    if (selection?.startsWith('luminaire:')) return { objectName: `luminaire-${selection.slice(10)}`, translate: { x: true, y: true, z: true }, rotate: { x: false, y: true, z: false }, scale: false };
+    if (selection?.startsWith('lighting-panel:')) return { objectName: `lighting-panel-${selection.slice(15)}`, translate: { x: true, y: true, z: true }, rotate: { x: false, y: true, z: false }, scale: false };
+    if (selection?.startsWith('luminaire-aim:')) return { objectName: `luminaire-aim-${selection.slice(14)}`, translate: { x: true, y: true, z: true }, rotate: { x: false, y: false, z: false }, scale: false };
     return GIZMO_TARGETS[selection];
 };
 

@@ -151,7 +151,7 @@ export function createCsmAdapter({
       if (cloudShadowUniforms) applyCloudShadowShader(shader, cloudShadowUniforms);
     };
     material.customProgramCacheKey = function customProgramCacheKey() {
-      return `${previousKey?.call(material) ?? material.type}|ddg-csm-${csm.cascades}${cloudShadowUniforms ? '|ddg-cloud-shadow-v3' : ''}`;
+      return `${previousKey?.call(material) ?? material.type}|ddg-csm-${csm.cascades}${cloudShadowUniforms ? '|ddg-cloud-shadow-v3|ddg-garden-v1' : ''}`;
     };
     material.needsUpdate = true;
     const previous = { previousCompile, previousKey, csmDefines, cloudShadowUniforms, onDispose: null };
