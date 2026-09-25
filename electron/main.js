@@ -1,7 +1,7 @@
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
-import { app, BrowserWindow, Menu, shell } from 'electron';
+import { app, BrowserWindow, Menu, dialog, shell } from 'electron';
 import { createServer } from 'vite';
 import { projects } from '../scripts/projectStore.mjs';
 import { loadEnginePage } from './navigation.js';
@@ -24,6 +24,21 @@ const PROBE = process.env.DDG_APP_PROBE;
 const PROBE_OUT = process.env.DDG_APP_PROBE_OUT;
 
 let viteServer = null;
+let mainWindow = null;
+
+// Имя в меню меняется, профиль с черновиками остаётся прежним.
+const userData = app.getPath('userData');
+app.setName('OUROBOROS');
+app.setPath('userData', userData);
+app.setPath('sessionData', userData);
+
+function focusWindow() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  if (process.platform === 'darwin') app.show();
+  mainWindow.show();
+  mainWindow.focus();
+}
 
 // Корень сервера приложения — меню проектов, а не редактор сайта: кнопка в
 // списке запуска открывает вкладку на этом порту, и она должна показывать то
@@ -108,6 +123,8 @@ async function createWindow(url) {
     // проекты ходят через тот же HTTP, что и в браузере.
     webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true },
   });
+  mainWindow = window;
+  window.once('closed', () => { mainWindow = null; });
 
   // Вкладки редактор не открывает, а ссылка наружу — это ссылка наружу.
   window.webContents.setWindowOpenHandler(({ url: target }) => {
@@ -153,20 +170,28 @@ async function runSmoke(window) {
   process.exit(0);
 }
 
-app.whenReady().then(async () => {
-  try {
-    const url = await startEngineServer();
-    buildMenu();
-    const window = await createWindow(url);
-    if (SMOKE || PROBE) await runSmoke(window);
-  } catch (error) {
-    console.error('Движок не запустился:', error);
-    await viteServer?.close();
-    viteServer = null;
-    app.exit(1);
-    process.exit(1);
-  }
-});
+// Проверки с отдельным портом могут работать независимо от основного окна.
+if (SMOKE || PROBE || app.requestSingleInstanceLock()) {
+  app.on('second-instance', focusWindow);
+  app.on('activate', focusWindow);
+  app.whenReady().then(async () => {
+    try {
+      const url = await startEngineServer();
+      buildMenu();
+      const window = await createWindow(url);
+      if (SMOKE || PROBE) await runSmoke(window);
+    } catch (error) {
+      console.error('Движок не запустился:', error);
+      if (app.isPackaged) dialog.showErrorBox('OUROBOROS не запустился', error.message);
+      await viteServer?.close();
+      viteServer = null;
+      app.exit(1);
+      process.exit(1);
+    }
+  });
+} else {
+  app.quit();
+}
 
 app.on('window-all-closed', () => app.quit());
 app.on('before-quit', () => { void viteServer?.close(); });

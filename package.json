@@ -60,6 +60,7 @@
     "check:ai-materials": "node scripts/materialMaps.check.mjs && node scripts/materials.check.mjs && node scripts/plantSeasons.check.mjs && node src/materials/faces.check.js",
     "check:deploy": "node scripts/deployScene.check.mjs",
     "app": "node ./node_modules/electron/cli.js electron/main.js",
+    "app:install": "node scripts/install-mac-app.mjs",
     "check:app": "node scripts/check-app.mjs",
     "check:app-navigation": "node ./node_modules/electron/cli.js scripts/electronNavigation.check.mjs",
     "build:reference": "node scripts/build-engine-reference.mjs"
