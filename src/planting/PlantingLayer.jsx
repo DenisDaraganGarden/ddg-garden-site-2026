@@ -2,6 +2,7 @@ import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 're
 import { useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { plantingInstances } from './fillBed.js';
+import { bakeGroundTiles, bedGroundGeometry, groundSeason, makeGroundMaterial, plantGroundMaps, plantMapTextures } from './bedGround.js';
 import { plantCardUrl, plantSeasonUrl, useBedFills, usePlantLibrary } from './plantLibrary.js';
 import { seasonImage, seasonLook } from './season.js';
 import VineLayer from './VineLayer.jsx';
@@ -320,9 +321,8 @@ function PlanCaps({ instances, library }) {
     </group>;
 }
 
-// Земля цветника — мульча под растениями; по ней цветник выбирается кликом.
-// Цветник с поверхности модели своей мульчи не рисует — земля есть в модели;
-// остаётся невидимая площадка для щелчка. Дырки (приствольные круги) — дырки.
+// Площадка цветника — по ней цветник выбирается кликом; видна она только на
+// плане (бумага). Сам грунт рисует BedGround. Дырки (приствольные круги) — дырки.
 function BedSurface({ bed, selected, plan }) {
     const geometry = useMemo(() => {
         const shape = new THREE.Shape(bed.points.map(([x, z]) => new THREE.Vector2(x, -z)));
@@ -337,13 +337,41 @@ function BedSurface({ bed, selected, plan }) {
     return <group position={[0, bed.y, 0]}>
         <mesh name={`planting-bed-${bed.id}`} userData={{ plantingBed: bed.id }} geometry={geometry} position={[0, bed.surface ? 0.03 : 0.012, 0]} receiveShadow={!plan && !bed.surface} renderOrder={plan ? 1 : 0} onBeforeRender={topOnly}>
             {plan ? <meshBasicMaterial color="#ece6d6" toneMapped={false} depthTest={!bed.surface} polygonOffset polygonOffsetFactor={-2} polygonOffsetUnits={-2} />
-                : bed.surface ? <meshBasicMaterial transparent opacity={0} depthWrite={false} />
-                    : <meshStandardMaterial color="#4d3d2c" roughness={1} metalness={0} polygonOffset polygonOffsetFactor={-2} polygonOffsetUnits={-2} />}
+                : <meshBasicMaterial transparent opacity={0} depthWrite={false} />}
         </mesh>
         {selected || plan ? outlines.map((outline, i) => <lineLoop key={i} geometry={outline} position={[0, 0.04, 0]} raycast={() => {}} renderOrder={5} onBeforeRender={selected ? NOTHING : topOnly}>
             <lineBasicMaterial color={selected ? '#f2c14e' : '#3b3326'} depthTest={!selected && !bed.surface} toneMapped={false} />
         </lineLoop>) : null}
     </group>;
+}
+
+// Грунт цветника (bedGround.js): кора с землёй, с глубиной, по рельефу
+// цветника — и на поверхности модели (поверх её газона или коры), и на
+// берегу; опад и тень — от растений этого цветника, влага и иней — от месяца.
+function BedGround({ bed, fill, library, month }) {
+    const gl = useThree((state) => state.gl);
+    const invalidate = useThree((state) => state.invalidate);
+    const shapeKey = JSON.stringify([bed.points, bed.holes ?? null, bed.ground ?? null, bed.y]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- форма цветника по значению
+    const geometry = useMemo(() => bedGroundGeometry(bed), [shapeKey]);
+    useEffect(() => () => geometry.dispose(), [geometry]);
+    const ground = useMemo(() => makeGroundMaterial(bakeGroundTiles(gl)), [gl]);
+    useEffect(() => () => ground.material.dispose(), [ground]);
+    const maps = useMemo(() => plantGroundMaps(bed, fill ?? [], library, month), [bed, fill, library, month]);
+    const textures = useRef(null);
+    useLayoutEffect(() => {
+        textures.current = plantMapTextures(maps, textures.current);
+        const u = ground.uniforms, season = groundSeason(month);
+        u.uPlantLitter.value = textures.current.litter;
+        u.uPlantKind.value = textures.current.kind;
+        u.uPlantFrame.value.set(...maps.frame);
+        u.uMoisture.value = season.moisture;
+        u.uFrost.value = season.frost;
+        u.uAged.value = season.aged;
+        invalidate();
+    }, [maps, month, ground, invalidate]);
+    useEffect(() => () => { textures.current?.litter.dispose(); textures.current?.kind.dispose(); }, []);
+    return <mesh name={`planting-ground-${bed.id}`} geometry={geometry} material={ground.material} receiveShadow raycast={NOTHING} />;
 }
 
 export default function PlantingLayer({ settings, selectedBedId = null, selectedVineId = null, envMapIntensity = 1 }) {
@@ -357,6 +385,7 @@ export default function PlantingLayer({ settings, selectedBedId = null, selected
     if (status !== 'ready') return null;
     return <group name="planting">
         {beds.map((bed) => <BedSurface key={bed.id} bed={bed} selected={bed.id === selectedBedId} plan={plan} />)}
+        {plan ? null : beds.map((bed, i) => <BedGround key={bed.id} bed={bed} fill={bedFills[i]} library={library} month={settings.plantingMonth} />)}
         {plan ? <PlanCaps instances={all} library={library} />
             : [...bySpecies].map(([id, instances]) => (library.has(id)
                 ? <SpeciesCards key={id} plant={library.get(id)} instances={instances} month={settings.plantingMonth} envMapIntensity={envMapIntensity} />

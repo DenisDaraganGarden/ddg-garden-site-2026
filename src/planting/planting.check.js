@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import { fillBed, insidePolygon, plantingSchedule, polygonArea, quotas, scheduleCsv, simplifyContour, spacingFor } from './fillBed.js';
 import { seasonImage, seasonLook, seasonPhases } from './season.js';
+import { bedGroundGeometry, GROUND_LIFT, groundLitter, groundSeason, plantGroundMaps } from './bedGround.js';
 import { normalizePlantingSettings, PLANTING_LIMITS } from './settings.js';
 import { PLANTING_PALETTES } from './palettes.js';
 import { paletteRecipe } from './usePlantingEditor.js';
@@ -128,6 +129,34 @@ for (const [id, fields] of [['cornus'], ['iris', { bloomColor: '#caa' }], ['rudb
         const image = seasonImage(record, month);
         for (const used of [image.phase, image.next].filter((p) => p && p !== 'card')) assert.ok(needed.has(used), `${id} in month ${month} uses ${used}, which it never gets`);
     }
+}
+
+// Грунт цветника: сезон, опад растений, карта под цветником, сетка по рельефу.
+assert.ok(groundSeason(1).frost > 0.5 && groundSeason(7).frost === 0, 'иней зимой, летом его нет');
+assert.ok(groundSeason(4).moisture > groundSeason(7).moisture, 'весной земля влажнее, чем в июле');
+assert.equal(groundSeason(4).aged, 0, 'в апреле кора свежая');
+assert.equal(groundLitter(library.get('cornus'), 11).color, '#b0433a', 'в ноябре под дёреном — листья его осеннего цвета');
+assert.ok(groundLitter(library.get('cornus'), 11).amount > groundLitter(library.get('cornus'), 10).amount, 'к ноябрю листьев больше');
+assert.deepEqual(groundLitter(library.get('grass'), 3).kind, [0, 0, 1], 'после срезки злака — солома');
+assert.equal(groundLitter({ ...library.get('rudbeckia'), bloomColor: '#dbb71c' }, 8).color, '#dbb71c', 'в цветение — лепестки');
+assert.equal(groundLitter(library.get('iris'), 1).canopy, 0, 'ушедший под землю не даёт тени');
+const groundBed = { points: [[0, 0], [4, 0], [4, 3], [0, 3]], y: 0 };
+const groundMaps = plantGroundMaps(groundBed, [{ plant: 'cornus', x: 1, z: 1, scale: 1 }], library, 11);
+const texelAt = (x, z) => {
+    const i = Math.floor((x - groundMaps.frame[0]) * groundMaps.frame[2] * groundMaps.width), j = Math.floor((z - groundMaps.frame[1]) * groundMaps.frame[3] * groundMaps.height);
+    const k = (j * groundMaps.width + i) * 4;
+    return { rgb: [...groundMaps.litter.slice(k, k + 3)], amount: groundMaps.litter[k + 3], leaf: groundMaps.kinds[k], canopy: groundMaps.kinds[k + 3] };
+};
+assert.deepEqual(texelAt(1, 1).rgb, [0xb0, 0x43, 0x3a], 'под дёреном — его листья');
+assert.ok(texelAt(1, 1).amount > 150 && texelAt(1, 1).leaf === 255 && texelAt(1, 1).canopy > 200, 'много, листьями, в тени кроны');
+assert.equal(texelAt(3.5, 2.5).amount, 0, 'вдали от растения чисто');
+const groundSlope = { points: [[0, 0], [2, 0], [2, 2], [0, 2]], y: 0, ground: { x0: 0, z0: 0, step: 1, cols: 3, rows: 3, h: [0, 0.5, 1, 0, 0.5, 1, 0, 0.5, 1] } };
+const groundGeometry = bedGroundGeometry(groundSlope);
+const groundPositions = groundGeometry.attributes.position, groundNormals = groundGeometry.attributes.normal;
+assert.ok(groundPositions.count > 6, 'на рельефе сетка дробится');
+for (let i = 0; i < groundPositions.count; i += 1) {
+    assert.ok(Math.abs(groundPositions.getY(i) - (groundPositions.getX(i) * 0.5 + GROUND_LIFT)) < 1e-6, 'грунт лежит по сетке высот цветника');
+    assert.ok(groundNormals.getY(i) > 0.8, 'и смотрит вверх');
 }
 
 // Контур от руки редеет до предела точек.
@@ -260,4 +289,4 @@ assert.ok(plantFlex('grass')[0] > plantFlex('perennial')[0] && plantFlex('perenn
 assert.equal(normalizePlantingSettings({}).plantingSway, 1);
 assert.equal(normalizePlantingSettings({ plantingSway: 5 }).plantingSway, 2);
 
-console.log(`planting: settings, fill (${first.length} plants in 60 m², ${smallFill.length} in 20 m² with ${small.recipe.length} species), schedule and seasons hold, season pictures by month, garden wind blows the right way`);
+console.log(`planting: settings, fill (${first.length} plants in 60 m², ${smallFill.length} in 20 m² with ${small.recipe.length} species), schedule and seasons hold, season pictures by month, bed ground by plants and month, garden wind blows the right way`);
