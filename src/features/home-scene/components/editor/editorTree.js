@@ -56,6 +56,7 @@ import {
 } from './sections/audio';
 import { SurroundingsSection } from './sections/surroundings';
 import { ApiSection } from './sections/apiKey';
+import { BriefSection } from './sections/brief';
 
 // The editor is organised the way a game engine organises a scene: groups hold
 // objects, and an object exposes its aspects. Aspects render as headings inside
@@ -224,6 +225,14 @@ export const EDITOR_TREE = [
         id: 'editor',
         nodes: [
             { id: 'settings', aspects: [{ id: 'settings', Section: EditorSettingsSection }] },
+        ],
+    },
+    // Проект: ТЗ и заказчик (src/brief) — файл рядом с проектом, не сцена;
+    // у редактора сайта его нет (hiddenNodes.js).
+    {
+        id: 'project',
+        nodes: [
+            { id: 'brief', workspace: true, aspects: [{ id: 'brief', Section: BriefSection }] },
         ],
     },
 ];

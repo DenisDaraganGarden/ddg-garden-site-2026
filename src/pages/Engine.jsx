@@ -130,6 +130,12 @@ export default function Engine() {
     const current = TABS.some((item) => item.id === tab) ? tab : state.projects[0] ? tabOf(state.projects[0]) : 'design';
 
     useEffect(() => { void reload(); }, [reload]);
+    // Агент отмечает задания ТЗ из терминала: вернулся в окно — «на проверке N» свежие.
+    useEffect(() => {
+        const refresh = () => { if (document.visibilityState === 'visible') void reload(); };
+        window.addEventListener('focus', refresh);
+        return () => window.removeEventListener('focus', refresh);
+    }, [reload]);
     useEffect(() => {
         document.documentElement.dataset.engineMenu = 'true';
         return () => { delete document.documentElement.dataset.engineMenu; };
@@ -272,6 +278,7 @@ export default function Engine() {
                             <small>{formatDate(project.updated, language)} · {project.id}</small>
                         </button>}
                     {homeSource?.projectId === project.id ? <span className="engine-card__tag">{tr('на заглавной', 'on the home page')}</span> : null}
+                    {project.review ? <span className="engine-card__tag engine-card__tag--review" title={tr('Задания ТЗ, которые агент сделал: откройте проект → «Проект»', 'Brief tasks the agent has done: open the project → Project')} data-testid="engine-card-review">{tr(`на проверке ${project.review}`, `to review ${project.review}`)}</span> : null}
                 </article>)}
             </div>
 

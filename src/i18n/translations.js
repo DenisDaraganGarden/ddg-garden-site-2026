@@ -109,6 +109,7 @@ export const translations = {
         editor: '⚙',
         interface: 'Интерфейс',
         cursor: 'Курсор',
+        project: 'Проект',
       },
       nodes: {
         surroundings: 'Окружение',
@@ -161,6 +162,7 @@ export const translations = {
         cursor: 'Точка',
         visibility: 'Видимость',
         settings: 'Настройки редактора',
+        brief: 'ТЗ и заказчик',
       },
       // Headings inside one section, splitting a long control list into
       // readable blocks. Same look as an aspect heading - a rule and a label.
@@ -824,6 +826,7 @@ export const translations = {
         editor: '⚙',
         interface: 'Interface',
         cursor: 'Cursor',
+        project: 'Project',
       },
       nodes: {
         surroundings: 'Surroundings',
@@ -872,6 +875,7 @@ export const translations = {
         cursor: 'Point',
         visibility: 'Visibility',
         settings: 'Editor settings',
+        brief: 'Brief and client',
       },
       // Headings inside one section, splitting a long control list into
       // readable blocks. Same look as an aspect heading - a rule and a label.

@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { applyBriefOp, briefCounts, normalizeBrief } from '../src/brief/brief.js';
 
 // Файловые хранилища движка. Два вида записей, одна механика:
 //
@@ -80,10 +81,11 @@ export function createStore(folder, payloadKey) {
   const thumbnailPath = (id) => path.join(dir, `${id}.webp`);
   const hasThumbnail = async (id) => fs.access(thumbnailPath(id)).then(() => true, () => false);
 
+  // review — сколько заданий ТЗ ждут проверки Дениса: меню пишет «на проверке N».
   const list = async () => Promise.all((await readAll())
     .map(({ [payloadKey]: _payload, ...meta }) => meta)
     .sort((a, b) => String(b.updated ?? '').localeCompare(String(a.updated ?? '')))
-    .map(async (meta) => ({ ...meta, thumbnail: await hasThumbnail(meta.id) })));
+    .map(async (meta) => ({ ...meta, thumbnail: await hasThumbnail(meta.id), ...(await reviewOf(meta.id)) })));
 
   const read = async (id) => {
     if (!isValidId(id)) return null;
@@ -280,7 +282,55 @@ export function createStore(folder, payloadKey) {
     }
   };
 
-  return { dir, list, read, create, save, remove, writeThumbnail, readThumbnail, writePlan, readPlan, planImage, writeModel, modelFile, writeSiteGrid, readSiteGrid };
+  // ТЗ проекта (src/brief/brief.js): <папка>/<id>/brief.json — заказчик и
+  // задания. Не в записи: данные заказчика не должны уехать ни в сцену, ни на
+  // сайт. Пишется только операцией: прочитать, применить, записать через
+  // временный файл. Правки одного проекта в этом процессе идут по очереди;
+  // агент из терминала — другой процесс, но его правка — одна операция поверх
+  // того, что на диске, а не весь файл из памяти.
+  const briefPath = (id) => path.join(dir, id, 'brief.json');
+  const readBrief = async (id) => {
+    if (!isValidId(id) || !(await fs.access(filePath(id)).then(() => true, () => false))) return null;
+    let text;
+    try {
+      text = await fs.readFile(briefPath(id), 'utf8');
+    } catch (error) {
+      if (error.code === 'ENOENT') return normalizeBrief();
+      throw error;
+    }
+    // Испорченный файл не подменяется пустым ТЗ: следующая правка затёрла бы задания.
+    try {
+      return normalizeBrief(JSON.parse(text));
+    } catch (error) {
+      throw new Error(`ТЗ проекта «${id}» не читается (${briefPath(id)}): ${error.message}`);
+    }
+  };
+  const briefQueue = new Map();
+  const updateBrief = (id, op) => {
+    const run = async () => {
+      const current = await readBrief(id);
+      if (!current) return null;
+      const next = applyBriefOp(current, op);
+      const tmp = `${briefPath(id)}.${process.pid}.tmp`;
+      await fs.mkdir(path.join(dir, id), { recursive: true });
+      await fs.writeFile(tmp, `${JSON.stringify(next, null, 2)}\n`, 'utf8');
+      await fs.rename(tmp, briefPath(id));
+      return next;
+    };
+    const result = (briefQueue.get(id) ?? Promise.resolve()).then(run);
+    briefQueue.set(id, result.catch(() => {}));
+    return result;
+  };
+  const reviewOf = async (id) => {
+    try {
+      const { review } = briefCounts(await readBrief(id));
+      return review ? { review } : {};
+    } catch {
+      return {};
+    }
+  };
+
+  return { dir, list, read, create, save, remove, writeThumbnail, readThumbnail, writePlan, readPlan, planImage, writeModel, modelFile, writeSiteGrid, readSiteGrid, readBrief, updateBrief };
 }
 
 export const projects = createStore('projects', 'settings');
