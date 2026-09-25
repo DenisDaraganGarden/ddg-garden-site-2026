@@ -142,6 +142,7 @@ uniform sampler2D uLawnTile, uLitterTile, uPlantLitter, uPlantKind;
 uniform vec4 uPlantFrame, uLawnMow;
 uniform vec3 uLawnGreen, uLawnTip, uLawnThatch, uLawnDry;
 uniform float uLawnDryAmount, uLawnFrost, uLawnDepth, uLawnSeed, uLawnPatches;
+uniform vec3 uLawnKey;
 varying vec3 vLawnWorld;
 varying vec3 vLawnUp;
 const float LAWN_TILE = ${LAWN_TILE.toFixed(3)};
@@ -169,9 +170,12 @@ vec2 lawnLean(vec2 xz) {
     return lean;
 }`;
 
-// Параллакс: луч спускается по высоте травы (до 28 шагов вскользь, 10 —
-// сверху, дальше 32 м — плоско); плитка сдвинута по высоте в сторону наклона
-// стрижки — травинка над точкой растёт из точки, сдвинутой против наклона.
+// Параллакс: луч спускается по высоте травы (до 32 шагов вскользь, 12 —
+// сверху; с 5 м глубина гаснет, дальше 16 м — плоско: там трава — средний
+// цвет плитки); начало луча сдвинуто на случайную долю шага в каждом
+// пикселе — иначе вскользь уровни шагов видны кольцами. Плитка сдвинута по
+// высоте в сторону наклона стрижки — травинка над точкой растёт из точки,
+// сдвинутой против наклона.
 const LAWN_MAP_FRAGMENT = /* glsl */`
 vec3 lawnN = normalize(vLawnUp);
 vec3 lawnT = normalize(vec3(1.0, 0.0, 0.0) - lawnN * lawnN.x);
@@ -185,16 +189,18 @@ vec2 lawnXZ = vLawnWorld.xz;
 vec2 lawnLeanXZ = lawnLean(lawnXZ);
 float lawnDepthUv = uLawnDepth / LAWN_TILE;
 vec2 lawnShear = vec2(lawnLeanXZ.x, -lawnLeanXZ.y) * 0.45 * lawnDepthUv;
-float lawnMarch = lawnDepthUv * (1.0 - smoothstep(14.0, 32.0, lawnDistance));
+float lawnMarch = lawnDepthUv * (1.0 - smoothstep(5.0, 16.0, lawnDistance));
 vec2 lawnUv = lawnBase;
 float lawnHit = 1.0;
 if (lawnMarch > 1e-6) {
-    float layers = mix(28.0, 10.0, clamp(lawnTv.z, 0.0, 1.0));
+    float layers = mix(32.0, 12.0, clamp(lawnTv.z, 0.0, 1.0));
     float stepH = 1.0 / layers;
     vec2 delta = lawnTv.xy / max(lawnTv.z, 0.12) * lawnMarch / layers;
-    float rayH = 1.0;
+    float jitter = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453);
+    float rayH = 1.0 - stepH * jitter;
+    lawnUv -= delta * jitter;
     float surfaceH = textureGrad(uLawnTile, lawnUv - lawnShear * rayH, lawnDx, lawnDy).a;
-    for (int i = 0; i < 28; i++) {
+    for (int i = 0; i < 32; i++) {
         if (float(i) >= layers || surfaceH >= rayH) break;
         lawnUv -= delta;
         rayH -= stepH;
@@ -210,6 +216,25 @@ if (lawnMarch > 1e-6) {
 vec4 lawnSample = textureGrad(uLawnTile, lawnUv - lawnShear * lawnHit, lawnDx, lawnDy);
 float lawnBlade = lawnSample.b, lawnTone = lawnSample.r, lawnAlong = lawnSample.g, lawnHeight = lawnSample.a;
 
+// Тень травы от ключевого света (солнце, ночью луна): луч от найденной точки
+// поднимается к свету сквозь траву; выше его травинки — тень, мягко.
+vec3 lawnKeyT = vec3(dot(uLawnKey, lawnT), dot(uLawnKey, lawnB), dot(uLawnKey, lawnN));
+lawnShadowG = 1.0;
+if (lawnMarch > 1e-6 && lawnKeyT.z > 0.02) {
+    vec2 lawnKeyStep = lawnKeyT.xy / max(lawnKeyT.z, 0.1) * lawnMarch;
+    float lawnBlock = 0.0;
+    for (int i = 1; i <= 8; i++) {
+        float rise = float(i) / 8.0 * (1.0 - lawnHit);
+        float level = lawnHit + rise;
+        float above = textureGrad(uLawnTile, lawnUv + lawnKeyStep * rise - lawnShear * level, lawnDx, lawnDy).a - level;
+        lawnBlock = max(lawnBlock, above * (1.0 - float(i) / 10.0) * 6.0);
+    }
+    lawnShadowG = 1.0 - clamp(lawnBlock, 0.0, 1.0) * 0.8;
+}
+lawnKeyViewG = normalize((viewMatrix * vec4(uLawnKey, 0.0)).xyz);
+// Свет сквозь травинки: к кончикам сильнее, дернина не светится.
+lawnGlowG = 0.75 * lawnBlade * smoothstep(0.25, 1.0, lawnHeight);
+
 // Зелень пятнами (где трава сочнее, где светлее) и выгорание без полива.
 float lawnPatch = lawnNoise(lawnXZ * 0.16 + uLawnSeed) * 0.65 + lawnNoise(lawnXZ * 0.55 + 7.1 + uLawnSeed) * 0.35;
 vec3 lawnGreen = uLawnGreen * (1.0 + (lawnPatch - 0.5) * 0.5 * uLawnPatches);
@@ -218,8 +243,8 @@ float lawnDryField = lawnNoise(lawnXZ * 0.15 + 3.7 + uLawnSeed) * 0.75 + lawnNoi
 float lawnDry = uLawnDryAmount > 0.001 ? smoothstep(1.0 - uLawnDryAmount - 0.25, 1.0 - uLawnDryAmount + 0.25, lawnDryField) * 0.85 : 0.0;
 lawnGreen = mix(lawnGreen, uLawnDry, lawnDry);
 vec3 lawnTipColour = mix(uLawnTip, uLawnDry * 1.12, lawnDry);
-vec3 lawnBladeColour = mix(lawnGreen, lawnTipColour, smoothstep(0.55, 1.0, lawnAlong) * 0.8);
-lawnBladeColour *= mix(0.8, 1.16, lawnTone);
+vec3 lawnBladeColour = mix(lawnGreen, lawnTipColour, smoothstep(0.55, 1.0, lawnAlong) * 0.6);
+lawnBladeColour *= mix(0.86, 1.12, lawnTone);
 lawnBladeColour = mix(lawnBladeColour, lawnBladeColour * vec3(1.08, 1.02, 0.8), step(0.86, lawnTone) * 0.6);
 vec3 lawnColour = mix(uLawnThatch * mix(0.8, 1.2, lawnTone), lawnBladeColour, lawnBlade);
 
@@ -250,9 +275,9 @@ float lawnOnTop = max(lawnLeaf, lawnStraw);
 float lawnFrost = uLawnFrost * smoothstep(0.55, 0.95, lawnHeight) * lawnBlade * (1.0 - lawnOnTop);
 lawnColour = mix(lawnColour, vec3(0.6, 0.64, 0.68), lawnFrost * 0.75);
 diffuseColor.rgb = lawnColour;
-float lawnRough = mix(0.92, 0.66 - 0.1 * uLawnMow.w * max(lawnStripe, 0.0), lawnBlade);
+float lawnRough = mix(0.95, 0.84 - 0.08 * uLawnMow.w * max(lawnStripe, 0.0), lawnBlade);
 lawnRough = mix(lawnRough, 0.95, lawnFrost);
-float lawnAO = mix(mix(0.3, 1.0, pow(max(lawnHeight, 0.0), 0.8)), 0.92, lawnOnTop) * mix(1.0, 0.85, lawnPlantKind.a);`;
+float lawnAO = mix(mix(0.45, 1.0, pow(max(lawnHeight, 0.0), 0.8)), 0.92, lawnOnTop) * mix(1.0, 0.85, lawnPlantKind.a);`;
 
 // Нормаль — из высоты травы в найденной точке, мягко: травинки стоят.
 const LAWN_NORMAL_FRAGMENT = /* glsl */`
@@ -260,11 +285,28 @@ const LAWN_NORMAL_FRAGMENT = /* glsl */`
     vec2 texel = vec2(1.0 / ${LAWN_TILE_PX.toFixed(1)});
     float hx = textureGrad(uLawnTile, lawnUv - lawnShear * lawnHit + vec2(texel.x, 0.0), lawnDx, lawnDy).a;
     float hy = textureGrad(uLawnTile, lawnUv - lawnShear * lawnHit + vec2(0.0, texel.y), lawnDx, lawnDy).a;
-    float bump = 0.35 * uLawnDepth / (LAWN_TILE / ${LAWN_TILE_PX.toFixed(1)}) * (1.0 - smoothstep(10.0, 30.0, lawnDistance));
+    float bump = 0.7 * uLawnDepth / (LAWN_TILE / ${LAWN_TILE_PX.toFixed(1)}) * (1.0 - smoothstep(10.0, 30.0, lawnDistance));
     vec3 tangentNormal = normalize(vec3((lawnHeight - hx) * bump + lawnShear.x * 0.8, (lawnHeight - hy) * bump + lawnShear.y * 0.8, 1.0));
     vec3 worldNormal = normalize(lawnT * tangentNormal.x + lawnB * tangentNormal.y + lawnN * tangentNormal.z);
     normal = normalize((viewMatrix * vec4(worldNormal, 0.0)).xyz);
 }`;
+
+// Прямой свет газона: у ключевого света — тень травы (lawnShadowG, из
+// параллакса), у любого — свет сквозь травинки, когда смотришь на свет через
+// траву (задний свет); остальное — обычный физический свет three.
+const LAWN_DIRECT = /* glsl */`
+float lawnShadowG = 1.0;
+float lawnGlowG = 0.0;
+vec3 lawnKeyViewG = vec3(0.0, 1.0, 0.0);
+void RE_Direct_Lawn(const in IncidentLight directLight, const in vec3 geometryPosition, const in vec3 geometryNormal, const in vec3 geometryViewDir, const in vec3 geometryClearcoatNormal, const in PhysicalMaterial material, inout ReflectedLight reflectedLight) {
+    IncidentLight light = directLight;
+    light.color *= mix(1.0, lawnShadowG, step(0.995, dot(light.direction, lawnKeyViewG)));
+    RE_Direct_Physical(light, geometryPosition, geometryNormal, geometryViewDir, geometryClearcoatNormal, material, reflectedLight);
+    float back = pow(clamp(-dot(light.direction, geometryViewDir), 0.0, 1.0), 3.0);
+    reflectedLight.directDiffuse += light.color * material.diffuseColor * lawnGlowG * back;
+}
+#undef RE_Direct
+#define RE_Direct RE_Direct_Lawn`;
 
 const linear = (hex) => new THREE.Color(hex);
 export function makeLawnMaterial(tile, litterTile) {
@@ -274,6 +316,7 @@ export function makeLawnMaterial(tile, litterTile) {
         uLawnMow: { value: new THREE.Vector4(0, 0.9, 1, 0.55) },
         uLawnGreen: { value: linear(GREEN[5]) }, uLawnTip: { value: linear(TIP[5]) }, uLawnThatch: { value: linear('#2f2a1c') }, uLawnDry: { value: linear('#a8995c') },
         uLawnDryAmount: { value: 0 }, uLawnFrost: { value: 0 }, uLawnDepth: { value: 0.04 }, uLawnSeed: { value: 0 }, uLawnPatches: { value: 0.3 },
+        uLawnKey: { value: new THREE.Vector3(0.3, 0.8, 0.5).normalize() },
     };
     const material = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.85, metalness: 0, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
     material.onBeforeCompile = (shader) => {
@@ -285,24 +328,29 @@ export function makeLawnMaterial(tile, litterTile) {
     vLawnUp = normalize(mat3(modelMatrix) * objectNormal);`);
         shader.fragmentShader = shader.fragmentShader
             .replace('#include <common>', `#include <common>\n${LAWN_FRAGMENT_DECL}`)
+            .replace('#include <lights_physical_pars_fragment>', `#include <lights_physical_pars_fragment>\n${LAWN_DIRECT}`)
             .replace('#include <map_fragment>', LAWN_MAP_FRAGMENT)
             .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n    roughnessFactor = lawnRough;')
             .replace('#include <normal_fragment_maps>', LAWN_NORMAL_FRAGMENT)
-            .replace('#include <aomap_fragment>', '#include <aomap_fragment>\n    reflectedLight.indirectDiffuse *= lawnAO;\n    reflectedLight.indirectSpecular *= lawnAO;\n    reflectedLight.directDiffuse *= mix(1.0, lawnAO, 0.6);');
+            .replace('#include <aomap_fragment>', '#include <aomap_fragment>\n    reflectedLight.indirectDiffuse *= lawnAO;\n    reflectedLight.indirectSpecular *= lawnAO * 0.45;\n    reflectedLight.directDiffuse *= mix(1.0, lawnAO, 0.5);');
     };
-    material.customProgramCacheKey = () => 'planting-lawn-v2';
+    material.customProgramCacheKey = () => 'planting-lawn-v4';
     return { material, uniforms };
 }
 
-// Месяц, стрижка и высота травы → униформы материала.
-export function setLawnUniforms(uniforms, lawn, month, seed = 0) {
+// Месяц, стрижка и высота травы → униформы материала. Иней — к полудню тает
+// (hour — время суток сцены); key — направление на ключевой свет (мир).
+const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+export function setLawnUniforms(uniforms, lawn, month, seed = 0, hour = 12, key = null) {
     const season = lawnSeason(month, lawn);
+    const daylight = smooth(8.5, 11, hour) * (1 - smooth(15.5, 18, hour));
+    if (key) uniforms.uLawnKey.value.set(key[0], key[1], key[2]).normalize();
     uniforms.uLawnGreen.value.set(season.green);
     uniforms.uLawnTip.value.set(season.tip);
     uniforms.uLawnThatch.value.set(season.thatch);
     uniforms.uLawnDry.value.set(season.dry);
     uniforms.uLawnDryAmount.value = season.dryAmount;
-    uniforms.uLawnFrost.value = season.frost;
+    uniforms.uLawnFrost.value = season.frost * (1 - 0.8 * daylight);
     uniforms.uLawnMow.value.set(...lawnMow(lawn));
     uniforms.uLawnDepth.value = Math.max(0.02, (lawn?.cut ?? 4) / 100);
     uniforms.uLawnSeed.value = (seed % 997) * 0.37;

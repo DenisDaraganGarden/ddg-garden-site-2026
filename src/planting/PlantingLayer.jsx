@@ -2,7 +2,7 @@ import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 're
 import { useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { plantingInstances } from './fillBed.js';
-import { bakeGroundTiles, bedGroundGeometry, groundSeason, makeGroundMaterial, plantGroundMaps, plantMapTextures } from './bedGround.js';
+import { bakeGroundTiles, bedGroundGeometry, GROUND_LIFT, groundSeason, makeGroundMaterial, plantGroundMaps, plantMapTextures } from './bedGround.js';
 import { bakeLawnTile, makeLawnMaterial, setLawnUniforms } from './lawnGround.js';
 import { plantCardUrl, plantSeasonUrl, useBedFills, usePlantLibrary } from './plantLibrary.js';
 import { seasonImage, seasonLook } from './season.js';
@@ -349,12 +349,18 @@ function BedSurface({ bed, selected, plan }) {
 // Грунт цветника (bedGround.js): кора с землёй, с глубиной, по рельефу
 // цветника — и на поверхности модели (поверх её газона или коры), и на
 // берегу; опад и тень — от растений этого цветника, влага и иней — от месяца.
-function BedGround({ bed, fill, library, month }) {
+// Грунты и газоны друг над другом — слоями, как в рисовании: что нарисовано
+// позже, лежит выше на полмиллиметра (цветник в газоне — поверх травы, газон
+// поверх цветника — поверх мульчи). На одной высоте два покрытия спорили бы
+// за пиксель — кольцами вдали.
+const layerLift = (index) => GROUND_LIFT + index * 0.0005;
+
+function BedGround({ bed, fill, library, month, lift }) {
     const gl = useThree((state) => state.gl);
     const invalidate = useThree((state) => state.invalidate);
-    const shapeKey = JSON.stringify([bed.points, bed.holes ?? null, bed.ground ?? null, bed.y]);
+    const shapeKey = JSON.stringify([bed.points, bed.holes ?? null, bed.ground ?? null, bed.y, lift]);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- форма цветника по значению
-    const geometry = useMemo(() => bedGroundGeometry(bed), [shapeKey]);
+    const geometry = useMemo(() => bedGroundGeometry(bed, lift), [shapeKey]);
     useEffect(() => () => geometry.dispose(), [geometry]);
     const ground = useMemo(() => makeGroundMaterial(bakeGroundTiles(gl)), [gl]);
     useEffect(() => () => ground.material.dispose(), [ground]);
@@ -377,12 +383,12 @@ function BedGround({ bed, fill, library, month }) {
 
 // Газон (lawnGround.js): само покрытие — трава с глубиной, стрижка полосами,
 // цвет месяца; опад и тень — от деревьев и кустов, посаженных поштучно.
-function LawnGround({ bed, points, library, month }) {
+function LawnGround({ bed, points, library, month, hour, keyDirection, lift }) {
     const gl = useThree((state) => state.gl);
     const invalidate = useThree((state) => state.invalidate);
-    const shapeKey = JSON.stringify([bed.points, bed.holes ?? null, bed.ground ?? null, bed.y]);
+    const shapeKey = JSON.stringify([bed.points, bed.holes ?? null, bed.ground ?? null, bed.y, lift]);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- форма газона по значению
-    const geometry = useMemo(() => bedGroundGeometry(bed), [shapeKey]);
+    const geometry = useMemo(() => bedGroundGeometry(bed, lift), [shapeKey]);
     useEffect(() => () => geometry.dispose(), [geometry]);
     const lawn = useMemo(() => makeLawnMaterial(bakeLawnTile(gl), bakeGroundTiles(gl).litter), [gl]);
     useEffect(() => () => lawn.material.dispose(), [lawn]);
@@ -394,14 +400,14 @@ function LawnGround({ bed, points, library, month }) {
         u.uPlantLitter.value = textures.current.litter;
         u.uPlantKind.value = textures.current.kind;
         u.uPlantFrame.value.set(...maps.frame);
-        setLawnUniforms(u, bed.lawn, month, bed.seed);
+        setLawnUniforms(u, bed.lawn, month, bed.seed, hour, keyDirection);
         invalidate();
-    }, [maps, month, lawn, bed.lawn, bed.seed, invalidate]);
+    }, [maps, month, lawn, bed.lawn, bed.seed, hour, keyDirection, invalidate]);
     useEffect(() => () => { textures.current?.litter.dispose(); textures.current?.kind.dispose(); }, []);
     return <mesh name={`planting-lawn-${bed.id}`} geometry={geometry} material={lawn.material} receiveShadow raycast={NOTHING} />;
 }
 
-export default function PlantingLayer({ settings, selectedBedId = null, selectedVineId = null, envMapIntensity = 1 }) {
+export default function PlantingLayer({ settings, selectedBedId = null, selectedVineId = null, envMapIntensity = 1, keyDirection = null }) {
     const { plants: library, status } = usePlantLibrary();
     const beds = settings.plantingBeds, points = settings.plantingPoints;
     const bedFills = useBedFills(beds, library);
@@ -413,8 +419,8 @@ export default function PlantingLayer({ settings, selectedBedId = null, selected
     return <group name="planting">
         {beds.map((bed) => <BedSurface key={bed.id} bed={bed} selected={bed.id === selectedBedId} plan={plan} />)}
         {plan ? null : beds.map((bed, i) => (bed.kind === 'lawn'
-            ? <LawnGround key={bed.id} bed={bed} points={points} library={library} month={settings.plantingMonth} />
-            : <BedGround key={bed.id} bed={bed} fill={bedFills[i]} library={library} month={settings.plantingMonth} />))}
+            ? <LawnGround key={bed.id} bed={bed} points={points} library={library} month={settings.plantingMonth} hour={settings.timeOfDay ?? 12} keyDirection={keyDirection} lift={layerLift(i)} />
+            : <BedGround key={bed.id} bed={bed} fill={bedFills[i]} library={library} month={settings.plantingMonth} lift={layerLift(i)} />))}
         {plan ? <PlanCaps instances={all} library={library} />
             : [...bySpecies].map(([id, instances]) => (library.has(id)
                 ? <SpeciesCards key={id} plant={library.get(id)} instances={instances} month={settings.plantingMonth} envMapIntensity={envMapIntensity} />
