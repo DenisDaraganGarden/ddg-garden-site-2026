@@ -191,15 +191,147 @@ function layOutBack(mesh) {
     delete mesh.userData.uvKey;
 }
 
+// Подмены по граням (override.faces): в SketchUp один материал бывает на
+// разном — торцы плит, потолки свесов и полы одной «бетонной» краской, пол
+// террасы и дубовые панели одним деревом. Правило берёт грани по
+// направлению (up — пол, down — потолок, side — стена), по высоте (y, метры
+// модели) и мимо частей skip (начало имени части, как у скрытых частей);
+// первое подходящее красит грань своим материалом библиотеки прямо по
+// граням, плитка — в метрах. Сетка получает свою копию геометрии с группами:
+// свои координаты SketchUp остаются в uv основному материалу, раскладка по
+// граням — в uv1 для материалов правил (texture.channel = 1).
+const FACE = { up: (n) => n.y > 0.7, down: (n) => n.y < -0.7, side: (n) => Math.abs(n.y) <= 0.7 };
+const partsOf = (mesh, root) => {
+    const names = [];
+    for (let node = mesh.parent; node && node !== root; node = node.parent) if (node.name) names.push(node.name);
+    return names;
+};
+// Какое правило берёт треугольник с нормалью normal на высоте y: номер правила + 1, 0 — ни одно.
+export function faceClass(rules, normal, y, parts = []) {
+    for (let k = 0; k < rules.length; k += 1) {
+        const rule = rules[k];
+        if (rule.skip?.some((prefix) => parts.some((name) => name.startsWith(prefix)))) continue;
+        if (!rule.faces.some((side) => FACE[side](normal))) continue;
+        if (rule.y && (y < rule.y[0] || y > rule.y[1])) continue;
+        return k + 1;
+    }
+    return 0;
+}
+// Геометрия с группами по правилам (треугольники по порядку групп) и uv1 по
+// граням; ни одна грань не подошла — null.
+export function splitFaces(geometry, matrix, rules, parts = []) {
+    const flat = geometry.index ? geometry.toNonIndexed() : geometry.clone();
+    const position = flat.attributes.position, count = Math.floor(position.count / 3);
+    const buckets = Array.from({ length: rules.length + 1 }, () => []), plane = new Float32Array(count * 6);
+    const p = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()], n = new THREE.Vector3(), e = new THREE.Vector3();
+    for (let t = 0; t < count; t += 1) {
+        p.forEach((point, k) => point.fromBufferAttribute(position, t * 3 + k).applyMatrix4(matrix));
+        n.subVectors(p[1], p[0]).cross(e.subVectors(p[2], p[0]));
+        const [ax, ay, az] = [Math.abs(n.x), Math.abs(n.y), Math.abs(n.z)];
+        // Как boxUvGeometry: стена — вдоль и вверх, пол — план; метры.
+        p.forEach((point, k) => {
+            const [u, v] = ax >= ay && ax >= az ? [point.z, -point.y] : ay >= az ? [point.x, point.z] : [point.x, -point.y];
+            plane[t * 6 + k * 2] = u;
+            plane[t * 6 + k * 2 + 1] = v;
+        });
+        buckets[n.lengthSq() > 0 ? faceClass(rules, n.normalize(), (p[0].y + p[1].y + p[2].y) / 3, parts) : 0].push(t);
+    }
+    if (buckets.slice(1).every((bucket) => !bucket.length)) { flat.dispose(); return null; }
+    const order = buckets.flat(), out = new THREE.BufferGeometry();
+    for (const [name, attribute] of Object.entries(flat.attributes)) {
+        const size = attribute.itemSize, from = attribute.array, to = new from.constructor(order.length * 3 * size);
+        order.forEach((t, i) => to.set(from.subarray(t * 3 * size, (t + 1) * 3 * size), i * 3 * size));
+        out.setAttribute(name, new THREE.BufferAttribute(to, size, attribute.normalized));
+    }
+    const uv1 = new Float32Array(order.length * 6);
+    order.forEach((t, i) => uv1.set(plane.subarray(t * 6, t * 6 + 6), i * 6));
+    out.setAttribute('uv1', new THREE.BufferAttribute(uv1, 2));
+    let start = 0;
+    buckets.forEach((bucket, k) => { if (bucket.length) out.addGroup(start * 3, bucket.length * 3, k); start += bucket.length; });
+    flat.dispose();
+    return out;
+}
+function unsplit(mesh) {
+    const split = mesh.userData.faceSplit;
+    if (!split) return;
+    mesh.geometry.dispose();
+    mesh.geometry = split.geometry;
+    mesh.material = split.material;
+    delete mesh.userData.faceSplit;
+}
+function disposeRuled(material) {
+    for (const texture of material.userData.loaded ?? []) texture.dispose();
+    material.dispose();
+}
+
 // Подмены материалов одной модели. Возвращает отмену: пока текстуры грузятся,
 // подмену могли поменять снова. onChange — перерисовать кадр.
 export function applyModelMaterials(prepared, overrides, { root, anisotropy = 4, onChange } = {}) {
     let cancelled = false;
     const jobs = [];
     const byMaterial = meshesByMaterial(root);
+    // Материал правила: копия материала SketchUp (без его userData — там
+    // текстуры и стекло), до загрузки карт выглядит как он.
+    const ruleMaterial = (base, rule) => {
+        const saved = base.userData;
+        base.userData = {};
+        const material = base.clone();
+        base.userData = saved;
+        material.userData = { faceRule: rule };
+        jobs.push(loadLibraryMaps(rule.material).then((loaded) => {
+            // Материал правила живёт, пока правило то же (кеш у материала
+            // SketchUp), а не до следующего прохода: отмена прохода его не снимает.
+            if (material.userData.disposed) { loaded.forEach(([, texture]) => texture.dispose()); return; }
+            for (const [key, texture] of loaded) {
+                texture.anisotropy = anisotropy;
+                texture.channel = 1;
+                texture.repeat.set(1 / rule.tile, 1 / rule.tile);
+                material[key] = texture;
+            }
+            material.userData.loaded = loaded.map(([, texture]) => texture);
+            material.metalnessMap = null;
+            material.metalness = 0;
+            material.color.set('#ffffff');
+            material.aoMapIntensity = 1;
+            material.normalScale.set(rule.normal, -rule.normal);
+            material.roughness = rule.roughness;
+            material.needsUpdate = true;
+            onChange?.();
+        }, () => onChange?.()));
+        return material;
+    };
+    const applyFaces = (material, rules, meshes) => {
+        const key = rules?.length && material.isMeshStandardMaterial && !material.userData.glassOn ? JSON.stringify(rules) : '';
+        const cache = material.userData.faceRules;
+        if (cache && cache.key !== key) {
+            cache.materials.forEach((ruled) => { ruled.userData.disposed = true; disposeRuled(ruled); });
+            delete material.userData.faceRules;
+        }
+        if (!key) return;
+        material.userData.faceRules ??= { key, materials: rules.map((rule) => ruleMaterial(material, rule)) };
+        const ruled = material.userData.faceRules.materials;
+        for (const mesh of meshes) {
+            if (mesh.material !== material) continue;
+            const geometry = splitFaces(mesh.geometry, relative(mesh, root).clone(), rules, partsOf(mesh, root));
+            if (!geometry) continue;
+            mesh.userData.faceSplit = { geometry: mesh.geometry, material };
+            mesh.geometry = geometry;
+            mesh.material = [material, ...ruled];
+        }
+    };
     for (const material of prepared.materials) {
         const override = overrides?.[material.name];
         const meshes = byMaterial.get(material) ?? [];
+        // Прежняя разбивка по граням снимается: основной материал и его
+        // раскладка ставятся на свою геометрию, разбивка — заново поверх.
+        meshes.forEach(unsplit);
+        applyBase(material, override, meshes);
+        applyFaces(material, override?.faces, meshes);
+    }
+    onChange?.();
+    return { cancel: () => { cancelled = true; }, ready: Promise.all(jobs) };
+
+    function applyBase(material, override, meshes) {
         // Стекло: как сказано в окне материала, иначе — узнанное само (glass.js).
         const glass = material.isMeshStandardMaterial && (override?.glass ? override.glass.on : looksLikeGlass(material, meshes, root));
         if (glass) tuneGlass(material, meshes, { ...glassDefaults(material), ...(override?.glass ?? {}) });
@@ -208,7 +340,7 @@ export function applyModelMaterials(prepared, overrides, { root, anisotropy = 4,
         if (!override?.material || !material.isMeshStandardMaterial) {
             if (material.userData.original) meshes.forEach(layOutBack);
             restore(material);
-            continue;
+            return;
         }
         const original = remember(material);
         if (!material.userData.scale) material.userData.scale = uvScale(meshes, root);
@@ -220,7 +352,7 @@ export function applyModelMaterials(prepared, overrides, { root, anisotropy = 4,
         if (same) {
             placeTextures(material, override, scale);
             onChange?.();
-            continue;
+            return;
         }
         jobs.push(loadLibraryMaps(override.material)
             .then((loaded) => {
@@ -243,8 +375,6 @@ export function applyModelMaterials(prepared, overrides, { root, anisotropy = 4,
                 onChange?.();
             }));
     }
-    onChange?.();
-    return { cancel: () => { cancelled = true; }, ready: Promise.all(jobs) };
 }
 
 // Текущая текстура материала (из SketchUp, до подмены) — картинкой для ИИ и
