@@ -15,6 +15,8 @@ const THUMBNAILS_KEY = 'ddg_home_editor_camera_thumbnails_v1';
 const DRAG_THRESHOLD = 5;
 const THUMBNAIL_EVENT = EDITOR_THUMBNAIL_READY;
 const thumbnailKey = (id, layoutKey) => `${id}:${layoutKey}`;
+// Smoke-test ids: home-editor-camera-* on scenes, home-editor-work-camera-* on work cameras.
+const cameraTestId = (kind, name) => `home-editor-${kind === 'work' ? 'work-' : ''}camera-${name}`;
 
 function readThumbnails() {
     if (typeof window === 'undefined') return {};
@@ -72,12 +74,12 @@ function CameraRow({ camera, index, kind, active, layoutEditor, onCapture, onOpe
     // живут в диалоге, второго списка действий заводить незачем.
     return <article className={`focus-camera-card ${active ? 'is-active' : ''} ${!isWork && camera.enabled === false ? 'is-disabled' : ''}`} onContextMenu={(event) => { if (event.shiftKey) return; event.preventDefault(); onOpenSettings({ camera, kind, index }); }}>
         <div className="focus-camera-card-top">
-            <button type="button" className="focus-camera-card-select" onClick={() => select(camera.id)} aria-pressed={active}>
+            <button type="button" className="focus-camera-card-select" onClick={() => select(camera.id)} aria-pressed={active} data-testid={cameraTestId(kind, `select-${camera.id}`)}>
                 <span className="focus-camera-card-index">{String(index + 1).padStart(2, '0')}</span>
                 <span>{camera.name || (isWork ? t('homeEditor.controls.workCameras') : t('homeEditor.controls.camera'))}</span>
             </button>
             {active ? <IconButton label={t('homeEditor.controls.layoutCapture')} onClick={runCapture}>⌁</IconButton> : null}
-            <IconButton label={language === 'ru' ? 'Настройки камеры' : 'Camera settings'} onClick={() => onOpenSettings({ camera, kind, index })}>•••</IconButton>
+            <IconButton label={language === 'ru' ? 'Настройки камеры' : 'Camera settings'} onClick={() => onOpenSettings({ camera, kind, index })} data-testid={cameraTestId(kind, `settings-${camera.id}`)}>•••</IconButton>
         </div>
         <small>Desktop · Mobile</small>
     </article>;
@@ -110,9 +112,9 @@ function CameraSettingsDialog({ item, layoutEditor, onCapture, onClose }) {
     };
     return <dialog ref={dialogRef} className="focus-camera-dialog" aria-labelledby="focus-camera-dialog-title" onClose={onClose} onClick={(event) => { if (event.target === event.currentTarget) event.currentTarget.close(); }} onKeyDown={(event) => event.stopPropagation()} onKeyUp={(event) => event.stopPropagation()}>
         <header><strong id="focus-camera-dialog-title">{camera.name}</strong><IconButton label={language === 'ru' ? 'Закрыть' : 'Close'} onClick={() => dialogRef.current?.close()}>×</IconButton></header>
-        <label className="focus-camera-dialog-field"><span>{t('homeEditor.controls.cameraName')}</span><input value={camera.name ?? ''} onChange={(event) => rename(camera.id, event.target.value)} autoFocus /></label>
-        {!isWork ? <><label className="focus-camera-dialog-check"><input type="checkbox" checked={Boolean(camera.enabled)} onChange={(event) => layoutEditor.setCameraEnabled(camera.id, event.target.checked)} /> {t('homeEditor.controls.cameraEnabled')}</label><label className="focus-camera-dialog-field"><span>{t('homeEditor.controls.cameraDuration')}</span><FocusControlNumberInput controlId={`camera-hold-${camera.id}`} value={camera.holdSeconds ?? 8} min={1} max={3600} step={0.5} onChange={(event) => layoutEditor.setCameraHoldSeconds(camera.id, parseFloat(event.target.value) || 1)} aria-label={t('homeEditor.controls.cameraDuration')} /></label></> : null}
-        <div className="focus-camera-dialog-actions"><button type="button" onClick={capture} disabled={!active}>{t('homeEditor.controls.layoutCapture')}</button><button type="button" onClick={() => { move(camera.id, -1); dialogRef.current?.close(); }} disabled={!canMoveUp}>↑</button><button type="button" onClick={() => { move(camera.id, 1); dialogRef.current?.close(); }} disabled={!canMoveDown}>↓</button><button type="button" className="is-danger" onClick={() => { remove(camera.id); dialogRef.current?.close(); }} disabled={!canRemove}>×</button></div>
+        <label className="focus-camera-dialog-field"><span>{t('homeEditor.controls.cameraName')}</span><input value={camera.name ?? ''} onChange={(event) => rename(camera.id, event.target.value)} autoFocus data-testid={cameraTestId(item.kind, `name-${camera.id}`)} /></label>
+        {!isWork ? <><label className="focus-camera-dialog-check"><input type="checkbox" checked={Boolean(camera.enabled)} onChange={(event) => layoutEditor.setCameraEnabled(camera.id, event.target.checked)} /> {t('homeEditor.controls.cameraEnabled')}</label><label className="focus-camera-dialog-field"><span>{t('homeEditor.controls.cameraDuration')}</span><FocusControlNumberInput controlId={`camera-hold-${camera.id}`} value={camera.holdSeconds ?? 8} min={1} max={3600} step={0.5} onChange={(event) => layoutEditor.setCameraHoldSeconds(camera.id, parseFloat(event.target.value) || 1)} aria-label={t('homeEditor.controls.cameraDuration')} data-testid={cameraTestId(item.kind, `duration-${camera.id}`)} /></label></> : null}
+        <div className="focus-camera-dialog-actions"><button type="button" onClick={capture} disabled={!active}>{t('homeEditor.controls.layoutCapture')}</button><button type="button" onClick={() => { move(camera.id, -1); dialogRef.current?.close(); }} disabled={!canMoveUp} data-testid={cameraTestId(item.kind, `up-${camera.id}`)}>↑</button><button type="button" onClick={() => { move(camera.id, 1); dialogRef.current?.close(); }} disabled={!canMoveDown}>↓</button><button type="button" className="is-danger" onClick={() => { remove(camera.id); dialogRef.current?.close(); }} disabled={!canRemove}>×</button></div>
     </dialog>;
 }
 function CameraGroup({ kind, layoutEditor, onCapture, onOpenSettings }) {
@@ -123,8 +125,8 @@ function CameraGroup({ kind, layoutEditor, onCapture, onOpenSettings }) {
     const add = isWork ? layoutEditor.addWorkCamera : layoutEditor.addCamera;
     const title = isWork ? t('homeEditor.controls.workCameras') : (language === 'ru' ? 'Сцены' : 'Scenes');
     return <section className={`focus-camera-group focus-camera-group--${kind}`} aria-label={title}>
-        <header><strong>{title}</strong><IconButton label={isWork ? t('homeEditor.controls.workCameraAdd') : t('homeEditor.controls.cameraAdd')} onClick={add}>+</IconButton></header>
-        <div className="focus-camera-list">{cameras.map((camera, index) => <CameraRow key={camera.id} camera={camera} index={index} kind={kind} active={camera.id === activeId} layoutEditor={layoutEditor} onCapture={onCapture} onOpenSettings={onOpenSettings} />)}</div>
+        <header><strong>{title}</strong><IconButton label={isWork ? t('homeEditor.controls.workCameraAdd') : t('homeEditor.controls.cameraAdd')} onClick={add} data-testid={cameraTestId(kind, 'add')}>+</IconButton></header>
+        <div className="focus-camera-list" data-testid={cameraTestId(kind, 'list')}>{cameras.map((camera, index) => <CameraRow key={camera.id} camera={camera} index={index} kind={kind} active={camera.id === activeId} layoutEditor={layoutEditor} onCapture={onCapture} onOpenSettings={onOpenSettings} />)}</div>
     </section>;
 }
 
@@ -146,7 +148,7 @@ function FocusCameraTuning({ settings, layoutEditor }) {
     const isWork = Boolean(layoutEditor.activeWorkCameraId);
     const layouts = layoutEditor.currentScene?.layouts ?? settings.layouts ?? {};
     const isCustomized = Boolean(layouts?.[layoutEditor.selectedKey]?.customized);
-    return <details className="focus-camera-tuning">
+    return <details className="focus-camera-tuning" data-testid="home-editor-camera-tuning">
         <summary>{language === 'ru' ? 'Рамка и показ' : 'Frame and playback'}</summary>
         <div className="focus-camera-tuning-body"><FocusCameraParameters settings={settings} layoutEditor={layoutEditor} />
         {!isWork ? <button type="button" className="focus-camera-reset" onClick={() => layoutEditor.resetLayout(layoutEditor.selectedKey)} disabled={!isCustomized}>{t('homeEditor.controls.layoutReset')}</button> : null}</div>
