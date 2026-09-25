@@ -8,7 +8,7 @@ import { activeProjectId } from '../../../../engine/projectApi.js';
 import { useFocusControlScope } from '../focus/FocusControlsContext';
 import { FocusIcon } from '../focus/FocusIcons';
 import './placed.css';
-import { copiesOf, findPart, partName, SKETCHUP_VIEW_FOV, sketchupSceneNodes, sketchupViews, useSketchupModel } from '../../../../../placed/sketchupModel.js';
+import { copiesOf, findPart, partName, selectedNodes, SKETCHUP_VIEW_FOV, sketchupSceneNodes, sketchupViews, useSketchupModel } from '../../../../../placed/sketchupModel.js';
 import { SketchupOutliner } from '../../../../../placed/SketchupOutliner.jsx';
 
 const KIND_LABELS = { tree: ['Дерево', 'Tree'], shrub: ['Куст', 'Shrub'], rock: ['Камень', 'Rock'], model: ['Модель', 'Model'] };
@@ -70,25 +70,32 @@ function SketchupModel({ object, sketchup, placedEditor, layoutEditor, ru }) {
     const level = part ? part.trail.indexOf(part.node) : -1;
     const openGroup = level > 0 ? findPart(entry.root, part.trail[level - 1]) : null;
     const copyNodes = copies.map((copy) => copy.userData.gltfNode);
+    // Выбор с Shift: действия — для всех выбранных.
+    const nodes = selectedNodes(part), many = nodes.length > 1;
+    const pickedAll = () => nodes.map((node) => findPart(entry.root, node)).filter(Boolean);
     return <>
         <SectionHeading label={ru ? 'Части модели' : 'Model parts'} subtle />
         {part && picked ? <>
             <div className="placed-trail" data-testid="placed-sketchup-trail">
                 {part.trail.map((node, i) => { const at = findPart(entry.root, node); return at ? <React.Fragment key={node}>{i ? <span aria-hidden="true">›</span> : null}<button type="button" className={node === part.node ? 'is-active' : ''} aria-pressed={node === part.node} onClick={() => placedEditor.selectPart(node)}>{partName(at, ru)}</button></React.Fragment> : null; })}
             </div>
-            {openGroup ? <p className="placed-hint placed-hint--open">{ru ? `Открыта группа «${partName(openGroup, ru)}»: щелчок выбирает её части. Esc — выйти на уровень выше.` : `Group “${partName(openGroup, ru)}” is open: a click picks its parts. Esc steps back out.`}</p> : null}
+            {openGroup ? <p className={`placed-hint placed-hint--open${part.isolated ? ' is-isolated' : ''}`} data-testid="placed-sketchup-open">{part.isolated
+                ? (ru ? `На экране только группа «${partName(openGroup, ru)}». Q — вернуть сцену.` : `Only group “${partName(openGroup, ru)}” is on screen. Q brings the scene back.`)
+                : (ru ? `Открыта группа «${partName(openGroup, ru)}»: щелчок выбирает её части, Shift — добавляет к выбору. Q — только эта группа на экране. Esc — выйти на уровень выше.`
+                    : `Group “${partName(openGroup, ru)}” is open: a click picks its parts, Shift adds to the selection. Q leaves only this group on screen. Esc steps back out.`)}</p> : null}
+            {many ? <p className="placed-hint" data-testid="placed-sketchup-many">{ru ? `Выбрано частей: ${nodes.length}. Shift-щелчок — добавить или убрать.` : `${nodes.length} parts selected. Shift-click adds or takes one out.`}</p> : null}
             <div className="placed-actions placed-actions--part">
-                <button type="button" onClick={() => layoutEditor?.frameObject?.(picked)} title={ru ? 'Навести камеру на выбранное' : 'Frame the selection'}><FocusIcon name="target" />{ru ? 'В кадр' : 'Frame'}</button>
-                <button type="button" onClick={() => placedEditor.hideParts(object.id, [part.node])} data-testid="placed-sketchup-hide" title={ru ? 'Скрыть — вернуть: глаз в «Составе» или «Показать все скрытые»' : 'Hide — bring back with the eye in the outline or “Show all hidden”'}><FocusIcon name="eyeoff" />{ru ? 'Скрыть' : 'Hide'}</button>
-                <button type="button" className="is-danger" onClick={() => placedEditor.removeParts(object.id, [part.node])} data-testid="placed-sketchup-remove" title={ru ? 'Удалить · Delete — вернуть: «Удалённые» внизу или ⌘Z' : 'Delete · Delete key — bring back from “Deleted” below or with ⌘Z'}><FocusIcon name="trash" />{ru ? 'Удалить' : 'Delete'}</button>
+                <button type="button" onClick={() => layoutEditor?.frameObject?.(pickedAll())} title={ru ? 'Навести камеру на выбранное' : 'Frame the selection'}><FocusIcon name="target" />{ru ? 'В кадр' : 'Frame'}</button>
+                <button type="button" onClick={() => placedEditor.hideParts(object.id, nodes)} data-testid="placed-sketchup-hide" title={ru ? 'Скрыть — вернуть: глаз в «Составе» или «Показать все скрытые»' : 'Hide — bring back with the eye in the outline or “Show all hidden”'}><FocusIcon name="eyeoff" />{ru ? 'Скрыть' : 'Hide'}{many ? ` · ${nodes.length}` : ''}</button>
+                <button type="button" className="is-danger" onClick={() => placedEditor.removeParts(object.id, nodes)} data-testid="placed-sketchup-remove" title={ru ? 'Удалить · Delete — вернуть: «Удалённые» внизу или ⌘Z' : 'Delete · Delete key — bring back from “Deleted” below or with ⌘Z'}><FocusIcon name="trash" />{ru ? 'Удалить' : 'Delete'}{many ? ` · ${nodes.length}` : ''}</button>
             </div>
-            {copies.length > 1 ? <div className="home-editor-tabs">
+            {!many && copies.length > 1 ? <div className="home-editor-tabs">
                 {button(`${ru ? 'Скрыть все такие' : 'Hide all copies'} · ${copies.length}`, () => placedEditor.hideParts(object.id, copyNodes), { 'data-testid': 'placed-sketchup-hide-copies' })}
                 {button(`${ru ? 'Удалить все такие' : 'Delete all copies'} · ${copies.length}`, () => placedEditor.removeParts(object.id, copyNodes), { 'data-testid': 'placed-sketchup-remove-copies' })}
             </div> : null}
         </> : <p className="placed-hint">{ru
-            ? 'Как в SketchUp: щелчок по модели выбирает компонент, двойной щелчок — заходит внутрь и выбирает его часть, Esc — выходит на уровень выше. Delete — удалить выбранное, правый щелчок — скрыть или удалить. Всё, что есть в модели, — в «Составе» ниже.'
-            : 'As in SketchUp: a click on the model picks a component, a double click goes inside and picks its part, Esc steps back out. Delete removes the selection, a right click hides or deletes. Everything in the model is in the outline below.'}</p>}
+            ? 'Как в SketchUp: щелчок по модели выбирает компонент, Shift-щелчок — добавляет к выбору, двойной щелчок — заходит внутрь и выбирает его часть, Esc — выходит на уровень выше, Q внутри — только эта группа на экране. Delete — удалить выбранное, правый щелчок — скрыть или удалить. Всё, что есть в модели, — в «Составе» ниже.'
+            : 'As in SketchUp: a click on the model picks a component, Shift-click adds to the selection, a double click goes inside and picks its part, Esc steps back out, Q inside leaves only that group on screen. Delete removes the selection, a right click hides or deletes. Everything in the model is in the outline below.'}</p>}
         <SectionHeading label={ru ? 'Состав модели' : 'Model outline'} subtle />
         <SketchupOutliner object={object} entry={entry} sketchup={sketchup} placedEditor={placedEditor} layoutEditor={layoutEditor} ru={ru} />
         <SectionHeading label={ru ? '2D-растения SketchUp' : 'SketchUp 2D plants'} subtle />

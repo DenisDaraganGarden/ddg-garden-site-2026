@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useThree } from '@react-three/fiber';
 import { sceneHitForObject3D } from '../../lib/sceneObjects';
+import { outsideIsolation } from '../../../../placed/sketchupModel.js';
 
 // Выбор объекта прямо в сцене. Луч идёт от курсора, попадание поднимается вверх
 // по родителям до знакомого имени, и дальше выбор — это тот же путь в дереве,
@@ -18,7 +19,8 @@ import { sceneHitForObject3D } from '../../lib/sceneObjects';
 // платформах (в Chrome на macOS 'contextmenu' приходит ещё до движения мыши).
 const CLICK_SLOP = 4;
 // Двойной щелчок — два коротких нажатия в одном месте подряд: в модели
-// SketchUp он открывает выбранный компонент (usePlacedEditor).
+// SketchUp он открывает выбранный компонент (usePlacedEditor); Shift — добавить
+// к выбору.
 const DOUBLE_MS = 400, DOUBLE_SLOP = 6;
 // Ручка манипулятора, которая сейчас нарисована. Его невидимые части —
 // сборщики, помощники других режимов, линии осей длиной в километры — лежат
@@ -59,6 +61,8 @@ export default function EditorPicker({ enabled, onPick, onContextMenu }) {
             for (const hit of raycaster.intersectObjects(scene.children, true)) {
                 // Щелчок по ручке манипулятора — не выбор того, что за ней.
                 if (isShownGizmo(hit.object)) return null;
+                // Q в группе модели: спрятанного вокруг неё для щелчка нет.
+                if (outsideIsolation(hit.object)) continue;
                 const found = hit.object.visible ? sceneHitForObject3D(hit.object, hit) : null;
                 if (found) return found;
             }
@@ -89,7 +93,7 @@ export default function EditorPicker({ enabled, onPick, onContextMenu }) {
             const found = hitAt(event);
             const double = Boolean(last && event.timeStamp - last.at < DOUBLE_MS && Math.hypot(event.clientX - last.x, event.clientY - last.y) < DOUBLE_SLOP);
             last = double ? null : { at: event.timeStamp, x: event.clientX, y: event.clientY };
-            if (found) onPick(found.node, { ...found, double });
+            if (found) onPick(found.node, { ...found, double, shift: event.shiftKey });
         };
 
         element.addEventListener('pointerdown', handlePointerDown);

@@ -34,6 +34,7 @@ import { useHomeSceneEditor } from '../features/home-scene/hooks/useHomeSceneEdi
 import { useHomeChromeVisibility } from '../features/home-scene/hooks/useHomeChromeVisibility';
 import { useTopiaryEditor } from '../topiary/useTopiaryEditor.js';
 import { usePlacedEditor } from '../placed/usePlacedEditor.js';
+import { selectedNodes } from '../placed/sketchupModel.js';
 import { PLANTING_NODE, usePlantingEditor } from '../planting/usePlantingEditor.js';
 import { usePlantLibrary } from '../planting/plantLibrary.js';
 import { useAnnotationEditor } from '../annotations/useAnnotationEditor.js';
@@ -659,7 +660,7 @@ const HomeEdit = ({ project = null }) => {
         if (hit?.annotationMark) { selectMark(hit.annotationMark); return; }
         if (hit?.lightingFixture) { selectFixture(hit.lightingFixture); setTool(lastTransform); return; }
         if (hit?.lightingPanel) { selectPanel(hit.lightingPanel); setTool(lastTransform); return; }
-        if (hit?.topiaryId) selectTopiary(hit.topiaryId); else if (hit?.placedId) selectPlaced(hit.placedId, hit.object, hit.double); else setActiveTab(path);
+        if (hit?.topiaryId) selectTopiary(hit.topiaryId); else if (hit?.placedId) selectPlaced(hit.placedId, hit.object, hit.double, hit.shift); else setActiveTab(path);
         setTool(lastTransform);
     }, [setActiveTab, setTool, lastTransform, selectTopiary, selectPlaced, selectBed, selectVine, selectMark, selectFixture, selectPanel]);
 
@@ -731,14 +732,16 @@ const HomeEdit = ({ project = null }) => {
     }), [playing, walking, transformTool, transformHeld, gizmoSelection, tool, lastTransform, handleGizmoTransform, picking, drawingTool, handlePickObject, gizmoPose?.rotationY, gizmoPose?.scale, activeTool, settings.topiaryObjects.length, gizmoNode.id, topiaryEditor.selectedId, topiaryEditor.onStroke, placedEditor.selectedId, placedEditor.part, plantingEditor.selectedId, plantingEditor.vineId, plantingEditor.onBed, plantingEditor.onBedSurface, plantingEditor.onPlant, plantingEditor.onVine, annotationEditor.onMark, annotationEditor.selectedId, annotationEditor.onResnap, handleWalkStart, aiming, lightingEditor.selectedId, lightingEditor.onLight, lightingEditor.onAim, lightingEditor.placeType, luminaireTypes, settings.lightingConnections, gizmoGroup.id]);
 
     // Delete (и Backspace) убирает выбранное — одной отменой: светильник или
-    // щиток; часть модели SketchUp (в «Удалённые», как в SketchUp); объект
-    // расстановки, если часть не выбрана. Esc выходит из открытой группы модели.
+    // щиток; части модели SketchUp (в «Удалённые», как в SketchUp); объект
+    // расстановки, если часть не выбрана. Esc выходит из открытой группы модели,
+    // Q в ней оставляет на экране только её (и обратно).
     const placedPart = selectedPlaced ? placedEditor.part : null;
     const sceneKeys = useRef();
     sceneKeys.current = {
         remove: selectedFixture ? () => lightingEditor.remove(selectedFixture.id) : selectedPanel ? () => lightingEditor.removePanel(selectedPanel.id)
-            : placedPart ? () => placedEditor.removeParts(placedPart.id, [placedPart.node]) : selectedPlaced ? () => placedEditor.remove(selectedPlaced.id) : null,
+            : placedPart ? () => placedEditor.removeParts(placedPart.id, selectedNodes(placedPart)) : selectedPlaced ? () => placedEditor.remove(selectedPlaced.id) : null,
         escape: placedPart && !drawingTool ? placedEditor.exitPart : null,
+        isolate: placedPart && placedPart.trail.indexOf(placedPart.node) > 0 && !drawingTool ? placedEditor.toggleIsolate : null,
     };
     useEffect(() => {
         const key = (event) => {
@@ -750,6 +753,19 @@ const HomeEdit = ({ project = null }) => {
         };
         window.addEventListener('keydown', key);
         return () => window.removeEventListener('keydown', key);
+    }, []);
+    // Q в группе модели — раньше полёта камеры (там Q — вниз): в группе буква
+    // её. По коду клавиши, а не букве: в русской раскладке это «й».
+    useEffect(() => {
+        const key = (event) => {
+            if (event.code !== 'KeyQ' || !sceneKeys.current.isolate || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey
+                || event.target?.closest?.('input,textarea,select,[contenteditable=true],dialog')) return;
+            event.preventDefault();
+            event.stopPropagation();
+            if (!event.repeat) sceneKeys.current.isolate();
+        };
+        window.addEventListener('keydown', key, true);
+        return () => window.removeEventListener('keydown', key, true);
     }, []);
 
     // Курсор во вьюпорте говорит, какой инструмент в руке, не глядя на панель.

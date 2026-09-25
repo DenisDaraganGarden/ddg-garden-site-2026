@@ -1,13 +1,15 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { FocusIcon } from '../features/home-scene/components/editor/focus/FocusIcons';
-import { findPart, outlineChildren, outlineGroups, outlinePart, partName } from './sketchupModel.js';
+import { findPart, outlineChildren, outlineGroups, outlinePart, partName, selectedNodes } from './sketchupModel.js';
 
 // «Состав модели» — как «Структура» (Outliner) в SketchUp: компоненты и
 // группы деревом, копии одного компонента — одной строкой со счётчиком.
-// Строка — выбрать (в сцене рамка), двойной щелчок — в кадр, ▸ — зайти
-// внутрь; глаз — скрыть или показать; корзина — удалить: удалённое уходит
-// в свой список внизу, оттуда — вернуть. Поиск — по имени на любой глубине.
+// Строка — выбрать (в сцене рамка), Shift — добавить к выбору, двойной
+// щелчок — в кадр, ▸ — зайти внутрь; глаз — скрыть или показать; корзина —
+// удалить: удалённое уходит в свой список внизу, оттуда — вернуть. Поиск — по
+// имени на любой глубине. Группы (копии и части с частями) — со значком и
+// полосой, выбранное внутри открытой группы — голубое, как рамка в сцене.
 const FOUND_LIMIT = 200;
 // Дети строки считаются один раз на узел модели, а не на каждую перерисовку панели.
 const KIDS = new WeakMap();
@@ -21,11 +23,11 @@ const heightOf = (item) => {
 };
 const metres = (value, ru) => (value > 0.05 ? `${value.toLocaleString(ru ? 'ru-RU' : 'en-GB', { maximumFractionDigits: value < 10 ? 1 : 0 })} ${ru ? 'м' : 'm'}` : null);
 
-function Row({ depth, label, detail = null, count, hidden, selected, open, canOpen, onToggle, onSelect, onFrame, onEye, onRemove, ru, rowRef, removeTitle }) {
-    return <div ref={rowRef} className={`placed-outline__row${selected ? ' is-selected' : ''}${hidden ? ' is-hidden' : ''}`} style={{ '--depth': depth }} role="treeitem" aria-selected={selected} aria-expanded={canOpen ? open : undefined}>
+function Row({ depth, kind, label, detail = null, count, hidden, selected, open, canOpen, onToggle, onSelect, onFrame, onEye, onRemove, ru, rowRef, removeTitle }) {
+    return <div ref={rowRef} className={`placed-outline__row is-${kind}${selected ? ' is-selected' : ''}${hidden ? ' is-hidden' : ''}`} style={{ '--depth': depth }} role="treeitem" aria-selected={selected} aria-expanded={canOpen ? open : undefined}>
         <button type="button" className="placed-outline__open" onClick={onToggle} disabled={!canOpen} aria-label={open ? (ru ? 'Свернуть' : 'Collapse') : (ru ? 'Развернуть' : 'Expand')}>{canOpen ? (open ? '▾' : '▸') : ''}</button>
-        <button type="button" className="placed-outline__name" onClick={onSelect} onDoubleClick={onFrame} title={ru ? 'Щелчок — выбрать, двойной — в кадр' : 'Click to select, double-click to frame'}>
-            <span>{label}</span>{detail ? <em>{detail}</em> : null}{count ? <small>{count}</small> : null}
+        <button type="button" className="placed-outline__name" onClick={onSelect} onDoubleClick={onFrame} title={kind === 'copies' ? (ru ? 'Копии одного компонента' : 'Copies of one component') : (ru ? 'Щелчок — выбрать, Shift — добавить к выбору, двойной — в кадр' : 'Click to select, Shift to add, double-click to frame')}>
+            {kind === 'part' ? null : <FocusIcon name={kind === 'copies' ? 'copy' : 'box'} />}<span>{label}</span>{detail ? <em>{detail}</em> : null}{count ? <small>{count}</small> : null}
         </button>
         <button type="button" className="placed-outline__icon" onClick={onEye} aria-pressed={hidden} title={hidden ? (ru ? 'Показать' : 'Show') : (ru ? 'Скрыть' : 'Hide')} data-testid="placed-outline-eye"><FocusIcon name={hidden ? 'eyeoff' : 'eye'} /></button>
         <button type="button" className="placed-outline__icon is-danger" onClick={onRemove} title={removeTitle} data-testid="placed-outline-remove"><FocusIcon name="trash" /></button>
@@ -42,6 +44,8 @@ export function SketchupOutliner({ object, entry, sketchup, placedEditor, layout
     const removed = useMemo(() => new Set(removedList), [removedList]);
     const groups = useMemo(() => outlineGroups(root), [root]);
     const part = placedEditor.part;
+    const chosen = useMemo(() => new Set(selectedNodes(part)), [part]);
+    const inside = part ? part.trail.indexOf(part.node) > 0 : false;
     const selectedRow = useRef(null);
     const nodeOf = (item) => item.userData.gltfNode;
 
@@ -65,11 +69,10 @@ export function SketchupOutliner({ object, entry, sketchup, placedEditor, layout
         const node = nodeOf(item);
         if (removed.has(node)) return null;
         const key = `n:${node}`, isOpen = open.has(key), inner = childrenOf(item), isHidden = hiddenAbove || hidden.has(node);
-        const selected = part?.node === node;
         return <React.Fragment key={key}>
-            <Row depth={depth} label={partName(item, ru)} detail={metres(heightOf(item), ru)} hidden={isHidden} selected={selected} open={isOpen} canOpen={inner.length > 0} ru={ru} removeTitle={removeTitle}
-                onToggle={() => toggle(key)} onSelect={() => placedEditor.selectNode(object.id, node)} onFrame={() => frame(item)}
-                onEye={() => eye([node], !hidden.has(node))} onRemove={() => placedEditor.removeParts(object.id, [node])} rowRef={selected ? selectedRow : undefined} />
+            <Row depth={depth} kind={inner.length ? 'group' : 'part'} label={partName(item, ru)} detail={metres(heightOf(item), ru)} hidden={isHidden} selected={chosen.has(node)} open={isOpen} canOpen={inner.length > 0} ru={ru} removeTitle={removeTitle}
+                onToggle={() => toggle(key)} onSelect={(event) => placedEditor.selectNode(object.id, node, event.shiftKey)} onFrame={() => frame(item)}
+                onEye={() => eye([node], !hidden.has(node))} onRemove={() => placedEditor.removeParts(object.id, [node])} rowRef={part?.node === node ? selectedRow : undefined} />
             {isOpen ? inner.map((child) => renderItem(child, depth + 1, isHidden)) : null}
         </React.Fragment>;
     };
@@ -98,7 +101,7 @@ export function SketchupOutliner({ object, entry, sketchup, placedEditor, layout
             <button type="button" onClick={() => placedEditor.hideParts(object.id, foundNodes)} data-testid="placed-outline-hide-found">{ru ? 'Скрыть все' : 'Hide all'}</button>
             <button type="button" className="is-danger" onClick={() => placedEditor.removeParts(object.id, foundNodes)} data-testid="placed-outline-remove-found">{ru ? 'Удалить все' : 'Delete all'}</button>
         </div> : null}
-        <div className="placed-outline__tree" role="tree" aria-label={ru ? 'Состав модели' : 'Model outline'}>
+        <div className={`placed-outline__tree${inside ? ' is-inside' : ''}`} role="tree" aria-multiselectable="true" aria-label={ru ? 'Состав модели' : 'Model outline'}>
             {found ? found.map((item) => renderItem(item, 0, false))
                 : groups.map((group) => {
                     if (group.items.length === 1) return renderItem(group.items[0], 0, false);
@@ -107,7 +110,7 @@ export function SketchupOutliner({ object, entry, sketchup, placedEditor, layout
                     if (!nodes.length) return null;
                     const allHidden = nodes.every((node) => hidden.has(node));
                     return <React.Fragment key={key}>
-                        <Row depth={0} label={group.name} count={nodes.length} hidden={allHidden} selected={false} open={isOpen} canOpen ru={ru}
+                        <Row depth={0} kind="copies" label={group.name} count={nodes.length} hidden={allHidden} selected={false} open={isOpen} canOpen ru={ru}
                             removeTitle={ru ? `Удалить все ${nodes.length} — вернуть можно из «Удалённых» или ⌘Z` : `Delete all ${nodes.length} — bring them back from “Deleted” or with ⌘Z`}
                             onToggle={() => toggle(key)} onSelect={() => toggle(key)} onFrame={() => toggle(key)}
                             onEye={() => eye(nodes, !allHidden)} onRemove={() => placedEditor.removeParts(object.id, nodes)} />

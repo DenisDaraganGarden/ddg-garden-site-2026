@@ -227,11 +227,38 @@ export function nextPart(current, id, trail, double = false) {
 }
 
 // Esc: out of the open group — its own part is selected; at the top the part
-// selection ends.
+// selection ends. A Shift selection ends with it.
 export function outerPart(current) {
     const level = current ? current.trail.indexOf(current.node) : -1;
-    return level > 0 ? { ...current, node: current.trail[level - 1] } : null;
+    return level > 0 ? { id: current.id, trail: current.trail, node: current.trail[level - 1] } : null;
 }
+
+// Shift, as in SketchUp: the part under the cursor at the selection's own
+// level (inside the open group, or at the top) joins the selection or leaves
+// it; the last one stays. A part outside the open group is not taken; with
+// nothing of this model selected Shift is an ordinary click.
+// nodes — every selected part, node — the last one taken (its trail).
+export const selectedNodes = (part) => (part ? part.nodes ?? [part.node] : []);
+export function togglePart(current, id, trail) {
+    const mine = current?.id === id ? current : null;
+    if (!mine) return nextPart(current, id, trail);
+    const level = mine.trail.indexOf(mine.node);
+    if (trail.length <= level || mine.trail.slice(0, level).some((node, i) => trail[i] !== node)) return mine;
+    const node = trail[level], nodes = selectedNodes(mine);
+    if (!nodes.includes(node)) return { id, trail, node, nodes: [...nodes, node] };
+    if (nodes.length === 1) return mine;
+    const rest = nodes.filter((item) => item !== node), last = rest[rest.length - 1];
+    return { id, trail: [...mine.trail.slice(0, level), last], node: last, nodes: rest };
+}
+
+// Q в открытой группе (PlacedObjects → Isolate): на экране она одна. Что
+// оставлено — и для щелчка: мимо этого он ничего не выбирает (EditorPicker).
+export const isolation = { object: null };
+export const outsideIsolation = (object) => {
+    if (!isolation.object) return false;
+    for (let up = object; up; up = up.parent) if (up === isolation.object) return false;
+    return true;
+};
 
 // Состав модели для панели (как «Структура» в SketchUp): части, в которых
 // есть что рисовать, — без сцен-камер и пустых узлов; безымянная геометрия

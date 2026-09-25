@@ -1,9 +1,9 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { createPlacedObject, normalizePlacedObject, placedSpeciesDefaults, PLACED_LIMITS } from './settings.js';
 import { createTerrainDefinition, createTerrainQuery } from '../terrain/terrainModel.js';
 import { activeProjectId, uploadProjectModel } from '../features/engine/projectApi.js';
 import { solidHeightAt } from './solidSurface.js';
-import { copiesOf, findPart, nextPart, outerPart, partChain, partName, sketchupModelEntry } from './sketchupModel.js';
+import { copiesOf, findPart, nextPart, outerPart, partChain, partName, sketchupModelEntry, togglePart } from './sketchupModel.js';
 
 const KIND_NAMES = { tree: ['Дерево', 'Tree'], shrub: ['Куст', 'Shrub'], rock: ['Камень', 'Rock'], model: ['Модель', 'Model'] };
 
@@ -42,33 +42,42 @@ function freeName(settings, base) {
 // component it hit at the model's top level; a double click opens it and
 // picks its part under the cursor, Esc steps back out (nextPart, outerPart).
 // The chain down to what was hit is kept for the panel's breadcrumbs
-// (`trail`, glTF node indices). A part is hidden (comes back with «show
-// hidden») or deleted (gone until restored one by one or by undo).
+// (`trail`, glTF node indices). Shift adds a part at the same level to the
+// selection (togglePart). A part is hidden (comes back with «show hidden») or
+// deleted (gone until restored one by one or by undo). Q inside an open group
+// leaves it alone on the screen (`part.isolated`, PlacedObjects → Isolate).
 export function usePlacedEditor({ settings, history, setActiveTab, setTool, language, layoutEditor }) {
     const [selectedId, setSelectedId] = useState(null);
     const [part, setPart] = useState(null);
+    const [isolated, setIsolated] = useState(false);
     const live = useRef(); live.current = { settings, history, language, layoutEditor };
     const partRef = useRef(null); partRef.current = part;
     const trailOf = (id, hit) => {
         const root = id && hit ? sketchupModelEntry(id)?.root : null;
         return root ? partChain(root, hit).map((object) => object.userData.gltfNode) : [];
     };
-    const select = useCallback((id, hit = null, double = false) => {
+    const select = useCallback((id, hit = null, double = false, shift = false) => {
         const trail = trailOf(id, hit);
         setSelectedId(id);
-        setPart((current) => nextPart(current, id, trail, double));
+        setPart((current) => (shift ? togglePart(current, id, trail) : nextPart(current, id, trail, double)));
         setActiveTab('objects/placed'); setTool('select');
     }, [setActiveTab, setTool]);
-    const selectPart = useCallback((node) => setPart((current) => (current?.trail.includes(node) ? { ...current, node } : current)), []);
-    // Из «Состава модели»: часть по номеру узла, с цепочкой групп над ней.
-    const selectNode = useCallback((id, node) => {
+    const selectPart = useCallback((node) => setPart((current) => (current?.trail.includes(node) ? { id: current.id, trail: current.trail, node } : current)), []);
+    // Из «Состава модели»: часть по номеру узла, с цепочкой групп над ней;
+    // с Shift строка того же уровня той же группы — в выбор или из него.
+    const selectNode = useCallback((id, node, shift = false) => {
         const root = sketchupModelEntry(id)?.root, object = root ? findPart(root, node) : null;
         const trail = object ? partChain(root, object).map((item) => item.userData.gltfNode) : [];
         setSelectedId(id);
-        setPart(trail.length ? { id, trail, node } : null);
+        setPart((current) => (!trail.length ? null
+            : shift && current?.id === id && current.trail.indexOf(current.node) === trail.length - 1 ? togglePart(current, id, trail) : { id, trail, node }));
         setActiveTab('objects/placed');
     }, [setActiveTab]);
     const exitPart = useCallback(() => setPart((current) => outerPart(current)), []);
+    // Q: только открытая группа на экране и обратно. Вне группы выключается сам.
+    const inside = part ? part.trail.indexOf(part.node) > 0 : false;
+    if (isolated && !inside) setIsolated(false);
+    const toggleIsolate = useCallback(() => setIsolated((value) => !value), []);
     // Что выберет щелчок в этой точке — для меню правой кнопки: имя и копии.
     const partAt = useCallback((id, hit) => {
         const chosen = nextPart(partRef.current, id, trailOf(id, hit));
@@ -188,8 +197,9 @@ export function usePlacedEditor({ settings, history, setActiveTab, setTool, lang
         setSelectedId(null); setPart(null);
     }, []);
     const shown = settings.placedObjects.some((o) => o.id === selectedId) ? selectedId : null;
+    const shownPart = useMemo(() => (part && part.id === shown ? (isolated && inside ? { ...part, isolated: true } : part) : null), [part, shown, isolated, inside]);
     return {
-        selectedId: shown, part: part && part.id === shown ? part : null, select, selectPart, selectNode, exitPart, partAt, update, setSpecies, add, importModel, replaceModel, duplicate, seat, remove,
-        setSketchup, hideParts, showParts, removeParts, restoreParts,
+        selectedId: shown, part: shownPart, select, selectPart, selectNode, exitPart, partAt, update, setSpecies, add, importModel, replaceModel, duplicate, seat, remove,
+        setSketchup, hideParts, showParts, removeParts, restoreParts, toggleIsolate,
     };
 }

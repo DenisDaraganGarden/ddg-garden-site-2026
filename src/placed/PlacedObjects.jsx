@@ -1,13 +1,13 @@
 import React, { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { useThree } from '@react-three/fiber';
+import { useFrame, useThree } from '@react-three/fiber';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { activeProjectId, projectModelUrl } from '../features/engine/projectApi.js';
 import { setWakeObstacles, waterWake } from '../components/effects/water/waterWake.js';
 import { waterlineCircles, waterlineCrossings } from './waterline.js';
 import { setSolid, solidHeightfield } from './solidSurface.js';
 import { PLACED_TRANSFORM_DEFAULT } from './settings.js';
-import { applyHidden, findPart, makeFaceCamera, registerSketchupModel, tagNodes } from './sketchupModel.js';
+import { applyHidden, findPart, isolation, makeFaceCamera, registerSketchupModel, selectedNodes, tagNodes } from './sketchupModel.js';
 import { applyModelMaterials } from '../materials/modelMaterials.js';
 import { useGlassReflections } from '../materials/GlassReflections.js';
 import { makeCoastTree } from '../plants/treeModel.js';
@@ -203,17 +203,20 @@ function useModel(url) {
 
 // The SketchUp part picked in the editor, boxed the way the anchor's ring is
 // drawn: over everything, never in the way of a click. The group it was
-// opened in (a double click, as in SketchUp) gets a fainter box of its own.
-function PartBox({ root, node, stamp, open = false }) {
+// opened in (a double click, as in SketchUp) gets a fainter box of its own,
+// and what is picked inside it is blue — the colour says «inside a group».
+const PART_COLOUR = { top: '#d9ca8c', inside: '#7fb8e8', open: '#8f8b78' };
+function PartBox({ root, node, stamp, kind = 'top' }) {
     const helper = useMemo(() => {
-        const box = new THREE.Box3Helper(new THREE.Box3(), open ? '#8f8b78' : '#d9ca8c');
+        const box = new THREE.Box3Helper(new THREE.Box3(), PART_COLOUR[kind]);
         box.material.depthTest = false;
         box.material.transparent = true;
-        if (open) box.material.opacity = 0.55;
+        if (kind === 'open') box.material.opacity = 0.55;
         box.renderOrder = 5;
         box.raycast = NO_RAYCAST;
+        box.userData.isolateKeep = true;
         return box;
-    }, [open]);
+    }, [kind]);
     useEffect(() => () => { helper.geometry.dispose(); helper.material.dispose(); }, [helper]);
     const invalidate = useThree((state) => state.invalidate);
     useLayoutEffect(() => {
@@ -227,7 +230,45 @@ function PartBox({ root, node, stamp, open = false }) {
     return <primitive object={helper} />;
 }
 
-function PlacedModel({ object, url, selected, sketchup, selectedPart, openPart = null, plan = false, materials = null }) {
+// Q в открытой группе: на время рисования кадра прячется всё, кроме неё, —
+// остальная модель и вся сцена; небо, свет, манипулятор и рамки выбора остаются.
+// Прячется только между 99 и 101 (кадр рисует ScenePostProcessing на 100), так
+// что системы, которые сами двигают видимость (рыбы, отражения), ничего не
+// замечают, а щелчок мимо группы не выбирает спрятанное (isolation).
+// ponytail: обход всей сцены в кадр, пока Q включён; держать список, если станет заметно.
+const ISOLATION_SKY = new Set(['sky-dome', 'painterly-sky']);
+const keepsInIsolation = (object) => object.isLight || object.isCamera || object.isTransformControlsRoot || object.userData.isolateKeep || ISOLATION_SKY.has(object.name);
+function hideAround(keep, hidden) {
+    const path = new Set();
+    for (let up = keep; up; up = up.parent) path.add(up);
+    const holds = (object) => { let found = false; object.traverse((inner) => { if (!found && keepsInIsolation(inner)) found = true; }); return found; };
+    const visit = (object) => {
+        for (const child of object.children) {
+            if (child === keep || !child.visible || keepsInIsolation(child)) continue;
+            if (path.has(child) || holds(child)) { visit(child); continue; }
+            child.visible = false;
+            hidden.push(child);
+        }
+    };
+    let top = keep;
+    while (top.parent) top = top.parent;
+    visit(top);
+}
+function Isolate({ root, node }) {
+    const keep = useMemo(() => findPart(root, node), [root, node]);
+    const invalidate = useThree((state) => state.invalidate);
+    const hidden = useRef([]);
+    useEffect(() => {
+        isolation.object = keep;
+        invalidate();
+        return () => { if (isolation.object === keep) isolation.object = null; invalidate(); };
+    }, [keep, invalidate]);
+    useFrame(() => { if (keep) hideAround(keep, hidden.current); }, 99);
+    useFrame(() => { for (const object of hidden.current) object.visible = true; hidden.current.length = 0; }, 101);
+    return null;
+}
+
+function PlacedModel({ object, url, selected, sketchup, selectedParts = [], openPart = null, isolate = false, plan = false, materials = null }) {
     const gltf = useModel(url);
     const lit = object.species !== 'scan';
     const originKey = object.origin ? `${object.origin.x},${object.origin.y},${object.origin.z}` : '';
@@ -282,8 +323,9 @@ function PlacedModel({ object, url, selected, sketchup, selectedPart, openPart =
             rotation={[deg(object.tiltX), deg(object.rotation), deg(object.tiltZ), 'YXZ']} scale={object.scale}>
             <primitive object={prepared.root} />
         </group>
-        {openPart !== null && openPart !== undefined ? <PartBox root={prepared.root} node={openPart} stamp={`${x},${y},${z},${rotation},${tiltX},${tiltZ},${scale}`} open /> : null}
-        {selectedPart !== null && selectedPart !== undefined ? <PartBox root={prepared.root} node={selectedPart} stamp={`${x},${y},${z},${rotation},${tiltX},${tiltZ},${scale}`} /> : null}
+        {openPart !== null ? <PartBox root={prepared.root} node={openPart} stamp={`${x},${y},${z},${rotation},${tiltX},${tiltZ},${scale}`} kind="open" /> : null}
+        {selectedParts.map((node) => <PartBox key={node} root={prepared.root} node={node} stamp={`${x},${y},${z},${rotation},${tiltX},${tiltZ},${scale}`} kind={openPart !== null ? 'inside' : 'top'} />)}
+        {isolate && openPart !== null ? <Isolate root={prepared.root} node={openPart} /> : null}
     </>;
 }
 
@@ -306,7 +348,7 @@ export default function PlacedObjects({ objects, selectedId = null, selectedPart
             const url = modelUrl(object);
             const part = selectedPart?.id === object.id ? selectedPart : null, level = part ? part.trail.indexOf(part.node) : -1;
             return url ? <PlacedModel key={object.id} object={object} url={url} selected={selected} sketchup={sketchupModels[object.id]} plan={plan} materials={modelMaterials?.[object.id] ?? null}
-                selectedPart={part ? part.node : null} openPart={level > 0 ? part.trail[level - 1] : null} />
+                selectedParts={selectedNodes(part)} openPart={level > 0 ? part.trail[level - 1] : null} isolate={Boolean(part?.isolated)} />
                 : <Anchor key={object.id} object={object} selected={selected} radius={1} />;
         })}
         {rocks.length ? <Suspense fallback={null}><PlacedRocks objects={rocks} lowPower={lowPower} lighting={lighting} selectedId={selectedId} /></Suspense> : null}

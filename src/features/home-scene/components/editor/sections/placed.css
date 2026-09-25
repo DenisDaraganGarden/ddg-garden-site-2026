@@ -44,16 +44,27 @@
 .placed-trail>button.is-active{border-color:var(--focus-accent,#cfc1a1);background:#cfc1a11c}
 /* Часть модели SketchUp (SketchupModel) и «Состав модели» (SketchupOutliner):
    дерево как «Структура» в SketchUp — строка, глаз, корзина. */
-.placed-hint--open{border-left:2px solid var(--focus-accent,#cfc1a1);border-radius:0 4px 4px 0}
+/* Внутри открытой группы выбор голубой — как рамка части в сцене (PlacedObjects PART_COLOUR). */
+.placed-hint--open{border-left:2px solid #7fb8e8;border-radius:0 4px 4px 0;background:#7fb8e812}
+.placed-hint--open.is-isolated{background:#7fb8e826;color:#e4eef7}
 .placed-actions--part{grid-template-columns:repeat(3,1fr);margin-bottom:4px}
 .placed-outline{display:flex;flex-direction:column;gap:4px;margin-bottom:8px}
 .placed-outline__search{display:flex;align-items:center;gap:6px;height:26px;padding:0 7px;border:1px solid var(--focus-line,#353839);border-radius:4px;background:var(--focus-input,#161819)}
 .placed-outline__search .focus-icon{width:12px;height:12px;flex:none;color:var(--focus-muted,#989d9e)}
 .placed-outline__search input{flex:1;min-width:0;border:0;background:transparent;color:var(--focus-text,#dcddd8);font:11px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;outline:0}
 .placed-outline__tree{max-height:min(420px,50vh);overflow-y:auto;padding:2px 0;border:1px solid #ffffff0a;border-radius:5px;scrollbar-width:thin;scrollbar-color:var(--focus-line,#353839) transparent}
-.placed-outline__row{display:grid;grid-template-columns:16px minmax(0,1fr) 22px 22px;align-items:center;min-height:24px;padding-left:calc(var(--depth,0) * 12px + 2px);border-radius:3px}
-.placed-outline__row:hover{background:#ffffff08}
-.placed-outline__row.is-selected{background:#cfc1a11f;box-shadow:inset 2px 0 0 var(--focus-accent,#cfc1a1)}
+/* Вложенность — направляющими по уровням; группы (копии компонента и части
+   с частями) — полосой, значком и жирнее, чтобы отличались от простых частей. */
+.placed-outline__row{display:grid;grid-template-columns:16px minmax(0,1fr) 22px 22px;align-items:center;min-height:24px;padding-left:calc(var(--depth,0) * 12px + 2px);border-radius:3px;
+  background-image:repeating-linear-gradient(to right,transparent 0 7px,#ffffff12 7px 8px,transparent 8px 12px);background-size:calc(var(--depth,0) * 12px) 100%;background-position:2px 0;background-repeat:no-repeat}
+.placed-outline__row.is-group,.placed-outline__row.is-copies{background-color:#ffffff06}
+.placed-outline__row.is-group .placed-outline__name,.placed-outline__row.is-copies .placed-outline__name{font-weight:600}
+.placed-outline__row.is-part .placed-outline__name{color:#c9cac4}
+.placed-outline__name>.focus-icon{width:11px;height:11px;flex:none;align-self:center;color:var(--focus-muted,#989d9e)}
+.placed-outline__row.is-copies .placed-outline__name>.focus-icon{color:var(--focus-accent,#cfc1a1)}
+.placed-outline__row:hover{background-color:#ffffff0a}
+.placed-outline__row.is-selected{background-color:#cfc1a11f;box-shadow:inset 2px 0 0 var(--focus-accent,#cfc1a1)}
+.placed-outline__tree.is-inside .placed-outline__row.is-selected{background-color:#7fb8e81f;box-shadow:inset 2px 0 0 #7fb8e8}
 .placed-outline__row.is-hidden .placed-outline__name{opacity:.42;font-style:italic}
 .placed-outline__open{width:16px;height:22px;padding:0;border:0;background:transparent;color:var(--focus-muted,#989d9e);font-size:9px;cursor:pointer}
 .placed-outline__open:disabled{cursor:default}

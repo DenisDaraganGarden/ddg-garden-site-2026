@@ -1,7 +1,7 @@
 // Run: node src/placed/settings.check.js
 import assert from 'node:assert/strict';
 import { createPlacedObject, normalizePlacedObject, normalizePlacedSettings, normalizeSketchupModels, PLACED_LIMITS, SKETCHUP_LIMITS } from './settings.js';
-import { nextPart, outerPart } from './sketchupModel.js';
+import { nextPart, outerPart, selectedNodes, togglePart } from './sketchupModel.js';
 import { makeRockGeometry } from '../terrain/terrainRocks.js';
 
 // A tree keeps its species, its own knobs and its place; junk is clamped.
@@ -124,6 +124,23 @@ assert.equal(normalizePlacedObject({ kind: 'rock', variant: 9 }).variant, 5);
     assert.equal(outerPart(part).node, 2);
     assert.equal(outerPart(outerPart(outerPart(part))), null, 'Esc at the top ends the part selection');
     assert.equal(nextPart(null, 'm', []), null);
+}
+
+// Shift: в выбор и из выбора — на уровне выбранного, в той же открытой группе.
+{
+    let part = togglePart(null, 'm', [1, 2]);
+    assert.deepEqual(part, { id: 'm', trail: [1, 2], node: 1 }, 'with nothing selected Shift is a click');
+    part = togglePart(part, 'm', [7, 8]);
+    assert.deepEqual(selectedNodes(part), [1, 7], 'at the top another component joins');
+    assert.equal(togglePart(part, 'm', [7]).node, 1, 'Shift on a selected one takes it out');
+    assert.deepEqual(selectedNodes(togglePart(togglePart(part, 'm', [7]), 'm', [1])), [1], 'the last one stays');
+    let inside = nextPart(nextPart(null, 'm', [1, 2, 3]), 'm', [1, 2, 3], true);
+    inside = togglePart(inside, 'm', [1, 4, 5]);
+    assert.deepEqual([selectedNodes(inside), inside.node], [[2, 4], 4], 'inside the open group its parts join');
+    assert.equal(togglePart(inside, 'm', [9, 10]), inside, 'a part outside the open group is not taken');
+    assert.deepEqual(outerPart(inside), { id: 'm', trail: [1, 4, 5], node: 1 }, 'Esc drops the Shift selection');
+    assert.deepEqual(selectedNodes(nextPart(inside, 'm', [1, 2])), [2], 'a click without Shift picks one again');
+    assert.deepEqual(selectedNodes(null), []);
 }
 
 console.log('placed: all checks passed');
