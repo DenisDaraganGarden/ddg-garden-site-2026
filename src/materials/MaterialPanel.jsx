@@ -6,10 +6,14 @@ import { MATERIAL_RANGES } from './settings.js';
 import { libraryFile, textureDataUrl, uvScale } from './modelMaterials.js';
 import { glassDefaults, looksLikeGlass } from './glass.js';
 import { categoryOf, MAP_FILES, MATERIAL_CATEGORIES, materialSize, normalizeRecipe, recipeFor } from './recipe.js';
-import { finishMaterial, generateMaterial, listImageModels, listMaterials, mapsFromTexture, readKeyStatus, updateMaterial } from './api.js';
+import { buildProceduralMaterial, finishMaterial, generateMaterial, listImageModels, listMaterials, mapsFromTexture, readKeyStatus, updateMaterial } from './api.js';
+import ReferencePicker from '../references/ReferencePicker.jsx';
+import MaterialQuickLook from './MaterialQuickLook.jsx';
+import { SURFACES, normalizeSurface, surfacePreset, surfaceSize } from './procedural.js';
 import './materials.css';
 
 const MaterialPreview = lazy(() => import('./MaterialPreview.jsx'));
+const ProceduralPreview = lazy(() => import('./ProceduralPreview.jsx'));
 const CONTEXT_KEY = 'material:context';
 const PREFS = 'ddg_material_generator_v1';
 const readPrefs = () => { try { return JSON.parse(localStorage.getItem(PREFS) || '{}'); } catch { return {}; } };
@@ -73,6 +77,10 @@ export default function MaterialPanel({ target, settings, applySettings, onClose
     const glassAuto = useMemo(() => Boolean(material && looksLikeGlass(material, meshes, root)), [material, meshes, root]);
     const glass = { ...glassDefaults(material), on: glassAuto, ...(override?.glass ?? {}) };
     const [tab, setTab] = useState('create');
+    const [pinterest, setPinterest] = useState(false), [quickLook, setQuickLook] = useState(false);
+    const [surface, setSurface] = useState(() => surfacePreset('pebble'));
+    const [proceduralParallax, setProceduralParallax] = useState(true);
+    const [previewLook, setPreviewLook] = useState({ parallax: 0, parallaxDepth: 5 });
     const [references, setReferences] = useState([]);
     const [source, setSource] = useState('current');
     const [context, setContext] = useState({ on: false, image: null });
@@ -105,21 +113,23 @@ export default function MaterialPanel({ target, settings, applySettings, onClose
     const [previewError, setPreviewError] = useState(false);
     const [now, setNow] = useState(Date.now());
     const fileInput = useRef(null);
-    const initialLook = useRef(false);
+    const initialLook = useRef(false), proceduralStarted = useRef(false);
     const busyRef = useRef(false);
     const busy = Boolean(status?.busy);
     const entry = library.find((item) => item.id === selected) ?? null;
     const entryOnModel = Boolean(entry && entry.id === override?.material);
-    const previewEntry = useMemo(() => entryOnModel ? { ...entry, ...override, id: entry.id } : entry, [entry, entryOnModel, override]);
+    const previewEntry = useMemo(() => entryOnModel ? { ...entry, ...override, id: entry.id } : entry ? { ...entry, ...previewLook } : null, [entry, entryOnModel, override, previewLook]);
     const applied = library.find((item) => item.id === override?.material);
     useEffect(() => {
         if (initialLook.current || !applied) return;
         initialLook.current = true;
         setName(applied.name); setCategory(categoryOf(applied));
         setRecipe(normalizeRecipe(applied.recipe, categoryOf(applied)));
+        if (applied.surface) setSurface(normalizeSurface(applied.surface));
     }, [applied]);
-    const sourceUrl = source === 'reference' ? references[0]?.image : source === 'sketchup' ? original : source === 'selection' ? entry && libraryFile(entry.id, 'albedo.webp') : current;
     const sourceEntry = source === 'selection' ? entry : source === 'current' ? applied : null;
+    const sourceUrl = tab === 'procedural' && sourceEntry?.surfaceSource ? libraryFile(sourceEntry.id, 'surface-source.webp')
+        : source === 'reference' ? references[0]?.image : source === 'sketchup' ? original : source === 'selection' ? entry && libraryFile(entry.id, 'albedo.webp') : current;
     const validSize = dimensions.every((value) => Number.isFinite(value) && value >= 0.05 && value <= 50);
     const canAi = !busy && key?.hasKey && validSize;
     const fileMaps = Object.fromEntries(Object.entries(uploads).map(([key, item]) => [key, item.image]));
@@ -185,7 +195,8 @@ export default function MaterialPanel({ target, settings, applySettings, onClose
     const apply = () => {
         if (!entry) return;
         setOverride({ ...(override ?? {}), material: entry.id, tile: entry.tile ?? null, tileY: entry.tileY ?? entry.tile ?? null,
-            rotation: entry.rotation ?? 0, normal: entry.normal ?? 1, roughness: entry.roughness ?? 1, ao: entry.ao ?? 1, metalness: entry.metalness ?? 0 });
+            rotation: entry.rotation ?? 0, normal: entry.normal ?? 1, roughness: entry.roughness ?? 1, ao: entry.ao ?? 1, metalness: entry.metalness ?? 0,
+            parallax: previewEntry.parallax ?? 0, parallaxDepth: previewEntry.parallaxDepth ?? entry.recipe?.depth ?? 5 });
         setStatus({ text: tr('Материал применён. Настройки раскладки — ниже.', 'Material applied. Layout controls are below.') });
     };
     const unapply = () => {
@@ -211,6 +222,7 @@ export default function MaterialPanel({ target, settings, applySettings, onClose
     const savedEntry = (result) => {
         setLibrary((list) => [result, ...list.filter((item) => item.id !== result.id)]);
         setSelected(result.id); setPreview('render'); setPreviewError(false);
+        setPreviewLook({ parallax: result.parallax ?? 0, parallaxDepth: result.parallaxDepth ?? result.recipe?.depth ?? 5 });
     };
     const generate = (mode) => run(tr('Генерация вариантов', 'Generating variants'), async () => {
         const result = await generateMaterial({ mode, model, quality, size, n: count, tile: dimensions[0], tileY: dimensions[1], category, description,
@@ -236,6 +248,8 @@ export default function MaterialPanel({ target, settings, applySettings, onClose
         setSelected(item.id); setName(item.name); setCategory(categoryOf(item));
         setRecipe(normalizeRecipe(item.recipe, categoryOf(item))); setDimensions(materialSize(item, scale));
         setUploads({}); setPreviewError(false);
+        setPreviewLook({ parallax: item.parallax ?? 0, parallaxDepth: item.parallaxDepth ?? item.recipe?.depth ?? 5 });
+        if (item.surface) setSurface(normalizeSurface(item.surface));
     };
     const patchEntry = (patch) => run(tr('Сохранение', 'Saving'), async () => {
         const result = await updateMaterial(entry.id, patch);
@@ -245,6 +259,22 @@ export default function MaterialPanel({ target, settings, applySettings, onClose
     const changeCategory = (value) => { setCategory(value); setRecipe(recipeFor(value)); };
     const setRecipeValue = (key, value) => setRecipe((current) => ({ ...current, [key]: value }));
     const onPreviewError = useCallback(() => setPreviewError(true), []);
+    const onProceduralError = useCallback((text) => setStatus({ error: true, text: typeof text === 'string' ? text : 'Не удалось построить образец' }), []);
+    const setSurfaceValue = (key, value) => setSurface((current) => ({ ...current, [key]: value }));
+    const buildSurface = () => run(tr('Подготовка материала', 'Preparing material'), async () => {
+        const result = await buildProceduralMaterial({ surface, name, parallax: Number(proceduralParallax), tile: dimensions[0], tileY: dimensions[1], size,
+            image: surface.kind === 'tiles' ? await sourceData() : undefined });
+        savedEntry(result); setPreviewLook({ parallax: Number(proceduralParallax), parallaxDepth: surface.relief }); setTab('library');
+        return tr('Материал готов. Проверьте и примените.', 'Material ready. Review and apply.');
+    });
+    const openTab = (id) => {
+        if (id === 'procedural' && !proceduralStarted.current) {
+            proceduralStarted.current = true;
+            if (!entry?.surface) { setSurface(surfacePreset('pebble')); setName(tr('Галька', 'Pebbles')); setDimensions([0.6, 0.6]); }
+        }
+        setTab(id);
+    };
+    const previewSetting = (key, value) => entryOnModel ? setOverride({ ...override, [key]: value }) : setPreviewLook((current) => ({ ...current, [key]: value }));
     const uploadMap = async (map, file) => {
         if (!file) return;
         try {
@@ -269,7 +299,7 @@ export default function MaterialPanel({ target, settings, applySettings, onClose
             <option value="sketchup" disabled={!original}>{tr('Исходный SketchUp', 'Original SketchUp')}</option>
             <option value="reference" disabled={!references.length}>{tr('Загруженный образец', 'Uploaded sample')}</option>
             <option value="selection" disabled={!entry}>{tr('Выбранный из библиотеки', 'Selected from library')}</option>
-        </select></Field><button type="button" onClick={() => fileInput.current?.click()}>{tr('Загрузить изображение', 'Upload image')}</button></div>
+        </select></Field><div className="material-panel__row"><button type="button" onClick={() => fileInput.current?.click()}>{tr('Файл', 'File')}</button><button type="button" onClick={() => setPinterest(true)}>Pinterest</button></div></div>
     </div>;
     const selectedMap = MAP_FILES.find(([id]) => id === preview) ?? MAP_FILES[0];
     const previewUrl = entry ? libraryFile(entry.id, selectedMap[3]) : null;
@@ -277,14 +307,23 @@ export default function MaterialPanel({ target, settings, applySettings, onClose
     const previewAspect = Math.max(0.25, Math.min(4, sampleW / sampleH));
     const recipeKnob = (key, ru, en, range, unit) => <Knob label={tr(ru, en)} value={recipe[key]} range={range} unit={unit} onChange={(value) => setRecipeValue(key, value)} />;
     const appliedKnob = (key, ru, en, fallback = 1) => <Knob label={tr(ru, en)} value={override[key] ?? fallback} range={MATERIAL_RANGES[key]} onChange={(value) => setOverride({ ...override, [key]: value })} />;
+    const surfaceKnob = (key, ru, en, range, unit = '') => <Knob label={tr(ru, en)} value={surface[key]} range={range} unit={unit} onChange={(value) => setSurfaceValue(key, value)} />;
+    const proceduralSides = surfaceSize(surface, dimensions);
+    const proceduralVisual = <div className="material-panel__render"><Suspense fallback={null}><ProceduralPreview surface={surface} extent={dimensions} sourceUrl={surface.kind === 'tiles' ? sourceUrl : null} parallax={proceduralParallax} resolution={quickLook ? 1024 : 512} onError={onProceduralError} /></Suspense></div>;
+    const mapTabs = <div className="material-panel__map-tabs"><button type="button" aria-pressed={preview === 'render'} onClick={() => setPreview('render')}>3D</button>{MAP_FILES.map(([id, ru, en]) => <button type="button" key={id} aria-pressed={preview === id} onClick={() => setPreview(id)}>{tr(ru, en)}</button>)}<button type="button" aria-pressed={preview === 'compare'} onClick={() => setPreview('compare')}>{tr('Совмещение', 'Alignment')}</button></div>;
+    const previewVisual = entry && (preview === 'render' && !previewError ? <div className="material-panel__render"><Suspense fallback={null}><MaterialPreview entry={previewEntry} onError={onPreviewError} /></Suspense></div>
+        : <div className="material-panel__map-image">{preview === 'compare' ? <div style={{ aspectRatio: previewAspect, backgroundImage: `url(${libraryFile(entry.id, 'albedo.webp')})`, backgroundSize: repeat ? '50% 50%' : '100% 100%' }}><div className="material-panel__overlay" style={{ backgroundImage: `url(${libraryFile(entry.id, 'height.png')})`, backgroundSize: repeat ? '50% 50%' : '100% 100%', opacity: overlay }} /></div> : repeat ? <div style={{ aspectRatio: previewAspect, backgroundImage: `url(${previewUrl})`, backgroundSize: '50% 50%' }} /> : <img src={previewUrl} style={{ aspectRatio: previewAspect }} alt={tr(selectedMap[1], selectedMap[2])} />}</div>);
 
-    return <section className="material-panel" aria-label={tr('Материалы', 'Materials')} data-testid="material-panel"
+    return <section className="material-panel" aria-label={tr('Материалы', 'Materials')} data-testid="material-panel" data-space-preview
         onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); void addFiles(event.dataTransfer.files); }}
-        onKeyDown={(event) => event.stopPropagation()}>
+        onKeyDown={(event) => {
+            event.stopPropagation();
+            if (event.code === 'Space' && !event.repeat && !pinterest && !event.target.closest('input,textarea,select,[contenteditable=true]') && (entry || tab === 'procedural')) { event.preventDefault(); setQuickLook((value) => !value); }
+        }}>
         <header><div><h2>{tr('Материалы', 'Materials')}</h2><span className="material-panel__target">{materialName}</span></div>
             <button type="button" className="material-panel__close" onClick={onClose} aria-label={tr('Закрыть', 'Close')}>×</button></header>
         <nav className="material-panel__tabs" aria-label={tr('Разделы материала', 'Material sections')}>
-            {[['create', 'Создать', 'Create'], ['maps', 'Карты', 'Maps'], ['library', 'Библиотека', 'Library']].map(([id, ru, en]) => <button type="button" key={id} aria-pressed={tab === id} onClick={() => setTab(id)}>{tr(ru, en)}{id === 'library' ? <span>{library.length}</span> : null}</button>)}
+            {[['create', 'Создать', 'Create'], ['procedural', 'Процедурные', 'Procedural'], ['maps', 'Карты', 'Maps'], ['library', 'Библиотека', 'Library']].map(([id, ru, en]) => <button type="button" key={id} aria-pressed={tab === id} onClick={() => openTab(id)}>{tr(ru, en)}{id === 'library' ? <span>{library.length}</span> : null}</button>)}
         </nav>
         <input ref={fileInput} type="file" accept="image/*" multiple hidden onChange={(event) => { void addFiles(event.target.files); event.target.value = ''; }} />
         <div className="material-panel__body">
@@ -296,7 +335,7 @@ export default function MaterialPanel({ target, settings, applySettings, onClose
             {!glass.on ? <>
                 <fieldset disabled={busy} className="material-panel__work">
                     {tab === 'create' ? <>
-                        <div className="material-panel__refs"><div className="material-panel__section-label">{tr('Аналоги', 'References')}<span>⌘V · {tr('перетащить', 'drop')}</span></div>
+                        <div className="material-panel__refs"><div className="material-panel__section-label">{tr('Аналоги', 'References')}<button type="button" onClick={() => setPinterest(true)}>Pinterest</button><span>⌘V · {tr('перетащить', 'drop')}</span></div>
                             <div className="material-panel__thumbs">{references.map((item, index) => <div className={`material-panel__thumb${index === 0 ? ' is-source' : ''}`} key={item.id}>
                                 <button type="button" onClick={() => { setReferences((list) => [item, ...list.filter((other) => other.id !== item.id)]); setSource('reference'); }} title={tr('Использовать как образец', 'Use as sample')}><img src={item.image} alt={item.name} /></button>
                                 <button type="button" className="material-panel__remove" onClick={() => setReferences((list) => list.filter((other) => other.id !== item.id))} aria-label={tr('Убрать аналог', 'Remove reference')}>×</button>
@@ -322,6 +361,35 @@ export default function MaterialPanel({ target, settings, applySettings, onClose
                             <Field label={tr('Обработка шва', 'Seam treatment')}><select value={seam} onChange={(event) => setSeam(event.target.value)}><option value="none">{tr('Сохранить рисунок', 'Preserve pattern')}</option><option value="ai">{tr('Исправить шов · ИИ', 'Repair seam · AI')}</option><option value="blend">{tr('Смешать края · возможны двоения', 'Blend edges · may ghost')}</option></select></Field>
                             <button type="button" className="material-panel__primary" disabled={busy || (seam === 'ai' && !canAi) || (recipe.heightMode === 'ai' && !canAi)} onClick={() => void finish()} data-testid="material-prepare">{tr('Подготовить материал', 'Prepare material')}</button>
                         </div> : null}
+                    </> : null}
+                    {tab === 'procedural' ? <>
+                        <div className="material-panel__two"><Field label={tr('Поверхность', 'Surface')}><select value={surface.kind} onChange={(event) => {
+                            const kind = event.target.value; setSurface(surfacePreset(kind)); setName(tr(...SURFACES.find(([id]) => id === kind).slice(1)));
+                            const side = kind === 'carpet' ? 0.2 : kind === 'gravel' ? 0.5 : kind === 'standing-seam' ? 2 : 1; setDimensions([side, side]);
+                        }}>{SURFACES.map(([id, ru, en]) => <option key={id} value={id}>{tr(ru, en)}</option>)}</select></Field><Field label={tr('Название', 'Name')}><input value={name} onChange={(event) => setName(event.target.value)} /></Field></div>
+                        {!quickLook ? proceduralVisual : null}
+                        <div className="material-panel__preview-actions"><span>{proceduralSides.map((v) => v.toFixed(2)).join(' × ')} {tr('м', 'm')}</span><label className="material-panel__check"><input type="checkbox" checked={proceduralParallax} onChange={(event) => setProceduralParallax(event.target.checked)} />{tr('Параллакс', 'Parallax')}</label><button type="button" onClick={() => setQuickLook(true)}>{tr('Просмотр · пробел', 'View · Space')}</button></div>
+                        {surface.kind === 'standing-seam' ? <>
+                            {surfaceKnob('spacing', 'Шаг фальца', 'Seam spacing', [100, 1500, 10], tr('мм', 'mm'))}
+                            {surfaceKnob('seamWidth', 'Ширина фальца', 'Seam width', [3, 40, 1], tr('мм', 'mm'))}
+                        </> : surface.kind === 'tiles' ? <>
+                            {sourceControl}
+                            {surfaceKnob('tileWidth', 'Ширина плитки', 'Tile width', [30, 3000, 10], tr('мм', 'mm'))}
+                            {surfaceKnob('tileHeight', 'Длина плитки', 'Tile length', [30, 3000, 10], tr('мм', 'mm'))}
+                            {surfaceKnob('gap', 'Шов', 'Joint', [0.1, 40, 0.1], tr('мм', 'mm'))}
+                            {surfaceKnob('bond', 'Смещение рядов', 'Row offset', [0, 0.5, 0.5])}
+                        </> : <>
+                            {surfaceKnob('stoneSize', 'Размер камня', 'Stone size', [2, 160, 1], tr('мм', 'mm'))}
+                            {surfaceKnob('variation', 'Разброс размеров', 'Size variation', [0, 0.8, 0.02])}
+                            {surfaceKnob('roundness', 'Округлость', 'Roundness', [0, 1, 0.02])}
+                            {surfaceKnob('gap', 'Зазор', 'Gap', [0.1, 12, 0.1], tr('мм', 'mm'))}
+                        </>}
+                        {surfaceKnob('relief', surface.kind === 'standing-seam' ? 'Высота фальца' : 'Глубина рельефа', surface.kind === 'standing-seam' ? 'Seam height' : 'Relief depth', [0, 60, 0.1], tr('мм', 'mm'))}
+                        {surfaceKnob('roughness', 'Матовость', 'Roughness', [0.05, 1, 0.01])}
+                        <div className="material-panel__colours">{(surface.kind === 'standing-seam' ? [['tint', 'Цвет металла', 'Metal colour']] : surface.kind === 'tiles' ? [['bed', 'Цвет шва', 'Joint colour']] : [['tint', 'Основной', 'Base'], ['tint2', 'Второй тон', 'Second tone'], ['bed', 'Заполнитель', 'Binder']]).map(([id, ru, en]) => <Field key={id} label={tr(ru, en)}><input aria-label={tr(ru, en)} type="color" value={surface[id]} onChange={(event) => setSurfaceValue(id, event.target.value)} /></Field>)}</div>
+                        {!['standing-seam', 'tiles'].includes(surface.kind) ? surfaceKnob('tintVariation', 'Разброс оттенков', 'Tone variation', [0, 1, 0.02]) : null}
+                        <details className="material-panel__advanced"><summary>{tr('Образец', 'Sample')}</summary>{dimensionsControl}{surfaceKnob('seed', 'Рисунок', 'Seed', [1, 99999, 1])}<Field label={tr('Разрешение', 'Resolution')}><select value={size} onChange={(event) => setSize(Number(event.target.value))}>{[1024, 1536, 2048].map((n) => <option key={n}>{n}</option>)}</select></Field></details>
+                        <button type="button" className="material-panel__primary" disabled={busy || !validSize} onClick={() => void buildSurface()}>{tr('Сохранить материал', 'Save material')}</button>
                     </> : null}
                     {tab === 'maps' ? <>
                         {sourceControl}
@@ -352,37 +420,41 @@ export default function MaterialPanel({ target, settings, applySettings, onClose
                         {libraryError ? <p role="alert" className="is-error">{libraryError}</p> : null}
                         <div className="material-panel__shelf">{visible.map((item) => <button type="button" key={item.id} aria-pressed={selected === item.id} className="material-panel__item" onClick={() => selectEntry(item)}><img src={`${libraryFile(item.id, 'preview.webp')}?v=${item.version ?? 0}`} alt="" /><span>{item.name}</span><small>{item.tile == null ? 'SketchUp' : `${materialSize(item).map((n) => Number(n.toFixed(2))).join(' × ')} ${tr('м', 'm')}`}{item.favorite ? ' · ★' : ''}</small></button>)}</div>
                         {!visible.length ? <p className="material-panel__empty">{library.length ? tr('По этому фильтру ничего нет.', 'No materials match.') : tr('Создайте материал или загрузите цвет и готовые карты. Библиотека общая для всех проектов.', 'Create a material or import colour and maps. The library is shared across projects.')}</p> : null}
-                        {entry ? <div className="material-panel__library-edit"><div className="material-panel__two"><Field label={tr('Название', 'Name')}><input value={name} onChange={(event) => setName(event.target.value)} /></Field><Field label={tr('Категория', 'Category')}>{categorySelect(category, setCategory)}</Field></div><div className="material-panel__row"><button type="button" onClick={() => void patchEntry({ name, category })}>{tr('Сохранить название и категорию', 'Save name and category')}</button><button type="button" aria-pressed={Boolean(entry.favorite)} onClick={() => void patchEntry({ favorite: !entry.favorite })}>{entry.favorite ? '★' : '☆'}</button><button type="button" onClick={() => { setSource('selection'); setTab('maps'); }}>{tr('Настроить карты', 'Edit maps')}</button></div></div> : null}
+                        {entry ? <details className="material-panel__library-edit"><summary>{tr('Свойства материала', 'Material properties')}</summary><div className="material-panel__two"><Field label={tr('Название', 'Name')}><input value={name} onChange={(event) => setName(event.target.value)} /></Field><Field label={tr('Категория', 'Category')}>{categorySelect(category, setCategory)}</Field></div><div className="material-panel__row"><button type="button" onClick={() => void patchEntry({ name, category, ...previewLook })}>{tr('Сохранить', 'Save')}</button><button type="button" aria-label={tr('Избранное', 'Favorite')} aria-pressed={Boolean(entry.favorite)} onClick={() => void patchEntry({ favorite: !entry.favorite })}>{entry.favorite ? '★' : '☆'}</button><button type="button" onClick={() => { setSource('selection'); setTab('maps'); }}>{tr('Карты', 'Maps')}</button>{entry.surface ? <button type="button" onClick={() => { proceduralStarted.current = true; setSurface(normalizeSurface(entry.surface)); setSource('selection'); setProceduralParallax(Boolean(previewEntry.parallax)); setTab('procedural'); }}>{tr('Рисунок', 'Pattern')}</button> : null}</div></details> : null}
                     </> : null}
                 </fieldset>
-                {key && !key.hasKey ? <p className="material-panel__note">{tr('Для ИИ подключите ключ в «Настройки движка → API». Расчёт и загрузка карт работают без ключа.', 'Connect a key in Engine settings → API for AI. Local and imported maps need no key.')}</p> : null}
+                {key && !key.hasKey && ['create', 'maps'].includes(tab) ? <p className="material-panel__note">{tr('Для ИИ подключите ключ в «Настройки движка → API». Расчёт и загрузка карт работают без ключа.', 'Connect a key in Engine settings → API for AI. Local and imported maps need no key.')}</p> : null}
                 {!validSize ? <p role="alert" className="is-error">{tr('Размеры образца: от 0,05 до 50 м.', 'Sample dimensions: 0.05 to 50 m.')}</p> : null}
-                {entry ? <section className="material-panel__preview" aria-label={tr('Готовый материал', 'Finished material')}><div className="material-panel__section-label"><strong>{entry.name}</strong><span>{entry.size?.join(' × ')} px</span></div>
-                    <div className="material-panel__map-tabs"><button type="button" aria-pressed={preview === 'render'} onClick={() => setPreview('render')}>3D</button>{MAP_FILES.map(([id, ru, en]) => <button type="button" key={id} aria-pressed={preview === id} onClick={() => setPreview(id)}>{tr(ru, en)}</button>)}<button type="button" aria-pressed={preview === 'compare'} onClick={() => setPreview('compare')}>{tr('Совмещение', 'Alignment')}</button></div>
-                    {preview === 'render' && !previewError ? <div className="material-panel__render"><Suspense fallback={<small>{tr('Загрузка…', 'Loading…')}</small>}><MaterialPreview entry={previewEntry} onError={onPreviewError} /></Suspense></div>
-                        : <div className="material-panel__map-image">{preview === 'compare' ? <div style={{ aspectRatio: previewAspect, backgroundImage: `url(${libraryFile(entry.id, 'albedo.webp')})`, backgroundSize: repeat ? '50% 50%' : '100% 100%' }}><div className="material-panel__overlay" style={{ backgroundImage: `url(${libraryFile(entry.id, 'height.png')})`, backgroundSize: repeat ? '50% 50%' : '100% 100%', opacity: overlay }} /></div> : repeat ? <div style={{ aspectRatio: previewAspect, backgroundImage: `url(${previewUrl})`, backgroundSize: '50% 50%' }} /> : <img src={previewUrl} style={{ aspectRatio: previewAspect }} alt={tr(selectedMap[1], selectedMap[2])} />}</div>}
+                {entry && tab !== 'procedural' ? <section className="material-panel__preview" aria-label={tr('Готовый материал', 'Finished material')}><div className="material-panel__section-label"><strong>{entry.name}</strong><span>{entry.size?.join(' × ')} px</span></div>
+                    {mapTabs}
+                    {!quickLook ? previewVisual : null}
                     {preview === 'compare' ? <Knob label={tr('Высота поверх цвета', 'Height over colour')} value={overlay} range={[0, 1, 0.05]} onChange={setOverlay} /> : null}
-                    <div className="material-panel__preview-actions"><span>{sampleW.toFixed(2)} × {sampleH.toFixed(2)} {tr('м', 'm')}</span>{preview !== 'render' ? <><button type="button" aria-pressed={repeat} onClick={() => setRepeat((value) => !value)}>{tr('Повтор 2 × 2', 'Repeat 2 × 2')}</button><a href={previewUrl} download={`${entry.name}-${selectedMap[3]}`}>{tr('Скачать карту', 'Download map')}</a></> : <small>{tr('Образец 2 × 2 м · вращение мышью', '2 × 2 m sample · drag to rotate')}</small>}</div>
-                    {preview === 'height' ? <small>{tr('Высота передаёт рельеф через нормали. Геометрия модели не смещается.', 'Height drives the normal map. Model geometry is not displaced.')}</small> : null}
+                    <div className="material-panel__preview-actions"><span>{sampleW.toFixed(2)} × {sampleH.toFixed(2)} {tr('м', 'm')}</span>{preview !== 'render' ? <><button type="button" aria-pressed={repeat} onClick={() => setRepeat((value) => !value)}>{tr('Повтор 2 × 2', 'Repeat 2 × 2')}</button><a href={previewUrl} download={`${entry.name}-${selectedMap[3]}`}>{tr('Скачать карту', 'Download map')}</a></> : <button type="button" onClick={() => setQuickLook(true)}>{tr('Просмотр · пробел', 'View · Space')}</button>}</div>
+                    <div className="material-panel__preview-actions"><label className="material-panel__check"><input type="checkbox" checked={Boolean(previewEntry.parallax)} onChange={(event) => previewSetting('parallax', Number(event.target.checked))} />{tr('Параллакс', 'Parallax')}</label>{preview !== 'render' ? <button type="button" onClick={() => setQuickLook(true)}>{tr('Просмотр · пробел', 'View · Space')}</button> : null}</div>
+                    {previewEntry.parallax ? <Knob label={tr('Глубина параллакса', 'Parallax depth')} unit={tr('мм', 'mm')} value={previewEntry.parallaxDepth ?? entry.recipe?.depth ?? 5} range={MATERIAL_RANGES.parallaxDepth} onChange={(value) => previewSetting('parallaxDepth', value)} /> : null}
                     {entry.mapSources?.height === 'ai' ? <small>{tr('Высота оценена ИИ. Сверьте швы на картах цвета и высоты.', 'AI estimated height. Compare joints in colour and height maps.')}</small> : null}
                 </section> : null}
-                {override?.material ? <details className="material-panel__applied" open><summary>{tr('На модели', 'On model')} · {applied?.name ?? override.material}</summary>
+                {override?.material && tab !== 'procedural' ? <details className="material-panel__applied"><summary>{tr('На модели', 'On model')} · {applied?.name ?? override.material}</summary>
                     <Field label={tr('Раскладка', 'Mapping')}><select value={override.tile === null ? 'original' : override.projection ?? 'uv'} onChange={(event) => {
                         const value = event.target.value;
                         setOverride({ ...override, tile: value === 'original' ? null : override.tile ?? dimensions[0], tileY: value === 'original' ? null : override.tileY ?? dimensions[1], projection: value === 'box' ? 'box' : undefined });
                     }}><option value="original">{tr('Исходный масштаб SketchUp', 'Original SketchUp scale')}</option><option value="uv">{tr('Размер в метрах · UV SketchUp', 'Metres · SketchUp UVs')}</option><option value="box">{tr('Размер в метрах · по граням', 'Metres · on faces')}</option></select></Field>
                     {override.tile !== null ? <div className="material-panel__two"><Field label={tr('Ширина, м', 'Width, m')}><NumberInput value={override.tile} min={0.05} onChange={(value) => setOverride({ ...override, tile: value })} /></Field><Field label={tr('Высота, м', 'Height, m')}><NumberInput value={override.tileY ?? override.tile} min={0.05} onChange={(value) => setOverride({ ...override, tileY: value })} /></Field></div> : null}
                     {appliedKnob('rotation', 'Поворот', 'Rotation', 0)}
-                    {appliedKnob('normal', 'Сила рельефа', 'Relief strength')}
+                    {appliedKnob('normal', 'Нормали', 'Normals')}
                     {appliedKnob('roughness', 'Матовость', 'Roughness')}
                     {appliedKnob('ao', 'Затенение щелей', 'Crevice shading')}
                     {appliedKnob('metalness', 'Металличность', 'Metalness', 0)}
+                    {!entryOnModel ? <label className="material-panel__check"><input type="checkbox" checked={Boolean(override.parallax)} onChange={(event) => setOverride({ ...override, parallax: Number(event.target.checked) })} />{tr('Параллакс', 'Parallax')}</label> : null}
+                    {!entryOnModel && override.parallax ? appliedKnob('parallaxDepth', 'Глубина параллакса, мм', 'Parallax depth, mm', 5) : null}
                     <button type="button" onClick={unapply}>{tr('Вернуть материал SketchUp', 'Restore SketchUp material')}</button>
                 </details> : null}
             </> : null}
         </div>
         <footer>{status ? <p className={`material-panel__status${status.error ? ' is-error' : ''}`} role="status" data-testid="material-status">{status.text}{busy ? ` · ${Math.round((now - status.started) / 1000)} ${tr('с', 's')}` : ''}</p> : null}
-            {!glass.on ? <button type="button" className="material-panel__primary" disabled={!entry || busy || entryOnModel} onClick={apply} data-testid="material-apply">{entryOnModel ? tr('Материал на модели', 'Material is applied') : entry ? tr(`Применить «${entry.name}»`, `Apply “${entry.name}”`) : tr('Выберите или подготовьте материал', 'Select or prepare a material')}</button> : null}
+            {!glass.on && tab !== 'procedural' ? <button type="button" className="material-panel__primary" disabled={!entry || busy || entryOnModel} onClick={apply} data-testid="material-apply">{entryOnModel ? tr('Материал на модели', 'Material is applied') : entry ? tr(`Применить «${entry.name}»`, `Apply “${entry.name}”`) : tr('Выберите или подготовьте материал', 'Select or prepare a material')}</button> : null}
         </footer>
+        {pinterest ? <ReferencePicker onClose={() => setPinterest(false)} onSelect={async (files) => { await addFiles(files); setSource('reference'); }} /> : null}
+        {quickLook ? <MaterialQuickLook title={tab === 'procedural' ? name : entry?.name} onClose={() => setQuickLook(false)}>{tab === 'procedural' ? proceduralVisual : <>{mapTabs}{previewVisual}{preview === 'compare' ? <Knob label={tr('Высота поверх цвета', 'Height over colour')} value={overlay} range={[0, 1, 0.05]} onChange={setOverlay} /> : null}</>}</MaterialQuickLook> : null}
     </section>;
 }

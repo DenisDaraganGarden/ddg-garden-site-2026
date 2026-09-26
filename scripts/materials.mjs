@@ -1,10 +1,12 @@
 import { createReadStream } from 'node:fs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { Worker } from 'node:worker_threads';
 import { HOME, isValidId, slugify } from './projectStore.mjs';
 import { keyHint, readApiKey, removeApiKey, saveApiKey } from './openaiKey.mjs';
 import { MATERIAL_RANGES } from '../src/materials/settings.js';
 import { categoryOf, materialSize, normalizeRecipe } from '../src/materials/recipe.js';
+import { normalizeSurface, surfaceRecipe, surfaceSize } from '../src/materials/procedural.js';
 import {
   blendSeams, compositeBand, luminance, mapsFromRecipe, rollHalf, seamMask, seamRatio, toBytes,
 } from './materialMaps.mjs';
@@ -17,11 +19,11 @@ import {
 //   ~/Ouroboros/library/materials/<id>/{albedo.webp, normal.png, roughness.webp, ao.webp, height.png, preview.webp}
 //   ~/Ouroboros/library/materials/.drafts/<черновик>/ — варианты до выбора (сутки)
 //
-// Аналоги (Pinterest и прочее) уходят только в OpenAI и нигде не хранятся.
+// Материалы не сохраняют исходные аналоги. Кеш Pinterest хранится отдельно в library/references.
 export const MATERIALS_DIR = path.join(HOME, 'library', 'materials');
 const DRAFTS_DIR = path.join(MATERIALS_DIR, '.drafts');
 const OPENAI = process.env.DDG_OPENAI_BASE_URL || 'https://api.openai.com/v1';
-const FILES = new Set(['albedo.webp', 'normal.png', 'roughness.webp', 'ao.webp', 'height.png', 'preview.webp']);
+const FILES = new Set(['albedo.webp', 'normal.png', 'roughness.webp', 'ao.webp', 'height.png', 'preview.webp', 'surface-source.webp']);
 export const MATERIAL_SIZES = Object.freeze([1024, 1536, 2048]);
 export const MATERIAL_QUALITIES = Object.freeze(['auto', 'low', 'medium', 'high', 'xhigh', 'max']);
 const DRAFT_ID = /^[a-z0-9]{6,32}$/;
@@ -207,14 +209,14 @@ export const heightPrompt = (description = '') => [
 
 // All bakes create a NEW library entry. Rebuilding cannot change a material
 // already used in another project; albedo is lossless and never inferred again.
-async function writeMaterial({ rgb, width, height, name, tile, tileY, meta = {}, options = {} }) {
+async function writeMaterial({ rgb, width, height, name, tile, tileY, meta = {}, options = {}, heightField = null }) {
   const category = categoryOf({ ...meta, ...options, name });
   const recipe = normalizeRecipe(options.recipe, category);
   const maps = options.maps ?? {};
-  let suppliedHeight = null;
+  let suppliedHeight = heightField;
   if (maps.height) suppliedHeight = luminance(await suppliedPixels(maps.height, width, height, 'Высота'), width, height, 3);
-  else if (recipe.heightMode === 'file') throw Object.assign(new Error('Загрузите карту высоты или выберите другой способ расчёта.'), { status: 400 });
-  else if (recipe.heightMode === 'ai') {
+  else if (recipe.heightMode === 'file' && !suppliedHeight) throw Object.assign(new Error('Загрузите карту высоты или выберите другой способ расчёта.'), { status: 400 });
+  else if (recipe.heightMode === 'ai' && !suppliedHeight) {
     const sharp = await sharpModule();
     const input = await sharp(Buffer.from(rgb), { raw: { width, height, channels: 3 } }).png().toBuffer();
     const model = String(options.model || meta.model || 'gpt-image-2.5-sunburst');
@@ -246,11 +248,35 @@ async function writeMaterial({ rgb, width, height, name, tile, tileY, meta = {},
   await sharp(Buffer.from(rgb), { raw: { width, height, channels: 3 } }).resize(512, 512, { fit: 'inside' }).webp({ quality: 90 }).toFile(path.join(dir, 'preview.webp'));
   const entry = {
     ...meta, id, name: String(name).trim().slice(0, 80) || id, created: new Date().toISOString(), tile, tileY: tile === null ? null : tileY ?? tile, size: [width, height],
-    category, recipe, normal: 1, roughness: 1, metalness: recipe.metalness, ao: 1,
+    category, recipe, normal: 1, roughness: 1, metalness: recipe.metalness, ao: 1, parallax: options.parallax ? 1 : 0, parallaxDepth: recipe.depth,
     mapSources: { height: options.heightOrigin ?? (maps.height ? 'file' : recipe.heightMode), normal: maps.normal ? 'file' : 'height', roughness: maps.roughness ? 'file' : 'recipe', ao: maps.ao ? 'file' : 'height' },
     seamRatio: Math.round(seamRatio(rgb, width, height, 3) * 100) / 100,
   };
   await fs.writeFile(path.join(dir, 'material.json'), `${JSON.stringify(entry, null, 2)}\n`);
+  return entry;
+}
+
+export async function proceduralMaterial(body) {
+  const surface = normalizeSurface(body.surface), extent = surfaceSize(surface, materialSize(body));
+  const side = [512, 1024, 1536, 2048].includes(Number(body.size)) ? Number(body.size) : 1024;
+  const ratio = extent[0] / extent[1], width = Math.max(256, Math.round(side * Math.min(1, ratio))), height = Math.max(256, Math.round(side * Math.min(1, 1 / ratio)));
+  let source = null;
+  if (surface.kind === 'tiles' && body.image) {
+    const sharp = await sharpModule();
+    const png = await pngFromDataUrl(body.image, 4096);
+    if (png) { const { data, info } = await sharp(png).removeAlpha().toColourspace('srgb').raw().toBuffer({ resolveWithObject: true }); source = { rgb: data, width: info.width, height: info.height }; }
+  }
+  // Baking a 2K pattern must not block project autosave or reference loading.
+  const generated = await new Promise((resolve, reject) => {
+    const worker = new Worker(new URL('./materialProceduralWorker.mjs', import.meta.url), { workerData: { surface, width, height, extent, source } });
+    let delivered = false;
+    worker.once('message', (result) => { delivered = true; resolve(result); });
+    worker.once('error', reject);
+    worker.once('exit', (code) => { if (!delivered) reject(new Error(`Не удалось построить материал (${code}).`)); });
+  });
+  const entry = await writeMaterial({ rgb: generated.rgb, width, height, name: body.name || surface.kind, tile: extent[0], tileY: extent[1], heightField: generated.height,
+    meta: { mode: 'procedural', surface, seam: 'procedural', surfaceSource: Boolean(source) }, options: { category: surface.kind === 'standing-seam' ? 'metal' : surface.kind === 'tiles' ? 'tile' : 'ground', recipe: surfaceRecipe(surface), heightOrigin: 'procedural', parallax: body.parallax !== 0 } });
+  if (source) await writeImage(path.join(MATERIALS_DIR, entry.id, 'surface-source.webp'), source.rgb, source.width, source.height, 3, 'webp');
   return entry;
 }
 
@@ -339,7 +365,7 @@ export function libraryPatch(entry, body) {
     : Math.round(Math.min(max, Math.max(min, Number(value))) * 1000) / 1000);
   const tile = number(body.tile, MATERIAL_RANGES.tile);
   if (tile !== undefined && entry.tile !== null) patch.tile = tile;
-  for (const key of ['normal', 'roughness', 'tileY', 'rotation', 'ao', 'metalness']) {
+  for (const key of ['normal', 'roughness', 'tileY', 'rotation', 'ao', 'metalness', 'parallax', 'parallaxDepth']) {
     const value = number(body[key], MATERIAL_RANGES[key]);
     if (value !== undefined) patch[key] = value;
   }
@@ -424,6 +450,7 @@ export function materialsPlugin() {
       if (request.method === 'POST' && part === 'generate') { send(response, 200, { ok: true, ...(await generateDraft(await readJson(request))) }); return true; }
       if (request.method === 'POST' && part === 'finish') { send(response, 200, { ok: true, material: await finishDraft(await readJson(request)) }); return true; }
       if (request.method === 'POST' && part === 'maps') { send(response, 200, { ok: true, material: await mapsFromTexture(await readJson(request)) }); return true; }
+      if (request.method === 'POST' && part === 'procedural') { send(response, 200, { ok: true, material: await proceduralMaterial(await readJson(request)) }); return true; }
       if (request.method === 'GET' && part === 'drafts' && DRAFT_ID.test(draft ?? '') && /^\d+\.webp$/.test(file ?? '')) { await serveFile(response, path.join(DRAFTS_DIR, draft, file), 'image/webp'); return true; }
       return false;
     });

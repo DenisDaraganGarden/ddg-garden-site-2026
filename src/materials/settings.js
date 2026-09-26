@@ -22,7 +22,7 @@
 // материалом прямо по граням; запись может быть только из правил.
 export const MATERIAL_RANGES = Object.freeze({
     tile: [0.05, 50, 0.01], tileY: [0.05, 50, 0.01], rotation: [-180, 180, 1],
-    normal: [0, 3, 0.05], roughness: [0, 2, 0.05], ao: [0, 2, 0.05], metalness: [0, 1, 0.01],
+    normal: [0, 3, 0.05], roughness: [0, 2, 0.05], ao: [0, 2, 0.05], metalness: [0, 1, 0.01], parallax: [0, 1, 1], parallaxDepth: [0, 60, 0.1],
     clarity: [0, 1, 0.01], frost: [0, 1, 0.01], reflect: [0, 3, 0.05],
 });
 export const DEFAULT_MATERIAL_SETTINGS = Object.freeze({ modelMaterials: {} });
@@ -37,7 +37,7 @@ const within = (value, [min, max], fallback) => {
 };
 
 // Optional fields keep old projects byte-for-byte compatible at normalization.
-const surfaceFields = (value) => Object.fromEntries(['tileY', 'rotation', 'ao', 'metalness']
+const surfaceFields = (value) => Object.fromEntries(['tileY', 'rotation', 'ao', 'metalness', 'parallax', 'parallaxDepth']
     .filter((key) => value[key] !== undefined && value[key] !== null)
     .map((key) => [key, within(value[key], MATERIAL_RANGES[key], key === 'ao' ? 1 : key === 'tileY' ? 1 : 0)]));
 

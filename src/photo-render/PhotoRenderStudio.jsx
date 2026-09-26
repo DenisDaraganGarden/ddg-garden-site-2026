@@ -5,6 +5,7 @@ import { listImageModels, readKeyStatus } from '../materials/api';
 import { capturePhotoFrame } from './capture';
 import { PHOTO_MODEL, PHOTO_PRESETS, photoPrompt } from './prompt';
 import MaskCanvas from './MaskCanvas';
+import ReferencePicker from '../references/ReferencePicker.jsx';
 import './photo-render.css';
 
 const PREFS = 'ouroboros-photo-render-v1';
@@ -33,6 +34,7 @@ export default function PhotoRenderStudio({ settings, layoutEditor, project, onC
     const [message, setMessage] = useState(''), [keyState, setKeyState] = useState(null), [capturing, setCapturing] = useState(true), [submitting, setSubmitting] = useState(false);
     const [brush, setBrush] = useState(4), [erase, setErase] = useState(false), [strokes, setStrokes] = useState(0), [compare, setCompare] = useState(false);
     const [uncertain, setUncertain] = useState(null);
+    const [pinterest, setPinterest] = useState(false);
     const [foliageReference, setFoliageReference] = useState(null), [readingReference, setReadingReference] = useState(false);
     const dialog = useRef(null), mask = useRef(null), referenceInput = useRef(null), mounted = useRef(true), ticket = useRef(0), automatic = useRef(''), request = useRef(null);
     const latest = useRef(null); latest.current = { settings, layoutEditor, library };
@@ -182,7 +184,7 @@ export default function PhotoRenderStudio({ settings, layoutEditor, project, onC
                 </> : <label>{tr('Атмосфера', 'Atmosphere')}<select value={preset} disabled={busy} onChange={(event) => setPreset(event.target.value)}>{PHOTO_PRESETS.map((item) => <option key={item.id} value={item.id}>{language === 'ru' ? item.ru : item.en}</option>)}</select></label>}
                 <label>{working ? tr('Что добавить или изменить', 'What to add or change') : tr('Пожелания к кадру', 'Frame refinements')}<textarea aria-label={tr('Задание для рендера', 'Render instructions')} rows={5} maxLength={4000} value={description} disabled={busy} onChange={(event) => setDescription(event.target.value)} placeholder={working ? tr('Например: садовая скамья из тёмного дерева…', 'For example: a dark timber garden bench…') : tr('Можно оставить пустым', 'Optional')} /></label>
                 <div className="photo-foliage-reference">
-                    <label>{tr('Фото озеленения', 'Vegetation photograph')}<button type="button" disabled={busy || readingReference} onClick={() => referenceInput.current.click()}>{readingReference ? tr('Читаю фото…', 'Reading photo…') : foliageReference ? tr('Заменить фото', 'Replace photo') : tr('Добавить фото', 'Add photo')}</button><input ref={referenceInput} hidden type="file" accept="image/jpeg,image/png,image/webp" disabled={busy || readingReference} onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ''; void readFoliageReference(file); }} /></label>
+                    <label>{tr('Фото озеленения', 'Vegetation photograph')}<button type="button" aria-label={foliageReference ? tr('Заменить фото', 'Replace photo') : tr('Добавить фото', 'Add photo')} disabled={busy || readingReference} onClick={() => referenceInput.current.click()}>{readingReference ? tr('Читаю фото…', 'Reading photo…') : foliageReference ? tr('Заменить фото', 'Replace photo') : tr('Добавить фото', 'Add photo')}</button><button type="button" disabled={busy || readingReference} onClick={() => setPinterest(true)}>Pinterest</button><input ref={referenceInput} hidden type="file" accept="image/jpeg,image/png,image/webp" disabled={busy || readingReference} onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ''; void readFoliageReference(file); }} /></label>
                     {foliageReference ? <div><img src={foliageReference.image} alt={foliageReference.name} /><button type="button" disabled={busy || readingReference} onClick={() => setFoliageReference(null)}>{tr('Убрать фото', 'Remove photo')}</button></div> : null}
                     <small>{tr('Ориентир по натуральности листвы. Виды и расположение — из сцены.', 'A reference for natural foliage. Species and placement come from the scene.')}</small>
                 </div>
@@ -201,5 +203,6 @@ export default function PhotoRenderStudio({ settings, layoutEditor, project, onC
                 {records.filter((r) => ['failed', 'interrupted'].includes(r.status)).slice(0, 1).map((r) => <details key={r.id}><summary>{tr('Последняя ошибка', 'Last error')}</summary><p>{r.message}</p></details>)}
             </aside>
         </div>
+        {pinterest ? <ReferencePicker multiple={false} onClose={() => setPinterest(false)} onSelect={(files) => readFoliageReference(files[0])} /> : null}
     </dialog>;
 }

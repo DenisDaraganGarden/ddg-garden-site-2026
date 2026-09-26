@@ -55,18 +55,18 @@ try {
     assert.equal(baseMap.source, ruled.map.source, 'base and face rule share pixels despite distinct UV/channel');
     assert.notEqual(baseMap.repeat.x, ruled.map.repeat.x);
     let disposed = 0;
-    for (const resource of [mesh.geometry, mesh.userData.faceSplit.geometry, material.map, ruled.map, ruled]) {
+    for (const resource of [mesh.geometry, mesh.userData.faceSplit.geometry, material.map, material.heightMap, ruled.map, ruled.heightMap, ruled]) {
         resource.addEventListener('dispose', () => { disposed += 1; });
     }
     job.cancel();
     disposeModelMaterials(prepared);
-    assert.equal(disposed, 5, 'split, projection, base/rule maps and rule material are released');
+    assert.equal(disposed, 7, 'split, projection, base/rule maps and rule material are released');
     assert.equal(mesh.geometry, sourceGeometry);
     assert.equal(mesh.material, material);
     assert.equal(material.map, sourceMap);
     assert.equal(sourceDisposals, 0, 'shared GLTF inputs stay intact');
     disposeModelMaterials(prepared);
-    assert.equal(disposed, 5, 'teardown is idempotent');
+    assert.equal(disposed, 7, 'teardown is idempotent');
 
     // StrictMode effect replay uses the same prepared instance again.
     const replay = applyModelMaterials(prepared, { stone: override }, { root });

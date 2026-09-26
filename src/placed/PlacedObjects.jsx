@@ -8,6 +8,7 @@ import { waterlineCircles, waterlineCrossings } from './waterline.js';
 import { setSolid, solidHeightfield } from './solidSurface.js';
 import { PLACED_TRANSFORM_DEFAULT } from './settings.js';
 import { applyHidden, findPart, isolation, makeFaceCamera, registerSketchupModel, selectedNodes, tagNodes } from './sketchupModel.js';
+import { prepareMaterialParallax } from '../materials/parallax.js';
 import { applyModelMaterials, disposeModelMaterials } from '../materials/modelMaterials.js';
 import { useGlassReflections } from '../materials/GlassReflections.js';
 import { makeCoastTree } from '../plants/treeModel.js';
@@ -161,6 +162,7 @@ function prepareModel(scene, lit, origin = null) {
             })
             : material.clone();
         wetMaterial(next);
+        prepareMaterialParallax(next);
         converted.set(material, next);
         return next;
     };

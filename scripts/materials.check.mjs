@@ -247,6 +247,22 @@ try {
   } } }, 'запись только про стекло держится; «не стекло» — тоже слово');
   assert.deepEqual(normalizeMaterialSettings(normalized), normalized, 'нормализация неподвижна');
 
+  // A procedural tile retains its editable source separately from the baked
+  // joints, and parallax defaults survive the same library/project formats.
+  const { proceduralMaterial } = await import('./materials.mjs');
+  const { surfacePreset } = await import('../src/materials/procedural.js');
+  const flatColour = await sharp({ create: { width: 32, height: 16, channels: 3, background: '#998877' } }).png().toBuffer();
+  const parametric = await proceduralMaterial({ surface: { ...surfacePreset('tiles'), tileWidth: 120, tileHeight: 900 },
+    name: 'Parametric long tile', image: `data:image/png;base64,${flatColour.toString('base64')}`, size: 512, parallax: 1 });
+  assert.equal(parametric.tile, .48); assert.equal(parametric.tileY, 1.8);
+  assert.equal(parametric.parallax, 1); assert.equal(parametric.surfaceSource, true);
+  const sourceFile = path.join(home, 'library/materials', parametric.id, 'surface-source.webp');
+  assert.equal((await sharp(sourceFile).metadata()).width, 32, 'the colour source stays editable at original proportions');
+  const persisted = JSON.parse(await fs.readFile(path.join(home, 'library/materials', parametric.id, 'material.json'), 'utf8'));
+  assert.equal(persisted.surface.tileHeight, 900);
+  const normalizedParallax = normalizeMaterialSettings({ modelMaterials: { a: { m: { material: parametric.id, tile: .48, parallax: 1, parallaxDepth: 18 } } } });
+  assert.equal(normalizedParallax.modelMaterials.a.m.parallaxDepth, 18);
+
   console.log(`materials: ключ, модели, задание, варианты, аналоги, шов крестом (${before.toFixed(1)} → ${after.toFixed(1)}), карты, библиотека, «только карты», масштаб SketchUp, проекция, стекло, настройки, умолчания библиотеки — ok`);
 } finally {
   server.close();

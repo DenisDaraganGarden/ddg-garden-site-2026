@@ -7,6 +7,7 @@ import { assetIndex } from '../asset-lab/assetCatalog';
 import { listMaterials, removeMaterial, updateMaterial } from '../materials/api.js';
 import { libraryFile, loadLibraryMaps, setLibraryTransform } from '../materials/modelMaterials.js';
 import { MATERIAL_RANGES } from '../materials/settings.js';
+import { setMaterialParallax } from '../materials/parallax.js';
 import { categoryOf, MATERIAL_CATEGORIES } from '../materials/recipe.js';
 
 // Библиотека материалов (~/Ouroboros/library/materials) на шаре, кубе, стене и
@@ -64,7 +65,7 @@ const TEXT = {
 };
 
 const lookOf = (entry) => ({ tile: entry?.tile ?? 1, tileY: entry?.tileY ?? entry?.tile ?? 1, rotation: entry?.rotation ?? 0,
-    metalness: entry?.metalness ?? 0, normal: entry?.normal ?? 1, roughness: entry?.roughness ?? 1 });
+    metalness: entry?.metalness ?? 0, normal: entry?.normal ?? 1, roughness: entry?.roughness ?? 1, parallax: entry?.parallax ?? 0, parallaxDepth: entry?.parallaxDepth ?? entry?.recipe?.depth ?? 5 });
 
 // Координаты формы — как у glTF (v сверху вниз): карты библиотеки читаются с
 // flipY = false, как на модели SketchUp, и лежат на шаре так же, как на ней.
@@ -80,14 +81,8 @@ function useLibraryMaps(id) {
         setMaps(null);
         if (!id) return undefined;
         let live = true;
-        const height = new Promise((resolve) => new THREE.TextureLoader().load(libraryFile(id, 'height.png'), (texture) => {
-            texture.flipY = false;
-            texture.wrapS = THREE.RepeatWrapping;
-            texture.wrapT = THREE.RepeatWrapping;
-            resolve(texture);
-        }, undefined, () => resolve(null)));
-        Promise.all([loadLibraryMaps(id), height]).then(([loaded, heightMap]) => {
-            const next = { ...Object.fromEntries(loaded), heightMap };
+        loadLibraryMaps(id).then((loaded) => {
+            const next = Object.fromEntries(loaded);
             if (live) setMaps(next);
             else Object.values(next).forEach((texture) => texture?.dispose());
         }, () => {});
@@ -136,6 +131,7 @@ function Specimen({ shape, maps, look, show }) {
         lit.roughness = look.roughness;
         lit.metalness = look.metalness ?? 0;
         lit.aoMapIntensity = look.ao ? 1 : 0;
+        setMaterialParallax(lit, maps.heightMap, look);
         lit.needsUpdate = true;
         flat.map = raw?.[MAP_KEYS[show]] ?? null;
         flat.needsUpdate = true;
@@ -187,7 +183,7 @@ export default function MaterialLab() {
     const mapsOnly = entry?.tile === null;
 
     const save = async () => {
-        const next = await updateMaterial(entry.id, { name, normal: look.normal, roughness: look.roughness, rotation: look.rotation, metalness: look.metalness,
+        const next = await updateMaterial(entry.id, { name, normal: look.normal, roughness: look.roughness, rotation: look.rotation, metalness: look.metalness, parallax: Number(look.parallax), parallaxDepth: look.parallaxDepth,
             ...(mapsOnly ? {} : { tile: look.tile, tileY: look.tileY }) });
         setLibrary((current) => current.map((item) => (item.id === next.id ? { ...item, ...next } : item)));
         setSaved(true);
@@ -229,6 +225,8 @@ export default function MaterialLab() {
                     {range('normal', t.relief, MATERIAL_RANGES.normal)}
                     {range('roughness', t.matte, MATERIAL_RANGES.roughness)}
                     {range('metalness', language === 'ru' ? 'Металличность' : 'Metalness', MATERIAL_RANGES.metalness)}
+                    <LabToggle label={language === 'ru' ? 'Параллакс' : 'Parallax'} value={Boolean(look.parallax)} onChange={(value) => set('parallax', Number(value))} />
+                    {look.parallax ? range('parallaxDepth', language === 'ru' ? 'Глубина параллакса' : 'Parallax depth', MATERIAL_RANGES.parallaxDepth, language === 'ru' ? 'мм' : 'mm') : null}
                     <LabToggle label={t.shade} value={look.ao} onChange={(value) => set('ao', value)} />
                     <LabModes label={t.show} value={show} onChange={setShow} items={['all', 'color', 'normal', 'roughness', 'ao', 'height'].map((id) => ({ id, label: t[id] }))} />
                     <p className="lab__note">{mapsOnly ? t.mapsOnly : t.note}</p>

@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { glassDefaults, looksLikeGlass, tuneGlass, unmakeGlass } from './glass.js';
 import { createSharedTextureCache } from './sharedTextureCache.js';
 import { materialSize } from './recipe.js';
+import { prepareMaterialParallax, setMaterialParallax } from './parallax.js';
 
 // Материал модели SketchUp → материал библиотеки: цвет, нормали, матовость,
 // затенение щелей. Раскладка текстуры — та, что Денис задал в SketchUp: его
@@ -15,8 +16,8 @@ import { materialSize } from './recipe.js';
 
 const loader = new THREE.TextureLoader();
 export const libraryFile = (id, file) => `/__library/materials/${encodeURIComponent(id)}/${file}`;
-const MAPS = Object.freeze({ map: ['albedo.webp', true], normalMap: ['normal.png', false], roughnessMap: ['roughness.webp', false], aoMap: ['ao.webp', false] });
-const KEPT = ['map', 'normalMap', 'roughnessMap', 'aoMap', 'metalnessMap'];
+const MAPS = Object.freeze({ map: ['albedo.webp', true], normalMap: ['normal.png', false], roughnessMap: ['roughness.webp', false], aoMap: ['ao.webp', false], heightMap: ['height.png', false] });
+const KEPT = ['map', 'normalMap', 'roughnessMap', 'aoMap', 'metalnessMap', 'heightMap'];
 
 const toRoot = new THREE.Matrix4();
 const relative = (mesh, root) => toRoot.copy(root.matrixWorld).invert().multiply(mesh.matrixWorld);
@@ -138,6 +139,7 @@ function remember(material) {
 function restore(material) {
     const original = material.userData.original;
     if (!original) return;
+    setMaterialParallax(material, null);
     for (const key of KEPT) {
         if (material[key] && material[key] !== original[key]) material[key].dispose();
         material[key] = original[key];
@@ -191,6 +193,7 @@ function placeTextures(material, override, scale) {
     material.roughness = override.roughness;
     material.aoMapIntensity = override.ao ?? 1;
     material.metalness = override.metalness ?? 0;
+    setMaterialParallax(material, material.heightMap, override);
 }
 
 // Координаты текстуры сетки: свои из SketchUp или проекция — там, где своих
@@ -321,6 +324,7 @@ export function applyModelMaterials(prepared, overrides, { root, anisotropy = 4,
         const material = base.clone();
         base.userData = saved;
         material.userData = { faceRule: rule };
+        prepareMaterialParallax(material);
         jobs.push(loadLibraryMaps(rule.material).then((loaded) => {
             // Материал правила живёт, пока правило то же (кеш у материала
             // SketchUp), а не до следующего прохода: отмена прохода его не снимает.
@@ -338,6 +342,7 @@ export function applyModelMaterials(prepared, overrides, { root, anisotropy = 4,
             material.aoMapIntensity = rule.ao ?? 1;
             material.normalScale.set(rule.normal, -rule.normal);
             material.roughness = rule.roughness;
+            setMaterialParallax(material, material.heightMap, rule);
             material.needsUpdate = true;
             onChange?.();
         }, () => onChange?.()));

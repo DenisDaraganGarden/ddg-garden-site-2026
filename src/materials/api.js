@@ -23,6 +23,7 @@ export const listImageModels = async () => (await call('/__openai/models')).mode
 export const generateMaterial = (request) => call('/__materials/generate', json('POST', request));
 export const finishMaterial = async (request) => (await call('/__materials/finish', json('POST', request))).material;
 export const mapsFromTexture = async (request) => (await call('/__materials/maps', json('POST', request))).material;
+export const buildProceduralMaterial = async (request) => (await call('/__materials/procedural', json('POST', request))).material;
 
 export const listMaterials = async () => (await call('/__library/materials')).materials ?? [];
 export const removeMaterial = (id) => call(`/__library/materials/${encodeURIComponent(id)}`, { method: 'DELETE' });

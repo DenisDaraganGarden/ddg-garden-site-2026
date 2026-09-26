@@ -1,0 +1,37 @@
+import assert from 'node:assert/strict';
+import * as THREE from 'three';
+import { prepareMaterialParallax, setMaterialParallax } from './parallax.js';
+import { createCsmAdapter } from '../components/effects/csmAdapter.js';
+const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(60, 1, .1, 100);
+const material = new THREE.MeshStandardMaterial();
+let authored = 0;
+material.onBeforeCompile = () => { authored += 1; };
+prepareMaterialParallax(material);
+const parallaxHook = material.onBeforeCompile;
+scene.add(new THREE.Mesh(new THREE.BoxGeometry(), material));
+const height = new THREE.DataTexture(new Uint8Array([255, 255, 255, 255]), 1, 1);
+const create = () => createCsmAdapter({ scene, camera, cascades: 2, maxFar: 100, nearDistance: 20, shadowMapSize: 512, lightDirection: new THREE.Vector3(0, -1, 0), lightColor: new THREE.Color(1, 1, 1), lightIntensity: 1, shadowRadius: 2, shadowIntensity: .7, contactOffsetMeters: -.006, legacyBias: -.0036 });
+let savedUniform;
+for (let turn = 0; turn < 3; turn += 1) {
+    const csm = create();
+    setMaterialParallax(material, height, { parallax: 1, parallaxDepth: 25 });
+    const shader = { uniforms: {}, vertexShader: THREE.ShaderLib.standard.vertexShader, fragmentShader: THREE.ShaderLib.standard.fragmentShader };
+    material.onBeforeCompile(shader, {});
+    assert.ok(shader.uniforms.CSM_cascades, 'the same program retains scene shadows');
+    assert.equal(shader.uniforms.uMaterialParallax.value, 1);
+    assert.equal(shader.uniforms.uMaterialDepth.value, .025);
+    if (savedUniform) assert.equal(shader.uniforms.uMaterialParallax, savedUniform, 'recompiled programs share live controls');
+    savedUniform = shader.uniforms.uMaterialParallax;
+    const version = material.version, key = material.customProgramCacheKey();
+    setMaterialParallax(material, height, { parallax: 0 });
+    assert.equal(savedUniform.value, 0);
+    assert.equal(material.version, version, 'on/off does not churn shaders');
+    assert.equal(material.customProgramCacheKey(), key);
+    csm.dispose();
+    assert.equal(material.onBeforeCompile, parallaxHook, 'shadow teardown restores the POM hook');
+}
+setMaterialParallax(material, null);
+assert.equal(savedUniform.value, 0);
+assert.equal(authored, 3);
+height.dispose(); material.dispose();
+console.log('parallax: authored hooks, CSM recreation, live depth, cached shader controls and disable — ok');

@@ -19,7 +19,7 @@ const FLYOUT_GAP = 44;
 // Пробел не трогает только набор текста и открытые окна. Кнопка в фокусе
 // (после любого клика по панели) пробелом не нажимается — иначе круг не
 // открывался бы через раз; кнопки жмутся мышью и Enter.
-const TEXT = (target) => target?.closest?.('textarea,select,[contenteditable=true],dialog')
+const TEXT = (target) => target?.closest?.('textarea,select,[contenteditable=true],dialog,[data-space-preview]')
     || (target?.tagName === 'INPUT' && !['range', 'checkbox', 'button'].includes(target.type));
 const inside = (rect, x, y, margin = 14) => rect && x >= rect.left - margin && x <= rect.right + margin && y >= rect.top - margin && y <= rect.bottom + margin;
 
