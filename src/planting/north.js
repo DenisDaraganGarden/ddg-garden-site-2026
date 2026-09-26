@@ -34,7 +34,7 @@ export const useView = () => useSyncExternalStore(subscribeView, getView);
 // масштаб по земле один на весь кадр. box — {min, max} участка в мире,
 // aspect — ширина кадра к высоте.
 export const PLAN_FOV = 12;
-export const PLAN_CAMERA = 'Генплан';
+export { PLAN_CAMERA } from './settings.js';
 export function planPose(box, north, aspect, fov = PLAN_FOV) {
     const n = [Math.sin(north * DEG), -Math.cos(north * DEG)], e = [-n[1], n[0]];
     let n0 = Infinity, n1 = -Infinity, e0 = Infinity, e1 = -Infinity;

@@ -1,7 +1,8 @@
 // Run: node src/placed/settings.check.js
 import assert from 'node:assert/strict';
+import * as THREE from 'three';
 import { createPlacedObject, normalizePlacedObject, normalizePlacedSettings, normalizeSketchupModels, PLACED_LIMITS, SKETCHUP_LIMITS } from './settings.js';
-import { nextPart, outerPart, selectedNodes, togglePart } from './sketchupModel.js';
+import { faceClicks, geometryOwner, nextPart, outerPart, selectedNodes, togglePart } from './sketchupModel.js';
 import { makeRockGeometry } from '../terrain/terrainRocks.js';
 
 // A tree keeps its species, its own knobs and its place; junk is clamped.
@@ -141,6 +142,41 @@ assert.equal(normalizePlacedObject({ kind: 'rock', variant: 9 }).variant, 5);
     assert.deepEqual(outerPart(inside), { id: 'm', trail: [1, 4, 5], node: 1 }, 'Esc drops the Shift selection');
     assert.deepEqual(selectedNodes(nextPart(inside, 'm', [1, 2])), [2], 'a click without Shift picks one again');
     assert.deepEqual(selectedNodes(null), []);
+}
+
+// Грани, как в SketchUp: группа 1 со своими гранями (узел-сетка 2) и
+// вложенной группой 3 (её грани — сетка 4).
+{
+    const group = new THREE.Group(), own = new THREE.Mesh(), nested = new THREE.Group(), inner = new THREE.Mesh();
+    [[group, 1], [own, 2], [nested, 3], [inner, 4]].forEach(([object, node]) => { object.userData.gltfNode = node; });
+    group.add(own, nested); nested.add(inner);
+    const split = new THREE.Group(), primitive = new THREE.Mesh(); split.userData.gltfNode = 7; split.add(primitive);
+    assert.deepEqual(geometryOwner(own), { owner: 2, leaf: true });
+    assert.deepEqual(geometryOwner(primitive), { owner: 7, leaf: true }, 'a mesh of several materials belongs to its node');
+    assert.equal(geometryOwner(new THREE.Mesh()), null);
+    const ownTrail = [1, 2], innerTrail = [1, 3, 4], geometry = geometryOwner(own);
+    // Два щелчка: первый выбирает группу, второй заходит в неё и берёт грань.
+    const top = nextPart(null, 'm', ownTrail);
+    assert.equal(faceClicks(null, top, geometry), 0, 'at the top a click picks the group');
+    const entered = nextPart(top, 'm', ownTrail, true);
+    assert.equal(faceClicks(top, entered, geometry, true, 2), 1, 'going in with a double click picks just the face');
+    const face = { ...entered, face: { triangles: [0] } };
+    assert.equal(faceClicks(face, nextPart(face, 'm', ownTrail), geometry, false, 3), 3, 'the third click takes the connected geometry');
+    assert.equal(faceClicks(face, nextPart(face, 'm', ownTrail), geometry, false, 1), 1, 'inside a click picks a face');
+    assert.equal(faceClicks(face, nextPart(face, 'm', ownTrail, true), geometry, true, 2), 2, 'a double click adds its edges');
+    const nested3 = nextPart(face, 'm', innerTrail);
+    assert.equal(nested3.node, 3);
+    assert.equal(faceClicks(face, nested3, geometryOwner(inner)), 0, 'a nested group inside is picked whole');
+    assert.equal(faceClicks(face, nextPart(face, 'm', [5, 6]), geometryOwner(own)), 0, 'a click past the group goes back to parts');
+    // Геометрия на верхнем уровне: щелчок — часть, двойной по ней — грань с рёбрами.
+    const loose = nextPart(null, 'm', [2]);
+    assert.equal(faceClicks(null, loose, geometry), 0);
+    assert.equal(faceClicks(loose, nextPart(loose, 'm', [2], true), geometry, true, 2), 2);
+    // Узел, у которого есть и свои грани, и части, отдаёт грани по второму двойному.
+    const owner = { owner: 1, leaf: false }, picked = nextPart(null, 'm', [1]);
+    assert.equal(faceClicks(null, picked, owner), 0);
+    assert.equal(faceClicks(picked, nextPart(picked, 'm', [1], true), owner, true, 2), 2);
+    assert.equal(faceClicks(picked, togglePart(picked, 'm', [8]), owner), 0, 'a Shift selection has no faces');
 }
 
 console.log('placed: all checks passed');

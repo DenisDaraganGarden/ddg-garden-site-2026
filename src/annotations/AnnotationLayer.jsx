@@ -11,7 +11,9 @@ import { drawMark, hash, SHELF, snapHeight } from './marks.js';
 // дважды с дрожью, рукописный шрифт системы. Спрайт стоит на луче от точки к
 // камере чуть ближе к ней: на экране там же, а стена за точкой его не режет,
 // режет только то, что правда её загораживает. Вдали отметки гаснут
-// (annotationFade); налезающие на экране ярлыки расходятся по полкам.
+// (annotationFade), кроме выбранной: только что поставленная отметка видна,
+// даже если камера дальше, чем «Гаснут дальше»; налезающие на экране ярлыки
+// расходятся по полкам.
 // Высота под отметкой ищется снова лучом сверху, когда модель поменялась, и
 // уходит в настройки (onResnap) — число всегда с живой поверхности.
 // Две копии знака: обычная — прячется за тем, что правда закрывает точку, и
@@ -58,10 +60,10 @@ function Mark({ mark, text, color, fill, outline, line, size, fade, level, selec
             const k = (2 * renderer.getPixelRatio() * size) / (buffer.y * camera.projectionMatrix.elements[5]);
             this.scale.set(box.current.width * k, box.current.height * k, 1);
             this.updateMatrixWorld();
-            const t = Math.min(1, Math.max(0, (distance - fade * 0.7) / (fade * 0.3)));
+            const t = selected ? 0 : Math.min(1, Math.max(0, (distance - fade * 0.7) / (fade * 0.3)));
             material.opacity = material.userData.alpha * (1 - t * t * (3 - 2 * t));
         };
-    }, [mark.x, mark.y, mark.z, size, fade]);
+    }, [mark.x, mark.y, mark.z, size, fade, selected]);
     return materials.map((material, i) => <sprite key={i} ref={(sprite) => { sprites.current[i] = sprite; if (sprite) sprite.center.set(box.current.tipX / box.current.width, box.current.tipY / box.current.height); }}
         material={material} onBeforeRender={onBeforeRender} renderOrder={i ? 19 : 20} name={`annotation-mark-${mark.id}`} userData={{ annotationMark: mark.id }} />);
 }
@@ -97,7 +99,7 @@ export default function AnnotationLayer({ settings, selectedId = null, geometryK
     // Полки ярлыков: пересчёт, когда сдвинулся вид, отметки или их вид.
     const seen = useRef('');
     useFrame(() => {
-        const key = `${getView().version}|${marksKey}|${settings.annotationSize}|${settings.annotationFade}|${viewport.width}x${viewport.height}`;
+        const key = `${getView().version}|${marksKey}|${settings.annotationSize}|${settings.annotationFade}|${selectedId}|${viewport.width}x${viewport.height}`;
         if (key === seen.current) return;
         seen.current = key;
         const at = new THREE.Vector3(), rects = [];
@@ -105,7 +107,7 @@ export default function AnnotationLayer({ settings, selectedId = null, geometryK
             at.set(mark.x, mark.y, mark.z);
             const depth = at.distanceTo(camera.position);
             at.project(camera);
-            if (at.z > 1 || depth > settings.annotationFade) continue;
+            if (at.z > 1 || (depth > settings.annotationFade && mark.id !== selectedId)) continue;
             const text = texts.get(mark.id) ?? '';
             rects.push({ id: mark.id, x: (at.x + 1) / 2 * viewport.width, y: (1 - at.y) / 2 * viewport.height, width: (text.length * 10 + 40) * settings.annotationSize, height: 34 * settings.annotationSize, depth });
         }

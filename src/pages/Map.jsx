@@ -583,7 +583,10 @@ const Map = () => {
 
     useEffect(() => {
         let cancelled = false;
-        const report = (error) => console.error('Error loading GeoJSON:', error);
+        // Уход со страницы обрывает недокачанные файлы: это не ошибка карты.
+        const leave = () => { cancelled = true; };
+        window.addEventListener('pagehide', leave);
+        const report = (error) => { if (!cancelled) console.error('Error loading GeoJSON:', error); };
 
         loadGeojson(COUNTRIES_GEOJSON_URL)
             .then((data) => { if (!cancelled) setCountries(data); })
@@ -594,7 +597,7 @@ const Map = () => {
             })
             .catch(report);
 
-        return () => { cancelled = true; };
+        return () => { cancelled = true; window.removeEventListener('pagehide', leave); };
     }, []);
 
     const globeMaterial = useMemo(() => createNoirGlobeMaterial(), []);

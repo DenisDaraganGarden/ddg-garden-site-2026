@@ -47,6 +47,30 @@ export function connectedFace(geometry, seed) {
     }
     return [...found].sort((a, b) => a - b);
 }
+// Всё, что держится за грань общими рёбрами, в любой плоскости, — связная
+// геометрия, как тройной щелчок SketchUp: коробка целиком, отдельная плита — отдельно.
+export function connectedGeometry(geometry, seed) {
+    const { rows, edges } = topology(geometry);
+    if (!rows[seed]) return [];
+    const found = new Set([seed]), queue = [seed];
+    for (let i = 0; i < queue.length; i += 1) for (const edge of rows[queue[i]].edges) for (const next of edges.get(edge)) {
+        if (found.has(next)) continue;
+        found.add(next); queue.push(next);
+    }
+    return [...found].sort((a, b) => a - b);
+}
+// Треугольник исходной геометрии под лучом: у раскрашенной модели сетка
+// расщеплена по материалам, и её номера — не номера файла.
+export const sourceTriangle = (mesh, faceIndex) => mesh.geometry.userData.sourceTriangles?.[faceIndex] ?? faceIndex;
+// Выбор внутри геометрии, как в SketchUp: щелчок — грань (соседние треугольники
+// одной плоскости), двойной — она же с рёбрами, тройной — вся связная
+// геометрия с рёбрами.
+export function faceSelection(mesh, faceIndex, clicks = 1) {
+    if (!mesh?.isMesh || !Number.isInteger(faceIndex)) return null;
+    const geometry = sourceGeometry(mesh), seed = sourceTriangle(mesh, faceIndex);
+    const triangles = clicks >= 3 ? connectedGeometry(geometry, seed) : connectedFace(geometry, seed);
+    return triangles.length ? { triangles, edges: clicks >= 2, whole: clicks >= 3 } : null;
+}
 export function targetAt(hit, root) {
     const mesh = hit?.object;
     if (!mesh?.isMesh || !root) return null;

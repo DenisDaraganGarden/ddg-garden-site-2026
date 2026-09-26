@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
-import { connectedFace, materialMeshKey, paintTargets, targetAt, targetHasMaterial, targetOverride } from './selection.js';
+import { connectedFace, connectedGeometry, faceSelection, materialMeshKey, paintTargets, targetAt, targetHasMaterial, targetOverride } from './selection.js';
 import { normalizeMaterialSettings } from './settings.js';
 import { boxUvGeometry, splitFaces } from './modelMaterials.js';
 import { surfaceBasis } from './projection.js';
@@ -11,6 +11,19 @@ root.userData.materialModel = 'building-v1';
 const a = new THREE.Mesh(geometry, material), b = new THREE.Mesh(geometry, material); root.add(a, b);
 assert.notEqual(materialMeshKey(a, root), materialMeshKey(b, root), 'instances sharing geometry have separate addresses');
 assert.deepEqual(connectedFace(geometry, 0), [0, 1], 'one click selects a polygon, not one triangle or all six sides');
+assert.deepEqual(connectedGeometry(geometry, 0), [...Array(12).keys()], 'a triple click takes the whole box through its shared edges');
+{
+    const slabs = new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(0, 0, 0), new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0, 1),
+        new THREE.Vector3(5, 0, 0), new THREE.Vector3(6, 0, 0), new THREE.Vector3(5, 0, 1),
+    ]);
+    assert.deepEqual(connectedGeometry(slabs, 0), [0], 'a separate slab in the same mesh stays apart');
+}
+const one = faceSelection(a, 0, 1), two = faceSelection(a, 0, 2), three = faceSelection(a, 0, 3);
+assert.deepEqual([one.triangles, one.edges], [[0, 1], false], 'a click: the face, filled');
+assert.deepEqual([two.triangles, two.edges], [[0, 1], true], 'a double click: the face with its edges');
+assert.equal(three.triangles.length, 12, 'a triple click: all connected geometry');
+assert.equal(faceSelection(a, undefined, 1), null, 'no face under the ray, no face selection');
 const first = targetAt({ placedId: 'building', object: a, faceIndex: 0 }, root);
 const second = targetAt({ placedId: 'building', object: a, faceIndex: 4 }, root);
 const look = { material: 'stone', tile: 1.2, tileY: 0.6, normal: 1, roughness: 1, projection: 'slope', offsetU: 0.12 };

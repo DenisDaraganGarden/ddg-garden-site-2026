@@ -3,7 +3,8 @@ import { createPlacedObject, normalizePlacedObject, placedSpeciesDefaults, PLACE
 import { createTerrainDefinition, createTerrainQuery } from '../terrain/terrainModel.js';
 import { activeProjectId, uploadProjectModel } from '../features/engine/projectApi.js';
 import { solidHeightAt } from './solidSurface.js';
-import { copiesOf, findPart, nextPart, outerPart, partChain, partName, sketchupModelEntry, togglePart } from './sketchupModel.js';
+import { faceSelection } from '../materials/selection.js';
+import { copiesOf, faceClicks, findPart, geometryOwner, nextPart, outerPart, partChain, partName, sketchupModelEntry, togglePart } from './sketchupModel.js';
 
 const KIND_NAMES = { tree: ['Дерево', 'Tree'], shrub: ['Куст', 'Shrub'], rock: ['Камень', 'Rock'], model: ['Модель', 'Model'] };
 
@@ -56,10 +57,18 @@ export function usePlacedEditor({ settings, history, setActiveTab, setTool, lang
         const root = id && hit ? sketchupModelEntry(id)?.root : null;
         return root ? partChain(root, hit).map((object) => object.userData.gltfNode) : [];
     };
-    const select = useCallback((id, hit = null, double = false, shift = false) => {
+    // Щелчок в собственную геометрию открытой группы выбирает грань, как в
+    // SketchUp: щелчок — грань, двойной — с рёбрами, тройной — вся связная
+    // геометрия (faceClicks). part.face — { mesh (uuid сетки), triangles, edges, whole }.
+    const select = useCallback((id, hit = null, double = false, shift = false, { faceIndex, clicks = 1 } = {}) => {
         const trail = trailOf(id, hit);
         setSelectedId(id);
-        setPart((current) => (shift ? togglePart(current, id, trail) : nextPart(current, id, trail, double)));
+        setPart((current) => {
+            const next = shift ? togglePart(current, id, trail) : nextPart(current, id, trail, double);
+            const count = shift || !hit?.isMesh ? 0 : faceClicks(current, next, geometryOwner(hit), double, clicks);
+            const face = count ? faceSelection(hit, faceIndex, count) : null;
+            return face ? { ...next, face: { mesh: hit.uuid, ...face } } : next;
+        });
         setActiveTab('objects/placed'); setTool('select');
     }, [setActiveTab, setTool]);
     const selectPart = useCallback((node) => setPart((current) => (current?.trail.includes(node) ? { id: current.id, trail: current.trail, node } : current)), []);

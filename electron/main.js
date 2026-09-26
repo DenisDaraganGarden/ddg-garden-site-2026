@@ -58,6 +58,15 @@ function engineAtRootPlugin() {
   return { name: 'engine-at-root', configureServer(server) { redirect(server.middlewares); } };
 }
 
+// Окно без полосы заголовка (macOS): верхние строки редактора и меню проектов
+// становятся полосой окна — отступ под кнопки окна слева, протяжка за
+// пустое место двигает окно, кнопки и поля остаются кнопками и полями.
+const SHELL_CSS = `
+.focus-topbar, .engine-topbar { -webkit-app-region: drag; padding-left: 84px !important; }
+#engine-boot { -webkit-app-region: drag; }
+:is(.focus-topbar, .engine-topbar) :is(button, a, input, select, textarea, label, [role=button], [tabindex]), .focus-compass { -webkit-app-region: no-drag; }
+`;
+
 async function startEngineServer() {
   const { default: config } = await import(path.join(ROOT, 'vite.editor.config.js'));
   viteServer = await createServer({
@@ -119,12 +128,18 @@ async function createWindow(url) {
     show: false,
     backgroundColor: '#17191a',
     title: 'OUROBOROS ENGINE',
+    // Своей полосы заголовка у окна нет: кнопки окна стоят в верхней строке
+    // движка, и за неё окно таскается (SHELL_CSS).
+    ...(process.platform === 'darwin' ? { titleBarStyle: 'hiddenInset', trafficLightPosition: { x: 14, y: 15 } } : {}),
     // Сцена рисует сама, ей не нужен ни Node в странице, ни доступ к файлам:
     // проекты ходят через тот же HTTP, что и в браузере.
     webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true },
   });
   mainWindow = window;
   window.once('closed', () => { mainWindow = null; });
+  // Имя окна — движка, а не заголовок страницы сайта.
+  window.on('page-title-updated', (event) => event.preventDefault());
+  if (process.platform === 'darwin') window.webContents.on('dom-ready', () => { void window.webContents.insertCSS(SHELL_CSS); });
 
   // Вкладки редактор не открывает, а ссылка наружу — это ссылка наружу.
   window.webContents.setWindowOpenHandler(({ url: target }) => {

@@ -31,9 +31,11 @@ export const SCENE_OBJECT_GROUPS = Object.freeze(['landscape', 'greenery', 'obje
 export const SCENE_OBJECTS = Object.freeze([
   // The loose shells on the beach are the terrain's: «Ракушечник» sets how many,
   // the terrain's switch hides them; the pebbles' switch never did.
-  { id: 'terrain', key: 'terrainEnabled', node: 'landscape/terrain', group: 'landscape', roots: ['azov-terrain', 'coast-shell-fragments'], backdrop: true },
-  { id: 'rocks', key: 'terrainRocksEnabled', node: 'landscape/rocks', group: 'landscape', roots: ['coast-rocks', 'coast-debris'] },
-  { id: 'pebbles', key: 'terrainPebblesEnabled', node: 'landscape/pebbles', group: 'landscape', roots: ['coast-pebbles'] },
+  // Суша, камни и галька — азовский берег сайта: у «Участка» своя земля
+  // (плоскость, модель, окружение по адресу), берега там нет.
+  { id: 'terrain', key: 'terrainEnabled', node: 'landscape/terrain', group: 'landscape', roots: ['azov-terrain', 'coast-shell-fragments'], site: true, backdrop: true },
+  { id: 'rocks', key: 'terrainRocksEnabled', node: 'landscape/rocks', group: 'landscape', roots: ['coast-rocks', 'coast-debris'], site: true },
+  { id: 'pebbles', key: 'terrainPebblesEnabled', node: 'landscape/pebbles', group: 'landscape', roots: ['coast-pebbles'], site: true },
   { id: 'shore', key: 'shoreEnabled', node: 'landscape/shore', group: 'landscape', roots: ['coastal-shore-finds', 'shore'], newProject: false, sound: 'shore', site: true },
   { id: 'water', key: 'waterVisible', node: 'landscape/water', group: 'landscape', roots: ['gerstner-water', 'shore-water', 'foam-volume'], sound: 'water', site: true, backdrop: true },
   { id: 'farWater', key: 'farWaterVisible', node: 'landscape/water', group: 'landscape', site: true },
@@ -103,11 +105,11 @@ export const SITE_ONLY_NODES = Object.freeze([...new Set(SCENE_OBJECTS.filter((o
 // Узлы только «Участка» (`design: true`): у сайта и берега их нет.
 // Питание освещения — узел без своего объекта, при светильниках «Участка».
 export const DESIGN_ONLY_NODES = Object.freeze([...new Set([...SCENE_OBJECTS.filter((object) => object.design).map((object) => object.node), 'lighting/power'])]);
-// Заводской «Участок»: пустая сцена — небо, ровная земля и расстановка; берег,
-// растения побережья и изгороди можно включить, вещей сайта нет совсем.
+// Заводской «Участок»: пустая сцена — небо, ровная земля и расстановка;
+// растения побережья и изгороди можно включить, вещей сайта (с берегом) нет совсем.
 export const designProjectObjectSettings = () => ({
   ...SITE_OFF(),
-  ...Object.fromEntries(['terrain', 'rocks', 'pebbles', 'topiary', 'shrubs', 'trees', 'grass'].map((id) => [byId(id).key, false])),
+  ...Object.fromEntries(['topiary', 'shrubs', 'trees', 'grass'].map((id) => [byId(id).key, false])),
   planeEnabled: true,
   placedEnabled: true,
 });

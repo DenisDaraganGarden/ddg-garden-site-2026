@@ -10,6 +10,7 @@ import { PLACED_TRANSFORM_DEFAULT } from './settings.js';
 import { applyHidden, findPart, isolation, makeFaceCamera, registerSketchupModel, selectedNodes, tagNodes } from './sketchupModel.js';
 import { prepareMaterialParallax } from '../materials/parallax.js';
 import { applyModelMaterials, disposeModelMaterials } from '../materials/modelMaterials.js';
+import { SelectionOverlay } from '../materials/MaterialSelection.jsx';
 import { useGlassReflections } from '../materials/GlassReflections.js';
 import { makeCoastTree } from '../plants/treeModel.js';
 import { TREE_SPECIES } from '../plants/treeSpecies.js';
@@ -209,6 +210,13 @@ function useModel(url) {
 // opened in (a double click, as in SketchUp) gets a fainter box of its own,
 // and what is picked inside it is blue — the colour says «inside a group».
 const PART_COLOUR = { top: '#d9ca8c', inside: '#7fb8e8', open: '#8f8b78' };
+// Выбранная грань внутри группы: плотная синяя заливка, как у SketchUp, чтобы
+// читалась и на светлой штукатурке; рёбра — у двойного и тройного щелчка.
+const FACE_COLOUR = '#3f93f0', FACE_EDGE = '#0a4fb4';
+function FaceHighlight({ root, node, face }) {
+    const targets = useMemo(() => { const mesh = findPart(root, node)?.getObjectByProperty('uuid', face.mesh); return mesh?.isMesh ? [{ mesh, triangles: face.triangles }] : []; }, [root, node, face]);
+    return <SelectionOverlay targets={targets} color={FACE_COLOUR} opacity={0.45} edges={face.edges} edgeColor={FACE_EDGE} />;
+}
 function PartBox({ root, node, stamp, kind = 'top' }) {
     const helper = useMemo(() => {
         const box = new THREE.Box3Helper(new THREE.Box3(), PART_COLOUR[kind]);
@@ -271,9 +279,12 @@ function Isolate({ root, node }) {
     return null;
 }
 
-function PlacedModel({ object, url, selected, sketchup, selectedParts = [], openPart = null, isolate = false, plan = false, materials = null }) {
+function PlacedModel({ object, url, selected, sketchup, selectedParts = [], openPart = null, isolate = false, plan = false, materials = null, face = null, faceNode = null }) {
     const gltf = useModel(url);
-    const lit = object.species !== 'scan';
+    // Модель SketchUp всегда освещается сценой и всегда твёрдая: её строят по
+    // правилам движка. «Как отсканировано» и галка коллизии — для чужих моделей.
+    const isSketchup = Boolean(sketchup);
+    const lit = isSketchup || object.species !== 'scan';
     const originKey = object.origin ? `${object.origin.x},${object.origin.y},${object.origin.z}` : '';
     const prepared = useMemo(() => (gltf ? prepareModel(gltf.scene, lit, originKey ? object.origin : null, object.model) : null), [gltf, lit, originKey]); // eslint-disable-line react-hooks/exhaustive-deps -- origin by value
     const group = useRef();
@@ -281,7 +292,6 @@ function PlacedModel({ object, url, selected, sketchup, selectedParts = [], open
     useEffect(() => { prepared?.materials.forEach((material) => { material.userData.placedWet.z = object.wet ? 1 : 0; }); }, [prepared, object.wet]);
     // A SketchUp model: its 2D plants turn to the camera, its hidden parts are
     // gone for the eye and the click, and the editor's panel can read it.
-    const isSketchup = Boolean(sketchup);
     const cards = useMemo(() => (prepared && isSketchup ? makeFaceCamera(prepared.root) : null), [prepared, isSketchup]);
     useEffect(() => () => {
         if (!prepared) return;
@@ -319,11 +329,19 @@ function PlacedModel({ object, url, selected, sketchup, selectedParts = [], open
         return () => setWakeObstacles(waterWake, id, null);
     }, [prepared, id, x, y, z, rotation, tiltX, tiltZ, scale, wet, hidden, hiddenParts]);
     // Solid: its top surface is ground for the board, the rider and planting.
+    // A SketchUp model is always solid; its height field (every triangle) is
+    // rebuilt once the model has stopped moving, not on every gizmo frame.
+    const solid = collision || isSketchup;
     useEffect(() => {
-        if (!prepared || !group.current || !collision || hidden) { setSolid(id, null); return undefined; }
-        setSolid(id, solidHeightfield(group.current));
-        return () => setSolid(id, null);
-    }, [prepared, id, x, y, z, rotation, tiltX, tiltZ, scale, collision, hidden, hiddenParts]);
+        if (!prepared || !group.current || !solid || hidden) { setSolid(id, null); return undefined; }
+        if (!isSketchup) {
+            setSolid(id, solidHeightfield(group.current));
+            return () => setSolid(id, null);
+        }
+        const timer = setTimeout(() => { if (group.current) setSolid(id, solidHeightfield(group.current)); }, 250);
+        return () => clearTimeout(timer);
+    }, [prepared, id, x, y, z, rotation, tiltX, tiltZ, scale, solid, isSketchup, hidden, hiddenParts]);
+    useEffect(() => () => setSolid(id, null), [id]);
     if (!prepared) return <Anchor object={object} selected={selected} radius={1} />;
     return <>
         <Anchor object={object} selected={selected} radius={Math.max(.3, Math.max(prepared.size.x, prepared.size.z) * .55)} />
@@ -333,6 +351,7 @@ function PlacedModel({ object, url, selected, sketchup, selectedParts = [], open
         </group>
         {openPart !== null ? <PartBox root={prepared.root} node={openPart} stamp={`${x},${y},${z},${rotation},${tiltX},${tiltZ},${scale}`} kind="open" /> : null}
         {selectedParts.map((node) => <PartBox key={node} root={prepared.root} node={node} stamp={`${x},${y},${z},${rotation},${tiltX},${tiltZ},${scale}`} kind={openPart !== null ? 'inside' : 'top'} />)}
+        {face ? <FaceHighlight root={prepared.root} node={faceNode} face={face} /> : null}
         {isolate && openPart !== null ? <Isolate root={prepared.root} node={openPart} /> : null}
     </>;
 }
@@ -356,7 +375,8 @@ export default function PlacedObjects({ objects, selectedId = null, selectedPart
             const url = modelUrl(object);
             const part = selectedPart?.id === object.id ? selectedPart : null, level = part ? part.trail.indexOf(part.node) : -1;
             return url ? <PlacedModel key={object.id} object={object} url={url} selected={selected} sketchup={sketchupModels[object.id]} plan={plan} materials={modelMaterials?.[object.id] ?? null}
-                selectedParts={selectedNodes(part)} openPart={level > 0 ? part.trail[level - 1] : null} isolate={Boolean(part?.isolated)} />
+                selectedParts={part?.face ? [] : selectedNodes(part)} openPart={level > 0 ? part.trail[level - 1] : null} isolate={Boolean(part?.isolated)}
+                face={part?.face ?? null} faceNode={part?.face ? part.node : null} />
                 : <Anchor key={object.id} object={object} selected={selected} radius={1} />;
         })}
         {rocks.length ? <Suspense fallback={null}><PlacedRocks objects={rocks} lowPower={lowPower} lighting={lighting} selectedId={selectedId} /></Suspense> : null}

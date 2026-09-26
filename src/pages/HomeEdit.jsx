@@ -722,7 +722,7 @@ const HomeEdit = ({ project = null }) => {
         if (hit?.annotationMark) { selectMark(hit.annotationMark); return; }
         if (hit?.lightingFixture) { selectFixture(hit.lightingFixture); setTool(lastTransform); return; }
         if (hit?.lightingPanel) { selectPanel(hit.lightingPanel); setTool(lastTransform); return; }
-        if (hit?.topiaryId) selectTopiary(hit.topiaryId); else if (hit?.placedId) selectPlaced(hit.placedId, hit.object, hit.double, hit.shift); else setActiveTab(path);
+        if (hit?.topiaryId) selectTopiary(hit.topiaryId); else if (hit?.placedId) selectPlaced(hit.placedId, hit.object, hit.double, hit.shift, { faceIndex: hit.faceIndex, clicks: hit.clicks }); else setActiveTab(path);
         setTool(lastTransform);
     }, [tool, setActiveTab, setTool, lastTransform, selectTopiary, selectPlaced, selectBed, selectVine, enterBed, pickPlant, plantingInside, selectMark, selectFixture, selectPanel, clearSelection]);
 
@@ -811,7 +811,7 @@ const HomeEdit = ({ project = null }) => {
     const sceneKeys = useRef();
     sceneKeys.current = {
         remove: selectedFixture ? () => lightingEditor.remove(selectedFixture.id) : selectedPanel ? () => lightingEditor.removePanel(selectedPanel.id)
-            : placedPart ? () => placedEditor.removeParts(placedPart.id, selectedNodes(placedPart)) : selectedPlaced ? () => placedEditor.remove(selectedPlaced.id)
+            : placedPart?.face ? null : placedPart ? () => placedEditor.removeParts(placedPart.id, selectedNodes(placedPart)) : selectedPlaced ? () => placedEditor.remove(selectedPlaced.id)
             : selectedBed && plantingEditor.selectedPlant ? plantingEditor.removePlant : null,
         escape: placedPart && !drawingTool ? placedEditor.exitPart : selectedBed && plantingEditor.inside && !drawingTool ? plantingEditor.exitBed : null,
         isolate: placedPart && placedPart.trail.indexOf(placedPart.node) > 0 && !drawingTool ? placedEditor.toggleIsolate : null,

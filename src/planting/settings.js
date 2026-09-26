@@ -15,6 +15,22 @@ export const PLANTING_RANGES = Object.freeze({ drift: [0.3, 6, 0.1], density: [0
 // (wind.js), у камеры своё, как и сам ветер.
 export const DEFAULT_PLANTING_SETTINGS = Object.freeze({ plantingEnabled: true, plantingBeds: [], plantingPoints: [], plantingVines: [], plantingMonth: 6, plantingPlan: false, northAngle: 0, plantingSway: 1 });
 export const PLANTING_BED_DEFAULT = Object.freeze({ drift: 1.6, density: 1 });
+// Шапки плана — вид камеры «Генплан», а не сцены: у любой другой камеры
+// растения объёмные. Снимок, снятый до «Плана», добирает недостающие ключи из
+// корня сцены, и проект, сохранённый на «Генплане», прописывал шапки во все
+// камеры; здесь это чинится при открытии и после каждой правки. Корень — как
+// у выбранной камеры. Кнопка «План» с другой камеры ведёт на «Генплан».
+export const PLAN_CAMERA = 'Генплан';
+export function planOnlyOnPlanCamera(settings) {
+    const off = (camera) => (camera.name === PLAN_CAMERA || !camera.scene?.plantingPlan ? camera : { ...camera, scene: { ...camera.scene, plantingPlan: false } });
+    const workCameras = settings.workCameras?.map(off), sceneCameras = settings.sceneCameras?.map(off);
+    const active = settings.activeWorkCameraId ? workCameras?.find((camera) => camera.id === settings.activeWorkCameraId)
+        : sceneCameras?.find((camera) => camera.id === settings.activeCameraId);
+    const plantingPlan = active ? active.name === PLAN_CAMERA && settings.plantingPlan === true : settings.plantingPlan === true;
+    if (plantingPlan === settings.plantingPlan && workCameras?.every((camera, i) => camera === settings.workCameras[i])
+        && sceneCameras?.every((camera, i) => camera === settings.sceneCameras[i])) return settings;
+    return { ...settings, plantingPlan, ...(workCameras ? { workCameras } : {}), ...(sceneCameras ? { sceneCameras } : {}) };
+}
 // Газон — цветник без растений (kind: 'lawn'): покрытие само и есть трава
 // (lawnGround.js). Стрижка: полосы (проходы косилки в разные стороны),
 // клетка и ромбы (два прохода накрест), ровно — без узора, луг — некошеный.

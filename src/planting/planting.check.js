@@ -4,7 +4,7 @@ import { bedAnchor, coverSchedule, fillBed, insidePolygon, moveBed, plantingSche
 import { fenceLayout, fenceSchedule, POST_SPAN } from '../topiary/fenceLayout.js';
 import { seasonImage, seasonLook, seasonPhases } from './season.js';
 import { bedGroundGeometry, GROUND_LIFT, groundLitter, groundSeason, plantGroundMaps } from './bedGround.js';
-import { normalizePlantingSettings, PLANTING_LIMITS } from './settings.js';
+import { normalizePlantingSettings, PLAN_CAMERA, planOnlyOnPlanCamera, PLANTING_LIMITS } from './settings.js';
 import { PLANTING_PALETTES } from './palettes.js';
 import { paletteRecipe } from './usePlantingEditor.js';
 import { bloomCurve, scopeRows } from './insights.js';
@@ -390,6 +390,22 @@ assert.equal(normalizePlantingSettings({ plantingSway: 5 }).plantingSway, 2);
     assert.equal(bedArea(lawn), 12);
     assert.deepEqual(normalizePlantingSettings({ plantingBeds: [lawn] }).plantingBeds[0], lawn, 'a lawn normalizes to itself');
     assert.ok(!('kind' in normalizePlantingSettings({ plantingBeds: [{ ...raw, kind: 'bed' }] }).plantingBeds[0]), 'a bed stays a bed');
+}
+
+// Шапки плана — только у «Генплана»: снимок, куда они попали из корня
+// (старая камера, проект сохранён на «Генплане»), их теряет.
+{
+    const work = (id, name, plan) => ({ id, name, scene: { plantingPlan: plan, timeOfDay: 12 } });
+    const leaked = { plantingPlan: true, activeWorkCameraId: 'plan', activeCameraId: 'c1',
+        workCameras: [work('main', 'Рабочая 1', true), work('plan', PLAN_CAMERA, true)], sceneCameras: [{ id: 'c1', name: 'Сцена', scene: { plantingPlan: true } }] };
+    const fixed = planOnlyOnPlanCamera(leaked);
+    assert.equal(fixed.plantingPlan, true, 'on the site plan the caps stay');
+    assert.deepEqual(fixed.workCameras.map((camera) => camera.scene.plantingPlan), [false, true], 'another work camera loses them');
+    assert.equal(fixed.sceneCameras[0].scene.plantingPlan, false);
+    assert.equal(fixed.workCameras[0].scene.timeOfDay, 12, 'the rest of the snapshot stays');
+    assert.equal(planOnlyOnPlanCamera({ ...leaked, activeWorkCameraId: 'main' }).plantingPlan, false, 'a work camera shows plants in 3D');
+    assert.equal(planOnlyOnPlanCamera({ ...leaked, activeWorkCameraId: null }).plantingPlan, false, 'so does a site camera');
+    assert.equal(planOnlyOnPlanCamera(fixed), fixed, 'nothing to fix — the same object');
 }
 
 console.log(`planting: settings, fill (${first.length} plants in 60 m², ${smallFill.length} in 20 m² with ${small.recipe.length} species), schedule and seasons hold, season pictures by month, bed ground by plants and month, garden wind blows the right way`);

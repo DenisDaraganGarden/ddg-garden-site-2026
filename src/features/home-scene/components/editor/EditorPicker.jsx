@@ -20,8 +20,9 @@ import { takeFlashlightGesture } from '../../../cursor/cursorFlashlightStore.js'
 // платформах (в Chrome на macOS 'contextmenu' приходит ещё до движения мыши).
 const CLICK_SLOP = 4;
 // Двойной щелчок — два коротких нажатия в одном месте подряд: в модели
-// SketchUp он открывает выбранный компонент (usePlacedEditor); Shift — добавить
-// к выбору. Щелчок мимо любого объекта снимает выделение.
+// SketchUp он открывает выбранный компонент (usePlacedEditor); тройной внутри
+// геометрии берёт всю связную геометрию. Shift — добавить к выбору. Щелчок
+// мимо любого объекта снимает выделение.
 const DOUBLE_MS = 400, DOUBLE_SLOP = 6;
 const GIZMO = Symbol('gizmo');
 // Ручка манипулятора, которая сейчас нарисована. Его невидимые части —
@@ -103,11 +104,12 @@ export default function EditorPicker({ enabled, onPick, onContextMenu, crosshair
             if (!enabled || typeof onPick !== 'function') return;
             const found = hitAt(event);
             if (found === GIZMO) return;
-            const double = Boolean(last && event.timeStamp - last.at < DOUBLE_MS && Math.hypot(event.clientX - last.x, event.clientY - last.y) < DOUBLE_SLOP);
-            last = double ? null : { at: event.timeStamp, x: event.clientX, y: event.clientY };
+            const clicks = last && event.timeStamp - last.at < DOUBLE_MS && Math.hypot(event.clientX - last.x, event.clientY - last.y) < DOUBLE_SLOP ? last.clicks + 1 : 1;
+            const double = clicks === 2;
+            last = clicks >= 3 ? null : { at: event.timeStamp, x: event.clientX, y: event.clientY, clicks };
             // Мимо объекта — снять выделение, как в SketchUp (в материалах —
             // очистить выбор граней); с Shift выбор не трогается.
-            if (found) onPick(found.node, { ...found, double, shift: event.shiftKey });
+            if (found) onPick(found.node, { ...found, double, clicks, shift: event.shiftKey });
             else onPick(null, { shift: event.shiftKey, miss: true });
         };
 
