@@ -17,6 +17,12 @@ concurrency:
 
 jobs:
   build:
+    # main is the workshop: a merge does not touch the site. It goes out when
+    # «На сайт» pushes its release commit (scripts/deployScene.mjs, same words)
+    # or by hand: Actions → Deploy GitHub Pages → Run workflow.
+    if: >-
+      github.event_name == 'workflow_dispatch'
+      || startsWith(github.event.head_commit.message, 'chore(home): publish authored scene')
     runs-on: ubuntu-latest
 
     steps:

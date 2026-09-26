@@ -45,6 +45,17 @@ function describe(dir, commit) {
   return { commit, short, date, subject };
 }
 
+// «В проект» в приложении пишет сцену сайта прямо в копию. Это работа Дениса,
+// а не правка кода: обновление и откат переносят её на новый коммит. Перед
+// этим она откладывается в ~/Ouroboros/backups/engine-scene/<время>/, а если
+// сцену за это время поменяли и в main (например, «На сайт» из другого
+// места), версия из main ложится туда же — ничья правка не пропадает.
+export const SCENE_FILES = Object.freeze([
+  'src/features/home-scene/data/publishedHomeSceneSettings.js',
+  'src/features/home-scene/data/publishedHomeSceneSource.json',
+]);
+const sceneBackupDir = () => path.join(HOME, 'backups', 'engine-scene', new Date().toISOString().replace(/[:.]/g, '-'));
+
 // Зависимости ставятся заново, только когда их нет или сменился lock-файл.
 export function needsInstall(dir, from, to) {
   if (!fs.existsSync(path.join(dir, 'node_modules'))) return true;
@@ -60,6 +71,9 @@ export async function updateEngine({
     throw new Error(`OUROBOROS открыт (порт ${appPort}). Закройте приложение и повторите.`);
   }
   const created = !fs.existsSync(dir);
+  const carried = {};
+  let base = null;
+  let backup = null;
   if (created) {
     // Клон берёт объекты из этого чекаута и сразу отвязывается от него: быстро,
     // без второй загрузки с GitHub, и копия не зависит от чужой папки .git.
@@ -69,16 +83,48 @@ export async function updateEngine({
     git(path.dirname(dir), 'clone', '--quiet', '--reference', objects, '--dissociate', url, dir);
   } else if (!tryGit(dir, 'rev-parse', '--git-dir')) {
     throw new Error(`${dir} есть, но это не копия движка (нет git). Уберите папку или укажите другую в DDG_ENGINE_DIR.`);
-  } else if (git(dir, 'status', '--porcelain', '--untracked-files=no')) {
-    throw new Error(`В копии движка есть правки (${dir}). В ней не работают: сохраните правки в своей ветке и верните копию командой git -C "${dir}" checkout -- .`);
+  } else {
+    // Raw -z output: git() trims, and the first « M path» would lose its space.
+    const dirty = execFileSync('git', ['status', '--porcelain', '-z', '--untracked-files=no'], { cwd: dir, encoding: 'utf8' })
+      .split('\0').filter(Boolean).map((entry) => entry.slice(3));
+    const code = dirty.filter((file) => !SCENE_FILES.includes(file));
+    if (code.length) {
+      throw new Error(`В копии движка правки кода (${code.join(', ')}). В ней не работают: сохраните их в своей ветке и верните файлы командой git -C "${dir}" checkout -- ${code.join(' ')}`);
+    }
+    if (dirty.length) {
+      base = git(dir, 'rev-parse', 'HEAD');
+      backup = sceneBackupDir();
+      fs.mkdirSync(backup, { recursive: true });
+      for (const file of dirty) {
+        carried[file] = fs.readFileSync(path.join(dir, file));
+        fs.writeFileSync(path.join(backup, path.basename(file)), carried[file]);
+      }
+      git(dir, 'checkout', '--quiet', '--', ...dirty);
+    }
   }
-  git(dir, 'fetch', '--quiet', '--prune', 'origin');
-  const target = git(dir, 'rev-parse', '--verify', `${ref}^{commit}`);
-  const state = readState(dir);
-  const from = state.current ?? tryGit(dir, 'rev-parse', 'HEAD');
-  const moved = from !== target;
-  if (tryGit(dir, 'rev-parse', 'HEAD') !== target || tryGit(dir, 'symbolic-ref', '-q', 'HEAD')) {
-    git(dir, 'checkout', '--quiet', '--detach', target);
+  const upstream = [];
+  let target, from, moved, state;
+  try {
+    git(dir, 'fetch', '--quiet', '--prune', 'origin');
+    target = git(dir, 'rev-parse', '--verify', `${ref}^{commit}`);
+    state = readState(dir);
+    from = state.current ?? tryGit(dir, 'rev-parse', 'HEAD');
+    moved = from !== target;
+    if (tryGit(dir, 'rev-parse', 'HEAD') !== target || tryGit(dir, 'symbolic-ref', '-q', 'HEAD')) {
+      git(dir, 'checkout', '--quiet', '--detach', target);
+    }
+  } finally {
+    // The scene goes back whatever happened above: onto the new commit, or,
+    // if the update failed, onto the old one exactly as it was.
+    for (const [file, content] of Object.entries(carried)) {
+      const here = git(dir, 'rev-parse', 'HEAD');
+      if (here !== base && tryGit(dir, 'diff', '--quiet', base, here, '--', file) === null) {
+        const theirs = path.join(backup, `main-${path.basename(file)}`);
+        fs.copyFileSync(path.join(dir, file), theirs);
+        upstream.push(theirs);
+      }
+      fs.writeFileSync(path.join(dir, file), content);
+    }
   }
   const installed = install && needsInstall(dir, state.current ? from : null, target);
   if (installed) {
@@ -92,7 +138,8 @@ export async function updateEngine({
     updatedAt: new Date().toISOString(),
   };
   fs.writeFileSync(statePath(dir), `${JSON.stringify(next, null, 2)}\n`);
-  return { dir, ...describe(dir, target), previous: next.previous, moved, installed, created };
+  const scene = Object.keys(carried).length ? { files: Object.keys(carried), backup, upstream } : null;
+  return { dir, ...describe(dir, target), previous: next.previous, moved, installed, created, scene };
 }
 
 // Откат — та же команда на прежний коммит; повторный откат возвращает обратно.
@@ -123,6 +170,10 @@ async function main() {
     console.log(`Копия движка: ${result.dir}`);
     console.log(result.created || result.moved ? `Теперь: ${line(result)}` : `Уже на ${line(result)}`);
     if (result.installed) console.log('Зависимости переустановлены.');
+    if (result.scene) {
+      console.log(`Сцена сайта, сохранённая в приложении («В проект»), перенесена; копия — ${result.scene.backup}`);
+      if (result.scene.upstream.length) console.log(`В main сцену тоже меняли — та версия лежит там же: ${result.scene.upstream.join(', ')}`);
+    }
     console.log('Откройте OUROBOROS заново.');
   } else if (command === 'status') {
     const status = engineStatus();

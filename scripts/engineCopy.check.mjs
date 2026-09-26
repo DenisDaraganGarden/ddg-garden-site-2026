@@ -6,18 +6,22 @@ import os from 'node:os';
 import path from 'node:path';
 
 // Стабильная копия движка (scripts/engineCopy.mjs) на временных репозиториях:
-// клон, обновление до main, откат туда и обратно, отказ при правках в копии и
-// при открытом приложении, переустановка зависимостей только по lock-файлу.
+// клон, обновление до main, откат туда и обратно, отказ при правках кода в
+// копии и при открытом приложении, перенос сцены сайта из «В проект» через
+// обновление, переустановка зависимостей только по lock-файлу.
 // Настоящий ~/Ouroboros не трогается.
 const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'ddg-engine-copy-'));
 process.env.DDG_PROJECTS_DIR = path.join(temp, 'home');
-const { engineStatus, needsInstall, rollbackEngine, updateEngine } = await import('./engineCopy.mjs');
+const { SCENE_FILES, engineStatus, needsInstall, rollbackEngine, updateEngine } = await import('./engineCopy.mjs');
 
 const git = (cwd, ...args) => execFileSync('git', ['-c', 'user.name=check', '-c', 'user.email=check@example.com', ...args], {
   cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'],
 }).trim();
 const commit = (message, files) => {
-  for (const [name, content] of Object.entries(files)) fs.writeFileSync(path.join(source, name), content);
+  for (const [name, content] of Object.entries(files)) {
+    fs.mkdirSync(path.dirname(path.join(source, name)), { recursive: true });
+    fs.writeFileSync(path.join(source, name), content);
+  }
   git(source, 'add', '.');
   git(source, 'commit', '-q', '-m', message);
   git(source, 'push', '-q', 'origin', 'HEAD:main');
@@ -91,7 +95,42 @@ try {
   const latest = await updateEngine(options);
   assert.equal(git(dir, 'rev-parse', 'HEAD'), lockChange);
   assert.equal(latest.previous, second);
-  console.log('engine copy: clone, update to main, rollback both ways, refusals and lock-file installs hold');
+
+  // «В проект» in the app writes the site scene into the copy: an update
+  // carries it onto the new commit and keeps a copy aside.
+  const [sceneFile, sourceFile] = SCENE_FILES;
+  const sceneStart = commit('scene in main', { [sceneFile]: 'scene: main 1\n', [sourceFile]: '{"project":null}\n' });
+  await updateEngine(options);
+  assert.equal(git(dir, 'rev-parse', 'HEAD'), sceneStart);
+  fs.writeFileSync(path.join(dir, sceneFile), 'scene: from the app\n');
+  const codeOnly = commit('code only', { 'README.md': 'four\n' });
+  const carried = await updateEngine(options);
+  assert.equal(git(dir, 'rev-parse', 'HEAD'), codeOnly, 'an unpublished scene does not hold the update back');
+  assert.equal(fs.readFileSync(path.join(dir, sceneFile), 'utf8'), 'scene: from the app\n', 'the scene rides onto the new commit');
+  assert.deepEqual(carried.scene.files, [sceneFile]);
+  assert.equal(fs.readFileSync(path.join(carried.scene.backup, path.basename(sceneFile)), 'utf8'), 'scene: from the app\n', 'and a copy waits in backups');
+  assert.ok(carried.scene.backup.startsWith(path.join(process.env.DDG_PROJECTS_DIR, 'backups', 'engine-scene')));
+  assert.deepEqual(carried.scene.upstream, [], 'main did not touch the scene');
+
+  // main changed the scene too: the app's version stays, main's is set aside.
+  const theirs = commit('scene from elsewhere', { [sceneFile]: 'scene: main 2\n' });
+  const both = await updateEngine(options);
+  assert.equal(git(dir, 'rev-parse', 'HEAD'), theirs);
+  assert.equal(fs.readFileSync(path.join(dir, sceneFile), 'utf8'), 'scene: from the app\n', 'the app keeps what Denis last saved in it');
+  assert.equal(both.scene.upstream.length, 1);
+  assert.equal(fs.readFileSync(both.scene.upstream[0], 'utf8'), 'scene: main 2\n', 'main\'s scene is kept beside it');
+
+  // A failed update puts the scene back on the old commit, exactly as it was.
+  await assert.rejects(updateEngine({ ...options, ref: 'no-such-ref' }));
+  assert.equal(git(dir, 'rev-parse', 'HEAD'), theirs);
+  assert.equal(fs.readFileSync(path.join(dir, sceneFile), 'utf8'), 'scene: from the app\n', 'nothing is lost on failure');
+
+  // Code edits in the copy still stop the update, with the scene untouched.
+  fs.writeFileSync(path.join(dir, 'README.md'), 'edited by an agent\n');
+  await assert.rejects(updateEngine(options), /правки кода \(README\.md\)/);
+  assert.equal(fs.readFileSync(path.join(dir, sceneFile), 'utf8'), 'scene: from the app\n');
+  git(dir, 'checkout', '--', 'README.md');
+  console.log('engine copy: clone, update to main, rollback both ways, refusals, the app\'s site scene carried over (and main\'s kept beside it) and lock-file installs hold');
 } finally {
   fs.rmSync(temp, { recursive: true, force: true });
 }
