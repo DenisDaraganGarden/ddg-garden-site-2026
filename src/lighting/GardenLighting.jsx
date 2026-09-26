@@ -29,6 +29,7 @@ function lensMaterial(color) {
             .replace('#include <common>', '#include <common>\nuniform float uLensLevel;\nvarying float vLum;')
             .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance *= vLum * uLensLevel;');
     };
+    material.pathTraceLens = lens;
     material.customProgramCacheKey = () => 'garden-lens-v1';
     return material;
 }

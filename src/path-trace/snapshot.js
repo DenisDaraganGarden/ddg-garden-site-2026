@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { physicalCopy, bakeSurface, bakeEnvironment, groundUv } from './bake.js';
 import { addTraceLights } from './lights.js';
+import { bakeBackground } from './sky.js';
 
 export const nextTask = () => new Promise((resolve) => setTimeout(resolve, 0));
 export const checkAbort = (signal) => { if (signal?.aborted) throw new DOMException('Render cancelled', 'AbortError'); };
@@ -83,6 +84,13 @@ export function posedPlantGeometry(geometry, matrix, camera, descriptor, flip = 
         if (normal) normal.setXYZ(i, s, .9, c);
         color.fill(tone, i * 3, i * 3 + 3);
     }
+    // Mirroring a card must not invert its face relative to its lighting normal.
+    // The raster shader used a negative X scale without updating winding.
+    if (flip < 0 && geometry.index) {
+        for (let i = 0; i < geometry.index.count; i += 3) {
+            const first = geometry.index.getX(i); geometry.index.setX(i, geometry.index.getX(i + 2)); geometry.index.setX(i + 2, first);
+        }
+    }
     geometry.setAttribute('color', new THREE.BufferAttribute(color, 3));
     if (normal) for (let i = 0; i < normal.count; i++) { const n = new THREE.Vector3().fromBufferAttribute(normal, i).normalize(); normal.setXYZ(i, n.x, n.y, n.z); }
     return geometry;
@@ -112,7 +120,10 @@ export async function snapshotScene({ scene: source, camera, gl }, { signal, tex
                     next.color.copy(mat.userData.glassBase.color); next.metalness = 0;
                     next.attenuationDistance = .5; next.attenuationColor.copy(next.color);
                 }
-                if (object.name === 'luminaires-lens') { next.castShadow = false; next.emissiveIntensity *= 4; }
+                // Measured fixture profiles already include their housing cutoff.
+                // Match gardenShadows: do not occlude them a second time at the emitter.
+                if (object.name.startsWith('luminaires-')) next.castShadow = false;
+                if (object.name === 'luminaires-lens') next.emissiveIntensity *= mat.pathTraceLens?.uLensLevel.value ?? 0;
                 next.vertexColors = true;
                 materials.set(mat, own(next)); return next;
             });
@@ -137,7 +148,12 @@ export async function snapshotScene({ scene: source, camera, gl }, { signal, tex
                 normalizeVertexColors(geometry);
                 const parts = splitDrawGroups(geometry, Array.isArray(object.material) ? exported : exported[0]);
                 for (const part of parts) {
-                    const mesh = new THREE.Mesh(own(part.geometry), part.material);
+                    let material = part.material;
+                    if (object.name === 'luminaires-lens') {
+                        material = own(physicalCopy(material)); material.castShadow = false;
+                        material.emissiveIntensity *= object.geometry.attributes.aLum?.getX(i) ?? 1;
+                    }
+                    const mesh = new THREE.Mesh(own(part.geometry), material);
                     mesh.matrixAutoUpdate = false; mesh.matrix.copy(matrix); scene.add(mesh);
                     // A whole single-material mesh keeps its own geometry, which may be non-indexed.
                     const vertices = part.geometry.index?.count ?? part.geometry.attributes.position.count;
@@ -153,8 +169,10 @@ export async function snapshotScene({ scene: source, camera, gl }, { signal, tex
         scene.environment = bakeEnvironment(gl, source, own);
         scene.environmentIntensity = source.environmentIntensity ?? 1;
         scene.environmentRotation.copy(source.environmentRotation);
-        scene.background = source.background?.isColor ? source.background.clone() : scene.environment;
-        scene.backgroundIntensity = scene.environmentIntensity; scene.backgroundRotation.copy(scene.environmentRotation);
+        const background = bakeBackground(gl, source, own);
+        scene.background = background.texture ?? scene.environment;
+        scene.backgroundIntensity = background.intensity;
+        scene.backgroundRotation.copy(background.rotation);
         scene.updateMatrixWorld(true);
         return { scene, camera: copyCamera, stats, dispose };
     } catch (error) { dispose(); throw error; }

@@ -34,7 +34,9 @@ export function addTraceLights(source, target, own) {
         light.position.set(entry.x, entry.y, entry.z);
         light.target.position.copy(light.position).add(new THREE.Vector3().fromArray(entry.axis));
         light.color.fromArray(entry.color); light.intensity = entry.peak * level;
-        light.iesMap = profiles.get(entry.row); light.angle = Math.PI / 2; light.radius = entry.radius;
+        // tan(pi/2) can turn negative in GPU float precision. IES owns the
+        // full angular profile; keep the aperture construction below that pole.
+        light.iesMap = profiles.get(entry.row); light.angle = Math.PI / 2 - 1e-4; light.radius = entry.radius;
         light.distance = 0; light.decay = 2;
         target.add(light, light.target);
     }

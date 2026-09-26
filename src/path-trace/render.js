@@ -36,9 +36,10 @@ function outputPass(texture, settings, exposure, denoise) {
             #include <tonemapping_pars_fragment>
             void main(){ vec3 color=texture2D(map,vUv).rgb;
                 if(smoothNoise>.5){ vec3 total=color;float weight=1.; for(int y=-1;y<=1;y++)for(int x=-1;x<=1;x++){ if(x==0&&y==0)continue; vec3 c=texture2D(map,vUv+vec2(float(x),float(y))*pixel).rgb; float w=exp(-dot(c-color,c-color)/(0.002+dot(color,color)*.2))*.5;total+=c*w;weight+=w;} color=total/weight; }
-                color=ACESFilmicToneMapping(max(color,vec3(0.))*exp2(ev));
+                color=(color*exp2(ev)-.5)*contrast+.5;
                 float l=dot(color,vec3(.2126,.7152,.0722)); color=mix(vec3(l),color,saturation);
-                color=max((color-.5)*contrast+.5,vec3(0.)); color=pow(color,vec3(1./max(.1,gamma)));
+                color=pow(max(color,vec3(0.)),vec3(1./max(.01,gamma)));
+                color=ACESFilmicToneMapping(color);
                 gl_FragColor=linearToOutputTexel(vec4(color,1.)); }`,
     });
 }
@@ -65,7 +66,7 @@ export async function renderTrace({ canvas, edge = 1536, samples = 256, bounces 
         onProgress({ stage: 'bvh', progress: 0, ...snapshot.stats });
         const built = await abortable(generator.generateAsync((progress) => onProgress({ stage: 'bvh', progress, ...snapshot.stats })), signal);
         checkAbort(signal);
-        const textures = [...new Set(built.textures)];
+        const textures = [...new Map(built.textures.map((t) => [`${t.source.uuid}:${t.colorSpace}`, t])).values()];
         // Reject an oversized allocation before texture-array upload, instead of
         // silently lowering quality or risking a browser/GPU process crash.
         const bytes = textures.length * textureSize * textureSize * 4;
@@ -85,7 +86,7 @@ export async function renderTrace({ canvas, edge = 1536, samples = 256, bounces 
         material.environmentRotation.makeRotationFromEuler(snapshot.scene.environmentRotation).invert();
         material.backgroundMap = snapshot.scene.background?.isTexture ? snapshot.scene.background : null;
         material.backgroundIntensity = snapshot.scene.backgroundIntensity; material.backgroundAlpha = 1;
-        material.backgroundRotation.copy(material.environmentRotation);
+        material.backgroundRotation.makeRotationFromEuler(snapshot.scene.backgroundRotation).invert();
         material.bounces = Math.min(12, Math.max(2, bounces)); material.transmissiveBounces = 12; material.filterGlossyFactor = .1;
         material.setDefine('FEATURE_DOF', 0); material.setDefine('FEATURE_FOG', 0);
         tracer.setCamera(snapshot.camera);
@@ -113,7 +114,7 @@ export async function renderTrace({ canvas, edge = 1536, samples = 256, bounces 
                 paint(); shown = count; lastPaint = now;
                 onProgress({ stage: 'render', samples: count, total, seconds: (now - started) / 1000, ...snapshot.stats });
             }
-            await new Promise((resolve) => requestAnimationFrame(resolve));
+            await abortable(new Promise((resolve) => requestAnimationFrame(resolve)), signal);
         }
         paint();
         return { width, height, samples: total, seconds: (performance.now() - started) / 1000, ...snapshot.stats };
@@ -125,6 +126,7 @@ export async function renderTrace({ canvas, edge = 1536, samples = 256, bounces 
             for (const [key, uniform] of Object.entries(tracer.material.uniforms)) {
                 if (!['backgroundMap', 'sobolTexture', 'textures', 'iesProfiles'].includes(key)) uniform.value?.dispose?.();
             }
+            tracer.material.lights.tex.dispose();
             tracer.material.dispose(); tracer._blendQuad.material.dispose(); tracer.dispose();
         }
         arrays?.fsQuad.material.dispose(); arrays?.dispose(); ies?.fsQuad.material.dispose(); ies?.dispose();

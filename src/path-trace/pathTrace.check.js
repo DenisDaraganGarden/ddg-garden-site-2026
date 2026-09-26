@@ -45,3 +45,23 @@ const plain = new THREE.Scene(); plain.add(new THREE.Mesh(new THREE.PlaneGeometr
 const shot = await snapshotScene({ scene: plain, camera: new THREE.PerspectiveCamera(), gl: null });
 assert.equal(shot.stats.triangles, 2, 'a non-indexed single-material mesh is counted, not dereferenced'); shot.dispose();
 console.log('pathTrace: single sun, fixtures/profile, UV restoration, cards, non-indexed meshes, dimensions and renderer ownership passed');
+
+// One imported mesh can use several surface materials; each trace mesh must
+// keep exactly the triangles assigned to that surface, including draw ranges.
+const { splitDrawGroups, normalizeVertexColors } = await import('./snapshot.js');
+const plane = new THREE.PlaneGeometry(), red = new THREE.MeshStandardMaterial({ color: 'red' }), blue = new THREE.MeshStandardMaterial({ color: 'blue' });
+plane.clearGroups(); plane.addGroup(0, 3, 0); plane.addGroup(3, 3, 1);
+const pieces = splitDrawGroups(plane, [red, blue]);
+assert.equal(pieces.length, 2); assert.equal(pieces[0].material, red); assert.equal(pieces[1].material, blue);
+assert.deepEqual(pieces.map((p) => p.geometry.index.count), [3, 3]);
+plane.setDrawRange(3, 3); const clipped = splitDrawGroups(plane, [red, blue]);
+assert.equal(clipped.length, 1); assert.equal(clipped[0].material, blue);
+plane.setAttribute('color', new THREE.Float32BufferAttribute(new Float32Array(12).fill(.7), 3)); normalizeVertexColors(plane);
+assert.equal(plane.attributes.color.itemSize, 4); assert.equal(plane.attributes.color.getW(3), 1);
+const mirrored = new THREE.PlaneGeometry();
+posedPlantGeometry(mirrored, new THREE.Matrix4(), camera, { uniforms: { uGrow: { value: new THREE.Vector2(1, 1) } } }, -1);
+const points = [0, 1, 2].map((i) => new THREE.Vector3().fromBufferAttribute(mirrored.attributes.position, mirrored.index.getX(i)));
+const face = new THREE.Vector3().crossVectors(points[1].sub(points[0]), points[2].sub(points[0]));
+assert.ok(face.dot(new THREE.Vector3().fromBufferAttribute(mirrored.attributes.normal, 0)) > 0, 'mirrored cards keep normals facing their front side');
+[...pieces, ...clipped].forEach((p) => p.geometry.dispose()); plane.dispose(); mirrored.dispose(); red.dispose(); blue.dispose();
+console.log('pathTrace: multiple surfaces, draw range, RGBA vertex colors and mirrored leaf normals passed');
