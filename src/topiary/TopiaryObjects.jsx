@@ -5,6 +5,7 @@ import { usePlantAtlas } from '../plants/usePlantAtlas.js';
 import { makePlantMaterials, plantUniforms, updatePlantUniforms } from '../plants/plantMaterials.js';
 import { makeTopiaryCard, makeTopiaryCore, sampleTopiaryFoliage } from './topiaryGeometry.js';
 import { TOPIARY_LIMITS } from './settings.js';
+import TopiaryFence from './TopiaryFence.jsx';
 
 const ATLAS = Object.freeze({ color: '/textures/topiary/thuja-albedo.png', normal: '/textures/topiary/thuja-normal.png', surface: '/textures/topiary/thuja-surface.png', singleSided: true, normalScale: .22, alphaTest: .43 });
 const NO_RAYCAST = () => {};
@@ -92,18 +93,25 @@ function TopiaryObject({ object, atlas, capacity, selected, lowPower, envMapInte
     return <group ref={group} name={`topiary-${object.id}`} position={[object.x,object.baseY,object.z]} rotation={[0,THREE.MathUtils.degToRad(object.rotation),0]} scale={object.scale} userData={{ topiaryId: object.id }}>
         <mesh geometry={resources.core} material={resources.coreMat} castShadow receiveShadow />
         <instancedMesh key={resources.pool.count} ref={leaves} args={[resources.card,resources.materials.leaves,resources.pool.count]} customDepthMaterial={resources.materials.leafDepth} receiveShadow castShadow={false} raycast={NO_RAYCAST} />
+        {object.fenceStyle !== 'none' ? <TopiaryFence object={object} /> : null}
         {selected ? <lineSegments geometry={resources.outline} raycast={NO_RAYCAST}><lineBasicMaterial color="#d9ca8c" transparent opacity={.65} depthTest={false} /></lineSegments> : null}
+    </group>;
+}
+function FenceOnlyObject({ object }) {
+    return <group name={`topiary-${object.id}`} position={[object.x,object.baseY,object.z]} rotation={[0,THREE.MathUtils.degToRad(object.rotation),0]} scale={object.scale} userData={{ topiaryId: object.id }}>
+        <TopiaryFence object={object} />
     </group>;
 }
 function ReadyTopiaryObjects({ objects, selectedId, qualityProfile, envMapIntensity=1 }) {
     const atlas=usePlantAtlas(ATLAS);
     const capacity=Math.min(TOPIARY_LIMITS.cards,Math.floor(TOPIARY_LIMITS.totalCards/Math.max(1,objects.length)));
     if(!atlas)return null;
-    return <group name="topiary">{objects.map(object=><TopiaryObject key={object.id} object={object} atlas={atlas} capacity={capacity} selected={object.id===selectedId} lowPower={qualityProfile?.isLowPower} envMapIntensity={envMapIntensity} />)}</group>;
+    return <group name="topiary">{objects.map(object=>object.foliageVisible===false?<FenceOnlyObject key={object.id} object={object}/>:<TopiaryObject key={object.id} object={object} atlas={atlas} capacity={capacity} selected={object.id===selectedId} lowPower={qualityProfile?.isLowPower} envMapIntensity={envMapIntensity} />)}</group>;
 }
 
 export default function TopiaryObjects(props) {
     const [started,setStarted]=useState(false);
     useLayoutEffect(()=>{useLoader.preload(THREE.TextureLoader,[ATLAS.color,ATLAS.normal,ATLAS.surface]);setStarted(true);},[]);
+    if (!props.objects.some(object=>object.foliageVisible!==false)) return <group name="topiary">{props.objects.map(object=><FenceOnlyObject key={object.id} object={object}/>)}</group>;
     return started?<React.Suspense fallback={null}><ReadyTopiaryObjects {...props}/></React.Suspense>:null;
 }

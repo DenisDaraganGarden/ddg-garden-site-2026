@@ -1,5 +1,5 @@
 {
-  "collected": "2026-09-25T11:17:35.906Z",
+  "collected": "2026-09-26T00:37:32.165Z",
   "rows": [
     {
       "key": "cameraFov",
@@ -2845,6 +2845,33 @@
         "hedge-fcdbc7dc-e099-4262-bbb1-4bdde66e9732",
         "hedge-0e013aab-c97b-41a0-866b-b91070074ec2"
       ]
+    },
+    {
+      "key": "topiaryObjects[].fenceStyle",
+      "group": "greenery",
+      "node": "topiary",
+      "label": "Конструкция",
+      "kind": "список",
+      "options": [
+        "none",
+        "mesh-2d",
+        "mesh-358",
+        "palisade"
+      ]
+    },
+    {
+      "key": "topiaryObjects[].fenceSmooth",
+      "group": "greenery",
+      "node": "topiary",
+      "label": "Плавный сплайн",
+      "kind": "выключатель"
+    },
+    {
+      "key": "topiaryObjects[].foliageVisible",
+      "group": "greenery",
+      "node": "topiary",
+      "label": "Стриженая зелень",
+      "kind": "выключатель"
     },
     {
       "key": "topiaryObjects[].width",
