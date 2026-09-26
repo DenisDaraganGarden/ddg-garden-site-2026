@@ -1,0 +1,32 @@
+.fence-workspace { font-size: 12px; }
+.fence-selection { display: block; color: var(--focus-muted, #999); padding: 6px 0 10px; font-size: 11px; }
+.fence-number { display: grid; grid-template-columns: minmax(0, 1fr) 88px 24px; align-items: center; gap: 8px; min-height: 30px; }
+.fence-number input { width: 100%; box-sizing: border-box; border: 0; border-radius: 3px; background: var(--focus-input, #0d0d0d); color: inherit; font: inherit; text-align: right; padding: 4px 6px; }
+.fence-number small { opacity: .55; font-size: 10px; }
+.fence-number input:focus-visible { outline: 1px solid #a6a39c; }
+.fence-snap { display: flex; gap: 16px; padding: 8px 0; }
+.fence-snap label { display: flex; align-items: center; gap: 5px; }
+.fence-path { margin: 8px 0 16px; }
+.fence-path > button { display: block; background: transparent; color: inherit; border: 0; font: inherit; padding: 7px 8px; width: 100%; text-align: left; cursor: pointer; }
+.fence-path > button.is-active { color: #ece8de; font-weight: 600; }
+.fence-path > .fence-segment { display: grid; grid-template-columns: 20px minmax(0, 1fr) auto; gap: 8px; border-radius: 3px; font-size: 11px; }
+.fence-segment[aria-pressed=true] { background: #30302e; }
+.fence-segment small { color: #aaa; font-variant-numeric: tabular-nums; }
+.fence-materials { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; margin: 10px 0; }
+.fence-materials button { min-width: 0; padding: 4px; border: 0; border-radius: 3px; color: inherit; background: transparent; font: inherit; text-align: left; cursor: pointer; }
+.fence-materials button[aria-pressed=true] { background: #393935; }
+.fence-materials img, .fence-materials__base { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 2px; background: #77756e; }
+.fence-materials button span:last-child { display: block; margin-top: 4px; overflow-wrap: anywhere; font-size: 10px; }
+.fence-totals { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 12px; font-size: 12px; }
+.fence-totals dt, .fence-totals dd { margin: 0; }
+.fence-totals dd { text-align: right; font-variant-numeric: tabular-nums; }
+.fence-schedule table { width: 100%; font-size: 10px; border-collapse: collapse; }
+.fence-schedule td, .fence-schedule th { padding: 5px 3px; text-align: left; border-bottom: 1px solid #8883; }
+.fence-schedule small { display: block; opacity: .7; }
+.report .fence-schedule small { color: #474d4a; opacity: 1; }
+.fence-schedule details { margin: 12px 0; }
+.fence-schedule summary { cursor: pointer; }
+.fence-note { opacity: .65; font-size: 11px; line-height: 1.5; }
+
+.fence-standards { margin: 16px 0; font-size: 11px; }
+.fence-standards a { display: block; margin: 8px 0; color: inherit; }

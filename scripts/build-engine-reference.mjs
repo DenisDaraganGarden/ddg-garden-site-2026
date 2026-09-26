@@ -13,7 +13,6 @@ import { createRequire } from 'node:module';
 // Запуск: npm run build:reference. Окно на минуту появится на экране —
 // честного headless у Electron нет.
 const require = createRequire(import.meta.url);
-const electron = require('electron');
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
 const OUT_MD = path.join(ROOT, 'docs', 'engine-parameters.md');
 const OUT_JSON = path.join(ROOT, 'docs', 'engine-parameters.json');
@@ -25,6 +24,7 @@ let raw;
 if (catalogInput) {
   raw = await fs.readFile(path.resolve(catalogInput), 'utf8');
 } else {
+  const electron = require('electron');
   const collected = path.join(await fs.mkdtemp(path.join(os.tmpdir(), 'ddg-reference-')), 'catalog.json');
 
   const child = spawn(electron, ['electron/main.js'], {
@@ -75,7 +75,8 @@ for (const row of catalog.rows) {
 
 const cell = (row) => {
   if (row.kind === 'число') {
-    const span = row.min === undefined ? '' : `${row.min} … ${row.max}`;
+    const span = row.min === undefined ? (row.max === undefined ? '' : `≤ ${row.max}`)
+      : row.max === undefined ? `≥ ${row.min}` : `${row.min} … ${row.max}`;
     return [span, row.step === undefined ? '' : `шаг ${row.step}`, row.unit ?? ''].filter(Boolean).join(', ');
   }
   if (row.kind === 'список') return (row.options ?? []).join(' · ');

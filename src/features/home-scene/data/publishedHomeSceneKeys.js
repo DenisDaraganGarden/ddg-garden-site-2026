@@ -1,4 +1,5 @@
 import { DEFAULT_TOPIARY_SETTINGS } from '../../../topiary/settings.js';
+import { DEFAULT_FENCE_SETTINGS } from '../../../fences/settings.js';
 import { DEFAULT_PLACED_SETTINGS } from '../../../placed/settings.js';
 import { DEFAULT_PLANTING_SETTINGS } from '../../../planting/settings.js';
 import { DEFAULT_ANNOTATION_SETTINGS } from '../../../annotations/settings.js';
@@ -15,6 +16,7 @@ import { SEA_SETTINGS_DEFAULTS } from '../../../components/effects/water/seaSett
 import { DEFAULT_PAINTERLY_CLOUD_SETTINGS } from '../lib/painterlyCloudSettings.js';
 const keys = [
   ...Object.keys(DEFAULT_TOPIARY_SETTINGS),
+  ...Object.keys(DEFAULT_FENCE_SETTINGS),
   ...Object.keys(DEFAULT_PLACED_SETTINGS),
   ...Object.keys(DEFAULT_PLANTING_SETTINGS),
   ...Object.keys(DEFAULT_ANNOTATION_SETTINGS),

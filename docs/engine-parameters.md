@@ -8,7 +8,7 @@
 единицы взяты из его каталога контролов, поэтому параметр не может появиться в
 редакторе и не появиться здесь. Руками не править.
 
-Снято: 2026-09-26 · параметров: 804 · разделов: 49
+Снято: 2026-09-26 · параметров: 845 · разделов: 50
 
 Как этим пользоваться агенту: читать и писать `~/Ouroboros/projects/<id>.json`, поле
 `settings` — плоский объект с этими ключами. `topiaryObjects` — массив форм;
@@ -787,6 +787,51 @@
 | `boatVisible` | Лодка | выключатель | да / нет | true |
 | `boatYaw` | Поворот лодки | число | -180 … 180, шаг 1, ° | 18 |
 
+## objects/fences
+
+| Ключ | Что это | Вид | Пределы | Заводское |
+|---|---|---|---|---|
+| `fenceObjects` | Линии ограждений | список |  |  |
+| `fenceObjects[].segments[].style.alignment` | Положение к оси | список | axis · inside · outside |  |
+| `fenceObjects[].segments[].style.capHeight` | Крышка · высота | число | ≥ 0, шаг 0.001, m |  |
+| `fenceObjects[].segments[].style.capMaterial` | Материал · Крышки | список |  |  |
+| `fenceObjects[].segments[].style.capOverhang` | Крышка · свес | число | ≥ 0, шаг 0.001, m |  |
+| `fenceObjects[].segments[].style.caps` | Крышки столбов | выключатель | да / нет |  |
+| `fenceObjects[].segments[].style.cellHeight` | Ячейка · высота | число | ≥ 0.0001, шаг 0.001, m |  |
+| `fenceObjects[].segments[].style.cellWidth` | Ячейка · ширина | число | ≥ 0.0001, шаг 0.001, m |  |
+| `fenceObjects[].segments[].style.clearance` | Просвет снизу | число | ≥ 0, шаг 0.01, m |  |
+| `fenceObjects[].segments[].style.grade` | Рельеф | список | slope · step · level |  |
+| `fenceObjects[].segments[].style.height` | Высота | число | ≥ 0.0001, шаг 0.01, m |  |
+| `fenceObjects[].segments[].style.memberDepth` | Планка · толщина | число | ≥ 0.0001, шаг 0.001, m |  |
+| `fenceObjects[].segments[].style.memberGap` | Зазор между планками | число | ≥ 0, шаг 0.001, m |  |
+| `fenceObjects[].segments[].style.memberWall` | Стенка профиля планки | число | ≥ 0, шаг 0.001, m |  |
+| `fenceObjects[].segments[].style.memberWidth` | Планка · ширина | число | ≥ 0.0001, шаг 0.001, m |  |
+| `fenceObjects[].segments[].style.offset` | Доп. смещение | число | шаг 0.01, m |  |
+| `fenceObjects[].segments[].style.panelMaterial` | Материал · Заполнение | список |  |  |
+| `fenceObjects[].segments[].style.postDepth` | Столб · глубина | число | ≥ 0.0001, шаг 0.001, m |  |
+| `fenceObjects[].segments[].style.postEnabled` | Столбы | выключатель | да / нет |  |
+| `fenceObjects[].segments[].style.postExtra` | Столб выше заполнения | число | ≥ 0, шаг 0.01, m |  |
+| `fenceObjects[].segments[].style.postKind` | Материал конструкции столба | список | metal · timber · concrete · brick |  |
+| `fenceObjects[].segments[].style.postMaterial` | Материал · Столбы | список |  |  |
+| `fenceObjects[].segments[].style.postWall` | Стенка профиля столба | число | ≥ 0, шаг 0.001, m |  |
+| `fenceObjects[].segments[].style.postWidth` | Столб · ширина | число | ≥ 0.0001, шаг 0.001, m |  |
+| `fenceObjects[].segments[].style.railCount` | Лаг на секцию | число | ≥ 0, шаг 1 |  |
+| `fenceObjects[].segments[].style.railDepth` | Лага · толщина | число | ≥ 0.0001, шаг 0.001, m |  |
+| `fenceObjects[].segments[].style.railMaterial` | Материал · Лаги | список |  |  |
+| `fenceObjects[].segments[].style.railWall` | Стенка профиля лаги | число | ≥ 0, шаг 0.001, m |  |
+| `fenceObjects[].segments[].style.railWidth` | Лага · высота | число | ≥ 0.0001, шаг 0.001, m |  |
+| `fenceObjects[].segments[].style.spacing` | Макс. шаг столбов | число | ≥ 0.0001, шаг 0.01, m |  |
+| `fenceObjects[].segments[].style.thickness` | Толщина стены | число | ≥ 0.0001, шаг 0.01, m |  |
+| `fenceObjects[].segments[].style.tile` | Масштаб материала | число | ≥ 0.0001, шаг 0.01, m |  |
+| `fenceObjects[].segments[].style.type` | Конструкция | список | mesh · timber · boards · metal · concrete · brick · posts |  |
+| `fenceObjects[].segments[].style.up` | Направление высоты | список | vertical · normal |  |
+| `fenceObjects[].segments[].style.wire` | Проволока | число | ≥ 0.0001, шаг 0.001, m |  |
+| `fencesEnabled` | Ограждения | выключатель | да / нет | true |
+| `длина-следующего-участка` | Длина следующего участка | число | ≥ 0, шаг 0.01, m |  |
+| `плоскость-построения-y` | Плоскость построения Y | число | шаг 0.01, m |  |
+| `сечение-планки-мм` | Сечение планки, мм | список |  · tube-40-20 · board-100-25 · board-150-25 · board-100-50 |  |
+| `типовое-сечение-мм` | Типовое сечение, мм | список |  · steel-60-40 · steel-60-60 · steel-80-80 · steel-100-100 · wood-100 · wood-150 |  |
+
 ## objects/fire
 
 | Ключ | Что это | Вид | Пределы | Заводское |
@@ -1040,6 +1085,7 @@
 | `annotationsEnabled` | Отметки уровня | выключатель | да / нет | true |
 | `boatVisible` | Лодка | выключатель | да / нет | true |
 | `farWaterVisible` | Дальняя вода | выключатель | да / нет | true |
+| `fencesEnabled` | Ограждения | выключатель | да / нет | true |
 | `fireEnabled` | Огонь | выключатель | да / нет | false |
 | `fishEnabled` | Рыбы | выключатель | да / нет | true |
 | `grassEnabled` | Травы | выключатель | да / нет | true |

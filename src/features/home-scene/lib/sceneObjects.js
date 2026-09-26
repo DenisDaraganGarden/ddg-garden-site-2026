@@ -48,6 +48,7 @@ export const SCENE_OBJECTS = Object.freeze([
   // Цветники и одиночные растения из библиотеки растений (src/planting).
   { id: 'planting', key: 'plantingEnabled', node: 'greenery/planting', group: 'greenery', roots: ['planting'] },
   { id: 'topiary', key: 'topiaryEnabled', node: 'greenery/topiary', group: 'greenery', roots: ['topiary'] },
+  { id: 'fences', key: 'fencesEnabled', node: 'objects/fences', group: 'objects', roots: ['fences'] },
   { id: 'shrubs', key: 'shrubsEnabled', node: 'greenery/shrubs', group: 'greenery', roots: ['coastal-oleaster'] },
   { id: 'trees', key: 'treesEnabled', node: 'greenery/trees', group: 'greenery', roots: ['coastal-trees'] },
   { id: 'grass', key: 'grassEnabled', node: 'greenery/grass', group: 'greenery', roots: ['coastal-grass'] },
@@ -170,6 +171,8 @@ const matchRoot = (name) => SCENE_OBJECTS.find((object) => object.roots?.include
 // него же отдаётся сам объект, в который попал луч, — по нему редактор
 // находит компонент модели.
 export const sceneHitForObject3D = (object, hit = null) => {
+  const fence = object.userData?.fenceParts?.[hit?.instanceId] ?? object.userData?.fenceFaces?.[hit?.faceIndex];
+  if (fence) return { node: 'objects/fences', root: `fence-${fence.fenceId}`, ...fence };
   if (object.userData?.annotationMark) return { node: 'annotations/levels', root: object.name, annotationMark: object.userData.annotationMark };
   // Лист лианы — экземпляр в пачке вида: чья он, говорит его номер.
   if (object.userData?.plantingVines && hit?.instanceId !== undefined) {
@@ -188,6 +191,7 @@ export const sceneHitForObject3D = (object, hit = null) => {
     if (node.userData?.placedId) return { node: 'objects/placed', root: `placed-${node.userData.placedId}`, placedId: node.userData.placedId, object, faceIndex: hit?.faceIndex };
   }
   for (let node = object; node; node = node.parent) {
+    if (node.userData?.fenceId) return { node: 'objects/fences', root: node.name, fenceId: node.userData.fenceId };
     if (node.userData?.topiaryId) return { node: 'greenery/topiary', root: node.name, topiaryId: node.userData.topiaryId };
     if (node.userData?.plantingBed) return { node: 'greenery/planting', root: node.name, plantingBed: node.userData.plantingBed };
     const match = node.name ? matchRoot(node.name) : null;

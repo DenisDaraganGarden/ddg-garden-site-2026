@@ -1,5 +1,6 @@
 import { isEditorNodeHidden } from './hiddenNodes.js';
 import {TopiarySection} from './sections/topiary';
+import { FencesSection } from './sections/fences';
 import { PlantingSection } from './sections/planting';
 import {PlacedSection} from './sections/placed';
 import {ShrubsSection} from './sections/shrubs';
@@ -105,6 +106,7 @@ export const EDITOR_TREE = [
     {
         id: 'objects',
         nodes: [
+            { id: 'fences', workspace: true, aspects: [{ id: 'fences', Section: FencesSection }] },
             { id: 'tanker', aspects: [{ id: 'transform', Section: TankerSection }] },
             { id: 'fire', aspects: [{ id: 'fire', Section: FireSection }] },
             { id: 'boat', aspects: [{ id: 'transform', Section: BoatSection }] },

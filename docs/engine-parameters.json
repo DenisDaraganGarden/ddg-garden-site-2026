@@ -1,6 +1,32 @@
 {
-  "collected": "2026-09-26T15:33:47.587Z",
+  "collected": "2026-09-26T22:04:58.814Z",
   "rows": [
+    {
+      "key": "fencesEnabled",
+      "group": "objects",
+      "node": "fences",
+      "label": "Ограждения",
+      "kind": "выключатель"
+    },
+    {
+      "key": "длина-следующего-участка",
+      "group": "objects",
+      "node": "fences",
+      "label": "Длина следующего участка",
+      "kind": "число",
+      "min": 0,
+      "step": 0.01,
+      "unit": "m"
+    },
+    {
+      "key": "плоскость-построения-y",
+      "group": "objects",
+      "node": "fences",
+      "label": "Плоскость построения Y",
+      "kind": "число",
+      "step": 0.01,
+      "unit": "m"
+    },
     {
       "key": "cameraFov",
       "group": "cameras",
@@ -11,6 +37,905 @@
       "max": 100,
       "step": 0.1,
       "unit": "°"
+    },
+    {
+      "key": "frameInset",
+      "group": "cameras",
+      "node": "camera",
+      "label": "Рамка",
+      "kind": "число",
+      "min": 0,
+      "max": 32,
+      "step": 0.5,
+      "unit": "%"
+    },
+    {
+      "key": "slideshowEnabled",
+      "group": "cameras",
+      "node": "camera",
+      "label": "Смена",
+      "kind": "выключатель"
+    },
+    {
+      "key": "slideshowFade",
+      "group": "cameras",
+      "node": "camera",
+      "label": "Затухание",
+      "kind": "число",
+      "min": 0,
+      "max": 30,
+      "step": 0.1,
+      "unit": "с"
+    },
+    {
+      "key": "surroundingsEnabled",
+      "group": "landscape",
+      "node": "surroundings",
+      "label": "Окружение",
+      "kind": "выключатель"
+    },
+    {
+      "key": "surroundingsRadius",
+      "group": "landscape",
+      "node": "surroundings",
+      "label": "Радиус карты",
+      "kind": "число",
+      "min": 100,
+      "max": 1500,
+      "step": 10,
+      "unit": "m"
+    },
+    {
+      "key": "surroundingsBuildings",
+      "group": "landscape",
+      "node": "surroundings",
+      "label": "Здания",
+      "kind": "выключатель"
+    },
+    {
+      "key": "surroundingsTrees",
+      "group": "landscape",
+      "node": "surroundings",
+      "label": "Деревья и лес",
+      "kind": "выключатель"
+    },
+    {
+      "key": "surroundingsFences",
+      "group": "landscape",
+      "node": "surroundings",
+      "label": "Заборы и изгороди",
+      "kind": "выключатель"
+    },
+    {
+      "key": "surroundingsRelief",
+      "group": "landscape",
+      "node": "surroundings",
+      "label": "Рельеф",
+      "kind": "число",
+      "min": 0,
+      "max": 2,
+      "step": 0.05
+    },
+    {
+      "key": "northAngle",
+      "group": "landscape",
+      "node": "surroundings",
+      "label": "Север",
+      "kind": "число",
+      "min": -180,
+      "max": 180,
+      "step": 0.5,
+      "unit": "°"
+    },
+    {
+      "key": "surroundingsOffsetX",
+      "group": "landscape",
+      "node": "surroundings",
+      "label": "Сдвиг X",
+      "kind": "число",
+      "min": -300,
+      "max": 300,
+      "step": 0.1,
+      "unit": "m"
+    },
+    {
+      "key": "surroundingsOffsetZ",
+      "group": "landscape",
+      "node": "surroundings",
+      "label": "Сдвиг Z",
+      "kind": "число",
+      "min": -300,
+      "max": 300,
+      "step": 0.1,
+      "unit": "m"
+    },
+    {
+      "key": "surroundingsClear",
+      "group": "landscape",
+      "node": "surroundings",
+      "label": "Круг участка",
+      "kind": "число",
+      "min": 0,
+      "max": 150,
+      "step": 1,
+      "unit": "m"
+    },
+    {
+      "key": "surroundingsBuildingColor",
+      "group": "landscape",
+      "node": "surroundings",
+      "label": "Дома",
+      "kind": "цвет"
+    },
+    {
+      "key": "surroundingsGroundColor",
+      "group": "landscape",
+      "node": "surroundings",
+      "label": "Земля",
+      "kind": "цвет"
+    },
+    {
+      "key": "surroundingsRoadColor",
+      "group": "landscape",
+      "node": "surroundings",
+      "label": "Дороги",
+      "kind": "цвет"
+    },
+    {
+      "key": "surroundingsGreenColor",
+      "group": "landscape",
+      "node": "surroundings",
+      "label": "Зелень",
+      "kind": "цвет"
+    },
+    {
+      "key": "surroundingsWaterColor",
+      "group": "landscape",
+      "node": "surroundings",
+      "label": "Вода",
+      "kind": "цвет"
+    },
+    {
+      "key": "terrainEnabled",
+      "group": "landscape",
+      "node": "terrain",
+      "label": "Суша",
+      "kind": "выключатель"
+    },
+    {
+      "key": "terrainBearing",
+      "group": "landscape",
+      "node": "terrain",
+      "label": "Направление суши от севера",
+      "kind": "число",
+      "min": 0,
+      "max": 360,
+      "step": 1,
+      "unit": "°"
+    },
+    {
+      "key": "terrainOffset",
+      "group": "landscape",
+      "node": "terrain",
+      "label": "Смещение берега",
+      "kind": "число",
+      "min": -200,
+      "max": 200,
+      "step": 0.5,
+      "unit": " m"
+    },
+    {
+      "key": "terrainLength",
+      "group": "landscape",
+      "node": "terrain",
+      "label": "Длина побережья",
+      "kind": "число",
+      "min": 128,
+      "max": 4096,
+      "step": 64,
+      "unit": " m"
+    },
+    {
+      "key": "terrainLandWidth",
+      "group": "landscape",
+      "node": "terrain",
+      "label": "Глубина суши",
+      "kind": "число",
+      "min": 80,
+      "max": 800,
+      "step": 10,
+      "unit": " m"
+    },
+    {
+      "key": "terrainCurve",
+      "group": "landscape",
+      "node": "terrain",
+      "label": "Изгибы берега",
+      "kind": "число",
+      "min": 0,
+      "max": 45,
+      "step": 0.5,
+      "unit": " m"
+    },
+    {
+      "key": "terrainSeed",
+      "group": "landscape",
+      "node": "terrain",
+      "label": "Вариант рельефа",
+      "kind": "число",
+      "min": 1,
+      "max": 9999,
+      "step": 1
+    },
+    {
+      "key": "terrainBeachWidth",
+      "group": "landscape",
+      "node": "terrain",
+      "label": "Ширина пляжа",
+      "kind": "число",
+      "min": 4,
+      "max": 60,
+      "step": 0.5,
+      "unit": " m"
+    },
+    {
+      "key": "terrainCliffHeight",
+      "group": "landscape",
+      "node": "terrain",
+      "label": "Высота обрыва",
+      "kind": "число",
+      "min": 0,
+      "max": 22,
+      "step": 0.1,
+      "unit": " m"
+    },
+    {
+      "key": "terrainCliffSlope",
+      "group": "landscape",
+      "node": "terrain",
+      "label": "Ширина склона",
+      "kind": "число",
+      "min": 2,
+      "max": 24,
+      "step": 0.5,
+      "unit": " m"
+    },
+    {
+      "key": "terrainCapeDepth",
+      "group": "landscape",
+      "node": "terrain",
+      "label": "Выступ мыса",
+      "kind": "число",
+      "min": 0,
+      "max": 90,
+      "step": 1,
+      "unit": " m"
+    },
+    {
+      "key": "terrainCapePosition",
+      "group": "landscape",
+      "node": "terrain",
+      "label": "Положение мыса вдоль берега",
+      "kind": "число",
+      "min": -1200,
+      "max": 1200,
+      "step": 5,
+      "unit": " m"
+    },
+    {
+      "key": "terrainCapeWidth",
+      "group": "landscape",
+      "node": "terrain",
+      "label": "Ширина мыса",
+      "kind": "число",
+      "min": 30,
+      "max": 300,
+      "step": 5,
+      "unit": " m"
+    },
+    {
+      "key": "terrainSpitEnabled",
+      "group": "landscape",
+      "node": "terrain",
+      "label": "Коса",
+      "kind": "выключатель"
+    },
+    {
+      "key": "terrainSpitPosition",
+      "group": "landscape",
+      "node": "terrain",
+      "label": "Положение вдоль берега",
+      "kind": "число",
+      "min": -1600,
+      "max": 1600,
+      "step": 5,
+      "unit": " m"
+    },
+    {
+      "key": "terrainSpitLength",
+      "group": "landscape",
+      "node": "terrain",
+      "label": "Длина косы",
+      "kind": "число",
+      "min": 40,
+      "max": 800,
+      "step": 5,
+      "unit": " m"
+    },
+    {
+      "key": "terrainSpitWidth",
+      "group": "landscape",
+      "node": "terrain",
+      "label": "Ширина косы",
+      "kind": "число",
+      "min": 6,
+      "max": 80,
+      "step": 1,
+      "unit": " m"
+    },
+    {
+      "key": "terrainSpitHeight",
+      "group": "landscape",
+      "node": "terrain",
+      "label": "Высота гребня",
+      "kind": "число",
+      "min": 0.15,
+      "max": 2.5,
+      "step": 0.05,
+      "unit": " m"
+    },
+    {
+      "key": "terrainSpitBend",
+      "group": "landscape",
+      "node": "terrain",
+      "label": "Загиб оконечности",
+      "kind": "число",
+      "min": -1.3,
+      "max": 1.3,
+      "step": 0.05
+    },
+    {
+      "key": "terrainSpitShoal",
+      "group": "landscape",
+      "node": "terrain",
+      "label": "Подводная отмель",
+      "kind": "число",
+      "min": 8,
+      "max": 160,
+      "step": 2,
+      "unit": " m"
+    },
+    {
+      "key": "terrainFeatureScale",
+      "group": "landscape",
+      "node": "terrain",
+      "label": "Масштаб участков",
+      "kind": "число",
+      "min": 24,
+      "max": 160,
+      "step": 1,
+      "unit": " m"
+    },
+    {
+      "key": "terrainLandslides",
+      "group": "landscape",
+      "node": "terrain",
+      "label": "Оползни и обвалы",
+      "kind": "число",
+      "min": 0,
+      "max": 1,
+      "step": 0.01
+    },
+    {
+      "key": "terrainErosion",
+      "group": "landscape",
+      "node": "terrain",
+      "label": "Промоины и расщелины",
+      "kind": "число",
+      "min": 0,
+      "max": 1,
+      "step": 0.01
+    },
+    {
+      "key": "terrainPaths",
+      "group": "landscape",
+      "node": "terrain",
+      "label": "Частота спусков",
+      "kind": "число",
+      "min": 0,
+      "max": 1,
+      "step": 0.01
+    },
+    {
+      "key": "terrainPathWidth",
+      "group": "landscape",
+      "node": "terrain",
+      "label": "Ширина тропы",
+      "kind": "число",
+      "min": 0.6,
+      "max": 4,
+      "step": 0.1,
+      "unit": " m"
+    },
+    {
+      "key": "terrainShells",
+      "group": "landscape",
+      "node": "terrain",
+      "label": "Ракушечник",
+      "kind": "число",
+      "min": 0,
+      "max": 1,
+      "step": 0.01
+    },
+    {
+      "key": "terrainLooseSand",
+      "group": "landscape",
+      "node": "terrain",
+      "label": "Рыхлый песок",
+      "kind": "число",
+      "min": 0,
+      "max": 1,
+      "step": 0.01
+    },
+    {
+      "key": "terrainTextureScale",
+      "group": "landscape",
+      "node": "terrain",
+      "label": "Масштаб фактуры",
+      "kind": "число",
+      "min": 0.4,
+      "max": 3,
+      "step": 0.05
+    },
+    {
+      "key": "terrainRelief",
+      "group": "landscape",
+      "node": "terrain",
+      "label": "Рельеф поверхности",
+      "kind": "число",
+      "min": 0,
+      "max": 1.5,
+      "step": 0.01
+    },
+    {
+      "key": "terrainParallax",
+      "group": "landscape",
+      "node": "terrain",
+      "label": "Параллакс",
+      "kind": "число",
+      "min": 0,
+      "max": 1,
+      "step": 0.01
+    },
+    {
+      "key": "terrainGroundCover",
+      "group": "landscape",
+      "node": "terrain",
+      "label": "Растительный покров грунта",
+      "kind": "число",
+      "min": 0,
+      "max": 1,
+      "step": 0.01
+    },
+    {
+      "key": "terrainSoil",
+      "group": "landscape",
+      "node": "terrain",
+      "label": "Почвенный слой",
+      "kind": "число",
+      "min": 0,
+      "max": 1,
+      "step": 0.01
+    },
+    {
+      "key": "terrainWeathering",
+      "group": "landscape",
+      "node": "terrain",
+      "label": "Выветривание",
+      "kind": "число",
+      "min": 0,
+      "max": 1,
+      "step": 0.01
+    },
+    {
+      "key": "terrainTalus",
+      "group": "landscape",
+      "node": "terrain",
+      "label": "Осыпь и языки грунта",
+      "kind": "число",
+      "min": 0,
+      "max": 1,
+      "step": 0.01
+    },
+    {
+      "key": "terrainStrata",
+      "group": "landscape",
+      "node": "terrain",
+      "label": "Пласты и потёки",
+      "kind": "число",
+      "min": 0,
+      "max": 1,
+      "step": 0.01
+    },
+    {
+      "key": "terrainRimWidth",
+      "group": "landscape",
+      "node": "terrain",
+      "label": "Ширина дёрна бровки",
+      "kind": "число",
+      "min": 0,
+      "max": 30,
+      "step": 0.5,
+      "unit": " m"
+    },
+    {
+      "key": "terrainRimColor",
+      "group": "landscape",
+      "node": "terrain",
+      "label": "Цвет дёрна бровки",
+      "kind": "цвет"
+    },
+    {
+      "key": "terrainOasis",
+      "group": "landscape",
+      "node": "terrain",
+      "label": "Сила островков",
+      "kind": "число",
+      "min": 0,
+      "max": 1,
+      "step": 0.01
+    },
+    {
+      "key": "terrainOasisColor",
+      "group": "landscape",
+      "node": "terrain",
+      "label": "Цвет островков",
+      "kind": "цвет"
+    },
+    {
+      "key": "terrainSaturation",
+      "group": "landscape",
+      "node": "terrain",
+      "label": "Насыщенность",
+      "kind": "число",
+      "min": 0,
+      "max": 2,
+      "step": 0.05,
+      "unit": "×"
+    },
+    {
+      "key": "terrainContrast",
+      "group": "landscape",
+      "node": "terrain",
+      "label": "Контраст",
+      "kind": "число",
+      "min": 0.5,
+      "max": 1.6,
+      "step": 0.05,
+      "unit": "×"
+    },
+    {
+      "key": "terrainBrightness",
+      "group": "landscape",
+      "node": "terrain",
+      "label": "Яркость",
+      "kind": "число",
+      "min": 0.5,
+      "max": 1.6,
+      "step": 0.05,
+      "unit": "×"
+    },
+    {
+      "key": "terrainGreen",
+      "group": "landscape",
+      "node": "terrain",
+      "label": "Зелень покрова",
+      "kind": "число",
+      "min": 0,
+      "max": 2,
+      "step": 0.05,
+      "unit": "×"
+    },
+    {
+      "key": "terrainDry",
+      "group": "landscape",
+      "node": "terrain",
+      "label": "Жухлость покрова",
+      "kind": "число",
+      "min": 0,
+      "max": 2,
+      "step": 0.05,
+      "unit": "×"
+    },
+    {
+      "key": "terrainWaveHeight",
+      "group": "landscape",
+      "node": "terrain",
+      "label": "Высота прибрежной волны",
+      "kind": "число",
+      "min": 0,
+      "max": 0.3,
+      "step": 0.01,
+      "unit": " m"
+    },
+    {
+      "key": "terrainWavePeriod",
+      "group": "landscape",
+      "node": "terrain",
+      "label": "Период волны",
+      "kind": "число",
+      "min": 3,
+      "max": 12,
+      "step": 0.1,
+      "unit": " s"
+    },
+    {
+      "key": "terrainFoam",
+      "group": "landscape",
+      "node": "terrain",
+      "label": "Пена прибоя",
+      "kind": "число",
+      "min": 0,
+      "max": 1.5,
+      "step": 0.01
+    },
+    {
+      "key": "terrainWetBand",
+      "group": "landscape",
+      "node": "terrain",
+      "label": "Влажная кромка",
+      "kind": "число",
+      "min": 0.5,
+      "max": 6,
+      "step": 0.1,
+      "unit": " m"
+    },
+    {
+      "key": "terrainWrack",
+      "group": "landscape",
+      "node": "terrain",
+      "label": "Выброшенная тина",
+      "kind": "число",
+      "min": 0,
+      "max": 1,
+      "step": 0.01
+    },
+    {
+      "key": "terrainBloom",
+      "group": "landscape",
+      "node": "terrain",
+      "label": "Цветение воды",
+      "kind": "число",
+      "min": 0,
+      "max": 1,
+      "step": 0.01
+    },
+    {
+      "key": "terrainRocksEnabled",
+      "group": "landscape",
+      "node": "rocks",
+      "label": "Камни",
+      "kind": "выключатель"
+    },
+    {
+      "key": "terrainRocks",
+      "group": "landscape",
+      "node": "rocks",
+      "label": "Валуны · плотность",
+      "kind": "число",
+      "min": 0,
+      "max": 1,
+      "step": 0.01
+    },
+    {
+      "key": "terrainRockSize",
+      "group": "landscape",
+      "node": "rocks",
+      "label": "Валуны · размер",
+      "kind": "число",
+      "min": 0.4,
+      "max": 2.5,
+      "step": 0.05,
+      "unit": "×"
+    },
+    {
+      "key": "terrainDebris",
+      "group": "landscape",
+      "node": "rocks",
+      "label": "Осыпь · плотность",
+      "kind": "число",
+      "min": 0,
+      "max": 1,
+      "step": 0.01
+    },
+    {
+      "key": "terrainPebblesEnabled",
+      "group": "landscape",
+      "node": "pebbles",
+      "label": "Галька",
+      "kind": "выключатель"
+    },
+    {
+      "key": "terrainPebbles",
+      "group": "landscape",
+      "node": "pebbles",
+      "label": "Плотность",
+      "kind": "число",
+      "min": 0,
+      "max": 1,
+      "step": 0.01
+    },
+    {
+      "key": "terrainPebbleSize",
+      "group": "landscape",
+      "node": "pebbles",
+      "label": "Размер",
+      "kind": "число",
+      "min": 0.5,
+      "max": 2,
+      "step": 0.05,
+      "unit": "×"
+    },
+    {
+      "key": "shoreEnabled",
+      "group": "landscape",
+      "node": "shore",
+      "label": "Береговые находки",
+      "kind": "выключатель"
+    },
+    {
+      "key": "shoreCount",
+      "group": "landscape",
+      "node": "shore",
+      "label": "Коряг",
+      "kind": "число",
+      "min": 0,
+      "max": 160,
+      "step": 1
+    },
+    {
+      "key": "shoreLength",
+      "group": "landscape",
+      "node": "shore",
+      "label": "Вдоль берега",
+      "kind": "число",
+      "min": 60,
+      "max": 4000,
+      "step": 10,
+      "unit": " m"
+    },
+    {
+      "key": "shoreAlong",
+      "group": "landscape",
+      "node": "shore",
+      "label": "Смещение вдоль берега",
+      "kind": "число",
+      "min": -2000,
+      "max": 2000,
+      "step": 5,
+      "unit": " m"
+    },
+    {
+      "key": "shoreSeed",
+      "group": "landscape",
+      "node": "shore",
+      "label": "Вариант",
+      "kind": "число",
+      "min": 1,
+      "max": 999,
+      "step": 1
+    },
+    {
+      "key": "shoreSize",
+      "group": "landscape",
+      "node": "shore",
+      "label": "Размер",
+      "kind": "число",
+      "min": 0.5,
+      "max": 1.7,
+      "step": 0.05,
+      "unit": "×"
+    },
+    {
+      "key": "shoreBackBeach",
+      "group": "landscape",
+      "node": "shore",
+      "label": "Тыл пляжа",
+      "kind": "число",
+      "min": 0,
+      "max": 1,
+      "step": 0.01
+    },
+    {
+      "key": "shoreLogs",
+      "group": "landscape",
+      "node": "shore",
+      "label": "Стволы и корневища",
+      "kind": "число",
+      "min": 0,
+      "max": 1,
+      "step": 0.01
+    },
+    {
+      "key": "shoreStakes",
+      "group": "landscape",
+      "node": "shore",
+      "label": "Из песка",
+      "kind": "число",
+      "min": 0,
+      "max": 1,
+      "step": 0.01
+    },
+    {
+      "key": "shoreRings",
+      "group": "landscape",
+      "node": "shore",
+      "label": "Каменные круги",
+      "kind": "число",
+      "min": 0,
+      "max": 8,
+      "step": 1
+    },
+    {
+      "key": "shoreBurial",
+      "group": "landscape",
+      "node": "shore",
+      "label": "Заглубление",
+      "kind": "число",
+      "min": 0,
+      "max": 0.4,
+      "step": 0.01
+    },
+    {
+      "key": "shoreBleach",
+      "group": "landscape",
+      "node": "shore",
+      "label": "Выбеленность",
+      "kind": "число",
+      "min": 0,
+      "max": 1,
+      "step": 0.01
+    },
+    {
+      "key": "shoreGrain",
+      "group": "landscape",
+      "node": "shore",
+      "label": "Волокна",
+      "kind": "число",
+      "min": 0,
+      "max": 1,
+      "step": 0.01
+    },
+    {
+      "key": "shoreBark",
+      "group": "landscape",
+      "node": "shore",
+      "label": "Остатки коры",
+      "kind": "число",
+      "min": 0,
+      "max": 1,
+      "step": 0.01
+    },
+    {
+      "key": "shoreWetness",
+      "group": "landscape",
+      "node": "shore",
+      "label": "Влажность",
+      "kind": "число",
+      "min": 0,
+      "max": 1,
+      "step": 0.01
+    },
+    {
+      "key": "shoreRenderDistance",
+      "group": "landscape",
+      "node": "shore",
+      "label": "Дальность отрисовки",
+      "kind": "число",
+      "min": 40,
+      "max": 600,
+      "step": 10,
+      "unit": " m"
     },
     {
       "key": "waterVisible",
@@ -942,905 +1867,6 @@
       "node": "water",
       "label": "Цвет рассеивания",
       "kind": "цвет"
-    },
-    {
-      "key": "frameInset",
-      "group": "cameras",
-      "node": "camera",
-      "label": "Рамка",
-      "kind": "число",
-      "min": 0,
-      "max": 32,
-      "step": 0.5,
-      "unit": "%"
-    },
-    {
-      "key": "slideshowEnabled",
-      "group": "cameras",
-      "node": "camera",
-      "label": "Смена",
-      "kind": "выключатель"
-    },
-    {
-      "key": "slideshowFade",
-      "group": "cameras",
-      "node": "camera",
-      "label": "Затухание",
-      "kind": "число",
-      "min": 0,
-      "max": 30,
-      "step": 0.1,
-      "unit": "с"
-    },
-    {
-      "key": "surroundingsEnabled",
-      "group": "landscape",
-      "node": "surroundings",
-      "label": "Окружение",
-      "kind": "выключатель"
-    },
-    {
-      "key": "surroundingsRadius",
-      "group": "landscape",
-      "node": "surroundings",
-      "label": "Радиус карты",
-      "kind": "число",
-      "min": 100,
-      "max": 1500,
-      "step": 10,
-      "unit": "m"
-    },
-    {
-      "key": "surroundingsBuildings",
-      "group": "landscape",
-      "node": "surroundings",
-      "label": "Здания",
-      "kind": "выключатель"
-    },
-    {
-      "key": "surroundingsTrees",
-      "group": "landscape",
-      "node": "surroundings",
-      "label": "Деревья и лес",
-      "kind": "выключатель"
-    },
-    {
-      "key": "surroundingsFences",
-      "group": "landscape",
-      "node": "surroundings",
-      "label": "Заборы и изгороди",
-      "kind": "выключатель"
-    },
-    {
-      "key": "surroundingsRelief",
-      "group": "landscape",
-      "node": "surroundings",
-      "label": "Рельеф",
-      "kind": "число",
-      "min": 0,
-      "max": 2,
-      "step": 0.05
-    },
-    {
-      "key": "northAngle",
-      "group": "landscape",
-      "node": "surroundings",
-      "label": "Север",
-      "kind": "число",
-      "min": -180,
-      "max": 180,
-      "step": 0.5,
-      "unit": "°"
-    },
-    {
-      "key": "surroundingsOffsetX",
-      "group": "landscape",
-      "node": "surroundings",
-      "label": "Сдвиг X",
-      "kind": "число",
-      "min": -300,
-      "max": 300,
-      "step": 0.1,
-      "unit": "m"
-    },
-    {
-      "key": "surroundingsOffsetZ",
-      "group": "landscape",
-      "node": "surroundings",
-      "label": "Сдвиг Z",
-      "kind": "число",
-      "min": -300,
-      "max": 300,
-      "step": 0.1,
-      "unit": "m"
-    },
-    {
-      "key": "surroundingsClear",
-      "group": "landscape",
-      "node": "surroundings",
-      "label": "Круг участка",
-      "kind": "число",
-      "min": 0,
-      "max": 150,
-      "step": 1,
-      "unit": "m"
-    },
-    {
-      "key": "surroundingsBuildingColor",
-      "group": "landscape",
-      "node": "surroundings",
-      "label": "Дома",
-      "kind": "цвет"
-    },
-    {
-      "key": "surroundingsGroundColor",
-      "group": "landscape",
-      "node": "surroundings",
-      "label": "Земля",
-      "kind": "цвет"
-    },
-    {
-      "key": "surroundingsRoadColor",
-      "group": "landscape",
-      "node": "surroundings",
-      "label": "Дороги",
-      "kind": "цвет"
-    },
-    {
-      "key": "surroundingsGreenColor",
-      "group": "landscape",
-      "node": "surroundings",
-      "label": "Зелень",
-      "kind": "цвет"
-    },
-    {
-      "key": "surroundingsWaterColor",
-      "group": "landscape",
-      "node": "surroundings",
-      "label": "Вода",
-      "kind": "цвет"
-    },
-    {
-      "key": "terrainEnabled",
-      "group": "landscape",
-      "node": "terrain",
-      "label": "Суша",
-      "kind": "выключатель"
-    },
-    {
-      "key": "terrainBearing",
-      "group": "landscape",
-      "node": "terrain",
-      "label": "Направление суши от севера",
-      "kind": "число",
-      "min": 0,
-      "max": 360,
-      "step": 1,
-      "unit": "°"
-    },
-    {
-      "key": "terrainOffset",
-      "group": "landscape",
-      "node": "terrain",
-      "label": "Смещение берега",
-      "kind": "число",
-      "min": -200,
-      "max": 200,
-      "step": 0.5,
-      "unit": " m"
-    },
-    {
-      "key": "terrainLength",
-      "group": "landscape",
-      "node": "terrain",
-      "label": "Длина побережья",
-      "kind": "число",
-      "min": 128,
-      "max": 4096,
-      "step": 64,
-      "unit": " m"
-    },
-    {
-      "key": "terrainLandWidth",
-      "group": "landscape",
-      "node": "terrain",
-      "label": "Глубина суши",
-      "kind": "число",
-      "min": 80,
-      "max": 800,
-      "step": 10,
-      "unit": " m"
-    },
-    {
-      "key": "terrainCurve",
-      "group": "landscape",
-      "node": "terrain",
-      "label": "Изгибы берега",
-      "kind": "число",
-      "min": 0,
-      "max": 45,
-      "step": 0.5,
-      "unit": " m"
-    },
-    {
-      "key": "terrainSeed",
-      "group": "landscape",
-      "node": "terrain",
-      "label": "Вариант рельефа",
-      "kind": "число",
-      "min": 1,
-      "max": 9999,
-      "step": 1
-    },
-    {
-      "key": "terrainBeachWidth",
-      "group": "landscape",
-      "node": "terrain",
-      "label": "Ширина пляжа",
-      "kind": "число",
-      "min": 4,
-      "max": 60,
-      "step": 0.5,
-      "unit": " m"
-    },
-    {
-      "key": "terrainCliffHeight",
-      "group": "landscape",
-      "node": "terrain",
-      "label": "Высота обрыва",
-      "kind": "число",
-      "min": 0,
-      "max": 22,
-      "step": 0.1,
-      "unit": " m"
-    },
-    {
-      "key": "terrainCliffSlope",
-      "group": "landscape",
-      "node": "terrain",
-      "label": "Ширина склона",
-      "kind": "число",
-      "min": 2,
-      "max": 24,
-      "step": 0.5,
-      "unit": " m"
-    },
-    {
-      "key": "terrainCapeDepth",
-      "group": "landscape",
-      "node": "terrain",
-      "label": "Выступ мыса",
-      "kind": "число",
-      "min": 0,
-      "max": 90,
-      "step": 1,
-      "unit": " m"
-    },
-    {
-      "key": "terrainCapePosition",
-      "group": "landscape",
-      "node": "terrain",
-      "label": "Положение мыса вдоль берега",
-      "kind": "число",
-      "min": -1200,
-      "max": 1200,
-      "step": 5,
-      "unit": " m"
-    },
-    {
-      "key": "terrainCapeWidth",
-      "group": "landscape",
-      "node": "terrain",
-      "label": "Ширина мыса",
-      "kind": "число",
-      "min": 30,
-      "max": 300,
-      "step": 5,
-      "unit": " m"
-    },
-    {
-      "key": "terrainSpitEnabled",
-      "group": "landscape",
-      "node": "terrain",
-      "label": "Коса",
-      "kind": "выключатель"
-    },
-    {
-      "key": "terrainSpitPosition",
-      "group": "landscape",
-      "node": "terrain",
-      "label": "Положение вдоль берега",
-      "kind": "число",
-      "min": -1600,
-      "max": 1600,
-      "step": 5,
-      "unit": " m"
-    },
-    {
-      "key": "terrainSpitLength",
-      "group": "landscape",
-      "node": "terrain",
-      "label": "Длина косы",
-      "kind": "число",
-      "min": 40,
-      "max": 800,
-      "step": 5,
-      "unit": " m"
-    },
-    {
-      "key": "terrainSpitWidth",
-      "group": "landscape",
-      "node": "terrain",
-      "label": "Ширина косы",
-      "kind": "число",
-      "min": 6,
-      "max": 80,
-      "step": 1,
-      "unit": " m"
-    },
-    {
-      "key": "terrainSpitHeight",
-      "group": "landscape",
-      "node": "terrain",
-      "label": "Высота гребня",
-      "kind": "число",
-      "min": 0.15,
-      "max": 2.5,
-      "step": 0.05,
-      "unit": " m"
-    },
-    {
-      "key": "terrainSpitBend",
-      "group": "landscape",
-      "node": "terrain",
-      "label": "Загиб оконечности",
-      "kind": "число",
-      "min": -1.3,
-      "max": 1.3,
-      "step": 0.05
-    },
-    {
-      "key": "terrainSpitShoal",
-      "group": "landscape",
-      "node": "terrain",
-      "label": "Подводная отмель",
-      "kind": "число",
-      "min": 8,
-      "max": 160,
-      "step": 2,
-      "unit": " m"
-    },
-    {
-      "key": "terrainFeatureScale",
-      "group": "landscape",
-      "node": "terrain",
-      "label": "Масштаб участков",
-      "kind": "число",
-      "min": 24,
-      "max": 160,
-      "step": 1,
-      "unit": " m"
-    },
-    {
-      "key": "terrainLandslides",
-      "group": "landscape",
-      "node": "terrain",
-      "label": "Оползни и обвалы",
-      "kind": "число",
-      "min": 0,
-      "max": 1,
-      "step": 0.01
-    },
-    {
-      "key": "terrainErosion",
-      "group": "landscape",
-      "node": "terrain",
-      "label": "Промоины и расщелины",
-      "kind": "число",
-      "min": 0,
-      "max": 1,
-      "step": 0.01
-    },
-    {
-      "key": "terrainPaths",
-      "group": "landscape",
-      "node": "terrain",
-      "label": "Частота спусков",
-      "kind": "число",
-      "min": 0,
-      "max": 1,
-      "step": 0.01
-    },
-    {
-      "key": "terrainPathWidth",
-      "group": "landscape",
-      "node": "terrain",
-      "label": "Ширина тропы",
-      "kind": "число",
-      "min": 0.6,
-      "max": 4,
-      "step": 0.1,
-      "unit": " m"
-    },
-    {
-      "key": "terrainShells",
-      "group": "landscape",
-      "node": "terrain",
-      "label": "Ракушечник",
-      "kind": "число",
-      "min": 0,
-      "max": 1,
-      "step": 0.01
-    },
-    {
-      "key": "terrainLooseSand",
-      "group": "landscape",
-      "node": "terrain",
-      "label": "Рыхлый песок",
-      "kind": "число",
-      "min": 0,
-      "max": 1,
-      "step": 0.01
-    },
-    {
-      "key": "terrainTextureScale",
-      "group": "landscape",
-      "node": "terrain",
-      "label": "Масштаб фактуры",
-      "kind": "число",
-      "min": 0.4,
-      "max": 3,
-      "step": 0.05
-    },
-    {
-      "key": "terrainRelief",
-      "group": "landscape",
-      "node": "terrain",
-      "label": "Рельеф поверхности",
-      "kind": "число",
-      "min": 0,
-      "max": 1.5,
-      "step": 0.01
-    },
-    {
-      "key": "terrainParallax",
-      "group": "landscape",
-      "node": "terrain",
-      "label": "Параллакс",
-      "kind": "число",
-      "min": 0,
-      "max": 1,
-      "step": 0.01
-    },
-    {
-      "key": "terrainGroundCover",
-      "group": "landscape",
-      "node": "terrain",
-      "label": "Растительный покров грунта",
-      "kind": "число",
-      "min": 0,
-      "max": 1,
-      "step": 0.01
-    },
-    {
-      "key": "terrainSoil",
-      "group": "landscape",
-      "node": "terrain",
-      "label": "Почвенный слой",
-      "kind": "число",
-      "min": 0,
-      "max": 1,
-      "step": 0.01
-    },
-    {
-      "key": "terrainWeathering",
-      "group": "landscape",
-      "node": "terrain",
-      "label": "Выветривание",
-      "kind": "число",
-      "min": 0,
-      "max": 1,
-      "step": 0.01
-    },
-    {
-      "key": "terrainTalus",
-      "group": "landscape",
-      "node": "terrain",
-      "label": "Осыпь и языки грунта",
-      "kind": "число",
-      "min": 0,
-      "max": 1,
-      "step": 0.01
-    },
-    {
-      "key": "terrainStrata",
-      "group": "landscape",
-      "node": "terrain",
-      "label": "Пласты и потёки",
-      "kind": "число",
-      "min": 0,
-      "max": 1,
-      "step": 0.01
-    },
-    {
-      "key": "terrainRimWidth",
-      "group": "landscape",
-      "node": "terrain",
-      "label": "Ширина дёрна бровки",
-      "kind": "число",
-      "min": 0,
-      "max": 30,
-      "step": 0.5,
-      "unit": " m"
-    },
-    {
-      "key": "terrainRimColor",
-      "group": "landscape",
-      "node": "terrain",
-      "label": "Цвет дёрна бровки",
-      "kind": "цвет"
-    },
-    {
-      "key": "terrainOasis",
-      "group": "landscape",
-      "node": "terrain",
-      "label": "Сила островков",
-      "kind": "число",
-      "min": 0,
-      "max": 1,
-      "step": 0.01
-    },
-    {
-      "key": "terrainOasisColor",
-      "group": "landscape",
-      "node": "terrain",
-      "label": "Цвет островков",
-      "kind": "цвет"
-    },
-    {
-      "key": "terrainSaturation",
-      "group": "landscape",
-      "node": "terrain",
-      "label": "Насыщенность",
-      "kind": "число",
-      "min": 0,
-      "max": 2,
-      "step": 0.05,
-      "unit": "×"
-    },
-    {
-      "key": "terrainContrast",
-      "group": "landscape",
-      "node": "terrain",
-      "label": "Контраст",
-      "kind": "число",
-      "min": 0.5,
-      "max": 1.6,
-      "step": 0.05,
-      "unit": "×"
-    },
-    {
-      "key": "terrainBrightness",
-      "group": "landscape",
-      "node": "terrain",
-      "label": "Яркость",
-      "kind": "число",
-      "min": 0.5,
-      "max": 1.6,
-      "step": 0.05,
-      "unit": "×"
-    },
-    {
-      "key": "terrainGreen",
-      "group": "landscape",
-      "node": "terrain",
-      "label": "Зелень покрова",
-      "kind": "число",
-      "min": 0,
-      "max": 2,
-      "step": 0.05,
-      "unit": "×"
-    },
-    {
-      "key": "terrainDry",
-      "group": "landscape",
-      "node": "terrain",
-      "label": "Жухлость покрова",
-      "kind": "число",
-      "min": 0,
-      "max": 2,
-      "step": 0.05,
-      "unit": "×"
-    },
-    {
-      "key": "terrainWaveHeight",
-      "group": "landscape",
-      "node": "terrain",
-      "label": "Высота прибрежной волны",
-      "kind": "число",
-      "min": 0,
-      "max": 0.3,
-      "step": 0.01,
-      "unit": " m"
-    },
-    {
-      "key": "terrainWavePeriod",
-      "group": "landscape",
-      "node": "terrain",
-      "label": "Период волны",
-      "kind": "число",
-      "min": 3,
-      "max": 12,
-      "step": 0.1,
-      "unit": " s"
-    },
-    {
-      "key": "terrainFoam",
-      "group": "landscape",
-      "node": "terrain",
-      "label": "Пена прибоя",
-      "kind": "число",
-      "min": 0,
-      "max": 1.5,
-      "step": 0.01
-    },
-    {
-      "key": "terrainWetBand",
-      "group": "landscape",
-      "node": "terrain",
-      "label": "Влажная кромка",
-      "kind": "число",
-      "min": 0.5,
-      "max": 6,
-      "step": 0.1,
-      "unit": " m"
-    },
-    {
-      "key": "terrainWrack",
-      "group": "landscape",
-      "node": "terrain",
-      "label": "Выброшенная тина",
-      "kind": "число",
-      "min": 0,
-      "max": 1,
-      "step": 0.01
-    },
-    {
-      "key": "terrainBloom",
-      "group": "landscape",
-      "node": "terrain",
-      "label": "Цветение воды",
-      "kind": "число",
-      "min": 0,
-      "max": 1,
-      "step": 0.01
-    },
-    {
-      "key": "terrainRocksEnabled",
-      "group": "landscape",
-      "node": "rocks",
-      "label": "Камни",
-      "kind": "выключатель"
-    },
-    {
-      "key": "terrainRocks",
-      "group": "landscape",
-      "node": "rocks",
-      "label": "Валуны · плотность",
-      "kind": "число",
-      "min": 0,
-      "max": 1,
-      "step": 0.01
-    },
-    {
-      "key": "terrainRockSize",
-      "group": "landscape",
-      "node": "rocks",
-      "label": "Валуны · размер",
-      "kind": "число",
-      "min": 0.4,
-      "max": 2.5,
-      "step": 0.05,
-      "unit": "×"
-    },
-    {
-      "key": "terrainDebris",
-      "group": "landscape",
-      "node": "rocks",
-      "label": "Осыпь · плотность",
-      "kind": "число",
-      "min": 0,
-      "max": 1,
-      "step": 0.01
-    },
-    {
-      "key": "terrainPebblesEnabled",
-      "group": "landscape",
-      "node": "pebbles",
-      "label": "Галька",
-      "kind": "выключатель"
-    },
-    {
-      "key": "terrainPebbles",
-      "group": "landscape",
-      "node": "pebbles",
-      "label": "Плотность",
-      "kind": "число",
-      "min": 0,
-      "max": 1,
-      "step": 0.01
-    },
-    {
-      "key": "terrainPebbleSize",
-      "group": "landscape",
-      "node": "pebbles",
-      "label": "Размер",
-      "kind": "число",
-      "min": 0.5,
-      "max": 2,
-      "step": 0.05,
-      "unit": "×"
-    },
-    {
-      "key": "shoreEnabled",
-      "group": "landscape",
-      "node": "shore",
-      "label": "Береговые находки",
-      "kind": "выключатель"
-    },
-    {
-      "key": "shoreCount",
-      "group": "landscape",
-      "node": "shore",
-      "label": "Коряг",
-      "kind": "число",
-      "min": 0,
-      "max": 160,
-      "step": 1
-    },
-    {
-      "key": "shoreLength",
-      "group": "landscape",
-      "node": "shore",
-      "label": "Вдоль берега",
-      "kind": "число",
-      "min": 60,
-      "max": 4000,
-      "step": 10,
-      "unit": " m"
-    },
-    {
-      "key": "shoreAlong",
-      "group": "landscape",
-      "node": "shore",
-      "label": "Смещение вдоль берега",
-      "kind": "число",
-      "min": -2000,
-      "max": 2000,
-      "step": 5,
-      "unit": " m"
-    },
-    {
-      "key": "shoreSeed",
-      "group": "landscape",
-      "node": "shore",
-      "label": "Вариант",
-      "kind": "число",
-      "min": 1,
-      "max": 999,
-      "step": 1
-    },
-    {
-      "key": "shoreSize",
-      "group": "landscape",
-      "node": "shore",
-      "label": "Размер",
-      "kind": "число",
-      "min": 0.5,
-      "max": 1.7,
-      "step": 0.05,
-      "unit": "×"
-    },
-    {
-      "key": "shoreBackBeach",
-      "group": "landscape",
-      "node": "shore",
-      "label": "Тыл пляжа",
-      "kind": "число",
-      "min": 0,
-      "max": 1,
-      "step": 0.01
-    },
-    {
-      "key": "shoreLogs",
-      "group": "landscape",
-      "node": "shore",
-      "label": "Стволы и корневища",
-      "kind": "число",
-      "min": 0,
-      "max": 1,
-      "step": 0.01
-    },
-    {
-      "key": "shoreStakes",
-      "group": "landscape",
-      "node": "shore",
-      "label": "Из песка",
-      "kind": "число",
-      "min": 0,
-      "max": 1,
-      "step": 0.01
-    },
-    {
-      "key": "shoreRings",
-      "group": "landscape",
-      "node": "shore",
-      "label": "Каменные круги",
-      "kind": "число",
-      "min": 0,
-      "max": 8,
-      "step": 1
-    },
-    {
-      "key": "shoreBurial",
-      "group": "landscape",
-      "node": "shore",
-      "label": "Заглубление",
-      "kind": "число",
-      "min": 0,
-      "max": 0.4,
-      "step": 0.01
-    },
-    {
-      "key": "shoreBleach",
-      "group": "landscape",
-      "node": "shore",
-      "label": "Выбеленность",
-      "kind": "число",
-      "min": 0,
-      "max": 1,
-      "step": 0.01
-    },
-    {
-      "key": "shoreGrain",
-      "group": "landscape",
-      "node": "shore",
-      "label": "Волокна",
-      "kind": "число",
-      "min": 0,
-      "max": 1,
-      "step": 0.01
-    },
-    {
-      "key": "shoreBark",
-      "group": "landscape",
-      "node": "shore",
-      "label": "Остатки коры",
-      "kind": "число",
-      "min": 0,
-      "max": 1,
-      "step": 0.01
-    },
-    {
-      "key": "shoreWetness",
-      "group": "landscape",
-      "node": "shore",
-      "label": "Влажность",
-      "kind": "число",
-      "min": 0,
-      "max": 1,
-      "step": 0.01
-    },
-    {
-      "key": "shoreRenderDistance",
-      "group": "landscape",
-      "node": "shore",
-      "label": "Дальность отрисовки",
-      "kind": "число",
-      "min": 40,
-      "max": 600,
-      "step": 10,
-      "unit": " m"
     },
     {
       "key": "seabedVisible",
@@ -3557,6 +3583,392 @@
       "node": "grass",
       "label": "Цвет сухой травы",
       "kind": "цвет"
+    },
+    {
+      "key": "fenceObjects",
+      "group": "objects",
+      "node": "fences",
+      "label": "Линии ограждений",
+      "kind": "список",
+      "options": [
+        ""
+      ]
+    },
+    {
+      "key": "fenceObjects[].segments[].style.type",
+      "group": "objects",
+      "node": "fences",
+      "label": "Конструкция",
+      "kind": "список",
+      "options": [
+        "mesh",
+        "timber",
+        "boards",
+        "metal",
+        "concrete",
+        "brick",
+        "posts"
+      ]
+    },
+    {
+      "key": "fenceObjects[].segments[].style.height",
+      "group": "objects",
+      "node": "fences",
+      "label": "Высота",
+      "kind": "число",
+      "min": 0.0001,
+      "step": 0.01,
+      "unit": "m"
+    },
+    {
+      "key": "fenceObjects[].segments[].style.spacing",
+      "group": "objects",
+      "node": "fences",
+      "label": "Макс. шаг столбов",
+      "kind": "число",
+      "min": 0.0001,
+      "step": 0.01,
+      "unit": "m"
+    },
+    {
+      "key": "fenceObjects[].segments[].style.offset",
+      "group": "objects",
+      "node": "fences",
+      "label": "Доп. смещение",
+      "kind": "число",
+      "step": 0.01,
+      "unit": "m"
+    },
+    {
+      "key": "fenceObjects[].segments[].style.clearance",
+      "group": "objects",
+      "node": "fences",
+      "label": "Просвет снизу",
+      "kind": "число",
+      "min": 0,
+      "step": 0.01,
+      "unit": "m"
+    },
+    {
+      "key": "fenceObjects[].segments[].style.alignment",
+      "group": "objects",
+      "node": "fences",
+      "label": "Положение к оси",
+      "kind": "список",
+      "options": [
+        "axis",
+        "inside",
+        "outside"
+      ]
+    },
+    {
+      "key": "fenceObjects[].segments[].style.grade",
+      "group": "objects",
+      "node": "fences",
+      "label": "Рельеф",
+      "kind": "список",
+      "options": [
+        "slope",
+        "step",
+        "level"
+      ]
+    },
+    {
+      "key": "fenceObjects[].segments[].style.up",
+      "group": "objects",
+      "node": "fences",
+      "label": "Направление высоты",
+      "kind": "список",
+      "options": [
+        "vertical",
+        "normal"
+      ]
+    },
+    {
+      "key": "fenceObjects[].segments[].style.thickness",
+      "group": "objects",
+      "node": "fences",
+      "label": "Толщина стены",
+      "kind": "число",
+      "min": 0.0001,
+      "step": 0.01,
+      "unit": "m"
+    },
+    {
+      "key": "fenceObjects[].segments[].style.postEnabled",
+      "group": "objects",
+      "node": "fences",
+      "label": "Столбы",
+      "kind": "выключатель"
+    },
+    {
+      "key": "fenceObjects[].segments[].style.postKind",
+      "group": "objects",
+      "node": "fences",
+      "label": "Материал конструкции столба",
+      "kind": "список",
+      "options": [
+        "metal",
+        "timber",
+        "concrete",
+        "brick"
+      ]
+    },
+    {
+      "key": "типовое-сечение-мм",
+      "group": "objects",
+      "node": "fences",
+      "label": "Типовое сечение, мм",
+      "kind": "список",
+      "options": [
+        "",
+        "steel-60-40",
+        "steel-60-60",
+        "steel-80-80",
+        "steel-100-100",
+        "wood-100",
+        "wood-150"
+      ]
+    },
+    {
+      "key": "fenceObjects[].segments[].style.postWidth",
+      "group": "objects",
+      "node": "fences",
+      "label": "Столб · ширина",
+      "kind": "число",
+      "min": 0.0001,
+      "step": 0.001,
+      "unit": "m"
+    },
+    {
+      "key": "fenceObjects[].segments[].style.postDepth",
+      "group": "objects",
+      "node": "fences",
+      "label": "Столб · глубина",
+      "kind": "число",
+      "min": 0.0001,
+      "step": 0.001,
+      "unit": "m"
+    },
+    {
+      "key": "fenceObjects[].segments[].style.postWall",
+      "group": "objects",
+      "node": "fences",
+      "label": "Стенка профиля столба",
+      "kind": "число",
+      "min": 0,
+      "step": 0.001,
+      "unit": "m"
+    },
+    {
+      "key": "fenceObjects[].segments[].style.postExtra",
+      "group": "objects",
+      "node": "fences",
+      "label": "Столб выше заполнения",
+      "kind": "число",
+      "min": 0,
+      "step": 0.01,
+      "unit": "m"
+    },
+    {
+      "key": "сечение-планки-мм",
+      "group": "objects",
+      "node": "fences",
+      "label": "Сечение планки, мм",
+      "kind": "список",
+      "options": [
+        "",
+        "tube-40-20",
+        "board-100-25",
+        "board-150-25",
+        "board-100-50"
+      ]
+    },
+    {
+      "key": "fenceObjects[].segments[].style.memberWidth",
+      "group": "objects",
+      "node": "fences",
+      "label": "Планка · ширина",
+      "kind": "число",
+      "min": 0.0001,
+      "step": 0.001,
+      "unit": "m"
+    },
+    {
+      "key": "fenceObjects[].segments[].style.memberDepth",
+      "group": "objects",
+      "node": "fences",
+      "label": "Планка · толщина",
+      "kind": "число",
+      "min": 0.0001,
+      "step": 0.001,
+      "unit": "m"
+    },
+    {
+      "key": "fenceObjects[].segments[].style.memberWall",
+      "group": "objects",
+      "node": "fences",
+      "label": "Стенка профиля планки",
+      "kind": "число",
+      "min": 0,
+      "step": 0.001,
+      "unit": "m"
+    },
+    {
+      "key": "fenceObjects[].segments[].style.memberGap",
+      "group": "objects",
+      "node": "fences",
+      "label": "Зазор между планками",
+      "kind": "число",
+      "min": 0,
+      "step": 0.001,
+      "unit": "m"
+    },
+    {
+      "key": "fenceObjects[].segments[].style.railCount",
+      "group": "objects",
+      "node": "fences",
+      "label": "Лаг на секцию",
+      "kind": "число",
+      "min": 0,
+      "step": 1
+    },
+    {
+      "key": "fenceObjects[].segments[].style.railWidth",
+      "group": "objects",
+      "node": "fences",
+      "label": "Лага · высота",
+      "kind": "число",
+      "min": 0.0001,
+      "step": 0.001,
+      "unit": "m"
+    },
+    {
+      "key": "fenceObjects[].segments[].style.railDepth",
+      "group": "objects",
+      "node": "fences",
+      "label": "Лага · толщина",
+      "kind": "число",
+      "min": 0.0001,
+      "step": 0.001,
+      "unit": "m"
+    },
+    {
+      "key": "fenceObjects[].segments[].style.railWall",
+      "group": "objects",
+      "node": "fences",
+      "label": "Стенка профиля лаги",
+      "kind": "число",
+      "min": 0,
+      "step": 0.001,
+      "unit": "m"
+    },
+    {
+      "key": "fenceObjects[].segments[].style.wire",
+      "group": "objects",
+      "node": "fences",
+      "label": "Проволока",
+      "kind": "число",
+      "min": 0.0001,
+      "step": 0.001,
+      "unit": "m"
+    },
+    {
+      "key": "fenceObjects[].segments[].style.cellWidth",
+      "group": "objects",
+      "node": "fences",
+      "label": "Ячейка · ширина",
+      "kind": "число",
+      "min": 0.0001,
+      "step": 0.001,
+      "unit": "m"
+    },
+    {
+      "key": "fenceObjects[].segments[].style.cellHeight",
+      "group": "objects",
+      "node": "fences",
+      "label": "Ячейка · высота",
+      "kind": "число",
+      "min": 0.0001,
+      "step": 0.001,
+      "unit": "m"
+    },
+    {
+      "key": "fenceObjects[].segments[].style.caps",
+      "group": "objects",
+      "node": "fences",
+      "label": "Крышки столбов",
+      "kind": "выключатель"
+    },
+    {
+      "key": "fenceObjects[].segments[].style.capHeight",
+      "group": "objects",
+      "node": "fences",
+      "label": "Крышка · высота",
+      "kind": "число",
+      "min": 0,
+      "step": 0.001,
+      "unit": "m"
+    },
+    {
+      "key": "fenceObjects[].segments[].style.capOverhang",
+      "group": "objects",
+      "node": "fences",
+      "label": "Крышка · свес",
+      "kind": "число",
+      "min": 0,
+      "step": 0.001,
+      "unit": "m"
+    },
+    {
+      "key": "fenceObjects[].segments[].style.tile",
+      "group": "objects",
+      "node": "fences",
+      "label": "Масштаб материала",
+      "kind": "число",
+      "min": 0.0001,
+      "step": 0.01,
+      "unit": "m"
+    },
+    {
+      "key": "fenceObjects[].segments[].style.panelMaterial",
+      "group": "objects",
+      "node": "fences",
+      "label": "Материал · Заполнение",
+      "kind": "список",
+      "options": [
+        ""
+      ]
+    },
+    {
+      "key": "fenceObjects[].segments[].style.postMaterial",
+      "group": "objects",
+      "node": "fences",
+      "label": "Материал · Столбы",
+      "kind": "список",
+      "options": [
+        ""
+      ]
+    },
+    {
+      "key": "fenceObjects[].segments[].style.railMaterial",
+      "group": "objects",
+      "node": "fences",
+      "label": "Материал · Лаги",
+      "kind": "список",
+      "options": [
+        ""
+      ]
+    },
+    {
+      "key": "fenceObjects[].segments[].style.capMaterial",
+      "group": "objects",
+      "node": "fences",
+      "label": "Материал · Крышки",
+      "kind": "список",
+      "options": [
+        ""
+      ]
     },
     {
       "key": "tankerVisible",
@@ -7342,6 +7754,13 @@
       "kind": "выключатель"
     },
     {
+      "key": "fencesEnabled",
+      "group": "render",
+      "node": "visibility",
+      "label": "Ограждения",
+      "kind": "выключатель"
+    },
+    {
       "key": "tankerVisible",
       "group": "render",
       "node": "visibility",
@@ -8122,6 +8541,7 @@
     "topiaryBrushWidth": 1.2,
     "topiaryBrushHeight": 2.4,
     "topiaryPlaneY": 0,
+    "fencesEnabled": true,
     "placedEnabled": true,
     "plantingEnabled": true,
     "plantingMonth": 6,

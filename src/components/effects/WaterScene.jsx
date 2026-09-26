@@ -2,6 +2,8 @@ import MaterialSelection from '../../materials/MaterialSelection.jsx';
 import TopiaryObjects from '../../topiary/TopiaryObjects.jsx';
 import PlacedObjects from '../../placed/PlacedObjects.jsx';
 import TopiaryBrush from '../../topiary/TopiaryBrush.jsx';
+import Fences from '../../fences/Fences.jsx';
+import FenceTool from '../../fences/FenceTool.jsx';
 import PlantingLayer from '../../planting/PlantingLayer.jsx';
 import GardenWind from '../../planting/GardenWind.jsx';
 import PlantingBrush from '../../planting/PlantingBrush.jsx';
@@ -555,6 +557,7 @@ function WaterRuntimeScene({
         {terrainQuery ? <primitive object={terrainQuery.collisionObject}/> : null}
         {terrainQuery && settings.shoreEnabled ? <React.Suspense fallback={null}><CoastDriftwood query={terrainQuery} definition={queryDefinition} settings={settings} qualityProfile={qualityProfile} envMapIntensity={lighting.environment.reflection}/></React.Suspense> : null}
         {settings.topiaryEnabled && settings.topiaryObjects?.length ? <TopiaryObjects objects={settings.topiaryObjects} selectedId={mode === 'editor' ? editorGizmo?.topiary?.selectedId : null} qualityProfile={qualityProfile} envMapIntensity={lighting.environment.reflection} /> : null}
+        {settings.fencesEnabled && settings.fenceObjects?.length ? <Fences objects={settings.fenceObjects} /> : null}
         {terrainQuery&&settings.shrubsEnabled ? <CoastShrubs settings={shrubAsset} plants={shrubPlants} qualityProfile={qualityProfile} envMapIntensity={lighting.environment.reflection}/> : null}
         {terrainQuery&&settings.treesEnabled ? <CoastTrees settings={treeAsset} plants={treePlants} qualityProfile={qualityProfile} envMapIntensity={lighting.environment.reflection}/> : null}
         {settings.placedEnabled && settings.placedObjects?.length ? <PlacedObjects objects={settings.placedObjects} selectedId={mode === 'editor' ? editorGizmo?.placed?.selectedId : null} selectedPart={mode === 'editor' ? editorGizmo?.placed?.part : null} sketchupModels={settings.sketchupModels} modelMaterials={settings.modelMaterials} plan={settings.plantingPlan} treeAsset={treeAsset} shrubAsset={shrubAsset} qualityProfile={qualityProfile} lighting={lighting} envMapIntensity={lighting.environment.reflection} settings={settings} /> : null}
@@ -757,6 +760,7 @@ function WaterRuntimeScene({
       {mode === 'editor' && editorGizmo?.materialTargets?.length ? <MaterialSelection targets={editorGizmo.materialTargets} /> : null}
       {mode === 'editor' ? <EditorPicker enabled={Boolean(editorGizmo?.picking)} crosshair={editorGizmo?.materialPicking} onPick={editorGizmo?.onPick} onContextMenu={editorGizmo?.onContextMenu} /> : null}
       {mode === 'editor' ? <TopiaryBrush enabled={Boolean(editorGizmo?.topiary?.drawing)} settings={settings} orbitRef={orbitRef} onStroke={editorGizmo?.topiary?.onStroke} /> : null}
+      {mode === 'editor' && settings.fencesEnabled ? <FenceTool editor={editorGizmo?.fences} objects={settings.fenceObjects ?? []} orbitRef={orbitRef} terrainQuery={settings.shoreEnabled ? terrainQuery : null} language={editorGizmo?.fences?.language} /> : null}
       {mode === 'editor' ? <PlantingBrush terrainQuery={settings.shoreEnabled ? terrainQuery : null} bedKind={editorGizmo?.planting?.bedKind} mode={editorGizmo?.planting?.mode ?? null} groundY={settings.planeHeight ?? 0} orbitRef={orbitRef} onBed={editorGizmo?.planting?.onBed} onBedSurface={editorGizmo?.planting?.onBedSurface} onPlant={editorGizmo?.planting?.onPlant} onVine={editorGizmo?.planting?.onVine} onMark={editorGizmo?.planting?.onMark} onStart={editorGizmo?.planting?.onStart} onLight={editorGizmo?.planting?.onLight} onAim={editorGizmo?.planting?.onAim} lightMount={editorGizmo?.planting?.lightMount} /> : null}
       {mode === 'editor' ? <WalkStartMarker start={settings.walkStart} ghost={!walking} /> : null}
       {mode === 'editor' && settings.lightingEnabled && (settings.lightingFixtures?.length || settings.lightingPanels?.length || editorGizmo?.lighting?.open) ? <ConnectionsLayer settings={settings} geometryKey={annotationGeometryKey} show={Boolean(editorGizmo?.lighting?.connections)} modelsReady={(settings.placedObjects ?? []).filter((o) => o.kind === 'model' && !o.hidden && settings.sketchupModels?.[o.id]).every((o) => loadedModels.split(',').includes(o.id))} /> : null}

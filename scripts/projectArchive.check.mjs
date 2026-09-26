@@ -31,6 +31,9 @@ try {
     plants: ['hedera', 'malus', 'sedum', 'stipa'], luminaires: ['flos-step'], materials: ['oak-boards', 'slate'],
   });
   assert.deepEqual(usedLibrary({}), { plants: [], luminaires: [], materials: [] });
+  assert.deepEqual(usedLibrary({ fenceObjects: [{ segments: [{ style: {
+    panelMaterial: 'oak', postMaterial: 'steel', railMaterial: 'steel', capMaterial: 'stone',
+  } }] }] }), { plants: [], luminaires: [], materials: ['oak', 'steel', 'stone'] }, 'fence construction materials travel with the project');
 
   const garden = await projects.create({ name: 'Сад у моря', kind: 'design', settings });
   await write(`projects/${garden.id}/models/house.glb`, 'glb bytes');

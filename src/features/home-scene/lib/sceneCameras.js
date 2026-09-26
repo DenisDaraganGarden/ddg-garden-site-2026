@@ -34,6 +34,7 @@ export const SCENE_CAMERA_SNAPSHOT_EXCLUDED_KEYS = Object.freeze([
   'plantingBeds',
   'plantingPoints',
   'plantingVines',
+  'fenceObjects',
   'northAngle',
   // Отметки уровня и их вид — у проекта один на все камеры.
   ...Object.keys(DEFAULT_ANNOTATION_SETTINGS),

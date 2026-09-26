@@ -34,6 +34,7 @@ import { usePlanCapture } from '../planting/usePlanCapture.js';
 import { useHomeSceneEditor } from '../features/home-scene/hooks/useHomeSceneEditor';
 import { useHomeChromeVisibility } from '../features/home-scene/hooks/useHomeChromeVisibility';
 import { useTopiaryEditor } from '../topiary/useTopiaryEditor.js';
+import { useFenceEditor } from '../fences/useFenceEditor.js';
 import { usePlacedEditor } from '../placed/usePlacedEditor.js';
 import { selectedNodes } from '../placed/sketchupModel.js';
 import { PLANTING_NODE, usePlantingEditor } from '../planting/usePlantingEditor.js';
@@ -134,6 +135,8 @@ const HomeEdit = ({ project = null }) => {
     const { tool, setTool, lastTransform } = useEditorTool(!playing && !walking, project?.kind === 'design' ? null : NO_LIGHTING_TOOLS);
     const focusHistory = useFocusHistory(settings, setSettings, handleSettingChange, applySettings);
     const topiaryEditor = useTopiaryEditor({ settings, history: focusHistory, setActiveTab, setTool, tool, language });
+    const fenceEditor = useFenceEditor({ settings, history: focusHistory, setActiveTab, setTool, tool, language });
+    const { select: selectFence } = fenceEditor;
     const { update: updateTopiary, select: selectTopiary } = topiaryEditor;
     useEffect(() => { if (tool === 'topiary') setActiveTab('greenery/topiary'); }, [tool, setActiveTab]);
     const { plants: plantLibrary } = usePlantLibrary();
@@ -165,7 +168,7 @@ const HomeEdit = ({ project = null }) => {
     // манипулятор узла (лодка, свет) прячется до следующего выбора. Раздел
     // инспектора остаётся тем же.
     const [gizmoReleased, setGizmoReleased] = useState(null);
-    const deselectors = useRef(); deselectors.current = [topiaryEditor, plantingEditor, annotationEditor, lightingEditor, placedEditor].map((editor) => editor.deselect);
+    const deselectors = useRef(); deselectors.current = [topiaryEditor, fenceEditor, plantingEditor, annotationEditor, lightingEditor, placedEditor].map((editor) => editor.deselect);
     const clearSelection = useCallback(() => {
         deselectors.current.forEach((deselect) => deselect());
         setGizmoReleased(activeTab);
@@ -720,11 +723,12 @@ const HomeEdit = ({ project = null }) => {
         }
         if (hit?.plantingVine) { selectVine(hit.plantingVine); return; }
         if (hit?.annotationMark) { selectMark(hit.annotationMark); return; }
+        if (hit?.fenceId) { selectFence(hit.fenceId, hit.fenceSegment, hit.shift); return; }
         if (hit?.lightingFixture) { selectFixture(hit.lightingFixture); setTool(lastTransform); return; }
         if (hit?.lightingPanel) { selectPanel(hit.lightingPanel); setTool(lastTransform); return; }
         if (hit?.topiaryId) selectTopiary(hit.topiaryId); else if (hit?.placedId) selectPlaced(hit.placedId, hit.object, hit.double, hit.shift, { faceIndex: hit.faceIndex, clicks: hit.clicks }); else setActiveTab(path);
         setTool(lastTransform);
-    }, [tool, setActiveTab, setTool, lastTransform, selectTopiary, selectPlaced, selectBed, selectVine, enterBed, pickPlant, plantingInside, selectMark, selectFixture, selectPanel, clearSelection]);
+    }, [tool, setActiveTab, setTool, lastTransform, selectTopiary, selectFence, selectPlaced, selectBed, selectVine, enterBed, pickPlant, plantingInside, selectMark, selectFixture, selectPanel, clearSelection]);
 
     const { group: gizmoGroup, node: gizmoNode } = resolveEditorPath(activeTab, { includeDevOnly: true });
     // An object switched off has left the scene graph; the gizmo has nothing to hold.
@@ -751,7 +755,7 @@ const HomeEdit = ({ project = null }) => {
     const activeTool = playing || walking ? 'hand' : transformTool && !transformHeld ? 'select' : tool;
     // Наводка светильника щелчком — только пока он выбран и в руке выбор или манипулятор.
     const aiming = Boolean(lightingEditor.aiming && selectedFixture) && (activeTool === 'select' || GIZMO_MODES.includes(activeTool));
-    const drawingTool = activeTool === 'topiary' || activeTool === 'bed' || activeTool === 'plant' || activeTool === 'vine' || activeTool === 'mark' || activeTool === 'start' || activeTool === 'luminaire' || aiming;
+    const drawingTool = activeTool === 'fence' || activeTool === 'fence-edit' || activeTool === 'topiary' || activeTool === 'bed' || activeTool === 'plant' || activeTool === 'vine' || activeTool === 'mark' || activeTool === 'start' || activeTool === 'luminaire' || aiming;
     const picking = activeTool !== 'hand' && !drawingTool;
     // Яв и масштаб выбранного объекта — из настроек: манипулятор их показывает,
     // а пишет обратно только через onTransform, сцену напрямую не трогая.
@@ -792,6 +796,7 @@ const HomeEdit = ({ project = null }) => {
         onContextMenu: drawingTool || playing || walking ? undefined : setSceneMenu,
         topiary: { drawing: activeTool === 'topiary' && settings.topiaryObjects.length < TOPIARY_LIMITS.objects,
             selectedId: gizmoNode.id === 'topiary' ? topiaryEditor.selectedId : null, onStroke: topiaryEditor.onStroke },
+        fences: { ...fenceEditor, drawing: activeTool === 'fence', editing: activeTool === 'fence-edit', language },
         placed: { selectedId: gizmoNode.id === 'placed' ? placedEditor.selectedId : null, part: gizmoNode.id === 'placed' ? placedEditor.part : null },
         planting: { inside: plantingEditor.inside, plant: plantingEditor.selectedPlant, bedKind: plantingEditor.bedKind, mode: aiming ? 'aim' : activeTool === 'luminaire' ? 'light' : ['bed', 'plant', 'vine', 'mark', 'start'].includes(activeTool) ? activeTool : null, selectedId: gizmoNode.id === 'planting' ? plantingEditor.selectedId : null,
             vineId: gizmoNode.id === 'planting' ? plantingEditor.vineId : null,
@@ -801,7 +806,7 @@ const HomeEdit = ({ project = null }) => {
         // open — открыт раздел «Освещение»: сетка участка строится и для пустого проекта (её ждёт агент).
         lighting: { selectedId: gizmoNode.id === 'luminaires' ? lightingEditor.selectedId : null, connections: settings.lightingConnections === true || gizmoNode.id === 'power', open: gizmoGroup.id === 'lighting' },
     // eslint-disable-next-line react-hooks/exhaustive-deps -- pose сравнивается по значениям, не по ссылке
-    }), [materialEditor.opened, materialEditor.targets, playing, walking, transformTool, transformHeld, gizmoSelection, gizmoReleased, activeTab, tool, lastTransform, handleGizmoTransform, picking, drawingTool, handlePickObject, gizmoPose?.rotationY, gizmoPose?.scale, gizmoPose?.objectName, gizmoPose?.centreKey, activeTool, settings.topiaryObjects.length, gizmoNode.id, topiaryEditor.selectedId, topiaryEditor.onStroke, placedEditor.selectedId, placedEditor.part, plantingEditor.selectedId, plantingEditor.vineId, plantingEditor.inside, plantingEditor.selectedPlant, plantingEditor.bedKind, plantingEditor.onBed, plantingEditor.onBedSurface, plantingEditor.onPlant, plantingEditor.onVine, annotationEditor.onMark, annotationEditor.selectedId, annotationEditor.onResnap, handleWalkStart, aiming, lightingEditor.selectedId, lightingEditor.onLight, lightingEditor.onAim, lightingEditor.placeType, luminaireTypes, settings.lightingConnections, gizmoGroup.id]);
+    }), [fenceEditor, language, materialEditor.opened, materialEditor.targets, playing, walking, transformTool, transformHeld, gizmoSelection, gizmoReleased, activeTab, tool, lastTransform, handleGizmoTransform, picking, drawingTool, handlePickObject, gizmoPose?.rotationY, gizmoPose?.scale, gizmoPose?.objectName, gizmoPose?.centreKey, activeTool, settings.topiaryObjects.length, gizmoNode.id, topiaryEditor.selectedId, topiaryEditor.onStroke, placedEditor.selectedId, placedEditor.part, plantingEditor.selectedId, plantingEditor.vineId, plantingEditor.inside, plantingEditor.selectedPlant, plantingEditor.bedKind, plantingEditor.onBed, plantingEditor.onBedSurface, plantingEditor.onPlant, plantingEditor.onVine, annotationEditor.onMark, annotationEditor.selectedId, annotationEditor.onResnap, handleWalkStart, aiming, lightingEditor.selectedId, lightingEditor.onLight, lightingEditor.onAim, lightingEditor.placeType, luminaireTypes, settings.lightingConnections, gizmoGroup.id]);
 
     // Delete (и Backspace) убирает выбранное — одной отменой: светильник или
     // щиток; части модели SketchUp (в «Удалённые», как в SketchUp); объект
@@ -810,7 +815,8 @@ const HomeEdit = ({ project = null }) => {
     const placedPart = selectedPlaced ? placedEditor.part : null;
     const sceneKeys = useRef();
     sceneKeys.current = {
-        remove: selectedFixture ? () => lightingEditor.remove(selectedFixture.id) : selectedPanel ? () => lightingEditor.removePanel(selectedPanel.id)
+        remove: tool === 'fence' ? null : tool === 'fence-edit' ? fenceEditor.removeSelected
+            : selectedFixture ? () => lightingEditor.remove(selectedFixture.id) : selectedPanel ? () => lightingEditor.removePanel(selectedPanel.id)
             : placedPart?.face ? null : placedPart ? () => placedEditor.removeParts(placedPart.id, selectedNodes(placedPart)) : selectedPlaced ? () => placedEditor.remove(selectedPlaced.id)
             : selectedBed && plantingEditor.selectedPlant ? plantingEditor.removePlant : null,
         escape: placedPart && !drawingTool ? placedEditor.exitPart : selectedBed && plantingEditor.inside && !drawingTool ? plantingEditor.exitBed : null,
@@ -1084,6 +1090,7 @@ const HomeEdit = ({ project = null }) => {
                 applySettings={focusHistory.applySettings}
                 history={focusHistory}
                 topiaryEditor={topiaryEditor}
+                fenceEditor={fenceEditor}
                 placedEditor={placedEditor}
                 materialEditor={materialEditor}
                 plantingEditor={plantingEditor}

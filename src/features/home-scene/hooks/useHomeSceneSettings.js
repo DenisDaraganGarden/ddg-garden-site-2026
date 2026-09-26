@@ -1,4 +1,5 @@
 import { DEFAULT_TOPIARY_SETTINGS, normalizeTopiarySettings } from '../../../topiary/settings.js';
+import { DEFAULT_FENCE_SETTINGS, normalizeFenceSettings } from '../../../fences/settings.js';
 import { DEFAULT_PLACED_SETTINGS, normalizePlacedSettings } from '../../../placed/settings.js';
 import { DEFAULT_PLANTING_SETTINGS, normalizePlantingSettings, planOnlyOnPlanCamera } from '../../../planting/settings.js';
 import { DEFAULT_ANNOTATION_SETTINGS, normalizeAnnotationSettings } from '../../../annotations/settings.js';
@@ -227,6 +228,7 @@ export const getBaseHomeSceneSettings = () => ({
   ...DEFAULT_FIRE_SETTINGS,
   ...DEFAULT_TERRAIN_SETTINGS,
   ...DEFAULT_TOPIARY_SETTINGS,
+  ...DEFAULT_FENCE_SETTINGS,
   ...DEFAULT_PLACED_SETTINGS,
   ...DEFAULT_PLANTING_SETTINGS,
   ...DEFAULT_ANNOTATION_SETTINGS,
@@ -1230,6 +1232,7 @@ const normalizeHomeSceneSettings = (savedSettings = {}, includeCameraSystem = tr
     ...normalizeFireSettings(merged),
     ...normalizeTerrainSettings(merged),
     ...normalizeTopiarySettings(merged),
+    ...normalizeFenceSettings(merged),
     ...normalizePlacedSettings(merged),
     ...normalizePlantingSettings(merged),
     ...normalizeAnnotationSettings(merged),

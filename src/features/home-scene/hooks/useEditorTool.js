@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 export const GIZMO_MODES = ['translate', 'rotate', 'scale'];
-export const EDITOR_TOOLS = ['select', ...GIZMO_MODES, 'hand', 'material', 'topiary', 'bed', 'plant', 'vine', 'mark', 'start', 'luminaire'];
+export const EDITOR_TOOLS = ['select', ...GIZMO_MODES, 'hand', 'material', 'topiary', 'bed', 'plant', 'vine', 'mark', 'start', 'luminaire', 'fence', 'fence-edit'];
 
 // Одна линейка инструментов, как в 3ds Max: в каждый момент активен ровно один.
 //

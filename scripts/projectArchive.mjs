@@ -29,6 +29,9 @@ export function usedLibrary(settings = {}) {
   for (const point of list(settings.plantingPoints)) if (point?.plant) plants.add(point.plant);
   for (const vine of list(settings.plantingVines)) if (vine?.plant) plants.add(vine.plant);
   for (const fixture of list(settings.lightingFixtures)) if (fixture?.type) luminaires.add(fixture.type);
+  for (const fence of list(settings.fenceObjects)) for (const edge of list(fence?.segments)) {
+    for (const key of ['panelMaterial', 'postMaterial', 'capMaterial', 'railMaterial']) if (edge?.style?.[key]) materials.add(edge.style[key]);
+  }
   for (const byMaterial of Object.values(isRecord(settings.modelMaterials) ? settings.modelMaterials : {})) {
     for (const entry of Object.values(isRecord(byMaterial) ? byMaterial : {})) {
       if (entry?.material) materials.add(entry.material);

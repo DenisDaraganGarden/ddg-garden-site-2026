@@ -22,6 +22,7 @@
 .focus-control-row--color input { grid-column: 3 / 6; width: 100%; height: 18px; padding: 0; border: 0; background: transparent; }
 .focus-control-row--toggle input { grid-column: 5; justify-self: end; width: 16px; height: 16px; accent-color: #e5e5e0; }
 .focus-control-row--toggle label { grid-column: 2 / 5; }
+.focus-control-row--number label { grid-column: 2 / 4; }
 .focus-control-unit { min-width: 14px; font-size: 8px; color: rgba(255,255,255,.45); text-align: right; }
 .focus-number--scrubbing { cursor: ew-resize !important; user-select: none; -webkit-user-select: none; caret-color: transparent; }
 .focus-control-row input[type=number]::-webkit-inner-spin-button, .focus-control-row input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }

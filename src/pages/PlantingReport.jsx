@@ -5,6 +5,9 @@ import { normalizePlantingSettings } from '../planting/settings.js';
 import { bedArea, coverSchedule, plantingInstances, plantingSchedule, PLANTING_RESERVE, spacingFor } from '../planting/fillBed.js';
 import { normalizeTopiarySettings } from '../topiary/settings.js';
 import { FENCE_STYLE_LABELS, fenceSchedule, POST_SPAN } from '../topiary/fenceLayout.js';
+import FenceSchedule from '../fences/FenceSchedule.jsx';
+import { normalizeFenceSettings } from '../fences/settings.js';
+import '../features/home-scene/components/editor/sections/fences.css';
 import { LAWN_MOWING_LABELS, lawnSeed, lawnTurf } from '../planting/lawnGround.js';
 import { isSeasonSheet, plantCardUrl, plantName, plantPhotoUrl, useBedFills, usePlantLibrary } from '../planting/plantLibrary.js';
 import { bloomMonths, byCategory, CATEGORY_LABELS } from '../planting/insights.js';
@@ -141,6 +144,7 @@ export default function PlantingReport() {
     const lighting = useLightingReport(id, entry?.settings);
     const covers = useMemo(() => coverSchedule(planting.plantingBeds), [planting]);
     const lines = useMemo(() => fenceSchedule(hedges), [hedges]);
+    const fences = useMemo(() => normalizeFenceSettings(entry?.settings).fenceObjects, [entry]);
     const m = (value) => value.toFixed(1);
 
     if (error) return <main className="report"><p className="report-note">{error}</p></main>;
@@ -224,6 +228,8 @@ export default function PlantingReport() {
                 <th>{ru ? 'Линия' : 'Line'}</th><th>{ru ? 'Длина, п.м.' : 'Length, m'}</th><th>{ru ? 'Высота, м' : 'Height, m'}</th><th>{ru ? 'Изгородь, ширина, м' : 'Hedge, width, m'}</th><th>{ru ? 'Растение, шт/п.м.' : 'Plant, per m'}</th><th>{ru ? 'Ограда' : 'Fence'}</th><th>{ru ? `Секций (до ${POST_SPAN} м)` : `Sections (up to ${POST_SPAN} m)`}</th><th>{ru ? 'Столбов' : 'Posts'}</th>
             </tr></thead><tbody>{lines.map((r) => <tr key={r.id}><td>{r.name}</td><td>{m(r.length)}</td><td>{r.height.toFixed(2)}</td><td>{r.hedge ? r.width.toFixed(2) : '—'}</td><td>{r.plant ? <>{plantName(library.get(r.plant) ?? { id: r.plant }, ru)}<small>{r.perMetre ? `${r.perMetre} ${ru ? 'шт/п.м.' : 'per m'}` : (ru ? 'норма не задана' : 'no norm set')}</small></> : '—'}</td><td>{r.fence ? FENCE_STYLE_LABELS[r.fence]?.[ru ? 0 : 1] ?? r.fence : '—'}</td><td>{r.fence ? r.sections : '—'}</td><td>{r.fence ? r.posts : '—'}</td></tr>)}</tbody></table>
         </section> : null}
+
+        {fences.length ? <section className="report-block"><h3>{ru ? 'Ограждения' : 'Fences'}</h3><FenceSchedule objects={fences} ru={ru} expanded /></section> : null}
 
         {lawns.length ? <section className="report-block">
             <h3>{ru ? 'Газоны' : 'Lawns'}</h3>

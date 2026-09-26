@@ -62,9 +62,9 @@ const requestPointerLock = (element, gesture, onLost) => {
 export function FocusControlNumberInput({ controlId, value, min, max, step = 1, onChange, onGesture, ...props }) {
     const active = useRef(null);
     const inputRef = useRef(null);
-    const [draft, setDraft] = useState(() => String(value));
-    const minValue = Number(min);
-    const maxValue = Number(max);
+    const [draft, setDraft] = useState(() => String(value ?? ''));
+    const minValue = min == null ? -Infinity : Number(min);
+    const maxValue = max == null ? Infinity : Number(max);
     const clamp = (next) => Math.min(maxValue, Math.max(minValue, next));
     const emit = (next) => onChange?.({
         target: { value: String(next), type: 'number' },
@@ -72,7 +72,7 @@ export function FocusControlNumberInput({ controlId, value, min, max, step = 1, 
     });
 
     useEffect(() => {
-        if (document.activeElement !== inputRef.current && !active.current) setDraft(String(value));
+        if (document.activeElement !== inputRef.current && !active.current) setDraft(String(value ?? ''));
     }, [value]);
 
     const finish = (cancel = false) => {
@@ -134,7 +134,7 @@ export function FocusControlNumberInput({ controlId, value, min, max, step = 1, 
         onDoubleClick={(event) => { event.currentTarget.focus(); event.currentTarget.select?.(); }}
         onPointerDown={(event) => {
             if (event.button !== 0 || event.currentTarget.disabled || event.currentTarget.readOnly) return;
-            const initial = clamp(Number(value));
+            const initial = clamp(Number(value) || 0);
             active.current = { pointerId: event.pointerId, startX: event.clientX, lastX: event.clientX, initial, value: initial, moved: false, fraction: 0, steps: 0 };
             event.currentTarget.setPointerCapture?.(event.pointerId);
         }}
