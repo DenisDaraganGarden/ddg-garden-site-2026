@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { glassDefaults, looksLikeGlass, tuneGlass, unmakeGlass } from './glass.js';
 import { createSharedTextureCache } from './sharedTextureCache.js';
+import { materialSize } from './recipe.js';
 
 // Материал модели SketchUp → материал библиотеки: цвет, нормали, матовость,
 // затенение щелей. Раскладка текстуры — та, что Денис задал в SketchUp: его
@@ -148,34 +149,48 @@ function restore(material) {
     material.aoMapIntensity = original.aoMapIntensity;
     delete material.userData.original;
     delete material.userData.override;
+    delete material.userData.libraryMaterial;
     material.needsUpdate = true;
 }
 
 // Раскладка текстур материала: у сгенерированной — плитка tile метров по
 // масштабу координат SketchUp; у «только карт» (tile: null) — ровно как было.
+export function setLibraryTransform(texture, override, scale = [1, 1], source = null) {
+    const turn = (override.rotation ?? 0) * Math.PI / 180;
+    if (override.tile === null && source) {
+        texture.offset.copy(source.offset);
+        texture.repeat.copy(source.repeat);
+        texture.center.copy(source.center);
+        texture.rotation = source.rotation + turn;
+        texture.matrixAutoUpdate = true;
+        texture.updateMatrix();
+        return;
+    }
+    const [width, height] = materialSize(override);
+    const rotation = turn + (override.projection === 'box' ? 0 : source?.rotation ?? 0);
+    const c = Math.cos(rotation), s = Math.sin(rotation);
+    texture.repeat.set(scale[0] / width, scale[1] / height);
+    texture.rotation = rotation;
+    texture.offset.set(0, 0);
+    texture.center.set(0, 0);
+    // Rotate in metres, then divide by each side. Rotating normalized UVs
+    // stretches a 1200 × 600 tile when u/v have different physical scales.
+    texture.matrixAutoUpdate = false;
+    texture.matrix.set(c * scale[0] / width, s * scale[1] / width, 0,
+        -s * scale[0] / height, c * scale[1] / height, 0, 0, 0, 1);
+}
+
 function placeTextures(material, override, scale) {
     const original = material.userData.original;
-    const [mu, mv] = scale;
     for (const key of Object.keys(MAPS)) {
         const texture = material[key];
         if (!texture || texture === original[key]) continue;
-        const source = original.map;
-        if (override.tile === null && source) {
-            texture.offset.copy(source.offset);
-            texture.repeat.copy(source.repeat);
-            texture.rotation = source.rotation;
-            texture.center.copy(source.center);
-        } else {
-            // Раскладка SketchUp несёт и его поворот текстуры; «по граням» — свой, прямой.
-            const straight = override.projection === 'box';
-            texture.offset.set(0, 0);
-            texture.repeat.set(mu / (override.tile ?? 1), mv / (override.tile ?? 1));
-            texture.rotation = straight ? 0 : source?.rotation ?? 0;
-            texture.center.copy(!straight && source?.center ? source.center : new THREE.Vector2(0, 0));
-        }
+        setLibraryTransform(texture, override, scale, original.map);
     }
     material.normalScale.set(override.normal, -override.normal);
     material.roughness = override.roughness;
+    material.aoMapIntensity = override.ao ?? 1;
+    material.metalness = override.metalness ?? 0;
 }
 
 // Координаты текстуры сетки: свои из SketchUp или проекция — там, где своих
@@ -313,14 +328,14 @@ export function applyModelMaterials(prepared, overrides, { root, anisotropy = 4,
             for (const [key, texture] of loaded) {
                 texture.anisotropy = anisotropy;
                 texture.channel = 1;
-                texture.repeat.set(1 / rule.tile, 1 / rule.tile);
+                setLibraryTransform(texture, { ...rule, projection: 'box' });
                 material[key] = texture;
             }
             material.userData.loaded = loaded.map(([, texture]) => texture);
             material.metalnessMap = null;
-            material.metalness = 0;
+            material.metalness = rule.metalness ?? 0;
             material.color.set('#ffffff');
-            material.aoMapIntensity = 1;
+            material.aoMapIntensity = rule.ao ?? 1;
             material.normalScale.set(rule.normal, -rule.normal);
             material.roughness = rule.roughness;
             material.needsUpdate = true;
@@ -375,7 +390,7 @@ export function applyModelMaterials(prepared, overrides, { root, anisotropy = 4,
         const projection = override.tile !== null && override.projection === 'box' ? 'box' : 'uv';
         for (const mesh of meshes) layOut(mesh, root, projection, material.userData.scale);
         const scale = projection === 'box' ? [1, 1] : material.userData.scale;
-        const same = material.userData.override?.material === override.material;
+        const same = material.userData.libraryMaterial === override.material;
         material.userData.override = override;
         if (same) {
             placeTextures(material, override, scale);
@@ -394,6 +409,7 @@ export function applyModelMaterials(prepared, overrides, { root, anisotropy = 4,
                 material.metalness = 0;
                 material.color.set('#ffffff');
                 material.aoMapIntensity = 1;
+                material.userData.libraryMaterial = override.material;
                 placeTextures(material, override, scale);
                 material.needsUpdate = true;
                 onChange?.();
@@ -405,10 +421,9 @@ export function applyModelMaterials(prepared, overrides, { root, anisotropy = 4,
     }
 }
 
-// Текущая текстура материала (из SketchUp, до подмены) — картинкой для ИИ и
-// для «только карт». Нет текстуры — null.
-export function textureDataUrl(material, limit = 2048) {
-    const image = (material.userData.original?.map ?? material.map)?.image;
+// Current colour by default; the SketchUp source is an explicit separate choice.
+export function textureDataUrl(material, limit = 2048, original = false) {
+    const image = (original ? material.userData.original?.map ?? material.map : material.map)?.image;
     if (!image?.width) return null;
     const scale = Math.min(1, limit / Math.max(image.width, image.height));
     const canvas = document.createElement('canvas');

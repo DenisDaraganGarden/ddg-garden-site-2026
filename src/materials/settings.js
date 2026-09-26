@@ -7,7 +7,9 @@
 //
 //   modelMaterials: { <placedId>: { <имя материала>: { material, tile, normal, roughness, projection?, glass? } } }
 //
-// tile — метров на одну плитку; null — как лежала текстура в SketchUp
+// tile/tileY — metres across the entire image, horizontal/vertical. A missing
+// tileY means the old square format. rotation — degrees in physical space.
+// tile === null — как лежала текстура в SketchUp
 // (карты к текущей текстуре, без ИИ). projection — раскладка: 'uv' — как в
 // SketchUp (его поворот и сдвиг текстуры), 'box' — прямо по граням модели:
 // волокно досок вертикально на стенах, как бы ни была развёрнута текстура.
@@ -19,7 +21,8 @@
 // normal, roughness }] — первое подходящее правило красит грань своим
 // материалом прямо по граням; запись может быть только из правил.
 export const MATERIAL_RANGES = Object.freeze({
-    tile: [0.05, 50, 0.01], normal: [0, 3, 0.05], roughness: [0, 2, 0.05],
+    tile: [0.05, 50, 0.01], tileY: [0.05, 50, 0.01], rotation: [-180, 180, 1],
+    normal: [0, 3, 0.05], roughness: [0, 2, 0.05], ao: [0, 2, 0.05], metalness: [0, 1, 0.01],
     clarity: [0, 1, 0.01], frost: [0, 1, 0.01], reflect: [0, 3, 0.05],
 });
 export const DEFAULT_MATERIAL_SETTINGS = Object.freeze({ modelMaterials: {} });
@@ -32,6 +35,11 @@ const within = (value, [min, max], fallback) => {
     const number = Number(value);
     return Number.isFinite(number) ? Math.round(Math.min(max, Math.max(min, number)) * 1000) / 1000 : fallback;
 };
+
+// Optional fields keep old projects byte-for-byte compatible at normalization.
+const surfaceFields = (value) => Object.fromEntries(['tileY', 'rotation', 'ao', 'metalness']
+    .filter((key) => value[key] !== undefined && value[key] !== null)
+    .map((key) => [key, within(value[key], MATERIAL_RANGES[key], key === 'ao' ? 1 : key === 'tileY' ? 1 : 0)]));
 
 export function normalizeGlass(value) {
     if (!value || typeof value !== 'object') return null;
@@ -52,7 +60,7 @@ export function normalizeFaceRule(rule) {
         ? [Math.min(Number(rule.y[0]), Number(rule.y[1])), Math.max(Number(rule.y[0]), Number(rule.y[1]))] : null;
     const skip = (Array.isArray(rule.skip) ? rule.skip : []).map((name) => String(name).slice(0, 80)).filter(Boolean).slice(0, 8);
     return {
-        faces, material: rule.material,
+        faces, material: rule.material, ...surfaceFields(rule),
         tile: within(rule.tile, MATERIAL_RANGES.tile, 1), normal: within(rule.normal, MATERIAL_RANGES.normal, 1), roughness: within(rule.roughness, MATERIAL_RANGES.roughness, 1),
         ...(y ? { y } : {}), ...(skip.length ? { skip } : {}),
     };
@@ -63,7 +71,7 @@ export function normalizeMaterialOverride(value) {
     const glass = normalizeGlass(value.glass);
     const faces = (Array.isArray(value.faces) ? value.faces : []).slice(0, MATERIAL_LIMITS.faces).map(normalizeFaceRule).filter(Boolean);
     const library = LIBRARY_ID.test(String(value.material ?? '')) ? {
-        material: value.material,
+        material: value.material, ...surfaceFields(value),
         tile: value.tile === null || value.tile === undefined ? null : within(value.tile, MATERIAL_RANGES.tile, 1),
         normal: within(value.normal, MATERIAL_RANGES.normal, 1),
         roughness: within(value.roughness, MATERIAL_RANGES.roughness, 1),

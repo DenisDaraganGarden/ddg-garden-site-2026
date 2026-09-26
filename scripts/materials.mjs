@@ -4,15 +4,14 @@ import path from 'node:path';
 import { HOME, isValidId, slugify } from './projectStore.mjs';
 import { keyHint, readApiKey, removeApiKey, saveApiKey } from './openaiKey.mjs';
 import { MATERIAL_RANGES } from '../src/materials/settings.js';
+import { categoryOf, materialSize, normalizeRecipe } from '../src/materials/recipe.js';
 import {
-  aoFrom, blendSeams, compositeBand, heightFrom, luminance, normalFrom, rollHalf, roughnessFrom, seamMask, seamRatio, toBytes,
+  blendSeams, compositeBand, luminance, mapsFromRecipe, rollHalf, seamMask, seamRatio, toBytes,
 } from './materialMaps.mjs';
 
-// Материалы по ИИ и их библиотека. Модель OpenAI рисует только цветовую карту
-// (альбедо) — по описанию, аналогам, кадру сцены или текущей текстуре из
-// SketchUp; шов плитки она же перерисовывает крестом посередине; рельеф,
-// нормали, AO и шероховатость считаются из цвета здесь (materialMaps.mjs) —
-// поэтому все карты совпадают пиксель в пиксель.
+// Material workbench: references → colour variants → explicit seam treatment
+// → a saved recipe/map set → review → Apply. AI height is optional and must
+// be inspected for alignment; normal/AO are derived from the same height.
 //
 //   ~/Ouroboros/library/materials/<id>/material.json — имя, размер плитки, откуда
 //   ~/Ouroboros/library/materials/<id>/{albedo.webp, normal.png, roughness.webp, ao.webp, height.png, preview.webp}
@@ -39,9 +38,17 @@ export function requestQuality(model, quality) {
   return ['xhigh', 'max'].includes(quality) && !extraQuality(model) ? 'high' : quality;
 }
 
+export function requestDimensions(model, size, sides = [1, 1]) {
+  const side = requestSize(model, size);
+  const ratio = Math.max(1 / 3, Math.min(3, sides[0] / sides[1]));
+  if (!freeSize(model)) return ratio > 1.2 ? '1536x1024' : ratio < 0.83 ? '1024x1536' : '1024x1024';
+  const round = (value) => Math.ceil(value / 16) * 16;
+  return `${round(side * Math.sqrt(ratio))}x${round(side / Math.sqrt(ratio))}`;
+}
+
 // Текст задания модели. Бесшовность, ровный свет и масштаб — всегда, их
 // Денис не пишет; его описание — как есть, на любом языке.
-export function texturePrompt({ mode = 'create', description = '', tile = 1, references = 0, context = false }) {
+export function texturePrompt({ mode = 'create', description = '', tile = 1, tileY = tile, references = 0, context = false }) {
   const what = String(description ?? '').trim();
   const lines = [];
   let image = 1;
@@ -54,9 +61,9 @@ export function texturePrompt({ mode = 'create', description = '', tile = 1, ref
   }
   lines.push(
     'It must be a seamless, tileable texture: the left edge continues into the right edge and the top into the bottom, with no visible seam when repeated.',
-    'Orthographic, perfectly flat, straight-on view of the surface filling the whole square edge to edge: no perspective, no horizon, no objects, no border, no text, no watermark.',
+    'Orthographic, perfectly flat, straight-on view of the surface filling the whole image edge to edge: no perspective, no horizon, no objects, no border, no text, no watermark.',
     'Albedo only: soft, even, shadowless light; no baked highlights, reflections, strong shadows or vignette. Natural variation of the material is welcome.',
-    `The square covers ${Number(tile).toFixed(2).replace(/\.?0+$/, '')} × ${Number(tile).toFixed(2).replace(/\.?0+$/, '')} m of the real surface: keep every detail at its true physical size for that scale.`,
+    `The image covers ${Number(tile).toFixed(2).replace(/\.?0+$/, '')} × ${Number(tileY).toFixed(2).replace(/\.?0+$/, '')} m of the real surface (horizontal × vertical). Match the physical proportions of boards, tiles and joints. This is the size of the WHOLE sample, not necessarily one tile or board. Do not turn rectangular pieces into squares.`,
   );
   if (references) {
     const last = image + references - 1;
@@ -145,16 +152,17 @@ async function cleanDrafts() {
 export async function generateDraft(body) {
   const mode = body.mode === 'improve' ? 'improve' : 'create';
   const model = String(body.model || 'gpt-image-2.5-sunburst');
-  const tile = Math.min(50, Math.max(0.05, Number(body.tile) || 1));
+  const [tile, tileY] = materialSize(body);
   const n = Math.min(4, Math.max(1, Math.round(Number(body.n) || 1)));
   const base = mode === 'improve' ? await pngFromDataUrl(body.base) : null;
   if (mode === 'improve' && !base) throw Object.assign(new Error('У материала нет текстуры — «Сгенерировать с нуля».'), { status: 400 });
   const references = (await Promise.all((Array.isArray(body.references) ? body.references : []).slice(0, 12).map((value) => pngFromDataUrl(value, 1536)))).filter(Boolean);
   const context = body.context ? await pngFromDataUrl(body.context, 1536) : null;
-  const prompt = texturePrompt({ mode, description: body.description, tile, references: references.length, context: Boolean(context) });
+  const prompt = texturePrompt({ mode, description: body.description, tile, tileY, references: references.length, context: Boolean(context) });
   const images = [base, ...references, context].filter(Boolean);
   const size = requestSize(model, body.size);
-  const variants = await generateImages({ model, prompt, n, size, quality: body.quality, images });
+  const dimensions = requestDimensions(model, size, [tile, tileY]);
+  const variants = await generateImages({ model, prompt, n, size: dimensions, quality: body.quality, images });
   if (!variants.length) throw Object.assign(new Error('OpenAI не вернул картинок.'), { status: 502 });
   void cleanDrafts();
   const draft = newId();
@@ -163,9 +171,9 @@ export async function generateDraft(body) {
   const sharp = await sharpModule();
   await Promise.all(variants.map(async (png, index) => {
     await fs.writeFile(path.join(dir, `${index}.png`), png);
-    await sharp(png).resize(512, 512, { fit: 'cover' }).webp({ quality: 82 }).toFile(path.join(dir, `${index}.webp`));
+    await sharp(png).resize(512, 512, { fit: 'inside' }).webp({ quality: 90 }).toFile(path.join(dir, `${index}.webp`));
   }));
-  const meta = { mode, model, quality: requestQuality(model, body.quality), size, tile, description: String(body.description ?? '').slice(0, 2000), created: new Date().toISOString(), variants: variants.length };
+  const meta = { mode, model, quality: requestQuality(model, body.quality), size, dimensions, tile, tileY, category: categoryOf(body), description: String(body.description ?? '').slice(0, 2000), created: new Date().toISOString(), variants: variants.length };
   await fs.writeFile(path.join(dir, 'meta.json'), JSON.stringify(meta, null, 2));
   return { draft, ...meta, previews: variants.map((_, index) => `/__materials/drafts/${draft}/${index}.webp`) };
 }
@@ -174,80 +182,136 @@ async function writeImage(file, pixels, width, height, channels, format) {
   const sharp = await sharpModule();
   const image = sharp(Buffer.from(pixels), { raw: { width, height, channels } });
   if (format === 'png') await image.png({ compressionLevel: 9 }).toFile(file);
-  else await image.webp({ quality: 92 }).toFile(file);
+  else await image.webp({ lossless: true }).toFile(file);
 }
 
-// Из цветовой — все карты и запись библиотеки.
-async function writeMaterial({ rgb, width, height, name, tile, meta }) {
-  const lum = luminance(rgb, width, height, 3);
-  const heightField = heightFrom(lum, width, height);
-  const id = `${slugify(name).slice(0, 40)}-${Date.now().toString(36)}`;
+// Imported maps must have the same framing; never silently crop a PBR map.
+async function suppliedPixels(dataUrl, width, height, label) {
+  const png = await pngFromDataUrl(dataUrl, 4096);
+  if (!png) throw Object.assign(new Error(`Нет карты «${label}». Загрузите PNG, WebP или JPEG.`), { status: 400 });
+  const sharp = await sharpModule();
+  const info = await sharp(png).metadata();
+  if (Math.abs(info.width / info.height / (width / height) - 1) > 0.02) {
+    throw Object.assign(new Error(`Пропорции карты «${label}» отличаются от цвета (${width} × ${height}). Карты должны совпадать по рисунку и кадрированию.`), { status: 400 });
+  }
+  return sharp(png).removeAlpha().toColourspace('srgb').resize(width, height, { fit: 'fill' }).raw().toBuffer();
+}
+
+export const heightPrompt = (description = '') => [
+  'Convert the provided albedo texture to a single grayscale orthographic HEIGHT MAP of this exact surface.',
+  'Preserve every joint, edge and feature at the exact same pixel coordinates. No crop, no perspective, no new pattern, no colour, no light, no normal-map colours, no collage or labels.',
+  'Black = deepest crevices, white = highest points. Flat tile faces stay at one height even when their colour varies. Colour stains and shadows are not holes. Infer actual surface structure, not brightness.',
+  'Keep opposite edges tileable. Output only the registered grayscale height map at the same framing and aspect ratio.',
+  String(description).slice(0, 2000),
+].join('\n');
+
+// All bakes create a NEW library entry. Rebuilding cannot change a material
+// already used in another project; albedo is lossless and never inferred again.
+async function writeMaterial({ rgb, width, height, name, tile, tileY, meta = {}, options = {} }) {
+  const category = categoryOf({ ...meta, ...options, name });
+  const recipe = normalizeRecipe(options.recipe, category);
+  const maps = options.maps ?? {};
+  let suppliedHeight = null;
+  if (maps.height) suppliedHeight = luminance(await suppliedPixels(maps.height, width, height, 'Высота'), width, height, 3);
+  else if (recipe.heightMode === 'file') throw Object.assign(new Error('Загрузите карту высоты или выберите другой способ расчёта.'), { status: 400 });
+  else if (recipe.heightMode === 'ai') {
+    const sharp = await sharpModule();
+    const input = await sharp(Buffer.from(rgb), { raw: { width, height, channels: 3 } }).png().toBuffer();
+    const model = String(options.model || meta.model || 'gpt-image-2.5-sunburst');
+    if (width / height > 3 || height / width > 3) throw Object.assign(new Error('Для карты высоты ИИ пропорции образца должны быть от 1:3 до 3:1. Для более длинного образца загрузите готовую карту.'), { status: 400 });
+    const [heightPng] = await generateImages({ model, prompt: heightPrompt(meta.description), images: [input], n: 1,
+      size: requestDimensions(model, options.size ?? meta.size ?? 1024, [width, height]), quality: options.quality ?? meta.quality ?? 'high' });
+    if (!heightPng) throw Object.assign(new Error('ИИ не вернул карту высоты.'), { status: 502 });
+    suppliedHeight = luminance(await suppliedPixels(`data:image/png;base64,${heightPng.toString('base64')}`, width, height, 'Высота ИИ'), width, height, 3);
+  }
+  const built = mapsFromRecipe(rgb, width, height, recipe, materialSize({ tile, tileY }, options.sourceSize ?? [1, 1]), suppliedHeight);
+  const supplied = {};
+  for (const key of ['normal', 'roughness', 'ao']) {
+    if (!maps[key]) continue;
+    const data = await suppliedPixels(maps[key], width, height, key);
+    supplied[key] = key === 'normal' ? data : toBytes(luminance(data, width, height, 3));
+  }
+  const id = `${slugify(name).slice(0, 36)}-${newId()}`;
   const dir = path.join(MATERIALS_DIR, id);
   await fs.mkdir(dir, { recursive: true });
   await Promise.all([
     writeImage(path.join(dir, 'albedo.webp'), rgb, width, height, 3, 'webp'),
-    writeImage(path.join(dir, 'normal.png'), normalFrom(heightField, width, height, 2), width, height, 3, 'png'),
-    writeImage(path.join(dir, 'roughness.webp'), toBytes(roughnessFrom(lum, heightField)), width, height, 1, 'webp'),
-    writeImage(path.join(dir, 'ao.webp'), toBytes(aoFrom(heightField, width, height)), width, height, 1, 'webp'),
-    writeImage(path.join(dir, 'height.png'), toBytes(heightField), width, height, 1, 'png'),
+    writeImage(path.join(dir, 'normal.png'), supplied.normal ?? built.normal, width, height, 3, 'png'),
+    writeImage(path.join(dir, 'roughness.webp'), supplied.roughness ?? toBytes(built.roughness), width, height, 1, 'webp'),
+    writeImage(path.join(dir, 'ao.webp'), supplied.ao ?? toBytes(built.ao), width, height, 1, 'webp'),
+    writeImage(path.join(dir, 'height.png'), toBytes(built.height), width, height, 1, 'png'),
   ]);
-  // Превью — 2×2 плитки: шов, если он есть, виден сразу.
+  if (suppliedHeight) await writeImage(path.join(dir, 'height-source.png'), toBytes(suppliedHeight), width, height, 1, 'png');
   const sharp = await sharpModule();
-  const quarter = await sharp(Buffer.from(rgb), { raw: { width, height, channels: 3 } }).resize(256, 256, { fit: 'fill' }).png().toBuffer();
-  await sharp({ create: { width: 512, height: 512, channels: 3, background: '#000' } })
-    .composite([[0, 0], [256, 0], [0, 256], [256, 256]].map(([left, top]) => ({ input: quarter, left, top }))).webp({ quality: 84 }).toFile(path.join(dir, 'preview.webp'));
+  await sharp(Buffer.from(rgb), { raw: { width, height, channels: 3 } }).resize(512, 512, { fit: 'inside' }).webp({ quality: 90 }).toFile(path.join(dir, 'preview.webp'));
   const entry = {
-    id, name: String(name).trim().slice(0, 80) || id, created: new Date().toISOString(), tile, size: [width, height],
-    seamRatio: Math.round(seamRatio(rgb, width, height, 3) * 100) / 100, ...meta,
+    ...meta, id, name: String(name).trim().slice(0, 80) || id, created: new Date().toISOString(), tile, tileY: tile === null ? null : tileY ?? tile, size: [width, height],
+    category, recipe, normal: 1, roughness: 1, metalness: recipe.metalness, ao: 1,
+    mapSources: { height: options.heightOrigin ?? (maps.height ? 'file' : recipe.heightMode), normal: maps.normal ? 'file' : 'height', roughness: maps.roughness ? 'file' : 'recipe', ao: maps.ao ? 'file' : 'height' },
+    seamRatio: Math.round(seamRatio(rgb, width, height, 3) * 100) / 100,
   };
   await fs.writeFile(path.join(dir, 'material.json'), `${JSON.stringify(entry, null, 2)}\n`);
   return entry;
 }
 
-// Выбранный вариант → бесшовный (шов перерисовывает модель, не вышло — сшивается
-// на месте) → карты → библиотека.
+// Selected variant → optional seam edit → maps → new library entry.
+// No silent fallback or square crop. The caller reviews this result before Apply.
 export async function finishDraft(body) {
-  if (!DRAFT_ID.test(String(body.draft)) || !(Number(body.variant) >= 0)) throw Object.assign(new Error('Нет такого варианта.'), { status: 400 });
+  if (!DRAFT_ID.test(String(body.draft)) || !Number.isInteger(body.variant) || body.variant < 0) throw Object.assign(new Error('Нет такого варианта.'), { status: 400 });
   const dir = path.join(DRAFTS_DIR, body.draft);
   const meta = JSON.parse(await fs.readFile(path.join(dir, 'meta.json'), 'utf8'));
   const sharp = await sharpModule();
-  const { data, info } = await sharp(await fs.readFile(path.join(dir, `${Number(body.variant)}.png`))).removeAlpha().raw().toBuffer({ resolveWithObject: true });
-  const side = Math.min(info.width, info.height) & ~1;
-  let rgb = info.width === side && info.height === side ? data
-    : await sharp(data, { raw: { width: info.width, height: info.height, channels: 3 } }).resize(side, side, { fit: 'cover' }).raw().toBuffer();
-  const notes = [];
-  let seam = body.seam === 'blend' || body.seam === 'none' ? body.seam : 'ai';
-  const band = Math.max(8, Math.round(side / 12));
+  if (body.variant >= meta.variants) throw Object.assign(new Error('Нет такого варианта.'), { status: 400 });
+  const { data, info } = await sharp(await fs.readFile(path.join(dir, `${body.variant}.png`))).removeAlpha().toColourspace('srgb').raw().toBuffer({ resolveWithObject: true });
+  const { width, height } = info;
+  let rgb = data;
+  const seam = ['ai', 'blend'].includes(body.seam) ? body.seam : 'none';
+  const band = Math.max(8, Math.round(Math.min(width, height) / 12));
   if (seam === 'ai') {
-    try {
-      const rolled = rollHalf(rgb, side, side, 3);
-      const png = (pixels, channels) => sharp(Buffer.from(pixels), { raw: { width: side, height: side, channels } }).png().toBuffer();
+      const rolled = rollHalf(rgb, width, height, 3);
+      const png = (pixels, channels) => sharp(Buffer.from(pixels), { raw: { width, height, channels } }).png().toBuffer();
       const [patch] = await generateImages({
-        model: meta.model, prompt: seamPrompt(meta.description), n: 1, size: side, quality: meta.quality,
-        images: [await png(rolled, 3)], mask: await png(seamMask(side, side, band), 4),
+        model: meta.model, prompt: seamPrompt(meta.description), n: 1, size: meta.dimensions ?? `${width}x${height}`, quality: meta.quality,
+        images: [await png(rolled, 3)], mask: await png(seamMask(width, height, band), 4),
       });
-      const patchRgb = await sharp(patch).removeAlpha().resize(side, side, { fit: 'fill' }).raw().toBuffer();
-      rgb = rollHalf(compositeBand(rolled, patchRgb, side, side, 3, band), side, side, 3);
-    } catch (error) {
-      seam = 'blend';
-      notes.push(`шов сшит без ИИ: ${error.message}`);
-    }
+      if (!patch) throw Object.assign(new Error('ИИ не вернул обработанный шов. Исходный вариант сохранён.'), { status: 502 });
+      const patchRgb = await sharp(patch).removeAlpha().toColourspace('srgb').resize(width, height, { fit: 'fill' }).raw().toBuffer();
+      rgb = rollHalf(compositeBand(rolled, patchRgb, width, height, 3, band), width, height, 3, true);
   }
-  if (seam === 'blend') rgb = blendSeams(rgb, side, side, 3, band);
+  if (seam === 'blend') rgb = blendSeams(rgb, width, height, 3, band);
   return writeMaterial({
-    rgb, width: side, height: side, name: body.name || meta.description || 'Материал', tile: meta.tile,
-    meta: { mode: meta.mode, model: meta.model, quality: meta.quality, description: meta.description, seam, ...(notes.length ? { notes } : {}) },
+    rgb, width, height, name: body.name || meta.description || 'Материал', tile: meta.tile, tileY: meta.tileY,
+    meta: { mode: meta.mode, model: meta.model, quality: meta.quality, category: meta.category, description: meta.description, seam }, options: body,
   });
 }
 
-// Только карты, без ИИ: к текущей текстуре SketchUp — рельеф, нормали, AO и
-// шероховатость. Размер и раскладка прежние (tile: null — как в SketchUp).
+// Maps from an image or an existing entry. Colour stays intact; AI height,
+// local estimates and registered external maps are explicit recipe choices.
 export async function mapsFromTexture(body) {
-  const png = await pngFromDataUrl(body.image, 4096);
+  const sourceId = body.material;
+  if (sourceId && !isValidId(sourceId)) throw Object.assign(new Error('Нет такого материала.'), { status: 400 });
+  const png = sourceId ? await fs.readFile(path.join(MATERIALS_DIR, sourceId, 'albedo.webp')) : await pngFromDataUrl(body.image, 4096);
   if (!png) throw Object.assign(new Error('У материала нет текстуры.'), { status: 400 });
   const sharp = await sharpModule();
-  const { data, info } = await sharp(png).removeAlpha().raw().toBuffer({ resolveWithObject: true });
-  return writeMaterial({ rgb: data, width: info.width, height: info.height, name: body.name || 'Материал', tile: null, meta: { mode: 'maps', seam: 'none' } });
+  const { data, info } = await sharp(png).removeAlpha().toColourspace('srgb').raw().toBuffer({ resolveWithObject: true });
+  const [tile, tileY] = materialSize(body);
+  const options = { ...body, maps: { ...(body.maps ?? {}) } };
+  if (sourceId && body.reuseMaps) {
+    const sourceDir = path.join(MATERIALS_DIR, sourceId);
+    const parent = JSON.parse(await fs.readFile(path.join(sourceDir, 'material.json'), 'utf8'));
+    for (const [key, file] of [['height', 'height-source.png'], ['normal', 'normal.png'], ['roughness', 'roughness.webp'], ['ao', 'ao.webp']]) {
+      if (options.maps[key]) continue;
+      const height = key === 'height';
+      if (height ? !['ai', 'file'].includes(body.recipe?.heightMode) || body.recipe.heightMode !== parent.recipe?.heightMode
+        : parent.mapSources?.[key] !== 'file') continue;
+      const bytes = await fs.readFile(path.join(sourceDir, file)).catch(() => null);
+      if (!bytes) continue;
+      options.maps[key] = `data:image/${file.endsWith('.png') ? 'png' : 'webp'};base64,${bytes.toString('base64')}`;
+      if (height) options.heightOrigin = parent.mapSources?.height;
+    }
+  }
+  return writeMaterial({ rgb: data, width: info.width, height: info.height, name: body.name || 'Материал', tile: body.tile == null ? null : tile, tileY,
+    meta: { mode: 'maps', seam: 'none', description: String(body.description ?? '').slice(0, 2000), ...(sourceId ? { parent: sourceId } : {}) }, options });
 }
 
 export async function listMaterials() {
@@ -256,7 +320,7 @@ export async function listMaterials() {
     try {
       const entry = JSON.parse(await fs.readFile(path.join(MATERIALS_DIR, name, 'material.json'), 'utf8'));
       const stat = await fs.stat(path.join(MATERIALS_DIR, name, 'albedo.webp'));
-      return entry.id === name ? { ...entry, version: Math.round(stat.mtimeMs) } : null;
+      return entry.id === name ? { ...entry, category: categoryOf(entry), version: Math.round(stat.mtimeMs) } : null;
     } catch {
       return null;
     }
@@ -275,10 +339,12 @@ export function libraryPatch(entry, body) {
     : Math.round(Math.min(max, Math.max(min, Number(value))) * 1000) / 1000);
   const tile = number(body.tile, MATERIAL_RANGES.tile);
   if (tile !== undefined && entry.tile !== null) patch.tile = tile;
-  for (const key of ['normal', 'roughness']) {
+  for (const key of ['normal', 'roughness', 'tileY', 'rotation', 'ao', 'metalness']) {
     const value = number(body[key], MATERIAL_RANGES[key]);
     if (value !== undefined) patch[key] = value;
   }
+  if (typeof body.category === 'string') patch.category = categoryOf({ category: body.category });
+  if (typeof body.favorite === 'boolean') patch.favorite = body.favorite;
   return patch;
 }
 
@@ -328,8 +394,8 @@ const typeOf = (file) => (file.endsWith('.png') ? 'image/png' : 'image/webp');
 // GET/PUT/DELETE /__openai/key — есть ли ключ («sk-…abcd»), сохранить, убрать
 // GET /__openai/models            — модели картинок этого ключа
 // POST /__materials/generate      — варианты по заданию
-// POST /__materials/finish        — выбранный вариант → бесшовный → карты → библиотека
-// POST /__materials/maps          — карты к текущей текстуре, без ИИ
+// POST /__materials/finish        — вариант → явная обработка шва → карты → библиотека
+// POST /__materials/maps          — фиксированный цвет → карты по выбранному рецепту
 // GET  /__materials/drafts/<черновик>/<n>.webp
 // GET  /__library/materials[/<id>/<файл>], PATCH (имя, умолчания)/DELETE /__library/materials/<id>
 export function materialsPlugin() {
@@ -356,7 +422,7 @@ export function materialsPlugin() {
     });
     route(middlewares, '/__materials', async (request, response, [part, draft, file]) => {
       if (request.method === 'POST' && part === 'generate') { send(response, 200, { ok: true, ...(await generateDraft(await readJson(request))) }); return true; }
-      if (request.method === 'POST' && part === 'finish') { send(response, 200, { ok: true, material: await finishDraft(await readJson(request, 10000)) }); return true; }
+      if (request.method === 'POST' && part === 'finish') { send(response, 200, { ok: true, material: await finishDraft(await readJson(request)) }); return true; }
       if (request.method === 'POST' && part === 'maps') { send(response, 200, { ok: true, material: await mapsFromTexture(await readJson(request)) }); return true; }
       if (request.method === 'GET' && part === 'drafts' && DRAFT_ID.test(draft ?? '') && /^\d+\.webp$/.test(file ?? '')) { await serveFile(response, path.join(DRAFTS_DIR, draft, file), 'image/webp'); return true; }
       return false;

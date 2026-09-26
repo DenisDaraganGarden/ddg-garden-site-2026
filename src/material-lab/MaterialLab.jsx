@@ -2,11 +2,12 @@ import React, { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import AssetStudio from '../asset-lab/AssetStudio';
-import LabShell, { LabFacts, LabGroup, LabModes, LabRange, LabSwatches, LabText, LabToggle } from '../asset-lab/LabShell';
+import LabShell, { LabFacts, LabGroup, LabModes, LabRange, LabSelect, LabSwatches, LabText, LabToggle } from '../asset-lab/LabShell';
 import { assetIndex } from '../asset-lab/assetCatalog';
 import { listMaterials, removeMaterial, updateMaterial } from '../materials/api.js';
-import { libraryFile, loadLibraryMaps } from '../materials/modelMaterials.js';
+import { libraryFile, loadLibraryMaps, setLibraryTransform } from '../materials/modelMaterials.js';
 import { MATERIAL_RANGES } from '../materials/settings.js';
+import { categoryOf, MATERIAL_CATEGORIES } from '../materials/recipe.js';
 
 // Библиотека материалов (~/Ouroboros/library/materials) на шаре, кубе, стене и
 // плитке — те же карты и то же наложение, что на модели SketchUp (src/materials).
@@ -28,7 +29,7 @@ const SHAPES = {
     tile: { size: [2, 2], make: () => new THREE.PlaneGeometry(2, 2), position: [0, 0.004, 0], rotation: [-Math.PI / 2, 0, 0] },
 };
 const MAP_KEYS = { color: 'map', normal: 'normalMap', roughness: 'roughnessMap', ao: 'aoMap', height: 'heightMap' };
-const DEFAULT_LOOK = { tile: 1, normal: 1, roughness: 1, ao: true, exposure: 1.04, environmentIntensity: 0.8 };
+const DEFAULT_LOOK = { tile: 1, tileY: 1, rotation: 0, metalness: 0, normal: 1, roughness: 1, ao: true, exposure: 1.04, environmentIntensity: 0.8 };
 const TEXT = {
     ru: {
         title: 'Материалы', subtitle: 'Библиотека текстур · все карты на шаре, кубе, стене и плитке',
@@ -62,7 +63,8 @@ const TEXT = {
     },
 };
 
-const lookOf = (entry) => ({ tile: entry?.tile ?? 1, normal: entry?.normal ?? 1, roughness: entry?.roughness ?? 1 });
+const lookOf = (entry) => ({ tile: entry?.tile ?? 1, tileY: entry?.tileY ?? entry?.tile ?? 1, rotation: entry?.rotation ?? 0,
+    metalness: entry?.metalness ?? 0, normal: entry?.normal ?? 1, roughness: entry?.roughness ?? 1 });
 
 // Координаты формы — как у glTF (v сверху вниз): карты библиотеки читаются с
 // flipY = false, как на модели SketchUp, и лежат на шаре так же, как на ней.
@@ -123,7 +125,7 @@ function Specimen({ shape, maps, look, show }) {
         const anisotropy = Math.min(8, gl.capabilities.getMaxAnisotropy());
         for (const texture of [...Object.values(maps), ...Object.values(raw ?? {})]) {
             if (!texture) continue;
-            texture.repeat.set(size[0] / look.tile, size[1] / look.tile);
+            setLibraryTransform(texture, { ...look, projection: 'box' }, size);
             texture.anisotropy = anisotropy;
         }
         lit.map = maps.map;
@@ -132,12 +134,13 @@ function Specimen({ shape, maps, look, show }) {
         lit.aoMap = maps.aoMap;
         lit.normalScale.set(look.normal, -look.normal);
         lit.roughness = look.roughness;
+        lit.metalness = look.metalness ?? 0;
         lit.aoMapIntensity = look.ao ? 1 : 0;
         lit.needsUpdate = true;
         flat.map = raw?.[MAP_KEYS[show]] ?? null;
         flat.needsUpdate = true;
         invalidate();
-    }, [maps, raw, lit, flat, size, look.tile, look.normal, look.roughness, look.ao, show, gl, invalidate]);
+    }, [maps, raw, lit, flat, size, look, show, gl, invalidate]);
 
     if (!maps) return null;
     return <mesh geometry={geometry} material={show === 'all' ? lit : flat} position={position} rotation={rotation ?? [0, 0, 0]} castShadow receiveShadow />;
@@ -154,6 +157,8 @@ export default function MaterialLab() {
     const [show, setShow] = useState('all');
     const [saved, setSaved] = useState(false);
     const [hidden, setHidden] = useState(document.hidden);
+    const [query, setQuery] = useState('');
+    const [category, setCategory] = useState('all');
     useEffect(() => {
         const onVisibility = () => setHidden(document.hidden);
         document.addEventListener('visibilitychange', onVisibility);
@@ -182,7 +187,8 @@ export default function MaterialLab() {
     const mapsOnly = entry?.tile === null;
 
     const save = async () => {
-        const next = await updateMaterial(entry.id, { name, normal: look.normal, roughness: look.roughness, ...(mapsOnly ? {} : { tile: look.tile }) });
+        const next = await updateMaterial(entry.id, { name, normal: look.normal, roughness: look.roughness, rotation: look.rotation, metalness: look.metalness,
+            ...(mapsOnly ? {} : { tile: look.tile, tileY: look.tileY }) });
         setLibrary((current) => current.map((item) => (item.id === next.id ? { ...item, ...next } : item)));
         setSaved(true);
     };
@@ -204,19 +210,25 @@ export default function MaterialLab() {
             views={Object.keys(SHAPES).map((id) => ({ id, label: t[id] }))}
             view={view}
             onView={setView}
-            scale={entry ? `${look.tile.toFixed(2)} ${t.metres}` : null}
+            scale={entry ? `${look.tile.toFixed(2)} × ${(look.tileY ?? look.tile).toFixed(2)} ${t.metres}` : null}
             panel={<>
                 <LabGroup title={t.library}>
+                    <LabText label={language === 'ru' ? 'Поиск' : 'Search'} value={query} onChange={setQuery} />
+                    <LabSelect label={language === 'ru' ? 'Категория' : 'Category'} value={category} onChange={setCategory}
+                        options={[{ value: 'all', label: t.all }, ...MATERIAL_CATEGORIES.map(([value, ru, en]) => ({ value, label: language === 'ru' ? ru : en }))]} />
                     {library === false ? <p className="lab__note">{t.offline}</p> : null}
                     {library && !library.length ? <p className="lab__note">{t.empty}</p> : null}
                     {library?.length ? <LabSwatches label={t.library} value={selected} onChange={setSelected}
-                        items={library.map((item) => ({ id: item.id, label: item.name, image: `${libraryFile(item.id, 'preview.webp')}?v=${item.version ?? 0}` }))} /> : null}
+                        items={library.filter((item) => (category === 'all' || categoryOf(item) === category) && item.name.toLowerCase().includes(query.toLowerCase())).map((item) => ({ id: item.id, label: item.name, image: `${libraryFile(item.id, 'preview.webp')}?v=${item.version ?? 0}` }))} /> : null}
                 </LabGroup>
                 {entry ? <LabGroup title={t.material}>
                     <LabText label={t.name} value={name} onChange={(value) => { setName(value); setSaved(false); }} />
-                    {range('tile', mapsOnly ? t.tileShow : t.tileSize, MATERIAL_RANGES.tile, t.metres)}
+                    {range('tile', language === 'ru' ? 'Ширина образца' : 'Sample width', MATERIAL_RANGES.tile, t.metres)}
+                    {range('tileY', language === 'ru' ? 'Высота образца' : 'Sample height', MATERIAL_RANGES.tileY, t.metres)}
+                    {range('rotation', language === 'ru' ? 'Поворот' : 'Rotation', MATERIAL_RANGES.rotation, '°')}
                     {range('normal', t.relief, MATERIAL_RANGES.normal)}
                     {range('roughness', t.matte, MATERIAL_RANGES.roughness)}
+                    {range('metalness', language === 'ru' ? 'Металличность' : 'Metalness', MATERIAL_RANGES.metalness)}
                     <LabToggle label={t.shade} value={look.ao} onChange={(value) => set('ao', value)} />
                     <LabModes label={t.show} value={show} onChange={setShow} items={['all', 'color', 'normal', 'roughness', 'ao', 'height'].map((id) => ({ id, label: t[id] }))} />
                     <p className="lab__note">{mapsOnly ? t.mapsOnly : t.note}</p>

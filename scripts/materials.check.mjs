@@ -100,7 +100,7 @@ try {
   assert.equal(calls[1].fields['image[]'], 3, 'два аналога и кадр сцены');
 
   // Выбранный вариант: шов перерисован крестом (правка с маской), карты, библиотека.
-  const entry = await finishDraft({ draft: draft.draft, variant: 1, name: 'Планкен · проба' });
+  const entry = await finishDraft({ draft: draft.draft, variant: 1, name: 'Планкен · проба', seam: 'ai' });
   const seamCall = calls.at(-1);
   assert.equal(seamCall.route, '/images/edits');
   assert.ok(seamCall.mask, 'шов — правка по маске');
@@ -127,8 +127,35 @@ try {
   assert.deepEqual(libraryPatch(entry, { name: '  Планкен  ', tile: 999, normal: 1.5, roughness: -1, extra: 1 }), { name: 'Планкен', tile: 50, normal: 1.5, roughness: 0 });
   assert.deepEqual(libraryPatch(maps, { tile: 2, normal: 'x', roughness: null }), {}, '«только карты» лежат как в SketchUp');
 
+  // A coloured rectangular slab must not be cropped, repainted on Apply,
+  // or embossed from its colour stains when the surface is flat.
+  const rectangle = await sharp(png).resize(192, 96, { fit: 'fill' }).png().toBuffer();
+  const rectUrl = `data:image/png;base64,${rectangle.toString('base64')}`;
+  const slab = await mapsFromTexture({ image: rectUrl, name: 'Плитка 120×60', category: 'tile', tile: 1.2, tileY: 0.6,
+    recipe: { heightMode: 'flat', roughness: 0.25 } });
+  assert.deepEqual(slab.size, [192, 96]);
+  const slabDir = path.join(MATERIALS_DIR, slab.id);
+  assert.deepEqual(await sharp(path.join(slabDir, 'albedo.webp')).raw().toBuffer(), await sharp(rectangle).raw().toBuffer(), 'local maps preserve every colour pixel');
+  const slabNormals = await sharp(path.join(slabDir, 'normal.png')).raw().toBuffer();
+  for (let i = 0; i < slabNormals.length; i += 3) assert.deepEqual([...slabNormals.subarray(i, i + 3)], [128, 128, 255], 'colour variations on a flat tile are not bumps');
+  await assert.rejects(mapsFromTexture({ image: rectUrl, maps: { height: dataUrl }, recipe: { heightMode: 'file' } }), /Пропорции/, 'misregistered imported maps must not be cropped to fit');
+  const callsBefore = calls.length;
+  const unchanged = await finishDraft({ draft: draft.draft, variant: 0, name: 'Без правки шва', recipe: { heightMode: 'flat' } });
+  assert.equal(calls.length, callsBefore, 'preparing a selected variant makes no hidden AI call');
+  assert.deepEqual(await sharp(path.join(MATERIALS_DIR, unchanged.id, 'albedo.webp')).raw().toBuffer(), await sharp(png).raw().toBuffer(), 'default finish preserves selected variant');
+  const { requestDimensions } = await import('./materials.mjs');
+  assert.match(texturePrompt({ tile: 1.2, tileY: 0.6 }), /1\.2 × 0\.6 m/);
+  const [requestW, requestH] = requestDimensions('gpt-image-2.5-sunburst', 1024, [1.2, 0.6]).split('x').map(Number);
+  assert.ok(requestW > requestH && requestW % 16 === 0 && requestH % 16 === 0 && requestW * requestH >= 655360);
+
   // Сцена: сколько метров в единице координат SketchUp — по u и по v отдельно.
-  const { uvScale, boxUvGeometry } = await import('../src/materials/modelMaterials.js');
+  const { uvScale, boxUvGeometry, setLibraryTransform } = await import('../src/materials/modelMaterials.js');
+  const mappedTexture = new THREE.Texture();
+  setLibraryTransform(mappedTexture, { tile: 1.2, tileY: 0.6, rotation: 90, projection: 'box' }, [4, 2]);
+  const alongX = new THREE.Vector3(0.6 / 4, 0, 1).applyMatrix3(mappedTexture.matrix);
+  const alongY = new THREE.Vector3(0, 1.2 / 2, 1).applyMatrix3(mappedTexture.matrix);
+  near(Math.abs(alongX.y), 1, 1e-8, 'after 90 degrees the short side repeats every 0.6 metres');
+  near(Math.abs(alongY.x), 1, 1e-8, 'after 90 degrees the long side repeats every 1.2 metres');
   const root = new THREE.Group();
   const plane = new THREE.PlaneGeometry(2, 1); // UV 0…1 на 2 × 1 м
   const mesh = new THREE.Mesh(plane);

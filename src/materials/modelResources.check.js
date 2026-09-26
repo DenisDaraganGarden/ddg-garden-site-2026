@@ -82,6 +82,19 @@ try {
     assert.equal(material.map, sourceMap, 'late load cannot resurrect an unmounted model');
     await assert.rejects(loadLibraryMaps('missing'), /missing map/);
 
+    // Moving a slider while the first texture load is pending must not leave
+    // the SketchUp map in place forever under a claimed library override.
+    const pending = applyModelMaterials(prepared, { stone: { ...override, material: 'deferred-slider', faces: [] } }, { root });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    pending.cancel();
+    const changed = applyModelMaterials(prepared, { stone: { ...override, material: 'deferred-slider', normal: 0.4, faces: [] } }, { root });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    deferred.splice(0).forEach((complete) => complete());
+    await Promise.all([pending.ready, changed.ready]);
+    assert.notEqual(material.map, sourceMap, 'slider change during loading still installs library maps');
+    assert.equal(material.normalScale.x, 0.4, 'latest slider value wins');
+    changed.cancel(); disposeModelMaterials(prepared);
+
     const cards = new THREE.Group(), cardSource = new THREE.PlaneGeometry(1, 2);
     cards.userData.faceCamera = true;
     const card = new THREE.Mesh(cardSource, new THREE.MeshStandardMaterial());

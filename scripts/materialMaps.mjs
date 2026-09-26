@@ -1,7 +1,7 @@
-// Карты материала из одной цветовой (альбедо): рельеф, нормали, затенение
-// щелей (AO), шероховатость — считаются попиксельно из неё же, а не
-// генерируются отдельно. Поэтому доски, швы и сучки на всех картах стоят
-// ровно в одних местах: вторая генерация нарисовала бы их чуть иначе.
+// Карты материала из общего поля высоты: цветовая оценка, плоский профиль
+// или высота из файла/ИИ. Нормали, AO и вариация матовости считаются из
+// одного поля, без независимой генерации каждой карты. Совмещение высоты
+// с альбедо зависит от её источника; для ИИ его проверяют в редакторе.
 //
 // Всё здесь — на сырых пикселях (Uint8Array RGB/RGBA или Float32Array одного
 // канала), без sharp и сети: читает и пишет файлы scripts/materials.mjs,
@@ -11,9 +11,9 @@
 const wrap = (value, size) => ((value % size) + size) % size;
 
 // Сдвиг на полплитки: шов уходит в середину крестом, край становится серединой.
-export function rollHalf(pixels, width, height, channels) {
+export function rollHalf(pixels, width, height, channels, inverse = false) {
   const out = pixels instanceof Float32Array ? new Float32Array(pixels.length) : new Uint8Array(pixels.length);
-  const dx = width >> 1, dy = height >> 1;
+  const dx = inverse ? Math.ceil(width / 2) : width >> 1, dy = inverse ? Math.ceil(height / 2) : height >> 1;
   for (let y = 0; y < height; y += 1) {
     for (let x = 0; x < width; x += 1) {
       const from = (y * width + x) * channels, to = (wrap(y + dy, height) * width + wrap(x + dx, width)) * channels;
@@ -59,7 +59,7 @@ export function compositeBand(base, patch, width, height, channels, band) {
 
 // Без ИИ: край плитки берётся из её же середины, сдвинутой на полплитки, с
 // плавным переходом. Стык исчезает; у досок и кирпича в переходе бывает
-// двоение — поэтому по умолчанию шов перерисовывает модель.
+// двоение — этот способ включается только явно, по умолчанию рисунок сохранён.
 export function blendSeams(pixels, width, height, channels, band) {
   const shifted = rollHalf(pixels, width, height, channels);
   const out = new Uint8Array(pixels.length);
@@ -127,7 +127,7 @@ export function heightFrom(lum, width, height) {
 // Y — вверх по картинке, Z — из поверхности. strength — крутизна рельефа.
 export function normalFrom(heightField, width, height, strength = 2) {
   const out = new Uint8Array(width * height * 3);
-  const k = strength * (width / 256);
+  const [kx, ky] = Array.isArray(strength) ? strength : [strength * (width / 256), strength * (height / 256)];
   const h = (x, y) => heightField[wrap(y, height) * width + wrap(x, width)];
   for (let y = 0; y < height; y += 1) {
     for (let x = 0; x < width; x += 1) {
@@ -135,7 +135,7 @@ export function normalFrom(heightField, width, height, strength = 2) {
       const gx = (h(x + 1, y - 1) + 2 * h(x + 1, y) + h(x + 1, y + 1) - h(x - 1, y - 1) - 2 * h(x - 1, y) - h(x - 1, y + 1)) / 8;
       const gy = (h(x - 1, y + 1) + 2 * h(x, y + 1) + h(x + 1, y + 1) - h(x - 1, y - 1) - 2 * h(x, y - 1) - h(x + 1, y - 1)) / 8;
       // Вверх по картинке — навстречу строкам: наклон по Y берётся с другим знаком.
-      let nx = -gx * k, ny = gy * k, nz = 1;
+      let nx = -gx * kx, ny = gy * ky, nz = 1;
       const length = Math.hypot(nx, ny, nz);
       nx /= length; ny /= length; nz /= length;
       const o = (y * width + x) * 3;
@@ -174,6 +174,27 @@ export function roughnessFrom(lum, heightField, base = 0.78) {
 }
 
 export const toBytes = (field) => Uint8Array.from(field, (value) => Math.round(Math.min(1, Math.max(0, value)) * 255));
+
+// Predictable recipe: no percentile stretch of tiny colour/noise variations.
+// Flat surfaces remain flat; an imported/AI height field stays registered to RGB.
+export function mapsFromRecipe(rgb, width, height, recipe, metres = [1, 1], suppliedHeight = null) {
+  const lum = luminance(rgb, width, height, 3);
+  let field;
+  if (suppliedHeight) field = Float32Array.from(suppliedHeight);
+  else if (recipe.heightMode === 'flat') field = new Float32Array(width * height).fill(0.5);
+  else if (recipe.heightMode === 'luminance') field = Float32Array.from(lum);
+  else {
+    const large = blurWrap(lum, width, height, Math.max(2, Math.round(Math.min(width, height) / 32)));
+    field = Float32Array.from(lum, (value, i) => Math.max(0, Math.min(1, 0.5 + (value - large[i]) * 2)));
+  }
+  if (recipe.invert) field = Float32Array.from(field, (value) => 1 - value);
+  const radius = Math.round(recipe.smoothing * Math.min(width, height) / 512);
+  if (radius) field = blurWrap(field, width, height, radius);
+  const depth = recipe.depth / 1000;
+  const normal = normalFrom(field, width, height, [depth * width / metres[0], depth * height / metres[1]]);
+  const roughness = Float32Array.from(field, (value) => Math.max(0.02, Math.min(1, recipe.roughness + (0.5 - value) * recipe.variation)));
+  return { height: field, normal, roughness, ao: aoFrom(field, width, height, recipe.ao) };
+}
 
 // Шов плитки: насколько отличаются соседи через край против соседей в
 // середине — ≈1 шва не видно, ≫1 видно. Для проверки и отчёта.
