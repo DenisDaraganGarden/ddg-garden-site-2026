@@ -7,7 +7,7 @@ import path from 'node:path';
 // папку: боевые проекты Дениса она не трогает.
 process.env.DDG_PROJECTS_DIR = await fs.mkdtemp(path.join(os.tmpdir(), 'ddg-store-'));
 
-const { isValidId, presets, projects, slugify } = await import('./projectStore.mjs');
+const { HOME, isValidId, presets, projects, slugify, STORE_SCHEMA } = await import('./projectStore.mjs');
 
 assert.equal(slugify('Азовский берег'), 'azovskiy-bereg');
 assert.equal(slugify('Дюны 2 / вечер'), 'dyuny-2-vecher');
@@ -197,6 +197,31 @@ back = await projects.restoreFromTrash(trash[0].trashId);
 assert.equal(back.id, `${garden.id}-2`, 'занятое имя — возвращается под свободным');
 assert.equal((await projects.read(back.id)).id, back.id, 'id в записи совпадает с файлом');
 assert.equal((await projects.read(garden.id)).settings.step, 'new', 'тёзка не тронут');
+
+// Номер формата: запись несёт его, код ставит свой при каждой записи, а
+// поверх записи от более новой версии движка не пишет и её снимок не ставит.
+const modern = await projects.create({ name: 'Схема', settings: { a: 1 } });
+assert.equal(modern.schema, STORE_SCHEMA, 'новая запись несёт номер формата');
+const recordFile = path.join(HOME, 'projects', `${modern.id}.json`);
+const legacy = { ...JSON.parse(await fs.readFile(recordFile, 'utf8')) };
+delete legacy.schema;
+await fs.writeFile(recordFile, JSON.stringify(legacy));
+assert.equal((await projects.save(modern.id, { settings: { a: 2 } })).schema, STORE_SCHEMA, 'старая запись без номера получает его');
+assert.equal((await projects.save(modern.id, { schema: 99, settings: { a: 3 } })).schema, STORE_SCHEMA, 'номер ставит хранилище, не клиент');
+const future = { ...JSON.parse(await fs.readFile(recordFile, 'utf8')), schema: STORE_SCHEMA + 1, settings: { a: 'будущее' } };
+await fs.writeFile(recordFile, JSON.stringify(future));
+const refused = await projects.save(modern.id, { settings: { a: 'прошлое' } });
+assert.ok(refused?.newer, 'поверх записи новее этого кода не пишется');
+assert.equal(JSON.parse(await fs.readFile(recordFile, 'utf8')).settings.a, 'будущее', 'и файл цел');
+const [oldest] = (await projects.history(modern.id)).slice(-1);
+assert.ok((await projects.restore(modern.id, oldest.id))?.newer, 'и возврат версии поверх неё тоже');
+await fs.writeFile(recordFile, JSON.stringify({ ...future, schema: STORE_SCHEMA }));
+await projects.snapshot(modern.id, 'manual');
+const [newest] = await projects.history(modern.id);
+const newestFile = path.join(HOME, 'projects', modern.id, 'history', `${newest.id}.json`);
+await fs.writeFile(newestFile, JSON.stringify({ ...JSON.parse(await fs.readFile(newestFile, 'utf8')), schema: STORE_SCHEMA + 1 }));
+await projects.save(modern.id, { settings: { a: 'сейчас' } });
+assert.ok((await projects.restore(modern.id, newest.id))?.newer, 'снимок от более новой версии этот код не ставит');
 
 await fs.rm(process.env.DDG_PROJECTS_DIR, { recursive: true, force: true });
 console.log('store: проекты и детали движка как файлы — ок');

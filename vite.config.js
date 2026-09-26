@@ -191,6 +191,16 @@ function riderPosePlugin() {
 // второго канала не заводится. Содержимое присылает редактор: и заводские
 // значения, и значения детали живут в браузерном графе импортов, а в конфиге
 // эти модули не резолвятся.
+// Запись сохранена более новой версией движка (STORE_SCHEMA, projectStore.mjs):
+// эта копия поверх не пишет, правки остаются в журнале восстановления редактора.
+function sendNewer(response, id) {
+  sendJson(response, 426, {
+    ok: false,
+    newer: true,
+    message: `«${id}» сохранён более новой версией движка. Обновите эту копию (npm run engine:update) — правки пока держит журнал восстановления.`,
+  });
+}
+
 function engineStorePlugin() {
   const attach = (middlewares, route, store) => {
     middlewares.use(route, async (request, response, next) => {
@@ -332,6 +342,7 @@ function engineStorePlugin() {
             }
             if (body?.action === 'restore') {
               const entry = await store.restore(id, file);
+              if (entry?.newer) { sendNewer(response, id); return; }
               sendJson(response, entry ? 200 : 404, entry ? { ok: true, entry } : { ok: false, message: 'Такого снимка нет.' });
               return;
             }
@@ -370,6 +381,7 @@ function engineStorePlugin() {
 
         if (request.method === 'PUT' && isValidId(id)) {
           const entry = await store.save(id, await readJsonBody(request));
+          if (entry?.newer) { sendNewer(response, id); return; }
           if (entry?.conflict) {
             sendJson(response, 409, { ok: false, conflict: true, message: `Запись «${id}» изменили снаружи.`, entry: entry.conflict });
             return;

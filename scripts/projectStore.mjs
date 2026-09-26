@@ -25,6 +25,14 @@ import { withStoreLock, writeJsonAtomic } from './storeFiles.mjs';
 // переносит scripts/migrate-projects-home.mjs.
 export const HOME = process.env.DDG_PROJECTS_DIR ? path.resolve(process.env.DDG_PROJECTS_DIR) : path.join(os.homedir(), 'Ouroboros');
 
+// Номер формата записи, который пишет этот код (поле schema). Копий движка
+// несколько — приложение, воркдеревья агентов, — а дом данных один: движок со
+// старым кодом поверх записи с номером новее не пишет, он может не знать её
+// полей и их смысла. Поднимать, когда старый код прочтёт или сохранит новую
+// запись неверно; незнакомые поля и так сохраняются (preserveUnknown.js).
+export const STORE_SCHEMA = 1;
+const newerThanThisCode = (record) => Number.isSafeInteger(record?.schema) && record.schema > STORE_SCHEMA;
+
 const TRANSLIT = {
   а: 'a', б: 'b', в: 'v', г: 'g', д: 'd', е: 'e', ё: 'e', ж: 'zh', з: 'z', и: 'i',
   й: 'y', к: 'k', л: 'l', м: 'm', н: 'n', о: 'o', п: 'p', р: 'r', с: 's', т: 't',
@@ -206,6 +214,7 @@ export function createStore(folder, payloadKey) {
     if (!isSnapshotId(name)) return null;
     const current = await read(id);
     if (!current) return null;
+    if (newerThanThisCode(current)) return { newer: current };
     let version;
     try {
       version = JSON.parse(await fs.readFile(snapshotPath(id, name), 'utf8'));
@@ -216,8 +225,9 @@ export function createStore(folder, payloadKey) {
     if (!version?.[payloadKey] || typeof version[payloadKey] !== 'object' || Array.isArray(version[payloadKey])) {
       throw new Error(`Снимок «${name}» не читается.`);
     }
+    if (newerThanThisCode(version)) return { newer: version };
     await writeSnapshot(current, 'restore');
-    return write({ ...current, [payloadKey]: version[payloadKey], ...nextRevision(current) }, current);
+    return write({ ...current, [payloadKey]: version[payloadKey], ...nextRevision(current), schema: STORE_SCHEMA }, current);
   });
 
   // from: копия другой записи — её папка (модели, ТЗ, окружение, сетка участка,
@@ -234,6 +244,7 @@ export function createStore(folder, payloadKey) {
       created: now,
       updated: now,
       revision: 1,
+      schema: STORE_SCHEMA,
       ...fieldsOf(rest),
     });
     if (isValidId(from) && from !== entry.id) await copyFolder(from, entry.id);
@@ -248,6 +259,7 @@ export function createStore(folder, payloadKey) {
   const save = async (id, patch) => transaction(async () => {
     const current = await read(id);
     if (!current) return null;
+    if (newerThanThisCode(current)) return { newer: current };
     if (patch?.base !== undefined && patch.base !== (current.revision ?? current.updated) && patch.base !== current.updated) return { conflict: current };
 
     // Личность записи правкой не подменяется: id — это имя файла, created — факт.
@@ -263,7 +275,7 @@ export function createStore(folder, payloadKey) {
       if (HISTORY_REASONS.has(patch?.snapshot)) await writeSnapshot(current, patch.snapshot, names);
       else if (!names[0] || Date.now() - snapshotAt(names[0]).getTime() >= HISTORY_EVERY_MS) await writeSnapshot(current, 'auto', names);
     }
-    const next = { ...current, ...fields, ...nextRevision(current) };
+    const next = { ...current, ...fields, ...nextRevision(current), schema: STORE_SCHEMA };
     if (patch?.name !== undefined) next.name = String(patch.name).trim() || current.name;
     return write(next, current);
   });
