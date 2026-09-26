@@ -25,9 +25,10 @@ const CONDITIONAL = [
 ];
 CONDITIONAL.forEach((key) => keys.add(key));
 const MAX = 260;
-// Окружение — только в проекте «Участок» (help/surroundings.js), а справочник
-// собран на редакторе сайта.
-['surroundingsEnabled', 'surroundingsRadius', 'surroundingsBuildings', 'surroundingsTrees', 'surroundingsFences', 'surroundingsRelief',
+// Окружение и настоящее солнце — только в проекте «Участок» с адресом
+// (help/surroundings.js, help/atmosphere.js), а справочник собран на
+// редакторе сайта.
+['sunReal', 'sunDayOfYear', 'sunUtcOffset', 'surroundingsEnabled', 'surroundingsRadius', 'surroundingsBuildings', 'surroundingsTrees', 'surroundingsFences', 'surroundingsRelief',
     'surroundingsOffsetX', 'surroundingsOffsetZ', 'surroundingsClear', 'surroundingsBuildingColor', 'surroundingsGroundColor', 'surroundingsRoadColor',
     'surroundingsGreenColor', 'surroundingsWaterColor'].forEach((key) => keys.add(key));
 

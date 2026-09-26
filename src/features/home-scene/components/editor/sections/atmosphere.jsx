@@ -14,6 +14,9 @@ import {
     HOME_SCENE_HDRI_PRESETS,
 } from '../../../hooks/useHomeSceneSettings';
 import { PAINTERLY_CLOUD_PRESETS } from '../../../lib/painterlyCloudSettings.js';
+import { hasSiteLocation, resolveSceneSun } from '../../../../../components/effects/sky/sceneSun.js';
+import { dayOfYearLabel, defaultUtcOffset, sunTimes } from '../../../../../components/effects/sky/solarPosition.js';
+import '../../../../../planting/ui/planting-ui.css';
 
 const formatHour = (value) => {
     const hours = Math.floor(value);
@@ -21,12 +24,68 @@ const formatHour = (value) => {
     return `${String(hours).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
 };
 
-export const LightSection = ({ settings, handleSettingChange }) => {
+const formatUtc = (hours) => {
+    const whole = Math.trunc(Math.abs(hours)), minutes = Math.round((Math.abs(hours) - whole) * 60);
+    return `UTC${hours < 0 ? '−' : '+'}${whole}${minutes ? `:${String(minutes).padStart(2, '0')}` : ''}`;
+};
+const UTC_HOURS = Array.from({ length: 27 }, (_, index) => index - 12);
+
+// Настоящее солнце (sceneSun.js) — только у проекта с адресом («Окружение»):
+// день года у камеры, пояс часов — у проекта. Пока оно включено, направление
+// и высота художественной дуги не действуют и спрятаны.
+function RealSunControls({ settings, handleSettingChange, applySettings, ru }) {
     const { t } = useLanguage();
+    const real = settings.sunReal === true;
+    const lon = Number(settings.geoLongitude);
+    const auto = defaultUtcOffset(lon);
+    const offset = settings.sunUtcOffset ?? null;
+    const hours = offset === null || UTC_HOURS.includes(offset) ? UTC_HOURS : [...UTC_HOURS, offset].sort((a, b) => a - b);
+    const sun = real ? resolveSceneSun(settings) : null;
+    const times = real ? sunTimes({ lat: Number(settings.geoLatitude), lon, dayOfYear: sun.dayOfYear, utcOffset: sun.utcOffset }) : null;
+    const tr = (a, b) => (ru ? a : b);
+    return <>
+        <CheckboxControl controlId={'sunReal'}
+            label={t('homeEditor.controls.sunReal')}
+            checked={real}
+            onChange={(event) => handleSettingChange(event, 'sunReal', 'boolean')}
+            testId="home-editor-sun-real"
+        />
+        {real ? <>
+            <RangeControl controlId={'sunDayOfYear'}
+                label={t('homeEditor.controls.sunDayOfYear')}
+                value={settings.sunDayOfYear ?? sun.dayOfYear}
+                min={1}
+                max={365}
+                step={1}
+                formatValue={(value) => dayOfYearLabel(value, ru)}
+                onChange={(event) => handleSettingChange(event, 'sunDayOfYear', 'integer')}
+            />
+            <SelectControl controlId={'sunUtcOffset'}
+                label={t('homeEditor.controls.sunUtcOffset')}
+                value={offset === null ? 'auto' : String(offset)}
+                options={[{ value: 'auto', label: `${tr('По долготе', 'By longitude')} · ${formatUtc(auto)}` }, ...hours.map((value) => ({ value: String(value), label: formatUtc(value) }))]}
+                onChange={(event) => applySettings({ sunUtcOffset: event.target.value === 'auto' ? null : Number(event.target.value) })}
+                testId="home-editor-sun-utc"
+            />
+            <p className="planting-hint" data-testid="home-editor-sun-readout">{dayOfYearLabel(sun.dayOfYear, ru)}: {times.polar
+                ? tr(times.polar === 'day' ? 'полярный день, солнце не заходит.' : 'полярная ночь, солнце не восходит.', times.polar === 'day' ? 'polar day, the sun never sets.' : 'polar night, the sun never rises.')
+                : `${tr('восход', 'sunrise')} ${formatHour(times.sunrise)} · ${tr('полдень', 'noon')} ${formatHour(times.noon)} · ${tr('закат', 'sunset')} ${formatHour(times.sunset)}.`}
+            {' '}{sun.elevationDeg > 0
+                ? tr(`Сейчас ${Math.round(sun.elevationDeg)}° над горизонтом, азимут ${Math.round(sun.compassAzimuthDeg)}°.`, `Now ${Math.round(sun.elevationDeg)}° above the horizon, bearing ${Math.round(sun.compassAzimuthDeg)}°.`)
+                : tr('Сейчас солнце под горизонтом.', 'The sun is below the horizon now.')}</p>
+        </> : null}
+    </>;
+}
+
+export const LightSection = ({ settings, handleSettingChange, applySettings }) => {
+    const { t, language } = useLanguage();
+    const located = hasSiteLocation(settings);
+    const real = located && settings.sunReal === true;
 
     return (
         <>
             <SectionHeading label={t('homeEditor.blocks.sun')} subtle />
+            {located ? <RealSunControls settings={settings} handleSettingChange={handleSettingChange} applySettings={applySettings} ru={language === 'ru'} /> : null}
             <RangeControl controlId={'timeOfDay'}
                 label={t('homeEditor.controls.timeOfDay')}
                 value={settings.timeOfDay}
@@ -36,6 +95,7 @@ export const LightSection = ({ settings, handleSettingChange }) => {
                 formatValue={formatHour}
                 onChange={(event) => handleSettingChange(event, 'timeOfDay')}
             />
+            {real ? null : <>
             <RangeControl controlId={'sunBearing'}
                 label={t('homeEditor.controls.sunBearing')}
                 value={(180-settings.sunBearing+360)%360}
@@ -54,6 +114,7 @@ export const LightSection = ({ settings, handleSettingChange }) => {
                 unit="°"
                 onChange={(event) => handleSettingChange(event, 'sunNoonElevation')}
             />
+            </>}
             <RangeControl controlId={'sunIntensity'}
                 label={t('homeEditor.controls.sunIntensity')}
                 value={settings.sunIntensity}

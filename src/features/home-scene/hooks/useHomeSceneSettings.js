@@ -269,6 +269,10 @@ export const getBaseHomeSceneSettings = () => ({
   // Sky + Sun + Moon. The clock drives the sun; bearing stays authored, because
   // the composition was built around a direction rather than a latitude.
   timeOfDay: 12,
+  // День года для настоящего солнца (sceneSun.js): в «Участке» с координатами
+  // солнце стоит там, где оно над этим местом в этот день и час. У камеры
+  // свой день, как свой час; художественная дуга его не читает.
+  sunDayOfYear: 172,
   sunBearing: 42,
   sunNoonElevation: 18,
   sunTint: '#fff5ea',
@@ -829,6 +833,7 @@ const normalizeHomeSceneSettings = (savedSettings = {}, includeCameraSystem = tr
     // the old names, so the bearing and the noon height migrate out of them and
     // a scene authored before the clock existed opens exactly where it was.
     timeOfDay: clampFloat(merged.timeOfDay, 0, 24, defaults.timeOfDay),
+    sunDayOfYear: clampInt(merged.sunDayOfYear, 1, 365, defaults.sunDayOfYear),
     sunBearing: clampFloat(
       merged.sunBearing ?? merged.moonAzimuth,
       0,

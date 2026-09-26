@@ -123,6 +123,18 @@ export default {
     'Час на пути солнца: в 12 оно выше всего, в 6 и 18 — на горизонте. Ночью ключевым светом становится луна и видны звёзды.',
     'The hour along the sun’s path: highest at 12, on the horizon at 6 and 18. At night the moon becomes the key light and the stars come out.',
   ],
+  sunReal: [
+    'Солнце над этим участком: по координатам из «Окружения», дате, часу и северу проекта. Тени и свет — как в этот день на месте; направление и высота дуги тогда не нужны. Ниже — восход, полдень и закат.',
+    'The sun over this site: from the coordinates in Surroundings, the date, the hour and the project’s north. Shadows and light fall as they would there on that day; the arc’s bearing and height are not used. Sunrise, noon and sunset are shown below.',
+  ],
+  sunDayOfYear: [
+    'День года для настоящего солнца: 21 июня — самое высокое, 21 декабря — самое низкое. У каждой камеры своя дата, как своё время суток.',
+    'Day of the year for the real sun: June 21 is the highest, December 21 the lowest. Each camera keeps its own date, like its own time of day.',
+  ],
+  sunUtcOffset: [
+    'По какому поясу стоят часы «Времени суток». По долготе — ближайший целый час; у границы поясов поставьте свой.',
+    'Which time zone the “Time of day” clock follows. By longitude takes the nearest whole hour; near a zone border, set it yourself.',
+  ],
   sunBearing: [
     'Сторона, где солнце стоит в полдень. Где это относительно севера — жёлтая точка на стрелке «С» над кадром. Восход и закат — в 90° от неё; луна и звёзды поворачиваются вместе.',
     'Where the sun stands at noon. Where that is against north shows as the yellow dot on the “N” arrow over the frame. Sunrise and sunset lie 90° to either side; the moon and stars turn with it.',
