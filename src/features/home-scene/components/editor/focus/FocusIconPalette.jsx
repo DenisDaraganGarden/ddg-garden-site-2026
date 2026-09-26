@@ -2,13 +2,20 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import './focusIconPalette.css';
 
+// Двадцать цветов значков: весь круг тонов в двух силах — яркие и глубже,
+// все читаются на тёмной панели (контраст не ниже 4:1), без пастели.
 export const FOCUS_ICON_COLORS = [
-    ['Мел', 'Chalk', '#dddcd4'], ['Серый', 'Grey', '#a0a5aa'], ['Песок', 'Sand', '#c4b293'],
-    ['Охра', 'Ochre', '#cbb26b'], ['Янтарь', 'Amber', '#e4b45b'], ['Оранжевый', 'Orange', '#e49b69'],
-    ['Коралл', 'Coral', '#df887b'], ['Красный', 'Red', '#d76b72'], ['Розовый', 'Pink', '#d994bb'],
-    ['Сиреневый', 'Lilac', '#bd92d7'], ['Фиолетовый', 'Violet', '#9d8bd8'], ['Индиго', 'Indigo', '#899ddd'],
-    ['Голубой', 'Blue', '#7fbbdf'], ['Бирюзовый', 'Teal', '#70c3be'], ['Зелёный', 'Green', '#9cbf86'],
+    ['Мел', 'Chalk', '#f1eee6'], ['Серебро', 'Silver', '#aab2ba'], ['Песок', 'Sand', '#dcc49a'], ['Лимонный', 'Lemon', '#f0dc4a'], ['Янтарь', 'Amber', '#ffb22e'],
+    ['Мандарин', 'Tangerine', '#ff8740'], ['Терракота', 'Terracotta', '#e0714f'], ['Алый', 'Scarlet', '#ff5454'], ['Малиновый', 'Raspberry', '#ff4f8e'], ['Фуксия', 'Fuchsia', '#e55cf0'],
+    ['Сиреневый', 'Lilac', '#c49aff'], ['Фиолетовый', 'Violet', '#9a77ff'], ['Ультрамарин', 'Ultramarine', '#6f8cff'], ['Лазурь', 'Azure', '#40b4ff'], ['Морская волна', 'Sea blue', '#4a9cb5'],
+    ['Бирюза', 'Turquoise', '#2fd4c6'], ['Изумруд', 'Emerald', '#34d27f'], ['Хвоя', 'Pine', '#5fa97c'], ['Салатовый', 'Lime', '#a8e04c'], ['Олива', 'Olive', '#b9b35a'],
 ];
+// Прежние пятнадцать приглушённых — к ближайшим новым, чтобы выбранное не пропало.
+const LEGACY_COLORS = {
+    '#dddcd4': '#f1eee6', '#a0a5aa': '#aab2ba', '#c4b293': '#dcc49a', '#cbb26b': '#b9b35a', '#e4b45b': '#ffb22e',
+    '#e49b69': '#ff8740', '#df887b': '#e0714f', '#d76b72': '#ff5454', '#d994bb': '#ff4f8e', '#bd92d7': '#c49aff',
+    '#9d8bd8': '#9a77ff', '#899ddd': '#6f8cff', '#7fbbdf': '#40b4ff', '#70c3be': '#2fd4c6', '#9cbf86': '#34d27f',
+};
 
 const STORAGE_KEY = 'ddg_focus_ui_colors_v1';
 const PALETTE_VALUES = new Set(FOCUS_ICON_COLORS.map(([, , color]) => color));
@@ -16,7 +23,7 @@ const readColors = () => {
     if (typeof window === 'undefined') return {};
     try {
         const parsed = JSON.parse(window.localStorage.getItem(STORAGE_KEY) || '{}');
-        return Object.fromEntries(Object.entries(parsed).filter(([, color]) => PALETTE_VALUES.has(color)));
+        return Object.fromEntries(Object.entries(parsed).map(([key, color]) => [key, LEGACY_COLORS[color] ?? color]).filter(([, color]) => PALETTE_VALUES.has(color)));
     } catch { return {}; }
 };
 
@@ -57,7 +64,7 @@ export function FocusColorPalette({ target, anchor, colors, onClose, language = 
     }, [anchor, onClose]);
 
     // The palette can originate on either edge of a wide editor. Size it after
-    // mount, then keep the whole 5×3 grid inside the visible window.
+    // mount, then keep the whole 5×4 grid inside the visible window.
     useLayoutEffect(() => {
         if (!ref.current || !anchor) return;
         const bounds = ref.current.getBoundingClientRect();

@@ -213,8 +213,13 @@ function InspectorContents({ selected, paramsTab, filter, sectionProps, pendingF
     return <div ref={ref} className="focus-inspector-scroll" data-testid="focus-inspector-scroll">{paramsTab === 'pinned' || filter ? <>{filtered.map((item, index) => <React.Fragment key={item.id}>{paramsTab === 'pinned' && (index === 0 || filtered[index - 1].path !== item.path) ? <h4 className="home-editor-section-heading">{item.nodeLabel}</h4> : null}<RegisteredFocusControl id={item.id} /></React.Fragment>)}{!filtered.length ? <p className="focus-empty">{language === 'ru' ? 'Наведите на параметр и закрепите звёздочкой.' : 'Hover a parameter and pin it with the star.'}</p> : null}</> : selected.node.id === 'camera' ? <FocusCameraManager settings={sectionProps.settings} layoutEditor={sectionProps.layoutEditor} /> : <SectionFoldContext.Provider value={fold}><NodeSections group={selected.group} node={selected.node} sectionProps={sectionProps} /></SectionFoldContext.Provider>}</div>;
 }
 
+// Подсказка — во «всплывающем» слое (popover): окна «Настройки движка» и
+// другие открыты модально и лежат выше всей страницы, обычный слой под ними
+// не виден — так «?» в настройках молчали.
 function FocusTooltip() {
     const [tip, setTip] = useState(null);
+    const layer = useRef(null);
+    useLayoutEffect(() => { try { if (tip && !layer.current?.matches(':popover-open')) layer.current?.showPopover?.(); } catch { /* no popover API — the page layer */ } }, [tip]);
     useEffect(() => {
         let timer;
         const hide = () => { clearTimeout(timer); setTip(null); };
@@ -230,7 +235,7 @@ function FocusTooltip() {
         document.addEventListener('mouseover', show); document.addEventListener('mouseout', hide); document.addEventListener('focusin', show); document.addEventListener('focusout', hide); document.addEventListener('pointerdown', hide); document.addEventListener('scroll', hide, true);
         return () => { hide(); document.removeEventListener('mouseover', show); document.removeEventListener('mouseout', hide); document.removeEventListener('focusin', show); document.removeEventListener('focusout', hide); document.removeEventListener('pointerdown', hide); document.removeEventListener('scroll', hide, true); };
     }, []);
-    return tip ? <div role="tooltip" className="focus-tooltip" style={{ left: tip.x, top: tip.top, bottom: tip.bottom }}>{tip.text}</div> : null;
+    return tip ? <div ref={layer} popover="manual" role="tooltip" className="focus-tooltip" style={{ left: tip.x, top: tip.top, bottom: tip.bottom }}>{tip.text}</div> : null;
 }
 
 function FocusShell(props) {
@@ -381,7 +386,7 @@ function FocusShell(props) {
             { label: tr('Посмотреть кадр сайта', 'Preview site framing'), icon: 'eye', onSelect: () => setPreview(true) },
         ];
     };
-    const commands = [{ id: 'command:trace', label: tr('Трассировка', 'Path tracing'), icon: 'sun', action: () => setModal('trace') }, { id: 'command:save', label: props.project ? tr('На заглавную', 'To the home page') : tr('В проект', 'Save to project'), icon: 'upload', action: () => setModal('save') }, { id: 'command:presets', label: tr('Детали объекта', 'Parts of this object'), icon: 'folder', action: () => setModal({ kind: 'presets', path: selected.path, label: t(`homeEditor.nodes.${selected.node.id}`) }) }, { id: 'command:settings', label: tr('Настройки движка', 'Engine settings'), icon: 'settings', action: () => setModal('settings') }, { id: 'command:help', label: tr('Горячие клавиши', 'Keyboard shortcuts'), icon: 'help', action: () => setModal('help') }, ...(onPlay ? [{ id: 'command:play', label: tr('Играть на доске', 'Ride the board'), trail: 'P', icon: 'water', action: onPlay }] : []), ...(onWalk ? [{ id: 'command:walk', label: tr('Прогулка по проекту', 'Walk the project'), icon: 'walk', action: onWalk }] : [])];
+    const commands = [{ id: 'command:trace', label: tr('Трассировка', 'Path tracing'), icon: 'trace', action: () => setModal('trace') }, { id: 'command:save', label: props.project ? tr('На заглавную', 'To the home page') : tr('В проект', 'Save to project'), icon: 'upload', action: () => setModal('save') }, { id: 'command:presets', label: tr('Детали объекта', 'Parts of this object'), icon: 'folder', action: () => setModal({ kind: 'presets', path: selected.path, label: t(`homeEditor.nodes.${selected.node.id}`) }) }, { id: 'command:settings', label: tr('Настройки движка', 'Engine settings'), icon: 'settings', action: () => setModal('settings') }, { id: 'command:help', label: tr('Горячие клавиши', 'Keyboard shortcuts'), icon: 'help', action: () => setModal('help') }, ...(onPlay ? [{ id: 'command:play', label: tr('Играть на доске', 'Ride the board'), trail: 'P', icon: 'water', action: onPlay }] : []), ...(onWalk ? [{ id: 'command:walk', label: tr('Прогулка по проекту', 'Walk the project'), icon: 'walk', action: onWalk }] : [])];
     const nodeTarget = { kind: 'node', path: selected.path, label: t(`homeEditor.nodes.${selected.node.id}`) };
     return <div className={`focus-editor ${hidden ? 'focus-editor--hidden' : ''} ${navOpen ? 'focus-editor--nav-open' : ''}`}>
         <header className="focus-topbar"><div className="focus-brand"><svg viewBox="243 157 535 535" aria-hidden="true"><image href={logo} width="1536" height="1024" /></svg><span>OUROBOROS<small>ENGINE {version}</small></span></div>{props.project

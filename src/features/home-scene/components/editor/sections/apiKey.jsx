@@ -19,10 +19,13 @@ export function ApiSection() {
     const [message, setMessage] = useState('');
     const [models, setModels] = useState(null);
     const [busy, setBusy] = useState(false);
+    // Цвет статуса: зелёный — ключ есть, красный — сохранить или проверить не
+    // вышло, жёлтый мигает — ключа нет, можно вставлять.
+    const [failed, setFailed] = useState(false);
 
     useEffect(() => {
         if (scope?.catalogOnly) return;
-        readKeyStatus().then(setStatus, (error) => setMessage(error.message));
+        readKeyStatus().then(setStatus, (error) => { setMessage(error.message); setFailed(true); });
     }, [scope?.catalogOnly]);
     if (scope?.catalogOnly) return null;
 
@@ -31,9 +34,11 @@ export function ApiSection() {
         try {
             const list = await listImageModels();
             setModels(list);
+            setFailed(false);
             setMessage(list.length ? tr('Ключ работает.', 'The key works.') : tr('Ключ работает, но моделей для картинок у него нет.', 'The key works, but it has no image models.'));
         } catch (error) {
             setMessage(error.message);
+            setFailed(true);
         } finally {
             setBusy(false);
         }
@@ -49,6 +54,7 @@ export function ApiSection() {
             await check();
         } catch (error) {
             setMessage(error.message);
+            setFailed(true);
             setBusy(false);
         }
     };
@@ -57,11 +63,16 @@ export function ApiSection() {
         await removeKey().catch((error) => setMessage(error.message));
         setStatus({ hasKey: false });
         setModels(null);
+        setFailed(false);
         setMessage(tr('Ключ удалён.', 'Key removed.'));
     };
 
+    const state = failed ? 'error' : !status ? 'unknown' : status.hasKey ? 'connected' : 'ready';
+    const stateLabel = { error: tr('Ошибка', 'Error'), unknown: tr('Проверяю…', 'Checking…'), connected: tr('Подключён', 'Connected'), ready: tr('Готов к вставке', 'Ready to paste') }[state];
+
     return <>
         <SectionHeading label="OpenAI" subtle />
+        <div className="home-editor-status api-key-state" data-state={state} data-testid="api-key-state"><span className="api-key-state__dot" aria-hidden="true" />{stateLabel}</div>
         <div className="home-editor-status" data-testid="api-key-status">{status?.hasKey
             ? `${tr('Ключ сохранён', 'Key saved')}: ${status.hint} · ${tr(...(WHERE[status.where] ?? WHERE.file))}`
             : tr('Ключа нет. Вставьте ключ OpenAI (⌘V) — он останется на этом Mac.', 'No key. Paste your OpenAI key (⌘V) — it stays on this Mac.')}</div>
