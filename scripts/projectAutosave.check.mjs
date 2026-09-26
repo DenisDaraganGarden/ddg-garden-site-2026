@@ -77,11 +77,12 @@ chooseDisk.pause();
 assert.equal(adopted, external);
 assert.equal(chooseDisk.dirty, false);
 assert.equal(storage.length, 0);
-const bases = [];
+const bases = [], reasons = [];
 const chooseLocal = createProjectAutosave({
   project, storage, onConflict: async () => false,
-  send: async (_id, settings, { base }) => {
+  send: async (_id, settings, { base, snapshot }) => {
     bases.push(base);
+    reasons.push(snapshot ?? null);
     if (base === 1) throw conflict;
     return { ...project, settings, revision: base + 1 };
   },
@@ -90,6 +91,7 @@ chooseLocal.stage({ height: 6 });
 await chooseLocal.flush();
 chooseLocal.pause();
 assert.deepEqual(bases, [1, 8]);
+assert.deepEqual(reasons, [null, 'overwrite'], 'writing over the other version asks the server to keep it in the history');
 assert.equal(chooseLocal.revision, 9);
 assert.equal(storage.length, 0);
 const cryptoDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'crypto');

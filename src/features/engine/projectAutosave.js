@@ -24,7 +24,7 @@ export function createProjectAutosave({ project, storage, send, onStatus = () =>
     const session = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const key = `${prefix(project.id)}${session}`;
     let base = projectRevision(project), pending = null, flight = null, timer = null;
-    let durable = true, recovered = null, paused = false;
+    let durable = true, recovered = null, paused = false, overwrite = false;
     const status = (phase, error = null) => onStatus({ phase, error: error?.message ?? null });
     const clearTimer = () => { clearTimeout(timer); timer = null; };
     const clearOwn = () => {
@@ -62,15 +62,19 @@ export function createProjectAutosave({ project, storage, send, onStatus = () =>
                 status('saving');
                 let entry;
                 try {
-                    entry = await send(project.id, snapshot, { base });
+                    entry = await send(project.id, snapshot, overwrite ? { base, snapshot: 'overwrite' } : { base });
                 } catch (error) {
                     const current = error.status === 409 ? error.payload?.entry : null;
                     if (!current || paused) throw error;
                     if (await onConflict(current)) { adopt(current); return; }
                     base = projectRevision(current);
+                    // The other version is not lost: the server files it in
+                    // the project's history before ours replaces it.
+                    overwrite = true;
                     persist();
                     continue;
                 }
+                overwrite = false;
                 base = projectRevision(entry);
                 if (pending === snapshot) {
                     pending = null;

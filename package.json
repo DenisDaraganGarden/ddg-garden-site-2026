@@ -56,7 +56,7 @@
     "check:coast-contracts": "node scripts/check-terrain.mjs && node scripts/check-terrain-features.mjs && node scripts/check-water-seam.mjs && node src/components/effects/sceneTimeline.check.js && node scripts/check-seagull-render-lod.mjs && node scripts/check-seagull-distant-silhouette.mjs && node src/components/effects/water/opticsGeometryLod.check.js",
     "check:seo": "node scripts/seo/build-seo.check.mjs",
     "check:projects": "node scripts/projectStore.check.mjs && node scripts/sketchupGlb.check.mjs",
-    "check:project-stability": "node scripts/projectStability.check.mjs && node scripts/projectAutosave.check.mjs",
+    "check:project-stability": "node scripts/projectStability.check.mjs && node scripts/projectAutosave.check.mjs && node src/features/home-scene/lib/preserveUnknown.check.js && node scripts/check-settings-preserve.mjs",
     "check:brief": "node src/brief/brief.check.js",
     "brief": "node scripts/brief.mjs",
     "check:surroundings": "node src/surroundings/surroundings.check.js",

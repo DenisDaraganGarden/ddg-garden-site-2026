@@ -312,13 +312,40 @@ function engineStorePlugin() {
           }
         }
 
+        // История записи (projectStore.mjs): GET /__projects/<id>/history —
+        // снимки, новые сверху; POST …/history {reason} — снимок сейчас;
+        // POST …/history/<снимок> {action: 'restore'} — вернуть эту версию,
+        // нынешняя перед этим уходит в историю.
+        if (part === 'history' && isValidId(id) && store.history) {
+          if (request.method === 'GET' && !file) {
+            const snapshots = await store.history(id);
+            sendJson(response, snapshots ? 200 : 404, snapshots ? { ok: true, snapshots } : { ok: false, message: `Запись «${id}» не найдена.` });
+            return;
+          }
+          if (request.method === 'POST') {
+            const body = await readJsonBody(request);
+            if (!file) {
+              const snapshot = await store.snapshot(id, body?.reason);
+              sendJson(response, snapshot ? 200 : 404, snapshot ? { ok: true, snapshot } : { ok: false, message: `Запись «${id}» не найдена.` });
+              return;
+            }
+            if (body?.action === 'restore') {
+              const entry = await store.restore(id, file);
+              sendJson(response, entry ? 200 : 404, entry ? { ok: true, entry } : { ok: false, message: 'Такого снимка нет.' });
+              return;
+            }
+          }
+        }
+
         // Общие правки — только самой записи (/__projects/<id>): тело, пришедшее
         // на неизвестный подадрес, в запись не вливается и её не удаляет.
         if (part !== undefined) { next(); return; }
 
         if (request.method === 'GET') {
           if (!id) {
-            sendJson(response, 200, { ok: true, entries: await store.list() });
+            // ?trash — корзина: удалённые записи, которые можно вернуть.
+            const trash = /[?&]trash(?:[=&]|$)/.test(request.url);
+            sendJson(response, 200, { ok: true, entries: trash ? await store.listTrash() : await store.list() });
             return;
           }
           const entry = await store.read(id);
@@ -329,7 +356,14 @@ function engineStorePlugin() {
         }
 
         if (request.method === 'POST' && !id) {
-          sendJson(response, 200, { ok: true, entry: await store.create(await readJsonBody(request)) });
+          const body = await readJsonBody(request);
+          // {restoreTrash: <место в корзине>} — вернуть удалённую запись.
+          if (body?.restoreTrash !== undefined) {
+            const entry = await store.restoreFromTrash(body.restoreTrash);
+            sendJson(response, entry ? 200 : 404, entry ? { ok: true, entry } : { ok: false, message: 'В корзине этого нет.' });
+            return;
+          }
+          sendJson(response, 200, { ok: true, entry: await store.create(body) });
           return;
         }
 

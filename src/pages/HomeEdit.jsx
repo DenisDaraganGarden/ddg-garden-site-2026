@@ -118,6 +118,7 @@ const HomeEdit = ({ project = null }) => {
         setSettings,
         externalRevision,
         saveStatus,
+        restoreProjectVersion,
         activeTab,
         setActiveTab,
         handleSettingChange,
@@ -1058,6 +1059,7 @@ const HomeEdit = ({ project = null }) => {
                 hasPublishChanges={hasPublishChanges}
                 project={project}
                 projectSaveStatus={saveStatus}
+                onRestoreVersion={restoreProjectVersion}
                 playing={playing || walking}
                 onPlay={waterOn ? startPlay : undefined}
                 onWalk={startWalk}
