@@ -5,6 +5,7 @@ import {
     PLACED_KIND_DEFAULTS, PLACED_KIND_RANGES, PLACED_KINDS, PLACED_LIMITS, PLACED_SPECIES, PLACED_TRANSFORM_DEFAULT, placedSpeciesLabel, placedTransformRanges,
 } from '../../../../../placed/settings.js';
 import { activeProjectId } from '../../../../engine/projectApi.js';
+import { sceneObjectOn } from '../../../lib/sceneObjects';
 import { useFocusControlScope } from '../focus/FocusControlsContext';
 import { FocusIcon } from '../focus/FocusIcons';
 import './placed.css';
@@ -230,9 +231,12 @@ export function PlacedSection({ settings, placedEditor, layoutEditor }) {
         </>}
         {selected?.kind === 'model' || (catalog && kind === 'model') ? <>
             <SectionHeading label={ru ? 'Модель' : 'Model'} />
-            {species}
-            {toggle('wet', ['Реакция на воду', 'Wet by the sea'], Boolean(selected?.wet))}
-            {toggle('collision', ['Коллизия', 'Collision'], Boolean(selected?.collision))}
+            {/* Модель SketchUp строится по правилам движка: светится сценой и
+                всегда твёрдая. «Свет» и «Коллизия» — для чужих моделей, «Вода» —
+                только там, где есть море. */}
+            {catalog || !sketchup ? species : null}
+            {catalog || sceneObjectOn(settings, 'water') ? toggle('wet', ['Реакция на воду', 'Wet by the sea'], Boolean(selected?.wet)) : null}
+            {catalog || !sketchup ? toggle('collision', ['Коллизия', 'Collision'], Boolean(selected?.collision)) : null}
             {selected ? <div className="home-editor-tabs">
                 <label className={`home-editor-tab${upload?.megabytes ? ' is-disabled' : ''}`} title={ru ? 'Новая выгрузка того же файла встанет на место старой; скрытые части переедут' : 'A new export of the same file stands where the old one stood; hidden parts move along'} data-testid="placed-replace-model">
                     {ru ? 'Заменить версию…' : 'Replace version…'}

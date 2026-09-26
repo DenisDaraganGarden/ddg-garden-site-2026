@@ -273,7 +273,10 @@ function Isolate({ root, node }) {
 
 function PlacedModel({ object, url, selected, sketchup, selectedParts = [], openPart = null, isolate = false, plan = false, materials = null }) {
     const gltf = useModel(url);
-    const lit = object.species !== 'scan';
+    // Модель SketchUp всегда освещается сценой и всегда твёрдая: её строят по
+    // правилам движка. «Как отсканировано» и галка коллизии — для чужих моделей.
+    const isSketchup = Boolean(sketchup);
+    const lit = isSketchup || object.species !== 'scan';
     const originKey = object.origin ? `${object.origin.x},${object.origin.y},${object.origin.z}` : '';
     const prepared = useMemo(() => (gltf ? prepareModel(gltf.scene, lit, originKey ? object.origin : null, object.model) : null), [gltf, lit, originKey]); // eslint-disable-line react-hooks/exhaustive-deps -- origin by value
     const group = useRef();
@@ -281,7 +284,6 @@ function PlacedModel({ object, url, selected, sketchup, selectedParts = [], open
     useEffect(() => { prepared?.materials.forEach((material) => { material.userData.placedWet.z = object.wet ? 1 : 0; }); }, [prepared, object.wet]);
     // A SketchUp model: its 2D plants turn to the camera, its hidden parts are
     // gone for the eye and the click, and the editor's panel can read it.
-    const isSketchup = Boolean(sketchup);
     const cards = useMemo(() => (prepared && isSketchup ? makeFaceCamera(prepared.root) : null), [prepared, isSketchup]);
     useEffect(() => () => {
         if (!prepared) return;
@@ -319,11 +321,19 @@ function PlacedModel({ object, url, selected, sketchup, selectedParts = [], open
         return () => setWakeObstacles(waterWake, id, null);
     }, [prepared, id, x, y, z, rotation, tiltX, tiltZ, scale, wet, hidden, hiddenParts]);
     // Solid: its top surface is ground for the board, the rider and planting.
+    // A SketchUp model is always solid; its height field (every triangle) is
+    // rebuilt once the model has stopped moving, not on every gizmo frame.
+    const solid = collision || isSketchup;
     useEffect(() => {
-        if (!prepared || !group.current || !collision || hidden) { setSolid(id, null); return undefined; }
-        setSolid(id, solidHeightfield(group.current));
-        return () => setSolid(id, null);
-    }, [prepared, id, x, y, z, rotation, tiltX, tiltZ, scale, collision, hidden, hiddenParts]);
+        if (!prepared || !group.current || !solid || hidden) { setSolid(id, null); return undefined; }
+        if (!isSketchup) {
+            setSolid(id, solidHeightfield(group.current));
+            return () => setSolid(id, null);
+        }
+        const timer = setTimeout(() => { if (group.current) setSolid(id, solidHeightfield(group.current)); }, 250);
+        return () => clearTimeout(timer);
+    }, [prepared, id, x, y, z, rotation, tiltX, tiltZ, scale, solid, isSketchup, hidden, hiddenParts]);
+    useEffect(() => () => setSolid(id, null), [id]);
     if (!prepared) return <Anchor object={object} selected={selected} radius={1} />;
     return <>
         <Anchor object={object} selected={selected} radius={Math.max(.3, Math.max(prepared.size.x, prepared.size.z) * .55)} />
