@@ -1,0 +1,20 @@
+/* Applied by numeric-scrub.js only while the primary-button drag is active. */
+input[type='number'].ouroboros-scrubbing {
+  cursor: ew-resize;
+  user-select: none;
+  -webkit-user-select: none;
+  caret-color: transparent;
+}
+
+/* The value is scrubbed horizontally, so native spin buttons would imply a
+   second competing gesture. Keyboard arrow stepping remains available. */
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type='number'] {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}

@@ -1,0 +1,37 @@
+/* Focus study: compact, clearly separated camera ownership in the inspector. */
+.camera-manager { display:grid; gap:8px; padding:2px 0 8px; }
+.camera-section { border:1px solid rgba(255,255,255,.08); border-radius:5px; overflow:hidden; }
+.camera-section--work { background:rgba(124,148,177,.07); }
+.camera-section--scene { background:rgba(213,184,123,.055); }
+.camera-section-head { min-height:32px; display:flex; align-items:center; gap:7px; padding:5px 7px; border-bottom:1px solid rgba(255,255,255,.08); }
+.camera-section-head > .icon-svg { width:14px; height:14px; color:var(--muted); }
+.camera-section-head strong,.camera-section-head small { display:block; font-size:10px; line-height:1.25; }
+.camera-section-head strong { letter-spacing:.06em; text-transform:uppercase; }
+.camera-section-head small { color:var(--muted); font-size:9px; }
+.camera-section-list { display:grid; gap:1px; }
+.camera-section .camera-list-card { min-height:38px; padding:3px 7px 3px 8px; background:transparent; border:0; border-left:2px solid transparent; }
+.camera-section .camera-list-card.active { border-left-color:#e6e1d1; background:rgba(255,255,255,.075); }
+.camera-section .camera-list-card.disabled { opacity:.48; }
+.camera-section .camera-card-top { display:flex; align-items:center; min-width:0; }
+.camera-section .camera-card-top > button:first-child { display:flex; align-items:center; gap:5px; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.camera-section .camera-card-top .icon-svg { width:13px; height:13px; flex:0 0 auto; }
+.camera-card-meta { display:flex; align-items:center; gap:6px; padding-left:19px; color:rgba(255,255,255,.42); font-size:9px; line-height:15px; }
+.camera-card-meta .capture { margin-left:auto; width:20px; height:20px; padding:3px; }
+
+/* The film strip itself is deliberately a horizontal interaction surface. */
+.camera-strip { position:absolute; right:auto; bottom:51px; left:12px; z-index:6; width:max-content; max-width:min(760px,calc(100vw - 120px)); padding:5px 44px 5px 5px; overflow:visible; }
+.camera-strip:focus-visible { outline:1px solid #e6e1d1; outline-offset:3px; }
+.camera-strip-scroll { display:flex; align-items:stretch; gap:5px; overflow-x:auto; overflow-y:hidden; scroll-behavior:auto; scrollbar-width:thin; overscroll-behavior-x:contain; cursor:grab; user-select:none; }
+.camera-strip-scroll[data-dragging="true"] { cursor:grabbing; scroll-behavior:auto; }
+.camera-strip .strip-label { display:flex; align-items:center; justify-content:center; width:11px; padding:2px 0; color:rgba(207,218,231,.7); font:8px/1 var(--font-secondary,ui-monospace,monospace); letter-spacing:.12em; writing-mode:vertical-rl; transform:rotate(180deg); }
+.camera-strip .strip-label--scenes { margin-left:3px; border-left:1px solid rgba(255,255,255,.16); color:rgba(229,207,160,.75); }
+.camera-strip .camera-tile { position:relative; flex:0 0 92px; height:50px; padding:0; overflow:hidden; border:1px solid rgba(255,255,255,.13); border-radius:3px; background:#171818; color:#eae8df; }
+.camera-strip .camera-tile svg { width:100%; height:100%; opacity:.63; }
+.camera-strip .camera-tile > span { position:absolute; right:0; bottom:0; left:0; padding:4px 5px; overflow:hidden; background:linear-gradient(transparent,rgba(0,0,0,.83) 52%); color:#f4f0e5; font-size:9px; text-align:left; text-overflow:ellipsis; white-space:nowrap; }
+.camera-strip .camera-tile.active { border-color:#ece4d0; box-shadow:inset 0 0 0 1px rgba(236,228,208,.45); }
+.camera-strip .camera-tile:focus-visible,.camera-strip .camera-tile.add:focus-visible { outline:1px solid #fff; outline-offset:2px; }
+.camera-strip .camera-tile.add { position:absolute; top:5px; right:5px; display:grid; place-items:center; width:34px; height:50px; background:rgba(255,255,255,.045); }
+.camera-strip .camera-tile.add svg { width:16px; height:16px; opacity:.8; }
+.camera-strip-add-menu { position:absolute; right:5px; bottom:58px; z-index:5; display:grid; min-width:132px; padding:3px; border:1px solid rgba(255,255,255,.16); border-radius:4px; background:#191a19; box-shadow:0 8px 24px rgba(0,0,0,.38); }
+.camera-strip-add-menu button { min-height:26px; padding:0 8px; color:#ece8dd; font-size:10px; text-align:left; }
+.camera-strip-add-menu button:hover,.camera-strip-add-menu button:focus-visible { background:rgba(255,255,255,.1); outline:0; }

@@ -1,3 +1,5 @@
+import TopiaryObjects from '../../topiary/TopiaryObjects.jsx';
+import TopiaryBrush from '../../topiary/TopiaryBrush.jsx';
 import CoastShrubs from '../../plants/CoastShrubs.jsx';
 import CoastTrees from '../../plants/CoastTrees.jsx';
 import CoastGrass from '../../plants/CoastGrass.jsx';
@@ -465,6 +467,7 @@ function WaterRuntimeScene({
         />
         {terrainQuery ? <primitive object={terrainQuery.collisionObject}/> : null}
         {terrainQuery && settings.shoreEnabled ? <React.Suspense fallback={null}><CoastDriftwood query={terrainQuery} definition={queryDefinition} settings={settings} qualityProfile={qualityProfile} envMapIntensity={lighting.environment.reflection}/></React.Suspense> : null}
+        {settings.topiaryEnabled && settings.topiaryObjects?.length ? <TopiaryObjects objects={settings.topiaryObjects} selectedId={mode === 'editor' ? editorGizmo?.topiary?.selectedId : null} qualityProfile={qualityProfile} envMapIntensity={lighting.environment.reflection} /> : null}
         {terrainQuery&&settings.shrubsEnabled ? <CoastShrubs settings={shrubAsset} plants={shrubPlants} qualityProfile={qualityProfile} envMapIntensity={lighting.environment.reflection}/> : null}
         {terrainQuery&&settings.treesEnabled ? <CoastTrees settings={treeAsset} plants={treePlants} qualityProfile={qualityProfile} envMapIntensity={lighting.environment.reflection}/> : null}
         {terrainQuery&&settings.grassEnabled ? <CoastGrass query={terrainQuery} definition={queryDefinition} settings={grassSettings} asset={grassAsset} qualityProfile={qualityProfile} envMapIntensity={lighting.environment.reflection}/> : null}
@@ -607,6 +610,7 @@ function WaterRuntimeScene({
         />
       ) : null}
       {mode === 'editor' ? <EditorPicker enabled={Boolean(editorGizmo?.picking)} onPick={editorGizmo?.onPick} onContextMenu={editorGizmo?.onContextMenu} /> : null}
+      {mode === 'editor' ? <TopiaryBrush enabled={Boolean(editorGizmo?.topiary?.drawing)} settings={settings} orbitRef={orbitRef} onStroke={editorGizmo?.topiary?.onStroke} /> : null}
       {mode === 'editor' ? <EditorAxes /> : null}
       <DebugWireframe enabled={mode === 'editor' && Boolean(settings.debugWireframe)} />
       <SceneReadyBeacon onSceneReady={onSceneReady} waiting={sky.isPlaceholder} />

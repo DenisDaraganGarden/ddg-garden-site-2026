@@ -30,6 +30,7 @@ const TOOLS = [
     { id: 'translate', icon: 'move', ru: 'Перенос', en: 'Move', key: 'G', transform: true },
     { id: 'rotate', icon: 'rotate', ru: 'Поворот', en: 'Rotate', key: 'R', transform: true },
     { id: 'scale', icon: 'scale', ru: 'Масштаб', en: 'Scale', key: 'S', transform: true },
+    { id: 'topiary', icon: 'leaf', ru: 'Рисовать изгородь', en: 'Draw hedge', key: 'B' },
     { id: 'hand', icon: 'hand', ru: 'Только обзор', en: 'Navigate only', key: 'H' },
 ];
 
@@ -153,7 +154,7 @@ function FocusShell(props) {
     const groups = getFocusGroups(domain.id, { includeDevOnly: import.meta.env.DEV });
     const currentCamera = layoutEditor.activeWorkCameraId ? layoutEditor.workCameras.find((camera) => camera.id === layoutEditor.activeWorkCameraId) : layoutEditor.cameras.find((camera) => camera.id === layoutEditor.activeCameraId);
     const localScope = selected.group.id === 'editor'; const globalScope = selected.group.id === 'audio';
-    const sectionProps = { settings, handleSettingChange: props.handleSettingChange, applySettings: props.applySettings, layoutEditor, audioLab: props.audioLab };
+    const sectionProps = { settings, handleSettingChange: props.handleSettingChange, applySettings: props.applySettings, layoutEditor, audioLab: props.audioLab, topiaryEditor: props.topiaryEditor };
     useEffect(() => {
         try { localStorage.setItem(UI_KEY, JSON.stringify({ width, collapsed, stripOpen, solidFrame, pinnedIds: [...controls.pinnedIds], path: selected.path })); } catch { /* local UI only */ }
     }, [width, collapsed, stripOpen, solidFrame, controls.pinnedIds, selected.path]);
