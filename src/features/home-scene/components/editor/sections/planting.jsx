@@ -1,11 +1,13 @@
 import { COVER_DEFAULT, COVER_PLANT_PARTS, COVER_PRESETS, COVER_RANGES, normalizeCover, coverSeason } from '../../../../../groundcover/settings.js';
 import { COVER_LABELS, COVER_CLIMATES } from '../../../../../groundcover/labels.js';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useLanguage } from '../../../../../i18n/useLanguage';
 import { CheckboxControl, RangeControl, SelectControl } from '../../HomeEditorControls';
 import { useFocusControlScope } from '../focus/FocusControlsContext';
 import { FocusIcon } from '../focus/FocusIcons';
 import { PLAN_CAMERA, PLANTING_BED_DEFAULT, PLANTING_LIMITS, PLANTING_RANGES } from '../../../../../planting/settings.js';
+import { WorkspaceTabs } from '../focus/WorkspaceTabs.jsx';
+import { useWorkspaceTab } from '../focus/useWorkspaceTab.js';
 import { LAWN_MOWING_LABELS, lawnAngleFor, lawnNeeds, lawnNumber } from '../../../../../planting/lawnGround.js';
 import { PLANTING_PALETTES } from '../../../../../planting/palettes.js';
 import { bedArea } from '../../../../../planting/fillBed.js';
@@ -27,11 +29,9 @@ const POINTS_KEY = 'plantingPoints';
 // Лианы правятся кистью «Лиана» (I) и карточкой выбранной лианы.
 const VINES_KEY = 'plantingVines';
 const CLIMBERS = ['climber'];
-const TAB_KEY = 'ddg_planting_tab_v1';
 const LETTERS_RU = ['Я', 'Ф', 'М', 'А', 'М', 'И', 'И', 'А', 'С', 'О', 'Н', 'Д'];
 const LETTERS_EN = ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'];
 const seasonOf = (month) => (month <= 2 || month === 12 ? 'winter' : month <= 5 ? 'spring' : month <= 8 ? 'summer' : 'autumn');
-const readTab = () => { try { return localStorage.getItem(TAB_KEY) || 'overview'; } catch { return 'overview'; } };
 
 // Каталог параметров (поиск ⌘K, избранное, справочник): те же ключи, что и
 // раньше, в обычных контролах. На экране их нет — работа идёт в рабочем
@@ -224,9 +224,8 @@ function PlantingWorkspace({ settings, handleSettingChange, applySettings, plant
     const { plants: library, status } = usePlantLibrary();
     const beds = settings.plantingBeds, points = settings[POINTS_KEY];
     const fills = useBedFills(beds, library);
-    const [tab, setTab] = useState(readTab);
+    const [tab, setTab] = useWorkspaceTab('ddg_planting_tab_v1', ['overview', 'bed', 'library']);
     const [openPlant, setOpenPlant] = useState(null);
-    useEffect(() => { try { localStorage.setItem(TAB_KEY, tab); } catch { /* local UI only */ } }, [tab]);
     const mode = plantingEditor?.mode;
     const coverMode = mode === 'bed' && plantingEditor?.bedKind === 'cover';
     const lawnMode = mode === 'bed' && plantingEditor?.bedKind === 'lawn';
@@ -300,9 +299,8 @@ function PlantingWorkspace({ settings, handleSettingChange, applySettings, plant
         </div>
         {status === 'missing' ? <p className="planting-hint">{ru ? 'Библиотеки растений нет: она лежит в ~/Ouroboros/library/plants и видна только в локальном редакторе.' : 'No plant library: it lives in ~/Ouroboros/library/plants and is seen by the local editor only.'}</p> : null}
 
-        <nav className="planting-tabs" role="tablist">
-            {[['overview', ru ? 'Обзор' : 'Overview'], ['bed', ru ? 'Цветник' : 'Bed'], ['library', ru ? 'Библиотека' : 'Library']].map(([id, label]) => <button key={id} type="button" role="tab" aria-selected={tab === id} className={tab === id ? 'is-active' : ''} onClick={() => { setTab(id); if (id === 'library') setOpenPlant(null); }} data-testid={`planting-tab-${id}`}>{label}</button>)}
-        </nav>
+        <WorkspaceTabs label={ru ? 'Разделы посадок' : 'Planting sections'} testId="planting-tab" value={tab} onChange={(id) => { setTab(id); if (id === 'library') setOpenPlant(null); }}
+            tabs={[{ id: 'overview', label: ru ? 'Обзор' : 'Overview' }, { id: 'bed', label: ru ? 'Цветник' : 'Bed' }, { id: 'library', label: ru ? 'Библиотека' : 'Library' }]} />
         {tab === 'overview' ? <>
             {beds.some((bed) => bed.kind === 'cover') ? <section className="planting-chart"><h4>{ru ? 'Почвопокров' : 'Groundcover'}</h4>{beds.filter((bed) => bed.kind === 'cover').map((bed) => <button key={bed.id} type="button" className="planting-lawn-row planting-lawn-row--plain" onClick={() => { plantingEditor.select(bed.id); setTab('bed'); }}><span>{bed.name}</span><b>{bedArea(bed).toFixed(1)} {ru ? 'м²' : 'm²'}</b></button>)}</section> : null}
             <LawnSummary lawns={lawns} ru={ru} selectedId={plantingEditor?.selectedId} onSelect={(id) => { plantingEditor.select(id); setTab('bed'); }} />

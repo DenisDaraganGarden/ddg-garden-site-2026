@@ -18,10 +18,13 @@ function Tiles({ totals, ru }) {
     return <div className="planting-tiles">{tiles.map(([label, value, unit]) => <div key={label}><b>{value}{unit ? <small> {unit}</small> : null}</b><span>{label}</span></div>)}</div>;
 }
 
-export function LightingOverview({ schedule, fixtures, types, labels, circuits, ru, selectedId, onOpenType, onSelect, onRemove }) {
-    if (!fixtures.length) return <p className="planting-empty">{ru
-        ? 'Светильников пока нет. Выберите изделие в «Библиотеке» и нажмите «Ставить», или инструмент «Светильник» (O) и щелчок по земле или стене.'
-        : 'No luminaires yet. Pick a product in the Library and press Place, or use the Luminaire tool (O) and click the ground or a wall.'}</p>;
+const Empty = ({ ru }) => <p className="planting-empty">{ru
+    ? 'Светильников пока нет. Выберите изделие в «Библиотеке» и нажмите «Ставить», или инструмент «Светильник» (O) и щелчок по земле или стене.'
+    : 'No luminaires yet. Pick a product in the Library and press Place, or use the Luminaire tool (O) and click the ground or a wall.'}</p>;
+
+// Вкладка «Обзор»: цифры и состав по видам.
+export function LightingOverview({ schedule, fixtures, ru, onOpenType }) {
+    if (!fixtures.length) return <Empty ru={ru} />;
     const max = Math.max(1, ...schedule.rows.map((row) => row.count));
     return <div className="planting-insights" data-testid="lighting-overview">
         <Tiles totals={schedule.totals} ru={ru} />
@@ -37,8 +40,14 @@ export function LightingOverview({ schedule, fixtures, types, labels, circuits, 
                 </button>)}
             </React.Fragment>)}
         </section>
+    </div>;
+}
+
+// Вкладка «Расставлены»: каждый светильник с маркой — выбрать, показать, убрать.
+export function LightingPlaced({ schedule, fixtures, types, labels, circuits, ru, selectedId, onSelect, onRemove }) {
+    if (!fixtures.length) return <Empty ru={ru} />;
+    return <div className="planting-insights">
         <section className="planting-chart" data-testid="lighting-list">
-            <h4>{ru ? 'Расставлены' : 'Placed'}</h4>
             {schedule.groups.map((group) => <React.Fragment key={group.kind?.id ?? 'other'}>
                 {fixtures.filter((fixture) => group.rows.some((row) => row.id === fixture.type)).map((fixture) => {
                     const type = types.get(fixture.type);
