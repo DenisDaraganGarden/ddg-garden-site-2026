@@ -29,6 +29,10 @@ export function houseMaps(textures, gl) {
 }
 
 // How age treats a finish: 0 bare wood, 1 paint, 2 roofing, 3 iron, 4 other.
+// Each finish uses one map family. Sharing its three sampler names keeps
+// unused wood/shingle/metal sets out of the fragment texture-unit budget.
+export const houseMapFamily = (role) => role === 'roof' ? 'shingle' : role === 'metal' ? 'metal' : 'wood';
+
 const ROLE_KIND = {
   siding: 0, shakes: 0, deck: 0, wood: 0, door: 0,
   trim: 1, awning: 1, shedWall: 1,
@@ -38,14 +42,9 @@ const ROLE_KIND = {
 
 // Colours are linear: grey wood under paint, rust, moss.
 const GLSL = /* glsl */ `
-uniform sampler2D uWoodAlbedo;
-uniform sampler2D uWoodNormal;
-uniform sampler2D uWoodSurface;
-uniform sampler2D uShingleAlbedo;
-uniform sampler2D uShingleNormal;
-uniform sampler2D uShingleSurface;
-uniform sampler2D uMetalAlbedo;
-uniform sampler2D uMetalSurface;
+uniform sampler2D uHouseAlbedo;
+uniform sampler2D uHouseNormal;
+uniform sampler2D uHouseSurface;
 uniform float uTextured;
 uniform float uWeather;
 uniform float uWeatherKind;
@@ -83,8 +82,8 @@ float houseHash(float n) { return fract(sin(n * 127.1 + 311.7) * 43758.5453); }
 // Weathered wood at a point in metres, the grain along x.
 HouseSample houseWood(vec2 p) {
   vec2 st = p / WOOD_TILE;
-  vec3 s = texture2D(uWoodSurface, st).rgb;
-  return HouseSample(texture2D(uWoodAlbedo, st).rgb * 2.0, texture2D(uWoodNormal, st).xyz * 2.0 - 1.0, s.g / 0.8, s.r, p);
+  vec3 s = texture2D(uHouseSurface, st).rgb;
+  return HouseSample(texture2D(uHouseAlbedo, st).rgb * 2.0, texture2D(uHouseNormal, st).xyz * 2.0 - 1.0, s.g / 0.8, s.r, p);
 }
 // The same with the grain along y: the relief's axes swap with the lookup's.
 HouseSample houseWoodUpright(vec2 p) {
@@ -141,8 +140,8 @@ HouseSample houseSurface(vec2 uv, vec3 surface) {
     // course) three tabs a course, slots between them, tabs of a blend of
     // shades, the shade of the course above along each butt.
     vec2 st = uv / SHINGLE_TILE;
-    vec3 s = texture2D(uShingleSurface, st).rgb;
-    h = HouseSample(texture2D(uShingleAlbedo, st).rgb * 2.0, texture2D(uShingleNormal, st).xyz * 2.0 - 1.0, s.g / 0.9, s.r, uv);
+    vec3 s = texture2D(uHouseSurface, st).rgb;
+    h = HouseSample(texture2D(uHouseAlbedo, st).rgb * 2.0, texture2D(uHouseNormal, st).xyz * 2.0 - 1.0, s.g / 0.9, s.r, uv);
     if (scale > 0.0) {
       float course = floor(uv.y / scale), up = fract(uv.y / scale);
       float along = uv.x + course * 0.1667 + houseHash(course * 3.3) * 0.05;
@@ -154,8 +153,8 @@ HouseSample houseSurface(vec2 uv, vec3 surface) {
   } else if (pattern == 5) {
     // Galvanised iron, each sheet from its own patch of spangle.
     vec2 st = uv / METAL_TILE + vec2(houseHash(seed * 13.0), houseHash(seed * 19.0)) * 5.0;
-    h.tint = texture2D(uMetalAlbedo, st).rgb * 2.0;
-    h.roughness = texture2D(uMetalSurface, st).g / 0.4;
+    h.tint = texture2D(uHouseAlbedo, st).rgb * 2.0;
+    h.roughness = texture2D(uHouseSurface, st).g / 0.4;
   } else if (pattern == 7) {
     // Rope: three strands twisting round it.
     float strand = fract(uv.x / 0.035 + uv.y * 3.0), groove = smoothstep(0.35, 0.5, abs(strand - 0.5));
@@ -365,17 +364,13 @@ export function houseMaterial(role, maps, shared, options = {}) {
   const material = new THREE.MeshStandardMaterial({ name: `house-${role}`, roughness: 0.86, metalness: 0, ...options });
   // Any normal map turns on the tangent frame; the relief itself is ours.
   material.normalMap = maps['wood-normal'];
+  const family = houseMapFamily(role);
   const uniforms = {
     ...shared,
     uWeatherKind: { value: ROLE_KIND[role] ?? 4 },
-    uWoodAlbedo: { value: maps['wood-albedo'] },
-    uWoodNormal: { value: maps['wood-normal'] },
-    uWoodSurface: { value: maps['wood-surface'] },
-    uShingleAlbedo: { value: maps['shingle-albedo'] },
-    uShingleNormal: { value: maps['shingle-normal'] },
-    uShingleSurface: { value: maps['shingle-surface'] },
-    uMetalAlbedo: { value: maps['metal-albedo'] },
-    uMetalSurface: { value: maps['metal-surface'] },
+    uHouseAlbedo: { value: maps[`${family}-albedo`] },
+    uHouseNormal: { value: maps[`${family}-normal`] ?? maps['wood-normal'] },
+    uHouseSurface: { value: maps[`${family}-surface`] },
   };
   material.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, uniforms);
@@ -402,6 +397,6 @@ export function houseMaterial(role, maps, shared, options = {}) {
   #endif
   totalEmissiveRadiance += houseGlow(vNormalMapUv, vHouseSurface, tbn, -vViewPosition, houseDay);`);
   };
-  material.customProgramCacheKey = () => 'beach-house-material';
+  material.customProgramCacheKey = () => 'beach-house-material-v2';
   return material;
 }

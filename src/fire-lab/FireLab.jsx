@@ -7,7 +7,7 @@ import { getPublishedHomeSceneSettings } from '../features/home-scene/hooks/useH
 import FireTrail from '../fire/FireTrail.jsx';
 import { FIRE_RANGES, normalizeFireSettings } from '../fire/settings.js';
 
-// Коллекция 15. Огонь показывается продуктовым модулем FireTrail на плоском
+// Коллекция 20. Огонь показывается продуктовым модулем FireTrail на плоском
 // песке; ползунки — те же ключи, что в редакторе, старт — опубликованная
 // сцена. Свет — свет сцены в выбранный час; ночь — отдельным выключателем,
 // потому что ночью этот огонь и задуман.
@@ -143,7 +143,7 @@ export default function FireLab() {
   return (
     <LabShell
       collection="fire"
-      eyebrow="DDG / ASSET LAB / 15"
+      eyebrow="DDG / ASSET LAB / 20"
       title={t.title}
       subtitle={t.subtitle}
       language={language}

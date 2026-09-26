@@ -109,7 +109,7 @@ assert.equal(fresh.terrainEnabled, undefined, 'суша в новом проек
 
 // «Участок»: вещи сайта и моря выключены — в корне и в снимках камер, где
 // ключ есть; их узлы спрятаны целиком; пустая сцена — небо, земля, расстановка.
-assert.deepEqual([...SITE_ONLY_NODES].sort(), ['creatures/fish', 'creatures/seagulls', 'greenery/algae', 'greenery/lilies', 'landscape/seabed', 'landscape/shore', 'landscape/water', 'objects/boat', 'objects/house', 'objects/sculpture', 'objects/surfboard', 'objects/tanker'].sort());
+assert.deepEqual([...SITE_ONLY_NODES].sort(), ['creatures/fish', 'creatures/seagulls', 'greenery/algae', 'greenery/lilies', 'landscape/seabed', 'landscape/shore', 'landscape/water', 'objects/boat', 'objects/fire', 'objects/house', 'objects/sculpture', 'objects/surfboard', 'objects/tanker'].sort());
 const plot = designProjectObjectSettings();
 assert.equal(plot.waterVisible, false);
 assert.equal(plot.houseEnabled, false);

@@ -9,7 +9,7 @@ import {
   smokeFragmentShader, trackFragmentShader, trackVertexShader,
 } from './fireShaders.js';
 import { createTerrainDefinition, sampleTerrainHeight } from '../terrain/terrainModel.js';
-import { publishedHomeSceneSettings } from '../features/home-scene/data/publishedHomeSceneSettings.js';
+import { DEFAULT_TERRAIN_SETTINGS } from '../terrain/settings.js';
 
 // Настройки: каждый ключ с префиксом fire, числа в пределах, целые — целые,
 // цвета — только hex, а точка редактора на сайт не уходит.
@@ -164,8 +164,9 @@ for (const [name, source] of Object.entries(shaders)) {
 }
 assert.ok(flameFragmentShader.includes('1.0 - fogFactor'), 'пламя сквозь туман гаснет, а не сереет');
 
-// Заводской след лежит на сухом песке опубликованного берега, не в воде.
-const coast = createTerrainDefinition(publishedHomeSceneSettings);
+// Заводской след проверяется на заводском берегу. Авторские ракурсы и рельеф
+// публикации меняются независимо и не являются тестовой фикстурой.
+const coast = createTerrainDefinition(DEFAULT_TERRAIN_SETTINGS);
 const onCoast = buildTrail(worldTrailPoints(DEFAULT_FIRE_SETTINGS), (x, z) => sampleTerrainHeight(x, z, coast));
 let dry = 0;
 for (let i = 0; i < onCoast.count; i += 1) if (onCoast.samples[i * 4 + 1] > 0.05 + TRAIL_LIFT) dry += 1;

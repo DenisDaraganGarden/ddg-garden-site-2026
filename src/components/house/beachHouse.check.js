@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { HOUSE_DEFAULTS, HOUSE_RANGES, HOUSE_ROLES, buildBeachHouse, buildBeachShed, decodeRoom, disposeBuilding, garlandBulbs } from './beachHouse.js';
+import { houseMapFamily } from './houseMaterial.js';
 import { RIDER_HEIGHT } from '../surfboard/riderSkeleton.js';
 import * as THREE from 'three';
 import { CAMP_BOARDS, RING_PAINTS, boardPoints, houseCamp, shedCamp } from './surfCamp.js';
@@ -33,6 +34,8 @@ function holds(house, label) {
     for (let i = 0; i < aSurface.count; i += 1) {
       const seed = aSurface.getX(i), layout = aSurface.getY(i);
       assert.ok(seed >= 0 && seed < 1 && Number.isInteger(layout) && layout >= 0 && layout <= 9, `${label}: ${role} surface ${seed}, ${layout}`);
+      const family = layout === 4 ? 'shingle' : layout === 5 ? 'metal' : [0, 1, 2, 3, 8].includes(layout) ? 'wood' : null;
+      if (family) assert.equal(houseMapFamily(role), family, `${label}: ${role} layout ${layout} uses its assigned texture family`);
       // A pane's room: the pane's half width and its centre over a floor.
       if (layout === 9) {
         const { halfWidth, above } = decodeRoom(aSurface.getZ(i));

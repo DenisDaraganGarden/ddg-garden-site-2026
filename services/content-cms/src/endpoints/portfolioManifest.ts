@@ -40,9 +40,9 @@ export const portfolioManifestEndpoint: Endpoint = {
         if (order !== 0) return order
         return String(left.slug ?? '').localeCompare(String(right.slug ?? ''), 'en')
       })
-      const projects = sortedDocs.flatMap((source: Record<string, unknown>) => {
+      const projects = sortedDocs.flatMap((source) => {
         try {
-          const result = serializePortfolioProject(source, mediaOrigin)
+          const result = serializePortfolioProject({ ...source }, mediaOrigin)
           if (result.droppedMediaCount > 0) {
             req.payload.logger.warn(
               { droppedMediaCount: result.droppedMediaCount, slug: result.project.slug },
@@ -63,7 +63,7 @@ export const portfolioManifestEndpoint: Endpoint = {
         return Response.json({ error: 'No complete published projects are available.' }, { status: 503 })
       }
 
-      const newestPublishedAt = docs.reduce((latest, project: Record<string, unknown>) => {
+      const newestPublishedAt = docs.reduce((latest, project) => {
         const value = typeof project.updatedAt === 'string' ? project.updatedAt : ''
         return value > latest ? value : latest
       }, '1970-01-01T00:00:00.000Z')

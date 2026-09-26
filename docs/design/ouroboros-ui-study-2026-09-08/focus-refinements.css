@@ -1,0 +1,28 @@
+/* The selected Focus study. Color labels are independent of scene materials. */
+.studybar{height:28px}.study-title{font-size:10px;font-weight:500;letter-spacing:.2px;color:var(--text)}
+#app{grid-template-rows:28px 42px minmax(0,1fr) 25px}.canvas-focus #app{grid-template-rows:28px 0 minmax(0,1fr) 0}
+.camera-owner{display:flex;align-items:center;gap:6px;padding:0 7px;font-size:11px;min-width:0;white-space:nowrap}
+.camera-owner .icon-svg{width:13px;height:13px;color:var(--muted)}
+.navigator-foot:empty{display:none}
+.node-mark,.group-mark{display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--label-color,var(--muted))}
+.node-mark .icon-svg{width:15px;height:15px;color:inherit!important}
+.tree-group>summary .group-mark .icon-svg{width:13px;height:13px;transform:none;color:inherit!important}
+.object-mark{width:25px;height:26px;padding:3px;border-radius:4px;color:var(--label-color,var(--muted));flex-shrink:0}
+.object-mark .icon-svg{width:19px;height:19px;color:inherit!important}.object-mark:hover{background:var(--hover);color:var(--label-color,var(--text))}
+.object-title h1{cursor:help}.scope-line{font-size:9px}.scope-line input,.param-row .value{cursor:ew-resize}
+.inspector-bottom{height:26px}.inspector-bottom button{height:20px}
+body[data-layout=focus] .inspector{width:min(var(--inspector),calc(100vw - 54px))}
+.inspector-tab{position:absolute;right:min(var(--inspector),calc(100vw - 54px));top:calc(50% - 33px);width:13px;height:66px;padding:0;z-index:25;border-radius:5px 0 0 5px;background:var(--panel);border:1px solid var(--line);border-right:0;color:var(--muted);box-shadow:-3px 0 10px #0002;cursor:pointer;transition:width .12s,color .12s}
+.inspector-tab .icon-svg{width:11px;height:11px}.inspector-tab:hover,.inspector-tab:focus-visible{width:19px;color:var(--text);background:var(--panel2)}
+.inspector-hidden .inspector-tab{right:0}.inspector-hidden .inspector-tab .icon-svg{transform:rotate(180deg)}
+.canvas-focus .inspector-tab{display:none}.inspector-resize{left:-4px;width:7px;opacity:1;touch-action:none}
+.inspector-resize:hover{opacity:.65}.panel-resizing{cursor:col-resize;user-select:none}.panel-resizing *{cursor:col-resize!important}
+.icon-palette{position:fixed;z-index:140;width:176px;padding:10px;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:7px;box-shadow:0 8px 35px #0006}
+.palette-heading{font-size:11px;margin-bottom:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.palette-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:5px}.palette-swatch{width:26px;height:26px;padding:4px;border:1px solid transparent;border-radius:4px;position:relative}
+.palette-swatch:before{content:'';width:16px;height:16px;border-radius:50%;background:var(--swatch)}
+.palette-swatch:hover,.palette-swatch:focus-visible{border-color:var(--swatch);background:var(--hover)}
+.palette-swatch[aria-pressed=true]{border-color:var(--swatch)}.palette-swatch[aria-pressed=true]:after{content:'';position:absolute;width:5px;height:3px;border-left:1.5px solid #202326;border-bottom:1.5px solid #202326;transform:rotate(-45deg);top:10px;left:9px}
+.palette-reset{margin-top:8px;width:100%;height:24px;font-size:10px;color:var(--muted);justify-content:flex-start;padding:0 3px;border-top:1px solid var(--line)}
+.icon-palette small{display:block;font-size:8.5px;color:var(--muted);padding:4px 3px 0;line-height:1.5}
+@media(max-width:590px){.inspector-tab{z-index:26}}

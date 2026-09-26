@@ -13,7 +13,10 @@ function assert(condition, message) {
 }
 
 function findManifestEntryKey(manifest, suffix) {
-  return Object.keys(manifest).find((key) => key.endsWith(suffix));
+  const name = path.basename(suffix, path.extname(suffix));
+  // Shared lazy chunks may have a generated manifest key instead of a source path.
+  return Object.keys(manifest).find((key) => key.endsWith(suffix))
+    ?? Object.keys(manifest).find((key) => manifest[key].isDynamicEntry && manifest[key].name === name && manifest[key].file.endsWith('.js'));
 }
 
 function collectImportedFiles(manifest, entryKey, visited = new Set()) {
