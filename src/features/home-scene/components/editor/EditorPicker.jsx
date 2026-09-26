@@ -20,8 +20,9 @@ import { outsideIsolation } from '../../../../placed/sketchupModel.js';
 const CLICK_SLOP = 4;
 // Двойной щелчок — два коротких нажатия в одном месте подряд: в модели
 // SketchUp он открывает выбранный компонент (usePlacedEditor); Shift — добавить
-// к выбору.
+// к выбору. Щелчок мимо любого объекта снимает выделение.
 const DOUBLE_MS = 400, DOUBLE_SLOP = 6;
+const GIZMO = Symbol('gizmo');
 // Ручка манипулятора, которая сейчас нарисована. Его невидимые части —
 // сборщики, помощники других режимов, линии осей длиной в километры — лежат
 // в скрытых группах, и щелчок сквозь них проходит, как раньше.
@@ -34,7 +35,7 @@ const isShownGizmo = (object) => {
     return gizmo;
 };
 
-export default function EditorPicker({ enabled, onPick, onContextMenu, clearOnMiss = false }) {
+export default function EditorPicker({ enabled, onPick, onContextMenu, crosshair = false }) {
     const gl = useThree((state) => state.gl);
     const camera = useThree((state) => state.camera);
     const scene = useThree((state) => state.scene);
@@ -48,7 +49,7 @@ export default function EditorPicker({ enabled, onPick, onContextMenu, clearOnMi
     useEffect(() => {
         const element = gl.domElement;
         const cursor = element.style.cursor;
-        if (clearOnMiss) element.style.cursor = 'crosshair';
+        if (crosshair) element.style.cursor = 'crosshair';
         let pressed = null, last = null;
 
         // Первое попадание, за которым стоит объект редактора: служебные
@@ -61,8 +62,9 @@ export default function EditorPicker({ enabled, onPick, onContextMenu, clearOnMi
             }, camera);
 
             for (const hit of raycaster.intersectObjects(scene.children, true)) {
-                // Щелчок по ручке манипулятора — не выбор того, что за ней.
-                if (isShownGizmo(hit.object)) return null;
+                // Щелчок по ручке манипулятора — не выбор того, что за ней,
+                // и не щелчок мимо.
+                if (isShownGizmo(hit.object)) return GIZMO;
                 // Q в группе модели: спрятанного вокруг неё для щелчка нет.
                 if (outsideIsolation(hit.object)) continue;
                 const found = hit.object.visible ? sceneHitForObject3D(hit.object, hit) : null;
@@ -88,27 +90,31 @@ export default function EditorPicker({ enabled, onPick, onContextMenu, clearOnMi
 
             if (event.button === 2) {
                 if (typeof onContextMenu !== 'function') return;
-                onContextMenu({ x: event.clientX, y: event.clientY, ...(hitAt(event) ?? { node: null, root: null }) });
+                const found = hitAt(event);
+                onContextMenu({ x: event.clientX, y: event.clientY, ...(found && found !== GIZMO ? found : { node: null, root: null }) });
                 return;
             }
 
             if (!enabled || typeof onPick !== 'function') return;
             const found = hitAt(event);
+            if (found === GIZMO) return;
             const double = Boolean(last && event.timeStamp - last.at < DOUBLE_MS && Math.hypot(event.clientX - last.x, event.clientY - last.y) < DOUBLE_SLOP);
             last = double ? null : { at: event.timeStamp, x: event.clientX, y: event.clientY };
+            // Мимо объекта — снять выделение, как в SketchUp (в материалах —
+            // очистить выбор граней); с Shift выбор не трогается.
             if (found) onPick(found.node, { ...found, double, shift: event.shiftKey });
-            else if (clearOnMiss) onPick(null, { shift: event.shiftKey });
+            else onPick(null, { shift: event.shiftKey, miss: true });
         };
 
         element.addEventListener('pointerdown', handlePointerDown);
         element.addEventListener('pointerup', handlePointerUp);
 
         return () => {
-            if (clearOnMiss) element.style.cursor = cursor;
+            if (crosshair) element.style.cursor = cursor;
             element.removeEventListener('pointerdown', handlePointerDown);
             element.removeEventListener('pointerup', handlePointerUp);
         };
-    }, [camera, clearOnMiss, enabled, gl, onContextMenu, onPick, raycaster, scene]);
+    }, [camera, crosshair, enabled, gl, onContextMenu, onPick, raycaster, scene]);
 
     return null;
 }

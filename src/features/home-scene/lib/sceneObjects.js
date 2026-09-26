@@ -22,21 +22,25 @@
 // `site: true` — вещь сайта и моря, которой нет в проекте «Участок» (kind
 // 'design'): там она выключена и пропадает из дерева, поиска и видимости.
 // `design: true` — наоборот, только «Участка»: окружение по адресу.
+//
+// `backdrop: true` — фон, а не вещь: земля, плоскость, вода, небо, соседние
+// дома. Щелчок по фону во вьюпорте — «мимо», он снимает выделение, как в
+// SketchUp; двойной щелчок открывает настройки фона.
 export const SCENE_OBJECT_GROUPS = Object.freeze(['landscape', 'greenery', 'objects', 'lighting', 'creatures', 'annotations', 'render']);
 
 export const SCENE_OBJECTS = Object.freeze([
   // The loose shells on the beach are the terrain's: «Ракушечник» sets how many,
   // the terrain's switch hides them; the pebbles' switch never did.
-  { id: 'terrain', key: 'terrainEnabled', node: 'landscape/terrain', group: 'landscape', roots: ['azov-terrain', 'coast-shell-fragments'] },
+  { id: 'terrain', key: 'terrainEnabled', node: 'landscape/terrain', group: 'landscape', roots: ['azov-terrain', 'coast-shell-fragments'], backdrop: true },
   { id: 'rocks', key: 'terrainRocksEnabled', node: 'landscape/rocks', group: 'landscape', roots: ['coast-rocks', 'coast-debris'] },
   { id: 'pebbles', key: 'terrainPebblesEnabled', node: 'landscape/pebbles', group: 'landscape', roots: ['coast-pebbles'] },
   { id: 'shore', key: 'shoreEnabled', node: 'landscape/shore', group: 'landscape', roots: ['coastal-shore-finds', 'shore'], newProject: false, sound: 'shore', site: true },
-  { id: 'water', key: 'waterVisible', node: 'landscape/water', group: 'landscape', roots: ['gerstner-water', 'shore-water', 'foam-volume'], sound: 'water', site: true },
+  { id: 'water', key: 'waterVisible', node: 'landscape/water', group: 'landscape', roots: ['gerstner-water', 'shore-water', 'foam-volume'], sound: 'water', site: true, backdrop: true },
   { id: 'farWater', key: 'farWaterVisible', node: 'landscape/water', group: 'landscape', site: true },
-  { id: 'seabed', key: 'seabedVisible', node: 'landscape/seabed', group: 'landscape', roots: ['seabed'], site: true },
-  { id: 'sky', key: 'skyVisible', node: 'atmosphere/hdri', group: 'landscape', roots: ['sky-dome'] },
+  { id: 'seabed', key: 'seabedVisible', node: 'landscape/seabed', group: 'landscape', roots: ['seabed'], site: true, backdrop: true },
+  { id: 'sky', key: 'skyVisible', node: 'atmosphere/hdri', group: 'landscape', roots: ['sky-dome'], backdrop: true },
   // Окружение участка из OpenStreetMap: дома, дороги, рельеф вокруг модели (src/surroundings).
-  { id: 'surroundings', key: 'surroundingsEnabled', node: 'landscape/surroundings', group: 'landscape', roots: ['surroundings'], design: true },
+  { id: 'surroundings', key: 'surroundingsEnabled', node: 'landscape/surroundings', group: 'landscape', roots: ['surroundings'], design: true, backdrop: true },
   { id: 'lilies', key: 'liliesVisible', node: 'greenery/lilies', group: 'greenery', roots: ['surface-vegetation'], requires: ['water'], newProject: false, site: true },
   { id: 'algae', key: 'algaeVisible', node: 'greenery/algae', group: 'greenery', roots: ['underwater-algae'], requires: ['water'], newProject: false, site: true },
   // Цветники и одиночные растения из библиотеки растений (src/planting).
@@ -49,7 +53,7 @@ export const SCENE_OBJECTS = Object.freeze([
   { id: 'boat', key: 'boatVisible', node: 'objects/boat', group: 'objects', roots: ['boat', 'boat-anchor'], sound: 'boat', newProject: false, site: true },
   { id: 'sculpture', key: 'sculptureVisible', node: 'objects/sculpture', group: 'objects', roots: ['sculpture', 'sculpture-anchor'], newProject: false, site: true },
   // A blank flat ground for a scene that starts from nothing; off by default everywhere.
-  { id: 'plane', key: 'planeEnabled', node: 'objects/plane', group: 'objects', roots: ['ground-plane'], newProject: false },
+  { id: 'plane', key: 'planeEnabled', node: 'objects/plane', group: 'objects', roots: ['ground-plane'], newProject: false, backdrop: true },
   // Single trees, shrubs and rocks placed by hand, each with its own knobs.
   { id: 'placed', key: 'placedEnabled', node: 'objects/placed', group: 'objects', roots: ['placed'] },
   // A surfboard that rides the sea and the breaking wave; ridden from the editor.
@@ -185,7 +189,7 @@ export const sceneHitForObject3D = (object, hit = null) => {
     if (node.userData?.topiaryId) return { node: 'greenery/topiary', root: node.name, topiaryId: node.userData.topiaryId };
     if (node.userData?.plantingBed) return { node: 'greenery/planting', root: node.name, plantingBed: node.userData.plantingBed };
     const match = node.name ? matchRoot(node.name) : null;
-    if (match?.node) return { node: match.node, root: node.name };
+    if (match?.node) return { node: match.node, root: node.name, ...(match.backdrop ? { backdrop: true } : {}) };
   }
 
   return null;

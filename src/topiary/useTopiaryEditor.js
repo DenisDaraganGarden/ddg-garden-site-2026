@@ -5,6 +5,7 @@ export function useTopiaryEditor({ settings, history, setActiveTab, setTool, too
     const [selectedId, setSelectedId]=useState(null);
     const live=useRef();live.current={settings,history,language};
     const select=useCallback(id=>{setSelectedId(id);setActiveTab('greenery/topiary');setTool('select');},[setActiveTab,setTool]);
+    const deselect=useCallback(()=>setSelectedId(null),[]);
     const update=useCallback((id,patch)=>{
         const {settings,history}=live.current;
         history.applySettings({topiaryObjects:settings.topiaryObjects.map((o,i)=>o.id===id?normalizeTopiaryObject({...o,...patch},i):o)});
@@ -20,5 +21,5 @@ export function useTopiaryEditor({ settings, history, setActiveTab, setTool, too
     },[]);
     const begin=useCallback(()=>{setActiveTab('greenery/topiary');setTool('topiary');},[setActiveTab,setTool]);
     const remove=useCallback(id=>{const {settings,history}=live.current;history.applySettings({topiaryObjects:settings.topiaryObjects.filter(o=>o.id!==id)});setSelectedId(null);},[]);
-    return { selectedId:settings.topiaryObjects.some(o=>o.id===selectedId)?selectedId:null, select, update, onStroke, begin, stop:()=>setTool('select'), remove, drawing:tool==='topiary' };
+    return { selectedId:settings.topiaryObjects.some(o=>o.id===selectedId)?selectedId:null, select, deselect, update, onStroke, begin, stop:()=>setTool('select'), remove, drawing:tool==='topiary' };
 }

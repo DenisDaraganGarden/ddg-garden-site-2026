@@ -103,6 +103,8 @@ export function useLightingEditor({ settings, history, setActiveTab, setTool, ty
         });
         setPanelId(null);
     }, [apply]);
+    // Щелчок мимо и пробел: ничего не выбрано, раздел и инструмент — те же.
+    const deselect = useCallback(() => { setSelectedId(null); setPanelId(null); setHandle('body'); setAiming(false); }, []);
     const selectPanel = useCallback((id) => { setPanelId(id); setSelectedId(null); setAiming(false); setActiveTab(POWER_NODE); setTool('select'); }, [setActiveTab, setTool]);
     const updateCircuit = useCallback((id, patch) => {
         apply({ lightingCircuits: read('lightingCircuits').map((circuit, index) => (circuit.id === id ? normalizeLightingCircuit({ ...circuit, ...patch }, index) ?? circuit : circuit)) });
@@ -134,7 +136,7 @@ export function useLightingEditor({ settings, history, setActiveTab, setTool, ty
         selectedId: fixtures.some((fixture) => fixture.id === selectedId) ? selectedId : null,
         panelId: panels.some((panel) => panel.id === panelId) ? panelId : null,
         placeType, setPlaceType, placeKind, handle, setHandle, aiming, setAiming,
-        onLight, onAim, update, replaceType, remove, select,
+        onLight, onAim, update, replaceType, remove, select, deselect,
         updatePanel, removePanel, selectPanel, updateCircuit, layCircuits, removeCircuit,
         begin: (typeId) => { if (typeId) setPlaceType(typeId); setPlaceKind('fixture'); setAiming(false); setActiveTab(LIGHTING_NODE); setTool('luminaire'); },
         beginPanel: () => { setPlaceKind('panel'); setAiming(false); setActiveTab(POWER_NODE); setTool('luminaire'); },

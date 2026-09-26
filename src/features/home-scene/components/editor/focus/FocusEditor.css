@@ -81,6 +81,10 @@ html[data-focus-preview=true] .home-editor-frame-mask,html[data-focus-frame=soli
 .focus-settings__body .focus-control-row{grid-template-columns:15px minmax(160px,240px) minmax(20px,1fr) 56px 14px}
 .focus-settings__body .focus-control-row input[type=number]{max-width:80px}
 /* Линейка инструментов: черта отделяет панель списка от самих инструментов. */
+/* Открытый список слева не накрывает инструменты вьюпорта, а сдвигает их. */
+.focus-stage-toolbar,.focus-stage-tools,.focus-film-area{transition:left .16s ease}.focus-editor--nav-open>:is(.focus-stage-toolbar,.focus-stage-tools,.focus-film-area){left:270px}
+/* «Виды» раскрываются правее столбца инструментов, не поверх него. */
+.focus-stage-toolbar .focus-technical-views{position:absolute;top:calc(100% + 4px);left:40px;min-width:190px;z-index:6}
 .focus-stage-tools>hr{width:18px;height:0;margin:2px auto;border:0;border-top:1px solid var(--focus-line)}
 .focus-stage-tools>.focus-button[aria-pressed=true]{background:#ffffff18;color:#f7f6ee;box-shadow:inset 0 0 0 1px #ffffff14}
 /* Курсор во вьюпорте — по инструменту. Во время протяжки рычаг камеры ставит
@@ -147,9 +151,16 @@ html[data-editor-tool=hand] .home-editor-render-frame canvas{cursor:grab}
 .focus-compass__north{fill:#e0654f}.focus-compass__south{fill:#c9ccc566}
 .focus-compass__letter{fill:#f1eee6;font:600 8px/1 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;text-anchor:middle;dominant-baseline:central}
 .focus-compass__sun{fill:#f2c14e;stroke:#202829;stroke-width:.8}
+.focus-compass--floating{z-index:6}.focus-compass--floating .focus-compass__dial{cursor:grab}.focus-compass--floating .focus-compass__dial:active{cursor:grabbing}
+/* В верхней строке — одна белая стрелка по центру, без кольца, засечек и фона. */
+.focus-compass--topbar{position:absolute;left:50%;top:0;height:42px;transform:translateX(-50%);justify-content:center}
+.focus-compass__arrow{width:30px;height:30px;padding:0;border:0;background:transparent;display:grid;place-items:center;cursor:pointer;border-radius:4px}.focus-compass__arrow:hover{background:#ffffff0d}
+.focus-compass__arrow svg{width:22px;height:22px}.focus-compass__arrow path{fill:#fff}
+.focus-compass--topbar .focus-compass__panel{top:40px}
 .focus-compass__panel{position:absolute;top:52px;width:230px;padding:9px 10px;display:flex;flex-direction:column;gap:6px;font-size:10px}
 .focus-compass__panel strong{font-weight:600;font-size:11px}
 .focus-compass__panel label{display:flex;align-items:center;gap:6px}.focus-compass__panel input[type=range]{flex:1}
 .focus-compass__panel input[type=number]{width:46px;height:22px;background:var(--focus-input);border:1px solid #ffffff12;border-radius:3px;color:inherit;font:inherit;padding:0 4px}
 .focus-compass__panel p{margin:0;color:var(--focus-muted);line-height:1.45}
 .focus-history-list{display:flex;flex-direction:column;gap:4px;max-height:min(52vh,420px);overflow:auto}.focus-history-list>p{margin:4px 0}.focus-history-row{display:flex;align-items:center;gap:10px;padding:5px 6px 5px 9px;background:#ffffff08;border-radius:4px}.focus-history-row time{font-variant-numeric:tabular-nums;white-space:nowrap}.focus-history-row small{flex:1;color:var(--focus-muted);font-size:11px}.focus-history-row .focus-button{padding:0 9px;border:1px solid var(--focus-line)}.focus-history-row .focus-button:disabled{opacity:.45}
+@media(max-width:590px){.focus-editor--nav-open>:is(.focus-stage-toolbar,.focus-stage-tools,.focus-film-area){left:54px}}

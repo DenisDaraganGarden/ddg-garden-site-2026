@@ -37,6 +37,8 @@ const paths = {
     eye: <><path d="M2 12S6 5 12 5s10 7 10 7-4 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></>,
     cursor: <path d="m4 2 15 11-7 1-4 7Z"/>,
     light: <><path d="M9 18h6m-5 3h4M8 13a6 6 0 1 1 8 0l-1 3H9Z"/></>,
+    // Компас: кольцо и стрелка на север.
+    compass: <><circle cx="12" cy="12" r="9"/><path d="m12 5 3.2 8.5L12 11.5l-3.2 2Z"/></>,
     target: <><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3"/></>,
     fish: <><path d="M17 12c-5-8-11-6-15 0 4 6 10 8 15 0l5 5V7Z"/><circle cx="6" cy="11" r=".6" fill="currentColor" stroke="none"/></>,
     bird: <path d="M3 14c3-5 6-5 9 0 3-5 6-5 9 0"/>,
