@@ -10,6 +10,7 @@
 // the scene or as scanned, wet where the sea reaches it, solid to the board.
 import { TREE_KINDS, TREE_SPECIES } from '../plants/treeSpecies.js';
 import { TREE_DEFAULTS } from '../plants/treeModel.js';
+import { normalizeRemovedFaces } from './faceEdits.js';
 
 export const PLACED_KINDS = Object.freeze(['tree', 'shrub', 'rock', 'model']);
 export const PLACED_ROCK_VARIANTS = 6;
@@ -70,7 +71,8 @@ export function normalizeSketchupModels(value, live = new Set()) {
         const entry = value[id] && typeof value[id] === 'object' ? value[id] : {};
         const removed = nodes(entry.removed), gone = new Set(removed);
         const hidden = nodes(entry.hidden).filter((node) => !gone.has(node));
-        out[id] = { faceCamera: entry.faceCamera !== false, crowns: entry.crowns === true, hidden, ...(removed.length ? { removed } : {}) };
+        const removedFaces = normalizeRemovedFaces(entry.removedFaces);
+        out[id] = { faceCamera: entry.faceCamera !== false, crowns: entry.crowns === true, hidden, ...(removed.length ? { removed } : {}), ...(removedFaces.length ? { removedFaces } : {}) };
     }
     return out;
 }

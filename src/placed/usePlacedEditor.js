@@ -4,6 +4,7 @@ import { createTerrainDefinition, createTerrainQuery } from '../terrain/terrainM
 import { activeProjectId, uploadProjectModel } from '../features/engine/projectApi.js';
 import { solidHeightAt } from './solidSurface.js';
 import { faceSelection } from '../materials/selection.js';
+import { faceItems, hasSelectedFaces, removeSelectedFaces, selectFaces } from './faceEdits.js';
 import { copiesOf, faceClicks, findPart, geometryOwner, nextPart, outerPart, partChain, partName, sketchupModelEntry, togglePart } from './sketchupModel.js';
 
 const KIND_NAMES = { tree: ['Дерево', 'Tree'], shrub: ['Куст', 'Shrub'], rock: ['Камень', 'Rock'], model: ['Модель', 'Model'] };
@@ -64,10 +65,15 @@ export function usePlacedEditor({ settings, history, setActiveTab, setTool, lang
         const trail = trailOf(id, hit);
         setSelectedId(id);
         setPart((current) => {
-            const next = shift ? togglePart(current, id, trail) : nextPart(current, id, trail, double);
-            const count = shift || !hit?.isMesh ? 0 : faceClicks(current, next, geometryOwner(hit), double, clicks);
+            const next = nextPart(current, id, trail, double);
+            const count = !hit?.isMesh ? 0 : faceClicks(current, next, geometryOwner(hit), double, clicks);
             const face = count ? faceSelection(hit, faceIndex, count) : null;
-            return face ? { ...next, face: { mesh: hit.uuid, ...face } } : next;
+            if (shift && current?.face) {
+                const level = current.trail.indexOf(current.node);
+                if (current.id !== id || !face || current.trail.slice(0, level).some((node, i) => trail[i] !== node)) return current;
+            }
+            return face ? { ...next, face: selectFaces(current?.face, { mesh: hit.uuid, ...face }, shift, clicks > 1) }
+                : shift ? togglePart(current, id, trail) : next;
         });
         setActiveTab('objects/placed'); setTool('select');
     }, [setActiveTab, setTool]);
@@ -95,6 +101,15 @@ export function usePlacedEditor({ settings, history, setActiveTab, setTool, lang
         const root = sketchupModelEntry(id)?.root, object = chosen && root ? findPart(root, chosen.node) : null;
         return object ? { node: chosen.node, name: partName(object, live.current.language === 'ru'), copies: copiesOf(root, object).map((copy) => copy.userData.gltfNode) } : null;
     }, []);
+    const faceAt = useCallback((id, hit, faceIndex) => {
+        const current = partRef.current, next = nextPart(current, id, trailOf(id, hit));
+        if (!faceClicks(current, next, geometryOwner(hit))) return null;
+        const picked = faceSelection(hit, faceIndex);
+        if (!picked) return null;
+        const already = current?.id === id && faceItems(current.face).find((item) => item.mesh === hit.uuid);
+        if (already && picked.triangles.every((t) => already.triangles.includes(t))) return current;
+        return { ...next, face: selectFaces(null, { mesh: hit.uuid, ...picked }) };
+    }, []);
     // A SketchUp model's own switches, outside the camera snapshots.
     const setSketchup = useCallback((id, patch) => {
         const { settings, history } = live.current;
@@ -116,6 +131,19 @@ export function usePlacedEditor({ settings, history, setActiveTab, setTool, lang
         const { hidden, removed } = lists(id), gone = new Set(nodes);
         setSketchup(id, { removed: [...new Set([...removed, ...nodes])], hidden: hidden.filter((node) => !gone.has(node)) });
         setPart(null);
+    }, [setSketchup]);
+    const removeFaces = useCallback((current = partRef.current) => {
+        const { settings } = live.current;
+        if (!hasSelectedFaces(current?.face)) return;
+        const root = sketchupModelEntry(current.id)?.root;
+        const model = settings.placedObjects.find((object) => object.id === current.id);
+        if (!root || !model) return;
+        const removedFaces = removeSelectedFaces(settings.sketchupModels?.[current.id]?.removedFaces, root, model.model, current.face);
+        setSketchup(current.id, { removedFaces });
+        // An empty selection keeps the editing context. A second Delete must
+        // never fall through to deleting the group or the entire placed model.
+        setSelectedId(current.id);
+        setPart({ ...current, face: { items: [] } });
     }, [setSketchup]);
     const restoreParts = useCallback((id, nodes = null) => {
         const back = nodes && new Set(nodes);
@@ -210,7 +238,7 @@ export function usePlacedEditor({ settings, history, setActiveTab, setTool, lang
     const shown = settings.placedObjects.some((o) => o.id === selectedId) ? selectedId : null;
     const shownPart = useMemo(() => (part && part.id === shown ? (isolated && inside ? { ...part, isolated: true } : part) : null), [part, shown, isolated, inside]);
     return {
-        selectedId: shown, part: shownPart, select, deselect, selectPart, selectNode, exitPart, partAt, update, setSpecies, add, importModel, replaceModel, duplicate, seat, remove,
-        setSketchup, hideParts, showParts, removeParts, restoreParts, toggleIsolate,
+        selectedId: shown, part: shownPart, select, deselect, selectPart, selectNode, exitPart, partAt, faceAt, update, setSpecies, add, importModel, replaceModel, duplicate, seat, remove,
+        setSketchup, hideParts, showParts, removeParts, removeFaces, restoreParts, toggleIsolate,
     };
 }

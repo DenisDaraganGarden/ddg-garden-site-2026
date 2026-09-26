@@ -817,7 +817,7 @@ const HomeEdit = ({ project = null }) => {
     sceneKeys.current = {
         remove: tool === 'fence' ? null : tool === 'fence-edit' ? fenceEditor.removeSelected
             : selectedFixture ? () => lightingEditor.remove(selectedFixture.id) : selectedPanel ? () => lightingEditor.removePanel(selectedPanel.id)
-            : placedPart?.face ? null : placedPart ? () => placedEditor.removeParts(placedPart.id, selectedNodes(placedPart)) : selectedPlaced ? () => placedEditor.remove(selectedPlaced.id)
+            : placedPart?.face ? placedEditor.removeFaces : placedPart ? () => placedEditor.removeParts(placedPart.id, selectedNodes(placedPart)) : selectedPlaced ? () => placedEditor.remove(selectedPlaced.id)
             : selectedBed && plantingEditor.selectedPlant ? plantingEditor.removePlant : null,
         escape: placedPart && !drawingTool ? placedEditor.exitPart : selectedBed && plantingEditor.inside && !drawingTool ? plantingEditor.exitBed : null,
         isolate: placedPart && placedPart.trail.indexOf(placedPart.node) > 0 && !drawingTool ? placedEditor.toggleIsolate : null,

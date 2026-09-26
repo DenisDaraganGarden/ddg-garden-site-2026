@@ -168,9 +168,9 @@ assert.equal(normalizePlacedObject({ kind: 'rock', variant: 9 }).variant, 5);
     assert.equal(nested3.node, 3);
     assert.equal(faceClicks(face, nested3, geometryOwner(inner)), 0, 'a nested group inside is picked whole');
     assert.equal(faceClicks(face, nextPart(face, 'm', [5, 6]), geometryOwner(own)), 0, 'a click past the group goes back to parts');
-    // Геометрия на верхнем уровне: щелчок — часть, двойной по ней — грань с рёбрами.
+    // Геометрия без группы: уже первый щелчок выбирает грань.
     const loose = nextPart(null, 'm', [2]);
-    assert.equal(faceClicks(null, loose, geometry), 0);
+    assert.equal(faceClicks(null, loose, geometry), 1);
     assert.equal(faceClicks(loose, nextPart(loose, 'm', [2], true), geometry, true, 2), 2);
     // Узел, у которого есть и свои грани, и части, отдаёт грани по второму двойному.
     const owner = { owner: 1, leaf: false }, picked = nextPart(null, 'm', [1]);

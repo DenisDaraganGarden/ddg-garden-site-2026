@@ -11,6 +11,7 @@ import { FocusIcon } from '../focus/FocusIcons';
 import './placed.css';
 import { copiesOf, findPart, partName, selectedNodes, SKETCHUP_VIEW_FOV, sketchupSceneNodes, sketchupViews, useSketchupModel } from '../../../../../placed/sketchupModel.js';
 import { SketchupOutliner } from '../../../../../placed/SketchupOutliner.jsx';
+import { faceItems, hasSelectedFaces } from '../../../../../placed/faceEdits.js';
 
 const KIND_LABELS = { tree: ['Дерево', 'Tree'], shrub: ['Куст', 'Shrub'], rock: ['Камень', 'Rock'], model: ['Модель', 'Model'] };
 const KNOB_LABELS = {
@@ -40,8 +41,13 @@ function sketchupReport({ name, report }, ru) {
 }
 
 // Последнее звено цепочки, когда выбрана грань: что именно взято.
-const faceLabel = (face, ru) => (face.whole ? (ru ? 'Связная геометрия' : 'Connected geometry')
-    : face.edges ? (ru ? 'Грань с рёбрами' : 'Face with edges') : (ru ? 'Грань' : 'Face'));
+const faceLabel = (face, ru) => {
+    const items = faceItems(face);
+    if (!items.length) return ru ? 'Выбор граней' : 'Face selection';
+    if (items.length > 1 || face.multiple) return ru ? 'Грани' : 'Faces';
+    return items[0].whole ? (ru ? 'Связная геометрия' : 'Connected geometry')
+        : items[0].edges ? (ru ? 'Грань с рёбрами' : 'Face with edges') : (ru ? 'Грань' : 'Face');
+};
 
 // Блок SketchUp у выбранной модели: часть, выбранная щелчком, как в SketchUp
 // (цепочка групп над ней, двойной щелчок — внутрь, Esc — наружу), и что с ней
@@ -86,8 +92,8 @@ function SketchupModel({ object, sketchup, placedEditor, layoutEditor, ru }) {
                 {part.face ? <><span aria-hidden="true">›</span><button type="button" className="is-active" aria-pressed="true" data-testid="placed-sketchup-face-crumb">{faceLabel(part.face, ru)}</button></> : null}
             </div>
             {part.face ? <p className="placed-hint" data-testid="placed-sketchup-face-hint">{ru
-                ? `Треугольников: ${part.face.triangles.length}. Щелчок — грань, двойной — грань с рёбрами, тройной — вся связная геометрия. Esc — выйти из группы.`
-                : `${part.face.triangles.length} triangles. A click picks a face, a double click adds its edges, a triple click takes all connected geometry. Esc leaves the group.`}</p> : null}
+                ? 'Shift — добавить или снять грань. Delete — удалить выбранное. ⌘Z — отменить.'
+                : 'Shift adds or removes a face. Delete removes the selection. ⌘Z undoes it.'}</p> : null}
             {openGroup ? <p className={`placed-hint placed-hint--open${part.isolated ? ' is-isolated' : ''}`} data-testid="placed-sketchup-open">{part.isolated
                 ? (ru ? `На экране только группа «${partName(openGroup, ru)}». Q — вернуть сцену.` : `Only group “${partName(openGroup, ru)}” is on screen. Q brings the scene back.`)
                 : (ru ? `Открыта группа «${partName(openGroup, ru)}»: щелчок выбирает её части, Shift — добавляет к выбору. Q — только эта группа на экране. Esc — выйти на уровень выше.`
@@ -95,7 +101,7 @@ function SketchupModel({ object, sketchup, placedEditor, layoutEditor, ru }) {
             {many ? <p className="placed-hint" data-testid="placed-sketchup-many">{ru ? `Выбрано частей: ${nodes.length}. Shift-щелчок — добавить или убрать.` : `${nodes.length} parts selected. Shift-click adds or takes one out.`}</p> : null}
             <div className="placed-actions placed-actions--part">
                 <button type="button" onClick={() => layoutEditor?.frameObject?.(pickedAll())} title={ru ? 'Навести камеру на выбранное' : 'Frame the selection'}><FocusIcon name="target" />{ru ? 'В кадр' : 'Frame'}</button>
-                {part.face ? null : <>
+                {part.face ? <button type="button" className="is-danger" disabled={!hasSelectedFaces(part.face)} onClick={() => placedEditor.removeFaces()} data-testid="placed-sketchup-remove-faces" title={ru ? 'Удалить выбранные грани · Delete' : 'Delete selected faces · Delete'}><FocusIcon name="trash" />{ru ? 'Удалить грани' : 'Delete faces'}</button> : <>
                 <button type="button" onClick={() => placedEditor.hideParts(object.id, nodes)} data-testid="placed-sketchup-hide" title={ru ? 'Скрыть — вернуть: глаз в «Составе» или «Показать все скрытые»' : 'Hide — bring back with the eye in the outline or “Show all hidden”'}><FocusIcon name="eyeoff" />{ru ? 'Скрыть' : 'Hide'}{many ? ` · ${nodes.length}` : ''}</button>
                 <button type="button" className="is-danger" onClick={() => placedEditor.removeParts(object.id, nodes)} data-testid="placed-sketchup-remove" title={ru ? 'Удалить · Delete — вернуть: «Удалённые» внизу или ⌘Z' : 'Delete · Delete key — bring back from “Deleted” below or with ⌘Z'}><FocusIcon name="trash" />{ru ? 'Удалить' : 'Delete'}{many ? ` · ${nodes.length}` : ''}</button>
                 </>}

@@ -7,7 +7,7 @@ export function materialMeshKey(mesh, root) {
     for (let node = mesh; node && node !== root; node = node.parent) path.unshift(node.parent?.children.indexOf(node) ?? 0);
     return path.join('.');
 }
-export const sourceGeometry = (mesh) => mesh.userData.sourceGeometry ?? mesh.userData.faceSplit?.geometry ?? mesh.geometry;
+export const sourceGeometry = (mesh) => mesh.userData.faceRemoval?.source ?? mesh.userData.sourceGeometry ?? mesh.userData.faceSplit?.geometry ?? mesh.geometry;
 export const sourceMaterial = (mesh) => mesh.userData.faceSplit?.material ?? mesh.material;
 export const triangleCount = (geometry) => Math.floor((geometry.index?.count ?? geometry.attributes.position.count) / 3);
 export function triangleMaterial(geometry, triangle) {
@@ -36,25 +36,25 @@ function topology(geometry) {
 }
 // A SketchUp face is normally several triangles. Weld only matching edges;
 // disconnected coplanar slabs and the opposite side of a thin sheet stay apart.
-export function connectedFace(geometry, seed) {
+export function connectedFace(geometry, seed, removed = null) {
     const { rows, edges } = topology(geometry), first = rows[seed];
-    if (!first) return [];
+    if (!first || removed?.has(seed)) return [];
     const found = new Set([seed]), queue = [seed];
     for (let i = 0; i < queue.length; i += 1) for (const edge of rows[queue[i]].edges) for (const next of edges.get(edge)) {
         const row = rows[next];
-        if (found.has(next) || row.slot !== first.slot || row.normal.dot(first.normal) < 0.99999 || Math.abs(row.plane - first.plane) > 0.0001) continue;
+        if (found.has(next) || removed?.has(next) || row.slot !== first.slot || row.normal.dot(first.normal) < 0.99999 || Math.abs(row.plane - first.plane) > 0.0001) continue;
         found.add(next); queue.push(next);
     }
     return [...found].sort((a, b) => a - b);
 }
 // Всё, что держится за грань общими рёбрами, в любой плоскости, — связная
 // геометрия, как тройной щелчок SketchUp: коробка целиком, отдельная плита — отдельно.
-export function connectedGeometry(geometry, seed) {
+export function connectedGeometry(geometry, seed, removed = null) {
     const { rows, edges } = topology(geometry);
-    if (!rows[seed]) return [];
+    if (!rows[seed] || removed?.has(seed)) return [];
     const found = new Set([seed]), queue = [seed];
     for (let i = 0; i < queue.length; i += 1) for (const edge of rows[queue[i]].edges) for (const next of edges.get(edge)) {
-        if (found.has(next)) continue;
+        if (found.has(next) || removed?.has(next)) continue;
         found.add(next); queue.push(next);
     }
     return [...found].sort((a, b) => a - b);
@@ -68,7 +68,8 @@ export const sourceTriangle = (mesh, faceIndex) => mesh.geometry.userData.source
 export function faceSelection(mesh, faceIndex, clicks = 1) {
     if (!mesh?.isMesh || !Number.isInteger(faceIndex)) return null;
     const geometry = sourceGeometry(mesh), seed = sourceTriangle(mesh, faceIndex);
-    const triangles = clicks >= 3 ? connectedGeometry(geometry, seed) : connectedFace(geometry, seed);
+    const removed = mesh.userData.faceRemoval?.removed;
+    const triangles = clicks >= 3 ? connectedGeometry(geometry, seed, removed) : connectedFace(geometry, seed, removed);
     return triangles.length ? { triangles, edges: clicks >= 2, whole: clicks >= 3 } : null;
 }
 export function targetAt(hit, root) {
@@ -78,7 +79,7 @@ export function targetAt(hit, root) {
     const base = sourceMaterial(mesh), material = Array.isArray(base) ? base[triangleMaterial(geometry, triangle ?? 0)] : base;
     if (!material?.name || !material.isMeshStandardMaterial) return null;
     return { placedId: hit.placedId, materialName: material.name, material, mesh, asset: root.userData.materialModel, meshKey: materialMeshKey(mesh, root),
-        triangles: connectedFace(geometry, triangle ?? 0), count: triangleCount(geometry) };
+        triangles: connectedFace(geometry, triangle ?? 0, mesh.userData.faceRemoval?.removed), count: triangleCount(geometry) };
 }
 export const targetKey = (target) => `${target.placedId}:${target.materialName}:${target.meshKey}:${target.asset ?? ""}:${target.triangles?.join(',') ?? '*'}`;
 export const matchesTarget = (rule, target, triangle = target.triangles?.[0] ?? 0) => rule.targets?.some((item) => item.mesh === target.meshKey && (!item.asset || item.asset === target.asset) && (!item.triangles || item.triangles.includes(triangle)));

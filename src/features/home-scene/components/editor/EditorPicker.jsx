@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useThree } from '@react-three/fiber';
 import { sceneHitForObject3D } from '../../lib/sceneObjects';
 import { outsideIsolation } from '../../../../placed/sketchupModel.js';
@@ -42,6 +42,9 @@ export default function EditorPicker({ enabled, onPick, onContextMenu, crosshair
     const camera = useThree((state) => state.camera);
     const scene = useThree((state) => state.scene);
     const raycaster = useThree((state) => state.raycaster);
+    // Selecting a part rerenders the inspector and replaces callbacks. Keep
+    // the gesture across that render or the second/third click becomes first.
+    const gesture = useRef({ pressed: null, last: null });
 
     // В dev сцена доступна снаружи — для проб и справочника, как каталог контролов.
     useEffect(() => {
@@ -52,7 +55,6 @@ export default function EditorPicker({ enabled, onPick, onContextMenu, crosshair
         const element = gl.domElement;
         const cursor = element.style.cursor;
         if (crosshair) element.style.cursor = 'crosshair';
-        let pressed = null, last = null;
 
         // Первое попадание, за которым стоит объект редактора: служебные
         // плоскости и отладочные помощники имени не имеют и пропускаются.
@@ -81,14 +83,14 @@ export default function EditorPicker({ enabled, onPick, onContextMenu, crosshair
             // Прошлый жест фонаря, чьё отпускание ушло мимо холста, не должен
             // съесть это нажатие.
             if (event.button === 2) takeFlashlightGesture();
-            pressed = event.button === 0 || event.button === 2
+            gesture.current.pressed = event.button === 0 || event.button === 2
                 ? { button: event.button, x: event.clientX, y: event.clientY }
                 : null;
         };
 
         const handlePointerUp = (event) => {
-            const start = pressed;
-            pressed = null;
+            const start = gesture.current.pressed;
+            gesture.current.pressed = null;
 
             if (!start || start.button !== event.button) return;
             if (Math.hypot(event.clientX - start.x, event.clientY - start.y) > CLICK_SLOP) return;
@@ -104,9 +106,10 @@ export default function EditorPicker({ enabled, onPick, onContextMenu, crosshair
             if (!enabled || typeof onPick !== 'function') return;
             const found = hitAt(event);
             if (found === GIZMO) return;
+            const last = gesture.current.last;
             const clicks = last && event.timeStamp - last.at < DOUBLE_MS && Math.hypot(event.clientX - last.x, event.clientY - last.y) < DOUBLE_SLOP ? last.clicks + 1 : 1;
             const double = clicks === 2;
-            last = clicks >= 3 ? null : { at: event.timeStamp, x: event.clientX, y: event.clientY, clicks };
+            gesture.current.last = clicks >= 3 ? null : { at: event.timeStamp, x: event.clientX, y: event.clientY, clicks };
             // Мимо объекта — снять выделение, как в SketchUp (в материалах —
             // очистить выбор граней); с Shift выбор не трогается.
             if (found) onPick(found.node, { ...found, double, clicks, shift: event.shiftKey });

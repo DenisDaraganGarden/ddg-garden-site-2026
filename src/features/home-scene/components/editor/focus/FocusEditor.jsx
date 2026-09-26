@@ -365,7 +365,8 @@ function FocusShell(props) {
         const holding = Boolean(gizmo?.movable) && selected.path === target?.path;
         // Часть модели SketchUp под курсором — та, что выбрал бы щелчок; если
         // она в выборе с Shift — пункты для всего выбора.
-        const modelPart = hit.placedId && hit.object ? props.placedEditor?.partAt?.(hit.placedId, hit.object) : null;
+        const facePart = hit.placedId && hit.object ? props.placedEditor?.faceAt?.(hit.placedId, hit.object, hit.faceIndex) : null;
+        const modelPart = !facePart && hit.placedId && hit.object ? props.placedEditor?.partAt?.(hit.placedId, hit.object) : null;
         const chosen = modelPart && props.placedEditor.part?.id === hit.placedId ? selectedNodes(props.placedEditor.part) : [];
         const many = chosen.length > 1 && chosen.includes(modelPart.node) ? chosen : null;
         return [
@@ -375,7 +376,8 @@ function FocusShell(props) {
             many ? { label: tr(`Скрыть выбранные · ${many.length}`, `Hide selected · ${many.length}`), icon: 'eyeoff', onSelect: () => props.placedEditor.hideParts(hit.placedId, many) }
                 : modelPart ? { label: tr(`Скрыть «${modelPart.name}»`, `Hide “${modelPart.name}”`), icon: 'eyeoff', onSelect: () => props.placedEditor.hideParts(hit.placedId, [modelPart.node]) } : null,
             !many && modelPart?.copies.length > 1 ? { label: tr(`Скрыть все такие · ${modelPart.copies.length}`, `Hide all copies · ${modelPart.copies.length}`), icon: 'eyeoff', onSelect: () => props.placedEditor.hideParts(hit.placedId, modelPart.copies) } : null,
-            many ? { label: tr(`Удалить выбранные · ${many.length}`, `Delete selected · ${many.length}`), icon: 'trash', hint: 'Del', onSelect: () => props.placedEditor.removeParts(hit.placedId, many) }
+            facePart ? { label: tr('Удалить выбранные грани', 'Delete selected faces'), icon: 'trash', hint: 'Del', onSelect: () => props.placedEditor.removeFaces(facePart) }
+                : many ? { label: tr(`Удалить выбранные · ${many.length}`, `Delete selected · ${many.length}`), icon: 'trash', hint: 'Del', onSelect: () => props.placedEditor.removeParts(hit.placedId, many) }
                 : modelPart ? { label: tr(`Удалить «${modelPart.name}»`, `Delete “${modelPart.name}”`), icon: 'trash', hint: 'Del', onSelect: () => props.placedEditor.removeParts(hit.placedId, [modelPart.node]) } : null,
             hit.lightingFixture ? { label: tr('Удалить светильник', 'Delete luminaire'), icon: 'trash', hint: 'Del', onSelect: () => props.lightingEditor?.remove(hit.lightingFixture) } : null,
             hit.lightingPanel ? { label: tr('Удалить щиток и его цепи', 'Delete panel and its circuits'), icon: 'trash', hint: 'Del', onSelect: () => props.lightingEditor?.removePanel(hit.lightingPanel) } : null,

@@ -18,7 +18,7 @@ export function SelectionOverlay({ targets, color = '#dac489', opacity = 0.16, e
         const source = sourceGeometry(mesh), position = source.attributes.position, index = source.index;
         const triangles = target.triangles ?? Array.from({ length: triangleCount(source) }, (_, i) => i);
         const base = mesh.userData.faceSplit?.material ?? mesh.material;
-        const chosen = triangles.filter((t) => !target.materialName || !Array.isArray(base) || base[triangleMaterial(source, t)]?.name === target.materialName);
+        const chosen = triangles.filter((t) => !mesh.userData.faceRemoval?.removed.has(t) && (!target.materialName || !Array.isArray(base) || base[triangleMaterial(source, t)]?.name === target.materialName));
         const vertices = new Float32Array(chosen.length * 9);
         chosen.forEach((t, i) => { for (let k = 0; k < 3; k += 1) {
             const v = index ? index.getX(t * 3 + k) : t * 3 + k;
