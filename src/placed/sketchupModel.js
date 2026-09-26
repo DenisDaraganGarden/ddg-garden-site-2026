@@ -236,6 +236,28 @@ export function nextPart(current, id, trail, double = false) {
     return { id, trail, node: trail[depth] };
 }
 
+// Грани, как в SketchUp. Сетка, которая лежит в группе сама (у SketchUp это
+// не компонент, а грани группы), — «геометрия»: owner — её узел, leaf — в нём
+// нет частей. Внутри открытой группы щелчок по такой геометрии выбирает грань;
+// узел с частями внутри (или геометрия на верхнем уровне) отдаёт грани, когда
+// по нему щёлкают дважды уже выбранным или выбор уже на его гранях.
+// Возвращает, сколько щелчков считать для грани: 1 — грань, 2 — с рёбрами,
+// 3 — вся связная геометрия; 0 — выбрать саму часть. Вход в группу двойным
+// щелчком даёт просто грань.
+export function geometryOwner(hit) {
+    const object = hit?.userData.gltfNode !== undefined ? hit : hit?.parent;
+    if (object?.userData.gltfNode === undefined) return null;
+    let leaf = true;
+    object.traverse((child) => { if (child !== object && child.userData.gltfNode !== undefined) leaf = false; });
+    return { owner: object.userData.gltfNode, leaf };
+}
+export function faceClicks(current, next, geometry, double = false, clicks = 1) {
+    if (!next || !geometry || next.node !== geometry.owner || next.nodes) return 0;
+    const same = current?.id === next.id && current.node === next.node && !current.nodes;
+    if (same && (double || current.face)) return Math.min(3, Math.max(1, clicks));
+    return geometry.leaf && next.trail.indexOf(next.node) > 0 ? (same ? Math.min(3, Math.max(1, clicks)) : 1) : 0;
+}
+
 // Esc: out of the open group — its own part is selected; at the top the part
 // selection ends. A Shift selection ends with it.
 export function outerPart(current) {

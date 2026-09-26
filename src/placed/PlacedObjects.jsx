@@ -10,6 +10,7 @@ import { PLACED_TRANSFORM_DEFAULT } from './settings.js';
 import { applyHidden, findPart, isolation, makeFaceCamera, registerSketchupModel, selectedNodes, tagNodes } from './sketchupModel.js';
 import { prepareMaterialParallax } from '../materials/parallax.js';
 import { applyModelMaterials, disposeModelMaterials } from '../materials/modelMaterials.js';
+import { SelectionOverlay } from '../materials/MaterialSelection.jsx';
 import { useGlassReflections } from '../materials/GlassReflections.js';
 import { makeCoastTree } from '../plants/treeModel.js';
 import { TREE_SPECIES } from '../plants/treeSpecies.js';
@@ -209,6 +210,13 @@ function useModel(url) {
 // opened in (a double click, as in SketchUp) gets a fainter box of its own,
 // and what is picked inside it is blue — the colour says «inside a group».
 const PART_COLOUR = { top: '#d9ca8c', inside: '#7fb8e8', open: '#8f8b78' };
+// Выбранная грань внутри группы: плотная синяя заливка, как у SketchUp, чтобы
+// читалась и на светлой штукатурке; рёбра — у двойного и тройного щелчка.
+const FACE_COLOUR = '#3f93f0', FACE_EDGE = '#0a4fb4';
+function FaceHighlight({ root, node, face }) {
+    const targets = useMemo(() => { const mesh = findPart(root, node)?.getObjectByProperty('uuid', face.mesh); return mesh?.isMesh ? [{ mesh, triangles: face.triangles }] : []; }, [root, node, face]);
+    return <SelectionOverlay targets={targets} color={FACE_COLOUR} opacity={0.45} edges={face.edges} edgeColor={FACE_EDGE} />;
+}
 function PartBox({ root, node, stamp, kind = 'top' }) {
     const helper = useMemo(() => {
         const box = new THREE.Box3Helper(new THREE.Box3(), PART_COLOUR[kind]);
@@ -271,7 +279,7 @@ function Isolate({ root, node }) {
     return null;
 }
 
-function PlacedModel({ object, url, selected, sketchup, selectedParts = [], openPart = null, isolate = false, plan = false, materials = null }) {
+function PlacedModel({ object, url, selected, sketchup, selectedParts = [], openPart = null, isolate = false, plan = false, materials = null, face = null, faceNode = null }) {
     const gltf = useModel(url);
     // Модель SketchUp всегда освещается сценой и всегда твёрдая: её строят по
     // правилам движка. «Как отсканировано» и галка коллизии — для чужих моделей.
@@ -343,6 +351,7 @@ function PlacedModel({ object, url, selected, sketchup, selectedParts = [], open
         </group>
         {openPart !== null ? <PartBox root={prepared.root} node={openPart} stamp={`${x},${y},${z},${rotation},${tiltX},${tiltZ},${scale}`} kind="open" /> : null}
         {selectedParts.map((node) => <PartBox key={node} root={prepared.root} node={node} stamp={`${x},${y},${z},${rotation},${tiltX},${tiltZ},${scale}`} kind={openPart !== null ? 'inside' : 'top'} />)}
+        {face ? <FaceHighlight root={prepared.root} node={faceNode} face={face} /> : null}
         {isolate && openPart !== null ? <Isolate root={prepared.root} node={openPart} /> : null}
     </>;
 }
@@ -366,7 +375,8 @@ export default function PlacedObjects({ objects, selectedId = null, selectedPart
             const url = modelUrl(object);
             const part = selectedPart?.id === object.id ? selectedPart : null, level = part ? part.trail.indexOf(part.node) : -1;
             return url ? <PlacedModel key={object.id} object={object} url={url} selected={selected} sketchup={sketchupModels[object.id]} plan={plan} materials={modelMaterials?.[object.id] ?? null}
-                selectedParts={selectedNodes(part)} openPart={level > 0 ? part.trail[level - 1] : null} isolate={Boolean(part?.isolated)} />
+                selectedParts={part?.face ? [] : selectedNodes(part)} openPart={level > 0 ? part.trail[level - 1] : null} isolate={Boolean(part?.isolated)}
+                face={part?.face ?? null} faceNode={part?.face ? part.node : null} />
                 : <Anchor key={object.id} object={object} selected={selected} radius={1} />;
         })}
         {rocks.length ? <Suspense fallback={null}><PlacedRocks objects={rocks} lowPower={lowPower} lighting={lighting} selectedId={selectedId} /></Suspense> : null}
