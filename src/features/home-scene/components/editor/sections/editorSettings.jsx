@@ -19,12 +19,6 @@ export const EditorSettingsSection = ({ settings, handleSettingChange }) => {
                 onChange={(event) => handleSettingChange(event, 'editorHeadingColor', 'color')}
                 testId="home-editor-heading-color"
             />
-            <CheckboxControl controlId={'editorCursor'}
-                label={t('homeEditor.controls.editorCursor')}
-                checked={Boolean(settings.editorCursor)}
-                onChange={(event) => handleSettingChange(event, 'editorCursor', 'boolean')}
-                testId="home-editor-editor-cursor"
-            />
             <CheckboxControl controlId={'editorPieFill'}
                 label={t('homeEditor.controls.editorPieFill')}
                 checked={settings.editorPieFill !== false}

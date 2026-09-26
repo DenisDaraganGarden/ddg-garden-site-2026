@@ -5,7 +5,9 @@ import {
     getCursorFlashlightServerSnapshot,
     getCursorFlashlightSnapshot,
     hideCursorFlashlight,
+    markFlashlightGesture,
     setCursorFlashlightAvailable,
+    setEditorFlashlight,
     subscribeToCursorFlashlight,
     toggleCursorFlashlight,
     updateCursorFlashlightPointer,
@@ -25,6 +27,13 @@ const CONTEXT_LABELS = {
     interactive: 'Ссылка',
     water: 'Вода',
 };
+
+// В редакторе правая кнопка — панорама и меню вьюпорта, колесо — зум. Фонарь
+// там включается и гаснет долгим ПКМ (две секунды на месте), а пучок
+// фокусируется колесом, пока ПКМ зажата. На сайте — как было: щелчок ПКМ и
+// колесо.
+const EDITOR_HOLD_MS = 2000;
+const EDITOR_HOLD_SLOP = 6;
 
 const getCursorMode = (search) => {
     const requestedMode = new URLSearchParams(search).get('cursor');
@@ -110,6 +119,36 @@ const CursorConceptLab = () => {
 
         root.dataset.cursorConcept = mode;
         setCursorFlashlightAvailable(mode === 'point');
+        const inEditor = () => root.dataset.focusEditor === 'true';
+        let hold = null;
+        // Зажата ли ПКМ — по своим pointerdown/pointerup: у колеса поле
+        // buttons не везде честное.
+        let rightDown = false;
+        const cancelHold = () => {
+            if (hold) window.clearTimeout(hold.timer);
+            hold = null;
+        };
+
+        // Точка — всегда поверх интерфейса: слой живёт во «всплывающем» слое
+        // (popover) и поднимается наверх, когда открывается окно или подсказка,
+        // иначе модальные окна редактора закрывали бы курсор.
+        const raise = () => {
+            try {
+                if (layer.matches(':popover-open')) layer.hidePopover();
+                layer.showPopover();
+            } catch { /* no popover API: the fixed layer as before */ }
+        };
+        raise();
+        let raiseFrame = 0;
+        const topLayerChanged = (records) => records.some((record) => (record.type === 'attributes'
+            ? record.target.tagName === 'DIALOG'
+            : [...record.addedNodes].some((node) => node.nodeType === 1 && node !== layer && (node.tagName === 'DIALOG' || node.hasAttribute('popover')))));
+        const observer = new MutationObserver((records) => {
+            if (!topLayerChanged(records)) return;
+            window.cancelAnimationFrame(raiseFrame);
+            raiseFrame = window.requestAnimationFrame(raise);
+        });
+        observer.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['open'] });
 
         const setContext = (eventTarget, clientX, clientY) => {
             const targetElement = eventTarget instanceof Element ? eventTarget : null;
@@ -160,6 +199,7 @@ const CursorConceptLab = () => {
         };
 
         const handlePointerMove = (event) => {
+            if (hold && Math.hypot(event.clientX - hold.x, event.clientY - hold.y) > EDITOR_HOLD_SLOP) cancelHold();
             targetX = event.clientX;
             targetY = event.clientY;
             core.style.transform = `translate3d(${targetX}px, ${targetY}px, 0)`;
@@ -202,9 +242,26 @@ const CursorConceptLab = () => {
             if (mode !== 'point' || event.button !== 2) {
                 return;
             }
+            rightDown = true;
 
             const nextContext = setContext(event.target, event.clientX, event.clientY);
             if (nextContext !== 'water') {
+                return;
+            }
+
+            if (inEditor()) {
+                cancelHold();
+                const x = event.clientX, y = event.clientY;
+                hold = {
+                    x,
+                    y,
+                    timer: window.setTimeout(() => {
+                        hold = null;
+                        markFlashlightGesture();
+                        updateCursorFlashlightPointer(x, y, true);
+                        setEditorFlashlight(!getCursorFlashlightSnapshot().enabled);
+                    }, EDITOR_HOLD_MS),
+                };
                 return;
             }
 
@@ -215,7 +272,9 @@ const CursorConceptLab = () => {
             event.stopPropagation();
         };
 
-        const handlePointerUp = () => {
+        const handlePointerUp = (event) => {
+            cancelHold();
+            if (event.button === 2) rightDown = false;
             layer.dataset.pressed = 'false';
         };
 
@@ -227,13 +286,15 @@ const CursorConceptLab = () => {
         };
 
         const hideCursor = () => {
+            cancelHold();
+            rightDown = false;
             layer.dataset.visible = 'false';
             layer.dataset.pressed = 'false';
             hideCursorFlashlight();
         };
 
         const handleContextMenu = (event) => {
-            if (mode !== 'point') {
+            if (mode !== 'point' || inEditor()) {
                 return;
             }
 
@@ -257,9 +318,20 @@ const CursorConceptLab = () => {
                 return;
             }
 
+            // В редакторе колесо без ПКМ — зум вида; с зажатой ПКМ — фокус
+            // пучка, и фонарь зажигается, если был выключен.
+            if (inEditor() && !rightDown && !(event.buttons & 2)) {
+                return;
+            }
+
             event.preventDefault();
             event.stopPropagation();
             updateCursorFlashlightPointer(event.clientX, event.clientY, true);
+            if (inEditor()) {
+                cancelHold();
+                markFlashlightGesture();
+                if (!getCursorFlashlightSnapshot().enabled) setEditorFlashlight(true);
+            }
             adjustCursorFlashlightBeam(event.deltaY);
         };
 
@@ -274,6 +346,10 @@ const CursorConceptLab = () => {
         window.addEventListener('blur', hideCursor);
 
         return () => {
+            cancelHold();
+            observer.disconnect();
+            window.cancelAnimationFrame(raiseFrame);
+            try { layer.hidePopover(); } catch { /* not shown */ }
             if (followerFrame !== null) {
                 window.cancelAnimationFrame(followerFrame);
             }
@@ -302,6 +378,7 @@ const CursorConceptLab = () => {
         <>
             <div
                 ref={layerRef}
+                popover="manual"
                 className="cursor-concept"
                 data-mode={mode}
                 data-context="ambient"
