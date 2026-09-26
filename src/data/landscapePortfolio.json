@@ -51,7 +51,10 @@
       "title": "Merchant Zlobin",
       "subtitle": "Для Derevo Park",
       "frames": [
-        "p10-i01"
+        "p10-i01",
+        "merchant-zlobin-addition-01",
+        "merchant-zlobin-addition-02",
+        "merchant-zlobin-addition-03"
       ],
       "about": "<p>Ландшафт: Денис Дараган<br>По заказу студии Derevo Park</p>"
     },
@@ -104,12 +107,17 @@
     {
       "id": "playhub",
       "title": "Play Hub",
-      "subtitle": "В сотрудничестве с L.BURO",
+      "subtitle": "Москва · В сотрудничестве с L.BURO",
       "frames": [
         "playhub-20260905-01",
-        "p17-i02"
+        "p17-i02",
+        "p17-i03",
+        "p18-i01",
+        "p18-i02",
+        "p19-i01",
+        "p19-i02"
       ],
-      "about": "<p>Концепция команды Denis Daragan Бюро. Руководство: Денис Дараган.</p><p>L.BURO<br>Золотой диплом АЛАРОС 2025</p><h3>На конкурсном планшете</h3><ul><li>Пётр Лари<span>главный архитектор</span></li><li>Денис Дараган<span>архитектор</span></li></ul><div class=\"source-links\"><a href=\"https://alaros.ru/projects?project=55&amp;projectYear=2025\" target=\"_blank\" rel=\"noopener noreferrer\">На сайте АЛАРОС</a><button data-document=\"./assets/alaros-2025-55.jpg\" data-caption=\"Play Hub «Сад вне времени» · АЛАРОС 2025\">Снимок страницы</button></div>"
+      "about": "<p>Жилой комплекс, Москва.</p><p>Концепция команды Denis Daragan Бюро. Руководство: Денис Дараган.</p><p>L.BURO<br>Золотой диплом АЛАРОС 2025</p><h3>На конкурсном планшете</h3><ul><li>Пётр Лари<span>главный архитектор</span></li><li>Денис Дараган<span>архитектор</span></li></ul><div class=\"source-links\"><a href=\"https://alaros.ru/projects?project=55&amp;projectYear=2025\" target=\"_blank\" rel=\"noopener noreferrer\">На сайте АЛАРОС</a><button data-document=\"./assets/alaros-2025-55.jpg\" data-caption=\"Play Hub «Сад вне времени» · АЛАРОС 2025\">Снимок страницы</button></div>"
     },
     {
       "id": "sculpture-garden",
@@ -119,6 +127,63 @@
         "p21-i01"
       ],
       "about": ""
+    },
+    {
+      "id": "moscow-cinema",
+      "title": "Жилой комплекс · Москва I",
+      "subtitle": "В сотрудничестве с Derevo Park",
+      "frames": [
+        "moscow-cinema-addition-04",
+        "moscow-cinema-addition-01",
+        "moscow-cinema-addition-05",
+        "moscow-cinema-addition-03",
+        "moscow-cinema-addition-02"
+      ],
+      "about": "<p>Денис Дараган и команда.<br>В сотрудничестве с Derevo Park.</p>"
+    },
+    {
+      "id": "moscow-courtyard",
+      "title": "Жилой комплекс · Москва II",
+      "subtitle": "В сотрудничестве с L.BURO",
+      "frames": [
+        "moscow-courtyard-addition-01",
+        "moscow-courtyard-addition-02",
+        "moscow-courtyard-addition-03",
+        "moscow-courtyard-addition-04"
+      ],
+      "about": "<p>Денис Дараган.<br>В сотрудничестве с L.BURO.</p>"
+    },
+    {
+      "id": "moscow-terraces",
+      "title": "Жилой комплекс · Москва III",
+      "subtitle": "В сотрудничестве с Derevo Park",
+      "frames": [
+        "moscow-terraces-addition-04",
+        "moscow-terraces-addition-05",
+        "moscow-terraces-addition-06",
+        "moscow-terraces-addition-07",
+        "moscow-terraces-addition-08",
+        "moscow-terraces-addition-01",
+        "moscow-terraces-addition-03",
+        "moscow-terraces-addition-09",
+        "moscow-terraces-addition-02"
+      ],
+      "about": "<p>Денис Дараган и команда.<br>В сотрудничестве с Derevo Park.</p>"
+    },
+    {
+      "id": "moscow-garden",
+      "title": "Жилой комплекс · Москва IV",
+      "subtitle": "В сотрудничестве с Derevo Park",
+      "frames": [
+        "moscow-garden-addition-05",
+        "moscow-garden-addition-02",
+        "moscow-garden-addition-06",
+        "moscow-garden-addition-04",
+        "moscow-garden-addition-01",
+        "moscow-garden-addition-07",
+        "moscow-garden-addition-03"
+      ],
+      "about": "<p>Денис Дараган и команда.<br>В сотрудничестве с Derevo Park.</p>"
     }
   ]
 }
