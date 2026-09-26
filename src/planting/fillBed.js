@@ -114,6 +114,64 @@ export function quotas(weights, total) {
 
 const STRETCH = 1.8;
 
+// Опорная точка цветника — середина рамки контура. От неё решётка посадки и
+// ручные правки: цветник переносится целиком, правки едут вместе с ним.
+export function bedAnchor(bed) {
+    let x0 = Infinity, z0 = Infinity, x1 = -Infinity, z1 = -Infinity;
+    for (const [x, z] of bed.points) { x0 = Math.min(x0, x); z0 = Math.min(z0, z); x1 = Math.max(x1, x); z1 = Math.max(z1, z); }
+    return [(x0 + x1) / 2, (z0 + z1) / 2];
+}
+
+// Ручные правки растений цветника (bed.edits): убрать или сдвинуть одно
+// растение. Растение узнаётся по ключу «вид:ряд:место» в его решётке и по
+// месту от опорной точки (допуск EDIT_REACH): если рецепт или контур
+// поменяли и на этом месте теперь другое растение, правка не срабатывает.
+export const EDIT_REACH = 0.05;
+const removedCounts = new WeakMap();
+// Сколько растений каждого вида убрано руками в этом заполнении.
+export const removedIn = (fill) => removedCounts.get(fill) ?? {};
+function applyEdits(bed, plants) {
+    const edits = bed.edits;
+    if (!edits || (!edits.removed?.length && !edits.moved?.length)) return plants;
+    const [ax, az] = bedAnchor(bed);
+    const byKey = new Map(plants.map((plant) => [plant.key, plant]));
+    const found = (edit) => {
+        const plant = byKey.get(edit.k);
+        return plant && Math.abs(plant.x - ax - edit.x) <= EDIT_REACH && Math.abs(plant.z - az - edit.z) <= EDIT_REACH ? plant : null;
+    };
+    const gone = new Set(), counts = {};
+    for (const edit of edits.removed ?? []) {
+        const plant = found(edit);
+        if (plant && !gone.has(plant)) { gone.add(plant); counts[plant.plant] = (counts[plant.plant] ?? 0) + 1; }
+    }
+    for (const edit of edits.moved ?? []) {
+        const plant = found(edit);
+        if (!plant || gone.has(plant)) continue;
+        plant.origin = [plant.x, plant.z];
+        plant.x = Math.round((ax + edit.to[0]) * 1000) / 1000;
+        plant.z = Math.round((az + edit.to[1]) * 1000) / 1000;
+        plant.y = Math.round(groundAt(bed, plant.x, plant.z) * 1000) / 1000;
+        plant.moved = true;
+    }
+    const kept = plants.filter((plant) => !gone.has(plant));
+    removedCounts.set(kept, counts);
+    return kept;
+}
+
+// Цветник целиком на новое место: контур, дырки и сетка высот едут вместе,
+// правки — от опорной точки, поэтому с ними. Цветник на поверхности модели
+// привязан к её земле и не переносится.
+export function moveBed(bed, dx, dz) {
+    if (bed.surface || !(Number.isFinite(dx) && Number.isFinite(dz))) return bed;
+    const shift = ([x, z]) => [Math.round((x + dx) * 1000) / 1000, Math.round((z + dz) * 1000) / 1000];
+    return {
+        ...bed,
+        points: bed.points.map(shift),
+        ...(bed.holes ? { holes: bed.holes.map((hole) => hole.map(shift)) } : {}),
+        ...(bed.ground ? { ground: { ...bed.ground, x0: Math.round((bed.ground.x0 + dx) * 1000) / 1000, z0: Math.round((bed.ground.z0 + dz) * 1000) / 1000 } } : {}),
+    };
+}
+
 export function fillBed(bed, library) {
     // Газон — покрытие, а не посадка: растений в нём нет (lawnGround.js).
     if ((bed.kind === 'lawn' || bed.kind === 'cover')) return [];
@@ -177,11 +235,11 @@ export function fillBed(bed, library) {
                 const x = cx + a * ct - b * st, z = cz + a * st + b * ct;
                 const scale = 0.88 + 0.24 * random(), flip = random() < 0.5 ? -1 : 1;
                 if (!insideBed(bed, x, z) || speciesAt(x, z) !== species || bedEdgeDistance(bed, x, z, step / 3) < step / 3) continue;
-                plants.push({ plant: row.plant.id, x: Math.round(x * 1000) / 1000, y: Math.round(groundAt(bed, x, z) * 1000) / 1000, z: Math.round(z * 1000) / 1000, scale, flip });
+                plants.push({ plant: row.plant.id, key: `${row.plant.id}:${r}:${c}`, x: Math.round(x * 1000) / 1000, y: Math.round(groundAt(bed, x, z) * 1000) / 1000, z: Math.round(z * 1000) / 1000, scale, flip });
             }
         }
     });
-    return plants;
+    return applyEdits(bed, plants);
 }
 
 // Дуглас — Пекер: контур от руки редеет до сути, не больше предела точек.
@@ -241,7 +299,7 @@ export const PLANTING_RESERVE = 0.05;
 export function plantingSchedule(beds, fills, points, library, vines = [], hedges = []) {
     const rows = new Map();
     const row = (id) => {
-        if (!rows.has(id)) rows.set(id, { plant: library.get(id) ?? { id }, count: 0, area: 0, beds: new Set(), length: 0, hedgeLength: 0, bedOrder: 0, pieces: 0, existing: 0 });
+        if (!rows.has(id)) rows.set(id, { plant: library.get(id) ?? { id }, count: 0, area: 0, beds: new Set(), length: 0, hedgeLength: 0, bedOrder: 0, pieces: 0, existing: 0, removed: 0 });
         return rows.get(id);
     };
     for (const vine of vines) { const r = row(vine.plant); r.count += 1; r.pieces += 1; r.length += vineLength(vine); }
@@ -270,6 +328,8 @@ export function plantingSchedule(beds, fills, points, library, vines = [], hedge
         const area = bedArea(bed), shares = bed.recipe.filter((r) => library.has(r.plant)), total = shares.reduce((sum, r) => sum + r.share, 0) || 1;
         const drawn = new Map();
         for (const plant of fills[index] ?? []) { row(plant.plant).count += 1; drawn.set(plant.plant, (drawn.get(plant.plant) ?? 0) + 1); }
+        // Убранное руками — минус штука к заказу, ровно по одной.
+        for (const [id, count] of Object.entries(removedIn(fills[index]))) if (library.has(id)) row(id).removed += count;
         for (const r of shares) {
             const target = row(r.plant), speciesArea = (area * r.share) / total, norm = Number(library.get(r.plant).density);
             target.area += speciesArea;
@@ -286,7 +346,7 @@ export function plantingSchedule(beds, fills, points, library, vines = [], hedge
     }
     return [...rows.values()].filter((r) => r.count > 0 || r.bedOrder > 0 || r.hedgeLength > 0 || r.area > 0).map(({ bedOrder, pieces, ...r }) => ({
         ...r,
-        order: pieces + (bedOrder > 0 ? Math.ceil(bedOrder * (1 + PLANTING_RESERVE) - 1e-9) : 0),
+        order: Math.max(0, pieces + (bedOrder > 0 ? Math.ceil(bedOrder * (1 + PLANTING_RESERVE) - 1e-9) : 0) - r.removed),
     })).sort((a, b) => b.order - a.order || b.count - a.count);
 }
 

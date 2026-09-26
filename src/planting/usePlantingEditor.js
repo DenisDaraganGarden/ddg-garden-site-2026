@@ -3,6 +3,8 @@ import { LAWN_DEFAULT, normalizePlantingBed, normalizePlantingPoint, normalizePl
 import { lawnAngleFor } from './lawnGround.js';
 import { PLANTING_PALETTES } from './palettes.js';
 import { vineRoot } from './vines.js';
+import { bedAnchor, moveBed as shiftBed, spacingFor } from './fillBed.js';
+import { bedFill } from './plantLibrary.js';
 
 // Мазок, начатый у корня лианы того же вида (ближе JOIN м), — ещё один её
 // побег, а не новое растение.
@@ -104,6 +106,59 @@ export function usePlantingEditor({ settings, history, setActiveTab, setTool, to
     const removeVine = useCallback((id) => { applyVines((live.current.settings.plantingVines ?? []).filter((vine) => vine.id !== id)); setVineId(null); }, [applyVines]);
 
     const removeBed = useCallback((id) => { applyBeds(live.current.settings.plantingBeds.filter((bed) => bed.id !== id)); setSelectedId(null); }, [applyBeds]);
+
+    // Внутри цветника (двойной щелчок по нему): щелчок выбирает растение,
+    // Delete убирает, «Перенос» двигает, Esc выходит — как части модели
+    // SketchUp. Правки пишутся в bed.edits от опорной точки (fillBed.js).
+    const [inside, setInside] = useState(null);
+    const [plantKey, setPlantKey] = useState(null);
+    live.current.inside = inside;
+    live.current.plantKey = plantKey;
+    const insideBed = beds.find((bed) => bed.id === inside && bed.id === selectedId && (!bed.kind || bed.kind === 'bed')) ?? null;
+    const enterBed = useCallback((id) => { setSelectedId(id); setVineId(null); setInside(id); setPlantKey(null); setActiveTab(PLANTING_NODE); setTool('select'); }, [setActiveTab, setTool]);
+    const exitBed = useCallback(() => { setPlantKey(null); setInside(null); }, []);
+    const plantAt = (bed, key) => (key ? bedFill(bed, live.current.library).find((plant) => plant.key === key) ?? null : null);
+    const pickPlant = useCallback(([x, , z]) => {
+        const { settings, library, inside: id } = live.current;
+        const bed = settings.plantingBeds.find((item) => item.id === id);
+        if (!bed) return;
+        let best = null, distance = Infinity;
+        for (const plant of bedFill(bed, library)) {
+            const d = Math.hypot(plant.x - x, plant.z - z);
+            if (d < distance) { distance = d; best = plant; }
+        }
+        // Дальше половины шага от растения — щелчок по земле, выбор снимается.
+        const reach = best ? Math.max(0.12, spacingFor((library.get(best.plant)?.density ?? 4) * bed.density) * 0.6) : 0;
+        setPlantKey(best && distance <= reach ? best.key : null);
+    }, []);
+    const editBed = (change) => {
+        const { settings, inside: id, plantKey: key } = live.current;
+        const bed = settings.plantingBeds.find((item) => item.id === id), plant = bed && plantAt(bed, key);
+        if (!plant) return;
+        const [ax, az] = bedAnchor(bed), [ox, oz] = plant.origin ?? [plant.x, plant.z];
+        const from = { k: plant.key, x: Math.round((ox - ax) * 1000) / 1000, z: Math.round((oz - az) * 1000) / 1000 };
+        const edits = bed.edits ?? {}, others = (list) => (list ?? []).filter((item) => item.k !== plant.key);
+        updateBed(bed.id, { edits: change(edits, others, from, [ax, az]) });
+    };
+    const removePlant = useCallback(() => {
+        editBed((edits, others, from) => ({ removed: [...others(edits.removed), from], moved: others(edits.moved) }));
+        setPlantKey(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- editBed читает live
+    }, [updateBed]);
+    const movePlant = useCallback((x, z) => {
+        editBed((edits, others, from, [ax, az]) => ({ removed: edits.removed ?? [], moved: [...others(edits.moved), { ...from, to: [x - ax, z - az] }] }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- editBed читает live
+    }, [updateBed]);
+    // Весь цветник: опорная точка — в новое место (цветник на поверхности
+    // модели не переносится, moveBed его не трогает).
+    const moveBedTo = useCallback((id, x, z) => {
+        const { settings } = live.current;
+        const bed = settings.plantingBeds.find((item) => item.id === id);
+        if (!bed || bed.surface) return;
+        const [ax, az] = bedAnchor(bed);
+        applyBeds(settings.plantingBeds.map((item) => (item.id === id ? shiftBed(item, x - ax, z - az) : item)));
+    }, [applyBeds]);
+    const selectedPlant = insideBed && plantKey ? plantAt(insideBed, plantKey) : null;
     const removeLastPoint = useCallback(() => {
         const { settings, history } = live.current;
         history.applySettings({ plantingPoints: settings.plantingPoints.slice(0, -1) });
@@ -116,7 +171,9 @@ export function usePlantingEditor({ settings, history, setActiveTab, setTool, to
     return {
         selectedId: beds.some((bed) => bed.id === selectedId) ? selectedId : null,
         select, updateBed, removeBed, applyPalette, onBed, onBedSurface, onPlant, removeLastPoint,
-        reseed: (id) => updateBed(id, { seed: newSeed() }),
+        inside: insideBed?.id ?? null, plantKey: selectedPlant ? plantKey : null, selectedPlant, enterBed, exitBed, pickPlant, removePlant, movePlant, moveBedTo,
+        // Новая раскладка — ручным правкам не к чему приложиться: они уходят.
+        reseed: (id) => updateBed(id, { seed: newSeed(), edits: null }),
         plantChoice, setPlantChoice, plantStatus, setPlantStatus,
         vineId: vines.some((vine) => vine.id === vineId) ? vineId : null,
         vineChoice, setVineChoice, onVine, selectVine, updateVine, removeVine,
