@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { lineLength } from './settings.js';
 
 // Раскладка ограды вдоль линии стриженой формы: секции не длиннее POST_SPAN
 // между столбами, по каждому отрезку линии (у плавной — по точкам сплайна).
@@ -48,8 +49,6 @@ export function fenceLayout(object) {
     return { path, posts, panels };
 }
 
-// Длина линии (у плавной ограды — по сплайну), в метрах объекта.
-export const lineLength = (points) => points.slice(1).reduce((sum, [x, z], i) => sum + Math.hypot(x - points[i][0], z - points[i][1]), 0);
 
 // Ведомость изгородей и оград: строка на линию стриженой формы. Длина и
 // высота — с масштабом объекта; секции и столбы — штуки.
@@ -68,6 +67,7 @@ export function fenceSchedule(objects) {
             length,
             height: object.height * scale,
             width: object.width * scale,
+            ...(hedge && object.plant ? { plant: object.plant, perMetre: object.perMetre ?? 0 } : {}),
             ...(layout ? { sections: layout.panels.length, posts: layout.posts.length } : {}),
         };
     }).filter((row) => (row.hedge || row.fence) && row.length > 0);

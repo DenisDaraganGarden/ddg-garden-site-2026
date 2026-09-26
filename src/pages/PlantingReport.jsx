@@ -125,11 +125,12 @@ export default function PlantingReport() {
     const annotations = useMemo(() => normalizeAnnotationSettings(entry?.settings ?? {}), [entry]);
     const fills = useBedFills(planting.plantingBeds, library);
     const instances = useMemo(() => [...plantingInstances(planting.plantingBeds, fills, planting.plantingPoints).values()].flat(), [planting, fills]);
-    const schedule = useMemo(() => plantingSchedule(planting.plantingBeds, fills, planting.plantingPoints, library, planting.plantingVines), [planting, fills, library]);
+    const hedges = useMemo(() => normalizeTopiarySettings(entry?.settings ?? {}).topiaryObjects, [entry]);
+    const schedule = useMemo(() => plantingSchedule(planting.plantingBeds, fills, planting.plantingPoints, library, planting.plantingVines, hedges), [planting, fills, library, hedges]);
     const species = useMemo(() => [...schedule].sort((a, b) => byCategory(a.plant, b.plant)), [schedule]);
     const existing = planting.plantingPoints.filter((p) => p.status === 'existing').length;
     // Где растёт: цветники, лианы с длиной побегов или поштучно.
-    const where = (r) => [...r.beds, ...(r.length ? [`${ru ? 'лианы' : 'climbers'}, ${r.length.toFixed(1)} ${ru ? 'м побегов' : 'm of shoots'}`] : []), ...(r.existing ? [`${ru ? 'существующие' : 'existing'}: ${r.existing}`] : [])].join(', ') || (ru ? 'одиночные' : 'single');
+    const where = (r) => [...r.beds, ...(r.hedgeLength ? [`${ru ? 'изгородь' : 'hedge'} ${r.hedgeLength.toFixed(1)} ${ru ? 'п.м.' : 'm'}`] : []), ...(r.length ? [`${ru ? 'лианы' : 'climbers'}, ${r.length.toFixed(1)} ${ru ? 'м побегов' : 'm of shoots'}`] : []), ...(r.existing ? [`${ru ? 'существующие' : 'existing'}: ${r.existing}`] : [])].join(', ') || (ru ? 'одиночные' : 'single');
     const reserve = Math.round(PLANTING_RESERVE * 100);
     // Газоны — отдельно: площадь и сколько брать, растений в них нет.
     const flowerBeds = planting.plantingBeds.filter((bed) => bed.kind !== 'lawn');
@@ -139,7 +140,7 @@ export default function PlantingReport() {
     const date = new Date().toLocaleDateString(ru ? 'ru-RU' : 'en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
     const lighting = useLightingReport(id, entry?.settings);
     const covers = useMemo(() => coverSchedule(planting.plantingBeds), [planting]);
-    const lines = useMemo(() => fenceSchedule(normalizeTopiarySettings(entry?.settings ?? {}).topiaryObjects), [entry]);
+    const lines = useMemo(() => fenceSchedule(hedges), [hedges]);
     const m = (value) => value.toFixed(1);
 
     if (error) return <main className="report"><p className="report-note">{error}</p></main>;
@@ -204,7 +205,7 @@ export default function PlantingReport() {
             <table className="report-table"><thead><tr>
                 <th>№</th><th>{ru ? 'Растение' : 'Plant'}</th><th>{ru ? `К заказу, шт (+${reserve} %)` : `To order (+${reserve} %)`}</th><th>{ru ? 'Нарисовано, шт' : 'Drawn'}</th><th>{ru ? 'Площадь, м²' : 'Area, m²'}</th><th>{ru ? 'шт/м²' : '/m²'}</th><th>{ru ? 'Высота, м' : 'Height, m'}</th><th>{ru ? 'Где' : 'Where'}</th><th>{ru ? 'Замечания дендролога' : 'Dendrologist notes'}</th>
             </tr></thead><tbody>{schedule.map((r, i) => <tr key={r.plant.id}>
-                <td>{i + 1}</td><td>{plantName(r.plant, ru)}<small>{r.plant.latin}</small></td><td>{r.order}</td><td>{r.count}</td><td>{r.area ? r.area.toFixed(1) : '—'}</td><td>{r.plant.category === 'tree' ? '—' : r.plant.density ?? '—'}</td><td>{r.plant.height}</td><td>{where(r)}</td><td />
+                <td>{i + 1}</td><td>{plantName(r.plant, ru)}<small>{r.plant.latin}</small></td><td>{r.order || '—'}</td><td>{r.count || '—'}</td><td>{r.area ? r.area.toFixed(1) : '—'}</td><td>{r.plant.category === 'tree' || !r.area ? '—' : r.plant.density ?? '—'}</td><td>{r.plant.height}</td><td>{where(r)}</td><td />
             </tr>)}</tbody></table>
         </section>
 
@@ -214,14 +215,14 @@ export default function PlantingReport() {
                 <th>{ru ? 'Покров' : 'Cover'}</th><th>{ru ? 'Площадь, м²' : 'Area, m²'}</th><th>{ru ? 'Копытник, м²' : 'Wild ginger, m²'}</th><th>{ru ? 'Тимьян, м²' : 'Thyme, m²'}</th><th>{ru ? 'Мох, м²' : 'Moss, m²'}</th>
             </tr></thead><tbody>{covers.map((r) => <tr key={r.id}><td>{r.name}{r.layer ? <small>{ru ? 'нижний слой цветника' : 'under a bed'}</small> : null}</td><td>{m(r.area)}</td><td>{m(r.ginger)}</td><td>{m(r.thyme)}</td><td>{m(r.moss)}</td></tr>)}
                 {covers.length > 1 ? <tr><td><b>{ru ? 'Всего' : 'Total'}</b></td>{['area', 'ginger', 'thyme', 'moss'].map((key) => <td key={key}><b>{m(covers.reduce((sum, r) => sum + r[key], 0))}</b></td>)}</tr> : null}</tbody></table>
-            <p className="report-hint">{ru ? 'Покров процедурный: состав — доли площади, нормы посадки в штуках задаёт дендролог.' : 'The cover is procedural: the mix is by area; plants per m² are for the dendrologist.'}</p>
+            <p className="report-hint">{ru ? 'Состав — доли площади. Если за копытником и тимьяном выбраны растения библиотеки, их штуки — в ведомости выше, по норме шт/м² из карточки.' : 'The mix is by area. Where library plants stand for ginger and thyme, their counts are in the schedule above, by the card’s plants per m².'}</p>
         </section> : null}
 
         {lines.length ? <section className="report-block">
             <h3>{ru ? 'Изгороди и ограды' : 'Hedges and fences'}</h3>
             <table className="report-table"><thead><tr>
-                <th>{ru ? 'Линия' : 'Line'}</th><th>{ru ? 'Длина, п.м.' : 'Length, m'}</th><th>{ru ? 'Высота, м' : 'Height, m'}</th><th>{ru ? 'Изгородь, ширина, м' : 'Hedge, width, m'}</th><th>{ru ? 'Ограда' : 'Fence'}</th><th>{ru ? `Секций (до ${POST_SPAN} м)` : `Sections (up to ${POST_SPAN} m)`}</th><th>{ru ? 'Столбов' : 'Posts'}</th>
-            </tr></thead><tbody>{lines.map((r) => <tr key={r.id}><td>{r.name}</td><td>{m(r.length)}</td><td>{r.height.toFixed(2)}</td><td>{r.hedge ? r.width.toFixed(2) : '—'}</td><td>{r.fence ? FENCE_STYLE_LABELS[r.fence]?.[ru ? 0 : 1] ?? r.fence : '—'}</td><td>{r.fence ? r.sections : '—'}</td><td>{r.fence ? r.posts : '—'}</td></tr>)}</tbody></table>
+                <th>{ru ? 'Линия' : 'Line'}</th><th>{ru ? 'Длина, п.м.' : 'Length, m'}</th><th>{ru ? 'Высота, м' : 'Height, m'}</th><th>{ru ? 'Изгородь, ширина, м' : 'Hedge, width, m'}</th><th>{ru ? 'Растение, шт/п.м.' : 'Plant, per m'}</th><th>{ru ? 'Ограда' : 'Fence'}</th><th>{ru ? `Секций (до ${POST_SPAN} м)` : `Sections (up to ${POST_SPAN} m)`}</th><th>{ru ? 'Столбов' : 'Posts'}</th>
+            </tr></thead><tbody>{lines.map((r) => <tr key={r.id}><td>{r.name}</td><td>{m(r.length)}</td><td>{r.height.toFixed(2)}</td><td>{r.hedge ? r.width.toFixed(2) : '—'}</td><td>{r.plant ? <>{plantName(library.get(r.plant) ?? { id: r.plant }, ru)}<small>{r.perMetre ? `${r.perMetre} ${ru ? 'шт/п.м.' : 'per m'}` : (ru ? 'норма не задана' : 'no norm set')}</small></> : '—'}</td><td>{r.fence ? FENCE_STYLE_LABELS[r.fence]?.[ru ? 0 : 1] ?? r.fence : '—'}</td><td>{r.fence ? r.sections : '—'}</td><td>{r.fence ? r.posts : '—'}</td></tr>)}</tbody></table>
         </section> : null}
 
         {lawns.length ? <section className="report-block">

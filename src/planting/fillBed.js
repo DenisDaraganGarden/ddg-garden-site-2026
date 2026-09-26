@@ -10,6 +10,7 @@
 // Крайний ряд — на трети шага от края, как на посадочном чертеже.
 import { PLANTING_LIMITS } from './settings.js';
 import { vineLength } from './vines.js';
+import { lineLength } from '../topiary/settings.js';
 
 export function mulberry32(seed) {
     let a = seed >>> 0;
@@ -233,13 +234,37 @@ export const PLANTING_RESERVE = 0.05;
 // участке не заказываются. Нарисованное расходится с расчётом: пятна
 // раздаются видам по числу, а не по площади, у края — отступ в треть шага.
 // Лиана в ведомости — штука (растение), и к ней длина побегов по стенам.
-export function plantingSchedule(beds, fills, points, library, vines = []) {
+// Почвопокров и изгородь — по каталогу: копытник и тимьян покрова, если за
+// ними стоит растение библиотеки, — площадь по доле × его шт/м²; изгородь с
+// растением и нормой — длина × шт/п.м. (длина — с масштабом формы). На плане
+// их не рисуют поштучно, поэтому «нарисовано» у них ноль.
+export function plantingSchedule(beds, fills, points, library, vines = [], hedges = []) {
     const rows = new Map();
     const row = (id) => {
-        if (!rows.has(id)) rows.set(id, { plant: library.get(id) ?? { id }, count: 0, area: 0, beds: new Set(), length: 0, bedOrder: 0, pieces: 0, existing: 0 });
+        if (!rows.has(id)) rows.set(id, { plant: library.get(id) ?? { id }, count: 0, area: 0, beds: new Set(), length: 0, hedgeLength: 0, bedOrder: 0, pieces: 0, existing: 0 });
         return rows.get(id);
     };
     for (const vine of vines) { const r = row(vine.plant); r.count += 1; r.pieces += 1; r.length += vineLength(vine); }
+    beds.forEach((bed) => {
+        const plants = bed.kind !== 'lawn' && bed.cover && bed.cover.enabled !== false ? bed.cover.plants : null;
+        if (!plants) return;
+        const area = bedArea(bed);
+        for (const [part, id] of Object.entries(plants)) {
+            const share = bed.cover[part] ?? 0, norm = Number(library.get(id)?.density);
+            if (!(share > 0) || !library.has(id)) continue;
+            const target = row(id);
+            target.area += area * share;
+            target.beds.add(bed.name);
+            if (norm > 0) target.bedOrder += area * share * norm;
+        }
+    });
+    for (const hedge of hedges) {
+        if (!hedge.plant || !library.has(hedge.plant) || hedge.foliageVisible === false) continue;
+        const target = row(hedge.plant), length = lineLength(hedge.points) * (hedge.scale ?? 1);
+        target.hedgeLength += length;
+        target.beds.add(hedge.name);
+        if (hedge.perMetre > 0) target.bedOrder += length * hedge.perMetre;
+    }
     beds.forEach((bed, index) => {
         if (bed.kind === 'lawn' || bed.kind === 'cover') return;
         const area = bedArea(bed), shares = bed.recipe.filter((r) => library.has(r.plant)), total = shares.reduce((sum, r) => sum + r.share, 0) || 1;
@@ -259,7 +284,7 @@ export function plantingSchedule(beds, fills, points, library, vines = []) {
         r.count += 1;
         if (point.status === 'existing') r.existing += 1; else r.pieces += 1;
     }
-    return [...rows.values()].filter((r) => r.count > 0 || r.bedOrder > 0).map(({ bedOrder, pieces, ...r }) => ({
+    return [...rows.values()].filter((r) => r.count > 0 || r.bedOrder > 0 || r.hedgeLength > 0 || r.area > 0).map(({ bedOrder, pieces, ...r }) => ({
         ...r,
         order: pieces + (bedOrder > 0 ? Math.ceil(bedOrder * (1 + PLANTING_RESERVE) - 1e-9) : 0),
     })).sort((a, b) => b.order - a.order || b.count - a.count);

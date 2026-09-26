@@ -120,6 +120,20 @@ assert.deepEqual([fenceRows[0].sections, fenceRows[0].posts], [5, 6], '5 m + 3.1
 assert.ok(Math.abs(fenceRows[0].length - 16.2) < 1e-9 && fenceRows[0].height === 3.6, 'length and height take the object scale');
 assert.equal(fenceRows[1].length, 5);
 assert.equal(fenceRows[1].sections, undefined);
+// По каталогу: изгородь с растением и нормой — п.м. × шт/п.м.; покров —
+// площадь × доля × шт/м² растения, которое стоит за копытником или тимьяном.
+const catalog = new Map([...library, ['buxus', { id: 'buxus', density: 4 }], ['vinca', { id: 'vinca', density: 12 }]]);
+const hedgeRows = plantingSchedule([], [], [], catalog, [], [
+    { id: 'h1', name: 'Самшит у входа', points: [[0, 0], [8, 0]], scale: 1.25, plant: 'buxus', perMetre: 3.5 },
+    { id: 'h2', name: 'Без нормы', points: [[0, 0], [2, 0]], scale: 1, plant: 'buxus' },
+    { id: 'h3', name: 'Только ограда', points: [[0, 0], [9, 0]], scale: 1, plant: 'buxus', perMetre: 4, foliageVisible: false },
+]);
+const buxus = hedgeRows.find((r) => r.plant.id === 'buxus');
+assert.equal(buxus.order, Math.ceil(10 * 3.5 * 1.05), '10 m of hedge (8 m × scale 1.25) × 3.5 per m + 5 %');
+assert.equal(buxus.hedgeLength, 12, 'a hedge without a norm still adds its length');
+assert.equal(buxus.count, 0, 'hedge plants are not drawn one by one');
+const coverRows = plantingSchedule([{ ...bed, id: 'cv', name: 'Покров', kind: 'cover', recipe: [], cover: { enabled: true, leaf: 0.5, thyme: 0.2, plants: { leaf: 'vinca' } } }], [[]], [], catalog);
+assert.deepEqual(coverRows.map((r) => [r.plant.id, r.area, r.order]), [['vinca', 30, Math.ceil(30 * 12 * 1.05)]], 'the ginger part of 60 m² at 12 per m²; thyme without a plant stays in metres');
 const closed = fenceLayout({ points: [[0, 0], [4, 0], [4, 4], [0, 4], [0, 0]], fenceSmooth: false });
 assert.equal(closed.posts.length, closed.panels.length, 'a closed fence has as many posts as sections');
 assert.equal(POST_SPAN, 2.4);
