@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 export const GIZMO_MODES = ['translate', 'rotate', 'scale'];
-export const EDITOR_TOOLS = ['select', ...GIZMO_MODES, 'hand', 'topiary', 'bed', 'plant', 'vine', 'mark', 'start', 'luminaire'];
+export const EDITOR_TOOLS = ['select', ...GIZMO_MODES, 'hand', 'material', 'topiary', 'bed', 'plant', 'vine', 'mark', 'start', 'luminaire'];
 
 // Одна линейка инструментов, как в 3ds Max: в каждый момент активен ровно один.
 //
@@ -10,7 +10,8 @@ export const EDITOR_TOOLS = ['select', ...GIZMO_MODES, 'hand', 'topiary', 'bed',
 //   rotate     R ├ манипулятор в этом режиме; клик по-прежнему выбирает
 //   scale      S ┘
 //   hand       H   только обзор: манипулятор спрятан, клики ничего не выбирают
-//   topiary    B   кисть изгороди
+//   material   B   выбор граней для материала
+//   topiary    Shift+B   кисть изгороди
 //   bed        L   контур цветника (src/planting)
 //   plant      T   посадить выбранное растение кликом
 //   vine       I   лиана мазком по стене, кашпо, сетке, земле
@@ -28,7 +29,7 @@ const TOOL_KEYS = {
     r: 'rotate',
     s: 'scale',
     h: 'hand',
-    b: 'topiary',
+    b: 'material',
     l: 'bed',
     t: 'plant',
     i: 'vine',
@@ -80,7 +81,7 @@ export function useEditorTool(enabled = true, unavailable = null) {
                 return;
             }
 
-            const next = TOOL_KEYS[event.key.toLowerCase()];
+            const next = event.code === 'KeyB' ? (event.shiftKey ? 'topiary' : 'material') : TOOL_KEYS[event.key.toLowerCase()];
             if (next && !off.current?.includes(next)) {
                 event.preventDefault();
                 setTool(next);

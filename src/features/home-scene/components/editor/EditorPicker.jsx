@@ -34,7 +34,7 @@ const isShownGizmo = (object) => {
     return gizmo;
 };
 
-export default function EditorPicker({ enabled, onPick, onContextMenu }) {
+export default function EditorPicker({ enabled, onPick, onContextMenu, clearOnMiss = false }) {
     const gl = useThree((state) => state.gl);
     const camera = useThree((state) => state.camera);
     const scene = useThree((state) => state.scene);
@@ -47,6 +47,8 @@ export default function EditorPicker({ enabled, onPick, onContextMenu }) {
 
     useEffect(() => {
         const element = gl.domElement;
+        const cursor = element.style.cursor;
+        if (clearOnMiss) element.style.cursor = 'crosshair';
         let pressed = null, last = null;
 
         // Первое попадание, за которым стоит объект редактора: служебные
@@ -94,16 +96,18 @@ export default function EditorPicker({ enabled, onPick, onContextMenu }) {
             const double = Boolean(last && event.timeStamp - last.at < DOUBLE_MS && Math.hypot(event.clientX - last.x, event.clientY - last.y) < DOUBLE_SLOP);
             last = double ? null : { at: event.timeStamp, x: event.clientX, y: event.clientY };
             if (found) onPick(found.node, { ...found, double, shift: event.shiftKey });
+            else if (clearOnMiss) onPick(null, { shift: event.shiftKey });
         };
 
         element.addEventListener('pointerdown', handlePointerDown);
         element.addEventListener('pointerup', handlePointerUp);
 
         return () => {
+            if (clearOnMiss) element.style.cursor = cursor;
             element.removeEventListener('pointerdown', handlePointerDown);
             element.removeEventListener('pointerup', handlePointerUp);
         };
-    }, [camera, enabled, gl, onContextMenu, onPick, raycaster, scene]);
+    }, [camera, clearOnMiss, enabled, gl, onContextMenu, onPick, raycaster, scene]);
 
     return null;
 }

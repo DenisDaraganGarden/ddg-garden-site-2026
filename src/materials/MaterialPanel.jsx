@@ -10,6 +10,7 @@ import { buildProceduralMaterial, finishMaterial, generateMaterial, listImageMod
 import ReferencePicker from '../references/ReferencePicker.jsx';
 import MaterialQuickLook from './MaterialQuickLook.jsx';
 import { SURFACES, normalizeSurface, surfacePreset, surfaceSize } from './procedural.js';
+import { paintTargets, targetHasMaterial, targetOverride } from './selection.js';
 import './materials.css';
 
 const MaterialPreview = lazy(() => import('./MaterialPreview.jsx'));
@@ -59,11 +60,12 @@ function Knob({ label, value, onChange, range, unit = '' }) {
     </label>;
 }
 
-export default function MaterialPanel({ target, settings, applySettings, onClose }) {
+export default function MaterialPanel({ target, targets = [], scope = 'material', onScope, onActivate, settings, applySettings, onClose }) {
     const { language } = useLanguage();
     const tr = (ru, en) => language === 'ru' ? ru : en;
-    const { placedId, materialName, material } = target;
-    const override = settings.modelMaterials?.[placedId]?.[materialName] ?? null;
+    const { placedId, materialName = '', material } = target ?? {};
+    const override = targetOverride(settings.modelMaterials, target, scope);
+    const canApply = targets.length > 0;
     const prefs = useMemo(readPrefs, []);
     const { root, meshes } = useMemo(() => {
         const root = sketchupModelEntry(placedId)?.root ?? null;
@@ -75,7 +77,7 @@ export default function MaterialPanel({ target, settings, applySettings, onClose
     const original = useMemo(() => material ? textureDataUrl(material, 4096, true) : null, [material]);
     const current = override?.material ? libraryFile(override.material, 'albedo.webp') : original;
     const glassAuto = useMemo(() => Boolean(material && looksLikeGlass(material, meshes, root)), [material, meshes, root]);
-    const glass = { ...glassDefaults(material), on: glassAuto, ...(override?.glass ?? {}) };
+    const glass = { ...(material ? glassDefaults(material) : { clarity: 0.6, frost: 0.03, reflect: 2, tint: '#888888' }), on: glassAuto, ...(override?.glass ?? {}) };
     const [tab, setTab] = useState('create');
     const [pinterest, setPinterest] = useState(false), [quickLook, setQuickLook] = useState(false);
     const [surface, setSurface] = useState(() => surfacePreset('pebble'));
@@ -117,12 +119,13 @@ export default function MaterialPanel({ target, settings, applySettings, onClose
     const busyRef = useRef(false);
     const busy = Boolean(status?.busy);
     const entry = library.find((item) => item.id === selected) ?? null;
-    const entryOnModel = Boolean(entry && entry.id === override?.material);
+    const entryOnModel = Boolean(entry && targets.length && targets.every((item) => targetHasMaterial(settings.modelMaterials, item, scope, entry.id)));
     const previewEntry = useMemo(() => entryOnModel ? { ...entry, ...override, id: entry.id } : entry ? { ...entry, ...previewLook } : null, [entry, entryOnModel, override, previewLook]);
     const applied = library.find((item) => item.id === override?.material);
     useEffect(() => {
         if (initialLook.current || !applied) return;
         initialLook.current = true;
+        setSelected((current) => current ?? applied.id);
         setName(applied.name); setCategory(categoryOf(applied));
         setRecipe(normalizeRecipe(applied.recipe, categoryOf(applied)));
         if (applied.surface) setSurface(normalizeSurface(applied.surface));
@@ -186,21 +189,22 @@ export default function MaterialPanel({ target, settings, applySettings, onClose
         return () => window.removeEventListener('paste', paste);
     }, [addFiles]);
     const setOverride = (next) => {
-        const all = { ...(settings.modelMaterials ?? {}) };
-        const materials = { ...(all[placedId] ?? {}) };
-        if (next) materials[materialName] = next; else delete materials[materialName];
-        if (Object.keys(materials).length) all[placedId] = materials; else delete all[placedId];
-        applySettings({ modelMaterials: all });
+        if (!canApply) return;
+        try { applySettings({ modelMaterials: paintTargets(settings.modelMaterials ?? {}, targets, scope, next) }); }
+        catch (error) { setStatus({ error: true, text: error.message }); return false; }
+        return true;
     };
     const apply = () => {
-        if (!entry) return;
-        setOverride({ ...(override ?? {}), material: entry.id, tile: entry.tile ?? null, tileY: entry.tileY ?? entry.tile ?? null,
-            rotation: entry.rotation ?? 0, normal: entry.normal ?? 1, roughness: entry.roughness ?? 1, ao: entry.ao ?? 1, metalness: entry.metalness ?? 0,
+        if (!entry || !canApply) return;
+        const success = setOverride({ ...(override ?? {}), ...(scope === 'material' ? { faces: undefined } : {}), material: entry.id, tile: entry.tile ?? null, tileY: entry.tileY ?? entry.tile ?? null,
+            projection: entry.surface?.kind === 'standing-seam' ? 'slope' : 'box', rotation: entry.rotation ?? 0, offsetU: 0, offsetV: 0, normal: entry.normal ?? 1, roughness: entry.roughness ?? 1, ao: entry.ao ?? 1, metalness: entry.metalness ?? 0,
             parallax: previewEntry.parallax ?? 0, parallaxDepth: previewEntry.parallaxDepth ?? entry.recipe?.depth ?? 5 });
+        if (!success) return;
         setStatus({ text: tr('Материал применён. Настройки раскладки — ниже.', 'Material applied. Layout controls are below.') });
     };
     const unapply = () => {
-        const rest = { ...(override?.glass ? { glass: override.glass } : {}), ...(override?.faces ? { faces: override.faces } : {}) };
+        if (scope !== 'material') { setOverride(null); return; }
+        const rest = { ...(override?.glass ? { glass: override.glass } : {}) };
         setOverride(Object.keys(rest).length ? rest : null);
     };
     const setGlass = (patch) => setOverride({ ...(override ?? {}), glass: { ...glass, ...patch } });
@@ -245,6 +249,7 @@ export default function MaterialPanel({ target, settings, applySettings, onClose
         return tr('Карты готовы. Цвет сохранён без изменений; материал пока не назначен модели.', 'Maps ready. Colour preserved exactly; the material has not been applied yet.');
     });
     const selectEntry = (item) => {
+        initialLook.current = true;
         setSelected(item.id); setName(item.name); setCategory(categoryOf(item));
         setRecipe(normalizeRecipe(item.recipe, categoryOf(item))); setDimensions(materialSize(item, scale));
         setUploads({}); setPreviewError(false);
@@ -317,22 +322,29 @@ export default function MaterialPanel({ target, settings, applySettings, onClose
     return <section className="material-panel" aria-label={tr('Материалы', 'Materials')} data-testid="material-panel" data-space-preview
         onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); void addFiles(event.dataTransfer.files); }}
         onKeyDown={(event) => {
+            if (event.code === 'KeyB' && !event.shiftKey && !event.target.closest('input,textarea,select,[contenteditable=true]')) { event.preventDefault(); onActivate?.(); }
             event.stopPropagation();
             if (event.code === 'Space' && !event.repeat && !pinterest && !event.target.closest('input,textarea,select,[contenteditable=true]') && (entry || tab === 'procedural')) { event.preventDefault(); setQuickLook((value) => !value); }
         }}>
-        <header><div><h2>{tr('Материалы', 'Materials')}</h2><span className="material-panel__target">{materialName}</span></div>
+        <header><div><h2>{tr('Материалы', 'Materials')}</h2><span className="material-panel__target">{materialName || tr('Выбор в сцене', 'Pick in scene')}</span></div>
             <button type="button" className="material-panel__close" onClick={onClose} aria-label={tr('Закрыть', 'Close')}>×</button></header>
+        <div className="material-panel__destination" data-testid="material-target">
+            <div><strong>{tr('Применить к', 'Apply to')}</strong><select aria-label={tr('Область применения', 'Apply scope')} value={scope} onChange={(event) => onScope?.(event.target.value)}>
+                <option value="face">{tr('Граням', 'Faces')}</option><option value="component">{tr('Элементу', 'Component')}</option><option value="material">{tr('Всему материалу', 'Whole material')}</option>
+            </select><small>B · Shift + {tr('клик', 'click')}</small></div>
+            <p title={`${settings.placedObjects?.find((item) => item.id === placedId)?.name ?? ''} › ${target?.label ?? ''}`}>{targets.length ? `${targets.length > 1 ? `${tr('Выбрано', 'Selected')}: ${targets.length} · ` : ''}${scope === 'material' ? `${materialName} · ${tr('вся модель', 'entire model')}` : target?.label ?? materialName}` : tr('Выберите поверхность в сцене', 'Pick a surface in the scene')}</p>
+        </div>
         <nav className="material-panel__tabs" aria-label={tr('Разделы материала', 'Material sections')}>
             {[['create', 'Создать', 'Create'], ['procedural', 'Процедурные', 'Procedural'], ['maps', 'Карты', 'Maps'], ['library', 'Библиотека', 'Library']].map(([id, ru, en]) => <button type="button" key={id} aria-pressed={tab === id} onClick={() => openTab(id)}>{tr(ru, en)}{id === 'library' ? <span>{library.length}</span> : null}</button>)}
         </nav>
         <input ref={fileInput} type="file" accept="image/*" multiple hidden onChange={(event) => { void addFiles(event.target.files); event.target.value = ''; }} />
         <div className="material-panel__body">
-            <details className="material-panel__glass" open={glass.on || undefined}><summary>{tr('Стекло', 'Glass')}</summary>
+            <details className="material-panel__glass" hidden={scope !== 'material' || !canApply} open={glass.on || undefined}><summary>{tr('Стекло', 'Glass')}</summary>
                 <label className="material-panel__check"><input type="checkbox" checked={glass.on} onChange={(event) => setGlass({ on: event.target.checked })} data-testid="material-glass" />{tr('Это стекло', 'This is glass')}</label>
                 {glass.on ? <>{[['clarity', 'Прозрачность', 'Clarity'], ['frost', 'Матовость', 'Frost'], ['reflect', 'Отражение', 'Reflection']].map(([id, ru, en]) => <Knob key={id} label={tr(ru, en)} value={glass[id]} range={MATERIAL_RANGES[id]} onChange={(value) => setGlass({ [id]: value })} />)}
                     <Field label={tr('Оттенок', 'Tint')}><input type="color" value={glass.tint ?? '#888888'} onChange={(event) => setGlass({ tint: event.target.value })} /></Field></> : null}
             </details>
-            {!glass.on ? <>
+            {!(scope === 'material' && glass.on) ? <>
                 <fieldset disabled={busy} className="material-panel__work">
                     {tab === 'create' ? <>
                         <div className="material-panel__refs"><div className="material-panel__section-label">{tr('Аналоги', 'References')}<button type="button" onClick={() => setPinterest(true)}>Pinterest</button><span>⌘V · {tr('перетащить', 'drop')}</span></div>
@@ -435,12 +447,14 @@ export default function MaterialPanel({ target, settings, applySettings, onClose
                     {entry.mapSources?.height === 'ai' ? <small>{tr('Высота оценена ИИ. Сверьте швы на картах цвета и высоты.', 'AI estimated height. Compare joints in colour and height maps.')}</small> : null}
                 </section> : null}
                 {override?.material && tab !== 'procedural' ? <details className="material-panel__applied"><summary>{tr('На модели', 'On model')} · {applied?.name ?? override.material}</summary>
-                    <Field label={tr('Раскладка', 'Mapping')}><select value={override.tile === null ? 'original' : override.projection ?? 'uv'} onChange={(event) => {
+                    <Field label={tr('Раскладка', 'Mapping')}><select value={override.tile === null ? 'original' : override.projection ?? (scope === 'material' ? 'uv' : 'box')} onChange={(event) => {
                         const value = event.target.value;
-                        setOverride({ ...override, tile: value === 'original' ? null : override.tile ?? dimensions[0], tileY: value === 'original' ? null : override.tileY ?? dimensions[1], projection: value === 'box' ? 'box' : undefined });
-                    }}><option value="original">{tr('Исходный масштаб SketchUp', 'Original SketchUp scale')}</option><option value="uv">{tr('Размер в метрах · UV SketchUp', 'Metres · SketchUp UVs')}</option><option value="box">{tr('Размер в метрах · по граням', 'Metres · on faces')}</option></select></Field>
+                        setOverride({ ...override, tile: value === 'original' ? null : override.tile ?? dimensions[0], tileY: value === 'original' ? null : override.tileY ?? dimensions[1], projection: ['box', 'slope'].includes(value) ? value : undefined });
+                    }}>{scope === 'material' ? <><option value="original">{tr('Исходный масштаб SketchUp', 'Original SketchUp scale')}</option><option value="uv">{tr('Размер в метрах · UV SketchUp', 'Metres · SketchUp UVs')}</option></> : null}<option value="box">{tr('Единая по модели', 'Continuous model projection')}</option><option value="slope">{tr('Вдоль ската', 'Along roof slope')}</option></select></Field>
                     {override.tile !== null ? <div className="material-panel__two"><Field label={tr('Ширина, м', 'Width, m')}><NumberInput value={override.tile} min={0.05} onChange={(value) => setOverride({ ...override, tile: value })} /></Field><Field label={tr('Высота, м', 'Height, m')}><NumberInput value={override.tileY ?? override.tile} min={0.05} onChange={(value) => setOverride({ ...override, tileY: value })} /></Field></div> : null}
                     {appliedKnob('rotation', 'Поворот', 'Rotation', 0)}
+                    {appliedKnob('offsetU', 'Сдвиг U, м', 'Offset U, m', 0)}
+                    {appliedKnob('offsetV', 'Сдвиг V, м', 'Offset V, m', 0)}
                     {appliedKnob('normal', 'Нормали', 'Normals')}
                     {appliedKnob('roughness', 'Матовость', 'Roughness')}
                     {appliedKnob('ao', 'Затенение щелей', 'Crevice shading')}
@@ -452,7 +466,7 @@ export default function MaterialPanel({ target, settings, applySettings, onClose
             </> : null}
         </div>
         <footer>{status ? <p className={`material-panel__status${status.error ? ' is-error' : ''}`} role="status" data-testid="material-status">{status.text}{busy ? ` · ${Math.round((now - status.started) / 1000)} ${tr('с', 's')}` : ''}</p> : null}
-            {!glass.on && tab !== 'procedural' ? <button type="button" className="material-panel__primary" disabled={!entry || busy || entryOnModel} onClick={apply} data-testid="material-apply">{entryOnModel ? tr('Материал на модели', 'Material is applied') : entry ? tr(`Применить «${entry.name}»`, `Apply “${entry.name}”`) : tr('Выберите или подготовьте материал', 'Select or prepare a material')}</button> : null}
+            {!(scope === 'material' && glass.on) && tab !== 'procedural' ? <button type="button" className="material-panel__primary" disabled={!entry || busy || entryOnModel || !canApply} onClick={apply} data-testid="material-apply">{!canApply ? tr('Выберите поверхность в сцене', 'Pick a surface in the scene') : entryOnModel ? tr('Назначен выбранному', 'Applied to selection') : entry ? tr(`Применить «${entry.name}»`, `Apply “${entry.name}”`) : tr('Выберите или подготовьте материал', 'Select or prepare a material')}</button> : null}
         </footer>
         {pinterest ? <ReferencePicker onClose={() => setPinterest(false)} onSelect={async (files) => { await addFiles(files); setSource('reference'); }} /> : null}
         {quickLook ? <MaterialQuickLook title={tab === 'procedural' ? name : entry?.name} onClose={() => setQuickLook(false)}>{tab === 'procedural' ? proceduralVisual : <>{mapTabs}{previewVisual}{preview === 'compare' ? <Knob label={tr('Высота поверх цвета', 'Height over colour')} value={overlay} range={[0, 1, 0.05]} onChange={setOverlay} /> : null}</>}</MaterialQuickLook> : null}

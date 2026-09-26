@@ -245,7 +245,7 @@ function PlantingWorkspace({ settings, handleSettingChange, applySettings, plant
             <button type="button" className={coverMode ? 'is-active' : ''} onClick={() => (coverMode ? plantingEditor.stop() : plantingEditor.beginCover())} data-testid="planting-draw-cover"><FocusIcon name="ground" />{ru ? 'Покров' : 'Cover'}<kbd>&nbsp;</kbd></button>
             <button type="button" className={mode === 'plant' ? 'is-active' : ''} onClick={() => (mode === 'plant' ? plantingEditor.stop() : plantingEditor.begin('plant'))} data-testid="planting-place"><FocusIcon name="sprout" />{ru ? 'Посадить' : 'Plant'}<kbd>T</kbd></button>
             <button type="button" className={mode === 'vine' ? 'is-active' : ''} onClick={() => (mode === 'vine' ? plantingEditor.stop() : plantingEditor.begin('vine'))} data-testid="planting-vine"><FocusIcon name="vine" />{ru ? 'Лиана' : 'Climber'}<kbd>I</kbd></button>
-            <button type="button" onClick={() => topiaryEditor?.begin()} data-testid="planting-hedge"><FocusIcon name="leaf" />{ru ? 'Изгородь' : 'Hedge'}<kbd>B</kbd></button>
+            <button type="button" onClick={() => topiaryEditor?.begin()} data-testid="planting-hedge"><FocusIcon name="leaf" />{ru ? 'Изгородь' : 'Hedge'}<kbd>Shift+B</kbd></button>
         </div>
         {coverMode ? <p className="planting-hint">{ru ? 'Щелчок по грунту модели — весь участок; протяжка — контур. Esc — выйти.' : 'Click a model’s ground for the whole patch; drag for an outline. Esc to leave.'}</p> : null}
         {lawnMode ? <p className="planting-hint">{ru

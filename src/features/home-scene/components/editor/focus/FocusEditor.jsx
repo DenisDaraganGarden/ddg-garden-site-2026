@@ -48,13 +48,14 @@ const TOOLS = [
     { id: 'translate', icon: 'move', ru: 'Перенос', en: 'Move', key: 'G', transform: true },
     { id: 'rotate', icon: 'rotate', ru: 'Поворот', en: 'Rotate', key: 'R', transform: true },
     { id: 'scale', icon: 'scale', ru: 'Масштаб', en: 'Scale', key: 'S', transform: true },
+    { id: 'material', icon: 'grid', ru: 'Материалы', en: 'Materials', key: 'B' },
     { id: 'hand', icon: 'hand', ru: 'Только обзор', en: 'Navigate only', key: 'H' },
 ];
 const PLANT_TOOLS = [
     { id: 'bed', icon: 'bed', ru: 'Цветник', en: 'Bed', key: 'L', group: 'plants' },
     { id: 'plant', icon: 'sprout', ru: 'Посадить', en: 'Plant', key: 'T', group: 'plants' },
     { id: 'vine', icon: 'vine', ru: 'Лиана', en: 'Climber', key: 'I', group: 'plants' },
-    { id: 'topiary', icon: 'leaf', ru: 'Изгородь', en: 'Hedge', key: 'B', group: 'plants' },
+    { id: 'topiary', icon: 'leaf', ru: 'Изгородь', en: 'Hedge', key: 'Shift+B', group: 'plants' },
 ];
 // Отметка уровня (src/annotations): щелчок по поверхности ставит отметку.
 const MARK_TOOL = { id: 'mark', icon: 'level', ru: 'Отметка', en: 'Level mark', key: 'M' };
@@ -64,7 +65,7 @@ const LIGHT_TOOL = { id: 'luminaire', icon: 'light', ru: 'Светильник',
 const ALL_TOOLS = [...TOOLS, ...PLANT_TOOLS, MARK_TOOL, START_TOOL, LIGHT_TOOL];
 // Кольцо на пробеле — по часовой от верха. Растения — один пункт-свиток
 // «Озеленение»: навёл — выпадает список, как у кнопки на линейке.
-const GREENERY = { id: 'greenery', icon: 'sprout', ru: 'Озеленение', en: 'Greenery', key: 'L · T · I · B', children: PLANT_TOOLS };
+const GREENERY = { id: 'greenery', icon: 'sprout', ru: 'Озеленение', en: 'Greenery', key: 'L · T · I · Shift+B', children: PLANT_TOOLS };
 // Прогулка в кольце: отпустил на пункте — он идёт (main), в свитке — «Старт».
 const WALKING = { id: 'walking', icon: 'walk', ru: 'Прогулка', en: 'Walk', key: 'K', main: 'walk', children: [{ id: 'walk', icon: 'walk', ru: 'Идти', en: 'Go for a walk', key: '' }, START_TOOL] };
 const PIE_GROUPS = [GREENERY, WALKING];
@@ -139,7 +140,7 @@ function NodeSections({ group, node, catalogOnly = false, sectionProps }) {
 }
 
 // Список клавиш один: он и в справке, и в окне настроек.
-const shortcutRows = (tr) => [[tr('Поиск', 'Search'), '⌘ K'], [tr('Отменить / повторить параметр', 'Undo / redo parameter'), '⌘ Z / ⌘ ⇧ Z'], [tr('Пауза', 'Pause'), tr('Пробел', 'Space')], [tr('Круг инструментов: повести мышь и отпустить', 'Tool ring: move the mouse and let go'), tr('держать Пробел', 'hold Space')], [tr('Выбор · перенос · поворот · масштаб · обзор', 'Select · move · rotate · scale · navigate'), 'V · G · R · S · H'], [tr('Цветник · посадить · лиана · изгородь', 'Bed · plant · climber · hedge'), 'L · T · I · B'], [tr('Отметка уровня', 'Level mark'), 'M'], [tr('Старт прогулки: щелчок — где, протянуть — куда лицом', 'Walk start: click — where, drag — facing'), 'K'], [tr('Светильник: щелчок — где, протянуть — на что светит', 'Luminaire: click — where, drag — what it lights'), 'O'], [tr('Свободный полёт', 'Free flight'), 'W A S D Q E'], [tr('Скрыть / вернуть панели', 'Hide / show panels'), 'Tab'], [tr('Изменить число', 'Scrub value'), tr('ЛКМ ↔ · Shift точнее', 'LMB ↔ · Shift precise')], [tr('Меню объекта, камеры, параметра', 'Object, camera, parameter menu'), tr('ПКМ', 'RMB')], [tr('Цвет значка', 'Icon colour'), tr('ПКМ в списке', 'RMB in the list')], [tr('Отменить жест / вернуться к выбору', 'Cancel gesture / back to select'), 'Esc'],
+const shortcutRows = (tr) => [[tr('Поиск', 'Search'), '⌘ K'], [tr('Отменить / повторить параметр', 'Undo / redo parameter'), '⌘ Z / ⌘ ⇧ Z'], [tr('Пауза', 'Pause'), tr('Пробел', 'Space')], [tr('Круг инструментов: повести мышь и отпустить', 'Tool ring: move the mouse and let go'), tr('держать Пробел', 'hold Space')], [tr('Выбор · перенос · поворот · масштаб · обзор', 'Select · move · rotate · scale · navigate'), 'V · G · R · S · H'], [tr('Материалы: выбор граней', 'Materials: select faces'), 'B'], [tr('Цветник · посадить · лиана · изгородь', 'Bed · plant · climber · hedge'), 'L · T · I · Shift+B'], [tr('Отметка уровня', 'Level mark'), 'M'], [tr('Старт прогулки: щелчок — где, протянуть — куда лицом', 'Walk start: click — where, drag — facing'), 'K'], [tr('Светильник: щелчок — где, протянуть — на что светит', 'Luminaire: click — where, drag — what it lights'), 'O'], [tr('Свободный полёт', 'Free flight'), 'W A S D Q E'], [tr('Скрыть / вернуть панели', 'Hide / show panels'), 'Tab'], [tr('Изменить число', 'Scrub value'), tr('ЛКМ ↔ · Shift точнее', 'LMB ↔ · Shift precise')], [tr('Меню объекта, камеры, параметра', 'Object, camera, parameter menu'), tr('ПКМ', 'RMB')], [tr('Цвет значка', 'Icon colour'), tr('ПКМ в списке', 'RMB in the list')], [tr('Отменить жест / вернуться к выбору', 'Cancel gesture / back to select'), 'Esc'],
     [tr('Модель SketchUp: зайти в группу · выйти', 'SketchUp model: into a group · out'), tr('двойной щелчок · Esc', 'double-click · Esc')], [tr('Модель SketchUp: добавить к выбору или убрать', 'SketchUp model: add to the selection or take out'), tr('Shift + щелчок', 'Shift + click')], [tr('Модель SketchUp: только открытая группа / всё', 'SketchUp model: only the open group / everything'), 'Q'], [tr('Удалить выбранное', 'Delete the selection'), 'Delete'],
     [tr('Играть на доске / стоп', 'Ride the board / stop'), 'P'], [tr('Доска: вес · гребок', 'Board: weight · paddle'), 'W S'], [tr('Доска: наклон', 'Board: lean'), 'A D'], [tr('Доска: присед', 'Board: crouch'), 'Shift'], [tr('Доска: встать · прыжок', 'Board: stand up · jump'), 'Space'], [tr('Доска: спрыгнуть (W A S D — куда) · залезть · взять под мышку · положить', 'Board: jump off (W A S D — where) · climb on · carry · put down'), 'F'], [tr('Доска: лиш — отстегнуть · пристегнуть', 'Board: leash — off · on'), 'L'], [tr('Доска: оглянуться', 'Board: look back'), tr('Q · средняя кнопка', 'Q · middle button')], [tr('Доска: камера', 'Board: camera'), 'C / 1–4'], [tr('Доска: обзор · ближе/дальше', 'Board: look · closer/further'), tr('тащить · колесо', 'drag · wheel')], [tr('Доска: на чекпоинт', 'Board: back to the checkpoint'), 'R'], [tr('Доска: поставить чекпоинт', 'Board: set the checkpoint'), 'T'], [tr('Доска: выйти', 'Board: leave'), 'Esc'],
     [tr('Доска: захватить мышь', 'Board: capture the mouse'), tr('клик', 'click')], [tr('Доска: наклон и вес', 'Board: lean and weight'), tr('мышь', 'mouse')], [tr('Доска: присед · гребок левой', 'Board: crouch · left stroke'), tr('ЛКМ', 'LMB')], [tr('Доска: хват канта · гребок правой', 'Board: rail grab · right stroke'), tr('ПКМ', 'RMB')], [tr('Доска: отпустить мышь', 'Board: release the mouse'), 'Esc'],
@@ -244,7 +245,7 @@ function FocusShell(props) {
     const [stripOpen, setStripOpen] = useState(stored.stripOpen !== false); const [focus, setFocus] = useState(false); const [preview, setPreview] = useState(false);
     const [modal, setModal] = useState(null); const [viewsOpen, setViewsOpen] = useState(false); const grip = useRef(null); const resize = useRef(null); const lastNodes = useRef({});
     // Окно текстуры не модальное: живёт рядом с диалогами, модель под ним крутится.
-    const [textureTarget, setTextureTarget] = useState(null);
+    const materialEditor = props.materialEditor;
     // Riding the board hides the chrome the way Tab does; the ride has its own HUD and exit.
     const hidden = focus || preview || playing;
     // Чёрная рамка — это то, как кадр обрежется на сайте; полупрозрачная показывает,
@@ -340,7 +341,7 @@ function FocusShell(props) {
         return [
             target ? { label: tr('Открыть параметры', 'Open parameters'), icon: 'sliders', onSelect: () => selectNode(target.path) } : null,
             target ? { label: tr('Детали объекта…', 'Parts of this object…'), icon: 'folder', onSelect: () => setModal({ kind: 'presets', path: target.path, label: t(`homeEditor.nodes.${target.node.id}`) }) } : null,
-            hit.placedId && hit.object?.material?.name && !Array.isArray(hit.object.material) ? { label: tr('Сгенерировать / доработать текстуру…', 'Generate / refine texture…'), icon: 'grid', onSelect: () => setTextureTarget({ placedId: hit.placedId, materialName: hit.object.material.name, material: hit.object.material }) } : null,
+            hit.placedId && hit.object?.isMesh ? { label: tr('Материалы… · B', 'Materials… · B'), icon: 'grid', onSelect: () => materialEditor?.open(hit) } : null,
             many ? { label: tr(`Скрыть выбранные · ${many.length}`, `Hide selected · ${many.length}`), icon: 'eyeoff', onSelect: () => props.placedEditor.hideParts(hit.placedId, many) }
                 : modelPart ? { label: tr(`Скрыть «${modelPart.name}»`, `Hide “${modelPart.name}”`), icon: 'eyeoff', onSelect: () => props.placedEditor.hideParts(hit.placedId, [modelPart.node]) } : null,
             !many && modelPart?.copies.length > 1 ? { label: tr(`Скрыть все такие · ${modelPart.copies.length}`, `Hide all copies · ${modelPart.copies.length}`), icon: 'eyeoff', onSelect: () => props.placedEditor.hideParts(hit.placedId, modelPart.copies) } : null,
@@ -405,7 +406,7 @@ function FocusShell(props) {
         {(focus || preview) && !playing ? <Button className="focus-return" icon="panel" label={tr('Вернуться к инструментам', 'Return to tools')} onClick={() => { setFocus(false); setPreview(false); }}>{tr('К редактору', 'Editor')}</Button> : null}
         {modal === 'search' ? <SearchDialog onClose={() => setModal(null)} onSelect={selectNode} commands={commands} /> : null}
         {modal?.kind === 'presets' ? <Dialog title={`${tr('Детали', 'Parts')} · ${modal.label}`} onClose={() => setModal(null)}><FocusPresets path={modal.path} label={modal.label} settings={settings} applySettings={props.applySettings} onClose={() => setModal(null)} /></Dialog> : null}
-        {textureTarget ? <MaterialPanel key={`${textureTarget.placedId}:${textureTarget.materialName}`} target={textureTarget} settings={settings} applySettings={props.applySettings} onClose={() => setTextureTarget(null)} /> : null}
+        {materialEditor?.opened ? <MaterialPanel target={materialEditor.targets.at(-1) ?? null} targets={materialEditor.targets} scope={materialEditor.scope} onScope={materialEditor.setScope} onActivate={() => materialEditor.open()} settings={settings} applySettings={props.applySettings} onClose={materialEditor.close} /> : null}
         {modal === 'trace' ? <React.Suspense fallback={null}><TraceStudio layoutEditor={layoutEditor} project={props.project} onClose={() => setModal(null)} /></React.Suspense> : null}
         {modal === 'help' ? <Dialog title={tr('Управление', 'Controls')} onClose={() => setModal(null)}><div className="focus-shortcuts">{shortcutRows(tr).map(([label, keys]) => <div key={label}><span>{label}</span><kbd>{keys}</kbd></div>)}</div></Dialog> : null}
         {modal === 'settings' ? <SettingsDialog sectionProps={sectionProps} onClose={() => setModal(null)} /> : null}

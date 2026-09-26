@@ -167,7 +167,7 @@ try {
   // Грань без координат: стена по X — u вдоль Z, v вверх (картинка головой вверх).
   const wall = new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0, 0, 0, 2, 0, 3, 2], 3));
   const mapped = boxUvGeometry(wall, new THREE.Matrix4(), [1, 1]);
-  assert.deepEqual(Array.from(mapped.attributes.uv.array), [0, -0, 2, -0, 2, -3], 'стена: u — вдоль, v — минус высота');
+  assert.deepEqual(Array.from(mapped.attributes.uv.array, (value) => value || 0), [0, 0, 2, 0, 2, -3], 'стена: u — вдоль, v — минус высота');
   const floor = new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0, 0, 0, 2, 4, 0, 0], 3));
   assert.deepEqual(Array.from(boxUvGeometry(floor, new THREE.Matrix4(), [2, 2]).attributes.uv.array), [0, 0, 0, 1, 2, 0], 'пол: как план, в масштабе SketchUp');
 

@@ -59,7 +59,7 @@
     "brief": "node scripts/brief.mjs",
     "check:surroundings": "node src/surroundings/surroundings.check.js",
     "check:garden-lighting": "node src/lighting/photometry.check.js && node src/lighting/lightField.check.js && node src/lighting/housings.check.js && node src/lighting/electric.check.js && node src/lighting/lighting.check.js",
-    "check:ai-materials": "node scripts/materialMaps.check.mjs && node scripts/materials.check.mjs && node scripts/plantSeasons.check.mjs && node src/materials/faces.check.js && node src/materials/procedural.check.js && node src/materials/parallax.check.js && node scripts/referenceLibrary.check.mjs",
+    "check:ai-materials": "node scripts/materialMaps.check.mjs && node scripts/materials.check.mjs && node scripts/plantSeasons.check.mjs && node src/materials/faces.check.js && node src/materials/selection.check.js && node src/materials/procedural.check.js && node src/materials/parallax.check.js && node scripts/referenceLibrary.check.mjs",
     "check:deploy": "node scripts/deployScene.check.mjs",
     "app": "node ./node_modules/electron/cli.js electron/main.js",
     "app:install": "node scripts/install-mac-app.mjs",

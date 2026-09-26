@@ -150,8 +150,9 @@ function wetMaterial(material) {
 // away. `origin`, kept from the import, is that point once and for all: a new
 // version of the file with other extents stands where the old one stood. A scan's unlit material (its light baked in) is lit by the scene when
 // asked: then it takes shadows and the wet line, a little darker in shade.
-function prepareModel(scene, lit, origin = null) {
+function prepareModel(scene, lit, origin = null, model = null) {
     const root = scene.clone(true);
+    root.userData.materialModel = model;
     const converted = new Map();
     const convert = (material) => {
         if (converted.has(material)) return converted.get(material);
@@ -274,7 +275,7 @@ function PlacedModel({ object, url, selected, sketchup, selectedParts = [], open
     const gltf = useModel(url);
     const lit = object.species !== 'scan';
     const originKey = object.origin ? `${object.origin.x},${object.origin.y},${object.origin.z}` : '';
-    const prepared = useMemo(() => (gltf ? prepareModel(gltf.scene, lit, originKey ? object.origin : null) : null), [gltf, lit, originKey]); // eslint-disable-line react-hooks/exhaustive-deps -- origin by value
+    const prepared = useMemo(() => (gltf ? prepareModel(gltf.scene, lit, originKey ? object.origin : null, object.model) : null), [gltf, lit, originKey]); // eslint-disable-line react-hooks/exhaustive-deps -- origin by value
     const group = useRef();
     const invalidate = useThree((state) => state.invalidate);
     useEffect(() => { prepared?.materials.forEach((material) => { material.userData.placedWet.z = object.wet ? 1 : 0; }); }, [prepared, object.wet]);

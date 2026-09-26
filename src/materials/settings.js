@@ -22,11 +22,11 @@
 // материалом прямо по граням; запись может быть только из правил.
 export const MATERIAL_RANGES = Object.freeze({
     tile: [0.05, 50, 0.01], tileY: [0.05, 50, 0.01], rotation: [-180, 180, 1],
-    normal: [0, 3, 0.05], roughness: [0, 2, 0.05], ao: [0, 2, 0.05], metalness: [0, 1, 0.01], parallax: [0, 1, 1], parallaxDepth: [0, 60, 0.1],
+    normal: [0, 3, 0.05], roughness: [0, 2, 0.05], ao: [0, 2, 0.05], metalness: [0, 1, 0.01], parallax: [0, 1, 1], parallaxDepth: [0, 60, 0.1], offsetU: [-50, 50, 0.01], offsetV: [-50, 50, 0.01],
     clarity: [0, 1, 0.01], frost: [0, 1, 0.01], reflect: [0, 3, 0.05],
 });
 export const DEFAULT_MATERIAL_SETTINGS = Object.freeze({ modelMaterials: {} });
-export const MATERIAL_LIMITS = Object.freeze({ models: 64, materials: 256, faces: 8 });
+export const MATERIAL_LIMITS = Object.freeze({ models: 64, materials: 256, faces: 128 });
 const FACE_SIDES = ['up', 'down', 'side'];
 
 const PLACED_ID = /^[a-zA-Z0-9_-]{1,64}$/;
@@ -37,7 +37,7 @@ const within = (value, [min, max], fallback) => {
 };
 
 // Optional fields keep old projects byte-for-byte compatible at normalization.
-const surfaceFields = (value) => Object.fromEntries(['tileY', 'rotation', 'ao', 'metalness', 'parallax', 'parallaxDepth']
+const surfaceFields = (value) => Object.fromEntries(['tileY', 'rotation', 'ao', 'metalness', 'parallax', 'parallaxDepth', 'offsetU', 'offsetV']
     .filter((key) => value[key] !== undefined && value[key] !== null)
     .map((key) => [key, within(value[key], MATERIAL_RANGES[key], key === 'ao' ? 1 : key === 'tileY' ? 1 : 0)]));
 
@@ -54,13 +54,19 @@ export function normalizeGlass(value) {
 
 export function normalizeFaceRule(rule) {
     if (!rule || typeof rule !== 'object' || !LIBRARY_ID.test(String(rule.material ?? ''))) return null;
+    const targets = (Array.isArray(rule.targets) ? rule.targets : []).slice(0, 2048).flatMap((target) => {
+        if (!target || !/^\d+(?:\.\d+)*$/.test(String(target.mesh ?? ''))) return [];
+        const triangles = Array.isArray(target.triangles) ? [...new Set(target.triangles.filter((n) => Number.isInteger(n) && n >= 0 && n < 10000000))].sort((a, b) => a - b).slice(0, 500000) : null;
+        return triangles && !triangles.length ? [] : [{ mesh: target.mesh, ...(/^[a-zA-Z0-9._-]{1,160}$/.test(target.asset ?? '') ? { asset: target.asset } : {}), ...(triangles ? { triangles } : {}) }];
+    });
     const faces = FACE_SIDES.filter((side) => [rule.faces].flat().includes(side));
-    if (!faces.length) return null;
+    if (!faces.length || (rule.targets && !targets.length)) return null;
     const y = Array.isArray(rule.y) && rule.y.length === 2 && rule.y.every((value) => Number.isFinite(Number(value)))
         ? [Math.min(Number(rule.y[0]), Number(rule.y[1])), Math.max(Number(rule.y[0]), Number(rule.y[1]))] : null;
     const skip = (Array.isArray(rule.skip) ? rule.skip : []).map((name) => String(name).slice(0, 80)).filter(Boolean).slice(0, 8);
     return {
         faces, material: rule.material, ...surfaceFields(rule),
+        ...(targets.length ? { targets } : {}), ...(['box', 'slope'].includes(rule.projection) ? { projection: rule.projection } : {}),
         tile: within(rule.tile, MATERIAL_RANGES.tile, 1), normal: within(rule.normal, MATERIAL_RANGES.normal, 1), roughness: within(rule.roughness, MATERIAL_RANGES.roughness, 1),
         ...(y ? { y } : {}), ...(skip.length ? { skip } : {}),
     };
@@ -75,7 +81,7 @@ export function normalizeMaterialOverride(value) {
         tile: value.tile === null || value.tile === undefined ? null : within(value.tile, MATERIAL_RANGES.tile, 1),
         normal: within(value.normal, MATERIAL_RANGES.normal, 1),
         roughness: within(value.roughness, MATERIAL_RANGES.roughness, 1),
-        ...(value.projection === 'box' ? { projection: 'box' } : {}),
+        ...(['box', 'slope'].includes(value.projection) ? { projection: value.projection } : {}),
     } : null;
     if (!library && !glass && !faces.length) return null;
     return { ...(library ?? {}), ...(glass ? { glass } : {}), ...(faces.length ? { faces } : {}) };

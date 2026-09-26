@@ -137,3 +137,10 @@
 .material-quick-look .material-panel__render, .material-quick-look .material-panel__map-image { height: auto; flex: 1; min-height: 0; }
 .material-quick-look .material-panel__map-tabs { flex-shrink: 0; margin: 0; max-width: 650px; }
 .material-quick-look .material-panel__map-image > * { max-width: 100%; max-height: 100%; object-fit: contain; }
+
+.material-panel__destination { padding: 7px 12px; border-bottom: 1px solid #ffffff14; font-size: 11px; }
+.material-panel__destination > div { display: flex; align-items: center; gap: 7px; }
+.material-panel__destination strong { font-weight: 500; }
+.material-panel__destination select { width: 135px; height: 23px; }
+.material-panel__destination small { margin-left: auto; color: #92999a; font-size: 10px; }
+.material-panel__destination p { margin: 5px 0 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #b7bcbd; }

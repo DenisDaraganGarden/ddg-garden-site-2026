@@ -178,7 +178,7 @@ export const sceneHitForObject3D = (object, hit = null) => {
     return { node: 'greenery/planting', root: object.name, plantingVine: object.userData.plantingVineFaces[hit.faceIndex] };
   }
   for (let node = object; node; node = node.parent) {
-    if (node.userData?.placedId) return { node: 'objects/placed', root: `placed-${node.userData.placedId}`, placedId: node.userData.placedId, object };
+    if (node.userData?.placedId) return { node: 'objects/placed', root: `placed-${node.userData.placedId}`, placedId: node.userData.placedId, object, faceIndex: hit?.faceIndex };
   }
   for (let node = object; node; node = node.parent) {
     if (node.userData?.topiaryId) return { node: 'greenery/topiary', root: node.name, topiaryId: node.userData.topiaryId };

@@ -16,7 +16,7 @@ export function TopiarySection({settings,handleSettingChange,topiaryEditor,layou
     const object=selected??TOPIARY_DEFAULT;
     return <>
         <div className="home-editor-tabs">
-            <button type="button" className={`home-editor-tab ${topiaryEditor?.drawing?'is-active':''}`} disabled={objects.length>=TOPIARY_LIMITS.objects&&!topiaryEditor?.drawing} onClick={()=>topiaryEditor?.drawing?topiaryEditor.stop():topiaryEditor?.begin()} data-testid="topiary-draw">{topiaryEditor?.drawing?(ru?'Завершить · Esc':'Finish · Esc'):(ru?'Рисовать · B':'Draw · B')}</button>
+            <button type="button" className={`home-editor-tab ${topiaryEditor?.drawing?'is-active':''}`} disabled={objects.length>=TOPIARY_LIMITS.objects&&!topiaryEditor?.drawing} onClick={()=>topiaryEditor?.drawing?topiaryEditor.stop():topiaryEditor?.begin()} data-testid="topiary-draw">{topiaryEditor?.drawing?(ru?'Завершить · Esc':'Finish · Esc'):(ru?'Рисовать · Shift+B':'Draw · Shift+B')}</button>
             <button type="button" className="home-editor-tab" onClick={()=>{const x=selected?.x??0,z=selected?.z??0,y=settings.topiaryPlaneY;layoutEditor?.previewPose?.({cameraPosition:{x,y:y+18,z:z+.01},cameraTarget:{x,y,z},cameraFov:50});}} data-testid="topiary-top-view">{ru?'Сверху':'Top'}</button>
             {selected?<button type="button" className="home-editor-tab" onClick={()=>layoutEditor?.frameObject?.(`topiary-${selected.id}`)}>{ru?'Показать':'Frame'}</button>:null}
         </div>

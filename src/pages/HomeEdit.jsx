@@ -1,3 +1,4 @@
+import { useMaterialEditor } from '../materials/useMaterialEditor.js';
 import React, {
     useCallback,
     useDeferredValue,
@@ -154,6 +155,8 @@ const HomeEdit = ({ project = null }) => {
     const cameraRigApiRef = useRef(null);
     const placedEditor = usePlacedEditor({ settings, history: focusHistory, setActiveTab, setTool, language, layoutEditor: { capturePose: () => cameraRigApiRef.current?.capturePose?.() } });
     const { update: updatePlaced, select: selectPlaced } = placedEditor;
+    const materialEditor = useMaterialEditor({ tool, setTool, placedEditor, language });
+    const materialPickRef = useRef(materialEditor); materialPickRef.current = materialEditor;
     const [selectedLayoutKey, setSelectedLayoutKey] = useState(() => settings.editorLayoutKey ?? getCurrentLayoutKey());
     const [currentLayoutKey, setCurrentLayoutKey] = useState(getCurrentLayoutKey);
     const [cameraPoseRevision, setCameraPoseRevision] = useState(0);
@@ -656,6 +659,8 @@ const HomeEdit = ({ project = null }) => {
     // Клик по объекту в сцене ставит тот же путь, что и клик в дереве, и так же
     // даёт выбранному последнюю трансформацию — манипулятор появляется сразу.
     const handlePickObject = useCallback((path, hit) => {
+        if (tool === 'material') { materialPickRef.current.open(hit); return; }
+        if (materialPickRef.current.opened) materialPickRef.current.pick(hit);
         if (hit?.plantingBed) { selectBed(hit.plantingBed); return; }
         if (hit?.plantingVine) { selectVine(hit.plantingVine); return; }
         if (hit?.annotationMark) { selectMark(hit.annotationMark); return; }
@@ -663,7 +668,7 @@ const HomeEdit = ({ project = null }) => {
         if (hit?.lightingPanel) { selectPanel(hit.lightingPanel); setTool(lastTransform); return; }
         if (hit?.topiaryId) selectTopiary(hit.topiaryId); else if (hit?.placedId) selectPlaced(hit.placedId, hit.object, hit.double, hit.shift); else setActiveTab(path);
         setTool(lastTransform);
-    }, [setActiveTab, setTool, lastTransform, selectTopiary, selectPlaced, selectBed, selectVine, selectMark, selectFixture, selectPanel]);
+    }, [tool, setActiveTab, setTool, lastTransform, selectTopiary, selectPlaced, selectBed, selectVine, selectMark, selectFixture, selectPanel]);
 
     const { group: gizmoGroup, node: gizmoNode } = resolveEditorPath(activeTab, { includeDevOnly: true });
     // An object switched off has left the scene graph; the gizmo has nothing to hold.
@@ -717,6 +722,8 @@ const HomeEdit = ({ project = null }) => {
         pose: gizmoPose,
         onTransform: handleGizmoTransform,
         picking,
+        materialTargets: materialEditor.opened ? materialEditor.targets : null,
+        materialPicking: activeTool === 'material',
         onPick: handlePickObject,
         onContextMenu: drawingTool || playing || walking ? undefined : setSceneMenu,
         topiary: { drawing: activeTool === 'topiary' && settings.topiaryObjects.length < TOPIARY_LIMITS.objects,
@@ -730,7 +737,7 @@ const HomeEdit = ({ project = null }) => {
         // open — открыт раздел «Освещение»: сетка участка строится и для пустого проекта (её ждёт агент).
         lighting: { selectedId: gizmoNode.id === 'luminaires' ? lightingEditor.selectedId : null, connections: settings.lightingConnections === true || gizmoNode.id === 'power', open: gizmoGroup.id === 'lighting' },
     // eslint-disable-next-line react-hooks/exhaustive-deps -- pose сравнивается по значениям, не по ссылке
-    }), [playing, walking, transformTool, transformHeld, gizmoSelection, tool, lastTransform, handleGizmoTransform, picking, drawingTool, handlePickObject, gizmoPose?.rotationY, gizmoPose?.scale, activeTool, settings.topiaryObjects.length, gizmoNode.id, topiaryEditor.selectedId, topiaryEditor.onStroke, placedEditor.selectedId, placedEditor.part, plantingEditor.selectedId, plantingEditor.vineId, plantingEditor.bedKind, plantingEditor.onBed, plantingEditor.onBedSurface, plantingEditor.onPlant, plantingEditor.onVine, annotationEditor.onMark, annotationEditor.selectedId, annotationEditor.onResnap, handleWalkStart, aiming, lightingEditor.selectedId, lightingEditor.onLight, lightingEditor.onAim, lightingEditor.placeType, luminaireTypes, settings.lightingConnections, gizmoGroup.id]);
+    }), [materialEditor.opened, materialEditor.targets, playing, walking, transformTool, transformHeld, gizmoSelection, tool, lastTransform, handleGizmoTransform, picking, drawingTool, handlePickObject, gizmoPose?.rotationY, gizmoPose?.scale, activeTool, settings.topiaryObjects.length, gizmoNode.id, topiaryEditor.selectedId, topiaryEditor.onStroke, placedEditor.selectedId, placedEditor.part, plantingEditor.selectedId, plantingEditor.vineId, plantingEditor.bedKind, plantingEditor.onBed, plantingEditor.onBedSurface, plantingEditor.onPlant, plantingEditor.onVine, annotationEditor.onMark, annotationEditor.selectedId, annotationEditor.onResnap, handleWalkStart, aiming, lightingEditor.selectedId, lightingEditor.onLight, lightingEditor.onAim, lightingEditor.placeType, luminaireTypes, settings.lightingConnections, gizmoGroup.id]);
 
     // Delete (и Backspace) убирает выбранное — одной отменой: светильник или
     // щиток; части модели SketchUp (в «Удалённые», как в SketchUp); объект
@@ -1013,6 +1020,7 @@ const HomeEdit = ({ project = null }) => {
                 history={focusHistory}
                 topiaryEditor={topiaryEditor}
                 placedEditor={placedEditor}
+                materialEditor={materialEditor}
                 plantingEditor={plantingEditor}
                 annotationEditor={annotationEditor}
                 lightingEditor={lightingEditor}
