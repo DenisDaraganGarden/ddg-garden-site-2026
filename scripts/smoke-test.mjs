@@ -15,9 +15,10 @@ const port = Number(process.env.SMOKE_PORT ?? '4173');
 const baseUrl = process.env.SMOKE_BASE_URL ?? `http://${host}:${port}`;
 const useExistingServer = process.env.SMOKE_USE_EXISTING_SERVER === '1';
 const smokePhase = process.env.SMOKE_PHASE ?? 'all';
-// A whole run takes about 21 minutes in software WebGL (on a 4-core machine,
-// most of it scenes booting and editor clicks at 1–2 fps); the watchdog only
-// catches a hang, and the CI job's own limit (checks.yml) sits above it.
+// A whole run takes about 21 minutes in software WebGL on a 4-core cloud
+// machine (most of it scenes booting and editor clicks at 1–2 fps) and about
+// twice that on the GitHub runner, where checks.yml runs the two phases as
+// separate jobs. The watchdog only catches a hang; the job limit sits above it.
 const smokeMaxRuntimeMs = Number(process.env.SMOKE_MAX_RUNTIME_MS ?? '2100000');
 const shouldAutoCleanupProcesses = process.env.SMOKE_SKIP_PROCESS_CLEANUP !== '1';
 const smokeBrowserArgs = ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'];
@@ -411,12 +412,13 @@ async function waitForRuntimeMetrics(page, sceneId, timeoutMs = 20000) {
 
 // The CI runner renders WebGL in software (SwiftShader), and there Chromium
 // offers no KHR_parallel_shader_compile: a new scene links its ~60 shader
-// programs on the page's main thread. On a 4-core machine like the runner the
-// home scene held that thread for 20 s in two long tasks (9 s and 7 s) and
-// showed the site nav, which waits for the scene's ready signal, after 25 s.
+// programs on the page's main thread. On a 4-core cloud machine the home scene
+// held that thread for 20 s in two long tasks (9 s and 7 s) and showed the
+// site nav, which waits for the scene's ready signal, after 25 s; the GitHub
+// runner is about twice as slow (the scene phase took 15 min there, 9 here).
 // Nothing a check asks of the page gets an answer before such a boot ends, so
 // every page with a scene is first waited for with this budget.
-const SCENE_BOOT_MS = 120000;
+const SCENE_BOOT_MS = 240000;
 
 // Lazy GLB decoding can finish a few seconds after RuntimeDiagnostics starts.
 // A memory baseline taken before that work completes mistakes the real boat and
@@ -1097,6 +1099,8 @@ async function runPublishChecks(browser) {
 
     // A fresh editor starts on its local work camera («Рабочая 1»), whose
     // snapshot never publishes: edit the first scene camera, the publish root.
+    // Its render settings can rebuild the editor's scene (its metrics vanish
+    // and it boots again), so the edits wait for that boot to settle.
     await openEditorSection(page, 'cameras', 'camera');
     await page.locator('[data-testid^="home-editor-camera-select-"]').first().click();
     await waitForSettledRuntimeMetrics(page, 'home-scene-editor');
