@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { hash } from './field.js';
+import { coverTextureSets } from './textures.js';
 import { gardenWind, GARDEN_WIND_GLSL } from '../planting/wind.js';
 
 // Opaque, curved silhouettes: no overlapping transparent cards or per-leaf maps.
@@ -26,39 +27,19 @@ function leafGeometry(small = false) {
     g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(indices); g.computeVertexNormals();
     return g;
 }
-// A thyme instance is a creeping sprig with many millimetre-sized leaves.
-// It stays dense at garden scale without turning every tiny leaf into an instance.
-function thymeGeometry() {
-    const p = [], uv = [], ix = [];
-    for (let stem = 0; stem < 5; stem++) {
-        const a = stem * 2.39996, dx = Math.sin(a), dz = Math.cos(a);
-        for (let pair = 1; pair <= 4; pair++) for (const side of [-1, 1]) {
-            const t = pair / 4, x = dx * t * .42 + dz * side * .06, z = dz * t * .42 - dx * side * .06, y = .4 + .3 * Math.sin(t * 2.2 + stem);
-            const b = p.length / 3, length = .075, width = .029;
-            p.push(x, y + .07, z, x - dx * length, y, z - dz * length, x + dz * width, y + .02, z - dx * width, x + dx * length, y, z + dz * length, x - dz * width, y + .02, z + dx * width);
-            uv.push(.5, .5, .5, 0, 1, .5, .5, 1, 0, .5);
-            ix.push(b, b + 1, b + 2, b, b + 2, b + 3, b, b + 3, b + 4, b, b + 4, b + 1);
-        }
+// A shallow terrain-aligned card retains relief from oblique views. Moss
+// uses two narrow crossed cards, never camera-facing billboards.
+function cardGeometry(moss = false) {
+    if (!moss) {
+        const g = new THREE.PlaneGeometry(1, 1, 2, 2); g.rotateX(-Math.PI / 2);
+        const p = g.attributes.position;
+        for (let i = 0; i < p.count; i++) p.setY(i, .15 + .5 * (1 - Math.min(1, Math.hypot(p.getX(i), p.getZ(i)) * 1.4)));
+        g.computeVertexNormals(); return g;
     }
-    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(p, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(ix); g.computeVertexNormals(); return g;
-}
-function tuftGeometry() {
-    const p = [], uv = [];
-    for (let i = 0; i < 7; i++) {
-        const a = i * 2.39996, x = Math.cos(a), z = Math.sin(a), h = .55 + hash(i, 2) * .45;
-        p.push(x * .22, 0, z * .22, x * .5 - z * .13, h, z * .5 + x * .13, x * .5 + z * .13, h * .6, z * .5 - x * .13);
-        uv.push(0, 0, .5, 1, 1, 0);
-    }
-    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(p, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.computeVertexNormals(); return g;
-}
-function flowerGeometry() {
-    const p = [], uv = [];
-    for (let i = 0; i < 5; i++) {
-        const a = i * Math.PI * .4, b = a + .43, c = a - .43;
-        p.push(0, 0, 0, Math.sin(b) * .5, .13, Math.cos(b) * .5, Math.sin(c) * .5, .13, Math.cos(c) * .5);
-        uv.push(.5, .5, 1, 1, 0, 1);
-    }
-    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(p, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.computeVertexNormals(); return g;
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute([-.5, 0, 0, .5, 0, 0, .5, 1, 0, -.5, 1, 0, 0, 0, -.5, 0, 0, .5, 0, 1, .5, 0, 1, -.5], 3));
+    g.setAttribute('uv', new THREE.Float32BufferAttribute([0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1], 2));
+    g.setIndex([0, 1, 2, 0, 2, 3, 4, 5, 6, 4, 6, 7]); g.computeVertexNormals(); return g;
 }
 function maps(leaf) {
     const size = 256, color = new Uint8Array(size * size * 4), normal = new Uint8Array(size * size * 4), heights = new Float32Array(size * size);
@@ -85,7 +66,7 @@ function maps(leaf) {
 }
 let shared = null, users = 0;
 export function acquireCoverAssets() {
-    if (!shared) shared = { leaf: leafGeometry(), thyme: thymeGeometry(), moss: tuftGeometry(), flower: flowerGeometry(), leafMaps: maps(true), mossMaps: maps(false) };
+    if (!shared) shared = { leaf: leafGeometry(), thyme: cardGeometry(), moss: cardGeometry(true), flower: cardGeometry(), leafMaps: maps(true), ...coverTextureSets() };
     users++;
     let released = false;
     return { assets: shared, release() {

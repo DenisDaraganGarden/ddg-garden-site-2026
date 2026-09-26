@@ -56,3 +56,33 @@ one.dispose(); assert.equal(disposed, 0, 'other bed still owns shared assets');
 two.dispose(); assert.equal(disposed, 1, 'last owner releases shared geometry');
 two.dispose(); assert.equal(disposed, 1, 'cleanup is idempotent');
 console.log('groundcover: persistence, exact slope/normal, holes, bounded instances, stable season and shared-resource disposal hold');
+
+// Distance changes discard only the small cards, never the underlying carpet.
+const field = { ...bed, points: [[-20,-20],[20,-20],[20,20],[-20,20]], holes: [], cover: { leaf: 0, thyme: 1 } };
+const carpet = buildCover(field, { sample: () => ({ height: 0, normal: [0,1,0] }) });
+const camera = new THREE.PerspectiveCamera(40, 1, .01, 1000);
+camera.position.set(0, 1, 2); camera.updateMatrixWorld(); carpet.update(6); carpet.updateView(camera, 900);
+const near = carpet.stats.instances, resident = carpet.stats.residentInstances;
+assert.ok(near > 0 && near <= resident);
+const base = carpet.group.children.find(o => !o.isInstancedMesh), baseVertices = base.geometry.attributes.position.count;
+assert.ok(carpet.stats.residentTriangles < 150000, '40 x 40 m thyme has a bounded mesh/card budget');
+camera.position.set(0, 300, 300); camera.updateMatrixWorld(); carpet.updateView(camera, 900);
+assert.equal(carpet.stats.instances, 0, 'subpixel cards skip entire batches');
+assert.equal(base.visible, true); assert.equal(base.geometry.attributes.position.count, baseVertices);
+assert.equal(carpet.stats.batches, base.geometry.groups.length);
+camera.position.set(0, 1, 2); camera.updateMatrixWorld(); carpet.updateView(camera, 900);
+assert.equal(carpet.stats.instances, near, 'near detail recovers without allocating/replanting');
+const ortho = new THREE.OrthographicCamera(-100,100,100,-100,.01,1000);
+ortho.position.set(0, 1, 2); ortho.updateMatrixWorld(); carpet.updateView(ortho,900);
+assert.equal(carpet.stats.instances,0,'wide orthographic views use pixel footprint, not proximity');
+for (const mesh of carpet.group.children.filter(o => o.isInstancedMesh)) {
+    assert.ok(mesh.geometry.index.count <= 24, 'one tiny plant uses at most eight triangles');
+    assert.equal(mesh.material.map, mesh.customDepthMaterial.map, 'shadow cutout matches the card');
+    assert.equal(mesh.material.alphaTest, mesh.customDistanceMaterial.alphaTest);
+    assert.equal(mesh.material.transparent,false, 'no alpha-blended layers');
+    assert.equal(mesh.material.map.mipmaps.at(-1).width,1);
+    const bytes = mesh.material.map.image.data;
+    assert.ok(bytes.some((v,i)=>i%4===3 && v===0) && bytes.some((v,i)=>i%4===3 && v>200),'real RGBA silhouette');
+}
+carpet.dispose();
+console.log('groundcover LOD: large-area budget, near/far recovery, orthographic footprint, persistent carpet, matching shadow cutouts and mip chain hold');

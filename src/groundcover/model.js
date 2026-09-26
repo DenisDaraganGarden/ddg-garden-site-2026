@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { coverBounds, coverField, hash } from './field.js';
 import { normalizeCover, coverSeason } from './settings.js';
 import { acquireCoverAssets, coverWind } from './assets.js';
+import { COVER_DETAIL, COVER_LOD, coverViewState, detailMaterial } from './lod.js';
 
 export const COVER_BUDGET = 24000;
 const UP = new THREE.Vector3(0, 1, 0);
@@ -13,7 +14,7 @@ function carpetGeometry(bed, cover, surface, exclusions) {
     const flat = new THREE.ShapeGeometry(shape), pos = flat.attributes.position, ix = flat.index;
     const bounds = coverBounds(bed), area = (bounds.x1 - bounds.x0) * (bounds.z1 - bounds.z0);
     const step = Math.max(.11, Math.sqrt(area / 14000)), positions = [], normals = [], colors = [], uv = [];
-    const tint = new THREE.Color();
+    const tint = new THREE.Color(), groups = [[], []];
     const clip = (poly, axis, edge, sign) => {
         const out = [];
         for (let i = 0; i < poly.length; i++) {
@@ -28,11 +29,20 @@ function carpetGeometry(bed, cover, surface, exclusions) {
         if (samples.some((s) => !s)) return;
         const cx = tri.reduce((v, p) => v + p[0] / 3, 0), cz = tri.reduce((v, p) => v + p[1] / 3, 0);
         if (exclusions.some((p) => Math.hypot(cx - p.x, cz - p.z) < p.radius)) return;
+        const type = coverField(bed, cover, cx, cz, exclusions).kind === 'thyme' ? 1 : 0;
+        const start = positions.length / 3; groups[type].push(start, start + 1, start + 2);
         for (const k of [0, 2, 1]) {
             const [x, z] = tri[k], s = samples[k], f = coverField(bed, cover, x, z, exclusions);
-            positions.push(x, s.height + .006 + f.height, z); normals.push(...s.normal); uv.push(x * 7, z * 7);
-            tint.set(f.kind === 'leaf' ? '#53603a' : f.kind === 'thyme' ? '#606b3e' : '#798345');
-            tint.multiplyScalar(.68 + f.vigor * .38); colors.push(tint.r, tint.g, tint.b);
+            positions.push(x, s.height + .006 + f.height, z);
+            if (f.kind === 'moss') {
+                const e = .025;
+                const dx = (coverField(bed, cover, x + e, z, exclusions).height - coverField(bed, cover, x - e, z, exclusions).height) / (2 * e);
+                const dz = (coverField(bed, cover, x, z + e, exclusions).height - coverField(bed, cover, x, z - e, exclusions).height) / (2 * e);
+                const nx = s.normal[0] / Math.max(.01, s.normal[1]) - dx, nz = s.normal[2] / Math.max(.01, s.normal[1]) - dz, len = Math.hypot(nx, 1, nz);
+                normals.push(nx / len, 1 / len, nz / len);
+            } else normals.push(...s.normal);
+            uv.push(x / (type ? .3 : .12), -z / (type ? .3 : .12));
+            tint.setRGB(1, 1, 1).multiplyScalar(f.kind === 'moss' ? .64 + f.vigor * .58 : .78 + f.vigor * .27); colors.push(tint.r, tint.g, tint.b);
         }
     };
     for (let i = 0; i < ix.count; i += 3) {
@@ -47,29 +57,39 @@ function carpetGeometry(bed, cover, surface, exclusions) {
     flat.dispose();
     const g = new THREE.BufferGeometry();
     for (const [key, data, size] of [['position', positions, 3], ['normal', normals, 3], ['color', colors, 3], ['uv', uv, 2]]) g.setAttribute(key, new THREE.Float32BufferAttribute(data, size));
+    g.setIndex(groups.flat());
+    let offset = 0;
+    groups.forEach((indices, material) => { if (indices.length) g.addGroup(offset, indices.length, material); offset += indices.length; });
     return g;
 }
 
 export function buildCover(bed, surface, { exclusions = [], budget = COVER_BUDGET } = {}) {
     const cover = normalizeCover(bed.cover), group = new THREE.Group(); group.name = `groundcover-${bed.id}`;
     const lease = acquireCoverAssets(), { assets } = lease;
-    const ground = new THREE.MeshStandardMaterial({ vertexColors: true, map: assets.mossMaps[0], normalMap: assets.mossMaps[1], roughness: .95 });
+    const textureMaterial = (maps, parameters = {}) => new THREE.MeshStandardMaterial({ map: maps[0], normalMap: maps[1], roughness: .86, ...parameters });
+    const ground = [textureMaterial(assets.mossTile, { vertexColors: true }), textureMaterial(assets.thymeTile, { vertexColors: true })];
     const leaf = coverWind(new THREE.MeshStandardMaterial({ map: assets.leafMaps[0], normalMap: assets.leafMaps[1], side: THREE.DoubleSide, roughness: .49 }));
-    const thyme = coverWind(new THREE.MeshStandardMaterial({ map: assets.leafMaps[0], side: THREE.DoubleSide, roughness: .82 }));
-    const moss = new THREE.MeshStandardMaterial({ side: THREE.DoubleSide, roughness: 1 });
-    const flower = new THREE.MeshStandardMaterial({ side: THREE.DoubleSide, roughness: .85 });
-    const depth = coverWind(new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, side: THREE.DoubleSide }));
-    const distance = coverWind(new THREE.MeshDistanceMaterial({ side: THREE.DoubleSide }));
-    const materials = { leaf, thyme, moss, flower };
+    const view = coverViewState();
+    const materials = { leaf }, depths = {}, distances = {};
+    depths.leaf = coverWind(new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, side: THREE.DoubleSide }));
+    distances.leaf = coverWind(new THREE.MeshDistanceMaterial({ side: THREE.DoubleSide }));
+    for (const kind of ['thyme', 'moss', 'flower']) {
+        const maps = assets[`${kind}Card`], cutout = { map: maps[0], alphaTest: .45, side: THREE.DoubleSide };
+        materials[kind] = detailMaterial(textureMaterial(maps, { ...cutout, alphaToCoverage: true }), kind, view);
+        depths[kind] = detailMaterial(new THREE.MeshDepthMaterial({ ...cutout, depthPacking: THREE.RGBADepthPacking }), kind, view);
+        distances[kind] = detailMaterial(new THREE.MeshDistanceMaterial(cutout), kind, view);
+    }
+    const { thyme, moss, flower } = materials;
     const carpet = carpetGeometry(bed, cover, surface, exclusions), mat = new THREE.Matrix4(), orient = new THREE.Quaternion(), yaw = new THREE.Quaternion();
     const n = new THREE.Vector3(), scale = new THREE.Vector3(), point = new THREE.Vector3(), color = new THREE.Color();
     const base = new THREE.Mesh(carpet, ground); base.receiveShadow = true; base.userData.plantingBed = bed.id; group.add(base);
     const b = coverBounds(bed), area = Math.max(.01, (b.x1 - b.x0) * (b.z1 - b.z0));
     const spacing = Math.max(cover.leafSize * .68 / Math.sqrt(cover.density), Math.sqrt(area * 4 / Math.max(1, budget)));
-    const cellSize = Math.max(4, Math.sqrt(area / 16));
+    const leafCellSize = Math.max(4, Math.sqrt(area / 16)), detailCellSize = Math.max(5, Math.sqrt(area / 64));
     const cells = new Map(); let count = 0;
     const add = (kind, x, z, s, width, height, lift, angle, variation) => {
         if (count >= budget) return;
+        const cellSize = kind === 'leaf' ? leafCellSize : detailCellSize;
         const key = `${Math.floor(x / cellSize)}:${Math.floor(z / cellSize)}:${kind}`;
         if (!cells.has(key)) cells.set(key, { kind, items: [] });
         n.fromArray(s.normal); orient.setFromUnitVectors(UP, n); yaw.setFromAxisAngle(UP, angle); orient.multiply(yaw);
@@ -87,42 +107,66 @@ export function buildCover(bed, surface, { exclusions = [], budget = COVER_BUDGE
         if (f.kind === 'leaf') {
             for (let j = 0; j < 2; j++) add('leaf', x, z, s, cover.leafSize * (.75 + r * .55), cover.height * (.65 + r * .55) * (1 - j * .24), f.height, angle + j * 2.6, f.vigor);
         } else if (f.kind === 'thyme') {
-            add('thyme', x, z, s, .15 + r * .04, .035 + cover.height * .18, f.height, angle, f.vigor);
-            for (let j = 0; j < 3; j++) {
-                const a = angle + j * 2.4, px = x + Math.sin(a) * .035, pz = z + Math.cos(a) * .035, root = surface.sample(px, pz);
-                if (r > .32 && root && coverField(bed, cover, px, pz, exclusions).occupancy > .1) add('flower', px, pz, root, .016, .018, f.height + .025 + cover.height * .14, a, 1);
-            }
-        } else for (let j = 0; j < 3; j++) {
-            const a = angle + j * 2.4, px = x + Math.sin(a) * spacing * .3, pz = z + Math.cos(a) * spacing * .3, root = surface.sample(px, pz);
-            if (root && coverField(bed, cover, px, pz, exclusions).occupancy > .1) add('moss', px, pz, root, .016 + r * .013, .008 + r * .011, f.height * .65, a, f.vigor);
+            add('thyme', x, z, s, .19 + r * .06, .02 + cover.height * .1, f.height, angle, f.vigor);
+            const px = x + Math.sin(angle) * .035, pz = z + Math.cos(angle) * .035, root = surface.sample(px, pz);
+            if (r > .32 && root && coverField(bed, cover, px, pz, exclusions).occupancy > .1) add('flower', px, pz, root, .028, .015, f.height + .015 + cover.height * .1, angle, 1);
+        } else {
+            const px = x + Math.sin(angle) * spacing * .3, pz = z + Math.cos(angle) * spacing * .3, root = surface.sample(px, pz);
+            if (root && coverField(bed, cover, px, pz, exclusions).occupancy > .1) add('moss', px, pz, root, .04 + r * .02, .012 + r * .013, f.height + .006, angle, f.vigor);
         }
     }
     let triangles = carpet.attributes.position.count / 3;
-    const blooms = [];
+    const blooms = [], details = [];
     for (const { kind, items } of cells.values()) {
         const mesh = new THREE.InstancedMesh(assets[kind], materials[kind], items.length);
         items.forEach((item, i) => { mesh.setMatrixAt(i, mat.fromArray(item.matrix)); mesh.setColorAt(i, item.color); });
         mesh.receiveShadow = true; mesh.castShadow = kind === 'leaf' || kind === 'thyme';
-        mesh.customDepthMaterial = depth; mesh.customDistanceMaterial = distance;
+        mesh.customDepthMaterial = depths[kind]; mesh.customDistanceMaterial = distances[kind];
         mesh.computeBoundingBox(); mesh.computeBoundingSphere(); mesh.boundingSphere.radius += .03;
         mesh.userData.groundcover = kind; mesh.userData.plantingBed = bed.id; group.add(mesh);
-        if (kind === 'flower') { mesh.userData.maxCount = items.length; blooms.push(mesh); }
+        mesh.userData.maxCount = items.length;
+        if (kind === 'flower') blooms.push(mesh);
+        if (kind !== 'leaf') details.push(mesh);
         triangles += (assets[kind].index?.count ?? assets[kind].attributes.position.count) / 3 * items.length;
     }
-    group.userData.coverStats = { instances: count, triangles, batches: cells.size + 1, capped: spacing > cover.leafSize * .68 / Math.sqrt(cover.density) + .001 };
+    group.userData.coverStats = { instances: count, triangles, batches: cells.size + carpet.groups.length, capped: spacing > cover.leafSize * .68 / Math.sqrt(cover.density) + .001 };
+    const stats = group.userData.coverStats;
+    stats.residentInstances = count; stats.residentTriangles = triangles;
+    const sphere = new THREE.Sphere(), scaleWorld = new THREE.Vector3();
     let disposed = false;
+
     return { group, stats: group.userData.coverStats, update(month = 6, environment = 1) {
         const season = coverSeason(month, cover);
         leaf.color.set('#59713b').lerp(new THREE.Color('#676246'), season.winter * .38 + season.drought * .22);
-        thyme.color.set('#788358').lerp(new THREE.Color('#8e8357'), season.winter * .4 + season.drought * .5);
-        moss.color.set('#697844').lerp(new THREE.Color('#9a8856'), season.drought * .6);
-        ground.color.setRGB(1, 1, 1).lerp(new THREE.Color('#b8a486'), season.winter * .16 + season.drought * .3);
-        flower.color.set('#ece9d4'); for (const mesh of blooms) { mesh.count = Math.floor(mesh.userData.maxCount * season.bloom); mesh.visible = mesh.count > 0; }
+        thyme.color.set('#ffffff').lerp(new THREE.Color('#b8a486'), season.winter * .4 + season.drought * .5);
+        moss.color.set('#ffffff').lerp(new THREE.Color('#b8a486'), season.drought * .6);
+        ground[0].color.copy(moss.color); ground[1].color.copy(thyme.color);
+        flower.color.set('#ffffff'); for (const mesh of blooms) { mesh.count = Math.floor(mesh.userData.maxCount * season.bloom); mesh.visible = mesh.count > 0; }
         leaf.roughness = .62 - cover.moisture * .2; leaf.color.multiplyScalar(.94 + cover.shade * .1);
-        for (const material of [ground, ...Object.values(materials)]) material.envMapIntensity = environment;
+        for (const material of [...ground, ...Object.values(materials)]) material.envMapIntensity = environment;
+    }, updateView(camera, height) {
+        camera.getWorldPosition(view.uCoverEye.value);
+        view.uCoverPixels.value = height * Math.abs(camera.projectionMatrix.elements[5]) * .5;
+        view.uCoverOrtho.value = Boolean(camera.isOrthographicCamera);
+        let activeInstances = count, activeTriangles = triangles, batches = cells.size + carpet.groups.length;
+        for (const mesh of details) {
+            mesh.updateWorldMatrix(true, false);
+            sphere.copy(mesh.boundingSphere).applyMatrix4(mesh.matrixWorld);
+            mesh.matrixWorld.decompose(point, orient, scaleWorld);
+            const distance = camera.isOrthographicCamera ? 1 : Math.max(.01, sphere.distanceToPoint(view.uCoverEye.value));
+            const pixels = COVER_DETAIL[mesh.userData.groundcover] * Math.max(scaleWorld.x, scaleWorld.y, scaleWorld.z) * view.uCoverPixels.value / distance;
+            mesh.visible = pixels > COVER_LOD.end && mesh.count > 0;
+            const hidden = mesh.userData.maxCount - (mesh.visible ? mesh.count : 0);
+            activeInstances -= hidden;
+            activeTriangles -= hidden * (mesh.geometry.index?.count ?? mesh.geometry.attributes.position.count) / 3;
+            if (!mesh.visible) batches--;
+        }
+        const changed = stats.instances !== activeInstances || stats.triangles !== activeTriangles || stats.batches !== batches;
+        stats.instances = activeInstances; stats.triangles = activeTriangles; stats.batches = batches;
+        return changed;
     }, dispose() {
         if (disposed) return; disposed = true;
         group.traverse((o) => { if (o.isInstancedMesh) o.dispose(); }); carpet.dispose();
-        for (const m of [ground, depth, distance, ...Object.values(materials)]) m.dispose(); lease.release();
+        for (const m of [...ground, ...Object.values(depths), ...Object.values(distances), ...Object.values(materials)]) m.dispose(); lease.release();
     } };
 }
