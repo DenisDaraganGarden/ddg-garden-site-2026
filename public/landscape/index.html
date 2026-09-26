@@ -13,14 +13,14 @@
   <link rel="apple-touch-icon" sizes="180x180" href="./assets/apple-touch-icon.png">
   <link rel="manifest" href="./site.webmanifest">
   <link rel="preload" href="./assets/Oranienbaum-Regular.ttf" as="font" type="font/ttf" crossorigin>
-  <link rel="stylesheet" href="./main.css?v=20260926-author">
-  <link rel="stylesheet" href="./author-story.css?v=20260927-silence">
-  <link rel="stylesheet" href="./essay.css?v=20260927-silence">
+  <link rel="stylesheet" href="./main.css?v=20260927-chapters">
+  <link rel="stylesheet" href="./author-story.css?v=20260927-chapters">
+  <link rel="stylesheet" href="./essay.css?v=20260927-chapters">
   <link rel="stylesheet" href="./gallery.css?v=20260926-story">
   <link rel="stylesheet" href="./living-cover.css?v=20260927-1">
-  <script src="./main.js?v=20260927-silence" defer></script>
-  <script src="./author-story.js?v=20260927-silence" defer></script>
-  <script src="./essay.js?v=20260926" defer></script>
+  <script src="./main.js?v=20260927-chapters" defer></script>
+  <script src="./author-story.js?v=20260927-chapters" defer></script>
+  <script src="./essay.js?v=20260927-chapters" defer></script>
   <script src="./gallery.js?v=20260926" defer></script>
   <script src="./access.js?v=20260927" defer></script>
   <script src="./living-cover.js?v=20260927-1" defer></script>
@@ -49,9 +49,6 @@
         <div class="author-frame" data-shot="snake"><img src="./assets/author-snake.webp" alt="" width="736" height="736" loading="lazy" decoding="async"></div>
         <div class="author-frame" data-shot="horse"><img src="./assets/author-horse.webp" alt="" width="736" height="920" loading="lazy" decoding="async"></div>
         <div class="author-frame" data-shot="fire"><img src="./assets/author-fire.webp" alt="" width="1200" height="1500" loading="lazy" decoding="async"></div>
-        <div class="author-frame" data-shot="ninth-wave"><img src="./assets/essay-ninth-wave.webp" alt="" width="1500" height="1000" loading="lazy" decoding="async"></div>
-        <div class="author-frame" data-shot="descent"><img src="./assets/essay-rembrandt.webp" alt="" width="1453" height="2000" loading="lazy" decoding="async"></div>
-        <div class="author-frame" data-shot="hall"><img src="./assets/story-hall.webp" alt="" width="1132" height="1600" loading="lazy" decoding="async"></div>
       </div>
       <div class="author-seal"><img src="./assets/story-monogram.webp" alt="" width="1001" height="1600" loading="lazy" decoding="async"></div>
     </div>
@@ -61,45 +58,57 @@
     </footer>
     <p class="sr-only" data-author-status aria-live="polite" aria-atomic="true"></p>
   </section>
-  <section class="sheet essay-sheet" id="tractatus" aria-labelledby="tractatus-heading">
-    <h2 id="tractatus-heading">Волна.</h2>
-    <figure class="essay-primary"><button class="image-open" data-image aria-label="Рассмотреть: Иван Айвазовский. Девятый вал, 1850"><img data-essay-image src="./assets/essay-ninth-wave.webp" alt="Иван Айвазовский. Девятый вал, 1850" width="1500" height="1000" loading="lazy" decoding="async"></button><figcaption data-essay-caption>Иван Айвазовский · «Девятый вал», 1850</figcaption></figure>
+  <section class="sheet chapter-sheet" id="tractatus" aria-labelledby="tractatus-heading" data-chapter>
+    <header class="chapter-heading"><h2 id="tractatus-heading">Истоки.</h2><div class="chapter-tabs" role="tablist" aria-label="Истоки">
+      <button id="tab-wave" role="tab" aria-controls="wave" aria-selected="true" data-chapter-tab="wave">Волна</button>
+      <button id="tab-light" role="tab" aria-controls="light" aria-selected="false" tabindex="-1" data-chapter-tab="light">Свет</button>
+      <button id="tab-inheritance" role="tab" aria-controls="inheritance" aria-selected="false" tabindex="-1" data-chapter-tab="inheritance">Память</button>
+    </div></header>
+    <div class="chapter-panel" id="wave" role="tabpanel" aria-labelledby="tab-wave" data-chapter-panel>
+      <figure class="essay-primary"><button class="image-open" data-image aria-label="Рассмотреть: Иван Айвазовский. Девятый вал, 1850"><img data-essay-image src="./assets/essay-ninth-wave.webp" alt="Иван Айвазовский. Девятый вал, 1850" width="1500" height="1000" loading="lazy" decoding="async"></button><figcaption data-essay-caption>Иван Айвазовский · «Девятый вал», 1850</figcaption></figure>
     <footer class="essay-footer"><button data-panel="essay-wave-text" aria-haspopup="dialog">Читать ↗</button><div class="essay-controls" role="group" aria-label="Картина или фрагмент"><button data-essay-view="full" aria-pressed="true">Целиком</button><button data-essay-view="detail" aria-pressed="false">Фрагмент</button></div></footer>
-  </section>
-  <section class="sheet essay-sheet essay-dark dark-sheet" id="light" aria-labelledby="light-heading">
-    <h2 id="light-heading">Свет.</h2>
-    <figure class="essay-primary"><button class="image-open" data-image aria-label="Рассмотреть: Снятие с креста, 1634. Эрмитаж"><img src="./assets/essay-rembrandt.webp" alt="Снятие с креста, 1634. Эрмитаж" width="1453" height="2000" loading="lazy" decoding="async"></button><figcaption >Рембрандт · «Снятие с креста», 1634</figcaption></figure>
+    </div>
+    <div class="chapter-panel" id="light" role="tabpanel" aria-labelledby="tab-light" data-chapter-panel hidden>
+      <figure class="essay-primary"><button class="image-open" data-image aria-label="Рассмотреть: Снятие с креста, 1634. Эрмитаж"><img src="./assets/essay-rembrandt.webp" alt="Снятие с креста, 1634. Эрмитаж" width="1453" height="2000" loading="lazy" decoding="async"></button><figcaption >Рембрандт · «Снятие с креста», 1634</figcaption></figure>
     <footer class="essay-footer"><button data-panel="essay-light-text" aria-haspopup="dialog">Читать ↗</button><button data-panel="essay-sources" aria-haspopup="dialog">Образы ↗</button></footer>
-  </section>
-  <section class="sheet essay-sheet" id="inheritance" aria-labelledby="inheritance-heading">
-    <h2 id="inheritance-heading">Память.</h2>
-    <figure class="essay-primary"><button class="image-open" data-image aria-label="Рассмотреть: Путник у воды. Авторская работа Дениса Дарагана"><img src="./assets/story-wanderer.webp" alt="Путник у воды. Авторская работа Дениса Дарагана" width="1131" height="1600" loading="lazy" decoding="async"></button><figcaption >Денис Дараган</figcaption></figure>
+    </div>
+    <div class="chapter-panel" id="inheritance" role="tabpanel" aria-labelledby="tab-inheritance" data-chapter-panel hidden>
+      <figure class="essay-primary"><button class="image-open" data-image aria-label="Рассмотреть: Путник у воды. Авторская работа Дениса Дарагана"><img src="./assets/story-wanderer.webp" alt="Путник у воды. Авторская работа Дениса Дарагана" width="1131" height="1600" loading="lazy" decoding="async"></button><figcaption >Денис Дараган</figcaption></figure>
     <footer class="essay-footer"><button data-panel="essay-inheritance-text" aria-haspopup="dialog">Легенда ↗</button><button data-panel="essay-sources" aria-haspopup="dialog">Образы ↗</button></footer>
+    </div>
   </section>
-  <section class="sheet study-sheet dark-sheet" id="plants" aria-labelledby="plants-heading" data-study data-playing="false">
-    <h2 id="plants-heading">Живое.</h2>
-    <div class="study-stage" role="group" aria-label="Живое.">
+  <section class="sheet chapter-sheet chapter-dark dark-sheet" id="elements" aria-labelledby="elements-heading" data-chapter>
+    <header class="chapter-heading"><h2 id="elements-heading">Природа.</h2><div class="chapter-tabs" role="tablist" aria-label="Растения и материалы">
+      <button id="tab-plants" role="tab" aria-controls="plants" aria-selected="true" data-chapter-tab="plants">Живое</button>
+      <button id="tab-matter" role="tab" aria-controls="matter" aria-selected="false" tabindex="-1" data-chapter-tab="matter">Материя</button>
+    </div></header>
+    <div class="chapter-panel study-panel" id="plants" role="tabpanel" aria-labelledby="tab-plants" data-chapter-panel data-study data-playing="false">
+      <div class="study-stage" role="group" aria-label="Живое.">
       <img class="study-frame is-visible" src="./assets/story-tree.webp" alt="Изогнутые ветви старого дерева" width="1055" height="1600" loading="lazy" decoding="async" aria-hidden="false">
       <img class="study-frame" src="./assets/story-grass.webp" alt="Тонкие травы на ветру" width="1080" height="1080" loading="lazy" decoding="async" aria-hidden="true">
       <img class="study-frame" src="./assets/story-fern.webp" alt="Папоротники среди тёмного камня" width="700" height="620" loading="lazy" decoding="async" aria-hidden="true">
     </div>
     <footer class="study-controls"><button class="study-poetry" data-panel="plants-text" aria-haspopup="dialog">Читать ↗</button><div class="author-stepping"><button data-study-prev aria-label="Предыдущий образ">←</button><button data-study-play aria-label="Воспроизвести последовательность">▶</button><button data-study-next aria-label="Следующий образ">→</button></div></footer>
     <p class="sr-only" data-study-status aria-live="polite" aria-atomic="true"></p>
-  </section>
-  <section class="sheet study-sheet" id="matter" aria-labelledby="matter-heading" data-study data-playing="false">
-    <h2 id="matter-heading">Материя.</h2>
-    <div class="study-stage" role="group" aria-label="Материя.">
+    </div>
+    <div class="chapter-panel study-panel" id="matter" role="tabpanel" aria-labelledby="tab-matter" data-chapter-panel data-study data-playing="false" hidden>
+      <div class="study-stage" role="group" aria-label="Материя.">
       <img class="study-frame is-visible" src="./assets/story-marble.webp" alt="Светлые и тёмные прожилки мрамора" width="576" height="1024" loading="lazy" decoding="async" aria-hidden="false">
       <img class="study-frame" src="./assets/story-basalt.webp" alt="Пористая поверхность тёмного камня" width="1080" height="1350" loading="lazy" decoding="async" aria-hidden="true">
       <img class="study-frame" src="./assets/story-sand.webp" alt="Рельеф мокрого песка" width="736" height="1104" loading="lazy" decoding="async" aria-hidden="true">
     </div>
     <footer class="study-controls"><button class="study-poetry" data-panel="matter-text" aria-haspopup="dialog">Читать ↗</button><div class="author-stepping"><button data-study-prev aria-label="Предыдущий образ">←</button><button data-study-play aria-label="Воспроизвести последовательность">▶</button><button data-study-next aria-label="Следующий образ">→</button></div></footer>
     <p class="sr-only" data-study-status aria-live="polite" aria-atomic="true"></p>
+    </div>
   </section>
   <section class="sheet project-sheet story-works dark-sheet" id="handwriting" aria-labelledby="handwriting-heading">
-    <div class="project-gallery" role="region" aria-label="Мои работы как картины" tabindex="0"><figure class="gallery-frame" style="--ratio:0.7075"><button class="image-open" data-image aria-label="Рассмотреть: Змея в оранжерее"><img src="./assets/story-hall.webp" alt="Змея в оранжерее. Денис Дараган" width="1132" height="1600" loading="lazy" decoding="async" draggable="false"></button><figcaption>01 / Денис Дараган</figcaption></figure><figure class="gallery-frame" style="--ratio:0.7069"><button class="image-open" data-image aria-label="Рассмотреть: Путник у воды"><img src="./assets/story-wanderer.webp" alt="Путник у воды. Денис Дараган" width="1131" height="1600" loading="lazy" decoding="async" draggable="false"></button><figcaption>02 / Денис Дараган</figcaption></figure><figure class="gallery-frame" style="--ratio:1.4151"><button class="image-open" data-image aria-label="Рассмотреть: Ночной сад"><img src="./assets/story-night-garden.webp" alt="Ночной сад. Денис Дараган" width="1500" height="1060" loading="lazy" decoding="async" draggable="false"></button><figcaption>03 / Денис Дараган</figcaption></figure><figure class="gallery-frame" style="--ratio:0.4919"><button class="image-open" data-image aria-label="Рассмотреть: Сад и скульптура"><img src="./assets/story-topiary.webp" alt="Сад и скульптура. Денис Дараган" width="787" height="1600" loading="lazy" decoding="async" draggable="false"></button><figcaption>04 / Денис Дараган</figcaption></figure></div>
-    <div class="work-caption"><div><h2 id="handwriting-heading">Почерк.</h2></div><div class="work-tools"><div class="gallery-navigation" role="group" aria-label="Авторские работы"><button data-gallery-prev aria-label="Предыдущая работа" disabled>←</button><span class="frame-count" data-gallery-count>01 / 04</span><button data-gallery-next aria-label="Следующая работа">→</button></div><a href="#works">Сады и проекты ↓</a></div></div>
+    <div class="project-gallery" role="region" aria-label="Мои работы как картины" tabindex="0"><figure class="gallery-frame" style="--ratio:0.7075"><button class="image-open" data-image aria-label="Рассмотреть: Змея в оранжерее"><img src="./assets/story-hall.webp" alt="Змея в оранжерее. Денис Дараган" width="1132" height="1600" loading="lazy" decoding="async" draggable="false"></button><figcaption>01 / Денис Дараган</figcaption></figure><figure class="gallery-frame" style="--ratio:1.4151"><button class="image-open" data-image aria-label="Рассмотреть: Ночной сад"><img src="./assets/story-night-garden.webp" alt="Ночной сад. Денис Дараган" width="1500" height="1060" loading="lazy" decoding="async" draggable="false"></button><figcaption>02 / Денис Дараган</figcaption></figure><figure class="gallery-frame" style="--ratio:0.4919"><button class="image-open" data-image aria-label="Рассмотреть: Сад и скульптура"><img src="./assets/story-topiary.webp" alt="Сад и скульптура. Денис Дараган" width="787" height="1600" loading="lazy" decoding="async" draggable="false"></button><figcaption>03 / Денис Дараган</figcaption></figure></div>
+    <div class="work-caption"><div><h2 id="handwriting-heading">Почерк.</h2></div><div class="work-tools"><div class="gallery-navigation" role="group" aria-label="Авторские работы"><button data-gallery-prev aria-label="Предыдущая работа" disabled>←</button><span class="frame-count" data-gallery-count>01 / 03</span><button data-gallery-next aria-label="Следующая работа">→</button></div><a href="#portfolio">Портфолио ↓</a></div></div>
     <p class="sr-only" data-gallery-status aria-live="polite"></p>
+  </section>
+  <section class="sheet portfolio-divider" id="portfolio" aria-labelledby="portfolio-heading">
+    <h2 id="portfolio-heading">Портфолио</h2>
+    <a href="#works">Мои сады ↓</a>
   </section>
 <!-- works -->
 <section class="sheet work project-sheet" id="secret-garden" aria-labelledby="title-secret-garden"><div class="project-gallery" role="region" aria-label="Secret Garden: изображения" tabindex="0"><figure class="gallery-frame" data-shape="landscape" style="--ratio:1.4159"><button class="image-open" data-image aria-label="Рассмотреть: Secret Garden, кадр 1"><img src="./assets/p04-i01-1600.webp" srcset="./assets/p04-i01-900.webp 900w, ./assets/p04-i01-1600.webp 1600w" sizes="(max-width:759px) calc(100vw - 48px), 80vw" width="1600" height="1130" alt="Secret Garden, кадр 1" loading="lazy" decoding="async" draggable="false"></button><figcaption aria-hidden="true">01</figcaption></figure><figure class="gallery-frame" id="secret-garden-2" data-shape="portrait" style="--ratio:0.9096"><button class="image-open" data-image aria-label="Рассмотреть: Secret Garden, кадр 2"><img src="./assets/p05-i02-1600.webp" srcset="./assets/p05-i02-900.webp 900w, ./assets/p05-i02-1600.webp 1600w" sizes="(max-width:759px) calc(100vw - 48px), 80vw" width="1600" height="1759" alt="Secret Garden, кадр 2" loading="lazy" decoding="async" draggable="false"></button><figcaption aria-hidden="true">02</figcaption></figure></div><div class="work-caption"><div><h2 id="title-secret-garden">Secret Garden</h2></div><div class="work-tools"><div class="gallery-navigation" role="group" aria-label="Кадры проекта"><button data-gallery-prev aria-label="Предыдущий кадр" disabled>←</button><span class="frame-count" data-gallery-count>01 / 02</span><button data-gallery-next aria-label="Следующий кадр">→</button></div></div></div><p class="sr-only" data-gallery-status aria-live="polite"></p></section>
@@ -141,7 +150,7 @@
     <div class="contact-content"><h2 id="contact-heading">Обсудим проект</h2><a class="contact-email" href="mailto:info@daragangarden.ru">info@daragangarden.ru</a></div>
   </section>
 </main>
-<div class="page-position" aria-hidden="true">01 / 27</div>
+<div class="page-position" aria-hidden="true">01 / 25</div>
 <p class="sr-only" id="page-status" aria-live="polite" aria-atomic="true"></p>
 <dialog class="panel-dialog" id="plants-text" aria-labelledby="plants-text-heading">
   <div class="panel-bar"><h2 id="plants-text-heading">Живое.</h2><button data-close>Закрыть</button></div>
@@ -223,7 +232,7 @@
   <div class="panel-bar"><h2 id="essay-sources-heading">Картины и образы</h2><button data-close>Закрыть</button></div>
   <div class="panel-copy"><p>Иван Айвазовский. «Девятый вал», 1850.<br>Государственный Русский музей.<br><a href="https://rusmuseumvrm.ru/data/collections/painting/18_19/zh_2202/" target="_blank" rel="noopener noreferrer">Картина в коллекции музея ↗</a></p><p>Рембрандт. «Снятие с креста», 1634.<br>Государственный Эрмитаж.<br><a href="https://www.hermitagemuseum.org/explore/collections/category_2/element_20" target="_blank" rel="noopener noreferrer">Коллекция Эрмитажа ↗</a><br><a href="https://commons.wikimedia.org/wiki/File:Descent_from_the_Cross_(Rembrant).jpg" target="_blank" rel="noopener noreferrer">Репродукция · Wikimedia Commons ↗</a></p><p>Крест, огонь, животные, фактуры, растения и пейзажи в монтаже — образы из моей коллекции вдохновения, работы других авторов. Они передают ассоциации, а не документируют места моей биографии. Авторские работы и монограмма Дениса Дарагана отмечены отдельно.</p><p>Тексты рядом с картинами — моё личное прочтение.</p></div>
 </dialog>
-<dialog class="panel-dialog menu-dialog" id="menu-panel" aria-labelledby="menu-heading"><div class="panel-bar"><h2 id="menu-heading">Портфолио</h2><button data-close>Закрыть</button></div><nav aria-label="Разделы"><div class="menu-primary"><a href="#top">Начало</a><a href="#author">Обо мне</a><a href="#tractatus">Теологический трактат</a><a href="#inheritance">Легенда</a><a href="#plants">Живое</a><a href="#matter">Материя</a><a href="#handwriting">Почерк</a><button data-panel="music-panel" aria-haspopup="dialog">Музыка</button><a href="#recognition">НАГРАДЫ</a><a href="#contact">Контакт</a></div><div class="menu-projects"><!-- menu -->
+<dialog class="panel-dialog menu-dialog" id="menu-panel" aria-labelledby="menu-heading"><div class="panel-bar"><h2 id="menu-heading">Портфолио</h2><button data-close>Закрыть</button></div><nav aria-label="Разделы"><div class="menu-primary"><a href="#top">Начало</a><a href="#author">Обо мне</a><a href="#tractatus">Истоки</a><a href="#elements">Природа</a><a href="#handwriting">Почерк</a><a href="#portfolio">Портфолио</a><button data-panel="music-panel" aria-haspopup="dialog">Музыка</button><a href="#recognition">НАГРАДЫ</a><a href="#contact">Контакт</a></div><div class="menu-projects"><!-- menu -->
 <a href="#secret-garden"><span>01</span>Secret Garden</a>
 <a href="#french-manor"><span>02</span>A French manor</a>
 <a href="#raevo"><span>03</span>RAEVO</a>

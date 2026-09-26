@@ -11,7 +11,7 @@
   const images = imageButtons.map(button => ({src: button.querySelector('img').src, alt: button.querySelector('img').alt, origin: button}));
   const focusOrigins = new WeakMap();
   let current = 0, destination = 0, navigationVersion = 0;
-  let settleTimer, scrollFrame, resizing = false;
+  let settleTimer, scrollFrame, pagingFrame, resizing = false;
   let sequence = images, imageIndex = 0, imageTicket = 0;
 
   const clamp = (value, last) => Math.max(0, Math.min(last, value));
@@ -20,6 +20,11 @@
     if (hash === '#works') return sheets.findIndex(sheet => sheet.classList.contains('work'));
     const target = document.getElementById(hash.slice(1));
     const sheet = target?.closest('.sheet');
+    const chapter = target?.closest('[data-chapter-panel]');
+    if (chapter) {
+      sheet.dataset.chapterTarget = chapter.id;
+      sheet.dispatchEvent(new CustomEvent('chapter-reveal', {detail:chapter}));
+    }
     if (target?.matches('.gallery-frame')) {
       sheet.dataset.galleryTarget = target.id;
       sheet.dispatchEvent(new CustomEvent('gallery-reveal', {detail:target}));
@@ -39,7 +44,7 @@
     update();
     if (Math.abs(sheets[current].offsetTop - folio.scrollTop) > 1) return;
     destination = current;
-    history.replaceState(null, '', '#' + sheets[current].id);
+    history.replaceState(null, '', '#' + (sheets[current].dataset.chapterActive || sheets[current].id));
     const title = sheets[current].querySelector('h1,h2')?.textContent.replace(/\s+/g, ' ').trim();
     status.textContent = title + ', ' + (current + 1) + ' из ' + sheets.length;
   };
@@ -48,9 +53,39 @@
     destination = next;
     ++navigationVersion;
     clearTimeout(settleTimer);
-    folio.scrollTo({top: sheets[next].offsetTop, behavior: smooth && !reduce.matches ? 'smooth' : 'instant'});
-    if (!smooth || reduce.matches) remember();
+    cancelAnimationFrame(pagingFrame);
+    pagingFrame = null;
+    const from = folio.scrollTop, top = sheets[next].offsetTop;
+    if (!smooth || reduce.matches || Math.abs(top - from) < 1) {
+      folio.scrollTo({top, behavior:'instant'});
+      folio.classList.remove('is-paging');
+      remember();
+      return;
+    }
+    // A short, interruptible turn: native smooth scrolling can take most of a
+    // second per viewport. Restore native touch snapping once the turn lands.
+    folio.classList.add('is-paging');
+    const start = performance.now();
+    const draw = now => {
+      const progress = Math.min(1, (now - start) / 230);
+      folio.scrollTo({top:from + (top - from) * (1 - (1 - progress) ** 3), behavior:'instant'});
+      if (progress < 1) pagingFrame = requestAnimationFrame(draw);
+      else {
+        pagingFrame = null;
+        folio.classList.remove('is-paging');
+        remember();
+      }
+    };
+    pagingFrame = requestAnimationFrame(draw);
   };
+  folio.addEventListener('pointerdown', () => {
+    if (!pagingFrame) return;
+    cancelAnimationFrame(pagingFrame);
+    pagingFrame = null;
+    folio.classList.remove('is-paging');
+    update();
+    destination = current;
+  }, {passive:true});
   folio.addEventListener('scroll', () => {
     if (!scrollFrame) scrollFrame = requestAnimationFrame(update);
     clearTimeout(settleTimer);
@@ -75,7 +110,8 @@
       if (!delta) return;
       const now = performance.now();
       const sign = Math.sign(delta), magnitude = Math.abs(delta);
-      if (now - last > 110) begin(sign);
+      const gap = now - last;
+      if (gap > 85) begin(sign);
       last = now;
 
       if (sign !== direction) {
@@ -88,7 +124,12 @@
       } else opposite = 0;
 
       if (used) {
-        if (rebound && magnitude >= rebound.floor) {
+        // A notched wheel repeats substantial, equally sized steps. A trackpad
+        // tail decreases instead. Let those deliberate steps keep advancing.
+        const wheelStep = event.deltaMode !== 0 || gap >= 35 && magnitude >= 40
+          && Math.abs(magnitude - previous) <= Math.max(1, magnitude * .08);
+        if (wheelStep && now - turnedAt >= 170) begin(sign);
+        else if (rebound && magnitude >= rebound.floor) {
           const carried = rebound.distance;
           begin(sign);
           distance = carried;
@@ -121,6 +162,8 @@
     const finish = () => {
       if (dialog === viewer && sequence[imageIndex].origin) {
         const origin = sequence[imageIndex].origin;
+        const chapter = origin.closest('[data-chapter-panel]');
+        if (chapter) origin.closest('.sheet').dispatchEvent(new CustomEvent('chapter-reveal', {detail:chapter}));
         go(sheets.indexOf(origin.closest('.sheet')), false);
         origin.closest('.sheet').dispatchEvent(new CustomEvent('gallery-reveal', {detail:origin.closest('.gallery-frame')}));
         focusOrigins.set(dialog, origin);
@@ -197,7 +240,7 @@
     element.addEventListener('pointerdown', event => {
       pointers.add(event.pointerId);
       if (pointers.size > 1) {start = null; blocked = true; return;}
-      if (event.button !== 0 || event.target.closest('a,[data-panel],.image-close,.author-controls,.study-controls,.project-gallery,.gallery-navigation,.essay-controls')) return;
+      if (event.button !== 0 || event.target.closest('a,[data-panel],.image-close,.author-controls,.study-controls,.project-gallery,.gallery-navigation,.essay-controls,.chapter-tabs')) return;
       blocked = false;
       start = {x: event.clientX, y: event.clientY, id: event.pointerId};
     });
@@ -222,6 +265,7 @@
   };
   const folioSwiped = swipe(folio, (direction, horizontal) => {
     if (horizontal && sheets[current].id === 'author') sheets[current].dispatchEvent(new CustomEvent('author-step', {detail:direction}));
+    else if (horizontal && sheets[current].hasAttribute('data-chapter')) sheets[current].dispatchEvent(new CustomEvent('chapter-step', {detail:direction}));
     else if (horizontal && sheets[current].hasAttribute('data-study')) sheets[current].dispatchEvent(new CustomEvent('study-step', {detail:direction}));
     else go(destination + direction);
   });
@@ -230,7 +274,7 @@
     if (folioSwiped()) return;
     images[index].src = button.querySelector('img').src;
     images[index].alt = button.querySelector('img').alt;
-    const gallery = button.closest('.project-gallery');
+    const gallery = button.closest('.project-gallery,[data-chapter]');
     if (gallery) {
       const group = images.filter(image => gallery.contains(image.origin));
       openImage(group.indexOf(images[index]), button, group);
@@ -241,7 +285,7 @@
   });
 
   document.addEventListener('keydown', event => {
-    if (event.altKey || event.ctrlKey || event.metaKey || event.repeat) return;
+    if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || event.repeat) return;
     if (viewer.open) {
       if (['ArrowRight','ArrowDown','PageDown','ArrowLeft','ArrowUp','PageUp'].includes(event.key)) {
         event.preventDefault();
@@ -253,6 +297,11 @@
     if (sheets[current].id === 'author' && ['ArrowLeft','ArrowRight'].includes(event.key)) {
       event.preventDefault();
       sheets[current].dispatchEvent(new CustomEvent('author-step', {detail:event.key === 'ArrowRight' ? 1 : -1}));
+      return;
+    }
+    if (sheets[current].hasAttribute('data-chapter') && ['ArrowLeft','ArrowRight'].includes(event.key)) {
+      event.preventDefault();
+      sheets[current].dispatchEvent(new CustomEvent('chapter-step', {detail:event.key === 'ArrowRight' ? 1 : -1}));
       return;
     }
     if (sheets[current].hasAttribute('data-study') && ['ArrowLeft','ArrowRight'].includes(event.key)) {

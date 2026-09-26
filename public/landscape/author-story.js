@@ -15,21 +15,18 @@
     {shot:'snake', form:'cut', tone:'ink', hold:600, turn:-5, shift:-1},
     {shot:'horse', form:'cut', tone:'ink', hold:700, turn:2, shift:2},
     {shot:'portrait', form:'cut', tone:'ink', hold:600, turn:-2, shift:-1},
-    {shot:'descent', form:'cut', tone:'ink', hold:1100, turn:1},
     {shot:'snake', form:'cut', tone:'ink', hold:700, turn:-3, shift:1},
     {shot:'horse', form:'cut', tone:'ink', hold:600, turn:4, shift:-2},
-    {shot:'hall', form:'cut', tone:'ink', hold:800, turn:-1},
     {shot:'portrait', form:'cut', tone:'ink', hold:650, turn:2, shift:1},
     {shot:'snake', form:'cut', tone:'ink', hold:600, turn:-4, shift:-1},
     {shot:'horse', form:'cut', tone:'ink', hold:1000, turn:1},
-    {shot:'ninth-wave', form:'open', tone:'ink', hold:5500},
     {shot:'fire', form:'open', tone:'ink', hold:5500},
     {shot:'portrait', form:'cross', tone:'paper', hold:5500},
     {shot:'portrait', form:'square', tone:'ink', hold:2400},
     {shot:'portrait', form:'circle', tone:'ink', hold:3000},
     {shot:'portrait', form:'seal', tone:'ink', hold:9000},
   ];
-  const names = {portrait:'Денис Дараган', cross:'Крест', ram:'Овен', snake:'Змея', horse:'Конь', descent:'Снятие с креста', hall:'Оранжерея', 'ninth-wave':'Девятый вал', fire:'Огонь'};
+  const names = {portrait:'Денис Дараган', cross:'Крест', ram:'Овен', snake:'Змея', horse:'Конь', fire:'Огонь'};
   let index = 0, remaining = beats[0].hold, startedAt = 0, timer = null;
   let active = false, ready = false, wanted = !reduce.matches;
   const duration = () => Math.max(beats[index].hold, reduce.matches ? 4000 : 0);

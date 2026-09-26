@@ -46,7 +46,7 @@ async function srcset(frame) {
 
 async function render({projects}, html) {
   validate({projects});
-  const ids = new Set(['top', 'recognition', 'author', 'tractatus', 'light', 'inheritance', 'handwriting', 'plants', 'matter', 'contact', 'works']);
+  const ids = new Set(['top', 'recognition', 'author', 'tractatus', 'wave', 'elements', 'portfolio', 'light', 'inheritance', 'handwriting', 'plants', 'matter', 'contact', 'works']);
   const works = [];
   for (const p of projects) {
     const title = esc(p.title.trim());
