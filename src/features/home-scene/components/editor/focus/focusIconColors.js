@@ -1,14 +1,18 @@
 // Existing hex values remain stable so saved labels keep their colours.
-// Bright and deeper tones stay legible against the charcoal editor panels.
+// Keep bright, light and deep shades visibly separate on the charcoal panels.
 export const FOCUS_ICON_COLORS = [
     ['Алый', 'Scarlet', '#ff5454'], ['Мандарин', 'Tangerine', '#ff8740'], ['Янтарь', 'Amber', '#ffb22e'], ['Лимонный', 'Lemon', '#f0dc4a'],
     ['Салатовый', 'Lime', '#a8e04c'], ['Изумруд', 'Emerald', '#34d27f'], ['Бирюза', 'Turquoise', '#2fd4c6'], ['Лазурь', 'Azure', '#40b4ff'],
+    ['Рубин', 'Ruby', '#b83e51'], ['Жжёный апельсин', 'Burnt orange', '#bc602d'], ['Охра', 'Ochre', '#a47b24'], ['Тёмная олива', 'Dark olive', '#7a8531'],
+    ['Лесной зелёный', 'Forest green', '#398455'], ['Тёмная бирюза', 'Deep teal', '#258482'], ['Сапфир', 'Sapphire', '#4274ab'], ['Индиго', 'Indigo', '#625bc0'],
     ['Коралловый', 'Coral', '#ff786b'], ['Абрикос', 'Apricot', '#ffb071'], ['Золото', 'Gold', '#ffd166'], ['Цитрон', 'Citron', '#d5ed39'],
     ['Зелёное яблоко', 'Apple green', '#70ce48'], ['Мята', 'Mint', '#68e5aa'], ['Аквамарин', 'Aquamarine', '#66e1df'], ['Небесный', 'Sky blue', '#79caff'],
     ['Терракота', 'Terracotta', '#e0714f'], ['Медь', 'Copper', '#c98a50'], ['Олива', 'Olive', '#b9b35a'], ['Хвоя', 'Pine', '#5fa97c'],
     ['Нефрит', 'Jade', '#31b595'], ['Морская волна', 'Sea blue', '#4a9cb5'], ['Кобальт', 'Cobalt', '#4c9aee'], ['Ультрамарин', 'Ultramarine', '#6f8cff'],
     ['Барвинок', 'Periwinkle', '#9eaaff'], ['Фиолетовый', 'Violet', '#9a77ff'], ['Сиреневый', 'Lilac', '#c49aff'], ['Аметист', 'Amethyst', '#b36de3'],
     ['Фуксия', 'Fuchsia', '#e55cf0'], ['Орхидея', 'Orchid', '#ed8ad7'], ['Малиновый', 'Raspberry', '#ff4f8e'], ['Роза', 'Rose', '#e875a0'],
+    ['Шелковица', 'Mulberry', '#a04481'], ['Кирпичный', 'Brick red', '#b24638'], ['Умбра', 'Umber', '#986344'], ['Мох', 'Moss', '#6b823d'],
+    ['Малахит', 'Malachite', '#37816f'], ['Петроль', 'Petrol', '#367382'], ['Глубокий синий', 'Deep blue', '#4d5fb6'], ['Слива', 'Plum', '#9050af'],
     ['Мел', 'Chalk', '#f1eee6'], ['Серебро', 'Silver', '#aab2ba'], ['Сталь', 'Steel', '#838d9e'], ['Лён', 'Linen', '#e3d7bd'],
     ['Песок', 'Sand', '#dcc49a'], ['Карамель', 'Caramel', '#cfa06d'], ['Глина', 'Clay', '#bf9584'], ['Кварц', 'Quartz', '#b7a1bb'],
 ];

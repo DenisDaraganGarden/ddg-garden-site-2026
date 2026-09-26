@@ -13,6 +13,13 @@ const LEGACY_COLORS = {
 const STORAGE_KEY = 'ddg_focus_ui_colors_v1';
 const PALETTE_VALUES = new Set(FOCUS_ICON_PALETTE.map(([, , color]) => color));
 const PALETTE_COLUMNS = 8;
+// Dark swatches need a light checkmark; gradients use their midpoint.
+const swatchInk = (start, end = start) => {
+    const luminance = (hex) => [1, 3, 5].map((offset) => parseInt(hex.slice(offset, offset + 2), 16) / 255)
+        .map((value) => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4)
+        .reduce((sum, value, index) => sum + value * [0.2126, 0.7152, 0.0722][index], 0);
+    return (luminance(start) + luminance(end)) / 2 < 0.2 ? '#f1eee6' : '#202326';
+};
 const readColors = () => {
     if (typeof window === 'undefined') return {};
     try {
@@ -121,7 +128,7 @@ export function FocusColorPalette({ target, anchor, colors, onClose, language = 
         swatches[next].tabIndex = 0;
         swatches[next].focus();
     };
-    const swatch = ([ru, en, color, start, end], index) => <button key={color} type="button" className="focus-color-palette__swatch" data-focus-swatch style={{ '--focus-swatch': start ? `linear-gradient(135deg, ${start}, ${end})` : color, '--focus-swatch-edge': start ?? color }} aria-label={language === 'ru' ? ru : en} title={language === 'ru' ? ru : en} aria-pressed={activeColor === color} tabIndex={index === selectedIndex ? 0 : -1} onKeyDown={handleGridKeyDown} onClick={() => select(color)}><span /></button>;
+    const swatch = ([ru, en, color, start, end], index) => <button key={color} type="button" className="focus-color-palette__swatch" data-focus-swatch style={{ '--focus-swatch': start ? `linear-gradient(135deg, ${start}, ${end})` : color, '--focus-swatch-edge': start ?? color, '--focus-swatch-ink': swatchInk(start ?? color, end) }} aria-label={language === 'ru' ? ru : en} title={language === 'ru' ? ru : en} aria-pressed={activeColor === color} tabIndex={index === selectedIndex ? 0 : -1} onKeyDown={handleGridKeyDown} onClick={() => select(color)}><span /></button>;
     if (!target || !anchor) return null;
     return (
         <div ref={ref} className="focus-color-palette" data-focus-color-palette role="dialog" aria-label={`${language === 'ru' ? 'Цвет значка' : 'Icon color'}: ${target.label}`} style={{ left: position?.left ?? anchor.x, top: position?.top ?? anchor.y }}>
