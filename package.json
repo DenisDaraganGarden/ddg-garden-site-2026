@@ -11,6 +11,7 @@
     "check:lighting": "node src/components/effects/homeSceneLighting.check.js",
     "check:render-core": "node src/components/effects/homeSceneLighting.check.js && node src/components/effects/renderTargetCapabilities.check.js && node src/components/effects/qualityProfile.check.js && node src/components/effects/csmAdapter.check.js && node src/components/effects/contactAO.check.js && node src/components/effects/framePacing.check.js && node src/components/effects/renderBudget.check.js && node src/components/effects/renderQualitySettings.check.js && node src/components/effects/safeRenderTargetReadback.check.js && node src/components/effects/sceneTimeline.check.js && node src/plants/calibrationQueue.check.js && node src/components/effects/spatialUpscale.check.js && node src/components/effects/scenePostControls.check.js",
     "check:materials": "node src/components/effects/water/pbrMaterial.check.js",
+    "check:path-trace": "node src/path-trace/pathTrace.check.js",
     "check:render-resources": "node src/materials/modelResources.check.js && node src/components/effects/rendererContext.check.js && node src/components/effects/csmAdapter.check.js",
     "check:vegetation": "node src/components/effects/water/vegetationGeometry.check.js",
     "check:render-targets": "node src/components/effects/water/renderTargets.check.js && node src/components/effects/water/opticsGeometryLod.check.js",
@@ -79,7 +80,9 @@
     "react-router-dom": "^6.30.3",
     "react-spring": "^10.0.3",
     "three": "^0.183.2",
-    "three-custom-shader-material": "^6.4.0"
+    "three-custom-shader-material": "^6.4.0",
+    "three-gpu-pathtracer": "0.0.24",
+    "three-mesh-bvh": "0.9.5"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",

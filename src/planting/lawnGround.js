@@ -369,6 +369,7 @@ export function makeLawnMaterial(tile, litterTile) {
             .replace('#include <normal_fragment_maps>', LAWN_NORMAL_FRAGMENT)
             .replace('#include <aomap_fragment>', '#include <aomap_fragment>\n    reflectedLight.indirectDiffuse *= lawnAO;\n    reflectedLight.indirectSpecular *= lawnAO * 0.45;\n    reflectedLight.directDiffuse *= mix(1.0, lawnAO, 0.5);');
     };
+    material.pathTraceSurface = { kind: 'lawn', uniforms, compile: material.onBeforeCompile };
     material.customProgramCacheKey = () => 'planting-lawn-v9';
     return { material, uniforms };
 }

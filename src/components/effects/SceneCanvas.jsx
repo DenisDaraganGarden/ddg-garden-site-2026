@@ -1,4 +1,4 @@
-import React, { Component, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { Component, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import * as THREE from 'three';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { useLanguage } from '../../i18n/useLanguage';
@@ -11,6 +11,9 @@ import { getRenderTargetCapabilities } from './renderTargetCapabilities';
 import { isTouchPrimaryViewport } from '../../features/home-scene/lib/layout';
 import { createSceneTimeline } from './sceneTimeline';
 import { createFramePacer, normalizeFrameRateLimit } from './framePacing';
+
+import TraceBridge from '../../path-trace/TraceBridge.jsx';
+import { isTraceLocked, subscribeTraceLock } from '../../path-trace/bridge.js';
 
 let webglSupportCache;
 const SHADOWS_CONFIG = { type: THREE.PCFShadowMap };
@@ -572,11 +575,12 @@ const SceneCanvas = ({
   const [profile, setProfile] = useState(() => getCanvasProfile(mode, renderScale));
   const [isTabVisible, setIsTabVisible] = useState(() => isDocumentVisible());
   // Editor-only: the public scene has no switch for this and never sees it.
+  const traceLocked = useSyncExternalStore(subscribeTraceLock, isTraceLocked, () => false);
   const animationPaused = mode === 'editor' && Boolean(settings?.animationPaused);
   // Omitted settings preserve the legacy uncapped renderer. The editor can
   // explicitly publish 30 / 40 / 60 / 120, while 0 means unlimited.
   const frameRateLimit = normalizeFrameRateLimit(settings?.frameRateLimit);
-  const frameloop = isTabVisible
+  const frameloop = isTabVisible && !traceLocked
     ? (animationPaused ? 'demand' : (frameRateLimit > 0 ? 'never' : 'always'))
     : 'never';
   const fallback = (
@@ -662,18 +666,19 @@ const SceneCanvas = ({
             stencil: true,
           }}
         >
-          <VisibilityTimeline isActive={isTabVisible} />
+          <VisibilityTimeline isActive={isTabVisible && !traceLocked} />
           <VisibilityResume isActive={isTabVisible} />
           <FramePacing
-            active={isTabVisible}
-            paused={animationPaused}
+            active={isTabVisible && !traceLocked}
+            paused={animationPaused || traceLocked}
             frameRateLimit={frameRateLimit}
           />
           <AnimationPause
-            paused={animationPaused}
+            paused={animationPaused || traceLocked}
             frameloop={frameloop}
             settings={settings}
           />
+          {mode === 'editor' ? <TraceBridge settings={settings} /> : null}
           {children}
           {import.meta.env.DEV ? (
             <RuntimeDiagnostics

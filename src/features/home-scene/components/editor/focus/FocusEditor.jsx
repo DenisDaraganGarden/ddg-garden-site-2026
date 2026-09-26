@@ -30,6 +30,8 @@ import { useBrief } from '../../../../../brief/useBrief.js';
 import PhotoRenderStudio from '../../../../../photo-render/PhotoRenderStudio.jsx';
 import './FocusEditor.css';
 
+const TraceStudio = React.lazy(() => import('../../../../../path-trace/TraceStudio.jsx'));
+
 const UI_KEY = 'ddg_focus_editor_ui_v1';
 const readUi = () => { try { return JSON.parse(localStorage.getItem(UI_KEY) || '{}'); } catch { return {}; } };
 const ALL_NODES = EDITOR_TREE.flatMap((group) => group.nodes.filter((node) => import.meta.env.DEV || !node.devOnly).map((node) => ({ group, node, path: `${group.id}/${node.id}` })));
@@ -362,7 +364,7 @@ function FocusShell(props) {
             { label: tr('Посмотреть кадр сайта', 'Preview site framing'), icon: 'eye', onSelect: () => setPreview(true) },
         ];
     };
-    const commands = [{ id: 'command:save', label: props.project ? tr('На заглавную', 'To the home page') : tr('В проект', 'Save to project'), icon: 'upload', action: () => setModal('save') }, { id: 'command:presets', label: tr('Детали объекта', 'Parts of this object'), icon: 'folder', action: () => setModal({ kind: 'presets', path: selected.path, label: t(`homeEditor.nodes.${selected.node.id}`) }) }, { id: 'command:settings', label: tr('Настройки движка', 'Engine settings'), icon: 'settings', action: () => setModal('settings') }, { id: 'command:help', label: tr('Горячие клавиши', 'Keyboard shortcuts'), icon: 'help', action: () => setModal('help') }, ...(onPlay ? [{ id: 'command:play', label: tr('Играть на доске', 'Ride the board'), trail: 'P', icon: 'water', action: onPlay }] : []), ...(onWalk ? [{ id: 'command:walk', label: tr('Прогулка по проекту', 'Walk the project'), icon: 'walk', action: onWalk }] : [])];
+    const commands = [{ id: 'command:trace', label: tr('Трассировка', 'Path tracing'), icon: 'sun', action: () => setModal('trace') }, { id: 'command:save', label: props.project ? tr('На заглавную', 'To the home page') : tr('В проект', 'Save to project'), icon: 'upload', action: () => setModal('save') }, { id: 'command:presets', label: tr('Детали объекта', 'Parts of this object'), icon: 'folder', action: () => setModal({ kind: 'presets', path: selected.path, label: t(`homeEditor.nodes.${selected.node.id}`) }) }, { id: 'command:settings', label: tr('Настройки движка', 'Engine settings'), icon: 'settings', action: () => setModal('settings') }, { id: 'command:help', label: tr('Горячие клавиши', 'Keyboard shortcuts'), icon: 'help', action: () => setModal('help') }, ...(onPlay ? [{ id: 'command:play', label: tr('Играть на доске', 'Ride the board'), trail: 'P', icon: 'water', action: onPlay }] : []), ...(onWalk ? [{ id: 'command:walk', label: tr('Прогулка по проекту', 'Walk the project'), icon: 'walk', action: onWalk }] : [])];
     const nodeTarget = { kind: 'node', path: selected.path, label: t(`homeEditor.nodes.${selected.node.id}`) };
     return <div className={`focus-editor ${hidden ? 'focus-editor--hidden' : ''}`}>
         <header className="focus-topbar"><div className="focus-brand"><svg viewBox="243 157 535 535" aria-hidden="true"><image href={logo} width="1536" height="1024" /></svg><span>OUROBOROS<small>ENGINE {version}</small></span></div>{props.project
@@ -404,6 +406,7 @@ function FocusShell(props) {
         {modal === 'search' ? <SearchDialog onClose={() => setModal(null)} onSelect={selectNode} commands={commands} /> : null}
         {modal?.kind === 'presets' ? <Dialog title={`${tr('Детали', 'Parts')} · ${modal.label}`} onClose={() => setModal(null)}><FocusPresets path={modal.path} label={modal.label} settings={settings} applySettings={props.applySettings} onClose={() => setModal(null)} /></Dialog> : null}
         {textureTarget ? <MaterialPanel key={`${textureTarget.placedId}:${textureTarget.materialName}`} target={textureTarget} settings={settings} applySettings={props.applySettings} onClose={() => setTextureTarget(null)} /> : null}
+        {modal === 'trace' ? <React.Suspense fallback={null}><TraceStudio layoutEditor={layoutEditor} project={props.project} onClose={() => setModal(null)} /></React.Suspense> : null}
         {modal === 'help' ? <Dialog title={tr('Управление', 'Controls')} onClose={() => setModal(null)}><div className="focus-shortcuts">{shortcutRows(tr).map(([label, keys]) => <div key={label}><span>{label}</span><kbd>{keys}</kbd></div>)}</div></Dialog> : null}
         {modal === 'settings' ? <SettingsDialog sectionProps={sectionProps} onClose={() => setModal(null)} /> : null}
         {modal === 'photo' ? <PhotoRenderStudio settings={settings} layoutEditor={layoutEditor} project={props.project} onClose={() => setModal(null)} /> : null}

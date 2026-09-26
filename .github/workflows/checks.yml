@@ -47,6 +47,9 @@ jobs:
       - name: Check GPU resource lifetime and shadow coverage
         run: npm run check:render-resources
 
+      - name: Check path-traced snapshots and ownership
+        run: npm run check:path-trace
+
       - name: Install Chromium for Playwright
         run: npx playwright install --with-deps chromium
 

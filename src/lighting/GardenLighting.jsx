@@ -29,6 +29,7 @@ function lensMaterial(color) {
             .replace('#include <common>', '#include <common>\nuniform float uLensLevel;\nvarying float vLum;')
             .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance *= vLum * uLensLevel;');
     };
+    material.pathTraceLens = lens;
     material.customProgramCacheKey = () => 'garden-lens-v1';
     return material;
 }
@@ -128,6 +129,10 @@ export default function GardenLighting({ settings, night = 0, selectedId = null,
     const types = useLuminaireTypes();
     const fixtures = settings.lightingFixtures;
     const built = useMemo(() => gardenLights(fixtures ?? [], types), [fixtures, types]);
+    useEffect(() => {
+        scene.pathTraceGarden = built;
+        return () => { if (scene.pathTraceGarden === built) delete scene.pathTraceGarden; };
+    }, [built, scene]);
     const shadowsOn = settings.lightingShadows !== false;
     const atlas = useMemo(() => (shadowsOn ? createShadowAtlas(gl.capabilities.maxTextureSize >= 4096 && !gl.capabilities.isWebGL1 ? 4096 : 2048) : null), [gl, shadowsOn]);
     const plans = useMemo(() => (atlas ? allocateShadows(built.lights, atlas.capacity) : []), [atlas, built]);

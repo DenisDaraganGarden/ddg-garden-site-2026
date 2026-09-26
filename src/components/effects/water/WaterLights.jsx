@@ -192,6 +192,13 @@ export default function WaterLights({ settings, mode, qualityProfile, lighting, 
     reflectionDataRef.current.keyDirectShare = sky?.directShare ?? 0;
   }, -4);
 
+  // A single authored sun for offline rendering; CSM's two lights are coverage.
+  useEffect(() => {
+    const value = { lighting, sky };
+    scene.pathTraceLighting = value;
+    return () => { if (scene.pathTraceLighting === value) delete scene.pathTraceLighting; };
+  }, [scene, lighting, sky]);
+
   const useHdri = lighting.environment.hdri;
   const showHdriBackground = lighting.environment.hdriBackdrop;
   const localHdriFile = SELF_HOSTED_HDRI[settings.hdrPreset] ?? SELF_HOSTED_HDRI.night;

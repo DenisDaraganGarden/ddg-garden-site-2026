@@ -1,0 +1,24 @@
+.focus-editor .focus-dialog.trace-studio { width: min(1180px, calc(100vw - 48px)); max-width: none; height: min(820px, calc(100dvh - 48px)); padding: 0; overflow: hidden; }
+.trace-studio > header { padding: 10px 14px; margin: 0; border-bottom: 1px solid #363936; }
+.trace-layout { display: grid; grid-template-columns: minmax(0, 1fr) 210px; height: calc(100% - 47px); }
+.trace-image { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+.trace-caption, .trace-status { display: flex; align-items: center; gap: 12px; min-height: 34px; padding: 0 12px; font-size: 11px; }
+.trace-caption span { margin-left: auto; color: #93998f; }
+.trace-canvas { position: relative; flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; background: #111412; }
+.trace-canvas canvas { max-width: 100%; max-height: 100%; object-fit: contain; }
+.trace-canvas > span { position: absolute; color: #93998f; font-size: 12px; }
+.trace-status progress { margin-left: auto; width: 100px; height: 4px; accent-color: #c7c9b9; }
+.trace-controls { padding: 14px; display: flex; flex-direction: column; border-left: 1px solid #363936; overflow: auto; gap: 12px; }
+.trace-controls fieldset { display: flex; flex-direction: column; gap: 14px; border: 0; padding: 0; margin: 0; }
+.trace-controls label { display: flex; flex-direction: column; gap: 6px; font-size: 12px; }
+.trace-controls select, .trace-controls input[type=number] { width: 100%; box-sizing: border-box; }
+.trace-controls .trace-check { flex-direction: row; align-items: center; }
+.trace-check input { accent-color: #c7c9b9; }
+.trace-actions { margin-top: auto; display: flex; flex-direction: column; gap: 8px; }
+.trace-actions button, .trace-actions a { text-align: center; padding: 8px; font-size: 12px; }
+.trace-actions .focus-primary { background: #d5d6c9; color: #1c241b; border-color: transparent; }
+.trace-error { font-size: 12px; line-height: 1.5; color: #dbac96; overflow-wrap: anywhere; }
+@media(max-width: 720px) { .focus-editor .focus-dialog.trace-studio { width: calc(100vw - 12px); height: calc(100dvh - 12px); } .trace-layout { grid-template-columns: 1fr; grid-template-rows: minmax(200px, 55%) 1fr; overflow-y: auto; } .trace-controls { border: 0; border-top: 1px solid #363936; } .trace-controls fieldset { display: grid; grid-template-columns: 1fr 1fr; } }
+
+.trace-controls select, .trace-controls input[type=number] { background: #171b18; color: #d3d5cb; border: 1px solid #363936; border-radius: 3px; padding: 6px 8px; font: inherit; color-scheme: dark; }
+.trace-actions button, .trace-actions a { border: 1px solid #363936; border-radius: 3px; text-decoration: none; background: #232824; color: #d3d5cb; cursor: pointer; }

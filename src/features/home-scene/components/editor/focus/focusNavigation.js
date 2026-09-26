@@ -14,6 +14,7 @@ export const FOCUS_DOMAINS = [
     { id: 'environment', ru: 'Среда', en: 'Environment', icon: 'sun', groupIds: ['atmosphere', 'lights'] },
     { id: 'cameras', ru: 'Камеры', en: 'Cameras', icon: 'camera', groupIds: ['cameras'] },
     { id: 'photo', ru: 'Фоторендер', en: 'Photo render', icon: 'picture', groupIds: [], dialog: 'photo' },
+    { id: 'trace', ru: 'Трассировка', en: 'Path tracing', icon: 'sun', groupIds: [], dialog: 'trace' },
     { id: 'render', ru: 'Рендер', en: 'Render', icon: 'sliders', groupIds: ['render'] },
     { id: 'audio', ru: 'Звук', en: 'Audio', icon: 'sound', groupIds: ['audio'] },
     // Проект — ТЗ и заказчик (src/brief); только в проекте движка.

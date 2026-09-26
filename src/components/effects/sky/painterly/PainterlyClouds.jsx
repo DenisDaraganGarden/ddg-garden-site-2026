@@ -150,7 +150,7 @@ function pickStrikeTarget(rng,noise,u,camera) {
 }
 
 function CloudRuntime({noise,settings,lighting,onStats,onShadow,paused,bakeMs,motion,product=false,visible=true,discVisible=true,sunPower=1,environmentEnabled=false,onStrike,strikeRequest=0}) {
-  const {gl,camera,size,invalidate}=useThree();
+  const {gl,scene,camera,size,invalidate}=useThree();
   const contextRevision=useRendererContextRevision(gl);
   const lightning=useMemo(()=>createLightningState(settings.seed),[settings.seed]);
   const bolt=useRef(null),handledStrike=useRef(0);
@@ -163,6 +163,12 @@ function CloudRuntime({noise,settings,lighting,onStats,onShadow,paused,bakeMs,mo
   const supportsHdr=useMemo(()=>getRenderTargetCapabilities(gl).post.halfFloatDepthStencil,[gl]);
   const colorType=supportsHdr?THREE.HalfFloatType:THREE.UnsignedByteType;
   const resources=useMemo(()=>createResources(noise,profile,product,colorType),[noise,profile,product,colorType]);
+  useEffect(()=>{
+    if(!product||!visible)return undefined;
+    const descriptor={uniforms:resources.uniforms,fragmentShader:volumeFragment};
+    scene.pathTraceSky=descriptor;
+    return()=>{if(scene.pathTraceSky===descriptor)delete scene.pathTraceSky;};
+  },[product,visible,scene,resources]);
   const timer=useMemo(()=>createCloudGpuTimer(gl),[gl,contextRevision]); // eslint-disable-line react-hooks/exhaustive-deps -- GPU queries belong to one context generation
   const pmrem=useMemo(()=>product && supportsHdr ? new THREE.PMREMGenerator(gl) : null,[gl,product,supportsHdr]);
   const state=useRef({lastBake:-1,lastEnvironment:-100,frames:0,report:0,viewport:new THREE.Vector4(),scissor:new THREE.Vector4()});
