@@ -1,3 +1,5 @@
+import Groundcover from '../groundcover/Groundcover.jsx';
+import { terrainCoverSurface } from '../groundcover/surface.js';
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useThree } from '@react-three/fiber';
 import * as THREE from 'three';
@@ -411,18 +413,22 @@ function LawnGround({ bed, points, library, month, hour, keyDirection, lift }) {
     return <mesh name={`planting-lawn-${bed.id}`} geometry={geometry} material={lawn.material} receiveShadow raycast={NOTHING} />;
 }
 
-export default function PlantingLayer({ settings, selectedBedId = null, selectedVineId = null, envMapIntensity = 1, keyDirection = null }) {
+export default function PlantingLayer({ settings, selectedBedId = null, selectedVineId = null, envMapIntensity = 1, keyDirection = null, terrainQuery = null, lowPower = false }) {
     const { plants: library, status } = usePlantLibrary();
     const beds = settings.plantingBeds, points = settings.plantingPoints;
     const bedFills = useBedFills(beds, library);
     const bySpecies = useMemo(() => plantingInstances(beds, bedFills, points), [beds, bedFills, points]);
     const all = useMemo(() => [...bySpecies.values()].flat(), [bySpecies]);
     const plan = settings.plantingPlan;
-    // Без библиотеки (сайт, чужая машина) посадок нет совсем — и мульчи тоже.
-    if (status !== 'ready') return null;
+    const exclusions = useMemo(() => all.filter((p) => ['tree', 'conifer', 'shrub'].includes(library.get(p.plant)?.category)).map((p) => ({ x: p.x, z: p.z, radius: Math.max(.035, (library.get(p.plant)?.spread ?? 1) * .045) })), [all, library]);
+    const terrainSurface = useMemo(() => terrainCoverSurface(terrainQuery), [terrainQuery]);
+    const covers = beds.filter((bed) => bed.cover?.enabled);
+    const coverBudget = Math.min(lowPower ? 8000 : 24000, Math.floor((lowPower ? 24000 : 64000) / Math.max(1, covers.length)));
     return <group name="planting">
         {beds.map((bed) => <BedSurface key={bed.id} bed={bed} selected={bed.id === selectedBedId} plan={plan} />)}
-        {plan ? null : beds.map((bed, i) => (bed.kind === 'lawn'
+        {plan ? null : beds.map((bed, i) => (bed.cover?.enabled
+            ? <Groundcover key={bed.id} bed={bed} month={settings.plantingMonth} envMapIntensity={envMapIntensity} exclusions={exclusions} budget={coverBudget} surface={bed.coverSurface?.root === 'terrain' ? terrainSurface : null} />
+            : bed.kind === 'cover' || status !== 'ready' ? null : bed.kind === 'lawn'
             ? <LawnGround key={bed.id} bed={bed} points={points} library={library} month={settings.plantingMonth} hour={settings.timeOfDay ?? 12} keyDirection={keyDirection} lift={layerLift(i)} />
             : <BedGround key={bed.id} bed={bed} fill={bedFills[i]} library={library} month={settings.plantingMonth} lift={layerLift(i)} />))}
         {plan ? <PlanCaps instances={all} library={library} />

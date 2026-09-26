@@ -1,3 +1,4 @@
+import { describeCoverSurface } from '../groundcover/surface.js';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useThree } from '@react-three/fiber';
 import * as THREE from 'three';
@@ -45,7 +46,7 @@ const visible = (object) => {
 };
 const UP = new THREE.Vector3(0, 1, 0), FACING = new THREE.Vector3(0, 0, 1);
 
-export default function PlantingBrush({ mode, groundY = 0, orbitRef, onBed, onBedSurface, onPlant, onVine, onMark, onStart, onLight, onAim, lightMount = 'ground' }) {
+export default function PlantingBrush({ mode, groundY = 0, orbitRef, onBed, onBedSurface, onPlant, onVine, onMark, onStart, onLight, onAim, lightMount = 'ground', terrainQuery = null, bedKind = 'bed' }) {
     const { gl, camera, scene, invalidate } = useThree();
     const cursor = useRef();
     const callbacks = useRef({});
@@ -73,6 +74,8 @@ export default function PlantingBrush({ mode, groundY = 0, orbitRef, onBed, onBe
             const model = scene.getObjectByName('placed');
             const targets = [scene.getObjectByName('ground-plane'), model, aimTarget ? scene.getObjectByName('planting') : null].filter(Boolean);
             const hit = ray.intersectObjects(targets, true).find((item) => item.distance < MAX_REACH && (aimTarget ? visible(item.object) : solid(item.object, mode === 'vine')));
+            const terrain = mode === 'bed' && bedKind === 'cover' ? terrainQuery?.raycast(ray.ray.origin, ray.ray.direction, hit?.distance ?? MAX_REACH) : null;
+            if (terrain && (!hit || terrain.distance < hit.distance)) return { point: [terrain.point.x, terrain.point.y, terrain.point.z], normal: [terrain.normal.x, terrain.normal.y, terrain.normal.z], hit: null, terrain: true };
             if (hit) {
                 let inModel = false;
                 for (let node = hit.object; node; node = node.parent) if (node === model) inModel = true;
@@ -91,7 +94,7 @@ export default function PlantingBrush({ mode, groundY = 0, orbitRef, onBed, onBe
             if (id === undefined || id < 0) return null;
             const m = hit.object.matrixWorld.elements;
             const key = `${hit.object.uuid}:${id}:${m.map((v) => v.toFixed(4)).join(',')}`;
-            if (!regions.has(key)) regions.set(key, regionTriangles(hit.object, hit.faceIndex));
+            if (!regions.has(key)) regions.set(key, { ...regionTriangles(hit.object, hit.faceIndex), coverSurface: describeCoverSurface(hit.object, hit.faceIndex) });
             return regions.get(key);
         };
         const showSurface = (region) => {
@@ -145,7 +148,7 @@ export default function PlantingBrush({ mode, groundY = 0, orbitRef, onBed, onBe
             if (event.button !== 0 || stroke) return;
             const found = cast(event);
             if (!found) return;
-            press = { x: event.clientX, y: event.clientY, id: event.pointerId, moved: 0, region: mode === 'bed' ? regionAt(found.hit) : null };
+            press = { x: event.clientX, y: event.clientY, id: event.pointerId, moved: 0, terrain: found.terrain, region: mode === 'bed' ? regionAt(found.hit) : null };
             if (mode === 'plant' || mode === 'mark' || mode === 'aim') return;
             event.preventDefault(); event.stopImmediatePropagation();
             oldOrbit = orbitRef?.current?.enabled ?? true;
@@ -234,14 +237,14 @@ export default function PlantingBrush({ mode, groundY = 0, orbitRef, onBed, onBe
             if (start?.region?.ground && (clicked || points.length >= 3)) {
                 const outline = regionOutline(start.region.triangles);
                 if (!outline) return;
-                if (clicked) { callbacks.current.onBedSurface?.(outline); return; }
+                if (clicked) { callbacks.current.onBedSurface?.({ ...outline, coverSurface: start.region.coverSurface }); return; }
                 const pieces = clipToSurface(simplifyContour(points.map(([x, , z]) => [x, z])), outline);
-                for (const piece of pieces.slice(0, 8)) callbacks.current.onBedSurface?.({ outer: piece.outer, holes: piece.holes, y: outline.y, ground: outline.ground });
+                for (const piece of pieces.slice(0, 8)) callbacks.current.onBedSurface?.({ outer: piece.outer, holes: piece.holes, y: outline.y, ground: outline.ground, coverSurface: start.region.coverSurface });
                 return;
             }
             if (points.length < 3) return;
             const heights = points.map((p) => p[1]).sort((a, b) => a - b);
-            callbacks.current.onBed?.(simplifyContour(points.map(([x, , z]) => [x, z])), heights[heights.length >> 1]);
+            callbacks.current.onBed?.(simplifyContour(points.map(([x, , z]) => [x, z])), heights[heights.length >> 1], start?.terrain ? { root: 'terrain' } : null);
         };
         const cancel = () => { press = null; if (stroke) stop(); };
         function lifted(found) { return found.point.map((value, i) => value + (found.normal?.[i] ?? (i === 1 ? 1 : 0)) * 0.03); }
@@ -269,7 +272,7 @@ export default function PlantingBrush({ mode, groundY = 0, orbitRef, onBed, onBe
             setSurface(null);
             stop();
         };
-    }, [mode, gl, camera, scene, groundY, orbitRef, invalidate]);
+    }, [mode, gl, camera, scene, groundY, orbitRef, invalidate, terrainQuery, bedKind]);
 
     if (!mode) return null;
     return <group>

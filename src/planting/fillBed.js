@@ -115,7 +115,7 @@ const STRETCH = 1.8;
 
 export function fillBed(bed, library) {
     // Газон — покрытие, а не посадка: растений в нём нет (lawnGround.js).
-    if (bed.kind === 'lawn') return [];
+    if ((bed.kind === 'lawn' || bed.kind === 'cover')) return [];
     const recipe = bed.recipe.map((row) => ({ share: row.share, plant: library.get(row.plant) })).filter((row) => row.plant && row.share > 0);
     const points = bed.points;
     const area = bedArea(bed);

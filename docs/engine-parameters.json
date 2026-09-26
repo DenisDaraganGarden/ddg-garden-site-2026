@@ -1,5 +1,5 @@
 {
-  "collected": "2026-09-25T11:17:35.906Z",
+  "collected": "2026-09-26T02:21:26.588Z",
   "rows": [
     {
       "key": "cameraFov",
@@ -2135,6 +2135,115 @@
       "max": 2,
       "step": 0.05,
       "unit": " ×"
+    },
+    {
+      "key": "plantingBeds[].cover.enabled",
+      "group": "greenery",
+      "node": "planting",
+      "label": "Нижний почвопокров",
+      "kind": "выключатель"
+    },
+    {
+      "key": "plantingBeds[].cover.climate",
+      "group": "greenery",
+      "node": "planting",
+      "label": "Климат почвопокрова",
+      "kind": "список",
+      "options": [
+        "temperate",
+        "cold",
+        "mild"
+      ]
+    },
+    {
+      "key": "plantingBeds[].cover.leaf",
+      "group": "greenery",
+      "node": "planting",
+      "label": "Доля копытника",
+      "kind": "число",
+      "min": 0,
+      "max": 1,
+      "step": 0.05
+    },
+    {
+      "key": "plantingBeds[].cover.thyme",
+      "group": "greenery",
+      "node": "planting",
+      "label": "Доля тимьяна",
+      "kind": "число",
+      "min": 0,
+      "max": 1,
+      "step": 0.05
+    },
+    {
+      "key": "plantingBeds[].cover.density",
+      "group": "greenery",
+      "node": "planting",
+      "label": "Плотность",
+      "kind": "число",
+      "min": 0.4,
+      "max": 1.6,
+      "step": 0.05
+    },
+    {
+      "key": "plantingBeds[].cover.leafSize",
+      "group": "greenery",
+      "node": "planting",
+      "label": "Размер листа, м",
+      "kind": "число",
+      "min": 0.07,
+      "max": 0.24,
+      "step": 0.01
+    },
+    {
+      "key": "plantingBeds[].cover.height",
+      "group": "greenery",
+      "node": "planting",
+      "label": "Высота листвы, м",
+      "kind": "число",
+      "min": 0.04,
+      "max": 0.24,
+      "step": 0.01
+    },
+    {
+      "key": "plantingBeds[].cover.patches",
+      "group": "greenery",
+      "node": "planting",
+      "label": "Размер куртины, м",
+      "kind": "число",
+      "min": 0.3,
+      "max": 4,
+      "step": 0.1
+    },
+    {
+      "key": "plantingBeds[].cover.edge",
+      "group": "greenery",
+      "node": "planting",
+      "label": "Мягкий край, м",
+      "kind": "число",
+      "min": 0,
+      "max": 0.5,
+      "step": 0.01
+    },
+    {
+      "key": "plantingBeds[].cover.moisture",
+      "group": "greenery",
+      "node": "planting",
+      "label": "Влажность",
+      "kind": "число",
+      "min": 0,
+      "max": 1,
+      "step": 0.05
+    },
+    {
+      "key": "plantingBeds[].cover.shade",
+      "group": "greenery",
+      "node": "planting",
+      "label": "Тенистость",
+      "kind": "число",
+      "min": 0,
+      "max": 1,
+      "step": 0.05
     },
     {
       "key": "plantingVines",

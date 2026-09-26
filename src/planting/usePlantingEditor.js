@@ -51,20 +51,21 @@ export function usePlantingEditor({ settings, history, setActiveTab, setTool, to
     const addBed = useCallback((shape) => {
         const { settings, language, library, bedKind: kind } = live.current;
         if (settings.plantingBeds.length >= PLANTING_LIMITS.beds) return;
-        const lawn = kind === 'lawn', ru = language === 'ru';
+        const lawn = kind === 'lawn', cover = kind === 'cover', ru = language === 'ru';
         const used = new Set(settings.plantingBeds.map((bed) => bed.name));
         let n = 1, name;
-        do { name = `${lawn ? (ru ? 'Газон' : 'Lawn') : (ru ? 'Цветник' : 'Bed')} ${n++}`; } while (used.has(name));
+        do { name = `${lawn ? (ru ? 'Газон' : 'Lawn') : cover ? (ru ? 'Почвопокров' : 'Groundcover') : (ru ? 'Цветник' : 'Bed')} ${n++}`; } while (used.has(name));
         const palette = PLANTING_PALETTES[0];
         const bed = normalizePlantingBed(lawn
             ? { id: newId('lawn'), name, ...shape, kind: 'lawn', lawn: { ...LAWN_DEFAULT, angle: lawnAngleFor(shape.points) }, seed: newSeed() }
+            : cover ? { id: newId('cover'), name, ...shape, kind: 'cover', cover: {}, seed: newSeed() }
             : { id: newId('bed'), name, ...shape, recipe: paletteRecipe(palette, library), drift: palette.drift ?? PLANTING_BED_DEFAULT.drift, density: 1, seed: newSeed() }, settings.plantingBeds.length);
         if (!bed) return;
         applyBeds([...settings.plantingBeds, bed]);
         setSelectedId(bed.id);
     }, [applyBeds]);
-    const onBed = useCallback((points, y) => addBed({ points, y }), [addBed]);
-    const onBedSurface = useCallback(({ outer, holes, y, ground }) => addBed({ points: outer, holes, y, ground, surface: true }), [addBed]);
+    const onBed = useCallback((points, y, coverSurface) => addBed({ points, y, coverSurface }), [addBed]);
+    const onBedSurface = useCallback(({ outer, holes, y, ground, coverSurface }) => addBed({ points: outer, holes, y, ground, coverSurface, surface: true }), [addBed]);
 
     const onPlant = useCallback(([x, y, z]) => {
         const { settings, history, plantChoice, plantStatus, library } = live.current;
@@ -123,6 +124,7 @@ export function usePlantingEditor({ settings, history, setActiveTab, setTool, to
         mode: tool === 'bed' || tool === 'plant' || tool === 'vine' ? tool : null,
         bedKind,
         begin: (next) => { setActiveTab(PLANTING_NODE); setBedKind('bed'); setTool(next); },
+        beginCover: () => { setActiveTab(PLANTING_NODE); setBedKind('cover'); setTool('bed'); },
         beginLawn: () => { setActiveTab(PLANTING_NODE); setBedKind('lawn'); setTool('bed'); },
         stop: () => setTool('select'),
     };

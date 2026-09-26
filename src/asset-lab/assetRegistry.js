@@ -1,3 +1,4 @@
+import GroundcoverLab from '../groundcover-lab/GroundcoverLab.jsx';
 import { ASSET_CATALOG, DEFAULT_ASSET_COLLECTION } from './assetCatalog';
 import FishLab from '../fish-lab/FishLab';
 import SeagullLab from '../seagull-lab/SeagullLab';
@@ -29,6 +30,7 @@ const COMPONENTS = {
   algae: AlgaeLab,
   grass: GrassLab,
   topiary: TopiaryLab,
+  groundcover: GroundcoverLab,
   rocks: RockLab,
   driftwood: DriftwoodLab,
   water: WaterLab,

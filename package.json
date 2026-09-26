@@ -13,6 +13,7 @@
     "check:materials": "node src/components/effects/water/pbrMaterial.check.js",
     "check:path-trace": "node src/path-trace/pathTrace.check.js",
     "check:render-resources": "node src/materials/modelResources.check.js && node src/components/effects/rendererContext.check.js && node src/components/effects/csmAdapter.check.js",
+    "check:groundcover": "node src/groundcover/groundcover.check.js",
     "check:vegetation": "node src/components/effects/water/vegetationGeometry.check.js",
     "check:render-targets": "node src/components/effects/water/renderTargets.check.js && node src/components/effects/water/opticsGeometryLod.check.js",
     "check:render-capabilities": "node src/components/effects/renderTargetCapabilities.check.js && node src/components/effects/qualityProfile.check.js",
