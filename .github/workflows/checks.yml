@@ -17,7 +17,9 @@ concurrency:
 jobs:
   checks:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    # The smoke test alone takes about 21 minutes in software WebGL and stops
+    # itself after 35 (scripts/smoke-test.mjs); this is the backstop above it.
+    timeout-minutes: 45
 
     steps:
       - name: Checkout

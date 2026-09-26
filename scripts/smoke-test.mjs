@@ -7,6 +7,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { chromium } from 'playwright';
 import { cleanupPlaywrightProcesses } from './cleanup-playwright.mjs';
 import { HOME_SCENE_CAMERA_FOV_MAX, HOME_SCENE_CAMERA_FOV_MIN } from '../src/features/home-scene/lib/layout.js';
+import { SCENE_OBJECTS, audioSettingsForScene } from '../src/features/home-scene/lib/sceneObjects.js';
 
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const host = '127.0.0.1';
@@ -14,7 +15,10 @@ const port = Number(process.env.SMOKE_PORT ?? '4173');
 const baseUrl = process.env.SMOKE_BASE_URL ?? `http://${host}:${port}`;
 const useExistingServer = process.env.SMOKE_USE_EXISTING_SERVER === '1';
 const smokePhase = process.env.SMOKE_PHASE ?? 'all';
-const smokeMaxRuntimeMs = Number(process.env.SMOKE_MAX_RUNTIME_MS ?? '900000');
+// A whole run takes about 21 minutes in software WebGL (on a 4-core machine,
+// most of it scenes booting and editor clicks at 1–2 fps); the watchdog only
+// catches a hang, and the CI job's own limit (checks.yml) sits above it.
+const smokeMaxRuntimeMs = Number(process.env.SMOKE_MAX_RUNTIME_MS ?? '2100000');
 const shouldAutoCleanupProcesses = process.env.SMOKE_SKIP_PROCESS_CLEANUP !== '1';
 const smokeBrowserArgs = ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'];
 const windowsBrowserCandidates = [
@@ -313,9 +317,9 @@ function installProcessGuards() {
   process.once('SIGTERM', () => handleSignal('SIGTERM', 143));
 }
 
-async function expectVisible(page, locator, description) {
+async function expectVisible(page, locator, description, timeout = 10000) {
   try {
-    await locator.first().waitFor({ state: 'visible', timeout: 10000 });
+    await locator.first().waitFor({ state: 'visible', timeout });
   } catch (error) {
     const geometry = await Promise.race([locator.first().evaluate((node) => {
       const chain = [];
@@ -405,14 +409,25 @@ async function waitForRuntimeMetrics(page, sceneId, timeoutMs = 20000) {
   return page.evaluate((id) => window.__DDG_RUNTIME_METRICS__[id], sceneId);
 }
 
+// The CI runner renders WebGL in software (SwiftShader), and there Chromium
+// offers no KHR_parallel_shader_compile: a new scene links its ~60 shader
+// programs on the page's main thread. On a 4-core machine like the runner the
+// home scene held that thread for 20 s in two long tasks (9 s and 7 s) and
+// showed the site nav, which waits for the scene's ready signal, after 25 s.
+// Nothing a check asks of the page gets an answer before such a boot ends, so
+// every page with a scene is first waited for with this budget.
+const SCENE_BOOT_MS = 120000;
+
 // Lazy GLB decoding can finish a few seconds after RuntimeDiagnostics starts.
 // A memory baseline taken before that work completes mistakes the real boat and
 // sculpture for a leak. Wait for several fresh diagnostic writes with unchanged
 // GPU resource counts; a genuine continuous leak never reaches this plateau.
-// In software WebGL (CI) the home scene reaches it after 35–40 s at 1–2 fps,
-// so the budget is a minute; the leak tolerances are unchanged.
-const SETTLE_MS = 60000;
-async function waitForSettledRuntimeMetrics(page, sceneId, timeoutMs = SETTLE_MS) {
+// The shader program count is part of the plateau: a program appears when a
+// new material first renders, and in software WebGL its link holds the page's
+// main thread (see SCENE_BOOT_MS), so a scene still adding programs is still
+// booting. In software WebGL (CI) the home scene reaches it after 35–40 s at
+// 1–2 fps; the budget is the boot's. The leak tolerances are unchanged.
+async function waitForSettledRuntimeMetrics(page, sceneId, timeoutMs = SCENE_BOOT_MS) {
   const startedAt = Date.now();
   const stableWindowMs = 3500;
   let previous = null;
@@ -423,7 +438,8 @@ async function waitForSettledRuntimeMetrics(page, sceneId, timeoutMs = SETTLE_MS
     const timestamp = Number(sample.timestamp);
     const geometries = Number(sample.renderer?.geometries);
     const textures = Number(sample.renderer?.textures);
-    if (process.env.SMOKE_SETTLE_DEBUG) console.log(`[settle ${sceneId}] wall=${((Date.now() - startedAt) / 1000).toFixed(1)}s ts=${Math.round(timestamp)} g=${geometries} t=${textures} fps=${Number(sample.performance?.fps).toFixed(1)} stable=${stableForMs}`);
+    const programs = Number(sample.renderer?.programs);
+    if (process.env.SMOKE_SETTLE_DEBUG) console.log(`[settle ${sceneId}] wall=${((Date.now() - startedAt) / 1000).toFixed(1)}s ts=${Math.round(timestamp)} g=${geometries} t=${textures} p=${programs} fps=${Number(sample.performance?.fps).toFixed(1)} stable=${stableForMs}`);
 
     if (
       previous
@@ -431,7 +447,8 @@ async function waitForSettledRuntimeMetrics(page, sceneId, timeoutMs = SETTLE_MS
       && timestamp > previous.timestamp
     ) {
       const resourcesUnchanged = geometries === previous.geometries
-        && textures === previous.textures;
+        && textures === previous.textures
+        && programs === previous.programs;
       stableForMs = resourcesUnchanged
         ? stableForMs + (timestamp - previous.timestamp)
         : 0;
@@ -442,14 +459,14 @@ async function waitForSettledRuntimeMetrics(page, sceneId, timeoutMs = SETTLE_MS
     }
 
     if (!previous || (Number.isFinite(timestamp) && timestamp > previous.timestamp)) {
-      previous = { timestamp, geometries, textures };
+      previous = { timestamp, geometries, textures, programs };
     }
 
     await settlePage(page, 250);
   }
 
   const resourceSummary = previous
-    ? `${previous.geometries} geometries / ${previous.textures} textures`
+    ? `${previous.geometries} geometries / ${previous.textures} textures / ${previous.programs} programs`
     : 'no metrics';
   throw new Error(`${sceneId} resources did not settle (${resourceSummary})`);
 }
@@ -463,6 +480,12 @@ async function setRangeValue(locator, value) {
   }, value);
 }
 
+// Home shows the site nav only once its scene reports ready (App.jsx), and
+// hides it again while a returning Home boots a new scene.
+async function waitForHomeReady(page, description) {
+  await expectVisible(page, page.getByTestId('site-nav'), description, SCENE_BOOT_MS);
+}
+
 // The editor keeps its boot screen (#engine-boot, index.html) over the whole UI
 // until the scene reports it is built, or BOOT_SAFETY_MS (25 s, HomeEdit.jsx)
 // of running page has passed; nothing under it takes a click. In software
@@ -474,6 +497,9 @@ async function waitForEditorReady(page) {
     const snapshot = await readFailureSnapshot(page);
     throw new Error(`Editor boot screen did not clear: ${error.message}\nPage: ${JSON.stringify(snapshot)}`);
   }
+  // The safety timer lifts the screen while a software-rendered scene is
+  // still linking programs; its clicks wait for the scene to settle.
+  await waitForSettledRuntimeMetrics(page, 'home-scene-editor', SCENE_BOOT_MS);
 }
 
 // The focus editor: workspaces on the rail (focus-domain-<domain>, FOCUS_DOMAINS
@@ -547,6 +573,14 @@ async function readPublishedSettings() {
   return module.publishedHomeSceneSettings;
 }
 
+// The home soundscape. The engine keeps a track silent while its object is off
+// in the scene (sceneObjects.js), so the published scene decides which start.
+const HOME_SOUNDSCAPE_TRACKS = ['water', 'shore', 'boat', 'birds', 'wind', 'thunder'];
+async function readExpectedHomeTracks() {
+  const tracks = audioSettingsForScene(await readPublishedSettings())?.tracks ?? {};
+  return HOME_SOUNDSCAPE_TRACKS.filter((id) => tracks[id]?.enabled !== false);
+}
+
 async function readPublishedKeys() {
   const module = await importFresh(publishedKeysPath);
   return module.publishedHomeSceneKeys;
@@ -566,13 +600,17 @@ function assertStableMetricSeries(samples, selector, label, tolerance = 2) {
   );
 }
 
-// The CI runner renders in software: leaving the editor's scene and loading the
-// next page there took over Playwright's default 30 s (route 404 after
-// /home/edit). Every context gets a minute and a half per navigation.
-const NAVIGATION_MS = 90000;
+// The CI runner renders in software. Leaving a page waits for the link its
+// scene is running (route 404 after /home/edit took 65 s), so a navigation
+// gets the boot budget. A settings change can relink programs too: choosing a
+// site camera with other render settings held the editor for 28 s in one long
+// task, and a click there takes 7–18 s at 1–2 fps, so actions get 90 s.
+const NAVIGATION_MS = SCENE_BOOT_MS;
+const ACTION_MS = 90000;
 async function newSmokeContext(browser, options) {
   const context = await browser.newContext(options);
   context.setDefaultNavigationTimeout(NAVIGATION_MS);
+  context.setDefaultTimeout(ACTION_MS);
   return context;
 }
 
@@ -583,7 +621,7 @@ async function runRouteChecks(browser) {
   collectPageIssues(page, issues);
 
   await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
-  await expectVisible(page, page.getByTestId('site-nav'), 'site nav');
+  await waitForHomeReady(page, 'site nav');
   await expectVisible(page, page.getByTestId('brand-link'), 'brand link');
   await expectVisible(page, page.getByTestId('home-page'), 'home page');
   await page.getByTestId('site-music-controller').first().waitFor({ state: 'attached', timeout: 10000 });
@@ -613,10 +651,10 @@ async function runRouteChecks(browser) {
   log('OK route /map');
 
   await page.goto(`${baseUrl}/home/edit`, { waitUntil: 'domcontentloaded' });
+  await waitForEditorReady(page);
   await expectVisible(page, page.getByTestId('home-editor-page'), 'home editor page');
   // The editor opens on the water: its controls in the inspector, its row in the list.
   await expectVisible(page, editorControl(page, 'landscape/water:waterExtent'), 'home editor water controls');
-  await waitForEditorReady(page);
   await page.getByTestId('focus-tool-list').click();
   await expectVisible(page, page.getByTestId('home-editor-tab-water'), 'home editor water tab');
   await expectVisible(page, page.getByTestId('home-editor-scene'), 'home editor scene');
@@ -672,6 +710,7 @@ async function runAudioLifecycleChecks(browser) {
   collectPageIssues(page, issues);
 
   await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
+  await waitForHomeReady(page, 'audio lifecycle home');
   await page.getByTestId('site-music-controller').first().waitFor({ state: 'attached', timeout: 10000 });
 
   await waitForCondition(async () => {
@@ -688,14 +727,20 @@ async function runAudioLifecycleChecks(browser) {
       && audioState?.contextState === 'running';
   }, 'Soundscape should unlock after an explicit user click');
 
-  await waitForCondition(async () => page.evaluate(() => (
-    ['water', 'shore', 'boat', 'birds', 'wind', 'thunder']
-      .every((id) => window.__DDG_AUDIO_STATE__?.activeTracks?.includes(id))
-  )), 'Soundscape tracks should decode and start exactly once');
+  const expectedTracks = await readExpectedHomeTracks();
+  assert(expectedTracks.length > 0, 'The published scene should keep some soundscape tracks');
+  await waitForCondition(async () => page.evaluate((ids) => (
+    ids.every((id) => window.__DDG_AUDIO_STATE__?.activeTracks?.includes(id))
+  ), expectedTracks), `Soundscape tracks should decode and start exactly once: ${expectedTracks.join(', ')}`);
 
   const initialTracks = await page.evaluate(() => (
     window.__DDG_AUDIO_STATE__.activeTracks.slice().sort()
   ));
+  const silentTracks = HOME_SOUNDSCAPE_TRACKS.filter((id) => !expectedTracks.includes(id));
+  assert(
+    silentTracks.every((id) => !initialTracks.includes(id)),
+    `Tracks of objects switched off in the scene should stay silent: ${silentTracks.join(', ')}`,
+  );
 
   // Trigger the router link directly: the home scene can be inside its visual
   // slideshow fade while this lifecycle check runs, but that overlay is not
@@ -708,7 +753,8 @@ async function runAudioLifecycleChecks(browser) {
   )), 'Home soundscape bus should fade toward silence on inner routes');
 
   await page.getByTestId('brand-link').evaluate((element) => element.click());
-  await expectVisible(page, page.getByTestId('home-page'), 'audio lifecycle home return');
+  // Home mounts a new scene: the page answers again once it has booted.
+  await expectVisible(page, page.getByTestId('home-page'), 'audio lifecycle home return', SCENE_BOOT_MS);
   await waitForCondition(async () => page.evaluate(() => (
     window.__DDG_AUDIO_STATE__?.routeActive === true
       && window.__DDG_AUDIO_STATE__?.homeGainTarget === 1
@@ -723,7 +769,7 @@ async function runAudioLifecycleChecks(browser) {
   );
 
   await page.goto(`${baseUrl}/home/edit`, { waitUntil: 'domcontentloaded' });
-  await page.getByTestId('home-editor-page').waitFor({ state: 'visible', timeout: 10000 });
+  await expectVisible(page, page.getByTestId('home-editor-page'), 'audio lifecycle editor', SCENE_BOOT_MS);
   assert(
     await page.getByTestId('site-music-controller').count() === 0,
     'Public sound controller should be hidden on /home/edit',
@@ -775,7 +821,7 @@ async function runDraftMigrationChecks(browser) {
   });
 
   await page.goto(`${baseUrl}/home/edit`, { waitUntil: 'domcontentloaded' });
-  await expectVisible(page, page.getByTestId('home-editor-page'), 'home editor after legacy draft');
+  await expectVisible(page, page.getByTestId('home-editor-page'), 'home editor after legacy draft', SCENE_BOOT_MS);
   await settlePage(page, 400);
 
   const draftState = await page.evaluate(({ legacyKeys, draftKey }) => {
@@ -859,14 +905,21 @@ async function runCameraSystemChecks(browser) {
   collectPageIssues(page, issues);
 
   // Keep the editor workflow deterministic when the published site already
-  // contains several authored cameras.
-  await page.addInitScript((draftKey) => {
-    localStorage.setItem(draftKey, JSON.stringify({ cameraFov: 36 }));
-  }, HOME_SCENE_SETTINGS_STORAGE_KEY);
+  // contains several authored cameras. The draft carries the site's object
+  // switches: without them it is the factory scene with everything on, three
+  // times the shader programs, which software WebGL does not settle within
+  // SCENE_BOOT_MS; the cameras are what this checks.
+  const published = await readPublishedSettings();
+  const objectSwitches = Object.fromEntries(SCENE_OBJECTS
+    .filter(({ key }) => typeof published[key] === 'boolean')
+    .map(({ key }) => [key, published[key]]));
+  await page.addInitScript(({ draftKey, draft }) => {
+    localStorage.setItem(draftKey, JSON.stringify(draft));
+  }, { draftKey: HOME_SCENE_SETTINGS_STORAGE_KEY, draft: { cameraFov: 36, ...objectSwitches, boatVisible: true } });
 
   await page.goto(`${baseUrl}/home/edit`, { waitUntil: 'domcontentloaded' });
-  await expectVisible(page, page.getByTestId('home-editor-page'), 'camera editor');
   await waitForEditorReady(page);
+  await expectVisible(page, page.getByTestId('home-editor-page'), 'camera editor');
   await openEditorSection(page, 'render', 'post');
   for (const testId of FILM_CONTROL_IDS) {
     await expectVisible(page, page.getByTestId(testId), `film control ${testId}`);
@@ -1033,8 +1086,8 @@ async function runPublishChecks(browser) {
 
   try {
     await page.goto(`${baseUrl}/home/edit`, { waitUntil: 'domcontentloaded' });
-    await expectVisible(page, page.getByTestId('home-editor-page'), 'home editor page for publish');
     await waitForEditorReady(page);
+    await expectVisible(page, page.getByTestId('home-editor-page'), 'home editor page for publish');
     await expectVisible(page, page.getByTestId('home-editor-publish'), 'home editor publish button');
     const publishButton = page.getByTestId('home-editor-publish');
     assert(
@@ -1046,6 +1099,7 @@ async function runPublishChecks(browser) {
     // snapshot never publishes: edit the first scene camera, the publish root.
     await openEditorSection(page, 'cameras', 'camera');
     await page.locator('[data-testid^="home-editor-camera-select-"]').first().click();
+    await waitForSettledRuntimeMetrics(page, 'home-scene-editor');
 
     await openEditorSection(page, 'scene', 'water');
     const waveAmplitude = editorControl(page, 'landscape/water:waveAmplitude');
@@ -1156,10 +1210,8 @@ async function runLongSessionMemoryChecks(browser) {
 
   const runSeries = async (urlPath, sceneId, label, tolerance) => {
     const samples = [];
-    // The CI runner renders in software; a route change there can take longer
-    // than the default 30 s, as the stability checks already allow for.
-    await page.goto(`${baseUrl}${urlPath}`, { waitUntil: 'domcontentloaded', timeout: 60000 });
-    samples.push(await waitForSettledRuntimeMetrics(page, sceneId, SETTLE_MS));
+    await page.goto(`${baseUrl}${urlPath}`, { waitUntil: 'domcontentloaded' });
+    samples.push(await waitForSettledRuntimeMetrics(page, sceneId));
 
     for (let index = 0; index < 5; index += 1) {
       await settlePage(page, 2500);
@@ -1189,7 +1241,6 @@ async function runLongSessionMemoryChecks(browser) {
 }
 
 async function runRuntimeStabilityChecks(browser) {
-  const navigationTimeout = 60000;
   const context = await newSmokeContext(browser, { viewport: { width: 1440, height: 900 } });
   const page = await context.newPage();
   const issues = [];
@@ -1198,11 +1249,11 @@ async function runRuntimeStabilityChecks(browser) {
   const editorSamples = [];
 
   for (let cycle = 0; cycle < 2; cycle += 1) {
-    await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: navigationTimeout });
-    homeSamples.push(await waitForSettledRuntimeMetrics(page, 'water-scene', SETTLE_MS));
+    await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
+    homeSamples.push(await waitForSettledRuntimeMetrics(page, 'water-scene'));
 
-    await page.goto(`${baseUrl}/home/edit`, { waitUntil: 'domcontentloaded', timeout: navigationTimeout });
-    editorSamples.push(await waitForSettledRuntimeMetrics(page, 'home-scene-editor', SETTLE_MS));
+    await page.goto(`${baseUrl}/home/edit`, { waitUntil: 'domcontentloaded' });
+    editorSamples.push(await waitForSettledRuntimeMetrics(page, 'home-scene-editor'));
   }
 
   assertStableMetricSeries(homeSamples, (sample) => sample.renderer.geometries, 'Home geometries', 4);
@@ -1221,13 +1272,13 @@ async function runMobileChecks(browser) {
   const issues = [];
   collectPageIssues(page, issues);
 
-  await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
-  await expectVisible(page, page.getByTestId('site-nav'), 'mobile nav');
+  await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
+  await waitForHomeReady(page, 'mobile nav');
   await expectVisible(page, page.getByTestId('language-ru'), 'mobile language RU');
   await expectVisible(page, page.getByTestId('language-en'), 'mobile language EN');
   await expectVisible(page, page.getByTestId('home-page'), 'mobile home page');
 
-  await page.goto(`${baseUrl}/portfolio`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  await page.goto(`${baseUrl}/portfolio`, { waitUntil: 'domcontentloaded' });
   await expectVisible(page, page.locator('.portfolio-page'), 'mobile portfolio page');
   await expectVisible(page, page.locator('[data-testid^="project-row-"]'), 'mobile portfolio rows');
   log('OK mobile checks');
