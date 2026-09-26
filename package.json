@@ -30,6 +30,8 @@
     "check:clouds": "node src/components/effects/sky/skyModel.check.js && node src/components/effects/homeSceneLighting.check.js && node src/features/home-scene/hooks/homeSceneCloudSettings.check.js",
     "check:audio": "node scripts/check-audio.mjs",
     "check:audio:browser": "node scripts/check-audio-browser.mjs",
+    "content:export": "node scripts/content/export-registry-manifest.mjs",
+    "test:content": "node --test tests/portfolio-content/*.test.mjs",
     "convert:models": "node scripts/convert-models.mjs",
     "generate:lily": "node scripts/generate-lily-pbr.mjs",
     "generate:optics-lods": "node scripts/generate-optics-lods.mjs",

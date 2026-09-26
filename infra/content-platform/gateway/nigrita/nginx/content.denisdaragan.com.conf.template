@@ -1,0 +1,64 @@
+# Future public content SNI-vhost. Do not install until DNS and certificates are
+# deliberately approved. It exposes no admin pages and no generic API access.
+server {
+    listen 80;
+    listen [::]:80;
+    server_name content.denisdaragan.com;
+
+    location ^~ /.well-known/acme-challenge/ {
+        root /var/www/acme-challenge;
+        default_type text/plain;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name content.denisdaragan.com;
+
+    # Replace with paths managed by nigrita's existing certificate workflow.
+    ssl_certificate /etc/letsencrypt/live/content.denisdaragan.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/content.denisdaragan.com/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+    server_tokens off;
+    client_max_body_size 1m;
+    limit_req_status 429;
+
+    # Only the public manifest may be read through this hostname.
+    location = /api/portfolio-manifest {
+        limit_req zone=ddg_content_public burst=20 nodelay;
+        limit_except GET HEAD OPTIONS { deny all; }
+        proxy_pass http://127.0.0.1:18055;
+        proxy_http_version 1.1;
+        proxy_set_header Host $server_name;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_read_timeout 30s;
+        proxy_send_timeout 30s;
+    }
+
+    # Payload checks media permissions; this vhost additionally prevents all
+    # write methods and all routes except generated media delivery.
+    location ~ ^/api/media/file/ {
+        limit_req zone=ddg_content_public burst=100 nodelay;
+        limit_except GET HEAD OPTIONS { deny all; }
+        proxy_pass http://127.0.0.1:18055;
+        proxy_http_version 1.1;
+        proxy_set_header Host $server_name;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_read_timeout 60s;
+        proxy_send_timeout 60s;
+    }
+
+    location / {
+        return 404;
+    }
+}

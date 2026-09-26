@@ -1,0 +1,5 @@
+# Install in /etc/nginx/conf.d/ so these zones are declared in the global
+# `http` context before either DDG server block is loaded.
+limit_req_zone $binary_remote_addr zone=ddg_admin_login:10m rate=5r/m;
+limit_req_zone $binary_remote_addr zone=ddg_admin_general:10m rate=20r/s;
+limit_req_zone $binary_remote_addr zone=ddg_content_public:10m rate=50r/s;

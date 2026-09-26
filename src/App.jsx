@@ -11,6 +11,7 @@ import { SiteAudioProvider } from './features/audio/SiteAudioProvider';
 import { archiveNavigationItems } from './config/siteNavigation';
 import { useLanguage } from './i18n/useLanguage';
 import ddgLogo from '../portfolio/DDG_logo.webp';
+import { PortfolioContentProvider } from './features/portfolio-content';
 const Home = lazy(() => import('./pages/Home'));
 const Info = lazy(() => import('./pages/Info'));
 const Portfolio = lazy(() => import('./pages/Portfolio'));
@@ -130,7 +131,7 @@ function App() {
         <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
             <LanguageProvider>
                 <SiteAudioProvider>
-                    <AppShell />
+                    <PortfolioContentProvider><AppShell /></PortfolioContentProvider>
                 </SiteAudioProvider>
             </LanguageProvider>
         </Router>

@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import Globe from 'react-globe.gl';
 import { useLocation } from 'react-router-dom';
 import { useLanguage } from '../i18n/useLanguage';
-import { projectRegistry } from '../data/projectRegistry';
+import { usePortfolioContent } from '../features/portfolio-content';
 import { localizeField } from '../lib/localizeField';
 import '../styles/Map.css';
 
@@ -553,6 +553,7 @@ const attachProjectHover = (element, project, setHoverD) => {
 
 const Map = () => {
     const { language, t } = useLanguage();
+    const { projects } = usePortfolioContent();
     const routerLocation = useLocation();
     const queryParams = new URLSearchParams(routerLocation.search);
     const focusProjectId = queryParams.get('project') ?? '';
@@ -623,12 +624,12 @@ const Map = () => {
     }, [countries, globeMaterial, waterways]);
 
     const localizedProjects = useMemo(() => (
-        projectRegistry.map((project) => ({
+        projects.map((project) => ({
             ...project,
             title: localizeField(project.title, language),
             locationText: localizeField(project.location, language),
         }))
-    ), [language]);
+    ), [language, projects]);
 
     const mappableProjects = useMemo(() => (
         localizedProjects.filter((project) => (

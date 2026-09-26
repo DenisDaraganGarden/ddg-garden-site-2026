@@ -22,6 +22,8 @@ export default [
       'dist/**',
       'output/**',
       'tmp/**',
+      'services/**/.next/**',
+      'services/**/node_modules/**',
       'public/portfolio/imported/**',
       'node_modules/**',
       // Codex left its worktrees under .claude/; a root lint must not wander into them.
