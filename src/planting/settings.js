@@ -7,7 +7,7 @@ import { normalizeCover, normalizeCoverSurface } from '../groundcover/settings.j
 // нарисован. Цветники и одиночные растения общие для всех камер, как
 // расстановка (sceneCameras.js их не снимает); месяц и план — у камеры свои,
 // как время суток: «июнь» и «январь» — две камеры.
-export const PLANTING_LIMITS = Object.freeze({ beds: 64, points: 400, recipe: 12, contour: 256, holes: 64, hole: 128, ground: 4400, plants: 30000, vines: 200, shoots: 12, shootPoints: 400 });
+export const PLANTING_LIMITS = Object.freeze({ beds: 64, points: 400, recipe: 12, contour: 256, holes: 64, hole: 128, ground: 4400, plants: 30000, vines: 200, shoots: 12, shootPoints: 400, edits: 2000 });
 export const PLANTING_RANGES = Object.freeze({ drift: [0.3, 6, 0.1], density: [0.4, 2, 0.05], share: [1, 100, 1], month: [1, 12, 1], sway: [0, 2, 0.05], stripe: [0.3, 3, 0.05], cut: [2, 30, 0.5], contrast: [0, 1, 0.05], patches: [0, 1, 0.05], blades: [0.5, 3, 0.1], variety: [0, 1, 0.05], tint: [-1, 1, 0.05] });
 // northAngle — север участка (north.js): градусы по часовой от зелёной оси
 // SketchUp; как и цветники, один на все камеры. plantingSway — насколько
@@ -71,6 +71,23 @@ function normalizeGround(value) {
     return { x0: metres(Number(value.x0)), z0: metres(Number(value.z0)), step: Math.round(step * 1000) / 1000, cols, rows, h: value.h.map((v) => (v === null || !Number.isFinite(Number(v)) ? null : height(v))) };
 }
 
+// Ручные правки растений цветника (fillBed.js, applyEdits): k — ключ
+// «вид:ряд:место», x/z — где растение стояло от опорной точки цветника, to —
+// куда его сдвинули (тоже от опорной точки). Пустых правок в записи нет.
+const EDIT_KEY = /^[a-z0-9][a-z0-9-]{0,63}:-?\d{1,5}:-?\d{1,5}$/;
+const offset = (value) => Math.round(Math.min(SPAN, Math.max(-SPAN, Number(value))) * 1000) / 1000;
+function normalizeBedEdits(value) {
+    if (!value || typeof value !== 'object') return null;
+    const valid = (edit) => edit && EDIT_KEY.test(String(edit.k ?? '')) && Number.isFinite(Number(edit.x)) && Number.isFinite(Number(edit.z));
+    const seen = new Set();
+    const once = (edit) => !seen.has(edit.k) && seen.add(edit.k);
+    const removed = (Array.isArray(value.removed) ? value.removed : []).filter(valid).filter(once).slice(0, PLANTING_LIMITS.edits)
+        .map((edit) => ({ k: edit.k, x: offset(edit.x), z: offset(edit.z) }));
+    const moved = (Array.isArray(value.moved) ? value.moved : []).filter((edit) => valid(edit) && finitePair(edit.to) && !seen.has(edit.k)).filter(once).slice(0, PLANTING_LIMITS.edits)
+        .map((edit) => ({ k: edit.k, x: offset(edit.x), z: offset(edit.z), to: [offset(edit.to[0]), offset(edit.to[1])] }));
+    return removed.length || moved.length ? { ...(removed.length ? { removed } : {}), ...(moved.length ? { moved } : {}) } : null;
+}
+
 export function normalizePlantingBed(value, index = 0) {
     if (!value || !Array.isArray(value.points)) return null;
     const points = ring(value.points, PLANTING_LIMITS.contour);
@@ -79,6 +96,7 @@ export function normalizePlantingBed(value, index = 0) {
     const ground = normalizeGround(value.ground);
     const lawn = value.kind === 'lawn', cover = value.kind === 'cover';
     const coverSurface = normalizeCoverSurface(value.coverSurface);
+    const edits = !value.kind || value.kind === 'bed' ? normalizeBedEdits(value.edits) : null;
     const seen = new Set();
     const recipe = lawn || cover ? [] : (Array.isArray(value.recipe) ? value.recipe : [])
         .filter((row) => row && PLANT.test(String(row.plant ?? '')) && !seen.has(row.plant) && seen.add(row.plant))
@@ -101,6 +119,7 @@ export function normalizePlantingBed(value, index = 0) {
         ...(value.surface === true ? { surface: true } : {}),
         ...(holes.length ? { holes } : {}),
         ...(ground ? { ground } : {}),
+        ...(edits ? { edits } : {}),
     };
 }
 

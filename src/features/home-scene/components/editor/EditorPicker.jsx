@@ -66,7 +66,8 @@ export default function EditorPicker({ enabled, onPick, onContextMenu, clearOnMi
                 // Q в группе модели: спрятанного вокруг неё для щелчка нет.
                 if (outsideIsolation(hit.object)) continue;
                 const found = hit.object.visible ? sceneHitForObject3D(hit.object, hit) : null;
-                if (found) return found;
+                // Точка попадания — внутри цветника по ней ищется растение.
+                if (found) return { ...found, point: [hit.point.x, hit.point.y, hit.point.z] };
             }
 
             return null;

@@ -1,6 +1,6 @@
 // Run: node src/planting/planting.check.js
 import assert from 'node:assert/strict';
-import { coverSchedule, fillBed, insidePolygon, plantingSchedule, PLANTING_RESERVE, polygonArea, quotas, scheduleCsv, simplifyContour, spacingFor } from './fillBed.js';
+import { bedAnchor, coverSchedule, fillBed, insidePolygon, moveBed, plantingSchedule, PLANTING_RESERVE, polygonArea, quotas, removedIn, scheduleCsv, simplifyContour, spacingFor } from './fillBed.js';
 import { fenceLayout, fenceSchedule, POST_SPAN } from '../topiary/fenceLayout.js';
 import { seasonImage, seasonLook, seasonPhases } from './season.js';
 import { bedGroundGeometry, GROUND_LIFT, groundLitter, groundSeason, plantGroundMaps } from './bedGround.js';
@@ -120,6 +120,34 @@ assert.deepEqual([fenceRows[0].sections, fenceRows[0].posts], [5, 6], '5 m + 3.1
 assert.ok(Math.abs(fenceRows[0].length - 16.2) < 1e-9 && fenceRows[0].height === 3.6, 'length and height take the object scale');
 assert.equal(fenceRows[1].length, 5);
 assert.equal(fenceRows[1].sections, undefined);
+// Ручные правки внутри цветника: убранное растение пропадает с плана и из
+// заказа (ровно минус одно), сдвинутое встаёт на новое место; цветник
+// переносится целиком вместе с правками; правка с чужого места не срабатывает.
+assert.equal(new Set(first.map((p) => p.key)).size, first.length, 'every plant of a bed has its own key');
+const [ax, az] = bedAnchor(bed);
+const victim = first[7], mover = first[19];
+const rel = (p) => ({ k: p.key, x: Math.round((p.x - ax) * 1000) / 1000, z: Math.round((p.z - az) * 1000) / 1000 });
+const edited = normalizePlantingBed({ ...bed, edits: { removed: [rel(victim)], moved: [{ ...rel(mover), to: [1.5, -2] }] } });
+const editedFill = fillBed(edited, library);
+assert.equal(editedFill.length, first.length - 1, 'a removed plant leaves the plan');
+assert.ok(!editedFill.some((p) => p.key === victim.key));
+const moved = editedFill.find((p) => p.key === mover.key);
+assert.deepEqual([moved.x, moved.z, moved.moved], [ax + 1.5, az - 2, true], 'a moved plant stands where it was put');
+assert.deepEqual(removedIn(editedFill), { [victim.plant]: 1 });
+const orderBefore = orderOf(plantingSchedule([bed], [first], [], library), victim.plant);
+assert.equal(orderOf(plantingSchedule([edited], [editedFill], [], library), victim.plant), orderBefore - 1, 'and exactly one less to order');
+const stale = fillBed(normalizePlantingBed({ ...bed, edits: { removed: [{ ...rel(victim), x: rel(victim).x + 0.4 }] } }), library);
+assert.equal(stale.length, first.length, 'an edit whose plant is no longer there does nothing');
+const shiftedBed = moveBed(edited, 3.25, -1.5);
+const shiftedFill = fillBed(shiftedBed, library);
+assert.equal(shiftedFill.length, editedFill.length, 'the whole bed moves with its edits');
+assert.ok(shiftedFill.every((p, i) => Math.abs(p.x - editedFill[i].x - 3.25) < 2e-3 && Math.abs(p.z - editedFill[i].z + 1.5) < 2e-3 && p.key === editedFill[i].key), 'plant for plant, 3.25 m over');
+assert.equal(moveBed({ ...bed, surface: true }, 1, 1).points, bed.points, 'a bed on a model surface stays with its surface');
+const normalizedEdits = normalizePlantingBed({ ...bed, edits: { removed: [rel(victim), rel(victim), { k: 'bad key', x: 0, z: 0 }], moved: [{ ...rel(victim), to: [0, 0] }, { ...rel(mover), to: [1, 'x'] }] } }).edits;
+assert.deepEqual(normalizedEdits, { removed: [rel(victim)] }, 'one edit per plant, removal first, broken ones dropped');
+assert.equal(normalizePlantingBed({ ...bed, kind: 'lawn', edits: { removed: [rel(victim)] } }).edits, undefined, 'a lawn has no plants to edit');
+assert.equal(normalizePlantingBed(bed).edits, undefined, 'no edits, no field');
+
 // По каталогу: изгородь с растением и нормой — п.м. × шт/п.м.; покров —
 // площадь × доля × шт/м² растения, которое стоит за копытником или тимьяном.
 const catalog = new Map([...library, ['buxus', { id: 'buxus', density: 4 }], ['vinca', { id: 'vinca', density: 12 }]]);

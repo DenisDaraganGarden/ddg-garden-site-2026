@@ -3,7 +3,7 @@ import { terrainCoverSurface } from '../groundcover/surface.js';
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useThree } from '@react-three/fiber';
 import * as THREE from 'three';
-import { plantingInstances } from './fillBed.js';
+import { bedAnchor, plantingInstances } from './fillBed.js';
 import { bakeGroundTiles, bedGroundGeometry, GROUND_LIFT, groundSeason, makeGroundMaterial, plantGroundMaps, plantMapTextures } from './bedGround.js';
 import { bakeLawnTile, makeLawnMaterial, setLawnUniforms } from './lawnGround.js';
 import { useRendererContextRevision } from '../components/effects/useRendererContextRevision.js';
@@ -328,7 +328,7 @@ function PlanCaps({ instances, library }) {
 
 // Площадка цветника — по ней цветник выбирается кликом; видна она только на
 // плане (бумага). Сам грунт рисует BedGround. Дырки (приствольные круги) — дырки.
-function BedSurface({ bed, selected, plan }) {
+function BedSurface({ bed, selected, inside, plan }) {
     const geometry = useMemo(() => {
         const shape = new THREE.Shape(bed.points.map(([x, z]) => new THREE.Vector2(x, -z)));
         for (const hole of bed.holes ?? []) shape.holes.push(new THREE.Path(hole.map(([x, z]) => new THREE.Vector2(x, -z))));
@@ -345,7 +345,7 @@ function BedSurface({ bed, selected, plan }) {
                 : <meshBasicMaterial transparent opacity={0} depthWrite={false} />}
         </mesh>
         {selected || plan ? outlines.map((outline, i) => <lineLoop key={i} geometry={outline} position={[0, 0.04, 0]} raycast={() => {}} renderOrder={5} onBeforeRender={selected ? NOTHING : topOnly}>
-            <lineBasicMaterial color={selected ? '#f2c14e' : '#3b3326'} depthTest={!selected && !bed.surface} toneMapped={false} />
+            <lineBasicMaterial color={inside ? '#ffffff' : selected ? '#f2c14e' : '#3b3326'} depthTest={!selected && !bed.surface} toneMapped={false} />
         </lineLoop>) : null}
     </group>;
 }
@@ -413,7 +413,24 @@ function LawnGround({ bed, points, library, month, hour, keyDirection, lift }) {
     return <mesh name={`planting-lawn-${bed.id}`} geometry={geometry} material={lawn.material} receiveShadow raycast={NOTHING} />;
 }
 
-export default function PlantingLayer({ settings, selectedBedId = null, selectedVineId = null, envMapIntensity = 1, keyDirection = null, terrainQuery = null, lowPower = false }) {
+// Опоры манипулятора: цветник держится за опорную точку (fillBed.js
+// bedAnchor), растение внутри цветника — за себя. Выбранное растение
+// отмечено кольцом по его ширине; контур цветника, в который вошли, — белый.
+function EditAnchors({ bed, plant, library }) {
+    const radius = Math.max(0.12, (library.get(plant?.plant)?.spread ?? 0.4) * 0.5);
+    const [ax, az] = bed ? bedAnchor(bed) : [0, 0];
+    return <>
+        {bed ? <object3D name={`planting-bed-anchor-${bed.id}`} position={[ax, bed.y, az]} /> : null}
+        {plant ? <group name="planting-plant-anchor" position={[plant.x, plant.y, plant.z]}>
+            <mesh rotation-x={-Math.PI / 2} position={[0, 0.05, 0]} raycast={NOTHING} renderOrder={6}>
+                <ringGeometry args={[radius, radius + 0.035, 40]} />
+                <meshBasicMaterial color="#f2c14e" depthTest={false} transparent toneMapped={false} />
+            </mesh>
+        </group> : null}
+    </>;
+}
+
+export default function PlantingLayer({ settings, selectedBedId = null, insideBedId = null, selectedPlant = null, selectedVineId = null, envMapIntensity = 1, keyDirection = null, terrainQuery = null, lowPower = false }) {
     const { plants: library, status } = usePlantLibrary();
     const beds = settings.plantingBeds, points = settings.plantingPoints;
     const bedFills = useBedFills(beds, library);
@@ -425,7 +442,8 @@ export default function PlantingLayer({ settings, selectedBedId = null, selected
     const covers = beds.filter((bed) => bed.cover?.enabled);
     const coverBudget = Math.min(lowPower ? 8000 : 24000, Math.floor((lowPower ? 24000 : 64000) / Math.max(1, covers.length)));
     return <group name="planting">
-        {beds.map((bed) => <BedSurface key={bed.id} bed={bed} selected={bed.id === selectedBedId} plan={plan} />)}
+        {beds.map((bed) => <BedSurface key={bed.id} bed={bed} selected={bed.id === selectedBedId} inside={bed.id === insideBedId} plan={plan} />)}
+        <EditAnchors bed={beds.find((bed) => bed.id === selectedBedId) ?? null} plant={selectedPlant} library={library} />
         {plan ? null : beds.map((bed, i) => (bed.cover?.enabled
             ? <Groundcover key={bed.id} bed={bed} month={settings.plantingMonth} envMapIntensity={envMapIntensity} exclusions={exclusions} budget={coverBudget} surface={bed.coverSurface?.root === 'terrain' ? terrainSurface : null} />
             : bed.kind === 'cover' || status !== 'ready' ? null : bed.kind === 'lawn'

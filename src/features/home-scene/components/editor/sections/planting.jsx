@@ -157,6 +157,13 @@ function BedEditor({ beds, fills, library, plantingEditor, layoutEditor, ru }) {
             <p className="planting-status" data-testid="planting-bed-status">{ru
                 ? `Площадь ${bedArea(selected).toFixed(1)} м² · растений ${count}${selected.surface ? ' · поверхность модели' : ''}`
                 : `Area ${bedArea(selected).toFixed(1)} m² · ${count} plants${selected.surface ? ' · model surface' : ''}`}</p>
+            <p className="planting-hint" data-testid="planting-inside-hint">{plantingEditor.inside === selected.id
+                ? (ru ? 'Внутри цветника: щелчок — растение, Delete — убрать, «Перенос» — двигать, Esc — выйти.' : 'Inside the bed: click a plant, Delete removes it, Move drags it, Esc leaves.')
+                : (ru ? 'Двойной щелчок по цветнику — править растения по одному.' : 'Double-click the bed to edit plants one by one.')}</p>
+            {selected.edits ? <div className="planting-actions">
+                <span className="planting-status">{ru ? `Вручную: убрано ${selected.edits.removed?.length ?? 0}, сдвинуто ${selected.edits.moved?.length ?? 0}` : `By hand: ${selected.edits.removed?.length ?? 0} removed, ${selected.edits.moved?.length ?? 0} moved`}</span>
+                <button type="button" onClick={() => set({ edits: null })} data-testid="planting-edits-reset">{ru ? 'Вернуть как было' : 'Undo hand edits'}</button>
+            </div> : null}
             <label className="planting-select"><span>{ru ? 'Палитра' : 'Palette'}</span>
                 <select value="" onChange={(event) => event.target.value && plantingEditor.applyPalette(selected.id, event.target.value)} data-testid="planting-palette">
                     <option value="">{ru ? 'Заменить рецепт на…' : 'Replace the recipe with…'}</option>

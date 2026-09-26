@@ -98,6 +98,10 @@ const GIZMO_NOTES = {
 };
 
 const targetRule = selection => {
+    // Цветник и растение в нём едут по земле: высоту даёт земля, поворота и
+    // масштаба нет (посадка — по правилу цветника).
+    if (selection?.startsWith('planting-bed:')) return { objectName: `planting-bed-anchor-${selection.slice(13)}`, translate: { x: true, y: false, z: true }, rotate: { x: false, y: false, z: false }, scale: false };
+    if (selection?.startsWith('planting-plant:')) return { objectName: 'planting-plant-anchor', translate: { x: true, y: false, z: true }, rotate: { x: false, y: false, z: false }, scale: false };
     if (selection?.startsWith('topiary:')) return { objectName: `topiary-${selection.slice(8)}`, translate: { x: true, y: true, z: true }, rotate: { x: false, y: true, z: false }, uniformScale: true };
     // A placed object stands on its anchor: free in XYZ, yaws, scales as one.
     if (selection?.startsWith('placed:')) return { objectName: `placed-${selection.slice(7)}`, translate: { x: true, y: true, z: true }, rotate: { x: false, y: true, z: false }, uniformScale: true };

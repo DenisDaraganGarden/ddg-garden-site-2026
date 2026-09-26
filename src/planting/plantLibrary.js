@@ -88,3 +88,5 @@ function cachedFill(bed, library) {
     return cache.get(key);
 }
 export const useBedFills = (beds, library) => useMemo(() => beds.map((bed) => cachedFill(bed, library)), [beds, library]);
+// Одно заполнение из того же кеша — редактору внутри цветника.
+export const bedFill = cachedFill;

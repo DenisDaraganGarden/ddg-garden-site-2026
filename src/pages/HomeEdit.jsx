@@ -138,7 +138,7 @@ const HomeEdit = ({ project = null }) => {
     useEffect(() => { if (tool === 'topiary') setActiveTab('greenery/topiary'); }, [tool, setActiveTab]);
     const { plants: plantLibrary } = usePlantLibrary();
     const plantingEditor = usePlantingEditor({ settings, history: focusHistory, setActiveTab, setTool, tool, language, library: plantLibrary });
-    const { select: selectBed, selectVine } = plantingEditor;
+    const { select: selectBed, selectVine, enterBed, pickPlant, movePlant, moveBedTo, inside: plantingInside } = plantingEditor;
     const annotationEditor = useAnnotationEditor({ settings, history: focusHistory, setSettings, setActiveTab, setTool });
     const { select: selectMark } = annotationEditor;
     const luminaireTypes = useLuminaireTypes();
@@ -576,6 +576,15 @@ const HomeEdit = ({ project = null }) => {
     const handleGizmoTransform = useCallback((id, patch) => {
         // A light and its target are plain XYZ - no layout bucket, because a
         // light is not part of the authored composition the way the boat is.
+        // Цветник — целиком по земле; растение внутри цветника — по одному.
+        if (id.startsWith('planting-bed:')) {
+            if (patch.position) moveBedTo(id.slice(13), patch.position.x, patch.position.z);
+            return;
+        }
+        if (id.startsWith('planting-plant:')) {
+            if (patch.position) movePlant(patch.position.x, patch.position.z);
+            return;
+        }
         if (id.startsWith('topiary:')) {
             const changes = patch.position ? { x: patch.position.x, baseY: patch.position.y, z: patch.position.z }
                 : typeof patch.rotationY === 'number' ? { rotation: patch.rotationY } : { scale: patch.scale };
@@ -675,21 +684,30 @@ const HomeEdit = ({ project = null }) => {
             const key = id === 'boat' ? 'boatScale' : 'sculptureScale';
             setSettings((previous) => ({ ...previous, [key]: patch.scale }));
         }
-    }, [handleBoatPositionChange, handleSculpturePositionChange, setSettings, updateTopiary, updatePlaced, updateFixture, updatePanel, settings.lightingFixtures]);
+    }, [handleBoatPositionChange, handleSculpturePositionChange, setSettings, updateTopiary, updatePlaced, updateFixture, updatePanel, settings.lightingFixtures, moveBedTo, movePlant]);
 
     // Клик по объекту в сцене ставит тот же путь, что и клик в дереве, и так же
     // даёт выбранному последнюю трансформацию — манипулятор появляется сразу.
     const handlePickObject = useCallback((path, hit) => {
         if (tool === 'material') { materialPickRef.current.open(hit); return; }
         if (materialPickRef.current.opened) materialPickRef.current.pick(hit);
-        if (hit?.plantingBed) { selectBed(hit.plantingBed); return; }
+        // Цветник: щелчок — выбрать, двойной — войти и править растения по
+        // одному; внутри щелчок выбирает растение под курсором.
+        if (hit?.plantingBed) {
+            // Инструмент не меняется: «Перенос» (G) берут сами — иначе его
+            // стрелки в середине цветника ловили бы второй щелчок двойного.
+            if (hit.double) enterBed(hit.plantingBed);
+            else if (plantingInside === hit.plantingBed && hit.point) pickPlant(hit.point);
+            else selectBed(hit.plantingBed);
+            return;
+        }
         if (hit?.plantingVine) { selectVine(hit.plantingVine); return; }
         if (hit?.annotationMark) { selectMark(hit.annotationMark); return; }
         if (hit?.lightingFixture) { selectFixture(hit.lightingFixture); setTool(lastTransform); return; }
         if (hit?.lightingPanel) { selectPanel(hit.lightingPanel); setTool(lastTransform); return; }
         if (hit?.topiaryId) selectTopiary(hit.topiaryId); else if (hit?.placedId) selectPlaced(hit.placedId, hit.object, hit.double, hit.shift); else setActiveTab(path);
         setTool(lastTransform);
-    }, [tool, setActiveTab, setTool, lastTransform, selectTopiary, selectPlaced, selectBed, selectVine, selectMark, selectFixture, selectPanel]);
+    }, [tool, setActiveTab, setTool, lastTransform, selectTopiary, selectPlaced, selectBed, selectVine, enterBed, pickPlant, plantingInside, selectMark, selectFixture, selectPanel]);
 
     const { group: gizmoGroup, node: gizmoNode } = resolveEditorPath(activeTab, { includeDevOnly: true });
     // An object switched off has left the scene graph; the gizmo has nothing to hold.
@@ -698,7 +716,10 @@ const HomeEdit = ({ project = null }) => {
     const selectedPlaced = gizmoNode.id === 'placed' ? settings.placedObjects.find(o => o.id === placedEditor.selectedId) : null;
     const selectedFixture = gizmoNode.id === 'luminaires' ? settings.lightingFixtures.find(o => o.id === lightingEditor.selectedId) : null;
     const selectedPanel = gizmoNode.id === 'power' ? settings.lightingPanels.find(o => o.id === lightingEditor.panelId) : null;
-    const gizmoSelection = gizmoTargetShown && selectedTopiary ? `topiary:${selectedTopiary.id}`
+    const selectedBed = gizmoNode.id === 'planting' && plantingEditor.selectedId ? settings.plantingBeds.find(o => o.id === plantingEditor.selectedId) : null;
+    const gizmoSelection = gizmoTargetShown && selectedBed && plantingEditor.selectedPlant ? `planting-plant:${selectedBed.id}:${plantingEditor.plantKey}`
+        : gizmoTargetShown && selectedBed && !plantingEditor.inside && !selectedBed.surface && !selectedBed.coverSurface ? `planting-bed:${selectedBed.id}`
+        : gizmoTargetShown && selectedTopiary ? `topiary:${selectedTopiary.id}`
         : gizmoTargetShown && selectedPlaced ? `placed:${selectedPlaced.id}`
         : gizmoTargetShown && selectedFixture ? (lightingEditor.handle === 'aim' && selectedFixture.target ? `luminaire-aim:${selectedFixture.id}` : `luminaire:${selectedFixture.id}`)
         : gizmoTargetShown && selectedPanel ? `lighting-panel:${selectedPanel.id}`
@@ -755,7 +776,7 @@ const HomeEdit = ({ project = null }) => {
         topiary: { drawing: activeTool === 'topiary' && settings.topiaryObjects.length < TOPIARY_LIMITS.objects,
             selectedId: gizmoNode.id === 'topiary' ? topiaryEditor.selectedId : null, onStroke: topiaryEditor.onStroke },
         placed: { selectedId: gizmoNode.id === 'placed' ? placedEditor.selectedId : null, part: gizmoNode.id === 'placed' ? placedEditor.part : null },
-        planting: { bedKind: plantingEditor.bedKind, mode: aiming ? 'aim' : activeTool === 'luminaire' ? 'light' : ['bed', 'plant', 'vine', 'mark', 'start'].includes(activeTool) ? activeTool : null, selectedId: gizmoNode.id === 'planting' ? plantingEditor.selectedId : null,
+        planting: { inside: plantingEditor.inside, plant: plantingEditor.selectedPlant, bedKind: plantingEditor.bedKind, mode: aiming ? 'aim' : activeTool === 'luminaire' ? 'light' : ['bed', 'plant', 'vine', 'mark', 'start'].includes(activeTool) ? activeTool : null, selectedId: gizmoNode.id === 'planting' ? plantingEditor.selectedId : null,
             vineId: gizmoNode.id === 'planting' ? plantingEditor.vineId : null,
             onBed: plantingEditor.onBed, onBedSurface: plantingEditor.onBedSurface, onPlant: plantingEditor.onPlant, onVine: plantingEditor.onVine, onMark: annotationEditor.onMark, onStart: handleWalkStart,
             onLight: lightingEditor.onLight, onAim: lightingEditor.onAim, lightMount: luminaireTypes.get(lightingEditor.placeType)?.mount ?? 'ground' },
@@ -763,7 +784,7 @@ const HomeEdit = ({ project = null }) => {
         // open — открыт раздел «Освещение»: сетка участка строится и для пустого проекта (её ждёт агент).
         lighting: { selectedId: gizmoNode.id === 'luminaires' ? lightingEditor.selectedId : null, connections: settings.lightingConnections === true || gizmoNode.id === 'power', open: gizmoGroup.id === 'lighting' },
     // eslint-disable-next-line react-hooks/exhaustive-deps -- pose сравнивается по значениям, не по ссылке
-    }), [materialEditor.opened, materialEditor.targets, playing, walking, transformTool, transformHeld, gizmoSelection, tool, lastTransform, handleGizmoTransform, picking, drawingTool, handlePickObject, gizmoPose?.rotationY, gizmoPose?.scale, gizmoPose?.objectName, gizmoPose?.centreKey, activeTool, settings.topiaryObjects.length, gizmoNode.id, topiaryEditor.selectedId, topiaryEditor.onStroke, placedEditor.selectedId, placedEditor.part, plantingEditor.selectedId, plantingEditor.vineId, plantingEditor.bedKind, plantingEditor.onBed, plantingEditor.onBedSurface, plantingEditor.onPlant, plantingEditor.onVine, annotationEditor.onMark, annotationEditor.selectedId, annotationEditor.onResnap, handleWalkStart, aiming, lightingEditor.selectedId, lightingEditor.onLight, lightingEditor.onAim, lightingEditor.placeType, luminaireTypes, settings.lightingConnections, gizmoGroup.id]);
+    }), [materialEditor.opened, materialEditor.targets, playing, walking, transformTool, transformHeld, gizmoSelection, tool, lastTransform, handleGizmoTransform, picking, drawingTool, handlePickObject, gizmoPose?.rotationY, gizmoPose?.scale, gizmoPose?.objectName, gizmoPose?.centreKey, activeTool, settings.topiaryObjects.length, gizmoNode.id, topiaryEditor.selectedId, topiaryEditor.onStroke, placedEditor.selectedId, placedEditor.part, plantingEditor.selectedId, plantingEditor.vineId, plantingEditor.inside, plantingEditor.selectedPlant, plantingEditor.bedKind, plantingEditor.onBed, plantingEditor.onBedSurface, plantingEditor.onPlant, plantingEditor.onVine, annotationEditor.onMark, annotationEditor.selectedId, annotationEditor.onResnap, handleWalkStart, aiming, lightingEditor.selectedId, lightingEditor.onLight, lightingEditor.onAim, lightingEditor.placeType, luminaireTypes, settings.lightingConnections, gizmoGroup.id]);
 
     // Delete (и Backspace) убирает выбранное — одной отменой: светильник или
     // щиток; части модели SketchUp (в «Удалённые», как в SketchUp); объект
@@ -773,8 +794,9 @@ const HomeEdit = ({ project = null }) => {
     const sceneKeys = useRef();
     sceneKeys.current = {
         remove: selectedFixture ? () => lightingEditor.remove(selectedFixture.id) : selectedPanel ? () => lightingEditor.removePanel(selectedPanel.id)
-            : placedPart ? () => placedEditor.removeParts(placedPart.id, selectedNodes(placedPart)) : selectedPlaced ? () => placedEditor.remove(selectedPlaced.id) : null,
-        escape: placedPart && !drawingTool ? placedEditor.exitPart : null,
+            : placedPart ? () => placedEditor.removeParts(placedPart.id, selectedNodes(placedPart)) : selectedPlaced ? () => placedEditor.remove(selectedPlaced.id)
+            : selectedBed && plantingEditor.selectedPlant ? plantingEditor.removePlant : null,
+        escape: placedPart && !drawingTool ? placedEditor.exitPart : selectedBed && plantingEditor.inside && !drawingTool ? plantingEditor.exitBed : null,
         isolate: placedPart && placedPart.trail.indexOf(placedPart.node) > 0 && !drawingTool ? placedEditor.toggleIsolate : null,
     };
     useEffect(() => {
