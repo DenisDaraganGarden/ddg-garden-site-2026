@@ -1,9 +1,9 @@
 name: Checks
 
 # The browser smoke test lives here rather than in the deploy workflow on
-# purpose: it drives a real Chromium over a real WebGL scene, and a flaky run
-# must never be able to hold the published site hostage. Deploy keeps the fast,
-# deterministic gates (lint, build, bundle) and this runs everything.
+# purpose: it drives a real Chromium over a real WebGL scene for twenty minutes,
+# and that must not hold up the published site. Deploy keeps the fast,
+# deterministic gates (lint, build, check:fast) and this runs everything.
 
 on:
   push:
