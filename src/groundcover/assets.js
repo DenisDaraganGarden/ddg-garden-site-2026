@@ -27,19 +27,16 @@ function leafGeometry(small = false) {
     g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(indices); g.computeVertexNormals();
     return g;
 }
-// A shallow terrain-aligned card retains relief from oblique views. Moss
-// uses two narrow crossed cards, never camera-facing billboards.
+// A terrain-aligned shallow cushion keeps a soft profile from oblique views.
+// The image/alpha mask supplies the botanical edge, never upright tree-like shoots.
 function cardGeometry(moss = false) {
-    if (!moss) {
-        const g = new THREE.PlaneGeometry(1, 1, 2, 2); g.rotateX(-Math.PI / 2);
-        const p = g.attributes.position;
-        for (let i = 0; i < p.count; i++) p.setY(i, .15 + .5 * (1 - Math.min(1, Math.hypot(p.getX(i), p.getZ(i)) * 1.4)));
-        g.computeVertexNormals(); return g;
+    const g = new THREE.PlaneGeometry(1, 1, 2, 2); g.rotateX(-Math.PI / 2);
+    const p = g.attributes.position;
+    for (let i = 0; i < p.count; i++) {
+        const radius = Math.hypot(p.getX(i), p.getZ(i));
+        p.setY(i, moss ? Math.max(0, .55 * (1 - radius * 2)) : .15 + .5 * (1 - Math.min(1, radius * 1.4)));
     }
-    const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.Float32BufferAttribute([-.5, 0, 0, .5, 0, 0, .5, 1, 0, -.5, 1, 0, 0, 0, -.5, 0, 0, .5, 0, 1, .5, 0, 1, -.5], 3));
-    g.setAttribute('uv', new THREE.Float32BufferAttribute([0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1], 2));
-    g.setIndex([0, 1, 2, 0, 2, 3, 4, 5, 6, 4, 6, 7]); g.computeVertexNormals(); return g;
+    g.computeVertexNormals(); return g;
 }
 function maps(leaf) {
     const size = 256, color = new Uint8Array(size * size * 4), normal = new Uint8Array(size * size * 4), heights = new Float32Array(size * size);
@@ -64,13 +61,18 @@ function maps(leaf) {
         tex.generateMipmaps = true; tex.anisotropy = 4; tex.needsUpdate = true; return tex;
     });
 }
-let shared = null, users = 0;
-export function acquireCoverAssets() {
-    if (!shared) shared = { leaf: leafGeometry(), thyme: cardGeometry(), moss: cardGeometry(true), flower: cardGeometry(), leafMaps: maps(true), ...coverTextureSets() };
+let shared = null, users = 0, generation = 0;
+const listeners = new Set();
+export function acquireCoverAssets(onReady) {
+    if (!shared) {
+        const stamp = ++generation;
+        shared = { leaf: leafGeometry(), thyme: cardGeometry(), moss: cardGeometry(true), flower: cardGeometry(), leafMaps: maps(true), ...coverTextureSets(() => { if (stamp === generation) listeners.forEach(item => item.onReady?.()); }) };
+    }
+    const listener = { onReady }; listeners.add(listener);
     users++;
     let released = false;
     return { assets: shared, release() {
-        if (released) return; released = true;
+        if (released) return; released = true; listeners.delete(listener);
         if (--users === 0) { for (const value of Object.values(shared)) for (const resource of Array.isArray(value) ? value : [value]) resource.dispose(); shared = null; }
     } };
 }
