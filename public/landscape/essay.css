@@ -1,0 +1,40 @@
+.essay-sheet{padding:calc(var(--header) + 30px) var(--gutter) 110px;display:grid;grid-template-columns:1fr minmax(0,4fr) 1fr;gap:40px;background:var(--paper);color:var(--ink)}
+.essay-sheet>h2{font-size:clamp(32px,4.4vw,64px);line-height:1;align-self:end;margin-bottom:65px}
+.essay-primary{min-height:0;display:grid;grid-template-rows:minmax(0,1fr) 24px;gap:18px}
+.essay-primary .image-open{min-height:0}
+.essay-primary img{width:100%;height:100%;object-fit:contain}
+.essay-primary figcaption{font-size:10px;color:var(--muted)}
+.essay-footer{position:absolute;inset:auto var(--gutter) 44px;display:flex;align-items:center;justify-content:space-between;gap:24px;font-size:12px}
+.essay-footer button{min-height:44px}
+.essay-controls{display:flex;gap:26px;color:var(--muted)}
+.essay-controls button[aria-pressed=true]{color:var(--ink);text-decoration:underline;text-underline-offset:6px}
+.essay-dark{--ink:#f6f4f0;--muted:#96928a;--line:#393732;background:#000;color:var(--ink)}
+.essay-text .panel-copy p{font-size:17px;line-height:1.7}
+.essay-text .panel-copy p:first-child{font:32px/1.17 Oranienbaum,serif;margin-bottom:30px}
+.essay-text .panel-copy .essay-signature{font-size:12px;color:var(--muted);margin-top:40px}
+@media(max-width:759px){
+ .essay-sheet{padding:calc(var(--header) + 24px) var(--gutter) 128px;display:flex;flex-direction:column;gap:26px}
+ .essay-sheet>h2{order:2;align-self:start;margin:0;font-size:38px}
+ .essay-primary{flex:1;grid-template-rows:minmax(0,1fr) auto;gap:16px}
+ .essay-primary figcaption{font-size:9px;line-height:1.5}
+ .essay-footer{font-size:11px;bottom:44px;gap:16px}
+ .essay-controls{gap:20px}
+ .essay-text .panel-copy p{font-size:15px}
+ .essay-text .panel-copy p:first-child{font-size:29px}
+}
+@media(max-height:670px) and (max-width:759px){.essay-sheet{padding-top:calc(var(--header) + 8px);padding-bottom:110px;gap:18px}.essay-sheet>h2{font-size:31px}.essay-primary{gap:10px}}
+@media(max-height:480px) and (min-width:600px){.essay-sheet{padding:calc(var(--header) + 8px) var(--gutter) 80px;display:grid;grid-template-columns:1fr 4fr 1fr;gap:20px}.essay-sheet>h2{order:0;font-size:32px;align-self:end;margin-bottom:42px}.essay-primary{height:100%;gap:10px}.essay-footer{bottom:25px}}
+.manifesto-dialog{width:min(810px,100%)}
+.author-manifesto-copy p{font:clamp(24px,3.4vw,32px)/1.32 Oranienbaum,serif;margin-bottom:35px;text-wrap:pretty}
+.author-manifesto-copy p:first-child{font-size:clamp(33px,4vw,46px);line-height:1.12;margin-bottom:48px}
+.legend-dialog{--ink:#e9e5dc;--muted:#8e8a81;--line:#393732;width:min(860px,100%);background:#11110f;color:var(--ink);padding-bottom:80px}
+.legend-dialog .panel-bar{margin-bottom:58px}
+.legend-dialog .panel-bar h2{max-width:490px;font-size:clamp(36px,5vw,58px)}
+.legend-copy{max-width:670px}
+.legend-copy h3{font:10px Liberation,Arial,sans-serif;letter-spacing:.08em;text-transform:uppercase;margin:56px 0 30px;color:var(--muted)}
+.legend-copy h3:first-child{margin-top:0}
+.legend-copy p{font:clamp(23px,3.1vw,32px)/1.32 Oranienbaum,serif;margin:0 0 32px}
+.panel-copy .story-signature{font:11px/1.5 Liberation,Arial,sans-serif;color:var(--muted);margin:55px 0 0}
+
+@media(max-width:759px){.legend-dialog .panel-bar{margin-bottom:35px}.legend-dialog .panel-bar h2{font-size:35px}.legend-copy p{font-size:24px;line-height:1.35;overflow-wrap:break-word}.legend-copy h3{margin-top:42px}.author-manifesto-copy p{font-size:26px}.author-manifesto-copy p:first-child{font-size:33px}}
+@media(max-width:359px){.legend-copy p{font-size:21px}.legend-dialog .panel-bar h2{font-size:31px}.author-manifesto-copy p{font-size:24px}.author-manifesto-copy p:first-child{font-size:29px}}

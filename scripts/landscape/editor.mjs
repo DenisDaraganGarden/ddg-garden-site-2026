@@ -39,26 +39,30 @@ async function srcset(frame) {
   const file = path.join(assets, `${frame}-1600.webp`);
   if (!await exists(file)) throw new Error(`Нет картинки ${frame}-1600.webp`);
   const {width, height} = await sharp(file).metadata();
-  const small = await exists(path.join(assets, `${frame}-900.webp`)) ? `./assets/${frame}-900.webp 900w, ` : '';
+  const smallFile = path.join(assets, `${frame}-900.webp`);
+  const small = await exists(smallFile) ? `./assets/${frame}-900.webp ${(await sharp(smallFile).metadata()).width}w, ` : '';
   return {width, height, srcset: `${small}./assets/${frame}-1600.webp ${width}w`};
 }
 
 async function render({projects}, html) {
   validate({projects});
-  const ids = new Set(['top', 'recognition', 'author', 'contact', 'works']);
+  const ids = new Set(['top', 'recognition', 'author', 'tractatus', 'light', 'inheritance', 'handwriting', 'plants', 'matter', 'contact', 'works']);
   const works = [];
   for (const p of projects) {
     const title = esc(p.title.trim());
+    const frames = [];
     for (const [i, frame] of p.frames.entries()) {
       const id = i ? `${p.id}-${i + 1}` : p.id;
       if (ids.has(id)) throw new Error(`Адрес #${id} повторяется, переименуйте проект`);
       ids.add(id);
       const image = await srcset(frame);
       const label = `${title}, кадр ${i + 1}`;
-      const tools = (p.frames.length > 1 ? `<span class="frame-count">${pad(i + 1)} / ${pad(p.frames.length)}</span>` : '')
-        + (p.about ? `<button data-panel="about-${p.id}" aria-haspopup="dialog">О проекте</button>` : '');
-      works.push(`<section class="sheet work" id="${id}" aria-labelledby="title-${id}"><div class="image-stage"><button class="image-open" data-image aria-label="Рассмотреть: ${label}"><img src="./assets/${frame}-1600.webp" srcset="${image.srcset}" sizes="(max-width:759px) calc(100vw - 48px), 90vw" width="${image.width}" height="${image.height}" alt="${label}" loading="lazy" decoding="async" draggable="false"></button></div><div class="work-caption"><div><h2 id="title-${id}">${title}</h2>${p.subtitle.trim() ? `<p>${esc(p.subtitle.trim())}</p>` : ''}</div><div class="work-tools">${tools}</div></div></section>`);
+      const shape = image.width / image.height > 2.5 ? 'panorama' : image.width < image.height ? 'portrait' : 'landscape';
+      frames.push(`<figure class="gallery-frame"${i ? ` id="${id}"` : ''} data-shape="${shape}" style="--ratio:${(image.width / image.height).toFixed(4)}"><button class="image-open" data-image aria-label="Рассмотреть: ${label}"><img src="./assets/${frame}-1600.webp" srcset="${image.srcset}" sizes="(max-width:759px) calc(100vw - 48px), 80vw" width="${image.width}" height="${image.height}" alt="${label}" loading="lazy" decoding="async" draggable="false"></button><figcaption aria-hidden="true">${pad(i + 1)}</figcaption></figure>`);
     }
+    const tools = (p.frames.length > 1 ? `<div class="gallery-navigation" role="group" aria-label="Кадры проекта"><button data-gallery-prev aria-label="Предыдущий кадр" disabled>←</button><span class="frame-count" data-gallery-count>01 / ${pad(p.frames.length)}</span><button data-gallery-next aria-label="Следующий кадр">→</button></div>` : '')
+      + (p.about ? `<button data-panel="about-${p.id}" aria-haspopup="dialog">О проекте</button>` : '');
+    works.push(`<section class="sheet work project-sheet" id="${p.id}" aria-labelledby="title-${p.id}"><div class="project-gallery" role="region" aria-label="${title}: изображения" tabindex="0"${p.frames.length === 1 ? ' data-single' : ''}>${frames.join('')}</div><div class="work-caption"><div><h2 id="title-${p.id}">${title}</h2>${p.subtitle.trim() ? `<p>${esc(p.subtitle.trim())}</p>` : ''}</div><div class="work-tools">${tools}</div></div><p class="sr-only" data-gallery-status aria-live="polite"></p></section>`);
   }
   const menu = projects.map((p, i) => `<a href="#${p.id}"><span>${pad(i + 1)}</span>${esc(p.title.trim())}</a>`);
   const about = projects.filter(p => p.about).map(p => `<dialog class="panel-dialog" id="about-${p.id}" aria-labelledby="about-${p.id}-heading"><div class="panel-bar"><h2 id="about-${p.id}-heading">${esc(p.title.trim())}</h2><button data-close>Закрыть</button></div><div class="panel-copy">${p.about}</div></dialog>`);

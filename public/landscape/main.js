@@ -8,7 +8,7 @@
   const viewer = document.querySelector('.image-dialog');
   const viewerImage = viewer.querySelector('img');
   const imageButtons = [...document.querySelectorAll('[data-image]')];
-  const images = imageButtons.map(button => ({src: button.querySelector('img').src, alt: button.querySelector('img').alt}));
+  const images = imageButtons.map(button => ({src: button.querySelector('img').src, alt: button.querySelector('img').alt, origin: button}));
   const focusOrigins = new WeakMap();
   let current = 0, destination = 0, navigationVersion = 0;
   let settleTimer, scrollFrame, resizing = false;
@@ -17,14 +17,21 @@
   const clamp = (value, last) => Math.max(0, Math.min(last, value));
   const pad = n => String(n).padStart(2, '0');
   const indexForHash = hash => {
-    if (hash === '#works') return 1;
-    const index = sheets.findIndex(sheet => sheet.id === hash.slice(1));
+    if (hash === '#works') return sheets.findIndex(sheet => sheet.classList.contains('work'));
+    const target = document.getElementById(hash.slice(1));
+    const sheet = target?.closest('.sheet');
+    if (target?.matches('.gallery-frame')) {
+      sheet.dataset.galleryTarget = target.id;
+      sheet.dispatchEvent(new CustomEvent('gallery-reveal', {detail:target}));
+    }
+    const index = sheets.indexOf(sheet);
     return index < 0 ? 0 : index;
   };
   const update = () => {
     current = sheets.reduce((nearest, sheet, index) => Math.abs(sheet.offsetTop - folio.scrollTop) < Math.abs(sheets[nearest].offsetTop - folio.scrollTop) ? index : nearest, 0);
     document.body.classList.toggle('on-dark', sheets[current].classList.contains('dark-sheet'));
     document.body.classList.toggle('on-cover', current === 0);
+    document.body.classList.toggle('on-author', sheets[current].id === 'author');
     pagePosition.textContent = pad(current + 1) + ' / ' + pad(sheets.length);
     scrollFrame = null;
   };
@@ -112,9 +119,10 @@
     if (!dialog.open || dialog.classList.contains('closing')) {resolve(); return;}
     dialog.classList.add('closing');
     const finish = () => {
-      if (dialog === viewer && sequence === images) {
-        const origin = imageButtons[imageIndex];
+      if (dialog === viewer && sequence[imageIndex].origin) {
+        const origin = sequence[imageIndex].origin;
         go(sheets.indexOf(origin.closest('.sheet')), false);
+        origin.closest('.sheet').dispatchEvent(new CustomEvent('gallery-reveal', {detail:origin.closest('.gallery-frame')}));
         focusOrigins.set(dialog, origin);
       }
       dialog.classList.remove('closing');
@@ -189,7 +197,7 @@
     element.addEventListener('pointerdown', event => {
       pointers.add(event.pointerId);
       if (pointers.size > 1) {start = null; blocked = true; return;}
-      if (event.button !== 0 || event.target.closest('a,[data-panel],.image-close')) return;
+      if (event.button !== 0 || event.target.closest('a,[data-panel],.image-close,.author-controls,.study-controls,.project-gallery,.gallery-navigation,.essay-controls')) return;
       blocked = false;
       start = {x: event.clientX, y: event.clientY, id: event.pointerId};
     });
@@ -205,17 +213,28 @@
       const delta = horizontal ? dx : dy;
       if (Math.abs(delta) > 45 && (horizontal || allDirections || event.pointerType === 'mouse')) {
         movedUntil = performance.now() + 400;
-        turn(delta < 0 ? 1 : -1);
+        turn(delta < 0 ? 1 : -1, horizontal);
       }
       start = null;
     });
     element.addEventListener('pointercancel', event => {pointers.delete(event.pointerId);start = null;});
     return () => performance.now() < movedUntil;
   };
-  const folioSwiped = swipe(folio, direction => go(destination + direction));
+  const folioSwiped = swipe(folio, (direction, horizontal) => {
+    if (horizontal && sheets[current].id === 'author') sheets[current].dispatchEvent(new CustomEvent('author-step', {detail:direction}));
+    else if (horizontal && sheets[current].hasAttribute('data-study')) sheets[current].dispatchEvent(new CustomEvent('study-step', {detail:direction}));
+    else go(destination + direction);
+  });
   const viewerSwiped = swipe(viewer, direction => changeImage(imageIndex + direction), true);
   imageButtons.forEach((button, index) => button.addEventListener('click', () => {
-    if (!folioSwiped()) openImage(index, button);
+    if (folioSwiped()) return;
+    images[index].src = button.querySelector('img').src;
+    images[index].alt = button.querySelector('img').alt;
+    const gallery = button.closest('.project-gallery');
+    if (gallery) {
+      const group = images.filter(image => gallery.contains(image.origin));
+      openImage(group.indexOf(images[index]), button, group);
+    } else openImage(index, button);
   }));
   viewer.querySelector('.image-canvas').addEventListener('click', () => {
     if (!viewerSwiped()) closeDialog(viewer);
@@ -231,6 +250,21 @@
       return;
     }
     if (document.querySelector('dialog[open]') || event.target.closest('input,textarea,select')) return;
+    if (sheets[current].id === 'author' && ['ArrowLeft','ArrowRight'].includes(event.key)) {
+      event.preventDefault();
+      sheets[current].dispatchEvent(new CustomEvent('author-step', {detail:event.key === 'ArrowRight' ? 1 : -1}));
+      return;
+    }
+    if (sheets[current].hasAttribute('data-study') && ['ArrowLeft','ArrowRight'].includes(event.key)) {
+      event.preventDefault();
+      sheets[current].dispatchEvent(new CustomEvent('study-step', {detail:event.key === 'ArrowRight' ? 1 : -1}));
+      return;
+    }
+    if (sheets[current].matches('.project-sheet') && ['ArrowLeft','ArrowRight'].includes(event.key)) {
+      event.preventDefault();
+      sheets[current].dispatchEvent(new CustomEvent('gallery-step', {detail:event.key === 'ArrowRight' ? 1 : -1}));
+      return;
+    }
     if ([' ', 'Enter'].includes(event.key) && event.target.closest('button,a')) return;
     const direction = ['ArrowDown','ArrowRight','PageDown',' '].includes(event.key) ? 1 : ['ArrowUp','ArrowLeft','PageUp'].includes(event.key) ? -1 : 0;
     if (direction || ['Home','End'].includes(event.key)) {
