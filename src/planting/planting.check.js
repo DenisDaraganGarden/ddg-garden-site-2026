@@ -1,6 +1,6 @@
 // Run: node src/planting/planting.check.js
 import assert from 'node:assert/strict';
-import { fillBed, insidePolygon, plantingSchedule, polygonArea, quotas, scheduleCsv, simplifyContour, spacingFor } from './fillBed.js';
+import { fillBed, insidePolygon, plantingSchedule, PLANTING_RESERVE, polygonArea, quotas, scheduleCsv, simplifyContour, spacingFor } from './fillBed.js';
 import { seasonImage, seasonLook, seasonPhases } from './season.js';
 import { bedGroundGeometry, GROUND_LIFT, groundLitter, groundSeason, plantGroundMaps } from './bedGround.js';
 import { normalizePlantingSettings, PLANTING_LIMITS } from './settings.js';
@@ -70,12 +70,32 @@ const small = { ...bed, id: 'small', points: [[0, 0], [5, 0], [5, 4], [0, 4]], r
 const smallFill = fillBed(small, library);
 assert.equal(new Set(smallFill.map((p) => p.plant)).size, small.recipe.length, 'a small bed still holds every species of its recipe');
 
-// Ведомость — ровно нарисованное.
+// Нарисовано — ровно то, что на плане.
 const schedule = plantingSchedule([bed], [first], [{ plant: 'cornus', x: 0, y: 0, z: 0 }], library);
 assert.equal(schedule.reduce((sum, row) => sum + row.count, 0), first.length + 1);
 assert.ok(Math.abs(schedule.find((row) => row.plant.id === 'grass').area - 24) < 1e-9, 'a species’ area is its share of the bed');
 assert.equal(scheduleCsv(schedule).split('\r\n').filter(Boolean).length, schedule.length + 1);
 assert.equal(polygonArea(bed.points), 60);
+
+// К заказу — по площади и норме, не по нарисованному: 60 м² × доля × шт/м² ×
+// густота + 5 %, вверх до штуки; одиночное новое — штука.
+const orderOf = (rows, id) => rows.find((row) => row.plant.id === id)?.order;
+assert.equal(PLANTING_RESERVE, 0.05);
+assert.equal(orderOf(schedule, 'grass'), Math.ceil(24 * 3.2 * 1.05), 'grass: 24 m² × 3.2 /m² + 5 %');
+assert.equal(orderOf(schedule, 'rudbeckia'), Math.ceil(18 * 5 * 1.05));
+assert.equal(orderOf(schedule, 'perovskia'), Math.ceil(18 * 2.5 * 1.05));
+assert.equal(orderOf(schedule, 'cornus'), 1, 'a single plant is one to order');
+assert.ok(scheduleCsv(schedule).includes('К заказу, шт (+5 %)'), 'the CSV says what the order includes');
+const denseBed = { ...bed, id: 'dense', name: 'Густой', density: 1.5 };
+const twoBeds = plantingSchedule([bed, denseBed], [first, fillBed(denseBed, library)], [], library);
+assert.equal(orderOf(twoBeds, 'grass'), Math.ceil((24 * 3.2 + 24 * 3.2 * 1.5) * 1.05), 'beds add up before rounding, density scales the norm');
+const existingOnly = plantingSchedule([], [], [{ plant: 'cornus', x: 0, y: 0, z: 0, status: 'existing' }, { plant: 'cornus', x: 1, y: 0, z: 0 }], library);
+assert.deepEqual([existingOnly[0].count, existingOnly[0].existing, existingOnly[0].order], [2, 1, 1], 'a tree already on the site is drawn but not ordered');
+const noNorm = new Map([['mystery', { id: 'mystery' }]]);
+const mysteryBed = { ...bed, id: 'm', recipe: [{ plant: 'mystery', share: 100 }] };
+const mysteryRows = plantingSchedule([mysteryBed], [[{ plant: 'mystery' }, { plant: 'mystery' }]], [], noNorm);
+assert.equal(orderOf(mysteryRows, 'mystery'), 2, 'without a norm the order is what is drawn');
+assert.deepEqual(plantingSchedule([{ ...bed, kind: 'lawn', recipe: [] }], [[]], [], library), [], 'a lawn orders no plants');
 
 // Сезоны.
 const at = (id, month) => seasonLook(library.get(id), month);

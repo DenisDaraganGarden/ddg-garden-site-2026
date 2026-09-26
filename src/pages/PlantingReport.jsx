@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useLanguage } from '../i18n/useLanguage';
 import { projectStore, readProject } from '../features/engine/projectApi';
 import { normalizePlantingSettings } from '../planting/settings.js';
-import { bedArea, plantingInstances, plantingSchedule, spacingFor } from '../planting/fillBed.js';
+import { bedArea, plantingInstances, plantingSchedule, PLANTING_RESERVE, spacingFor } from '../planting/fillBed.js';
 import { LAWN_MOWING_LABELS, lawnSeed, lawnTurf } from '../planting/lawnGround.js';
 import { isSeasonSheet, plantCardUrl, plantName, plantPhotoUrl, useBedFills, usePlantLibrary } from '../planting/plantLibrary.js';
 import { bloomMonths, byCategory, CATEGORY_LABELS } from '../planting/insights.js';
@@ -127,7 +127,8 @@ export default function PlantingReport() {
     const species = useMemo(() => [...schedule].sort((a, b) => byCategory(a.plant, b.plant)), [schedule]);
     const existing = planting.plantingPoints.filter((p) => p.status === 'existing').length;
     // Где растёт: цветники, лианы с длиной побегов или поштучно.
-    const where = (r) => [...r.beds, ...(r.length ? [`${ru ? 'лианы' : 'climbers'}, ${r.length.toFixed(1)} ${ru ? 'м побегов' : 'm of shoots'}`] : [])].join(', ') || (ru ? 'одиночные' : 'single');
+    const where = (r) => [...r.beds, ...(r.length ? [`${ru ? 'лианы' : 'climbers'}, ${r.length.toFixed(1)} ${ru ? 'м побегов' : 'm of shoots'}`] : []), ...(r.existing ? [`${ru ? 'существующие' : 'existing'}: ${r.existing}`] : [])].join(', ') || (ru ? 'одиночные' : 'single');
+    const reserve = Math.round(PLANTING_RESERVE * 100);
     // Газоны — отдельно: площадь и сколько брать, растений в них нет.
     const flowerBeds = planting.plantingBeds.filter((bed) => bed.kind !== 'lawn');
     const lawns = planting.plantingBeds.filter((bed) => bed.kind === 'lawn');
@@ -154,7 +155,7 @@ export default function PlantingReport() {
         </header>
 
         <section className="report-tiles">
-            {[[schedule.reduce((sum, r) => sum + r.count, 0), ru ? 'растений' : 'plants'], [schedule.length, ru ? 'видов' : 'species'], [flowerBeds.length, ru ? 'цветников' : 'beds'], [`${area.toFixed(1)} м²`, ru ? 'цветников по площади' : 'of beds'], ...(lawns.length ? [[`${lawnArea.toFixed(1)} м²`, ru ? 'газонов' : 'of lawns']] : []), [planting.plantingPoints.length - existing, ru ? 'деревьев и кустов — новых' : 'new trees and shrubs'], [existing, ru ? 'существующих' : 'existing'], ...(planting.plantingVines.length ? [[planting.plantingVines.length, ru ? 'лиан' : 'climbers']] : [])].map(([value, label]) => <div key={label}><b>{value}</b><span>{label}</span></div>)}
+            {[[schedule.reduce((sum, r) => sum + r.order, 0), ru ? 'растений к заказу' : 'plants to order'], [schedule.length, ru ? 'видов' : 'species'], [flowerBeds.length, ru ? 'цветников' : 'beds'], [`${area.toFixed(1)} м²`, ru ? 'цветников по площади' : 'of beds'], ...(lawns.length ? [[`${lawnArea.toFixed(1)} м²`, ru ? 'газонов' : 'of lawns']] : []), [planting.plantingPoints.length - existing, ru ? 'деревьев и кустов — новых' : 'new trees and shrubs'], [existing, ru ? 'существующих' : 'existing'], ...(planting.plantingVines.length ? [[planting.plantingVines.length, ru ? 'лиан' : 'climbers']] : [])].map(([value, label]) => <div key={label}><b>{value}</b><span>{label}</span></div>)}
         </section>
 
         <section className="report-block">
@@ -180,7 +181,7 @@ export default function PlantingReport() {
                     <div className="report-album__text">
                         <h4>{plantName(r.plant, ru)}</h4>
                         <p className="report-album__latin">{r.plant.latin}</p>
-                        <p><b>{r.count} {ru ? 'шт' : 'pcs'}</b> · {CATEGORY_LABELS[r.plant.category]?.[ru ? 0 : 1]} · {where(r)}</p>
+                        <p><b>{r.order} {ru ? 'шт' : 'pcs'}</b> · {CATEGORY_LABELS[r.plant.category]?.[ru ? 0 : 1]} · {where(r)}</p>
                         {r.plant.category === 'climber'
                             ? <p>{ru ? 'Поднимается до' : 'Climbs to'} {r.plant.height} м{r.plant.vine?.support ? ` · ${r.plant.vine.support}` : ''}</p>
                             : <p>{ru ? 'Высота' : 'Height'} {r.plant.height} м · {ru ? 'ширина' : 'spread'} {r.plant.spread} м{r.plant.density && r.plant.category !== 'tree' ? ` · ${r.plant.density} шт/м², ${ru ? 'шаг' : 'spacing'} ${Math.round(spacingFor(r.plant.density) * 100)} см` : ''}</p>}
@@ -196,9 +197,9 @@ export default function PlantingReport() {
         <section className="report-block">
             <h3>{ru ? 'Ассортиментная ведомость' : 'Planting schedule'}</h3>
             <table className="report-table"><thead><tr>
-                <th>№</th><th>{ru ? 'Растение' : 'Plant'}</th><th>{ru ? 'Кол-во, шт' : 'Qty'}</th><th>{ru ? 'Площадь, м²' : 'Area, m²'}</th><th>{ru ? 'шт/м²' : '/m²'}</th><th>{ru ? 'Высота, м' : 'Height, m'}</th><th>{ru ? 'Где' : 'Where'}</th><th>{ru ? 'Замечания дендролога' : 'Dendrologist notes'}</th>
+                <th>№</th><th>{ru ? 'Растение' : 'Plant'}</th><th>{ru ? `К заказу, шт (+${reserve} %)` : `To order (+${reserve} %)`}</th><th>{ru ? 'Нарисовано, шт' : 'Drawn'}</th><th>{ru ? 'Площадь, м²' : 'Area, m²'}</th><th>{ru ? 'шт/м²' : '/m²'}</th><th>{ru ? 'Высота, м' : 'Height, m'}</th><th>{ru ? 'Где' : 'Where'}</th><th>{ru ? 'Замечания дендролога' : 'Dendrologist notes'}</th>
             </tr></thead><tbody>{schedule.map((r, i) => <tr key={r.plant.id}>
-                <td>{i + 1}</td><td>{plantName(r.plant, ru)}<small>{r.plant.latin}</small></td><td>{r.count}</td><td>{r.area ? r.area.toFixed(1) : '—'}</td><td>{r.plant.category === 'tree' ? '—' : r.plant.density ?? '—'}</td><td>{r.plant.height}</td><td>{where(r)}</td><td />
+                <td>{i + 1}</td><td>{plantName(r.plant, ru)}<small>{r.plant.latin}</small></td><td>{r.order}</td><td>{r.count}</td><td>{r.area ? r.area.toFixed(1) : '—'}</td><td>{r.plant.category === 'tree' ? '—' : r.plant.density ?? '—'}</td><td>{r.plant.height}</td><td>{where(r)}</td><td />
             </tr>)}</tbody></table>
         </section>
 
@@ -215,7 +216,7 @@ export default function PlantingReport() {
         <LightingReportBlocks report={lighting} ru={ru} />
 
         <footer className="report-foot">{ru
-            ? 'Высоты, плотность и календарь — справочные данные библиотеки растений (уверенность средняя), не заключение дендролога. Количества посчитаны по нарисованным цветникам.'
-            : 'Heights, density and calendar are reference data from the plant library (medium confidence), not a dendrologist’s opinion. Quantities are counted from the drawn beds.'}</footer>
+            ? `Высоты, плотность и календарь — справочные данные библиотеки растений (уверенность средняя), не заключение дендролога. К заказу: в цветнике — площадь вида по доле рецепта × шт/м² × густота цветника + ${reserve} %; одиночные и лианы — поштучно, существующие не заказываются. «Нарисовано» — растения на плане, для сверки.`
+            : `Heights, density and calendar are reference data from the plant library (medium confidence), not a dendrologist’s opinion. To order: in a bed, the species’ area by its recipe share × plants per m² × the bed’s density + ${reserve} %; single plants and climbers by the piece, existing ones not ordered. “Drawn” is what is on the plan, for checking.`}</footer>
     </main>;
 }
