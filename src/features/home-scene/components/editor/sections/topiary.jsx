@@ -1,6 +1,6 @@
 import React from 'react';
 import { useLanguage } from '../../../../../i18n/useLanguage';
-import { RangeControl, SectionHeading, SelectControl } from '../../HomeEditorControls';
+import { CheckboxControl, RangeControl, SectionHeading, SelectControl } from '../../HomeEditorControls';
 import { TOPIARY_DEFAULT, TOPIARY_LIMITS, TOPIARY_RANGES } from '../../../../../topiary/settings.js';
 import { useFocusControlScope } from '../focus/FocusControlsContext';
 
@@ -25,7 +25,18 @@ export function TopiarySection({settings,handleSettingChange,topiaryEditor,layou
         <SectionHeading label={`${ru?'Формы':'Shapes'} · ${objects.length}/${TOPIARY_LIMITS.objects}`} subtle/>
         <SelectControl controlId="topiaryObjects" label={ru?'Объект':'Object'} value={selected?.id??''} options={[{value:'',label:ru?'Выбрать…':'Select…'},...objects.map(o=>({value:o.id,label:o.name}))]} onChange={event=>topiaryEditor?.select(event.target.value)}/>
         {selected?<div className="home-editor-control-group"><input className="home-editor-select" aria-label={ru?'Имя формы':'Shape name'} value={selected.name} maxLength={64} onChange={event=>topiaryEditor.update(selected.id,{name:event.target.value})}/></div>:null}
-        {selected||scope?.catalogOnly?controls.map(([key,r,e,unit])=>{const[min,max,step]=TOPIARY_RANGES[key];return <RangeControl key={key} controlId={`topiaryObjects[].${key}`} testId={`topiary-${key}`} label={ru?r:e} value={object[key]} min={min} max={max} step={step} unit={unit} formatValue={v=>Number(v.toFixed(2))} onChange={event=>selected&&topiaryEditor.update(selected.id,{[key]:Number(event.target.value)})}/>;}):null}
+        {selected||scope?.catalogOnly?<>
+            <SectionHeading label={ru?'Металлическая основа':'Metal fence'} subtle/>
+            <SelectControl controlId="topiaryObjects[].fenceStyle" label={ru?'Конструкция':'Construction'} value={object.fenceStyle} options={[
+                {value:'none',label:ru?'Без ограды':'No fence'},
+                {value:'mesh-2d',label:ru?'Средний · сетка 2D':'Mid · 2D mesh'},
+                {value:'mesh-358',label:ru?'Дорогой · сетка 358':'Premium · 358 mesh'},
+                {value:'palisade',label:ru?'Металлический частокол':'Metal palisade'},
+            ]} onChange={event=>selected&&topiaryEditor.update(selected.id,{fenceStyle:event.target.value})}/>
+            <CheckboxControl controlId="topiaryObjects[].fenceSmooth" label={ru?'Плавный сплайн':'Smooth spline'} checked={object.fenceSmooth} onChange={event=>selected&&topiaryEditor.update(selected.id,{fenceSmooth:event.target.checked})}/>
+            <CheckboxControl controlId="topiaryObjects[].foliageVisible" label={ru?'Стриженая зелень':'Clipped greenery'} checked={object.foliageVisible} onChange={event=>selected&&topiaryEditor.update(selected.id,{foliageVisible:event.target.checked})}/>
+        </>:null}
+        {selected||scope?.catalogOnly?controls.filter(([key])=>object.foliageVisible||scope?.catalogOnly||!['width','density','leafSize','roundness','roughness','translucency'].includes(key)).map(([key,r,e,unit])=>{const[min,max,step]=TOPIARY_RANGES[key];return <RangeControl key={key} controlId={`topiaryObjects[].${key}`} testId={`topiary-${key}`} label={ru?r:e} value={object[key]} min={min} max={max} step={step} unit={unit} formatValue={v=>Number(v.toFixed(2))} onChange={event=>selected&&topiaryEditor.update(selected.id,{[key]:Number(event.target.value)})}/>;}):null}
         {selected?<div className="home-editor-tabs"><button type="button" className="home-editor-tab" onClick={()=>topiaryEditor.remove(selected.id)} data-testid="topiary-delete">{ru?'Удалить форму':'Delete shape'}</button></div>:null}
     </>;
 }

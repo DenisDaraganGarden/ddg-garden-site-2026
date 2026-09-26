@@ -2956,6 +2956,33 @@
       ]
     },
     {
+      "key": "topiaryObjects[].fenceStyle",
+      "group": "greenery",
+      "node": "topiary",
+      "label": "Конструкция",
+      "kind": "список",
+      "options": [
+        "none",
+        "mesh-2d",
+        "mesh-358",
+        "palisade"
+      ]
+    },
+    {
+      "key": "topiaryObjects[].fenceSmooth",
+      "group": "greenery",
+      "node": "topiary",
+      "label": "Плавный сплайн",
+      "kind": "выключатель"
+    },
+    {
+      "key": "topiaryObjects[].foliageVisible",
+      "group": "greenery",
+      "node": "topiary",
+      "label": "Стриженая зелень",
+      "kind": "выключатель"
+    },
+    {
       "key": "topiaryObjects[].width",
       "group": "greenery",
       "node": "topiary",

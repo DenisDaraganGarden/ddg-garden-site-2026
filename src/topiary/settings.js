@@ -7,7 +7,8 @@ export const TOPIARY_RANGES = Object.freeze({
     baseY: [-20, 40, .05], x: [-1200, 1200, .1], z: [-1200, 1200, .1],
     rotation: [-180, 180, 1], scale: [.25, 4, .05],
 });
-export const TOPIARY_DEFAULT = Object.freeze({ width: 1.2, height: 2.4, density: .8, leafSize: .28, roundness: .55, roughness: .73, translucency: .7, baseY: 0, x: 0, z: 0, rotation: 0, scale: 1 });
+export const TOPIARY_DEFAULT = Object.freeze({ width: 1.2, height: 2.4, density: .8, leafSize: .28, roundness: .55, roughness: .73, translucency: .7, baseY: 0, x: 0, z: 0, rotation: 0, scale: 1, foliageVisible: true, fenceStyle: 'none', fenceSmooth: false });
+export const TOPIARY_FENCE_STYLES = Object.freeze(['none', 'mesh-2d', 'mesh-358', 'palisade']);
 export const DEFAULT_TOPIARY_SETTINGS = Object.freeze({ topiaryEnabled: true, topiaryObjects: [], topiaryBrushWidth: 1.2, topiaryBrushHeight: 2.4, topiaryPlaneY: 0 });
 const number = (value, fallback, min, max) => Number.isFinite(Number(value)) ? Math.min(max, Math.max(min, Number(value))) : fallback;
 export function normalizeTopiaryObject(value, index = 0) {
@@ -18,6 +19,9 @@ export function normalizeTopiaryObject(value, index = 0) {
     const result = { id: String(value.id || `hedge-${index}`).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 64) || `hedge-${index}`, name: String(value.name || `Topiary ${index + 1}`).slice(0, 64), points,
         seed: Math.round(number(value.seed, index + 17, 1, 1e7)) };
     for (const [key, [min, max]] of Object.entries(TOPIARY_RANGES)) result[key] = number(value[key], TOPIARY_DEFAULT[key], min, max);
+    result.foliageVisible = value.foliageVisible !== false;
+    result.fenceStyle = TOPIARY_FENCE_STYLES.includes(value.fenceStyle) ? value.fenceStyle : 'none';
+    result.fenceSmooth = value.fenceSmooth === true;
     return result;
 }
 export function normalizeTopiarySettings(settings = {}) {
