@@ -99,7 +99,7 @@ function TopiaryObject({ object, atlas, capacity, selected, lowPower, envMapInte
 }
 function FenceOnlyObject({ object }) {
     return <group name={`topiary-${object.id}`} position={[object.x,object.baseY,object.z]} rotation={[0,THREE.MathUtils.degToRad(object.rotation),0]} scale={object.scale} userData={{ topiaryId: object.id }}>
-        <TopiaryFence object={object} />
+        {object.fenceStyle !== 'none' ? <TopiaryFence object={object} /> : null}
     </group>;
 }
 function ReadyTopiaryObjects({ objects, selectedId, qualityProfile, envMapIntensity=1 }) {
