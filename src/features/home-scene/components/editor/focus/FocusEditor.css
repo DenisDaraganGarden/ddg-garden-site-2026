@@ -1,5 +1,7 @@
 html[data-focus-editor=true]{--focus-bg:#17191a;--focus-panel:#1d1f20;--focus-panel2:#242627;--focus-input:#161819;--focus-text:#dcddd8;--focus-muted:#989d9e;--focus-line:#353839;--focus-accent:#cfc1a1;--focus-top:42px;--focus-bottom:24px;overflow:hidden}
 html[data-focus-editor=true]:not([data-focus-preview=true]) .main-nav{display:none}
+/* Кадр проекта — без шапки, меню и языков сайта: они к проекту не относятся. */
+html[data-focus-project=true] .main-nav{display:none}
 .home-editor-page--focus{position:fixed;inset:0;min-height:0;height:100dvh;width:100vw;background:#101212}
 .home-editor-page--focus .home-editor-stage{inset:var(--focus-top) min(var(--focus-panel-space,304px),calc(100vw - 54px)) var(--focus-bottom) var(--focus-rail-space,42px)}
 .home-editor-page--focus .home-editor-viewport{width:100%;height:100%;box-shadow:none;background:#101212}
