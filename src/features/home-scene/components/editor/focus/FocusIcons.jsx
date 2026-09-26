@@ -5,6 +5,7 @@ const paths = {
     picture: <><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8" cy="8" r="2"/><path d="m3 18 6-6 4 4 3-4 5 6"/></>,
     grid: <><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></>,
     terrain: <><path d="m2 19 6-12 4 7 3-5 7 10Z"/><path d="m6 11 3 2 2-1"/></>,
+    city: <><path d="M2 21h20"/><path d="M4 21V11h5v10M9 21V4h7v17M16 21v-7h4v7"/><path d="M11.5 7.5h2m-2 3.5h2m-2 3.5h2M6 14h1"/></>,
     water: <path d="M2 7c3-4 5 4 8 0s5 4 8 0 4 0 4 0M2 12c3-4 5 4 8 0s5 4 8 0 4 0 4 0M2 17c3-4 5 4 8 0s5 4 8 0 4 0 4 0"/>,
     leaf: <><path d="M20 3C10 2 2 8 6 16s17 0 14-13Z"/><path d="M3 21 16 8"/></>,
     bed: <><path d="M4 15c-2.5-5 2.5-10 8.5-9.5S22 9 19.5 14 6.5 21 4 15Z"/><circle cx="9" cy="12" r="1.3"/><circle cx="14" cy="10.5" r="1.3"/><circle cx="13" cy="15.5" r="1.3"/></>,

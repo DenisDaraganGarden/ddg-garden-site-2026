@@ -1,6 +1,6 @@
 import { DEFAULT_TOPIARY_SETTINGS, normalizeTopiarySettings } from '../../../topiary/settings.js';
 import { DEFAULT_PLACED_SETTINGS, normalizePlacedSettings } from '../../../placed/settings.js';
-import { DEFAULT_PLANTING_SETTINGS, normalizePlantingSettings } from '../../../planting/settings.js';
+import { DEFAULT_PLANTING_SETTINGS, normalizePlantingSettings, planOnlyOnPlanCamera } from '../../../planting/settings.js';
 import { DEFAULT_ANNOTATION_SETTINGS, normalizeAnnotationSettings } from '../../../annotations/settings.js';
 import { DEFAULT_WALK_SETTINGS, normalizeWalkSettings } from '../../../walk/settings.js';
 import {DEFAULT_GRASS_SETTINGS,DEFAULT_SHRUB_SETTINGS,DEFAULT_TREE_SETTINGS,normalizeGrassSettings,normalizeShrubSettings,normalizeTreeSettings} from '../../../plants/settings.js';
@@ -1330,7 +1330,7 @@ const normalizeHomeSceneSettings = (savedSettings = {}, includeCameraSystem = tr
     ? savedSettings.activeWorkCameraId
     : null;
 
-  return {
+  return planOnlyOnPlanCamera({
     ...normalizedScene,
     sceneCameras,
     slideshow: normalizeSlideshow(savedSettings.slideshow),
@@ -1340,7 +1340,7 @@ const normalizeHomeSceneSettings = (savedSettings = {}, includeCameraSystem = tr
     editorLayoutKey: ['desktop', 'portrait'].includes(savedSettings.editorLayoutKey)
       ? savedSettings.editorLayoutKey
       : undefined,
-  };
+  });
 };
 
 export const HOME_SCENE_SNAPSHOT_KEYS = Object.freeze(
@@ -1510,7 +1510,7 @@ export const useHomeSceneDraftSettings = (project = null) => {
   const setSettings = useCallback((update) => {
     setStoredSettings((previous) => {
       const next = typeof update === 'function' ? update(previous) : update;
-      return next === previous ? previous : syncActiveEditorCamera(next, HOME_SCENE_SNAPSHOT_KEYS);
+      return next === previous ? previous : planOnlyOnPlanCamera(syncActiveEditorCamera(next, HOME_SCENE_SNAPSHOT_KEYS));
     });
   }, []);
 

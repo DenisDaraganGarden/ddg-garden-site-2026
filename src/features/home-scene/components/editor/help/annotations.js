@@ -9,5 +9,5 @@ export default {
   annotationUnits: ['В чём писать высоты: метры (+1,250), сантиметры (+125) или миллиметры (+1250). Ноль остаётся нулём.', 'Units of the heights: metres (+1.250), centimetres (+125) or millimetres (+1250). Zero stays zero.'],
   annotationStep: ['До чего округлять: 1 мм — точно, 1 см или 10 см — когда миллиметры только мешают, на большом рельефе.', 'What to round to: 1 mm is exact; 1 cm or 10 cm when millimetres only get in the way, on large terrain.'],
   annotationSize: ['Размер отметок на экране. Он не зависит от расстояния: отметка — надпись, а не предмет.', 'Size of the marks on screen. It does not change with distance: a mark is a note, not an object.'],
-  annotationFade: ['С какого расстояния отметки плавно гаснут, м: на большом участке дальние не лезут в кадр.', 'From what distance the marks fade out, m: on a large site the far ones stay out of the frame.'],
+  annotationFade: ['С какого расстояния отметки плавно гаснут, м: на большом участке дальние не лезут в кадр. Выбранная и только что поставленная видна всегда.', 'From what distance the marks fade out, m: on a large site the far ones stay out of the frame. The selected one, and one just placed, always shows.'],
 };
