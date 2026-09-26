@@ -42,6 +42,7 @@ export function usePlantLibrary() {
 export const plantCardUrl = (plant) => `/__library/plants/${plant.id}/card.webp?v=${plant.cardVersion ?? 0}`;
 // Картинка сезона, нарисованная по карточке (scripts/plantSeasons.mjs).
 export const plantSeasonUrl = (plant, phase) => `/__library/plants/${plant.id}/season-${phase}.webp?v=${plant.seasons?.[phase] ?? 0}`;
+export const plantVineAtlasUrl = (plant) => `/__library/plants/${plant.id}/vine-atlas.webp?v=${plant.vineAtlasVersion ?? 0}`;
 
 // Нарисовать фазы растения ИИ ({phases, model, quality}): ответ — по фазе
 // {ok, message}; библиотека перечитывается, и сцена берёт новые картинки.

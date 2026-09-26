@@ -38,12 +38,14 @@ export async function listPlants(dir = PLANTS_DIR) {
       // браузер держит её в кеше сколько угодно.
       const card = await fs.stat(path.join(dir, plant.id, 'card.webp')).catch(() => null);
       const photo = await fs.stat(path.join(dir, plant.id, 'photo.webp')).catch(() => null);
+      const vineAtlas = plant.category === 'climber' ? await fs.stat(path.join(dir, plant.id, 'vine-atlas.webp')).catch(() => null) : null;
       const photoSize = photo ? await fs.readFile(path.join(dir, plant.id, 'photo.json'), 'utf8').then(JSON.parse, () => null) : null;
       // Сезоны — версии картинок по фазам: {autumn: время файла, …}.
       const seasons = Object.fromEntries((await Promise.all(SEASON_PHASES.map(async (phase) => [phase, await fs.stat(path.join(dir, plant.id, `season-${phase}.webp`)).catch(() => null)])))
         .filter(([, stat]) => stat).map(([phase, stat]) => [phase, Math.round(stat.mtimeMs)]));
       return card ? {
         ...plant, cardVersion: Math.round(card.mtimeMs), ...(photo ? { photoVersion: Math.round(photo.mtimeMs), photoSize } : {}),
+        ...(vineAtlas ? { vineAtlasVersion: Math.round(vineAtlas.mtimeMs) } : {}),
         ...(Object.keys(seasons).length ? { seasons } : {}),
       } : null;
     } catch {
@@ -66,6 +68,7 @@ export async function plantCardFile(id, dir = PLANTS_DIR, name = 'card.webp') {
 }
 
 export const plantPhotoFile = (id, dir = PLANTS_DIR) => plantCardFile(id, dir, 'photo.webp');
+export const plantVineAtlasFile = (id, dir = PLANTS_DIR) => plantCardFile(id, dir, 'vine-atlas.webp');
 export const plantSeasonFile = (id, name, dir = PLANTS_DIR) => (SEASON_FILE.test(String(name)) ? plantCardFile(id, dir, name) : null);
 
 // Картинка Дениса к растению: любой формат, который читает sharp, — в webp до

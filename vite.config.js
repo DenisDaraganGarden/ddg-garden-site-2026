@@ -8,7 +8,7 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { publishedHomeSceneKeys } from './src/features/home-scene/data/publishedHomeSceneKeys.js';
 import { isValidId, presets, projects } from './scripts/projectStore.mjs';
-import { listPlants, plantCardFile, plantPhotoFile, plantSeasonFile, removePlantPhoto, writePlantPhoto } from './scripts/plantLibrary.mjs';
+import { listPlants, plantCardFile, plantPhotoFile, plantSeasonFile, plantVineAtlasFile, removePlantPhoto, writePlantPhoto } from './scripts/plantLibrary.mjs';
 import { generatePlantSeasons, removePlantSeason } from './scripts/plantSeasons.mjs';
 import { listLuminaires, luminairePhotoFile, luminairePhotometryFile, removeLuminairePhoto, writeLuminairePhoto } from './scripts/luminaireLibrary.mjs';
 import { mapNodes, modelOrigin, prepareSketchupGlb, readGlb, readGlbJson } from './scripts/sketchupGlb.mjs';
@@ -459,7 +459,7 @@ function engineStorePlugin() {
         if (file === 'photo' && request.method === 'DELETE') { sendJson(response, 200, { ok: await removePlantPhoto(id) }); return; }
         if (request.method !== 'GET') { next(); return; }
         if (!id) { sendJson(response, 200, { ok: true, plants: await listPlants() }); return; }
-        const found = file === 'card.webp' ? await plantCardFile(id) : file === 'photo.webp' ? await plantPhotoFile(id) : await plantSeasonFile(id, file);
+        const found = file === 'card.webp' ? await plantCardFile(id) : file === 'photo.webp' ? await plantPhotoFile(id) : file === 'vine-atlas.webp' ? await plantVineAtlasFile(id) : await plantSeasonFile(id, file);
         if (!found) { sendJson(response, 404, { ok: false, message: 'Картинки нет.' }); return; }
         response.statusCode = 200;
         response.setHeader('Content-Type', 'image/webp');

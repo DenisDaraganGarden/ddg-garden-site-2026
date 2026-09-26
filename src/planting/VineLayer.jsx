@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { flowerShape, leafShape } from './vineLeaves.js';
 import { growVine, vineParams, vineRoot } from './vines.js';
 import { seasonLook } from './season.js';
+import { plantVineAtlasUrl } from './plantLibrary.js';
 import { gardenWind, GARDEN_WIND_GLSL } from './wind.js';
 
 // Лианы в сцене (правило роста — vines.js). На вид — атлас из четырёх
@@ -159,6 +160,28 @@ function SpeciesVines({ plant, vines, month, plan, envMapIntensity }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [plant]);
     useEffect(() => () => { resources.atlas.dispose(); resources.leaf.dispose(); resources.depth.dispose(); resources.twig.dispose(); resources.cells.forEach((cell) => cell.dispose()); }, [resources]);
+    // Фотоатлас имеет те же четыре клетки и нейтральную яркость: цвет и
+    // сезон по-прежнему задаёт растение. Пока он грузится, виден обычный лист.
+    useEffect(() => {
+        if (!plant.vineAtlasVersion) return undefined;
+        let live = true;
+        const atlas = new THREE.TextureLoader().load(plantVineAtlasUrl(plant), (loaded) => {
+            if (!live) return;
+            resources.leaf.map = loaded;
+            resources.leaf.color.setScalar(Number.isFinite(plant.vineAtlasGain) ? Math.max(1, Math.min(8, plant.vineAtlasGain)) : 1);
+            resources.depth.map = loaded;
+            invalidate();
+        });
+        atlas.colorSpace = THREE.SRGBColorSpace;
+        atlas.anisotropy = 4;
+        return () => {
+            live = false;
+            resources.leaf.map = resources.atlas;
+            resources.leaf.color.setScalar(1);
+            resources.depth.map = resources.atlas;
+            atlas.dispose();
+        };
+    }, [plant, resources, invalidate]);
     useEffect(() => { resources.leaf.envMapIntensity = envMapIntensity; invalidate(); }, [resources, envMapIntensity, invalidate]);
 
     const twigs = useMemo(() => stemGeometry(grown.flatMap(({ vine, growth }) => growth.stems.map((stem) => ({ ...stem, owner: vine.id })))), [grown]);
