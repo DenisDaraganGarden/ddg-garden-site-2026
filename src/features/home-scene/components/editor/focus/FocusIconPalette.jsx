@@ -1,15 +1,8 @@
 /* eslint-disable react-refresh/only-export-components -- Palette hooks and shared colour tokens form one editor API. */
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { FOCUS_ICON_COLORS, FOCUS_ICON_GRADIENTS, FOCUS_ICON_PALETTE } from './focusIconColors';
 import './focusIconPalette.css';
 
-// Двадцать цветов значков: весь круг тонов в двух силах — яркие и глубже,
-// все читаются на тёмной панели (контраст не ниже 4:1), без пастели.
-export const FOCUS_ICON_COLORS = [
-    ['Мел', 'Chalk', '#f1eee6'], ['Серебро', 'Silver', '#aab2ba'], ['Песок', 'Sand', '#dcc49a'], ['Лимонный', 'Lemon', '#f0dc4a'], ['Янтарь', 'Amber', '#ffb22e'],
-    ['Мандарин', 'Tangerine', '#ff8740'], ['Терракота', 'Terracotta', '#e0714f'], ['Алый', 'Scarlet', '#ff5454'], ['Малиновый', 'Raspberry', '#ff4f8e'], ['Фуксия', 'Fuchsia', '#e55cf0'],
-    ['Сиреневый', 'Lilac', '#c49aff'], ['Фиолетовый', 'Violet', '#9a77ff'], ['Ультрамарин', 'Ultramarine', '#6f8cff'], ['Лазурь', 'Azure', '#40b4ff'], ['Морская волна', 'Sea blue', '#4a9cb5'],
-    ['Бирюза', 'Turquoise', '#2fd4c6'], ['Изумруд', 'Emerald', '#34d27f'], ['Хвоя', 'Pine', '#5fa97c'], ['Салатовый', 'Lime', '#a8e04c'], ['Олива', 'Olive', '#b9b35a'],
-];
 // Прежние пятнадцать приглушённых — к ближайшим новым, чтобы выбранное не пропало.
 const LEGACY_COLORS = {
     '#dddcd4': '#f1eee6', '#a0a5aa': '#aab2ba', '#c4b293': '#dcc49a', '#cbb26b': '#b9b35a', '#e4b45b': '#ffb22e',
@@ -18,7 +11,8 @@ const LEGACY_COLORS = {
 };
 
 const STORAGE_KEY = 'ddg_focus_ui_colors_v1';
-const PALETTE_VALUES = new Set(FOCUS_ICON_COLORS.map(([, , color]) => color));
+const PALETTE_VALUES = new Set(FOCUS_ICON_PALETTE.map(([, , color]) => color));
+const PALETTE_COLUMNS = 8;
 const readColors = () => {
     if (typeof window === 'undefined') return {};
     try {
@@ -55,7 +49,7 @@ export function FocusColorPalette({ target, anchor, colors, onClose, language = 
     const [position, setPosition] = useState(null);
     const targetIsGroup = target?.kind === 'group';
     const activeColor = targetIsGroup ? colors.groupColor(target.groupId) : colors.colorFor(target?.path);
-    const selectedIndex = Math.max(0, FOCUS_ICON_COLORS.findIndex(([, , color]) => color === activeColor));
+    const selectedIndex = Math.max(0, FOCUS_ICON_PALETTE.findIndex(([, , color]) => color === activeColor));
     const close = useCallback((restoreFocus = false) => {
         if (restoreFocus && anchor?.trigger?.isConnected) {
             anchor.trigger.focus();
@@ -64,15 +58,20 @@ export function FocusColorPalette({ target, anchor, colors, onClose, language = 
     }, [anchor, onClose]);
 
     // The palette can originate on either edge of a wide editor. Size it after
-    // mount, then keep the whole 5×4 grid inside the visible window.
+    // mount, then keep the expanded palette inside the visible window.
     useLayoutEffect(() => {
         if (!ref.current || !anchor) return;
-        const bounds = ref.current.getBoundingClientRect();
-        const inset = 8;
-        setPosition({
-            left: Math.max(inset, Math.min(anchor.x, window.innerWidth - bounds.width - inset)),
-            top: Math.max(inset, Math.min(anchor.y, window.innerHeight - bounds.height - inset)),
-        });
+        const place = () => {
+            const bounds = ref.current.getBoundingClientRect();
+            const inset = 8;
+            setPosition({
+                left: Math.max(inset, Math.min(anchor.x, window.innerWidth - bounds.width - inset)),
+                top: Math.max(inset, Math.min(anchor.y, window.innerHeight - bounds.height - inset)),
+            });
+        };
+        place();
+        window.addEventListener('resize', place);
+        return () => window.removeEventListener('resize', place);
     }, [anchor]);
 
     useEffect(() => {
@@ -110,7 +109,7 @@ export function FocusColorPalette({ target, anchor, colors, onClose, language = 
         };
     }, [close]);
     const handleGridKeyDown = (event) => {
-        const offsets = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -5, ArrowDown: 5 };
+        const offsets = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -PALETTE_COLUMNS, ArrowDown: PALETTE_COLUMNS };
         if (!(event.key in offsets)) return;
         const swatches = [...(ref.current?.querySelectorAll('[data-focus-swatch]') ?? [])];
         const current = swatches.indexOf(event.currentTarget);
@@ -122,12 +121,17 @@ export function FocusColorPalette({ target, anchor, colors, onClose, language = 
         swatches[next].tabIndex = 0;
         swatches[next].focus();
     };
+    const swatch = ([ru, en, color, start, end], index) => <button key={color} type="button" className="focus-color-palette__swatch" data-focus-swatch style={{ '--focus-swatch': start ? `linear-gradient(135deg, ${start}, ${end})` : color, '--focus-swatch-edge': start ?? color }} aria-label={language === 'ru' ? ru : en} title={language === 'ru' ? ru : en} aria-pressed={activeColor === color} tabIndex={index === selectedIndex ? 0 : -1} onKeyDown={handleGridKeyDown} onClick={() => select(color)}><span /></button>;
     if (!target || !anchor) return null;
     return (
         <div ref={ref} className="focus-color-palette" data-focus-color-palette role="dialog" aria-label={`${language === 'ru' ? 'Цвет значка' : 'Icon color'}: ${target.label}`} style={{ left: position?.left ?? anchor.x, top: position?.top ?? anchor.y }}>
             <div className="focus-color-palette__title">{target.label}</div>
-            <div className="focus-color-palette__grid" role="group" aria-label={language === 'ru' ? '15 цветов' : '15 colors'}>
-                {FOCUS_ICON_COLORS.map(([ru, en, color], index) => <button key={color} type="button" className="focus-color-palette__swatch" data-focus-swatch style={{ '--focus-swatch': color }} aria-label={language === 'ru' ? ru : en} aria-pressed={activeColor === color} tabIndex={index === selectedIndex ? 0 : -1} onKeyDown={handleGridKeyDown} onClick={() => select(color)}><span /></button>)}
+            <div className="focus-color-palette__grid" role="group" aria-label={`${FOCUS_ICON_COLORS.length} ${language === 'ru' ? 'цветов' : 'colors'}`}>
+                {FOCUS_ICON_COLORS.map(swatch)}
+            </div>
+            <div className="focus-color-palette__section">{language === 'ru' ? 'Градиенты' : 'Gradients'}</div>
+            <div className="focus-color-palette__grid" role="group" aria-label={`${FOCUS_ICON_GRADIENTS.length} ${language === 'ru' ? 'градиентов' : 'gradients'}`}>
+                {FOCUS_ICON_GRADIENTS.map((entry, index) => swatch(entry, FOCUS_ICON_COLORS.length + index))}
             </div>
             <button type="button" className="focus-color-palette__reset" onClick={reset}>{targetIsGroup ? (language === 'ru' ? 'Без метки' : 'No label') : (language === 'ru' ? 'Цвет группы' : 'Group color')}</button>
             <small>{targetIsGroup ? (language === 'ru' ? 'Наследуется значками объектов' : 'Inherited by object icons') : (language === 'ru' ? 'Один цвет в списке и инспекторе' : 'Same colour in list and inspector')}</small>

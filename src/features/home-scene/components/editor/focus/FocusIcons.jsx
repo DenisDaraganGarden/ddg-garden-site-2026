@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useId } from 'react';
 import { focusActionPaths } from './focusActionPaths';
+import { focusIconGradient } from './focusIconColors';
 
 const paths = {
     picture: <><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8" cy="8" r="2"/><path d="m3 18 6-6 4 4 3-4 5 6"/></>,
@@ -52,13 +53,16 @@ const paths = {
     bug: <><rect x="7" y="7" width="10" height="12" rx="4"/><path d="M12 3v4M4 9h3m10 0h3M4 15h3m10 0h3M9 3l1 2m5-2-1 2"/><circle cx="10" cy="12" r=".7" fill="currentColor" stroke="none"/><circle cx="14" cy="12" r=".7" fill="currentColor" stroke="none"/></>,
 };
 
-export function FocusIcon({ name = 'box', title, className = '', ...props }) {
+export function FocusIcon({ name = 'box', title, className = '', iconColor, style, ...props }) {
+    const gradientId = useId();
+    const gradient = focusIconGradient(iconColor);
     return (
         <svg
             className={`focus-icon ${className}`.trim()}
             viewBox="0 0 24 24"
             fill="none"
-            stroke="currentColor"
+            stroke={gradient ? `url(#${gradientId})` : 'currentColor'}
+            style={{ ...style, ...(iconColor ? { color: gradient ? gradient[3] : iconColor } : {}) }}
             strokeWidth="1.5"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -67,6 +71,7 @@ export function FocusIcon({ name = 'box', title, className = '', ...props }) {
             {...props}
         >
             {title ? <title>{title}</title> : null}
+            {gradient ? <defs><linearGradient id={gradientId} gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="24" y2="24"><stop stopColor={gradient[3]} /><stop offset="1" stopColor={gradient[4]} /></linearGradient></defs> : null}
             {paths[name] ?? (focusActionPaths[name] ? <g dangerouslySetInnerHTML={{ __html: focusActionPaths[name] }} /> : paths.box)}
         </svg>
     );
