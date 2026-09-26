@@ -76,9 +76,14 @@ assert.equal(asset.dryness,.7);assert.equal(asset.windBearing,200);assert.equal(
 // Species (treeSpecies.js): each form regrows exactly and attaches, a snag
 // carries no leaves, a sheaf has its trunks, budgets stay near the oleaster's.
 // The default oleaster is pinned by fingerprint: the species knobs at their
-// defaults must not move a single authored leaf.
-const fingerprint=m=>createHash('sha1').update(JSON.stringify([m.leaves.map(l=>[...l.pivot.toArray(),...l.axis.toArray(),l.length,l.width,l.variant,l.tint]),m.branches.map(b=>[b.parent,b.parentT,b.radius,b.radiusEnd??null,...b.curve.getPoint(0).toArray(),...b.curve.getPoint(.5).toArray(),...b.curve.getPoint(1).toArray(),!!b.root])])).digest('hex').slice(0,16);
-assert.equal(fingerprint(makeCoastTree({})),'59a651d9a78b4f18','the authored oleaster (seed 7) regrows exactly');
+// defaults must not move a single authored leaf. Numbers are rounded to a
+// micrometre first: the last bits of a float differ between processors, and the
+// first pin (59a651d9a78b4f18) was never reproduced on x86 by the code of any
+// commit since, under Node 20, 21 or 22. A moved leaf still moves the hash.
+const micro=x=>typeof x==='number'?Math.round(x*1e6)/1e6:x;
+const fingerprint=m=>createHash('sha1').update(JSON.stringify([m.leaves.map(l=>[...l.pivot.toArray(),...l.axis.toArray(),l.length,l.width,l.variant,l.tint].map(micro)),m.branches.map(b=>[b.parent,b.parentT,b.radius,b.radiusEnd??null,...b.curve.getPoint(0).toArray(),...b.curve.getPoint(.5).toArray(),...b.curve.getPoint(1).toArray(),!!b.root].map(micro))])).digest('hex').slice(0,16);
+const OLEASTER_PIN='3b11a9a658445abd';
+assert.equal(fingerprint(makeCoastTree({})),OLEASTER_PIN,'the authored oleaster (seed 7) regrows exactly');
 const species={};
 for(const kind of TREE_KINDS){
  const s=TREE_SPECIES[kind],m=makeCoastTree(s.form),again=makeCoastTree(s.form);

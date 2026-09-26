@@ -38,17 +38,10 @@ jobs:
       - name: Build site
         run: npm run build
 
-      - name: Check bundle
-        run: npm run check:bundle
-
-      - name: Check the sky model
-        run: npm run check:sky
-
-      - name: Check GPU resource lifetime and shadow coverage
-        run: npm run check:render-resources
-
-      - name: Check path-traced snapshots and ownership
-        run: npm run check:path-trace
+      # Every check:* of package.json that needs no browser (scripts/check-fast.mjs):
+      # about 40 checks in a minute and a half; check:bundle reads the build above.
+      - name: Fast checks
+        run: npm run check:fast
 
   # The smoke test renders every scene in software WebGL on the runner: a whole
   # run is about 40 minutes there, so its two phases run as parallel jobs of

@@ -70,6 +70,7 @@
     "engine:status": "node scripts/engineCopy.mjs status",
     "check:engine-copy": "node scripts/engineCopy.check.mjs",
     "check:local-guard": "node scripts/localGuard.check.mjs",
+    "check:fast": "node scripts/check-fast.mjs",
     "check:app": "node scripts/check-app.mjs",
     "check:app-navigation": "node ./node_modules/electron/cli.js scripts/electronNavigation.check.mjs",
     "check:fire": "node src/fire/fire.check.js",
