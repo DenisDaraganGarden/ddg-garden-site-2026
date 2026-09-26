@@ -27,8 +27,11 @@ export function referenceProfile(value) {
 const mediaUrl = (value) => {
   try { const u = new URL(value); return u.protocol === 'https:' && u.hostname === 'i.pinimg.com' ? u.href : null; } catch { return null; }
 };
+// Id пинов длиннее double: целые от 15 цифр вне строк берутся в кавычки до
+// разбора. Не через context.source у JSON.parse — его нет в Node 20.
+const LONG_INTEGER = /"(?:[^"\\]|\\.)*"|(?<![\w.+-])\d{15,}(?![\w.])/g;
 export function parsePinterest(text) {
-  return JSON.parse(text, (_, value, context) => typeof value === 'number' && /^\d{15,}$/.test(context?.source ?? '') ? context.source : value);
+  return JSON.parse(String(text).replace(LONG_INTEGER, (token) => (token[0] === '"' ? token : `"${token}"`)));
 }
 export function pinterestBoards(raw) {
   return (Array.isArray(raw) ? raw : []).filter((r) => r[0] === 6 && r[2]?.name && /^https:\/\/www\.pinterest\.com\//.test(r[1])).map(([, url, meta]) => ({

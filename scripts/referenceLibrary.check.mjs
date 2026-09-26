@@ -14,6 +14,8 @@ try {
   for (const value of ['../projects', 'https://pinterest.com.evil.test/example', 'https://127.0.0.1/']) assert.throws(() => referenceProfile(value));
   const precise = parsePinterest('[[3,"https://i.pinimg.com/originals/a.jpg",{"id":999999999999999999,"title":"Stone"}]]');
   assert.equal(pinterestPins(precise, 'board')[0].id, '999999999999999999');
+  assert.deepEqual(parsePinterest('{"a":"x:123456789012345678,\\"","b":0.1234567890123456789,"c":-123456789012345678,"d":[123456789012345678]}'),
+    { a: 'x:123456789012345678,"', b: Number('0.1234567890123456789'), c: Number('-123456789012345678'), d: ['123456789012345678'] }, 'only bare long integers become strings');
   assert.deepEqual(pinterestPins([[3, 'http://127.0.0.1/private', { id: '123456' }]], 'board'), []);
   const boards = ['paving', 'stone'].map((name) => [6, `https://www.pinterest.com/example/${name}/`, { name, pin_count: 1 }]);
   const first = await syncReferences('example', null, async () => boards);
