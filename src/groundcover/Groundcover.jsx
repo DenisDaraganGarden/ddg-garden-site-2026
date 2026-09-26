@@ -12,7 +12,7 @@ export default function Groundcover({ bed, month = 6, envMapIntensity = 1, surfa
     current.current = { month, envMapIntensity, onStats };
     useEffect(() => {
         const holder = root.current;
-        let model = null, stamp = '', elapsed = 1;
+        let model = null, stamp = '', elapsed = 1, statsElapsed = 0, statsDirty = true;
         const refresh = () => {
             const mesh = bed.coverSurface ? resolveCoverSurface(scene, bed.coverSurface) : null;
             mesh?.updateWorldMatrix(true, false);
@@ -23,13 +23,24 @@ export default function Groundcover({ bed, month = 6, envMapIntensity = 1, surfa
             const query = surface ?? (bed.coverSurface ? mesh && receiverSurface(mesh, bed.coverSurface.face) : gridSurface(bed));
             if (!query) { current.current.onStats?.(null); return; }
             model = buildCover(bed, query, { exclusions, budget }); model.update(current.current.month, current.current.envMapIntensity);
-            holder.add(model.group); current.current.onStats?.(model.stats); invalidate();
+            holder.add(model.group); current.current.onStats?.({ ...model.stats }); statsDirty = true; invalidate();
         };
         refresh();
-        runtime.current = { tick(delta) { elapsed += delta; if (bed.coverSurface && elapsed > .5) { elapsed = 0; refresh(); } }, update() { model?.update(current.current.month, current.current.envMapIntensity); invalidate(); } };
+        runtime.current = {
+            tick(delta, camera, height) {
+                elapsed += delta; statsElapsed += delta;
+                if (bed.coverSurface && elapsed > .5) { elapsed = 0; refresh(); }
+                if (!model) return;
+                statsDirty = model.updateView(camera, height) || statsDirty;
+                if (statsDirty && statsElapsed > .3) {
+                    statsElapsed = 0; statsDirty = false; current.current.onStats?.({ ...model.stats });
+                }
+            },
+            update() { model?.update(current.current.month, current.current.envMapIntensity); statsDirty = true; invalidate(); },
+        };
         return () => { runtime.current = null; if (model) holder.remove(model.group); model?.dispose(); };
     }, [bed, scene, surface, exclusions, budget, invalidate]);
     useEffect(() => runtime.current?.update(), [month, envMapIntensity]);
-    useFrame((_, delta) => runtime.current?.tick(delta));
+    useFrame(({ camera, size }, delta) => runtime.current?.tick(delta, camera, size.height));
     return <group ref={root} name={`cover-receiver-${bed.id}`} />;
 }

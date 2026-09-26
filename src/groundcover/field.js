@@ -29,7 +29,9 @@ export function coverField(bed, cover, x, z, exclusions = []) {
     // random far-field colours which would reveal the geometry transition.
     const leaf = cover.leaf > 0 && n < cover.leaf;
     const thyme = !leaf && cover.thyme > 0 && n > 1 - cover.thyme;
-    return { kind: leaf ? 'leaf' : thyme ? 'thyme' : 'moss', occupancy, vigor: noise(x * .7, z * .7, bed.seed + 41), height: (.012 + .023 * noise(x * 4, z * 4, bed.seed + 3)) * occupancy };
+    const mossWeight = (cover.leaf > 0 ? clamp((n - cover.leaf) / .08) : 1) * (cover.thyme > 0 ? clamp((1 - cover.thyme - n) / .08) : 1);
+    const cushion = cover.height * .35 * noise(x * 2.2, z * 2.2, bed.seed + 67) * mossWeight;
+    return { kind: leaf ? 'leaf' : thyme ? 'thyme' : 'moss', occupancy, vigor: noise(x * .7, z * .7, bed.seed + 41), height: (.012 + .023 * noise(x * 4, z * 4, bed.seed + 3) + cushion) * occupancy };
 }
 export function gridSurface(bed) {
     return { sample(x, z) {
