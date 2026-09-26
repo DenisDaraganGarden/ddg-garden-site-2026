@@ -1,18 +1,4 @@
-const legacyMusicUrl = new URL(
-  '../../../../portfolio/VOCES8 & Samuel Barber - Barber Agnus Dei.mp3',
-  import.meta.url,
-).href;
-
 export const SOUNDSCAPE_ASSETS = Object.freeze({
-  music: {
-    id: 'music',
-    labelKey: 'music',
-    url: legacyMusicUrl,
-    bus: 'music',
-    playback: 'loop',
-    crossfadeSeconds: 4,
-    spatial: false,
-  },
   water: {
     id: 'water',
     labelKey: 'water',

@@ -300,12 +300,9 @@ export const translations = {
         },
         modes: {
           off: 'Без фонового звука',
-          music: 'Только музыка',
           soundscape: 'Только живая среда',
-          hybrid: 'Музыка + среда',
         },
         tracks: {
-          music: 'Музыка сайта',
           water: 'Водная гладь',
           shore: 'Волна у берега',
           tanker: 'Танкер · дизель / гудок',
@@ -327,7 +324,6 @@ export const translations = {
         audioEnabled: 'Звуковая система сцены',
         audioMode: 'Режим главной',
         audioMasterGain: 'Master',
-        audioMusicGain: 'Музыка',
         audioAmbienceGain: 'Живая среда',
         audioSpatialGain: '3D-источники',
         audioWeatherGain: 'Погода',
@@ -1011,12 +1007,9 @@ export const translations = {
         },
         modes: {
           off: 'No Background Audio',
-          music: 'Music Only',
           soundscape: 'Field Recordings Only',
-          hybrid: 'Music + Soundscape',
         },
         tracks: {
-          music: 'Site Music',
           water: 'Open Water',
           shore: 'Shore Waves',
           tanker: 'Tanker · diesel / horn',
@@ -1038,7 +1031,6 @@ export const translations = {
         audioEnabled: 'Scene Audio System',
         audioMode: 'Home Mode',
         audioMasterGain: 'Master',
-        audioMusicGain: 'Music',
         audioAmbienceGain: 'Field Recordings',
         audioSpatialGain: '3D Sources',
         audioWeatherGain: 'Weather',

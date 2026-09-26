@@ -45,8 +45,7 @@ const randomBetween = (range, random = Math.random) => {
   return minimum + ((maximum - minimum) * random());
 };
 
-const audioModeHasMusic = (mode) => mode === 'music' || mode === 'hybrid';
-const audioModeHasSoundscape = (mode) => mode === 'soundscape' || mode === 'hybrid';
+const audioModeHasSoundscape = (mode) => mode === 'soundscape';
 
 function holdAndRamp(param, target, duration, now) {
   if (!param) {
@@ -230,7 +229,6 @@ export class SoundscapeEngine {
     const master = context.createGain();
     const user = context.createGain();
     const home = context.createGain();
-    const music = context.createGain();
     const ambience = context.createGain();
     const bed = context.createGain();
     const world = context.createGain();
@@ -238,7 +236,6 @@ export class SoundscapeEngine {
     const weather = context.createGain();
     const ui = context.createGain();
 
-    music.connect(home);
     bed.connect(ambience);
     world.connect(worldFocus);
     worldFocus.connect(ambience);
@@ -259,7 +256,6 @@ export class SoundscapeEngine {
       master,
       user,
       home,
-      music,
       ambience,
       bed,
       world,
@@ -405,7 +401,6 @@ export class SoundscapeEngine {
     const now = this.context.currentTime;
     const duration = immediate ? 0 : 0.08;
     holdAndRamp(this.nodes.master.gain, this.settings.masterGain, duration, now);
-    holdAndRamp(this.nodes.music.gain, this.settings.musicGain, duration, now);
     holdAndRamp(this.nodes.ambience.gain, this.settings.ambienceGain, duration, now);
     holdAndRamp(this.nodes.world.gain, this.settings.spatialGain, duration, now);
     holdAndRamp(this.nodes.weather.gain, this.settings.weatherGain, duration, now);
@@ -473,15 +468,12 @@ export class SoundscapeEngine {
     }
 
     const requestedTracks = [];
-    if (audioModeHasMusic(this.settings.mode)) {
-      requestedTracks.push('music');
-    }
     if (audioModeHasSoundscape(this.settings.mode)) {
       requestedTracks.push(...SOUNDSCAPE_TRACK_IDS.filter((trackId) => trackId !== 'ui'));
     }
 
     requestedTracks.forEach((trackId) => {
-      if (trackId !== 'music' && !this.settings.tracks[trackId]?.enabled) {
+      if (!this.settings.tracks[trackId]?.enabled) {
         return;
       }
       void this.ensureTrack(trackId);
@@ -633,10 +625,6 @@ export class SoundscapeEngine {
   }
 
   getTrackTargetGain(trackId) {
-    if (trackId === 'music') {
-      return audioModeHasMusic(this.settings.mode) ? 1 : 0;
-    }
-
     const trackSettings = this.settings.tracks[trackId];
     if (!trackSettings?.enabled || !audioModeHasSoundscape(this.settings.mode)) {
       return 0;
@@ -1024,9 +1012,7 @@ export class SoundscapeEngine {
     let output = previewGain;
     source.buffer = buffer;
     source.playbackRate.value = asset.playbackRate ?? 1;
-    previewGain.gain.value = trackId === 'music'
-      ? 0.75
-      : (this.settings.tracks[trackId]?.gain ?? 0.5);
+    previewGain.gain.value = this.settings.tracks[trackId]?.gain ?? 0.5;
 
     let panner = null;
     if (asset.spatial && this.settings.spatialEnabled) {
@@ -1147,7 +1133,6 @@ if (import.meta.hot) {
 
 export const soundscapeEngineInternals = Object.freeze({
   audibleShare,
-  audioModeHasMusic,
   audioModeHasSoundscape,
   holdAndRamp,
   randomBetween,

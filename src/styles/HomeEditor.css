@@ -415,7 +415,6 @@
 .home-editor-audio-error,
 .home-editor-audio-note,
 .home-editor-audio-track-list,
-.home-editor-audio-music-preview,
 .home-editor-audio-spatial-list {
   grid-column: 1 / -1;
 }
@@ -439,8 +438,7 @@
 }
 
 .home-editor-audio-transport strong,
-.home-editor-audio-emitter__heading strong,
-.home-editor-audio-music-preview > span {
+.home-editor-audio-emitter__heading strong {
   font-family: var(--font-secondary);
   font-size: 0.66rem;
   font-weight: 500;
@@ -459,7 +457,6 @@
 
 .home-editor-audio-preview,
 .home-editor-audio-track button,
-.home-editor-audio-music-preview button,
 .home-editor-audio-emitter button {
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 6px;
@@ -563,15 +560,6 @@
   text-align: right;
 }
 
-.home-editor-audio-music-preview {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.7rem;
-  padding: 0.35rem 0;
-}
-
-.home-editor-audio-music-preview button,
 .home-editor-audio-emitter button {
   min-height: 1.7rem;
   padding: 0 0.6rem;

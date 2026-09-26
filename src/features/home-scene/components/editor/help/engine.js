@@ -129,20 +129,16 @@ export default {
     'The site’s master sound switch. Off — silence everywhere, button clicks included, even if the visitor turned sound on.',
   ],
   'audio.mode': [
-    'Что звучит фоном на главной: ничего, только музыка, только живая среда (море, берег, ветер, чайки, гром, лодка, танкер) или всё вместе. Клики кнопок — отдельно.',
-    'What plays behind the home page: nothing, music only, the living soundscape only (sea, shore, wind, gulls, thunder, boat, tanker) or both. Clicks are separate.',
+    'Что звучит фоном на главной: ничего или живая среда (море, берег, ветер, чайки, гром, лодка, танкер). Клики кнопок — отдельно.',
+    'What plays behind the home page: nothing or the living soundscape (sea, shore, wind, gulls, thunder, boat, tanker). Clicks are separate.',
   ],
   'audio.masterGain': [
-    'Общая громкость всего звука сайта: музыки, живой среды и кликов кнопок.',
-    'Overall volume of all the site’s sound: music, soundscape and button clicks.',
-  ],
-  'audio.musicGain': [
-    'Громкость музыки сайта. Слышна только в режимах главной «Только музыка» и «Музыка + среда».',
-    'Volume of the site’s music. Heard only in the “Music Only” and “Music + Soundscape” home modes.',
+    'Общая громкость всего звука сайта: живой среды и кликов кнопок.',
+    'Overall volume of all the site’s sound: soundscape and button clicks.',
   ],
   'audio.ambienceGain': [
-    'Громкость всей живой среды разом: фон моря, 3D-источники и погода. Музыку и клики не трогает.',
-    'Volume of the whole soundscape at once: the sea bed, the 3D sources and the weather. Music and clicks are untouched.',
+    'Громкость всей живой среды разом: фон моря, 3D-источники и погода. Клики не трогает.',
+    'Volume of the whole soundscape at once: the sea bed, the 3D sources and the weather. Clicks are untouched.',
   ],
   'audio.spatialGain': [
     'Громкость звуков, стоящих в пространстве: волна у берега, волна о лодку, ветер в листве, чайки, танкер. Часть «Живой среды».',

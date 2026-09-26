@@ -7,15 +7,15 @@ camera pose, timing, slideshow order, or object state.
 ## Playback graph
 
 ```text
-music ───────────────┐
-                     ├─ home route fade ─ master ─ user mute ─ compressor ─ output
-water bed ─ ambience ┤
+water bed ─ ambience ┐
 3D emitters ─────────┤
-weather ─────────────┘
+weather ─────────────┴─ home route fade ─ master ─ user mute ─ compressor ─ output
 UI clicks ─────────────────────────────── master
 ```
 
-- `music`, `soundscape`, `hybrid`, and `off` are publishing modes.
+- `soundscape` and `off` are publishing modes. The `music` and `hybrid` modes
+  were removed on 2026-09-26 together with the unlicensed recording; old
+  settings normalize `hybrid` to `soundscape` and `music` to `off`.
 - The top-right sound button is the listener's persisted mute/consent control.
 - The first explicit interaction creates/resumes `AudioContext`; no ambience is
   fetched or decoded before consent.

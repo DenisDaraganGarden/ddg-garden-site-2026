@@ -19,10 +19,10 @@ archival source when the final production master is assembled; the checked-in
 | `distant-thunder.cc0.hq.mp3` | [Distant Thunder.wav](https://freesound.org/people/sarson/sounds/195522/) by sarson; Sandy, England, Zoom H1 | WAV, stereo, 96 kHz / 24-bit, 0:17.243 | rare one-shot, distant panner and low-pass filter | `8ed08374445e220b14f32b671cc4fa7814bdc261d1ba2ec7991016c78116d179` |
 | `ui-mouse-click.cc0.hq.mp3` | [Mouse Click (Small)](https://freesound.org/people/G.M_Isaac/sounds/860090/) by G.M_Isaac; recorded physical mouse | WAV, mono, 48 kHz / 24-bit, 0:00.246 | global low-level UI interaction | `3c8c6ce1da7aedc218ab9b619bf9e4f8b724ce300d4c51951ab226f592b95545` |
 
-## Existing music warning
+## Music
 
-`portfolio/VOCES8 & Samuel Barber - Barber Agnus Dei.mp3` predates this sound
-laboratory. No license, purchase receipt, or publication clearance is recorded
-in the repository. The new mixer keeps it available as the legacy **Music** mode
-because the brief explicitly asks to preserve that choice, but this file must not
-be treated as cleared for a public deployment until its rights are verified.
+The site ships no music. A commercial choir recording that predated this ledger
+had no licence or publication clearance on record; it was removed from the
+repository and the build on 2026-09-26, together with the **Music** and
+**Music + Soundscape** modes that played it. It remains in older git history.
+A future track enters only with its licence recorded in this ledger.
