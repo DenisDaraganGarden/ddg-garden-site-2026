@@ -22,7 +22,7 @@ export default function Groundcover({ bed, month = 6, envMapIntensity = 1, surfa
             // A temporarily unloaded receiver must not leave a floating fallback.
             const query = surface ?? (bed.coverSurface ? mesh && receiverSurface(mesh, bed.coverSurface.face) : gridSurface(bed));
             if (!query) { current.current.onStats?.(null); return; }
-            model = buildCover(bed, query, { exclusions, budget }); model.update(current.current.month, current.current.envMapIntensity);
+            model = buildCover(bed, query, { exclusions, budget, onReady: invalidate }); model.update(current.current.month, current.current.envMapIntensity);
             holder.add(model.group); current.current.onStats?.({ ...model.stats }); statsDirty = true; invalidate();
         };
         refresh();

@@ -41,7 +41,7 @@ function carpetGeometry(bed, cover, surface, exclusions) {
                 const nx = s.normal[0] / Math.max(.01, s.normal[1]) - dx, nz = s.normal[2] / Math.max(.01, s.normal[1]) - dz, len = Math.hypot(nx, 1, nz);
                 normals.push(nx / len, 1 / len, nz / len);
             } else normals.push(...s.normal);
-            uv.push(x / (type ? .3 : .12), -z / (type ? .3 : .12));
+            uv.push(x / (type ? .3 : .25), -z / (type ? .3 : .25));
             tint.setRGB(1, 1, 1).multiplyScalar(f.kind === 'moss' ? .64 + f.vigor * .58 : .78 + f.vigor * .27); colors.push(tint.r, tint.g, tint.b);
         }
     };
@@ -63,19 +63,20 @@ function carpetGeometry(bed, cover, surface, exclusions) {
     return g;
 }
 
-export function buildCover(bed, surface, { exclusions = [], budget = COVER_BUDGET } = {}) {
+export function buildCover(bed, surface, { exclusions = [], budget = COVER_BUDGET, onReady } = {}) {
     const cover = normalizeCover(bed.cover), group = new THREE.Group(); group.name = `groundcover-${bed.id}`;
-    const lease = acquireCoverAssets(), { assets } = lease;
-    const textureMaterial = (maps, parameters = {}) => new THREE.MeshStandardMaterial({ map: maps[0], normalMap: maps[1], roughness: .86, ...parameters });
-    const ground = [textureMaterial(assets.mossTile, { vertexColors: true }), textureMaterial(assets.thymeTile, { vertexColors: true })];
+    const lease = acquireCoverAssets(onReady), { assets } = lease;
+    const textureMaterial = (maps, parameters = {}) => new THREE.MeshStandardMaterial({ map: maps[0], normalMap: maps[1] ?? null, roughness: .86, ...parameters });
+    const ground = [textureMaterial(assets.mossTile, { vertexColors: true, normalMap: null, bumpMap: assets.mossTile[0], bumpScale: .003, roughness: 1 }), textureMaterial(assets.thymeTile, { vertexColors: true })];
     const leaf = coverWind(new THREE.MeshStandardMaterial({ map: assets.leafMaps[0], normalMap: assets.leafMaps[1], side: THREE.DoubleSide, roughness: .49 }));
     const view = coverViewState();
     const materials = { leaf }, depths = {}, distances = {};
     depths.leaf = coverWind(new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, side: THREE.DoubleSide }));
     distances.leaf = coverWind(new THREE.MeshDistanceMaterial({ side: THREE.DoubleSide }));
     for (const kind of ['thyme', 'moss', 'flower']) {
-        const maps = assets[`${kind}Card`], cutout = { map: maps[0], alphaTest: .45, side: THREE.DoubleSide };
-        materials[kind] = detailMaterial(textureMaterial(maps, { ...cutout, alphaToCoverage: true }), kind, view);
+        const maps = assets[`${kind}Card`], cutout = { map: maps[0], alphaMap: kind === 'moss' ? assets.mossMask : null, alphaTest: .45, side: THREE.DoubleSide };
+        const mossSurface = kind === 'moss' ? { normalMap: null, bumpMap: maps[0], bumpScale: .003, roughness: 1 } : {};
+        materials[kind] = detailMaterial(textureMaterial(maps, { ...cutout, ...mossSurface, alphaToCoverage: true }), kind, view);
         depths[kind] = detailMaterial(new THREE.MeshDepthMaterial({ ...cutout, depthPacking: THREE.RGBADepthPacking }), kind, view);
         distances[kind] = detailMaterial(new THREE.MeshDistanceMaterial(cutout), kind, view);
     }
@@ -95,7 +96,8 @@ export function buildCover(bed, surface, { exclusions = [], budget = COVER_BUDGE
         n.fromArray(s.normal); orient.setFromUnitVectors(UP, n); yaw.setFromAxisAngle(UP, angle); orient.multiply(yaw);
         if (kind === 'leaf') orient.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), (variation - .5) * .55));
         point.set(x, s.height, z).addScaledVector(n, lift); scale.set(width, height, width); mat.compose(point, orient, scale);
-        color.setRGB(.75 + variation * .25, .8 + variation * .2, .7 + variation * .3);
+        if (kind === 'moss') color.setRGB(1, 1, 1).multiplyScalar(.64 + variation * .58);
+        else color.setRGB(.75 + variation * .25, .8 + variation * .2, .7 + variation * .3);
         cells.get(key).items.push({ matrix: mat.toArray(), color: color.clone() }); count++;
     };
     for (let iz = 0; iz < Math.ceil((b.z1 - b.z0) / spacing); iz++) for (let ix = 0; ix < Math.ceil((b.x1 - b.x0) / spacing); ix++) {
@@ -112,7 +114,17 @@ export function buildCover(bed, surface, { exclusions = [], budget = COVER_BUDGE
             if (r > .32 && root && coverField(bed, cover, px, pz, exclusions).occupancy > .1) add('flower', px, pz, root, .028, .015, f.height + .015 + cover.height * .1, angle, 1);
         } else {
             const px = x + Math.sin(angle) * spacing * .3, pz = z + Math.cos(angle) * spacing * .3, root = surface.sample(px, pz);
-            if (root && coverField(bed, cover, px, pz, exclusions).occupancy > .1) add('moss', px, pz, root, .04 + r * .02, .012 + r * .013, f.height + .006, angle, f.vigor);
+            if (root) {
+                const at = coverField(bed, cover, px, pz, exclusions), e = .025;
+                if (at.occupancy <= .1) continue;
+                const dx = (coverField(bed, cover, px + e, pz, exclusions).height - coverField(bed, cover, px - e, pz, exclusions).height) / (2 * e);
+                const dz = (coverField(bed, cover, px, pz + e, exclusions).height - coverField(bed, cover, px, pz - e, exclusions).height) / (2 * e);
+                const nx = root.normal[0] / Math.max(.01, root.normal[1]) - dx, nz = root.normal[2] / Math.max(.01, root.normal[1]) - dz, len = Math.hypot(nx, 1, nz);
+                // The cushion's perimeter meets the actual carpet, including its
+                // small relief. Do not float a flat disc above the raw terrain.
+                const contact = { height: root.height + at.height + .004, normal: [nx / len, 1 / len, nz / len] };
+                add('moss', px, pz, contact, .09 + r * .03, .008, 0, angle, at.vigor);
+            }
         }
     }
     let triangles = carpet.attributes.position.count / 3;

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { hash } from './field.js';
+import { hash, noise } from './field.js';
 
 // Botanical height/albedo stamps, baked once per shared asset lease. The maps
 // contain no studio light. Millimetre leaves survive as filtered PBR detail.
@@ -43,15 +43,6 @@ function botanicalMaps(kind, tile = false) {
         for (let i = 0; i < 7; i++) {
             const a = i * 2.39996, r = .23 * Math.sqrt(i / 7);
             bloom(.5 + Math.cos(a) * r, .5 + Math.sin(a) * r, .105, i);
-        }
-    } else if (moss && !tile) {
-        for (let stem = 0; stem < 11; stem++) {
-            const x = .18 + hash(stem, 1) * .64, top = .42 + hash(stem, 9) * .52;
-            oval(x, top * .5 + .04, top * .5, .008, Math.PI / 2, .13, .6);
-            for (let j = 1; j <= 9; j++) for (const side of [-1, 1]) {
-                const t = j / 10, length = .025 + (1 - t) * .019;
-                oval(x + side * length * .48, .08 + top * t, length, .008, side * .65, .2 + stem * .016, .8 + hash(stem, j) * .3);
-            }
         }
     } else if (moss) {
         for (let i = 0; i < 1100; i++) {
@@ -102,8 +93,36 @@ function botanicalMaps(kind, tile = false) {
         map.anisotropy = 4; map.needsUpdate = true; return map;
     });
 }
-export function coverTextureSets() {
-    return { mossTile: botanicalMaps('moss', true), thymeTile: botanicalMaps('thyme', true), mossCard: botanicalMaps('moss'), thymeCard: botanicalMaps('thyme'), flowerCard: botanicalMaps('flower') };
+export function coverTextureSets(onReady) {
+    const mask = mossCushionMask();
+    let mossTile, mossCard;
+    if (typeof document === 'undefined') {
+        // CPU-only geometry checks do not need the browser's image decoder.
+        mossTile = botanicalMaps('moss', true); mossCard = botanicalMaps('moss', true);
+    } else {
+        const tile = new THREE.TextureLoader().load('/textures/groundcover/moss-cushion-albedo.png', () => {
+            card.needsUpdate = true; onReady?.();
+        });
+        tile.name = 'moss-cushion-albedo'; tile.colorSpace = THREE.SRGBColorSpace;
+        tile.wrapS = tile.wrapT = THREE.RepeatWrapping; tile.anisotropy = 4;
+        const card = tile.clone(); card.repeat.set(.4, .4);
+        mossTile = [tile]; mossCard = [card];
+    }
+    return { mossTile, mossCard, mossMask: mask, thymeTile: botanicalMaps('thyme', true), thymeCard: botanicalMaps('thyme'), flowerCard: botanicalMaps('flower') };
+}
+function mossCushionMask() {
+    const size = 128, bytes = new Uint8Array(size * size * 4);
+    for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+        const u = (x + .5) / size - .5, v = (y + .5) / size - .5;
+        const edge = .36 + noise(u * 14, v * 14, 9) * .08 + hash(x, y, 4) * .025;
+        const alpha = Math.round(255 * THREE.MathUtils.clamp((edge - Math.hypot(u, v)) * 45, 0, 1));
+        bytes.set([alpha, alpha, alpha, alpha], (y * size + x) * 4);
+    }
+    const map = new THREE.DataTexture(bytes, size, size); map.name = 'moss-cushion-edge';
+    map.mipmaps = coverageMips(bytes, size);
+    for (const level of map.mipmaps) for (let i = 0; i < level.data.length; i += 4) level.data[i + 1] = level.data[i + 3];
+    map.minFilter = THREE.LinearMipmapLinearFilter; map.magFilter = THREE.LinearFilter;
+    map.generateMipmaps = false; map.needsUpdate = true; return map;
 }
 
 // Preserve the alpha-test silhouette until detail fades into the carpet.
