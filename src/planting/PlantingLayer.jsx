@@ -15,8 +15,9 @@ import { gardenWind, GARDEN_WIND_GLSL, plantFlex } from './wind.js';
 // Посадки в сцене: одна пачка карточек на вид (InstancedMesh), а не на
 // цветник, — сколько бы цветников ни было, вызовов отрисовки столько, сколько
 // видов. Карточка — 2D-картинка из библиотеки, повёрнутая к камере вокруг
-// вертикали; в проходе теней «камера» — солнце, и тень падает от всей
-// картинки. На ветру (wind.js) верх карточки ходит по ветру, низ стоит —
+// вертикали. В карте теней сохраняется тот же поворот: иначе плоскость,
+// развёрнутая к солнцу, пересекает видимую карточку и затеняет её половину.
+// На ветру (wind.js) верх карточки ходит по ветру, низ стоит —
 // с гибкостью и частотой её вида; тень качается вместе с ней. План — шапки
 // легенды Дениса вместо картинок. Сезон — картинками, нарисованными по
 // карточке (season-<фаза>.webp, scripts/plantSeasons.mjs); где картинки фазы
@@ -24,7 +25,7 @@ import { gardenWind, GARDEN_WIND_GLSL, plantFlex } from './wind.js';
 
 // Карточка чуть утоплена: на неровной земле низ не висит в воздухе.
 const SINK = 0.03;
-const CARD_SHADER_KEY = 'planting-card-v3';
+const CARD_SHADER_KEY = 'planting-card-v4';
 
 const hexHsv = (hex) => {
     const [r, g, b] = [1, 3, 5].map((i) => parseInt(String(hex).slice(i, i + 2), 16) / 255);
@@ -42,11 +43,14 @@ const flowerUniform = (hex) => {
 const CARD_COMMON_VERTEX = /* glsl */`
 attribute vec2 aVary;
 uniform vec2 uGrow, uCard, uFlex;
+uniform float uCardMirrorOffset;
+uniform vec4 uCardShadowView;
 varying float vPlantTone;
 ${GARDEN_WIND_GLSL}
 float plantYaw() {
     vec3 root = (modelMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
-    vec2 toView = cameraPosition.xz - root.xz;
+    vec2 eye = mix(cameraPosition.xz, uCardShadowView.xz, uCardShadowView.w);
+    vec2 toView = eye - root.xz;
     return dot(toView, toView) > 1e-8 ? atan(toView.x, toView.y) : 0.0;
 }`;
 const CARD_COMMON_FRAGMENT = /* glsl */`
@@ -116,6 +120,8 @@ const CARD_SEASON_FRAGMENT = /* glsl */`
 
 function makeCardMaterials(texture, plant, envMapIntensity) {
     const uniforms = {
+        uCardMirrorOffset: { value: (1 - 2 * plant.card.anchorX) * plant.card.width * plant.height / plant.card.height },
+        uCardShadowView: { value: new THREE.Vector4(0, 0, 0, 0) },
         uGrow: { value: new THREE.Vector2(1, 1) }, uCard: { value: new THREE.Vector2(plant.height, SINK) }, uFlex: { value: new THREE.Vector2(...plantFlex(plant.category)) }, uCardPx: { value: new THREE.Vector2(...(plant.card.px ?? [512, 512])) },
         uBloom: { value: 1 }, uSeed: { value: 0 }, uTintAmount: { value: 0 }, uBare: { value: 0 },
         uTint: { value: new THREE.Color() }, uTwig: { value: new THREE.Color() }, uLeaf: { value: new THREE.Color(plant.leafColor ?? '#4a5e34') },
@@ -126,10 +132,16 @@ function makeCardMaterials(texture, plant, envMapIntensity) {
         Object.assign(shader.uniforms, uniforms, gardenWind);
         shader.vertexShader = shader.vertexShader
             .replace('#include <common>', `#include <common>\n${CARD_COMMON_VERTEX}`)
+            // Зеркалим картинку, сохраняя обход треугольников. Отрицательный
+            // масштаб геометрии обращал нормаль DoubleSide к земле.
+            .replace('#include <uv_vertex>', `#include <uv_vertex>
+    #ifdef USE_MAP
+        if (aVary.x < 0.0) vMapUv.x = 1.0 - vMapUv.x;
+    #endif`)
             .replace('#include <beginnormal_vertex>', `float plantNormalYaw = plantYaw();
     vec3 objectNormal = normalize(vec3(sin(plantNormalYaw), 0.9, cos(plantNormalYaw)));`)
             .replace('#include <begin_vertex>', `float plantTurn = plantYaw();
-    float plantX = position.x * aVary.x * uGrow.x;
+    float plantX = (position.x - (aVary.x < 0.0 ? uCardMirrorOffset : 0.0)) * uGrow.x;
     vec3 transformed = vec3(plantX * cos(plantTurn), position.y * uGrow.y, -plantX * sin(plantTurn));
     vPlantTone = aVary.y;
     // Ветер: высота карточки uCard.x, низ утоплен на uCard.y её доли.
@@ -276,6 +288,13 @@ function SpeciesCards({ plant, instances, month, envMapIntensity }) {
 
     if (!resources) return null;
     return <instancedMesh ref={mesh} name={`planting-${plant.id}`} args={[resources.geometry, resources.material, capacity]} customDepthMaterial={resources.depth}
+        onBeforeShadow={(_renderer, _object, camera) => {
+            const eye = camera.matrixWorld.elements;
+            resources.uniforms.uCardShadowView.value.set(eye[12], eye[13], eye[14], 1);
+        }}
+        // Отдельные проходы (светильники сада, запекание) используют свою
+        // камеру; фиксируем взгляд только на время штатной карты теней.
+        onAfterShadow={() => { resources.uniforms.uCardShadowView.value.w = 0; }}
         visible={pictures ? pictures.image.visible : look.visible} castShadow receiveShadow frustumCulled={false} raycast={() => {}} />;
 }
 
@@ -352,14 +371,14 @@ function BedSurface({ bed, selected, inside, plan }) {
 
 // Грунт цветника (bedGround.js): кора с землёй, с глубиной, по рельефу
 // цветника — и на поверхности модели (поверх её газона или коры), и на
-// берегу; опад и тень — от растений этого цветника, влага и иней — от месяца.
+// берегу; опад и тень — от всех крон над ним, влага и иней — от месяца.
 // Грунты и газоны друг над другом — слоями, как в рисовании: что нарисовано
 // позже, лежит выше на полмиллиметра (цветник в газоне — поверх травы, газон
 // поверх цветника — поверх мульчи). На одной высоте два покрытия спорили бы
 // за пиксель — кольцами вдали.
 const layerLift = (index) => GROUND_LIFT + index * 0.0005;
 
-function BedGround({ bed, fill, library, month, lift }) {
+function BedGround({ bed, plants, library, month, lift }) {
     const gl = useThree((state) => state.gl);
     const contextRevision = useRendererContextRevision(gl);
     const invalidate = useThree((state) => state.invalidate);
@@ -369,7 +388,7 @@ function BedGround({ bed, fill, library, month, lift }) {
     useEffect(() => () => geometry.dispose(), [geometry]);
     const ground = useMemo(() => makeGroundMaterial(bakeGroundTiles(gl, 1024, contextRevision)), [gl, contextRevision]);
     useEffect(() => () => ground.material.dispose(), [ground]);
-    const maps = useMemo(() => plantGroundMaps(bed, fill ?? [], library, month), [bed, fill, library, month]);
+    const maps = useMemo(() => plantGroundMaps(bed, plants, library, month), [bed, plants, library, month]);
     const textures = useRef(null);
     useLayoutEffect(() => {
         textures.current = plantMapTextures(maps, textures.current);
@@ -387,8 +406,8 @@ function BedGround({ bed, fill, library, month, lift }) {
 }
 
 // Газон (lawnGround.js): само покрытие — трава с глубиной, стрижка полосами,
-// цвет месяца; опад и тень — от деревьев и кустов, посаженных поштучно.
-function LawnGround({ bed, points, library, month, hour, keyDirection, lift }) {
+// цвет месяца; опад и тень — от всех крон над ним, в том числе из цветников.
+function LawnGround({ bed, plants, library, month, hour, keyDirection, lift }) {
     const gl = useThree((state) => state.gl);
     const contextRevision = useRendererContextRevision(gl);
     const invalidate = useThree((state) => state.invalidate);
@@ -398,7 +417,7 @@ function LawnGround({ bed, points, library, month, hour, keyDirection, lift }) {
     useEffect(() => () => geometry.dispose(), [geometry]);
     const lawn = useMemo(() => makeLawnMaterial(bakeLawnTile(gl, contextRevision), bakeGroundTiles(gl, 1024, contextRevision).litter), [gl, contextRevision]);
     useEffect(() => () => lawn.material.dispose(), [lawn]);
-    const maps = useMemo(() => plantGroundMaps(bed, points, library, month), [bed, points, library, month]);
+    const maps = useMemo(() => plantGroundMaps(bed, plants, library, month), [bed, plants, library, month]);
     const textures = useRef(null);
     useLayoutEffect(() => {
         textures.current = plantMapTextures(maps, textures.current);
@@ -447,8 +466,8 @@ export default function PlantingLayer({ settings, selectedBedId = null, insideBe
         {plan ? null : beds.map((bed, i) => (bed.cover?.enabled
             ? <Groundcover key={bed.id} bed={bed} month={settings.plantingMonth} envMapIntensity={envMapIntensity} exclusions={exclusions} budget={coverBudget} surface={bed.coverSurface?.root === 'terrain' ? terrainSurface : null} />
             : bed.kind === 'cover' || status !== 'ready' ? null : bed.kind === 'lawn'
-            ? <LawnGround key={bed.id} bed={bed} points={points} library={library} month={settings.plantingMonth} hour={settings.timeOfDay ?? 12} keyDirection={keyDirection} lift={layerLift(i)} />
-            : <BedGround key={bed.id} bed={bed} fill={bedFills[i]} library={library} month={settings.plantingMonth} lift={layerLift(i)} />))}
+            ? <LawnGround key={bed.id} bed={bed} plants={all} library={library} month={settings.plantingMonth} hour={settings.timeOfDay ?? 12} keyDirection={keyDirection} lift={layerLift(i)} />
+            : <BedGround key={bed.id} bed={bed} plants={all} library={library} month={settings.plantingMonth} lift={layerLift(i)} />))}
         {plan ? <PlanCaps instances={all} library={library} />
             : [...bySpecies].map(([id, instances]) => (library.has(id)
                 ? <SpeciesCards key={id} plant={library.get(id)} instances={instances} month={settings.plantingMonth} envMapIntensity={envMapIntensity} />

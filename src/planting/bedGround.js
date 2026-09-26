@@ -45,7 +45,11 @@ const LEAF = [1, 0, 0], PETAL = [0, 1, 0], THIN = [0, 0, 1];
 export function groundLitter(plant, month) {
     const foliage = plant.foliage ?? 'evergreen';
     const image = seasonImage(plant, month);
-    const canopy = image.visible ? Math.min(1, image.grow[1] + 0.2) : 0;
+    // У голых ветвей остаётся слабая контактная тень, а не летняя крона.
+    const density = (phase) => phase === 'winter' ? 0.12 : phase === 'spring' ? 0.5 : 1;
+    const foliageDensity = foliage === 'deciduous'
+        ? density(image.phase) * (1 - image.mix) + density(image.next ?? image.phase) * image.mix : 1;
+    const canopy = image.visible ? Math.min(1, image.grow[1] + 0.2) * foliageDensity : 0;
     const none = { color: null, amount: 0, kind: LEAF, canopy };
     if (inBloom(plant, month) && plant.bloomColor) return { color: plant.bloomColor, amount: 0.18, kind: PETAL, canopy };
     if (foliage === 'deciduous') {
@@ -97,6 +101,7 @@ export function plantGroundMaps(bed, instances, library, month, maxSide = 512) {
         if (!looks.has(plant.id)) looks.set(plant.id, groundLitter(plant, month));
         const look = looks.get(plant.id);
         const radius = Math.max(0.08, (plant.spread ?? 0.5) * (p.scale ?? 1) * 0.58);
+        if (p.x + radius < x0 || p.x - radius > x1 || p.z + radius < z0 || p.z - radius > z1) continue;
         const rgb = look.color ? hexRgb(look.color) : null;
         const ci = (p.x - x0) * perMetre, cj = (p.z - z0) * perMetre, r = radius * perMetre;
         for (let j = Math.max(0, Math.floor(cj - r)); j <= Math.min(height - 1, Math.ceil(cj + r)); j += 1) {
@@ -388,7 +393,6 @@ vec3 groundColour = groundSample.rgb;
 float groundWet = clamp(uMoisture + plantKind.a * 0.25, 0.0, 1.0);
 groundColour *= mix(1.0, 0.62, groundWet * (1.0 - 0.5 * groundSample.a));
 groundColour = mix(groundColour, vec3(groundLum(groundColour)) * vec3(1.06, 1.0, 0.92), uAged * 0.3);
-groundColour *= mix(1.0, 0.78, plantKind.a);
 
 // Опад: кусочек виден, если его случайное число меньше доли опада этого вида.
 float litterAmount = plantLitter.a;
@@ -408,7 +412,9 @@ float groundHeight = max(groundSample.a, max(showLeaf, max(showPetal, showStraw)
 // Иней — налёт на выступах щепы и листьев, а не снег.
 float groundFrost = uFrost * (0.1 + 0.38 * smoothstep(0.5, 0.95, groundHeight));
 groundColour = mix(groundColour, vec3(0.5, 0.55, 0.6), groundFrost);
-diffuseColor.rgb = groundColour;
+// Мягкая тень кроны лежит и на опаде, и на коре. Нового прохода нет:
+// используем alpha уже прочитанной карты растений.
+diffuseColor.rgb = groundColour * mix(1.0, 0.78, plantKind.a);
 float groundLitterShown = max(showLeaf, max(showPetal, showStraw));
 float groundRough = mix(mix(0.9, 0.62, groundWet), 0.72, groundLitterShown);
 groundRough = mix(groundRough, 0.95, groundFrost);
@@ -449,7 +455,7 @@ export function makeGroundMaterial(baked) {
             .replace('#include <aomap_fragment>', '#include <aomap_fragment>\n    reflectedLight.indirectDiffuse *= groundAO;\n    reflectedLight.indirectSpecular *= groundAO;');
     };
     material.pathTraceSurface = { kind: 'ground', uniforms, compile: material.onBeforeCompile };
-    material.customProgramCacheKey = () => 'planting-bed-ground-v1';
+    material.customProgramCacheKey = () => 'planting-bed-ground-v2';
     return { material, uniforms };
 }
 
