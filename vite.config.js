@@ -2,6 +2,8 @@ import { createReadStream } from 'node:fs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { projectRegistry } from './src/data/projectRegistry.js';
+import { normalizePortfolioPreviewSettings } from './src/features/portfolio-preview/lib/portfolioPreviewSettings.js';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { publishedHomeSceneKeys } from './src/features/home-scene/data/publishedHomeSceneKeys.js';
@@ -447,6 +449,54 @@ function engineStorePlugin() {
   };
 }
 
+const publishedPortfolioPreviewSettingsPath = path.join(projectRoot, 'src/features/portfolio-preview/data/publishedPortfolioPreviewSettings.js');
+function buildPublishedPortfolioPreviewSettingsModule(settings) {
+  return `export const publishedPortfolioPreviewSettings = ${JSON.stringify(settings, null, 2)};\n`;
+}
+
+function portfolioPreviewPublishPlugin() {
+  const attachPortfolioPreviewPublishMiddleware = (middlewares) => {
+    middlewares.use('/__portfolio-preview/publish', async (request, response, next) => {
+      if (request.method !== 'POST') {
+        next();
+        return;
+      }
+
+      if (!trusted(request)) { sendJson(response, 403, { ok: false, message: 'Только из локального редактора.' }); return; }
+      try {
+        const body = await readJsonBody(request);
+        const normalizedSettings = normalizePortfolioPreviewSettings(projectRegistry, body.settings);
+
+        await fs.writeFile(
+          publishedPortfolioPreviewSettingsPath,
+          buildPublishedPortfolioPreviewSettingsModule(normalizedSettings),
+          'utf8',
+        );
+
+        sendJson(response, 200, {
+          ok: true,
+          file: 'src/features/portfolio-preview/data/publishedPortfolioPreviewSettings.js',
+        });
+      } catch (error) {
+        sendJson(response, 500, {
+          ok: false,
+          message: error instanceof Error ? error.message : 'Portfolio preview publish failed',
+        });
+      }
+    });
+  };
+
+  return {
+    name: 'portfolio-preview-publish-api',
+    configureServer(server) {
+      attachPortfolioPreviewPublishMiddleware(server.middlewares);
+    },
+    configurePreviewServer(server) {
+      attachPortfolioPreviewPublishMiddleware(server.middlewares);
+    },
+  };
+}
+
 const manualChunks = (id) => {
   if (!id.includes('node_modules')) {
     return undefined;
@@ -514,7 +564,7 @@ const manualChunks = (id) => {
 };
 
 export default defineConfig({
-  plugins: [react(), homeScenePublishPlugin(), engineStorePlugin(), riderPosePlugin(), surroundingsPlugin(), materialsPlugin(), photoRendersPlugin(), referenceLibraryPlugin()],
+  plugins: [react(), homeScenePublishPlugin(), portfolioPreviewPublishPlugin(), engineStorePlugin(), riderPosePlugin(), surroundingsPlugin(), materialsPlugin(), photoRendersPlugin(), referenceLibraryPlugin()],
   resolve: {
     alias: [
       { find: /^three\/webgpu$/, replacement: fileURLToPath(new URL('./src/lib/threeWebgpuStub.js', import.meta.url)) },
