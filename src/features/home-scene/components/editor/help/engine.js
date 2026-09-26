@@ -428,8 +428,12 @@ export default {
     'Colour of the section headings in the editor’s parameter panel. Just for comfort: it lives in this browser and never reaches the site.',
   ],
   editorCursor: [
-    'Показывать курсор сайта — точку и фонарь — и в редакторе. По умолчанию выключено, чтобы работать обычной стрелкой. Живёт в этом браузере.',
-    'Show the site’s cursor — the dot and the flashlight — in the editor too. Off by default, so you work with the usual arrow. Lives in this browser.',
+    'Какой курсор в редакторе: системная стрелка или точка сайта — она поверх всего интерфейса и светит фонарём. Живёт в этом браузере.',
+    'Which cursor the editor uses: the system arrow or the site’s dot — it stays above the whole interface and carries the flashlight. Lives in this browser.',
+  ],
+  editorFlashlight: [
+    'Фонарь у точки-курсора в редакторе: свет в сцене и мягкое свечение вокруг. То же — зажать правую кнопку во вьюпорте на 2 секунды. Живёт в этом браузере.',
+    'The dot cursor’s flashlight in the editor: light in the scene and a soft glow around it. The same as holding the right button in the viewport for 2 seconds. Lives in this browser.',
   ],
   editorPieFill: [
     'Тёмная подложка под кнопками круга инструментов (долгий пробел). Выключите — останутся значки и подписи прямо над сценой. Обводка — отдельно. Живёт в этом браузере.',

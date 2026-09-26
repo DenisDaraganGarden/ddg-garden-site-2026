@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useThree } from '@react-three/fiber';
 import { sceneHitForObject3D } from '../../lib/sceneObjects';
 import { outsideIsolation } from '../../../../placed/sketchupModel.js';
+import { takeFlashlightGesture } from '../../../cursor/cursorFlashlightStore.js';
 
 // Выбор объекта прямо в сцене. Луч идёт от курсора, попадание поднимается вверх
 // по родителям до знакомого имени, и дальше выбор — это тот же путь в дереве,
@@ -76,6 +77,9 @@ export default function EditorPicker({ enabled, onPick, onContextMenu, crosshair
         };
 
         const handlePointerDown = (event) => {
+            // Прошлый жест фонаря, чьё отпускание ушло мимо холста, не должен
+            // съесть это нажатие.
+            if (event.button === 2) takeFlashlightGesture();
             pressed = event.button === 0 || event.button === 2
                 ? { button: event.button, x: event.clientX, y: event.clientY }
                 : null;
@@ -89,7 +93,8 @@ export default function EditorPicker({ enabled, onPick, onContextMenu, crosshair
             if (Math.hypot(event.clientX - start.x, event.clientY - start.y) > CLICK_SLOP) return;
 
             if (event.button === 2) {
-                if (typeof onContextMenu !== 'function') return;
+                // Долгое ПКМ и ПКМ + колесо — жесты фонаря, не щелчок: меню нет.
+                if (takeFlashlightGesture() || typeof onContextMenu !== 'function') return;
                 const found = hitAt(event);
                 onContextMenu({ x: event.clientX, y: event.clientY, ...(found && found !== GIZMO ? found : { node: null, root: null }) });
                 return;

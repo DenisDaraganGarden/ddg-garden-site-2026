@@ -84,7 +84,9 @@ import {
   getCursorFlashlightSnapshot,
   subscribeToCursorFlashlight,
   syncCursorFlashlightConfiguration,
+  readEditorFlashlight,
 } from '../../features/cursor/cursorFlashlightStore';
+import { activeProjectId } from '../../features/engine/projectApi.js';
 import { buildHomeSceneLighting } from './homeSceneLighting';
 import { useSkyEnvironment } from './water/skyEnvironment';
 import HomeSeagullFlock from '../../features/home-scene/creatures/HomeSeagullFlock';
@@ -385,13 +387,16 @@ function WaterRuntimeScene({
   );
   useEffect(() => {
     syncCursorFlashlightConfiguration({
-      // In the editor the cursor is an editor preference (off by default);
-      // the published switch alone decides on the site.
+      // In the editor the cursor is an editor preference (system arrow or the
+      // dot, the arrow by default) and the flashlight is this browser's choice
+      // (a long right-button hold, or Engine settings); in the site editor the
+      // site's own cursor switch still hides the dot. On the site the
+      // published switches alone decide.
       cursorEnabled: mode === 'editor'
-        ? Boolean(settings.editorCursor) && settings.cursorEnabled !== false
+        ? Boolean(settings.editorCursor) && (Boolean(activeProjectId()) || settings.cursorEnabled !== false)
         : settings.cursorEnabled,
       cursorLightBeamAngle: settings.cursorLightBeamAngle,
-      cursorLightEnabled: settings.cursorLightEnabled,
+      cursorLightEnabled: mode === 'editor' ? readEditorFlashlight(settings.cursorLightEnabled) : settings.cursorLightEnabled,
       cursorLightIntensity: settings.cursorLightIntensity,
       cursorLightSoftness: settings.cursorLightSoftness,
       cursorPointSize: settings.cursorPointSize,

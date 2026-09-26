@@ -1,5 +1,5 @@
 {
-  "collected": "2026-09-26T13:00:04.338Z",
+  "collected": "2026-09-26T15:33:47.587Z",
   "rows": [
     {
       "key": "cameraFov",
@@ -7812,6 +7812,17 @@
       "kind": "выключатель"
     },
     {
+      "key": "editorCursor",
+      "group": "cursor",
+      "node": "cursor",
+      "label": "Курсор в редакторе",
+      "kind": "список",
+      "options": [
+        "system",
+        "dot"
+      ]
+    },
+    {
       "key": "cursorEnabled",
       "group": "cursor",
       "node": "cursor",
@@ -7877,13 +7888,6 @@
       "kind": "цвет"
     },
     {
-      "key": "editorCursor",
-      "group": "editor",
-      "node": "settings",
-      "label": "Курсор сцены в редакторе",
-      "kind": "выключатель"
-    },
-    {
       "key": "editorPieFill",
       "group": "editor",
       "node": "settings",
@@ -7895,6 +7899,13 @@
       "group": "editor",
       "node": "settings",
       "label": "Круг инструментов: обводка",
+      "kind": "выключатель"
+    },
+    {
+      "key": "editorFlashlight",
+      "group": "cursor",
+      "node": "cursor",
+      "label": "Фонарь в редакторе",
       "kind": "выключатель"
     }
   ],
@@ -8218,6 +8229,8 @@
     "geoLatitude": null,
     "geoLongitude": null,
     "geoAddress": "",
+    "sunReal": false,
+    "sunUtcOffset": null,
     "surroundingsRadius": 300,
     "surroundingsClear": 15,
     "surroundingsRelief": 1,
@@ -8338,6 +8351,7 @@
     "moonSpecularStrength": 0.18,
     "moonSpecularPower": 38,
     "timeOfDay": 12,
+    "sunDayOfYear": 172,
     "sunBearing": 42,
     "sunNoonElevation": 18,
     "sunTint": "#fff5ea",

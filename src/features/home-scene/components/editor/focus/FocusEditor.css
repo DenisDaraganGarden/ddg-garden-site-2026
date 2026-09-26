@@ -154,8 +154,9 @@ html[data-editor-tool=hand] .home-editor-render-frame canvas{cursor:grab}
 .focus-compass__letter{fill:#f1eee6;font:600 8px/1 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;text-anchor:middle;dominant-baseline:central}
 .focus-compass__sun{fill:#f2c14e;stroke:#202829;stroke-width:.8}
 .focus-compass--floating{z-index:6}.focus-compass--floating .focus-compass__dial{cursor:grab}.focus-compass--floating .focus-compass__dial:active{cursor:grabbing}
-/* В верхней строке — одна белая стрелка по центру, без кольца, засечек и фона. */
-.focus-compass--topbar{position:absolute;left:50%;top:0;height:42px;transform:translateX(-50%);justify-content:center}
+/* В верхней строке — одна белая стрелка над серединой вьюпорта (между рейкой
+   и инспектором), без кольца, засечек и фона. */
+.focus-compass--topbar{position:absolute;left:calc(var(--focus-rail-space,42px) + (100vw - var(--focus-rail-space,42px) - var(--focus-panel-space,0px)) / 2);top:0;height:42px;transform:translateX(-50%);justify-content:center}
 .focus-compass__arrow{width:30px;height:30px;padding:0;border:0;background:transparent;display:grid;place-items:center;cursor:pointer;border-radius:4px}.focus-compass__arrow:hover{background:#ffffff0d}
 .focus-compass__arrow svg{width:22px;height:22px}.focus-compass__arrow path{fill:#fff}
 .focus-compass--topbar .focus-compass__panel{top:40px}

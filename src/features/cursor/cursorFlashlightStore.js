@@ -201,3 +201,30 @@ export const resetCursorFlashlightWorldRuntime = () => {
   worldRuntime.active = false;
   worldRuntime.hitsWater = false;
 };
+
+// Фонарь в редакторе — выбор этого браузера, не сцены: включён ли он, решает
+// Денис (долгое ПКМ или «Настройки движка → Интерфейс»), и выбор помнится
+// между запусками. На сайте включённость по умолчанию — cursorLightEnabled.
+const EDITOR_FLASHLIGHT_KEY = 'ddg_editor_flashlight_v1';
+export const readEditorFlashlight = (fallback = true) => {
+  try {
+    const stored = window.localStorage.getItem(EDITOR_FLASHLIGHT_KEY);
+    return stored === null ? fallback !== false : stored === 'on';
+  } catch {
+    return fallback !== false;
+  }
+};
+export const setEditorFlashlight = (enabled) => {
+  try { window.localStorage.setItem(EDITOR_FLASHLIGHT_KEY, enabled ? 'on' : 'off'); } catch { /* this visit only */ }
+  publishControls({ ...controls, lightDefaultEnabled: Boolean(enabled), enabled: Boolean(enabled) });
+};
+
+// Жест фонаря в редакторе (долгое ПКМ, ПКМ + колесо) — не щелчок правой
+// кнопкой: отпускание после него не открывает меню вьюпорта (EditorPicker).
+let flashlightGesture = false;
+export const markFlashlightGesture = () => { flashlightGesture = true; };
+export const takeFlashlightGesture = () => {
+  const taken = flashlightGesture;
+  flashlightGesture = false;
+  return taken;
+};
