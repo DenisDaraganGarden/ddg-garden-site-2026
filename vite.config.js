@@ -17,6 +17,7 @@ import { surroundingsPlugin } from './scripts/surroundings.mjs';
 import { materialsPlugin, trusted } from './scripts/materials.mjs';
 import { photoRendersPlugin } from './scripts/photoRenders.mjs';
 import { referenceLibraryPlugin } from './scripts/referenceLibrary.mjs';
+import { localGuardPlugin } from './scripts/localGuard.mjs';
 import { poseTuningModule } from './src/components/surfboard/poseTuning.js';
 
 const projectRoot = process.cwd();
@@ -598,7 +599,8 @@ const manualChunks = (id) => {
 };
 
 export default defineConfig({
-  plugins: [react(), homeScenePublishPlugin(), portfolioPreviewPublishPlugin(), engineStorePlugin(), riderPosePlugin(), surroundingsPlugin(), materialsPlugin(), photoRendersPlugin(), referenceLibraryPlugin()],
+  // The guard stands first: every /__ route below answers only this computer.
+  plugins: [localGuardPlugin(), react(), homeScenePublishPlugin(), portfolioPreviewPublishPlugin(), engineStorePlugin(), riderPosePlugin(), surroundingsPlugin(), materialsPlugin(), photoRendersPlugin(), referenceLibraryPlugin()],
   resolve: {
     alias: [
       { find: /^three\/webgpu$/, replacement: fileURLToPath(new URL('./src/lib/threeWebgpuStub.js', import.meta.url)) },
