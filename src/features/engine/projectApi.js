@@ -55,6 +55,14 @@ const store = (base) => ({
     // Корзина: удалённое уходит туда целиком и возвращается целиком.
     trash: async () => (await call(base, '/?trash=1')).entries ?? [],
     restoreFromTrash: async (trashId) => (await call(base, '/', { method: 'POST', body: JSON.stringify({ restoreTrash: trashId }) })).entry,
+    // Архив проекта одним файлом (scripts/projectArchive.mjs): скачать и загрузить.
+    archiveUrl: (id) => `${base}/${encodeURIComponent(id)}/archive`,
+    importArchive: async (file) => {
+        const response = await fetch(`${base}/?archive=1`, { method: 'POST', headers: { 'Content-Type': 'application/zip' }, body: file });
+        const payload = await response.json().catch(() => null);
+        if (!response.ok || !payload?.ok) throw new Error(payload?.message ?? `Архив не загрузился (${response.status})`);
+        return payload;
+    },
 });
 
 // Проект — сцена целиком. Деталь — настроенный вариант одного объекта.

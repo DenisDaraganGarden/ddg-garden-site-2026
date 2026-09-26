@@ -95,6 +95,7 @@ export default function Engine() {
     const [state, setState] = useState({ status: 'loading', projects: [], message: '' });
     const [trash, setTrash] = useState([]);
     const [editing, setEditing] = useState(null);
+    const archiveInput = useRef(null);
     const [menu, setMenu] = useState(null);
     const [sitePreview] = useState(siteThumbnail);
     const [tab, setTab] = useState(readTab);
@@ -181,6 +182,33 @@ export default function Engine() {
         } catch (error) { fail(error); }
     };
 
+    // Архив проекта одним файлом (scripts/projectArchive.mjs): сцена, папка
+    // проекта и использованные записи библиотек. Скачивается как обычный файл.
+    const saveArchive = (project) => {
+        const link = document.createElement('a');
+        link.href = projectStore.archiveUrl(project.id);
+        link.download = '';
+        document.body.append(link);
+        link.click();
+        link.remove();
+    };
+
+    const openArchive = async (event) => {
+        const [file] = event.target.files ?? [];
+        event.target.value = '';
+        if (!file) return;
+        try {
+            const { entry, added, kept } = await projectStore.importArchive(file);
+            await reload();
+            setTab(tabOf(entry));
+            const count = (group) => Object.values(group).reduce((total, items) => total + items.length, 0);
+            setState((previous) => ({ ...previous, message: tr(
+                `Проект «${entry.name}» загружен из архива. Записей библиотек добавлено: ${count(added)}, свои оставлены: ${count(kept)}.`,
+                `Project “${entry.name}” loaded from the archive. Library records added: ${count(added)}, kept as they were: ${count(kept)}.`,
+            ) }));
+        } catch (error) { fail(error); }
+    };
+
     const restoreTrashed = async (item) => {
         if (!window.confirm(tr(`Вернуть проект «${item.name}»?`, `Bring back project “${item.name}”?`))) return;
         try {
@@ -201,6 +229,7 @@ export default function Engine() {
         { label: tr('Открыть', 'Open'), icon: 'right', onSelect: () => openEditor(project.id) },
         { label: tr('Переименовать', 'Rename'), icon: 'sliders', onSelect: () => setEditing({ id: project.id, name: project.name }) },
         { label: tr('Сделать копию', 'Duplicate'), icon: 'folder', onSelect: () => duplicate(project) },
+        { label: tr('Сохранить архив', 'Save archive'), icon: 'box', onSelect: () => saveArchive(project) },
         { label: tr('На заглавную сайта', 'To the site home page'), icon: 'upload', onSelect: () => toHomePage(project) },
         project.kind === 'design' ? null : project.kind === 'site'
             ? { label: tr('Во вкладку «Игры»', 'Move to “Games”'), icon: 'grid', onSelect: () => moveTo(project, null) }
@@ -225,6 +254,10 @@ export default function Engine() {
                 <span>OUROBOROS<small>ENGINE {version}</small></span>
             </div>
             <span className="engine-spacer" />
+            <input ref={archiveInput} type="file" accept=".zip,application/zip" hidden onChange={openArchive} data-testid="engine-archive-input" />
+            <button type="button" className="engine-ghost" onClick={() => archiveInput.current?.click()} disabled={state.status !== 'ready'} data-testid="engine-open-archive">
+                <FocusIcon name="folder" />{tr('Открыть архив', 'Open archive')}
+            </button>
             <button type="button" className="engine-ghost" onClick={() => { window.location.href = '/asset-lab.html'; }}>
                 <FocusIcon name="grid" />{tr('Лаборатория', 'Asset lab')}
             </button>

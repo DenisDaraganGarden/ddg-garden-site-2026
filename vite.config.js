@@ -18,6 +18,7 @@ import { materialsPlugin, trusted } from './scripts/materials.mjs';
 import { photoRendersPlugin } from './scripts/photoRenders.mjs';
 import { referenceLibraryPlugin } from './scripts/referenceLibrary.mjs';
 import { localGuardPlugin } from './scripts/localGuard.mjs';
+import { exportProjectArchive, importProjectArchive } from './scripts/projectArchive.mjs';
 import { poseTuningModule } from './src/components/surfboard/poseTuning.js';
 
 const projectRoot = process.cwd();
@@ -216,7 +217,9 @@ function engineStorePlugin() {
             sendJson(response, 403, { ok: false, message: 'Запись разрешена только из этого движка.' });
             return;
           }
-          if (request.method !== 'DELETE' && part !== 'models' && !/^application\/json(?:\s*;|$)/i.test(request.headers['content-type'] ?? '')) {
+          const archiveUpload = route === '/__projects' && request.method === 'POST' && !id && /[?&]archive(?:[=&]|$)/.test(request.url)
+            && /^application\/zip(?:\s*;|$)/i.test(request.headers['content-type'] ?? '');
+          if (request.method !== 'DELETE' && part !== 'models' && !archiveUpload && !/^application\/json(?:\s*;|$)/i.test(request.headers['content-type'] ?? '')) {
             sendJson(response, 415, { ok: false, message: 'Ожидается JSON.' });
             return;
           }
@@ -347,6 +350,25 @@ function engineStorePlugin() {
               return;
             }
           }
+        }
+
+        // Архив проекта одним файлом (scripts/projectArchive.mjs): GET
+        // /__projects/<id>/archive — скачать .zip, POST /__projects?archive —
+        // загрузить его как новый проект.
+        if (route === '/__projects' && part === 'archive' && request.method === 'GET' && isValidId(id)) {
+          const archive = await exportProjectArchive(id);
+          if (!archive) { sendJson(response, 404, { ok: false, message: `Запись «${id}» не найдена.` }); return; }
+          response.statusCode = 200;
+          response.setHeader('Content-Type', 'application/zip');
+          response.setHeader('Content-Disposition', `attachment; filename="${archive.name}"`);
+          response.setHeader('Cache-Control', 'no-store');
+          response.end(Buffer.from(archive.bytes));
+          return;
+        }
+        if (route === '/__projects' && request.method === 'POST' && !id && /[?&]archive(?:[=&]|$)/.test(request.url)) {
+          const result = await importProjectArchive(await readRawBody(request, 2 * 2 ** 30));
+          sendJson(response, 200, { ok: true, ...result });
+          return;
         }
 
         // Общие правки — только самой записи (/__projects/<id>): тело, пришедшее
