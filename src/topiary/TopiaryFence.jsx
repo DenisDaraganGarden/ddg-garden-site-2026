@@ -1,21 +1,12 @@
 import React, { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
+import { fenceLayout } from './fenceLayout.js';
 
-const POST_SPAN = 2.4;
 const Y_AXIS = new THREE.Vector3(0, 1, 0);
 const NO_RAYCAST = () => {};
 
-function pathPoints(object) {
-    const points = object.points.map(([x, z]) => new THREE.Vector3(x, 0, z));
-    if (!object.fenceSmooth || points.length < 3) return points;
-    const closed = points[0].distanceTo(points[points.length - 1]) < .01;
-    const curve = new THREE.CatmullRomCurve3(closed ? points.slice(0, -1) : points, closed, 'centripetal');
-    const length = curve.getLength();
-    return curve.getSpacedPoints(Math.max(points.length * 2, Math.ceil(length / POST_SPAN)));
-}
-
 function buildFence(object) {
-    const path = pathPoints(object);
+    const layout = fenceLayout(object);
     const style = object.fenceStyle;
     const height = object.height;
     const premium = style === 'mesh-358';
@@ -26,72 +17,54 @@ function buildFence(object) {
     const position = new THREE.Vector3();
     const scale = new THREE.Vector3();
     const rotation = new THREE.Quaternion();
-    const seenPosts = new Set();
     const add = (list, x, y, z, sx, sy, sz, heading = 0) => {
         position.set(x, y, z);
         scale.set(sx, sy, sz);
         rotation.setFromAxisAngle(Y_AXIS, heading);
         matrices[list].push(new THREE.Matrix4().compose(position, rotation, scale));
     };
-    const post = (x, z) => {
-        const key = `${x.toFixed(3)}:${z.toFixed(3)}`;
-        if (seenPosts.has(key)) return;
-        seenPosts.add(key);
-        add('posts', x, height / 2 + .04, z, postWidth, height + .08, postWidth);
-    };
 
-    for (let segment = 0; segment < path.length - 1; segment++) {
-        const start = path[segment], end = path[segment + 1];
-        const dx = end.x - start.x, dz = end.z - start.z;
-        const length = Math.hypot(dx, dz);
-        if (length < .02) continue;
-        const count = Math.ceil(length / POST_SPAN);
-        for (let panel = 0; panel < count; panel++) {
-            const a = (panel / count), b = ((panel + 1) / count);
-            const x0 = start.x + dx * a, z0 = start.z + dz * a;
-            const x1 = start.x + dx * b, z1 = start.z + dz * b;
-            const span = Math.hypot(x1 - x0, z1 - z0);
-            const heading = -Math.atan2(z1 - z0, x1 - x0);
-            const nx = (x1 - x0) / span, nz = (z1 - z0) / span;
-            post(x0, z0); post(x1, z1);
-            const inset = postWidth / 2 + .025;
-            const inside = span - inset * 2;
-            if (inside <= .05) continue;
-            const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
-            // Panels remain straight between posts, including along a curved path.
-            if (palisade) {
-                const bars = Math.floor(inside / .11);
-                for (let i = 0; i <= bars; i++) {
-                    const t = (i / Math.max(1, bars) - .5) * inside;
-                    add('pickets', cx + nx * t, height / 2, cz + nz * t, .032, height - .13, .032, heading);
-                    add('tips', cx + nx * t, height - .02, cz + nz * t, 1, 1, 1, heading);
-                }
-                // Rails sit on the garden side of the pickets.
-                const rx = cx - nz * .09, rz = cz + nx * .09;
-                add('rails', rx, height * .35, rz, inside, .045, .045, heading);
-                add('rails', rx, height * .72, rz, inside, .045, .045, heading);
-                continue;
+    for (const [x, z] of layout.posts) add('posts', x, height / 2 + .04, z, postWidth, height + .08, postWidth);
+    for (const { x0, z0, x1, z1, span } of layout.panels) {
+        const heading = -Math.atan2(z1 - z0, x1 - x0);
+        const nx = (x1 - x0) / span, nz = (z1 - z0) / span;
+        const inset = postWidth / 2 + .025;
+        const inside = span - inset * 2;
+        if (inside <= .05) continue;
+        const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
+        // Panels remain straight between posts, including along a curved path.
+        if (palisade) {
+            const bars = Math.floor(inside / .11);
+            for (let i = 0; i <= bars; i++) {
+                const t = (i / Math.max(1, bars) - .5) * inside;
+                add('pickets', cx + nx * t, height / 2, cz + nz * t, .032, height - .13, .032, heading);
+                add('tips', cx + nx * t, height - .02, cz + nz * t, 1, 1, 1, heading);
             }
-            add('rails', cx, .13, cz, inside, .018, .03, heading);
-            add('rails', cx, height - .07, cz, inside, .018, .03, heading);
-            const verticalStep = premium ? .0762 : .2;
-            const horizontalStep = premium ? .0127 : .05;
-            const verticals = Math.floor(inside / verticalStep);
-            for (let i = 0; i <= verticals; i++) {
-                const t = (i / Math.max(1, verticals) - .5) * inside;
-                add('wires', cx + nx * t, height / 2 + .025, cz + nz * t,
-                    wire, height - .27, wire);
-            }
-            const horizontals = Math.floor((height - .27) / horizontalStep);
-            for (let i = 0; i <= horizontals; i++) {
-                const y = .15 + i * (height - .27) / Math.max(1, horizontals);
-                add('wires', cx, y, cz, inside, wire, wire, heading);
-            }
-            if (!premium) {
-                // The 2D panel has paired horizontal rods at its two stiffener lines.
-                add('rails', cx, height * .35, cz, inside, .008, .014, heading);
-                add('rails', cx, height * .72, cz, inside, .008, .014, heading);
-            }
+            // Rails sit on the garden side of the pickets.
+            const rx = cx - nz * .09, rz = cz + nx * .09;
+            add('rails', rx, height * .35, rz, inside, .045, .045, heading);
+            add('rails', rx, height * .72, rz, inside, .045, .045, heading);
+            continue;
+        }
+        add('rails', cx, .13, cz, inside, .018, .03, heading);
+        add('rails', cx, height - .07, cz, inside, .018, .03, heading);
+        const verticalStep = premium ? .0762 : .2;
+        const horizontalStep = premium ? .0127 : .05;
+        const verticals = Math.floor(inside / verticalStep);
+        for (let i = 0; i <= verticals; i++) {
+            const t = (i / Math.max(1, verticals) - .5) * inside;
+            add('wires', cx + nx * t, height / 2 + .025, cz + nz * t,
+                wire, height - .27, wire);
+        }
+        const horizontals = Math.floor((height - .27) / horizontalStep);
+        for (let i = 0; i <= horizontals; i++) {
+            const y = .15 + i * (height - .27) / Math.max(1, horizontals);
+            add('wires', cx, y, cz, inside, wire, wire, heading);
+        }
+        if (!premium) {
+            // The 2D panel has paired horizontal rods at its two stiffener lines.
+            add('rails', cx, height * .35, cz, inside, .008, .014, heading);
+            add('rails', cx, height * .72, cz, inside, .008, .014, heading);
         }
     }
 

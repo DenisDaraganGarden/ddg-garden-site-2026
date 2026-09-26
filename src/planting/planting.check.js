@@ -1,6 +1,7 @@
 // Run: node src/planting/planting.check.js
 import assert from 'node:assert/strict';
-import { fillBed, insidePolygon, plantingSchedule, PLANTING_RESERVE, polygonArea, quotas, scheduleCsv, simplifyContour, spacingFor } from './fillBed.js';
+import { coverSchedule, fillBed, insidePolygon, plantingSchedule, PLANTING_RESERVE, polygonArea, quotas, scheduleCsv, simplifyContour, spacingFor } from './fillBed.js';
+import { fenceLayout, fenceSchedule, POST_SPAN } from '../topiary/fenceLayout.js';
 import { seasonImage, seasonLook, seasonPhases } from './season.js';
 import { bedGroundGeometry, GROUND_LIFT, groundLitter, groundSeason, plantGroundMaps } from './bedGround.js';
 import { normalizePlantingSettings, PLANTING_LIMITS } from './settings.js';
@@ -96,6 +97,32 @@ const mysteryBed = { ...bed, id: 'm', recipe: [{ plant: 'mystery', share: 100 }]
 const mysteryRows = plantingSchedule([mysteryBed], [[{ plant: 'mystery' }, { plant: 'mystery' }]], [], noNorm);
 assert.equal(orderOf(mysteryRows, 'mystery'), 2, 'without a norm the order is what is drawn');
 assert.deepEqual(plantingSchedule([{ ...bed, kind: 'lawn', recipe: [] }], [[]], [], library), [], 'a lawn orders no plants');
+
+// Почвопокров — метрами по составу; ограда — п.м., секции и столбы той же
+// раскладкой, что рисует сцена (fenceLayout.js).
+const covers = coverSchedule([
+    { ...bed, id: 'c', name: 'Покров', kind: 'cover', recipe: [], cover: { enabled: true, leaf: 0.55, thyme: 0.15 } },
+    { ...bed, id: 'under', cover: { enabled: true, leaf: 0, thyme: 1 } },
+    { ...bed, id: 'off', cover: { enabled: false, leaf: 0.5, thyme: 0 } },
+    { ...bed, id: 'l', kind: 'lawn', recipe: [] },
+    bed,
+]);
+assert.deepEqual(covers.map((r) => r.id), ['c', 'under'], 'covers and bed under-layers, not lawns or plain beds');
+assert.deepEqual(['area', 'ginger', 'thyme', 'moss'].map((key) => Math.round(covers[0][key] * 1000) / 1000), [60, 33, 9, 18]);
+assert.equal(covers[1].layer, true);
+const fenceRows = fenceSchedule([
+    { id: 'f', name: 'Ограда', points: [[0, 0], [5, 0], [5, 3.1]], height: 1.8, width: 1, scale: 2, foliageVisible: false, fenceStyle: 'mesh-2d' },
+    { id: 'h', name: 'Изгородь', points: [[0, 0], [3, 4]], height: 1.2, width: 0.6, scale: 1, foliageVisible: true, fenceStyle: 'none' },
+    { id: 'x', name: 'Пусто', points: [[0, 0], [3, 4]], height: 1, width: 1, scale: 1, foliageVisible: false, fenceStyle: 'none' },
+]);
+assert.deepEqual(fenceRows.map((r) => r.id), ['f', 'h'], 'a line with neither hedge nor fence is not in the schedule');
+assert.deepEqual([fenceRows[0].sections, fenceRows[0].posts], [5, 6], '5 m + 3.1 m: 3 + 2 sections up to 2.4 m, 6 posts');
+assert.ok(Math.abs(fenceRows[0].length - 16.2) < 1e-9 && fenceRows[0].height === 3.6, 'length and height take the object scale');
+assert.equal(fenceRows[1].length, 5);
+assert.equal(fenceRows[1].sections, undefined);
+const closed = fenceLayout({ points: [[0, 0], [4, 0], [4, 4], [0, 4], [0, 0]], fenceSmooth: false });
+assert.equal(closed.posts.length, closed.panels.length, 'a closed fence has as many posts as sections');
+assert.equal(POST_SPAN, 2.4);
 
 // Сезоны.
 const at = (id, month) => seasonLook(library.get(id), month);

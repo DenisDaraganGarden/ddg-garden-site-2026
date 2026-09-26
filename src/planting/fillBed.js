@@ -265,6 +265,16 @@ export function plantingSchedule(beds, fills, points, library, vines = []) {
     })).sort((a, b) => b.order - a.order || b.count - a.count);
 }
 
+// Почвопокров по площади: отдельный покров (kind: 'cover') и нижний слой
+// цветника. Состав — доли покрова: копытник, тимьян, остальное — мох. Норм
+// шт/м² у процедурного покрова нет, поэтому здесь метры, а не штуки.
+export function coverSchedule(beds) {
+    return beds.filter((bed) => bed.kind !== 'lawn' && bed.cover && bed.cover.enabled !== false).map((bed) => {
+        const area = bedArea(bed), leaf = bed.cover.leaf ?? 0, thyme = bed.cover.thyme ?? 0;
+        return { id: bed.id, name: bed.name, layer: bed.kind !== 'cover', area, ginger: area * leaf, thyme: area * thyme, moss: area * Math.max(0, 1 - leaf - thyme) };
+    }).filter((row) => row.area > 0);
+}
+
 export function scheduleCsv(schedule, ru = true) {
     const reserve = Math.round(PLANTING_RESERVE * 100);
     const head = ru ? ['№', 'Название', 'Латинское', 'Категория', `К заказу, шт (+${reserve} %)`, 'Нарисовано, шт', 'Площадь, м²', 'Плотность, шт/м²', 'Высота, м', 'Где']

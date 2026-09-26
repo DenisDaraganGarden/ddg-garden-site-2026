@@ -2,7 +2,9 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useLanguage } from '../i18n/useLanguage';
 import { projectStore, readProject } from '../features/engine/projectApi';
 import { normalizePlantingSettings } from '../planting/settings.js';
-import { bedArea, plantingInstances, plantingSchedule, PLANTING_RESERVE, spacingFor } from '../planting/fillBed.js';
+import { bedArea, coverSchedule, plantingInstances, plantingSchedule, PLANTING_RESERVE, spacingFor } from '../planting/fillBed.js';
+import { normalizeTopiarySettings } from '../topiary/settings.js';
+import { FENCE_STYLE_LABELS, fenceSchedule, POST_SPAN } from '../topiary/fenceLayout.js';
 import { LAWN_MOWING_LABELS, lawnSeed, lawnTurf } from '../planting/lawnGround.js';
 import { isSeasonSheet, plantCardUrl, plantName, plantPhotoUrl, useBedFills, usePlantLibrary } from '../planting/plantLibrary.js';
 import { bloomMonths, byCategory, CATEGORY_LABELS } from '../planting/insights.js';
@@ -136,6 +138,9 @@ export default function PlantingReport() {
     const lawnArea = lawns.reduce((sum, bed) => sum + bedArea(bed), 0);
     const date = new Date().toLocaleDateString(ru ? 'ru-RU' : 'en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
     const lighting = useLightingReport(id, entry?.settings);
+    const covers = useMemo(() => coverSchedule(planting.plantingBeds), [planting]);
+    const lines = useMemo(() => fenceSchedule(normalizeTopiarySettings(entry?.settings ?? {}).topiaryObjects), [entry]);
+    const m = (value) => value.toFixed(1);
 
     if (error) return <main className="report"><p className="report-note">{error}</p></main>;
     if (!entry || status === 'loading' || status === 'idle') return <main className="report"><p className="report-note">{ru ? 'Собираю отчёт…' : 'Building the report…'}</p></main>;
@@ -202,6 +207,22 @@ export default function PlantingReport() {
                 <td>{i + 1}</td><td>{plantName(r.plant, ru)}<small>{r.plant.latin}</small></td><td>{r.order}</td><td>{r.count}</td><td>{r.area ? r.area.toFixed(1) : '—'}</td><td>{r.plant.category === 'tree' ? '—' : r.plant.density ?? '—'}</td><td>{r.plant.height}</td><td>{where(r)}</td><td />
             </tr>)}</tbody></table>
         </section>
+
+        {covers.length ? <section className="report-block">
+            <h3>{ru ? 'Почвопокровы' : 'Ground covers'}</h3>
+            <table className="report-table"><thead><tr>
+                <th>{ru ? 'Покров' : 'Cover'}</th><th>{ru ? 'Площадь, м²' : 'Area, m²'}</th><th>{ru ? 'Копытник, м²' : 'Wild ginger, m²'}</th><th>{ru ? 'Тимьян, м²' : 'Thyme, m²'}</th><th>{ru ? 'Мох, м²' : 'Moss, m²'}</th>
+            </tr></thead><tbody>{covers.map((r) => <tr key={r.id}><td>{r.name}{r.layer ? <small>{ru ? 'нижний слой цветника' : 'under a bed'}</small> : null}</td><td>{m(r.area)}</td><td>{m(r.ginger)}</td><td>{m(r.thyme)}</td><td>{m(r.moss)}</td></tr>)}
+                {covers.length > 1 ? <tr><td><b>{ru ? 'Всего' : 'Total'}</b></td>{['area', 'ginger', 'thyme', 'moss'].map((key) => <td key={key}><b>{m(covers.reduce((sum, r) => sum + r[key], 0))}</b></td>)}</tr> : null}</tbody></table>
+            <p className="report-hint">{ru ? 'Покров процедурный: состав — доли площади, нормы посадки в штуках задаёт дендролог.' : 'The cover is procedural: the mix is by area; plants per m² are for the dendrologist.'}</p>
+        </section> : null}
+
+        {lines.length ? <section className="report-block">
+            <h3>{ru ? 'Изгороди и ограды' : 'Hedges and fences'}</h3>
+            <table className="report-table"><thead><tr>
+                <th>{ru ? 'Линия' : 'Line'}</th><th>{ru ? 'Длина, п.м.' : 'Length, m'}</th><th>{ru ? 'Высота, м' : 'Height, m'}</th><th>{ru ? 'Изгородь, ширина, м' : 'Hedge, width, m'}</th><th>{ru ? 'Ограда' : 'Fence'}</th><th>{ru ? `Секций (до ${POST_SPAN} м)` : `Sections (up to ${POST_SPAN} m)`}</th><th>{ru ? 'Столбов' : 'Posts'}</th>
+            </tr></thead><tbody>{lines.map((r) => <tr key={r.id}><td>{r.name}</td><td>{m(r.length)}</td><td>{r.height.toFixed(2)}</td><td>{r.hedge ? r.width.toFixed(2) : '—'}</td><td>{r.fence ? FENCE_STYLE_LABELS[r.fence]?.[ru ? 0 : 1] ?? r.fence : '—'}</td><td>{r.fence ? r.sections : '—'}</td><td>{r.fence ? r.posts : '—'}</td></tr>)}</tbody></table>
+        </section> : null}
 
         {lawns.length ? <section className="report-block">
             <h3>{ru ? 'Газоны' : 'Lawns'}</h3>
