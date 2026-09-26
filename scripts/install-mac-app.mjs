@@ -23,6 +23,11 @@ const exists = async (file) => Boolean(await fs.lstat(file).catch((error) => {
 if (!await exists(path.join(sourceRoot, 'electron/main.js'))) {
   throw new Error(`Нет копии движка в ${sourceRoot}. Сначала: npm run engine:update`);
 }
+// Electron 42 скачивает приложение при первом запуске, не в npm ci: докачать.
+const electronInstall = path.join(sourceRoot, 'node_modules/electron/install.js');
+if (!await exists(path.join(sourceRoot, 'node_modules/electron/dist/Electron.app')) && await exists(electronInstall)) {
+  execFileSync(process.execPath, [electronInstall], { cwd: sourceRoot, stdio: 'inherit' });
+}
 if (!await exists(path.join(sourceRoot, 'node_modules/electron/dist/Electron.app'))) {
   throw new Error(`В ${sourceRoot} не установлены зависимости. Сначала: npm run engine:update`);
 }

@@ -132,6 +132,14 @@ export async function updateEngine({
     const run = spawnSync(npm, ['ci'], { cwd: dir, stdio: 'inherit' });
     if (run.status !== 0) throw new Error(`npm ci в копии движка завершился с ошибкой (${run.status}).`);
   }
+  // Electron (с 42-й версии) скачивает само приложение не в npm ci, а при
+  // первом запуске, а ярлыку OUROBOROS оно нужно сразу. Уже скачанное
+  // install.js не трогает.
+  const electronInstall = path.join(dir, 'node_modules', 'electron', 'install.js');
+  if (install && fs.existsSync(electronInstall)) {
+    const run = spawnSync(process.execPath, [electronInstall], { cwd: dir, stdio: 'inherit' });
+    if (run.status !== 0) throw new Error(`Electron в копии движка не скачался (${run.status}). Повторите: npm run engine:update`);
+  }
   const next = {
     current: target,
     previous: moved ? (from ?? null) : (state.previous ?? null),
