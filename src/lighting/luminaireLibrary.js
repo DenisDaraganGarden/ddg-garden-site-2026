@@ -48,6 +48,29 @@ export const luminaireName = (type, ru = true) => (type ? (ru ? type.ru : type.e
 export const makerOf = (type) => (type?.generic ? 'generic' : String(type?.maker ?? '').split(/[\s(]/)[0] || 'other');
 export const makerLabel = (maker, ru = true) => (maker === 'generic' ? (ru ? 'Заготовки' : 'Generic') : maker === 'other' ? (ru ? 'Без производителя' : 'No maker') : maker);
 
+// Серия изделия, как в каталоге производителя («Belvedere», «GARDEN.BELL»):
+// записи одного производителя с одним `family` — её варианты (`variant`:
+// мощность, угол, цвет). Запись без серии — сама себе серия. Большой каталог
+// в библиотеке показывается сериями, а не тысячей плиток.
+export const familyOf = (type) => (type?.family ? `${makerOf(type)}:${type.family}` : `id:${type?.id}`);
+export function libraryFamilies(types) {
+    const families = new Map();
+    for (const type of types) {
+        const key = familyOf(type);
+        if (!families.has(key)) families.set(key, { id: key, name: type.family ?? null, maker: makerOf(type), kind: type.housing?.shape, variants: [] });
+        families.get(key).variants.push(type);
+    }
+    return [...families.values()];
+}
+// Поиск по библиотеке: все слова запроса — в имени, серии, варианте,
+// артикуле, производителе или модели.
+export function matchesLuminaire(type, query) {
+    const words = String(query ?? '').toLocaleLowerCase('ru').split(/\s+/).filter(Boolean);
+    if (!words.length) return true;
+    const text = [type?.ru, type?.en, type?.family, type?.variant, type?.article, type?.maker, type?.model].filter(Boolean).join(' ').toLocaleLowerCase('ru');
+    return words.every((word) => text.includes(word));
+}
+
 // Порядок в библиотеке: вид (как LUMINAIRE_KINDS), изделия раньше заготовок,
 // дальше по имени.
 const KIND_ORDER = new Map(LUMINAIRE_KINDS.map((kind, i) => [kind.id, i]));

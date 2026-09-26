@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { useLanguage } from '../../../../../i18n/useLanguage';
 import { CheckboxControl, RangeControl, SectionHeading, SelectControl } from '../../HomeEditorControls';
 import { useFocusControlScope, useFocusControls } from '../focus/FocusControlsContext';
@@ -8,7 +8,9 @@ import { fixtureLabels, luminaireSchedule } from '../../../../../lighting/fixtur
 import { makerLabel, makerOf, specLine, useLuminaireTypes } from '../../../../../lighting/luminaireLibrary.js';
 import { LuminaireChoice } from '../../../../../lighting/ui/LuminairePicker.jsx';
 import { LuminaireLibraryView } from '../../../../../lighting/ui/LuminaireLibraryView.jsx';
-import { LightingOverview, LightingSpecTable } from '../../../../../lighting/ui/LightingSpec.jsx';
+import { LightingOverview, LightingPlaced, LightingSpecTable } from '../../../../../lighting/ui/LightingSpec.jsx';
+import { WorkspaceTabs } from '../focus/WorkspaceTabs.jsx';
+import { useWorkspaceTab } from '../focus/useWorkspaceTab.js';
 import { activeProjectId } from '../../../../engine/projectApi.js';
 import { flushProjectSave } from '../../../hooks/useHomeSceneSettings';
 import '../../../../../planting/ui/planting-ui.css';
@@ -18,13 +20,13 @@ import './lighting.css';
 // Рабочее место «Освещение» (src/lighting, docs/garden-lighting-2026-09-25.md),
 // устроено как «Растения»: инструменты — «Светильник» (O: щелчок ставит,
 // протяжка наводит), «Навести», «Щиток», «Сверху»; карточка выбранного
-// светильника; вкладки — обзор (состав и расставленные), библиотека (изделия
-// по видам, с картинками и паспортом) и спецификация (считается при каждой
-// расстановке, та же, что в отчёте).
+// светильника; вкладки вместо длинной ленты (WorkspaceTabs) — обзор (цифры и
+// состав), расставленные, библиотека (производители, серии, варианты),
+// спецификация (считается при каждой расстановке, та же, что в отчёте) и
+// свет (когда горят, экспозиция, тени).
 const FIXTURES_KEY = 'lightingFixtures';
 const MODES = [['auto', 'По темноте', 'At dusk'], ['on', 'Включены', 'On'], ['off', 'Выключены', 'Off']];
-const TAB_KEY = 'ddg_lighting_tab_v1';
-const readTab = () => { try { return localStorage.getItem(TAB_KEY) || 'library'; } catch { return 'library'; } };
+const TABS = ['overview', 'placed', 'library', 'spec', 'look'];
 
 // Ползунок карточки: одна протяжка — один шаг отмены (как у ползунков
 // редактора: жест истории от нажатия до отпускания). В каталог параметров
@@ -66,9 +68,8 @@ function FixtureCard({ fixture, label, types, lightingEditor, ru, onOpenType }) 
 }
 
 function LightingWorkspace({ settings, lightingEditor, layoutEditor, gizmo, types, fixtures, labels, look, ru }) {
-    const [tab, setTab] = useState(readTab);
+    const [tab, setTab] = useWorkspaceTab('ddg_lighting_tab_v1', TABS, 'library');
     const [openType, setOpenType] = useState(null);
-    useEffect(() => { try { localStorage.setItem(TAB_KEY, tab); } catch { /* local UI only */ } }, [tab]);
     const schedule = useMemo(() => luminaireSchedule(fixtures, types, labels), [fixtures, types, labels]);
     const usage = useMemo(() => {
         const map = new Map();
@@ -107,14 +108,17 @@ function LightingWorkspace({ settings, lightingEditor, layoutEditor, gizmo, type
         {lightingEditor?.aiming ? <p className="planting-hint">{ru ? 'Щелчок — на что светит выбранный светильник. Esc — выйти.' : 'Click what the selected luminaire lights. Esc to leave.'}</p> : null}
         {selected ? <FixtureCard fixture={selected} label={labels.get(selected.id)} types={types} lightingEditor={lightingEditor} ru={ru} onOpenType={openCard} /> : null}
 
-        <nav className="planting-tabs" role="tablist">
-            {[['overview', ru ? 'Обзор' : 'Overview', fixtures.length], ['library', ru ? 'Библиотека' : 'Library', types.size], ['spec', ru ? 'Спецификация' : 'Schedule', schedule.totals.count]].map(([id, label, count]) => <button key={id} type="button" role="tab" aria-selected={tab === id} className={tab === id ? 'is-active' : ''} onClick={() => { setTab(id); if (id === 'library') setOpenType(null); }} data-testid={`lighting-tab-${id}`}>{label}<small className="lighting-tab-count">{count}</small></button>)}
-        </nav>
-        {tab === 'overview' ? <>
-            <LightingOverview schedule={schedule} fixtures={fixtures} types={types} labels={labels} circuits={circuits} ru={ru} selectedId={selected?.id}
-                onOpenType={openCard} onSelect={(fixture) => { lightingEditor?.select(fixture.id); frame(fixture); }} onRemove={(id) => lightingEditor?.remove(id)} />
-            <div className="lighting-look">{look}</div>
-        </> : null}
+        <WorkspaceTabs label={ru ? 'Разделы освещения' : 'Lighting sections'} testId="lighting-tab" value={tab} onChange={(id) => { setTab(id); if (id === 'library') setOpenType(null); }} tabs={[
+            { id: 'overview', label: ru ? 'Обзор' : 'Overview' },
+            { id: 'placed', label: ru ? 'Расставлены' : 'Placed', count: fixtures.length },
+            { id: 'library', label: ru ? 'Библиотека' : 'Library', count: types.size },
+            { id: 'spec', label: ru ? 'Спецификация' : 'Schedule', count: schedule.rows.length },
+            { id: 'look', label: ru ? 'Свет' : 'Light' },
+        ]} />
+        {tab === 'overview' ? <LightingOverview schedule={schedule} fixtures={fixtures} ru={ru} onOpenType={openCard} /> : null}
+        {tab === 'placed' ? <LightingPlaced schedule={schedule} fixtures={fixtures} types={types} labels={labels} circuits={circuits} ru={ru} selectedId={selected?.id}
+            onSelect={(fixture) => { lightingEditor?.select(fixture.id); frame(fixture); }} onRemove={(id) => lightingEditor?.remove(id)} /> : null}
+        {tab === 'look' ? <div className="lighting-look">{look}</div> : null}
         {tab === 'library' ? <LuminaireLibraryView types={types} ru={ru} openId={openType} setOpenId={setOpenType} usage={usage}
             onPlace={(id) => lightingEditor?.begin(id)} onReplace={(id) => selected && lightingEditor.replaceType(selected.id, id)}
             selectedLabel={selected ? labels.get(selected.id) : null} selectedType={selected?.type} /> : null}

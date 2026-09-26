@@ -9,13 +9,13 @@ import { runBrief, useBrief } from '../../../../../brief/useBrief.js';
 import { activeProjectId } from '../../../../engine/projectApi.js';
 import '../../../../../planting/ui/planting-ui.css';
 import './brief.css';
+import { WorkspaceTabs } from '../focus/WorkspaceTabs.jsx';
+import { useWorkspaceTab } from '../focus/useWorkspaceTab.js';
 
 // Рабочее место «Проект» (src/brief/brief.js): ТЗ — свитки заданий по датам,
 // и заказчик — имя, контакты, договор, сроки. Это не сцена: ни одного
 // параметра в каталоге, каждая правка — операция в projects/<id>/brief.json.
 // Агент читает то же самое: node scripts/brief.mjs <проект>.
-const TAB_KEY = 'ddg_brief_tab_v1';
-const readTab = () => { try { return localStorage.getItem(TAB_KEY) || 'tasks'; } catch { return 'tasks'; } };
 const PRIORITY_LABELS = { high: ['Высокий', 'High'], normal: ['Обычный', 'Normal'], low: ['Низкий', 'Low'] };
 
 const localDay = (date) => { const [y, m, d] = date.split('-').map(Number); return new Date(y, m - 1, d); };
@@ -217,9 +217,8 @@ function ClientForm({ brief, id, ru }) {
 function BriefWorkspace({ editorTree, ru, t }) {
     const id = activeProjectId();
     const { brief, error } = useBrief(id);
-    const [tab, setTab] = useState(readTab);
+    const [tab, setTab] = useWorkspaceTab('ddg_brief_tab_v1', ['tasks', 'client']);
     const [date, setDate] = useState(today);
-    useEffect(() => { try { localStorage.setItem(TAB_KEY, tab); } catch { /* local UI only */ } }, [tab]);
 
     // Подписи маркеров — те же, что в дереве редактора; выбор — только видимые узлы.
     const tree = useMemo(() => (editorTree ?? []).filter((group) => group.id !== 'project'), [editorTree]);
@@ -256,10 +255,8 @@ function BriefWorkspace({ editorTree, ru, t }) {
     return <div className="planting-workspace brief-workspace" data-testid="brief-workspace">
         {counts.review ? <button type="button" className="brief-awaiting" onClick={showReview} data-testid="brief-awaiting">
             <b>{counts.review}</b>{ru ? `${counts.review % 10 === 1 && counts.review % 100 !== 11 ? 'ждёт' : 'ждут'} проверки — агент сделал, посмотрите` : 'awaiting review — the agent is done, take a look'}</button> : null}
-        <nav className="planting-tabs" role="tablist">
-            {[['tasks', ru ? 'ТЗ' : 'Brief', counts.open + counts.review], ['client', ru ? 'Заказчик' : 'Client', null]].map(([key, label, count]) => <button key={key} type="button" role="tab" aria-selected={tab === key} className={tab === key ? 'is-active' : ''} onClick={() => setTab(key)} data-testid={`brief-tab-${key}`}>
-                {label}{count ? <small className="lighting-tab-count">{count}</small> : null}</button>)}
-        </nav>
+        <WorkspaceTabs label={ru ? 'Разделы ТЗ' : 'Brief sections'} testId="brief-tab" value={tab} onChange={setTab}
+            tabs={[{ id: 'tasks', label: ru ? 'ТЗ' : 'Brief', count: counts.open + counts.review }, { id: 'client', label: ru ? 'Заказчик' : 'Client' }]} />
         {tab === 'tasks' ? <>
             <div className="brief-new">
                 <input type="date" className="planting-name" value={date} onChange={(event) => setDate(event.target.value)} aria-label={ru ? 'Дата свитка' : 'Scroll date'} data-testid="brief-date" />

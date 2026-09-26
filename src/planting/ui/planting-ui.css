@@ -35,6 +35,14 @@
 .planting-tabs{display:flex;gap:14px;height:32px;margin-top:2px;border-bottom:1px solid var(--focus-line,#353839)}
 .planting-tabs>button{padding:0 2px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--focus-muted,#989d9e);font-size:11px}
 .planting-tabs>button.is-active{border-bottom-color:var(--focus-accent,#cfc1a1);color:var(--focus-text,#dcddd8)}
+/* Общие вкладки рабочего места (WorkspaceTabs): прилипают к верху панели,
+   лишние уходят вбок, а не в перенос. */
+.workspace-tabs{position:sticky;top:-4px;z-index:4;flex:none;gap:12px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;background:var(--focus-panel,#1d1f20)}
+.workspace-tabs::-webkit-scrollbar{display:none}
+.workspace-tabs>button{flex:none;white-space:nowrap}
+.workspace-tabs.has-more-right{-webkit-mask-image:linear-gradient(to right,#000 calc(100% - 28px),transparent);mask-image:linear-gradient(to right,#000 calc(100% - 28px),transparent)}
+.workspace-tabs.has-more-left{-webkit-mask-image:linear-gradient(to left,#000 calc(100% - 28px),transparent);mask-image:linear-gradient(to left,#000 calc(100% - 28px),transparent)}
+.workspace-tabs.has-more-left.has-more-right{-webkit-mask-image:linear-gradient(to right,transparent,#000 28px,#000 calc(100% - 28px),transparent);mask-image:linear-gradient(to right,transparent,#000 28px,#000 calc(100% - 28px),transparent)}
 
 .plant-chips{display:flex;flex-wrap:wrap;gap:4px}
 .plant-chips>button,.plant-chips--static>span{display:inline-flex;align-items:baseline;gap:5px;height:22px;padding:0 8px;border:1px solid var(--focus-line,#353839);border-radius:11px;background:transparent;color:var(--focus-muted,#989d9e);font-size:10px;line-height:20px;white-space:nowrap}

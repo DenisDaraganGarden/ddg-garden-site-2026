@@ -52,3 +52,11 @@
 .report-table__group th{padding:12px 5px 4px;border-bottom:1px solid #0000002a;font-size:10.5px;font-weight:600;color:#1f2321}
 .report-luminaire{display:flex;gap:8px;align-items:flex-start}
 .report-luminaire>span:last-child{display:flex;flex-direction:column}
+
+/* Большой каталог: поиск, серия списком вариантов, «Показать ещё». */
+.lum-search{width:100%;box-sizing:border-box}
+.lum-family__title{display:flex;align-items:baseline;gap:8px;margin:4px 0;font-size:13px;font-weight:550;color:#f1efe6}
+.lum-family__title>small{font-size:10px;font-weight:400;color:var(--focus-muted,#989d9e)}
+.lum-family__list{display:flex;flex-direction:column;gap:2px}
+.lum-more{align-self:center;height:26px;padding:0 12px;border:1px solid var(--focus-line,#353839);border-radius:4px;background:transparent;color:var(--focus-text,#dcddd8);font-size:11px}
+.lum-family__list>.lum-spec__row{grid-template-columns:40px minmax(0,1fr) auto}

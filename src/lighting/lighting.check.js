@@ -5,6 +5,7 @@
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import { BUILTIN_LUMINAIRES } from './types.js';
+import { familyOf, libraryFamilies, matchesLuminaire } from './luminaireLibrary.js';
 import { aimAt, beamAxis, normalizeLightingSettings } from './settings.js';
 import { fixtureLabels, fixturePose, gardenLights, luminaireSchedule } from './fixtures.js';
 import { packLightField, shadeReference } from './lightField.js';
@@ -208,5 +209,19 @@ assert.ok(network.circuits[0].cableLength > network.circuits[0].planLength, 'к�
 assert.ok(network.totals.trenchLength > 0);
 assert.ok(!network.conflicts.some((c) => c.kind === 'unreachable'), JSON.stringify(network.conflicts));
 assert.equal(lightingNetwork(plan, types, null), null, 'без сетки — не считается');
+
+// Большой каталог — сериями: варианты одной серии одного производителя вместе,
+// запись без серии — сама себе серия; поиск — по всем словам сразу.
+{
+    const lum = (id, maker, family, extra = {}) => ({ id, maker, ru: `${maker} ${family ?? id}`, ...(family ? { family } : {}), housing: { shape: 'bollard' }, ...extra });
+    const list = [lum('a1', 'Flos', 'Belvedere', { variant: '3000 K', article: 'F0271' }), lum('a2', 'Flos', 'Belvedere', { variant: '2700 K' }), lum('b', 'Центрсвет', 'Belvedere'), lum('c', 'Flos', null)];
+    const families = libraryFamilies(list);
+    assert.deepEqual(families.map((f) => [f.id, f.variants.length]), [['Flos:Belvedere', 2], ['Центрсвет:Belvedere', 1], ['id:c', 1]]);
+    assert.equal(familyOf(list[3]), 'id:c');
+    assert.ok(matchesLuminaire(list[0], 'belvedere f0271'), 'series and article together');
+    assert.ok(!matchesLuminaire(list[1], 'belvedere f0271'));
+    assert.ok(matchesLuminaire(list[2], 'центрсвет'), 'Cyrillic maker');
+    assert.ok(matchesLuminaire(list[0], '  '), 'an empty query matches all');
+}
 
 console.log(`lighting: настройки, светильник в мире, поле = паспорт (${fieldLux.toFixed(1)} лк), сетка ${grid.cols}×${grid.rows}, файл сетки, цепь ${network.circuits[0].cableLength.toFixed(1)} м кабеля — ок`);
