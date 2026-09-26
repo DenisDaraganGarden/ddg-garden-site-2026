@@ -5,11 +5,13 @@
 .planting-workspace button:disabled{opacity:.35;cursor:default}
 .planting-spacer{flex:1}
 
-.planting-tools{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
-.planting-tools>button{display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 4px 6px;border:1px solid var(--focus-line,#353839);border-radius:5px;background:#ffffff05;font-size:10.5px}
+/* Кнопки инструментов рабочего места — одни на все (посадки, освещение):
+   узкая строка «значок + название + клавиша», переносится, места не ест. */
+.planting-tools{display:flex;flex-wrap:wrap;gap:3px}
+.planting-tools>button{flex:1 1 auto;min-width:0;display:inline-flex;flex-direction:row;align-items:center;justify-content:center;gap:5px;height:26px;padding:0 7px;border:1px solid var(--focus-line,#353839);border-radius:4px;background:transparent;font-size:10.5px;white-space:nowrap}
 .planting-tools>button:hover{background:#ffffff0c}
 .planting-tools>button.is-active{border-color:var(--focus-accent,#cfc1a1);background:#cfc1a118;color:#f7f6ee}
-.planting-tools .focus-icon{width:18px;height:18px}
+.planting-tools .focus-icon{width:13px;height:13px;flex:none}
 .planting-tools kbd{font:9px ui-monospace,monospace;color:var(--focus-muted,#989d9e)}
 .planting-hint{margin:0;padding:6px 8px;border-radius:4px;background:#cfc1a110;color:#cdc9bb;font-size:10px;line-height:1.45}
 .planting-plantrow{display:flex;flex-direction:column;gap:5px}
