@@ -8,7 +8,7 @@
 единицы взяты из его каталога контролов, поэтому параметр не может появиться в
 редакторе и не появиться здесь. Руками не править.
 
-Снято: 2026-09-25 · параметров: 729 · разделов: 48
+Снято: 2026-09-26 · параметров: 740 · разделов: 48
 
 Как этим пользоваться агенту: читать и писать `~/Ouroboros/projects/<id>.json`, поле
 `settings` — плоский объект с этими ключами. `topiaryObjects` — массив форм;
@@ -351,6 +351,17 @@
 |---|---|---|---|---|
 | `northAngle` | Север | число | -180 … 180, шаг 0.5, ° | 0 |
 | `plantingBeds` | Цветник | список |  |  |
+| `plantingBeds[].cover.climate` | Климат почвопокрова | список | temperate · cold · mild |  |
+| `plantingBeds[].cover.density` | Плотность | число | 0.4 … 1.6, шаг 0.05 |  |
+| `plantingBeds[].cover.edge` | Мягкий край, м | число | 0 … 0.5, шаг 0.01 |  |
+| `plantingBeds[].cover.enabled` | Нижний почвопокров | выключатель | да / нет |  |
+| `plantingBeds[].cover.height` | Высота листвы, м | число | 0.04 … 0.24, шаг 0.01 |  |
+| `plantingBeds[].cover.leaf` | Доля копытника | число | 0 … 1, шаг 0.05 |  |
+| `plantingBeds[].cover.leafSize` | Размер листа, м | число | 0.07 … 0.24, шаг 0.01 |  |
+| `plantingBeds[].cover.moisture` | Влажность | число | 0 … 1, шаг 0.05 |  |
+| `plantingBeds[].cover.patches` | Размер куртины, м | число | 0.3 … 4, шаг 0.1 |  |
+| `plantingBeds[].cover.shade` | Тенистость | число | 0 … 1, шаг 0.05 |  |
+| `plantingBeds[].cover.thyme` | Доля тимьяна | число | 0 … 1, шаг 0.05 |  |
 | `plantingBeds[].density` | Густота | число | 0.4 … 2, шаг 0.05,  × |  |
 | `plantingBeds[].drift` | Размер пятна | число | 0.3 … 6, шаг 0.1,  m |  |
 | `plantingBeds[].palette` | Палитра | список |  · steppe · prairie · flowering · shade · evergreen |  |

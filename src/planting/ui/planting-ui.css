@@ -219,3 +219,5 @@
 .planting-lawn-swatch.is-diamond{background:conic-gradient(from 45deg,#4a8430 25%,#6ea64a 0 50%,#4a8430 0 75%,#6ea64a 0) 0 0/11px 11px}
 .planting-lawn-swatch.is-plain{background:#57913a}
 .planting-lawn-swatch.is-meadow{background:linear-gradient(180deg,#9aa45e,#4f7a30)}
+
+.planting-tools--six{grid-template-columns:repeat(3,1fr)}

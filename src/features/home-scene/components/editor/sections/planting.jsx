@@ -1,3 +1,5 @@
+import { COVER_DEFAULT, COVER_PRESETS, COVER_RANGES, normalizeCover, coverSeason } from '../../../../../groundcover/settings.js';
+import { COVER_LABELS, COVER_CLIMATES } from '../../../../../groundcover/labels.js';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLanguage } from '../../../../../i18n/useLanguage';
 import { CheckboxControl, RangeControl, SelectControl } from '../../HomeEditorControls';
@@ -47,6 +49,9 @@ function PlantingCatalog({ settings, handleSettingChange, plantingEditor, ru }) 
         <SelectControl controlId="plantingBeds[].palette" label={ru ? 'Палитра' : 'Palette'} value="" options={[{ value: '', label: ru ? 'Своя — заменить на…' : 'Own — replace with…' }, ...PLANTING_PALETTES.map((p) => ({ value: p.id, label: ru ? p.ru : p.en }))]} onChange={() => {}} />
         <RangeControl controlId="plantingBeds[].drift" label={ru ? 'Размер пятна' : 'Drift size'} value={bed.drift} min={PLANTING_RANGES.drift[0]} max={PLANTING_RANGES.drift[1]} step={PLANTING_RANGES.drift[2]} unit=" m" onChange={() => {}} />
         <RangeControl controlId="plantingBeds[].density" label={ru ? 'Густота' : 'Density'} value={bed.density} min={PLANTING_RANGES.density[0]} max={PLANTING_RANGES.density[1]} step={PLANTING_RANGES.density[2]} unit=" ×" onChange={() => {}} />
+        <CheckboxControl controlId="plantingBeds[].cover.enabled" label={ru ? 'Нижний почвопокров' : 'Groundcover layer'} checked={true} onChange={() => {}} />
+        <SelectControl controlId="plantingBeds[].cover.climate" label={ru ? 'Климат почвопокрова' : 'Groundcover climate'} value="temperate" options={Object.entries(COVER_CLIMATES).map(([value, names]) => ({ value, label: names[ru ? 0 : 1] }))} onChange={() => {}} />
+        {Object.entries(COVER_RANGES).map(([key, [min, max, step]]) => <RangeControl key={key} controlId={`plantingBeds[].cover.${key}`} label={COVER_LABELS[key][ru ? 0 : 1]} value={COVER_DEFAULT[key]} min={min} max={max} step={step} onChange={() => {}} />)}
         <SelectControl controlId={VINES_KEY} label={ru ? 'Лиана' : 'Climber'} value="" options={[{ value: '', label: ru ? 'Выбрать…' : 'Select…' }, ...(settings[VINES_KEY] ?? []).map((v) => ({ value: v.id, label: plantName(library.get(v.plant), ru) || v.plant }))]} onChange={(event) => event.target.value && plantingEditor?.selectVine(event.target.value)} />
         <SelectControl controlId="plantingPlant" label={ru ? 'Растение' : 'Plant'} value={plantingEditor?.plantChoice ?? ''} options={[...library.values()].sort(byCategory).map((p) => ({ value: p.id, label: plantName(p, ru) }))} onChange={(event) => plantingEditor?.setPlantChoice(event.target.value)} />
     </>;
@@ -61,6 +66,26 @@ function PlainRange({ label, value, min, max, step, unit = '', onChange, testId 
 // Газон (цветник kind: 'lawn', lawnGround.js): стрижка — узор, ширина
 // прохода, направление, высота травы, контраст полос; полив. Площадь — и
 // сколько брать (lawnNeeds).
+function CoverFields({ bed, plantingEditor, ru }) {
+    const cover = normalizeCover(bed.cover), set = (patch) => plantingEditor.updateBed(bed.id, { cover: normalizeCover({ ...cover, ...patch }) });
+    return <>
+        <label className="planting-select"><span>{ru ? 'Нижний покров' : 'Underplanting'}</span><select value={cover.enabled ? 'on' : 'off'} onChange={(event) => set({ enabled: event.target.value === 'on' })}><option value="on">{ru ? 'Включён' : 'On'}</option><option value="off">{ru ? 'Выключен' : 'Off'}</option></select></label>
+        {cover.enabled ? <>
+            <label className="planting-select"><span>{ru ? 'Сообщество' : 'Community'}</span><select value="" onChange={(event) => event.target.value && set(COVER_PRESETS[event.target.value].values)} data-testid="cover-preset"><option value="">{ru ? 'Выбрать…' : 'Choose…'}</option>{Object.entries(COVER_PRESETS).map(([id, p]) => <option key={id} value={id}>{p[ru ? 'ru' : 'en']}</option>)}</select></label>
+            {Object.entries(COVER_RANGES).map(([key, [min, max, step]]) => <PlainRange key={key} label={COVER_LABELS[key][ru ? 0 : 1]} value={cover[key]} min={min} max={max} step={step} onChange={(value) => set({ [key]: value })} testId={`cover-${key}`} />)}
+            <label className="planting-select"><span>{ru ? 'Климат' : 'Climate'}</span><select value={cover.climate} onChange={(event) => set({ climate: event.target.value })}>{Object.entries(COVER_CLIMATES).map(([id, names]) => <option key={id} value={id}>{names[ru ? 0 : 1]}</option>)}</select></label>
+        </> : null}
+    </>;
+}
+function CoverEditor({ bed, plantingEditor, layoutEditor, ru }) {
+    return <>
+        <input className="planting-name" value={bed.name} maxLength={64} aria-label={ru ? 'Имя почвопокрова' : 'Groundcover name'} onChange={(event) => plantingEditor.updateBed(bed.id, { name: event.target.value })} />
+        <p className="planting-status">{bedArea(bed).toFixed(1)} {ru ? 'м² в плане' : 'm² in plan'}</p>
+        <CoverFields bed={bed} plantingEditor={plantingEditor} ru={ru} />
+        <div className="planting-actions"><button type="button" onClick={() => plantingEditor.reseed(bed.id)}>{ru ? 'Перемешать' : 'Reshuffle'}</button><button type="button" onClick={() => layoutEditor?.frameObject?.(`planting-bed-${bed.id}`)}>{ru ? 'Показать' : 'Frame'}</button><button type="button" onClick={() => plantingEditor.removeBed(bed.id)} data-testid="planting-delete">{ru ? 'Удалить' : 'Delete'}</button></div>
+    </>;
+}
+
 function LawnEditor({ bed, plantingEditor, layoutEditor, ru }) {
     const lawn = bed.lawn, set = (patch) => plantingEditor.updateBed(bed.id, { lawn: { ...lawn, ...patch } });
     const area = bedArea(bed), striped = ['stripes', 'checker', 'diamond'].includes(lawn.mowing);
@@ -121,7 +146,7 @@ function BedEditor({ beds, fills, library, plantingEditor, layoutEditor, ru }) {
         </div>
         {!selected ? <p className="planting-empty">{beds.length
             ? (ru ? 'Выберите цветник выше или щёлкните по нему в сцене.' : 'Pick a bed above or click it in the scene.')
-            : (ru ? 'Цветников пока нет — «Цветник» (L) и контур по земле.' : 'No beds yet — Bed (L) and an outline on the ground.')}</p> : selected.kind === 'lawn' ? <LawnEditor bed={selected} plantingEditor={plantingEditor} layoutEditor={layoutEditor} ru={ru} /> : <>
+            : (ru ? 'Цветников пока нет — «Цветник» (L) и контур по земле.' : 'No beds yet — Bed (L) and an outline on the ground.')}</p> : selected.kind === 'cover' ? <CoverEditor bed={selected} plantingEditor={plantingEditor} layoutEditor={layoutEditor} ru={ru} /> : selected.kind === 'lawn' ? <LawnEditor bed={selected} plantingEditor={plantingEditor} layoutEditor={layoutEditor} ru={ru} /> : <>
             <input className="planting-name" value={selected.name} maxLength={64} aria-label={ru ? 'Имя цветника' : 'Bed name'} onChange={(event) => set({ name: event.target.value })} />
             <p className="planting-status" data-testid="planting-bed-status">{ru
                 ? `Площадь ${bedArea(selected).toFixed(1)} м² · растений ${count}${selected.surface ? ' · поверхность модели' : ''}`
@@ -146,6 +171,7 @@ function BedEditor({ beds, fills, library, plantingEditor, layoutEditor, ru }) {
             </div>
             <PlainRange label={ru ? 'Размер пятна' : 'Drift size'} value={selected.drift} min={PLANTING_RANGES.drift[0]} max={PLANTING_RANGES.drift[1]} step={PLANTING_RANGES.drift[2]} unit={ru ? ' м' : ' m'} onChange={(drift) => set({ drift })} testId="planting-drift" />
             <PlainRange label={ru ? 'Густота' : 'Density'} value={selected.density} min={PLANTING_RANGES.density[0]} max={PLANTING_RANGES.density[1]} step={PLANTING_RANGES.density[2]} unit=" ×" onChange={(density) => set({ density })} testId="planting-density" />
+            {selected.cover ? <CoverFields bed={selected} plantingEditor={plantingEditor} ru={ru} /> : <button type="button" className="planting-add" onClick={() => set({ cover: COVER_DEFAULT })}>{ru ? '+ Нижний почвопокров' : '+ Groundcover layer'}</button>}
             <div className="planting-actions">
                 <button type="button" onClick={() => plantingEditor.reseed(selected.id)} data-testid="planting-reseed">{ru ? 'Перемешать' : 'Reshuffle'}</button>
                 <button type="button" onClick={() => layoutEditor?.frameObject?.(`planting-bed-${selected.id}`)}>{ru ? 'Показать' : 'Frame'}</button>
@@ -188,14 +214,17 @@ function PlantingWorkspace({ settings, handleSettingChange, applySettings, plant
     const [openPlant, setOpenPlant] = useState(null);
     useEffect(() => { try { localStorage.setItem(TAB_KEY, tab); } catch { /* local UI only */ } }, [tab]);
     const mode = plantingEditor?.mode;
+    const coverMode = mode === 'bed' && plantingEditor?.bedKind === 'cover';
     const lawnMode = mode === 'bed' && plantingEditor?.bedKind === 'lawn';
     const month = settings.plantingMonth;
-    const flowerBeds = useMemo(() => beds.filter((bed) => bed.kind !== 'lawn'), [beds]);
-    const flowerFills = useMemo(() => fills.filter((_, index) => beds[index]?.kind !== 'lawn'), [fills, beds]);
+    const flowerBeds = useMemo(() => beds.filter((bed) => bed.kind !== 'lawn' && bed.kind !== 'cover'), [beds]);
+    const flowerFills = useMemo(() => fills.filter((_, index) => beds[index]?.kind !== 'lawn' && beds[index]?.kind !== 'cover'), [fills, beds]);
     const lawns = useMemo(() => beds.filter((bed) => bed.kind === 'lawn'), [beds]);
     const selectedBed = beds.find((bed) => bed.id === plantingEditor?.selectedId);
     const vines = settings[VINES_KEY];
     const inBloom = useMemo(() => [...new Set([...fills.flat().map((p) => p.plant), ...points.map((p) => p.plant), ...(vines ?? []).map((v) => v.plant)])].filter((id) => bloomMonths(library.get(id)).includes(month)), [fills, points, vines, library, month]);
+    const coverInBloom = beds.some((bed) => bed.cover?.enabled && bed.cover.thyme > 0 && coverSeason(month, bed.cover).bloom > .12);
+    const bloomNames = [...inBloom.map((id) => plantName(library.get(id), ru).split(' ')[0].toLowerCase()), ...(coverInBloom ? [ru ? 'тимьян' : 'thyme'] : [])];
     const setMonth = (value) => handleSettingChange({ target: { value } }, 'plantingMonth', 'integer');
     const topView = () => {
         const all = [...(selectedBed ? [selectedBed] : beds).flatMap((b) => b.points.map(([x, z]) => [x, b.y, z])), ...(selectedBed ? [] : points.map((p) => [p.x, p.y, p.z]))];
@@ -210,17 +239,19 @@ function PlantingWorkspace({ settings, handleSettingChange, applySettings, plant
     const months = ru ? MONTHS_RU : MONTHS_EN;
 
     return <div className="planting-workspace" data-testid="planting-workspace">
-        <div className="planting-tools planting-tools--five" role="toolbar" aria-label={ru ? 'Инструменты растений' : 'Plant tools'}>
-            <button type="button" className={mode === 'bed' && lawnMode === false ? 'is-active' : ''} onClick={() => (mode === 'bed' && !lawnMode ? plantingEditor.stop() : plantingEditor.begin('bed'))} data-testid="planting-draw-bed"><FocusIcon name="bed" />{ru ? 'Цветник' : 'Bed'}<kbd>L</kbd></button>
+        <div className="planting-tools planting-tools--six" role="toolbar" aria-label={ru ? 'Инструменты растений' : 'Plant tools'}>
+            <button type="button" className={mode === 'bed' && lawnMode === false && !coverMode ? 'is-active' : ''} onClick={() => (mode === 'bed' && !lawnMode && !coverMode ? plantingEditor.stop() : plantingEditor.begin('bed'))} data-testid="planting-draw-bed"><FocusIcon name="bed" />{ru ? 'Цветник' : 'Bed'}<kbd>L</kbd></button>
             <button type="button" className={lawnMode ? 'is-active' : ''} onClick={() => (lawnMode ? plantingEditor.stop() : plantingEditor.beginLawn())} data-testid="planting-draw-lawn"><FocusIcon name="ground" />{ru ? 'Газон' : 'Lawn'}<kbd>&nbsp;</kbd></button>
+            <button type="button" className={coverMode ? 'is-active' : ''} onClick={() => (coverMode ? plantingEditor.stop() : plantingEditor.beginCover())} data-testid="planting-draw-cover"><FocusIcon name="ground" />{ru ? 'Покров' : 'Cover'}<kbd>&nbsp;</kbd></button>
             <button type="button" className={mode === 'plant' ? 'is-active' : ''} onClick={() => (mode === 'plant' ? plantingEditor.stop() : plantingEditor.begin('plant'))} data-testid="planting-place"><FocusIcon name="sprout" />{ru ? 'Посадить' : 'Plant'}<kbd>T</kbd></button>
             <button type="button" className={mode === 'vine' ? 'is-active' : ''} onClick={() => (mode === 'vine' ? plantingEditor.stop() : plantingEditor.begin('vine'))} data-testid="planting-vine"><FocusIcon name="vine" />{ru ? 'Лиана' : 'Climber'}<kbd>I</kbd></button>
             <button type="button" onClick={() => topiaryEditor?.begin()} data-testid="planting-hedge"><FocusIcon name="leaf" />{ru ? 'Изгородь' : 'Hedge'}<kbd>B</kbd></button>
         </div>
+        {coverMode ? <p className="planting-hint">{ru ? 'Щелчок по грунту модели — весь участок; протяжка — контур. Esc — выйти.' : 'Click a model’s ground for the whole patch; drag for an outline. Esc to leave.'}</p> : null}
         {lawnMode ? <p className="planting-hint">{ru
             ? 'Газон рисуется как цветник: щелчок по поверхности модели — газон на всю поверхность, протяжка по ней или по плоскости — контур. Трава — само покрытие, со стрижкой полосами вдоль длинной стороны; узор, высота и полив — в карточке газона. Esc — выйти.'
             : 'A lawn is drawn as a bed: a click on the model’s surface lays it over the whole surface, a drag over it or the plane is an outline. The grass is the surface itself, mown in stripes along the long side; pattern, height and irrigation are in the lawn’s card. Esc to leave.'}</p> : null}
-        {mode === 'bed' && !lawnMode ? <p className="planting-hint">{ru
+        {mode === 'bed' && !lawnMode && !coverMode ? <p className="planting-hint">{ru
             ? 'Поверхность модели подсвечивается под курсором. Щелчок — цветник на всю поверхность. Протяжка по ней — только та её часть, что внутри контура: дорожки и газон в обводке останутся пустыми. Протяжка по плоскости — просто контур. Палитра «Степной». Esc — выйти.'
             : 'The model’s surface lights up under the cursor. A click plants the whole surface. A drag over it plants only its part inside the outline: paths and lawn inside it stay empty. A drag over the plane is a plain outline. “Steppe” palette. Esc to leave.'}</p> : null}
         {mode === 'vine' ? <div className="planting-plantrow">
@@ -244,7 +275,7 @@ function PlantingWorkspace({ settings, handleSettingChange, applySettings, plant
         </div>
         <div className="planting-monthline">
             <span>{months[month - 1]}</span>
-            <small>{inBloom.length ? `${ru ? 'в цвету' : 'in bloom'}: ${inBloom.slice(0, 3).map((id) => plantName(library.get(id), ru).split(' ')[0].toLowerCase()).join(', ')}${inBloom.length > 3 ? ` +${inBloom.length - 3}` : ''}` : (ru ? 'ничего не цветёт' : 'nothing in bloom')}</small>
+            <small>{bloomNames.length ? `${ru ? 'в цвету' : 'in bloom'}: ${bloomNames.slice(0, 3).join(', ')}${bloomNames.length > 3 ? ` +${bloomNames.length - 3}` : ''}` : (ru ? 'ничего не цветёт' : 'nothing in bloom')}</small>
             <span className="planting-spacer" />
             <button type="button" onClick={topView} data-testid="planting-top-view" title={ru ? 'Камера сверху' : 'Camera from above'}>{ru ? 'Сверху' : 'Top'}</button>
             <button type="button" className={settings.plantingPlan ? 'is-active' : ''} onClick={() => handleSettingChange({ target: { checked: !settings.plantingPlan } }, 'plantingPlan', 'boolean')} data-testid="planting-plan" title={ru ? 'План в шапках легенды' : 'Plan with legend caps'}>{ru ? 'План' : 'Plan'}</button>
@@ -256,6 +287,7 @@ function PlantingWorkspace({ settings, handleSettingChange, applySettings, plant
             {[['overview', ru ? 'Обзор' : 'Overview'], ['bed', ru ? 'Цветник' : 'Bed'], ['library', ru ? 'Библиотека' : 'Library']].map(([id, label]) => <button key={id} type="button" role="tab" aria-selected={tab === id} className={tab === id ? 'is-active' : ''} onClick={() => { setTab(id); if (id === 'library') setOpenPlant(null); }} data-testid={`planting-tab-${id}`}>{label}</button>)}
         </nav>
         {tab === 'overview' ? <>
+            {beds.some((bed) => bed.kind === 'cover') ? <section className="planting-chart"><h4>{ru ? 'Почвопокров' : 'Groundcover'}</h4>{beds.filter((bed) => bed.kind === 'cover').map((bed) => <button key={bed.id} type="button" className="planting-lawn-row" onClick={() => { plantingEditor.select(bed.id); setTab('bed'); }}><span>{bed.name}</span><b>{bedArea(bed).toFixed(1)} {ru ? 'м²' : 'm²'}</b></button>)}</section> : null}
             <LawnSummary lawns={lawns} ru={ru} selectedId={plantingEditor?.selectedId} onSelect={(id) => { plantingEditor.select(id); setTab('bed'); }} />
             <PlantingInsights beds={flowerBeds} fills={flowerFills} points={points} vines={settings[VINES_KEY] ?? []} library={library} month={month} ru={ru} focusBedId={plantingEditor?.selectedId} focusVineId={plantingEditor?.vineId} onOpenPlant={openPlantCard}
                 onSelectVine={(id) => plantingEditor?.selectVine(id)} onRemoveVine={(id) => plantingEditor?.removeVine(id)}

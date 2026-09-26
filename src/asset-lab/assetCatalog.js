@@ -24,11 +24,12 @@ export const ASSET_CATALOG = Object.freeze([
   { index: '11', id: 'algae', group: 'greenery', ru: 'Водоросли', en: 'Algae', title: { ru: 'Водоросли', en: 'Algae' } },
   { index: '12', id: 'grass', group: 'greenery', ru: 'Травы', en: 'Grasses', title: { ru: 'Травы Азовского берега', en: 'Azov coast grasses' } },
   { index: '13', id: 'topiary', group: 'greenery', ru: 'Изгородь', en: 'Topiary', title: { ru: 'Стриженые формы', en: 'Topiary' } },
-  { index: '14', id: 'rocks', group: 'landscape', ru: 'Камни', en: 'Rocks', title: { ru: 'Камни · валуны, осыпь, галька', en: 'Rocks · boulders, debris, pebbles' } },
-  { index: '15', id: 'driftwood', group: 'landscape', ru: 'Коряги', en: 'Driftwood', title: { ru: 'Коряги и камни', en: 'Driftwood & stones' } },
-  { index: '16', id: 'water', group: 'landscape', ru: 'Море', en: 'Sea', title: { ru: 'Море · волны, прибой и пена', en: 'Sea · waves, surf and foam' } },
-  { index: '17', id: 'clouds', group: 'atmosphere', ru: 'Облака', en: 'Clouds', title: { ru: 'Живописные облака', en: 'Painterly clouds' } },
-  { index: '18', id: 'materials', group: 'materials', ru: 'Библиотека', en: 'Library', title: { ru: 'Библиотека материалов', en: 'Material library' } },
+  { index: '14', id: 'groundcover', group: 'greenery', ru: 'Почвопокров', en: 'Groundcover', title: { ru: 'Почвопокровные растения', en: 'Groundcover plants' } },
+  { index: '15', id: 'rocks', group: 'landscape', ru: 'Камни', en: 'Rocks', title: { ru: 'Камни · валуны, осыпь, галька', en: 'Rocks · boulders, debris, pebbles' } },
+  { index: '16', id: 'driftwood', group: 'landscape', ru: 'Коряги', en: 'Driftwood', title: { ru: 'Коряги и камни', en: 'Driftwood & stones' } },
+  { index: '17', id: 'water', group: 'landscape', ru: 'Море', en: 'Sea', title: { ru: 'Море · волны, прибой и пена', en: 'Sea · waves, surf and foam' } },
+  { index: '18', id: 'clouds', group: 'atmosphere', ru: 'Облака', en: 'Clouds', title: { ru: 'Живописные облака', en: 'Painterly clouds' } },
+  { index: '19', id: 'materials', group: 'materials', ru: 'Библиотека', en: 'Library', title: { ru: 'Библиотека материалов', en: 'Material library' } },
 ]);
 
 export const DEFAULT_ASSET_COLLECTION = 'river-fish';

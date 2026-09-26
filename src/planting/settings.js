@@ -1,3 +1,4 @@
+import { normalizeCover, normalizeCoverSurface } from '../groundcover/settings.js';
 // Посадки: цветники (контур на земле и рецепт — какие растения и в какой
 // доле), одиночные растения и лианы. Растения — записи библиотеки
 // (~/Ouroboros/library/plants, scripts/plantLibrary.mjs), здесь только их id.
@@ -76,16 +77,20 @@ export function normalizePlantingBed(value, index = 0) {
     if (points.length < 3) return null;
     const holes = (Array.isArray(value.holes) ? value.holes : []).map((hole) => ring(hole, PLANTING_LIMITS.hole)).filter((hole) => hole.length >= 3).slice(0, PLANTING_LIMITS.holes);
     const ground = normalizeGround(value.ground);
-    const lawn = value.kind === 'lawn';
+    const lawn = value.kind === 'lawn', cover = value.kind === 'cover';
+    const coverSurface = normalizeCoverSurface(value.coverSurface);
     const seen = new Set();
-    const recipe = lawn ? [] : (Array.isArray(value.recipe) ? value.recipe : [])
+    const recipe = lawn || cover ? [] : (Array.isArray(value.recipe) ? value.recipe : [])
         .filter((row) => row && PLANT.test(String(row.plant ?? '')) && !seen.has(row.plant) && seen.add(row.plant))
         .slice(0, PLANTING_LIMITS.recipe)
         .map((row) => ({ plant: row.plant, share: number(row.share, 10, PLANTING_RANGES.share) }));
     return {
         id: ID.test(String(value.id ?? '')) ? value.id : `bed-${index}`,
-        name: String(value.name || `${lawn ? 'Газон' : 'Цветник'} ${index + 1}`).slice(0, 64),
+        name: String(value.name || `${lawn ? 'Газон' : cover ? 'Почвопокров' : 'Цветник'} ${index + 1}`).slice(0, 64),
         ...(lawn ? { kind: 'lawn', lawn: normalizeLawn(value.lawn) } : {}),
+        ...(cover ? { kind: 'cover' } : {}),
+        ...(!lawn && (cover || value.cover) ? { cover: normalizeCover(value.cover) } : {}),
+        ...(coverSurface ? { coverSurface } : {}),
         points,
         y: Number.isFinite(Number(value.y)) ? Math.round(Math.min(60, Math.max(-20, Number(value.y))) * 1000) / 1000 : 0,
         recipe,
