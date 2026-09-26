@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { bearingOf, siteNorth, useView } from '../../../../../planting/north.js';
-import { buildHomeSceneLightDirection, solveSunElevationAzimuth } from '../../../../../components/effects/sky/skyModel.js';
+import { buildHomeSceneLightDirection } from '../../../../../components/effects/sky/skyModel.js';
+import { resolveSceneSun } from '../../../../../components/effects/sky/sceneSun.js';
 
 // Стрелка севера над кадром: «С» там, где истинный север, при любом повороте
 // камеры. Жёлтая точка на кольце — солнце, пока оно над горизонтом. Щелчок —
@@ -8,7 +9,7 @@ import { buildHomeSceneLightDirection, solveSunElevationAzimuth } from '../../..
 const at = (degrees, radius) => [Math.sin((degrees * Math.PI) / 180) * radius, -Math.cos((degrees * Math.PI) / 180) * radius];
 const finite = (value, fallback) => (Number.isFinite(Number(value)) ? Number(value) : fallback);
 function sunBearing(settings) {
-    const sun = solveSunElevationAzimuth(finite(settings.timeOfDay, 12), finite(settings.sunBearing, finite(settings.moonAzimuth, 42)), finite(settings.sunNoonElevation, finite(settings.moonElevation, 18)));
+    const sun = resolveSceneSun(settings);
     if (sun.elevationDeg <= 0) return null;
     const [x, , z] = buildHomeSceneLightDirection(sun.azimuthDeg, sun.elevationDeg);
     return bearingOf(x, z);

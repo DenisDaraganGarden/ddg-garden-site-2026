@@ -1,20 +1,10 @@
 import { useSyncExternalStore } from 'react';
-import { wrapDegrees } from './settings.js';
+import { bearingOf } from './siteNorth.js';
 
-// Север проекта. В сцене −Z — север, +X — восток (terrainModel WORLD_AXES);
-// туда же после выгрузки смотрит зелёная ось SketchUp. Модель несёт свой
-// север с собой: повернули её «Поворотом» — повернулся и север. northAngle —
-// поправка на случай, когда зелёная ось чертежа смотрит не на север: на
-// сколько градусов по часовой стрелке (сверху) от неё истинный север.
-// Азимуты здесь — как на компасе: градусы по часовой от севера.
+// Север проекта: bearingOf и siteNorth — в siteNorth.js (без React, их читает
+// и свет сцены); здесь — вид камеры для компаса и генплана.
+export { bearingOf, siteNorth } from './siteNorth.js';
 const DEG = Math.PI / 180;
-export const bearingOf = (x, z) => (Math.atan2(x, -z) / DEG + 360) % 360;
-
-// Модель участка — первая модель SketchUp в расстановке.
-export function siteNorth(settings) {
-    const model = (settings.placedObjects ?? []).find((object) => object.kind === 'model' && settings.sketchupModels?.[object.id]);
-    return wrapDegrees((Number(settings.northAngle) || 0) - (Number(model?.rotation) || 0));
-}
 
 // Куда смотрит кадр на плане: взгляд камеры плюс верх кадра. Их сумма не
 // пропадает ни при взгляде вдаль, ни прямо вниз (тогда это верх кадра).

@@ -9,6 +9,7 @@
 // (northAngle, src/planting/north.js): окружение поворачивается по нему.
 export const SURROUNDINGS_RANGES = Object.freeze({
     radius: [100, 1500, 10], clear: [0, 150, 1], relief: [0, 2, 0.05], offset: [-300, 300, 0.1], north: [-180, 180, 0.5],
+    utcOffset: [-12, 14, 0.25],
 });
 export const SURROUNDINGS_COLORS = Object.freeze({
     surroundingsBuildingColor: '#eceae5',
@@ -22,6 +23,11 @@ export const DEFAULT_SURROUNDINGS_SETTINGS = Object.freeze({
     geoLatitude: null,
     geoLongitude: null,
     geoAddress: '',
+    // Настоящее солнце по этим координатам (sceneSun.js) и пояс часов, по
+    // которым стоит «Время суток»: null — по долготе. Одно на проект, как
+    // сами координаты; день года — у камеры (sunDayOfYear).
+    sunReal: false,
+    sunUtcOffset: null,
     surroundingsRadius: 300,
     surroundingsClear: 15,
     surroundingsRelief: 1,
@@ -47,6 +53,11 @@ const coordinate = (value, limit) => {
     const parsed = Number(value);
     return Number.isFinite(parsed) && Math.abs(parsed) <= limit ? Math.round(parsed * 1e7) / 1e7 : null;
 };
+// Пояс — до четверти часа: есть +5:45 и +9:30. Пусто — по долготе.
+const utcOffset = (value) => {
+    const hours = number(value, null, SURROUNDINGS_RANGES.utcOffset);
+    return hours === null ? null : Math.round(hours * 4) / 4;
+};
 const color = (value, fallback) => (/^#[0-9a-f]{6}$/i.test(String(value ?? '')) ? String(value).toLowerCase() : fallback);
 
 export function normalizeSurroundingsSettings(settings = {}) {
@@ -57,6 +68,8 @@ export function normalizeSurroundingsSettings(settings = {}) {
         geoLatitude: located ? lat : null,
         geoLongitude: located ? lon : null,
         geoAddress: String(settings.geoAddress ?? '').slice(0, 240),
+        sunReal: settings.sunReal === true,
+        sunUtcOffset: utcOffset(settings.sunUtcOffset),
         surroundingsRadius: number(settings.surroundingsRadius, DEFAULT_SURROUNDINGS_SETTINGS.surroundingsRadius, SURROUNDINGS_RANGES.radius),
         surroundingsClear: number(settings.surroundingsClear, DEFAULT_SURROUNDINGS_SETTINGS.surroundingsClear, SURROUNDINGS_RANGES.clear),
         surroundingsRelief: number(settings.surroundingsRelief, DEFAULT_SURROUNDINGS_SETTINGS.surroundingsRelief, SURROUNDINGS_RANGES.relief),

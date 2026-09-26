@@ -58,6 +58,7 @@ const keys = [
   'moonSpecularStrength',
   'moonSpecularPower',
   'timeOfDay',
+  'sunDayOfYear',
   'sunBearing',
   'sunNoonElevation',
   'sunTint',

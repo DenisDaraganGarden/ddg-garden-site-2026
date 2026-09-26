@@ -11,8 +11,8 @@ import {
   solveKeyLight,
   solveMoonElevationAzimuth,
   solveNightWeight,
-  solveSunElevationAzimuth,
 } from './sky/skyModel.js';
+import { resolveSceneSun } from './sky/sceneSun.js';
 import {
   resolveCloudState,
   solveCloudSunVisibility,
@@ -160,20 +160,17 @@ export const buildHomeSceneLighting = (settings = {}) => {
   const ambientIntensity = clamp(finiteNumber(settings.ambientIntensity, 0.11), 0, 2);
   const hemisphereIntensity = clamp(finiteNumber(settings.hemisphereIntensity, 0.26), 0, 2);
 
-  // Phase 1 derives the sun arc from the existing authored pair, so the frame is
-  // unchanged: at noon the arc returns exactly the azimuth and elevation that
-  // were authored. Phase 2 replaces these with a real clock.
-  const timeOfDay = finiteNumber(settings.timeOfDay, 12);
-  const sunBearing = finiteNumber(settings.sunBearing, finiteNumber(settings.moonAzimuth, 42));
-  const sunNoonElevation = finiteNumber(
-    settings.sunNoonElevation,
-    finiteNumber(settings.moonElevation, 18),
-  );
-  const sun = solveSunElevationAzimuth(timeOfDay, sunBearing, sunNoonElevation);
+  // The sun is either the authored arc (hour, noon bearing and noon height, so
+  // at noon the legacy azimuth/elevation pair is reproduced exactly) or, in a
+  // located site project, the real sun for that place, day and clock hour
+  // (sceneSun.js). The moon and the stars ride `arc`: the authored arc, or the
+  // local celestial equator.
+  const sun = resolveSceneSun(settings);
+  const arc = { time: sun.arcTime, bearing: sun.arcBearing, noonElevation: sun.arcNoonElevation };
   const moon = solveMoonElevationAzimuth(
-    timeOfDay,
-    sunBearing,
-    sunNoonElevation,
+    arc.time,
+    arc.bearing,
+    arc.noonElevation,
     finiteNumber(settings.moonPhase, 0.5),
   );
   const night = solveNightWeight(sun.elevationDeg);
@@ -276,8 +273,8 @@ export const buildHomeSceneLighting = (settings = {}) => {
   }), SKY.discGain);
   // The sun's daily circle is a rotation about this axis (noon direction
   // crossed with the 18:00 horizon point); the stars ride the same rotation.
-  const bearingRadians = sunBearing * DEG_TO_RAD;
-  const noonRadians = sunNoonElevation * DEG_TO_RAD;
+  const bearingRadians = arc.bearing * DEG_TO_RAD;
+  const noonRadians = arc.noonElevation * DEG_TO_RAD;
   const starAxis = [
     -Math.sin(noonRadians) * Math.sin(bearingRadians),
     Math.cos(noonRadians),
@@ -407,10 +404,10 @@ export const buildHomeSceneLighting = (settings = {}) => {
       moonDiscRadiance,
       // Angular radius of the moon as seen from here: a fixed 0.52 degrees.
       moonCosRadius: Math.cos(0.26 * DEG_TO_RAD),
-      // Stars ride the same daily rotation as the sun: the hour angle about the
-      // horizontal axis perpendicular to the authored bearing.
+      // Stars ride the same daily rotation as the arc: the hour angle about the
+      // axis perpendicular to its noon bearing (the celestial pole when real).
       starAxis,
-      starRotation: (timeOfDay / 24) * Math.PI * 2 - Math.PI,
+      starRotation: (arc.time / 24) * Math.PI * 2 - Math.PI,
       starsIntensity: clamp(finiteNumber(settings.starsIntensity, 1), 0, 3),
       moonBrightness: clamp(finiteNumber(settings.moonBrightness, 1), 0, 4),
     },
