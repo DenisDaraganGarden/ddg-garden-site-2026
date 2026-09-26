@@ -266,7 +266,9 @@ export function FocusCameraStrip({ layoutEditor, className = '' }) {
     </div>;
 }
 
-export function FocusTechnicalViews({ settings, layoutEditor, frame: frameMask }) {
+// В «Участке» береговые ракурсы сайта (прибой, коса, дюна, лодка…) не к
+// чему наводить: вместо них — генплан, прямо сверху, север вверху.
+export function FocusTechnicalViews({ settings, layoutEditor, frame: frameMask, design = false }) {
     const { language, t } = useLanguage();
     if (!layoutEditor) return null;
     const preview = (frame) => frame.object ? layoutEditor.frameObject?.(frame.object, frame.options) : layoutEditor.previewPose?.(frame.pose(settings));
@@ -274,6 +276,8 @@ export function FocusTechnicalViews({ settings, layoutEditor, frame: frameMask }
         {/* Рамка кадра — не ракурс, а способ показа: чёрная обрезает так, как обрежет сайт. */}
         {frameMask ? <><button type="button" role="menuitemcheckbox" aria-checked={frameMask.solid} className="focus-technical-views__check" onClick={frameMask.toggle}><span aria-hidden="true">{frameMask.solid ? '✓' : ''}</span>{language === 'ru' ? 'Чёрная рамка кадра' : 'Solid frame mask'}</button><hr /></> : null}
         {/* Ракурс на выключенный объект — пустой кадр, его в списке нет. */}
-        {TECHNICAL_FRAMES.filter((frame) => technicalFrameAvailable(frame, settings)).map((frame) => <button type="button" key={frame.id} role="menuitem" onClick={() => preview(frame)}>{language === 'ru' ? frame.ru : frame.en}</button>)}
+        {design
+            ? (layoutEditor.openPlanCamera ? <button type="button" role="menuitem" onClick={() => layoutEditor.openPlanCamera()} data-testid="views-plan">{language === 'ru' ? 'Генплан — сверху, север вверху' : 'Site plan — from above, north up'}</button> : null)
+            : TECHNICAL_FRAMES.filter((frame) => technicalFrameAvailable(frame, settings)).map((frame) => <button type="button" key={frame.id} role="menuitem" onClick={() => preview(frame)}>{language === 'ru' ? frame.ru : frame.en}</button>)}
     </div>;
 }

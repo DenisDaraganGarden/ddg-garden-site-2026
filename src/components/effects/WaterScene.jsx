@@ -750,7 +750,7 @@ function WaterRuntimeScene({
         />
       ) : null}
       {mode === 'editor' && editorGizmo?.materialTargets?.length ? <MaterialSelection targets={editorGizmo.materialTargets} /> : null}
-      {mode === 'editor' ? <EditorPicker enabled={Boolean(editorGizmo?.picking)} clearOnMiss={editorGizmo?.materialPicking} onPick={editorGizmo?.onPick} onContextMenu={editorGizmo?.onContextMenu} /> : null}
+      {mode === 'editor' ? <EditorPicker enabled={Boolean(editorGizmo?.picking)} crosshair={editorGizmo?.materialPicking} onPick={editorGizmo?.onPick} onContextMenu={editorGizmo?.onContextMenu} /> : null}
       {mode === 'editor' ? <TopiaryBrush enabled={Boolean(editorGizmo?.topiary?.drawing)} settings={settings} orbitRef={orbitRef} onStroke={editorGizmo?.topiary?.onStroke} /> : null}
       {mode === 'editor' ? <PlantingBrush terrainQuery={settings.shoreEnabled ? terrainQuery : null} bedKind={editorGizmo?.planting?.bedKind} mode={editorGizmo?.planting?.mode ?? null} groundY={settings.planeHeight ?? 0} orbitRef={orbitRef} onBed={editorGizmo?.planting?.onBed} onBedSurface={editorGizmo?.planting?.onBedSurface} onPlant={editorGizmo?.planting?.onPlant} onVine={editorGizmo?.planting?.onVine} onMark={editorGizmo?.planting?.onMark} onStart={editorGizmo?.planting?.onStart} onLight={editorGizmo?.planting?.onLight} onAim={editorGizmo?.planting?.onAim} lightMount={editorGizmo?.planting?.lightMount} /> : null}
       {mode === 'editor' ? <WalkStartMarker start={settings.walkStart} ghost={!walking} /> : null}

@@ -11,10 +11,13 @@ export const FOCUS_DOMAINS = [
     { id: 'annotations', ru: 'Аннотации', en: 'Annotations', icon: 'level', groupIds: ['annotations'] },
     // Освещение сада — светильники и питание (src/lighting). «Свет» в «Среде» — прожекторы сцены.
     { id: 'lighting', ru: 'Освещение', en: 'Lighting', icon: 'light', groupIds: ['lighting'] },
-    { id: 'environment', ru: 'Среда', en: 'Environment', icon: 'sun', groupIds: ['atmosphere', 'lights'] },
+    { id: 'environment', ru: 'Среда', en: 'Environment', icon: 'sun', groupIds: ['atmosphere'] },
+    // Свет сцены — антуражные прожекторы кадра (Свет 1, Цель 1…), не
+    // проектные светильники «Освещения»: своя вкладка и свой значок.
+    { id: 'sceneLights', ru: 'Свет сцены', en: 'Scene lights', icon: 'spot', groupIds: ['lights'] },
     { id: 'cameras', ru: 'Камеры', en: 'Cameras', icon: 'camera', groupIds: ['cameras'] },
     { id: 'photo', ru: 'Фоторендер', en: 'Photo render', icon: 'picture', groupIds: [], dialog: 'photo' },
-    { id: 'trace', ru: 'Трассировка', en: 'Path tracing', icon: 'sun', groupIds: [], dialog: 'trace' },
+    { id: 'trace', ru: 'Трассировка', en: 'Path tracing', icon: 'trace', groupIds: [], dialog: 'trace' },
     { id: 'render', ru: 'Рендер', en: 'Render', icon: 'sliders', groupIds: ['render'] },
     { id: 'audio', ru: 'Звук', en: 'Audio', icon: 'sound', groupIds: ['audio'] },
     // Проект — ТЗ и заказчик (src/brief); только в проекте движка.
@@ -62,7 +65,7 @@ const NODE_ICONS = {
     planting: 'sprout', topiary: 'leaf', lilies: 'leaf', algae: 'leaf', trees: 'leaf', shrubs: 'leaf', grass: 'leaf',
     tanker: 'box', fire: 'fire', boat: 'box', sculpture: 'box', surfboard: 'box', house: 'box',
     seagulls: 'bird', fish: 'fish', levels: 'level', walkStart: 'flag', luminaires: 'light', power: 'box',
-    light1: 'light', light1target: 'target', light2: 'light', light2target: 'target',
+    light1: 'spot', light1target: 'target', light2: 'spot', light2target: 'target',
     light: 'sun', hdri: 'cloud', fog: 'cloud', rays: 'sun', clouds: 'cloud', wind: 'wind',
     audioMixer: 'sound', audioTracks: 'sound', audioSpatial: 'sound',
     camera: 'camera', visibility: 'eye', resolution: 'sliders', quality: 'sliders', post: 'sliders', debug: 'bug',

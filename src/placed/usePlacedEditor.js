@@ -74,6 +74,8 @@ export function usePlacedEditor({ settings, history, setActiveTab, setTool, lang
         setActiveTab('objects/placed');
     }, [setActiveTab]);
     const exitPart = useCallback(() => setPart((current) => outerPart(current)), []);
+    // Щелчок мимо и пробел: ни объекта, ни части; из группы модели — наружу.
+    const deselect = useCallback(() => { setSelectedId(null); setPart(null); }, []);
     // Q: только открытая группа на экране и обратно. Вне группы выключается сам.
     const inside = part ? part.trail.indexOf(part.node) > 0 : false;
     if (isolated && !inside) setIsolated(false);
@@ -199,7 +201,7 @@ export function usePlacedEditor({ settings, history, setActiveTab, setTool, lang
     const shown = settings.placedObjects.some((o) => o.id === selectedId) ? selectedId : null;
     const shownPart = useMemo(() => (part && part.id === shown ? (isolated && inside ? { ...part, isolated: true } : part) : null), [part, shown, isolated, inside]);
     return {
-        selectedId: shown, part: shownPart, select, selectPart, selectNode, exitPart, partAt, update, setSpecies, add, importModel, replaceModel, duplicate, seat, remove,
+        selectedId: shown, part: shownPart, select, deselect, selectPart, selectNode, exitPart, partAt, update, setSpecies, add, importModel, replaceModel, duplicate, seat, remove,
         setSketchup, hideParts, showParts, removeParts, restoreParts, toggleIsolate,
     };
 }

@@ -28,6 +28,7 @@ export function useAnnotationEditor({ settings, history, setSettings, setActiveT
         setSelectedId(mark.id);
     }, [apply]);
     const select = useCallback((id) => { setSelectedId(id); setActiveTab(ANNOTATIONS_NODE); setTool('select'); }, [setActiveTab, setTool]);
+    const deselect = useCallback(() => setSelectedId(null), []);
     const remove = useCallback((id) => {
         apply((live.current.settings.annotationMarks ?? []).filter((mark) => mark.id !== id));
         setSelectedId(null);
@@ -41,7 +42,7 @@ export function useAnnotationEditor({ settings, history, setSettings, setActiveT
 
     return {
         selectedId: marks.some((mark) => mark.id === selectedId) ? selectedId : null,
-        onMark, select, remove, setZero, onResnap,
+        onMark, select, deselect, remove, setZero, onResnap,
         begin: () => { setActiveTab(ANNOTATIONS_NODE); setTool('mark'); },
     };
 }

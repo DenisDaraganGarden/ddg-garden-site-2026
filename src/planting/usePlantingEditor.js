@@ -117,6 +117,8 @@ export function usePlantingEditor({ settings, history, setActiveTab, setTool, to
     const insideBed = beds.find((bed) => bed.id === inside && bed.id === selectedId && (!bed.kind || bed.kind === 'bed')) ?? null;
     const enterBed = useCallback((id) => { setSelectedId(id); setVineId(null); setInside(id); setPlantKey(null); setActiveTab(PLANTING_NODE); setTool('select'); }, [setActiveTab, setTool]);
     const exitBed = useCallback(() => { setPlantKey(null); setInside(null); }, []);
+    // Щелчок мимо и пробел: ни цветника, ни лианы, из цветника — наружу.
+    const deselect = useCallback(() => { setSelectedId(null); setVineId(null); setPlantKey(null); setInside(null); }, []);
     const plantAt = (bed, key) => (key ? bedFill(bed, live.current.library).find((plant) => plant.key === key) ?? null : null);
     const pickPlant = useCallback(([x, , z]) => {
         const { settings, library, inside: id } = live.current;
@@ -170,7 +172,7 @@ export function usePlantingEditor({ settings, history, setActiveTab, setTool, to
 
     return {
         selectedId: beds.some((bed) => bed.id === selectedId) ? selectedId : null,
-        select, updateBed, removeBed, applyPalette, onBed, onBedSurface, onPlant, removeLastPoint,
+        select, deselect, updateBed, removeBed, applyPalette, onBed, onBedSurface, onPlant, removeLastPoint,
         inside: insideBed?.id ?? null, plantKey: selectedPlant ? plantKey : null, selectedPlant, enterBed, exitBed, pickPlant, removePlant, movePlant, moveBedTo,
         // Новая раскладка — ручным правкам не к чему приложиться: они уходят.
         reseed: (id) => updateBed(id, { seed: newSeed(), edits: null }),

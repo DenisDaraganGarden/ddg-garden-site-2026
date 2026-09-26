@@ -8,6 +8,7 @@ import {
 } from '../../HomeEditorControls';
 import { useFocusControlScope, useFocusControls } from '../focus/FocusControlsContext';
 import { silencedSoundTracks } from '../../../lib/sceneObjects';
+import { activeProjectId } from '../../../../engine/projectApi.js';
 
 const gainFormatter = (value) => `${Math.round(Number(value) * 100)}%`;
 const secondsFormatter = (value) => Number(value).toFixed(1);
@@ -16,9 +17,17 @@ const coordinateFormatter = (value) => Number(value).toFixed(1);
 const TRACK_IDS = ['tanker', 'water', 'shore', 'boat', 'birds', 'wind', 'thunder', 'ui'];
 const EMITTER_IDS = ['shore', 'birds', 'wind', 'thunder'];
 
+// В проекте движка микшер — инструмент звуков проекта: режима главной,
+// переходов между разделами сайта, автосмены камер и кликов интерфейса
+// сайта в нём нет. Выключатель звука там же включает живую среду.
 export const AudioMixerSection = ({ settings, handleSettingChange, audioLab }) => {
   const { t } = useLanguage();
   const audio = settings.audio;
+  const inProject = Boolean(activeProjectId());
+  const toggleSound = (event) => {
+    handleSettingChange(event, 'audio.enabled', 'boolean');
+    if (inProject && event.target.checked && audio.mode === 'off') handleSettingChange({ target: { value: 'soundscape' } }, 'audio.mode', 'string');
+  };
 
   return (
     <>
@@ -51,9 +60,9 @@ export const AudioMixerSection = ({ settings, handleSettingChange, audioLab }) =
       <CheckboxControl controlId={'audio.enabled'}
         label={t('homeEditor.controls.audioEnabled')}
         checked={audio.enabled}
-        onChange={(event) => handleSettingChange(event, 'audio.enabled', 'boolean')}
+        onChange={toggleSound}
       />
-      <SelectControl controlId={'audio.mode'}
+      {inProject ? null : <SelectControl controlId={'audio.mode'}
         label={t('homeEditor.controls.audioMode')}
         value={audio.mode}
         onChange={(event) => handleSettingChange(event, 'audio.mode', 'string')}
@@ -61,7 +70,7 @@ export const AudioMixerSection = ({ settings, handleSettingChange, audioLab }) =
           value,
           label: t(`homeEditor.audio.modes.${value}`),
         }))}
-      />
+      />}
 
       <SectionHeading label={t('homeEditor.blocks.volume')} subtle />
       {[
@@ -69,7 +78,7 @@ export const AudioMixerSection = ({ settings, handleSettingChange, audioLab }) =
         ['ambienceGain', 0, 1],
         ['spatialGain', 0, 1],
         ['weatherGain', 0, 1],
-        ['uiGain', 0, 1],
+        ...(inProject ? [] : [['uiGain', 0, 1]]),
       ].map(([key, min, max]) => (
         <RangeControl controlId={`audio.${key}`}
           key={key}
@@ -83,6 +92,7 @@ export const AudioMixerSection = ({ settings, handleSettingChange, audioLab }) =
         />
       ))}
 
+      {inProject ? null : <>
       <SectionHeading label={t('homeEditor.audio.routeTransitions')} subtle />
       <RangeControl controlId={'audio.homeFadeSeconds'}
         label={t('homeEditor.controls.audioHomeFadeSeconds')}
@@ -105,12 +115,14 @@ export const AudioMixerSection = ({ settings, handleSettingChange, audioLab }) =
         onChange={(event) => handleSettingChange(event, 'audio.routeFadeSeconds')}
       />
 
-      <SectionHeading label={t('homeEditor.audio.cameraTransitions')} subtle />
+      </>}
+      <SectionHeading label={t(inProject ? 'homeEditor.blocks.spatialAudio' : 'homeEditor.audio.cameraTransitions')} subtle />
       <CheckboxControl controlId={'audio.spatialEnabled'}
         label={t('homeEditor.controls.audioSpatialEnabled')}
         checked={audio.spatialEnabled}
         onChange={(event) => handleSettingChange(event, 'audio.spatialEnabled', 'boolean')}
       />
+      {inProject ? null : <>
       <CheckboxControl controlId={'audio.duckOnCameraCut'}
         label={t('homeEditor.controls.audioDuckOnCameraCut')}
         checked={audio.duckOnCameraCut}
@@ -125,6 +137,7 @@ export const AudioMixerSection = ({ settings, handleSettingChange, audioLab }) =
         formatValue={gainFormatter}
         onChange={(event) => handleSettingChange(event, 'audio.cameraCutDuck')}
       />
+      </>}
     </>
   );
 };

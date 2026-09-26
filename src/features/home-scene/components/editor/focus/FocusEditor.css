@@ -1,5 +1,7 @@
 html[data-focus-editor=true]{--focus-bg:#17191a;--focus-panel:#1d1f20;--focus-panel2:#242627;--focus-input:#161819;--focus-text:#dcddd8;--focus-muted:#989d9e;--focus-line:#353839;--focus-accent:#cfc1a1;--focus-top:42px;--focus-bottom:24px;overflow:hidden}
 html[data-focus-editor=true]:not([data-focus-preview=true]) .main-nav{display:none}
+/* Кадр проекта — без шапки, меню и языков сайта: они к проекту не относятся. */
+html[data-focus-project=true] .main-nav{display:none}
 .home-editor-page--focus{position:fixed;inset:0;min-height:0;height:100dvh;width:100vw;background:#101212}
 .home-editor-page--focus .home-editor-stage{inset:var(--focus-top) min(var(--focus-panel-space,304px),calc(100vw - 54px)) var(--focus-bottom) var(--focus-rail-space,42px)}
 .home-editor-page--focus .home-editor-viewport{width:100%;height:100%;box-shadow:none;background:#101212}
@@ -50,7 +52,7 @@ html[data-focus-preview=true] .home-editor-frame-mask,html[data-focus-frame=soli
 .focus-search-input{display:flex;gap:9px;align-items:center;padding:0 18px 11px;border-bottom:1px solid var(--focus-line)}.focus-search-input>.focus-icon{width:16px;height:16px;color:var(--focus-muted)}.focus-search-input>input{border:0;background:transparent;outline:0;flex:1;min-width:0;height:30px;font-size:14px}.focus-search-results{max-height:420px;overflow-y:auto;padding:5px;scrollbar-width:thin}.focus-search-results>button{width:100%;min-height:43px;border:0;border-radius:4px;display:flex;gap:10px;align-items:center;background:transparent;text-align:left;padding:5px 9px;font:12px/1.4 inherit}.focus-search-results>button.is-active,.focus-search-results>button:hover{background:#ffffff0a}.focus-search-results small{display:block;font-size:9px;color:var(--focus-muted)}.focus-search-results>.focus-icon{color:var(--focus-muted)}
 .focus-shortcuts{padding:0 19px 20px}.focus-shortcuts>div{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:9px 0;border-bottom:1px solid #ffffff07;font-size:11px}.focus-shortcuts kbd{font:10px/1.5 ui-monospace,monospace;color:var(--focus-muted)}
 .focus-save-summary{padding:0 19px 18px}.focus-save-summary p{color:var(--focus-muted);font-size:12px;line-height:1.65;margin:5px 0 14px}.focus-scene-names{display:flex;gap:5px;flex-wrap:wrap}.focus-scene-names>span{padding:4px 7px;background:#ffffff08;border-radius:3px;font-size:11px}.focus-save-summary>footer{display:flex;gap:6px;justify-content:flex-end;padding-top:20px}
-.focus-tooltip{position:fixed;z-index:180;pointer-events:none;max-width:265px;padding:8px 10px;border:1px solid #0002;border-radius:5px;background:#edece4;color:#303631;font:11px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;box-shadow:0 4px 20px #0005}
+.focus-tooltip[popover]{inset:auto;margin:0;overflow:visible;width:max-content;height:auto}.focus-tooltip{position:fixed;z-index:180;pointer-events:none;max-width:265px;padding:8px 10px;border:1px solid #0002;border-radius:5px;background:#edece4;color:#303631;font:11px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;box-shadow:0 4px 20px #0005}
 .focus-field-found{animation:focus-field-found 1.5s ease-out}@keyframes focus-field-found{from{background:#cfc1a12a}to{background:transparent}}
 .focus-editor .focus-control-row{font:11px/1.2 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--focus-text);min-height:27px}.focus-editor .focus-control-row:hover{background:#ffffff04}.focus-editor .focus-control-pin.is-pinned{color:var(--focus-accent)}
 .focus-editor input[type=range]{appearance:none;-webkit-appearance:none;background:transparent;height:17px;margin:0;cursor:ew-resize}.focus-editor input[type=range]::-webkit-slider-runnable-track{height:2px;background:#666b6a;border-radius:2px}.focus-editor input[type=range]::-webkit-slider-thumb{appearance:none;-webkit-appearance:none;background:#dce0d9;width:6px;height:6px;border-radius:50%;margin-top:-2px}.focus-editor input[type=range]::-moz-range-track{height:2px;background:#666b6a}.focus-editor input[type=range]::-moz-range-thumb{border:0;background:#dce0d9;width:6px;height:6px;border-radius:50%}
@@ -81,6 +83,10 @@ html[data-focus-preview=true] .home-editor-frame-mask,html[data-focus-frame=soli
 .focus-settings__body .focus-control-row{grid-template-columns:15px minmax(160px,240px) minmax(20px,1fr) 56px 14px}
 .focus-settings__body .focus-control-row input[type=number]{max-width:80px}
 /* Линейка инструментов: черта отделяет панель списка от самих инструментов. */
+/* Открытый список слева не накрывает инструменты вьюпорта, а сдвигает их. */
+.focus-stage-toolbar,.focus-stage-tools,.focus-film-area{transition:left .16s ease}.focus-editor--nav-open>:is(.focus-stage-toolbar,.focus-stage-tools,.focus-film-area){left:270px}
+/* «Виды» раскрываются правее столбца инструментов, не поверх него. */
+.focus-stage-toolbar .focus-technical-views{position:absolute;top:calc(100% + 4px);left:40px;min-width:190px;z-index:6}
 .focus-stage-tools>hr{width:18px;height:0;margin:2px auto;border:0;border-top:1px solid var(--focus-line)}
 .focus-stage-tools>.focus-button[aria-pressed=true]{background:#ffffff18;color:#f7f6ee;box-shadow:inset 0 0 0 1px #ffffff14}
 /* Курсор во вьюпорте — по инструменту. Во время протяжки рычаг камеры ставит
@@ -147,9 +153,24 @@ html[data-editor-tool=hand] .home-editor-render-frame canvas{cursor:grab}
 .focus-compass__north{fill:#e0654f}.focus-compass__south{fill:#c9ccc566}
 .focus-compass__letter{fill:#f1eee6;font:600 8px/1 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;text-anchor:middle;dominant-baseline:central}
 .focus-compass__sun{fill:#f2c14e;stroke:#202829;stroke-width:.8}
+.focus-compass--floating{z-index:6}.focus-compass--floating .focus-compass__dial{cursor:grab}.focus-compass--floating .focus-compass__dial:active{cursor:grabbing}
+/* В верхней строке — одна белая стрелка по центру, без кольца, засечек и фона. */
+.focus-compass--topbar{position:absolute;left:50%;top:0;height:42px;transform:translateX(-50%);justify-content:center}
+.focus-compass__arrow{width:30px;height:30px;padding:0;border:0;background:transparent;display:grid;place-items:center;cursor:pointer;border-radius:4px}.focus-compass__arrow:hover{background:#ffffff0d}
+.focus-compass__arrow svg{width:22px;height:22px}.focus-compass__arrow path{fill:#fff}
+.focus-compass--topbar .focus-compass__panel{top:40px}
 .focus-compass__panel{position:absolute;top:52px;width:230px;padding:9px 10px;display:flex;flex-direction:column;gap:6px;font-size:10px}
 .focus-compass__panel strong{font-weight:600;font-size:11px}
 .focus-compass__panel label{display:flex;align-items:center;gap:6px}.focus-compass__panel input[type=range]{flex:1}
 .focus-compass__panel input[type=number]{width:46px;height:22px;background:var(--focus-input);border:1px solid #ffffff12;border-radius:3px;color:inherit;font:inherit;padding:0 4px}
 .focus-compass__panel p{margin:0;color:var(--focus-muted);line-height:1.45}
 .focus-history-list{display:flex;flex-direction:column;gap:4px;max-height:min(52vh,420px);overflow:auto}.focus-history-list>p{margin:4px 0}.focus-history-row{display:flex;align-items:center;gap:10px;padding:5px 6px 5px 9px;background:#ffffff08;border-radius:4px}.focus-history-row time{font-variant-numeric:tabular-nums;white-space:nowrap}.focus-history-row small{flex:1;color:var(--focus-muted);font-size:11px}.focus-history-row .focus-button{padding:0 9px;border:1px solid var(--focus-line)}.focus-history-row .focus-button:disabled{opacity:.45}
+@media(max-width:590px){.focus-editor--nav-open>:is(.focus-stage-toolbar,.focus-stage-tools,.focus-film-area){left:54px}}
+/* «Настройки движка → API»: статус ключа цветом. */
+.api-key-state{display:flex;align-items:center;gap:7px;font-weight:550}
+.api-key-state__dot{width:9px;height:9px;border-radius:50%;background:#7d8388;flex-shrink:0}
+.api-key-state[data-state=connected]{color:#48e27d}.api-key-state[data-state=connected] .api-key-state__dot{background:#35e070;box-shadow:0 0 8px #35e070aa}
+.api-key-state[data-state=error]{color:#ff6461}.api-key-state[data-state=error] .api-key-state__dot{background:#ff4b4b;box-shadow:0 0 8px #ff4b4b99}
+.api-key-state[data-state=ready]{color:#ffd23f}.api-key-state[data-state=ready] .api-key-state__dot{background:#ffd23f;box-shadow:0 0 8px #ffd23f99;animation:api-key-ready 1.8s ease-in-out infinite}
+@keyframes api-key-ready{0%,100%{opacity:1}50%{opacity:.25}}
+@media(prefers-reduced-motion:reduce){.api-key-state[data-state=ready] .api-key-state__dot{animation:none}}

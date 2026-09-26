@@ -74,7 +74,8 @@ export default function FocusToolPie({ tools, current, enabled, onChoose, onTap,
         };
         const down = (event) => {
             if (event.code === 'Escape' && live.current.pie) { event.preventDefault(); event.stopPropagation(); close(false); return; }
-            if (event.code !== 'Space' || event.metaKey || event.ctrlKey || event.altKey || TEXT(event.target)) return;
+            // Shift + пробел — пауза (HomeEdit), не кольцо.
+            if (event.code !== 'Space' || event.shiftKey || event.metaKey || event.ctrlKey || event.altKey || TEXT(event.target)) return;
             event.preventDefault();
             if (event.repeat || held) return;
             held = true;

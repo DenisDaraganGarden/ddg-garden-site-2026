@@ -160,6 +160,18 @@ const HomeEdit = ({ project = null }) => {
     const { update: updatePlaced, select: selectPlaced } = placedEditor;
     const materialEditor = useMaterialEditor({ tool, setTool, placedEditor, language });
     const materialPickRef = useRef(materialEditor); materialPickRef.current = materialEditor;
+    // Снять выделение (щелчок мимо объекта, короткий пробел), как в SketchUp:
+    // ни одного выбранного объекта, из цветника и группы модели — наружу,
+    // манипулятор узла (лодка, свет) прячется до следующего выбора. Раздел
+    // инспектора остаётся тем же.
+    const [gizmoReleased, setGizmoReleased] = useState(null);
+    const deselectors = useRef(); deselectors.current = [topiaryEditor, plantingEditor, annotationEditor, lightingEditor, placedEditor].map((editor) => editor.deselect);
+    const clearSelection = useCallback(() => {
+        deselectors.current.forEach((deselect) => deselect());
+        setGizmoReleased(activeTab);
+        setSceneMenu(null);
+    }, [activeTab]);
+    useEffect(() => setGizmoReleased(null), [activeTab]);
     const [selectedLayoutKey, setSelectedLayoutKey] = useState(() => settings.editorLayoutKey ?? getCurrentLayoutKey());
     const [currentLayoutKey, setCurrentLayoutKey] = useState(getCurrentLayoutKey);
     const [cameraPoseRevision, setCameraPoseRevision] = useState(0);
@@ -203,8 +215,9 @@ const HomeEdit = ({ project = null }) => {
         setHasPublishChanges(serializedPublishSettings !== lastPublishedSnapshotRef.current);
     }, [serializedPublishSettings]);
 
-    // Space pauses and resumes the animation from anywhere but a text field.
-    // While riding, Space is the board's pop.
+    // Shift + Space pauses and resumes the animation from anywhere but a text
+    // field; a Space tap alone clears the selection (FocusToolPie). While
+    // riding, Space is the board's pop.
     useEffect(() => {
         if (playing || walking) {
             return undefined;
@@ -216,7 +229,7 @@ const HomeEdit = ({ project = null }) => {
             || (target.tagName === 'INPUT' && !['checkbox', 'range', 'button'].includes(target.type))
         );
         const handleKeyDown = (event) => {
-            if (event.defaultPrevented || event.target.closest?.('button,summary,dialog') || event.code !== 'Space' || event.repeat || event.metaKey || event.ctrlKey || event.altKey || isTextTarget(event.target)) {
+            if (event.defaultPrevented || event.target.closest?.('button,summary,dialog') || event.code !== 'Space' || !event.shiftKey || event.repeat || event.metaKey || event.ctrlKey || event.altKey || isTextTarget(event.target)) {
                 return;
             }
             event.preventDefault();
@@ -691,6 +704,10 @@ const HomeEdit = ({ project = null }) => {
     const handlePickObject = useCallback((path, hit) => {
         if (tool === 'material') { materialPickRef.current.open(hit); return; }
         if (materialPickRef.current.opened) materialPickRef.current.pick(hit);
+        // Мимо или по фону (земля, плоскость, вода, небо) — снять выделение;
+        // двойной щелчок по фону открывает его настройки.
+        if (!path || (hit?.backdrop && !hit.double)) { if ((hit?.miss || hit?.backdrop) && !hit.shift) clearSelection(); return; }
+        setGizmoReleased(null);
         // Цветник: щелчок — выбрать, двойной — войти и править растения по
         // одному; внутри щелчок выбирает растение под курсором.
         if (hit?.plantingBed) {
@@ -707,7 +724,7 @@ const HomeEdit = ({ project = null }) => {
         if (hit?.lightingPanel) { selectPanel(hit.lightingPanel); setTool(lastTransform); return; }
         if (hit?.topiaryId) selectTopiary(hit.topiaryId); else if (hit?.placedId) selectPlaced(hit.placedId, hit.object, hit.double, hit.shift); else setActiveTab(path);
         setTool(lastTransform);
-    }, [tool, setActiveTab, setTool, lastTransform, selectTopiary, selectPlaced, selectBed, selectVine, enterBed, pickPlant, plantingInside, selectMark, selectFixture, selectPanel]);
+    }, [tool, setActiveTab, setTool, lastTransform, selectTopiary, selectPlaced, selectBed, selectVine, enterBed, pickPlant, plantingInside, selectMark, selectFixture, selectPanel, clearSelection]);
 
     const { group: gizmoGroup, node: gizmoNode } = resolveEditorPath(activeTab, { includeDevOnly: true });
     // An object switched off has left the scene graph; the gizmo has nothing to hold.
@@ -764,7 +781,7 @@ const HomeEdit = ({ project = null }) => {
     // Старт прогулки — инструментом «Старт» или T в самой прогулке.
     const handleWalkStart = useCallback((start) => applySettingsRef.current({ walkStart: normalizeWalkStart(start) }), []);
     const editorGizmo = useMemo(() => ({
-        selection: !playing && !walking && transformHeld ? gizmoSelection : null,
+        selection: !playing && !walking && transformHeld && !(gizmoSelection === gizmoNode.id && gizmoReleased === activeTab) ? gizmoSelection : null,
         mode: transformTool ? tool : lastTransform,
         pose: gizmoPose,
         onTransform: handleGizmoTransform,
@@ -784,7 +801,7 @@ const HomeEdit = ({ project = null }) => {
         // open — открыт раздел «Освещение»: сетка участка строится и для пустого проекта (её ждёт агент).
         lighting: { selectedId: gizmoNode.id === 'luminaires' ? lightingEditor.selectedId : null, connections: settings.lightingConnections === true || gizmoNode.id === 'power', open: gizmoGroup.id === 'lighting' },
     // eslint-disable-next-line react-hooks/exhaustive-deps -- pose сравнивается по значениям, не по ссылке
-    }), [materialEditor.opened, materialEditor.targets, playing, walking, transformTool, transformHeld, gizmoSelection, tool, lastTransform, handleGizmoTransform, picking, drawingTool, handlePickObject, gizmoPose?.rotationY, gizmoPose?.scale, gizmoPose?.objectName, gizmoPose?.centreKey, activeTool, settings.topiaryObjects.length, gizmoNode.id, topiaryEditor.selectedId, topiaryEditor.onStroke, placedEditor.selectedId, placedEditor.part, plantingEditor.selectedId, plantingEditor.vineId, plantingEditor.inside, plantingEditor.selectedPlant, plantingEditor.bedKind, plantingEditor.onBed, plantingEditor.onBedSurface, plantingEditor.onPlant, plantingEditor.onVine, annotationEditor.onMark, annotationEditor.selectedId, annotationEditor.onResnap, handleWalkStart, aiming, lightingEditor.selectedId, lightingEditor.onLight, lightingEditor.onAim, lightingEditor.placeType, luminaireTypes, settings.lightingConnections, gizmoGroup.id]);
+    }), [materialEditor.opened, materialEditor.targets, playing, walking, transformTool, transformHeld, gizmoSelection, gizmoReleased, activeTab, tool, lastTransform, handleGizmoTransform, picking, drawingTool, handlePickObject, gizmoPose?.rotationY, gizmoPose?.scale, gizmoPose?.objectName, gizmoPose?.centreKey, activeTool, settings.topiaryObjects.length, gizmoNode.id, topiaryEditor.selectedId, topiaryEditor.onStroke, placedEditor.selectedId, placedEditor.part, plantingEditor.selectedId, plantingEditor.vineId, plantingEditor.inside, plantingEditor.selectedPlant, plantingEditor.bedKind, plantingEditor.onBed, plantingEditor.onBedSurface, plantingEditor.onPlant, plantingEditor.onVine, annotationEditor.onMark, annotationEditor.selectedId, annotationEditor.onResnap, handleWalkStart, aiming, lightingEditor.selectedId, lightingEditor.onLight, lightingEditor.onAim, lightingEditor.placeType, luminaireTypes, settings.lightingConnections, gizmoGroup.id]);
 
     // Delete (и Backspace) убирает выбранное — одной отменой: светильник или
     // щиток; части модели SketchUp (в «Удалённые», как в SketchUp); объект
@@ -1073,7 +1090,7 @@ const HomeEdit = ({ project = null }) => {
                 annotationEditor={annotationEditor}
                 lightingEditor={lightingEditor}
                 layoutEditor={layoutEditor}
-                gizmo={{ tool: activeTool, setTool, lastTransform, movable: gizmoSelection, selection: editorGizmo.selection, picking, sceneMenu, closeSceneMenu: () => setSceneMenu(null) }}
+                gizmo={{ tool: activeTool, setTool, lastTransform, movable: gizmoSelection, selection: editorGizmo.selection, picking, sceneMenu, closeSceneMenu: () => setSceneMenu(null), clearSelection }}
                 onPublish={isLocalPublishAvailable ? () => handlePublish() : undefined}
                 onDeploy={isLocalPublishAvailable ? () => handlePublish({ deploy: true }) : undefined}
                 onAdoptPublished={handleAdoptPublished}
