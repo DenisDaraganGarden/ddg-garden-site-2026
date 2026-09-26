@@ -1,4 +1,4 @@
-import { COVER_DEFAULT, COVER_PRESETS, COVER_RANGES, normalizeCover, coverSeason } from '../../../../../groundcover/settings.js';
+import { COVER_DEFAULT, COVER_PLANT_PARTS, COVER_PRESETS, COVER_RANGES, normalizeCover, coverSeason } from '../../../../../groundcover/settings.js';
 import { COVER_LABELS, COVER_CLIMATES } from '../../../../../groundcover/labels.js';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLanguage } from '../../../../../i18n/useLanguage';
@@ -52,6 +52,7 @@ function PlantingCatalog({ settings, handleSettingChange, plantingEditor, ru }) 
         <CheckboxControl controlId="plantingBeds[].cover.enabled" label={ru ? 'Нижний почвопокров' : 'Groundcover layer'} checked={true} onChange={() => {}} />
         <SelectControl controlId="plantingBeds[].cover.climate" label={ru ? 'Климат почвопокрова' : 'Groundcover climate'} value="temperate" options={Object.entries(COVER_CLIMATES).map(([value, names]) => ({ value, label: names[ru ? 0 : 1] }))} onChange={() => {}} />
         {Object.entries(COVER_RANGES).map(([key, [min, max, step]]) => <RangeControl key={key} controlId={`plantingBeds[].cover.${key}`} label={COVER_LABELS[key][ru ? 0 : 1]} value={COVER_DEFAULT[key]} min={min} max={max} step={step} onChange={() => {}} />)}
+        {COVER_PLANT_PARTS.map((part) => <SelectControl key={part} controlId={`plantingBeds[].cover.plants.${part}`} label={COVER_PLANT_LABELS[part][ru ? 0 : 1]} value="" options={[{ value: '', label: ru ? 'Не выбрано' : 'None' }]} onChange={() => {}} />)}
         <SelectControl controlId={VINES_KEY} label={ru ? 'Лиана' : 'Climber'} value="" options={[{ value: '', label: ru ? 'Выбрать…' : 'Select…' }, ...(settings[VINES_KEY] ?? []).map((v) => ({ value: v.id, label: plantName(library.get(v.plant), ru) || v.plant }))]} onChange={(event) => event.target.value && plantingEditor?.selectVine(event.target.value)} />
         <SelectControl controlId="plantingPlant" label={ru ? 'Растение' : 'Plant'} value={plantingEditor?.plantChoice ?? ''} options={[...library.values()].sort(byCategory).map((p) => ({ value: p.id, label: plantName(p, ru) }))} onChange={(event) => plantingEditor?.setPlantChoice(event.target.value)} />
     </>;
@@ -66,14 +67,19 @@ function PlainRange({ label, value, min, max, step, unit = '', onChange, testId 
 // Газон (цветник kind: 'lawn', lawnGround.js): стрижка — узор, ширина
 // прохода, направление, высота травы, контраст полос; полив. Площадь — и
 // сколько брать (lawnNeeds).
+const COVER_PLANT_LABELS = { leaf: ['Копытник в ведомости', 'Ginger in the schedule'], thyme: ['Тимьян в ведомости', 'Thyme in the schedule'] };
 function CoverFields({ bed, plantingEditor, ru }) {
     const cover = normalizeCover(bed.cover), set = (patch) => plantingEditor.updateBed(bed.id, { cover: normalizeCover({ ...cover, ...patch }) });
+    const { plants: library } = usePlantLibrary();
+    const choices = useMemo(() => [...library.values()].sort(byCategory), [library]);
     return <>
         <label className="planting-select"><span>{ru ? 'Нижний покров' : 'Underplanting'}</span><select value={cover.enabled ? 'on' : 'off'} onChange={(event) => set({ enabled: event.target.value === 'on' })}><option value="on">{ru ? 'Включён' : 'On'}</option><option value="off">{ru ? 'Выключен' : 'Off'}</option></select></label>
         {cover.enabled ? <>
             <label className="planting-select"><span>{ru ? 'Сообщество' : 'Community'}</span><select value="" onChange={(event) => event.target.value && set(COVER_PRESETS[event.target.value].values)} data-testid="cover-preset"><option value="">{ru ? 'Выбрать…' : 'Choose…'}</option>{Object.entries(COVER_PRESETS).map(([id, p]) => <option key={id} value={id}>{p[ru ? 'ru' : 'en']}</option>)}</select></label>
             {Object.entries(COVER_RANGES).map(([key, [min, max, step]]) => <PlainRange key={key} label={COVER_LABELS[key][ru ? 0 : 1]} value={cover[key]} min={min} max={max} step={step} onChange={(value) => set({ [key]: value })} testId={`cover-${key}`} />)}
             <label className="planting-select"><span>{ru ? 'Климат' : 'Climate'}</span><select value={cover.climate} onChange={(event) => set({ climate: event.target.value })}>{Object.entries(COVER_CLIMATES).map(([id, names]) => <option key={id} value={id}>{names[ru ? 0 : 1]}</option>)}</select></label>
+            {COVER_PLANT_PARTS.map((part) => <label key={part} className="planting-select"><span>{COVER_PLANT_LABELS[part][ru ? 0 : 1]}</span><select value={cover.plants?.[part] ?? ''} onChange={(event) => set({ plants: { ...cover.plants, [part]: event.target.value || undefined } })} data-testid={`cover-plant-${part}`}>
+                <option value="">{ru ? 'Не выбрано' : 'None'}</option>{choices.map((plant) => <option key={plant.id} value={plant.id}>{plantName(plant, ru)}</option>)}</select></label>)}
         </> : null}
     </>;
 }

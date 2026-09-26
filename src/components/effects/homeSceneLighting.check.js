@@ -42,18 +42,19 @@ const closeTo = (actual, expected, epsilon = 1e-10) => (
     lighting.surface.color.linear,
     'the visible lower hemisphere and distant water must share one authored colour',
   );
-  const cloudyLighting = buildHomeSceneLighting({
-    ...publishedHomeSceneSettings,
-    cloudCover: 0.65,
-  });
+  // The contract, not the author's values: the site deploys only after these
+  // checks, so a scene with no shadows or painterly clouds must still pass.
+  const cloudBase = { ...publishedHomeSceneSettings, painterlyCloudsEnabled: false, shadowIntensity: 0.8 };
+  const clearLighting = buildHomeSceneLighting({ ...cloudBase, cloudCover: 0 });
+  const cloudyLighting = buildHomeSceneLighting({ ...cloudBase, cloudCover: 0.65 });
   assert.ok(
-    cloudyLighting.shadow.intensity < publishedHomeSceneSettings.shadowIntensity,
+    cloudyLighting.shadow.intensity < clearLighting.shadow.intensity,
     'cloud cover must soften direct shadows for every material path',
   );
   // The mask can only attenuate a sun that sits inside the deck, and the
   // authored sky is free to put the sun above it. Hold the sun low for this.
   const lowSunCloudyLighting = buildHomeSceneLighting({
-    ...publishedHomeSceneSettings,
+    ...cloudBase,
     cloudCover: 0.65,
     timeOfDay: 12,
     sunNoonElevation: 10,
@@ -148,7 +149,7 @@ const closeTo = (actual, expected, epsilon = 1e-10) => (
   // The sea reflects the panorama at the level it lights objects with: one
   // number, the old light formula (hdriIntensity x exposure, dimmed by a storm).
   const panoramaLevel = (settings) => lightingOf(settings).environment.hdriLevel;
-  assert.equal(panoramaLevel({ hdriIntensity: 0.37, hdrExposure: 90 }), 0.37 * 0.9 * 1);
+  assert.equal(panoramaLevel({ hdriIntensity: 0.37, hdrExposure: 90, painterlyCloudsEnabled: false }), 0.37 * 0.9 * 1);
   assert.equal(panoramaLevel({ hdriIntensity: 1, hdrExposure: 64, painterlyCloudsEnabled: true, painterlyCloudStormEnabled: true, painterlyCloudStorm: 0.5 }), 1 * 0.64 * (1 - 0.5 * 0.5));
 
   // The painterly sky takes turbidity and the distant surface relative to the

@@ -1,6 +1,8 @@
 export default {
   'plantingBeds[].cover.enabled': ['Почвопокровный слой внутри выбранного цветника. Повторяет выбранную поверхность.', 'Groundcover layer inside the selected bed. Follows its selected surface.'],
   'plantingBeds[].cover.climate': ['Сдвигает сезон цветения и зимний вид. Месяц берётся из текущей камеры.', 'Shifts flowering season and winter appearance. Month comes from the current camera.'],
+  'plantingBeds[].cover.plants.leaf': ['Растение библиотеки, которое стоит за копытником. В ведомости: площадь × доля копытника × шт/м² из его карточки + 5 %.', 'The library plant behind the ginger. In the schedule: area × ginger share × plants per m² from its card + 5 %.'],
+  'plantingBeds[].cover.plants.thyme': ['Растение библиотеки, которое стоит за тимьяном. В ведомости: площадь × доля тимьяна × шт/м² из его карточки + 5 %.', 'The library plant behind the thyme. In the schedule: area × thyme share × plants per m² from its card + 5 %.'],
   'plantingBeds[].cover.leaf': ['Доля копытника в смеси. Остаток после копытника и тимьяна занимает мох.', 'Share of wild ginger in the mix. Moss fills the remainder after ginger and thyme.'],
   'plantingBeds[].cover.thyme': ['Доля тимьяна. Вместе с долей копытника нормализуется до общей единицы.', 'Share of thyme. Together with ginger, it is normalized to a total of one.'],
   'plantingBeds[].cover.density': ['Плотность размещения растений в пределах бюджета геометрии.', 'Density of plants within the geometry budget.'],

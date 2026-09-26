@@ -46,6 +46,23 @@ const store = (base) => ({
     saveSiteGrid: (id, grid) => call(base, `/${encodeURIComponent(id)}/site-grid`, { method: 'PUT', body: JSON.stringify(grid) }),
     readSiteGrid: (id) => call(base, `/${encodeURIComponent(id)}/site-grid`).then((payload) => payload.grid, (error) => { if (error.status === 404) return null; throw error; }),
     planUrl: (id, captured = '') => `${base}/${encodeURIComponent(id)}/plan.webp?${encodeURIComponent(captured)}`,
+    // История записи (снимки на диске, новые сверху) и возврат любой из них.
+    history: async (id) => (await call(base, `/${encodeURIComponent(id)}/history`)).snapshots ?? [],
+    snapshot: async (id, reason) => (await call(base, `/${encodeURIComponent(id)}/history`, { method: 'POST', body: JSON.stringify({ reason }) })).snapshot,
+    restoreVersion: async (id, snapshot) => (await call(base, `/${encodeURIComponent(id)}/history/${encodeURIComponent(snapshot)}`, {
+        method: 'POST', body: JSON.stringify({ action: 'restore' }),
+    })).entry,
+    // Корзина: удалённое уходит туда целиком и возвращается целиком.
+    trash: async () => (await call(base, '/?trash=1')).entries ?? [],
+    restoreFromTrash: async (trashId) => (await call(base, '/', { method: 'POST', body: JSON.stringify({ restoreTrash: trashId }) })).entry,
+    // Архив проекта одним файлом (scripts/projectArchive.mjs): скачать и загрузить.
+    archiveUrl: (id) => `${base}/${encodeURIComponent(id)}/archive`,
+    importArchive: async (file) => {
+        const response = await fetch(`${base}/?archive=1`, { method: 'POST', headers: { 'Content-Type': 'application/zip' }, body: file });
+        const payload = await response.json().catch(() => null);
+        if (!response.ok || !payload?.ok) throw new Error(payload?.message ?? `Архив не загрузился (${response.status})`);
+        return payload;
+    },
 });
 
 // Проект — сцена целиком. Деталь — настроенный вариант одного объекта.
@@ -64,7 +81,11 @@ export const setProjectKind = (id, kind) => projectStore.save(id, { kind: kind ?
 // base — последняя подтверждённая ревизия (старые клиенты передают updated).
 // При конфликте сервер отвечает 409 с нынешней записью. Незавершённые записи
 // при закрытии окна восстанавливает локальный журнал projectAutosave.
-export const saveProjectSettings = (id, settings, { base, ...options } = {}) => projectStore.save(id, { settings, ...(base !== undefined ? { base } : {}) }, options);
+// snapshot — повод положить версию с диска в историю перед этой записью
+// ('overwrite': пишущий решил записать поверх чужой версии).
+export const saveProjectSettings = (id, settings, { base, snapshot, ...options } = {}) => projectStore.save(id, {
+    settings, ...(base !== undefined ? { base } : {}), ...(snapshot ? { snapshot } : {}),
+}, options);
 
 // Модели проекта (.glb): файл уходит на локальный сервер как есть и ложится в
 // папку проекта; в сцене объект ссылается на него по имени файла. Из SketchUp

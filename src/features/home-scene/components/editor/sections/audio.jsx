@@ -57,7 +57,7 @@ export const AudioMixerSection = ({ settings, handleSettingChange, audioLab }) =
         label={t('homeEditor.controls.audioMode')}
         value={audio.mode}
         onChange={(event) => handleSettingChange(event, 'audio.mode', 'string')}
-        options={['off', 'music', 'soundscape', 'hybrid'].map((value) => ({
+        options={['off', 'soundscape'].map((value) => ({
           value,
           label: t(`homeEditor.audio.modes.${value}`),
         }))}
@@ -66,7 +66,6 @@ export const AudioMixerSection = ({ settings, handleSettingChange, audioLab }) =
       <SectionHeading label={t('homeEditor.blocks.volume')} subtle />
       {[
         ['masterGain', 0, 1],
-        ['musicGain', 0, 1],
         ['ambienceGain', 0, 1],
         ['spatialGain', 0, 1],
         ['weatherGain', 0, 1],
@@ -249,16 +248,6 @@ export const AudioTracksSection = ({ settings, handleSettingChange, audioLab }) 
             t={t}
           />
         ))}
-      </div>
-      <div className="home-editor-audio-music-preview">
-        <span>{t('homeEditor.audio.tracks.music')}</span>
-        <button
-          type="button"
-          onClick={() => audioLab?.previewTrack?.('music')}
-          data-testid="home-editor-audio-preview-music"
-        >
-          ▶ {t('homeEditor.audio.listen')}
-        </button>
       </div>
     </>
   );

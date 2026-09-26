@@ -2,7 +2,9 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useLanguage } from '../i18n/useLanguage';
 import { projectStore, readProject } from '../features/engine/projectApi';
 import { normalizePlantingSettings } from '../planting/settings.js';
-import { bedArea, plantingInstances, plantingSchedule, spacingFor } from '../planting/fillBed.js';
+import { bedArea, coverSchedule, plantingInstances, plantingSchedule, PLANTING_RESERVE, spacingFor } from '../planting/fillBed.js';
+import { normalizeTopiarySettings } from '../topiary/settings.js';
+import { FENCE_STYLE_LABELS, fenceSchedule, POST_SPAN } from '../topiary/fenceLayout.js';
 import { LAWN_MOWING_LABELS, lawnSeed, lawnTurf } from '../planting/lawnGround.js';
 import { isSeasonSheet, plantCardUrl, plantName, plantPhotoUrl, useBedFills, usePlantLibrary } from '../planting/plantLibrary.js';
 import { bloomMonths, byCategory, CATEGORY_LABELS } from '../planting/insights.js';
@@ -123,11 +125,13 @@ export default function PlantingReport() {
     const annotations = useMemo(() => normalizeAnnotationSettings(entry?.settings ?? {}), [entry]);
     const fills = useBedFills(planting.plantingBeds, library);
     const instances = useMemo(() => [...plantingInstances(planting.plantingBeds, fills, planting.plantingPoints).values()].flat(), [planting, fills]);
-    const schedule = useMemo(() => plantingSchedule(planting.plantingBeds, fills, planting.plantingPoints, library, planting.plantingVines), [planting, fills, library]);
+    const hedges = useMemo(() => normalizeTopiarySettings(entry?.settings ?? {}).topiaryObjects, [entry]);
+    const schedule = useMemo(() => plantingSchedule(planting.plantingBeds, fills, planting.plantingPoints, library, planting.plantingVines, hedges), [planting, fills, library, hedges]);
     const species = useMemo(() => [...schedule].sort((a, b) => byCategory(a.plant, b.plant)), [schedule]);
     const existing = planting.plantingPoints.filter((p) => p.status === 'existing').length;
     // Где растёт: цветники, лианы с длиной побегов или поштучно.
-    const where = (r) => [...r.beds, ...(r.length ? [`${ru ? 'лианы' : 'climbers'}, ${r.length.toFixed(1)} ${ru ? 'м побегов' : 'm of shoots'}`] : [])].join(', ') || (ru ? 'одиночные' : 'single');
+    const where = (r) => [...r.beds, ...(r.hedgeLength ? [`${ru ? 'изгородь' : 'hedge'} ${r.hedgeLength.toFixed(1)} ${ru ? 'п.м.' : 'm'}`] : []), ...(r.length ? [`${ru ? 'лианы' : 'climbers'}, ${r.length.toFixed(1)} ${ru ? 'м побегов' : 'm of shoots'}`] : []), ...(r.existing ? [`${ru ? 'существующие' : 'existing'}: ${r.existing}`] : [])].join(', ') || (ru ? 'одиночные' : 'single');
+    const reserve = Math.round(PLANTING_RESERVE * 100);
     // Газоны — отдельно: площадь и сколько брать, растений в них нет.
     const flowerBeds = planting.plantingBeds.filter((bed) => bed.kind !== 'lawn');
     const lawns = planting.plantingBeds.filter((bed) => bed.kind === 'lawn');
@@ -135,6 +139,9 @@ export default function PlantingReport() {
     const lawnArea = lawns.reduce((sum, bed) => sum + bedArea(bed), 0);
     const date = new Date().toLocaleDateString(ru ? 'ru-RU' : 'en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
     const lighting = useLightingReport(id, entry?.settings);
+    const covers = useMemo(() => coverSchedule(planting.plantingBeds), [planting]);
+    const lines = useMemo(() => fenceSchedule(hedges), [hedges]);
+    const m = (value) => value.toFixed(1);
 
     if (error) return <main className="report"><p className="report-note">{error}</p></main>;
     if (!entry || status === 'loading' || status === 'idle') return <main className="report"><p className="report-note">{ru ? 'Собираю отчёт…' : 'Building the report…'}</p></main>;
@@ -154,7 +161,7 @@ export default function PlantingReport() {
         </header>
 
         <section className="report-tiles">
-            {[[schedule.reduce((sum, r) => sum + r.count, 0), ru ? 'растений' : 'plants'], [schedule.length, ru ? 'видов' : 'species'], [flowerBeds.length, ru ? 'цветников' : 'beds'], [`${area.toFixed(1)} м²`, ru ? 'цветников по площади' : 'of beds'], ...(lawns.length ? [[`${lawnArea.toFixed(1)} м²`, ru ? 'газонов' : 'of lawns']] : []), [planting.plantingPoints.length - existing, ru ? 'деревьев и кустов — новых' : 'new trees and shrubs'], [existing, ru ? 'существующих' : 'existing'], ...(planting.plantingVines.length ? [[planting.plantingVines.length, ru ? 'лиан' : 'climbers']] : [])].map(([value, label]) => <div key={label}><b>{value}</b><span>{label}</span></div>)}
+            {[[schedule.reduce((sum, r) => sum + r.order, 0), ru ? 'растений к заказу' : 'plants to order'], [schedule.length, ru ? 'видов' : 'species'], [flowerBeds.length, ru ? 'цветников' : 'beds'], [`${area.toFixed(1)} м²`, ru ? 'цветников по площади' : 'of beds'], ...(lawns.length ? [[`${lawnArea.toFixed(1)} м²`, ru ? 'газонов' : 'of lawns']] : []), [planting.plantingPoints.length - existing, ru ? 'деревьев и кустов — новых' : 'new trees and shrubs'], [existing, ru ? 'существующих' : 'existing'], ...(planting.plantingVines.length ? [[planting.plantingVines.length, ru ? 'лиан' : 'climbers']] : [])].map(([value, label]) => <div key={label}><b>{value}</b><span>{label}</span></div>)}
         </section>
 
         <section className="report-block">
@@ -180,7 +187,7 @@ export default function PlantingReport() {
                     <div className="report-album__text">
                         <h4>{plantName(r.plant, ru)}</h4>
                         <p className="report-album__latin">{r.plant.latin}</p>
-                        <p><b>{r.count} {ru ? 'шт' : 'pcs'}</b> · {CATEGORY_LABELS[r.plant.category]?.[ru ? 0 : 1]} · {where(r)}</p>
+                        <p><b>{r.order} {ru ? 'шт' : 'pcs'}</b> · {CATEGORY_LABELS[r.plant.category]?.[ru ? 0 : 1]} · {where(r)}</p>
                         {r.plant.category === 'climber'
                             ? <p>{ru ? 'Поднимается до' : 'Climbs to'} {r.plant.height} м{r.plant.vine?.support ? ` · ${r.plant.vine.support}` : ''}</p>
                             : <p>{ru ? 'Высота' : 'Height'} {r.plant.height} м · {ru ? 'ширина' : 'spread'} {r.plant.spread} м{r.plant.density && r.plant.category !== 'tree' ? ` · ${r.plant.density} шт/м², ${ru ? 'шаг' : 'spacing'} ${Math.round(spacingFor(r.plant.density) * 100)} см` : ''}</p>}
@@ -196,11 +203,27 @@ export default function PlantingReport() {
         <section className="report-block">
             <h3>{ru ? 'Ассортиментная ведомость' : 'Planting schedule'}</h3>
             <table className="report-table"><thead><tr>
-                <th>№</th><th>{ru ? 'Растение' : 'Plant'}</th><th>{ru ? 'Кол-во, шт' : 'Qty'}</th><th>{ru ? 'Площадь, м²' : 'Area, m²'}</th><th>{ru ? 'шт/м²' : '/m²'}</th><th>{ru ? 'Высота, м' : 'Height, m'}</th><th>{ru ? 'Где' : 'Where'}</th><th>{ru ? 'Замечания дендролога' : 'Dendrologist notes'}</th>
+                <th>№</th><th>{ru ? 'Растение' : 'Plant'}</th><th>{ru ? `К заказу, шт (+${reserve} %)` : `To order (+${reserve} %)`}</th><th>{ru ? 'Нарисовано, шт' : 'Drawn'}</th><th>{ru ? 'Площадь, м²' : 'Area, m²'}</th><th>{ru ? 'шт/м²' : '/m²'}</th><th>{ru ? 'Высота, м' : 'Height, m'}</th><th>{ru ? 'Где' : 'Where'}</th><th>{ru ? 'Замечания дендролога' : 'Dendrologist notes'}</th>
             </tr></thead><tbody>{schedule.map((r, i) => <tr key={r.plant.id}>
-                <td>{i + 1}</td><td>{plantName(r.plant, ru)}<small>{r.plant.latin}</small></td><td>{r.count}</td><td>{r.area ? r.area.toFixed(1) : '—'}</td><td>{r.plant.category === 'tree' ? '—' : r.plant.density ?? '—'}</td><td>{r.plant.height}</td><td>{where(r)}</td><td />
+                <td>{i + 1}</td><td>{plantName(r.plant, ru)}<small>{r.plant.latin}</small></td><td>{r.order || '—'}</td><td>{r.count || '—'}</td><td>{r.area ? r.area.toFixed(1) : '—'}</td><td>{r.plant.category === 'tree' || !r.area ? '—' : r.plant.density ?? '—'}</td><td>{r.plant.height}</td><td>{where(r)}</td><td />
             </tr>)}</tbody></table>
         </section>
+
+        {covers.length ? <section className="report-block">
+            <h3>{ru ? 'Почвопокровы' : 'Ground covers'}</h3>
+            <table className="report-table"><thead><tr>
+                <th>{ru ? 'Покров' : 'Cover'}</th><th>{ru ? 'Площадь, м²' : 'Area, m²'}</th><th>{ru ? 'Копытник, м²' : 'Wild ginger, m²'}</th><th>{ru ? 'Тимьян, м²' : 'Thyme, m²'}</th><th>{ru ? 'Мох, м²' : 'Moss, m²'}</th>
+            </tr></thead><tbody>{covers.map((r) => <tr key={r.id}><td>{r.name}{r.layer ? <small>{ru ? 'нижний слой цветника' : 'under a bed'}</small> : null}</td><td>{m(r.area)}</td><td>{m(r.ginger)}</td><td>{m(r.thyme)}</td><td>{m(r.moss)}</td></tr>)}
+                {covers.length > 1 ? <tr><td><b>{ru ? 'Всего' : 'Total'}</b></td>{['area', 'ginger', 'thyme', 'moss'].map((key) => <td key={key}><b>{m(covers.reduce((sum, r) => sum + r[key], 0))}</b></td>)}</tr> : null}</tbody></table>
+            <p className="report-hint">{ru ? 'Состав — доли площади. Если за копытником и тимьяном выбраны растения библиотеки, их штуки — в ведомости выше, по норме шт/м² из карточки.' : 'The mix is by area. Where library plants stand for ginger and thyme, their counts are in the schedule above, by the card’s plants per m².'}</p>
+        </section> : null}
+
+        {lines.length ? <section className="report-block">
+            <h3>{ru ? 'Изгороди и ограды' : 'Hedges and fences'}</h3>
+            <table className="report-table"><thead><tr>
+                <th>{ru ? 'Линия' : 'Line'}</th><th>{ru ? 'Длина, п.м.' : 'Length, m'}</th><th>{ru ? 'Высота, м' : 'Height, m'}</th><th>{ru ? 'Изгородь, ширина, м' : 'Hedge, width, m'}</th><th>{ru ? 'Растение, шт/п.м.' : 'Plant, per m'}</th><th>{ru ? 'Ограда' : 'Fence'}</th><th>{ru ? `Секций (до ${POST_SPAN} м)` : `Sections (up to ${POST_SPAN} m)`}</th><th>{ru ? 'Столбов' : 'Posts'}</th>
+            </tr></thead><tbody>{lines.map((r) => <tr key={r.id}><td>{r.name}</td><td>{m(r.length)}</td><td>{r.height.toFixed(2)}</td><td>{r.hedge ? r.width.toFixed(2) : '—'}</td><td>{r.plant ? <>{plantName(library.get(r.plant) ?? { id: r.plant }, ru)}<small>{r.perMetre ? `${r.perMetre} ${ru ? 'шт/п.м.' : 'per m'}` : (ru ? 'норма не задана' : 'no norm set')}</small></> : '—'}</td><td>{r.fence ? FENCE_STYLE_LABELS[r.fence]?.[ru ? 0 : 1] ?? r.fence : '—'}</td><td>{r.fence ? r.sections : '—'}</td><td>{r.fence ? r.posts : '—'}</td></tr>)}</tbody></table>
+        </section> : null}
 
         {lawns.length ? <section className="report-block">
             <h3>{ru ? 'Газоны' : 'Lawns'}</h3>
@@ -215,7 +238,7 @@ export default function PlantingReport() {
         <LightingReportBlocks report={lighting} ru={ru} />
 
         <footer className="report-foot">{ru
-            ? 'Высоты, плотность и календарь — справочные данные библиотеки растений (уверенность средняя), не заключение дендролога. Количества посчитаны по нарисованным цветникам.'
-            : 'Heights, density and calendar are reference data from the plant library (medium confidence), not a dendrologist’s opinion. Quantities are counted from the drawn beds.'}</footer>
+            ? `Высоты, плотность и календарь — справочные данные библиотеки растений (уверенность средняя), не заключение дендролога. К заказу: в цветнике — площадь вида по доле рецепта × шт/м² × густота цветника + ${reserve} %; одиночные и лианы — поштучно, существующие не заказываются. «Нарисовано» — растения на плане, для сверки.`
+            : `Heights, density and calendar are reference data from the plant library (medium confidence), not a dendrologist’s opinion. To order: in a bed, the species’ area by its recipe share × plants per m² × the bed’s density + ${reserve} %; single plants and climbers by the piece, existing ones not ordered. “Drawn” is what is on the plan, for checking.`}</footer>
     </main>;
 }

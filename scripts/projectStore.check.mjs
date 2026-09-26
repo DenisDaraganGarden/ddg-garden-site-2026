@@ -7,7 +7,7 @@ import path from 'node:path';
 // папку: боевые проекты Дениса она не трогает.
 process.env.DDG_PROJECTS_DIR = await fs.mkdtemp(path.join(os.tmpdir(), 'ddg-store-'));
 
-const { isValidId, presets, projects, slugify } = await import('./projectStore.mjs');
+const { HOME, isValidId, presets, projects, slugify, STORE_SCHEMA } = await import('./projectStore.mjs');
 
 assert.equal(slugify('Азовский берег'), 'azovskiy-bereg');
 assert.equal(slugify('Дюны 2 / вечер'), 'dyuny-2-vecher');
@@ -125,6 +125,103 @@ assert.equal(await projects.modelFile('dyuny', rock.model), null, 'модели 
 assert.equal(await projects.remove('dyuny'), false);
 assert.equal((await projects.list()).length, 1);
 assert.equal((await presets.list()).length, 1, 'удаление проекта не трогает детали');
+
+// История: снимок при открытии; одинаковые подряд не множатся; запись вскоре
+// после снимка нового не делает, запись поверх чужой версии и возврат сначала
+// кладут нынешнюю версию в историю; вернуть можно любую.
+const garden = await projects.create({ name: 'Сад', settings: { step: 1 } });
+assert.deepEqual(await projects.history(garden.id), [], 'у нового проекта истории нет');
+assert.equal(await projects.history('nikogo'), null);
+const opened = await projects.snapshot(garden.id, 'open');
+assert.equal(opened.reason, 'open');
+assert.equal((await projects.snapshot(garden.id, 'open')).id, opened.id, 'та же сцена — тот же снимок');
+let step = await projects.save(garden.id, { settings: { step: 2 }, base: garden.revision });
+assert.equal((await projects.history(garden.id)).length, 1, 'запись вскоре после снимка нового снимка не делает');
+step = await projects.save(garden.id, { settings: { step: 3 }, base: step.revision, snapshot: 'overwrite' });
+let snapshots = await projects.history(garden.id);
+assert.equal(snapshots[0].reason, 'overwrite', 'перед записью поверх чужой версии та уходит в историю');
+step = await projects.restore(garden.id, snapshots[0].id);
+assert.equal(step.settings.step, 2, 'возвращена версия из снимка');
+assert.equal(step.revision, 4, 'возврат — обычная запись с новой ревизией');
+snapshots = await projects.history(garden.id);
+assert.equal(snapshots[0].reason, 'restore', 'возврат сначала сохраняет нынешнюю версию');
+assert.equal((await projects.restore(garden.id, snapshots[0].id)).settings.step, 3, 'и возврат можно отменить возвратом');
+assert.equal(await projects.restore(garden.id, '20200101T000000000Z-open'), null, 'несуществующего снимка нет');
+assert.equal(await projects.restore(garden.id, '../dyuny'), null, 'из истории не выйти');
+
+// Первая запись после паузы кладёт прежнюю версию в историю сама.
+const historyOf = (id) => path.join(projects.dir, id, 'history');
+const idle = await projects.create({ name: 'Тихий', settings: { step: 1 } });
+await fs.mkdir(historyOf(idle.id), { recursive: true });
+await fs.writeFile(path.join(historyOf(idle.id), '20200101T120000000Z-open.json'), JSON.stringify({ ...idle, settings: { step: 0 } }));
+await projects.save(idle.id, { settings: { step: 2 } });
+assert.equal((await projects.history(idle.id))[0].reason, 'auto', 'через 10 минут без снимка запись делает его сама');
+
+// Хранятся последние 50 и, старше них, по одному на день.
+const crowded = await projects.create({ name: 'Людный', settings: { step: 'now' } });
+const stamp = (day, index) => `202003${String(day).padStart(2, '0')}T12${String(Math.floor(index / 60)).padStart(2, '0')}${String(index % 60).padStart(2, '0')}000Z`;
+await fs.mkdir(historyOf(crowded.id), { recursive: true });
+for (let index = 0; index < 55; index += 1) await fs.writeFile(path.join(historyOf(crowded.id), `${stamp(10, index)}-auto.json`), JSON.stringify({ settings: { step: index } }));
+for (const day of [1, 2, 3]) await fs.writeFile(path.join(historyOf(crowded.id), `${stamp(day, 0)}-auto.json`), JSON.stringify({ settings: { step: -day } }));
+await projects.snapshot(crowded.id, 'manual');
+snapshots = await projects.history(crowded.id);
+assert.equal(snapshots.length, 53, '50 последних и по одному на каждый старший день');
+assert.deepEqual(snapshots.slice(-3).map(({ id }) => id.slice(0, 8)), ['20200303', '20200302', '20200301']);
+
+// Копия уносит папку проекта (сетку участка), но не его историю.
+await projects.writeSiteGrid(garden.id, { x0: 0, z0: 0, cell: 0.5, cols: 1, rows: 1, kind: 'AA==', ground: 'AA==' });
+const twin = await projects.create({ name: 'Сад копия', settings: { step: 3 }, from: garden.id });
+assert.ok(await projects.readSiteGrid(twin.id), 'копия уносит сетку участка');
+assert.deepEqual(await projects.history(twin.id), [], 'история остаётся у оригинала');
+
+// Корзина: удалённый проект уходит целиком и возвращается целиком; если его
+// имя за это время заняли, он возвращается под свободным.
+const historyBefore = (await projects.history(garden.id)).length;
+assert.equal(await projects.remove(garden.id), true);
+assert.equal(await projects.read(garden.id), null, 'удалённого проекта нет в списке');
+let trash = await projects.listTrash();
+assert.equal(trash[0].id, garden.id);
+assert.equal(trash[0].name, 'Сад');
+let back = await projects.restoreFromTrash(trash[0].trashId);
+assert.equal(back.id, garden.id, 'вернулся под своим именем');
+assert.equal((await projects.read(garden.id)).settings.step, 3);
+assert.ok(await projects.readSiteGrid(garden.id), 'с папкой');
+assert.equal((await projects.history(garden.id)).length, historyBefore, 'и с историей');
+assert.ok(!(await projects.listTrash()).some((item) => item.id === garden.id), 'из корзины он ушёл');
+assert.equal(await projects.restoreFromTrash('../../etc'), null);
+await projects.remove(garden.id);
+const namesake = await projects.create({ name: 'Сад', settings: { step: 'new' } });
+assert.equal(namesake.id, garden.id, 'имя удалённого свободно');
+trash = await projects.listTrash();
+back = await projects.restoreFromTrash(trash[0].trashId);
+assert.equal(back.id, `${garden.id}-2`, 'занятое имя — возвращается под свободным');
+assert.equal((await projects.read(back.id)).id, back.id, 'id в записи совпадает с файлом');
+assert.equal((await projects.read(garden.id)).settings.step, 'new', 'тёзка не тронут');
+
+// Номер формата: запись несёт его, код ставит свой при каждой записи, а
+// поверх записи от более новой версии движка не пишет и её снимок не ставит.
+const modern = await projects.create({ name: 'Схема', settings: { a: 1 } });
+assert.equal(modern.schema, STORE_SCHEMA, 'новая запись несёт номер формата');
+const recordFile = path.join(HOME, 'projects', `${modern.id}.json`);
+const legacy = { ...JSON.parse(await fs.readFile(recordFile, 'utf8')) };
+delete legacy.schema;
+await fs.writeFile(recordFile, JSON.stringify(legacy));
+assert.equal((await projects.save(modern.id, { settings: { a: 2 } })).schema, STORE_SCHEMA, 'старая запись без номера получает его');
+assert.equal((await projects.save(modern.id, { schema: 99, settings: { a: 3 } })).schema, STORE_SCHEMA, 'номер ставит хранилище, не клиент');
+const future = { ...JSON.parse(await fs.readFile(recordFile, 'utf8')), schema: STORE_SCHEMA + 1, settings: { a: 'будущее' } };
+await fs.writeFile(recordFile, JSON.stringify(future));
+const refused = await projects.save(modern.id, { settings: { a: 'прошлое' } });
+assert.ok(refused?.newer, 'поверх записи новее этого кода не пишется');
+assert.equal(JSON.parse(await fs.readFile(recordFile, 'utf8')).settings.a, 'будущее', 'и файл цел');
+const [oldest] = (await projects.history(modern.id)).slice(-1);
+assert.ok((await projects.restore(modern.id, oldest.id))?.newer, 'и возврат версии поверх неё тоже');
+await fs.writeFile(recordFile, JSON.stringify({ ...future, schema: STORE_SCHEMA }));
+await projects.snapshot(modern.id, 'manual');
+const [newest] = await projects.history(modern.id);
+const newestFile = path.join(HOME, 'projects', modern.id, 'history', `${newest.id}.json`);
+await fs.writeFile(newestFile, JSON.stringify({ ...JSON.parse(await fs.readFile(newestFile, 'utf8')), schema: STORE_SCHEMA + 1 }));
+await projects.save(modern.id, { settings: { a: 'сейчас' } });
+assert.ok((await projects.restore(modern.id, newest.id))?.newer, 'снимок от более новой версии этот код не ставит');
 
 await fs.rm(process.env.DDG_PROJECTS_DIR, { recursive: true, force: true });
 console.log('store: проекты и детали движка как файлы — ок');

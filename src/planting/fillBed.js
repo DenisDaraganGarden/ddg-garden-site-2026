@@ -10,6 +10,7 @@
 // Крайний ряд — на трети шага от края, как на посадочном чертеже.
 import { PLANTING_LIMITS } from './settings.js';
 import { vineLength } from './vines.js';
+import { lineLength } from '../topiary/settings.js';
 
 export function mulberry32(seed) {
     let a = seed >>> 0;
@@ -222,29 +223,89 @@ export function plantingInstances(beds, bedFills, points) {
     return bySpecies;
 }
 
+// Запас к заказу — как у рулонного газона в отчёте.
+export const PLANTING_RESERVE = 0.05;
+
 // Ведомость: вид → штук, по цветникам и одиночным. Площадь вида в цветнике —
 // его доля от площади контура.
+// count — нарисовано (для сверки с планом). order — к заказу: в цветнике
+// площадь вида × норма шт/м² × густота цветника, по всем цветникам, плюс
+// запас, вверх до штуки; одиночные и лианы — поштучно, существующие на
+// участке не заказываются. Нарисованное расходится с расчётом: пятна
+// раздаются видам по числу, а не по площади, у края — отступ в треть шага.
 // Лиана в ведомости — штука (растение), и к ней длина побегов по стенам.
-export function plantingSchedule(beds, fills, points, library, vines = []) {
+// Почвопокров и изгородь — по каталогу: копытник и тимьян покрова, если за
+// ними стоит растение библиотеки, — площадь по доле × его шт/м²; изгородь с
+// растением и нормой — длина × шт/п.м. (длина — с масштабом формы). На плане
+// их не рисуют поштучно, поэтому «нарисовано» у них ноль.
+export function plantingSchedule(beds, fills, points, library, vines = [], hedges = []) {
     const rows = new Map();
     const row = (id) => {
-        if (!rows.has(id)) rows.set(id, { plant: library.get(id) ?? { id }, count: 0, area: 0, beds: new Set(), length: 0 });
+        if (!rows.has(id)) rows.set(id, { plant: library.get(id) ?? { id }, count: 0, area: 0, beds: new Set(), length: 0, hedgeLength: 0, bedOrder: 0, pieces: 0, existing: 0 });
         return rows.get(id);
     };
-    for (const vine of vines) { const r = row(vine.plant); r.count += 1; r.length += vineLength(vine); }
-    beds.forEach((bed, index) => {
-        const area = bedArea(bed), shares = bed.recipe.filter((r) => library.has(r.plant)), total = shares.reduce((sum, r) => sum + r.share, 0) || 1;
-        for (const r of shares) { row(r.plant).area += (area * r.share) / total; row(r.plant).beds.add(bed.name); }
-        for (const plant of fills[index] ?? []) row(plant.plant).count += 1;
+    for (const vine of vines) { const r = row(vine.plant); r.count += 1; r.pieces += 1; r.length += vineLength(vine); }
+    beds.forEach((bed) => {
+        const plants = bed.kind !== 'lawn' && bed.cover && bed.cover.enabled !== false ? bed.cover.plants : null;
+        if (!plants) return;
+        const area = bedArea(bed);
+        for (const [part, id] of Object.entries(plants)) {
+            const share = bed.cover[part] ?? 0, norm = Number(library.get(id)?.density);
+            if (!(share > 0) || !library.has(id)) continue;
+            const target = row(id);
+            target.area += area * share;
+            target.beds.add(bed.name);
+            if (norm > 0) target.bedOrder += area * share * norm;
+        }
     });
-    for (const point of points) row(point.plant).count += 1;
-    return [...rows.values()].filter((r) => r.count > 0).sort((a, b) => b.count - a.count);
+    for (const hedge of hedges) {
+        if (!hedge.plant || !library.has(hedge.plant) || hedge.foliageVisible === false) continue;
+        const target = row(hedge.plant), length = lineLength(hedge.points) * (hedge.scale ?? 1);
+        target.hedgeLength += length;
+        target.beds.add(hedge.name);
+        if (hedge.perMetre > 0) target.bedOrder += length * hedge.perMetre;
+    }
+    beds.forEach((bed, index) => {
+        if (bed.kind === 'lawn' || bed.kind === 'cover') return;
+        const area = bedArea(bed), shares = bed.recipe.filter((r) => library.has(r.plant)), total = shares.reduce((sum, r) => sum + r.share, 0) || 1;
+        const drawn = new Map();
+        for (const plant of fills[index] ?? []) { row(plant.plant).count += 1; drawn.set(plant.plant, (drawn.get(plant.plant) ?? 0) + 1); }
+        for (const r of shares) {
+            const target = row(r.plant), speciesArea = (area * r.share) / total, norm = Number(library.get(r.plant).density);
+            target.area += speciesArea;
+            target.beds.add(bed.name);
+            // Без нормы в записи растения — сколько нарисовано.
+            if (norm > 0) target.bedOrder += speciesArea * norm * bed.density;
+            else target.pieces += drawn.get(r.plant) ?? 0;
+        }
+    });
+    for (const point of points) {
+        const r = row(point.plant);
+        r.count += 1;
+        if (point.status === 'existing') r.existing += 1; else r.pieces += 1;
+    }
+    return [...rows.values()].filter((r) => r.count > 0 || r.bedOrder > 0 || r.hedgeLength > 0 || r.area > 0).map(({ bedOrder, pieces, ...r }) => ({
+        ...r,
+        order: pieces + (bedOrder > 0 ? Math.ceil(bedOrder * (1 + PLANTING_RESERVE) - 1e-9) : 0),
+    })).sort((a, b) => b.order - a.order || b.count - a.count);
+}
+
+// Почвопокров по площади: отдельный покров (kind: 'cover') и нижний слой
+// цветника. Состав — доли покрова: копытник, тимьян, остальное — мох. Норм
+// шт/м² у процедурного покрова нет, поэтому здесь метры, а не штуки.
+export function coverSchedule(beds) {
+    return beds.filter((bed) => bed.kind !== 'lawn' && bed.cover && bed.cover.enabled !== false).map((bed) => {
+        const area = bedArea(bed), leaf = bed.cover.leaf ?? 0, thyme = bed.cover.thyme ?? 0;
+        return { id: bed.id, name: bed.name, layer: bed.kind !== 'cover', area, ginger: area * leaf, thyme: area * thyme, moss: area * Math.max(0, 1 - leaf - thyme) };
+    }).filter((row) => row.area > 0);
 }
 
 export function scheduleCsv(schedule, ru = true) {
-    const head = ru ? ['№', 'Название', 'Латинское', 'Категория', 'Кол-во, шт', 'Площадь, м²', 'Плотность, шт/м²', 'Высота, м', 'Где'] : ['#', 'Name', 'Latin', 'Category', 'Qty', 'Area, m²', 'Density, /m²', 'Height, m', 'Where'];
+    const reserve = Math.round(PLANTING_RESERVE * 100);
+    const head = ru ? ['№', 'Название', 'Латинское', 'Категория', `К заказу, шт (+${reserve} %)`, 'Нарисовано, шт', 'Площадь, м²', 'Плотность, шт/м²', 'Высота, м', 'Где']
+        : ['#', 'Name', 'Latin', 'Category', `To order (+${reserve} %)`, 'Drawn', 'Area, m²', 'Density, /m²', 'Height, m', 'Where'];
     const cell = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`;
     const where = (r) => [...r.beds, ...(r.length ? [`${ru ? 'лианы' : 'climbers'}, ${r.length.toFixed(1)} ${ru ? 'м побегов' : 'm of shoots'}`] : [])].join(', ') || (ru ? 'одиночные' : 'single');
-    const lines = schedule.map((r, i) => [i + 1, ru ? r.plant.ru : r.plant.en, r.plant.latin, r.plant.category, r.count, r.area ? r.area.toFixed(1) : '', r.plant.density ?? '', r.plant.height ?? '', where(r)].map(cell).join(';'));
+    const lines = schedule.map((r, i) => [i + 1, ru ? r.plant.ru : r.plant.en, r.plant.latin, r.plant.category, r.order, r.count, r.area ? r.area.toFixed(1) : '', r.plant.density ?? '', r.plant.height ?? '', where(r)].map(cell).join(';'));
     return `\uFEFF${[head.map(cell).join(';'), ...lines].join('\r\n')}\r\n`;
 }

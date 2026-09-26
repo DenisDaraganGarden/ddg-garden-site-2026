@@ -5,6 +5,7 @@ import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import {
   DEFAULT_SOUNDSCAPE_SETTINGS,
+  SOUNDSCAPE_MODES,
   normalizeSoundscapeSettings,
 } from '../src/features/audio/data/soundscapeSettings.js';
 import {
@@ -34,12 +35,16 @@ assert.equal(malformed.tracks.boat.gain, 1.5, 'track gain must clamp');
 assert.equal(malformed.emitters.thunder.x, 200, 'emitter coordinate must clamp');
 assert.equal(malformed.emitters.thunder.refDistance, 0.25, 'reference distance must clamp');
 assert.equal(malformed.emitters.thunder.maxDistance, 400, 'maximum distance must clamp');
+assert.equal(normalizeSoundscapeSettings({ mode: 'hybrid' }).mode, 'soundscape', 'music + soundscape keeps the soundscape');
+assert.equal(normalizeSoundscapeSettings({ mode: 'music' }).mode, 'off', 'music only was silence without the recording');
+assert.ok(!('music' in SOUNDSCAPE_ASSETS), 'no recording without a licence ships with the site');
 
 assert.ok(publishedHomeSceneKeys.includes('audio'), 'audio must be in the publish whitelist');
-const publishedAudibleModes = new Set(['music', 'soundscape', 'hybrid']);
+// A known mode, not a particular one: a silent site is the author's choice,
+// and the site deploys only after these checks.
 assert.ok(
-  publishedAudibleModes.has(publishedHomeSceneSettings.audio.mode),
-  'published audio must use one of the supported audible composition modes',
+  SOUNDSCAPE_MODES.includes(normalizeSoundscapeSettings(publishedHomeSceneSettings.audio).mode),
+  'published audio must use a supported mode',
 );
 assert.ok(publishedHomeSceneSettings.audio.tracks.water, 'published soundscape must include tracks');
 assert.ok(

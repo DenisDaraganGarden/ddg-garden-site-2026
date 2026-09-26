@@ -1,5 +1,5 @@
 {
-  "collected": "2026-09-26T05:24:54.741Z",
+  "collected": "2026-09-26T13:00:04.338Z",
   "rows": [
     {
       "key": "cameraFov",
@@ -2246,6 +2246,26 @@
       "step": 0.05
     },
     {
+      "key": "plantingBeds[].cover.plants.leaf",
+      "group": "greenery",
+      "node": "planting",
+      "label": "Копытник в ведомости",
+      "kind": "список",
+      "options": [
+        ""
+      ]
+    },
+    {
+      "key": "plantingBeds[].cover.plants.thyme",
+      "group": "greenery",
+      "node": "planting",
+      "label": "Тимьян в ведомости",
+      "kind": "список",
+      "options": [
+        ""
+      ]
+    },
+    {
       "key": "plantingVines",
       "group": "greenery",
       "node": "planting",
@@ -2945,6 +2965,27 @@
       "node": "topiary",
       "label": "Стриженая зелень",
       "kind": "выключатель"
+    },
+    {
+      "key": "topiaryObjects[].plant",
+      "group": "greenery",
+      "node": "topiary",
+      "label": "Растение изгороди",
+      "kind": "список",
+      "options": [
+        ""
+      ]
+    },
+    {
+      "key": "topiaryObjects[].perMetre",
+      "group": "greenery",
+      "node": "topiary",
+      "label": "Растений на п.м.",
+      "kind": "число",
+      "min": 0,
+      "max": 12,
+      "step": 0.5,
+      "unit": " шт/п.м."
     },
     {
       "key": "topiaryObjects[].width",
@@ -6864,9 +6905,7 @@
       "kind": "список",
       "options": [
         "off",
-        "music",
-        "soundscape",
-        "hybrid"
+        "soundscape"
       ]
     },
     {
@@ -6874,16 +6913,6 @@
       "group": "audio",
       "node": "audioMixer",
       "label": "Master",
-      "kind": "число",
-      "min": 0,
-      "max": 1,
-      "step": 0.01
-    },
-    {
-      "key": "audio.musicGain",
-      "group": "audio",
-      "node": "audioMixer",
-      "label": "Музыка",
       "kind": "число",
       "min": 0,
       "max": 1,

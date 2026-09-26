@@ -1,9 +1,9 @@
 name: Checks
 
 # The browser smoke test lives here rather than in the deploy workflow on
-# purpose: it drives a real Chromium over a real WebGL scene, and a flaky run
-# must never be able to hold the published site hostage. Deploy keeps the fast,
-# deterministic gates (lint, build, bundle) and this runs everything.
+# purpose: it drives a real Chromium over a real WebGL scene for twenty minutes,
+# and that must not hold up the published site. Deploy keeps the fast,
+# deterministic gates (lint, build, check:fast) and this runs everything.
 
 on:
   push:
@@ -17,7 +17,7 @@ concurrency:
 jobs:
   checks:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 20
 
     steps:
       - name: Checkout
@@ -38,17 +38,36 @@ jobs:
       - name: Build site
         run: npm run build
 
-      - name: Check bundle
-        run: npm run check:bundle
+      # Every check:* of package.json that needs no browser (scripts/check-fast.mjs):
+      # about 40 checks in a minute and a half; check:bundle reads the build above.
+      - name: Fast checks
+        run: npm run check:fast
 
-      - name: Check the sky model
-        run: npm run check:sky
+  # The smoke test renders every scene in software WebGL on the runner: a whole
+  # run is about 40 minutes there, so its two phases run as parallel jobs of
+  # about 15 and 25 minutes. Each stops itself after 35 (scripts/smoke-test.mjs);
+  # the job limit is the backstop above that.
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        phase: [scene, stability]
+    name: smoke (${{ matrix.phase }})
 
-      - name: Check GPU resource lifetime and shadow coverage
-        run: npm run check:render-resources
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Check path-traced snapshots and ownership
-        run: npm run check:path-trace
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
 
       - name: Install Chromium for Playwright
         run: npx playwright install --with-deps chromium
@@ -56,3 +75,5 @@ jobs:
       # The smoke test starts its own Vite server, so it needs no built output.
       - name: Smoke test
         run: npm run smoke
+        env:
+          SMOKE_PHASE: ${{ matrix.phase }}

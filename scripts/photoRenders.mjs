@@ -5,6 +5,7 @@ import sharp from 'sharp';
 import { HOME, isValidId } from './projectStore.mjs';
 import { generateImages, requestQuality } from './materials.mjs';
 import { photoDimensions, photoPrompt, PHOTO_MODEL, isVegetationPhotoMaterial } from '../src/photo-render/prompt.js';
+import { trustedLocalRequest } from './localGuard.mjs';
 
 export const PHOTO_DIR = path.join(HOME, 'library', 'renders');
 const JOB_ID = /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/;
@@ -131,15 +132,10 @@ export async function startPhotoRender(body, { generate = generateImages } = {})
 const send = (response, code, payload) => {
   response.statusCode = code; response.setHeader('Content-Type', 'application/json; charset=utf-8'); response.setHeader('Cache-Control', 'no-store'); response.end(JSON.stringify(payload));
 };
-// Same-origin loopback only: this endpoint spends the already configured key.
+// Same-origin loopback only (the shared guard, localGuard.mjs): this endpoint
+// spends the already configured key, and takes nothing but GET and JSON POST.
 export function trustedPhotoRequest(request) {
-  if (!['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(request.socket.remoteAddress)) return false;
-  const host = request.headers.host;
-  try {
-    if (!['localhost', '127.0.0.1', '[::1]'].includes(new URL(`http://${host}`).hostname)) return false;
-    if (request.headers.origin && new URL(request.headers.origin).host !== host) return false;
-  } catch { return false; }
-  if (request.headers['sec-fetch-site'] === 'cross-site') return false;
+  if (!trustedLocalRequest(request)) return false;
   return request.method === 'GET' || (request.method === 'POST' && String(request.headers['content-type'] ?? '').split(';')[0] === 'application/json');
 }
 

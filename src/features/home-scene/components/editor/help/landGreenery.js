@@ -128,6 +128,8 @@ export default {
   'topiaryObjects[].z': ['Положение формы по оси Z, м: плюс — к югу, минус — к северу.', 'Position of the shape along Z, m: plus is south, minus is north.'],
   'topiaryObjects[].baseY': ['На какой высоте стоит низ формы, м. Подгоните под землю, если форма висит в воздухе или ушла в грунт.', 'Height of the bottom of the shape, m. Match it to the ground if the shape floats or sinks into it.'],
   'topiaryObjects[].rotation': ['Поворот формы вокруг вертикали, градусы.', 'Turns the shape around the vertical, degrees.'],
+  'topiaryObjects[].plant': ['Какое растение библиотеки сажают в изгородь. С нормой на погонный метр оно встаёт в ведомость штуками.', 'Which library plant the hedge is planted with. With a per-metre norm it enters the schedule as a count.'],
+  'topiaryObjects[].perMetre': ['Сколько растений на погонный метр изгороди — по рядам и шагу посадки. К заказу: длина × норма + 5 %. Ноль — не задано.', 'Plants per metre of hedge, by rows and spacing. To order: length × this + 5 %. Zero means not set.'],
   'topiaryObjects[].scale': ['Общий масштаб формы: сразу увеличивает длину, толщину, высоту и веточки.', 'Overall scale of the shape: enlarges length, thickness, height and sprigs at once.'],
 
   // Кустарники

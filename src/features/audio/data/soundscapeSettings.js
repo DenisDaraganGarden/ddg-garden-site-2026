@@ -1,11 +1,13 @@
-export const SOUNDSCAPE_MODES = Object.freeze(['off', 'music', 'soundscape', 'hybrid']);
+export const SOUNDSCAPE_MODES = Object.freeze(['off', 'soundscape']);
+// Режимы с музыкой сняты вместе с записью без лицензии (2026-09-26):
+// «музыка + среда» становится средой, «только музыка» — тишиной, как и звучала бы.
+const LEGACY_MODES = Object.freeze({ hybrid: 'soundscape', music: 'off' });
 
 export const DEFAULT_SOUNDSCAPE_SETTINGS = Object.freeze({
   version: 1,
   enabled: true,
   mode: 'soundscape',
   masterGain: 0.72,
-  musicGain: 0.36,
   ambienceGain: 0.78,
   spatialGain: 0.92,
   weatherGain: 0.72,
@@ -98,9 +100,8 @@ export function normalizeSoundscapeSettings(value = {}) {
   return {
     version: 1,
     enabled: pickBoolean(source.enabled, defaults.enabled),
-    mode: SOUNDSCAPE_MODES.includes(source.mode) ? source.mode : defaults.mode,
+    mode: SOUNDSCAPE_MODES.includes(source.mode) ? source.mode : (LEGACY_MODES[source.mode] ?? defaults.mode),
     masterGain: clamp(source.masterGain, 0, 1, defaults.masterGain),
-    musicGain: clamp(source.musicGain, 0, 1, defaults.musicGain),
     ambienceGain: clamp(source.ambienceGain, 0, 1, defaults.ambienceGain),
     spatialGain: clamp(source.spatialGain, 0, 1, defaults.spatialGain),
     weatherGain: clamp(source.weatherGain, 0, 1, defaults.weatherGain),

@@ -199,6 +199,22 @@ export function normalizeWorkCameras(raw, fallbackScene = {}, normalizeSnapshot)
   }, []);
 }
 
+// Every settings key this code knows (the settings layer registers them, see
+// preserveUnknown.js). A key outside the set came from a newer engine: the
+// snapshot keeps it, so an editor on older code does not strip what a newer
+// one stored per camera. Unregistered (pure tests), snapshots keep only
+// their keys, as before.
+let knownSceneKeysSource = null;
+let knownSceneKeys = null;
+export function registerKnownSceneKeys(source) {
+  knownSceneKeysSource = source;
+  knownSceneKeys = null;
+}
+const readKnownSceneKeys = () => {
+  if (!knownSceneKeys && typeof knownSceneKeysSource === 'function') knownSceneKeys = new Set(knownSceneKeysSource());
+  return knownSceneKeys;
+};
+
 /**
  * Copies only scene keys into a snapshot. Metadata that controls the camera
  * catalogue is deliberately excluded, preventing nested catalogues.
@@ -207,16 +223,23 @@ export function createSceneSnapshot(settings, keys = []) {
   const source = isRecord(settings) ? settings : {};
   const snapshotKeys = Array.isArray(keys) ? keys : [];
 
-  return snapshotKeys.reduce((snapshot, key) => {
+  const snapshot = snapshotKeys.reduce((result, key) => {
     if (
       typeof key === 'string'
       && !snapshotExcludedKeySet.has(key)
       && Object.prototype.hasOwnProperty.call(source, key)
     ) {
-      snapshot[key] = cloneValue(source[key]);
+      result[key] = cloneValue(source[key]);
     }
-    return snapshot;
+    return result;
   }, {});
+  const known = readKnownSceneKeys();
+  if (known) {
+    for (const key of Object.keys(source)) {
+      if (!known.has(key) && !snapshotExcludedKeySet.has(key) && !(key in snapshot)) snapshot[key] = cloneValue(source[key]);
+    }
+  }
+  return snapshot;
 }
 
 /**

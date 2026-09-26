@@ -1,5 +1,6 @@
 // Локальное приложение запускает живой чекаут: обновления движка не требуют
 // копировать модели и проекты в .app. Этот файл устанавливается вместе с JSON.
+// Чекаут — стабильная копия движка (~/Ouroboros/engine, scripts/engineCopy.mjs).
 const fs = require('node:fs');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
@@ -8,7 +9,8 @@ const { sourceRoot } = require('./launcher.json');
 
 function failed(error) {
   dialog.showErrorBox('OUROBOROS не запустился',
-    `Не удалось открыть движок из папки:\n${sourceRoot}\n\n${error.message}`);
+    `Не удалось открыть движок из папки:\n${sourceRoot}\n\n${error.message}\n\n`
+    + 'Обновить копию движка: npm run engine:update');
   app.exit(1);
 }
 

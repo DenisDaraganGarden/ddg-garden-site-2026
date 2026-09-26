@@ -33,8 +33,10 @@ import {
   normalizeSceneCameras,
   normalizeSlideshow,
   normalizeWorkCameras,
+  registerKnownSceneKeys,
   SCENE_CAMERA_SNAPSHOT_EXCLUDED_KEYS,
 } from '../lib/sceneCameras';
+import { preserveUnknownFields } from '../lib/preserveUnknown.js';
 import {
   DEFAULT_SOUNDSCAPE_SETTINGS,
   normalizeSoundscapeSettings,
@@ -555,6 +557,27 @@ export const getBaseHomeSceneSettings = () => ({
   editorPostProcessing: false,
 });
 
+// Старые ключи, которые нормализатор сам переводит в новые: их значения уже
+// в новых ключах, в сохранённую сцену они не возвращаются. Любой другой ключ,
+// незнакомый этому коду, пришёл от новой версии движка и сохраняется
+// (preserveUnknown.js). Новая миграция старого ключа — строка сюда.
+export const LEGACY_HOME_SCENE_INPUT_KEYS = Object.freeze([
+  'filmGrainEnabled', 'filmGrainIntensity', 'filmGrainSpeed',
+  'lightAngle', 'lightColor', 'lightHeight', 'lightIntensity',
+  'planeMeshDensity', 'planeRadius', 'planeTrailLength', 'planeTrailPersistence', 'planeTrailSpan',
+  'seaSprayMist',
+]);
+// Каталог камер собирается отдельно и по своим правилам.
+const CAMERA_SYSTEM_KEYS = Object.freeze(['sceneCameras', 'slideshow', 'activeCameraId', 'workCameras', 'activeWorkCameraId', 'editorLayoutKey']);
+// Всё, что этот код знает: заводские ключи, каталог камер и старые ключи
+// миграций. Остальное снимок камеры сохраняет (sceneCameras.js). Считается
+// при первом снимке, а не при загрузке модуля.
+registerKnownSceneKeys(() => [
+  ...Object.keys(getBaseHomeSceneSettings()),
+  ...CAMERA_SYSTEM_KEYS,
+  ...LEGACY_HOME_SCENE_INPUT_KEYS,
+]);
+
 const normalizeLegacySettings = (savedSettings, defaults) => {
   const legacy = {};
 
@@ -774,7 +797,7 @@ const normalizeHomeSceneSettings = (savedSettings = {}, includeCameraSystem = tr
     desktop: resolveBucket(incomingLayouts.desktop, legacyDesktopLayout),
   };
 
-  const normalizedScene = {
+  const knownScene = {
     ...normalizeSeaSettings(merged),
     waterExtent: clampFloat(merged.waterExtent, 12, 200, defaults.waterExtent),
     farWaterBlendWidth: clampFloat(merged.farWaterBlendWidth, 0.4, 8, defaults.farWaterBlendWidth),
@@ -1260,6 +1283,11 @@ const normalizeHomeSceneSettings = (savedSettings = {}, includeCameraSystem = tr
     editorPostProcessing: pickBoolean(merged.editorPostProcessing, defaults.editorPostProcessing),
   };
 
+  // What this code does not know stays as it came (preserveUnknown.js).
+  const normalizedScene = preserveUnknownFields(savedSettings, knownScene, {
+    dropped: [...LEGACY_HOME_SCENE_INPUT_KEYS, ...CAMERA_SYSTEM_KEYS],
+  });
+
   if (!includeCameraSystem) {
     return normalizedScene;
   }
@@ -1328,9 +1356,16 @@ export const sanitizeHomeSceneSettingsForPublish = (settings = {}) => {
   // must not become the site's root scene, including before its first cut.
   const firstCamera = normalizedSettings.sceneCameras[0];
   const publishedSettings = applySceneSnapshot(normalizedSettings, firstCamera.scene);
+  // The site gets only what this code knows: keys kept for a newer engine
+  // (preserveUnknown.js) stay in drafts and projects, not in camera scenes on the site.
+  const siteCameraKeys = new Set(HOME_SCENE_CAMERA_SNAPSHOT_KEYS);
+  const sceneCameras = publishedSettings.sceneCameras.map((camera) => ({
+    ...camera,
+    scene: Object.fromEntries(Object.entries(camera.scene).filter(([key]) => siteCameraKeys.has(key))),
+  }));
 
   return publishedHomeSceneKeys.reduce((accumulator, key) => {
-    accumulator[key] = publishedSettings[key];
+    accumulator[key] = key === 'sceneCameras' ? sceneCameras : publishedSettings[key];
     return accumulator;
   }, {});
 };
@@ -1501,6 +1536,25 @@ export const useHomeSceneDraftSettings = (project = null) => {
     },
   }) : null));
 
+  // Проект открыт — версия с диска уходит в его историю (одинаковые подряд
+  // сервер не множит): всё, что будет сделано в этом сеансе, можно откатить.
+  useEffect(() => {
+    if (!autosave) return;
+    projectStore.snapshot(project.id, 'open').catch(() => {
+      // Без снимка работа идёт как раньше; следующий сделает запись после паузы.
+    });
+  }, [autosave, project]);
+
+  // Вернуть версию из истории: сначала на диск уходит то, что на экране (и
+  // попадает в историю), потом сервер ставит выбранную версию, и редактор
+  // берёт её как запись с диска.
+  const restoreProjectVersion = useCallback(async (snapshotId) => {
+    await autosave.flush();
+    const entry = await projectStore.restoreVersion(project.id, snapshotId);
+    autosave.adopt(entry);
+    return entry;
+  }, [autosave, project]);
+
   useEffect(() => {
     if (!autosave || recoveryChecked.current) return;
     recoveryChecked.current = true;
@@ -1609,6 +1663,7 @@ export const useHomeSceneDraftSettings = (project = null) => {
     setSettings,
     externalRevision,
     saveStatus,
+    restoreProjectVersion: autosave ? restoreProjectVersion : null,
   };
 };
 

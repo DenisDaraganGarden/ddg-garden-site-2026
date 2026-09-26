@@ -17,6 +17,8 @@ import { surroundingsPlugin } from './scripts/surroundings.mjs';
 import { materialsPlugin, trusted } from './scripts/materials.mjs';
 import { photoRendersPlugin } from './scripts/photoRenders.mjs';
 import { referenceLibraryPlugin } from './scripts/referenceLibrary.mjs';
+import { localGuardPlugin } from './scripts/localGuard.mjs';
+import { exportProjectArchive, importProjectArchive } from './scripts/projectArchive.mjs';
 import { poseTuningModule } from './src/components/surfboard/poseTuning.js';
 
 const projectRoot = process.cwd();
@@ -190,6 +192,16 @@ function riderPosePlugin() {
 // второго канала не заводится. Содержимое присылает редактор: и заводские
 // значения, и значения детали живут в браузерном графе импортов, а в конфиге
 // эти модули не резолвятся.
+// Запись сохранена более новой версией движка (STORE_SCHEMA, projectStore.mjs):
+// эта копия поверх не пишет, правки остаются в журнале восстановления редактора.
+function sendNewer(response, id) {
+  sendJson(response, 426, {
+    ok: false,
+    newer: true,
+    message: `«${id}» сохранён более новой версией движка. Обновите эту копию (npm run engine:update) — правки пока держит журнал восстановления.`,
+  });
+}
+
 function engineStorePlugin() {
   const attach = (middlewares, route, store) => {
     middlewares.use(route, async (request, response, next) => {
@@ -205,7 +217,9 @@ function engineStorePlugin() {
             sendJson(response, 403, { ok: false, message: 'Запись разрешена только из этого движка.' });
             return;
           }
-          if (request.method !== 'DELETE' && part !== 'models' && !/^application\/json(?:\s*;|$)/i.test(request.headers['content-type'] ?? '')) {
+          const archiveUpload = route === '/__projects' && request.method === 'POST' && !id && /[?&]archive(?:[=&]|$)/.test(request.url)
+            && /^application\/zip(?:\s*;|$)/i.test(request.headers['content-type'] ?? '');
+          if (request.method !== 'DELETE' && part !== 'models' && !archiveUpload && !/^application\/json(?:\s*;|$)/i.test(request.headers['content-type'] ?? '')) {
             sendJson(response, 415, { ok: false, message: 'Ожидается JSON.' });
             return;
           }
@@ -312,13 +326,60 @@ function engineStorePlugin() {
           }
         }
 
+        // История записи (projectStore.mjs): GET /__projects/<id>/history —
+        // снимки, новые сверху; POST …/history {reason} — снимок сейчас;
+        // POST …/history/<снимок> {action: 'restore'} — вернуть эту версию,
+        // нынешняя перед этим уходит в историю.
+        if (part === 'history' && isValidId(id) && store.history) {
+          if (request.method === 'GET' && !file) {
+            const snapshots = await store.history(id);
+            sendJson(response, snapshots ? 200 : 404, snapshots ? { ok: true, snapshots } : { ok: false, message: `Запись «${id}» не найдена.` });
+            return;
+          }
+          if (request.method === 'POST') {
+            const body = await readJsonBody(request);
+            if (!file) {
+              const snapshot = await store.snapshot(id, body?.reason);
+              sendJson(response, snapshot ? 200 : 404, snapshot ? { ok: true, snapshot } : { ok: false, message: `Запись «${id}» не найдена.` });
+              return;
+            }
+            if (body?.action === 'restore') {
+              const entry = await store.restore(id, file);
+              if (entry?.newer) { sendNewer(response, id); return; }
+              sendJson(response, entry ? 200 : 404, entry ? { ok: true, entry } : { ok: false, message: 'Такого снимка нет.' });
+              return;
+            }
+          }
+        }
+
+        // Архив проекта одним файлом (scripts/projectArchive.mjs): GET
+        // /__projects/<id>/archive — скачать .zip, POST /__projects?archive —
+        // загрузить его как новый проект.
+        if (route === '/__projects' && part === 'archive' && request.method === 'GET' && isValidId(id)) {
+          const archive = await exportProjectArchive(id);
+          if (!archive) { sendJson(response, 404, { ok: false, message: `Запись «${id}» не найдена.` }); return; }
+          response.statusCode = 200;
+          response.setHeader('Content-Type', 'application/zip');
+          response.setHeader('Content-Disposition', `attachment; filename="${archive.name}"`);
+          response.setHeader('Cache-Control', 'no-store');
+          response.end(Buffer.from(archive.bytes));
+          return;
+        }
+        if (route === '/__projects' && request.method === 'POST' && !id && /[?&]archive(?:[=&]|$)/.test(request.url)) {
+          const result = await importProjectArchive(await readRawBody(request, 2 * 2 ** 30));
+          sendJson(response, 200, { ok: true, ...result });
+          return;
+        }
+
         // Общие правки — только самой записи (/__projects/<id>): тело, пришедшее
         // на неизвестный подадрес, в запись не вливается и её не удаляет.
         if (part !== undefined) { next(); return; }
 
         if (request.method === 'GET') {
           if (!id) {
-            sendJson(response, 200, { ok: true, entries: await store.list() });
+            // ?trash — корзина: удалённые записи, которые можно вернуть.
+            const trash = /[?&]trash(?:[=&]|$)/.test(request.url);
+            sendJson(response, 200, { ok: true, entries: trash ? await store.listTrash() : await store.list() });
             return;
           }
           const entry = await store.read(id);
@@ -329,12 +390,20 @@ function engineStorePlugin() {
         }
 
         if (request.method === 'POST' && !id) {
-          sendJson(response, 200, { ok: true, entry: await store.create(await readJsonBody(request)) });
+          const body = await readJsonBody(request);
+          // {restoreTrash: <место в корзине>} — вернуть удалённую запись.
+          if (body?.restoreTrash !== undefined) {
+            const entry = await store.restoreFromTrash(body.restoreTrash);
+            sendJson(response, entry ? 200 : 404, entry ? { ok: true, entry } : { ok: false, message: 'В корзине этого нет.' });
+            return;
+          }
+          sendJson(response, 200, { ok: true, entry: await store.create(body) });
           return;
         }
 
         if (request.method === 'PUT' && isValidId(id)) {
           const entry = await store.save(id, await readJsonBody(request));
+          if (entry?.newer) { sendNewer(response, id); return; }
           if (entry?.conflict) {
             sendJson(response, 409, { ok: false, conflict: true, message: `Запись «${id}» изменили снаружи.`, entry: entry.conflict });
             return;
@@ -564,7 +633,8 @@ const manualChunks = (id) => {
 };
 
 export default defineConfig({
-  plugins: [react(), homeScenePublishPlugin(), portfolioPreviewPublishPlugin(), engineStorePlugin(), riderPosePlugin(), surroundingsPlugin(), materialsPlugin(), photoRendersPlugin(), referenceLibraryPlugin()],
+  // The guard stands first: every /__ route below answers only this computer.
+  plugins: [localGuardPlugin(), react(), homeScenePublishPlugin(), portfolioPreviewPublishPlugin(), engineStorePlugin(), riderPosePlugin(), surroundingsPlugin(), materialsPlugin(), photoRendersPlugin(), referenceLibraryPlugin()],
   resolve: {
     alias: [
       { find: /^three\/webgpu$/, replacement: fileURLToPath(new URL('./src/lib/threeWebgpuStub.js', import.meta.url)) },

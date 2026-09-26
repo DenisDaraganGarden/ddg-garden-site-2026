@@ -17,6 +17,12 @@ concurrency:
 
 jobs:
   build:
+    # main is the workshop: a merge does not touch the site. It goes out when
+    # «На сайт» pushes its release commit (scripts/deployScene.mjs, same words)
+    # or by hand: Actions → Deploy GitHub Pages → Run workflow.
+    if: >-
+      github.event_name == 'workflow_dispatch'
+      || startsWith(github.event.head_commit.message, 'chore(home): publish authored scene')
     runs-on: ubuntu-latest
 
     steps:
@@ -32,16 +38,19 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # Fast, deterministic gates only. The browser smoke test runs in the
-      # Checks workflow: a flaky WebGL run must not block publishing the site.
+      # Fast, deterministic gates only: the site goes out after lint, the build
+      # and every check that needs no browser (check:fast, bundle included).
+      # They test the engine, not the author's values, so any scene Denis
+      # publishes passes. The browser smoke test stays in the Checks workflow:
+      # twenty minutes of software WebGL must not hold up «На сайт».
       - name: Lint
         run: npm run lint
 
       - name: Build site
         run: npm run build
 
-      - name: Check bundle
-        run: npm run check:bundle
+      - name: Fast checks
+        run: npm run check:fast
 
       - name: Configure Pages
         uses: actions/configure-pages@v5

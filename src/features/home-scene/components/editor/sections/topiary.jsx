@@ -1,7 +1,9 @@
 import React from 'react';
 import { useLanguage } from '../../../../../i18n/useLanguage';
 import { CheckboxControl, RangeControl, SectionHeading, SelectControl } from '../../HomeEditorControls';
-import { TOPIARY_DEFAULT, TOPIARY_LIMITS, TOPIARY_RANGES } from '../../../../../topiary/settings.js';
+import { HEDGE_PER_METRE, TOPIARY_DEFAULT, TOPIARY_LIMITS, TOPIARY_RANGES } from '../../../../../topiary/settings.js';
+import { plantName, usePlantLibrary } from '../../../../../planting/plantLibrary.js';
+import { byCategory } from '../../../../../planting/insights.js';
 import { useFocusControlScope } from '../focus/FocusControlsContext';
 
 const controls=[
@@ -14,6 +16,7 @@ export function TopiarySection({settings,handleSettingChange,topiaryEditor,layou
     const {language}=useLanguage(),ru=language==='ru',scope=useFocusControlScope();
     const objects=settings.topiaryObjects??[], selected=objects.find(o=>o.id===topiaryEditor?.selectedId);
     const object=selected??TOPIARY_DEFAULT;
+    const {plants:library}=usePlantLibrary();
     return <>
         <div className="home-editor-tabs">
             <button type="button" className={`home-editor-tab ${topiaryEditor?.drawing?'is-active':''}`} disabled={objects.length>=TOPIARY_LIMITS.objects&&!topiaryEditor?.drawing} onClick={()=>topiaryEditor?.drawing?topiaryEditor.stop():topiaryEditor?.begin()} data-testid="topiary-draw">{topiaryEditor?.drawing?(ru?'Завершить · Esc':'Finish · Esc'):(ru?'Рисовать · Shift+B':'Draw · Shift+B')}</button>
@@ -35,6 +38,11 @@ export function TopiarySection({settings,handleSettingChange,topiaryEditor,layou
             ]} onChange={event=>selected&&topiaryEditor.update(selected.id,{fenceStyle:event.target.value})}/>
             <CheckboxControl controlId="topiaryObjects[].fenceSmooth" label={ru?'Плавный сплайн':'Smooth spline'} checked={object.fenceSmooth} onChange={event=>selected&&topiaryEditor.update(selected.id,{fenceSmooth:event.target.checked})}/>
             <CheckboxControl controlId="topiaryObjects[].foliageVisible" label={ru?'Стриженая зелень':'Clipped greenery'} checked={object.foliageVisible} onChange={event=>selected&&topiaryEditor.update(selected.id,{foliageVisible:event.target.checked})}/>
+            {object.foliageVisible||scope?.catalogOnly?<>
+                <SectionHeading label={ru?'В ведомость':'For the schedule'} subtle/>
+                <SelectControl controlId="topiaryObjects[].plant" label={ru?'Растение изгороди':'Hedge plant'} value={object.plant??''} options={[{value:'',label:ru?'Не выбрано':'None'},...[...library.values()].sort(byCategory).map(p=>({value:p.id,label:plantName(p,ru)}))]} onChange={event=>selected&&topiaryEditor.update(selected.id,{plant:event.target.value||undefined})}/>
+                <RangeControl controlId="topiaryObjects[].perMetre" testId="topiary-perMetre" label={ru?'Растений на п.м.':'Plants per metre'} value={object.perMetre??0} min={HEDGE_PER_METRE[0]} max={HEDGE_PER_METRE[1]} step={HEDGE_PER_METRE[2]} unit={ru?' шт/п.м.':' /m'} formatValue={v=>v>0?Number(v.toFixed(1)):(ru?'не задано':'not set')} onChange={event=>selected&&topiaryEditor.update(selected.id,{perMetre:Number(event.target.value)})}/>
+            </>:null}
         </>:null}
         {selected||scope?.catalogOnly?controls.filter(([key])=>object.foliageVisible||scope?.catalogOnly||!['width','density','leafSize','roundness','roughness','translucency'].includes(key)).map(([key,r,e,unit])=>{const[min,max,step]=TOPIARY_RANGES[key];return <RangeControl key={key} controlId={`topiaryObjects[].${key}`} testId={`topiary-${key}`} label={ru?r:e} value={object[key]} min={min} max={max} step={step} unit={unit} formatValue={v=>Number(v.toFixed(2))} onChange={event=>selected&&topiaryEditor.update(selected.id,{[key]:Number(event.target.value)})}/>;}):null}
         {selected?<div className="home-editor-tabs"><button type="button" className="home-editor-tab" onClick={()=>topiaryEditor.remove(selected.id)} data-testid="topiary-delete">{ru?'Удалить форму':'Delete shape'}</button></div>:null}

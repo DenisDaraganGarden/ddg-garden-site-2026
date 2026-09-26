@@ -42,6 +42,8 @@ const TABS = [
     { id: 'game', ru: 'Игры', en: 'Games', lead: ['Сцены движка на заводском берегу: вода, свет, доска, живность.', 'Engine scenes on the factory coast: water, light, the board, creatures.'] },
     { id: 'site', ru: 'Сайт', en: 'Website', lead: ['Заглавная страница сайта и её сохранённые сцены.', 'The website home page and its saved scenes.'] },
     { id: 'design', ru: 'Ландшафт', en: 'Landscape', lead: ['Участки: модель SketchUp, цветники и деревья, план в шапках, ведомость.', 'Garden plots: the SketchUp model, beds and trees, the plan in caps, the schedule.'] },
+    // Корзина (scripts/projectStore.mjs): удалённое лежит там целиком и возвращается щелчком.
+    { id: 'trash', ru: 'Корзина', en: 'Trash', lead: ['Удалённые проекты — целиком, с моделями, ТЗ и историей. Щёлкните, чтобы вернуть.', 'Deleted projects, whole: models, brief and history. Click one to bring it back.'] },
 ];
 const tabOf = (project) => (project.kind === 'design' ? 'design' : project.kind === 'site' ? 'site' : 'game');
 const TAB_KEY = 'ddg_engine_tab_v1';
@@ -91,7 +93,9 @@ export default function Engine() {
     const { language, setLanguage } = useLanguage();
     const tr = (ru, en) => (language === 'ru' ? ru : en);
     const [state, setState] = useState({ status: 'loading', projects: [], message: '' });
+    const [trash, setTrash] = useState([]);
     const [editing, setEditing] = useState(null);
+    const archiveInput = useRef(null);
     const [menu, setMenu] = useState(null);
     const [sitePreview] = useState(siteThumbnail);
     const [tab, setTab] = useState(readTab);
@@ -119,6 +123,7 @@ export default function Engine() {
     const reload = useCallback(async () => {
         try {
             setState({ status: 'ready', projects: await listProjects(), message: '' });
+            setTrash(await projectStore.trash().catch(() => []));
         } catch (error) {
             // Собранный сайт не держит хранилище проектов — это не поломка, а
             // ответ на вопрос «где я»: движок живёт в приложении.
@@ -167,13 +172,49 @@ export default function Engine() {
 
     const remove = async (project) => {
         const asked = tr(
-            `Удалить проект «${project.name}»? Файл со сценой будет стёрт.`,
-            `Delete project “${project.name}”? Its scene file will be erased.`,
+            `Удалить проект «${project.name}»? Он уйдёт в корзину целиком — с моделями, ТЗ и историей; вернуть можно во вкладке «Корзина».`,
+            `Delete project “${project.name}”? It goes to the trash whole — models, brief and history; bring it back from the Trash tab.`,
         );
         if (!window.confirm(asked)) return;
         try {
             await removeProject(project.id);
             await reload();
+        } catch (error) { fail(error); }
+    };
+
+    // Архив проекта одним файлом (scripts/projectArchive.mjs): сцена, папка
+    // проекта и использованные записи библиотек. Скачивается как обычный файл.
+    const saveArchive = (project) => {
+        const link = document.createElement('a');
+        link.href = projectStore.archiveUrl(project.id);
+        link.download = '';
+        document.body.append(link);
+        link.click();
+        link.remove();
+    };
+
+    const openArchive = async (event) => {
+        const [file] = event.target.files ?? [];
+        event.target.value = '';
+        if (!file) return;
+        try {
+            const { entry, added, kept } = await projectStore.importArchive(file);
+            await reload();
+            setTab(tabOf(entry));
+            const count = (group) => Object.values(group).reduce((total, items) => total + items.length, 0);
+            setState((previous) => ({ ...previous, message: tr(
+                `Проект «${entry.name}» загружен из архива. Записей библиотек добавлено: ${count(added)}, свои оставлены: ${count(kept)}.`,
+                `Project “${entry.name}” loaded from the archive. Library records added: ${count(added)}, kept as they were: ${count(kept)}.`,
+            ) }));
+        } catch (error) { fail(error); }
+    };
+
+    const restoreTrashed = async (item) => {
+        if (!window.confirm(tr(`Вернуть проект «${item.name}»?`, `Bring back project “${item.name}”?`))) return;
+        try {
+            const entry = await projectStore.restoreFromTrash(item.trashId);
+            await reload();
+            setTab(tabOf(entry));
         } catch (error) { fail(error); }
     };
 
@@ -188,6 +229,7 @@ export default function Engine() {
         { label: tr('Открыть', 'Open'), icon: 'right', onSelect: () => openEditor(project.id) },
         { label: tr('Переименовать', 'Rename'), icon: 'sliders', onSelect: () => setEditing({ id: project.id, name: project.name }) },
         { label: tr('Сделать копию', 'Duplicate'), icon: 'folder', onSelect: () => duplicate(project) },
+        { label: tr('Сохранить архив', 'Save archive'), icon: 'box', onSelect: () => saveArchive(project) },
         { label: tr('На заглавную сайта', 'To the site home page'), icon: 'upload', onSelect: () => toHomePage(project) },
         project.kind === 'design' ? null : project.kind === 'site'
             ? { label: tr('Во вкладку «Игры»', 'Move to “Games”'), icon: 'grid', onSelect: () => moveTo(project, null) }
@@ -212,6 +254,10 @@ export default function Engine() {
                 <span>OUROBOROS<small>ENGINE {version}</small></span>
             </div>
             <span className="engine-spacer" />
+            <input ref={archiveInput} type="file" accept=".zip,application/zip" hidden onChange={openArchive} data-testid="engine-archive-input" />
+            <button type="button" className="engine-ghost" onClick={() => archiveInput.current?.click()} disabled={state.status !== 'ready'} data-testid="engine-open-archive">
+                <FocusIcon name="folder" />{tr('Открыть архив', 'Open archive')}
+            </button>
             <button type="button" className="engine-ghost" onClick={() => { window.location.href = '/asset-lab.html'; }}>
                 <FocusIcon name="grid" />{tr('Лаборатория', 'Asset lab')}
             </button>
@@ -224,7 +270,7 @@ export default function Engine() {
             <h1>{tr('Проекты', 'Projects')}</h1>
             <nav className="engine-tabs" role="tablist" aria-label={tr('Вкладки проектов', 'Project tabs')}>
                 {TABS.map((item) => <button key={item.id} type="button" role="tab" aria-selected={item.id === current} className={item.id === current ? 'is-active' : ''} onClick={() => setTab(item.id)} data-testid={`engine-tab-${item.id}`}>
-                    {tr(item.ru, item.en)}<small>{state.projects.filter((project) => tabOf(project) === item.id).length + (item.id === 'site' ? 1 : 0)}</small>
+                    {tr(item.ru, item.en)}<small>{item.id === 'trash' ? trash.length : state.projects.filter((project) => tabOf(project) === item.id).length + (item.id === 'site' ? 1 : 0)}</small>
                 </button>)}
             </nav>
             <p className="engine-lead">{tr(...TABS.find((item) => item.id === current).lead)}</p>
@@ -263,6 +309,15 @@ export default function Engine() {
                     <span className="engine-card__tag">{tr('сайт', 'site')}</span>
                 </article> : null}
 
+                {current === 'trash' ? trash.map((item) => <article key={item.trashId} className="engine-card" data-testid="engine-trash-card">
+                    <span className="engine-card__preview" aria-hidden="true" />
+                    <button type="button" className="engine-card__open" onClick={() => restoreTrashed(item)}>
+                        <span className="engine-card__name">{item.name}</span>
+                        <small>{tr('удалён', 'deleted')} {formatDate(item.deleted, language)} · {item.id}</small>
+                    </button>
+                    <span className="engine-card__tag">{tr('вернуть', 'restore')}</span>
+                </article>) : null}
+
                 {state.projects.filter((project) => tabOf(project) === current).map((project) => <article
                     key={project.id}
                     className="engine-card"
@@ -282,7 +337,10 @@ export default function Engine() {
                 </article>)}
             </div>
 
-            {state.status === 'ready' && state.projects.length === 0 && !editing
+            {current === 'trash' && state.status === 'ready' && !trash.length
+                ? <p className="engine-note">{tr('Корзина пуста.', 'The trash is empty.')}</p>
+                : null}
+            {current !== 'trash' && state.status === 'ready' && state.projects.length === 0 && !editing
                 ? <p className="engine-note">{tr(
                     'Проектов пока нет. Новый откроется на заводском берегу — том же движке с заводскими числами, не на твоём Азове.',
                     'No projects yet. A new one opens on the factory coast — the same engine with factory numbers, not your Azov.',

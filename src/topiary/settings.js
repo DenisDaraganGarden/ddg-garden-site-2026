@@ -9,6 +9,13 @@ export const TOPIARY_RANGES = Object.freeze({
 });
 export const TOPIARY_DEFAULT = Object.freeze({ width: 1.2, height: 2.4, density: .8, leafSize: .28, roundness: .55, roughness: .73, translucency: .7, baseY: 0, x: 0, z: 0, rotation: 0, scale: 1, foliageVisible: true, fenceStyle: 'none', fenceSmooth: false });
 export const TOPIARY_FENCE_STYLES = Object.freeze(['none', 'mesh-2d', 'mesh-358', 'palisade']);
+// Изгородь в ведомости: растение из библиотеки (plant — id записи) и сколько
+// его сажают на погонный метр (perMetre, шт/п.м.; ряды и шаг — выбор
+// проектировщика, поэтому у изгороди, а не в карточке). Без них — только п.м.
+export const HEDGE_PER_METRE = Object.freeze([0, 12, .5]);
+// Длина линии формы в её системе, до масштаба.
+export const lineLength = (points) => points.slice(1).reduce((sum, [x, z], i) => sum + Math.hypot(x - points[i][0], z - points[i][1]), 0);
+const PLANT = /^[a-z0-9][a-z0-9-]{0,63}$/;
 export const DEFAULT_TOPIARY_SETTINGS = Object.freeze({ topiaryEnabled: true, topiaryObjects: [], topiaryBrushWidth: 1.2, topiaryBrushHeight: 2.4, topiaryPlaneY: 0 });
 const number = (value, fallback, min, max) => Number.isFinite(Number(value)) ? Math.min(max, Math.max(min, Number(value))) : fallback;
 export function normalizeTopiaryObject(value, index = 0) {
@@ -22,6 +29,9 @@ export function normalizeTopiaryObject(value, index = 0) {
     result.foliageVisible = value.foliageVisible !== false;
     result.fenceStyle = TOPIARY_FENCE_STYLES.includes(value.fenceStyle) ? value.fenceStyle : 'none';
     result.fenceSmooth = value.fenceSmooth === true;
+    if (PLANT.test(String(value.plant ?? ''))) result.plant = value.plant;
+    const perMetre = Math.round(number(value.perMetre, 0, HEDGE_PER_METRE[0], HEDGE_PER_METRE[1]) * 2) / 2;
+    if (perMetre > 0) result.perMetre = perMetre;
     return result;
 }
 export function normalizeTopiarySettings(settings = {}) {

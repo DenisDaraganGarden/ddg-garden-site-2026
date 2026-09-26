@@ -7,9 +7,19 @@ export const COVER_PRESETS = Object.freeze({
     flowering: { ru: 'Цветущий · тимьян', en: 'Flowering · thyme', values: { leaf: 0, thyme: .92, moisture: .35, shade: .15 } },
     mixed: { ru: 'Смешанный', en: 'Mixed', values: { leaf: .5, thyme: .25, moisture: .6, shade: .55 } },
 });
+// Какие растения библиотеки стоят за копытником и тимьяном покрова — для
+// ведомости в штуках по их норме шт/м²; мох считается метрами.
+export const COVER_PLANT_PARTS = Object.freeze(['leaf', 'thyme']);
+const PLANT = /^[a-z0-9][a-z0-9-]{0,63}$/;
+function normalizeCoverPlants(value) {
+    const plants = Object.fromEntries(COVER_PLANT_PARTS.filter((part) => PLANT.test(String(value?.[part] ?? ''))).map((part) => [part, value[part]]));
+    return Object.keys(plants).length ? plants : null;
+}
 export function normalizeCover(value = {}) {
     if (!value || typeof value !== 'object') value = {};
     const out = { enabled: value.enabled !== false, climate: ['temperate', 'cold', 'mild'].includes(value.climate) ? value.climate : 'temperate' };
+    const plants = normalizeCoverPlants(value.plants);
+    if (plants) out.plants = plants;
     for (const [key, [min, max]] of Object.entries(COVER_RANGES)) {
         const n = Number(value[key]); out[key] = Math.round(Math.min(max, Math.max(min, Number.isFinite(n) ? n : COVER_DEFAULT[key])) * 1000) / 1000;
     }

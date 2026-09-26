@@ -90,7 +90,7 @@ export class TankerSound {
     const now = this.context.currentTime;
     const track = settings.tracks?.tanker ?? { enabled: true, gain: 0.65 };
     const enabled = userEnabled && settings.enabled !== false && track.enabled !== false
-      && ['soundscape', 'hybrid'].includes(settings.mode ?? 'soundscape');
+      && (settings.mode ?? 'soundscape') === 'soundscape';
     const acoustics = getTankerAcoustics({
       distance, speedKnots, radialVelocity,
       masterGain: settings.masterGain, ambienceGain: settings.ambienceGain,
