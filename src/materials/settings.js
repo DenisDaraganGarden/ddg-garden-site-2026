@@ -20,6 +20,8 @@
 // y?: [от, до] (метры модели), skip?: [начала имён частей], material, tile,
 // normal, roughness }] — первое подходящее правило красит грань своим
 // материалом прямо по граням; запись может быть только из правил.
+import { normalizeSurfaceMapping } from './surfaceMapping.js';
+
 export const MATERIAL_RANGES = Object.freeze({
     tile: [0.05, 50, 0.01], tileY: [0.05, 50, 0.01], rotation: [-180, 180, 1],
     normal: [0, 3, 0.05], roughness: [0, 2, 0.05], ao: [0, 2, 0.05], metalness: [0, 1, 0.01], parallax: [0, 1, 1], parallaxDepth: [0, 60, 0.1], offsetU: [-50, 50, 0.01], offsetV: [-50, 50, 0.01],
@@ -40,6 +42,14 @@ const within = (value, [min, max], fallback) => {
 const surfaceFields = (value) => Object.fromEntries(['tileY', 'rotation', 'ao', 'metalness', 'parallax', 'parallaxDepth', 'offsetU', 'offsetV']
     .filter((key) => value[key] !== undefined && value[key] !== null)
     .map((key) => [key, within(value[key], MATERIAL_RANGES[key], key === 'ao' ? 1 : key === 'tileY' ? 1 : 0)]));
+
+const projectionFields = (value) => {
+    if (value.projection === 'surface') {
+        const mapping = normalizeSurfaceMapping(value.mapping);
+        return mapping ? { projection: 'surface', mapping } : { projection: 'box' };
+    }
+    return ['box', 'slope'].includes(value.projection) ? { projection: value.projection } : {};
+};
 
 export function normalizeGlass(value) {
     if (!value || typeof value !== 'object') return null;
@@ -66,7 +76,7 @@ export function normalizeFaceRule(rule) {
     const skip = (Array.isArray(rule.skip) ? rule.skip : []).map((name) => String(name).slice(0, 80)).filter(Boolean).slice(0, 8);
     return {
         faces, material: rule.material, ...surfaceFields(rule),
-        ...(targets.length ? { targets } : {}), ...(['box', 'slope'].includes(rule.projection) ? { projection: rule.projection } : {}),
+        ...(targets.length ? { targets } : {}), ...projectionFields(rule),
         tile: within(rule.tile, MATERIAL_RANGES.tile, 1), normal: within(rule.normal, MATERIAL_RANGES.normal, 1), roughness: within(rule.roughness, MATERIAL_RANGES.roughness, 1),
         ...(y ? { y } : {}), ...(skip.length ? { skip } : {}),
     };
@@ -81,7 +91,7 @@ export function normalizeMaterialOverride(value) {
         tile: value.tile === null || value.tile === undefined ? null : within(value.tile, MATERIAL_RANGES.tile, 1),
         normal: within(value.normal, MATERIAL_RANGES.normal, 1),
         roughness: within(value.roughness, MATERIAL_RANGES.roughness, 1),
-        ...(['box', 'slope'].includes(value.projection) ? { projection: value.projection } : {}),
+        ...projectionFields(value),
     } : null;
     if (!library && !glass && !faces.length) return null;
     return { ...(library ?? {}), ...(glass ? { glass } : {}), ...(faces.length ? { faces } : {}) };

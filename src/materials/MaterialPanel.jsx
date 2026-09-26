@@ -11,6 +11,7 @@ import ReferencePicker from '../references/ReferencePicker.jsx';
 import MaterialQuickLook from './MaterialQuickLook.jsx';
 import { SURFACES, normalizeSurface, surfacePreset, surfaceSize } from './procedural.js';
 import { paintTargets, targetHasMaterial, targetOverride } from './selection.js';
+import { mappingForSelection, modelSurfaceMappings, mappingKey, patchTargetMappings } from './surfaceMapping.js';
 import './materials.css';
 
 const MaterialPreview = lazy(() => import('./MaterialPreview.jsx'));
@@ -60,7 +61,7 @@ function Knob({ label, value, onChange, range, unit = '' }) {
     </label>;
 }
 
-export default function MaterialPanel({ target, targets = [], scope = 'material', onScope, onActivate, settings, applySettings, onClose }) {
+export default function MaterialPanel({ target, targets = [], reference, scope = 'material', onScope, onActivate, onPickEdge, edgePicking = false, settings, applySettings, onClose }) {
     const { language } = useLanguage();
     const tr = (ru, en) => language === 'ru' ? ru : en;
     const { placedId, materialName = '', material } = target ?? {};
@@ -190,14 +191,42 @@ export default function MaterialPanel({ target, targets = [], scope = 'material'
     }, [addFiles]);
     const setOverride = (next) => {
         if (!canApply) return;
+        onPickEdge?.(null);
         try { applySettings({ modelMaterials: paintTargets(settings.modelMaterials ?? {}, targets, scope, next) }); }
         catch (error) { setStatus({ error: true, text: error.message }); return false; }
         return true;
     };
+    const patchMapping = (patch) => {
+        onPickEdge?.(null);
+        try { applySettings({ modelMaterials: patchTargetMappings(settings.modelMaterials ?? {}, targets, scope, patch) }); }
+        catch (error) { setStatus({ error: true, text: error.message }); }
+    };
+    const alignSurface = (picked = reference ?? target, nearest = false) => {
+        onPickEdge?.(null);
+        if (!picked || targets.some((item) => item.placedId !== picked.placedId)) {
+            setStatus({ error: true, text: tr('Выберите поверхности одной модели.', 'Select surfaces of one model.') }); return;
+        }
+        const root = sketchupModelEntry(picked.placedId)?.root, mapping = mappingForSelection(picked, root, targets, scope, nearest);
+        if (!mapping) { setStatus({ error: true, text: tr('Выберите грань в сцене.', 'Pick a face in the scene.') }); return; }
+        try {
+            const modelMaterials = patchTargetMappings(settings.modelMaterials ?? {}, targets, scope, (value) => ({ projection: 'surface', mapping,
+                tile: value.material === override?.material ? override.tile ?? dimensions[0] : value.tile ?? dimensions[0],
+                tileY: value.material === override?.material ? override.tileY ?? override.tile ?? dimensions[1] : value.tileY ?? value.tile ?? dimensions[1],
+                rotation: 0, offsetU: 0, offsetV: 0 }));
+            const chart = modelSurfaceMappings(root, modelMaterials[picked.placedId]).get(mappingKey(mapping));
+            applySettings({ modelMaterials });
+            setStatus({ text: chart?.seams ? tr('Раскладка соединена. На замкнутых углах остаётся разрез.', 'Mapping joined. Closed corners retain a cut.')
+                : chart?.islands > 1 ? tr(`Раскладка по поверхности · отдельных участков: ${chart.islands}.`, `Surface mapping · separate patches: ${chart.islands}.`)
+                    : tr('Швы соединены через рёбра выбранных граней.', 'Joints continue across the selected face edges.') });
+        } catch (error) { setStatus({ error: true, text: error.message }); }
+    };
     const apply = () => {
         if (!entry || !canApply) return;
         const success = setOverride({ ...(override ?? {}), ...(scope === 'material' ? { faces: undefined } : {}), material: entry.id, tile: entry.tile ?? null, tileY: entry.tileY ?? entry.tile ?? null,
-            projection: entry.surface?.kind === 'standing-seam' ? 'slope' : 'box', rotation: entry.rotation ?? 0, offsetU: 0, offsetV: 0, normal: entry.normal ?? 1, roughness: entry.roughness ?? 1, ao: entry.ao ?? 1, metalness: entry.metalness ?? 0,
+            projection: override?.projection === 'surface' ? 'surface' : entry.surface?.kind === 'standing-seam' ? 'slope' : 'box',
+            rotation: override?.projection === 'surface' ? override.rotation : entry.rotation ?? 0,
+            offsetU: override?.projection === 'surface' ? override.offsetU : 0, offsetV: override?.projection === 'surface' ? override.offsetV : 0,
+            normal: entry.normal ?? 1, roughness: entry.roughness ?? 1, ao: entry.ao ?? 1, metalness: entry.metalness ?? 0,
             parallax: previewEntry.parallax ?? 0, parallaxDepth: previewEntry.parallaxDepth ?? entry.recipe?.depth ?? 5 });
         if (!success) return;
         setStatus({ text: tr('Материал применён. Настройки раскладки — ниже.', 'Material applied. Layout controls are below.') });
@@ -311,7 +340,8 @@ export default function MaterialPanel({ target, targets = [], scope = 'material'
     const [sampleW, sampleH] = materialSize(preview === 'render' ? previewEntry : entry, scale);
     const previewAspect = Math.max(0.25, Math.min(4, sampleW / sampleH));
     const recipeKnob = (key, ru, en, range, unit) => <Knob label={tr(ru, en)} value={recipe[key]} range={range} unit={unit} onChange={(value) => setRecipeValue(key, value)} />;
-    const appliedKnob = (key, ru, en, fallback = 1) => <Knob label={tr(ru, en)} value={override[key] ?? fallback} range={MATERIAL_RANGES[key]} onChange={(value) => setOverride({ ...override, [key]: value })} />;
+    const appliedKnob = (key, ru, en, fallback = 1) => <Knob label={tr(ru, en)} value={override[key] ?? fallback} range={MATERIAL_RANGES[key]} onChange={(value) => ['rotation', 'offsetU', 'offsetV'].includes(key)
+        ? patchMapping(() => ({ [key]: value })) : setOverride({ ...override, [key]: value })} />;
     const surfaceKnob = (key, ru, en, range, unit = '') => <Knob label={tr(ru, en)} value={surface[key]} range={range} unit={unit} onChange={(value) => setSurfaceValue(key, value)} />;
     const proceduralSides = surfaceSize(surface, dimensions);
     const proceduralVisual = <div className="material-panel__render"><Suspense fallback={null}><ProceduralPreview surface={surface} extent={dimensions} sourceUrl={surface.kind === 'tiles' ? sourceUrl : null} parallax={proceduralParallax} resolution={quickLook ? 1024 : 512} onError={onProceduralError} /></Suspense></div>;
@@ -322,6 +352,7 @@ export default function MaterialPanel({ target, targets = [], scope = 'material'
     return <section className="material-panel" aria-label={tr('Материалы', 'Materials')} data-testid="material-panel" data-space-preview
         onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); void addFiles(event.dataTransfer.files); }}
         onKeyDown={(event) => {
+            if ((event.metaKey || event.ctrlKey) && event.code === 'KeyZ' && !event.target.closest('input,textarea,select,[contenteditable=true]')) return;
             if (event.code === 'KeyB' && !event.shiftKey && !event.target.closest('input,textarea,select,[contenteditable=true]')) { event.preventDefault(); onActivate?.(); }
             event.stopPropagation();
             if (event.code === 'Space' && !event.repeat && !pinterest && !event.target.closest('input,textarea,select,[contenteditable=true]') && (entry || tab === 'procedural')) { event.preventDefault(); setQuickLook((value) => !value); }
@@ -449,9 +480,16 @@ export default function MaterialPanel({ target, targets = [], scope = 'material'
                 {override?.material && tab !== 'procedural' ? <details className="material-panel__applied"><summary>{tr('На модели', 'On model')} · {applied?.name ?? override.material}</summary>
                     <Field label={tr('Раскладка', 'Mapping')}><select value={override.tile === null ? 'original' : override.projection ?? (scope === 'material' ? 'uv' : 'box')} onChange={(event) => {
                         const value = event.target.value;
-                        setOverride({ ...override, tile: value === 'original' ? null : override.tile ?? dimensions[0], tileY: value === 'original' ? null : override.tileY ?? dimensions[1], projection: ['box', 'slope'].includes(value) ? value : undefined });
-                    }}>{scope === 'material' ? <><option value="original">{tr('Исходный масштаб SketchUp', 'Original SketchUp scale')}</option><option value="uv">{tr('Размер в метрах · UV SketchUp', 'Metres · SketchUp UVs')}</option></> : null}<option value="box">{tr('Единая по модели', 'Continuous model projection')}</option><option value="slope">{tr('Вдоль ската', 'Along roof slope')}</option></select></Field>
-                    {override.tile !== null ? <div className="material-panel__two"><Field label={tr('Ширина, м', 'Width, m')}><NumberInput value={override.tile} min={0.05} onChange={(value) => setOverride({ ...override, tile: value })} /></Field><Field label={tr('Высота, м', 'Height, m')}><NumberInput value={override.tileY ?? override.tile} min={0.05} onChange={(value) => setOverride({ ...override, tileY: value })} /></Field></div> : null}
+                        if (value === 'surface') { alignSurface(); return; }
+                        patchMapping((look) => ({ tile: value === 'original' ? null : look.tile ?? dimensions[0], tileY: value === 'original' ? null : look.tileY ?? dimensions[1], projection: ['box', 'slope'].includes(value) ? value : undefined, mapping: undefined }));
+                    }}>{scope === 'material' ? <><option value="original">{tr('Исходный масштаб SketchUp', 'Original SketchUp scale')}</option><option value="uv">{tr('Размер в метрах · UV SketchUp', 'Metres · SketchUp UVs')}</option></> : null}<option value="box">{tr('Единая по модели', 'Continuous model projection')}</option><option value="surface">{tr('По поверхности · общие швы', 'Along surface · joined seams')}</option><option value="slope">{tr('Вдоль ската · кровля', 'Along slope · roofing')}</option></select></Field>
+                    <div className="material-panel__row" aria-label={tr('Направление раскладки', 'Mapping direction')}>
+                        <button type="button" onClick={() => alignSurface()}>{tr('По грани', 'Align to face')}</button>
+                        <button type="button" aria-pressed={edgePicking} onClick={() => onPickEdge?.(edgePicking ? null : (picked) => alignSurface(picked, true))}>{tr('По ребру…', 'Align to edge…')}</button>
+                        <button type="button" title={tr('Повернуть выбранные текстуры на 90°', 'Rotate selected textures by 90°')} onClick={() => patchMapping((look) => ({ rotation: (((look.rotation ?? 0) + 270) % 360 + 360) % 360 - 180 }))}>90°</button>
+                    </div>
+                    {edgePicking ? <small role="status">{tr('Щёлкните по грани рядом с нужным ребром · Esc — отмена', 'Click a face near the desired edge · Esc cancels')}</small> : null}
+                    {override.tile !== null ? <div className="material-panel__two"><Field label={tr('Ширина, м', 'Width, m')}><NumberInput value={override.tile} min={0.05} onChange={(value) => patchMapping(() => ({ tile: value }))} /></Field><Field label={tr('Высота, м', 'Height, m')}><NumberInput value={override.tileY ?? override.tile} min={0.05} onChange={(value) => patchMapping(() => ({ tileY: value }))} /></Field></div> : null}
                     {appliedKnob('rotation', 'Поворот', 'Rotation', 0)}
                     {appliedKnob('offsetU', 'Сдвиг U, м', 'Offset U, m', 0)}
                     {appliedKnob('offsetV', 'Сдвиг V, м', 'Offset V, m', 0)}

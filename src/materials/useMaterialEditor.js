@@ -4,13 +4,19 @@ import { materialMeshKey, sourceGeometry, sourceMaterial, targetAt, targetKey, t
 
 export function useMaterialEditor({ tool, setTool, placedEditor, language }) {
     const [opened, setOpened] = useState(false), [scope, setScopeState] = useState('face'), [targets, setTargets] = useState([]);
-    const latest = useRef(null), live = useRef(null);
+    const [reference, setReference] = useState(null), [edgePicking, setEdgePicking] = useState(false);
+    const latest = useRef(null), live = useRef(null), edgeAction = useRef(null);
     live.current = { scope, placedEditor, language };
     const pick = useCallback((hit, forceScope) => {
         const { scope: chosen, language } = live.current, mode = forceScope ?? chosen;
         const root = sketchupModelEntry(hit?.placedId)?.root, target = targetAt(hit, root);
+        if (edgeAction.current && !forceScope) {
+            if (target) { const action = edgeAction.current; edgeAction.current = null; setEdgePicking(false); action(target); }
+            return;
+        }
         if (!target) { if (!hit?.shift) setTargets([]); return; }
         latest.current = hit;
+        setReference(target);
         const names = partChain(root, hit.object).map((node) => partName(node, language === 'ru'));
         let picked = [{ ...target, label: names.join(' › ') || target.materialName }];
         if (mode === 'component') {
@@ -31,8 +37,16 @@ export function useMaterialEditor({ tool, setTool, placedEditor, language }) {
         });
     }, []);
     const open = useCallback((hit) => { setOpened(true); setTool('material'); if (hit) pick(hit); }, [pick, setTool]);
-    const close = useCallback(() => { setOpened(false); setTargets([]); latest.current = null; setTool('select'); }, [setTool]);
-    const setScope = useCallback((value) => { setScopeState(value); if (latest.current) pick({ ...latest.current, shift: false }, value); }, [pick]);
+    const requestEdge = useCallback((action) => { edgeAction.current = action; setEdgePicking(Boolean(action)); }, []);
+    const close = useCallback(() => { requestEdge(null); setOpened(false); setTargets([]); setReference(null); latest.current = null; setTool('select'); }, [requestEdge, setTool]);
+    const setScope = useCallback((value) => { requestEdge(null); setScopeState(value); if (latest.current) pick({ ...latest.current, shift: false }, value); }, [pick, requestEdge]);
+    useEffect(() => {
+        if (!edgePicking) return undefined;
+        const escape = (event) => { if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); requestEdge(null); } };
+        window.addEventListener('keydown', escape, true);
+        return () => window.removeEventListener('keydown', escape, true);
+    }, [edgePicking, requestEdge]);
+    useEffect(() => { if (tool !== 'material') requestEdge(null); }, [tool, requestEdge]);
     const selectedPart = `${placedEditor.selectedId ?? ''}:${placedEditor.part?.node ?? ''}`;
     const previousPart = useRef(selectedPart);
     useEffect(() => {
@@ -45,5 +59,5 @@ export function useMaterialEditor({ tool, setTool, placedEditor, language }) {
         if (mesh) { setScopeState('component'); pick({ placedId: id, object: mesh, componentNode: node }, 'component'); }
         else setTargets([]);
     }, [selectedPart, opened, tool, placedEditor.selectedId, placedEditor.part, pick]);
-    return { opened: opened || tool === 'material', targets, scope, pick, open, close, setScope };
+    return { opened: opened || tool === 'material', targets, reference, scope, pick, open, close, setScope, requestEdge, edgePicking };
 }

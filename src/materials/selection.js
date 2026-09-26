@@ -79,15 +79,51 @@ export function targetAt(hit, root) {
     const base = sourceMaterial(mesh), material = Array.isArray(base) ? base[triangleMaterial(geometry, triangle ?? 0)] : base;
     if (!material?.name || !material.isMeshStandardMaterial) return null;
     return { placedId: hit.placedId, materialName: material.name, material, mesh, asset: root.userData.materialModel, meshKey: materialMeshKey(mesh, root),
-        triangles: connectedFace(geometry, triangle ?? 0, mesh.userData.faceRemoval?.removed), count: triangleCount(geometry) };
+        triangles: connectedFace(geometry, triangle ?? 0, mesh.userData.faceRemoval?.removed), count: triangleCount(geometry), seed: triangle ?? 0,
+        ...(hit.point ? { point: Array.isArray(hit.point) ? [...hit.point] : hit.point.toArray() } : {}) };
 }
 export const targetKey = (target) => `${target.placedId}:${target.materialName}:${target.meshKey}:${target.asset ?? ""}:${target.triangles?.join(',') ?? '*'}`;
 export const matchesTarget = (rule, target, triangle = target.triangles?.[0] ?? 0) => rule.targets?.some((item) => item.mesh === target.meshKey && (!item.asset || item.asset === target.asset) && (!item.triangles || item.triangles.includes(triangle)));
+const displayedRules = new WeakMap();
+function displayedRule(target, triangle) {
+    const mesh = target.mesh, geometry = mesh?.geometry;
+    if (!geometry || !Array.isArray(mesh.material)) return null;
+    if (!displayedRules.has(geometry)) {
+        const rules = new Map();
+        for (const group of geometry.groups) {
+            const rule = mesh.material[group.materialIndex]?.userData.faceRule;
+            if (rule) for (let t = group.start / 3; t < (group.start + group.count) / 3; t += 1) rules.set(geometry.userData.sourceTriangles?.[t] ?? t, rule);
+        }
+        displayedRules.set(geometry, rules);
+    }
+    return displayedRules.get(geometry).get(triangle);
+}
 export function targetOverride(all, target, scope) {
     if (!target) return null;
     const base = all?.[target.placedId]?.[target.materialName];
-    return scope === 'material' ? base : base?.faces?.find((rule) => matchesTarget(rule, target)) ?? base;
+    return scope === 'material' ? base : base?.faces?.find((rule) => matchesTarget(rule, target)) ?? displayedRule(target, target.triangles?.[0] ?? 0) ?? base;
 }
+
+export function targetAppearances(all, target) {
+    const base = all?.[target.placedId]?.[target.materialName], explicit = new Map(), groups = new Map();
+    const picked = target.triangles ?? Array.from({ length: target.count }, (_, t) => t);
+    // Build membership once; large coplanar polygons must not do Array.includes
+    // over their entire assignment for every triangle on every slider change.
+    for (const rule of [...(base?.faces ?? [])].reverse()) for (const item of rule.targets ?? []) {
+        if (item.mesh !== target.meshKey || (item.asset && item.asset !== target.asset)) continue;
+        for (const t of item.triangles ?? picked) explicit.set(t, rule);
+    }
+    for (const t of picked) {
+        const value = explicit.get(t) ?? displayedRule(target, t) ?? base;
+        if (!value?.material) continue;
+        if (!groups.has(value)) groups.set(value, []);
+        groups.get(value).push(t);
+    }
+    return groups;
+}
+
+const stableLook = (value) => JSON.stringify(value, (_key, item) => item && typeof item === 'object' && !Array.isArray(item)
+    ? Object.fromEntries(Object.keys(item).sort().map((key) => [key, item[key]])) : item);
 
 export function targetHasMaterial(all, target, scope, id) {
     const base = all?.[target.placedId]?.[target.materialName];
@@ -145,7 +181,7 @@ export function paintTargets(all, targets, scope, value) {
             for (const rule of faces) {
                 const { targets: selection, ...look } = rule;
                 if (!selection) segment += 1; // Do not move targets across legacy directional rules.
-                const key = selection ? `${segment}:${JSON.stringify(look, Object.keys(look).sort())}` : Symbol();
+                const key = selection ? `${segment}:${stableLook(look)}` : Symbol();
                 if (combined.has(key)) combined.get(key).targets.push(...selection);
                 else combined.set(key, { ...rule, ...(selection ? { targets: [...selection] } : {}) });
             }

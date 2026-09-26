@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { materialMeshKey } from './selection.js';
 import { surfaceBasis } from './projection.js';
+import { mappingKey, modelSurfaceMappings, projectedSurfaceUV } from './surfaceMapping.js';
 import { glassDefaults, looksLikeGlass, tuneGlass, unmakeGlass } from './glass.js';
 import { createSharedTextureCache } from './sharedTextureCache.js';
 import { materialSize } from './recipe.js';
@@ -80,7 +81,7 @@ export function uvScale(meshes, root) {
 // Координаты текстуры проекцией: грань берёт ту плоскость модели, к которой
 // ближе её нормаль; метры модели делятся на масштаб, чтобы плитка на таких
 // гранях была той же величины, что на гранях с координатами из SketchUp.
-export function boxUvGeometry(geometry, matrix, [mu, mv] = [1, 1], mode = 'box') {
+export function boxUvGeometry(geometry, matrix, [mu, mv] = [1, 1], mode = 'box', surface = null) {
     const flat = geometry.index ? geometry.toNonIndexed() : geometry.clone();
     const position = flat.attributes.position;
     const uv = new Float32Array(position.count * 2);
@@ -89,6 +90,10 @@ export function boxUvGeometry(geometry, matrix, [mu, mv] = [1, 1], mode = 'box')
     for (let i = 0; i + 2 < position.count; i += 3) {
         p.forEach((point, k) => point.fromBufferAttribute(position, i + k).applyMatrix4(matrix));
         n.subVectors(p[1], p[0]).cross(e.subVectors(p[2], p[0]));
+        if (mode === 'surface') {
+            uv.set(surface?.uv?.get(i / 3) ?? projectedSurfaceUV(p, n, surface?.mapping), i * 2);
+            continue;
+        }
         const [uAxis, vAxis] = surfaceBasis(n, mode);
         p.forEach((point, k) => {
             // Стена: u — вдоль, v — вверх (минус: картинка стоит головой вверх).
@@ -99,6 +104,7 @@ export function boxUvGeometry(geometry, matrix, [mu, mv] = [1, 1], mode = 'box')
         });
     }
     flat.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+    flat.deleteAttribute('tangent'); // The imported tangent frame belongs to the old UVs.
     flat.userData.boxUv = true;
     return flat;
 }
@@ -171,7 +177,7 @@ export function setLibraryTransform(texture, override, scale = [1, 1], source = 
         return;
     }
     const [width, height] = materialSize(override);
-    const rotation = turn + (['box', 'slope'].includes(override.projection) ? 0 : source?.rotation ?? 0);
+    const rotation = turn + (['box', 'slope', 'surface'].includes(override.projection) ? 0 : source?.rotation ?? 0);
     const c = Math.cos(rotation), s = Math.sin(rotation);
     texture.repeat.set(scale[0] / width, scale[1] / height);
     texture.rotation = rotation;
@@ -202,15 +208,15 @@ function placeTextures(material, override, scale) {
 // нет, и везде при раскладке «прямо по граням» (в метрах: плитка = tile).
 // Своя геометрия сетки (общая у копий компонента) не меняется: проекция —
 // отдельная копия, снятая подмена возвращает свою.
-function layOut(mesh, root, projection, scale) {
+function layOut(mesh, root, projection, scale, surface = null) {
     const source = mesh.userData.sourceGeometry ?? mesh.geometry;
-    const box = ['box', 'slope'].includes(projection) || !source.attributes.uv;
-    const size = ['box', 'slope'].includes(projection) ? [1, 1] : scale;
-    const key = box ? `${projection}:${size.join(',')}` : 'source';
+    const box = ['box', 'slope', 'surface'].includes(projection) || !source.attributes.uv;
+    const size = ['box', 'slope', 'surface'].includes(projection) ? [1, 1] : scale;
+    const key = box ? `${projection}:${size.join(',')}:${surface?.revision ?? ''}` : 'source';
     if (mesh.userData.uvKey === key || (!box && mesh.geometry === source)) return;
     if (mesh.geometry !== source) mesh.geometry.dispose();
     mesh.userData.sourceGeometry = source;
-    mesh.geometry = box ? boxUvGeometry(source, relative(mesh, root).clone(), size, projection) : source;
+    mesh.geometry = box ? boxUvGeometry(source, relative(mesh, root).clone(), size, projection, surface) : source;
     mesh.userData.uvKey = key;
 }
 function layOutBack(mesh) {
@@ -251,7 +257,7 @@ export function faceClass(rules, normal, y, parts = [], meshKey = '', triangle =
 }
 // Геометрия с группами по правилам (треугольники по порядку групп) и uv1 по
 // граням; ни одна грань не подошла — null.
-export function splitFaces(geometry, matrix, rules, parts = [], meshKey = '', asset = null) {
+export function splitFaces(geometry, matrix, rules, parts = [], meshKey = '', asset = null, surfaces = null) {
     const flat = geometry.index ? geometry.toNonIndexed() : geometry.clone();
     const position = flat.attributes.position, count = Math.floor(position.count / 3);
     const buckets = Array.from({ length: rules.length + 1 }, () => []), plane = new Float32Array(count * 6);
@@ -265,6 +271,13 @@ export function splitFaces(geometry, matrix, rules, parts = [], meshKey = '', as
         p.forEach((point, k) => point.fromBufferAttribute(position, t * 3 + k).applyMatrix4(matrix));
         n.subVectors(p[1], p[0]).cross(e.subVectors(p[2], p[0]));
         const chosen = n.lengthSq() > 0 ? faceClass(preparedRules, n.clone().normalize(), (p[0].y + p[1].y + p[2].y) / 3, parts, meshKey, t) : 0;
+        const rule = rules[chosen - 1];
+        if (rule?.projection === 'surface') {
+            const chart = surfaces?.get(mappingKey(rule.mapping));
+            plane.set(chart?.uv.get(meshKey)?.get(t) ?? projectedSurfaceUV(p, n, rule.mapping), t * 6);
+            buckets[chosen].push(t);
+            continue;
+        }
         const [uAxis, vAxis] = surfaceBasis(n, rules[chosen - 1]?.projection);
         // Как boxUvGeometry: стена — вдоль и вверх, пол — план; метры.
         p.forEach((point, k) => {
@@ -284,6 +297,7 @@ export function splitFaces(geometry, matrix, rules, parts = [], meshKey = '', as
     const uv1 = new Float32Array(order.length * 6);
     order.forEach((t, i) => uv1.set(plane.subarray(t * 6, t * 6 + 6), i * 6));
     out.setAttribute('uv1', new THREE.BufferAttribute(uv1, 2));
+    out.deleteAttribute('tangent');
     out.userData.sourceTriangles = order;
     let start = 0;
     buckets.forEach((bucket, k) => { if (bucket.length) out.addGroup(start * 3, bucket.length * 3, k); start += bucket.length; });
@@ -326,6 +340,7 @@ export function applyModelMaterials(prepared, overrides, { root, anisotropy = 4,
     let cancelled = false;
     const jobs = [];
     const byMaterial = meshesByMaterial(root);
+    const surfaces = modelSurfaceMappings(root, overrides);
     // Материал правила: копия материала SketchUp (без его userData — там
     // текстуры и стекло), до загрузки карт выглядит как он.
     const ruleMaterial = (base, rule) => {
@@ -372,7 +387,7 @@ export function applyModelMaterials(prepared, overrides, { root, anisotropy = 4,
         const ruled = material.userData.faceRules.materials;
         for (const mesh of meshes) {
             if (mesh.material !== material) continue;
-            const geometry = splitFaces(mesh.geometry, relative(mesh, root).clone(), rules, partsOf(mesh, root), materialMeshKey(mesh, root), root.userData.materialModel);
+            const geometry = splitFaces(mesh.geometry, relative(mesh, root).clone(), rules, partsOf(mesh, root), materialMeshKey(mesh, root), root.userData.materialModel, surfaces);
             if (!geometry) continue;
             mesh.userData.faceSplit = { geometry: mesh.geometry, material };
             mesh.geometry = geometry;
@@ -404,9 +419,12 @@ export function applyModelMaterials(prepared, overrides, { root, anisotropy = 4,
         }
         const original = remember(material);
         if (!material.userData.scale) material.userData.scale = uvScale(meshes, root);
-        const projection = override.tile !== null && ['box', 'slope'].includes(override.projection) ? override.projection : 'uv';
-        for (const mesh of meshes) layOut(mesh, root, projection, material.userData.scale);
-        const scale = ['box', 'slope'].includes(projection) ? [1, 1] : material.userData.scale;
+        const projection = override.tile !== null && ['box', 'slope', 'surface'].includes(override.projection) ? override.projection : 'uv';
+        const chart = projection === 'surface' ? surfaces.get(mappingKey(override.mapping)) : null;
+        for (const mesh of meshes) layOut(mesh, root, projection, material.userData.scale, chart ? {
+            mapping: override.mapping, uv: chart.uv.get(materialMeshKey(mesh, root)), revision: chart.revision,
+        } : null);
+        const scale = ['box', 'slope', 'surface'].includes(projection) ? [1, 1] : material.userData.scale;
         const same = material.userData.libraryMaterial === override.material;
         material.userData.override = override;
         if (same) {

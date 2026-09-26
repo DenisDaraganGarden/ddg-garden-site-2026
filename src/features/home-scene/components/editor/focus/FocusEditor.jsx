@@ -441,7 +441,9 @@ function FocusShell(props) {
         {(focus || preview) && !playing ? <Button className="focus-return" icon="panel" label={tr('Вернуться к инструментам', 'Return to tools')} onClick={() => { setFocus(false); setPreview(false); }}>{tr('К редактору', 'Editor')}</Button> : null}
         {modal === 'search' ? <SearchDialog onClose={() => setModal(null)} onSelect={selectNode} commands={commands} /> : null}
         {modal?.kind === 'presets' ? <Dialog title={`${tr('Детали', 'Parts')} · ${modal.label}`} onClose={() => setModal(null)}><FocusPresets path={modal.path} label={modal.label} settings={settings} applySettings={props.applySettings} onClose={() => setModal(null)} /></Dialog> : null}
-        {materialEditor?.opened ? <MaterialPanel target={materialEditor.targets.at(-1) ?? null} targets={materialEditor.targets} scope={materialEditor.scope} onScope={materialEditor.setScope} onActivate={() => materialEditor.open()} settings={settings} applySettings={props.applySettings} onClose={materialEditor.close} /> : null}
+        {materialEditor?.opened ? <MaterialPanel target={materialEditor.targets.at(-1) ?? null} targets={materialEditor.targets} reference={materialEditor.reference}
+            scope={materialEditor.scope} onScope={materialEditor.setScope} onActivate={() => materialEditor.open()} onPickEdge={materialEditor.requestEdge} edgePicking={materialEditor.edgePicking}
+            settings={settings} applySettings={props.applySettings} onClose={materialEditor.close} /> : null}
         {modal === 'trace' ? <React.Suspense fallback={null}><TraceStudio layoutEditor={layoutEditor} project={props.project} onClose={() => setModal(null)} /></React.Suspense> : null}
         {modal === 'help' ? <Dialog title={tr('Управление', 'Controls')} onClose={() => setModal(null)}><div className="focus-shortcuts">{shortcutRows(tr).map(([label, keys]) => <div key={label}><span>{label}</span><kbd>{keys}</kbd></div>)}</div></Dialog> : null}
         {modal === 'settings' ? <SettingsDialog sectionProps={sectionProps} onClose={() => setModal(null)} /> : null}

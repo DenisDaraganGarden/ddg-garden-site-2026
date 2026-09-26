@@ -30,7 +30,8 @@ export const HOME = process.env.DDG_PROJECTS_DIR ? path.resolve(process.env.DDG_
 // старым кодом поверх записи с номером новее не пишет, он может не знать её
 // полей и их смысла. Поднимать, когда старый код прочтёт или сохранит новую
 // запись неверно; незнакомые поля и так сохраняются (preserveUnknown.js).
-export const STORE_SCHEMA = 1;
+// Schema 2 adds edge-connected material mapping; older normalizers discard its frame.
+export const STORE_SCHEMA = 2;
 const newerThanThisCode = (record) => Number.isSafeInteger(record?.schema) && record.schema > STORE_SCHEMA;
 
 const TRANSLIT = {
