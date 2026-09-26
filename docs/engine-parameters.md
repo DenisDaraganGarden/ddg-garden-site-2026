@@ -975,6 +975,7 @@
 | `annotationsEnabled` | Отметки уровня | выключатель | да / нет | true |
 | `boatVisible` | Лодка | выключатель | да / нет | true |
 | `farWaterVisible` | Дальняя вода | выключатель | да / нет | true |
+| `fireEnabled` | Огонь | выключатель | да / нет | false |
 | `fishEnabled` | Рыбы | выключатель | да / нет | true |
 | `grassEnabled` | Травы | выключатель | да / нет | true |
 | `houseEnabled` | Дом | выключатель | да / нет | false |

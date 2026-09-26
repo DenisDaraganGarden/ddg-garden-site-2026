@@ -65,6 +65,7 @@
     "app:install": "node scripts/install-mac-app.mjs",
     "check:app": "node scripts/check-app.mjs",
     "check:app-navigation": "node ./node_modules/electron/cli.js scripts/electronNavigation.check.mjs",
+    "check:fire": "node src/fire/fire.check.js",
     "build:reference": "node scripts/build-engine-reference.mjs"
   },
   "dependencies": {

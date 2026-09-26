@@ -37,6 +37,7 @@ const DEV_LOCAL_EDITOR_KEYS = new Set([
   'editorCursor',
   'editorPieFill',
   'editorPieOutline',
+  'fireEditPoint',
 ]);
 const FILM_CONTROL_IDS = [
   'home-editor-film-enabled',

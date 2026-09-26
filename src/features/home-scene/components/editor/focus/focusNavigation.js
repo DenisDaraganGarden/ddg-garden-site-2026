@@ -60,7 +60,7 @@ export function getFocusGroups(domainId, { includeDevOnly = false } = {}) {
 const NODE_ICONS = {
     terrain: 'terrain', rocks: 'terrain', pebbles: 'terrain', shore: 'terrain', water: 'water', seabed: 'water',
     planting: 'sprout', topiary: 'leaf', lilies: 'leaf', algae: 'leaf', trees: 'leaf', shrubs: 'leaf', grass: 'leaf',
-    tanker: 'box', boat: 'box', sculpture: 'box', surfboard: 'box', house: 'box',
+    tanker: 'box', fire: 'fire', boat: 'box', sculpture: 'box', surfboard: 'box', house: 'box',
     seagulls: 'bird', fish: 'fish', levels: 'level', walkStart: 'flag', luminaires: 'light', power: 'box',
     light1: 'light', light1target: 'target', light2: 'light', light2target: 'target',
     light: 'sun', hdri: 'cloud', fog: 'cloud', rays: 'sun', clouds: 'cloud', wind: 'wind',

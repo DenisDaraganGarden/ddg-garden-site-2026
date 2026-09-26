@@ -40,6 +40,7 @@ const paths = {
     target: <><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3"/></>,
     fish: <><path d="M17 12c-5-8-11-6-15 0 4 6 10 8 15 0l5 5V7Z"/><circle cx="6" cy="11" r=".6" fill="currentColor" stroke="none"/></>,
     bird: <path d="M3 14c3-5 6-5 9 0 3-5 6-5 9 0"/>,
+    fire: <path d="M12 2c1 4.5 6 6 6 11.5A6 6 0 0 1 6 13.5c0-2.2 1.2-3.8 1.2-3.8S8 13 10 13c-.5-3.5-.5-6.5 2-11Z"/>,
     panel: <><rect x="2" y="3" width="20" height="18" rx="2"/><path d="M15 3v18"/></>,
     bug: <><rect x="7" y="7" width="10" height="12" rx="4"/><path d="M12 3v4M4 9h3m10 0h3M4 15h3m10 0h3M9 3l1 2m5-2-1 2"/><circle cx="10" cy="12" r=".7" fill="currentColor" stroke="none"/><circle cx="14" cy="12" r=".7" fill="currentColor" stroke="none"/></>,
 };

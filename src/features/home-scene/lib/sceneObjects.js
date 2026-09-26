@@ -62,6 +62,7 @@ export const SCENE_OBJECTS = Object.freeze([
   { id: 'lighting', key: 'lightingEnabled', node: 'lighting/luminaires', group: 'lighting', roots: ['luminaires'], design: true },
   // Отметки уровня — пометки проектировщика (src/annotations), только в редакторе.
   { id: 'annotations', key: 'annotationsEnabled', node: 'annotations/levels', group: 'annotations', roots: ['annotations'] },
+  { id: 'fire', key: 'fireEnabled', node: 'objects/fire', group: 'objects', roots: ['fire-anchor', 'fire'], requires: ['terrain'], newProject: false, site: true },
   { id: 'reflections', key: 'reflectionsEnabled', node: null, group: 'render' },
 ]);
 

@@ -8,6 +8,7 @@ import { DEFAULT_TERRAIN_SETTINGS } from '../../../terrain/settings.js';
 import { DEFAULT_TANKER_SETTINGS } from '../../../tanker/settings.js';
 import { DEFAULT_SURFBOARD_SETTINGS } from '../../../components/surfboard/settings.js';
 import { DEFAULT_HOUSE_SETTINGS } from '../../../components/house/settings.js';
+import { FIRE_PUBLISHED_KEYS } from '../../../fire/settings.js';
 import { DEFAULT_SHORE_SETTINGS } from '../../../shore/settings.js';
 import { DEFAULT_RENDER_QUALITY_SETTINGS } from '../../../components/effects/renderQualitySettings.js';
 import { SEA_SETTINGS_DEFAULTS } from '../../../components/effects/water/seaSettings.js';
@@ -21,6 +22,7 @@ const keys = [
   ...Object.keys(DEFAULT_TANKER_SETTINGS),
   ...Object.keys(DEFAULT_SURFBOARD_SETTINGS),
   ...Object.keys(DEFAULT_HOUSE_SETTINGS),
+  ...FIRE_PUBLISHED_KEYS,
   ...Object.keys(DEFAULT_TERRAIN_SETTINGS),
   ...Object.keys(DEFAULT_SHRUB_SETTINGS),
   ...Object.keys(DEFAULT_TREE_SETTINGS),

@@ -15,6 +15,7 @@ import WaterLab from '../water-lab/WaterLab';
 import CloudLab from '../cloud-lab/CloudLab';
 import TopiaryLab from '../topiary-lab/TopiaryLab';
 import MaterialLab from '../material-lab/MaterialLab';
+import FireLab from '../fire-lab/FireLab';
 
 const COMPONENTS = {
   'river-fish': FishLab,
@@ -36,6 +37,7 @@ const COMPONENTS = {
   water: WaterLab,
   clouds: CloudLab,
   materials: MaterialLab,
+  fire: FireLab,
 };
 
 export { DEFAULT_ASSET_COLLECTION };

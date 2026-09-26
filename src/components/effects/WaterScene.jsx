@@ -22,6 +22,7 @@ import { buildCoastRocks, attachRockCollisions } from '../../terrain/terrainRock
 import AzovTerrain from '../../terrain/AzovTerrain.jsx';
 import { coastBandCoversPond, createTerrainDefinition, createTerrainQuery } from '../../terrain/terrainModel.js';
 import HomeTanker from '../../tanker/HomeTanker.jsx';
+import HomeFire from '../../fire/HomeFire.jsx';
 import React, {
   Suspense,
   lazy,
@@ -654,6 +655,7 @@ function WaterRuntimeScene({
         {settings.tankerVisible ? <HomeTanker settings={settings} seaSettings={effectiveSeaSettings.enabled ? effectiveSeaSettings : null} lighting={lighting} audioRuntime={audioRuntime} /> : null}
         {settings.planeEnabled ? <GroundPlane settings={settings} lighting={lighting} /> : null}
         {settings.surroundingsEnabled && settings.surroundingsStamp ? <Suspense fallback={null}><Surroundings settings={settings} lighting={lighting} /></Suspense> : null}
+        {sceneObjectOn(settings, 'fire') ? <HomeFire settings={settings} lighting={lighting} qualityProfile={qualityProfile} terrainQuery={terrainQuery} mode={mode} /> : null}
         {settings.sculptureVisible ? (
           <StaticSculpture
             terrainQuery={terrainQuery}

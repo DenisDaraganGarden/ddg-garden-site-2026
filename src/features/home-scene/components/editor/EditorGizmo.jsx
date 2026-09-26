@@ -17,6 +17,7 @@ const LazyTransformControls = React.lazy(() => import('@react-three/drei/core/Tr
 //  - The sculpture stands on the seabed; its base offset owns Y for the same
 //    reason.
 const GIZMO_TARGETS = {
+    fire: { objectName: 'fire-anchor', visualName: 'fire-track', translate: { x: true, y: false, z: true }, rotate: { x: false, y: true, z: false }, uniformScale: true },
     boat: {
         objectName: 'boat-anchor',
         visualName: 'boat',
@@ -89,6 +90,7 @@ const GIZMO_TARGETS = {
 // остальных нет. Стрелок в кадре бывает две, и это выглядит как поломка, пока
 // не сказано словами, что высоту лодки задаёт вода.
 const GIZMO_NOTES = {
+    fire: { ru: 'высота — от земли', en: 'height comes from the ground' },
     boat: { ru: 'высота — от воды', en: 'height comes from the water' },
     sculpture: { ru: 'высота — от дна', en: 'height comes from the seabed' },
     surfboard: { ru: 'высота — от воды', en: 'height follows the water' },
@@ -163,9 +165,13 @@ export default function EditorGizmo({ selection, mode, orbitRef, onTransform, po
         }
 
         let frame = 0;
+        // Один объект, много ручек: у следа огня ручка может стоять на любой
+        // из его точек — тогда имя приходит вместе с позой.
+        const objectName = pose?.objectName ?? rule.objectName;
+        const visualName = pose?.objectName ? null : rule.visualName;
         const resolve = () => {
-            const anchor = scene.getObjectByName(rule.objectName);
-            const body = rule.visualName ? scene.getObjectByName(rule.visualName) : anchor;
+            const anchor = scene.getObjectByName(objectName);
+            const body = visualName ? scene.getObjectByName(visualName) : anchor;
             if (anchor && body) {
                 setTarget(anchor);
                 setVisual(body);
@@ -176,7 +182,7 @@ export default function EditorGizmo({ selection, mode, orbitRef, onTransform, po
 
         resolve();
         return () => cancelAnimationFrame(frame);
-    }, [rule, scene]);
+    }, [rule, scene, pose?.objectName]);
 
     // Центр модели в её собственных координатах — один раз: он не зависит ни
     // от поворота, ни от качки, а коробку по 70 тысячам треугольников каждый
@@ -190,7 +196,9 @@ export default function EditorGizmo({ selection, mode, orbitRef, onTransform, po
         }
         visual.updateWorldMatrix(true, false);
         centre.current.copy(visual.worldToLocal(box.getCenter(new THREE.Vector3())));
-    }, [visual]);
+    // Объект, который перестраивает геометрию вместо переноса узла (след огня),
+    // сообщает ключом, когда центр сдвинулся.
+    }, [visual, pose?.centreKey]);
 
     const axes = useMemo(() => {
         if (!rule) {

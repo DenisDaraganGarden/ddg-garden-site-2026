@@ -43,6 +43,8 @@ import { LIGHTING_NODE, POWER_NODE, useLightingEditor } from '../lighting/useLig
 import { useLuminaireTypes } from '../lighting/luminaireLibrary.js';
 import { TOPIARY_LIMITS } from '../topiary/settings.js';
 import { GIZMO_MODES, useEditorTool } from '../features/home-scene/hooks/useEditorTool';
+import { FIRE_POINT_RANGE } from '../fire/settings.js';
+import { trailFrame, trailKey, trailPointCount, worldToLocal } from '../fire/trail.js';
 import { resolveEditorPath } from '../features/home-scene/components/editor/editorTree';
 import { gizmoAllows } from '../features/home-scene/components/editor/EditorGizmo';
 import { audioSettingsForScene, DESIGN_ONLY_NODES, sceneObjectOn, sceneObjectsForNode, SITE_ONLY_NODES } from '../features/home-scene/lib/sceneObjects';
@@ -635,6 +637,24 @@ const HomeEdit = ({ project = null }) => {
             return;
         }
 
+        // Огонь: ручка на всём следе двигает раму (fireX/Z, яв, масштаб), ручка
+        // на выбранной точке — саму точку, в местных координатах рамы.
+        if (id === 'fire') {
+            setSettings((previous) => {
+                if (patch.position) {
+                    const point = Math.min(trailPointCount(previous), Math.round(previous.fireEditPoint) || 0);
+                    if (!point) return { ...previous, fireX: Number(patch.position.x.toFixed(2)), fireZ: Number(patch.position.z.toFixed(2)) };
+                    const local = worldToLocal(patch.position, trailFrame(previous));
+                    const limit = (value) => Number(Math.max(-FIRE_POINT_RANGE, Math.min(FIRE_POINT_RANGE, value)).toFixed(2));
+                    return { ...previous, [`fireP${point}X`]: limit(local.x), [`fireP${point}Z`]: limit(local.z) };
+                }
+                if (typeof patch.rotationY === 'number') return { ...previous, fireYaw: patch.rotationY };
+                if (typeof patch.scale === 'number') return { ...previous, fireScale: Number(Math.max(0.1, Math.min(6, patch.scale)).toFixed(3)) };
+                return previous;
+            });
+            return;
+        }
+
         if (patch.position) {
             if (id === 'boat') {
                 handleBoatPositionChange(patch.position);
@@ -709,7 +729,12 @@ const HomeEdit = ({ project = null }) => {
                 ? { rotationY: leaveAuto(settings, {}).surfboardCheckpointYaw ?? settings.surfboardCheckpointYaw ?? 0, scale: 1 }
                 : gizmoSelection === 'house'
                     ? { rotationY: settings.houseHeading ?? 0, scale: 1 }
-                    : null;
+                    : gizmoSelection === 'fire'
+                ? (() => {
+                    const point = Math.min(trailPointCount(settings), Math.round(settings.fireEditPoint) || 0);
+                    return { rotationY: settings.fireYaw ?? 0, scale: settings.fireScale ?? 1, objectName: point > 0 ? `fire-point-${point}` : undefined, centreKey: trailKey(settings) };
+                })()
+                : null;
     // Записи из сцены (чекпоинт доски, старт прогулки) — одной отменой, через
     // историю, которая есть сейчас.
     const applySettingsRef = useRef(focusHistory.applySettings);
@@ -737,7 +762,7 @@ const HomeEdit = ({ project = null }) => {
         // open — открыт раздел «Освещение»: сетка участка строится и для пустого проекта (её ждёт агент).
         lighting: { selectedId: gizmoNode.id === 'luminaires' ? lightingEditor.selectedId : null, connections: settings.lightingConnections === true || gizmoNode.id === 'power', open: gizmoGroup.id === 'lighting' },
     // eslint-disable-next-line react-hooks/exhaustive-deps -- pose сравнивается по значениям, не по ссылке
-    }), [materialEditor.opened, materialEditor.targets, playing, walking, transformTool, transformHeld, gizmoSelection, tool, lastTransform, handleGizmoTransform, picking, drawingTool, handlePickObject, gizmoPose?.rotationY, gizmoPose?.scale, activeTool, settings.topiaryObjects.length, gizmoNode.id, topiaryEditor.selectedId, topiaryEditor.onStroke, placedEditor.selectedId, placedEditor.part, plantingEditor.selectedId, plantingEditor.vineId, plantingEditor.bedKind, plantingEditor.onBed, plantingEditor.onBedSurface, plantingEditor.onPlant, plantingEditor.onVine, annotationEditor.onMark, annotationEditor.selectedId, annotationEditor.onResnap, handleWalkStart, aiming, lightingEditor.selectedId, lightingEditor.onLight, lightingEditor.onAim, lightingEditor.placeType, luminaireTypes, settings.lightingConnections, gizmoGroup.id]);
+    }), [materialEditor.opened, materialEditor.targets, playing, walking, transformTool, transformHeld, gizmoSelection, tool, lastTransform, handleGizmoTransform, picking, drawingTool, handlePickObject, gizmoPose?.rotationY, gizmoPose?.scale, gizmoPose?.objectName, gizmoPose?.centreKey, activeTool, settings.topiaryObjects.length, gizmoNode.id, topiaryEditor.selectedId, topiaryEditor.onStroke, placedEditor.selectedId, placedEditor.part, plantingEditor.selectedId, plantingEditor.vineId, plantingEditor.bedKind, plantingEditor.onBed, plantingEditor.onBedSurface, plantingEditor.onPlant, plantingEditor.onVine, annotationEditor.onMark, annotationEditor.selectedId, annotationEditor.onResnap, handleWalkStart, aiming, lightingEditor.selectedId, lightingEditor.onLight, lightingEditor.onAim, lightingEditor.placeType, luminaireTypes, settings.lightingConnections, gizmoGroup.id]);
 
     // Delete (и Backspace) убирает выбранное — одной отменой: светильник или
     // щиток; части модели SketchUp (в «Удалённые», как в SketchUp); объект

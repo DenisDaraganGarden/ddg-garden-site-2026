@@ -103,7 +103,7 @@ for (const object of SCENE_OBJECTS) {
 
 // Заводской проект: вещи сайта и живность выключены, берег и вода — нет.
 const fresh = newProjectObjectSettings();
-assert.deepEqual(Object.keys(fresh).sort(), ['algaeVisible', 'boatVisible', 'fishEnabled', 'liliesVisible', 'planeEnabled', 'sculptureVisible', 'seagullsEnabled', 'shoreEnabled', 'surfboardEnabled', 'tankerVisible'].sort());
+assert.deepEqual(Object.keys(fresh).sort(), ['algaeVisible', 'boatVisible', 'fireEnabled', 'fishEnabled', 'liliesVisible', 'planeEnabled', 'sculptureVisible', 'seagullsEnabled', 'shoreEnabled', 'surfboardEnabled', 'tankerVisible'].sort());
 assert.ok(Object.values(fresh).every((value) => value === false));
 assert.equal(fresh.terrainEnabled, undefined, 'суша в новом проекте не трогается');
 

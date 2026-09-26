@@ -8,6 +8,7 @@ import { TerrainSection } from './sections/terrain';
 import { TankerSection } from './sections/tanker';
 import { SurfboardBoardSection, SurfboardCheckpointSection, SurfboardRideSection } from './sections/surfboard';
 import { HouseLightSection, HousePaintSection, HouseThingsSection, HouseTransformSection, HouseWearSection } from './sections/house';
+import { FireSection } from './sections/fire';
 import {
     SeabedSection,
     WaterGeometrySection,
@@ -105,6 +106,7 @@ export const EDITOR_TREE = [
         id: 'objects',
         nodes: [
             { id: 'tanker', aspects: [{ id: 'transform', Section: TankerSection }] },
+            { id: 'fire', aspects: [{ id: 'fire', Section: FireSection }] },
             { id: 'boat', aspects: [{ id: 'transform', Section: BoatSection }] },
             { id: 'sculpture', aspects: [{ id: 'transform', Section: SculptureSection }] },
             { id: 'plane', aspects: [{ id: 'transform', Section: PlaneSection }] },

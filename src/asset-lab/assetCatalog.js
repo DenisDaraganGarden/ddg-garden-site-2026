@@ -30,6 +30,7 @@ export const ASSET_CATALOG = Object.freeze([
   { index: '17', id: 'water', group: 'landscape', ru: 'Море', en: 'Sea', title: { ru: 'Море · волны, прибой и пена', en: 'Sea · waves, surf and foam' } },
   { index: '18', id: 'clouds', group: 'atmosphere', ru: 'Облака', en: 'Clouds', title: { ru: 'Живописные облака', en: 'Painterly clouds' } },
   { index: '19', id: 'materials', group: 'materials', ru: 'Библиотека', en: 'Library', title: { ru: 'Библиотека материалов', en: 'Material library' } },
+  { index: '20', id: 'fire', group: 'objects', ru: 'Огонь', en: 'Fire', title: { ru: 'Огонь по следу', en: 'Fire along a trail' } },
 ]);
 
 export const DEFAULT_ASSET_COLLECTION = 'river-fish';

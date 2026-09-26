@@ -8,6 +8,7 @@ import { DEFAULT_TERRAIN_SETTINGS, normalizeTerrainSettings } from '../../../ter
 import { DEFAULT_TANKER_SETTINGS, normalizeTankerSettings } from '../../../tanker/settings.js';
 import { DEFAULT_SURFBOARD_SETTINGS, normalizeSurfboardSettings } from '../../../components/surfboard/settings.js';
 import { DEFAULT_HOUSE_SETTINGS, normalizeHouseSettings } from '../../../components/house/settings.js';
+import { DEFAULT_FIRE_SETTINGS, normalizeFireSettings } from '../../../fire/settings.js';
 import { DEFAULT_SHORE_SETTINGS, normalizeShoreSettings } from '../../../shore/settings.js';
 import { DEFAULT_SURROUNDINGS_SETTINGS, normalizeSurroundingsSettings } from '../../../surroundings/settings.js';
 import { DEFAULT_MATERIAL_SETTINGS, normalizeMaterialSettings } from '../../../materials/settings.js';
@@ -221,6 +222,7 @@ export const getBaseHomeSceneSettings = () => ({
   ...DEFAULT_TANKER_SETTINGS,
   ...DEFAULT_SURFBOARD_SETTINGS,
   ...DEFAULT_HOUSE_SETTINGS,
+  ...DEFAULT_FIRE_SETTINGS,
   ...DEFAULT_TERRAIN_SETTINGS,
   ...DEFAULT_TOPIARY_SETTINGS,
   ...DEFAULT_PLACED_SETTINGS,
@@ -1197,6 +1199,7 @@ const normalizeHomeSceneSettings = (savedSettings = {}, includeCameraSystem = tr
     ...normalizeTankerSettings(merged),
     ...normalizeSurfboardSettings(merged),
     ...normalizeHouseSettings(merged),
+    ...normalizeFireSettings(merged),
     ...normalizeTerrainSettings(merged),
     ...normalizeTopiarySettings(merged),
     ...normalizePlacedSettings(merged),
