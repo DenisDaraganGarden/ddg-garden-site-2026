@@ -79,5 +79,7 @@ html[data-planting-report=true] body{background:#e9e8e3}
   .report-toolbar{display:none}
   .report-tiles{grid-template-columns:repeat(3,1fr)}
   .report-block{break-inside:auto}
+  .report h3{break-after:avoid-page}
+  .report-table tr{break-inside:avoid}
   .report-album>article{break-inside:avoid}
 }

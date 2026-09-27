@@ -273,10 +273,10 @@ export function plantingInstances(beds, bedFills, points) {
         if (!bySpecies.has(plant)) bySpecies.set(plant, []);
         bySpecies.get(plant).push(item);
     };
-    beds.forEach((bed, index) => { for (const p of bedFills[index] ?? []) add(p.plant, { plant: p.plant, x: p.x, y: p.y ?? bed.y, z: p.z, scale: p.scale, flip: p.flip }); });
+    beds.forEach((bed, index) => { for (const p of bedFills[index] ?? []) add(p.plant, { id: `${bed.id}:${p.key}`, bed: bed.id, plant: p.plant, x: p.x, y: p.y ?? bed.y, z: p.z, scale: p.scale, flip: p.flip }); });
     for (const point of points) {
         const hash = ((point.seed * 2654435761) >>> 0) / 4294967296;
-        add(point.plant, { plant: point.plant, x: point.x, y: point.y, z: point.z, scale: 0.94 + 0.12 * hash, flip: hash < 0.5 ? -1 : 1, existing: point.status === 'existing' });
+        add(point.plant, { id: point.id, plant: point.plant, x: point.x, y: point.y, z: point.z, scale: 0.94 + 0.12 * hash, flip: hash < 0.5 ? -1 : 1, existing: point.status === 'existing' });
     }
     return bySpecies;
 }
@@ -286,11 +286,10 @@ export const PLANTING_RESERVE = 0.05;
 
 // Ведомость: вид → штук, по цветникам и одиночным. Площадь вида в цветнике —
 // его доля от площади контура.
-// count — нарисовано (для сверки с планом). order — к заказу: в цветнике
-// площадь вида × норма шт/м² × густота цветника, по всем цветникам, плюс
-// запас, вверх до штуки; одиночные и лианы — поштучно, существующие на
-// участке не заказываются. Нарисованное расходится с расчётом: пятна
-// раздаются видам по числу, а не по площади, у края — отступ в треть шага.
+// count — фактические места посадки, включая существующие. order — все
+// новые места вида (цветники, одиночные, лианы) + 5 %, вверх до штуки.
+// Запас округляется один раз на вид. Удаление уже учтено в fillBed: второй
+// раз вычитать removed нельзя. Площадь по рецепту остаётся справочной.
 // Лиана в ведомости — штука (растение), и к ней длина побегов по стенам.
 // Почвопокров и изгородь — по каталогу: копытник и тимьян покрова, если за
 // ними стоит растение библиотеки, — площадь по доле × его шт/м²; изгородь с
@@ -299,10 +298,10 @@ export const PLANTING_RESERVE = 0.05;
 export function plantingSchedule(beds, fills, points, library, vines = [], hedges = []) {
     const rows = new Map();
     const row = (id) => {
-        if (!rows.has(id)) rows.set(id, { plant: library.get(id) ?? { id }, count: 0, area: 0, beds: new Set(), length: 0, hedgeLength: 0, bedOrder: 0, pieces: 0, existing: 0, removed: 0 });
+        if (!rows.has(id)) rows.set(id, { plant: library.get(id) ?? { id }, count: 0, area: 0, beds: new Set(), length: 0, hedgeLength: 0, estimated: 0, existing: 0, removed: 0 });
         return rows.get(id);
     };
-    for (const vine of vines) { const r = row(vine.plant); r.count += 1; r.pieces += 1; r.length += vineLength(vine); }
+    for (const vine of vines) { const r = row(vine.plant); r.count += 1; r.length += vineLength(vine); }
     beds.forEach((bed) => {
         const plants = bed.kind !== 'lawn' && bed.cover && bed.cover.enabled !== false ? bed.cover.plants : null;
         if (!plants) return;
@@ -313,7 +312,7 @@ export function plantingSchedule(beds, fills, points, library, vines = [], hedge
             const target = row(id);
             target.area += area * share;
             target.beds.add(bed.name);
-            if (norm > 0) target.bedOrder += area * share * norm;
+            if (norm > 0) target.estimated += area * share * norm;
         }
     });
     for (const hedge of hedges) {
@@ -321,33 +320,29 @@ export function plantingSchedule(beds, fills, points, library, vines = [], hedge
         const target = row(hedge.plant), length = lineLength(hedge.points) * (hedge.scale ?? 1);
         target.hedgeLength += length;
         target.beds.add(hedge.name);
-        if (hedge.perMetre > 0) target.bedOrder += length * hedge.perMetre;
+        if (hedge.perMetre > 0) target.estimated += length * hedge.perMetre;
     }
     beds.forEach((bed, index) => {
         if (bed.kind === 'lawn' || bed.kind === 'cover') return;
         const area = bedArea(bed), shares = bed.recipe.filter((r) => library.has(r.plant)), total = shares.reduce((sum, r) => sum + r.share, 0) || 1;
-        const drawn = new Map();
-        for (const plant of fills[index] ?? []) { row(plant.plant).count += 1; drawn.set(plant.plant, (drawn.get(plant.plant) ?? 0) + 1); }
-        // Убранное руками — минус штука к заказу, ровно по одной.
+        for (const plant of fills[index] ?? []) row(plant.plant).count += 1;
+        // Сведения о правке; её влияние уже входит в число оставшихся мест.
         for (const [id, count] of Object.entries(removedIn(fills[index]))) if (library.has(id)) row(id).removed += count;
         for (const r of shares) {
-            const target = row(r.plant), speciesArea = (area * r.share) / total, norm = Number(library.get(r.plant).density);
+            const target = row(r.plant), speciesArea = (area * r.share) / total;
             target.area += speciesArea;
             target.beds.add(bed.name);
-            // Без нормы в записи растения — сколько нарисовано.
-            if (norm > 0) target.bedOrder += speciesArea * norm * bed.density;
-            else target.pieces += drawn.get(r.plant) ?? 0;
         }
     });
     for (const point of points) {
         const r = row(point.plant);
         r.count += 1;
-        if (point.status === 'existing') r.existing += 1; else r.pieces += 1;
+        if (point.status === 'existing') r.existing += 1;
     }
-    return [...rows.values()].filter((r) => r.count > 0 || r.bedOrder > 0 || r.hedgeLength > 0 || r.area > 0).map(({ bedOrder, pieces, ...r }) => ({
+    return [...rows.values()].filter((r) => r.count > 0 || r.estimated > 0 || r.hedgeLength > 0 || r.area > 0).map((r) => ({
         ...r,
-        order: Math.max(0, pieces + (bedOrder > 0 ? Math.ceil(bedOrder * (1 + PLANTING_RESERVE) - 1e-9) : 0) - r.removed),
-    })).sort((a, b) => b.order - a.order || b.count - a.count);
+        order: Math.max(0, Math.ceil((r.count - r.existing + r.estimated) * (1 + PLANTING_RESERVE) - 1e-9)),
+    })).sort((a, b) => String(a.plant.latin || a.plant.id).localeCompare(String(b.plant.latin || b.plant.id), 'en') || a.plant.id.localeCompare(b.plant.id, 'en'));
 }
 
 // Почвопокров по площади: отдельный покров (kind: 'cover') и нижний слой

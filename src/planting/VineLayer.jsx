@@ -6,6 +6,7 @@ import { growVine, vineParams, vineRoot } from './vines.js';
 import { seasonLook } from './season.js';
 import { plantVineAtlasUrl } from './plantLibrary.js';
 import { gardenWind, GARDEN_WIND_GLSL } from './wind.js';
+import PlanCaps from './PlanCaps.jsx';
 
 // Лианы в сцене (правило роста — vines.js). На вид — атлас из четырёх
 // клеток: три варианта листа и цветок или плод, серые: цвет у каждого листа
@@ -265,15 +266,13 @@ export default function VineLayer({ vines, library, month, plan, selectedId = nu
         return map;
     }, [vines, library]);
     const selected = vines.find((vine) => vine.id === selectedId);
+    const planInstances = useMemo(() => vines.filter((vine) => library.has(vine.plant)).map((vine) => {
+        const [x, y, z] = vineRoot(vine);
+        return { id: `vine:${vine.id}`, plant: vine.plant, x, y, z, scale: 1, vine: true };
+    }), [vines, library]);
     return <group name="planting-vines">
         {[...bySpecies].map(([id, list]) => <SpeciesVines key={id} plant={library.get(id)} vines={list} month={month} plan={plan} envMapIntensity={envMapIntensity} />)}
-        {plan ? vines.filter((vine) => library.has(vine.plant)).map((vine) => {
-            const [x, y, z] = vineRoot(vine);
-            return <mesh key={vine.id} position={[x, y + 0.1, z]} rotation={[-Math.PI / 2, 0, 0]} raycast={NO_RAYCAST} renderOrder={3}>
-                <circleGeometry args={[0.28, 28]} />
-                <meshBasicMaterial color={library.get(vine.plant).cap ?? '#9a6fb0'} transparent opacity={0.8} depthWrite={false} toneMapped={false} />
-            </mesh>;
-        }) : null}
+        {plan ? <PlanCaps instances={planInstances} library={library} /> : null}
         {selected && library.has(selected.plant) ? <VineOutline vine={selected} plant={library.get(selected.plant)} /> : null}
     </group>;
 }

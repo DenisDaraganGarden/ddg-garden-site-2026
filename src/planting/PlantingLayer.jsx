@@ -10,6 +10,7 @@ import { useRendererContextRevision } from '../components/effects/useRendererCon
 import { plantCardUrl, plantSeasonUrl, useBedFills, usePlantLibrary } from './plantLibrary.js';
 import { seasonImage, seasonLook } from './season.js';
 import VineLayer from './VineLayer.jsx';
+import PlanCaps from './PlanCaps.jsx';
 import { gardenWind, GARDEN_WIND_GLSL, plantFlex } from './wind.js';
 
 // Посадки в сцене: одна пачка карточек на вид (InstancedMesh), а не на
@@ -298,53 +299,6 @@ function SpeciesCards({ plant, instances, month, envMapIntensity }) {
         visible={pictures ? pictures.image.visible : look.visible} castShadow receiveShadow frustumCulled={false} raycast={() => {}} />;
 }
 
-// План: шапка на каждое растение — круг цвета категории (легенда библиотеки
-// Дениса, прозрачность 0.61) диаметром в ширину растения. Деревья над
-// кустами, кусты над травами, как на его чертежах.
-const CAP_LAYER = { tree: 0.09, conifer: 0.06, shrub: 0.06, topiary: 0.06 };
-function PlanCaps({ instances, library }) {
-    const { invalidate } = useThree();
-    const fill = useRef(), ring = useRef();
-    const capacity = capacityFor(instances.length);
-    const resources = useMemo(() => {
-        const disc = new THREE.CircleGeometry(0.5, 40).rotateX(-Math.PI / 2);
-        const edge = new THREE.RingGeometry(0.47, 0.5, 40).rotateX(-Math.PI / 2);
-        const fillMaterial = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.61, depthWrite: false, toneMapped: false });
-        const ringMaterial = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.85, depthWrite: false, toneMapped: false });
-        return { disc, edge, fillMaterial, ringMaterial, core: new THREE.CircleGeometry(0.09, 20).rotateX(-Math.PI / 2), coreMaterial: new THREE.MeshBasicMaterial({ color: '#2d2f2c', transparent: true, opacity: 0.85, depthWrite: false, toneMapped: false }) };
-    }, []);
-    useEffect(() => () => Object.values(resources).forEach((item) => item.dispose()), [resources]);
-    useLayoutEffect(() => {
-        if (!fill.current || !ring.current) return;
-        const matrix = new THREE.Matrix4(), color = new THREE.Color(), dark = new THREE.Color();
-        const ordered = [...instances].sort((a, b) => (CAP_LAYER[library.get(a.plant)?.category] ?? 0.03) - (CAP_LAYER[library.get(b.plant)?.category] ?? 0.03));
-        ordered.forEach((p, i) => {
-            const plant = library.get(p.plant);
-            const size = (plant?.spread ?? 0.5) * p.scale;
-            matrix.makeScale(size, 1, size).setPosition(p.x, p.y + (CAP_LAYER[plant?.category] ?? 0.03) + i * 1e-6, p.z);
-            fill.current.setMatrixAt(i, matrix);
-            ring.current.setMatrixAt(i, matrix);
-            // Существующее дерево — белая шапка с тёмным кольцом, как в легенде библиотеки.
-            color.set(p.existing ? '#f4f3ee' : plant?.cap ?? '#888888');
-            fill.current.setColorAt(i, color);
-            ring.current.setColorAt(i, p.existing ? dark.set('#2d2f2c') : dark.copy(color).multiplyScalar(0.55));
-        });
-        for (const target of [fill.current, ring.current]) {
-            target.count = ordered.length;
-            target.instanceMatrix.needsUpdate = true;
-            if (target.instanceColor) target.instanceColor.needsUpdate = true;
-        }
-        invalidate();
-    }, [instances, library, capacity, invalidate]);
-    // Тёмный центр существующих деревьев — отдельной пачкой поверх шапок.
-    const existing = instances.filter((p) => p.existing);
-    return <group>
-        <instancedMesh ref={fill} args={[resources.disc, resources.fillMaterial, capacity]} frustumCulled={false} raycast={() => {}} renderOrder={2} />
-        <instancedMesh ref={ring} args={[resources.edge, resources.ringMaterial, capacity]} frustumCulled={false} raycast={() => {}} renderOrder={3} />
-        {existing.map((p, i) => <mesh key={i} geometry={resources.core} material={resources.coreMaterial} position={[p.x, p.y + 0.12, p.z]} scale={Math.max(1, (library.get(p.plant)?.spread ?? 1) * p.scale * 0.6)} raycast={() => {}} renderOrder={4} />)}
-    </group>;
-}
-
 // Площадка цветника — по ней цветник выбирается кликом; видна она только на
 // плане (бумага). Сам грунт рисует BedGround. Дырки (приствольные круги) — дырки.
 function BedSurface({ bed, selected, inside, plan }) {
@@ -468,7 +422,7 @@ export default function PlantingLayer({ settings, selectedBedId = null, insideBe
             : bed.kind === 'cover' || status !== 'ready' ? null : bed.kind === 'lawn'
             ? <LawnGround key={bed.id} bed={bed} plants={all} library={library} month={settings.plantingMonth} hour={settings.timeOfDay ?? 12} keyDirection={keyDirection} lift={layerLift(i)} />
             : <BedGround key={bed.id} bed={bed} plants={all} library={library} month={settings.plantingMonth} lift={layerLift(i)} />))}
-        {plan ? <PlanCaps instances={all} library={library} />
+        {plan ? <PlanCaps instances={all} library={library} beds={beds} />
             : [...bySpecies].map(([id, instances]) => (library.has(id)
                 ? <SpeciesCards key={id} plant={library.get(id)} instances={instances} month={settings.plantingMonth} envMapIntensity={envMapIntensity} />
                 : null))}

@@ -1,5 +1,6 @@
 // Run: node src/planting/planting.check.js
 import assert from 'node:assert/strict';
+import './planDrawing.check.js';
 import { bedAnchor, coverSchedule, fillBed, insidePolygon, moveBed, plantingSchedule, PLANTING_RESERVE, polygonArea, quotas, removedIn, scheduleCsv, simplifyContour, spacingFor } from './fillBed.js';
 import { fenceLayout, fenceSchedule, POST_SPAN } from '../topiary/fenceLayout.js';
 import { seasonImage, seasonLook, seasonPhases } from './season.js';
@@ -78,25 +79,25 @@ assert.ok(Math.abs(schedule.find((row) => row.plant.id === 'grass').area - 24) <
 assert.equal(scheduleCsv(schedule).split('\r\n').filter(Boolean).length, schedule.length + 1);
 assert.equal(polygonArea(bed.points), 60);
 
-// К заказу — по площади и норме, не по нарисованному: 60 м² × доля × шт/м² ×
-// густота + 5 %, вверх до штуки; одиночное новое — штука.
+// Закупка по фактическим местам + 5 %, один раз на вид; без существующих.
 const orderOf = (rows, id) => rows.find((row) => row.plant.id === id)?.order;
+const orderCount = (count) => Math.ceil(count * 1.05 - 1e-9);
 assert.equal(PLANTING_RESERVE, 0.05);
-assert.equal(orderOf(schedule, 'grass'), Math.ceil(24 * 3.2 * 1.05), 'grass: 24 m² × 3.2 /m² + 5 %');
-assert.equal(orderOf(schedule, 'rudbeckia'), Math.ceil(18 * 5 * 1.05));
-assert.equal(orderOf(schedule, 'perovskia'), Math.ceil(18 * 2.5 * 1.05));
-assert.equal(orderOf(schedule, 'cornus'), 1, 'a single plant is one to order');
-assert.ok(scheduleCsv(schedule).includes('К заказу, шт (+5 %)'), 'the CSV says what the order includes');
+for (const row of schedule) assert.equal(row.order, orderCount(row.count));
+assert.equal(orderOf(schedule, 'cornus'), 2, 'one new plant plus reserve rounds up');
+assert.ok(scheduleCsv(schedule).includes('К заказу, шт (+5 %)'));
 const denseBed = { ...bed, id: 'dense', name: 'Густой', density: 1.5 };
 const twoBeds = plantingSchedule([bed, denseBed], [first, fillBed(denseBed, library)], [], library);
-assert.equal(orderOf(twoBeds, 'grass'), Math.ceil((24 * 3.2 + 24 * 3.2 * 1.5) * 1.05), 'beds add up before rounding, density scales the norm');
+for (const row of twoBeds) assert.equal(row.order, orderCount(row.count), 'aggregate before rounding');
 const existingOnly = plantingSchedule([], [], [{ plant: 'cornus', x: 0, y: 0, z: 0, status: 'existing' }, { plant: 'cornus', x: 1, y: 0, z: 0 }], library);
-assert.deepEqual([existingOnly[0].count, existingOnly[0].existing, existingOnly[0].order], [2, 1, 1], 'a tree already on the site is drawn but not ordered');
+assert.deepEqual([existingOnly[0].count, existingOnly[0].existing, existingOnly[0].order], [2, 1, 2]);
+assert.equal(plantingSchedule([], [], [{ plant:'cornus', status:'existing' }], library)[0].order, 0);
 const noNorm = new Map([['mystery', { id: 'mystery' }]]);
 const mysteryBed = { ...bed, id: 'm', recipe: [{ plant: 'mystery', share: 100 }] };
 const mysteryRows = plantingSchedule([mysteryBed], [[{ plant: 'mystery' }, { plant: 'mystery' }]], [], noNorm);
-assert.equal(orderOf(mysteryRows, 'mystery'), 2, 'without a norm the order is what is drawn');
-assert.deepEqual(plantingSchedule([{ ...bed, kind: 'lawn', recipe: [] }], [[]], [], library), [], 'a lawn orders no plants');
+assert.equal(orderOf(mysteryRows, 'mystery'), 3, 'no norm needed for counted positions');
+assert.deepEqual(plantingSchedule([{ ...bed, kind: 'lawn', recipe: [] }], [[]], [], library), []);
+assert.deepEqual(schedule.map(row=>row.plant.id), plantingSchedule([bed], [first.slice(0,2)], [{plant:'cornus'}], library).map(row=>row.plant.id), 'quantity changes do not renumber unchanged species');
 
 // Почвопокров — метрами по составу; ограда — п.м., секции и столбы той же
 // раскладкой, что рисует сцена (fenceLayout.js).
@@ -121,7 +122,7 @@ assert.ok(Math.abs(fenceRows[0].length - 16.2) < 1e-9 && fenceRows[0].height ===
 assert.equal(fenceRows[1].length, 5);
 assert.equal(fenceRows[1].sections, undefined);
 // Ручные правки внутри цветника: убранное растение пропадает с плана и из
-// заказа (ровно минус одно), сдвинутое встаёт на новое место; цветник
+// заказа (запас пересчитывается), сдвинутое встаёт на новое место; цветник
 // переносится целиком вместе с правками; правка с чужого места не срабатывает.
 assert.equal(new Set(first.map((p) => p.key)).size, first.length, 'every plant of a bed has its own key');
 const [ax, az] = bedAnchor(bed);
@@ -134,8 +135,7 @@ assert.ok(!editedFill.some((p) => p.key === victim.key));
 const moved = editedFill.find((p) => p.key === mover.key);
 assert.deepEqual([moved.x, moved.z, moved.moved], [ax + 1.5, az - 2, true], 'a moved plant stands where it was put');
 assert.deepEqual(removedIn(editedFill), { [victim.plant]: 1 });
-const orderBefore = orderOf(plantingSchedule([bed], [first], [], library), victim.plant);
-assert.equal(orderOf(plantingSchedule([edited], [editedFill], [], library), victim.plant), orderBefore - 1, 'and exactly one less to order');
+assert.equal(orderOf(plantingSchedule([edited], [editedFill], [], library), victim.plant), orderCount(editedFill.filter(p=>p.plant===victim.plant).length), 'removed positions are not subtracted twice');
 const stale = fillBed(normalizePlantingBed({ ...bed, edits: { removed: [{ ...rel(victim), x: rel(victim).x + 0.4 }] } }), library);
 assert.equal(stale.length, first.length, 'an edit whose plant is no longer there does nothing');
 const shiftedBed = moveBed(edited, 3.25, -1.5);
@@ -237,7 +237,8 @@ const texelAt = (x, z) => {
     return { rgb: [...groundMaps.litter.slice(k, k + 3)], amount: groundMaps.litter[k + 3], leaf: groundMaps.kinds[k], canopy: groundMaps.kinds[k + 3] };
 };
 assert.deepEqual(texelAt(1, 1).rgb, [0xb0, 0x43, 0x3a], 'под дёреном — его листья');
-assert.ok(texelAt(1, 1).amount > 150 && texelAt(1, 1).leaf === 255 && texelAt(1, 1).canopy > 200, 'много, листьями, в тени кроны');
+assert.ok(texelAt(1, 1).amount > 150 && texelAt(1, 1).leaf === 255 && texelAt(1, 1).canopy > 20, 'много опада, листьями, с остаточным затенением');
+assert.ok(groundLitter(library.get('cornus'), 11).canopy < groundLitter(library.get('cornus'), 7).canopy, 'листопад ослабляет затенение кроны');
 assert.equal(texelAt(3.5, 2.5).amount, 0, 'вдали от растения чисто');
 const groundSlope = { points: [[0, 0], [2, 0], [2, 2], [0, 2]], y: 0, ground: { x0: 0, z0: 0, step: 1, cols: 3, rows: 3, h: [0, 0.5, 1, 0, 0.5, 1, 0, 0.5, 1] } };
 const groundGeometry = bedGroundGeometry(groundSlope);

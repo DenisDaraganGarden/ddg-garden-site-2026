@@ -15,6 +15,8 @@ import { vineRoot } from '../planting/vines.js';
 import { formatLevel, markLevels, normalizeAnnotationSettings } from '../annotations/settings.js';
 import { LightingReportBlocks } from '../lighting/LightingReport.jsx';
 import { useLightingReport } from '../lighting/lightingReport.js';
+import PlantingDrawing from '../planting/PlantingDrawing.jsx';
+import { siteNorth } from '../planting/siteNorth.js';
 import './PlantingReport.css';
 
 // Отчёт по посадкам проекта — для заказчика и дендролога: план в шапках
@@ -22,32 +24,6 @@ import './PlantingReport.css';
 // Одна страница, печатается в PDF (⌘P). Числа — те же, что рисует сцена.
 const MONTHS = ['Я', 'Ф', 'М', 'А', 'М', 'И', 'И', 'А', 'С', 'О', 'Н', 'Д'];
 const LEGEND = [['perennial', '#bf6d3f'], ['grass', '#bfb83f'], ['shrub', '#84b03a'], ['conifer', '#414c19'], ['tree', '#98bf71'], ['climber', '#9a6fb0']];
-
-function Plan({ beds, instances, library }) {
-    const all = [...beds.flatMap((bed) => bed.points), ...instances.map((p) => [p.x, p.z])];
-    if (!all.length) return null;
-    const pad = 2 + Math.max(0, ...instances.map((p) => (library.get(p.plant)?.spread ?? 1) / 2));
-    const x0 = Math.min(...all.map((p) => p[0])) - pad, x1 = Math.max(...all.map((p) => p[0])) + pad;
-    const z0 = Math.min(...all.map((p) => p[1])) - pad, z1 = Math.max(...all.map((p) => p[1])) + pad;
-    const width = x1 - x0, bar = [1, 2, 5, 10, 20, 50].find((m) => m >= width / 8) ?? 50;
-    const layer = { tree: 3, conifer: 2, shrub: 2, topiary: 2 };
-    const ordered = [...instances].sort((a, b) => (layer[library.get(a.plant)?.category] ?? 1) - (layer[library.get(b.plant)?.category] ?? 1));
-    return <svg className="report-plan" viewBox={`${x0} ${z0} ${width} ${z1 - z0}`} role="img" aria-label="План посадок">
-        {beds.map((bed) => <path key={bed.id} d={[bed.points, ...(bed.holes ?? [])].map((ring) => `M${ring.map((p) => p.join(',')).join('L')}Z`).join('')} fillRule="evenodd" className={`report-plan__bed${bed.kind === 'lawn' ? ' is-lawn' : ''}`} style={{ strokeWidth: width / 500 }} />)}
-        {ordered.map((p, i) => {
-            const plant = library.get(p.plant), r = ((plant?.spread ?? 0.5) * p.scale) / 2;
-            return <g key={i}>
-                <circle cx={p.x} cy={p.z} r={r} fill={p.existing ? '#f4f3ee' : plant?.cap ?? '#999'} fillOpacity={p.existing ? 0.9 : 0.61} stroke={p.existing ? '#2d2f2c' : '#00000040'} strokeWidth={width / 900} />
-                {p.existing ? <circle cx={p.x} cy={p.z} r={Math.max(r * 0.12, width / 300)} fill="#2d2f2c" /> : null}
-            </g>;
-        })}
-        {beds.map((bed) => { const [cx, cz] = bed.points.reduce(([a, b], [x, z]) => [a + x / bed.points.length, b + z / bed.points.length], [0, 0]); return <text key={bed.id} x={cx} y={cz} className="report-plan__label" style={{ fontSize: width / 55 }}>{bed.name}</text>; })}
-        <g transform={`translate(${x0 + width * 0.03} ${z1 - (z1 - z0) * 0.04})`}>
-            <rect width={bar} height={width / 180} fill="#222" />
-            <text x={bar / 2} y={-width / 120} className="report-plan__scale" style={{ fontSize: width / 70 }}>{bar} м</text>
-        </g>
-    </svg>;
-}
 
 // Генплан — снимок камеры «Генплан» (usePlanCapture.js): модель сверху,
 // растения шапками. Камера смотрела прямо вниз, поэтому точка земли ложится
@@ -165,14 +141,15 @@ export default function PlantingReport() {
         </header>
 
         <section className="report-tiles">
-            {[[schedule.reduce((sum, r) => sum + r.order, 0), ru ? 'растений к заказу' : 'plants to order'], [schedule.length, ru ? 'видов' : 'species'], [flowerBeds.length, ru ? 'цветников' : 'beds'], [`${area.toFixed(1)} м²`, ru ? 'цветников по площади' : 'of beds'], ...(lawns.length ? [[`${lawnArea.toFixed(1)} м²`, ru ? 'газонов' : 'of lawns']] : []), [planting.plantingPoints.length - existing, ru ? 'деревьев и кустов — новых' : 'new trees and shrubs'], [existing, ru ? 'существующих' : 'existing'], ...(planting.plantingVines.length ? [[planting.plantingVines.length, ru ? 'лиан' : 'climbers']] : [])].map(([value, label]) => <div key={label}><b>{value}</b><span>{label}</span></div>)}
+            {[[schedule.reduce((sum, r) => sum + r.order, 0), ru ? 'растений к заказу' : 'plants to order'], [schedule.length, ru ? 'видов' : 'species'], [flowerBeds.length, ru ? 'цветников' : 'beds'], [`${area.toFixed(1)} м²`, ru ? 'цветников по площади' : 'of beds'], ...(lawns.length ? [[`${lawnArea.toFixed(1)} м²`, ru ? 'газонов' : 'of lawns']] : []), [planting.plantingPoints.length - existing, ru ? 'одиночных посадок — новых' : 'new individual plantings'], [existing, ru ? 'существующих' : 'existing'], ...(planting.plantingVines.length ? [[planting.plantingVines.length, ru ? 'лиан' : 'climbers']] : [])].map(([value, label]) => <div key={label}><b>{value}</b><span>{label}</span></div>)}
         </section>
 
         <section className="report-block">
             <h3>{ru ? 'План' : 'Plan'}</h3>
-            {shot ? <PlanShot id={id} shot={shot} beds={planting.plantingBeds} points={planting.plantingPoints} vines={planting.plantingVines} annotations={annotations} lighting={lighting} numberOf={new Map(schedule.map((r, i) => [r.plant.id, i + 1]))} ru={ru} />
-                : <><Plan beds={planting.plantingBeds} instances={instances} library={library} />
-                    <p className="report-hint">{ru ? 'Генплан с моделью появится здесь, когда в проекте откроют камеру «Генплан» — кнопка в «Растениях».' : 'The site plan with the model appears here once the “Site plan” camera is opened in the project — the button is in Plants.'}</p></>}
+            <PlantingDrawing beds={planting.plantingBeds} instances={instances} vines={planting.plantingVines} library={library} schedule={schedule} bearing={siteNorth(entry.settings)} name={entry.name} ru={ru} />
+            {shot ? <details className="report-context-plan"><summary>{ru ? 'Снимок генплана с моделью' : 'Site plan snapshot with model'}</summary>
+                <PlanShot id={id} shot={shot} beds={planting.plantingBeds} points={planting.plantingPoints} vines={planting.plantingVines} annotations={annotations} lighting={lighting} numberOf={new Map(schedule.map((r, i) => [r.plant.id, i + 1]))} ru={ru} />
+            </details> : null}
             <div className="report-legend">{LEGEND.map(([id2, color]) => <span key={id2}><i style={{ background: color }} />{CATEGORY_LABELS[id2][ru ? 0 : 1]}</span>)}<span><i className="is-existing" />{ru ? 'существующее' : 'existing'}</span></div>
         </section>
 
@@ -191,7 +168,7 @@ export default function PlantingReport() {
                     <div className="report-album__text">
                         <h4>{plantName(r.plant, ru)}</h4>
                         <p className="report-album__latin">{r.plant.latin}</p>
-                        <p><b>{r.order} {ru ? 'шт' : 'pcs'}</b> · {CATEGORY_LABELS[r.plant.category]?.[ru ? 0 : 1]} · {where(r)}</p>
+                        <p><b>{r.order} {ru ? 'шт к заказу' : 'pcs to order'}</b> · {CATEGORY_LABELS[r.plant.category]?.[ru ? 0 : 1]} · {where(r)}</p>
                         {r.plant.category === 'climber'
                             ? <p>{ru ? 'Поднимается до' : 'Climbs to'} {r.plant.height} м{r.plant.vine?.support ? ` · ${r.plant.vine.support}` : ''}</p>
                             : <p>{ru ? 'Высота' : 'Height'} {r.plant.height} м · {ru ? 'ширина' : 'spread'} {r.plant.spread} м{r.plant.density && r.plant.category !== 'tree' ? ` · ${r.plant.density} шт/м², ${ru ? 'шаг' : 'spacing'} ${Math.round(spacingFor(r.plant.density) * 100)} см` : ''}</p>}
@@ -209,7 +186,7 @@ export default function PlantingReport() {
             <table className="report-table"><thead><tr>
                 <th>№</th><th>{ru ? 'Растение' : 'Plant'}</th><th>{ru ? `К заказу, шт (+${reserve} %)` : `To order (+${reserve} %)`}</th><th>{ru ? 'Нарисовано, шт' : 'Drawn'}</th><th>{ru ? 'Площадь, м²' : 'Area, m²'}</th><th>{ru ? 'шт/м²' : '/m²'}</th><th>{ru ? 'Высота, м' : 'Height, m'}</th><th>{ru ? 'Где' : 'Where'}</th><th>{ru ? 'Замечания дендролога' : 'Dendrologist notes'}</th>
             </tr></thead><tbody>{schedule.map((r, i) => <tr key={r.plant.id}>
-                <td>{i + 1}</td><td>{plantName(r.plant, ru)}<small>{r.plant.latin}</small></td><td>{r.order || '—'}</td><td>{r.count || '—'}</td><td>{r.area ? r.area.toFixed(1) : '—'}</td><td>{r.plant.category === 'tree' || !r.area ? '—' : r.plant.density ?? '—'}</td><td>{r.plant.height}</td><td>{where(r)}</td><td />
+                <td>{i + 1}</td><td>{plantName(r.plant, ru)}<small>{r.plant.latin}</small></td><td>{r.order || '—'}{r.estimated > 0 ? <small>{ru ? 'включая норму покрова / изгороди' : 'includes cover / hedge allowance'}</small> : null}</td><td>{r.count || '—'}{r.existing ? <small>{ru ? `из них ${r.existing} существующих` : `${r.existing} existing`}</small> : null}</td><td>{r.area ? r.area.toFixed(1) : '—'}</td><td>{r.plant.category === 'tree' || !r.area ? '—' : r.plant.density ?? '—'}</td><td>{r.plant.height}</td><td>{where(r)}</td><td />
             </tr>)}</tbody></table>
         </section>
 
@@ -244,7 +221,7 @@ export default function PlantingReport() {
         <LightingReportBlocks report={lighting} ru={ru} />
 
         <footer className="report-foot">{ru
-            ? `Высоты, плотность и календарь — справочные данные библиотеки растений (уверенность средняя), не заключение дендролога. К заказу: в цветнике — площадь вида по доле рецепта × шт/м² × густота цветника + ${reserve} %; одиночные и лианы — поштучно, существующие не заказываются. «Нарисовано» — растения на плане, для сверки.`
-            : `Heights, density and calendar are reference data from the plant library (medium confidence), not a dendrologist’s opinion. To order: in a bed, the species’ area by its recipe share × plants per m² × the bed’s density + ${reserve} %; single plants and climbers by the piece, existing ones not ordered. “Drawn” is what is on the plan, for checking.`}</footer>
+            ? `Высоты, плотность и календарь — справочные данные библиотеки растений (уверенность средняя), не заключение дендролога. К заказу: фактические новые места посадки + ${reserve} %, округление вверх один раз на вид; существующие исключены. Для покрова и изгороди без поштучной раскладки добавляется норма по площади или длине. «Нарисовано» и суммы выносок — одни и те же растения на плане. Площадь вида по рецепту справочная и не определяет количество расставленных растений.`
+            : `Heights, density and calendar are plant library references (medium confidence), not a dendrologist’s opinion. To order: actual new planting positions + ${reserve} %, rounded up once per species; existing plants excluded. Covers and hedges without individual positions add an area or length allowance. Drawn counts and callout totals refer to the same plants. Recipe areas are reference values and do not determine the number of placed plants.`}</footer>
     </main>;
 }
