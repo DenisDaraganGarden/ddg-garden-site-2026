@@ -121,12 +121,12 @@ export function createWaterSceneBindingUniforms() {
 }
 
 // A ShaderMaterial validates its samplers even behind a false branch on WebKit.
-// A real uploaded comparison texture keeps the optional CSM path safe before
+// A real uploaded depth texture keeps the optional CSM path safe before
 // WaterLights has produced its first map.
 function useEmptyShadow() {
   const [texture] = useState(() => {
     const next = new THREE.DepthTexture(1, 1, THREE.UnsignedIntType);
-    next.compareFunction = THREE.LessEqualCompare;
+    next.compareFunction = null;
     next.needsUpdate = true;
     return next;
   });

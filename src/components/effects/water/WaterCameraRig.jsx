@@ -227,6 +227,13 @@ export default function WaterCameraRig({
       }
     };
     const handleKeyDown = (event) => {
+      // System shortcuts belong to the app/browser, including Cmd+Q to quit.
+      // Clear held flight keys too: macOS may swallow their keyup under Cmd.
+      if (event.metaKey || event.ctrlKey || event.altKey) {
+        pressedKeys.clear();
+        return;
+      }
+      if (event.defaultPrevented) return;
       if (!FREE_CAMERA_KEYS.has(event.code)) {
         return;
       }

@@ -1,3 +1,4 @@
+import { RAW_SHADOW_COMPARE_GLSL } from '../../shadowPcss.js';
 import { coastShader, createCoastUniforms, syncCoastUniforms } from '../../../../terrain/terrainShader.js';
 import { sceneDepthVertex, sceneDepthFragment } from '../../shaders/sceneDepth';
 import { reflectionContext } from '../reflectionContext';
@@ -34,6 +35,7 @@ const farWaterVertexShader = /* glsl */`
 `;
 
 export const farWaterFragmentShader = /* glsl */`
+  ${RAW_SHADOW_COMPARE_GLSL}
   ${skyShaderChunk}
   ${DDG_CLOUD_SHADOW_GLSL}
   ${coastShader}
@@ -51,8 +53,8 @@ export const farWaterFragmentShader = /* glsl */`
   uniform float uCoastScattering;
   uniform vec3 uCoastKeyColor;
   uniform float uCoastKeyIntensity;
-  uniform highp sampler2DShadow uKeyShadowMap;
-  uniform highp sampler2DShadow uKeyShadowMapFar;
+  uniform highp sampler2D uKeyShadowMap;
+  uniform highp sampler2D uKeyShadowMapFar;
   uniform mat4 uKeyShadowMatrix;
   uniform float uKeyShadowFarActive;
   uniform float uKeyShadowFarBias;
@@ -104,17 +106,17 @@ export const farWaterFragmentShader = /* glsl */`
     return chroma * value;
   }
 
-  float sampleKeyShadow(sampler2DShadow shadowMap, vec4 shadowCoord, float isActive, float bias, vec2 texelSize, float radius) {
+  float sampleKeyShadow(sampler2D shadowMap, vec4 shadowCoord, float isActive, float bias, vec2 texelSize, float radius) {
     if (isActive < 0.5) return 1.0;
     vec3 coord = shadowCoord.xyz / max(shadowCoord.w, 1e-5);
     if (coord.z > 1.0 || any(lessThan(coord.xy, vec2(0.0))) || any(greaterThan(coord.xy, vec2(1.0)))) return 1.0;
     float depth = coord.z + bias;
     vec2 stepSize = texelSize * max(0.5, radius);
-    float lit = texture(shadowMap, vec3(coord.xy, depth)) * .28;
-    lit += texture(shadowMap, vec3(coord.xy + vec2(stepSize.x, 0.0), depth)) * .18;
-    lit += texture(shadowMap, vec3(coord.xy - vec2(stepSize.x, 0.0), depth)) * .18;
-    lit += texture(shadowMap, vec3(coord.xy + vec2(0.0, stepSize.y), depth)) * .18;
-    lit += texture(shadowMap, vec3(coord.xy - vec2(0.0, stepSize.y), depth)) * .18;
+    float lit = ddgRawShadowCompare(shadowMap, 1.0 / texelSize, vec3(coord.xy, depth), vec2(0.0), coord.xy) * .28;
+    lit += ddgRawShadowCompare(shadowMap, 1.0 / texelSize, vec3(coord.xy, depth), vec2(0.0), coord.xy + vec2(stepSize.x, 0.0)) * .18;
+    lit += ddgRawShadowCompare(shadowMap, 1.0 / texelSize, vec3(coord.xy, depth), vec2(0.0), coord.xy - vec2(stepSize.x, 0.0)) * .18;
+    lit += ddgRawShadowCompare(shadowMap, 1.0 / texelSize, vec3(coord.xy, depth), vec2(0.0), coord.xy + vec2(0.0, stepSize.y)) * .18;
+    lit += ddgRawShadowCompare(shadowMap, 1.0 / texelSize, vec3(coord.xy, depth), vec2(0.0), coord.xy - vec2(0.0, stepSize.y)) * .18;
     return mix(1.0, lit, clamp(uShadowIntensity, 0.0, 1.0));
   }
   float keyShadow() {
@@ -294,7 +296,7 @@ export default function FarWaterSurface({ settings, lighting, sky, cloudSceneRef
   const reflectionDataRef = React.useContext(reflectionContext);
   const [emptyShadow] = useState(() => {
     const texture = new THREE.DepthTexture(1, 1, THREE.UnsignedIntType);
-    texture.compareFunction = THREE.LessEqualCompare;
+    texture.compareFunction = null;
     texture.needsUpdate = true;
     return texture;
   });

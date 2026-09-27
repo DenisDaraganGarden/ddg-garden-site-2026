@@ -212,8 +212,8 @@ export default {
     'How dark shadows are: 0 hides them, 1 is full shadow. A cloud over the sun lightens them by itself.',
   ],
   shadowRadius: [
-    'Размытость края тени: 0 — резкий, больше — мягкий. Облачность сама добавляет мягкости.',
-    'Blur of the shadow edge: 0 is sharp, higher is soft. Cloud cover adds softness by itself.',
+    'Мягкость PCSS: у основания предмета тень чёткая, дальше от него — мягче. 0 — жёсткая тень; больше — шире полутень. Облачность добавляет мягкости.',
+    'PCSS softness: sharp near contact, softer farther from the object. 0 gives hard shadows; higher values widen the penumbra. Cloud cover adds softness.',
   ],
   shadowContactOffset: [
     'Дополнительное смещение контакта, м. 0 — автоматическая поправка по наклону поверхности; отрицательное значение убирает остаточную рябь. Слишком большое смещение отрывает тень от основания предмета.',

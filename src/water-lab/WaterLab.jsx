@@ -158,7 +158,7 @@ function LabStats({ onStats }) {
 // The outdoor lab has no WaterReflections capture pass, but it still needs the
 // same sampler contract as the product. The binding hook supplies safe empty
 // CSM textures until a product scene publishes maps, which matters on Metal:
-// a sampler2DShadow is validated even while its active flag is false.
+// a depth sampler is validated even while its active flag is false.
 function WaterLabSceneBindings({ uniforms, lighting, sky, shadowDataRef }) {
   useWaterSceneBindings(uniforms, { lighting, sky, shadowDataRef });
   return null;

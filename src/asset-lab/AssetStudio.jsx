@@ -6,9 +6,12 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
 import StudioWaterReflection from './StudioWaterReflection';
 import SceneLight from './SceneLight';
 import { useLabLightMode } from './labLighting';
+import { installReceiverPlaneShadows } from '../components/effects/shadowFiltering.js';
+
+installReceiverPlaneShadows();
 
 const STUDIO_BACKGROUND = '#f5f4f0';
-const STUDIO_SHADOWS = { type: THREE.PCFShadowMap };
+const STUDIO_SHADOWS = { type: THREE.BasicShadowMap };
 
 const CAMERA_VIEWS = {
   school: {

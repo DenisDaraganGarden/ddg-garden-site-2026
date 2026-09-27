@@ -18,7 +18,8 @@ import { isTraceLocked, subscribeTraceLock } from '../../path-trace/bridge.js';
 
 let webglSupportCache;
 installReceiverPlaneShadows();
-const SHADOWS_CONFIG = { type: THREE.PCFShadowMap };
+// PCSS reads raw depth from the same targets; filtering lives in shadowPcss.js.
+const SHADOWS_CONFIG = { type: THREE.BasicShadowMap };
 
 function detectWebGLSupport() {
   if (typeof window === 'undefined' || typeof document === 'undefined') {
@@ -331,7 +332,7 @@ const PerformanceHud = ({ sceneId, enabled }) => {
       .join('→')],
     ['refract', metrics.runtime?.refraction],
     // On a phone this is the row that matters: it says whether the water is
-    // actually receiving the key light's shadow. The lookup uses sampler2DShadow
+    // actually receiving the key light's shadow. The lookup uses raw depth with manual filtering
     // in a hand-written shader, which is documented to compile under WebGL2 but
     // has only been proven on desktop.
     ['shadow', metrics.runtime?.waterShadow],

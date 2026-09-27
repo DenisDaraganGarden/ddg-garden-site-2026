@@ -1,4 +1,5 @@
 import { ShaderChunk } from 'three';
+import { PCSS_SHADOW_GLSL } from './shadowPcss.js';
 
 // Keep Three's hardware PCF and five taps. Each tap must compare against the
 // receiver plane at THAT sample, not the centre's depth: the latter turns a
@@ -67,7 +68,7 @@ export function receiverPlaneCsmChunk(chunk) {
 #endif
 `;
   return gradients + chunk.replace(/getShadow\( directionalShadowMap[^;]*?vDirectionalShadowCoord\[ i \] \)/g,
-    (call) => call.slice(0, -1) + '\n#ifdef DDG_RECEIVER_PLANE_SHADOWS\n, ddgCsmReceiverGradient[ i ]\n#endif\n)');
+    (call) => call.slice(0, -1) + '\n#ifdef DDG_RECEIVER_PLANE_SHADOWS\n, ddgCsmReceiverGradient[ i ]\n#endif\n#ifdef DDG_PCSS_SHADOWS\n, ddgShadowDepthToUv(directionalShadowMatrix[ i ])\n#endif\n)');
 }
 
 export function receiverPlaneShadowChunk(chunk) {
@@ -75,11 +76,16 @@ export function receiverPlaneShadowChunk(chunk) {
   const start = chunk.indexOf('float getShadow( sampler2DShadow');
   const end = chunk.indexOf('#elif defined( SHADOWMAP_TYPE_VSM )', start);
   if (start < 0 || end < 0) throw new Error('Three PCF shader changed: review receiver-plane filtering.');
-  return chunk.slice(0, start) + receiverPlanePcf + '\n\t' + chunk.slice(end);
+  const pcf = chunk.slice(0, start) + receiverPlanePcf + '\n\t' + chunk.slice(end);
+  const basicStart = pcf.search(/#else\s+float getShadow\( sampler2D /);
+  const basicEnd = pcf.indexOf('#if NUM_POINT_LIGHT_SHADOWS > 0', basicStart);
+  if (basicStart < 0 || basicEnd < 0) throw new Error('Three basic shadow shader changed: review PCSS.');
+  return pcf.slice(0, basicStart) + '#else // SHADOWMAP_TYPE_BASIC\n' + PCSS_SHADOW_GLSL + '\n#endif\n' + pcf.slice(basicEnd);
 }
 
 // One shared filter for ordinary lights, CSM and late-loaded model materials.
 // Install before any canvas compiles; material-owned hooks remain untouched.
 export function installReceiverPlaneShadows() {
   ShaderChunk.shadowmap_pars_fragment = receiverPlaneShadowChunk(ShaderChunk.shadowmap_pars_fragment);
+  ShaderChunk.lights_fragment_begin = receiverPlaneCsmChunk(ShaderChunk.lights_fragment_begin);
 }

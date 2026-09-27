@@ -1,3 +1,4 @@
+import { RAW_SHADOW_COMPARE_GLSL } from '../shadowPcss.js';
 import { useEffect, useState } from 'react';
 import * as THREE from 'three';
 import { buildCloudNoise } from '../sky/painterly/cloudNoise';
@@ -17,6 +18,7 @@ import { WAKE_RINGS, WAKE_SPEED } from './waterWake.js';
 const vec = ([axis, name]) => `vec3(${axis.map((x) => x.toFixed(4)).join(', ')}) * ${name}`;
 
 export const waterShadingShader = /* glsl */`
+  ${RAW_SHADOW_COMPARE_GLSL}
   precision highp sampler3D;
   ${skyShaderChunk}
   ${DDG_CLOUD_SHADOW_GLSL}
@@ -45,8 +47,8 @@ export const waterShadingShader = /* glsl */`
   // within a knee's depth, not a metre and a half — read too far it makes the
   // whole shallows look like beach, which is what read as a flooded shore.
   uniform float uBedReach;
-  uniform highp sampler2DShadow uKeyShadowMap;
-  uniform highp sampler2DShadow uKeyShadowMapFar;
+  uniform highp sampler2D uKeyShadowMap;
+  uniform highp sampler2D uKeyShadowMapFar;
   uniform mat4 uKeyShadowMatrix;
   uniform mat4 uKeyShadowMatrixFar;
   uniform float uKeyShadowActive;
@@ -147,17 +149,17 @@ export const waterShadingShader = /* glsl */`
       + n2.y * texelFetch(uSkyIrradianceMap, ivec2(n.y < 0.0 ? 3 : 2, 0), 0).rgb
       + n2.z * texelFetch(uSkyIrradianceMap, ivec2(n.z < 0.0 ? 5 : 4, 0), 0).rgb;
   }
-  float waterShadowTap(sampler2DShadow shadowMap, vec4 shadowCoord, float shadowEnabled, float bias, vec2 texelSize, float radius) {
+  float waterShadowTap(sampler2D shadowMap, vec4 shadowCoord, float shadowEnabled, float bias, vec2 texelSize, float radius) {
     if (shadowEnabled < 0.5) return 1.0;
     vec3 coord = shadowCoord.xyz / max(shadowCoord.w, 1e-5);
     if (coord.z > 1.0 || any(lessThan(coord.xy, vec2(0.0))) || any(greaterThan(coord.xy, vec2(1.0)))) return 1.0;
     float compareDepth = coord.z + bias;
     vec2 stepSize = texelSize * max(radius, 0.5);
-    float lit = texture(shadowMap, vec3(coord.xy, compareDepth)) * 0.28;
-    lit += texture(shadowMap, vec3(coord.xy + vec2(stepSize.x, 0.0), compareDepth)) * 0.18;
-    lit += texture(shadowMap, vec3(coord.xy - vec2(stepSize.x, 0.0), compareDepth)) * 0.18;
-    lit += texture(shadowMap, vec3(coord.xy + vec2(0.0, stepSize.y), compareDepth)) * 0.18;
-    lit += texture(shadowMap, vec3(coord.xy - vec2(0.0, stepSize.y), compareDepth)) * 0.18;
+    float lit = ddgRawShadowCompare(shadowMap, 1.0 / texelSize, vec3(coord.xy, compareDepth), vec2(0.0), coord.xy) * 0.28;
+    lit += ddgRawShadowCompare(shadowMap, 1.0 / texelSize, vec3(coord.xy, compareDepth), vec2(0.0), coord.xy + vec2(stepSize.x, 0.0)) * 0.18;
+    lit += ddgRawShadowCompare(shadowMap, 1.0 / texelSize, vec3(coord.xy, compareDepth), vec2(0.0), coord.xy - vec2(stepSize.x, 0.0)) * 0.18;
+    lit += ddgRawShadowCompare(shadowMap, 1.0 / texelSize, vec3(coord.xy, compareDepth), vec2(0.0), coord.xy + vec2(0.0, stepSize.y)) * 0.18;
+    lit += ddgRawShadowCompare(shadowMap, 1.0 / texelSize, vec3(coord.xy, compareDepth), vec2(0.0), coord.xy - vec2(0.0, stepSize.y)) * 0.18;
     return mix(1.0, lit, clamp(uShadowIntensity, 0.0, 1.0));
   }
   float waterKeyVisibility(vec3 world) {

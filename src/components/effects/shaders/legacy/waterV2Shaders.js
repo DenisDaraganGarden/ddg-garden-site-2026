@@ -1,3 +1,4 @@
+import { RAW_SHADOW_COMPARE_GLSL } from '../../shadowPcss.js';
 import { coastShader } from '../../../terrain/terrainShader.js';
 import { skyShaderChunk } from './skyShader';
 import { cursorFlashlightShaderChunk } from './cursorFlashlightShader';
@@ -120,6 +121,7 @@ export const waterV2VertexShader = `
 `;
 
 export const waterV2FragmentShader = `
+  ${RAW_SHADOW_COMPARE_GLSL}
   ${skyShaderChunk}
   ${DDG_CLOUD_SHADOW_GLSL}
   ${coastShader}
@@ -135,8 +137,8 @@ export const waterV2FragmentShader = `
   varying vec4 vClipPosition;
   varying float vHeightSample;
 
-  uniform highp sampler2DShadow uKeyShadowMap;
-  uniform highp sampler2DShadow uKeyShadowMapFar;
+  uniform highp sampler2D uKeyShadowMap;
+  uniform highp sampler2D uKeyShadowMapFar;
   uniform float uKeyShadowActive;
   uniform float uKeyShadowFarActive;
   uniform float uKeyShadowBias;
@@ -274,11 +276,11 @@ export const waterV2FragmentShader = `
     return color;
   }
 
-  // One hardware-PCF fetch: four filtered taps for the price of one, and no
+  // Bilinear depth comparison shares the PCSS raw-depth map, with no
   // second shadow map. The water could never receive a shadow before - it is a
   // hand-written material, so three's lighting chunks never touched it, and the
   // boat cast nothing onto the water it floats in.
-  float sampleKeyShadow(sampler2DShadow shadowMap, vec4 shadowCoord, float isActive, float bias, vec2 texelSize, float radius) {
+  float sampleKeyShadow(sampler2D shadowMap, vec4 shadowCoord, float isActive, float bias, vec2 texelSize, float radius) {
     if (isActive < 0.5) {
       return 1.0;
     }
@@ -292,14 +294,14 @@ export const waterV2FragmentShader = `
 
     float compareDepth = coord.z + bias;
     vec2 filterStep = texelSize * max(radius, 0.5);
-    // Five hardware-PCF samples give the custom water material the same soft,
+    // Five bilinear comparisons give the custom water material the same soft,
     // cloud-sized source as three's standard materials. One central fetch made
     // water shadows visibly harder even though every object used the same sun.
-    float lit = texture(shadowMap, vec3(coord.xy, compareDepth)) * 0.28;
-    lit += texture(shadowMap, vec3(coord.xy + vec2(filterStep.x, 0.0), compareDepth)) * 0.18;
-    lit += texture(shadowMap, vec3(coord.xy - vec2(filterStep.x, 0.0), compareDepth)) * 0.18;
-    lit += texture(shadowMap, vec3(coord.xy + vec2(0.0, filterStep.y), compareDepth)) * 0.18;
-    lit += texture(shadowMap, vec3(coord.xy - vec2(0.0, filterStep.y), compareDepth)) * 0.18;
+    float lit = ddgRawShadowCompare(shadowMap, 1.0 / texelSize, vec3(coord.xy, compareDepth), vec2(0.0), coord.xy) * 0.28;
+    lit += ddgRawShadowCompare(shadowMap, 1.0 / texelSize, vec3(coord.xy, compareDepth), vec2(0.0), coord.xy + vec2(filterStep.x, 0.0)) * 0.18;
+    lit += ddgRawShadowCompare(shadowMap, 1.0 / texelSize, vec3(coord.xy, compareDepth), vec2(0.0), coord.xy - vec2(filterStep.x, 0.0)) * 0.18;
+    lit += ddgRawShadowCompare(shadowMap, 1.0 / texelSize, vec3(coord.xy, compareDepth), vec2(0.0), coord.xy + vec2(0.0, filterStep.y)) * 0.18;
+    lit += ddgRawShadowCompare(shadowMap, 1.0 / texelSize, vec3(coord.xy, compareDepth), vec2(0.0), coord.xy - vec2(0.0, filterStep.y)) * 0.18;
     return mix(1.0, lit, clamp(uShadowIntensity, 0.0, 1.0));
   }
   float keyShadow() {

@@ -32,9 +32,9 @@ export default function WaterSurfaceV2({ settings, runtime, qualityProfile, ligh
   );
   const materialRef = useRef();
   // WebKit validates every active sampler even when uKeyShadowActive is zero.
-  // A null sampler2DShadow can bind three's unallocated placeholder before the
-  // first shadow pass, so provide an explicitly uploaded comparison texture.
-  const [emptyShadow]=useState(()=>{const texture=new THREE.DepthTexture(1,1,THREE.UnsignedIntType);texture.compareFunction=THREE.LessEqualCompare;texture.needsUpdate=true;return texture;});
+  // A null sampler2D can bind three's unallocated placeholder before the
+  // first shadow pass, so provide an explicitly uploaded depth texture.
+  const [emptyShadow]=useState(()=>{const texture=new THREE.DepthTexture(1,1,THREE.UnsignedIntType);texture.compareFunction=null;texture.needsUpdate=true;return texture;});
   useEffect(()=>()=>emptyShadow.dispose(),[emptyShadow]);
   const reflectionDataRef = React.useContext(reflectionContext);
   const debugView = DEBUG_VIEW_IDS[settings.debugView] ?? 0;
