@@ -6,7 +6,7 @@ import { FocusIcon } from '../focus/FocusIcons';
 import { LIGHTING_LIMITS, LIGHTING_RANGES } from '../../../../../lighting/settings.js';
 import { cableSchedule } from '../../../../../lighting/electric.js';
 import { useLightingState } from '../../../../../lighting/lightingStore.js';
-import { LightingRange } from './lighting';
+import { LightingRange } from '../../../../../lighting/ui/LightingRange.jsx';
 import './annotations.css';
 import './lighting.css';
 
@@ -37,8 +37,9 @@ export function LightingPowerSection({ settings, handleSettingChange, applySetti
             : 'A preliminary scheme: routes, lengths and loads follow from the layout. An electrician checks sections and protection against local codes; unknown underground services stay unknown.'}</p>
         <SectionHeading label={ru ? 'Щитки' : 'Panels'} />
         <button type="button" className={`annotations-tool${placing ? ' is-active' : ''}`} onClick={() => (placing ? gizmo?.setTool?.('select') : lightingEditor?.beginPanel())} disabled={panels.length >= LIGHTING_LIMITS.panels} data-testid="lighting-panel-place">
-            <FocusIcon name="box" /><span>{ru ? 'Поставить щиток' : 'Place a panel'}</span><kbd>O</kbd>
+            <FocusIcon name="panel" /><span>{placing ? (ru ? 'Завершить установку' : 'Finish placing') : (ru ? 'Поставить щиток' : 'Place a panel')}</span>
         </button>
+        {placing ? <p className="planting-hint">{ru ? 'Щелчок по земле — поставить щиток · Esc — отменить.' : 'Click the ground to place a panel · Esc to cancel.'}</p> : null}
         {panels.length ? <div className="annotations-list">
             {panels.map((panel) => <div key={panel.id} className={`annotations-row${panel.id === lightingEditor?.panelId ? ' is-active' : ''}`}>
                 <button type="button" className="annotations-row__value" onClick={() => lightingEditor?.selectPanel(panel.id)}><b>{panel.name}</b><small>{panel.by === 'agent' ? (ru ? 'агент' : 'agent') : ''}</small></button>

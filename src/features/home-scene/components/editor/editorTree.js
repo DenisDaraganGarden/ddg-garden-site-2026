@@ -48,8 +48,7 @@ import { ShoreSection } from './sections/shore';
 import { FishSection, SeagullsSection } from './sections/creatures';
 import { AnnotationsSection } from './sections/annotations';
 import { WalkStartSection } from './sections/walkStart';
-import { LightingSection } from './sections/lighting';
-import { LightingPowerSection } from './sections/lightingPower';
+import { LightingSection, LightingPowerWorkspace } from './sections/lighting';
 import { WindSection } from './sections/wind';
 import {
     AudioMixerSection,
@@ -156,7 +155,7 @@ export const EDITOR_TREE = [
         nodes: [
             // workspace: рабочее место, как «Посадки» (библиотека, спецификация).
             { id: 'luminaires', workspace: true, aspects: [{ id: 'fixtures', Section: LightingSection }] },
-            { id: 'power', aspects: [{ id: 'power', Section: LightingPowerSection }] },
+            { id: 'power', workspace: true, aspects: [{ id: 'power', Section: LightingPowerWorkspace }] },
         ],
     },
     {

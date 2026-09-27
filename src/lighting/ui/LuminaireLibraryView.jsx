@@ -1,6 +1,7 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { LUMINAIRE_KINDS } from '../fixtures.js';
 import { byKind, guessedFields, kindLabel, libraryFamilies, luminairePhotoUrl, makerLabel, makerOf, matchesLuminaire, priceText, removeLuminairePhoto, shortName, specLine, uploadLuminairePhoto } from '../luminaireLibrary.js';
+import { LuminaireKindIcon } from './LuminaireKindIcon.jsx';
 import { LuminaireGlyph, LuminaireThumb } from './LuminairePicker.jsx';
 
 // Библиотека светильников (рабочее место «Освещение», вкладка «Библиотека»):
@@ -111,14 +112,15 @@ export function LuminaireLibraryView({ types, ru, openId, setOpenId, usage, onPl
                 {id === 'all' ? (ru ? 'Все' : 'All') : makerLabel(id, ru)}
             </button>)}
         </div>
-        <div className="plant-chips">
+        <div className="lum-kinds" role="group" aria-label={ru ? 'Вид светильника' : 'Luminaire kind'}>
             {['all', ...LUMINAIRE_KINDS.map((item) => item.id)].map((id) => {
-                const count = found.filter((type) => id === 'all' || type.housing?.shape === id).length;
-                return count || id === kind ? <button key={id} type="button" className={kind === id ? 'is-active' : ''} onClick={() => filter(() => setKind(id))} data-testid={`lum-kind-${id}`}>
-                    {id === 'all' ? (ru ? 'Все' : 'All') : kindLabel(id, ru)}<small>{count}</small>
+                const count = families.filter((entry) => id === 'all' || entry.kind === id).length;
+                return count || id === kind ? <button key={id} type="button" aria-pressed={kind === id} className={kind === id ? 'is-active' : ''} onClick={() => filter(() => setKind(id))} data-testid={`lum-kind-${id}`}>
+                    <LuminaireKindIcon kind={id} /><span>{id === 'all' ? (ru ? 'Все' : 'All') : kindLabel(id, ru)}</span><small>{count}</small>
                 </button> : null;
             })}
         </div>
+        <div className="lum-results"><span>{ru ? 'Серии и изделия' : 'Series and products'}</span><span>{sections.reduce((sum, section) => sum + section.list.length, 0)}</span></div>
         {sections.map((section) => {
             const room = Math.max(0, limit - shown), list = section.list.slice(0, room);
             shown += list.length;
@@ -137,8 +139,8 @@ export function LuminaireLibraryView({ types, ru, openId, setOpenId, usage, onPl
                 </div>
             </section> : null;
         })}
-        {families.length > limit ? <button type="button" className="lum-more" onClick={() => setLimit((value) => value + PAGE)} data-testid="lum-more">
-            {ru ? `Показать ещё · осталось ${families.length - limit}` : `Show more · ${families.length - limit} left`}</button> : null}
+        {sections.reduce((sum, section) => sum + section.list.length, 0) > limit ? <button type="button" className="lum-more" onClick={() => setLimit((value) => value + PAGE)} data-testid="lum-more">
+            {ru ? `Показать ещё · осталось ${sections.reduce((sum, section) => sum + section.list.length, 0) - limit}` : `Show more · ${sections.reduce((sum, section) => sum + section.list.length, 0) - limit} left`}</button> : null}
         {!sections.length ? <p className="planting-empty">{query ? (ru ? 'Ничего не нашлось — другие слова, производитель или вид.' : 'Nothing found — try other words, maker or kind.') : (ru ? 'Здесь ничего нет — выберите другой вид или производителя.' : 'Nothing here — pick another kind or maker.')}</p> : null}
     </div>;
 }

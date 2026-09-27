@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useWorkspaceTab } from '../features/home-scene/components/editor/focus/useWorkspaceTab.js';
 import { fixturePose } from './fixtures.js';
 import { proposeCircuits } from './electric.js';
 import { electricInputs } from './network.js';
@@ -6,6 +7,7 @@ import { aimAt, LIGHTING_LIMITS, normalizeLightingCircuit, normalizeLightingFixt
 
 export const LIGHTING_NODE = 'lighting/luminaires';
 export const POWER_NODE = 'lighting/power';
+const WORKSPACE_TABS = ['overview', 'placed', 'library', 'spec', 'look', 'power'];
 const newId = (prefix) => `${prefix}-${crypto.randomUUID().slice(0, 10)}`;
 const heading = (nx, nz) => Math.round((Math.atan2(nx, nz) * 180) / Math.PI * 10) / 10;
 
@@ -28,6 +30,8 @@ function withAim(fixture, types) {
 // ставится щиток; «Разложить по цепям» подключает только ещё не подключённые
 // приборы — уже разложенное остаётся как было.
 export function useLightingEditor({ settings, history, setActiveTab, setTool, types, tool }) {
+    const [workspaceTab, setWorkspaceTab] = useWorkspaceTab('ddg_lighting_tab_v1', WORKSPACE_TABS, 'library');
+    const openPower = useCallback(() => { setWorkspaceTab('power'); setActiveTab(LIGHTING_NODE); }, [setActiveTab, setWorkspaceTab]);
     const [selectedId, setSelectedId] = useState(null);
     const [panelId, setPanelId] = useState(null);
     const [placeType, setPlaceType] = useState('bollard-80');
@@ -55,7 +59,7 @@ export function useLightingEditor({ settings, history, setActiveTab, setTool, ty
             do { name = `Щ${++number}`; } while (panels.some((panel) => panel.name === name));
             const panel = normalizeLightingPanel({ id: newId('panel'), name, x, y, z, yaw: (yaw * 180) / Math.PI + 180, by: 'denis' }, panels.length);
             apply({ lightingPanels: [...panels, panel] });
-            setPanelId(panel.id); setPlaceKind('fixture'); setActiveTab(POWER_NODE); setTool('select');
+            setPanelId(panel.id); setPlaceKind('fixture'); setWorkspaceTab('power'); setActiveTab(LIGHTING_NODE); setTool('select');
             return;
         }
         const fixtures = read('lightingFixtures');
@@ -69,8 +73,8 @@ export function useLightingEditor({ settings, history, setActiveTab, setTool, ty
             ...(target ? { target } : {}), dim: 1, by: 'denis',
         }, live.current.types));
         apply({ lightingFixtures: [...fixtures, fixture] });
-        setSelectedId(fixture.id);
-    }, [apply, setActiveTab, setTool]);
+        setSelectedId(fixture.id); setPanelId(null);
+    }, [apply, setActiveTab, setTool, setWorkspaceTab]);
 
     const update = useCallback((id, patch) => {
         const next = (fixture) => ('target' in patch && patch.target ? withAim({ ...fixture, ...patch }, live.current.types) : { ...fixture, ...patch });
@@ -88,7 +92,7 @@ export function useLightingEditor({ settings, history, setActiveTab, setTool, ty
         if (id) update(id, { target: point });
         setAiming(false);
     }, [update]);
-    const select = useCallback((id) => { setSelectedId(id); setPanelId(null); setHandle('body'); setAiming(false); setActiveTab(LIGHTING_NODE); setTool('select'); }, [setActiveTab, setTool]);
+    const select = useCallback((id) => { setSelectedId(id); setPanelId(null); setHandle('body'); setAiming(false); setWorkspaceTab('placed'); setActiveTab(LIGHTING_NODE); setTool('select'); }, [setActiveTab, setTool, setWorkspaceTab]);
 
     const updatePanel = useCallback((id, patch) => {
         apply({ lightingPanels: read('lightingPanels').map((panel, index) => (panel.id === id ? normalizeLightingPanel({ ...panel, ...patch }, index) ?? panel : panel)) });
@@ -105,7 +109,7 @@ export function useLightingEditor({ settings, history, setActiveTab, setTool, ty
     }, [apply]);
     // Щелчок мимо и пробел: ничего не выбрано, раздел и инструмент — те же.
     const deselect = useCallback(() => { setSelectedId(null); setPanelId(null); setHandle('body'); setAiming(false); }, []);
-    const selectPanel = useCallback((id) => { setPanelId(id); setSelectedId(null); setAiming(false); setActiveTab(POWER_NODE); setTool('select'); }, [setActiveTab, setTool]);
+    const selectPanel = useCallback((id) => { setPanelId(id); setSelectedId(null); setAiming(false); setWorkspaceTab('power'); setActiveTab(LIGHTING_NODE); setTool('select'); }, [setActiveTab, setTool, setWorkspaceTab]);
     const updateCircuit = useCallback((id, patch) => {
         apply({ lightingCircuits: read('lightingCircuits').map((circuit, index) => (circuit.id === id ? normalizeLightingCircuit({ ...circuit, ...patch }, index) ?? circuit : circuit)) });
     }, [apply]);
@@ -135,10 +139,11 @@ export function useLightingEditor({ settings, history, setActiveTab, setTool, ty
     return {
         selectedId: fixtures.some((fixture) => fixture.id === selectedId) ? selectedId : null,
         panelId: panels.some((panel) => panel.id === panelId) ? panelId : null,
+        workspaceTab, setWorkspaceTab, openPower,
         placeType, setPlaceType, placeKind, handle, setHandle, aiming, setAiming,
         onLight, onAim, update, replaceType, remove, select, deselect,
         updatePanel, removePanel, selectPanel, updateCircuit, layCircuits, removeCircuit,
         begin: (typeId) => { if (typeId) setPlaceType(typeId); setPlaceKind('fixture'); setAiming(false); setActiveTab(LIGHTING_NODE); setTool('luminaire'); },
-        beginPanel: () => { setPlaceKind('panel'); setAiming(false); setActiveTab(POWER_NODE); setTool('luminaire'); },
+        beginPanel: () => { setPlaceKind('panel'); setAiming(false); setWorkspaceTab('power'); setActiveTab(LIGHTING_NODE); setTool('luminaire'); },
     };
 }

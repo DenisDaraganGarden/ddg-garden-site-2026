@@ -1,3 +1,4 @@
+import { FocusIcon } from './FocusIcons';
 import React, { useEffect, useRef, useState } from 'react';
 
 // Вкладки рабочего места в правой панели — одни на все («Посадки»,
@@ -7,7 +8,7 @@ import React, { useEffect, useRef, useState } from 'react';
 // (useWorkspaceTab.js).
 // tabs — [{ id, label, count? }]; число показывается, когда оно больше нуля.
 // Край, за которым есть ещё вкладки, гаснет; выбранная сама въезжает в вид.
-export function WorkspaceTabs({ tabs, value, onChange, testId, label }) {
+export function WorkspaceTabs({ tabs, value, onChange, testId, label, variant }) {
     const bar = useRef(null), [edges, setEdges] = useState('');
     const measure = () => {
         const node = bar.current;
@@ -24,8 +25,16 @@ export function WorkspaceTabs({ tabs, value, onChange, testId, label }) {
         observer?.observe(node);
         return () => observer?.disconnect();
     }, [value, tabs.length]);
-    return <nav ref={bar} className={`planting-tabs workspace-tabs${edges}`} role="tablist" aria-label={label} onScroll={measure}>
-        {tabs.map(({ id, label: text, count }) => <button key={id} type="button" role="tab" aria-selected={value === id} className={value === id ? 'is-active' : ''}
-            onClick={() => onChange(id)} data-testid={`${testId}-${id}`}>{text}{count ? <small className="lighting-tab-count">{count}</small> : null}</button>)}
+    return <nav ref={bar} className={`planting-tabs workspace-tabs${variant ? ` workspace-tabs--${variant}` : ''}${edges}`} role="tablist" aria-label={label} onScroll={measure} onKeyDown={(event) => {
+        if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+        event.preventDefault();
+        event.stopPropagation();
+        const current = tabs.findIndex((tab) => tab.id === value);
+        const next = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : (current + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
+        onChange(tabs[next].id);
+        bar.current?.querySelectorAll('[role="tab"]')[next]?.focus();
+    }}>
+        {tabs.map(({ id, label: text, count, icon }) => <button key={id} type="button" role="tab" tabIndex={value === id ? 0 : -1} aria-selected={value === id} className={value === id ? 'is-active' : ''}
+            onClick={() => onChange(id)} data-testid={`${testId}-${id}`}>{icon ? <FocusIcon name={icon} /> : null}<span>{text}</span>{count ? <small className="lighting-tab-count">{count}</small> : null}</button>)}
     </nav>;
 }

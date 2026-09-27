@@ -1,7 +1,7 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useLayoutEffect, useMemo, useState } from 'react';
 import { useLanguage } from '../../../../../i18n/useLanguage';
 import { CheckboxControl, RangeControl, SectionHeading, SelectControl } from '../../HomeEditorControls';
-import { useFocusControlScope, useFocusControls } from '../focus/FocusControlsContext';
+import { useFocusControlScope } from '../focus/FocusControlsContext';
 import { FocusIcon } from '../focus/FocusIcons';
 import { LIGHTING_LIMITS, LIGHTING_RANGES } from '../../../../../lighting/settings.js';
 import { fixtureLabels, luminaireSchedule } from '../../../../../lighting/fixtures.js';
@@ -10,40 +10,17 @@ import { LuminaireChoice } from '../../../../../lighting/ui/LuminairePicker.jsx'
 import { LuminaireLibraryView } from '../../../../../lighting/ui/LuminaireLibraryView.jsx';
 import { LightingOverview, LightingPlaced, LightingSpecTable } from '../../../../../lighting/ui/LightingSpec.jsx';
 import { WorkspaceTabs } from '../focus/WorkspaceTabs.jsx';
-import { useWorkspaceTab } from '../focus/useWorkspaceTab.js';
+import { LightingRange } from '../../../../../lighting/ui/LightingRange.jsx';
+import { LightingPowerSection } from './lightingPower';
 import { activeProjectId } from '../../../../engine/projectApi.js';
 import { flushProjectSave } from '../../../hooks/useHomeSceneSettings';
 import '../../../../../planting/ui/planting-ui.css';
 import '../../../../../lighting/ui/lighting-ui.css';
 import './lighting.css';
 
-// Рабочее место «Освещение» (src/lighting, docs/garden-lighting-2026-09-25.md),
-// устроено как «Растения»: инструменты — «Светильник» (O: щелчок ставит,
-// протяжка наводит), «Навести», «Щиток», «Сверху»; карточка выбранного
-// светильника; вкладки вместо длинной ленты (WorkspaceTabs) — обзор (цифры и
-// состав), расставленные, библиотека (производители, серии, варианты),
-// спецификация (считается при каждой расстановке, та же, что в отчёте) и
-// свет (когда горят, экспозиция, тени).
+// Постоянные инструменты и вкладки; питание открывается в том же рабочем месте.
 const FIXTURES_KEY = 'lightingFixtures';
 const MODES = [['auto', 'По темноте', 'At dusk'], ['on', 'Включены', 'On'], ['off', 'Выключены', 'Off']];
-const TABS = ['overview', 'placed', 'library', 'spec', 'look'];
-
-// Ползунок карточки: одна протяжка — один шаг отмены (как у ползунков
-// редактора: жест истории от нажатия до отпускания). В каталог параметров
-// не входит — он про выбранный светильник, а не про сцену.
-export function LightingRange({ label, value, min, max, step, unit = '', format = (v) => Number(v.toFixed(2)), onChange, testId }) {
-    const controls = useFocusControls(), start = useRef(null);
-    const end = (kind, event) => {
-        if (start.current === null) return;
-        controls?.gesture(kind, { id: 'lighting', value: event?.currentTarget?.value ?? start.current, initial: start.current });
-        start.current = null;
-    };
-    return <label className="lighting-range"><span>{label}</span>
-        <input type="range" min={min} max={max} step={step} value={value} onChange={(event) => onChange(Number(event.target.value))} data-testid={testId}
-            onPointerDown={(event) => { if (event.button) return; start.current = value; controls?.gesture('Start', { id: 'lighting', value, initial: value }); }}
-            onPointerUp={(event) => end('Commit', event)} onLostPointerCapture={(event) => end('Commit', event)} />
-        <b>{format(value)}{unit}</b></label>;
-}
 
 function FixtureCard({ fixture, label, types, lightingEditor, ru, onOpenType }) {
     const type = types.get(fixture.type);
@@ -67,8 +44,9 @@ function FixtureCard({ fixture, label, types, lightingEditor, ru, onOpenType }) 
     </div>;
 }
 
-function LightingWorkspace({ settings, lightingEditor, layoutEditor, gizmo, types, fixtures, labels, look, ru }) {
-    const [tab, setTab] = useWorkspaceTab('ddg_lighting_tab_v1', TABS, 'library');
+function LightingWorkspace({ settings, handleSettingChange, applySettings, lightingEditor, layoutEditor, gizmo, types, fixtures, labels, look, ru }) {
+    const tab = lightingEditor?.workspaceTab ?? 'library';
+    const setTab = (id) => lightingEditor?.setWorkspaceTab(id);
     const [openType, setOpenType] = useState(null);
     const schedule = useMemo(() => luminaireSchedule(fixtures, types, labels), [fixtures, types, labels]);
     const usage = useMemo(() => {
@@ -93,40 +71,42 @@ function LightingWorkspace({ settings, lightingEditor, layoutEditor, gizmo, type
     const report = async () => { if (await flushProjectSave()) window.location.href = `/engine/report?project=${encodeURIComponent(project)}`; };
 
     return <div className="planting-workspace lighting-workspace" data-testid="lighting-workspace">
-        <div className="planting-tools" role="toolbar" aria-label={ru ? 'Инструменты освещения' : 'Lighting tools'}>
-            <button type="button" className={placing ? 'is-active' : ''} onClick={() => (placing ? gizmo?.setTool?.('select') : lightingEditor?.begin())} disabled={fixtures.length >= LIGHTING_LIMITS.fixtures} data-testid="lighting-place"><FocusIcon name="light" />{ru ? 'Светильник' : 'Luminaire'}<kbd>O</kbd></button>
-            <button type="button" className={lightingEditor?.aiming ? 'is-active' : ''} onClick={() => lightingEditor?.setAiming(!lightingEditor.aiming)} disabled={!aimable} title={ru ? 'Выбранный спот или грунтовый: щелчок — на что он светит' : 'The selected spot or in-ground light: click what it lights'} data-testid="lighting-aim"><FocusIcon name="target" />{ru ? 'Навести' : 'Aim'}</button>
-            <button type="button" onClick={() => lightingEditor?.beginPanel()} title={ru ? 'Поставить щиток — дальше в «Питании»' : 'Place a panel — then Power'} data-testid="lighting-panel-tool"><FocusIcon name="panel" />{ru ? 'Щиток' : 'Panel'}</button>
-            <button type="button" onClick={topView} title={ru ? 'Камера сверху над всеми светильниками' : 'Camera from above over all luminaires'} data-testid="lighting-top-view"><FocusIcon name="eye" />{ru ? 'Сверху' : 'Top'}</button>
+        <div className="lighting-workspace__head">
+            <div className="lighting-toolbar" role="toolbar" aria-label={ru ? 'Инструменты освещения' : 'Lighting tools'}>
+                <button type="button" className={`lighting-toolbar__place${placing ? ' is-active' : ''}`} aria-pressed={placing} onClick={() => (placing ? gizmo?.setTool?.('select') : lightingEditor?.begin(tab === 'library' ? openType : undefined))} disabled={!placing && fixtures.length >= LIGHTING_LIMITS.fixtures} title={ru ? 'Поставить светильник · O' : 'Place a luminaire · O'} data-testid="lighting-place"><FocusIcon name={placing ? 'close' : 'plus'} /><span>{placing ? (ru ? 'Завершить' : 'Finish') : (ru ? 'Поставить' : 'Place')}</span><kbd>{placing ? 'Esc' : 'O'}</kbd></button>
+                <button type="button" className={lightingEditor?.aiming ? 'is-active' : ''} aria-pressed={Boolean(lightingEditor?.aiming)} onClick={() => lightingEditor?.setAiming(!lightingEditor.aiming)} disabled={!aimable} title={ru ? 'Навести выбранный спот или грунтовый светильник' : 'Aim the selected spot or in-ground light'} data-testid="lighting-aim"><FocusIcon name="target" />{ru ? 'Навести' : 'Aim'}</button>
+                <div className="lighting-toolbar__camera" role="group" aria-label={ru ? 'Камера' : 'Camera'}>
+                    <button type="button" onClick={topView} title={ru ? 'Камера сверху над всеми светильниками' : 'Camera from above over all luminaires'} data-testid="lighting-top-view"><FocusIcon name="camera" />{ru ? 'Сверху' : 'Top'}</button>
+                </div>
+            </div>
+            <WorkspaceTabs variant="lighting" label={ru ? 'Разделы освещения' : 'Lighting sections'} testId="lighting-tab" value={tab} onChange={setTab} tabs={[
+                { id: 'overview', icon: 'sliders', label: ru ? 'Обзор' : 'Overview' },
+                { id: 'placed', icon: 'ground', label: ru ? 'Расставлены' : 'Placed', count: fixtures.length },
+                { id: 'library', icon: 'grid', label: ru ? 'Библиотека' : 'Library', count: types.size },
+                { id: 'spec', icon: 'brief', label: ru ? 'Спецификация' : 'Schedule', count: schedule.rows.length },
+                { id: 'look', icon: 'light', label: ru ? 'Свет' : 'Light' },
+                { id: 'power', icon: 'panel', label: ru ? 'Питание' : 'Power', count: (settings.lightingPanels ?? []).length },
+            ]} />
         </div>
         {placing ? <div className="planting-plantrow">
             <LuminaireChoice types={types} value={lightingEditor.placeType} ru={ru} onChoose={(id) => lightingEditor.begin(id)} title={ru ? 'Что ставить' : 'What to place'} testId="lighting-place-type" />
-            <p className="planting-hint">{ru
-                ? 'Щелчок по земле или стене — светильник там; не отпуская, протянуть к дереву или стене — на это он и светит. Настенные встают на стену. Esc — выйти.'
-                : 'Click the ground or a wall to place it there; drag to a tree or a wall before letting go to aim it at that. Wall types go on the wall. Esc to leave.'}</p>
+            <p className="planting-hint">{ru ? 'Щелчок — поставить · протяжка — навести · Esc — закончить.' : 'Click to place · drag to aim · Esc to finish.'}</p>
         </div> : null}
         {lightingEditor?.aiming ? <p className="planting-hint">{ru ? 'Щелчок — на что светит выбранный светильник. Esc — выйти.' : 'Click what the selected luminaire lights. Esc to leave.'}</p> : null}
-        {selected ? <FixtureCard fixture={selected} label={labels.get(selected.id)} types={types} lightingEditor={lightingEditor} ru={ru} onOpenType={openCard} /> : null}
-
-        <WorkspaceTabs label={ru ? 'Разделы освещения' : 'Lighting sections'} testId="lighting-tab" value={tab} onChange={(id) => { setTab(id); if (id === 'library') setOpenType(null); }} tabs={[
-            { id: 'overview', label: ru ? 'Обзор' : 'Overview' },
-            { id: 'placed', label: ru ? 'Расставлены' : 'Placed', count: fixtures.length },
-            { id: 'library', label: ru ? 'Библиотека' : 'Library', count: types.size },
-            { id: 'spec', label: ru ? 'Спецификация' : 'Schedule', count: schedule.rows.length },
-            { id: 'look', label: ru ? 'Свет' : 'Light' },
-        ]} />
+        {selected && tab === 'placed' ? <FixtureCard fixture={selected} label={labels.get(selected.id)} types={types} lightingEditor={lightingEditor} ru={ru} onOpenType={openCard} /> : null}
+        {tab === 'power' ? <div className="lighting-power"><LightingPowerSection settings={settings} handleSettingChange={handleSettingChange} applySettings={applySettings} lightingEditor={lightingEditor} gizmo={gizmo} /></div> : null}
         {tab === 'overview' ? <LightingOverview schedule={schedule} fixtures={fixtures} ru={ru} onOpenType={openCard} /> : null}
         {tab === 'placed' ? <LightingPlaced schedule={schedule} fixtures={fixtures} types={types} labels={labels} circuits={circuits} ru={ru} selectedId={selected?.id}
             onSelect={(fixture) => { lightingEditor?.select(fixture.id); frame(fixture); }} onRemove={(id) => lightingEditor?.remove(id)} /> : null}
         {tab === 'look' ? <div className="lighting-look">{look}</div> : null}
-        {tab === 'library' ? <LuminaireLibraryView types={types} ru={ru} openId={openType} setOpenId={setOpenType} usage={usage}
+        <div hidden={tab !== 'library'} className="lighting-library-pane"><LuminaireLibraryView types={types} ru={ru} openId={openType} setOpenId={setOpenType} usage={usage}
             onPlace={(id) => lightingEditor?.begin(id)} onReplace={(id) => selected && lightingEditor.replaceType(selected.id, id)}
-            selectedLabel={selected ? labels.get(selected.id) : null} selectedType={selected?.type} /> : null}
+            selectedLabel={selected ? labels.get(selected.id) : null} selectedType={selected?.type} /></div>
         {tab === 'spec' ? <LightingSpecTable schedule={schedule} ru={ru} onOpenType={openCard} onReport={report} reportReady={Boolean(project)} /> : null}
     </div>;
 }
 
-export function LightingSection({ settings, handleSettingChange, lightingEditor, layoutEditor, gizmo }) {
+export function LightingSection({ settings, handleSettingChange, applySettings, lightingEditor, layoutEditor, gizmo }) {
     const { language } = useLanguage(), ru = language === 'ru', scope = useFocusControlScope();
     const types = useLuminaireTypes();
     const list = settings[FIXTURES_KEY];
@@ -143,5 +123,13 @@ export function LightingSection({ settings, handleSettingChange, lightingEditor,
         <SelectControl controlId={FIXTURES_KEY} label={ru ? 'Светильник' : 'Luminaire'} value="" options={[{ value: '', label: ru ? 'Выбрать…' : 'Select…' }, ...fixtures.map((fixture) => ({ value: fixture.id, label: labels.get(fixture.id) }))]} onChange={(event) => event.target.value && lightingEditor?.select(event.target.value)} />
         {look}
     </>;
-    return <LightingWorkspace settings={settings} lightingEditor={lightingEditor} layoutEditor={layoutEditor} gizmo={gizmo} types={types} fixtures={fixtures} labels={labels} look={look} ru={ru} />;
+    return <LightingWorkspace settings={settings} handleSettingChange={handleSettingChange} applySettings={applySettings} lightingEditor={lightingEditor} layoutEditor={layoutEditor} gizmo={gizmo} types={types} fixtures={fixtures} labels={labels} look={look} ru={ru} />;
+}
+
+// Старый адрес «Питание» остаётся доступен поиску и каталогу параметров.
+export function LightingPowerWorkspace(props) {
+    const scope = useFocusControlScope();
+    const openPower = props.lightingEditor?.openPower;
+    useLayoutEffect(() => { if (!scope?.catalogOnly) openPower?.(); }, [scope?.catalogOnly, openPower]);
+    return scope?.catalogOnly ? <LightingPowerSection {...props} /> : <LightingSection {...props} />;
 }

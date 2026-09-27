@@ -40,7 +40,7 @@ import { selectedNodes } from '../placed/sketchupModel.js';
 import { PLANTING_NODE, usePlantingEditor } from '../planting/usePlantingEditor.js';
 import { usePlantLibrary } from '../planting/plantLibrary.js';
 import { useAnnotationEditor } from '../annotations/useAnnotationEditor.js';
-import { LIGHTING_NODE, POWER_NODE, useLightingEditor } from '../lighting/useLightingEditor.js';
+import { LIGHTING_NODE, useLightingEditor } from '../lighting/useLightingEditor.js';
 import { useLuminaireTypes } from '../lighting/luminaireLibrary.js';
 import { TOPIARY_LIMITS } from '../topiary/settings.js';
 import { GIZMO_MODES, useEditorTool } from '../features/home-scene/hooks/useEditorTool';
@@ -147,8 +147,7 @@ const HomeEdit = ({ project = null }) => {
     const luminaireTypes = useLuminaireTypes();
     const lightingEditor = useLightingEditor({ settings, history: focusHistory, setActiveTab, setTool, types: luminaireTypes, tool });
     const { select: selectFixture, update: updateFixture, selectPanel, updatePanel } = lightingEditor;
-    const lightingPlaceKind = lightingEditor.placeKind;
-    useEffect(() => { if (tool === 'luminaire') setActiveTab(lightingPlaceKind === 'panel' ? POWER_NODE : LIGHTING_NODE); }, [tool, setActiveTab, lightingPlaceKind]);
+    useEffect(() => { if (tool === 'luminaire') setActiveTab(LIGHTING_NODE); }, [tool, setActiveTab]);
     useEffect(() => { if (tool === 'bed' || tool === 'plant') setActiveTab(PLANTING_NODE); }, [tool, setActiveTab]);
     const isLocalPublishAvailable = typeof window !== 'undefined'
         && LOCAL_EDIT_HOSTS.has(window.location.hostname);
