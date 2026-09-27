@@ -17,14 +17,14 @@ export const MAX_SHADOW_CONTACT_OFFSET_METERS = 0.06;
 
 export function resolveShadowContactOffsetMeters({ legacyBias = 0, contactOffsetMeters } = {}) {
   if (Number.isFinite(contactOffsetMeters)) {
-    return clamp(contactOffsetMeters, -MAX_SHADOW_CONTACT_OFFSET_METERS, MAX_SHADOW_CONTACT_OFFSET_METERS);
+    // Positive depth bias pushes a receiver INTO its own shadow. Old controls
+    // allowed that sign, producing stripes instead of a contact adjustment.
+    // Accept both saved signs as the same physical clearance, without editing
+    // the authored project or its camera snapshots.
+    return -Math.min(Math.abs(contactOffsetMeters), MAX_SHADOW_CONTACT_OFFSET_METERS);
   }
 
-  return clamp(
-    legacyBias * LEGACY_SHADOW_BIAS_REFERENCE_DEPTH,
-    -MAX_LEGACY_SHADOW_CONTACT_OFFSET_METERS,
-    MAX_LEGACY_SHADOW_CONTACT_OFFSET_METERS,
-  );
+  return -Math.min(Math.abs(legacyBias * LEGACY_SHADOW_BIAS_REFERENCE_DEPTH), MAX_LEGACY_SHADOW_CONTACT_OFFSET_METERS);
 }
 
 export function resolveDirectionalShadowContact({

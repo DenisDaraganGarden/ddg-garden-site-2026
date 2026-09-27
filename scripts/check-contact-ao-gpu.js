@@ -40,7 +40,7 @@ function worldToTargetPixel(world, camera, width, height) {
   );
 }
 
-function renderAo(renderer, scene, camera, resources, logarithmicDepth) {
+function renderAo(renderer, scene, camera, resources, logarithmicDepth, fast = true) {
   const { targets, aoMaterial, aoScene, aoCamera } = resources;
   const { depthTarget, aoTarget } = targets;
   const width = aoTarget.width;
@@ -53,7 +53,7 @@ function renderAo(renderer, scene, camera, resources, logarithmicDepth) {
   aoMaterial.uniforms.uLogDepth.value = logarithmicDepth ? 1 : 0;
   aoMaterial.uniforms.uProjectionInverse.value.copy(camera.projectionMatrixInverse);
   aoMaterial.uniforms.uProjection.value.copy(camera.projectionMatrix);
-  captureContactAoDepth({ gl: renderer, scene, camera, target: depthTarget });
+  captureContactAoDepth({ gl: renderer, scene, camera, target: depthTarget, depthMaterials: fast ? targets.depthMaterials : undefined });
   renderer.setRenderTarget(aoTarget);
   renderer.clear(true, false, false);
   renderer.render(aoScene, aoCamera);
@@ -98,6 +98,7 @@ function disposeResources(resources) {
   resources.aoMaterial.dispose();
   resources.targets.depthTarget.dispose();
   resources.targets.aoTarget.dispose();
+  resources.targets.depthMaterials.dispose();
 }
 
 function runEncoding(logarithmicDepth) {
@@ -117,11 +118,16 @@ function runEncoding(logarithmicDepth) {
   renderer.setSize(SIZE, SIZE, false);
 
   const scene = new THREE.Scene();
-  const planeMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
+  const planeMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
   const plane = new THREE.Mesh(new THREE.PlaneGeometry(8, 8), planeMaterial);
   plane.rotation.x = -Math.PI * 0.5;
   scene.add(plane);
-  const boxMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
+  const boxMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
+  const shear = { value: .08 };
+  boxMaterial.onBeforeCompile = (shader) => {
+    shader.uniforms.uAoTestShear = shear;
+    shader.vertexShader = 'uniform float uAoTestShear;\n' + shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\ntransformed.x += uAoTestShear * position.y;');
+  };
   const box = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.65, 0.65), boxMaterial);
   box.position.y = 0.325;
   scene.add(box);
@@ -140,7 +146,14 @@ function runEncoding(logarithmicDepth) {
     const flat = averagePatch(renderAo(renderer, scene, camera, resources, logarithmicDepth), SIZE, SIZE, contactPixel);
 
     box.visible = true;
-    const occluded = averagePatch(renderAo(renderer, scene, camera, resources, logarithmicDepth), SIZE, SIZE, contactPixel);
+    const fastPixels = renderAo(renderer, scene, camera, resources, logarithmicDepth);
+    const originalPixels = renderAo(renderer, scene, camera, resources, logarithmicDepth, false);
+    const depthParity = fastPixels.every((value, index) => value === originalPixels[index]);
+    const occluded = averagePatch(fastPixels, SIZE, SIZE, contactPixel);
+    shear.value = .3;
+    const animatedFast = renderAo(renderer, scene, camera, resources, logarithmicDepth);
+    const animatedOriginal = renderAo(renderer, scene, camera, resources, logarithmicDepth, false);
+    const animatedParity = animatedFast.every((value, index) => value === animatedOriginal[index]);
 
     // The capture must exclude the named water surface and restore its visible
     // state afterwards. This uses the same name check as the real scene.
@@ -153,6 +166,8 @@ function runEncoding(logarithmicDepth) {
       contactDarkens: occluded.mean < flat.mean - 1 && occluded.min < flat.min - 2,
       waterExcluded: excluded.min >= 250 && Math.abs(excluded.mean - flat.mean) <= 1,
       captureRestoresVisibility: restoredVisibility,
+      deformedOpaqueDepthParity: depthParity,
+      animatedOpaqueDepthParity: animatedParity && animatedFast.some((value, index) => value !== fastPixels[index]),
     };
     return {
       encoding: logarithmicDepth ? 'logarithmic' : 'perspective',

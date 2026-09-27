@@ -344,8 +344,8 @@ export default {
     'Soft shading where things touch or come close: stones in sand, the foot of trunks, folds of the ground. Water and sky never darken. Needs post-processing.',
   ],
   contactAoIntensity: [
-    'Насколько темнеют места касания: 0 — незаметно, 1 — самые густые тени в щелях и углах.',
-    'How dark the contact shading gets: 0 — invisible, 1 — the deepest shade in crevices and corners.',
+    'Насколько темнеют места касания. 0 полностью отключает расчёт AO; 0,5 меняет только силу эффекта, а не стоимость расчёта.',
+    'How dark contact shading gets. 0 skips AO entirely; 0.5 changes only the strength, not the rendering cost.',
   ],
   contactAoRadius: [
     'Как далеко от места касания расходится тень: мало — тонкая тёмная кромка в щелях, много — широкие мягкие ореолы вокруг предметов.',

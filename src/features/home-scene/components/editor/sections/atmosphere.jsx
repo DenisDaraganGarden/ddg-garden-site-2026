@@ -242,8 +242,7 @@ export const LightSection = ({ settings, handleSettingChange, applySettings }) =
                 min={0}
                 max={1}
                 step={0.05}
-                unit="%"
-                formatValue={(value) => Math.round(Number(value) * 100)}
+                formatValue={(value) => formatFloat(value, 2)}
                 onChange={(event) => handleSettingChange(event, 'shadowIntensity')}
             />
             <RangeControl controlId={'shadowRadius'}
@@ -259,10 +258,10 @@ export const LightSection = ({ settings, handleSettingChange, applySettings }) =
                 label={t('homeEditor.controls.shadowContactOffset')}
                 value={resolveShadowContactOffsetMeters({ legacyBias: settings.shadowBias, contactOffsetMeters: settings.shadowContactOffset })}
                 min={-0.06}
-                max={0.06}
+                max={0}
                 step={0.001}
-                unit="mm"
-                formatValue={(value) => Math.round(Number(value) * 1000)}
+                unit="m"
+                formatValue={(value) => formatFloat(value, 3)}
                 onChange={(event) => handleSettingChange(event, 'shadowContactOffset')}
             />
             <SelectControl controlId={'shadowCascades'}
@@ -272,10 +271,10 @@ export const LightSection = ({ settings, handleSettingChange, applySettings }) =
                 onChange={(event) => handleSettingChange(event, 'shadowCascades', 'string')}
                 testId="home-editor-shadow-zones"
             />
-            {settings.shadowCascades === '2' && <>
+            {settings.shadowCascades !== '1' && <>
             <RangeControl controlId={'shadowNearDistance'}
                 label={t('homeEditor.controls.shadowNearDistance')}
-                value={settings.shadowNearDistance ?? 25}
+                value={Math.min(settings.shadowNearDistance ?? 25, (settings.shadowDistance ?? 160) * 0.8)}
                 min={5} max={Math.min(100, (settings.shadowDistance ?? 160) * 0.8)} step={1} unit="m"
                 onChange={(event) => handleSettingChange(event, 'shadowNearDistance')}
             />
@@ -283,27 +282,29 @@ export const LightSection = ({ settings, handleSettingChange, applySettings }) =
                 label={t('homeEditor.controls.shadowDistance')}
                 value={settings.shadowDistance ?? 160}
                 min={20} max={500} step={5} unit="m"
-                onChange={(event) => handleSettingChange(event, 'shadowDistance')}
+                onChange={(event) => applySettings({ shadowDistance: Number(event.target.value), shadowNearDistance: Math.min(settings.shadowNearDistance ?? 25, Number(event.target.value) * 0.8) })}
             />
             </>}
-            <RangeControl controlId={'waterShadowStrength'}
-                label={t('homeEditor.controls.waterShadowStrength')}
-                value={settings.waterShadowStrength}
-                min={0}
-                max={1}
-                step={0.01}
-                unit="%"
-                formatValue={(value) => Math.round(Number(value) * 100)}
-                onChange={(event) => handleSettingChange(event, 'waterShadowStrength')}
+            <SectionHeading label={language === 'ru' ? 'Контактное затенение · AO' : 'Contact shading · AO'} subtle />
+            <CheckboxControl controlId={'contactAoEnabled'}
+                label={t('homeEditor.controls.contactAoEnabled')}
+                checked={Boolean(settings.contactAoEnabled)}
+                onChange={(event) => handleSettingChange(event, 'contactAoEnabled', 'boolean')}
+                testId="home-editor-contact-ao"
             />
-            <RangeControl controlId={'shadowBias'}
-                label={t('homeEditor.controls.shadowBias')}
-                value={settings.shadowBias}
-                min={-0.005}
-                max={0.005}
-                step={0.0001}
-                formatValue={(value) => formatFloat(value, 4)}
-                onChange={(event) => handleSettingChange(event, 'shadowBias')}
+            <RangeControl controlId={'contactAoIntensity'}
+                label={t('homeEditor.controls.contactAoIntensity')}
+                value={settings.contactAoIntensity ?? 0.35}
+                min={0} max={1} step={0.05}
+                formatValue={(value) => formatFloat(value, 2)}
+                onChange={(event) => handleSettingChange(event, 'contactAoIntensity')}
+            />
+            <RangeControl controlId={'contactAoRadius'}
+                label={t('homeEditor.controls.contactAoRadius')}
+                value={settings.contactAoRadius ?? 0.5}
+                min={0.05} max={3} step={0.05} unit="m"
+                formatValue={(value) => formatFloat(value, 2)}
+                onChange={(event) => handleSettingChange(event, 'contactAoRadius')}
             />
         </>
     );

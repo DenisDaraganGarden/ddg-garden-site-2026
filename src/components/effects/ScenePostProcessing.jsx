@@ -128,7 +128,7 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
   const effectiveFxaa = postProcessingSupported
     && effectiveSamples === 0
     && aaPreference !== 'off';
-  const contactAoEnabled = settings.contactAoEnabled === true && postProcessingSupported;
+  const contactAoEnabled = settings.contactAoEnabled === true && (settings.contactAoIntensity ?? 0.35) > 0 && postProcessingSupported;
   const drawingBufferSize = useRef(new THREE.Vector2());
   const lastTargetSize = useRef(new THREE.Vector2());
   const sunPoint = useRef(new THREE.Vector3());
@@ -488,7 +488,7 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
   );
   useEffect(() => () => noiseTexture.dispose(), [noiseTexture]);
   useEffect(() => () => filmNoiseTexture.dispose(), [filmNoiseTexture]);
-  useEffect(() => () => { contactAo.depthTarget.dispose(); contactAo.aoTarget.dispose(); contactAoScene.children[0]?.geometry?.dispose(); contactAoMaterial.dispose(); }, [contactAo, contactAoMaterial, contactAoScene]);
+  useEffect(() => () => { contactAo.depthTarget.dispose(); contactAo.aoTarget.dispose(); contactAo.depthMaterials.dispose(); contactAoScene.children[0]?.geometry?.dispose(); contactAoMaterial.dispose(); }, [contactAo, contactAoMaterial, contactAoScene]);
 
   useEffect(() => {
     if (enabled && postProcessingSupported) return undefined;
@@ -624,7 +624,7 @@ export default function ScenePostProcessing({ settings, qualityProfile, lighting
       contactAoUniforms.uRadius.value = settings.contactAoRadius ?? 0.5;
       contactAoUniforms.uIntensity.value = settings.contactAoIntensity ?? 0.35;
       contactAoUniforms.uLogDepth.value = gl.capabilities.logarithmicDepthBuffer ? 1 : 0;
-      captureContactAoDepth({ gl, scene, camera, target: contactAo.depthTarget });
+      captureContactAoDepth({ gl, scene, camera, target: contactAo.depthTarget, depthMaterials: contactAo.depthMaterials });
       gl.setRenderTarget(contactAo.aoTarget);
       gl.clear(true, false, false);
       gl.render(contactAoScene, contactAoCamera);

@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import { captureContactAoDepth, decodeContactAoViewDistance, isContactAoOccluder, reconstructContactAoViewPosition } from './contactAO.js';
+import { createContactAoDepthMaterials } from './contactAoDepth.js';
 
 assert.equal(decodeContactAoViewDistance(0, 0.1, 1000, true), 0, 'log depth origin must decode to zero distance');
 assert.ok(Math.abs(decodeContactAoViewDistance(1, 0.1, 1000, true) - 1000) < 1e-8, 'log depth far endpoint must agree with the shader equation');
@@ -65,3 +66,45 @@ assert.equal(state.clearCalls, 1, 'capture must clear only its own target');
 assert.equal(state.renderCalls, 1, 'capture must not retry a failed scene render');
 
 console.log('contactAO: all checks passed');
+
+const depthMaterials = createContactAoDepthMaterials();
+const pbr = new THREE.MeshStandardMaterial();
+pbr.userData.runtime = { material: pbr };
+pbr.onBeforeCompile = (shader) => { shader.vertexShader += '\n// authored vertex deformation'; };
+const fast = depthMaterials.get(pbr);
+assert.notEqual(fast, pbr);
+assert.equal(fast.userData.runtime, pbr.userData.runtime, 'capture must not serialise live material handles');
+const shader = { vertexShader: 'void main() {}', fragmentShader: 'void main() {}' };
+fast.onBeforeCompile(shader, {});
+assert.ok(shader.vertexShader.includes('authored vertex deformation'), 'depth capture must retain authored vertex deformation');
+assert.ok(shader.fragmentShader.includes('logdepthbuf_fragment'), 'lean depth must use the renderer depth encoding');
+assert.equal(depthMaterials.get(pbr), fast, 'capture must reuse compiled depth materials');
+assert.equal(depthMaterials.get(cutoutMaterial), cutoutMaterial, 'alpha cutouts keep their exact original program');
+const cutoutPbr = new THREE.MeshStandardMaterial({ alphaTest: .4 });
+assert.equal(depthMaterials.get(cutoutPbr), cutoutPbr);
+
+const custom = new THREE.MeshStandardMaterial();
+custom.onBeforeCompile = (s) => { s.fragmentShader = 'void main() { if (true) discard; }'; };
+const customShader = { vertexShader: '', fragmentShader: '' };
+depthMaterials.get(custom).onBeforeCompile(customShader, {});
+assert.ok(customShader.fragmentShader.includes('discard'), 'custom geometry cuts must not become solid AO');
+
+opaque.material = pbr;
+gl.shadowMap.needsUpdate = true;
+gl.render = () => {
+  assert.equal(opaque.material, fast);
+  assert.equal(gl.shadowMap.needsUpdate, false, 'an explicit pending shadow update must wait for the beauty pass');
+  throw new Error('fast capture failure');
+};
+assert.throws(() => captureContactAoDepth({ gl, scene, camera: new THREE.Camera(), target: depthTarget, depthMaterials }), /fast capture failure/);
+assert.equal(opaque.material, pbr, 'failure must restore the original mesh material');
+assert.equal(gl.shadowMap.needsUpdate, true);
+assert.equal(state.target, originalTarget);
+let released = false;
+fast.addEventListener('dispose', () => { released = true; });
+pbr.dispose();
+assert.equal(released, true, 'source disposal must release its AO shader');
+depthMaterials.dispose();
+assert.equal(depthMaterials.size, 0, 'capture teardown must drop retained materials');
+custom.dispose(); cutoutPbr.dispose();
+console.log('contactAO: lean depth, deformation, cutout, failure and disposal checks passed');

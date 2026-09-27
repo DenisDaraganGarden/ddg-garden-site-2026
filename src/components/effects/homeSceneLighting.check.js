@@ -6,6 +6,12 @@ import { SKY, buildSkyLut } from './sky/skyModel.js';
 import { buildHomeSceneLighting } from './homeSceneLighting.js';
 import { resolveDirectionalShadowContact } from './shadowContactContract.js';
 
+for (const offset of [-0.029, 0.029, 0.06]) {
+  const contact = resolveDirectionalShadowContact({ contactOffsetMeters: offset, near: .5, far: 240 });
+  assert.ok(contact.bias <= 0, 'a saved contact offset must not push a receiver into its own shadow');
+  assert.ok(Math.abs(contact.bias * contact.depthRange + Math.abs(offset)) < 1e-10);
+}
+
 const closeTo = (actual, expected, epsilon = 1e-10) => (
   Math.abs(actual - expected) <= epsilon
 );

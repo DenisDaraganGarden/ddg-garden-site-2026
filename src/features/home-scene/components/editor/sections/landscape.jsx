@@ -217,6 +217,15 @@ export const WaterShaderSection = ({ settings, handleSettingChange }) => {
             formatValue={(value) => formatFloat(value, 1)}
             onChange={(event) => handleSettingChange(event, 'waterDepthMeters')}
         />
+        <RangeControl controlId={'waterShadowStrength'}
+            label={t('homeEditor.controls.waterShadowStrength')}
+            value={settings.waterShadowStrength}
+            min={0}
+            max={1}
+            step={0.01}
+            formatValue={(value) => formatFloat(value, 2)}
+            onChange={(event) => handleSettingChange(event, 'waterShadowStrength')}
+        />
         <SectionHeading label={t('homeEditor.blocks.scattering')} subtle />
         <RangeControl controlId={'waterScatteringStrength'}
             label={t('homeEditor.controls.waterScatteringStrength')}

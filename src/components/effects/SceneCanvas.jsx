@@ -11,11 +11,13 @@ import { getRenderTargetCapabilities } from './renderTargetCapabilities';
 import { isTouchPrimaryViewport } from '../../features/home-scene/lib/layout';
 import { createSceneTimeline } from './sceneTimeline';
 import { createFramePacer, normalizeFrameRateLimit } from './framePacing';
+import { installReceiverPlaneShadows } from './shadowFiltering.js';
 
 import TraceBridge from '../../path-trace/TraceBridge.jsx';
 import { isTraceLocked, subscribeTraceLock } from '../../path-trace/bridge.js';
 
 let webglSupportCache;
+installReceiverPlaneShadows();
 const SHADOWS_CONFIG = { type: THREE.PCFShadowMap };
 
 function detectWebGLSupport() {

@@ -48,7 +48,7 @@ try {
   const PLUMBING = new Set(['layouts', 'cameraPosition', 'cameraTarget', 'cameraFov', 'boatPosition', 'sculpturePosition', 'sceneCameras', 'slideshow', 'audio', 'boatCutoutDebug', 'seaEnabled']);
   // homeSceneLighting reads these only as fallbacks for sunBearing, sunNoonElevation
   // and sunIntensity; a control would edit a value the scene never shows.
-  const LEGACY_FALLBACK = new Set(['keyLightType', 'moonIntensity', 'moonAzimuth', 'moonElevation']);
+  const LEGACY_FALLBACK = new Set(['keyLightType', 'moonIntensity', 'moonAzimuth', 'moonElevation', 'shadowBias']);
   // Адрес, координаты и окружение участка — данные заказчика: живут в
   // проекте и на сайт не уходят никогда (src/surroundings/settings.js).
   const { DEFAULT_SURROUNDINGS_SETTINGS } = await server.ssrLoadModule('/src/surroundings/settings.js');

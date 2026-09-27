@@ -2,6 +2,7 @@ import { CSM } from 'three/addons/csm/CSM.js';
 import { CSMShader } from 'three/addons/csm/CSMShader.js';
 import { resolveDirectionalShadowContact } from './shadowContactContract.js';
 import { fitCsmDepthBounds } from './csmDepthBounds.js';
+import { receiverPlaneCsmChunk } from './shadowFiltering.js';
 import {
   applyCloudShadowShader,
   createCloudShadowUniforms,
@@ -20,6 +21,7 @@ if (!CSMShader.lights_fragment_begin.includes('csmFadeMargin')) {
     .replace(/\bcsmy\b/g, 'csmFadeEnd')
     .replace(/\bcascade\b/g, 'csmCascade');
 }
+CSMShader.lights_fragment_begin = receiverPlaneCsmChunk(CSMShader.lights_fragment_begin);
 
 // A material can only be driven by one live CSM instance. Keeping ownership on
 // the material prevents a disposing scene from restoring hooks installed by a

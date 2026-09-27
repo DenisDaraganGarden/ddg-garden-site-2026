@@ -442,7 +442,7 @@ export const ResolutionSection = ({ settings, handleSettingChange }) => {
 };
 
 // Постобработка разрезана на две части. Качество кадра — сглаживание, апскейл,
-// AO — это движок, оно живёт в окне настроек рядом с разрешением. Плёнка, bloom
+// это движок, оно живёт в окне настроек рядом с разрешением. Плёнка, bloom
 // и цвет — сцена, художественная часть, в правой панели вместе с объектами.
 export const PostQualitySection = ({ settings, handleSettingChange }) => {
     const { t } = useLanguage();
@@ -479,26 +479,6 @@ export const PostQualitySection = ({ settings, handleSettingChange }) => {
                     onChange={(event) => handleSettingChange(event, 'upscaleSharpness')}
                 />
             </>}
-            <CheckboxControl controlId={'contactAoEnabled'}
-                label={t('homeEditor.controls.contactAoEnabled')}
-                checked={Boolean(settings.contactAoEnabled)}
-                onChange={(event) => handleSettingChange(event, 'contactAoEnabled', 'boolean')}
-                testId="home-editor-contact-ao"
-            />
-            <RangeControl controlId={'contactAoIntensity'}
-                label={t('homeEditor.controls.contactAoIntensity')}
-                value={settings.contactAoIntensity ?? 0.35}
-                min={0} max={1} step={0.05}
-                formatValue={(value) => formatFloat(value, 2)}
-                onChange={(event) => handleSettingChange(event, 'contactAoIntensity')}
-            />
-            <RangeControl controlId={'contactAoRadius'}
-                label={t('homeEditor.controls.contactAoRadius')}
-                value={settings.contactAoRadius ?? 0.5}
-                min={0.05} max={3} step={0.05} unit="m"
-                formatValue={(value) => formatFloat(value, 2)}
-                onChange={(event) => handleSettingChange(event, 'contactAoRadius')}
-            />
         </>
     );
 };

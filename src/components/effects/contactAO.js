@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { isSeaOpticsSurfaceName } from './water/opticsCaptureExclusions.js';
+import { createContactAoDepthMaterials } from './contactAoDepth.js';
 
 export const contactAoVertexShader = `
   varying vec2 vUv;
@@ -118,45 +119,56 @@ export function isContactAoOccluder(sceneViewZ, probeViewZ, bias = 0.025) {
   return Number.isFinite(sceneViewZ) && Number.isFinite(probeViewZ) && sceneViewZ - probeViewZ > bias;
 }
 
-export function captureContactAoDepth({ gl, scene, camera, target }) {
+export function captureContactAoDepth({ gl, scene, camera, target, depthMaterials }) {
   const hidden = [];
   const colorWrites = [];
+  const swapped = [];
   // The coast shader is the frame's heaviest fragment program; with colour
   // writes off it still ran in full here. 3 asks it for depth only.
   const terrainOptics = [];
   const previousTarget = gl.getRenderTarget();
   const previousBackground = scene.background;
   const previousAutoUpdate = gl.shadowMap.autoUpdate;
-  scene.traverse((object) => {
-    const materials = Array.isArray(object.material) ? object.material : [object.material];
-    const isTransparent = materials.some((material) => material?.transparent || material?.depthWrite === false);
-    if (excludedNames.has(object.name) || isSeaOpticsSurfaceName(object.name) || isTransparent) {
-      if (object.visible) { hidden.push(object); object.visible = false; }
-      return;
-    }
-    materials.forEach((material) => {
-      if (!material || material.colorWrite === false) return;
-      colorWrites.push([material, material.colorWrite]);
-      material.colorWrite = false;
-      const optics = material.userData?.coastUniforms?.uTerrainOptics;
-      if (optics && !terrainOptics.some(([uniform]) => uniform === optics)) {
-        terrainOptics.push([optics, optics.value]);
-        optics.value = 3;
-      }
-    });
-  });
+  const previousNeedsUpdate = gl.shadowMap.needsUpdate;
   try {
+    scene.traverse((object) => {
+      let materials = Array.isArray(object.material) ? object.material : [object.material];
+      const isTransparent = materials.some((material) => material?.transparent || material?.depthWrite === false);
+      if (excludedNames.has(object.name) || isSeaOpticsSurfaceName(object.name) || isTransparent) {
+        if (object.visible) { hidden.push(object); object.visible = false; }
+        return;
+      }
+      if (object.isMesh && depthMaterials) {
+        const original = object.material;
+        materials = materials.map((material) => depthMaterials.get(material));
+        swapped.push([object, original]);
+        object.material = Array.isArray(original) ? materials : materials[0];
+      }
+      materials.forEach((material) => {
+        if (!material || material.colorWrite === false) return;
+        colorWrites.push([material, material.colorWrite]);
+        material.colorWrite = false;
+        const optics = material.userData?.coastUniforms?.uTerrainOptics;
+        if (optics && !terrainOptics.some(([uniform]) => uniform === optics)) {
+          terrainOptics.push([optics, optics.value]);
+          optics.value = 3;
+        }
+      });
+    });
     scene.background = null;
     gl.shadowMap.autoUpdate = false;
+    gl.shadowMap.needsUpdate = false;
     gl.setRenderTarget(target);
     gl.clear(true, true, true);
     gl.render(scene, camera);
   } finally {
     colorWrites.forEach(([material, value]) => { material.colorWrite = value; });
+    swapped.forEach(([object, material]) => { object.material = material; });
     terrainOptics.forEach(([uniform, value]) => { uniform.value = value; });
     hidden.forEach((object) => { object.visible = true; });
     scene.background = previousBackground;
     gl.shadowMap.autoUpdate = previousAutoUpdate;
+    gl.shadowMap.needsUpdate = previousNeedsUpdate;
     gl.setRenderTarget(previousTarget);
   }
 }
@@ -170,5 +182,5 @@ export function createContactAoTargets() {
   depthTarget.texture.name = 'contact-ao-opaque-depth';
   const aoTarget = new THREE.WebGLRenderTarget(1, 1, { format: THREE.RGBAFormat, depthBuffer: false, stencilBuffer: false });
   aoTarget.texture.name = 'contact-ao-half-res';
-  return { depthTarget, aoTarget };
+  return { depthTarget, aoTarget, depthMaterials: createContactAoDepthMaterials() };
 }

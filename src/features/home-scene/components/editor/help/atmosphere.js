@@ -208,28 +208,32 @@ export default {
     'Shadows from the sun, or from the moon at night. Painterly cloud shadows do not depend on this switch.',
   ],
   shadowIntensity: [
-    'Насколько темны тени: 0 — не видны, 100% — полная тень. Облако на солнце само делает тени светлее.',
-    'How dark shadows are: 0 hides them, 100% is full shadow. A cloud over the sun lightens them by itself.',
+    'Насколько темны тени: 0 — не видны, 1 — полная тень. Облако на солнце само делает тени светлее.',
+    'How dark shadows are: 0 hides them, 1 is full shadow. A cloud over the sun lightens them by itself.',
   ],
   shadowRadius: [
     'Размытость края тени: 0 — резкий, больше — мягкий. Облачность сама добавляет мягкости.',
     'Blur of the shadow edge: 0 is sharp, higher is soft. Cloud cover adds softness by itself.',
   ],
   shadowContactOffset: [
-    'Сдвиг начала тени от поверхности, мм. В минус — уходит полосатая «рябь» на освещённом, но тень может отойти от основания предмета; в плюс — наоборот.',
-    'Shifts where the shadow starts from the surface, in mm. Negative clears striped shadow ripples but may lift the shadow off an object’s base; positive does the reverse.',
+    'Дополнительное смещение контакта, м. 0 — автоматическая поправка по наклону поверхности; отрицательное значение убирает остаточную рябь. Слишком большое смещение отрывает тень от основания предмета.',
+    'Extra contact offset, in metres. 0 uses automatic receiver-plane correction; a negative value removes residual ripples. Too much offset detaches the shadow from the object base.',
   ],
   shadowCascades: [
     '«Одна зона» — тени только вокруг главного в кадре. «Ближняя + дальняя» — ещё и тени вдали (дистанции ниже), тяжелее. «Авто» — две на компьютере, телефон всегда одна.',
     'One zone: shadows only around the main subject. Near + far: shadows in the distance too (distances below), heavier. Auto uses two on a computer; a phone always one.',
   ],
+  shadowNearDistance: [
+    'Глубина ближней зоны от камеры, м. Меньше — подробнее тени вблизи; больше — больше предметов входит в ближнюю карту, но её точность на метр ниже. Не превышает 80% общей дальности.',
+    'Depth of the near zone from the camera, in metres. Smaller gives more detail nearby; larger includes more objects but spreads the same map over a wider area. Limited to 80% of the total shadow distance.',
+  ],
+  shadowDistance: [
+    'Общая дальность двух зон от камеры, м. Дальние предметы получают тени в пределах этой дистанции. Большое значение расширяет охват, но не добавляет детализации ближней карте.',
+    'Total range of both zones from the camera, in metres. Distant objects receive shadows within this range. Increasing it extends coverage, without adding detail to the near map.',
+  ],
   waterShadowStrength: [
     'Насколько тени предметов и облаков ложатся на море: на блики, свечение в толще, пену. 0 — вода теней не видит. В пасмурную погоду слабеет сама.',
     'How much object and cloud shadows fall on the sea: its glints, inner glow and foam. At 0 the water ignores shadows. Weakens by itself under overcast.',
-  ],
-  shadowBias: [
-    'Прежняя форма «Смещения контакта». Действует, только пока то не трогали; уже ±0,0004 даёт предельные ±6 мм, дальше без изменений.',
-    'The old form of “Contact offset”. Works only until that one is touched; about ±0.0004 already gives the ±6 mm limit, beyond that nothing changes.',
   ],
 
   // Туман

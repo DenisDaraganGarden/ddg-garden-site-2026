@@ -1,30 +1,266 @@
 {
-  "collected": "2026-09-26T22:04:58.814Z",
+  "collected": "2026-09-27T00:49:54.591Z",
   "rows": [
     {
-      "key": "fencesEnabled",
-      "group": "objects",
-      "node": "fences",
-      "label": "Ограждения",
+      "key": "timeOfDay",
+      "group": "atmosphere",
+      "node": "light",
+      "label": "Время суток",
+      "kind": "число",
+      "min": 0,
+      "max": 24,
+      "step": 0.05
+    },
+    {
+      "key": "sunBearing",
+      "group": "atmosphere",
+      "node": "light",
+      "label": "Направление на солнце",
+      "kind": "число",
+      "min": 0,
+      "max": 360,
+      "step": 1,
+      "unit": "°"
+    },
+    {
+      "key": "sunNoonElevation",
+      "group": "atmosphere",
+      "node": "light",
+      "label": "Высота в полдень",
+      "kind": "число",
+      "min": 0,
+      "max": 85,
+      "step": 1,
+      "unit": "°"
+    },
+    {
+      "key": "sunIntensity",
+      "group": "atmosphere",
+      "node": "light",
+      "label": "Яркость солнца",
+      "kind": "число",
+      "min": 0,
+      "max": 8,
+      "step": 0.05
+    },
+    {
+      "key": "sunTint",
+      "group": "atmosphere",
+      "node": "light",
+      "label": "Оттенок солнца",
+      "kind": "цвет"
+    },
+    {
+      "key": "sunAngularSize",
+      "group": "atmosphere",
+      "node": "light",
+      "label": "Размер диска",
+      "kind": "число",
+      "min": 0.2,
+      "max": 6,
+      "step": 0.05,
+      "unit": "x"
+    },
+    {
+      "key": "skyTurbidity",
+      "group": "atmosphere",
+      "node": "light",
+      "label": "Мутность воздуха",
+      "kind": "число",
+      "min": 1,
+      "max": 10,
+      "step": 0.1
+    },
+    {
+      "key": "distantSurfaceColor",
+      "group": "atmosphere",
+      "node": "light",
+      "label": "Цвет поверхности",
+      "kind": "цвет"
+    },
+    {
+      "key": "moonPhase",
+      "group": "atmosphere",
+      "node": "light",
+      "label": "Фаза луны",
+      "kind": "число",
+      "min": 0,
+      "max": 1,
+      "step": 0.01
+    },
+    {
+      "key": "moonBrightness",
+      "group": "atmosphere",
+      "node": "light",
+      "label": "Яркость луны",
+      "kind": "число",
+      "min": 0,
+      "max": 4,
+      "step": 0.05
+    },
+    {
+      "key": "starsIntensity",
+      "group": "atmosphere",
+      "node": "light",
+      "label": "Звёзды",
+      "kind": "число",
+      "min": 0,
+      "max": 3,
+      "step": 0.05
+    },
+    {
+      "key": "lightDiscEnabled",
+      "group": "atmosphere",
+      "node": "light",
+      "label": "Показывать диск светила",
       "kind": "выключатель"
     },
     {
-      "key": "длина-следующего-участка",
-      "group": "objects",
-      "node": "fences",
-      "label": "Длина следующего участка",
+      "key": "ambientIntensity",
+      "group": "atmosphere",
+      "node": "light",
+      "label": "Заполняющий свет: сила",
       "kind": "число",
       "min": 0,
-      "step": 0.01,
+      "max": 2,
+      "step": 0.01
+    },
+    {
+      "key": "ambientColor",
+      "group": "atmosphere",
+      "node": "light",
+      "label": "Заполняющий свет: цвет",
+      "kind": "цвет"
+    },
+    {
+      "key": "hemisphereIntensity",
+      "group": "atmosphere",
+      "node": "light",
+      "label": "Полусфера: сила",
+      "kind": "число",
+      "min": 0,
+      "max": 2,
+      "step": 0.01
+    },
+    {
+      "key": "hemisphereSkyColor",
+      "group": "atmosphere",
+      "node": "light",
+      "label": "Полусфера: цвет неба",
+      "kind": "цвет"
+    },
+    {
+      "key": "hemisphereGroundColor",
+      "group": "atmosphere",
+      "node": "light",
+      "label": "Полусфера: цвет земли",
+      "kind": "цвет"
+    },
+    {
+      "key": "envTint",
+      "group": "atmosphere",
+      "node": "light",
+      "label": "Тон отражений",
+      "kind": "цвет"
+    },
+    {
+      "key": "shadowsEnabled",
+      "group": "atmosphere",
+      "node": "light",
+      "label": "Тени включены",
+      "kind": "выключатель"
+    },
+    {
+      "key": "shadowIntensity",
+      "group": "atmosphere",
+      "node": "light",
+      "label": "Сила теней",
+      "kind": "число",
+      "min": 0,
+      "max": 1,
+      "step": 0.05
+    },
+    {
+      "key": "shadowRadius",
+      "group": "atmosphere",
+      "node": "light",
+      "label": "Мягкость теней",
+      "kind": "число",
+      "min": 0,
+      "max": 8,
+      "step": 0.25
+    },
+    {
+      "key": "shadowContactOffset",
+      "group": "atmosphere",
+      "node": "light",
+      "label": "Смещение контакта",
+      "kind": "число",
+      "min": -0.06,
+      "max": 0,
+      "step": 0.001,
       "unit": "m"
     },
     {
-      "key": "плоскость-построения-y",
-      "group": "objects",
-      "node": "fences",
-      "label": "Плоскость построения Y",
+      "key": "shadowCascades",
+      "group": "atmosphere",
+      "node": "light",
+      "label": "Зоны теней",
+      "kind": "список",
+      "options": [
+        "auto",
+        "1",
+        "2"
+      ]
+    },
+    {
+      "key": "shadowNearDistance",
+      "group": "atmosphere",
+      "node": "light",
+      "label": "Ближняя зона",
       "kind": "число",
-      "step": 0.01,
+      "min": 5,
+      "max": 100,
+      "step": 1,
+      "unit": "m"
+    },
+    {
+      "key": "shadowDistance",
+      "group": "atmosphere",
+      "node": "light",
+      "label": "Дальность теней",
+      "kind": "число",
+      "min": 20,
+      "max": 500,
+      "step": 5,
+      "unit": "m"
+    },
+    {
+      "key": "contactAoEnabled",
+      "group": "atmosphere",
+      "node": "light",
+      "label": "Контактное AO",
+      "kind": "выключатель"
+    },
+    {
+      "key": "contactAoIntensity",
+      "group": "atmosphere",
+      "node": "light",
+      "label": "Сила AO",
+      "kind": "число",
+      "min": 0,
+      "max": 1,
+      "step": 0.05
+    },
+    {
+      "key": "contactAoRadius",
+      "group": "atmosphere",
+      "node": "light",
+      "label": "Радиус AO",
+      "kind": "число",
+      "min": 0.05,
+      "max": 3,
+      "step": 0.05,
       "unit": "m"
     },
     {
@@ -1852,6 +2088,16 @@
       "unit": "m"
     },
     {
+      "key": "waterShadowStrength",
+      "group": "landscape",
+      "node": "water",
+      "label": "Тень в толще воды",
+      "kind": "число",
+      "min": 0,
+      "max": 1,
+      "step": 0.01
+    },
+    {
       "key": "waterScatteringStrength",
       "group": "landscape",
       "node": "water",
@@ -3583,6 +3829,13 @@
       "node": "grass",
       "label": "Цвет сухой травы",
       "kind": "цвет"
+    },
+    {
+      "key": "fencesEnabled",
+      "group": "objects",
+      "node": "fences",
+      "label": "Ограждения",
+      "kind": "выключатель"
     },
     {
       "key": "fenceObjects",
@@ -6499,240 +6752,6 @@
       "unit": "m"
     },
     {
-      "key": "timeOfDay",
-      "group": "atmosphere",
-      "node": "light",
-      "label": "Время суток",
-      "kind": "число",
-      "min": 0,
-      "max": 24,
-      "step": 0.05
-    },
-    {
-      "key": "sunBearing",
-      "group": "atmosphere",
-      "node": "light",
-      "label": "Направление на солнце",
-      "kind": "число",
-      "min": 0,
-      "max": 360,
-      "step": 1,
-      "unit": "°"
-    },
-    {
-      "key": "sunNoonElevation",
-      "group": "atmosphere",
-      "node": "light",
-      "label": "Высота в полдень",
-      "kind": "число",
-      "min": 0,
-      "max": 85,
-      "step": 1,
-      "unit": "°"
-    },
-    {
-      "key": "sunIntensity",
-      "group": "atmosphere",
-      "node": "light",
-      "label": "Яркость солнца",
-      "kind": "число",
-      "min": 0,
-      "max": 8,
-      "step": 0.05
-    },
-    {
-      "key": "sunTint",
-      "group": "atmosphere",
-      "node": "light",
-      "label": "Оттенок солнца",
-      "kind": "цвет"
-    },
-    {
-      "key": "sunAngularSize",
-      "group": "atmosphere",
-      "node": "light",
-      "label": "Размер диска",
-      "kind": "число",
-      "min": 0.2,
-      "max": 6,
-      "step": 0.05,
-      "unit": "x"
-    },
-    {
-      "key": "skyTurbidity",
-      "group": "atmosphere",
-      "node": "light",
-      "label": "Мутность воздуха",
-      "kind": "число",
-      "min": 1,
-      "max": 10,
-      "step": 0.1
-    },
-    {
-      "key": "distantSurfaceColor",
-      "group": "atmosphere",
-      "node": "light",
-      "label": "Цвет поверхности",
-      "kind": "цвет"
-    },
-    {
-      "key": "moonPhase",
-      "group": "atmosphere",
-      "node": "light",
-      "label": "Фаза луны",
-      "kind": "число",
-      "min": 0,
-      "max": 1,
-      "step": 0.01
-    },
-    {
-      "key": "moonBrightness",
-      "group": "atmosphere",
-      "node": "light",
-      "label": "Яркость луны",
-      "kind": "число",
-      "min": 0,
-      "max": 4,
-      "step": 0.05
-    },
-    {
-      "key": "starsIntensity",
-      "group": "atmosphere",
-      "node": "light",
-      "label": "Звёзды",
-      "kind": "число",
-      "min": 0,
-      "max": 3,
-      "step": 0.05
-    },
-    {
-      "key": "lightDiscEnabled",
-      "group": "atmosphere",
-      "node": "light",
-      "label": "Показывать диск светила",
-      "kind": "выключатель"
-    },
-    {
-      "key": "ambientIntensity",
-      "group": "atmosphere",
-      "node": "light",
-      "label": "Заполняющий свет: сила",
-      "kind": "число",
-      "min": 0,
-      "max": 2,
-      "step": 0.01
-    },
-    {
-      "key": "ambientColor",
-      "group": "atmosphere",
-      "node": "light",
-      "label": "Заполняющий свет: цвет",
-      "kind": "цвет"
-    },
-    {
-      "key": "hemisphereIntensity",
-      "group": "atmosphere",
-      "node": "light",
-      "label": "Полусфера: сила",
-      "kind": "число",
-      "min": 0,
-      "max": 2,
-      "step": 0.01
-    },
-    {
-      "key": "hemisphereSkyColor",
-      "group": "atmosphere",
-      "node": "light",
-      "label": "Полусфера: цвет неба",
-      "kind": "цвет"
-    },
-    {
-      "key": "hemisphereGroundColor",
-      "group": "atmosphere",
-      "node": "light",
-      "label": "Полусфера: цвет земли",
-      "kind": "цвет"
-    },
-    {
-      "key": "envTint",
-      "group": "atmosphere",
-      "node": "light",
-      "label": "Тон отражений",
-      "kind": "цвет"
-    },
-    {
-      "key": "shadowsEnabled",
-      "group": "atmosphere",
-      "node": "light",
-      "label": "Тени включены",
-      "kind": "выключатель"
-    },
-    {
-      "key": "shadowIntensity",
-      "group": "atmosphere",
-      "node": "light",
-      "label": "Сила теней",
-      "kind": "число",
-      "min": 0,
-      "max": 1,
-      "step": 0.05,
-      "unit": "%"
-    },
-    {
-      "key": "shadowRadius",
-      "group": "atmosphere",
-      "node": "light",
-      "label": "Мягкость теней",
-      "kind": "число",
-      "min": 0,
-      "max": 8,
-      "step": 0.25
-    },
-    {
-      "key": "shadowContactOffset",
-      "group": "atmosphere",
-      "node": "light",
-      "label": "Смещение контакта",
-      "kind": "число",
-      "min": -0.06,
-      "max": 0.06,
-      "step": 0.001,
-      "unit": "mm"
-    },
-    {
-      "key": "shadowCascades",
-      "group": "atmosphere",
-      "node": "light",
-      "label": "Зоны теней",
-      "kind": "список",
-      "options": [
-        "auto",
-        "1",
-        "2"
-      ]
-    },
-    {
-      "key": "waterShadowStrength",
-      "group": "atmosphere",
-      "node": "light",
-      "label": "Тень в толще воды",
-      "kind": "число",
-      "min": 0,
-      "max": 1,
-      "step": 0.01,
-      "unit": "%"
-    },
-    {
-      "key": "shadowBias",
-      "group": "atmosphere",
-      "node": "light",
-      "label": "Смещение теней",
-      "kind": "число",
-      "min": -0.005,
-      "max": 0.005,
-      "step": 0.0001
-    },
-    {
       "key": "skyVisible",
       "group": "atmosphere",
       "node": "hdri",
@@ -8124,34 +8143,6 @@
         "off",
         "fsr1"
       ]
-    },
-    {
-      "key": "contactAoEnabled",
-      "group": "engine",
-      "node": "quality",
-      "label": "Контактное AO",
-      "kind": "выключатель"
-    },
-    {
-      "key": "contactAoIntensity",
-      "group": "engine",
-      "node": "quality",
-      "label": "Сила AO",
-      "kind": "число",
-      "min": 0,
-      "max": 1,
-      "step": 0.05
-    },
-    {
-      "key": "contactAoRadius",
-      "group": "engine",
-      "node": "quality",
-      "label": "Радиус AO",
-      "kind": "число",
-      "min": 0.05,
-      "max": 3,
-      "step": 0.05,
-      "unit": "m"
     },
     {
       "key": "debugWireframe",

@@ -464,6 +464,14 @@ function FocusShell(props) {
 }
 
 export default function FocusEditor(props) {
-    const [pinnedIds, setPinnedIds] = useState(() => { const saved = readUi().pinnedIds; return Array.isArray(saved) ? saved.filter((id) => typeof id === 'string') : []; });
+    const [pinnedIds, setPinnedIds] = useState(() => {
+        const saved = readUi().pinnedIds;
+        return Array.isArray(saved) ? [...new Set(saved.filter((id) => typeof id === 'string').map((id) => {
+            if (/^engine\/quality:contactAo(Enabled|Intensity|Radius)$/.test(id)) return id.replace('engine/quality:', 'atmosphere/light:');
+            if (id === 'atmosphere/light:waterShadowStrength') return 'landscape/water:waterShadowStrength';
+            if (id === 'atmosphere/light:shadowBias') return 'atmosphere/light:shadowContactOffset';
+            return id;
+        }))] : [];
+    });
     return <FocusControlsProvider pinnedIds={pinnedIds} onPinnedChange={setPinnedIds} onNumericGestureStart={props.history?.onGestureStart} onNumericGestureCommit={props.history?.onGestureCommit} onNumericGestureCancel={props.history?.onGestureCancel}><FocusShell {...props} /></FocusControlsProvider>;
 }
