@@ -321,6 +321,22 @@
       go(event.key === 'Home' ? 0 : event.key === 'End' ? sheets.length - 1 : destination + direction);
     }
   });
+  const viewport = window.visualViewport;
+  let viewportFrame;
+  const fitViewport = () => {
+    viewportFrame = null;
+    // Pinch zoom must magnify the page, never resize/reflow its composition.
+    if (viewport && Math.abs(viewport.scale - 1) > .01) return;
+    const height = Math.ceil(viewport?.height || window.innerHeight);
+    if (height > 0) document.documentElement.style.setProperty('--viewport-height', height + 'px');
+  };
+  const queueViewport = () => {
+    if (!viewportFrame) viewportFrame = requestAnimationFrame(fitViewport);
+  };
+  window.addEventListener('resize', queueViewport, {passive:true});
+  viewport?.addEventListener('resize', queueViewport, {passive:true});
+  window.addEventListener('pageshow', queueViewport);
+  fitViewport();
   let lastHeight = folio.clientHeight, lastWidth = folio.clientWidth;
   new ResizeObserver(() => {
     if (folio.clientHeight === lastHeight && folio.clientWidth === lastWidth) return;

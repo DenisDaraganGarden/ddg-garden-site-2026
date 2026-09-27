@@ -14,12 +14,13 @@
 .project-sheet .work-caption h2{font-size:clamp(28px,3.3vw,44px);line-height:1.06}
 .project-sheet .work-caption p{margin-top:11px}
 .project-sheet .work-tools{gap:25px;align-items:center}
+.project-sheet .work-tools:empty{display:none}
 .gallery-navigation{display:flex;align-items:center;gap:14px}
 .work-tools .gallery-navigation button{text-decoration:none;font-size:23px;line-height:1;min-width:40px;min-height:44px;color:var(--ink)}
 .gallery-navigation button:disabled{opacity:.2}
 .gallery-navigation .frame-count{white-space:nowrap;min-width:43px;text-align:center}
 @media(max-width:759px){
- .project-sheet:is(.work,.story-works){padding-top:calc(var(--header) + 12px);padding-bottom:50px;grid-template-rows:minmax(0,1fr) 132px;gap:18px}
+ .project-sheet:is(.work,.story-works){padding-top:calc(var(--header) + 12px);padding-bottom:calc(var(--footer-edge) + 22px);grid-template-rows:minmax(0,1fr) auto;gap:18px}
  .project-gallery{gap:24px}
  .gallery-frame,.gallery-frame:nth-child(even){width:calc(100vw - var(--gutter) * 2);height:100%;grid-template-rows:minmax(0,1fr)}
  .gallery-frame figcaption{display:none}
@@ -30,7 +31,7 @@
  .gallery-navigation{gap:7px}
  .work-tools .gallery-navigation button{font-size:22px;min-width:32px}
 }
-@media(max-height:680px) and (max-width:759px){.project-sheet:is(.work,.story-works){grid-template-rows:minmax(0,1fr) 120px;gap:12px;padding-top:calc(var(--header) + 4px);padding-bottom:37px}.project-sheet .work-caption h2{font-size:27px}}
+@media(max-height:680px) and (max-width:759px){.project-sheet:is(.work,.story-works){grid-template-rows:minmax(0,1fr) auto;gap:12px;padding-top:calc(var(--header) + 4px);padding-bottom:calc(var(--footer-edge) + 14px)}.project-sheet .work-caption h2{font-size:27px}}
 @media(max-height:480px) and (min-width:600px){.project-sheet:is(.work,.story-works){grid-template-rows:minmax(0,1fr) 60px;gap:10px;padding-top:calc(var(--header) + 2px);padding-bottom:30px}.project-sheet .work-caption{flex-direction:row;align-items:center}.project-sheet .work-caption h2{font-size:24px}.project-sheet .work-caption p{margin-top:4px}.project-sheet .work-tools{width:auto}.gallery-frame,.gallery-frame:nth-child(even){--image-height:min(calc(var(--stage-height) - 20px),calc((100vw - var(--gutter) * 2) / var(--ratio)));width:calc(var(--image-height) * var(--ratio));height:calc(var(--image-height) + 20px)}}
 
 .story-works{--ink:#f6f4f0;--muted:#aaa69e;--line:#393732;display:grid;background:#101010;color:var(--ink)}
