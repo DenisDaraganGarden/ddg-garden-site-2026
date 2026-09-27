@@ -3,22 +3,12 @@
   const source = '/p06-i01-1600.webp';
   const still = document.querySelector('#french-manor img');
   if (!still?.getAttribute('src').endsWith(source)) return;
-  const controllers = [];
-  let paused = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  let userChoice = false;
+  let paused = !window.LivingTilt?.motion;
 
-  function mount(hero, image, controls, owner = null) {
+  function mount(hero, image, owner = null) {
   hero.classList.add('living-manor-stage');
 
-  const reduced = matchMedia('(prefers-reduced-motion: reduce)');
   const coarse = matchMedia('(pointer: coarse)');
-  const button = document.createElement('button');
-  button.className = 'manor-motion play-toggle';
-  button.hidden = true;
-  const motionControls = document.createElement('div');
-  motionControls.className = 'manor-motion-controls';
-  controls.append(motionControls);
-  motionControls.append(button);
   const canvas = document.createElement('canvas');
   canvas.className = 'living-manor';
   canvas.setAttribute('aria-hidden', 'true');
@@ -51,7 +41,7 @@
     void main() {
       vec2 uv = (vec2(v_uv.x, 1. - v_uv.y) - .5) * u_crop + .5;
       vec2 drift = vec2(sin(u_time * .19) * .36, sin(u_time * .13 + .7) * .18);
-      vec2 view = (u_camera + drift) * vec2(.020, .013) * u_arrival;
+      vec2 view = (u_camera + drift) * vec2(.040, .026) * u_arrival;
       vec2 q = uv;
       for (int i = 0; i < 3; ++i) q = uv + view * (depthAt(q) - .27);
       float depth = depthAt(q);
@@ -84,8 +74,8 @@
   let pointerX = 0, pointerY = 0, cameraX = 0, cameraY = 0;
   let releaseTouch = 0;
   const resources = [];
-  const tilt = window.LivingTilt?.attach(motionControls, {
-    onEnable: () => {userChoice = true; paused = false; controllers.forEach(update => update());},
+  const tilt = window.LivingTilt?.attach(hero, {
+    onChange: () => {paused = !window.LivingTilt.motion; sync();},
   });
   const asset = name => new URL(`./assets/${name}`, location.href).href;
 
@@ -173,8 +163,8 @@
         canvas.width = Math.max(1, Math.round(width * ratio));
         canvas.height = Math.max(1, Math.round(height * ratio));
         gl.viewport(0, 0, canvas.width, canvas.height);
-        // The whole portrait remains contained, with 3.5% movement overscan.
-        gl.uniform2f(uniforms.u_crop, 1. / 1.035, 1. / 1.035);
+        // The whole portrait remains contained, with 9% movement overscan.
+        gl.uniform2f(uniforms.u_crop, 1. / 1.09, 1. / 1.09);
       },
       draw() {
         gl.uniform2f(uniforms.u_camera, cameraX, cameraY);
@@ -204,16 +194,10 @@
     cameraY += ((inclination ? inclination.y : pointerY) - cameraY) * follow;
     renderer.draw();
   }
-  function updateButton() {
-    button.textContent = 'Движение';
-    button.setAttribute('aria-label', paused ? 'Оживить сад' : 'Приостановить движение сада');
-    button.setAttribute('aria-pressed', String(!paused));
-  }
   function sync() {
     stop();
-    updateButton();
     const matches = image.getAttribute('src')?.endsWith(source);
-    button.hidden = failed || !matches || (owner && !owner.open);
+
     if (!matches) hero.classList.remove('has-living-manor');
     else if (renderer && !failed) hero.classList.add('has-living-manor');
     const canRun = matches && visible && pageActive && !document.hidden && !dialogOpen && !paused;
@@ -245,12 +229,12 @@
     stop();
     hero.classList.remove('has-living-manor');
     hero.dataset.motion = 'unavailable';
-    button.hidden = true;
+
     tilt?.update(false, false);
     resources.splice(0).forEach(dispose => dispose());
   }
   function move(event) {
-    if (paused || !visible || event.target.closest('.manor-motion,.tilt-toggle,a') || !event.isPrimary) return;
+    if (paused || !visible || event.target.closest('button:not(.image-open),a') || !event.isPrimary) return;
     const box = canvas.getBoundingClientRect();
     pointerX = Math.max(-1, Math.min(1, ((event.clientX - box.left) / box.width - .5) * 2.));
     pointerY = Math.max(-1, Math.min(1, ((event.clientY - box.top) / box.height - .5) * 2.));
@@ -259,11 +243,6 @@
     clearTimeout(releaseTouch);
     releaseTouch = setTimeout(() => {pointerX = 0; pointerY = 0;}, 1200);
   }
-  button.addEventListener('click', () => {
-    userChoice = true;
-    paused = !paused;
-    controllers.forEach(update => update());
-  });
   hero.addEventListener('pointermove', move, {passive: true});
   hero.addEventListener('pointerdown', event => {clearTimeout(releaseTouch); move(event);}, {passive: true});
   hero.addEventListener('pointerup', release, {passive: true});
@@ -284,10 +263,6 @@
     dialogOpen = owner ? !owner.open : !!document.querySelector('dialog[open]');
     sync();
   }).observe(document.body, {subtree: true, attributes: true, attributeFilter: ['open', 'src']});
-  reduced.addEventListener('change', () => {
-    if (!userChoice) paused = reduced.matches;
-    controllers.forEach(update => update());
-  });
   canvas.addEventListener('webglcontextlost', event => {
     event.preventDefault();
     fail();
@@ -297,14 +272,13 @@
     failed = false;
     renderer = null;
     loading = null;
-    button.hidden = false;
+
     sync();
   });
-  controllers.push(sync);
   sync();
   }
 
-  mount(still.closest('.image-open'), still, document.querySelector('#french-manor .work-tools'));
+  mount(still.closest('.image-open'), still);
   const viewer = document.querySelector('.image-dialog');
-  mount(viewer.querySelector('.image-canvas'), viewer.querySelector('img'), viewer, viewer);
+  mount(viewer.querySelector('.image-canvas'), viewer.querySelector('img'), viewer);
 })();

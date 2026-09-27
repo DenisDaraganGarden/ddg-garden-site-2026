@@ -1,10 +1,15 @@
-.tilt-toggle{min-height:44px;font-size:12px;touch-action:manipulation;white-space:nowrap}
-.tilt-toggle[hidden],.tilt-status[hidden]{display:none}
-.tilt-toggle:disabled{opacity:.5}
-.tilt-status{position:absolute;bottom:100%;left:0;max-width:260px;font-size:11px;line-height:1.5;color:inherit}
-.cover-tilt.tilt-toggle{position:absolute;left:calc(var(--gutter) + 205px);bottom:25px;z-index:1;color:var(--paper);opacity:.75}
-.cover-tilt.tilt-status{left:calc(var(--gutter) + 100px);bottom:73px;color:var(--paper)}
-.manor-motion-controls{position:relative;display:flex;align-items:center;gap:24px}
-.image-dialog>.manor-motion-controls{position:absolute;bottom:max(22px,env(safe-area-inset-bottom));left:var(--gutter);z-index:2;background:#0009;padding:0 12px;border-radius:2px}
-.image-dialog .tilt-status{background:#000b;padding:6px 10px;width:max-content}
-@media(max-width:350px){.cover-tilt.tilt-toggle{left:calc(var(--gutter) + 195px)}}
+.motion-choice{position:fixed;inset:0;width:100%;max-width:none;height:var(--viewport-height,100dvh);max-height:none;margin:0;background:var(--paper);color:var(--ink);padding:var(--header) var(--gutter) max(32px,env(safe-area-inset-bottom))}
+.motion-choice[open]{display:grid;place-items:center}
+.motion-choice::backdrop{background:var(--paper)}
+.motion-signature{position:absolute;top:calc(env(safe-area-inset-top) + 26px);left:var(--gutter);font:23px/1 Oranienbaum,serif}
+.motion-choice-copy{width:min(100%,430px)}
+.motion-choice h2{font-size:clamp(48px,9vw,78px);line-height:1;letter-spacing:-.02em}
+.motion-choice p{margin-top:28px;color:var(--muted);font-size:13px;line-height:1.6}
+.motion-choice-actions{display:flex;gap:32px;margin-top:35px;font-size:13px}
+.motion-choice-actions button{min-height:44px;text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:6px}
+.motion-choice-actions button:disabled{opacity:.5}
+.motion-choice-actions [data-motion-skip]{color:var(--muted)}
+.motion-settings{min-height:44px}
+.motion-status{font-size:12px;line-height:1.6;color:var(--muted)}
+.motion-status:empty{display:none}
+@media(max-height:480px){.motion-choice h2{font-size:42px}.motion-choice p{margin-top:16px}.motion-choice-actions{margin-top:16px}}

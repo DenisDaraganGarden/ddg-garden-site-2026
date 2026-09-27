@@ -6,12 +6,7 @@
   // can choose a different cover; that cover must keep its normal still image.
   if (!image || !image.getAttribute('src').endsWith('/p04-i01-1600.webp')) return;
 
-  const reduced = matchMedia('(prefers-reduced-motion: reduce)');
   const coarse = matchMedia('(pointer: coarse)');
-  const button = document.createElement('button');
-  button.className = 'cover-motion play-toggle';
-  button.hidden = true;
-  hero.append(button);
   const canvas = document.createElement('canvas');
   canvas.className = 'living-cover';
   canvas.setAttribute('aria-hidden', 'true');
@@ -61,7 +56,7 @@
       vec2 screen = vec2(v_uv.x, 1. - v_uv.y);
       vec2 uv = screen * u_crop + (1. - u_crop) * vec2(.52, .5);
       vec2 drift = vec2(sin(u_time * .19) * .34, sin(u_time * .13 + .7) * .18);
-      vec2 view = (u_camera + drift) * u_crop * vec2(.024, .015) * u_arrival;
+      vec2 view = (u_camera + drift) * u_crop * vec2(.048, .030) * u_arrival;
       vec2 q = projectBackground(uv, view);
       vec3 still = background(q);
 
@@ -110,14 +105,13 @@
 
   let renderer = null, loading = null, failed = false;
   let visible = false, pageActive = true, dialogOpen = false;
-  let paused = reduced.matches, userChoice = false;
+  let paused = !window.LivingTilt?.motion;
   let frame = 0, last = 0, elapsed = 0;
   let pointerX = 0, pointerY = 0, cameraX = 0, cameraY = 0;
   let releaseTouch = 0;
   const resources = [];
   const tilt = window.LivingTilt?.attach(hero, {
-    className: 'cover-tilt',
-    onEnable: () => {userChoice = true; paused = false; sync();},
+    onChange: () => {paused = !window.LivingTilt.motion; sync();},
   });
   const asset = name => new URL(`./assets/${name}`, location.href).href;
 
@@ -203,8 +197,8 @@
         const viewAspect = width / height;
         // A small guard area prevents exposing an edge during camera movement.
         gl.uniform2f(uniforms.u_crop,
-          Math.min(1, viewAspect / aspect) / 1.035,
-          Math.min(1, aspect / viewAspect) / 1.035);
+          Math.min(1, viewAspect / aspect) / 1.12,
+          Math.min(1, aspect / viewAspect) / 1.12);
       },
       draw() {
         gl.uniform2f(uniforms.u_camera, cameraX, cameraY);
@@ -234,14 +228,8 @@
     cameraY += ((inclination ? inclination.y : pointerY) - cameraY) * follow;
     renderer.draw();
   }
-  function updateButton() {
-    button.textContent = 'Движение';
-    button.setAttribute('aria-label', paused ? 'Оживить сад' : 'Приостановить движение сада');
-    button.setAttribute('aria-pressed', String(!paused));
-  }
   function sync() {
     stop();
-    updateButton();
     const canRun = visible && pageActive && !document.hidden && !dialogOpen && !paused;
     tilt?.update(canRun && !failed, !failed);
     hero.dataset.motion = failed ? 'unavailable' : paused ? 'paused' : canRun ? 'playing' : 'sleeping';
@@ -271,7 +259,7 @@
     stop();
     hero.classList.remove('has-living-cover');
     hero.dataset.motion = 'unavailable';
-    button.hidden = true;
+
     tilt?.update(false, false);
     resources.splice(0).forEach(dispose => dispose());
   }
@@ -285,11 +273,6 @@
     clearTimeout(releaseTouch);
     releaseTouch = setTimeout(() => {pointerX = 0; pointerY = 0;}, 1200);
   }
-  button.addEventListener('click', () => {
-    userChoice = true;
-    paused = !paused;
-    sync();
-  });
   hero.addEventListener('pointermove', move, {passive: true});
   hero.addEventListener('pointerdown', event => {clearTimeout(releaseTouch); move(event);}, {passive: true});
   hero.addEventListener('pointerup', release, {passive: true});
@@ -310,10 +293,6 @@
     dialogOpen = !!document.querySelector('dialog[open]');
     sync();
   }).observe(document.body, {subtree: true, attributes: true, attributeFilter: ['open']});
-  reduced.addEventListener('change', () => {
-    if (!userChoice) paused = reduced.matches;
-    sync();
-  });
   canvas.addEventListener('webglcontextlost', event => {
     event.preventDefault();
     fail();
@@ -323,9 +302,8 @@
     failed = false;
     renderer = null;
     loading = null;
-    button.hidden = false;
+
     sync();
   });
-  button.hidden = false;
-  updateButton();
+
 })();
