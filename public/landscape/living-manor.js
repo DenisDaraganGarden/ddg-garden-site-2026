@@ -13,7 +13,7 @@
   const reduced = matchMedia('(prefers-reduced-motion: reduce)');
   const coarse = matchMedia('(pointer: coarse)');
   const button = document.createElement('button');
-  button.className = 'manor-motion';
+  button.className = 'manor-motion play-toggle';
   button.hidden = true;
   const motionControls = document.createElement('div');
   motionControls.className = 'manor-motion-controls';
@@ -167,8 +167,9 @@
         canvas.style.height = height + 'px';
         canvas.style.left = (availableWidth - width) / 2 + 'px';
         canvas.style.top = (availableHeight - height) / 2 + 'px';
+        // Keep Retina detail when the frame fits the existing pixel budget.
         const budget = coarse.matches ? 1100000 : 2200000;
-        const ratio = Math.min(devicePixelRatio || 1, 1.75, Math.sqrt(budget / (width * height)));
+        const ratio = Math.min(devicePixelRatio || 1, Math.sqrt(budget / (width * height)));
         canvas.width = Math.max(1, Math.round(width * ratio));
         canvas.height = Math.max(1, Math.round(height * ratio));
         gl.viewport(0, 0, canvas.width, canvas.height);
@@ -204,7 +205,7 @@
     renderer.draw();
   }
   function updateButton() {
-    button.textContent = paused ? 'Движение ▶' : 'Движение Ⅱ';
+    button.textContent = 'Движение';
     button.setAttribute('aria-label', paused ? 'Оживить сад' : 'Приостановить движение сада');
     button.setAttribute('aria-pressed', String(!paused));
   }

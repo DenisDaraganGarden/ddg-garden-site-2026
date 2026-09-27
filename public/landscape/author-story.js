@@ -61,7 +61,6 @@
         sync();
       }, remaining);
     }
-    play.querySelector('span').textContent = wanted ? 'Ⅱ' : '▶';
     play.setAttribute('aria-label', wanted ? 'Приостановить историю' : 'Воспроизвести историю');
     play.setAttribute('aria-pressed', String(wanted));
   };
@@ -116,7 +115,6 @@
         sheet.dataset.playing = 'true';
         timer = setTimeout(() => {timer = null;show(index + 1);sync();}, 8500);
       }
-      play.textContent = wanted ? 'Ⅱ' : '▶';
       play.setAttribute('aria-label', wanted ? 'Приостановить последовательность' : 'Воспроизвести последовательность');
       play.setAttribute('aria-pressed', String(wanted));
     };

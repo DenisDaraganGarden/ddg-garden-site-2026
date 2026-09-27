@@ -13,24 +13,24 @@
   <link rel="apple-touch-icon" sizes="180x180" href="./assets/apple-touch-icon.png">
   <link rel="manifest" href="./site.webmanifest">
   <link rel="preload" href="./assets/Oranienbaum-Regular.ttf" as="font" type="font/ttf" crossorigin>
-  <link rel="stylesheet" href="./main.css?v=20260927-chapters">
-  <link rel="stylesheet" href="./author-story.css?v=20260927-chapters">
-  <link rel="stylesheet" href="./essay.css?v=20260927-chapters">
-  <link rel="stylesheet" href="./gallery.css?v=20260926-story">
+  <link rel="stylesheet" href="./main.css?v=20260927-mobile">
+  <link rel="stylesheet" href="./author-story.css?v=20260927-mobile">
+  <link rel="stylesheet" href="./essay.css?v=20260927-mobile">
+  <link rel="stylesheet" href="./gallery.css?v=20260927-mobile">
   <link rel="stylesheet" href="./living-cover.css?v=20260927-1">
-  <script src="./main.js?v=20260927-chapters" defer></script>
-  <script src="./author-story.js?v=20260927-chapters" defer></script>
+  <script src="./main.js?v=20260927-mobile" defer></script>
+  <script src="./author-story.js?v=20260927-mobile" defer></script>
   <script src="./essay.js?v=20260927-chapters" defer></script>
   <script src="./gallery.js?v=20260926" defer></script>
-  <script src="./access.js?v=20260927" defer></script>
+  <script src="./access.js?v=20260927-mobile" defer></script>
   <link rel="stylesheet" href="./living-tilt.css?v=20260927-1">
   <script src="./living-tilt.js?v=20260927-1" defer></script>
-  <script src="./living-cover.js?v=20260927-tilt" defer></script>
+  <script src="./living-cover.js?v=20260927-mobile" defer></script>
   <link rel="stylesheet" href="./living-manor.css?v=20260927-1">
-  <script src="./living-manor.js?v=20260927-tilt" defer></script>
+  <script src="./living-manor.js?v=20260927-mobile" defer></script>
 </head>
 <body class="on-dark on-cover">
-<button class="site-sound" data-sound-toggle aria-label="Приостановить музыку" hidden>Звук Ⅱ</button>
+<button class="site-sound play-toggle" data-sound-toggle aria-label="Приостановить музыку" hidden>Звук</button>
 <a class="skip-link" href="#secret-garden">К работам</a>
 <header class="site-header">
   <a class="brand" href="#top" aria-label="Denis Daragan, в начало">Denis Daragan</a>
@@ -41,7 +41,7 @@
   <section class="sheet hero dark-sheet" id="top" aria-labelledby="main-heading">
     <img class="hero-image" src="./assets/p04-i01-1600.webp" srcset="./assets/p04-i01-900.webp 900w, ./assets/p04-i01-1600.webp 1600w" sizes="100vw" width="1600" height="1130" alt="Secret Garden" fetchpriority="high">
     <div class="hero-content"><h1 id="main-heading">Denis<br>Daragan</h1></div>
-    <a class="cover-music" href="https://www.youtube.com/watch?v=suxZTtsil58" target="_blank" rel="noopener noreferrer" aria-label="Музыка обложки: Шуберт, Смерть и девушка, Борис Гмыря. Открыть на YouTube">Музыка ↗</a>
+    <a class="cover-music" href="https://www.youtube.com/watch?v=suxZTtsil58" target="_blank" rel="noopener noreferrer" aria-label="Музыка обложки: Шуберт, Смерть и девушка, Борис Гмыря. Открыть на YouTube">Музыка <svg class="folio-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M3 13 13 3M4 3h9v9"/></svg></a>
   </section>
   <section class="sheet author-sheet" id="author" aria-labelledby="author-heading" data-tone="paper" data-shot="portrait" data-form="cross" data-playing="false">
     <h2 class="sr-only" id="author-heading">Автопортрет</h2>
@@ -58,7 +58,7 @@
     </div>
     <footer class="author-controls">
       <div class="author-reading"><button data-panel="author-manifesto" aria-haspopup="dialog">Манифест</button><button data-panel="essay-inheritance-text" aria-haspopup="dialog">Легенда</button></div>
-      <div class="author-stepping"><button data-author-prev aria-label="Предыдущий образ">←</button><button data-author-play aria-label="Воспроизвести историю"><span aria-hidden="true">▶</span></button><button data-author-next aria-label="Следующий образ">→</button></div>
+      <div class="author-stepping"><button data-author-prev aria-label="Предыдущий образ">←</button><button class="play-toggle" data-author-play aria-label="Воспроизвести историю"></button><button data-author-next aria-label="Следующий образ">→</button></div>
     </footer>
     <p class="sr-only" data-author-status aria-live="polite" aria-atomic="true"></p>
   </section>
@@ -70,15 +70,15 @@
     </div></header>
     <div class="chapter-panel" id="wave" role="tabpanel" aria-labelledby="tab-wave" data-chapter-panel>
       <figure class="essay-primary"><button class="image-open" data-image aria-label="Рассмотреть: Иван Айвазовский. Девятый вал, 1850"><img data-essay-image src="./assets/essay-ninth-wave.webp" alt="Иван Айвазовский. Девятый вал, 1850" width="1500" height="1000" loading="lazy" decoding="async"></button><figcaption data-essay-caption>Иван Айвазовский · «Девятый вал», 1850</figcaption></figure>
-    <footer class="essay-footer"><button data-panel="essay-wave-text" aria-haspopup="dialog">Читать ↗</button><div class="essay-controls" role="group" aria-label="Картина или фрагмент"><button data-essay-view="full" aria-pressed="true">Целиком</button><button data-essay-view="detail" aria-pressed="false">Фрагмент</button></div></footer>
+    <footer class="essay-footer"><button data-panel="essay-wave-text" aria-haspopup="dialog">Читать <svg class="folio-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M3 13 13 3M4 3h9v9"/></svg></button><div class="essay-controls" role="group" aria-label="Картина или фрагмент"><button data-essay-view="full" aria-pressed="true">Целиком</button><button data-essay-view="detail" aria-pressed="false">Фрагмент</button></div></footer>
     </div>
     <div class="chapter-panel" id="light" role="tabpanel" aria-labelledby="tab-light" data-chapter-panel hidden>
       <figure class="essay-primary"><button class="image-open" data-image aria-label="Рассмотреть: Снятие с креста, 1634. Эрмитаж"><img src="./assets/essay-rembrandt.webp" alt="Снятие с креста, 1634. Эрмитаж" width="1453" height="2000" loading="lazy" decoding="async"></button><figcaption >Рембрандт · «Снятие с креста», 1634</figcaption></figure>
-    <footer class="essay-footer"><button data-panel="essay-light-text" aria-haspopup="dialog">Читать ↗</button><button data-panel="essay-sources" aria-haspopup="dialog">Образы ↗</button></footer>
+    <footer class="essay-footer"><button data-panel="essay-light-text" aria-haspopup="dialog">Читать <svg class="folio-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M3 13 13 3M4 3h9v9"/></svg></button><button data-panel="essay-sources" aria-haspopup="dialog">Образы <svg class="folio-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M3 13 13 3M4 3h9v9"/></svg></button></footer>
     </div>
     <div class="chapter-panel" id="inheritance" role="tabpanel" aria-labelledby="tab-inheritance" data-chapter-panel hidden>
       <figure class="essay-primary"><button class="image-open" data-image aria-label="Рассмотреть: Путник у воды. Авторская работа Дениса Дарагана"><img src="./assets/story-wanderer.webp" alt="Путник у воды. Авторская работа Дениса Дарагана" width="1131" height="1600" loading="lazy" decoding="async"></button><figcaption >Денис Дараган</figcaption></figure>
-    <footer class="essay-footer"><button data-panel="essay-inheritance-text" aria-haspopup="dialog">Легенда ↗</button><button data-panel="essay-sources" aria-haspopup="dialog">Образы ↗</button></footer>
+    <footer class="essay-footer"><button data-panel="essay-inheritance-text" aria-haspopup="dialog">Легенда <svg class="folio-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M3 13 13 3M4 3h9v9"/></svg></button><button data-panel="essay-sources" aria-haspopup="dialog">Образы <svg class="folio-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M3 13 13 3M4 3h9v9"/></svg></button></footer>
     </div>
   </section>
   <section class="sheet chapter-sheet chapter-dark dark-sheet" id="elements" aria-labelledby="elements-heading" data-chapter>
@@ -92,7 +92,7 @@
       <img class="study-frame" src="./assets/story-grass.webp" alt="Тонкие травы на ветру" width="1080" height="1080" loading="lazy" decoding="async" aria-hidden="true">
       <img class="study-frame" src="./assets/story-fern.webp" alt="Папоротники среди тёмного камня" width="700" height="620" loading="lazy" decoding="async" aria-hidden="true">
     </div>
-    <footer class="study-controls"><button class="study-poetry" data-panel="plants-text" aria-haspopup="dialog">Читать ↗</button><div class="author-stepping"><button data-study-prev aria-label="Предыдущий образ">←</button><button data-study-play aria-label="Воспроизвести последовательность">▶</button><button data-study-next aria-label="Следующий образ">→</button></div></footer>
+    <footer class="study-controls"><button class="study-poetry" data-panel="plants-text" aria-haspopup="dialog">Читать <svg class="folio-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M3 13 13 3M4 3h9v9"/></svg></button><div class="author-stepping"><button data-study-prev aria-label="Предыдущий образ">←</button><button class="play-toggle" data-study-play aria-label="Воспроизвести последовательность"></button><button data-study-next aria-label="Следующий образ">→</button></div></footer>
     <p class="sr-only" data-study-status aria-live="polite" aria-atomic="true"></p>
     </div>
     <div class="chapter-panel study-panel" id="matter" role="tabpanel" aria-labelledby="tab-matter" data-chapter-panel data-study data-playing="false" hidden>
@@ -101,7 +101,7 @@
       <img class="study-frame" src="./assets/story-basalt.webp" alt="Пористая поверхность тёмного камня" width="1080" height="1350" loading="lazy" decoding="async" aria-hidden="true">
       <img class="study-frame" src="./assets/story-sand.webp" alt="Рельеф мокрого песка" width="736" height="1104" loading="lazy" decoding="async" aria-hidden="true">
     </div>
-    <footer class="study-controls"><button class="study-poetry" data-panel="matter-text" aria-haspopup="dialog">Читать ↗</button><div class="author-stepping"><button data-study-prev aria-label="Предыдущий образ">←</button><button data-study-play aria-label="Воспроизвести последовательность">▶</button><button data-study-next aria-label="Следующий образ">→</button></div></footer>
+    <footer class="study-controls"><button class="study-poetry" data-panel="matter-text" aria-haspopup="dialog">Читать <svg class="folio-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M3 13 13 3M4 3h9v9"/></svg></button><div class="author-stepping"><button data-study-prev aria-label="Предыдущий образ">←</button><button class="play-toggle" data-study-play aria-label="Воспроизвести последовательность"></button><button data-study-next aria-label="Следующий образ">→</button></div></footer>
     <p class="sr-only" data-study-status aria-live="polite" aria-atomic="true"></p>
     </div>
   </section>
@@ -167,17 +167,17 @@
 <dialog class="panel-dialog access-dialog" id="pdf-access" aria-labelledby="pdf-access-heading">
   <div class="panel-bar"><h2 id="pdf-access-heading">Портфолио.</h2><button data-close>Закрыть</button></div>
   <form data-pdf-form method="dialog"><label for="pdf-password">Пароль</label><div class="pdf-field"><input id="pdf-password" name="password" type="password" autocomplete="current-password" required aria-describedby="pdf-message"><button type="submit">Скачать ↓</button></div><p id="pdf-message" role="status" aria-live="polite"></p></form>
-  <a class="access-request" href="mailto:info@daragangarden.ru?subject=Портфолио">Запросить пароль ↗</a>
+  <a class="access-request" href="mailto:info@daragangarden.ru?subject=Портфолио">Запросить пароль <svg class="folio-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M3 13 13 3M4 3h9v9"/></svg></a>
 </dialog>
 <dialog class="panel-dialog music-dialog" id="music-panel" aria-labelledby="music-heading">
   <div class="panel-bar"><h2 id="music-heading">Во мне звучит.</h2><button data-close>Закрыть</button></div>
   <div class="music-list">
-    <a href="https://www.youtube.com/watch?v=suxZTtsil58" target="_blank" rel="noopener noreferrer"><span>Борис Гмыря · Шуберт</span>Смерть и девушка ↗</a>
-    <a href="https://www.youtube.com/watch?v=_dfBbIWtSXk" target="_blank" rel="noopener noreferrer"><span>Украинская народная песня</span>Ой, Марічко, чичері ↗</a>
-    <a href="https://www.youtube.com/watch?v=huS0zHDAF1c" target="_blank" rel="noopener noreferrer"><span>Дон</span>Тихий Дон ↗</a>
-    <a href="https://www.youtube.com/watch?v=QRg_8NNPTD8" target="_blank" rel="noopener noreferrer"><span>Heilung</span>Krigsgaldr ↗</a>
-    <a href="https://www.youtube.com/watch?v=lKVZKG7CcMU" target="_blank" rel="noopener noreferrer"><span>Falling In Reverse</span>Joseph ↗</a>
-    <a href="https://www.youtube.com/watch?v=Ub_NI1lCrdA" target="_blank" rel="noopener noreferrer"><span>Slipknot</span>The Devil in I ↗</a>
+    <a href="https://www.youtube.com/watch?v=suxZTtsil58" target="_blank" rel="noopener noreferrer"><span>Борис Гмыря · Шуберт</span>Смерть и девушка <svg class="folio-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M3 13 13 3M4 3h9v9"/></svg></a>
+    <a href="https://www.youtube.com/watch?v=_dfBbIWtSXk" target="_blank" rel="noopener noreferrer"><span>Украинская народная песня</span>Ой, Марічко, чичері <svg class="folio-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M3 13 13 3M4 3h9v9"/></svg></a>
+    <a href="https://www.youtube.com/watch?v=huS0zHDAF1c" target="_blank" rel="noopener noreferrer"><span>Дон</span>Тихий Дон <svg class="folio-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M3 13 13 3M4 3h9v9"/></svg></a>
+    <a href="https://www.youtube.com/watch?v=QRg_8NNPTD8" target="_blank" rel="noopener noreferrer"><span>Heilung</span>Krigsgaldr <svg class="folio-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M3 13 13 3M4 3h9v9"/></svg></a>
+    <a href="https://www.youtube.com/watch?v=lKVZKG7CcMU" target="_blank" rel="noopener noreferrer"><span>Falling In Reverse</span>Joseph <svg class="folio-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M3 13 13 3M4 3h9v9"/></svg></a>
+    <a href="https://www.youtube.com/watch?v=Ub_NI1lCrdA" target="_blank" rel="noopener noreferrer"><span>Slipknot</span>The Devil in I <svg class="folio-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M3 13 13 3M4 3h9v9"/></svg></a>
   </div>
   <p class="music-note">Записи открываются на YouTube.</p>
   <div class="local-music"><button data-audio-file>Открыть аудиофайл</button><input type="file" accept="audio/*" data-local-audio hidden><audio controls preload="none" data-music-audio hidden></audio><p data-music-status role="status"></p></div>
@@ -234,7 +234,7 @@
 </dialog>
 <dialog class="panel-dialog" id="essay-sources" aria-labelledby="essay-sources-heading">
   <div class="panel-bar"><h2 id="essay-sources-heading">Картины и образы</h2><button data-close>Закрыть</button></div>
-  <div class="panel-copy"><p>Иван Айвазовский. «Девятый вал», 1850.<br>Государственный Русский музей.<br><a href="https://rusmuseumvrm.ru/data/collections/painting/18_19/zh_2202/" target="_blank" rel="noopener noreferrer">Картина в коллекции музея ↗</a></p><p>Рембрандт. «Снятие с креста», 1634.<br>Государственный Эрмитаж.<br><a href="https://www.hermitagemuseum.org/explore/collections/category_2/element_20" target="_blank" rel="noopener noreferrer">Коллекция Эрмитажа ↗</a><br><a href="https://commons.wikimedia.org/wiki/File:Descent_from_the_Cross_(Rembrant).jpg" target="_blank" rel="noopener noreferrer">Репродукция · Wikimedia Commons ↗</a></p><p>Крест, огонь, животные, фактуры, растения и пейзажи в монтаже — образы из моей коллекции вдохновения, работы других авторов. Они передают ассоциации, а не документируют места моей биографии. Авторские работы и монограмма Дениса Дарагана отмечены отдельно.</p><p>Тексты рядом с картинами — моё личное прочтение.</p></div>
+  <div class="panel-copy"><p>Иван Айвазовский. «Девятый вал», 1850.<br>Государственный Русский музей.<br><a href="https://rusmuseumvrm.ru/data/collections/painting/18_19/zh_2202/" target="_blank" rel="noopener noreferrer">Картина в коллекции музея <svg class="folio-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M3 13 13 3M4 3h9v9"/></svg></a></p><p>Рембрандт. «Снятие с креста», 1634.<br>Государственный Эрмитаж.<br><a href="https://www.hermitagemuseum.org/explore/collections/category_2/element_20" target="_blank" rel="noopener noreferrer">Коллекция Эрмитажа <svg class="folio-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M3 13 13 3M4 3h9v9"/></svg></a><br><a href="https://commons.wikimedia.org/wiki/File:Descent_from_the_Cross_(Rembrant).jpg" target="_blank" rel="noopener noreferrer">Репродукция · Wikimedia Commons <svg class="folio-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M3 13 13 3M4 3h9v9"/></svg></a></p><p>Крест, огонь, животные, фактуры, растения и пейзажи в монтаже — образы из моей коллекции вдохновения, работы других авторов. Они передают ассоциации, а не документируют места моей биографии. Авторские работы и монограмма Дениса Дарагана отмечены отдельно.</p><p>Тексты рядом с картинами — моё личное прочтение.</p></div>
 </dialog>
 <dialog class="panel-dialog menu-dialog" id="menu-panel" aria-labelledby="menu-heading"><div class="panel-bar"><h2 id="menu-heading">Портфолио</h2><button data-close>Закрыть</button></div><nav aria-label="Разделы"><div class="menu-primary"><a href="#top">Начало</a><a href="#author">Обо мне</a><a href="#tractatus">Истоки</a><a href="#elements">Природа</a><a href="#handwriting">Почерк</a><a href="#portfolio">Портфолио</a><button data-panel="music-panel" aria-haspopup="dialog">Музыка</button><a href="#recognition">НАГРАДЫ</a><a href="#contact">Контакт</a></div><div class="menu-projects"><!-- menu -->
 <a href="#secret-garden"><span>01</span>Secret Garden</a>

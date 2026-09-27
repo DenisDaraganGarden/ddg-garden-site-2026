@@ -17,7 +17,7 @@
 .author-seal{position:absolute;left:50%;top:50%;width:min(96%,96cqh);aspect-ratio:1;transform:translate(-50%,-50%) scale(.93);opacity:0;background:#000;overflow:hidden;transition:opacity 2.5s,transform 5s var(--ease)}
 .author-seal img{width:100%;height:100%;object-fit:cover;filter:brightness(2)}
 .author-sheet[data-form="seal"] .author-seal{opacity:1;transform:translate(-50%,-50%) scale(1)}
-.author-controls,.study-controls{position:absolute;inset:auto var(--gutter) 44px;display:flex;justify-content:space-between;align-items:center;gap:14px;z-index:2;font-size:12px}
+.author-controls,.study-controls{position:absolute;inset:auto var(--gutter) var(--controls-bottom);display:flex;justify-content:space-between;align-items:center;gap:14px;z-index:2;font-size:12px}
 .author-reading{display:flex;gap:28px}
 .author-reading button,.study-poetry{min-height:44px}
 .author-stepping{display:flex;align-items:center;gap:6px}
@@ -32,7 +32,7 @@
 .study-stage{min-height:0;position:relative}
 .study-frame{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;opacity:0;transition:opacity 2s}
 .study-frame.is-visible{opacity:1}
-.study-sheet .study-controls{inset:auto var(--gutter) 44px}
+.study-sheet .study-controls{inset:auto var(--gutter) var(--controls-bottom)}
 .cover-music{position:absolute;left:var(--gutter);bottom:25px;min-height:44px;display:flex;align-items:center;font-size:12px}
 .reading-end{display:block;margin-top:44px;min-height:44px;font-size:12px}
 .music-list{display:grid;gap:24px}
@@ -56,12 +56,12 @@
  .author-mask{width:min(110%,80cqh)}
  .author-sheet[data-form="open"] .author-mask{width:calc(100% - var(--gutter)*2)}
  .author-sheet:is([data-form="square"],[data-form="circle"],[data-form="seal"]) .author-mask{width:88%;height:88cqw}
- .author-controls,.study-controls{bottom:44px;font-size:11px;gap:8px}
+ .author-controls,.study-controls{bottom:var(--controls-bottom);font-size:11px;gap:8px}
  .author-reading{gap:20px}.author-stepping{gap:0}.author-stepping button{width:40px}
  .study-sheet{padding:calc(var(--header) + 24px) var(--gutter) 128px;display:flex;flex-direction:column;gap:26px}
  .study-sheet h2{order:2;align-self:start;margin:0;font-size:38px;line-height:1}
  .study-stage{flex:1;width:100%}
- .study-sheet .study-controls{bottom:44px}
+ .study-sheet .study-controls{bottom:var(--controls-bottom)}
  .music-list a{font-size:28px}
 }
 @media(max-height:670px) and (max-width:759px){.author-art{inset:calc(var(--header) + 2px) 0 100px}.study-sheet{padding-top:calc(var(--header) + 8px);padding-bottom:110px;gap:18px}.study-sheet h2{font-size:31px}}
@@ -71,7 +71,7 @@
 }
 @media(prefers-reduced-motion:reduce){.author-sheet,.author-sheet *,.study-sheet *{animation:none!important;transition:none!important}}
 
-.site-sound{position:fixed;left:var(--gutter);bottom:10px;min-height:32px;font-size:11px;z-index:4;color:var(--ink)}
+.site-sound{position:absolute;left:var(--gutter);bottom:max(10px,env(safe-area-inset-bottom));min-height:32px;font-size:11px;z-index:4;color:var(--ink)}
 .site-sound[hidden]{display:none}
 .on-dark .site-sound{color:var(--paper)}
 .on-author .site-sound{color:#fff;mix-blend-mode:difference}

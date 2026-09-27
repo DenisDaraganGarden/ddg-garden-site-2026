@@ -61,7 +61,7 @@
   const status = document.querySelector('[data-music-status]');
   const toggle = document.querySelector('[data-sound-toggle]');
   const sync = () => {
-    toggle.textContent = audio.paused ? 'Звук ▶' : 'Звук Ⅱ';
+    toggle.textContent = 'Звук';
     toggle.setAttribute('aria-label', audio.paused ? 'Включить музыку' : 'Приостановить музыку');
     toggle.setAttribute('aria-pressed', String(!audio.paused));
   };

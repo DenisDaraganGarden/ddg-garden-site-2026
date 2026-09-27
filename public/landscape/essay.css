@@ -4,7 +4,7 @@
 .essay-primary .image-open{min-height:0}
 .essay-primary img{width:100%;height:100%;object-fit:contain}
 .essay-primary figcaption{font-size:10px;color:var(--muted)}
-.essay-footer{position:absolute;inset:auto var(--gutter) 44px;display:flex;align-items:center;justify-content:space-between;gap:24px;font-size:12px}
+.essay-footer{position:absolute;inset:auto var(--gutter) var(--controls-bottom);display:flex;align-items:center;justify-content:space-between;gap:24px;font-size:12px}
 .essay-footer button{min-height:44px}
 .essay-controls{display:flex;gap:26px;color:var(--muted)}
 .essay-controls button[aria-pressed=true]{color:var(--ink);text-decoration:underline;text-underline-offset:6px}
@@ -27,7 +27,7 @@
 .portfolio-divider h2{font-size:clamp(48px,11vw,180px);line-height:1;letter-spacing:-.025em}
 .portfolio-divider>a{position:absolute;bottom:56px;left:var(--gutter);font-size:15px;min-height:44px;display:flex;align-items:center}
 @media(max-width:759px){
- .chapter-sheet{padding-top:calc(var(--header) + 20px);padding-bottom:120px;gap:25px}
+ .chapter-sheet{padding-top:calc(var(--header) + 20px);padding-bottom:calc(var(--controls-bottom) + 60px);gap:20px}
  .chapter-heading{display:block}
  .chapter-heading h2{font-size:42px}
  .chapter-tabs{margin-top:14px;gap:26px;font-size:12px}
@@ -35,7 +35,7 @@
  .chapter-panel .essay-primary figcaption{font-size:9px;line-height:1.5}
  .chapter-panel .essay-footer{font-size:11px;gap:12px}
 }
-@media(max-height:670px) and (max-width:759px){.chapter-sheet{padding-top:calc(var(--header) + 8px);padding-bottom:106px;gap:14px}.chapter-heading h2{font-size:34px}.chapter-tabs{margin-top:4px}}
+@media(max-height:670px) and (max-width:759px){.chapter-sheet{padding-top:calc(var(--header) + 8px);padding-bottom:calc(var(--controls-bottom) + 54px);gap:14px}.chapter-heading h2{font-size:34px}.chapter-tabs{margin-top:4px}}
 @media(max-height:480px) and (min-width:600px){.chapter-sheet{padding-top:calc(var(--header) + 4px);padding-bottom:80px;gap:10px}.chapter-heading h2{font-size:32px}.chapter-panel .essay-primary{gap:6px;grid-template-rows:minmax(0,1fr) 14px}.chapter-panel .essay-footer,.chapter-panel .study-controls{bottom:25px}.portfolio-divider>a{bottom:30px}}
 @media(max-width:759px){
  .essay-sheet{padding:calc(var(--header) + 24px) var(--gutter) 128px;display:flex;flex-direction:column;gap:26px}
