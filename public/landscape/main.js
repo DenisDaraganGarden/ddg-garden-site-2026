@@ -32,12 +32,32 @@
     const index = sheets.indexOf(sheet);
     return index < 0 ? 0 : index;
   };
+  const themeColor = document.querySelector('meta[name="theme-color"]');
+  let browserColor;
+  const syncBrowserTheme = () => {
+    const overlay = [...document.querySelectorAll('dialog[open]')].at(-1);
+    const sheet = sheets[current];
+    const dark = overlay ? overlay.classList.contains('image-dialog')
+      : sheet.id === 'author' ? sheet.dataset.tone === 'ink'
+      : sheet.matches('.dark-sheet,.hero');
+    const color = dark ? '#000000' : '#f6f4f0';
+    if (browserColor === color) return;
+    browserColor = color;
+    // Safari versions derive their chrome from either the document or theme-color.
+    document.documentElement.style.backgroundColor = color;
+    document.body.style.backgroundColor = color;
+    themeColor?.setAttribute('content', color);
+  };
+  new MutationObserver(syncBrowserTheme).observe(document.body, {
+    subtree:true, attributes:true, attributeFilter:['open','data-tone'],
+  });
   const update = () => {
     current = sheets.reduce((nearest, sheet, index) => Math.abs(sheet.offsetTop - folio.scrollTop) < Math.abs(sheets[nearest].offsetTop - folio.scrollTop) ? index : nearest, 0);
     document.body.classList.toggle('on-dark', sheets[current].classList.contains('dark-sheet'));
     document.body.classList.toggle('on-cover', current === 0);
     document.body.classList.toggle('on-author', sheets[current].id === 'author');
     pagePosition.textContent = pad(current + 1) + ' / ' + pad(sheets.length);
+    syncBrowserTheme();
     scrollFrame = null;
   };
   const remember = () => {
