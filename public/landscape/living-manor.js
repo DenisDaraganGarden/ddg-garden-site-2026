@@ -15,7 +15,10 @@
   const button = document.createElement('button');
   button.className = 'manor-motion';
   button.hidden = true;
-  controls.append(button);
+  const motionControls = document.createElement('div');
+  motionControls.className = 'manor-motion-controls';
+  controls.append(motionControls);
+  motionControls.append(button);
   const canvas = document.createElement('canvas');
   canvas.className = 'living-manor';
   canvas.setAttribute('aria-hidden', 'true');
@@ -81,6 +84,9 @@
   let pointerX = 0, pointerY = 0, cameraX = 0, cameraY = 0;
   let releaseTouch = 0;
   const resources = [];
+  const tilt = window.LivingTilt?.attach(motionControls, {
+    onEnable: () => {userChoice = true; paused = false; controllers.forEach(update => update());},
+  });
   const asset = name => new URL(`./assets/${name}`, location.href).href;
 
   function loadImage(url) {
@@ -192,8 +198,9 @@
     last = now;
     elapsed += dt;
     const follow = 1. - Math.exp(-dt * 3.2);
-    cameraX += (pointerX - cameraX) * follow;
-    cameraY += (pointerY - cameraY) * follow;
+    const inclination = tilt?.read();
+    cameraX += ((inclination ? inclination.x : pointerX) - cameraX) * follow;
+    cameraY += ((inclination ? inclination.y : pointerY) - cameraY) * follow;
     renderer.draw();
   }
   function updateButton() {
@@ -209,6 +216,7 @@
     if (!matches) hero.classList.remove('has-living-manor');
     else if (renderer && !failed) hero.classList.add('has-living-manor');
     const canRun = matches && visible && pageActive && !document.hidden && !dialogOpen && !paused;
+    tilt?.update(canRun && !failed, !failed && matches && (!owner || owner.open));
     hero.dataset.motion = failed ? 'unavailable' : paused ? 'paused' : canRun ? 'playing' : 'sleeping';
     if (failed || !canRun) return;
     if (renderer) {
@@ -237,10 +245,11 @@
     hero.classList.remove('has-living-manor');
     hero.dataset.motion = 'unavailable';
     button.hidden = true;
+    tilt?.update(false, false);
     resources.splice(0).forEach(dispose => dispose());
   }
   function move(event) {
-    if (paused || !visible || event.target.closest('.manor-motion,a') || !event.isPrimary) return;
+    if (paused || !visible || event.target.closest('.manor-motion,.tilt-toggle,a') || !event.isPrimary) return;
     const box = canvas.getBoundingClientRect();
     pointerX = Math.max(-1, Math.min(1, ((event.clientX - box.left) / box.width - .5) * 2.));
     pointerY = Math.max(-1, Math.min(1, ((event.clientY - box.top) / box.height - .5) * 2.));
