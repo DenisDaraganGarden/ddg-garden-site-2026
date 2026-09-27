@@ -45,7 +45,6 @@
     .workspace-tabs--lighting .lighting-tab-count{position:absolute;top:4px;right:5px;font-size:8px}
     .lighting-workspace .workspace-tabs--lighting>button>span{max-width:100%}
     .lighting-toolbar button{padding:0 6px;font-size:10px}
-    .lum-kinds>button>span{font-size:9px;line-height:1.2;text-align:center}
 }
 @container (max-width:300px){
     .lighting-toolbar{gap:4px}
