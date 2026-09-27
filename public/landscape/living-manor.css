@@ -1,0 +1,7 @@
+.living-manor-stage{position:relative}
+.living-manor{position:absolute;z-index:1;pointer-events:none;opacity:0;transition:opacity .7s ease}
+.has-living-manor>.living-manor{opacity:1}
+.manor-motion{min-height:44px;touch-action:manipulation;font-size:12px}
+.manor-motion[hidden]{display:none}
+.image-dialog>.manor-motion{position:absolute;bottom:max(22px,env(safe-area-inset-bottom));left:var(--gutter);z-index:2;background:#0009;padding:4px 12px;border-radius:2px}
+@media(prefers-reduced-motion:reduce){.living-manor{transition:none}}
