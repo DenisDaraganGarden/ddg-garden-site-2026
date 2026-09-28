@@ -10,6 +10,7 @@ import { WorkspaceTabs } from '../focus/WorkspaceTabs.jsx';
 import { useWorkspaceTab } from '../focus/useWorkspaceTab.js';
 import { LAWN_MOWING_LABELS, lawnAngleFor, lawnNeeds, lawnNumber } from '../../../../../planting/lawnGround.js';
 import { PLANTING_PALETTES } from '../../../../../planting/palettes.js';
+import { LightingRange } from '../../../../../lighting/ui/LightingRange';
 import { bedArea } from '../../../../../planting/fillBed.js';
 import { vineLength } from '../../../../../planting/vines.js';
 import { plantName, useBedFills, usePlantLibrary } from '../../../../../planting/plantLibrary.js';
@@ -59,12 +60,6 @@ function PlantingCatalog({ settings, handleSettingChange, plantingEditor, layout
     </>;
 }
 
-function PlainRange({ label, value, min, max, step, unit = '', onChange, testId }) {
-    return <label className="planting-range"><span>{label}</span>
-        <input type="range" min={min} max={max} step={step} value={value} onChange={(event) => onChange(Number(event.target.value))} data-testid={testId} />
-        <b>{Number(value.toFixed(2))}{unit}</b></label>;
-}
-
 // Газон (цветник kind: 'lawn', lawnGround.js): стрижка — узор, ширина
 // прохода, направление, высота травы, контраст полос; полив. Площадь — и
 // сколько брать (lawnNeeds).
@@ -77,7 +72,7 @@ function CoverFields({ bed, plantingEditor, ru }) {
         <label className="planting-select"><span>{ru ? 'Нижний покров' : 'Underplanting'}</span><select value={cover.enabled ? 'on' : 'off'} onChange={(event) => set({ enabled: event.target.value === 'on' })}><option value="on">{ru ? 'Включён' : 'On'}</option><option value="off">{ru ? 'Выключен' : 'Off'}</option></select></label>
         {cover.enabled ? <>
             <label className="planting-select"><span>{ru ? 'Сообщество' : 'Community'}</span><select value="" onChange={(event) => event.target.value && set(COVER_PRESETS[event.target.value].values)} data-testid="cover-preset"><option value="">{ru ? 'Выбрать…' : 'Choose…'}</option>{Object.entries(COVER_PRESETS).map(([id, p]) => <option key={id} value={id}>{p[ru ? 'ru' : 'en']}</option>)}</select></label>
-            {Object.entries(COVER_RANGES).map(([key, [min, max, step]]) => <PlainRange key={key} label={COVER_LABELS[key][ru ? 0 : 1]} value={cover[key]} min={min} max={max} step={step} onChange={(value) => set({ [key]: value })} testId={`cover-${key}`} />)}
+            {Object.entries(COVER_RANGES).map(([key, [min, max, step]]) => <LightingRange key={key} label={COVER_LABELS[key][ru ? 0 : 1]} value={cover[key]} min={min} max={max} step={step} onChange={(value) => set({ [key]: value })} testId={`cover-${key}`} />)}
             <label className="planting-select"><span>{ru ? 'Климат' : 'Climate'}</span><select value={cover.climate} onChange={(event) => set({ climate: event.target.value })}>{Object.entries(COVER_CLIMATES).map(([id, names]) => <option key={id} value={id}>{names[ru ? 0 : 1]}</option>)}</select></label>
             {COVER_PLANT_PARTS.map((part) => <label key={part} className="planting-select"><span>{COVER_PLANT_LABELS[part][ru ? 0 : 1]}</span><select value={cover.plants?.[part] ?? ''} onChange={(event) => set({ plants: { ...cover.plants, [part]: event.target.value || undefined } })} data-testid={`cover-plant-${part}`}>
                 <option value="">{ru ? 'Не выбрано' : 'None'}</option>{choices.map((plant) => <option key={plant.id} value={plant.id}>{plantName(plant, ru)}</option>)}</select></label>)}
@@ -86,7 +81,7 @@ function CoverFields({ bed, plantingEditor, ru }) {
 }
 function CoverEditor({ bed, plantingEditor, layoutEditor, ru }) {
     return <>
-        <input className="planting-name" value={bed.name} maxLength={64} aria-label={ru ? 'Имя почвопокрова' : 'Groundcover name'} onChange={(event) => plantingEditor.updateBed(bed.id, { name: event.target.value })} />
+        <input className="planting-name" value={bed.name} maxLength={64} aria-label={ru ? 'Имя почвопокрова' : 'Groundcover name'} onChange={(event) => plantingEditor.updateBed(bed.id, { name: event.target.value }, { coalesce: `bed-name:${bed.id}` })} />
         <p className="planting-status">{bedArea(bed).toFixed(1)} {ru ? 'м² в плане' : 'm² in plan'}</p>
         <CoverFields bed={bed} plantingEditor={plantingEditor} ru={ru} />
         <div className="planting-actions"><button type="button" onClick={() => plantingEditor.reseed(bed.id)}>{ru ? 'Перемешать' : 'Reshuffle'}</button><button type="button" onClick={() => layoutEditor?.frameObject?.(`planting-bed-${bed.id}`)}>{ru ? 'Показать' : 'Frame'}</button><button type="button" onClick={() => plantingEditor.removeBed(bed.id)} data-testid="planting-delete">{ru ? 'Удалить' : 'Delete'}</button></div>
@@ -97,19 +92,19 @@ function LawnEditor({ bed, plantingEditor, layoutEditor, ru }) {
     const lawn = bed.lawn, set = (patch) => plantingEditor.updateBed(bed.id, { lawn: { ...lawn, ...patch } });
     const area = bedArea(bed), striped = ['stripes', 'checker', 'diamond'].includes(lawn.mowing);
     return <>
-        <input className="planting-name" value={bed.name} maxLength={64} aria-label={ru ? 'Имя газона' : 'Lawn name'} onChange={(event) => plantingEditor.updateBed(bed.id, { name: event.target.value })} />
+        <input className="planting-name" value={bed.name} maxLength={64} aria-label={ru ? 'Имя газона' : 'Lawn name'} onChange={(event) => plantingEditor.updateBed(bed.id, { name: event.target.value }, { coalesce: `bed-name:${bed.id}` })} />
         <p className="planting-status" data-testid="planting-lawn-status">{`${ru ? 'Площадь' : 'Area'} ${lawnNumber(area, ru)} ${ru ? 'м²' : 'm²'} · ${lawnNeeds(area, ru)}`}</p>
         <div className="plant-chips" role="radiogroup" aria-label={ru ? 'Стрижка' : 'Mowing'}>
             {Object.entries(LAWN_MOWING_LABELS).map(([id, labels]) => <button key={id} type="button" role="radio" aria-checked={lawn.mowing === id} className={lawn.mowing === id ? 'is-active' : ''} onClick={() => set({ mowing: id, ...(id === 'meadow' && lawn.cut < 12 ? { cut: 18 } : id !== 'meadow' && lawn.cut > 12 ? { cut: 4 } : {}) })} data-testid={`planting-lawn-${id}`}>{labels[ru ? 0 : 1]}</button>)}
         </div>
-        {striped ? <PlainRange label={ru ? 'Ширина прохода' : 'Pass width'} value={lawn.stripe} min={PLANTING_RANGES.stripe[0]} max={PLANTING_RANGES.stripe[1]} step={PLANTING_RANGES.stripe[2]} unit={ru ? ' м' : ' m'} onChange={(stripe) => set({ stripe })} testId="planting-lawn-stripe" /> : null}
-        {striped ? <PlainRange label={ru ? 'Направление' : 'Direction'} value={lawn.angle} min={-90} max={90} step={1} unit="°" onChange={(angle) => set({ angle })} testId="planting-lawn-angle" /> : null}
-        <PlainRange label={ru ? 'Высота травы' : 'Grass height'} value={lawn.cut} min={PLANTING_RANGES.cut[0]} max={PLANTING_RANGES.cut[1]} step={PLANTING_RANGES.cut[2]} unit={ru ? ' см' : ' cm'} onChange={(cut) => set({ cut })} testId="planting-lawn-cut" />
-        {striped || lawn.mowing === 'meadow' ? <PlainRange label={lawn.mowing === 'meadow' ? (ru ? 'Ветер по траве' : 'Wind sheen') : (ru ? 'Контраст полос' : 'Stripe contrast')} value={lawn.contrast} min={PLANTING_RANGES.contrast[0]} max={PLANTING_RANGES.contrast[1]} step={PLANTING_RANGES.contrast[2]} onChange={(contrast) => set({ contrast })} testId="planting-lawn-contrast" /> : null}
-        <PlainRange label={ru ? 'Пятна' : 'Patches'} value={lawn.patches} min={PLANTING_RANGES.patches[0]} max={PLANTING_RANGES.patches[1]} step={PLANTING_RANGES.patches[2]} onChange={(patches) => set({ patches })} testId="planting-lawn-patches" />
-        <PlainRange label={ru ? 'Размер травинок' : 'Blade size'} value={lawn.blades} min={PLANTING_RANGES.blades[0]} max={PLANTING_RANGES.blades[1]} step={PLANTING_RANGES.blades[2]} unit=" ×" onChange={(blades) => set({ blades })} testId="planting-lawn-blades" />
-        <PlainRange label={ru ? 'Оттенки' : 'Shades'} value={lawn.variety} min={PLANTING_RANGES.variety[0]} max={PLANTING_RANGES.variety[1]} step={PLANTING_RANGES.variety[2]} onChange={(variety) => set({ variety })} testId="planting-lawn-variety" />
-        <PlainRange label={ru ? 'Тон: тёплый ↔ холодный' : 'Tone: warm ↔ cool'} value={lawn.tint} min={PLANTING_RANGES.tint[0]} max={PLANTING_RANGES.tint[1]} step={PLANTING_RANGES.tint[2]} onChange={(tint) => set({ tint })} testId="planting-lawn-tint" />
+        {striped ? <LightingRange label={ru ? 'Ширина прохода' : 'Pass width'} value={lawn.stripe} min={PLANTING_RANGES.stripe[0]} max={PLANTING_RANGES.stripe[1]} step={PLANTING_RANGES.stripe[2]} unit={ru ? ' м' : ' m'} onChange={(stripe) => set({ stripe })} testId="planting-lawn-stripe" /> : null}
+        {striped ? <LightingRange label={ru ? 'Направление' : 'Direction'} value={lawn.angle} min={-90} max={90} step={1} unit="°" onChange={(angle) => set({ angle })} testId="planting-lawn-angle" /> : null}
+        <LightingRange label={ru ? 'Высота травы' : 'Grass height'} value={lawn.cut} min={PLANTING_RANGES.cut[0]} max={PLANTING_RANGES.cut[1]} step={PLANTING_RANGES.cut[2]} unit={ru ? ' см' : ' cm'} onChange={(cut) => set({ cut })} testId="planting-lawn-cut" />
+        {striped || lawn.mowing === 'meadow' ? <LightingRange label={lawn.mowing === 'meadow' ? (ru ? 'Ветер по траве' : 'Wind sheen') : (ru ? 'Контраст полос' : 'Stripe contrast')} value={lawn.contrast} min={PLANTING_RANGES.contrast[0]} max={PLANTING_RANGES.contrast[1]} step={PLANTING_RANGES.contrast[2]} onChange={(contrast) => set({ contrast })} testId="planting-lawn-contrast" /> : null}
+        <LightingRange label={ru ? 'Пятна' : 'Patches'} value={lawn.patches} min={PLANTING_RANGES.patches[0]} max={PLANTING_RANGES.patches[1]} step={PLANTING_RANGES.patches[2]} onChange={(patches) => set({ patches })} testId="planting-lawn-patches" />
+        <LightingRange label={ru ? 'Размер травинок' : 'Blade size'} value={lawn.blades} min={PLANTING_RANGES.blades[0]} max={PLANTING_RANGES.blades[1]} step={PLANTING_RANGES.blades[2]} unit=" ×" onChange={(blades) => set({ blades })} testId="planting-lawn-blades" />
+        <LightingRange label={ru ? 'Оттенки' : 'Shades'} value={lawn.variety} min={PLANTING_RANGES.variety[0]} max={PLANTING_RANGES.variety[1]} step={PLANTING_RANGES.variety[2]} onChange={(variety) => set({ variety })} testId="planting-lawn-variety" />
+        <LightingRange label={ru ? 'Тон: тёплый ↔ холодный' : 'Tone: warm ↔ cool'} value={lawn.tint} min={PLANTING_RANGES.tint[0]} max={PLANTING_RANGES.tint[1]} step={PLANTING_RANGES.tint[2]} onChange={(tint) => set({ tint })} testId="planting-lawn-tint" />
         <div className="planting-lawn-water"><span>{ru ? 'Полив' : 'Irrigation'}</span>
             <div className="planting-toggle">
                 <button type="button" className={lawn.irrigated ? 'is-active' : ''} onClick={() => set({ irrigated: true })}>{ru ? 'Есть' : 'Yes'}</button>
@@ -154,7 +149,7 @@ function BedEditor({ beds, fills, library, plantingEditor, layoutEditor, ru }) {
         {!selected ? <p className="planting-empty">{beds.length
             ? (ru ? 'Выберите цветник выше или щёлкните по нему в сцене.' : 'Pick a bed above or click it in the scene.')
             : (ru ? 'Цветников пока нет — «Цветник» (L) и контур по земле.' : 'No beds yet — Bed (L) and an outline on the ground.')}</p> : selected.kind === 'cover' ? <CoverEditor bed={selected} plantingEditor={plantingEditor} layoutEditor={layoutEditor} ru={ru} /> : selected.kind === 'lawn' ? <LawnEditor bed={selected} plantingEditor={plantingEditor} layoutEditor={layoutEditor} ru={ru} /> : <>
-            <input className="planting-name" value={selected.name} maxLength={64} aria-label={ru ? 'Имя цветника' : 'Bed name'} onChange={(event) => set({ name: event.target.value })} />
+            <input className="planting-name" value={selected.name} maxLength={64} aria-label={ru ? 'Имя цветника' : 'Bed name'} onChange={(event) => plantingEditor.updateBed(selected.id, { name: event.target.value }, { coalesce: `bed-name:${selected.id}` })} />
             <p className="planting-status" data-testid="planting-bed-status">{ru
                 ? `Площадь ${bedArea(selected).toFixed(1)} м² · растений ${count}${selected.surface ? ' · поверхность модели' : ''}`
                 : `Area ${bedArea(selected).toFixed(1)} m² · ${count} plants${selected.surface ? ' · model surface' : ''}`}</p>
@@ -183,8 +178,8 @@ function BedEditor({ beds, fills, library, plantingEditor, layoutEditor, ru }) {
                 {adding ? <PlantPicker library={library} anchor={adding} ru={ru} exclude={selected.recipe.map((r) => r.plant)} title={ru ? 'Добавить в цветник' : 'Add to the bed'}
                     onClose={() => setAdding(null)} onChoose={(id) => { setAdding(null); set({ recipe: [...selected.recipe, { plant: id, share: 10 }] }); }} /> : null}
             </div>
-            <PlainRange label={ru ? 'Размер пятна' : 'Drift size'} value={selected.drift} min={PLANTING_RANGES.drift[0]} max={PLANTING_RANGES.drift[1]} step={PLANTING_RANGES.drift[2]} unit={ru ? ' м' : ' m'} onChange={(drift) => set({ drift })} testId="planting-drift" />
-            <PlainRange label={ru ? 'Густота' : 'Density'} value={selected.density} min={PLANTING_RANGES.density[0]} max={PLANTING_RANGES.density[1]} step={PLANTING_RANGES.density[2]} unit=" ×" onChange={(density) => set({ density })} testId="planting-density" />
+            <LightingRange label={ru ? 'Размер пятна' : 'Drift size'} value={selected.drift} min={PLANTING_RANGES.drift[0]} max={PLANTING_RANGES.drift[1]} step={PLANTING_RANGES.drift[2]} unit={ru ? ' м' : ' m'} onChange={(drift) => set({ drift })} testId="planting-drift" />
+            <LightingRange label={ru ? 'Густота' : 'Density'} value={selected.density} min={PLANTING_RANGES.density[0]} max={PLANTING_RANGES.density[1]} step={PLANTING_RANGES.density[2]} unit=" ×" onChange={(density) => set({ density })} testId="planting-density" />
             {selected.cover ? <CoverFields bed={selected} plantingEditor={plantingEditor} ru={ru} /> : <button type="button" className="planting-add" onClick={() => set({ cover: COVER_DEFAULT })}>{ru ? '+ Нижний почвопокров' : '+ Groundcover layer'}</button>}
             <div className="planting-actions">
                 <button type="button" onClick={() => plantingEditor.reseed(selected.id)} data-testid="planting-reseed">{ru ? 'Перемешать' : 'Reshuffle'}</button>

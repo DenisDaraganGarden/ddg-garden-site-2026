@@ -143,7 +143,9 @@ const round = (value, digits = 3) => Number(value.toFixed(digits));
 // TransformControls крутил якорь напрямую, сцена сверху накладывала то же
 // значение из настроек — лодка поворачивалась дважды. Прокси пишет только в
 // настройки, а сцена раскладывает их по своим узлам, как и от ползунков.
-export default function EditorGizmo({ selection, mode, orbitRef, onTransform, pose }) {
+// onDragging(true|false) — начало и конец протяжки ручки: редактор открывает
+// на неё один жест истории, чтобы вся протяжка отменялась одним шагом.
+export default function EditorGizmo({ selection, mode, orbitRef, onTransform, onDragging, pose }) {
     const { scene } = useThree();
     // Ручки приходят лениво, через Suspense: обычный ref в момент эффекта ещё
     // пуст, и слушатели бы не повесились. Ref-колбэк кладёт их в состояние.
@@ -156,6 +158,7 @@ export default function EditorGizmo({ selection, mode, orbitRef, onTransform, po
         return object;
     }, []);
     const drag = useRef(null);
+    const dragging = useRef(onDragging); dragging.current = onDragging;
     const centre = useRef(new THREE.Vector3());
     const rule = useMemo(() => selection ? targetRule(selection) : null, [selection]);
 
@@ -246,11 +249,15 @@ export default function EditorGizmo({ selection, mode, orbitRef, onTransform, po
             drag.current = event.value && target
                 ? { anchor: target.position.clone(), proxy: proxy.position.clone() }
                 : null;
+            dragging.current?.(Boolean(drag.current));
         };
 
         controls.addEventListener('dragging-changed', handleDragging);
         return () => {
             controls.removeEventListener('dragging-changed', handleDragging);
+            // Ручки исчезли посреди протяжки (сменился выбор) — жест закрыть,
+            // иначе история застынет открытой и отмена умрёт до следующего жеста.
+            if (drag.current) dragging.current?.(false);
             drag.current = null;
             if (orbit) {
                 orbit.enabled = true;

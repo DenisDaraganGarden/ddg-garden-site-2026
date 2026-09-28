@@ -120,9 +120,6 @@
 .planting-recipe__pct{font:9.5px ui-monospace,monospace;text-align:right;color:var(--focus-muted,#8f8c87)}
 .planting-add{align-self:flex-start;height:24px;padding:0 10px;border:1px dashed var(--focus-line,#262626);border-radius:4px;background:transparent;color:var(--focus-muted,#8f8c87);font-size:10.5px}
 .planting-add:hover{color:var(--focus-text,#e9e7e2);border-color:#ffffff40}
-.planting-range{display:grid;grid-template-columns:78px 1fr 42px;gap:6px;align-items:center;font-size:10.5px}
-.planting-range>span{color:var(--focus-muted,#8f8c87)}
-.planting-range>b{font:10px ui-monospace,monospace;font-weight:400;text-align:right}
 .planting-actions{display:flex;gap:4px;flex-wrap:wrap}
 .planting-actions>button{height:24px;padding:0 9px;border:1px solid var(--focus-line,#262626);border-radius:4px;background:#ffffff05;font-size:10.5px}
 .planting-actions>button:hover{background:#ffffff10}

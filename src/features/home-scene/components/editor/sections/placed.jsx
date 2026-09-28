@@ -236,7 +236,7 @@ export function PlacedSection({ settings, placedEditor, layoutEditor }) {
                 </div>)}
             </div> : <p className="placed-hint">{ru ? 'Пока пусто. «Добавить» — дерево, куст, камень или модель; модель SketchUp — её выгрузка .glb.' : 'Nothing yet. “Add” a tree, a shrub, a rock or a model; a SketchUp model is its .glb export.'}</p>}
             {selected ? <div className="placed-card" data-testid="placed-card">
-                <div className="placed-card__title"><FocusIcon name={KIND_ICONS[kind]} /><input value={selected.name} maxLength={64} aria-label={ru ? 'Имя объекта' : 'Object name'} onChange={(event) => placedEditor.update(selected.id, { name: event.target.value })} /></div>
+                <div className="placed-card__title"><FocusIcon name={KIND_ICONS[kind]} /><input value={selected.name} maxLength={64} aria-label={ru ? 'Имя объекта' : 'Object name'} onChange={(event) => placedEditor.update(selected.id, { name: event.target.value }, { coalesce: `placed-name:${selected.id}` })} /></div>
                 <div className="placed-actions">
                     <button type="button" onClick={() => layoutEditor?.frameObject?.(`placed-${selected.id}`)} title={ru ? 'Показать в кадре' : 'Frame it'}><FocusIcon name="target" />{ru ? 'Показать' : 'Frame'}</button>
                     <button type="button" onClick={() => placedEditor.seat(selected.id)} title={ru ? 'Поставить на землю' : 'Seat on the ground'}><FocusIcon name="ground" />{ru ? 'На землю' : 'Ground'}</button>

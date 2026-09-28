@@ -149,9 +149,9 @@ export function usePlacedEditor({ settings, history, setActiveTab, setTool, lang
         const back = nodes && new Set(nodes);
         setSketchup(id, { removed: back ? lists(id).removed.filter((node) => !back.has(node)) : [] });
     }, [setSketchup]);
-    const update = useCallback((id, patch) => {
+    const update = useCallback((id, patch, options) => {
         const { settings, history } = live.current;
-        history.applySettings({ placedObjects: settings.placedObjects.map((o, i) => (o.id === id ? normalizePlacedObject({ ...o, ...patch }, i) : o)) });
+        history.applySettings({ placedObjects: settings.placedObjects.map((o, i) => (o.id === id ? normalizePlacedObject({ ...o, ...patch }, i) : o)) }, options);
     }, []);
     // A new species is a new form: its table knobs replace the old ones.
     const setSpecies = useCallback((id, species) => {

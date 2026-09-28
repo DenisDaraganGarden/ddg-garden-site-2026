@@ -75,6 +75,7 @@
     "check:fast": "node scripts/check-fast.mjs",
     "check:app": "node scripts/check-app.mjs",
     "check:app-navigation": "node ./node_modules/electron/cli.js scripts/electronNavigation.check.mjs",
+    "check:undo": "node scripts/check-undo-gesture.mjs",
     "check:fire": "node src/fire/fire.check.js",
     "build:reference": "node scripts/build-engine-reference.mjs"
   },

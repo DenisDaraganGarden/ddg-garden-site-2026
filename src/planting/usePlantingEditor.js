@@ -39,12 +39,12 @@ export function usePlantingEditor({ settings, history, setActiveTab, setTool, to
     live.current = { settings, history, language, library, plantChoice, plantStatus, vineChoice, bedKind };
 
     const beds = settings.plantingBeds ?? [];
-    const applyBeds = useCallback((next) => live.current.history.applySettings({ plantingEnabled: true, plantingBeds: next }), []);
+    const applyBeds = useCallback((next, options) => live.current.history.applySettings({ plantingEnabled: true, plantingBeds: next }, options), []);
     const select = useCallback((id) => { setSelectedId(id); setVineId(null); setActiveTab(PLANTING_NODE); setTool('select'); }, [setActiveTab, setTool]);
 
-    const updateBed = useCallback((id, patch) => {
+    const updateBed = useCallback((id, patch, options) => {
         const { settings } = live.current;
-        applyBeds(settings.plantingBeds.map((bed, index) => (bed.id === id ? normalizePlantingBed({ ...bed, ...patch }, index) : bed)));
+        applyBeds(settings.plantingBeds.map((bed, index) => (bed.id === id ? normalizePlantingBed({ ...bed, ...patch }, index) : bed)), options);
     }, [applyBeds]);
 
     // Новый цветник — контур от руки или поверхность модели (holes, ground,

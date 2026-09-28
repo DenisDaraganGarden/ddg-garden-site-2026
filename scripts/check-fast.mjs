@@ -6,7 +6,7 @@ import fs from 'node:fs';
 // тех, кому нужны браузер, окно приложения или запущенный сервер лаборатории,
 // так что новая проверка попадает сюда сама. check:bundle читает dist/ —
 // запускать после npm run build.
-const NEEDS_MORE = new Set(['check:fast', 'check:audio:browser', 'check:plants-parity', 'check:app', 'check:app-navigation']);
+const NEEDS_MORE = new Set(['check:fast', 'check:audio:browser', 'check:plants-parity', 'check:app', 'check:app-navigation', 'check:undo']);
 const { scripts } = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
 const names = Object.keys(scripts).filter((name) => name.startsWith('check:') && !NEEDS_MORE.has(name));
 const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';

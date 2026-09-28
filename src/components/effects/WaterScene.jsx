@@ -755,6 +755,7 @@ function WaterRuntimeScene({
           pose={editorGizmo.pose}
           orbitRef={orbitRef}
           onTransform={editorGizmo.onTransform}
+          onDragging={editorGizmo.onDragging}
         />
       ) : null}
       {mode === 'editor' && editorGizmo?.materialTargets?.length ? <MaterialSelection targets={editorGizmo.materialTargets} /> : null}

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { HOME_SCENE_CAMERA_SNAPSHOT_KEYS } from '../../../hooks/useHomeSceneSettings';
 
 const copy = (value) => structuredClone(value);
 const ownerKey = (settings) => `${settings.activeWorkCameraId || settings.activeCameraId}:${settings.editorLayoutKey}`;
@@ -17,10 +18,14 @@ const restore = (settings, values) => {
     }
     return next;
 };
+// Записи участка (расстановка, посадки, свет сада, ограды) одни на все камеры
+// и переживают смену камеры; записи камеры (свет, плёнка, FOV) — нет.
+const cameraKeys = new Set(HOME_SCENE_CAMERA_SNAPSHOT_KEYS);
+const projectOnly = (values) => Object.keys(values).every((path) => !cameraKeys.has(path.split('.')[0]));
 
 // History restores only the edited parameters through the existing scene setter.
 // Camera catalogues, names and captures made afterwards must survive parameter undo.
-export function useFocusHistory(settings, setSettings, changeSetting, applySettings) {
+export function useFocusHistory(settings, setSettings, changeSetting, applySettings, externalRevision = 0) {
     const live = useRef(settings);
     live.current = settings;
     const undoStack = useRef([]);
@@ -38,16 +43,30 @@ export function useFocusHistory(settings, setSettings, changeSetting, applySetti
     }, []);
     const owner = ownerKey(settings);
     useEffect(() => {
-        undoStack.current = []; redoStack.current = []; gesture.current = null; typing.current = null;
+        undoStack.current = undoStack.current.filter(projectOnly); redoStack.current = redoStack.current.filter(projectOnly);
+        gesture.current = null; typing.current = null;
         refresh();
     }, [owner]);
+    // Проект пришёл с диска целиком (правка агента, «Откатить», чужая версия):
+    // старые записи легли бы поверх чужих изменений.
+    useEffect(() => {
+        undoStack.current = []; redoStack.current = []; gesture.current = null; typing.current = null;
+        refresh();
+    }, [externalRevision]);
+    // Жест — от захвата ползунка или ручки манипулятора до отпускания: всё,
+    // что он записал, ложится в историю одним шагом.
+    const onGestureEnd = useCallback(() => {
+        const current = gesture.current; gesture.current = null;
+        if (current && current.paths.size && current.owner === ownerKey(live.current)) push(pick(current.before, current.paths));
+    }, [push]);
     const onGestureStart = useCallback(({ id }) => {
+        if (gesture.current) onGestureEnd();
         const paths = new Set();
         // FOV uses the camera layout command instead of the generic field setter.
         if (id === 'cameras/camera:cameraFov') paths.add(`layouts.${live.current.editorLayoutKey}.cameraFov`);
         gesture.current = { before: copy(live.current), owner: ownerKey(live.current), paths };
         typing.current = null;
-    }, []);
+    }, [onGestureEnd]);
     const onGestureCommit = useCallback(({ value, initial }) => {
         const current = gesture.current; gesture.current = null;
         if (current && String(value) !== String(initial) && current.owner === ownerKey(live.current)) push(pick(current.before, current.paths));
@@ -69,10 +88,14 @@ export function useFocusHistory(settings, setSettings, changeSetting, applySetti
         }
         changeSetting(event, key, type);
     }, [changeSetting, push]);
-    const apply = useCallback((patch) => {
+    // coalesce — ключ набора: буквы имени в 700 мс — один шаг, как у полей панели.
+    const apply = useCallback((patch, { coalesce = null } = {}) => {
         if (gesture.current) Object.keys(patch).forEach((key) => gesture.current.paths.add(key));
-        else push(pick(live.current, Object.keys(patch)));
-        typing.current = null;
+        else {
+            const last = typing.current;
+            if (!coalesce || !last || last.key !== coalesce || performance.now() - last.time > 700) push(pick(live.current, Object.keys(patch)));
+            typing.current = coalesce ? { key: coalesce, time: performance.now() } : null;
+        }
         applySettings(patch);
     }, [applySettings, push]);
     const recordChange = useCallback((paths, action) => {
@@ -95,6 +118,6 @@ export function useFocusHistory(settings, setSettings, changeSetting, applySetti
         setSettings((previous) => restore(previous, values));
         refresh();
     }, [setSettings]);
-    return { revision, recordChange, handleSettingChange, applySettings: apply, onGestureStart, onGestureCommit, onGestureCancel,
+    return { revision, recordChange, handleSettingChange, applySettings: apply, onGestureStart, onGestureCommit, onGestureCancel, onGestureEnd,
         undo: () => travel(false), redo: () => travel(true), canUndo: undoStack.current.length > 0, canRedo: redoStack.current.length > 0 };
 }

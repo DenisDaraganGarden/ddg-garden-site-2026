@@ -138,7 +138,7 @@ const VALID_FILM_STOCKS = new Set(HOME_SCENE_FILM_STOCKS.map((option) => option.
 const VALID_LIGHT_TYPES = new Set(HOME_SCENE_LIGHT_TYPES.map((option) => option.value));
 // Published keys that belong to the whole scene rather than to one camera (the
 // catalogue itself, the sound, the surfboard) are listed once, in sceneCameras.js.
-const HOME_SCENE_CAMERA_SNAPSHOT_KEYS = publishedHomeSceneKeys.filter((key) => (
+export const HOME_SCENE_CAMERA_SNAPSHOT_KEYS = publishedHomeSceneKeys.filter((key) => (
   !SCENE_CAMERA_SNAPSHOT_EXCLUDED_KEYS.includes(key)
 ));
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));

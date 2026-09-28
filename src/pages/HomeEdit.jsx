@@ -133,7 +133,7 @@ const HomeEdit = ({ project = null }) => {
     // Прогулка по проекту (WalkMode): как игра — смотреть, не править.
     const [walking, setWalking] = useState(false);
     const { tool, setTool, lastTransform } = useEditorTool(!playing && !walking, project?.kind === 'design' ? null : NO_LIGHTING_TOOLS);
-    const focusHistory = useFocusHistory(settings, setSettings, handleSettingChange, applySettings);
+    const focusHistory = useFocusHistory(settings, setSettings, handleSettingChange, applySettings, externalRevision);
     const topiaryEditor = useTopiaryEditor({ settings, history: focusHistory, setActiveTab, setTool, tool, language });
     const fenceEditor = useFenceEditor({ settings, history: focusHistory, setActiveTab, setTool, tool, language });
     const { select: selectFence } = fenceEditor;
@@ -781,6 +781,11 @@ const HomeEdit = ({ project = null }) => {
     // историю, которая есть сейчас.
     const applySettingsRef = useRef(focusHistory.applySettings);
     useEffect(() => { applySettingsRef.current = focusHistory.applySettings; });
+    // Протяжка ручки манипулятора — один шаг отмены: жест истории от захвата
+    // до отпускания, что бы ручка ни записывала по дороге.
+    const historyRef = useRef(focusHistory);
+    useEffect(() => { historyRef.current = focusHistory; });
+    const handleGizmoDragging = useCallback((dragging) => { if (dragging) historyRef.current.onGestureStart({ id: 'gizmo' }); else historyRef.current.onGestureEnd(); }, []);
     // Старт прогулки — инструментом «Старт» или T в самой прогулке.
     const handleWalkStart = useCallback((start) => applySettingsRef.current({ walkStart: normalizeWalkStart(start) }), []);
     const editorGizmo = useMemo(() => ({
@@ -788,6 +793,7 @@ const HomeEdit = ({ project = null }) => {
         mode: transformTool ? tool : lastTransform,
         pose: gizmoPose,
         onTransform: handleGizmoTransform,
+        onDragging: handleGizmoDragging,
         picking,
         materialTargets: materialEditor.opened ? materialEditor.targets : null,
         materialPicking: activeTool === 'material',
@@ -805,7 +811,7 @@ const HomeEdit = ({ project = null }) => {
         // open — открыт раздел «Освещение»: сетка участка строится и для пустого проекта (её ждёт агент).
         lighting: { selectedId: gizmoNode.id === 'luminaires' ? lightingEditor.selectedId : null, connections: settings.lightingConnections === true || gizmoNode.id === 'power', open: gizmoGroup.id === 'lighting' },
     // eslint-disable-next-line react-hooks/exhaustive-deps -- pose сравнивается по значениям, не по ссылке
-    }), [fenceEditor, language, materialEditor.opened, materialEditor.targets, playing, walking, transformTool, transformHeld, gizmoSelection, gizmoReleased, activeTab, tool, lastTransform, handleGizmoTransform, picking, drawingTool, handlePickObject, gizmoPose?.rotationY, gizmoPose?.scale, gizmoPose?.objectName, gizmoPose?.centreKey, activeTool, settings.topiaryObjects.length, gizmoNode.id, topiaryEditor.selectedId, topiaryEditor.onStroke, placedEditor.selectedId, placedEditor.part, plantingEditor.selectedId, plantingEditor.vineId, plantingEditor.inside, plantingEditor.selectedPlant, plantingEditor.bedKind, plantingEditor.onBed, plantingEditor.onBedSurface, plantingEditor.onPlant, plantingEditor.onVine, annotationEditor.onMark, annotationEditor.selectedId, annotationEditor.onResnap, handleWalkStart, aiming, lightingEditor.selectedId, lightingEditor.onLight, lightingEditor.onAim, lightingEditor.placeType, luminaireTypes, settings.lightingConnections, gizmoGroup.id]);
+    }), [fenceEditor, language, materialEditor.opened, materialEditor.targets, playing, walking, transformTool, transformHeld, gizmoSelection, gizmoReleased, activeTab, tool, lastTransform, handleGizmoTransform, handleGizmoDragging, picking, drawingTool, handlePickObject, gizmoPose?.rotationY, gizmoPose?.scale, gizmoPose?.objectName, gizmoPose?.centreKey, activeTool, settings.topiaryObjects.length, gizmoNode.id, topiaryEditor.selectedId, topiaryEditor.onStroke, placedEditor.selectedId, placedEditor.part, plantingEditor.selectedId, plantingEditor.vineId, plantingEditor.inside, plantingEditor.selectedPlant, plantingEditor.bedKind, plantingEditor.onBed, plantingEditor.onBedSurface, plantingEditor.onPlant, plantingEditor.onVine, annotationEditor.onMark, annotationEditor.selectedId, annotationEditor.onResnap, handleWalkStart, aiming, lightingEditor.selectedId, lightingEditor.onLight, lightingEditor.onAim, lightingEditor.placeType, luminaireTypes, settings.lightingConnections, gizmoGroup.id]);
 
     // Delete (и Backspace) убирает выбранное — одной отменой: светильник или
     // щиток; части модели SketchUp (в «Удалённые», как в SketchUp); объект
