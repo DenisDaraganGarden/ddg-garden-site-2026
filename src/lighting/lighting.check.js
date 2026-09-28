@@ -47,6 +47,21 @@ assert.equal(settings.lightingMode, 'auto');
 assert.equal(settings.lightingExposure, 4);
 assert.deepEqual(normalizeLightingSettings(settings), settings, 'нормализация идемпотентна');
 
+// Нормализация без потерь: участок в гектары — приборов и цепей больше
+// потолка кнопок «Поставить»; файл от агента приходит целиком.
+{
+    const many = normalizeLightingSettings({
+        lightingFixtures: Array.from({ length: 1500 }, (_, i) => ({ id: `f${i}`, type: 'bollard-80', x: i % 50, y: 0, z: Math.floor(i / 50), circuit: `c${i % 100}` })),
+        lightingPanels: [{ id: 'p1', x: 0, y: 0, z: 0 }],
+        lightingCircuits: Array.from({ length: 100 }, (_, i) => ({ id: `c${i}`, panel: 'p1', volts: 230 })),
+        lightingRuns: [{ id: 'r', points: Array.from({ length: 300 }, (_, i) => [i, 0]) }],
+    });
+    assert.equal(many.lightingFixtures.length, 1500, '1500 приборов переживают нормализацию целиком');
+    assert.equal(many.lightingCircuits.length, 100, '100 цепей переживают нормализацию целиком');
+    assert.equal(many.lightingRuns[0].points.length, 300, 'трасса на 300 точек не режется');
+    assert.deepEqual(normalizeLightingSettings(many), many, 'и остаётся идемпотентной');
+}
+
 // Наведение: yaw 0 — к +Z, pitch 90 — вверх; aimAt обратен beamAxis.
 near(beamAxis(0, 0)[2], 1, 1e-9, 'yaw 0 к +Z');
 for (const yaw of [179.95, 179.97, 180, -180.04, 12.34, -0.04]) {

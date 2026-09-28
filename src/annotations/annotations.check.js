@@ -18,6 +18,9 @@ assert.deepEqual(three.map((mark) => Boolean(mark.zero)), [false, true, false]);
 assert.equal(normalizeAnnotationSettings({ annotationMarks: [{ id: 'a', x: 0, y: 1, z: 0 }] }).annotationMarks[0].zero, true);
 assert.deepEqual([...markLevels(three).values()], [-1.5, 0, -2]);
 assert.equal(normalizeAnnotationSettings({ annotationMarks: [{ x: 'no' }] }).annotationMarks.length, 0);
+// Нормализация без потерь: отметок больше старого лимита в 200 (файл от агента
+// или новой версии движка) — приходят целиком.
+assert.equal(normalizeAnnotationSettings({ annotationMarks: Array.from({ length: 250 }, (_, i) => ({ id: `m${i}`, x: i, y: 0, z: 0 })) }).annotationMarks.length, 250, '250 marks survive normalization whole');
 assert.equal(normalizeAnnotationSettings({ annotationStep: 0.02 }).annotationStep, 0.001, 'only the listed rounding steps');
 assert.equal(normalizeAnnotationSettings({ annotationMarks: [{ id: 'p', x: 0, y: 0, z: 0, ground: true }] }).annotationMarks[0].ground, true, 'a mark on the plane remembers it');
 

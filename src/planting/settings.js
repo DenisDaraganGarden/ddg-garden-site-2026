@@ -7,7 +7,7 @@ import { normalizeCover, normalizeCoverSurface } from '../groundcover/settings.j
 // нарисован. Цветники и одиночные растения общие для всех камер, как
 // расстановка (sceneCameras.js их не снимает); месяц и план — у камеры свои,
 // как время суток: «июнь» и «январь» — две камеры.
-export const PLANTING_LIMITS = Object.freeze({ beds: 64, points: 400, recipe: 12, contour: 256, holes: 64, hole: 128, ground: 4400, plants: 30000, vines: 200, shoots: 12, shootPoints: 400, edits: 2000 });
+export const PLANTING_LIMITS = Object.freeze({ beds: 64, points: 20000, recipe: 12, contour: 256, holes: 64, hole: 128, ground: 4400, plants: 30000, vines: 2000, shoots: 12, shootPoints: 400, edits: 2000 });
 export const PLANTING_RANGES = Object.freeze({ drift: [0.3, 6, 0.1], density: [0.4, 2, 0.05], share: [1, 100, 1], month: [1, 12, 1], sway: [0, 2, 0.05], stripe: [0.3, 3, 0.05], cut: [2, 30, 0.5], contrast: [0, 1, 0.05], patches: [0, 1, 0.05], blades: [0.5, 3, 0.1], variety: [0, 1, 0.05], tint: [-1, 1, 0.05] });
 // northAngle — север участка (north.js): градусы по часовой от зелёной оси
 // SketchUp; как и цветники, один на все камеры. plantingSway — насколько
@@ -170,9 +170,12 @@ export function normalizePlantingVine(value, index = 0) {
     return { id: ID.test(String(value.id ?? '')) ? value.id : `vine-${index}`, plant: value.plant, shoots, seed: seedOf(value.seed, index + 17) };
 }
 
-const unique = (list, limit, normalize) => {
+// Нормализация без потерь: лимиты — потолок для кисти, а не нож. Список сверх
+// лимита (файл от агента, от более новой версии движка) приходит целиком; срез
+// здесь молча терял растения, и первое автосохранение писало усечённый файл.
+const unique = (list, normalize) => {
     const ids = new Set();
-    return (Array.isArray(list) ? list : []).slice(0, limit).map(normalize).filter(Boolean).map((item, index) => {
+    return (Array.isArray(list) ? list : []).map(normalize).filter(Boolean).map((item, index) => {
         const base = item.id;
         let suffix = index;
         while (ids.has(item.id)) item.id = `${base.slice(0, 54)}-${suffix++}`;
@@ -184,9 +187,9 @@ const unique = (list, limit, normalize) => {
 export function normalizePlantingSettings(settings = {}) {
     return {
         plantingEnabled: settings.plantingEnabled !== false,
-        plantingBeds: unique(settings.plantingBeds, PLANTING_LIMITS.beds, normalizePlantingBed),
-        plantingPoints: unique(settings.plantingPoints, PLANTING_LIMITS.points, normalizePlantingPoint),
-        plantingVines: unique(settings.plantingVines, PLANTING_LIMITS.vines, normalizePlantingVine),
+        plantingBeds: unique(settings.plantingBeds, normalizePlantingBed),
+        plantingPoints: unique(settings.plantingPoints, normalizePlantingPoint),
+        plantingVines: unique(settings.plantingVines, normalizePlantingVine),
         plantingMonth: number(settings.plantingMonth, DEFAULT_PLANTING_SETTINGS.plantingMonth, PLANTING_RANGES.month),
         plantingPlan: settings.plantingPlan === true,
         northAngle: wrapDegrees(number(settings.northAngle, 0, [-360, 360, 0.5])),

@@ -48,6 +48,14 @@ assert.equal(clean.plantingPoints.length, 1);
 assert.equal(clean.plantingMonth, 12);
 assert.deepEqual(normalizePlantingSettings(clean), clean, 'normalized settings normalize to themselves');
 
+// Normalization is lossless: single plants beyond the old cap of 400 (a file
+// written by an agent or a newer engine) survive whole.
+{
+    const many = normalizePlantingSettings({ plantingPoints: Array.from({ length: 600 }, (_, i) => ({ plant: 'cornus', x: i, y: 0, z: 0 })) });
+    assert.equal(many.plantingPoints.length, 600, '600 single plants survive normalization whole');
+    assert.deepEqual(normalizePlantingSettings(many), many, 'and normalize to themselves');
+}
+
 // Точные доли.
 assert.deepEqual(quotas([20, 15, 15], 10), [4, 3, 3]);
 assert.equal(quotas([1, 1, 1, 97], 5).filter((n) => n > 0).length, 4, 'every share gets at least one while there is enough');

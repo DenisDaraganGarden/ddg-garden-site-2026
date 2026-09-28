@@ -47,7 +47,7 @@ export function normalizeAnnotationMark(value, index = 0) {
 export function normalizeAnnotationSettings(settings = {}) {
     const ids = new Set();
     const marks = (Array.isArray(settings.annotationMarks) ? settings.annotationMarks : [])
-        .slice(0, ANNOTATION_LIMITS.marks).map(normalizeAnnotationMark).filter(Boolean)
+        .map(normalizeAnnotationMark).filter(Boolean)
         .map((mark, index) => { while (ids.has(mark.id)) mark.id = `${mark.id.slice(0, 54)}-${index}`; ids.add(mark.id); return mark; });
     // Ноль один: лишние снимаются, а без него нулём становится первая.
     const zero = marks.findIndex((mark) => mark.zero);

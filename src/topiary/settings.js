@@ -36,7 +36,7 @@ export function normalizeTopiaryObject(value, index = 0) {
 }
 export function normalizeTopiarySettings(settings = {}) {
     const ids = new Set();
-    const objects = (Array.isArray(settings.topiaryObjects) ? settings.topiaryObjects : []).slice(0, TOPIARY_LIMITS.objects)
+    const objects = (Array.isArray(settings.topiaryObjects) ? settings.topiaryObjects : [])
         .map(normalizeTopiaryObject).filter(Boolean).map((object, index) => {
             const base = object.id; let suffix = index;
             while (ids.has(object.id)) object.id = `${base.slice(0, 54)}-${suffix++}`;

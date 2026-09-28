@@ -127,7 +127,7 @@ export function normalizeLightingCircuit(value, index = 0) {
 
 export function normalizeLightingRun(value, index = 0) {
     if (!value || !Array.isArray(value.points)) return null;
-    const points = value.points.filter((p) => Array.isArray(p) && finite(p[0], p[1])).slice(0, LIGHTING_LIMITS.runPoints).map(([x, z]) => [metres(Number(x)), metres(Number(z))]);
+    const points = value.points.filter((p) => Array.isArray(p) && finite(p[0], p[1])).map(([x, z]) => [metres(Number(x)), metres(Number(z))]);
     if (points.length < 2) return null;
     return {
         id: ID.test(String(value.id ?? '')) ? value.id : `run-${index}`,
@@ -141,7 +141,7 @@ function normalizeSurfaces(value) {
     if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
     return Object.fromEntries(Object.entries(value)
         .filter(([name, kind]) => name && name.length <= 128 && LIGHTING_SURFACES.includes(kind))
-        .slice(0, LIGHTING_LIMITS.surfaces));
+        );
 }
 
 function normalizeSite(value) {
@@ -156,9 +156,12 @@ function normalizeSite(value) {
     };
 }
 
-const unique = (list, limit, normalize) => {
+// Нормализация без потерь: лимиты — потолок для кнопок «Поставить», а не нож.
+// Список сверх лимита (файл от агента, от более новой версии движка) приходит
+// целиком; срез здесь молча терял приборы, и автосохранение писало усечённый файл.
+const unique = (list, normalize) => {
     const ids = new Set();
-    return (Array.isArray(list) ? list : []).slice(0, limit).map(normalize).filter(Boolean).map((item, index) => {
+    return (Array.isArray(list) ? list : []).map(normalize).filter(Boolean).map((item, index) => {
         const base = item.id;
         let suffix = index;
         while (ids.has(item.id)) item.id = `${base.slice(0, 54)}-${suffix++}`;
@@ -171,10 +174,10 @@ export function normalizeLightingSettings(settings = {}) {
     const d = DEFAULT_LIGHTING_SETTINGS;
     return {
         lightingEnabled: settings.lightingEnabled !== false,
-        lightingFixtures: unique(settings.lightingFixtures, LIGHTING_LIMITS.fixtures, normalizeLightingFixture),
-        lightingPanels: unique(settings.lightingPanels, LIGHTING_LIMITS.panels, normalizeLightingPanel),
-        lightingCircuits: unique(settings.lightingCircuits, LIGHTING_LIMITS.circuits, normalizeLightingCircuit),
-        lightingRuns: unique(settings.lightingRuns, LIGHTING_LIMITS.runs, normalizeLightingRun),
+        lightingFixtures: unique(settings.lightingFixtures, normalizeLightingFixture),
+        lightingPanels: unique(settings.lightingPanels, normalizeLightingPanel),
+        lightingCircuits: unique(settings.lightingCircuits, normalizeLightingCircuit),
+        lightingRuns: unique(settings.lightingRuns, normalizeLightingRun),
         lightingSurfaces: normalizeSurfaces(settings.lightingSurfaces),
         lightingSite: normalizeSite(settings.lightingSite),
         lightingMode: LIGHTING_MODES.includes(settings.lightingMode) ? settings.lightingMode : d.lightingMode,

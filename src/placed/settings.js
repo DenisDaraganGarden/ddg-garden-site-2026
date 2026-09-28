@@ -116,7 +116,7 @@ export function normalizePlacedObject(value, index = 0) {
 
 export function normalizePlacedSettings(settings = {}) {
     const ids = new Set();
-    const objects = (Array.isArray(settings.placedObjects) ? settings.placedObjects : []).slice(0, PLACED_LIMITS.objects)
+    const objects = (Array.isArray(settings.placedObjects) ? settings.placedObjects : [])
         .map(normalizePlacedObject).filter(Boolean).map((object, index) => {
             const base = object.id; let suffix = index;
             while (ids.has(object.id)) object.id = `${base.slice(0, 54)}-${suffix++}`;

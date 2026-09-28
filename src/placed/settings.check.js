@@ -33,12 +33,13 @@ assert.equal(normalizePlacedObject({ kind: 'rock', variant: 9 }).variant, 5);
     assert.notEqual(shape({ variant: 2, take: 1 }), shape({ variant: 3, take: 1 }), 'forms stay apart');
 }
 
-// The list is bounded and ids stay unique.
+// Normalization is lossless: a list beyond the placement cap (a file written by
+// an agent or a newer engine) survives whole, and ids stay unique.
 {
     const many = Array.from({ length: PLACED_LIMITS.objects + 5 }, () => ({ kind: 'rock', id: 'same' }));
     const settings = normalizePlacedSettings({ placedObjects: many });
-    assert.equal(settings.placedObjects.length, PLACED_LIMITS.objects);
-    assert.equal(new Set(settings.placedObjects.map((o) => o.id)).size, PLACED_LIMITS.objects);
+    assert.equal(settings.placedObjects.length, PLACED_LIMITS.objects + 5);
+    assert.equal(new Set(settings.placedObjects.map((o) => o.id)).size, PLACED_LIMITS.objects + 5);
     assert.equal(settings.placedEnabled, true);
     assert.deepEqual(normalizePlacedSettings({}), { placedEnabled: true, placedObjects: [], sketchupModels: {} });
 }
