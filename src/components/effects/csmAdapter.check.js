@@ -101,4 +101,29 @@ if (initial.onBeforeCompile !== authoredCompile || initial.customProgramCacheKey
   throw new Error('Adapter disposal did not restore original material hooks.');
 }
 
-console.log('csmAdapter: split, fitted depth/fade, low sun/wide/portrait/plan cameras, contact and cleanup passed');
+// A recreated adapter (shadows off/on, zones 2→1→2, another map size) must
+// give the material a new program cache key: with the old key three reused the
+// compiled program, skipped onBeforeCompile and left the cascade uniforms
+// unbound — every Standard material lost its shadows until reload.
+{
+  const material = new THREE.MeshStandardMaterial();
+  const stage = new THREE.Scene();
+  stage.add(new THREE.Mesh(new THREE.BoxGeometry(), material));
+  const make = () => createCsmAdapter({
+    scene: stage, camera, cascades: 2, maxFar: 160, nearDistance: 25, shadowMapSize: 1024,
+    lightDirection: new THREE.Vector3(0, -1, 0), lightColor: new THREE.Color(1, 1, 1), lightIntensity: 1,
+    shadowRadius: 2, shadowIntensity: 0.7, contactOffsetMeters: -0.006, legacyBias: -0.0036,
+  });
+  const first = make();
+  first.update();
+  const keyA = material.customProgramCacheKey();
+  first.dispose();
+  const second = make();
+  second.update();
+  if (material.customProgramCacheKey() === keyA) {
+    throw new Error('A recreated CSM adapter reused the old program cache key.');
+  }
+  second.dispose();
+}
+
+console.log('csmAdapter: split, fitted depth/fade, low sun/wide/portrait/plan cameras, contact, cleanup and recreate passed');

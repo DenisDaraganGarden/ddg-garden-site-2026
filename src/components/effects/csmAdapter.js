@@ -27,6 +27,11 @@ CSMShader.lights_fragment_begin = receiverPlaneCsmChunk(CSMShader.lights_fragmen
 // the material prevents a disposing scene from restoring hooks installed by a
 // newer canvas while each adapter keeps its own explicit cleanup list.
 const MATERIAL_OWNER = new WeakMap();
+// Номер адаптера входит в ключ программы: у пересозданного адаптера (тени
+// выкл/вкл, зоны 2→1→2, другая карта) ключ иначе совпадал со старым, three
+// брал программу из кеша и не звал onBeforeCompile — униформы каскадов
+// оставались непривязанными, и тени на Standard-материалах пропадали.
+let adapterSerial = 0;
 const MATERIAL_BASE_HOOKS = new WeakMap();
 
 // CSM wraps both material callbacks. Off-scene passes (plant-card calibration)
@@ -97,6 +102,7 @@ export function createCsmAdapter({
 
   const owner = {};
   const materials = new Map();
+  const serial = ++adapterSerial;
   let current = {
     maxFar,
     nearDistance,
@@ -154,7 +160,7 @@ export function createCsmAdapter({
       if (cloudShadowUniforms) applyCloudShadowShader(shader, cloudShadowUniforms);
     };
     material.customProgramCacheKey = function customProgramCacheKey() {
-      return `${previousKey?.call(material) ?? material.type}|ddg-csm-${csm.cascades}${cloudShadowUniforms ? '|ddg-cloud-shadow-v3|ddg-garden-v1' : ''}`;
+      return `${previousKey?.call(material) ?? material.type}|ddg-csm-${csm.cascades}-${serial}${cloudShadowUniforms ? '|ddg-cloud-shadow-v3|ddg-garden-v1' : ''}`;
     };
     material.needsUpdate = true;
     const previous = { previousCompile, previousKey, csmDefines, cloudShadowUniforms, onDispose: null };
