@@ -23,19 +23,21 @@ export const EDITOR_TOOLS = ['select', ...GIZMO_MODES, 'hand', 'material', 'topi
 // W/E как псевдонимы больше не принимаются: W/A/S/D/Q/E — полёт камеры, и
 // буква, которая значит разное в зависимости от того, куда упал фокус, хуже
 // буквы с одним значением. Esc возвращает к выбору и прячет манипулятор.
+// По коду клавиши, а не по букве: в русской раскладке G — это «п», и
+// инструменты иначе не включались, пока не переключишь раскладку.
 const TOOL_KEYS = {
-    v: 'select',
-    g: 'translate',
-    r: 'rotate',
-    s: 'scale',
-    h: 'hand',
-    b: 'material',
-    l: 'bed',
-    t: 'plant',
-    i: 'vine',
-    m: 'mark',
-    k: 'start',
-    o: 'luminaire',
+    KeyV: 'select',
+    KeyG: 'translate',
+    KeyR: 'rotate',
+    KeyS: 'scale',
+    KeyH: 'hand',
+    KeyB: 'material',
+    KeyL: 'bed',
+    KeyT: 'plant',
+    KeyI: 'vine',
+    KeyM: 'mark',
+    KeyK: 'start',
+    KeyO: 'luminaire',
 };
 
 const isTypingTarget = (target) => {
@@ -81,7 +83,7 @@ export function useEditorTool(enabled = true, unavailable = null) {
                 return;
             }
 
-            const next = event.code === 'KeyB' ? (event.shiftKey ? 'topiary' : 'material') : TOOL_KEYS[event.key.toLowerCase()];
+            const next = event.code === 'KeyB' && event.shiftKey ? 'topiary' : TOOL_KEYS[event.code];
             if (next && !off.current?.includes(next)) {
                 event.preventDefault();
                 setTool(next);
