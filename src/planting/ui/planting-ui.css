@@ -145,6 +145,8 @@
 .plant-picker__grid>button{display:flex;flex-direction:column;align-items:center;gap:3px;padding:5px 3px;border:1px solid transparent;border-radius:5px;background:transparent;text-align:center}
 .plant-picker__grid>button:hover{background:#ffffff0a}
 .plant-picker__grid>button.is-active{border-color:var(--focus-accent,#cfc1a1)}
+.plant-picker__grid>button:disabled{opacity:.35;cursor:default}
+.plant-picker__grid>button:disabled:hover{background:transparent}
 .plant-picker__grid>button>span{font-size:10px;line-height:1.2;max-height:2.4em;overflow:hidden}
 .plant-picker__grid>button>small{font-size:8.5px;color:var(--focus-muted,#8f8c87)}
 .plant-picker__grid>p{grid-column:1/-1;margin:10px 0;color:var(--focus-muted,#8f8c87);text-align:center}

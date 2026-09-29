@@ -22,16 +22,18 @@ const FILTERS = ['all', ...CATEGORY_ORDER];
 // группы показывать; без него — всё, кроме лиан: лиана растёт по стене, а не
 // в цветнике.
 const allowedIn = (kinds) => (plant) => (kinds ? kinds.includes(plant.category) : plant.category !== 'climber');
-export function PlantPicker({ library, value, exclude = [], kinds = null, anchor, onChoose, onClose, ru = true, title }) {
+// exclude — уже взятые (есть в этом цветнике): они видны на своём месте, но
+// серые и не нажимаются, с подписью excludeNote. Так видно, что из библиотеки
+// уже в цветнике, и второй раз его не взять (просьба Дениса 29.09).
+export function PlantPicker({ library, value, exclude = [], excludeNote = null, kinds = null, anchor, onChoose, onClose, ru = true, title }) {
     const [query, setQuery] = useState('');
     const [filter, setFilter] = useState('all');
     const ref = useRef(null);
     const [place, setPlace] = useState({ left: 0, top: 0 });
     const kindsKey = kinds?.join(',') ?? '';
     const plants = useMemo(() => [...library.values()].filter(allowedIn(kindsKey ? kindsKey.split(',') : null)).sort(byCategory), [library, kindsKey]);
-    const hidden = useMemo(() => new Set(exclude), [exclude]);
+    const taken = useMemo(() => new Set(exclude), [exclude]);
     const shown = plants.filter((plant) => (filter === 'all' || plant.category === filter)
-        && (plant.id === value || !hidden.has(plant.id))
         && `${plant.ru} ${plant.en} ${plant.latin}`.toLocaleLowerCase().includes(query.toLocaleLowerCase().trim()));
     const present = new Set(plants.map((plant) => plant.category));
 
@@ -61,18 +63,21 @@ export function PlantPicker({ library, value, exclude = [], kinds = null, anchor
             </button>)}
         </div>
         <div className="plant-picker__grid">
-            {shown.map((plant) => <button key={plant.id} type="button" className={plant.id === value ? 'is-active' : ''} onClick={() => onChoose(plant.id)} title={plant.latin} data-testid={`plant-pick-${plant.id}`}>
-                <PlantThumb plant={plant} size={64} />
-                <span>{plantName(plant, ru)}</span>
-                <small>{CATEGORY_LABELS[plant.category]?.[ru ? 0 : 1]} · {plant.height} м</small>
-            </button>)}
+            {shown.map((plant) => {
+                const busy = plant.id !== value && taken.has(plant.id);
+                return <button key={plant.id} type="button" className={plant.id === value ? 'is-active' : ''} disabled={busy} onClick={() => onChoose(plant.id)} title={busy && excludeNote ? `${plant.latin} · ${excludeNote}` : plant.latin} data-testid={`plant-pick-${plant.id}`}>
+                    <PlantThumb plant={plant} size={64} />
+                    <span>{plantName(plant, ru)}</span>
+                    <small>{busy && excludeNote ? excludeNote : <>{CATEGORY_LABELS[plant.category]?.[ru ? 0 : 1]} · {plant.height} м</>}</small>
+                </button>;
+            })}
             {!shown.length ? <p>{ru ? 'Ничего не нашлось' : 'Nothing found'}</p> : null}
         </div>
     </div>, document.body);
 }
 
 // Кнопка, открывающая выбор: превью и имя выбранного растения.
-export function PlantChoice({ library, value, onChoose, exclude, kinds, ru = true, title, testId }) {
+export function PlantChoice({ library, value, onChoose, exclude, excludeNote, kinds, ru = true, title, testId }) {
     const [anchor, setAnchor] = useState(null);
     const plant = library.get(value);
     return <>
@@ -81,6 +86,6 @@ export function PlantChoice({ library, value, onChoose, exclude, kinds, ru = tru
             <span>{plant ? plantName(plant, ru) : value || (ru ? 'Выбрать растение' : 'Choose a plant')}</span>
             <svg viewBox="0 0 10 10" aria-hidden="true"><path d="M2 3.5 5 6.5 8 3.5" fill="none" stroke="currentColor" strokeWidth="1.3" /></svg>
         </button>
-        {anchor ? <PlantPicker library={library} value={value} exclude={exclude} kinds={kinds} anchor={anchor} ru={ru} title={title} onClose={() => setAnchor(null)} onChoose={(id) => { setAnchor(null); onChoose(id); }} /> : null}
+        {anchor ? <PlantPicker library={library} value={value} exclude={exclude} excludeNote={excludeNote} kinds={kinds} anchor={anchor} ru={ru} title={title} onClose={() => setAnchor(null)} onChoose={(id) => { setAnchor(null); onChoose(id); }} /> : null}
     </>;
 }
