@@ -22,6 +22,14 @@ export function mulberry32(seed) {
     };
 }
 
+// Сид решётки вида: сид цветника и id растения (FNV-1a). У каждого вида свой
+// поток случайных чисел, поэтому его посадка не зависит от соседей по рецепту.
+export function speciesSeed(seed, id) {
+    let hash = 2166136261;
+    for (let i = 0; i < id.length; i += 1) hash = Math.imul(hash ^ id.charCodeAt(i), 16777619);
+    return (hash ^ seed) >>> 0;
+}
+
 export const polygonArea = (points) => Math.abs(points.reduce((sum, [x, z], i) => {
     const [x2, z2] = points[(i + 1) % points.length];
     return sum + x * z2 - x2 * z;
@@ -175,10 +183,16 @@ export function moveBed(bed, dx, dz) {
 export function fillBed(bed, library) {
     // Газон — покрытие, а не посадка: растений в нём нет (lawnGround.js).
     if ((bed.kind === 'lawn' || bed.kind === 'cover')) return [];
-    const recipe = bed.recipe.map((row) => ({ share: row.share, plant: library.get(row.plant) })).filter((row) => row.plant && row.share > 0);
+    // Пятна раздаются по рецепту, как он записан, а не по тому, что сейчас
+    // нашлось в библиотеке: пропала запись — пустеют только её пятна, а
+    // соседи и заказ не меняются молча.
+    const recipe = bed.recipe.filter((row) => row.share > 0).map((row) => ({ share: row.share, plant: library.get(row.plant) }));
     const points = bed.points;
     const area = bedArea(bed);
-    if (!recipe.length || area < 0.05) return [];
+    if (!recipe.some((row) => row.plant) || area < 0.05) return [];
+    // Этот поток — только на пятна. Решётки видов — каждая на своём
+    // (speciesSeed): плотность одного растения в библиотеке перекладывает
+    // только его, остальные виды и пятна стоят на местах.
     const random = mulberry32(bed.seed);
 
     // Пятна: сетка в системе цветника, сжатой вдоль длинной оси — ячейки
@@ -225,6 +239,8 @@ export function fillBed(bed, library) {
     const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2, reach = Math.hypot(x1 - x0, z1 - z0) / 2 + 1;
     const plants = [];
     recipe.forEach((row, species) => {
+        if (!row.plant) return;
+        const random = mulberry32(speciesSeed(bed.seed, row.plant.id));
         const step = spacingFor(row.plant.density * bed.density), rowStep = step * Math.sqrt(3) / 2;
         const turn = random() * Math.PI, ct = Math.cos(turn), st = Math.sin(turn), shift = random() * step;
         for (let r = -Math.ceil(reach / rowStep); r <= Math.ceil(reach / rowStep); r += 1) {

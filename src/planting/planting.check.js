@@ -75,6 +75,30 @@ const denser = fillBed({ ...bed, density: 1.5 }, library).length;
 assert.ok(denser > first.length * 1.3, `density ×1.5 plants more (${denser} vs ${first.length})`);
 assert.ok(Math.abs(spacingFor(12.8) - 0.3) < 0.002, '30 cm spacing is 12.8 plants/m²');
 
+// Каждый вид — на своём потоке случайных чисел (speciesSeed): правка одного
+// растения в библиотеке перекладывает только его; пятна, соседи по рецепту и
+// другие цветники стоят. Раньше поток был общий, и плотность одного вида
+// сдвигала решётки всех, что шли после него.
+{
+    const of = (fill, id) => fill.filter((p) => p.plant === id);
+    const others = (id) => bed.recipe.map((row) => row.plant).filter((plant) => plant !== id);
+    const thicker = new Map(library).set('grass', { ...library.get('grass'), density: library.get('grass').density * 1.7 });
+    const regrown = fillBed(bed, thicker);
+    for (const id of others('grass')) assert.deepEqual(of(regrown, id), of(first, id), `${id} stays put when grass gets denser`);
+    assert.ok(of(regrown, 'grass').length > of(first, 'grass').length * 1.3, 'grass itself is planted denser');
+    const reordered = new Map([...library].reverse()).set('newcomer', { id: 'newcomer', density: 4 });
+    assert.deepEqual(fillBed(bed, reordered), first, 'a new record or another order of the library changes nothing');
+    const missing = new Map(library); missing.delete('rudbeckia');
+    const gap = fillBed(bed, missing);
+    assert.equal(of(gap, 'rudbeckia').length, 0, 'a species without a record plants nothing');
+    for (const id of others('rudbeckia')) assert.deepEqual(of(gap, id), of(first, id), `${id} keeps its patches when rudbeckia’s record is missing`);
+    // Новый цветник рядом с тем же видом — старый не трогают: у раскладки нет
+    // общего состояния между цветниками.
+    const neighbour = { ...bed, id: 'next', seed: 7, points: bed.points.map(([x, z]) => [x + 12, z]), recipe: [{ plant: 'grass', share: 100 }] };
+    const [, old] = [neighbour, bed].map((item) => fillBed(item, library));
+    assert.deepEqual(old, first, 'a new bed leaves the old one as it was');
+}
+
 // Маленький цветник на восемь видов — все восемь в нём есть.
 const small = { ...bed, id: 'small', points: [[0, 0], [5, 0], [5, 4], [0, 4]], recipe: [...library.keys()].filter((id) => id !== 'cornus').map((id) => ({ plant: id, share: 10 })), drift: 3 };
 const smallFill = fillBed(small, library);
