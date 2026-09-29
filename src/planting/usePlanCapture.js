@@ -12,7 +12,9 @@ export const PLAN_KEY = 'plan:';
 
 export function usePlanCapture({ projectId, settings, capturePose }) {
     const camera = settings.workCameras?.find((item) => item.id === settings.activeWorkCameraId);
-    const active = Boolean(projectId && camera?.name === PLAN_CAMERA);
+    // Просмотр (?preview=1) в папку проекта не пишет — как сетка участка и
+    // миниатюра: агент смотрит проект, не трогая снимок отчёта.
+    const active = Boolean(projectId && camera?.name === PLAN_CAMERA) && new URLSearchParams(window.location.search).get('preview') !== '1';
     const north = siteNorth(settings);
     const pose = useRef(capturePose);
     pose.current = capturePose;
