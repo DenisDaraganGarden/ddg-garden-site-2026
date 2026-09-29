@@ -14,7 +14,7 @@ import { LightingRange } from '../../../../../lighting/ui/LightingRange';
 import { bedArea } from '../../../../../planting/fillBed.js';
 import { vineLength } from '../../../../../planting/vines.js';
 import { plantName, useBedFills, usePlantLibrary } from '../../../../../planting/plantLibrary.js';
-import { bloomMonths, byCategory } from '../../../../../planting/insights.js';
+import { BED_KINDS, bloomMonths, byCategory } from '../../../../../planting/insights.js';
 import { MONTHS_EN, MONTHS_RU } from '../../../../../planting/season.js';
 import { PlantChoice, PlantPicker } from '../../../../../planting/ui/PlantPicker.jsx';
 import { PlantingInsights } from '../../../../../planting/ui/PlantingInsights.jsx';
@@ -167,7 +167,7 @@ function BedEditor({ beds, fills, library, plantingEditor, layoutEditor, ru }) {
                 </select></label>
             <div className="planting-recipe">
                 {selected.recipe.map((row, index) => <div key={row.plant} className="planting-recipe__row" data-testid="planting-recipe-row">
-                    <PlantChoice library={library} value={row.plant} ru={ru} exclude={selected.recipe.map((r) => r.plant)} title={ru ? 'Заменить растение' : 'Replace the plant'}
+                    <PlantChoice library={library} value={row.plant} ru={ru} exclude={selected.recipe.map((r) => r.plant)} kinds={BED_KINDS} title={ru ? 'Заменить растение' : 'Replace the plant'}
                         onChoose={(id) => set({ recipe: selected.recipe.map((r, i) => (i === index ? { ...r, plant: id } : r)) })} />
                     <input type="number" min={1} max={100} step={1} value={row.share} aria-label={ru ? 'Доля' : 'Share'}
                         onChange={(event) => set({ recipe: selected.recipe.map((r, i) => (i === index ? { ...r, share: Number(event.target.value) } : r)) })} />
@@ -175,7 +175,7 @@ function BedEditor({ beds, fills, library, plantingEditor, layoutEditor, ru }) {
                     <button type="button" className="planting-icon" aria-label={ru ? 'Убрать из цветника' : 'Remove from bed'} onClick={() => set({ recipe: selected.recipe.filter((_, i) => i !== index) })}>×</button>
                 </div>)}
                 {selected.recipe.length < PLANTING_LIMITS.recipe ? <button type="button" className="planting-add" onClick={(event) => setAdding(event.currentTarget.getBoundingClientRect())} data-testid="planting-recipe-add">+ {ru ? 'Растение' : 'Plant'}</button> : null}
-                {adding ? <PlantPicker library={library} anchor={adding} ru={ru} exclude={selected.recipe.map((r) => r.plant)} title={ru ? 'Добавить в цветник' : 'Add to the bed'}
+                {adding ? <PlantPicker library={library} anchor={adding} ru={ru} exclude={selected.recipe.map((r) => r.plant)} kinds={BED_KINDS} title={ru ? 'Добавить в цветник' : 'Add to the bed'}
                     onClose={() => setAdding(null)} onChoose={(id) => { setAdding(null); set({ recipe: [...selected.recipe, { plant: id, share: 10 }] }); }} /> : null}
             </div>
             <LightingRange label={ru ? 'Размер пятна' : 'Drift size'} value={selected.drift} min={PLANTING_RANGES.drift[0]} max={PLANTING_RANGES.drift[1]} step={PLANTING_RANGES.drift[2]} unit={ru ? ' м' : ' m'} onChange={(drift) => set({ drift })} testId="planting-drift" />

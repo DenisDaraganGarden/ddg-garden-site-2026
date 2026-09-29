@@ -67,4 +67,7 @@ export const CATEGORY_LABELS = {
     grass: ['Злак', 'Grass'], perennial: ['Многолетник', 'Perennial'], groundcover: ['Почвопокров', 'Groundcover'], climber: ['Лиана', 'Climber'],
 };
 export const CATEGORY_ORDER = ['tree', 'conifer', 'topiary', 'shrub', 'climber', 'grass', 'perennial', 'groundcover'];
+// В рецепт цветника — всё, кроме деревьев и лиан. Деревья сажаются одиночными
+// посадками (решение Дениса 29.09.2026), лианы — мазком по стене.
+export const BED_KINDS = CATEGORY_ORDER.filter((kind) => kind !== 'tree' && kind !== 'climber');
 export const byCategory = (a, b) => CATEGORY_ORDER.indexOf(a.category) - CATEGORY_ORDER.indexOf(b.category) || String(a.ru).localeCompare(String(b.ru), 'ru');
