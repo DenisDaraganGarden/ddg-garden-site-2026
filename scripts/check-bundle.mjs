@@ -40,19 +40,18 @@ async function main() {
   const manifest = JSON.parse(await fs.readFile(manifestPath, 'utf8'));
   const allFiles = Object.values(manifest).map((entry) => entry.file);
   const homeKey = findManifestEntryKey(manifest, 'src/pages/Home.jsx');
-  const homeEditKey = findManifestEntryKey(manifest, 'src/pages/HomeEdit.jsx');
 
   assert(homeKey, 'Could not find Home manifest entry.');
-  assert(homeEditKey, 'Could not find HomeEdit manifest entry.');
   assert(!allFiles.some((file) => file.includes('three-vendor')), 'Legacy monolithic three-vendor chunk is still present.');
-  assert(allFiles.some((file) => file.includes('three-editor')), 'Expected a dedicated three-editor chunk.');
+  // The editor, the projects menu and the reports live in OUROBOROS (../Ouroboros-Editor):
+  // none of their pages may reach the site's build.
+  for (const page of ['src/pages/HomeEdit.jsx', 'src/pages/Engine.jsx', 'src/pages/PlantingReport.jsx']) {
+    assert(!findManifestEntryKey(manifest, page), `${page} must not be part of the site`);
+  }
 
   const homeFiles = collectImportedFiles(manifest, homeKey);
-  const homeEditFiles = collectImportedFiles(manifest, homeEditKey);
-
   assert(homeFiles.some((file) => file.includes('three-core')), 'Home entry should import the shared three-core chunk.');
   assert(homeFiles.some((file) => file.includes('three-scene')), 'Home entry should import the shared three-scene chunk.');
-  assert(homeEditFiles.some((file) => file.includes('three-editor')), 'Home editor should import the editor-only chunk.');
 
   process.stdout.write('Bundle check passed.\n');
 }

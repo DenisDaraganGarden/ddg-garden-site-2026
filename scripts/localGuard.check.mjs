@@ -31,8 +31,9 @@ for (const type of ['text/plain', 'application/x-www-form-urlencoded', 'multipar
 
 // The real configs: the guard stands first, before every /__ route.
 const { default: siteConfig } = await import('../vite.config.js');
-const { default: editorConfig } = await import('../vite.editor.config.js');
-for (const config of [siteConfig, editorConfig]) assert.equal(config.plugins[0].name, 'local-guard', 'the guard is the first plugin');
+// The portfolio preview editor's server is the site's config with one redirect.
+const { default: portfolioEditConfig } = await import('../vite.portfolio-edit.config.js');
+for (const config of [siteConfig, portfolioEditConfig]) assert.equal(config.plugins[0].name, 'local-guard', 'the guard is the first plugin');
 
 const server = await createServer({
   configFile: false,

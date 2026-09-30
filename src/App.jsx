@@ -26,9 +26,6 @@ const Info = lazy(() => import('./pages/Info'));
 const Portfolio = lazy(() => import('./pages/Portfolio'));
 const ProjectDetail = lazy(() => import('./pages/ProjectDetail'));
 const Map = lazy(() => import('./pages/Map'));
-const HomeEdit = lazy(() => import('./pages/HomeEdit'));
-const Engine = lazy(() => import('./pages/Engine'));
-const PlantingReport = lazy(() => import('./pages/PlantingReport'));
 const CursorConceptLab = lazy(() => import('./components/ui/CursorConceptLab'));
 const PortfolioEdit = lazy(() => import('./pages/PortfolioEdit'));
 
@@ -116,13 +113,10 @@ function AppShell() {
         ...archiveRouteDefinitions,
     ];
 
+    // Редактор сцены, меню проектов и отчёты живут в OUROBOROS (отдельный
+    // репозиторий, папка ../Ouroboros-Editor); главная сцена приходит оттуда
+    // кнопкой «На сайт». Здесь остаётся только редактор превью портфолио.
     const internalToolRoutes = [
-        // Главное меню движка: проекты и лаборатория. Редактор открывается
-        // отсюда с ?project=<id>; без параметра он остаётся редактором сайта.
-        { path: '/engine', element: <Engine /> },
-        // Отчёт по посадкам проекта для заказчика и дендролога (печать в PDF).
-        { path: '/engine/report', element: <PlantingReport /> },
-        { path: '/home/edit', element: <HomeEdit /> },
         { path: '/portfolio/edit', element: <PortfolioEdit /> },
     ];
 
