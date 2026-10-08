@@ -1,0 +1,45 @@
+/* The authored name keeps its type; interface and reading use the local sans. */
+body{font-family:Liberation,Arial,sans-serif;letter-spacing:.065em;text-transform:uppercase}
+button{letter-spacing:inherit;text-transform:inherit}
+h2,h3,.catalogue-title,.recognition-row span:first-child,.menu-projects a{font-family:Liberation,Arial,sans-serif;font-weight:400;letter-spacing:.075em}
+.brand,.hero h1,.portfolio-intro-name{letter-spacing:normal;text-transform:none}
+.portfolio-intro-name span{letter-spacing:.14em;text-transform:uppercase}
+input,textarea,select,[contenteditable="true"]{text-transform:none;letter-spacing:normal}
+.site-header{display:grid;grid-template-columns:1fr auto;grid-template-rows:1fr 1fr;align-items:center;gap:0 16px;padding-bottom:8px}
+:root{--header-base:98px}
+.site-header .brand{grid-column:1/-1;grid-row:1;justify-self:center;font-size:25px;white-space:nowrap;visibility:visible}
+.hero #main-heading{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.site-header nav{grid-column:1;grid-row:2;justify-self:end;gap:18px;font-size:11px;letter-spacing:.075em}
+.language-switch{grid-column:2;grid-row:2;display:flex;align-items:center;gap:5px;font-size:11px;letter-spacing:.04em;white-space:nowrap}
+.language-switch button{min-width:27px;min-height:36px;color:inherit;opacity:.6;position:relative}
+.language-switch button[aria-pressed="true"]{opacity:1}
+.language-switch button[aria-pressed="true"]::after{content:"";position:absolute;bottom:7px;left:3px;right:3px;height:1px;background:currentColor}
+.language-switch>span{opacity:.45}
+.panel-bar h2{font-size:25px;line-height:1.25;text-wrap:balance}
+.panel-copy p{font-size:13px;line-height:1.8;letter-spacing:.06em}
+.essay-text .panel-copy p:first-child{font:20px/1.5 Liberation,Arial,sans-serif;letter-spacing:.065em}
+.music-list a{font-family:Liberation,Arial,sans-serif;letter-spacing:.065em}
+.panel-copy h3{font-family:Liberation,Arial,sans-serif;letter-spacing:.08em;line-height:1.5}
+.panel-copy li{line-height:1.65}
+.menu-projects a{font-size:18px;line-height:1.35;align-items:flex-start}
+.menu-projects a span{padding-top:3px;flex-shrink:0}
+.menu-primary{align-items:center;gap:12px 22px;line-height:1.6}
+.catalogue-heading h2{font-size:32px}
+.catalogue-title{font-size:clamp(17px,1.8vw,25px);line-height:1.25;text-wrap:balance}
+.catalogue-filters{font-size:11px;gap:8px 18px}
+.work-caption h2{font-size:clamp(23px,4.3vw,32px);line-height:1.2}
+.project-meta{line-height:1.7}
+.recognition-row span:first-child{font-size:20px;line-height:1.25}
+.section-heading h2{font-size:36px;letter-spacing:.075em}
+.contact-content{max-width:100%}
+.contact-content h2{font-size:clamp(30px,7.2vw,76px);line-height:1.18;text-wrap:balance;max-width:1100px}
+.contact-links{gap:12px 30px}
+.contact-email,.contact-telegram{font-size:13px;letter-spacing:.1em}
+.portfolio-divider h2{font-size:clamp(28px,8vw,120px);letter-spacing:.06em}
+@media(min-width:760px){.site-header nav{gap:24px;font-size:12px}.language-switch{font-size:11px}.catalogue-heading h2{font-size:40px}.panel-bar h2{font-size:30px}.section-heading h2{font-size:50px}.recognition-row span:first-child{font-size:25px}.contact-email,.contact-telegram{font-size:15px}}
+@media(max-width:759px){.catalogue-caption{padding:12px}.catalogue-title{font-size:16px}.catalogue-heading{gap:12px 20px}.work-caption h2{font-size:25px}.panel-dialog{padding-top:26px}.panel-bar{gap:20px}}
+@media(max-width:360px){.catalogue-title{font-size:13px;letter-spacing:.055em}.catalogue-caption{padding:8px}.catalogue-heading h2{font-size:29px}.catalogue-filters{font-size:10px;gap:8px 12px}.contact-content h2{font-size:29px}.portfolio-divider h2{font-size:28px}.site-header nav{gap:12px}.site-header{column-gap:10px}.site-header .brand{font-size:23px}}
+@media(max-height:700px){.section-heading h2{font-size:32px}.recognition-row span:first-child{font-size:17px}.work-caption h2{font-size:23px}}
+@media(max-height:480px) and (min-width:600px){:root{--header-base:84px}.site-header{padding-bottom:0}.site-header nav{gap:20px}.contact-content h2{font-size:45px}.work-caption h2{font-size:23px}.catalogue-title{font-size:16px}}
+
+@media(min-width:1000px){:root{--header-base:92px}.site-header{grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);grid-template-rows:1fr;gap:0;padding-bottom:0}.site-header .brand{grid-column:2;grid-row:1;font-size:27px}.site-header nav{grid-column:3;grid-row:1;margin-right:99px;gap:24px}.language-switch{position:absolute;right:var(--gutter);grid-row:1;grid-column:3}.on-detached .site-header{gap:0}}

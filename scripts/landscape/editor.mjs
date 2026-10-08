@@ -1,6 +1,6 @@
 // Editor for the landscape portfolio (public/landscape).
-// The works, the projects menu and the «О проекте» panels are rendered from
-// src/data/landscapePortfolio.json between <!-- works -->, <!-- menu --> and
+// The catalogue, works, projects menu and «О проекте» panels are rendered from
+// src/data/landscapePortfolio.json between <!-- catalogue -->, <!-- works -->, <!-- menu --> and
 // <!-- about --> markers; everything else in index.html stays hand-written.
 //
 //   node scripts/landscape/editor.mjs         editor at http://127.0.0.1:41218
@@ -18,6 +18,7 @@ const assets = path.join(pageDir, 'assets');
 const dataFile = path.join(root, 'src/data/landscapePortfolio.json');
 const PORT = 41218;
 const QUALITY = 82;
+const categories = new Set(['parks', 'hotels', 'city', 'private']);
 
 const esc = text => text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const pad = n => String(n).padStart(2, '0');
@@ -30,8 +31,13 @@ function validate(data) {
     if (!p.title?.trim()) throw new Error(`У проекта ${name} нет названия`);
     if (!/^[a-z0-9-]+$/.test(p.id ?? '')) throw new Error(`У проекта ${name} плохой адрес: ${p.id}`);
     if (typeof p.subtitle !== 'string' || typeof p.about !== 'string') throw new Error(`Проект ${name} испорчен`);
+    if (p.year != null && (typeof p.year !== 'string' || (p.year.trim() && !/^\d{4}(?:[–-]\d{4})?$/.test(p.year.trim())))) throw new Error(`У проекта ${name} укажите год: 2024 или 2022–2024`);
+    if (p.categories != null && (!Array.isArray(p.categories) || p.categories.some(category => !categories.has(category)))) throw new Error(`У проекта ${name} неверный раздел каталога`);
     if (!Array.isArray(p.frames) || !p.frames.length) throw new Error(`В проекте ${name} нет кадров`);
     for (const frame of p.frames) if (!/^[\w-]+$/.test(frame)) throw new Error(`Плохое имя кадра: ${frame}`);
+    for (const [alias, frame] of Object.entries(p.frameAliases ?? {})) {
+      if (!/^[a-z0-9-]+$/.test(alias) || !p.frames.includes(frame)) throw new Error(`Неверная старая ссылка у проекта ${name}`);
+    }
   }
 }
 
@@ -48,21 +54,33 @@ async function render({projects}, html) {
   validate({projects});
   const ids = new Set(['top', 'recognition', 'author', 'tractatus', 'wave', 'elements', 'portfolio', 'light', 'inheritance', 'handwriting', 'plants', 'matter', 'contact', 'works']);
   const works = [];
+  const catalogue = [];
   for (const p of projects) {
     const title = esc(p.title.trim());
+    const year = p.year?.trim().replace('-', '–') || '';
+    const yearLabel = year ? `<span class="project-year" aria-label="Год проекта: ${year}">${year}</span>` : '';
+    const preview = await srcset(p.frames[0]);
+    const thumbnail = `src="./assets/${p.frames[0]}-1600.webp" srcset="${preview.srcset}" sizes="(min-width:1400px) 420px, (min-width:760px) calc((100vw - 160px) / 3), calc((100vw - 64px) / 2)" width="${preview.width}" height="${preview.height}" alt="" loading="lazy" decoding="async" draggable="false"`;
+    catalogue.push(`<a class="catalogue-card" href="#${p.id}" data-categories="${(p.categories || []).join(' ')}" aria-label="Открыть проект: ${title}${year ? `, ${year}` : ''}"><img ${thumbnail}><span class="catalogue-caption"><span class="catalogue-title">${title}</span>${yearLabel}</span></a>`);
     const frames = [];
     for (const [i, frame] of p.frames.entries()) {
       const id = i ? `${p.id}-${i + 1}` : p.id;
       if (ids.has(id)) throw new Error(`Адрес #${id} повторяется, переименуйте проект`);
       ids.add(id);
+      const aliases = Object.entries(p.frameAliases ?? {}).filter(([, target]) => target === frame).map(([alias]) => {
+        if (ids.has(alias)) throw new Error(`Адрес #${alias} повторяется, переименуйте проект`);
+        ids.add(alias);
+        return `<span class="sr-only" id="${alias}" data-frame-alias aria-hidden="true"></span>`;
+      }).join('');
       const image = await srcset(frame);
       const label = `${title}, кадр ${i + 1}`;
       const shape = image.width / image.height > 2.5 ? 'panorama' : image.width < image.height ? 'portrait' : 'landscape';
-      frames.push(`<figure class="gallery-frame"${i ? ` id="${id}"` : ''} data-shape="${shape}" style="--ratio:${(image.width / image.height).toFixed(4)}"><button class="image-open" data-image aria-label="Рассмотреть: ${label}"><img src="./assets/${frame}-1600.webp" srcset="${image.srcset}" sizes="(max-width:759px) calc(100vw - 48px), 80vw" width="${image.width}" height="${image.height}" alt="${label}" loading="lazy" decoding="async" draggable="false"></button><figcaption aria-hidden="true">${pad(i + 1)}</figcaption></figure>`);
+      frames.push(`<figure class="gallery-frame"${i ? ` id="${id}"` : ''} data-shape="${shape}" style="--ratio:${(image.width / image.height).toFixed(4)}">${aliases}<button class="image-open" data-image aria-label="Рассмотреть: ${label}"><img src="./assets/${frame}-1600.webp" srcset="${image.srcset}" sizes="(max-width:759px) calc(100vw - 48px), 80vw" width="${image.width}" height="${image.height}" alt="${label}" loading="lazy" decoding="async" draggable="false"></button><figcaption aria-hidden="true">${pad(i + 1)}</figcaption></figure>`);
     }
     const tools = (p.frames.length > 1 ? `<div class="gallery-navigation" role="group" aria-label="Кадры проекта"><button data-gallery-prev aria-label="Предыдущий кадр" disabled>←</button><span class="frame-count" data-gallery-count>01 / ${pad(p.frames.length)}</span><button data-gallery-next aria-label="Следующий кадр">→</button></div>` : '')
       + (p.about ? `<button data-panel="about-${p.id}" aria-haspopup="dialog">О проекте</button>` : '');
-    works.push(`<section class="sheet work project-sheet" id="${p.id}" aria-labelledby="title-${p.id}"><div class="project-gallery" role="region" aria-label="${title}: изображения" tabindex="0"${p.frames.length === 1 ? ' data-single' : ''}>${frames.join('')}</div><div class="work-caption"><div><h2 id="title-${p.id}">${title}</h2>${p.subtitle.trim() ? `<p>${esc(p.subtitle.trim())}</p>` : ''}</div><div class="work-tools">${tools}</div></div><p class="sr-only" data-gallery-status aria-live="polite"></p></section>`);
+    const metadata = [yearLabel, p.subtitle.trim() ? `<span>${esc(p.subtitle.trim())}</span>` : ''].filter(Boolean).join('');
+    works.push(`<section class="sheet work project-sheet" id="${p.id}" aria-labelledby="title-${p.id}"><div class="project-gallery" role="region" aria-label="${title}: изображения" tabindex="0"${p.frames.length === 1 ? ' data-single' : ''}>${frames.join('')}</div><div class="work-caption"><div><h2 id="title-${p.id}">${title}</h2>${metadata ? `<p class="project-meta">${metadata}</p>` : ''}</div><div class="work-tools">${tools}</div></div><p class="sr-only" data-gallery-status aria-live="polite"></p></section>`);
   }
   const menu = projects.map((p, i) => `<a href="#${p.id}"><span>${pad(i + 1)}</span>${esc(p.title.trim())}</a>`);
   const about = projects.filter(p => p.about).map(p => `<dialog class="panel-dialog" id="about-${p.id}" aria-labelledby="about-${p.id}-heading"><div class="panel-bar"><h2 id="about-${p.id}-heading">${esc(p.title.trim())}</h2><button data-close>Закрыть</button></div><div class="panel-copy">${p.about}</div></dialog>`);
@@ -75,12 +93,12 @@ async function render({projects}, html) {
     if (!pattern.test(html)) throw new Error(`В index.html нет места для ${pattern}`);
     html = html.replace(pattern, () => value);
   };
-  for (const [tag, lines] of [['works', works], ['menu', menu], ['about', about]]) {
+  for (const [tag, lines] of [['catalogue', catalogue], ['works', works], ['menu', menu], ['about', about]]) {
     replace(new RegExp(`(?<=<!-- ${tag} -->)[\\s\\S]*?(?=<!-- /${tag} -->)`), `\n${lines.join('\n')}\n`);
   }
   replace(/<img class="hero-image"[^>]*>/, hero);
-  replace(/(?<=<a class="skip-link" href="#)[^"]*/, first.id);
-  replace(/(?<=<div class="page-position" aria-hidden="true">)[^<]*/, `01 / ${pad(html.match(/class="sheet /g).length)}`);
+  replace(/(?<=<a class="skip-link" href="#)[^"]*/, 'works');
+  replace(/(?<=<div class="page-position" aria-hidden="true">)[^<]*/, `01 / ${pad(html.match(/class="sheet /g).length - projects.length - 3)}`);
   return html;
 }
 

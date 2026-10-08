@@ -1,7 +1,14 @@
 'use strict';
 (() => {
   const folio = document.querySelector('.folio');
-  const sheets = [...folio.querySelectorAll('.sheet')];
+  const allSheets = [...folio.querySelectorAll('.sheet')];
+  const detached = sheet => sheet.matches('.work.project-sheet') || ['tractatus', 'elements', 'handwriting'].includes(sheet.id);
+  const mainSheets = allSheets.filter(sheet => !detached(sheet));
+  let sheets = mainSheets;
+  allSheets.forEach(sheet => {sheet.hidden = !mainSheets.includes(sheet);});
+  const catalogue = document.querySelector('.catalogue-scroll');
+  const viewReturn = document.querySelector('.view-return');
+  const handwritingLink = document.querySelector('#author a[href="#handwriting"]');
   const reduce = matchMedia('(prefers-reduced-motion: reduce)');
   const pagePosition = document.querySelector('.page-position');
   const status = document.querySelector('#page-status');
@@ -10,24 +17,67 @@
   const imageButtons = [...document.querySelectorAll('[data-image]')];
   const images = imageButtons.map(button => ({src: button.querySelector('img').src, alt: button.querySelector('img').alt, origin: button}));
   const focusOrigins = new WeakMap();
+  const editable = target => target instanceof Element && target.closest('input,textarea,[contenteditable="true"]');
+  document.querySelectorAll('img').forEach(image => {image.draggable = false;});
+  document.addEventListener('copy', event => {if (!editable(event.target)) event.preventDefault();});
+  document.addEventListener('dragstart', event => {
+    if (event.target instanceof Element && event.target.closest('img')) event.preventDefault();
+  });
+  document.addEventListener('contextmenu', event => {
+    if (event.target instanceof Element && event.target.closest('img,canvas,.image-open,.catalogue-card')) event.preventDefault();
+  });
   let current = 0, destination = 0, navigationVersion = 0;
   let settleTimer, scrollFrame, pagingFrame, resizing = false;
   let sequence = images, imageIndex = 0, imageTicket = 0;
+  let cataloguePosition = 0, catalogueOrigin = null, viewChanged = false;
+  const catalogueCards = [...catalogue.querySelectorAll('.catalogue-card')];
+  const catalogueFilters = [...document.querySelectorAll('[data-catalogue-filter]')];
+  catalogueFilters.forEach(button => button.addEventListener('click', () => {
+    const filter = button.dataset.catalogueFilter;
+    catalogueFilters.forEach(item => item.setAttribute('aria-pressed', String(item === button)));
+    catalogueCards.forEach(card => {card.hidden = filter !== 'all' && !card.dataset.categories.split(' ').includes(filter);});
+    const visible = catalogueCards.filter(card => !card.hidden).length;
+    catalogue.querySelector('.catalogue-empty').hidden = visible > 0;
+    document.querySelector('[data-catalogue-status]').textContent = `Показано работ: ${visible}`;
+    catalogue.scrollTop = cataloguePosition = 0;
+    catalogueOrigin = null;
+  }));
 
   const clamp = (value, last) => Math.max(0, Math.min(last, value));
   const pad = n => String(n).padStart(2, '0');
+  const activate = sheet => {
+    const toAuthor = sheet.id === 'handwriting';
+    viewReturn.href = toAuthor ? '#author' : '#works';
+    viewReturn.setAttribute('aria-label', toAuthor ? 'Вернуться к автопортрету' : 'Вернуться к работам');
+    viewReturn.querySelector('[data-view-return-label]').textContent = toAuthor ? 'Автор' : 'Работы';
+    const next = detached(sheet) ? [sheet] : mainSheets;
+    if (next.length === sheets.length && next.every((item, index) => item === sheets[index])) return;
+    if (sheets.includes(document.getElementById('works'))) cataloguePosition = catalogue.scrollTop;
+    cancelAnimationFrame(pagingFrame);
+    cancelAnimationFrame(scrollFrame);
+    clearTimeout(settleTimer);
+    pagingFrame = scrollFrame = null;
+    folio.classList.remove('is-paging');
+    sheets = next;
+    allSheets.forEach(item => {item.hidden = !sheets.includes(item);});
+    current = destination = 0;
+    viewChanged = true;
+    document.body.classList.toggle('on-detached', detached(sheet));
+    if (sheet.id === 'works') requestAnimationFrame(() => {catalogue.scrollTop = cataloguePosition;});
+  };
   const indexForHash = hash => {
-    if (hash === '#works') return sheets.findIndex(sheet => sheet.classList.contains('work'));
     const target = document.getElementById(hash.slice(1));
-    const sheet = target?.closest('.sheet');
+    const sheet = target?.closest('.sheet') || mainSheets[0];
+    activate(sheet);
     const chapter = target?.closest('[data-chapter-panel]');
     if (chapter) {
       sheet.dataset.chapterTarget = chapter.id;
       sheet.dispatchEvent(new CustomEvent('chapter-reveal', {detail:chapter}));
     }
-    if (target?.matches('.gallery-frame')) {
-      sheet.dataset.galleryTarget = target.id;
-      sheet.dispatchEvent(new CustomEvent('gallery-reveal', {detail:target}));
+    const frame = target?.closest('.gallery-frame');
+    if (frame) {
+      sheet.dataset.galleryTarget = frame.id;
+      sheet.dispatchEvent(new CustomEvent('gallery-reveal', {detail:frame}));
     }
     const index = sheets.indexOf(sheet);
     return index < 0 ? 0 : index;
@@ -54,8 +104,9 @@
   const update = () => {
     current = sheets.reduce((nearest, sheet, index) => Math.abs(sheet.offsetTop - folio.scrollTop) < Math.abs(sheets[nearest].offsetTop - folio.scrollTop) ? index : nearest, 0);
     document.body.classList.toggle('on-dark', sheets[current].classList.contains('dark-sheet'));
-    document.body.classList.toggle('on-cover', current === 0);
+    document.body.classList.toggle('on-cover', sheets[current].id === 'top');
     document.body.classList.toggle('on-author', sheets[current].id === 'author');
+    pagePosition.hidden = sheets.length === 1 || sheets[current].id === 'works';
     pagePosition.textContent = pad(current + 1) + ' / ' + pad(sheets.length);
     syncBrowserTheme();
     scrollFrame = null;
@@ -76,7 +127,9 @@
     cancelAnimationFrame(pagingFrame);
     pagingFrame = null;
     const from = folio.scrollTop, top = sheets[next].offsetTop;
-    if (!smooth || reduce.matches || Math.abs(top - from) < 1) {
+    const changed = viewChanged;
+    viewChanged = false;
+    if (!smooth || changed || reduce.matches || Math.abs(top - from) < 1) {
       folio.scrollTo({top, behavior:'instant'});
       folio.classList.remove('is-paging');
       remember();
@@ -123,7 +176,7 @@
       rebound = null;
     };
     element.addEventListener('wheel', event => {
-      if (event.ctrlKey || event.metaKey || !enabled()) return;
+      if (event.ctrlKey || event.metaKey || !enabled(event)) return;
       event.preventDefault();
       const delta = (Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY)
         * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? folio.clientHeight : 1);
@@ -173,7 +226,24 @@
       turn(direction);
     }, {passive: false});
   };
-  wheelPager(folio, direction => go(destination + direction), () => !document.querySelector('dialog[open]'));
+  wheelPager(folio, direction => {
+    if (sheets.length === 1) {
+      if (sheets[0].matches('.project-sheet')) sheets[0].dispatchEvent(new CustomEvent('gallery-step', {detail:direction}));
+    } else go(destination + direction);
+  }, event => {
+    if (document.querySelector('dialog[open]')) return false;
+    if (sheets[destination].id !== 'works') return true;
+    const delta = event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? catalogue.clientHeight : 1);
+    const canScroll = delta < 0 ? catalogue.scrollTop > 1
+      : delta > 0 && catalogue.scrollTop < catalogue.scrollHeight - catalogue.clientHeight - 1;
+    if (!canScroll) return true;
+    // Scroll the catalogue first; only turn a sheet at its top or bottom edge.
+    if (!catalogue.contains(event.target)) {
+      event.preventDefault();
+      catalogue.scrollBy({top:delta, behavior:'instant'});
+    }
+    return false;
+  });
   wheelPager(viewer, direction => changeImage(imageIndex + direction));
 
   const closeDialog = dialog => new Promise(resolve => {
@@ -213,8 +283,12 @@
     event.preventDefault();
     const panel = link.closest('dialog');
     if (panel) await closeDialog(panel);
+    if (link.matches('.catalogue-card')) catalogueOrigin = link;
+    if (location.hash !== link.hash) history.pushState(null, '', link.hash);
     go(indexForHash(link.hash));
-    folio.focus({preventScroll: true});
+    if (link.hash === '#works') (catalogueOrigin || catalogue).focus({preventScroll:true});
+    else if (link.hash === '#author' && link === viewReturn) handwritingLink.focus({preventScroll:true});
+    else folio.focus({preventScroll: true});
   }));
 
   const imageLabel = () => {
@@ -260,7 +334,7 @@
     element.addEventListener('pointerdown', event => {
       pointers.add(event.pointerId);
       if (pointers.size > 1) {start = null; blocked = true; return;}
-      if (event.button !== 0 || event.target.closest('a,[data-panel],.image-close,.author-controls,.study-controls,.project-gallery,.gallery-navigation,.essay-controls,.chapter-tabs')) return;
+      if (event.button !== 0 || event.target.closest('a,[data-panel],.image-close,.author-controls,.study-controls,.project-gallery,.gallery-navigation,.essay-controls,.chapter-tabs,.catalogue-scroll')) return;
       blocked = false;
       start = {x: event.clientX, y: event.clientY, id: event.pointerId};
     });
@@ -314,6 +388,15 @@
       return;
     }
     if (document.querySelector('dialog[open]') || event.target.closest('input,textarea,select')) return;
+    if (event.key === 'Escape' && sheets.length === 1) {
+      event.preventDefault();
+      const hash = sheets[0].id === 'handwriting' ? '#author' : '#works';
+      if (location.hash !== hash) history.pushState(null, '', hash);
+      go(indexForHash(hash), false);
+      (hash === '#author' ? handwritingLink : catalogueOrigin || catalogue).focus({preventScroll:true});
+      return;
+    }
+    if (sheets[current].id === 'works') return;
     if (sheets[current].id === 'author' && ['ArrowLeft','ArrowRight'].includes(event.key)) {
       event.preventDefault();
       sheets[current].dispatchEvent(new CustomEvent('author-step', {detail:event.key === 'ArrowRight' ? 1 : -1}));
@@ -338,6 +421,16 @@
     const direction = ['ArrowDown','ArrowRight','PageDown',' '].includes(event.key) ? 1 : ['ArrowUp','ArrowLeft','PageUp'].includes(event.key) ? -1 : 0;
     if (direction || ['Home','End'].includes(event.key)) {
       event.preventDefault();
+      if (sheets.length === 1) {
+        if (sheets[0].matches('.project-sheet')) {
+          if (direction) sheets[0].dispatchEvent(new CustomEvent('gallery-step', {detail:direction}));
+          else {
+            const frames = [...sheets[0].querySelectorAll('.gallery-frame')];
+            sheets[0].dispatchEvent(new CustomEvent('gallery-reveal', {detail:event.key === 'Home' ? frames[0] : frames.at(-1)}));
+          }
+        }
+        return;
+      }
       go(event.key === 'Home' ? 0 : event.key === 'End' ? sheets.length - 1 : destination + direction);
     }
   });
@@ -374,4 +467,5 @@
   history.scrollRestoration = 'manual';
   go(indexForHash(location.hash), false);
   update();
+  if (sheets[current].id === 'works') catalogue.focus({preventScroll:true});
 })();

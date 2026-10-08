@@ -37,6 +37,11 @@ input:focus{outline:none;border-bottom-color:var(--ink)}
 .title{font:30px/1.15 Oranienbaum,serif}
 .subtitle{color:var(--muted);font-size:12px;margin-top:6px}
 .subtitle::placeholder{color:#b5b0a9}
+.year-field{display:flex;align-items:baseline;gap:14px;margin-top:10px;color:var(--muted);font-size:12px}
+.year-field input{max-width:100px;font-variant-numeric:tabular-nums}
+.category-field{display:flex;flex-wrap:wrap;gap:8px 14px;margin-top:12px;color:var(--muted);font-size:12px}
+.category-field label{display:inline-flex;align-items:center;gap:5px}
+.category-field input{width:auto;accent-color:var(--ink)}
 .tools{display:flex;flex-direction:column;align-items:flex-end;gap:10px;padding-top:9px;color:var(--muted);font-size:12px}
 .tools .arrows{display:flex;gap:6px}
 .tools .arrows button{width:30px;height:30px;border:1px solid var(--line)}
@@ -74,7 +79,7 @@ input:focus{outline:none;border-bottom-color:var(--ink)}
 <template id="project-row">
   <section class="project">
     <div class="side"><span class="num"></span><span class="handle" draggable="true" title="Перетащить проект">⠿</span></div>
-    <div><input class="title" aria-label="Название проекта"><input class="subtitle" aria-label="Подпись" placeholder="Подпись, например «Совместно с CHADO»"></div>
+    <div><input class="title" aria-label="Название проекта"><input class="subtitle" aria-label="Подпись" placeholder="Подпись, например «Совместно с CHADO»"><label class="year-field">Год проекта<input class="year" aria-label="Год проекта" placeholder="2024" maxlength="9"></label><div class="category-field" role="group" aria-label="Разделы каталога"><label><input type="checkbox" data-category="parks">Парки</label><label><input type="checkbox" data-category="hotels">Отели</label><label><input type="checkbox" data-category="city">Город</label><label><input type="checkbox" data-category="private">Частные</label></div></div>
     <div class="tools"><div class="arrows"><button class="up" aria-label="Выше">↑</button><button class="down" aria-label="Ниже">↓</button></div><span class="about">есть «О проекте»</span><button class="delete">Удалить проект</button></div>
     <div class="frames"></div>
   </section>
@@ -124,11 +129,17 @@ function render() {
   list.replaceChildren(...data.projects.map((project, index) => {
     const row = $('#project-row').content.firstElementChild.cloneNode(true);
     row.querySelector('.num').textContent = pad(index + 1);
-    const title = row.querySelector('.title'), subtitle = row.querySelector('.subtitle');
+    const title = row.querySelector('.title'), subtitle = row.querySelector('.subtitle'), year = row.querySelector('.year');
     title.value = project.title;
     subtitle.value = project.subtitle;
+    year.value = project.year || '';
     title.oninput = () => {project.title = title.value; touch();};
     subtitle.oninput = () => {project.subtitle = subtitle.value; touch();};
+    year.oninput = () => {project.year = year.value.trim(); touch();};
+    row.querySelectorAll('[data-category]').forEach(input => {
+      input.checked = (project.categories || []).includes(input.dataset.category);
+      input.onchange = () => {project.categories = [...row.querySelectorAll('[data-category]:checked')].map(item => item.dataset.category); touch();};
+    });
     row.querySelector('.about').hidden = !project.about;
     const up = row.querySelector('.up'), down = row.querySelector('.down');
     up.disabled = index === 0;
@@ -272,7 +283,7 @@ async function save() {
 
 saveButton.onclick = save;
 $('#new').onclick = () => {
-  data.projects.push({id: '', title: 'Новый проект', subtitle: '', frames: [], about: ''});
+  data.projects.push({id: '', title: 'Новый проект', subtitle: '', year: '', categories: [], frames: [], about: ''});
   changed();
   const title = list.lastElementChild.querySelector('.title');
   title.scrollIntoView({block: 'center'});

@@ -20,6 +20,10 @@
     };
     const go = (index, smooth = true) => {
       destination = Math.max(0, Math.min(frames.length - 1, index));
+      if (!rail.clientWidth || !rail.clientHeight) return;
+      // Measure the full rail before jumping to a frame in a newly opened project.
+      rail.style.setProperty('--stage-height', `${rail.clientHeight}px`);
+      rail.style.paddingRight = `${frames.length > 1 ? Math.max(gutter(), rail.clientWidth - frames.at(-1).offsetWidth - gutter()) : gutter()}px`;
       rail.scrollTo({left: position(frames[destination]), behavior: smooth && !reduce.matches ? 'smooth' : 'instant'});
       if (smooth) status.textContent = `Кадр ${destination + 1} из ${frames.length}`;
       if (!smooth || reduce.matches) refresh();
@@ -70,7 +74,6 @@
       width = rail.clientWidth; height = rail.clientHeight;
       rail.style.setProperty('--stage-height', `${height}px`);
       requestAnimationFrame(() => {
-        rail.style.paddingRight = `${frames.length > 1 ? Math.max(gutter(), width - frames.at(-1).offsetWidth - gutter()) : gutter()}px`;
         go(destination, false);
       });
     }).observe(rail);

@@ -3,9 +3,10 @@
   const orientation = window.DeviceOrientationEvent;
   const mobile = matchMedia('(any-pointer: coarse)').matches || navigator.maxTouchPoints > 0;
   const available = mobile && window.isSecureContext && !!orientation;
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)');
   const clients = new Set();
   const point = {x: 0, y: 0};
-  let motion = false, enabled = false, granted = false, pending = false;
+  let motion = !reduce.matches, enabled = false, granted = false, pending = false;
   let listening = false, pageActive = true, baseline = null, timeout = 0, ticket = 0;
   const radians = Math.PI / 180;
   const clamp = value => Math.max(-1, Math.min(1, value));
@@ -50,6 +51,7 @@
         if (baseline) return;
         enabled = false;
         status.textContent = 'Наклон недоступен. Изображения откликаются на касание.';
+        controls();
         reconcile();
       }, 4000);
     } else {
@@ -59,71 +61,74 @@
     }
   }
 
-  const dialog = document.createElement('dialog');
-  dialog.className = 'motion-choice';
-  dialog.setAttribute('aria-labelledby', 'motion-choice-title');
-  dialog.setAttribute('aria-describedby', 'motion-choice-description');
-  dialog.innerHTML = `<span class="motion-signature">Denis Daragan</span>
-    <div class="motion-choice-copy"><h2 id="motion-choice-title">Живые<br>изображения.</h2>
-    <p id="motion-choice-description"></p><div class="motion-choice-actions">
-    <button data-motion-enable>Включить</button><button data-motion-skip>Без эффекта</button>
-    </div></div>`;
-  dialog.querySelector('p').textContent = available
-    ? 'Наклоняйте телефон — сад отзовётся.'
-    : mobile ? 'Прикосновение добавляет глубину.' : 'Движение курсора добавляет глубину.';
-  const accept = dialog.querySelector('[data-motion-enable]');
-  const skip = dialog.querySelector('[data-motion-skip]');
   const settings = document.createElement('button');
   settings.type = 'button';
   settings.className = 'motion-settings';
   settings.textContent = 'Эффекты';
-  settings.setAttribute('aria-haspopup', 'dialog');
+  settings.setAttribute('aria-pressed', String(motion));
+  const tiltSettings = available ? document.createElement('button') : null;
+  if (tiltSettings) {
+    tiltSettings.type = 'button';
+    tiltSettings.className = 'motion-settings';
+    tiltSettings.textContent = 'Наклон телефона';
+    tiltSettings.setAttribute('aria-pressed', 'false');
+  }
   const status = document.createElement('p');
   status.className = 'motion-status';
   status.setAttribute('role', 'status');
   const menu = document.querySelector('#menu-panel');
   menu.querySelector('.menu-primary').append(settings);
+  if (tiltSettings) menu.querySelector('.menu-primary').append(tiltSettings);
   menu.append(status);
-  document.body.append(dialog);
 
-  function choose(withMotion, withTilt = false) {
+  function controls() {
+    settings.setAttribute('aria-pressed', String(motion));
+    settings.disabled = reduce.matches;
+    if (tiltSettings) {
+      tiltSettings.setAttribute('aria-pressed', String(enabled));
+      tiltSettings.disabled = pending || reduce.matches;
+    }
+  }
+  function setMotion(value) {
     ++ticket;
-    motion = withMotion;
-    enabled = withTilt;
-    pending = false;
-    accept.disabled = false;
-    accept.textContent = 'Включить';
-    dialog.close();
+    motion = value && !reduce.matches;
+    if (!motion) enabled = false;
+    controls();
     for (const client of clients) client.onChange();
     reconcile();
-    document.querySelector('.folio').focus({preventScroll:true});
   }
-  accept.addEventListener('click', async () => {
-    if (pending) return;
+  settings.addEventListener('click', () => setMotion(!motion));
+  tiltSettings?.addEventListener('click', async () => {
+    if (pending || reduce.matches) return;
+    if (enabled) {
+      enabled = false;
+      controls();
+      return reconcile();
+    }
     const current = ++ticket;
     pending = true;
-    accept.disabled = true;
-    accept.textContent = 'Включаем…';
+    controls();
     status.textContent = '';
-    let withTilt = false;
     try {
       // Keep the native request directly in this click, before any await.
-      if (available) {
-        const result = granted || typeof orientation.requestPermission !== 'function'
-          ? 'granted' : await orientation.requestPermission();
-        if (current !== ticket) return;
-        withTilt = result === 'granted';
-        granted = withTilt;
-        if (!withTilt) status.textContent = 'Доступ к наклону закрыт. Можно управлять касанием.';
+      const result = granted || typeof orientation.requestPermission !== 'function'
+        ? 'granted' : await orientation.requestPermission();
+      if (current !== ticket) return;
+      enabled = granted = result === 'granted';
+      if (enabled) {
+        motion = true;
+        for (const client of clients) client.onChange();
+      } else {
+        status.textContent = 'Доступ к наклону закрыт. Можно управлять касанием.';
       }
     } catch {
       status.textContent = 'Наклон недоступен. Можно управлять касанием.';
+    } finally {
+      pending = false;
+      controls();
+      reconcile();
     }
-    if (current === ticket) choose(true, withTilt);
   });
-  skip.addEventListener('click', () => choose(false));
-  dialog.addEventListener('cancel', event => {event.preventDefault(); choose(false);});
-  settings.addEventListener('click', () => {menu.close(); dialog.showModal();});
 
   window.LivingTilt = {
     get motion() { return motion; },
@@ -136,12 +141,12 @@
       };
     },
   };
-  matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', event => {
-    if (event.matches) choose(false);
+  reduce.addEventListener('change', event => {
+    if (event.matches) setMotion(false);
+    controls();
   });
   document.addEventListener('visibilitychange', reconcile);
   window.addEventListener('pagehide', () => {pageActive = false; reconcile();});
   window.addEventListener('pageshow', () => {pageActive = true; reconcile();});
-  // One choice on entry; paging and fullscreen views reuse it without controls.
-  dialog.showModal();
+  controls();
 })();

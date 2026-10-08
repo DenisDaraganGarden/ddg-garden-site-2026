@@ -20,6 +20,8 @@
 .author-controls,.study-controls{position:absolute;inset:auto var(--gutter) var(--controls-bottom);display:flex;justify-content:space-between;align-items:center;gap:14px;z-index:2;font-size:12px}
 .author-reading{display:flex;gap:28px}
 .author-reading button,.study-poetry{min-height:44px}
+.author-reading a{min-height:44px;display:inline-flex;align-items:center}
+.author-reading a:hover{text-decoration:underline;text-underline-offset:4px}
 .author-stepping{display:flex;align-items:center;gap:6px}
 .author-stepping button{width:44px;height:44px;display:grid;place-items:center;font-size:22px;line-height:1}
 .author-stepping [data-author-play],.author-stepping [data-study-play]{font-size:12px}
@@ -65,6 +67,7 @@
  .music-list a{font-size:28px}
 }
 @media(max-height:670px) and (max-width:759px){.author-art{inset:calc(var(--header) + 2px) 0 100px}.study-sheet{padding-top:calc(var(--header) + 8px);padding-bottom:110px;gap:18px}.study-sheet h2{font-size:31px}}
+@media(max-width:360px){.author-controls{flex-wrap:wrap;row-gap:0}.author-reading{width:100%}.author-controls .author-stepping{margin-left:auto}.author-art{bottom:144px}}
 @media(max-height:480px) and (min-width:600px){
  .author-art{inset:calc(var(--header) + 2px) var(--gutter) 70px}.author-controls,.study-sheet .study-controls{bottom:25px}
  .study-sheet{padding:calc(var(--header) + 8px) var(--gutter) 82px;display:grid;grid-template-columns:1fr 3fr 1fr;gap:20px}.study-sheet h2{font-size:32px;order:0;margin-bottom:5px;align-self:end}.study-stage{height:100%}

@@ -8,7 +8,11 @@
         "p04-i01",
         "p05-i02"
       ],
-      "about": ""
+      "about": "",
+      "year": "",
+      "categories": [
+        "private"
+      ]
     },
     {
       "id": "french-manor",
@@ -17,7 +21,11 @@
       "frames": [
         "p06-i01"
       ],
-      "about": ""
+      "about": "",
+      "year": "",
+      "categories": [
+        "private"
+      ]
     },
     {
       "id": "raevo",
@@ -26,25 +34,28 @@
       "frames": [
         "p07-i02"
       ],
-      "about": "<p>Ландшафт: Денис Дараган<br>По заказу студии Derevo Park</p>"
+      "about": "<p>Ландшафт: Денис Дараган<br>По заказу студии Derevo Park</p>",
+      "year": "",
+      "categories": [
+        "parks"
+      ]
     },
     {
       "id": "papushevo",
       "title": "Papushevo Park",
       "subtitle": "Совместно с CHADO",
       "frames": [
-        "p08-i02"
-      ],
-      "about": "<p>Ландшафт: Денис Дараган<br>Совместно с архитектурным бюро CHADO</p>"
-    },
-    {
-      "id": "amphitheatre",
-      "title": "Открытый амфитеатр",
-      "subtitle": "Совместно с CHADO",
-      "frames": [
+        "p08-i02",
         "p09-i01"
       ],
-      "about": "<p>Ландшафт: Денис Дараган<br>Совместно с архитектурным бюро CHADO</p>"
+      "about": "<p>Ландшафт: Денис Дараган<br>Совместно с архитектурным бюро CHADO</p>",
+      "frameAliases": {
+        "amphitheatre": "p09-i01"
+      },
+      "year": "",
+      "categories": [
+        "parks"
+      ]
     },
     {
       "id": "merchant-zlobin",
@@ -56,7 +67,11 @@
         "merchant-zlobin-addition-02",
         "merchant-zlobin-addition-03"
       ],
-      "about": "<p>Ландшафт: Денис Дараган<br>По заказу студии Derevo Park</p>"
+      "about": "<p>Ландшафт: Денис Дараган<br>По заказу студии Derevo Park</p>",
+      "year": "",
+      "categories": [
+        "city"
+      ]
     },
     {
       "id": "petersburg-garden",
@@ -65,7 +80,12 @@
       "frames": [
         "p11-i02"
       ],
-      "about": "<p>Ландшафтная концепция: Денис Дараган. В сотрудничестве с L.BURO.</p><p>L.BURO<br>Серебряный диплом АЛАРОС 2023</p><h3>На конкурсном планшете</h3><ul><li>Пётр Лари<span>главный архитектор</span></li><li>Денис Дараган<span>архитектор</span></li></ul><div class=\"source-links\"><a href=\"https://alaros.ru/projects?project=126&amp;projectYear=2023\" target=\"_blank\" rel=\"noopener noreferrer\">На сайте АЛАРОС</a><button data-document=\"./assets/alaros-2023-126.jpg\" data-caption=\"Сад выпускников · АЛАРОС 2023\">Снимок страницы</button></div>"
+      "about": "<p>Ландшафтная концепция: Денис Дараган. В сотрудничестве с L.BURO.</p><p>L.BURO<br>Серебряный диплом АЛАРОС 2023</p><h3>На конкурсном планшете</h3><ul><li>Пётр Лари<span>главный архитектор</span></li><li>Денис Дараган<span>архитектор</span></li></ul><div class=\"source-links\"><a href=\"https://alaros.ru/projects?project=126&amp;projectYear=2023\" target=\"_blank\" rel=\"noopener noreferrer\">На сайте АЛАРОС</a><button data-document=\"./assets/alaros-2023-126.jpg\" data-caption=\"Сад выпускников · АЛАРОС 2023\">Снимок страницы</button></div>",
+      "year": "",
+      "categories": [
+        "parks",
+        "city"
+      ]
     },
     {
       "id": "provence",
@@ -75,7 +95,11 @@
         "p13-i01",
         "p13-i02"
       ],
-      "about": ""
+      "about": "",
+      "year": "",
+      "categories": [
+        "private"
+      ]
     },
     {
       "id": "beach-hut",
@@ -84,7 +108,9 @@
       "frames": [
         "p14-i01"
       ],
-      "about": ""
+      "about": "",
+      "year": "",
+      "categories": []
     },
     {
       "id": "crimea",
@@ -93,16 +119,11 @@
       "frames": [
         "p15-i01"
       ],
-      "about": "<p>Ландшафт: Денис Дараган<br>Совместно с архитектурным бюро CHADO</p>"
-    },
-    {
-      "id": "outdoor-cinema",
-      "title": "Отель",
-      "subtitle": "",
-      "frames": [
-        "p16-i01"
-      ],
-      "about": ""
+      "about": "<p>Ландшафт: Денис Дараган<br>Совместно с архитектурным бюро CHADO</p>",
+      "year": "",
+      "categories": [
+        "hotels"
+      ]
     },
     {
       "id": "playhub",
@@ -117,7 +138,11 @@
         "p19-i01",
         "p19-i02"
       ],
-      "about": "<p>Жилой комплекс, Москва.</p><p>Концепция команды Denis Daragan Бюро. Руководство: Денис Дараган.</p><p>L.BURO<br>Золотой диплом АЛАРОС 2025</p><h3>На конкурсном планшете</h3><ul><li>Пётр Лари<span>главный архитектор</span></li><li>Денис Дараган<span>архитектор</span></li></ul><div class=\"source-links\"><a href=\"https://alaros.ru/projects?project=55&amp;projectYear=2025\" target=\"_blank\" rel=\"noopener noreferrer\">На сайте АЛАРОС</a><button data-document=\"./assets/alaros-2025-55.jpg\" data-caption=\"Play Hub «Сад вне времени» · АЛАРОС 2025\">Снимок страницы</button></div>"
+      "about": "<p>Жилой комплекс, Москва.</p><p>Концепция команды Denis Daragan Бюро. Руководство: Денис Дараган.</p><p>L.BURO<br>Золотой диплом АЛАРОС 2025</p><h3>На конкурсном планшете</h3><ul><li>Пётр Лари<span>главный архитектор</span></li><li>Денис Дараган<span>архитектор</span></li></ul><div class=\"source-links\"><a href=\"https://alaros.ru/projects?project=55&amp;projectYear=2025\" target=\"_blank\" rel=\"noopener noreferrer\">На сайте АЛАРОС</a><button data-document=\"./assets/alaros-2025-55.jpg\" data-caption=\"Play Hub «Сад вне времени» · АЛАРОС 2025\">Снимок страницы</button></div>",
+      "year": "",
+      "categories": [
+        "city"
+      ]
     },
     {
       "id": "sculpture-garden",
@@ -126,7 +151,9 @@
       "frames": [
         "p21-i01"
       ],
-      "about": ""
+      "about": "",
+      "year": "",
+      "categories": []
     },
     {
       "id": "moscow-cinema",
@@ -137,9 +164,17 @@
         "moscow-cinema-addition-01",
         "moscow-cinema-addition-05",
         "moscow-cinema-addition-03",
-        "moscow-cinema-addition-02"
+        "moscow-cinema-addition-02",
+        "p16-i01"
       ],
-      "about": "<p>Денис Дараган и команда.<br>В сотрудничестве с Derevo Park.</p>"
+      "about": "<p>Денис Дараган и команда.<br>В сотрудничестве с Derevo Park.</p>",
+      "frameAliases": {
+        "outdoor-cinema": "p16-i01"
+      },
+      "year": "",
+      "categories": [
+        "city"
+      ]
     },
     {
       "id": "moscow-courtyard",
@@ -151,7 +186,11 @@
         "moscow-courtyard-addition-03",
         "moscow-courtyard-addition-04"
       ],
-      "about": "<p>Денис Дараган.<br>В сотрудничестве с L.BURO.</p>"
+      "about": "<p>Денис Дараган.<br>В сотрудничестве с L.BURO.</p>",
+      "year": "",
+      "categories": [
+        "city"
+      ]
     },
     {
       "id": "moscow-terraces",
@@ -168,7 +207,11 @@
         "moscow-terraces-addition-09",
         "moscow-terraces-addition-02"
       ],
-      "about": "<p>Денис Дараган и команда.<br>В сотрудничестве с Derevo Park.</p>"
+      "about": "<p>Денис Дараган и команда.<br>В сотрудничестве с Derevo Park.</p>",
+      "year": "",
+      "categories": [
+        "city"
+      ]
     },
     {
       "id": "moscow-garden",
@@ -183,7 +226,11 @@
         "moscow-garden-addition-07",
         "moscow-garden-addition-03"
       ],
-      "about": "<p>Денис Дараган и команда.<br>В сотрудничестве с Derevo Park.</p>"
+      "about": "<p>Денис Дараган и команда.<br>В сотрудничестве с Derevo Park.</p>",
+      "year": "",
+      "categories": [
+        "city"
+      ]
     }
   ]
 }
