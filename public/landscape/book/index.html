@@ -4,14 +4,18 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Denis Daragan · Portfolio book</title><meta name="theme-color" content="#ffffff">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22/%3E">
-<link rel="stylesheet" href="./book.css?v=20261009-editorial">
+<link rel="stylesheet" href="./book.css?v=20261010-mobile">
 <script type="importmap">{"imports":{"three":"./vendor/three.module.js","three/addons/":"./vendor/"}}</script>
-<script type="module" src="./book.js?v=20261009-editorial"></script>
+<script type="module" src="./book.js?v=20261010-mobile"></script>
+<script type="module" src="./reader-ui.js?v=20261010-mobile"></script>
+<script type="module" src="./device-tilt.js?v=20261010-mobile"></script>
 </head>
 <body data-mode="reader">
 <header><a class="back" href="https://denisdaragan.com/landscape/">Портфолио</a><h1 aria-label="Denis Daragan"><span class="signature" aria-hidden="true"></span></h1><button id="reader-menu" aria-controls="contents-panel" aria-expanded="false">Меню</button><button id="material-toggle" aria-controls="material-panel" aria-expanded="false">Материал</button></header>
 <main id="stage" aria-label="Книга на белом столе"><canvas id="book-canvas" aria-label="Трёхмерная книга. Нажмите на обложку, чтобы открыть. Тяните лист для перелистывания. Нажмите на фотографию, чтобы приблизить; повторное нажатие возвращает разворот. Камера закреплена. Потяните обложку, чтобы открыть или закрыть книгу." tabindex="0"></canvas><div id="loading" role="status">Подготовка сцены</div><div id="fallback" hidden role="alert">Не удалось открыть сцену.<button id="reload">Повторить</button></div></main>
-<footer><div class="print-switch"><button id="contents-toggle" aria-controls="contents-panel" aria-expanded="false">СОДЕРЖАНИЕ</button><button id="blank-toggle" aria-pressed="false">Бумага</button></div><div class="views" role="group" aria-label="Ракурс"><button data-view="spread">Разворот</button><button data-view="cover" aria-pressed="true">Обложка</button><button data-view="profile">Профиль</button><button data-view="detail">Деталь</button><button data-view="surface">Фактура</button><button id="orbit-toggle" aria-pressed="false">Вращение</button></div><div class="page-navigation"><button id="previous" aria-label="Предыдущий разворот" disabled>←</button><button id="turn" aria-label="Открыть книгу">Открыть</button></div></footer>
+<footer><div class="print-switch"><button id="contents-toggle" aria-controls="contents-panel" aria-expanded="false">СОДЕРЖАНИЕ</button><button id="blank-toggle" aria-pressed="false">Бумага</button><button id="device-tilt" aria-pressed="false" aria-describedby="tilt-status" hidden>Наклон</button></div><div class="views" role="group" aria-label="Ракурс"><button data-view="spread">Разворот</button><button data-view="cover" aria-pressed="true">Обложка</button><button data-view="profile">Профиль</button><button data-view="detail">Деталь</button><button data-view="surface">Фактура</button><button id="orbit-toggle" aria-pressed="false">Вращение</button></div><div class="page-navigation" role="group" aria-label="Перелистывание книги"><button id="previous" aria-label="Предыдущий разворот" disabled>←</button><span id="reader-position" aria-hidden="true"></span><button id="turn" aria-label="Открыть книгу">Открыть</button></div></footer>
+<p id="tilt-status" class="reader-status" role="status"></p>
+<p id="reader-description" class="reader-description" role="status" aria-live="polite" aria-atomic="true"></p>
 <nav id="contents-panel" hidden aria-labelledby="contents-heading"><div class="panel-heading"><h2 id="contents-heading">Содержание</h2><button id="contents-close" aria-label="Закрыть содержание">×</button></div><button id="contents-cover">Обложка</button><div id="chapter-list"></div></nav>
 <aside id="material-panel" hidden aria-labelledby="material-heading"><div class="panel-heading"><h2 id="material-heading">Книга и объектив</h2><button id="material-close" aria-label="Закрыть настройки">×</button></div><form id="material-form">
 <details class="material-group"><summary>Объектив</summary><fieldset aria-label="Объектив">

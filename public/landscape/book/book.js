@@ -63,9 +63,17 @@ let coverProgress = currentView === 'cover' ? 0 : 1, orbitMode = false;
 const boardGeometries = new Set();
 let turning = null;
 let gesture = null;
+let interactionVersion = 0;
 let turnMesh = null;
-let lastFrame = 0;
 let visible = true;
+let parentVisible = true;
+let readerFace = 0, pendingReaderFace = null;
+const readerTilt = new THREE.Vector2(), readerTiltTarget = new THREE.Vector2();
+let readerTiltBase = null, readerStateKey = '';
+let readerDirty = true;
+const recoveryKey = 'daragan-book-reader-recovery-v1';
+let recoveryCheckpoint = null;
+try { recoveryCheckpoint = JSON.parse(sessionStorage.getItem(recoveryKey) || 'null'); } catch { /* Session storage is optional. */ }
 let hover = { side: 0, u:.8, v: .5, strength: 0, target:0 };
 const topLeaves = [];
 const stackLeaves = [];
@@ -75,20 +83,80 @@ const clock = new THREE.Clock();
 const diagnostics = { ready: false, revision: THREE.REVISION, frameCount: 0, error: null, preset: 'spread' };
 window.bookStudy = { settings, diagnostics, content: bookContent, leafCounts, get camera() { return camera; }, get scene() { return scene; }, get book() { return book; }, get renderer() { return renderer; }, get turning() { return Boolean(turning); }, get turnProgress() { return turning?.progress ?? null; }, get cover() { return closedBook; }, get openingCover() { return Boolean(coverMotion); }, get focusedImage() { return imageFocus?.asset || null; }, get controls() { return controls; }, get photo() { return scenePhoto; }, get surfaces() { return [...stackLeaves, ...topLeaves]; }, get texture() { return blankPrint ? 'blank' : printIndex; } };
 
+const readerPortrait = () => !editorMode && innerWidth <= 600 && innerHeight > innerWidth;
+const readerHandset = () => !editorMode && (innerWidth <= 600 || (innerWidth <= 900 && innerHeight <= 600));
+const readerOverlayOpen = () => Boolean(imageFocus || document.querySelector('#text-reader')?.open || !document.querySelector('#contents-panel')?.hidden || !document.querySelector('#material-panel')?.hidden);
+const readerPhase = () => {
+  if (diagnostics.error) return 'failed';
+  if (recoveryCheckpoint) return 'recovering';
+  if (navigating) return 'loading';
+  if (gesture) return 'dragging';
+  if (turning || coverMotion || cameraTween) return 'animating';
+  return 'idle';
+};
+function readerState() {
+  const ready = Boolean(diagnostics.ready);
+  const closed = Boolean(closedBook?.visible);
+  const busy = readerPhase() !== 'idle';
+  const last = bookContent.spreads.length - 1;
+  const portrait = readerPortrait();
+  const active = parentVisible && !document.hidden;
+  return Object.freeze({
+    ready, active, overlay: readerOverlayOpen(), phase: readerPhase(),
+    view: closed ? 'cover' : readerPortrait() ? 'face' : 'spread', opening: printIndex,
+    face: closed ? null : readerFace ? 'right' : 'left', totalOpenings: bookContent.spreads.length,
+    canNext: ready && active && !busy && !readerOverlayOpen() && (closed || (portrait ? readerFace === 0 || printIndex < last : printIndex < last)),
+    canPrevious: ready && active && !busy && !readerOverlayOpen() && !closed,
+    busy, language: document.documentElement.lang === 'en' ? 'en' : 'ru'
+  });
+}
+function emitReaderState(force = false) {
+  const detail = readerState(), key = JSON.stringify(detail);
+  if (!force && key === readerStateKey) return detail;
+  readerStateKey = key;
+  document.dispatchEvent(new CustomEvent('book-reader-state', { detail }));
+  if (embedded) parent.postMessage({ type: 'book-state', version: 1, ...detail }, location.origin);
+  return detail;
+}
+function checkpointReader() {
+  try { sessionStorage.setItem(recoveryKey, JSON.stringify({ opening: printIndex, face: readerFace, view: closedBook?.visible ? 'cover' : 'spread' })); } catch { /* Session storage is optional. */ }
+}
+function clearCheckpoint() {
+  recoveryCheckpoint = null;
+  try { sessionStorage.removeItem(recoveryKey); } catch { /* Session storage is optional. */ }
+}
+function invalidateReader() { readerDirty = true; }
+function resetReaderTilt() { readerTiltTarget.set(0, 0); invalidateReader(); }
+function setReaderTilt(x = 0, y = 0) {
+  readerTiltTarget.set(THREE.MathUtils.clamp(Number(x) || 0, -1, 1), THREE.MathUtils.clamp(Number(y) || 0, -1, 1));
+  invalidateReader();
+  return true;
+}
+window.bookReader = {
+  next: () => readerNavigate(1), previous: () => readerNavigate(-1), getState: readerState,
+  setTilt: setReaderTilt, resetTilt: resetReaderTilt
+};
+
 function fail(error) {
   diagnostics.error = String(error?.message || error);
   loading.hidden = true;
   failure.hidden = false;
+  emitReaderState();
   console.error(error);
 }
+function recoverableTextureError(error) {
+  diagnostics.textureError = String(error?.message || error);
+  console.error(error);
+  emitReaderState();
+}
 document.querySelector('#reload').addEventListener('click', () => location.reload());
-canvas.addEventListener('webglcontextlost', event => { event.preventDefault(); visible = false; fail('WebGL context lost'); });
+canvas.addEventListener('webglcontextlost', event => { event.preventDefault(); checkpointReader(); visible = false; fail('WebGL context lost'); });
 canvas.addEventListener('webglcontextrestored', () => location.reload());
-let parentVisible = true;
-document.addEventListener('visibilitychange', () => { visible = !document.hidden && parentVisible; });
+document.addEventListener('visibilitychange', () => { visible = !document.hidden && parentVisible; invalidateReader(); emitReaderState(); });
 addEventListener('message', event => {
   if(!embedded || event.origin !== location.origin || event.source !== parent) return;
-  if(event.data?.type === 'book-visibility') { parentVisible=Boolean(event.data.active);visible=parentVisible&&!document.hidden; }
+  if(event.data?.type === 'book-visibility') { parentVisible=Boolean(event.data.active);visible=parentVisible&&!document.hidden; invalidateReader(); if(!parentVisible) cancelReaderDrag(); emitReaderState(); }
+  if(event.data?.type === 'book-state-request') emitReaderState(true);
   if(event.data?.type === 'book-contents') document.querySelector('#contents-toggle').click();
   if(event.data?.type === 'book-language') {
     const en=event.data.language==='en';document.documentElement.lang=en?'en':'ru';
@@ -96,6 +164,7 @@ addEventListener('message', event => {
     document.querySelector('#contents-heading').textContent=en?'Contents':'Содержание';
     document.querySelector('#text-reader>button').setAttribute('aria-label',en?'Return to the book':'Вернуться к книге');
     document.querySelectorAll('[data-opening] span').forEach((span,i)=>{span.firstChild.textContent=en?bookContent.chapters[i].title_en:bookContent.chapters[i].title;});
+    emitReaderState();
   }
 });
 
@@ -640,6 +709,10 @@ async function pageTexture(page) {
       entry.texture = texture;
       if (textureCache.get(record.file) !== entry) texture.dispose();
       return texture;
+    }).catch(error => {
+      // Keep a transient failure retryable, but never remove a newer request.
+      if (textureCache.get(record.file) === entry) textureCache.delete(record.file);
+      throw error;
     });
     textureCache.set(record.file, entry);
   }
@@ -663,7 +736,9 @@ function updateNavigation() {
   const chapter = bookContent.chapters.find(item => item.id === spread.chapter);
   document.querySelector('#contents-toggle').textContent = document.documentElement.lang==='en'?'CONTENTS':'СОДЕРЖАНИЕ';
   const busy=navigating||Boolean(turning)||Boolean(coverMotion)||Boolean(cameraTween);
-  document.querySelector('#previous').disabled = busy || closedBook?.visible || printIndex === 0;
+  // The public reader can close its cover from the first opening; the editor
+  // still keeps its original first-spread boundary.
+  document.querySelector('#previous').disabled = busy || closedBook?.visible || (editorMode && printIndex === 0);
   document.querySelector('#turn').disabled = busy || (!closedBook?.visible && printIndex === bookContent.spreads.length - 1);
   document.querySelector('#turn').textContent = closedBook?.visible ? 'Открыть' : 'Лист →';
   document.querySelector('#turn').setAttribute('aria-label',closedBook?.visible ? 'Открыть книгу' : 'Следующий разворот');
@@ -672,6 +747,7 @@ function updateNavigation() {
   diagnostics.opening = spread.id;
   diagnostics.layout = spread.layout;
   diagnostics.visiblePages = [...spread.pages];
+  emitReaderState(!editorMode);
 }
 
 function applyPrint(index = printIndex) {
@@ -685,7 +761,7 @@ function applyPrint(index = printIndex) {
   }
   for (const material of Object.values(inkMaterials)) { material.map = blankPrint ? null : blockAtlas; material.needsUpdate = true; }
   if (changed) { rebuildPageBlocks(); updateBinding(); renderContactShadow(); }
-  updateNavigation(); trimTextureCache();
+  invalidateReader(); updateNavigation(); trimTextureCache();
   for (const adjacent of [index - 1, index + 1]) if (bookContent.spreads[adjacent]) openingTextures(adjacent).catch(error => { console.error(error); });
 }
 
@@ -700,14 +776,51 @@ function assignPageSurface(material,page) {
   material.userData.paperUniforms.uMonochrome.value=record?.monochrome||record?.paper==='black'?1:0;
 }
 
+function readerCameraView() { return readerPortrait() ? 'reader-face' : 'spread'; }
+function setReaderFace(face, animate = true) {
+  readerFace = face ? 1 : 0;
+  if (!closedBook?.visible && !imageFocus && !turning && !coverMotion) fitCamera(readerCameraView(), animate);
+  emitReaderState();
+}
+function readerNavigate(direction) {
+  if (!diagnostics.ready || !parentVisible || document.hidden || readerOverlayOpen() || navigating || turning || coverMotion || cameraTween || gesture) return false;
+  if (closedBook.visible) {
+    if (direction < 0) return false;
+    readerFace = 0; openCover(); emitReaderState(); return true;
+  }
+  // A landscape handset displays a full physical opening, so its controls
+  // advance the actual leaf. Portrait consumes each left/right face first.
+  if (!readerPortrait()) {
+    if ((direction > 0 && printIndex >= bookContent.spreads.length - 1) || (direction < 0 && printIndex === 0)) {
+      if (direction < 0 && printIndex === 0) { closeCover(); return true; }
+      return false;
+    }
+    turnPage(direction); emitReaderState(); return true;
+  }
+  if (direction > 0) {
+    if (readerFace === 0) { setReaderFace(1); return true; }
+    if (printIndex >= bookContent.spreads.length - 1) return false;
+    pendingReaderFace = 0; turnPage(1); emitReaderState(); return true;
+  }
+  if (readerFace === 1) { setReaderFace(0); return true; }
+  if (printIndex === 0) { closeCover(); emitReaderState(); return true; }
+  pendingReaderFace = 1; turnPage(-1); emitReaderState(); return true;
+}
+
 async function goToOpening(index) {
   if (navigating || turning || coverMotion || cameraTween) return;
   if (imageFocus) await restoreSpread();
   if (closedBook.visible) fitCamera('spread', false);
-  if (index === printIndex) return;
+  if (index === printIndex) {
+    if (!editorMode) { readerFace = 0; fitCamera(readerCameraView(), false); }
+    return;
+  }
   navigating = true; updateNavigation();
-  try { await openingTextures(index); applyPrint(index); }
-  catch (error) { fail(error); }
+  try {
+    await openingTextures(index); applyPrint(index);
+    if (!editorMode) { readerFace = 0; fitCamera(readerCameraView(), false); }
+  }
+  catch (error) { recoverableTextureError(error); }
   finally { navigating = false; updateNavigation(); }
 }
 
@@ -745,6 +858,7 @@ function applySettings(shapeChanged = false) {
 
 function fitCamera(view = 'spread', animate = true) {
   if (turning || gesture || coverMotion) return;
+  invalidateReader();
   cameraTween?.resolve?.();
   imageFocus = null;
   diagnostics.focusedImage = null;
@@ -757,8 +871,10 @@ function fitCamera(view = 'spread', animate = true) {
   for (const child of book.children) if (child !== ambientShadow) child.visible = coverMode ? child === closedBook : child !== closedBook;
   currentView = view; diagnostics.preset = view;
   // A fixed, longer lens keeps the lifted sheet inside the original framing.
-  camera.fov = view === 'spread' || view === 'cover' ? 17 : 31; camera.updateProjectionMatrix();
-  book.rotation.y = innerWidth < innerHeight * .78 && !coverMode ? Math.PI / 2 : 0;
+  camera.fov = view === 'spread' || view === 'cover' || view === 'reader-face' ? 17 : 31; camera.updateProjectionMatrix();
+  // Reader faces stay upright and side-by-side in portrait. The older 90°
+  // spread rotation stacks both faces vertically, which defeats single-face reading.
+  book.rotation.y = view === 'reader-face' ? 0 : innerWidth < innerHeight * .78 && !coverMode ? Math.PI / 2 : 0;
   book.position.set(coverMode?-pageWidth/2:0,0,0);
   const target = new THREE.Vector3(0, .2, 0);
   let position;
@@ -778,7 +894,14 @@ function fitCamera(view = 'spread', animate = true) {
     const direction = view === 'profile' ? new THREE.Vector3(0, .13, 1).normalize().applyQuaternion(book.quaternion) : new THREE.Vector3(0, 1, .000001).normalize();
     const frameRotation = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0),innerWidth<innerHeight*.78?Math.PI/2:0);
     const bounds = [];
-    for (const x of [-2.81, 2.81]) for (const y of [.032, .58]) for (const z of [-(pageHeight + .18) / 2, (pageHeight + .18) / 2]) bounds.push(new THREE.Vector3(x, y, z).applyQuaternion(view==='cover'?frameRotation:book.quaternion));
+    const compactCover = readerHandset() && view === 'cover';
+    const faceBounds = view === 'reader-face' ? (readerFace ? [0, pageWidth] : [-pageWidth, 0])
+      : compactCover ? [-(pageWidth + .18) * .5, (pageWidth + .18) * .5] : [-2.81, 2.81];
+    if (view === 'reader-face') target.copy(book.localToWorld(new THREE.Vector3((faceBounds[0] + faceBounds[1]) * .5, .2, 0)));
+    for (const x of faceBounds) for (const y of [.032, .58]) for (const z of [-(pageHeight + .18) / 2, (pageHeight + .18) / 2]) {
+      const point = new THREE.Vector3(x, y, z);
+      bounds.push(view === 'cover' && !compactCover ? point.applyQuaternion(frameRotation) : view === 'cover' ? point : book.localToWorld(point));
+    }
     const probe = camera.clone();
     let min = 1, max = 32;
     const verticalLimit = Math.max(.48, 1 - (innerHeight < 480 ? 115 : 180) / innerHeight);
@@ -790,16 +913,26 @@ function fitCamera(view = 'spread', animate = true) {
     }
     position = target.clone().addScaledVector(direction, max);
   }
+  readerTiltBase = readerHandset() && ['reader-face', 'spread', 'cover'].includes(view) ? { position: position.clone(), target: target.clone() } : null;
   if (!animate || reducedMotion.matches) { camera.position.copy(position); controls.target.copy(target); camera.lookAt(target); cameraTween = null; }
   else cameraTween = { start: performance.now(), from: camera.position.clone(), to: position, fromTarget: controls.target.clone(), toTarget: target };
   for (const b of document.querySelectorAll('[data-view]')) b.setAttribute('aria-pressed', String(b.dataset.view === view));
   controls.update();syncOrbit();
   if(!coverMode&&printIndex===0){stackLeaves[0].visible=false;edgeMeshes[0].visible=false;}
   updateBinding();
-  updateNavigation(); renderContactShadow();
+  updateNavigation(); renderContactShadow(); emitReaderState();
 }
 
 function resize() {
+  // Finish an interrupted interaction at a confirmed pose before changing axes.
+  cancelReaderDrag();
+  if (turning) finishTurn(false);
+  if (imageFocus) {
+    imageFocus = null; diagnostics.focusedImage = null;
+    cameraTween?.resolve?.(); cameraTween = null;
+  }
+  invalidateReader();
+  readerTilt.set(0, 0); resetReaderTilt();
   if (coverMotion) finishCoverOpening((coverMotion.to??coverMotion.target)>.5);
   renderer.setSize(innerWidth, innerHeight);
   renderer.setViewport(0, 0, viewportWidth(), innerHeight);
@@ -807,8 +940,10 @@ function resize() {
   scenePhoto?.resize(innerWidth,innerHeight,viewportWidth());
   // Keep the printed text upright; a single page is framed vertically in cover view.
   book.rotation.y = innerWidth < innerHeight * .78 && currentView !== 'cover' ? Math.PI / 2 : 0;
-  fitCamera(currentView, false);
+  const readerView = !editorMode && currentView !== 'cover' && !closedBook?.visible && !imageFocus ? readerCameraView() : currentView;
+  fitCamera(readerView, false);
   renderContactShadow();
+  emitReaderState();
 }
 
 function setCoverPose(progress) {
@@ -837,7 +972,8 @@ function finishCoverOpening(open = true) {
   if(open&&printIndex===0){stackLeaves[0].visible=false;edgeMeshes[0].visible=false;}
   updateBinding();
   for (const b of document.querySelectorAll('[data-view]')) b.setAttribute('aria-pressed',String(b.dataset.view===currentView));
-  syncOrbit();updateNavigation();renderContactShadow();
+  if (open && !editorMode && readerPortrait()) fitCamera('reader-face', false);
+  syncOrbit();updateNavigation();renderContactShadow();emitReaderState();
 }
 
 function settleCover(target) {
@@ -850,7 +986,7 @@ async function openCover() {
   if (currentView!=='cover') fitCamera('cover',false);
   navigating=true;updateNavigation();
   try {await openingTextures(0);applyPrint(0);}
-  catch(error){navigating=false;fail(error);return;}
+  catch(error){navigating=false;recoverableTextureError(error);return;}
   navigating=false;cameraTween=null;setCoverPose(0);
   settleCover(1);
   diagnostics.coverProgress=0;updateNavigation();
@@ -887,8 +1023,9 @@ function restoreSpread(animate=true) {
 }
 
 function zoomPrintedContent(local) {
+  readerTilt.set(0, 0); resetReaderTilt();
   if (imageFocus) {restoreSpread();return true;}
-  if (currentView!=='spread'||blankPrint) return false;
+  if ((currentView!=='spread' && currentView!=='reader-face')||blankPrint) return false;
   const spread=bookContent.spreads[printIndex],x=268+local.x*100,y=151+local.z*100;
   const side=x>=268?1:0;
   const image=spread.images?.find(item=>x>=item.box[0]&&x<=item.box[0]+item.box[2]&&y>=item.box[1]&&y<=item.box[1]+item.box[3]);
@@ -908,16 +1045,21 @@ function zoomPrintedContent(local) {
     reader.querySelector('h2').textContent=text.title;reader.querySelector('p').textContent=text.body;
     reader.showModal();const readingBody=reader.querySelector('.text-reader-body');readingBody.scrollTop=0;readingBody.focus({preventScroll:true});
   }
+  emitReaderState();
   return true;
 }
 
 async function beginTurn(direction = 1, grab = null) {
   const next = printIndex + direction;
   if (turning || navigating || closedBook?.visible || !bookContent.spreads[next]) return false;
+  const startedVersion = interactionVersion;
   navigating = true; updateNavigation();
   let nextTextures;
   try { nextTextures = await openingTextures(next); }
-  catch (error) { navigating = false; updateNavigation(); fail(error); return false; }
+  catch (error) { navigating = false; updateNavigation(); recoverableTextureError(error); return false; }
+  if (startedVersion !== interactionVersion || (!editorMode && (!parentVisible || document.hidden))) {
+    navigating = false; pendingReaderFace = null; updateNavigation(); return false;
+  }
   const side = direction > 0 ? 1 : -1;
   const frontIndex = side > 0 ? 1 : 0, backIndex = 1 - frontIndex;
   const material = createPaperMaterial(settings, grainMap), back = createPaperMaterial(settings, grainMap);
@@ -947,12 +1089,13 @@ function settleTurn(target) {
 }
 
 async function turnPage(direction = 1) {
-  if (navigating||turning||coverMotion||cameraTween) return;
-  if (closedBook.visible) {if(direction>0) await openCover();return;}
-  if(direction<0 && printIndex===0) {await closeCover();return;}
-  if (coverMotion) return;
+  if (navigating||turning||coverMotion||cameraTween) return false;
+  if (closedBook.visible) {if(direction>0) { await openCover(); return true; } return false;}
+  if(direction<0 && printIndex===0) {await closeCover();return true;}
+  if (coverMotion) return false;
   if (imageFocus) await restoreSpread();
-  if (await beginTurn(direction)) settleTurn(1);
+  if (await beginTurn(direction)) { settleTurn(1); emitReaderState(); return true; }
+  return false;
 }
 
 function finishTurn(completed = true) {
@@ -964,7 +1107,12 @@ function finishTurn(completed = true) {
   book.remove(turnMesh); turnMesh = null; turning = null;
   // A cancelled grab restores the original high-resolution faces and blocks.
   if (!completed) rebuildPageBlocks();
-  applyPrint(next); updateNavigation(); syncOrbit();
+  applyPrint(next);
+  if (completed && pendingReaderFace !== null) {
+    const face = pendingReaderFace; pendingReaderFace = null;
+    setReaderFace(face, !editorMode && readerPortrait());
+  } else pendingReaderFace = null;
+  updateNavigation(); syncOrbit(); emitReaderState();
 }
 
 function pointerRay(event) {
@@ -990,6 +1138,18 @@ function dragTarget(event) {
   if (turning && gesture.distance > 5) turning.target=gesture.target;
 }
 
+function cancelReaderDrag() {
+  interactionVersion++;
+  if (!gesture) return;
+  const token = gesture;
+  token.released = true; token.cancelled = true;
+  gesture = null; hover.target = 0;
+  if (canvas.hasPointerCapture(token.id)) canvas.releasePointerCapture(token.id);
+  if (turning && !turning.settle) settleTurn(0);
+  if (coverMotion?.drag) settleCover(token.coverStart);
+  emitReaderState();
+}
+
 function connectPageDrag() {
   let backgroundGesture=null;
   // A short tap inspects the print; only a deliberate drag picks up a sheet.
@@ -1005,7 +1165,7 @@ function connectPageDrag() {
     token.started=true;
     if(printIndex!==0) {
       navigating=true;updateNavigation();
-      try{await openingTextures(0);applyPrint(0);}catch(error){fail(error);return;}finally{navigating=false;}
+      try{await openingTextures(0);applyPrint(0);}catch(error){recoverableTextureError(error);return;}finally{navigating=false;}
     }
     setCoverPose(token.coverStart);
     coverMotion={drag:true,progress:token.coverStart,target:token.target};
@@ -1018,10 +1178,19 @@ function connectPageDrag() {
     if(coverMotion?.drag) coverMotion.target=gesture.target;
   };
   canvas.addEventListener('pointerdown',event=>{
-    if(!event.isPrimary) backgroundGesture=null;
+    if(!event.isPrimary) { backgroundGesture=null; cancelReaderDrag(); return; }
     if (event.button!==0 || !event.isPrimary || gesture) return;
     if(editorMode&&orbitMode) return;
     if (turning || navigating || coverMotion || cameraTween) { event.stopImmediatePropagation(); return; }
+    readerTilt.set(0, 0); resetReaderTilt();
+    // Portrait reading never derives a page drag from an oblique ray. A small
+    // tap still uses the physical page hit on release; a horizontal swipe is
+    // a screen-space next/previous command.
+    if (readerHandset() && event.pointerType==='touch' && !closedBook.visible && !imageFocus) {
+      event.preventDefault(); event.stopImmediatePropagation(); hover.strength = hover.target = 0;
+      gesture = { id:event.pointerId, kind:'reader-swipe', x:event.clientX, y:event.clientY, distance:0, released:false, cancelled:false };
+      canvas.setPointerCapture(event.pointerId); emitReaderState(); return;
+    }
     pointerRay(event);
     book.updateMatrixWorld(true);
     let kind=imageFocus?'focus':closedBook.visible?'cover':'paper';
@@ -1047,6 +1216,7 @@ function connectPageDrag() {
     if (!gesture || event.pointerId!==gesture.id) return;
     event.preventDefault(); event.stopImmediatePropagation();
     gesture.distance=Math.max(gesture.distance,Math.hypot(event.clientX-gesture.x,event.clientY-gesture.y));
+    if (gesture.kind==='reader-swipe') return;
     if(gesture.kind==='cover') {
       coverTarget(event);
       if(gesture.distance>6&&!gesture.started) startCoverDrag(gesture);
@@ -1064,6 +1234,23 @@ function connectPageDrag() {
       backgroundGesture=null;return;
     }
     if (!gesture || event.pointerId!==gesture.id) return;
+    if (gesture.kind==='reader-swipe') {
+      event.preventDefault(); event.stopImmediatePropagation();
+      const token=gesture, dx=event.clientX-token.x, dy=event.clientY-token.y;
+      gesture=null;
+      if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
+      const swipe=Math.abs(dx)>=Math.max(42,innerWidth*.11)&&Math.abs(dx)>Math.abs(dy)*1.25;
+      const vertical=Math.abs(dy)>45&&Math.abs(dy)>Math.abs(dx)*1.2;
+      if (!cancelled && swipe) readerNavigate(dx<0?1:-1);
+      else if (!cancelled && vertical && embedded) {
+        // The parent gates its pager from this state; publish idle before the
+        // cross-frame swipe so a released touch is never seen as dragging.
+        emitReaderState();
+        parent.postMessage({type:'book-swipe',direction:dy<0?1:-1},location.origin);
+      }
+      else if (!cancelled && token.distance<=8) { const local=pointerOnPaper(event); if(local) zoomPrintedContent(local); }
+      emitReaderState(); return;
+    }
     event.preventDefault(); event.stopImmediatePropagation();
     if (!cancelled&&gesture.kind==='paper') dragTarget(event);
     if(!cancelled&&gesture.kind==='cover') coverTarget(event);
@@ -1101,7 +1288,7 @@ function connectUI() {
     const name = document.createElement('span'); name.textContent = chapter.title;
     button.append(preview, name);
     if (chapter.credit) { const credit = document.createElement('small'); credit.textContent = chapter.credit; name.append(credit); }
-    button.addEventListener('click', () => { toggleContents(false); goToOpening(chapter.start); });
+    button.addEventListener('click', () => { toggleContents(false); readerFace=0; goToOpening(chapter.start); emitReaderState(); });
     document.querySelector('#chapter-list').append(button);
   }
   document.querySelector('#contents-toggle').addEventListener('click', () => toggleContents(contents.hidden));
@@ -1124,8 +1311,8 @@ function connectUI() {
     if (e.key === 'Escape' && !panel.hidden) { togglePanel(false); document.querySelector('#material-toggle').focus(); }
     if (e.key === 'Escape' && !contents.hidden) { toggleContents(false); document.querySelector('#contents-toggle').focus(); }
     if (e.target.matches('input')) return;
-    if (e.key === 'ArrowRight') { e.preventDefault(); turnPage(1); }
-    if (e.key === 'ArrowLeft') { e.preventDefault(); turnPage(-1); }
+    if (e.key === 'ArrowRight') { e.preventDefault(); !editorMode ? readerNavigate(1) : turnPage(1); }
+    if (e.key === 'ArrowLeft') { e.preventDefault(); !editorMode ? readerNavigate(-1) : turnPage(-1); }
     if (e.key === 'Home') fitCamera('spread');
   });
   const setInputs = () => {
@@ -1177,8 +1364,8 @@ function connectUI() {
   document.querySelector('#default-hdri').addEventListener('click', () => setEnvironment(defaultEnvironment, 'Studio / softboxes'));
   for (const button of document.querySelectorAll('[data-view]')) button.addEventListener('click', () => fitCamera(button.dataset.view));
   document.querySelector('#blank-toggle').addEventListener('click', () => { if (turning || navigating || gesture || coverMotion) return; if(imageFocus)restoreSpread(false); blankPrint = !blankPrint; applyPrint(); });
-  document.querySelector('#turn').addEventListener('click', () => turnPage(1));
-  document.querySelector('#previous').addEventListener('click', () => turnPage(-1));
+  document.querySelector('#turn').addEventListener('click', () => !editorMode ? readerNavigate(1) : turnPage(1));
+  document.querySelector('#previous').addEventListener('click', () => !editorMode ? readerNavigate(-1) : turnPage(-1));
   connectPageDrag();
   canvas.addEventListener('pointermove', event => {
     if (turning || closedBook.visible || imageFocus || orbitMode) { hover.target = 0; return; }
@@ -1198,9 +1385,12 @@ function connectUI() {
 let lastDrawTime=0;
 function draw(now) {
   requestAnimationFrame(draw);
-  if (!visible || document.querySelector('#text-reader').open || now - lastFrame < 1000 / 45) return;
-  lastFrame = now;
+  if (!visible || document.querySelector('#text-reader').open) return;
   const delta = Math.min(.08,(now-lastDrawTime)/1000 || .022); lastDrawTime=now;
+  const tiltMoving = readerTilt.distanceToSquared(readerTiltTarget) > .000001;
+  const readerStatic = readerHandset() && !editorMode && !readerDirty && !cameraTween && !coverMotion && !turning && !gesture
+    && hover.strength < .0001 && Math.abs(hover.target-hover.strength) < .0001 && !tiltMoving;
+  if (readerStatic) return;
   const time = clock.getElapsedTime();
   if (cameraTween) {
     const tween=cameraTween;
@@ -1208,7 +1398,7 @@ function draw(now) {
     camera.position.lerpVectors(cameraTween.from, cameraTween.to, ease);
     controls.target.lerpVectors(cameraTween.fromTarget, cameraTween.toTarget, ease);
     if (tween.toRotation!==undefined) book.rotation.y=THREE.MathUtils.lerp(tween.fromRotation,tween.toRotation,ease);
-    if (t >= 1) {cameraTween = null;updateNavigation();tween.resolve?.();}
+    if (t >= 1) {cameraTween = null;updateNavigation();tween.resolve?.();emitReaderState();}
   }
   if (coverMotion) {
     const t=coverMotion.drag?0:Math.min(1,(now-coverMotion.start)/coverMotion.duration),ease=t*t*(3-2*t);
@@ -1218,7 +1408,8 @@ function draw(now) {
     if (t>=1) finishCoverOpening(coverMotion.to===1);
   }
   hover.strength+=(hover.target-hover.strength)*(1-Math.exp(-delta*20));
-  if (!turning && !closedBook.visible && (settings.motion > 0 || hover.strength>.0001 || hover.target===0)) for (const mesh of topLeaves) updateLeaf(mesh.geometry, time);
+  const animateIdleLeaves = editorMode && settings.motion > 0;
+  if (!turning && !closedBook.visible && (animateIdleLeaves || hover.strength>.0001 || Math.abs(hover.target-hover.strength)>.0001)) for (const mesh of topLeaves) updateLeaf(mesh.geometry, time);
   if (turning) {
     if (turning.settle) {
       const t=Math.min(1,(now-turning.settle.start)/turning.settle.duration), ease=t*t*(3-2*t);
@@ -1230,11 +1421,20 @@ function draw(now) {
       updateTurnBinding();updateLeaf(turnMesh.geometry,time,turning.progress);
     }
   }
+  if (readerTiltBase && readerHandset() && !cameraTween) {
+    readerTilt.lerp(readerTiltTarget, 1-Math.exp(-delta*12));
+    const tilt=new THREE.Vector2(readerTilt.x,readerTilt.y).clampLength(0,1);
+    const distance=readerTiltBase.position.distanceTo(readerTiltBase.target);
+    const offset=new THREE.Vector3(tilt.x,0,tilt.y).multiplyScalar(distance*Math.tan(THREE.MathUtils.degToRad(2)));
+    camera.position.copy(readerTiltBase.position).add(offset);
+    controls.target.copy(readerTiltBase.target);
+  }
   if(controls.enabled) controls.update();
   else camera.lookAt(controls.target);
   const metrics=scenePhoto.render(scene,camera);
   diagnostics.frameCount++; diagnostics.drawCalls = metrics.calls; diagnostics.triangles = metrics.triangles;
   diagnostics.cachedPageTextures = textureCache.size;
+  readerDirty = false;
 }
 
 async function init() {
@@ -1266,8 +1466,13 @@ async function init() {
   scene.add(new THREE.HemisphereLight(0xffffff, 0xbbb8b0, .3));
   paperTextures();
   const textureLoader = new THREE.TextureLoader();
-  const requestedOpening = Number(new URL(location.href).searchParams.get('spread') || 0);
+  const requestedOpening = Number(recoveryCheckpoint?.opening ?? new URL(location.href).searchParams.get('spread') ?? 0);
   printIndex = Number.isInteger(requestedOpening) ? THREE.MathUtils.clamp(requestedOpening, 0, bookContent.spreads.length - 1) : 0;
+  if (recoveryCheckpoint) {
+    readerFace = recoveryCheckpoint.face ? 1 : 0;
+    currentView = recoveryCheckpoint.view === 'cover' ? 'cover' : 'spread';
+    coverProgress = currentView === 'cover' ? 0 : 1;
+  }
   topBase = bindingHeight(printIndex);
   leafCounts[-1] = printIndex + endpapers; leafCounts[1] = bookContent.spreads.length - 1 - printIndex + endpapers;
   const results = await Promise.all([loadEmblem(), textureLoader.loadAsync('./' + bookContent.atlas.file), new HDRLoader().loadAsync('./assets/studio-softboxes.hdr'), openingTextures(printIndex)]);
@@ -1280,7 +1485,9 @@ async function init() {
   await setEnvironment(defaultEnvironment, 'Studio / softboxes');
   applyPrint(printIndex); resize(); connectUI();
   diagnostics.ready = true;
+  clearCheckpoint();
   if(embedded) parent.postMessage({type:'book-ready'},location.origin);
+  emitReaderState(true);
   renderer.compile(scene, camera);
   loading.style.opacity = '0'; setTimeout(() => { loading.hidden = true; }, 350);
   requestAnimationFrame(draw);
