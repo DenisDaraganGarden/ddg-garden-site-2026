@@ -106,6 +106,8 @@
     document.body.classList.toggle('on-dark', sheets[current].classList.contains('dark-sheet'));
     document.body.classList.toggle('on-cover', sheets[current].id === 'top');
     document.body.classList.toggle('on-author', sheets[current].id === 'author');
+    document.body.classList.toggle('on-book', sheets[current].id === 'portfolio');
+    document.dispatchEvent(new CustomEvent('folio-sheet-change',{detail:sheets[current].id}));
     pagePosition.hidden = sheets.length === 1 || sheets[current].id === 'works';
     pagePosition.textContent = pad(current + 1) + ' / ' + pad(sheets.length);
     syncBrowserTheme();
@@ -286,8 +288,8 @@
     if (link.matches('.catalogue-card')) catalogueOrigin = link;
     if (location.hash !== link.hash) history.pushState(null, '', link.hash);
     go(indexForHash(link.hash));
-    if (link.hash === '#works') (catalogueOrigin || catalogue).focus({preventScroll:true});
-    else if (link.hash === '#author' && link === viewReturn) handwritingLink.focus({preventScroll:true});
+    if (link.hash === '#works') { if(link.dataset.portfolioCategory) document.querySelector(`[data-catalogue-filter="${link.dataset.portfolioCategory}"]`)?.click(); (catalogueOrigin || catalogue).focus({preventScroll:true}); }
+    else if (link.hash === '#author' && link === viewReturn) handwritingLink?.focus({preventScroll:true});
     else folio.focus({preventScroll: true});
   }));
 
@@ -393,7 +395,7 @@
       const hash = sheets[0].id === 'handwriting' ? '#author' : '#works';
       if (location.hash !== hash) history.pushState(null, '', hash);
       go(indexForHash(hash), false);
-      (hash === '#author' ? handwritingLink : catalogueOrigin || catalogue).focus({preventScroll:true});
+      (hash === '#author' ? handwritingLink : catalogueOrigin || catalogue)?.focus({preventScroll:true});
       return;
     }
     if (sheets[current].id === 'works') return;

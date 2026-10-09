@@ -18,7 +18,7 @@ const assets = path.join(pageDir, 'assets');
 const dataFile = path.join(root, 'src/data/landscapePortfolio.json');
 const PORT = 41218;
 const QUALITY = 82;
-const categories = new Set(['parks', 'hotels', 'city', 'private']);
+const categories = new Set(['parks', 'hotels', 'city', 'private', 'architecture', 'sculpture']);
 
 const esc = text => text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const pad = n => String(n).padStart(2, '0');
@@ -98,7 +98,8 @@ async function render({projects}, html) {
   }
   replace(/<img class="hero-image"[^>]*>/, hero);
   replace(/(?<=<a class="skip-link" href="#)[^"]*/, 'works');
-  replace(/(?<=<div class="page-position" aria-hidden="true">)[^<]*/, `01 / ${pad(html.match(/class="sheet /g).length - projects.length - 3)}`);
+  const detachedChapters = ['tractatus', 'elements', 'handwriting'].filter(id => html.includes(`id="${id}"`)).length;
+  replace(/(?<=<div class="page-position" aria-hidden="true">)[^<]*/, `01 / ${pad(html.match(/class="sheet /g).length - projects.length - detachedChapters)}`);
   return html;
 }
 
@@ -106,8 +107,12 @@ async function build(data) {
   const html = await render(data, await fs.readFile(pageFile, 'utf8'));
   await fs.writeFile(dataFile, JSON.stringify({projects: data.projects}, null, 2) + '\n');
   await fs.writeFile(pageFile, html);
+  const signatureArchive = await fs.readFile(path.join(root, 'docs/archive/signature-2026-10-09/screens.html'), 'utf8')
+    .catch(error => { if (error.code === 'ENOENT') return ''; throw error; });
   // Frames removed in the editor, and uploads that were never saved, leave no files behind.
-  for (const file of await fs.readdir(assets)) {
+  for (const file of process.argv.includes('--keep-assets') ? [] : await fs.readdir(assets)) {
+    // Archiving a screen is not deleting its photographs or alternate sizes.
+    if (signatureArchive.includes(`./assets/${file.replace(/-(900|1600)\.webp$/, '')}-`)) continue;
     if (/-(900|1600)\.webp$/.test(file) && !html.includes(`./assets/${file}`)) await fs.rm(path.join(assets, file));
   }
 }

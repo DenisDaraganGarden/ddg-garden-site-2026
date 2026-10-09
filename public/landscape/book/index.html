@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Denis Daragan · Portfolio book</title><meta name="theme-color" content="#ffffff">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22/%3E">
+<link rel="stylesheet" href="./book.css?v=20261009-editorial">
+<script type="importmap">{"imports":{"three":"./vendor/three.module.js","three/addons/":"./vendor/"}}</script>
+<script type="module" src="./book.js?v=20261009-editorial"></script>
+</head>
+<body data-mode="reader">
+<header><a class="back" href="https://denisdaragan.com/landscape/">Портфолио</a><h1 aria-label="Denis Daragan"><span class="signature" aria-hidden="true"></span></h1><button id="reader-menu" aria-controls="contents-panel" aria-expanded="false">Меню</button><button id="material-toggle" aria-controls="material-panel" aria-expanded="false">Материал</button></header>
+<main id="stage" aria-label="Книга на белом столе"><canvas id="book-canvas" aria-label="Трёхмерная книга. Нажмите на обложку, чтобы открыть. Тяните лист для перелистывания. Нажмите на фотографию, чтобы приблизить; повторное нажатие возвращает разворот. Камера закреплена. Потяните обложку, чтобы открыть или закрыть книгу." tabindex="0"></canvas><div id="loading" role="status">Подготовка сцены</div><div id="fallback" hidden role="alert">Не удалось открыть сцену.<button id="reload">Повторить</button></div></main>
+<footer><div class="print-switch"><button id="contents-toggle" aria-controls="contents-panel" aria-expanded="false">СОДЕРЖАНИЕ</button><button id="blank-toggle" aria-pressed="false">Бумага</button></div><div class="views" role="group" aria-label="Ракурс"><button data-view="spread">Разворот</button><button data-view="cover" aria-pressed="true">Обложка</button><button data-view="profile">Профиль</button><button data-view="detail">Деталь</button><button data-view="surface">Фактура</button><button id="orbit-toggle" aria-pressed="false">Вращение</button></div><div class="page-navigation"><button id="previous" aria-label="Предыдущий разворот" disabled>←</button><button id="turn" aria-label="Открыть книгу">Открыть</button></div></footer>
+<nav id="contents-panel" hidden aria-labelledby="contents-heading"><div class="panel-heading"><h2 id="contents-heading">Содержание</h2><button id="contents-close" aria-label="Закрыть содержание">×</button></div><button id="contents-cover">Обложка</button><div id="chapter-list"></div></nav>
+<aside id="material-panel" hidden aria-labelledby="material-heading"><div class="panel-heading"><h2 id="material-heading">Книга и объектив</h2><button id="material-close" aria-label="Закрыть настройки">×</button></div><form id="material-form">
+<details class="material-group"><summary>Объектив</summary><fieldset aria-label="Объектив">
+<label for="photoGrain">Зерно фотографии <output for="photoGrain"></output><input id="photoGrain" type="range" min="0" max="1" step=".01"></label>
+<label for="photoGrainSize">Размер зерна <output for="photoGrainSize"><input class="value-input" type="number" data-value-for="photoGrainSize" min=".4" max="6" step="any" aria-label="Размер зерна, пиксели"><span>px</span></output><input id="photoGrainSize" type="range" min=".4" max="6" step=".01" data-unit="px"></label>
+<label for="aberration">Хроматическая аберрация <output for="aberration"><input class="value-input" type="number" data-value-for="aberration" min="0" max="6" step="any" aria-label="Аберрация, пиксели"><span>px</span></output><input id="aberration" type="range" min="0" max="6" step=".01" data-unit="px"></label>
+<label for="dustDensity">Плотность пыли <output for="dustDensity"></output><input id="dustDensity" type="range" min="0" max="1" step=".01" data-unit="percent"></label>
+<label for="dustSize">Размер пылинок <output for="dustSize"><input class="value-input" type="number" data-value-for="dustSize" min=".2" max="10" step="any" aria-label="Размер пылинок, пиксели"><span>px</span></output><input id="dustSize" type="range" min=".2" max="10" step=".01" data-unit="px"></label>
+<label for="lensFibres">Плотность ворсинок <output for="lensFibres"></output><input id="lensFibres" type="range" min="0" max="1" step=".01" data-unit="percent"></label>
+<label for="fibreLength">Длина ворсинок <output for="fibreLength"><input class="value-input" type="number" data-value-for="fibreLength" min="1" max="150" step="any" aria-label="Длина ворсинок, пиксели"><span>px</span></output><input id="fibreLength" type="range" min="1" max="150" step="1" data-unit="px"></label>
+<label for="dustOpacity">Заметность пыли и ворсинок <output for="dustOpacity"></output><input id="dustOpacity" type="range" min="0" max="1" step=".01"></label>
+<label for="lensVignette">Виньетка <output for="lensVignette"></output><input id="lensVignette" type="range" min="0" max="1" step=".01"></label>
+<label for="opticalSeed">Вариант дефектов <output for="opticalSeed"></output><input id="opticalSeed" type="range" min="1" max="64" step="1"></label>
+</fieldset></details>
+<details class="material-group" open><summary>Поверхность</summary><fieldset aria-label="Поверхность">
+<label for="gloss">Матовый / глянцевый <output for="gloss"></output><input id="gloss" type="range" min="0" max="1" step="0.01"></label>
+<label for="coat">Лаковое покрытие <output for="coat"></output><input id="coat" type="range" min="0" max="1" step="0.01"></label>
+<label for="reflections">Сила отражений <output for="reflections"></output><input id="reflections" type="range" min="0" max="1" step="0.01"></label>
+<label for="pattern">Вариант фактуры <output for="pattern"></output><input id="pattern" type="range" min="1" max="32" step="1"></label>
+</fieldset></details>
+<details class="material-group"><summary>Волокна и микрофактура</summary><fieldset aria-label="Волокна и микрофактура">
+<label for="grain">Заметность <output for="grain"></output><input id="grain" type="range" min="0" max="1" step="0.01"></label>
+<label for="grainSize">Размер волокна <output for="grainSize"><input class="value-input" type="number" data-value-for="grainSize" min="0.03" max="12" step="any" aria-label="Размер волокна, миллиметры"><span>мм</span></output><input id="grainSize" type="range" min="0" max="1" step=".001" data-scale="log" data-min="0.03" data-max="12" data-unit="mm"></label>
+<label for="grainDepth">Рельеф волокон <output for="grainDepth"><input class="value-input" type="number" data-value-for="grainDepth" min="0" max="0.12" step="any" aria-label="Рельеф волокон, миллиметры"><span>мм</span></output><input id="grainDepth" type="range" min="0" max="0.12" step="0.001" data-unit="mm"></label>
+<label for="grainDensity">Плотность волокон <output for="grainDensity"></output><input id="grainDensity" type="range" min="0" max="1" step="0.01" data-unit="percent"></label>
+</fieldset></details>
+<details class="material-group" open><summary>Царапины</summary><fieldset aria-label="Царапины">
+<label for="scratches">Заметность <output for="scratches"></output><input id="scratches" type="range" min="0" max="1" step="0.01"></label>
+<label for="scratchWidth">Ширина <output for="scratchWidth"><input class="value-input" type="number" data-value-for="scratchWidth" min="0.005" max="3" step="any" aria-label="Ширина, миллиметры"><span>мм</span></output><input id="scratchWidth" type="range" min="0" max="1" step=".001" data-scale="log" data-min="0.005" data-max="3" data-unit="mm"></label>
+<label for="scratchLength">Длина <output for="scratchLength"><input class="value-input" type="number" data-value-for="scratchLength" min="0.2" max="70" step="any" aria-label="Длина, миллиметры"><span>мм</span></output><input id="scratchLength" type="range" min="0" max="1" step=".001" data-scale="log" data-min="0.2" data-max="70" data-unit="mm"></label>
+<label for="scratchDepth">Глубина <output for="scratchDepth"><input class="value-input" type="number" data-value-for="scratchDepth" min="0" max="0.25" step="any" aria-label="Глубина, миллиметры"><span>мм</span></output><input id="scratchDepth" type="range" min="0" max="0.25" step="0.001" data-unit="mm"></label>
+<label for="scratchDensity">Плотность <output for="scratchDensity"></output><input id="scratchDensity" type="range" min="0" max="1" step="0.01" data-unit="percent"></label>
+<label for="scratchDirection">Направление <output for="scratchDirection"></output><input id="scratchDirection" type="range" min="-180" max="180" step="1" data-unit="deg"></label>
+<label for="scratchScatter">Разброс направлений <output for="scratchScatter"></output><input id="scratchScatter" type="range" min="0" max="1" step="0.01" data-unit="percent"></label>
+<label for="scratchInk">След на печати <output for="scratchInk"></output><input id="scratchInk" type="range" min="0" max="1" step="0.01"></label>
+<label for="scratchPolish">Блик бороздок <output for="scratchPolish"></output><input id="scratchPolish" type="range" min="0" max="1" step=".01"></label>
+</fieldset></details>
+<details class="material-group" open><summary>Пятна</summary><fieldset aria-label="Пятна">
+<label for="spots">Заметность <output for="spots"></output><input id="spots" type="range" min="0" max="1" step="0.01"></label>
+<label for="spotSize">Диаметр <output for="spotSize"><input class="value-input" type="number" data-value-for="spotSize" min="0.2" max="120" step="any" aria-label="Диаметр, миллиметры"><span>мм</span></output><input id="spotSize" type="range" min="0" max="1" step=".001" data-scale="log" data-min="0.2" data-max="120" data-unit="mm"></label>
+<label for="spotDensity">Плотность <output for="spotDensity"></output><input id="spotDensity" type="range" min="0" max="1" step="0.01" data-unit="percent"></label>
+<label for="spotEdge">Чёткость контура <output for="spotEdge"></output><input id="spotEdge" type="range" min="0" max="1" step="0.01"></label>
+<label for="spotInk">Пигмент <output for="spotInk"></output><input id="spotInk" type="range" min="0" max="1" step="0.01"></label>
+<label for="spotTone">Холодный / тёплый <output for="spotTone"></output><input id="spotTone" type="range" min="0" max="1" step="0.01"></label>
+<label for="spotPolish">Матовый / глянцевый <output for="spotPolish"></output><input id="spotPolish" type="range" min="0" max="1" step="0.01"></label>
+<label for="spotRelief">Рельеф высохшего края <output for="spotRelief"><input class="value-input" type="number" data-value-for="spotRelief" min="0" max="0.12" step="any" aria-label="Рельеф высохшего края, миллиметры"><span>мм</span></output><input id="spotRelief" type="range" min="0" max="0.12" step="0.001" data-unit="mm"></label>
+</fieldset></details>
+<details class="material-group"><summary>Потёртости</summary><fieldset aria-label="Потёртости">
+<label for="wear">Заметность <output for="wear"></output><input id="wear" type="range" min="0" max="1" step="0.01"></label>
+<label for="wearSize">Размер участка <output for="wearSize"><input class="value-input" type="number" data-value-for="wearSize" min="0.2" max="90" step="any" aria-label="Размер участка, миллиметры"><span>мм</span></output><input id="wearSize" type="range" min="0" max="1" step=".001" data-scale="log" data-min="0.2" data-max="90" data-unit="mm"></label>
+<label for="wearDensity">Плотность <output for="wearDensity"></output><input id="wearDensity" type="range" min="0" max="1" step="0.01" data-unit="percent"></label>
+<label for="wearInk">Износ печати <output for="wearInk"></output><input id="wearInk" type="range" min="0" max="1" step="0.01"></label>
+</fieldset></details>
+<details class="material-group"><summary>Форма</summary><fieldset aria-label="Форма">
+<label for="bend">Изгиб листов <output for="bend"></output><input id="bend" type="range" min="0" max="1" step="0.01"></label>
+<label for="edges">Неровность краёв <output for="edges"></output><input id="edges" type="range" min="0" max="1" step="0.01"></label>
+<label for="pressure">Надавливание курсора <output for="pressure"></output><input id="pressure" type="range" min="0" max="4" step="0.01"></label>
+<label for="motion">Движение бумаги <output for="motion"></output><input id="motion" type="range" min="0" max="1" step="0.01"></label>
+</fieldset></details>
+<details class="material-group"><summary>Кромки листов</summary><fieldset aria-label="Кромки листов">
+<label for="edgeWear">Потёртость кромок <output for="edgeWear"></output><input id="edgeWear" type="range" min="0" max="1" step="0.01"></label>
+<label for="edgeFibres">Волокна среза <output for="edgeFibres"></output><input id="edgeFibres" type="range" min="0" max="1" step="0.01"></label>
+</fieldset></details>
+<details class="material-group"><summary>Кожа и тиснение</summary><fieldset aria-label="Кожа и тиснение">
+<label for="coverThickness">Толщина крышки <output for="coverThickness"><input class="value-input" type="number" data-value-for="coverThickness" min="1.2" max="8" step="any" aria-label="Толщина крышки, миллиметры"><span>мм</span></output><input id="coverThickness" type="range" min="1.2" max="8" step=".1" data-unit="mm"></label>
+<label for="coverWarp">Деформация крышки <output for="coverWarp"></output><input id="coverWarp" type="range" min="0" max="1" step=".01"></label>
+<label for="coverDents">Вмятины и неровность граней <output for="coverDents"></output><input id="coverDents" type="range" min="0" max="1" step=".01"></label>
+<label for="coverEdgeWear">Износ граней кожи <output for="coverEdgeWear"></output><input id="coverEdgeWear" type="range" min="0" max="1" step=".01"></label>
+<label for="leatherScale">Размер чешуек <output for="leatherScale"><input class="value-input" type="number" data-value-for="leatherScale" min="0.12" max="8" step="any" aria-label="Размер чешуек, миллиметры"><span>мм</span></output><input id="leatherScale" type="range" min="0" max="1" step=".001" data-scale="log" data-min="0.12" data-max="8" data-unit="mm"></label>
+<label for="leatherRelief">Рельеф кожи <output for="leatherRelief"><input class="value-input" type="number" data-value-for="leatherRelief" min="0" max="0.25" step="any" aria-label="Рельеф кожи, миллиметры"><span>мм</span></output><input id="leatherRelief" type="range" min="0" max="0.25" step=".001" data-unit="mm"></label>
+<label for="leatherScaleCrush">Смятие рельефа чешуек <output for="leatherScaleCrush"></output><input id="leatherScaleCrush" type="range" min="0" max="1" step=".01" data-unit="percent"></label>
+<label for="leatherScaleCrushSize">Масштаб зон смятия <output for="leatherScaleCrushSize"><input class="value-input" type="number" data-value-for="leatherScaleCrushSize" min="12" max="140" step="any" aria-label="Масштаб зон смятия, миллиметры"><span>мм</span></output><input id="leatherScaleCrushSize" type="range" min="12" max="140" step="1" data-unit="mm"></label>
+<label for="leatherScaleCrushSeed">Вариант смятия <output for="leatherScaleCrushSeed"></output><input id="leatherScaleCrushSeed" type="range" min="0" max="99" step="1"></label>
+<label for="leatherGloss">Матовая / глянцевая <output for="leatherGloss"></output><input id="leatherGloss" type="range" min="0" max="1" step=".01"></label>
+<label for="leatherGlossVariation">Разброс блеска чешуек <output for="leatherGlossVariation"></output><input id="leatherGlossVariation" type="range" min="0" max="1" step=".01"></label>
+<label for="leatherMatteShare">Доля матовых чешуек <output for="leatherMatteShare"></output><input id="leatherMatteShare" type="range" min="0" max="1" step=".01" data-unit="percent"></label>
+<label for="leatherSeed">Вариант чешуек <output for="leatherSeed"></output><input id="leatherSeed" type="range" min="1" max="64" step="1"></label>
+<label for="leatherPatches">Пятна в отражении <output for="leatherPatches"></output><input id="leatherPatches" type="range" min="0" max="1" step=".01"></label>
+<label for="leatherWear">Потёртости кожи <output for="leatherWear"></output><input id="leatherWear" type="range" min="0" max="1" step=".01"></label>
+<label for="leatherScratches">Царапины кожи: заметность <output for="leatherScratches"></output><input id="leatherScratches" type="range" min="0" max="1" step=".01"></label>
+<label for="leatherScratchDensity">Количество царапин <output for="leatherScratchDensity"></output><input id="leatherScratchDensity" type="range" min="0" max="1" step=".01" data-unit="percent"></label>
+<label for="leatherScratchLength">Длина царапин <output for="leatherScratchLength"><input class="value-input" type="number" data-value-for="leatherScratchLength" min="1" max="70" step="any" aria-label="Длина царапин кожи, миллиметры"><span>мм</span></output><input id="leatherScratchLength" type="range" min="1" max="70" step=".1" data-unit="mm"></label>
+<label for="leatherScratchWidth">Ширина царапин <output for="leatherScratchWidth"><input class="value-input" type="number" data-value-for="leatherScratchWidth" min=".01" max="1" step="any" aria-label="Ширина царапин кожи, миллиметры"><span>мм</span></output><input id="leatherScratchWidth" type="range" min=".01" max="1" step=".01" data-unit="mm"></label>
+<label for="leatherScratchDepth">Глубина царапин <output for="leatherScratchDepth"><input class="value-input" type="number" data-value-for="leatherScratchDepth" min="0" max=".2" step="any" aria-label="Глубина царапин кожи, миллиметры"><span>мм</span></output><input id="leatherScratchDepth" type="range" min="0" max=".2" step=".001" data-unit="mm"></label>
+<label for="leatherScratchSeed">Расположение царапин <output for="leatherScratchSeed"></output><input id="leatherScratchSeed" type="range" min="1" max="64" step="1"></label>
+<label for="embossDepth">Глубина тиснения <output for="embossDepth"><input class="value-input" type="number" data-value-for="embossDepth" min="0" max="1" step="any" aria-label="Глубина тиснения, миллиметры"><span>мм</span></output><input id="embossDepth" type="range" min="0" max="1" step=".005" data-unit="mm"></label>
+<label for="embossGloss">Тиснение: матовое / глянцевое <output for="embossGloss"></output><input id="embossGloss" type="range" min="0" max="1" step=".01"></label>
+</fieldset></details>
+<details class="material-group"><summary>Студия</summary><fieldset aria-label="Студия">
+<label for="exposure">Экспозиция <output for="exposure"></output><input id="exposure" type="range" min="0.5" max="1.7" step="0.01"></label>
+<label for="light">Мягкий свет <output for="light"></output><input id="light" type="range" min="0" max="2" step="0.01"></label>
+<label for="studio">Поворот студии <output for="studio"></output><input id="studio" type="range" min="-180" max="180" step="1" data-unit="deg"></label>
+<label for="shadow">Контактная тень <output for="shadow"></output><input id="shadow" type="range" min="0" max="1" step="0.01"></label>
+<div class="file-actions"><label class="file-label">Загрузить HDRI<input id="hdri" type="file" accept=".hdr,.exr"></label><button type="button" id="default-hdri">Студия</button></div><p id="environment-name">Studio / softboxes</p></fieldset></details>
+
+<div class="panel-actions"><button type="button" id="reset">Сбросить</button><button type="button" id="save">Сохранить стиль ↓</button></div></form></aside>
+<dialog id="text-reader" aria-labelledby="text-reader-title"><button type="button" aria-label="Вернуться к книге">×</button><div class="text-reader-body" tabindex="-1"><article><h2 id="text-reader-title"></h2><p></p></article></div></dialog>
+<noscript>Для просмотра трёхмерной сцены нужен JavaScript.</noscript>
+<div class="cursor-dot" aria-hidden="true"></div><script src="./cursor.js?v=20261009-editorial" defer></script>
+</body></html>

@@ -77,8 +77,8 @@
   status.className = 'motion-status';
   status.setAttribute('role', 'status');
   const menu = document.querySelector('#menu-panel');
-  menu.querySelector('.menu-primary').append(settings);
-  if (tiltSettings) menu.querySelector('.menu-primary').append(tiltSettings);
+  // Motion is enabled by default; no public effect switch.
+  // Device tilt remains optional internally; touch and mouse work immediately.
   menu.append(status);
 
   function controls() {

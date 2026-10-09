@@ -1,0 +1,4 @@
+@media(hover:hover) and (pointer:fine){.has-dot-cursor,.has-dot-cursor *{cursor:none!important}.cursor-dot{position:fixed;left:0;top:0;width:8px;height:8px;background:#fff;border-radius:50%;mix-blend-mode:difference;pointer-events:none;z-index:10000;transform:translate(-50%,-50%);display:none}.has-dot-cursor .cursor-dot.is-visible{display:block}}
+
+.cursor-dot{display:none}
+@media(hover:hover) and (pointer:fine){.has-dot-cursor .cursor-dot.is-visible{display:block}}

@@ -99,7 +99,10 @@
       vec3 linear = pow(max(color, vec3(0.)), vec3(2.2));
       linear *= exp2(light);
       linear += vec3(.58, .47, .25) * pulse * opening * (1. - depth) * .011;
-      gl_FragColor = vec4(pow(linear, vec3(1. / 2.2)), 1.);
+      vec3 displayColor = pow(linear, vec3(1. / 2.2));
+      float mono = dot(displayColor, vec3(.2126, .7152, .0722));
+      float grain = fract(sin(dot(floor(gl_FragCoord.xy), vec2(12.9898, 78.233))) * 43758.5453) - .5;
+      gl_FragColor = vec4(vec3(clamp(mono + grain * .016, 0., 1.)), 1.);
     }
   `;
 
