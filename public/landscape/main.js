@@ -21,6 +21,24 @@
   const status = document.querySelector('#page-status');
   const viewer = document.querySelector('.image-dialog');
   const viewerImage = viewer.querySelector('img');
+  let imageZoom = null;
+  import('./book/image-gestures.js?v=20261010-touch3').then(({ blockPagePinch, connectImageZoom }) => {
+    blockPagePinch();
+    imageZoom = connectImageZoom(viewer.querySelector('.image-canvas'), {
+      enabled: () => viewer.open,
+      start: () => viewerSwiped.cancel(),
+      tap: () => closeDialog(viewer),
+      change: ({ scale, x, y }) => {
+        viewerImage.classList.toggle('is-zoomed', scale > 1.001);
+        viewerImage.style.transform = scale > 1 ? `translate(${x}px,${y}px) scale(${scale})` : '';
+      },
+      bounds: (scale, rect) => {
+        const fit = Math.min(rect.width / (viewerImage.naturalWidth || rect.width), rect.height / (viewerImage.naturalHeight || rect.height));
+        return { x: Math.max(0, ((viewerImage.naturalWidth || rect.width) * fit * scale - rect.width) / 2),
+          y: Math.max(0, ((viewerImage.naturalHeight || rect.height) * fit * scale - rect.height) / 2) };
+      }
+    });
+  });
   const imageButtons = [...document.querySelectorAll('[data-image]')];
   const images = imageButtons.map(button => ({src: button.querySelector('img').src, alt: button.querySelector('img').alt, origin: button}));
   const focusOrigins = new WeakMap();
@@ -33,7 +51,7 @@
   document.addEventListener('contextmenu', event => {
     if (event.target instanceof Element && event.target.closest('img,canvas,.image-open,.catalogue-card')) event.preventDefault();
   });
-  let current = 0, destination = 0, navigationVersion = 0;
+  let current = 0, destination = 0, navigationVersion = 0, activeSheetId = '';
   let settleTimer, scrollFrame, pagingFrame, resizing = false;
   let sequence = images, imageIndex = 0, imageTicket = 0;
   let cataloguePosition = 0, catalogueOrigin = null, viewChanged = false;
@@ -120,7 +138,10 @@
     document.body.classList.toggle('on-cover', sheets[current].id === 'top');
     document.body.classList.toggle('on-author', sheets[current].id === 'author');
     document.body.classList.toggle('on-book', sheets[current].id === 'portfolio');
-    document.dispatchEvent(new CustomEvent('folio-sheet-change',{detail:sheets[current].id}));
+    if (activeSheetId !== sheets[current].id) {
+      activeSheetId = sheets[current].id;
+      document.dispatchEvent(new CustomEvent('folio-sheet-change',{detail:activeSheetId}));
+    }
     pagePosition.hidden = sheets.length === 1 || sheets[current].id === 'works';
     pagePosition.textContent = pad(current + 1) + ' / ' + pad(sheets.length);
     syncBrowserTheme();
@@ -129,7 +150,7 @@
   const remember = () => {
     if (bookReading()) return;
     update();
-    if (Math.abs(sheets[current].offsetTop - scrollHost().scrollTop) > 1 && !(nativeScroll.matches && sheets[current] === works)) return;
+    if (!nativeScroll.matches && Math.abs(sheets[current].offsetTop - scrollHost().scrollTop) > 1) return;
     destination = current;
     history.replaceState(null, '', '#' + (sheets[current].dataset.chapterActive || sheets[current].id));
     const title = sheets[current].querySelector('h1,h2')?.textContent.replace(/\s+/g, ' ').trim();
@@ -328,6 +349,7 @@
   const changeImage = async next => {
     next = clamp(next, sequence.length - 1);
     if (next === imageIndex) return;
+    imageZoom?.reset();
     imageIndex = next;
     const ticket = ++imageTicket;
     const slide = sequence[next];
@@ -342,6 +364,7 @@
     viewerImage.classList.remove('changing');
   };
   const openImage = (index, origin, source = images) => {
+    imageZoom?.reset();
     sequence = source;
     imageIndex = index;
     ++imageTicket;
@@ -353,7 +376,7 @@
     viewer.showModal();
   };
   viewer.querySelector('.image-close').addEventListener('click', () => closeDialog(viewer));
-  viewer.addEventListener('close', () => {++imageTicket; viewerImage.classList.remove('changing');});
+  viewer.addEventListener('close', () => {++imageTicket; imageZoom?.reset(); viewerImage.classList.remove('changing');});
   document.querySelectorAll('[data-document]').forEach(button => button.addEventListener('click', () => {
     openImage(0, button, [{src: button.dataset.document, alt: button.dataset.caption}]);
   }));
@@ -386,7 +409,9 @@
       start = null;
     });
     element.addEventListener('pointercancel', event => {pointers.delete(event.pointerId);start = null;});
-    return () => performance.now() < movedUntil;
+    const swiped = () => performance.now() < movedUntil;
+    swiped.cancel = () => { start = null; pointers.clear(); blocked = true; movedUntil = performance.now() + 450; };
+    return swiped;
   };
   const folioSwiped = swipe(folio, (direction, horizontal) => {
     if (horizontal && sheets[current].id === 'author') sheets[current].dispatchEvent(new CustomEvent('author-step', {detail:direction}));
@@ -467,19 +492,20 @@
     }
   });
   const viewport = window.visualViewport;
-  let viewportFrame;
+  let viewportFrame, layoutWidth = 0, layoutNative = null;
   const fitViewport = () => {
     viewportFrame = null;
     // Pinch zoom must magnify the page, never resize/reflow its composition.
     if (viewport && Math.abs(viewport.scale - 1) > .01) return;
     const height = Math.ceil(viewport?.height || window.innerHeight);
     if (height <= 0) return;
-    const sheet = sheets[current], before = sheet.offsetTop, offset = scrollHost().scrollTop - before;
     document.documentElement.style.setProperty('--viewport-height', height + 'px');
-    // Browser bars change the height of every preceding sheet. Keep the same
-    // reading position while the root document remains free to scroll normally.
-    if (nativeScroll.matches && !bookReading() && sheet.offsetTop !== before && !pagingFrame) {
-      scrollHost().scrollTo({top:sheet.offsetTop + offset, behavior:'instant'});
+    // Safari's bars resize the visible area during a finger scroll. Keep the
+    // document's sections stable; only a new width/orientation reframes them.
+    const width = document.documentElement.clientWidth;
+    if (!nativeScroll.matches || width !== layoutWidth || nativeScroll.matches !== layoutNative) {
+      document.documentElement.style.setProperty('--sheet-height', height + 'px');
+      layoutWidth = width; layoutNative = nativeScroll.matches;
     }
   };
   const queueViewport = () => {

@@ -7,15 +7,16 @@
 .on-detached .site-header [data-panel="menu-panel"]{display:block}
 
 /* Root scrolling lets the phone browser collapse its own bars naturally. */
-html.native-scroll{height:auto;scroll-snap-type:y mandatory;scrollbar-width:none;overflow-anchor:none}
+html.native-scroll{height:auto;scroll-snap-type:none;scrollbar-width:none;overflow-anchor:none;touch-action:pan-y}
 html.native-scroll:has(.folio.is-paging){scroll-snap-type:none}
 .native-scroll body{position:static;height:auto;overflow:visible}
 .native-scroll .folio{height:auto;overflow:visible;scroll-snap-type:none;overscroll-behavior:auto}
+.native-scroll .sheet{height:var(--sheet-height,100svh);scroll-snap-align:none;scroll-snap-stop:normal}
 .native-scroll .site-header,.native-scroll .page-position{position:fixed}
 .native-scroll .book-sheet iframe{position:absolute;inset:var(--header) 0 0;height:calc(100% - var(--header))}
-.native-scroll .catalogue-sheet{height:auto;min-height:var(--viewport-height,100dvh);grid-template-rows:auto auto;overflow:visible}
+.native-scroll .catalogue-sheet{height:auto;min-height:var(--sheet-height,100svh);grid-template-rows:auto auto;overflow:visible}
 .native-scroll .catalogue-scroll{overflow:visible;overscroll-behavior:auto}
-.book-entry{position:absolute;inset:var(--header) 0 0;z-index:2;width:100%;touch-action:pan-y pinch-zoom;text-align:center}
+.book-entry{position:absolute;inset:var(--header) 0 0;z-index:2;width:100%;touch-action:pan-y;text-align:center}
 .book-entry[hidden],.book-exit[hidden]{display:none!important}
 .book-entry-copy{position:absolute;bottom:max(24px,env(safe-area-inset-bottom));left:24px;right:24px;display:grid;gap:10px;justify-items:center;color:#202020}
 [data-book-entry-title]{font-size:12px;letter-spacing:.06em;text-transform:uppercase;text-decoration:underline;text-underline-offset:5px;text-decoration-color:#777}
@@ -31,10 +32,10 @@ html.book-reading{height:100%;overflow:hidden;scroll-snap-type:none;overscroll-b
 .book-reading .sheet:not(.book-sheet){display:none}
 .book-reading .book-sheet{height:100%;scroll-snap-align:none;touch-action:none}
 .book-reading .book-sheet iframe{inset:0;height:100%;touch-action:none}
-.book-reading .site-header,.book-reading .site-header .brand,.book-reading .page-position{visibility:hidden}
+.book-reading .site-header,.book-reading .page-position{display:none}
 @media(pointer:coarse) and (orientation:landscape) and (max-height:600px){
   :root.native-scroll{--header-base:0px;--header:0px}
-  .native-scroll .site-header,.native-scroll .site-header .brand{visibility:hidden}
+  .native-scroll .site-header .brand,.native-scroll .site-header nav{display:none}
   .native-scroll .on-detached .site-header .view-return{visibility:visible;position:fixed;top:max(10px,env(safe-area-inset-top));left:var(--gutter)}
   .book-entry-copy{bottom:max(10px,env(safe-area-inset-bottom))}
 }

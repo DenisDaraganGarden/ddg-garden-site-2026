@@ -6,6 +6,7 @@ import { createPaperMaterial, updatePaperMaterial } from './paper-material.js?v=
 import { createCoverMaterial, updateCoverMaterial, createCutMaterial, loadEmblem, configureLeatherFiltering } from './cover-material.js?v=20261009-editorial';
 import { bookContent, paperStyle } from './content/book-content.js?v=20261009-editorial';
 import { ScenePhoto } from './scene-photo.js?v=20261009-editorial';
+import { blockPagePinch, connectImageZoom } from './image-gestures.js?v=20261010-touch3';
 
 const canvas = document.querySelector('#book-canvas');
 const loading = document.querySelector('#loading');
@@ -59,6 +60,7 @@ let environment, defaultEnvironment;
 let currentView = new URL(location.href).searchParams.has('spread') ? 'spread' : 'cover';
 let cameraTween = null;
 let coverMotion = null, imageFocus = null;
+let imageZoom = null, lastViewport = null;
 let coverProgress = currentView === 'cover' ? 0 : 1, orbitMode = false;
 const boardGeometries = new Set();
 let turning = null;
@@ -497,7 +499,9 @@ function makePageBlock(side) {
   const position = [], uv = [], color = [], indices = [];
   const count = leafCounts[side] - (turning?.side === side ? 1 : 0);
   for (let layer = 0; layer < count; layer++) {
-    const leaf = makeLeaf(side, layer, 32, 12, leafThickness, false, true);
+    // These faces are inside the stack. Its visible cuts and the held sheet
+    // retain their full detail; a phone need not rebuild hidden dense grids.
+    const leaf = makeLeaf(side, layer, readerHandset() ? 12 : 32, readerHandset() ? 4 : 12, leafThickness, false, true);
     const offset = position.length / 3;
     for (const value of leaf.attributes.position.array) position.push(value);
     for (const value of leaf.attributes.uv.array) uv.push(value);
@@ -974,20 +978,25 @@ function fitCamera(view = 'spread', animate = true) {
 }
 
 function resize() {
-  // Finish an interrupted interaction at a confirmed pose before changing axes.
-  cancelReaderDrag();
-  if (turning) finishTurn(false);
-  if (imageFocus) {
-    imageFocus = null; diagnostics.focusedImage = null;
-    cameraTween?.resolve?.(); cameraTween = null;
+  const next = { width: innerWidth, height: innerHeight, viewWidth: viewportWidth(), portrait: innerHeight > innerWidth };
+  if (lastViewport && next.width === lastViewport.width && next.height === lastViewport.height && next.viewWidth === lastViewport.viewWidth) return;
+  const axesChanged = !lastViewport || next.width !== lastViewport.width || next.viewWidth !== lastViewport.viewWidth || next.portrait !== lastViewport.portrait;
+  lastViewport = next;
+  // Safari's bars change height during a gesture. Only a new set of axes
+  // interrupts a held sheet; a height change keeps its confirmed state.
+  if (axesChanged) {
+    cancelReaderDrag();
+    if (turning) finishTurn(false);
+    if (imageFocus) restoreSpread(false);
+    readerTilt.set(0, 0); resetReaderTilt();
+    if (coverMotion) finishCoverOpening((coverMotion.to??coverMotion.target)>.5);
   }
   invalidateReader();
-  readerTilt.set(0, 0); resetReaderTilt();
-  if (coverMotion) finishCoverOpening((coverMotion.to??coverMotion.target)>.5);
   renderer.setSize(innerWidth, innerHeight);
   renderer.setViewport(0, 0, viewportWidth(), innerHeight);
   camera.aspect = viewportWidth() / innerHeight; camera.updateProjectionMatrix();
   scenePhoto?.resize(innerWidth,innerHeight,viewportWidth());
+  if (!axesChanged && (gesture || turning || coverMotion || cameraTween || imageFocus)) return;
   // Keep the printed text upright; a single page is framed vertically in cover view.
   book.rotation.y = innerWidth < innerHeight * .78 && currentView !== 'cover' ? Math.PI / 2 : 0;
   const readerView = !editorMode && currentView !== 'cover' && !closedBook?.visible && !imageFocus ? readerCameraView() : currentView;
@@ -1067,6 +1076,8 @@ function moveCamera(position,target,rotation,resolve=()=>{}) {
 
 function restoreSpread(animate=true) {
   if (!imageFocus) return Promise.resolve();
+  imageZoom?.reset();
+  document.body.classList.remove('image-focused');
   const original=imageFocus.original;imageFocus=null;diagnostics.focusedImage=null;
   if (!animate) {
     camera.position.copy(original.position);controls.target.copy(original.target);book.rotation.y=original.rotation;
@@ -1091,8 +1102,10 @@ function zoomPrintedContent(local) {
   const original={position:camera.position.clone(),target:controls.target.clone(),rotation:book.rotation.y};
   const frame=cameraFrame();
   const distance=Math.max(1.2,Math.max(box[3]/100/((frame.top-frame.bottom)/2),(right-left)/100/camera.aspect/((frame.right-frame.left)/2))/(2*Math.tan(THREE.MathUtils.degToRad(camera.fov/2)))*1.04);
-  imageFocus={asset:image?.asset||'text:'+spread.id,original};diagnostics.focusedImage=imageFocus.asset;
-  moveCamera(target.clone().add(new THREE.Vector3(0,distance,.00001)),target,0);
+  const position=target.clone().add(new THREE.Vector3(0,distance,.00001));
+  imageFocus={asset:image?.asset||'text:'+spread.id,original,position:position.clone(),target:target.clone()};diagnostics.focusedImage=imageFocus.asset;
+  document.body.classList.toggle('image-focused',Boolean(image));
+  moveCamera(position,target,0);
   if(innerWidth<=600&&spread.readingText?.[side]) {
     const reader=document.querySelector('#text-reader'),text=spread.readingText[side];
     reader.querySelector('h2').textContent=text.title;reader.querySelector('p').textContent=text.body;
@@ -1210,7 +1223,7 @@ function connectPageDrag() {
   const startDrag=async token=>{
     token.started=true;
     if (await beginTurn(token.side,token.grab)) {
-      if (token.released) settleTurn(token.cancelled?0:token.target>.43?1:0);
+      if (token.released) settleTurn(token.cancelled?0:token.target>token.commit?1:0);
       else turning.target=token.target;
     }
   };
@@ -1236,7 +1249,7 @@ function connectPageDrag() {
   };
   canvas.addEventListener('pointerdown',event=>{
     if (!readerInteractive || !parentVisible) return;
-    if(!event.isPrimary) { backgroundGesture=null; cancelReaderDrag(); return; }
+    if(!event.isPrimary) { backgroundGesture=null; return; }
     if (event.button!==0 || !event.isPrimary || gesture) return;
     if(editorMode&&orbitMode) return;
     if (turning || navigating || coverMotion || cameraTween) { event.stopImmediatePropagation(); return; }
@@ -1253,18 +1266,21 @@ function connectPageDrag() {
     book.updateMatrixWorld(true);
     let kind=imageFocus?'focus':closedBook.visible?'cover':'paper';
     const hit=kind==='cover'?raycaster.intersectObject(closedBook,true)[0]:raycaster.intersectObjects(topLeaves)[0];
-    if (!hit && kind!=='focus') {
+    const touchPaper=kind==='paper'&&event.pointerType==='touch'&&readerHandset();
+    if (!hit && kind!=='focus' && !touchPaper) {
       if(embedded&&event.pointerType==='touch') backgroundGesture={id:event.pointerId,x:event.clientX,y:event.clientY};
       return;
     }
     event.preventDefault(); event.stopImmediatePropagation(); hover.strength=hover.target=0;
-    const local=hit?book.worldToLocal(hit.point.clone()):null;
-    const side=hit?.object.geometry.userData.side;
+    const local=hit?book.worldToLocal(hit.point.clone()):touchPaper?pointerOnPaper(event):null;
+    const side=hit?.object.geometry.userData.side??(local?.x<0?-1:1);
+    if (local && !hit) { local.x=side*THREE.MathUtils.clamp(Math.abs(local.x),.16,pageWidth);local.z=THREE.MathUtils.clamp(local.z,-pageHeight/2,pageHeight/2); }
     if(kind==='paper'&&side<0&&printIndex===0) kind='cover';
     if(event.pointerType==='touch'&&kind==='paper') {hover.side=side;hover.u=Math.abs(local.x)/pageWidth;hover.v=local.z/pageHeight+.5;hover.target=THREE.MathUtils.clamp(event.pressure*2,.25,1);}
     const a=book.localToWorld(new THREE.Vector3(0,topBase,0)).project(camera),b=book.localToWorld(new THREE.Vector3(pageWidth,topBase,0)).project(camera);
     const axis=new THREE.Vector2((b.x-a.x)*viewportWidth(),-(b.y-a.y)*innerHeight),span=axis.length()/2;axis.normalize();
     gesture={id:event.pointerId,kind,local,side,x:event.clientX,y:event.clientY,
+      tapHit:Boolean(hit),commit:touchPaper?.34:.43,
       coverStart:coverProgress,axis,span,target:coverProgress,
       radius:Math.max(.16,Math.abs(local?.x??0)),distance:0,released:false,cancelled:false,started:false,
       grab:local?{u:THREE.MathUtils.clamp(Math.abs(local.x)/pageWidth,.05,1),v:THREE.MathUtils.clamp(local.z/pageHeight+.5,0,1)}:null};
@@ -1314,19 +1330,38 @@ function connectPageDrag() {
     if(!cancelled&&gesture.kind==='cover') coverTarget(event);
     if(event.pointerType==='touch') hover.target=0;
     const token=gesture; token.released=true; token.cancelled=cancelled;
-    if (turning) settleTurn(cancelled?0:token.target>.43?1:0);
+    if (turning) settleTurn(cancelled?0:token.target>token.commit?1:0);
     if(coverMotion?.drag) settleCover(cancelled?token.coverStart:token.target>.5?1:0);
     gesture=null;
     if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
     if (!cancelled&&!token.started&&token.distance<=6) {
       if (token.kind==='cover') token.coverStart===0?openCover():closeCover();
       else if (token.kind==='focus') restoreSpread();
-      else if (!zoomPrintedContent(token.local)) turnPage(token.side);
+      else if (token.tapHit && !zoomPrintedContent(token.local)) turnPage(token.side);
     }
   };
   canvas.addEventListener('pointerup',event=>release(event),true);
   canvas.addEventListener('pointercancel',event=>release(event,true),true);
   canvas.addEventListener('lostpointercapture',event=>{ if(gesture?.id===event.pointerId) release(event,true); },true);
+}
+
+function connectPhotoZoom() {
+  if (editorMode) return;
+  blockPagePinch();
+  imageZoom = connectImageZoom(canvas, {
+    enabled: () => Boolean(imageFocus && !imageFocus.asset.startsWith('text:') && !document.querySelector('#text-reader').open),
+    start: () => { cancelReaderDrag(); cameraTween?.resolve?.(); cameraTween = null; },
+    tap: () => restoreSpread(),
+    change: ({ scale, x, y }) => {
+      if (!imageFocus) return;
+      const base = imageFocus, distance = base.position.distanceTo(base.target);
+      const pixels = 2 * distance * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) / (innerHeight * scale);
+      const target = base.target.clone().add(new THREE.Vector3(-x * pixels, 0, -y * pixels));
+      controls.target.copy(target);
+      camera.position.copy(base.position).sub(base.target).multiplyScalar(1 / scale).add(target);
+      camera.lookAt(target); invalidateReader();
+    }
+  });
 }
 
 function connectUI() {
@@ -1428,6 +1463,7 @@ function connectUI() {
   document.querySelector('#blank-toggle').addEventListener('click', () => { if (turning || navigating || gesture || coverMotion) return; if(imageFocus)restoreSpread(false); blankPrint = !blankPrint; applyPrint(); });
   document.querySelector('#turn').addEventListener('click', () => !editorMode ? readerNavigate(1) : turnPage(1));
   document.querySelector('#previous').addEventListener('click', () => !editorMode ? readerNavigate(-1) : turnPage(-1));
+  connectPhotoZoom();
   connectPageDrag();
   canvas.addEventListener('pointermove', event => {
     if (turning || closedBook.visible || imageFocus || orbitMode) { hover.target = 0; return; }
@@ -1486,7 +1522,7 @@ function draw(now) {
       updateTurnBinding();updateLeaf(turnMesh.geometry,time,turning.progress);
     }
   }
-  if (readerTiltBase && readerHandset() && !cameraTween) {
+  if (readerTiltBase && readerHandset() && !cameraTween && !imageFocus) {
     readerTilt.lerp(readerTiltTarget, 1-Math.exp(-delta*12));
     const tilt=new THREE.Vector2(readerTilt.x,readerTilt.y).clampLength(0,1);
     const distance=readerTiltBase.position.distanceTo(readerTiltBase.target);
@@ -1505,7 +1541,7 @@ function draw(now) {
 async function init() {
   renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false, powerPreference: 'high-performance' });
   configureLeatherFiltering(renderer.capabilities.getMaxAnisotropy());
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
+  renderer.setPixelRatio(Math.min(devicePixelRatio, readerHandset() ? 2 : 1.5));
   renderer.setSize(innerWidth, innerHeight);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.NeutralToneMapping;
