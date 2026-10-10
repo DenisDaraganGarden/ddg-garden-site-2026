@@ -1,12 +1,18 @@
 'use strict';
 (() => {
   const folio = document.querySelector('.folio');
+  const nativeScroll = matchMedia('(pointer: coarse) and (max-width: 600px), (pointer: coarse) and (max-height: 600px)');
+  document.documentElement.classList.toggle('native-scroll', nativeScroll.matches);
+  const scrollHost = () => nativeScroll.matches ? document.scrollingElement : folio;
+  const viewportHeight = () => window.visualViewport?.height || window.innerHeight;
   const allSheets = [...folio.querySelectorAll('.sheet')];
   const detached = sheet => sheet.matches('.work.project-sheet') || ['tractatus', 'elements', 'handwriting'].includes(sheet.id);
   const mainSheets = allSheets.filter(sheet => !detached(sheet));
   let sheets = mainSheets;
   allSheets.forEach(sheet => {sheet.hidden = !mainSheets.includes(sheet);});
   const catalogue = document.querySelector('.catalogue-scroll');
+  const works = document.getElementById('works');
+  const catalogueOffset = () => nativeScroll.matches ? Math.max(0, scrollHost().scrollTop - works.offsetTop) : catalogue.scrollTop;
   const viewReturn = document.querySelector('.view-return');
   const handwritingLink = document.querySelector('#author a[href="#handwriting"]');
   const reduce = matchMedia('(prefers-reduced-motion: reduce)');
@@ -39,7 +45,9 @@
     const visible = catalogueCards.filter(card => !card.hidden).length;
     catalogue.querySelector('.catalogue-empty').hidden = visible > 0;
     document.querySelector('[data-catalogue-status]').textContent = `Показано работ: ${visible}`;
-    catalogue.scrollTop = cataloguePosition = 0;
+    cataloguePosition = 0;
+    if (nativeScroll.matches) scrollHost().scrollTo({top:works.offsetTop, behavior:'instant'});
+    else catalogue.scrollTop = 0;
     catalogueOrigin = null;
   }));
 
@@ -52,7 +60,7 @@
     viewReturn.querySelector('[data-view-return-label]').textContent = toAuthor ? 'Автор' : 'Работы';
     const next = detached(sheet) ? [sheet] : mainSheets;
     if (next.length === sheets.length && next.every((item, index) => item === sheets[index])) return;
-    if (sheets.includes(document.getElementById('works'))) cataloguePosition = catalogue.scrollTop;
+    if (sheets.includes(works) && sheets[current] === works) cataloguePosition = catalogueOffset();
     cancelAnimationFrame(pagingFrame);
     cancelAnimationFrame(scrollFrame);
     clearTimeout(settleTimer);
@@ -63,7 +71,7 @@
     current = destination = 0;
     viewChanged = true;
     document.body.classList.toggle('on-detached', detached(sheet));
-    if (sheet.id === 'works') requestAnimationFrame(() => {catalogue.scrollTop = cataloguePosition;});
+    if (sheet.id === 'works' && !nativeScroll.matches) requestAnimationFrame(() => {catalogue.scrollTop = cataloguePosition;});
   };
   const indexForHash = hash => {
     const target = document.getElementById(hash.slice(1));
@@ -102,7 +110,10 @@
     subtree:true, attributes:true, attributeFilter:['open','data-tone'],
   });
   const update = () => {
-    current = sheets.reduce((nearest, sheet, index) => Math.abs(sheet.offsetTop - folio.scrollTop) < Math.abs(sheets[nearest].offsetTop - folio.scrollTop) ? index : nearest, 0);
+    const top = scrollHost().scrollTop;
+    current = nativeScroll.matches
+      ? Math.max(0, sheets.findLastIndex(sheet => sheet.offsetTop <= top + viewportHeight() / 2))
+      : sheets.reduce((nearest, sheet, index) => Math.abs(sheet.offsetTop - top) < Math.abs(sheets[nearest].offsetTop - top) ? index : nearest, 0);
     document.body.classList.toggle('on-dark', sheets[current].classList.contains('dark-sheet'));
     document.body.classList.toggle('on-cover', sheets[current].id === 'top');
     document.body.classList.toggle('on-author', sheets[current].id === 'author');
@@ -115,7 +126,7 @@
   };
   const remember = () => {
     update();
-    if (Math.abs(sheets[current].offsetTop - folio.scrollTop) > 1) return;
+    if (Math.abs(sheets[current].offsetTop - scrollHost().scrollTop) > 1 && !(nativeScroll.matches && sheets[current] === works)) return;
     destination = current;
     history.replaceState(null, '', '#' + (sheets[current].dataset.chapterActive || sheets[current].id));
     const title = sheets[current].querySelector('h1,h2')?.textContent.replace(/\s+/g, ' ').trim();
@@ -128,11 +139,12 @@
     clearTimeout(settleTimer);
     cancelAnimationFrame(pagingFrame);
     pagingFrame = null;
-    const from = folio.scrollTop, top = sheets[next].offsetTop;
+    const from = scrollHost().scrollTop;
+    const top = sheets[next].offsetTop + (nativeScroll.matches && viewChanged && sheets[next] === works ? cataloguePosition : 0);
     const changed = viewChanged;
     viewChanged = false;
     if (!smooth || changed || reduce.matches || Math.abs(top - from) < 1) {
-      folio.scrollTo({top, behavior:'instant'});
+      scrollHost().scrollTo({top, behavior:'instant'});
       folio.classList.remove('is-paging');
       remember();
       return;
@@ -143,7 +155,7 @@
     const start = performance.now();
     const draw = now => {
       const progress = Math.min(1, (now - start) / 230);
-      folio.scrollTo({top:from + (top - from) * (1 - (1 - progress) ** 3), behavior:'instant'});
+      scrollHost().scrollTo({top:from + (top - from) * (1 - (1 - progress) ** 3), behavior:'instant'});
       if (progress < 1) pagingFrame = requestAnimationFrame(draw);
       else {
         pagingFrame = null;
@@ -161,11 +173,13 @@
     update();
     destination = current;
   }, {passive:true});
-  folio.addEventListener('scroll', () => {
+  const onScroll = () => {
     if (!scrollFrame) scrollFrame = requestAnimationFrame(update);
     clearTimeout(settleTimer);
     settleTimer = setTimeout(remember, 160);
-  }, {passive: true});
+  };
+  folio.addEventListener('scroll', onScroll, {passive:true});
+  window.addEventListener('scroll', onScroll, {passive:true});
 
   // Keep inertia in its gesture, but let a fresh flick interrupt the animation.
   const wheelPager = (element, turn, enabled = () => true) => {
@@ -234,6 +248,8 @@
     } else go(destination + direction);
   }, event => {
     if (document.querySelector('dialog[open]')) return false;
+    // A wheel forwarded out of the book iframe has no native default action.
+    if (nativeScroll.matches) return !event.isTrusted;
     if (sheets[destination].id !== 'works') return true;
     const delta = event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? catalogue.clientHeight : 1);
     const canScroll = delta < 0 ? catalogue.scrollTop > 1
@@ -443,7 +459,14 @@
     // Pinch zoom must magnify the page, never resize/reflow its composition.
     if (viewport && Math.abs(viewport.scale - 1) > .01) return;
     const height = Math.ceil(viewport?.height || window.innerHeight);
-    if (height > 0) document.documentElement.style.setProperty('--viewport-height', height + 'px');
+    if (height <= 0) return;
+    const sheet = sheets[current], before = sheet.offsetTop, offset = scrollHost().scrollTop - before;
+    document.documentElement.style.setProperty('--viewport-height', height + 'px');
+    // Browser bars change the height of every preceding sheet. Keep the same
+    // reading position while the root document remains free to scroll normally.
+    if (nativeScroll.matches && sheet.offsetTop !== before && !pagingFrame) {
+      scrollHost().scrollTo({top:sheet.offsetTop + offset, behavior:'instant'});
+    }
   };
   const queueViewport = () => {
     if (!viewportFrame) viewportFrame = requestAnimationFrame(fitViewport);
@@ -451,11 +474,20 @@
   window.addEventListener('resize', queueViewport, {passive:true});
   viewport?.addEventListener('resize', queueViewport, {passive:true});
   window.addEventListener('pageshow', queueViewport);
+  nativeScroll.addEventListener('change', () => {
+    const keep = sheets[current];
+    cataloguePosition = catalogueOffset();
+    document.documentElement.classList.toggle('native-scroll', nativeScroll.matches);
+    fitViewport();
+    go(sheets.indexOf(keep), false);
+  });
   fitViewport();
   let lastHeight = folio.clientHeight, lastWidth = folio.clientWidth;
   new ResizeObserver(() => {
     if (folio.clientHeight === lastHeight && folio.clientWidth === lastWidth) return;
+    const widthChanged = folio.clientWidth !== lastWidth;
     lastHeight = folio.clientHeight; lastWidth = folio.clientWidth;
+    if (nativeScroll.matches && !widthChanged) return;
     if (!resizing) {
       resizing = true;
       const keep = destination, version = navigationVersion;
@@ -467,7 +499,13 @@
   }).observe(folio);
   window.addEventListener('hashchange', event => go(indexForHash(new URL(event.newURL).hash)));
   history.scrollRestoration = 'manual';
-  go(indexForHash(location.hash), false);
-  update();
-  if (sheets[current].id === 'works') catalogue.focus({preventScroll:true});
+  // WebKit resolves the mobile visual viewport after deferred scripts. Read
+  // the final sheet positions before following a direct chapter link.
+  const initialHash = location.hash;
+  requestAnimationFrame(() => {
+    fitViewport();
+    go(indexForHash(initialHash), false);
+    update();
+    if (sheets[current].id === 'works') catalogue.focus({preventScroll:true});
+  });
 })();

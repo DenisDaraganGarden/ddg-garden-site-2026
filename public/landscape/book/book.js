@@ -84,7 +84,7 @@ const diagnostics = { ready: false, revision: THREE.REVISION, frameCount: 0, err
 window.bookStudy = { settings, diagnostics, content: bookContent, leafCounts, get camera() { return camera; }, get scene() { return scene; }, get book() { return book; }, get renderer() { return renderer; }, get turning() { return Boolean(turning); }, get turnProgress() { return turning?.progress ?? null; }, get cover() { return closedBook; }, get openingCover() { return Boolean(coverMotion); }, get focusedImage() { return imageFocus?.asset || null; }, get controls() { return controls; }, get photo() { return scenePhoto; }, get surfaces() { return [...stackLeaves, ...topLeaves]; }, get texture() { return blankPrint ? 'blank' : printIndex; } };
 
 const readerPortrait = () => !editorMode && innerWidth <= 600 && innerHeight > innerWidth;
-const readerHandset = () => !editorMode && (innerWidth <= 600 || (innerWidth <= 900 && innerHeight <= 600));
+const readerHandset = () => !editorMode && (innerWidth <= 600 || (matchMedia('(pointer: coarse)').matches && innerHeight <= 600));
 const readerOverlayOpen = () => Boolean(imageFocus || document.querySelector('#text-reader')?.open || !document.querySelector('#contents-panel')?.hidden || !document.querySelector('#material-panel')?.hidden);
 const readerPhase = () => {
   if (diagnostics.error) return 'failed';
@@ -856,6 +856,20 @@ function applySettings(shapeChanged = false) {
   }
 }
 
+function cameraFrame() {
+  const frame = readerHandset() && document.querySelector('.reader-frame')?.getBoundingClientRect();
+  if (!frame?.width || !frame.height) {
+    camera.clearViewOffset();
+    const vertical = Math.max(.48, 1 - (innerHeight < 480 ? 115 : 180) / innerHeight);
+    return {left:-.935, right:.935, bottom:-vertical, top:vertical};
+  }
+  const right = innerWidth - frame.right, bottom = innerHeight - frame.bottom;
+  // Shift the optical centre into the available rectangle, including safe areas.
+  camera.setViewOffset(innerWidth, innerHeight, (right - frame.left) / 2, (bottom - frame.top) / 2, innerWidth, innerHeight);
+  return {left:frame.left * 2 / innerWidth - 1, right:frame.right * 2 / innerWidth - 1,
+    bottom:1 - frame.bottom * 2 / innerHeight, top:1 - frame.top * 2 / innerHeight};
+}
+
 function fitCamera(view = 'spread', animate = true) {
   if (turning || gesture || coverMotion) return;
   invalidateReader();
@@ -870,8 +884,11 @@ function fitCamera(view = 'spread', animate = true) {
   coverProgress=coverMode?0:1;
   for (const child of book.children) if (child !== ambientShadow) child.visible = coverMode ? child === closedBook : child !== closedBook;
   currentView = view; diagnostics.preset = view;
-  // A fixed, longer lens keeps the lifted sheet inside the original framing.
-  camera.fov = view === 'spread' || view === 'cover' || view === 'reader-face' ? 17 : 31; camera.updateProjectionMatrix();
+  // A long lens limits enlargement as the sheet rises towards the camera.
+  // Its full lift fits a fixed landscape frame; no camera motion is needed.
+  const landscapeReader = readerHandset() && innerWidth > innerHeight && ['spread','cover'].includes(view);
+  camera.fov = landscapeReader ? 5 : view === 'spread' || view === 'cover' || view === 'reader-face' ? 17 : 31; camera.updateProjectionMatrix();
+  const frame = cameraFrame();
   // Reader faces stay upright and side-by-side in portrait. The older 90°
   // spread rotation stacks both faces vertically, which defeats single-face reading.
   book.rotation.y = view === 'reader-face' ? 0 : innerWidth < innerHeight * .78 && !coverMode ? Math.PI / 2 : 0;
@@ -898,17 +915,17 @@ function fitCamera(view = 'spread', animate = true) {
     const faceBounds = view === 'reader-face' ? (readerFace ? [0, pageWidth] : [-pageWidth, 0])
       : compactCover ? [-(pageWidth + .18) * .5, (pageWidth + .18) * .5] : [-2.81, 2.81];
     if (view === 'reader-face') target.copy(book.localToWorld(new THREE.Vector3((faceBounds[0] + faceBounds[1]) * .5, .2, 0)));
-    for (const x of faceBounds) for (const y of [.032, .58]) for (const z of [-(pageHeight + .18) / 2, (pageHeight + .18) / 2]) {
+    const liftHeight = landscapeReader ? topBase + pageWidth + .15 : .58;
+    for (const x of faceBounds) for (const y of [.032, liftHeight]) for (const z of [-(pageHeight + .18) / 2, (pageHeight + .18) / 2]) {
       const point = new THREE.Vector3(x, y, z);
       bounds.push(view === 'cover' && !compactCover ? point.applyQuaternion(frameRotation) : view === 'cover' ? point : book.localToWorld(point));
     }
     const probe = camera.clone();
-    let min = 1, max = 32;
-    const verticalLimit = Math.max(.48, 1 - (innerHeight < 480 ? 115 : 180) / innerHeight);
+    let min = 1, max = landscapeReader ? 96 : 32;
     for (let i = 0; i < 25; i++) {
       const d = (min + max) / 2;
       probe.position.copy(target).addScaledVector(direction, d); probe.lookAt(target); probe.updateMatrixWorld();
-      const fits = bounds.every(corner => { const p = corner.clone().project(probe); return Math.abs(p.x) < .935 && Math.abs(p.y) < verticalLimit; });
+      const fits = bounds.every(corner => { const p = corner.clone().project(probe); return p.x > frame.left && p.x < frame.right && p.y > frame.bottom && p.y < frame.top; });
       if (fits) max = d; else min = d;
     }
     position = target.clone().addScaledVector(direction, max);
@@ -1036,8 +1053,8 @@ function zoomPrintedContent(local) {
   // A single-page close view is upright on a phone. The spread orientation
   // and precise camera state are retained for the second tap / Escape.
   const original={position:camera.position.clone(),target:controls.target.clone(),rotation:book.rotation.y};
-  const verticalLimit=Math.max(.5,1-(innerHeight<480?115:180)/innerHeight);
-  const distance=Math.max(1.2,Math.max(box[3]/100/verticalLimit,(right-left)/100/camera.aspect/.9)/(2*Math.tan(THREE.MathUtils.degToRad(camera.fov/2)))*1.04);
+  const frame=cameraFrame();
+  const distance=Math.max(1.2,Math.max(box[3]/100/((frame.top-frame.bottom)/2),(right-left)/100/camera.aspect/((frame.right-frame.left)/2))/(2*Math.tan(THREE.MathUtils.degToRad(camera.fov/2)))*1.04);
   imageFocus={asset:image?.asset||'text:'+spread.id,original};diagnostics.focusedImage=imageFocus.asset;
   moveCamera(target.clone().add(new THREE.Vector3(0,distance,.00001)),target,0);
   if(innerWidth<=600&&spread.readingText?.[side]) {
