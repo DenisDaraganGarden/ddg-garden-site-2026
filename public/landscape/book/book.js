@@ -67,6 +67,8 @@ let interactionVersion = 0;
 let turnMesh = null;
 let visible = true;
 let parentVisible = true;
+let readerInteractive = true, presentationMode = 'default', previewOpen = null;
+let presentationRequest = { mode: 'default', open: false };
 let readerFace = 0, pendingReaderFace = null;
 const readerTilt = new THREE.Vector2(), readerTiltTarget = new THREE.Vector2();
 let readerTiltBase = null, readerStateKey = '';
@@ -100,7 +102,7 @@ function readerState() {
   const busy = readerPhase() !== 'idle';
   const last = bookContent.spreads.length - 1;
   const portrait = readerPortrait();
-  const active = parentVisible && !document.hidden;
+  const active = parentVisible && readerInteractive && !document.hidden;
   return Object.freeze({
     ready, active, overlay: readerOverlayOpen(), phase: readerPhase(),
     view: closed ? 'cover' : readerPortrait() ? 'face' : 'spread', opening: printIndex,
@@ -137,6 +139,36 @@ window.bookReader = {
   setTilt: setReaderTilt, resetTilt: resetReaderTilt
 };
 
+function setReaderPresentation(mode, open = false) {
+  if (!['default', 'preview', 'reading'].includes(mode)) return;
+  presentationRequest = { mode, open };
+  readerInteractive = mode !== 'preview';
+  document.body.classList.toggle('reader-preview', mode === 'preview');
+  document.body.classList.toggle('reader-engaged', mode === 'reading');
+  if (!diagnostics.ready) return;
+  if (mode !== presentationMode) {
+    cancelReaderDrag();
+    if (turning) finishTurn(false);
+    if (imageFocus) restoreSpread(false);
+    document.querySelector('#text-reader')?.close();
+    document.querySelector('#contents-panel').hidden = true;
+    document.querySelector('#contents-toggle').setAttribute('aria-expanded', 'false');
+    cameraTween?.resolve?.(); cameraTween = null;
+    if (mode === 'preview') {
+      previewOpen = coverMotion ? (coverMotion.to ?? coverMotion.target) > .5 : !closedBook.visible;
+      finishCoverOpening(false);
+      fitCamera('cover', false);
+    } else if (presentationMode === 'preview') {
+      finishCoverOpening(Boolean(previewOpen));
+      fitCamera(previewOpen ? readerCameraView() : 'cover', false);
+      previewOpen = null;
+    }
+    presentationMode = mode;
+  }
+  if (open && readerInteractive && closedBook.visible) openCover();
+  invalidateReader(); emitReaderState();
+}
+
 function fail(error) {
   diagnostics.error = String(error?.message || error);
   loading.hidden = true;
@@ -157,6 +189,7 @@ addEventListener('message', event => {
   if(!embedded || event.origin !== location.origin || event.source !== parent) return;
   if(event.data?.type === 'book-visibility') { parentVisible=Boolean(event.data.active);visible=parentVisible&&!document.hidden; invalidateReader(); if(!parentVisible) cancelReaderDrag(); emitReaderState(); }
   if(event.data?.type === 'book-state-request') emitReaderState(true);
+  if(event.data?.type === 'book-presentation') setReaderPresentation(event.data.mode, event.data.open === true);
   if(event.data?.type === 'book-contents') document.querySelector('#contents-toggle').click();
   if(event.data?.type === 'book-language') {
     const en=event.data.language==='en';document.documentElement.lang=en?'en':'ru';
@@ -783,7 +816,7 @@ function setReaderFace(face, animate = true) {
   emitReaderState();
 }
 function readerNavigate(direction) {
-  if (!diagnostics.ready || !parentVisible || document.hidden || readerOverlayOpen() || navigating || turning || coverMotion || cameraTween || gesture) return false;
+  if (!diagnostics.ready || !readerInteractive || !parentVisible || document.hidden || readerOverlayOpen() || navigating || turning || coverMotion || cameraTween || gesture) return false;
   if (closedBook.visible) {
     if (direction < 0) return false;
     readerFace = 0; openCover(); emitReaderState(); return true;
@@ -1000,10 +1033,13 @@ function settleCover(target) {
 
 async function openCover() {
   if (!closedBook.visible||turning||navigating||coverMotion) return;
+  const version = interactionVersion;
   if (currentView!=='cover') fitCamera('cover',false);
   navigating=true;updateNavigation();
-  try {await openingTextures(0);applyPrint(0);}
+  try {await openingTextures(0);}
   catch(error){navigating=false;recoverableTextureError(error);return;}
+  if (version !== interactionVersion || !readerInteractive) {navigating=false;updateNavigation();return;}
+  applyPrint(0);
   navigating=false;cameraTween=null;setCoverPose(0);
   settleCover(1);
   diagnostics.coverProgress=0;updateNavigation();
@@ -1180,10 +1216,14 @@ function connectPageDrag() {
   };
   const startCoverDrag=async token=>{
     token.started=true;
-    if(printIndex!==0) {
+    const version=interactionVersion;
+    const resetOpening=printIndex!==0;
+    if(resetOpening) {
       navigating=true;updateNavigation();
-      try{await openingTextures(0);applyPrint(0);}catch(error){recoverableTextureError(error);return;}finally{navigating=false;}
+      try{await openingTextures(0);}catch(error){recoverableTextureError(error);return;}finally{navigating=false;}
     }
+    if (version!==interactionVersion || !readerInteractive) {updateNavigation();return;}
+    if(resetOpening) applyPrint(0);
     setCoverPose(token.coverStart);
     coverMotion={drag:true,progress:token.coverStart,target:token.target};
     if(token.released) settleCover(token.cancelled?token.coverStart:token.target>.5?1:0);
@@ -1195,6 +1235,7 @@ function connectPageDrag() {
     if(coverMotion?.drag) coverMotion.target=gesture.target;
   };
   canvas.addEventListener('pointerdown',event=>{
+    if (!readerInteractive || !parentVisible) return;
     if(!event.isPrimary) { backgroundGesture=null; cancelReaderDrag(); return; }
     if (event.button!==0 || !event.isPrimary || gesture) return;
     if(editorMode&&orbitMode) return;
@@ -1203,7 +1244,7 @@ function connectPageDrag() {
     // Portrait reading never derives a page drag from an oblique ray. A small
     // tap still uses the physical page hit on release; a horizontal swipe is
     // a screen-space next/previous command.
-    if (readerHandset() && event.pointerType==='touch' && !closedBook.visible && !imageFocus) {
+    if (readerPortrait() && event.pointerType==='touch' && !closedBook.visible && !imageFocus) {
       event.preventDefault(); event.stopImmediatePropagation(); hover.strength = hover.target = 0;
       gesture = { id:event.pointerId, kind:'reader-swipe', x:event.clientX, y:event.clientY, distance:0, released:false, cancelled:false };
       canvas.setPointerCapture(event.pointerId); emitReaderState(); return;
@@ -1324,6 +1365,10 @@ function connectUI() {
   document.querySelector('#material-close').addEventListener('click', () => { togglePanel(false); document.querySelector('#material-toggle').focus(); });
   document.addEventListener('keydown', e => {
     if(textReader.open) return;
+    if (e.key === 'Escape' && presentationMode === 'reading' && !readerOverlayOpen()) {
+      e.preventDefault();parent.postMessage({type:'book-exit'},location.origin);return;
+    }
+    if (!readerInteractive) return;
     if (e.key === 'Escape' && imageFocus) restoreSpread();
     if (e.key === 'Escape' && !panel.hidden) { togglePanel(false); document.querySelector('#material-toggle').focus(); }
     if (e.key === 'Escape' && !contents.hidden) { toggleContents(false); document.querySelector('#contents-toggle').focus(); }
@@ -1396,7 +1441,7 @@ function connectUI() {
   canvas.addEventListener('pointerleave', () => { hover.target = 0; });
   canvas.addEventListener('pointerdown', () => toggleContents(false));
   addEventListener('resize', resize);
-  if(embedded) canvas.addEventListener('wheel',event=>{if(editorMode)return;event.preventDefault();parent.postMessage({type:'book-wheel',x:event.deltaX,y:event.deltaY,mode:event.deltaMode},location.origin);},{passive:false});
+  if(embedded) canvas.addEventListener('wheel',event=>{if(editorMode)return;event.preventDefault();if(presentationMode!=='reading')parent.postMessage({type:'book-wheel',x:event.deltaX,y:event.deltaY,mode:event.deltaMode},location.origin);},{passive:false});
 }
 
 let lastDrawTime=0;
@@ -1434,7 +1479,10 @@ function draw(now) {
       updateTurnBinding();updateLeaf(turnMesh.geometry,time,turning.progress);
       if (t>=1) finishTurn(turning.settle.to===1);
     } else {
-      turning.progress+=(turning.target-turning.progress)*(1-Math.exp(-delta*24));
+      // A held sheet follows the finger in the next rendered frame. Easing
+      // belongs to release, not to the active grab.
+      if (gesture?.kind === 'paper') turning.progress = turning.target;
+      else turning.progress+=(turning.target-turning.progress)*(1-Math.exp(-delta*24));
       updateTurnBinding();updateLeaf(turnMesh.geometry,time,turning.progress);
     }
   }
@@ -1502,6 +1550,7 @@ async function init() {
   await setEnvironment(defaultEnvironment, 'Studio / softboxes');
   applyPrint(printIndex); resize(); connectUI();
   diagnostics.ready = true;
+  setReaderPresentation(presentationRequest.mode, presentationRequest.open);
   clearCheckpoint();
   if(embedded) parent.postMessage({type:'book-ready'},location.origin);
   emitReaderState(true);

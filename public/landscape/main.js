@@ -2,6 +2,7 @@
 (() => {
   const folio = document.querySelector('.folio');
   const nativeScroll = matchMedia('(pointer: coarse) and (max-width: 600px), (pointer: coarse) and (max-height: 600px)');
+  const bookReading = () => document.documentElement.classList.contains('book-reading');
   document.documentElement.classList.toggle('native-scroll', nativeScroll.matches);
   const scrollHost = () => nativeScroll.matches ? document.scrollingElement : folio;
   const viewportHeight = () => window.visualViewport?.height || window.innerHeight;
@@ -110,6 +111,7 @@
     subtree:true, attributes:true, attributeFilter:['open','data-tone'],
   });
   const update = () => {
+    if (bookReading()) { scrollFrame = null; return; }
     const top = scrollHost().scrollTop;
     current = nativeScroll.matches
       ? Math.max(0, sheets.findLastIndex(sheet => sheet.offsetTop <= top + viewportHeight() / 2))
@@ -125,6 +127,7 @@
     scrollFrame = null;
   };
   const remember = () => {
+    if (bookReading()) return;
     update();
     if (Math.abs(sheets[current].offsetTop - scrollHost().scrollTop) > 1 && !(nativeScroll.matches && sheets[current] === works)) return;
     destination = current;
@@ -134,6 +137,10 @@
   };
   const go = (index, smooth = true) => {
     const next = clamp(index, sheets.length - 1);
+    if (bookReading()) {
+      if (sheets[next].id === 'portfolio') return;
+      document.dispatchEvent(new Event('folio-leave-book'));
+    }
     destination = next;
     ++navigationVersion;
     clearTimeout(settleTimer);
@@ -174,12 +181,18 @@
     destination = current;
   }, {passive:true});
   const onScroll = () => {
+    if (bookReading()) return;
     if (!scrollFrame) scrollFrame = requestAnimationFrame(update);
     clearTimeout(settleTimer);
     settleTimer = setTimeout(remember, 160);
   };
   folio.addEventListener('scroll', onScroll, {passive:true});
   window.addEventListener('scroll', onScroll, {passive:true});
+  document.addEventListener('book-reading-change', event => {
+    cancelAnimationFrame(pagingFrame);cancelAnimationFrame(scrollFrame);clearTimeout(settleTimer);
+    pagingFrame=scrollFrame=null;folio.classList.remove('is-paging');
+    if (!event.detail) {fitViewport();remember();}
+  });
 
   // Keep inertia in its gesture, but let a fresh flick interrupt the animation.
   const wheelPager = (element, turn, enabled = () => true) => {
@@ -352,7 +365,7 @@
     element.addEventListener('pointerdown', event => {
       pointers.add(event.pointerId);
       if (pointers.size > 1) {start = null; blocked = true; return;}
-      if (event.button !== 0 || event.target.closest('a,[data-panel],.image-close,.author-controls,.study-controls,.project-gallery,.gallery-navigation,.essay-controls,.chapter-tabs,.catalogue-scroll')) return;
+      if (event.button !== 0 || event.target.closest('a,[data-panel],.image-close,.author-controls,.study-controls,.project-gallery,.gallery-navigation,.essay-controls,.chapter-tabs,.catalogue-scroll,.book-entry,.book-exit')) return;
       blocked = false;
       start = {x: event.clientX, y: event.clientY, id: event.pointerId};
     });
@@ -406,6 +419,7 @@
       return;
     }
     if (document.querySelector('dialog[open]') || event.target.closest('input,textarea,select')) return;
+    if (bookReading()) return;
     if (event.key === 'Escape' && sheets.length === 1) {
       event.preventDefault();
       const hash = sheets[0].id === 'handwriting' ? '#author' : '#works';
@@ -464,7 +478,7 @@
     document.documentElement.style.setProperty('--viewport-height', height + 'px');
     // Browser bars change the height of every preceding sheet. Keep the same
     // reading position while the root document remains free to scroll normally.
-    if (nativeScroll.matches && sheet.offsetTop !== before && !pagingFrame) {
+    if (nativeScroll.matches && !bookReading() && sheet.offsetTop !== before && !pagingFrame) {
       scrollHost().scrollTo({top:sheet.offsetTop + offset, behavior:'instant'});
     }
   };
@@ -487,6 +501,7 @@
     if (folio.clientHeight === lastHeight && folio.clientWidth === lastWidth) return;
     const widthChanged = folio.clientWidth !== lastWidth;
     lastHeight = folio.clientHeight; lastWidth = folio.clientWidth;
+    if (bookReading()) return;
     if (nativeScroll.matches && !widthChanged) return;
     if (!resizing) {
       resizing = true;

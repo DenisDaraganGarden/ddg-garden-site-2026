@@ -39,6 +39,10 @@ header,footer{color:#fff;mix-blend-mode:difference}
 .embedded .reader-frame{top:8px}
 /* OrbitControls installs an inline touch-action even with orbit disabled. */
 @media(pointer:coarse){.reader canvas{touch-action:pan-y pinch-zoom!important}}
+.reader-preview footer,.reader-preview .reader-status{display:none}
+.reader-preview .reader-frame{bottom:max(106px,calc(env(safe-area-inset-bottom) + 90px))}
+.reader-engaged canvas{touch-action:none!important}
+.reader-engaged #stage{touch-action:none;overscroll-behavior:none}
 @media(pointer:coarse) and (orientation:landscape) and (max-height:600px){
   .reader header,.reader footer,.reader-status{display:none}
   .reader .reader-frame{top:max(8px,env(safe-area-inset-top));bottom:max(8px,env(safe-area-inset-bottom));left:max(12px,env(safe-area-inset-left));right:max(12px,env(safe-area-inset-right))}
