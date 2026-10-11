@@ -235,22 +235,6 @@
       ]
     },
     {
-      "id": "moscow-courtyard",
-      "title": "Жилой комплекс · Москва II",
-      "subtitle": "В сотрудничестве с L.BURO",
-      "frames": [
-        "moscow-courtyard-addition-01",
-        "moscow-courtyard-addition-02",
-        "moscow-courtyard-addition-03",
-        "moscow-courtyard-addition-04"
-      ],
-      "about": "<p>Денис Дараган.<br>В сотрудничестве с L.BURO.</p>",
-      "year": "",
-      "categories": [
-        "city"
-      ]
-    },
-    {
       "id": "moscow-terraces",
       "title": "Жилой комплекс · Москва III",
       "subtitle": "В сотрудничестве с Derevo Park",
