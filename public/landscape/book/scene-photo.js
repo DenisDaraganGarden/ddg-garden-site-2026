@@ -74,6 +74,8 @@ export class ScenePhoto {
       ['aberration','aberration'],['dustOpacity','dustOpacity'],['vignette','lensVignette'],['seed','opticalSeed']]) {
       this.uniforms[uniform].value = settings[key];
     }
+    // Keep the authored desktop lens; colour fringes must stay subtle on a phone.
+    if (matchMedia('(pointer:coarse)').matches) this.uniforms.aberration.value *= .2;
     const key = JSON.stringify([this.width,this.height,settings.opticalSeed,settings.dustDensity,
       settings.dustSize,settings.lensFibres,settings.fibreLength]);
     if (key === this.dustKey) return;

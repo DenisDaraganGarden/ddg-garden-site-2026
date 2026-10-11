@@ -4,8 +4,8 @@ import { HDRLoader } from 'three/addons/loaders/HDRLoader.js';
 import { EXRLoader } from 'three/addons/loaders/EXRLoader.js';
 import { createPaperMaterial, updatePaperMaterial } from './paper-material.js?v=20261009-editorial';
 import { createCoverMaterial, updateCoverMaterial, createCutMaterial, loadEmblem, configureLeatherFiltering } from './cover-material.js?v=20261009-editorial';
-import { bookContent, paperStyle } from './content/book-content.js?v=20261009-editorial';
-import { ScenePhoto } from './scene-photo.js?v=20261009-editorial';
+import { bookContent, paperStyle } from './content/book-content.js?v=20261011-design1';
+import { ScenePhoto } from './scene-photo.js?v=20261011-design1';
 import { blockPagePinch, connectImageZoom } from './image-gestures.js?v=20261011-touch4';
 
 const canvas = document.querySelector('#book-canvas');
@@ -742,7 +742,7 @@ async function pageTexture(page) {
   if (!record || record.blank) return null;
   if (!textureCache.has(record.file)) {
     const entry = { texture: null };
-    entry.promise = new THREE.TextureLoader().loadAsync('./' + record.file).then(texture => {
+    entry.promise = new THREE.TextureLoader().loadAsync('./' + record.file + '?v=' + bookContent.edition).then(texture => {
       texture.colorSpace = THREE.SRGBColorSpace;
       texture.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
       renderer.initTexture(texture);
@@ -1432,7 +1432,7 @@ function connectUI() {
   for (const chapter of bookContent.chapters) {
     const button = document.createElement('button');
     button.dataset.opening = chapter.start;
-    const preview = document.createElement('img'); preview.src = './' + bookContent.spreads[chapter.start].preview; preview.alt = ''; preview.loading = 'lazy';
+    const preview = document.createElement('img'); preview.src = './' + bookContent.spreads[chapter.start].preview + '?v=' + bookContent.edition; preview.alt = ''; preview.loading = 'lazy';
     const name = document.createElement('span'); name.textContent = chapter.title;
     button.append(preview, name);
     if (chapter.credit) { const credit = document.createElement('small'); credit.textContent = chapter.credit; name.append(credit); }
@@ -1632,7 +1632,7 @@ async function init() {
   }
   topBase = bindingHeight(printIndex);
   leafCounts[-1] = printIndex + endpapers; leafCounts[1] = bookContent.spreads.length - 1 - printIndex + endpapers;
-  const results = await Promise.all([loadEmblem(), textureLoader.loadAsync('./' + bookContent.atlas.file), new HDRLoader().loadAsync('./assets/studio-softboxes.hdr'), openingTextures(printIndex)]);
+  const results = await Promise.all([loadEmblem(), textureLoader.loadAsync('./' + bookContent.atlas.file + '?v=' + bookContent.edition), new HDRLoader().loadAsync('./assets/studio-softboxes.hdr'), openingTextures(printIndex)]);
   emblemMap = results[0];
   blockAtlas = results[1]; blockAtlas.colorSpace = THREE.SRGBColorSpace; blockAtlas.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
   defaultEnvironment = results[2];

@@ -1,6 +1,7 @@
 // Generated from layout.json; do not edit the generated catalogue.
 export const bookContent = {
   "title": "Denis Daragan",
+  "edition": "25874fda8c0d6b50",
   "width": 536,
   "height": 302,
   "chapters": [
@@ -597,8 +598,8 @@ export const bookContent = {
         }
       ],
       "textPages": [
-        true,
-        false
+        false,
+        true
       ],
       "readingText": [
         null,
@@ -620,15 +621,15 @@ export const bookContent = {
           "rotation": 0,
           "box": [
             0,
-            68.0415944540728,
-            268,
-            150.04043905257078
+            0,
+            536,
+            302
           ]
         }
       ],
       "textPages": [
         false,
-        true
+        false
       ],
       "readingText": [
         null,
@@ -847,8 +848,8 @@ export const bookContent = {
         }
       ],
       "textPages": [
-        false,
-        true
+        true,
+        false
       ],
       "readingText": [
         null,
@@ -956,7 +957,7 @@ export const bookContent = {
       "preview": "assets/previews/alumni-02.webp",
       "images": [
         {
-          "asset": "alumni-02",
+          "asset": "alumni-05",
           "rotation": 0,
           "box": [
             0,
@@ -966,7 +967,7 @@ export const bookContent = {
           ]
         },
         {
-          "asset": "alumni-04",
+          "asset": "alumni-02",
           "rotation": 0,
           "box": [
             288.0651041666667,
@@ -997,21 +998,11 @@ export const bookContent = {
       "images": [
         {
           "asset": "alumni-01",
-          "rotation": 90,
-          "box": [
-            0,
-            0,
-            268,
-            302
-          ]
-        },
-        {
-          "asset": "alumni-03",
           "rotation": 0,
           "box": [
-            268,
             0,
-            268,
+            0,
+            536,
             302
           ]
         }
@@ -1039,16 +1030,16 @@ export const bookContent = {
           "asset": "alumni-05",
           "rotation": 0,
           "box": [
-            20.065104166666668,
-            46.931253610629696,
-            350.00520833333337,
-            244.94974003466206
+            0,
+            0,
+            536,
+            302
           ]
         }
       ],
       "textPages": [
         false,
-        true
+        false
       ],
       "readingText": [
         null,
@@ -1782,7 +1773,7 @@ export const bookContent = {
       "side": "left",
       "file": "assets/pages/manor-02-left.webp",
       "blank": false,
-      "fullBleed": false,
+      "fullBleed": true,
       "paper": "white",
       "monochrome": false
     },
@@ -1792,7 +1783,7 @@ export const bookContent = {
       "side": "right",
       "file": "assets/pages/manor-02-right.webp",
       "blank": false,
-      "fullBleed": false,
+      "fullBleed": true,
       "paper": "white",
       "monochrome": false
     },
@@ -1964,7 +1955,7 @@ export const bookContent = {
       "blank": false,
       "fullBleed": true,
       "paper": "white",
-      "monochrome": false
+      "monochrome": true
     },
     {
       "id": 45,
@@ -1974,7 +1965,7 @@ export const bookContent = {
       "blank": false,
       "fullBleed": true,
       "paper": "white",
-      "monochrome": false
+      "monochrome": true
     },
     {
       "id": 46,
@@ -2022,9 +2013,9 @@ export const bookContent = {
       "side": "left",
       "file": "assets/pages/alumni-04-left.webp",
       "blank": false,
-      "fullBleed": false,
+      "fullBleed": true,
       "paper": "white",
-      "monochrome": false
+      "monochrome": true
     },
     {
       "id": 51,
@@ -2032,9 +2023,9 @@ export const bookContent = {
       "side": "right",
       "file": "assets/pages/alumni-04-right.webp",
       "blank": false,
-      "fullBleed": false,
+      "fullBleed": true,
       "paper": "white",
-      "monochrome": false
+      "monochrome": true
     },
     {
       "id": 52,

@@ -40,3 +40,11 @@ html.book-reading{scroll-snap-type:none;overscroll-behavior:none}
   .book-entry-copy{bottom:max(10px,env(safe-area-inset-bottom))}
 }
 @media(max-width:600px){:root{--header-base:76px}.site-header .signature-brand{height:52px}.signature-mark{width:240px;height:60px}.site-header nav{font-size:10px}.site-header{grid-template-columns:minmax(0,1fr) auto minmax(0,1fr)}.on-detached .site-header nav{gap:10px;flex-wrap:wrap}.on-detached .view-return{position:absolute;left:var(--gutter);top:calc(var(--header) + 8px)}}
+
+/* One signature, at the opening and in the header after the first swipe. */
+.site-header .signature-brand{transform-origin:center;will-change:transform;transition:none;visibility:visible}
+.scroll-cue{position:absolute;z-index:3;bottom:max(16px,env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);width:44px;height:44px;display:grid;place-items:center;color:inherit;opacity:.72;touch-action:manipulation}
+.scroll-cue:focus-visible{outline:1px solid currentColor;outline-offset:2px}
+.book-scroll-cue{color:#222}.book-reading .book-scroll-cue{display:none}
+.native-scroll .book-entry-copy{bottom:max(76px,calc(env(safe-area-inset-bottom) + 62px))}
+@media(prefers-reduced-motion:no-preference){.scroll-cue svg{animation:scroll-cue-breathe 3s ease-in-out 2}@keyframes scroll-cue-breathe{0%,100%{transform:translateY(0);opacity:.6}50%{transform:translateY(4px);opacity:1}}}

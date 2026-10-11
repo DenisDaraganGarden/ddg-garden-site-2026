@@ -18,6 +18,9 @@
   const handwritingLink = document.querySelector('#author a[href="#handwriting"]');
   const reduce = matchMedia('(prefers-reduced-motion: reduce)');
   const pagePosition = document.querySelector('.page-position');
+  const signature = document.querySelector('.signature-brand');
+  const signatureMark = signature.querySelector('.signature-mark');
+  const hero = document.getElementById('top');
   const status = document.querySelector('#page-status');
   const viewer = document.querySelector('.image-dialog');
   const viewerImage = viewer.querySelector('img');
@@ -131,6 +134,14 @@
   const update = () => {
     if (bookReading()) { scrollFrame = null; return; }
     const top = scrollHost().scrollTop;
+    // The same signature travels from the opening photograph into the header.
+    // Follow actual scroll position, including an interrupted touch gesture.
+    const heroVisible = sheets.includes(hero) && top < hero.offsetTop + hero.offsetHeight;
+    const travel = heroVisible ? Math.max(0, Math.min(1, (top - hero.offsetTop) / (hero.offsetHeight * .78))) : 1;
+    const eased = travel * travel * (3 - 2 * travel);
+    const scale = 1 + (Math.max(1, Math.min(innerWidth * .82, 1000) / signatureMark.offsetWidth) - 1) * (1 - eased);
+    const headerCenter = document.querySelector('.site-header').offsetHeight / 2;
+    signature.style.transform = `translateY(${(hero.offsetHeight * .54 - headerCenter) * (1 - eased)}px) scale(${scale})`;
     current = nativeScroll.matches
       ? Math.max(0, sheets.findLastIndex(sheet => sheet.offsetTop <= top + viewportHeight() / 2))
       : sheets.reduce((nearest, sheet, index) => Math.abs(sheet.offsetTop - top) < Math.abs(sheets[nearest].offsetTop - top) ? index : nearest, 0);

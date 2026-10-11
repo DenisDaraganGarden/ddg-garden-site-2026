@@ -3,6 +3,8 @@
   // Russian is the editable source. Keep translations separate from project IDs,
   // source links and artwork, and translate text nodes without rebuilding DOM.
   const english = {
+    'Вниз к портфолио': 'Scroll down to portfolio',
+    'Вниз к работам': 'Scroll down to works',
     'Denis Daragan · Ландшафт': 'Denis Daragan · Landscape',
     'Сады и ландшафтные концепции Дениса Дарагана. Избранные работы.': 'Gardens and landscape concepts by Denis Daragan. Selected works.',
     'Сады и ландшафтные концепции. Избранные работы.': 'Gardens and landscape concepts. Selected works.',
