@@ -4,8 +4,8 @@ import { HDRLoader } from 'three/addons/loaders/HDRLoader.js';
 import { EXRLoader } from 'three/addons/loaders/EXRLoader.js';
 import { createPaperMaterial, updatePaperMaterial } from './paper-material.js?v=20261009-editorial';
 import { createCoverMaterial, updateCoverMaterial, createCutMaterial, loadEmblem, configureLeatherFiltering } from './cover-material.js?v=20261009-editorial';
-import { bookContent, paperStyle } from './content/book-content.js?v=20261011-design1';
-import { ScenePhoto } from './scene-photo.js?v=20261011-design1';
+import { bookContent, paperStyle } from './content/book-content.js?v=20261011-english1';
+import { ScenePhoto } from './scene-photo.js?v=20261011-english1';
 import { blockPagePinch, connectImageZoom } from './image-gestures.js?v=20261011-touch4';
 
 const canvas = document.querySelector('#book-canvas');
@@ -199,7 +199,12 @@ addEventListener('message', event => {
     document.querySelector('#contents-toggle').textContent=en?'CONTENTS':'СОДЕРЖАНИЕ';
     document.querySelector('#contents-heading').textContent=en?'Contents':'Содержание';
     document.querySelector('#text-reader>button').setAttribute('aria-label',en?'Return to the book':'Вернуться к книге');
-    document.querySelectorAll('[data-opening] span').forEach((span,i)=>{span.firstChild.textContent=en?bookContent.chapters[i].title_en:bookContent.chapters[i].title;});
+    document.querySelectorAll('[data-opening] span').forEach((span,i)=>{
+      const chapter=bookContent.chapters[i];
+      span.firstChild.textContent=en?chapter.title_en:chapter.title;
+      const credit=span.querySelector('small');
+      if(credit)credit.textContent=en?(chapter.credit_en||chapter.credit):chapter.credit;
+    });
     emitReaderState();
   }
 });

@@ -1,7 +1,7 @@
 // Generated from layout.json; do not edit the generated catalogue.
 export const bookContent = {
   "title": "Denis Daragan",
-  "edition": "25874fda8c0d6b50",
+  "edition": "aa4301cf00c09aac",
   "width": 536,
   "height": 302,
   "chapters": [
@@ -27,45 +27,47 @@ export const bookContent = {
       "id": "inspiration",
       "title": "Мудборд · материалы и растения",
       "title_en": "Inspiration · materials & plants",
-      "start": 10
+      "start": 7
     },
     {
       "id": "manor",
       "title": "Манор",
       "title_en": "Manor",
-      "start": 12
+      "start": 8
     },
     {
       "id": "provence",
       "title": "Франция · Частная резиденция",
       "title_en": "France · Private residence",
-      "start": 16
-    },
-    {
-      "id": "raevo",
-      "title": "RAEVO",
-      "title_en": "RAEVO",
-      "credit": "Ландшафт — Денис Дараган. По заказу студии Derevo Park.",
-      "start": 21
+      "start": 15
     },
     {
       "id": "alumni",
       "title": "Сад выпускников",
       "title_en": "Alumni Garden",
       "credit": "Ландшафт — Денис Дараган. В сотрудничестве с L.BURO.",
-      "start": 22
+      "start": 16,
+      "credit_en": "Landscape by Denis Daragan. In collaboration with L.BURO."
+    },
+    {
+      "id": "raevo",
+      "title": "RAEVO",
+      "title_en": "RAEVO",
+      "credit": "Ландшафт — Денис Дараган. По заказу студии Derevo Park.",
+      "start": 22,
+      "credit_en": "Landscape by Denis Daragan. Commissioned by Derevo Park."
     },
     {
       "id": "osaka",
       "title": "Осака",
       "title_en": "Osaka",
-      "start": 29
+      "start": 27
     },
     {
       "id": "sculpture",
       "title": "Скульптура",
       "title_en": "Sculpture",
-      "start": 34
+      "start": 33
     },
     {
       "id": "closing",
@@ -152,7 +154,7 @@ export const bookContent = {
         null,
         {
           "title": "BIOGRAPHY",
-          "body": "Денис Дараган — российский ландшафтный архитектор, основатель авторского бюро Denis Daragan Garden в Санкт-Петербурге. Вырос в Азове, а в 2022 году переехал в Петербург, чтобы развивать собственную архитектурную практику. В основе его работ лежит столкновение строгой архитектурной геометрии с живой, порой агрессивной природой. Дараган свободно обращается с противоположностями: монументальностью и хрупкостью, порядком и хаосом, грубыми материалами и мягкостью растительности. Его сады отличаются выразительной пластикой, сложной пространственной композицией и вниманием к эмоциональному восприятию среды. Дараган рассматривает ландшафт не как декоративное дополнение к архитектуре, а как самостоятельную художественную дисциплину, способную вступать с ней в диалог, конфликтовать и менять её восприятие. Принципиальное место в его практике занимает авторство. Противопоставляя индивидуальный художественный язык обезличенному коммерческому проектированию, он отстаивает ценность личного замысла и ответственности архитектора за собственное произведение. Его практика охватывает частные и общественные пространства, включая проекты в Санкт-Петербурге, Москве, Ташкенте, Франции и Италии."
+          "body": "Denis Daragan is a Russian landscape architect and founder of Denis Daragan Garden, an independent practice based in St Petersburg. Raised in Azov, he moved to St Petersburg in 2022 to develop his own architectural practice. His work brings strict architectural geometry into contact with living, sometimes unruly nature. He works with contrasts: monumentality and fragility, order and chaos, raw materials and soft planting. His gardens combine expressive form, layered spatial composition and a close attention to how a place is felt. He sees landscape as an artistic discipline in its own right, able to enter into dialogue with architecture, challenge it and change its perception. Authorship is central to his practice. Against anonymous commercial design, he defends the value of a personal vision and the architect's responsibility for the work. His practice spans private and public spaces, with projects in St Petersburg, Moscow, Tashkent, France and Italy."
         }
       ]
     },
@@ -167,7 +169,7 @@ export const bookContent = {
       "preview": "assets/previews/author-01.webp",
       "images": [
         {
-          "asset": "author-03",
+          "asset": "upload-19a819d404a85e1e",
           "rotation": 0,
           "box": [
             0,
@@ -180,7 +182,7 @@ export const bookContent = {
           "asset": "author-07",
           "rotation": 0,
           "box": [
-            268,
+            267.6510416666667,
             0,
             268,
             302
@@ -189,7 +191,7 @@ export const bookContent = {
       ],
       "textPages": [
         false,
-        true
+        false
       ],
       "readingText": [
         null,
@@ -217,7 +219,7 @@ export const bookContent = {
           ]
         },
         {
-          "asset": "author-15",
+          "asset": "upload-2e42a3eae3d85594",
           "rotation": 0,
           "box": [
             268,
@@ -228,7 +230,7 @@ export const bookContent = {
         }
       ],
       "textPages": [
-        false,
+        true,
         true
       ],
       "readingText": [
@@ -247,7 +249,7 @@ export const bookContent = {
       "preview": "assets/previews/studio-01.webp",
       "images": [
         {
-          "asset": "author-05",
+          "asset": "upload-8c86ee0e7c2e86b9",
           "rotation": 0,
           "box": [
             0,
@@ -268,118 +270,8 @@ export const bookContent = {
         }
       ],
       "textPages": [
-        false,
+        true,
         true
-      ],
-      "readingText": [
-        null,
-        null
-      ]
-    },
-    {
-      "id": "journal-01",
-      "chapter": "handwriting",
-      "layout": "full-bleed autumn / serif journal title",
-      "pages": [
-        12,
-        13
-      ],
-      "preview": "assets/previews/journal-01.webp",
-      "images": [
-        {
-          "asset": "handwriting-01",
-          "rotation": 0,
-          "box": [
-            0,
-            0,
-            536,
-            302
-          ]
-        }
-      ],
-      "textPages": [
-        true,
-        false
-      ],
-      "readingText": [
-        null,
-        null
-      ]
-    },
-    {
-      "id": "journal-02",
-      "chapter": "handwriting",
-      "layout": "full-bleed human / garden figures",
-      "pages": [
-        14,
-        15
-      ],
-      "preview": "assets/previews/journal-02.webp",
-      "images": [
-        {
-          "asset": "handwriting-05",
-          "rotation": 0,
-          "box": [
-            0,
-            0,
-            268,
-            302
-          ]
-        },
-        {
-          "asset": "handwriting-08",
-          "rotation": 0,
-          "box": [
-            268,
-            0,
-            268,
-            302
-          ]
-        }
-      ],
-      "textPages": [
-        false,
-        false
-      ],
-      "readingText": [
-        null,
-        null
-      ]
-    },
-    {
-      "id": "journal-03",
-      "chapter": "handwriting",
-      "layout": "square scene / full-bleed sculpture",
-      "pages": [
-        16,
-        17
-      ],
-      "preview": "assets/previews/journal-03.webp",
-      "images": [
-        {
-          "asset": "handwriting-04",
-          "rotation": 0,
-          "box": [
-            20.065104166666668,
-            20.06354708261121,
-            228.04427083333334,
-            228.02657423454653
-          ]
-        },
-        {
-          "asset": "handwriting-03",
-          "rotation": 0,
-          "box": [
-            268,
-            0,
-            268,
-            302
-          ]
-        }
-      ],
-      "textPages": [
-        true,
-        false
       ],
       "readingText": [
         null,
@@ -389,116 +281,106 @@ export const bookContent = {
     {
       "id": "journal-04",
       "chapter": "handwriting",
-      "layout": "figure / two material fragments",
+      "layout": "visual references / classical order to contemporary landscape",
       "pages": [
-        18,
-        19
+        12,
+        13
       ],
       "preview": "assets/previews/journal-04.webp",
       "images": [
         {
-          "asset": "handwriting-06",
+          "asset": "upload-3fcaf121bc86f9d3",
           "rotation": 0,
           "box": [
-            0,
-            0,
-            268,
-            302
+            12.0390625,
+            17.96995956094743,
+            83.92447916666667,
+            162.07856730213751
           ]
         },
         {
-          "asset": "handwriting-07",
+          "asset": "upload-637362039f763768",
           "rotation": 0,
           "box": [
-            289.984375,
-            21.98266897746967,
-            224.03125,
-            121.95147313691508
+            109.04947916666667,
+            100.66666666666667,
+            302.0234375,
+            51.6418255343732
           ]
         },
         {
-          "asset": "handwriting-02",
+          "asset": "upload-91fd4188d7a3ede3",
           "rotation": 0,
           "box": [
-            381.93489583333337,
-            165.91681109185444,
-            154.06510416666669,
-            136.0831889081456
+            12.0390625,
+            188.0739456961294,
+            83.92447916666667,
+            95.95609474292317
+          ]
+        },
+        {
+          "asset": "upload-7add7aa4e2aeac20",
+          "rotation": 0,
+          "box": [
+            103.98958333333334,
+            128.0577700751011,
+            72.05989583333334,
+            155.97227036395148
+          ]
+        },
+        {
+          "asset": "upload-7a5e62875a8e2c0f",
+          "rotation": 0,
+          "box": [
+            185.64583333333334,
+            172.19757365684578,
+            72.05989583333334,
+            103.98151357596765
+          ]
+        },
+        {
+          "asset": "upload-4e6165b09f3262e2",
+          "rotation": 0,
+          "box": [
+            110.96875,
+            8.199884459849798,
+            303.0703125,
+            85.83708838821491
+          ]
+        },
+        {
+          "asset": "upload-a026ee82b323f7fc",
+          "rotation": 0,
+          "box": [
+            300.453125,
+            171.1507798960139,
+            102.94270833333334,
+            111.83246678220682
+          ]
+        },
+        {
+          "asset": "upload-fd80281438ebb8e9",
+          "rotation": 0,
+          "box": [
+            429.9166666666667,
+            77.98613518197574,
+            94.04427083333334,
+            206.04390525707686
+          ]
+        },
+        {
+          "asset": "upload-18af93e75c7c0bb5",
+          "rotation": 0,
+          "box": [
+            123.53125000000001,
+            242.50722125938765,
+            54.9609375,
+            53.386481802426346
           ]
         }
       ],
       "textPages": [
         false,
-        true
-      ],
-      "readingText": [
-        null,
-        null
-      ]
-    },
-    {
-      "id": "inspiration-01",
-      "chapter": "inspiration",
-      "layout": "asymmetric material moodboard",
-      "pages": [
-        20,
-        21
-      ],
-      "preview": "assets/previews/inspiration-01.webp",
-      "images": [
-        {
-          "asset": "reference-granite-blocks",
-          "rotation": 0,
-          "box": [
-            20.065104166666668,
-            47.978047371461585,
-            109.921875,
-            159.98497978047374
-          ]
-        },
-        {
-          "asset": "reference-leather-fold",
-          "rotation": 0,
-          "box": [
-            142.02604166666669,
-            72.05430387059504,
-            106.08333333333334,
-            192.08665511265167
-          ]
-        },
-        {
-          "asset": "reference-marble-diagonal",
-          "rotation": 90,
-          "box": [
-            20.065104166666668,
-            220.00115540150205,
-            109.921875,
-            64.02888503755055
-          ]
-        },
-        {
-          "asset": "reference-pebble-mosaic",
-          "rotation": 0,
-          "box": [
-            288.0651041666667,
-            27.914500288850377,
-            103.98958333333334,
-            103.98151357596765
-          ]
-        },
-        {
-          "asset": "reference-dark-wood-blocks",
-          "rotation": 0,
-          "box": [
-            406.01302083333337,
-            60.01617562102831,
-            109.921875,
-            198.01848642403237
-          ]
-        }
-      ],
-      "textPages": [
-        true,
         true
       ],
       "readingText": [
@@ -511,13 +393,13 @@ export const bookContent = {
       "chapter": "inspiration",
       "layout": "plant / light / texture moodboard",
       "pages": [
-        22,
-        23
+        14,
+        15
       ],
       "preview": "assets/previews/inspiration-02.webp",
       "images": [
         {
-          "asset": "reference-dark-conifer",
+          "asset": "upload-58b7f734fab60b45",
           "rotation": 0,
           "box": [
             20.065104166666668,
@@ -527,7 +409,7 @@ export const bookContent = {
           ]
         },
         {
-          "asset": "reference-water-lily",
+          "asset": "upload-6fcd9322de67452f",
           "rotation": 0,
           "box": [
             161.91666666666669,
@@ -537,7 +419,7 @@ export const bookContent = {
           ]
         },
         {
-          "asset": "reference-feather-grass",
+          "asset": "upload-28a2c896364b4a71",
           "rotation": 0,
           "box": [
             20.065104166666668,
@@ -557,18 +439,28 @@ export const bookContent = {
           ]
         },
         {
-          "asset": "reference-wet-sand",
+          "asset": "upload-7efa0a36d5881970",
           "rotation": 0,
           "box": [
-            419.9713541666667,
-            21.98266897746967,
-            95.96354166666667,
-            180.04852686308493
+            423.1119791666667,
+            20.06354708261121,
+            112.88802083333334,
+            281.9364529173888
+          ]
+        },
+        {
+          "asset": "upload-505084dffb286c21",
+          "rotation": 0,
+          "box": [
+            280.5625,
+            224.01386481802427,
+            116.90104166666667,
+            77.4627383015598
           ]
         }
       ],
       "textPages": [
-        false,
+        true,
         true
       ],
       "readingText": [
@@ -581,13 +473,13 @@ export const bookContent = {
       "chapter": "manor",
       "layout": "full-spread",
       "pages": [
-        24,
-        25
+        16,
+        17
       ],
       "preview": "assets/previews/manor-01.webp",
       "images": [
         {
-          "asset": "manor-01",
+          "asset": "upload-5121e36b7c7a62b0",
           "rotation": 0,
           "box": [
             0,
@@ -607,22 +499,142 @@ export const bookContent = {
       ]
     },
     {
-      "id": "manor-02",
-      "chapter": "manor",
-      "layout": "horizontal detail / quiet title",
+      "id": "journal-01",
+      "chapter": "handwriting",
+      "layout": "full-bleed autumn / serif journal title",
       "pages": [
-        26,
-        27
+        18,
+        19
       ],
-      "preview": "assets/previews/manor-02.webp",
+      "preview": "assets/previews/journal-01.webp",
       "images": [
         {
-          "asset": "manor-02",
+          "asset": "upload-6a56f45ee5b2fe57",
           "rotation": 0,
           "box": [
             0,
             0,
             536,
+            302
+          ]
+        }
+      ],
+      "textPages": [
+        false,
+        false
+      ],
+      "readingText": [
+        null,
+        null
+      ]
+    },
+    {
+      "id": "journal-03",
+      "chapter": "handwriting",
+      "layout": "square scene / full-bleed sculpture",
+      "pages": [
+        20,
+        21
+      ],
+      "preview": "assets/previews/journal-03.webp",
+      "images": [
+        {
+          "asset": "upload-b9d3226ef3319e18",
+          "rotation": 0,
+          "box": [
+            268,
+            0,
+            268,
+            302
+          ]
+        },
+        {
+          "asset": "upload-38371703578a1546",
+          "rotation": 0,
+          "box": [
+            0,
+            0,
+            268,
+            302
+          ]
+        }
+      ],
+      "textPages": [
+        false,
+        false
+      ],
+      "readingText": [
+        null,
+        null
+      ]
+    },
+    {
+      "id": "journal-02",
+      "chapter": "handwriting",
+      "layout": "full-bleed human / garden figures",
+      "pages": [
+        22,
+        23
+      ],
+      "preview": "assets/previews/journal-02.webp",
+      "images": [
+        {
+          "asset": "handwriting-07",
+          "rotation": 0,
+          "box": [
+            0,
+            0,
+            268,
+            302
+          ]
+        },
+        {
+          "asset": "upload-9c5343152be16add",
+          "rotation": 0,
+          "box": [
+            268,
+            0,
+            268,
+            302
+          ]
+        }
+      ],
+      "textPages": [
+        false,
+        false
+      ],
+      "readingText": [
+        null,
+        null
+      ]
+    },
+    {
+      "id": "manor-02",
+      "chapter": "manor",
+      "layout": "horizontal detail / quiet title",
+      "pages": [
+        24,
+        25
+      ],
+      "preview": "assets/previews/manor-02.webp",
+      "images": [
+        {
+          "asset": "manor-01",
+          "rotation": 0,
+          "box": [
+            268,
+            0,
+            268,
+            302
+          ]
+        },
+        {
+          "asset": "upload-4e6165b09f3262e2",
+          "rotation": 0,
+          "box": [
+            0,
+            0,
+            268,
             302
           ]
         }
@@ -641,28 +653,18 @@ export const bookContent = {
       "chapter": "manor",
       "layout": "two full-bleed material details",
       "pages": [
-        28,
-        29
+        26,
+        27
       ],
       "preview": "assets/previews/manor-03.webp",
       "images": [
         {
-          "asset": "manor-06",
+          "asset": "upload-4d7a3a0105d3bd50",
           "rotation": 0,
           "box": [
             0,
             0,
-            268,
-            302
-          ]
-        },
-        {
-          "asset": "manor-07",
-          "rotation": 0,
-          "box": [
-            268,
-            0,
-            268,
+            536,
             302
           ]
         }
@@ -681,13 +683,13 @@ export const bookContent = {
       "chapter": "manor",
       "layout": "night portrait / framed surface study",
       "pages": [
-        30,
-        31
+        28,
+        29
       ],
       "preview": "assets/previews/manor-04.webp",
       "images": [
         {
-          "asset": "manor-04",
+          "asset": "upload-83a661f3e40e4c5e",
           "rotation": 0,
           "box": [
             0,
@@ -697,19 +699,29 @@ export const bookContent = {
           ]
         },
         {
-          "asset": "manor-05",
+          "asset": "upload-9370f3f102febd79",
           "rotation": 0,
           "box": [
-            303.94270833333337,
-            31.92720970537262,
-            195.94010416666669,
-            225.93298671288275
+            374.9557291666667,
+            0,
+            161.04427083333334,
+            302
+          ]
+        },
+        {
+          "asset": "upload-7848ef13546143e6",
+          "rotation": 0,
+          "box": [
+            267.30208333333337,
+            0,
+            110.61979166666667,
+            301.30213749277874
           ]
         }
       ],
       "textPages": [
         false,
-        true
+        false
       ],
       "readingText": [
         null,
@@ -721,18 +733,48 @@ export const bookContent = {
       "chapter": "provence",
       "layout": "chapter title / full-bleed garden",
       "pages": [
-        32,
-        33
+        30,
+        31
       ],
       "preview": "assets/previews/provence-01.webp",
       "images": [
         {
-          "asset": "provence-06",
+          "asset": "upload-a8c30418687d8693",
           "rotation": 0,
           "box": [
-            268,
             0,
-            268,
+            0,
+            536,
+            302
+          ]
+        }
+      ],
+      "textPages": [
+        false,
+        false
+      ],
+      "readingText": [
+        null,
+        null
+      ]
+    },
+    {
+      "id": "alumni-06",
+      "chapter": "alumni",
+      "layout": "full-spread",
+      "pages": [
+        32,
+        33
+      ],
+      "preview": "assets/previews/alumni-06.webp",
+      "images": [
+        {
+          "asset": "upload-b53582724a35932f",
+          "rotation": 0,
+          "box": [
+            0,
+            0,
+            536,
             302
           ]
         }
@@ -747,12 +789,122 @@ export const bookContent = {
       ]
     },
     {
+      "id": "alumni-07",
+      "chapter": "alumni",
+      "layout": "upright type / rotated garden photograph",
+      "pages": [
+        34,
+        35
+      ],
+      "preview": "assets/previews/alumni-07.webp",
+      "images": [
+        {
+          "asset": "upload-82c204ad4d4ef3c0",
+          "rotation": 0,
+          "box": [
+            268,
+            0,
+            268,
+            302
+          ]
+        },
+        {
+          "asset": "upload-9f44e4d12c2bb370",
+          "rotation": 0,
+          "box": [
+            0,
+            0,
+            268,
+            302
+          ]
+        }
+      ],
+      "textPages": [
+        false,
+        false
+      ],
+      "readingText": [
+        null,
+        null
+      ]
+    },
+    {
+      "id": "provence-05",
+      "chapter": "provence",
+      "layout": "monochrome garden / serif pause",
+      "pages": [
+        36,
+        37
+      ],
+      "preview": "assets/previews/provence-05.webp",
+      "images": [
+        {
+          "asset": "upload-e485e6ba04330bdc",
+          "rotation": 0,
+          "box": [
+            0,
+            0,
+            536,
+            302
+          ]
+        }
+      ],
+      "textPages": [
+        false,
+        false
+      ],
+      "readingText": [
+        null,
+        null
+      ]
+    },
+    {
+      "id": "alumni-03",
+      "chapter": "alumni",
+      "layout": "rotated sculpture photograph / water surface",
+      "pages": [
+        38,
+        39
+      ],
+      "preview": "assets/previews/alumni-03.webp",
+      "images": [
+        {
+          "asset": "upload-b1e1efe793d1875c",
+          "rotation": 0,
+          "box": [
+            268,
+            0,
+            268,
+            302
+          ]
+        },
+        {
+          "asset": "upload-1dfa468e616332b1",
+          "rotation": 0,
+          "box": [
+            17.2734375,
+            85.48815713460428,
+            231.53385416666669,
+            152.48295782784518
+          ]
+        }
+      ],
+      "textPages": [
+        false,
+        false
+      ],
+      "readingText": [
+        null,
+        null
+      ]
+    },
+    {
       "id": "provence-02",
       "chapter": "provence",
       "layout": "full-spread",
       "pages": [
-        34,
-        35
+        40,
+        41
       ],
       "preview": "assets/previews/provence-02.webp",
       "images": [
@@ -777,52 +929,12 @@ export const bookContent = {
       ]
     },
     {
-      "id": "provence-03",
-      "chapter": "provence",
-      "layout": "full-bleed vertical garden sequence",
-      "pages": [
-        36,
-        37
-      ],
-      "preview": "assets/previews/provence-03.webp",
-      "images": [
-        {
-          "asset": "provence-01",
-          "rotation": 0,
-          "box": [
-            0,
-            0,
-            268,
-            302
-          ]
-        },
-        {
-          "asset": "provence-02",
-          "rotation": 0,
-          "box": [
-            268,
-            0,
-            268,
-            302
-          ]
-        }
-      ],
-      "textPages": [
-        false,
-        false
-      ],
-      "readingText": [
-        null,
-        null
-      ]
-    },
-    {
       "id": "provence-04",
       "chapter": "provence",
       "layout": "architecture / horizontal garden table",
       "pages": [
-        38,
-        39
+        42,
+        43
       ],
       "preview": "assets/previews/provence-04.webp",
       "images": [
@@ -840,10 +952,10 @@ export const bookContent = {
           "asset": "provence-04",
           "rotation": 0,
           "box": [
-            288.0651041666667,
-            83.91796649335645,
-            228.04427083333334,
-            159.98497978047374
+            268,
+            0,
+            268,
+            302
           ]
         }
       ],
@@ -857,17 +969,27 @@ export const bookContent = {
       ]
     },
     {
-      "id": "provence-05",
-      "chapter": "provence",
-      "layout": "monochrome garden / serif pause",
+      "id": "raevo-01",
+      "chapter": "raevo",
+      "layout": "commission credit / full-bleed",
       "pages": [
-        40,
-        41
+        44,
+        45
       ],
-      "preview": "assets/previews/provence-05.webp",
+      "preview": "assets/previews/raevo-01.webp",
       "images": [
         {
-          "asset": "provence-09",
+          "asset": "raevo-01",
+          "rotation": 0,
+          "box": [
+            268,
+            0,
+            268,
+            302
+          ]
+        },
+        {
+          "asset": "upload-a660f6c155d421b5",
           "rotation": 0,
           "box": [
             0,
@@ -887,42 +1009,12 @@ export const bookContent = {
       ]
     },
     {
-      "id": "raevo-01",
-      "chapter": "raevo",
-      "layout": "commission credit / full-bleed",
-      "pages": [
-        42,
-        43
-      ],
-      "preview": "assets/previews/raevo-01.webp",
-      "images": [
-        {
-          "asset": "raevo-01",
-          "rotation": 0,
-          "box": [
-            268,
-            0,
-            268,
-            302
-          ]
-        }
-      ],
-      "textPages": [
-        true,
-        false
-      ],
-      "readingText": [
-        null,
-        null
-      ]
-    },
-    {
       "id": "alumni-01",
       "chapter": "alumni",
       "layout": "full-spread",
       "pages": [
-        44,
-        45
+        46,
+        47
       ],
       "preview": "assets/previews/alumni-01.webp",
       "images": [
@@ -931,9 +1023,9 @@ export const bookContent = {
           "rotation": 0,
           "box": [
             0,
-            0,
+            121.95147313691508,
             536,
-            302
+            180.04852686308493
           ]
         }
       ],
@@ -951,53 +1043,13 @@ export const bookContent = {
       "chapter": "alumni",
       "layout": "sculpture / garden detail",
       "pages": [
-        46,
-        47
+        48,
+        49
       ],
       "preview": "assets/previews/alumni-02.webp",
       "images": [
         {
-          "asset": "alumni-05",
-          "rotation": 0,
-          "box": [
-            0,
-            0,
-            268,
-            302
-          ]
-        },
-        {
-          "asset": "alumni-02",
-          "rotation": 0,
-          "box": [
-            288.0651041666667,
-            81.99884459849798,
-            228.04427083333334,
-            159.98497978047374
-          ]
-        }
-      ],
-      "textPages": [
-        false,
-        true
-      ],
-      "readingText": [
-        null,
-        null
-      ]
-    },
-    {
-      "id": "alumni-03",
-      "chapter": "alumni",
-      "layout": "rotated sculpture photograph / water surface",
-      "pages": [
-        48,
-        49
-      ],
-      "preview": "assets/previews/alumni-03.webp",
-      "images": [
-        {
-          "asset": "alumni-01",
+          "asset": "upload-b2b149a4c5237c0b",
           "rotation": 0,
           "box": [
             0,
@@ -1087,72 +1139,12 @@ export const bookContent = {
       ]
     },
     {
-      "id": "alumni-06",
-      "chapter": "alumni",
-      "layout": "full-spread",
-      "pages": [
-        54,
-        55
-      ],
-      "preview": "assets/previews/alumni-06.webp",
-      "images": [
-        {
-          "asset": "alumni-09",
-          "rotation": 0,
-          "box": [
-            0,
-            0,
-            536,
-            302
-          ]
-        }
-      ],
-      "textPages": [
-        false,
-        false
-      ],
-      "readingText": [
-        null,
-        null
-      ]
-    },
-    {
-      "id": "alumni-07",
-      "chapter": "alumni",
-      "layout": "upright type / rotated garden photograph",
-      "pages": [
-        56,
-        57
-      ],
-      "preview": "assets/previews/alumni-07.webp",
-      "images": [
-        {
-          "asset": "alumni-11",
-          "rotation": 90,
-          "box": [
-            268,
-            0,
-            268,
-            302
-          ]
-        }
-      ],
-      "textPages": [
-        true,
-        false
-      ],
-      "readingText": [
-        null,
-        null
-      ]
-    },
-    {
       "id": "osaka-01",
       "chapter": "osaka",
       "layout": "wide architecture / thin oversized title",
       "pages": [
-        58,
-        59
+        54,
+        55
       ],
       "preview": "assets/previews/osaka-01.webp",
       "images": [
@@ -1169,7 +1161,7 @@ export const bookContent = {
       ],
       "textPages": [
         true,
-        false
+        true
       ],
       "readingText": [
         null,
@@ -1181,8 +1173,8 @@ export const bookContent = {
       "chapter": "osaka",
       "layout": "full-bleed architecture diptych",
       "pages": [
-        60,
-        61
+        56,
+        57
       ],
       "preview": "assets/previews/osaka-02.webp",
       "images": [
@@ -1221,8 +1213,8 @@ export const bookContent = {
       "chapter": "osaka",
       "layout": "stone / botanical serif",
       "pages": [
-        62,
-        63
+        58,
+        59
       ],
       "preview": "assets/previews/osaka-03.webp",
       "images": [
@@ -1240,16 +1232,16 @@ export const bookContent = {
           "asset": "osaka-09",
           "rotation": 0,
           "box": [
-            307.9557291666667,
-            30.008087810514155,
-            187.9140625,
-            237.97111496244946
+            268,
+            0,
+            268,
+            302
           ]
         }
       ],
       "textPages": [
         false,
-        true
+        false
       ],
       "readingText": [
         null,
@@ -1261,13 +1253,13 @@ export const bookContent = {
       "chapter": "osaka",
       "layout": "full height / architectural aperture",
       "pages": [
-        64,
-        65
+        60,
+        61
       ],
       "preview": "assets/previews/osaka-04.webp",
       "images": [
         {
-          "asset": "osaka-06",
+          "asset": "upload-1dfa468e616332b1",
           "rotation": 0,
           "box": [
             0,
@@ -1277,7 +1269,7 @@ export const bookContent = {
           ]
         },
         {
-          "asset": "osaka-08",
+          "asset": "upload-b0165d60f414ece5",
           "rotation": 0,
           "box": [
             329.9401041666667,
@@ -1301,8 +1293,8 @@ export const bookContent = {
       "chapter": "osaka",
       "layout": "full-bleed monochrome sculpture in landscape",
       "pages": [
-        66,
-        67
+        62,
+        63
       ],
       "preview": "assets/previews/osaka-05.webp",
       "images": [
@@ -1337,22 +1329,92 @@ export const bookContent = {
       ]
     },
     {
+      "id": "inspiration-01",
+      "chapter": "inspiration",
+      "layout": "asymmetric material moodboard",
+      "pages": [
+        64,
+        65
+      ],
+      "preview": "assets/previews/inspiration-01.webp",
+      "images": [
+        {
+          "asset": "upload-e27c7b47ed011482",
+          "rotation": 0,
+          "box": [
+            20.065104166666668,
+            47.978047371461585,
+            109.921875,
+            159.98497978047374
+          ]
+        },
+        {
+          "asset": "upload-ee4cdf346d7a5a0b",
+          "rotation": 0,
+          "box": [
+            142.02604166666669,
+            72.05430387059504,
+            106.08333333333334,
+            192.08665511265167
+          ]
+        },
+        {
+          "asset": "upload-610ef14bb5a05908",
+          "rotation": 0,
+          "box": [
+            20.065104166666668,
+            220.00115540150205,
+            109.921875,
+            64.02888503755055
+          ]
+        },
+        {
+          "asset": "upload-abc6307f26c7767c",
+          "rotation": 0,
+          "box": [
+            406.01302083333337,
+            60.01617562102831,
+            109.921875,
+            198.01848642403237
+          ]
+        },
+        {
+          "asset": "upload-b8af1dc65a5b58db",
+          "rotation": 0,
+          "box": [
+            283.3541666666667,
+            64.37781629116118,
+            105.2109375,
+            191.21432697862508
+          ]
+        }
+      ],
+      "textPages": [
+        true,
+        false
+      ],
+      "readingText": [
+        null,
+        null
+      ]
+    },
+    {
       "id": "sculpture-01",
       "chapter": "sculpture",
       "layout": "thin chapter title / sculptural portrait",
       "pages": [
-        68,
-        69
+        66,
+        67
       ],
       "preview": "assets/previews/sculpture-01.webp",
       "images": [
         {
-          "asset": "sculpture-01",
+          "asset": "upload-3876cad161e23f0a",
           "rotation": 0,
           "box": [
-            268,
             0,
-            268,
+            0,
+            536,
             302
           ]
         }
@@ -1371,8 +1433,8 @@ export const bookContent = {
       "chapter": "sculpture",
       "layout": "full-bleed figures in landscape",
       "pages": [
-        70,
-        71
+        68,
+        69
       ],
       "preview": "assets/previews/sculpture-02.webp",
       "images": [
@@ -1411,16 +1473,26 @@ export const bookContent = {
       "chapter": "sculpture",
       "layout": "sculpture / quiet serif contrast",
       "pages": [
-        72,
-        73
+        70,
+        71
       ],
       "preview": "assets/previews/sculpture-03.webp",
       "images": [
         {
-          "asset": "sculpture-03",
+          "asset": "upload-84dd181606fb9512",
           "rotation": 0,
           "box": [
             0,
+            0,
+            268,
+            302
+          ]
+        },
+        {
+          "asset": "upload-4fcc8fc7a671fdea",
+          "rotation": 0,
+          "box": [
+            268,
             0,
             268,
             302
@@ -1429,7 +1501,37 @@ export const bookContent = {
       ],
       "textPages": [
         false,
-        true
+        false
+      ],
+      "readingText": [
+        null,
+        null
+      ]
+    },
+    {
+      "id": "provence-03",
+      "chapter": "provence",
+      "layout": "full-bleed vertical garden sequence",
+      "pages": [
+        72,
+        73
+      ],
+      "preview": "assets/previews/provence-03.webp",
+      "images": [
+        {
+          "asset": "upload-3a789de08db48fdf",
+          "rotation": 0,
+          "box": [
+            0,
+            0,
+            536,
+            302
+          ]
+        }
+      ],
+      "textPages": [
+        false,
+        false
       ],
       "readingText": [
         null,
@@ -1445,28 +1547,7 @@ export const bookContent = {
         75
       ],
       "preview": "assets/previews/sculpture-04.webp",
-      "images": [
-        {
-          "asset": "sculpture-04",
-          "rotation": 0,
-          "box": [
-            0,
-            0,
-            268,
-            302
-          ]
-        },
-        {
-          "asset": "sculpture-05",
-          "rotation": 0,
-          "box": [
-            268,
-            0,
-            268,
-            302
-          ]
-        }
-      ],
+      "images": [],
       "textPages": [
         false,
         false
@@ -1583,7 +1664,7 @@ export const bookContent = {
       "side": "right",
       "file": "assets/pages/author-01-right.webp",
       "blank": false,
-      "fullBleed": true,
+      "fullBleed": false,
       "paper": "white",
       "monochrome": true
     },
@@ -1605,7 +1686,7 @@ export const bookContent = {
       "blank": false,
       "fullBleed": true,
       "paper": "white",
-      "monochrome": true
+      "monochrome": false
     },
     {
       "id": 10,
@@ -1629,76 +1710,16 @@ export const bookContent = {
     },
     {
       "id": 12,
-      "spread": "journal-01",
+      "spread": "journal-04",
       "side": "left",
-      "file": "assets/pages/journal-01-left.webp",
-      "blank": false,
-      "fullBleed": true,
-      "paper": "white",
-      "monochrome": false
-    },
-    {
-      "id": 13,
-      "spread": "journal-01",
-      "side": "right",
-      "file": "assets/pages/journal-01-right.webp",
-      "blank": false,
-      "fullBleed": true,
-      "paper": "white",
-      "monochrome": false
-    },
-    {
-      "id": 14,
-      "spread": "journal-02",
-      "side": "left",
-      "file": "assets/pages/journal-02-left.webp",
-      "blank": false,
-      "fullBleed": true,
-      "paper": "white",
-      "monochrome": false
-    },
-    {
-      "id": 15,
-      "spread": "journal-02",
-      "side": "right",
-      "file": "assets/pages/journal-02-right.webp",
-      "blank": false,
-      "fullBleed": true,
-      "paper": "white",
-      "monochrome": false
-    },
-    {
-      "id": 16,
-      "spread": "journal-03",
-      "side": "left",
-      "file": "assets/pages/journal-03-left.webp",
+      "file": "assets/pages/journal-04-left.webp",
       "blank": false,
       "fullBleed": false,
       "paper": "white",
       "monochrome": false
     },
     {
-      "id": 17,
-      "spread": "journal-03",
-      "side": "right",
-      "file": "assets/pages/journal-03-right.webp",
-      "blank": false,
-      "fullBleed": true,
-      "paper": "white",
-      "monochrome": false
-    },
-    {
-      "id": 18,
-      "spread": "journal-04",
-      "side": "left",
-      "file": "assets/pages/journal-04-left.webp",
-      "blank": false,
-      "fullBleed": true,
-      "paper": "white",
-      "monochrome": false
-    },
-    {
-      "id": 19,
+      "id": 13,
       "spread": "journal-04",
       "side": "right",
       "file": "assets/pages/journal-04-right.webp",
@@ -1708,27 +1729,7 @@ export const bookContent = {
       "monochrome": false
     },
     {
-      "id": 20,
-      "spread": "inspiration-01",
-      "side": "left",
-      "file": "assets/pages/inspiration-01-left.webp",
-      "blank": false,
-      "fullBleed": false,
-      "paper": "white",
-      "monochrome": false
-    },
-    {
-      "id": 21,
-      "spread": "inspiration-01",
-      "side": "right",
-      "file": "assets/pages/inspiration-01-right.webp",
-      "blank": false,
-      "fullBleed": false,
-      "paper": "white",
-      "monochrome": false
-    },
-    {
-      "id": 22,
+      "id": 14,
       "spread": "inspiration-02",
       "side": "left",
       "file": "assets/pages/inspiration-02-left.webp",
@@ -1738,7 +1739,7 @@ export const bookContent = {
       "monochrome": false
     },
     {
-      "id": 23,
+      "id": 15,
       "spread": "inspiration-02",
       "side": "right",
       "file": "assets/pages/inspiration-02-right.webp",
@@ -1748,77 +1749,137 @@ export const bookContent = {
       "monochrome": false
     },
     {
-      "id": 24,
+      "id": 16,
       "spread": "manor-01",
       "side": "left",
       "file": "assets/pages/manor-01-left.webp",
       "blank": false,
       "fullBleed": true,
       "paper": "white",
-      "monochrome": false
+      "monochrome": true
     },
     {
-      "id": 25,
+      "id": 17,
       "spread": "manor-01",
       "side": "right",
       "file": "assets/pages/manor-01-right.webp",
       "blank": false,
       "fullBleed": true,
       "paper": "white",
+      "monochrome": true
+    },
+    {
+      "id": 18,
+      "spread": "journal-01",
+      "side": "left",
+      "file": "assets/pages/journal-01-left.webp",
+      "blank": false,
+      "fullBleed": true,
+      "paper": "white",
       "monochrome": false
     },
     {
-      "id": 26,
+      "id": 19,
+      "spread": "journal-01",
+      "side": "right",
+      "file": "assets/pages/journal-01-right.webp",
+      "blank": false,
+      "fullBleed": true,
+      "paper": "white",
+      "monochrome": false
+    },
+    {
+      "id": 20,
+      "spread": "journal-03",
+      "side": "left",
+      "file": "assets/pages/journal-03-left.webp",
+      "blank": false,
+      "fullBleed": true,
+      "paper": "white",
+      "monochrome": false
+    },
+    {
+      "id": 21,
+      "spread": "journal-03",
+      "side": "right",
+      "file": "assets/pages/journal-03-right.webp",
+      "blank": false,
+      "fullBleed": true,
+      "paper": "white",
+      "monochrome": false
+    },
+    {
+      "id": 22,
+      "spread": "journal-02",
+      "side": "left",
+      "file": "assets/pages/journal-02-left.webp",
+      "blank": false,
+      "fullBleed": true,
+      "paper": "white",
+      "monochrome": false
+    },
+    {
+      "id": 23,
+      "spread": "journal-02",
+      "side": "right",
+      "file": "assets/pages/journal-02-right.webp",
+      "blank": false,
+      "fullBleed": true,
+      "paper": "white",
+      "monochrome": false
+    },
+    {
+      "id": 24,
       "spread": "manor-02",
       "side": "left",
       "file": "assets/pages/manor-02-left.webp",
       "blank": false,
       "fullBleed": true,
       "paper": "white",
-      "monochrome": false
+      "monochrome": true
     },
     {
-      "id": 27,
+      "id": 25,
       "spread": "manor-02",
       "side": "right",
       "file": "assets/pages/manor-02-right.webp",
       "blank": false,
       "fullBleed": true,
       "paper": "white",
-      "monochrome": false
+      "monochrome": true
     },
     {
-      "id": 28,
+      "id": 26,
       "spread": "manor-03",
       "side": "left",
       "file": "assets/pages/manor-03-left.webp",
       "blank": false,
       "fullBleed": true,
       "paper": "white",
-      "monochrome": false
+      "monochrome": true
     },
     {
-      "id": 29,
+      "id": 27,
       "spread": "manor-03",
       "side": "right",
       "file": "assets/pages/manor-03-right.webp",
       "blank": false,
       "fullBleed": true,
       "paper": "white",
-      "monochrome": false
+      "monochrome": true
     },
     {
-      "id": 30,
+      "id": 28,
       "spread": "manor-04",
       "side": "left",
       "file": "assets/pages/manor-04-left.webp",
       "blank": false,
-      "fullBleed": true,
+      "fullBleed": false,
       "paper": "white",
       "monochrome": false
     },
     {
-      "id": 31,
+      "id": 29,
       "spread": "manor-04",
       "side": "right",
       "file": "assets/pages/manor-04-right.webp",
@@ -1828,17 +1889,17 @@ export const bookContent = {
       "monochrome": false
     },
     {
-      "id": 32,
+      "id": 30,
       "spread": "provence-01",
       "side": "left",
       "file": "assets/pages/provence-01-left.webp",
       "blank": false,
-      "fullBleed": false,
+      "fullBleed": true,
       "paper": "white",
       "monochrome": false
     },
     {
-      "id": 33,
+      "id": 31,
       "spread": "provence-01",
       "side": "right",
       "file": "assets/pages/provence-01-right.webp",
@@ -1848,10 +1909,30 @@ export const bookContent = {
       "monochrome": false
     },
     {
-      "id": 34,
-      "spread": "provence-02",
+      "id": 32,
+      "spread": "alumni-06",
       "side": "left",
-      "file": "assets/pages/provence-02-left.webp",
+      "file": "assets/pages/alumni-06-left.webp",
+      "blank": false,
+      "fullBleed": true,
+      "paper": "white",
+      "monochrome": false
+    },
+    {
+      "id": 33,
+      "spread": "alumni-06",
+      "side": "right",
+      "file": "assets/pages/alumni-06-right.webp",
+      "blank": false,
+      "fullBleed": true,
+      "paper": "white",
+      "monochrome": false
+    },
+    {
+      "id": 34,
+      "spread": "alumni-07",
+      "side": "left",
+      "file": "assets/pages/alumni-07-left.webp",
       "blank": false,
       "fullBleed": true,
       "paper": "white",
@@ -1859,9 +1940,9 @@ export const bookContent = {
     },
     {
       "id": 35,
-      "spread": "provence-02",
+      "spread": "alumni-07",
       "side": "right",
-      "file": "assets/pages/provence-02-right.webp",
+      "file": "assets/pages/alumni-07-right.webp",
       "blank": false,
       "fullBleed": true,
       "paper": "white",
@@ -1869,46 +1950,6 @@ export const bookContent = {
     },
     {
       "id": 36,
-      "spread": "provence-03",
-      "side": "left",
-      "file": "assets/pages/provence-03-left.webp",
-      "blank": false,
-      "fullBleed": true,
-      "paper": "white",
-      "monochrome": false
-    },
-    {
-      "id": 37,
-      "spread": "provence-03",
-      "side": "right",
-      "file": "assets/pages/provence-03-right.webp",
-      "blank": false,
-      "fullBleed": true,
-      "paper": "white",
-      "monochrome": false
-    },
-    {
-      "id": 38,
-      "spread": "provence-04",
-      "side": "left",
-      "file": "assets/pages/provence-04-left.webp",
-      "blank": false,
-      "fullBleed": true,
-      "paper": "white",
-      "monochrome": false
-    },
-    {
-      "id": 39,
-      "spread": "provence-04",
-      "side": "right",
-      "file": "assets/pages/provence-04-right.webp",
-      "blank": false,
-      "fullBleed": false,
-      "paper": "white",
-      "monochrome": false
-    },
-    {
-      "id": 40,
       "spread": "provence-05",
       "side": "left",
       "file": "assets/pages/provence-05-left.webp",
@@ -1918,27 +1959,87 @@ export const bookContent = {
       "monochrome": false
     },
     {
-      "id": 41,
+      "id": 37,
       "spread": "provence-05",
       "side": "right",
       "file": "assets/pages/provence-05-right.webp",
       "blank": false,
+      "fullBleed": true,
+      "paper": "white",
+      "monochrome": false
+    },
+    {
+      "id": 38,
+      "spread": "alumni-03",
+      "side": "left",
+      "file": "assets/pages/alumni-03-left.webp",
+      "blank": false,
       "fullBleed": false,
+      "paper": "white",
+      "monochrome": true
+    },
+    {
+      "id": 39,
+      "spread": "alumni-03",
+      "side": "right",
+      "file": "assets/pages/alumni-03-right.webp",
+      "blank": false,
+      "fullBleed": true,
+      "paper": "white",
+      "monochrome": false
+    },
+    {
+      "id": 40,
+      "spread": "provence-02",
+      "side": "left",
+      "file": "assets/pages/provence-02-left.webp",
+      "blank": false,
+      "fullBleed": true,
+      "paper": "white",
+      "monochrome": false
+    },
+    {
+      "id": 41,
+      "spread": "provence-02",
+      "side": "right",
+      "file": "assets/pages/provence-02-right.webp",
+      "blank": false,
+      "fullBleed": true,
       "paper": "white",
       "monochrome": false
     },
     {
       "id": 42,
-      "spread": "raevo-01",
+      "spread": "provence-04",
       "side": "left",
-      "file": "assets/pages/raevo-01-left.webp",
+      "file": "assets/pages/provence-04-left.webp",
       "blank": false,
-      "fullBleed": false,
+      "fullBleed": true,
       "paper": "white",
       "monochrome": false
     },
     {
       "id": 43,
+      "spread": "provence-04",
+      "side": "right",
+      "file": "assets/pages/provence-04-right.webp",
+      "blank": false,
+      "fullBleed": true,
+      "paper": "white",
+      "monochrome": false
+    },
+    {
+      "id": 44,
+      "spread": "raevo-01",
+      "side": "left",
+      "file": "assets/pages/raevo-01-left.webp",
+      "blank": false,
+      "fullBleed": true,
+      "paper": "white",
+      "monochrome": true
+    },
+    {
+      "id": 45,
       "spread": "raevo-01",
       "side": "right",
       "file": "assets/pages/raevo-01-right.webp",
@@ -1948,64 +2049,44 @@ export const bookContent = {
       "monochrome": false
     },
     {
-      "id": 44,
+      "id": 46,
       "spread": "alumni-01",
       "side": "left",
       "file": "assets/pages/alumni-01-left.webp",
       "blank": false,
-      "fullBleed": true,
+      "fullBleed": false,
       "paper": "white",
       "monochrome": true
     },
     {
-      "id": 45,
+      "id": 47,
       "spread": "alumni-01",
       "side": "right",
       "file": "assets/pages/alumni-01-right.webp",
       "blank": false,
-      "fullBleed": true,
+      "fullBleed": false,
       "paper": "white",
       "monochrome": true
     },
     {
-      "id": 46,
+      "id": 48,
       "spread": "alumni-02",
       "side": "left",
       "file": "assets/pages/alumni-02-left.webp",
       "blank": false,
       "fullBleed": true,
       "paper": "white",
-      "monochrome": false
+      "monochrome": true
     },
     {
-      "id": 47,
+      "id": 49,
       "spread": "alumni-02",
       "side": "right",
       "file": "assets/pages/alumni-02-right.webp",
       "blank": false,
-      "fullBleed": false,
-      "paper": "white",
-      "monochrome": false
-    },
-    {
-      "id": 48,
-      "spread": "alumni-03",
-      "side": "left",
-      "file": "assets/pages/alumni-03-left.webp",
-      "blank": false,
       "fullBleed": true,
       "paper": "white",
-      "monochrome": false
-    },
-    {
-      "id": 49,
-      "spread": "alumni-03",
-      "side": "right",
-      "file": "assets/pages/alumni-03-right.webp",
-      "blank": false,
-      "fullBleed": true,
-      "paper": "white",
-      "monochrome": false
+      "monochrome": true
     },
     {
       "id": 50,
@@ -2049,66 +2130,26 @@ export const bookContent = {
     },
     {
       "id": 54,
-      "spread": "alumni-06",
-      "side": "left",
-      "file": "assets/pages/alumni-06-left.webp",
-      "blank": false,
-      "fullBleed": true,
-      "paper": "white",
-      "monochrome": false
-    },
-    {
-      "id": 55,
-      "spread": "alumni-06",
-      "side": "right",
-      "file": "assets/pages/alumni-06-right.webp",
-      "blank": false,
-      "fullBleed": true,
-      "paper": "white",
-      "monochrome": false
-    },
-    {
-      "id": 56,
-      "spread": "alumni-07",
-      "side": "left",
-      "file": "assets/pages/alumni-07-left.webp",
-      "blank": false,
-      "fullBleed": false,
-      "paper": "white",
-      "monochrome": false
-    },
-    {
-      "id": 57,
-      "spread": "alumni-07",
-      "side": "right",
-      "file": "assets/pages/alumni-07-right.webp",
-      "blank": false,
-      "fullBleed": true,
-      "paper": "white",
-      "monochrome": false
-    },
-    {
-      "id": 58,
       "spread": "osaka-01",
       "side": "left",
       "file": "assets/pages/osaka-01-left.webp",
       "blank": false,
       "fullBleed": false,
       "paper": "white",
-      "monochrome": false
+      "monochrome": true
     },
     {
-      "id": 59,
+      "id": 55,
       "spread": "osaka-01",
       "side": "right",
       "file": "assets/pages/osaka-01-right.webp",
       "blank": false,
       "fullBleed": false,
       "paper": "white",
-      "monochrome": false
+      "monochrome": true
     },
     {
-      "id": 60,
+      "id": 56,
       "spread": "osaka-02",
       "side": "left",
       "file": "assets/pages/osaka-02-left.webp",
@@ -2118,7 +2159,7 @@ export const bookContent = {
       "monochrome": false
     },
     {
-      "id": 61,
+      "id": 57,
       "spread": "osaka-02",
       "side": "right",
       "file": "assets/pages/osaka-02-right.webp",
@@ -2128,27 +2169,27 @@ export const bookContent = {
       "monochrome": false
     },
     {
-      "id": 62,
+      "id": 58,
       "spread": "osaka-03",
       "side": "left",
       "file": "assets/pages/osaka-03-left.webp",
       "blank": false,
       "fullBleed": true,
       "paper": "white",
-      "monochrome": false
+      "monochrome": true
     },
     {
-      "id": 63,
+      "id": 59,
       "spread": "osaka-03",
       "side": "right",
       "file": "assets/pages/osaka-03-right.webp",
       "blank": false,
-      "fullBleed": false,
+      "fullBleed": true,
       "paper": "white",
       "monochrome": false
     },
     {
-      "id": 64,
+      "id": 60,
       "spread": "osaka-04",
       "side": "left",
       "file": "assets/pages/osaka-04-left.webp",
@@ -2158,7 +2199,7 @@ export const bookContent = {
       "monochrome": false
     },
     {
-      "id": 65,
+      "id": 61,
       "spread": "osaka-04",
       "side": "right",
       "file": "assets/pages/osaka-04-right.webp",
@@ -2168,7 +2209,7 @@ export const bookContent = {
       "monochrome": false
     },
     {
-      "id": 66,
+      "id": 62,
       "spread": "osaka-05",
       "side": "left",
       "file": "assets/pages/osaka-05-left.webp",
@@ -2178,7 +2219,7 @@ export const bookContent = {
       "monochrome": false
     },
     {
-      "id": 67,
+      "id": 63,
       "spread": "osaka-05",
       "side": "right",
       "file": "assets/pages/osaka-05-right.webp",
@@ -2188,17 +2229,37 @@ export const bookContent = {
       "monochrome": false
     },
     {
-      "id": 68,
-      "spread": "sculpture-01",
+      "id": 64,
+      "spread": "inspiration-01",
       "side": "left",
-      "file": "assets/pages/sculpture-01-left.webp",
+      "file": "assets/pages/inspiration-01-left.webp",
       "blank": false,
       "fullBleed": false,
       "paper": "white",
       "monochrome": false
     },
     {
-      "id": 69,
+      "id": 65,
+      "spread": "inspiration-01",
+      "side": "right",
+      "file": "assets/pages/inspiration-01-right.webp",
+      "blank": false,
+      "fullBleed": false,
+      "paper": "white",
+      "monochrome": false
+    },
+    {
+      "id": 66,
+      "spread": "sculpture-01",
+      "side": "left",
+      "file": "assets/pages/sculpture-01-left.webp",
+      "blank": false,
+      "fullBleed": true,
+      "paper": "white",
+      "monochrome": false
+    },
+    {
+      "id": 67,
       "spread": "sculpture-01",
       "side": "right",
       "file": "assets/pages/sculpture-01-right.webp",
@@ -2208,7 +2269,7 @@ export const bookContent = {
       "monochrome": false
     },
     {
-      "id": 70,
+      "id": 68,
       "spread": "sculpture-02",
       "side": "left",
       "file": "assets/pages/sculpture-02-left.webp",
@@ -2218,7 +2279,7 @@ export const bookContent = {
       "monochrome": false
     },
     {
-      "id": 71,
+      "id": 69,
       "spread": "sculpture-02",
       "side": "right",
       "file": "assets/pages/sculpture-02-right.webp",
@@ -2228,7 +2289,7 @@ export const bookContent = {
       "monochrome": false
     },
     {
-      "id": 72,
+      "id": 70,
       "spread": "sculpture-03",
       "side": "left",
       "file": "assets/pages/sculpture-03-left.webp",
@@ -2238,12 +2299,32 @@ export const bookContent = {
       "monochrome": false
     },
     {
-      "id": 73,
+      "id": 71,
       "spread": "sculpture-03",
       "side": "right",
       "file": "assets/pages/sculpture-03-right.webp",
       "blank": false,
-      "fullBleed": false,
+      "fullBleed": true,
+      "paper": "white",
+      "monochrome": false
+    },
+    {
+      "id": 72,
+      "spread": "provence-03",
+      "side": "left",
+      "file": "assets/pages/provence-03-left.webp",
+      "blank": false,
+      "fullBleed": true,
+      "paper": "white",
+      "monochrome": false
+    },
+    {
+      "id": 73,
+      "spread": "provence-03",
+      "side": "right",
+      "file": "assets/pages/provence-03-right.webp",
+      "blank": false,
+      "fullBleed": true,
       "paper": "white",
       "monochrome": false
     },
@@ -2251,9 +2332,9 @@ export const bookContent = {
       "id": 74,
       "spread": "sculpture-04",
       "side": "left",
-      "file": "assets/pages/sculpture-04-left.webp",
-      "blank": false,
-      "fullBleed": true,
+      "file": "assets/pages/blank.webp",
+      "blank": true,
+      "fullBleed": false,
       "paper": "black",
       "monochrome": false
     },
@@ -2261,9 +2342,9 @@ export const bookContent = {
       "id": 75,
       "spread": "sculpture-04",
       "side": "right",
-      "file": "assets/pages/sculpture-04-right.webp",
-      "blank": false,
-      "fullBleed": true,
+      "file": "assets/pages/blank.webp",
+      "blank": true,
+      "fullBleed": false,
       "paper": "black",
       "monochrome": false
     },

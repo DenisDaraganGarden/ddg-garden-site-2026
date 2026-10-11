@@ -28,25 +28,34 @@
     });
     intro.hidden=false;intro.setAttribute('aria-busy','true');intro.classList.add('is-ready');
     const status=intro.querySelector('[data-load-status]'),retry=intro.querySelector('[data-load-retry]');
-    status.textContent=en()?'Loading portfolio':'Загрузка портфолио';
+    status.textContent='DOWNLOAD';
     retry.addEventListener('click',()=>location.reload());
     let timeout;
     try {
-      // Warm the site's image resources with bounded concurrency. Decode only
-      // the initial section now; large offscreen galleries remain evictable.
-      const files=[...new Set([...document.images].map(img=>img.currentSrc||img.src))];
-      files.push(new URL('./assets/denis-daragan-signature-20261009.png',location.href).href);
-      let cursor=0;
-      const worker=async()=>{while(cursor<files.length){const response=await fetch(files[cursor++],{cache:'force-cache'});if(!response.ok)throw Error('image');await response.arrayBuffer();}};
+      // Reveal a complete first screen and a rendered book. Hidden galleries
+      // must not compete with these resources or hold the site behind a loader.
       const first=document.getElementById(location.hash.slice(1))||document.querySelector('.sheet');
-      const initial=[...first.querySelectorAll('img')].map(img=>img.decode());
+      const initial=[...first.querySelectorAll('img'),...intro.querySelectorAll('img')].map(img=>{
+        img.loading='eager';return img.decode();
+      });
+      const signature=new Image();
+      signature.src=new URL('./assets/denis-daragan-signature-20261009.png',location.href).href;
       await Promise.race([
-        Promise.all([bookReady,document.fonts.ready,...initial,...Array.from({length:3},worker)]),
+        Promise.all([bookReady,document.fonts.ready,signature.decode(),...initial]),
         new Promise((_,reject)=>{timeout=setTimeout(()=>reject(Error('timeout')),45000);})
       ]);
       await new Promise(requestAnimationFrame);await new Promise(requestAnimationFrame);
       root.dataset.loadState='ready';intro.setAttribute('aria-busy','false');
       if(reduce.matches)close();else {intro.classList.add('is-leaving');setTimeout(close,300);}
+      // Warm responsive project covers after the first screen is available.
+      // Full galleries keep their existing lazy loading and reserved frames.
+      const warm=async()=>{
+        const files=[...new Set([...document.querySelectorAll('.catalogue-card img')].map(img=>img.currentSrc||img.src))];
+        let cursor=0;
+        const worker=async()=>{while(cursor<files.length){try{const response=await fetch(files[cursor++],{cache:'force-cache',priority:'low'});if(response.ok)await response.arrayBuffer();}catch{/* A later gallery request can retry. */}}};
+        await Promise.all(Array.from({length:2},worker));
+      };
+      if('requestIdleCallback' in window)requestIdleCallback(warm,{timeout:2000});else setTimeout(warm,400);
     } catch {
       root.dataset.loadState='failed';intro.setAttribute('aria-busy','false');
       status.textContent=en()?'Could not load the portfolio':'Не удалось загрузить портфолио';
