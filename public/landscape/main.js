@@ -22,7 +22,7 @@
   const viewer = document.querySelector('.image-dialog');
   const viewerImage = viewer.querySelector('img');
   let imageZoom = null;
-  import('./book/image-gestures.js?v=20261010-touch3').then(({ blockPagePinch, connectImageZoom }) => {
+  import('./book/image-gestures.js?v=20261011-touch4').then(({ blockPagePinch, connectImageZoom }) => {
     blockPagePinch();
     imageZoom = connectImageZoom(viewer.querySelector('.image-canvas'), {
       enabled: () => viewer.open,
@@ -212,7 +212,11 @@
   document.addEventListener('book-reading-change', event => {
     cancelAnimationFrame(pagingFrame);cancelAnimationFrame(scrollFrame);clearTimeout(settleTimer);
     pagingFrame=scrollFrame=null;folio.classList.remove('is-paging');
-    if (!event.detail) {fitViewport();remember();}
+    if (!event.detail) {
+      const keep=sheets[current];
+      fitViewport();
+      go(sheets.indexOf(keep),false);
+    }
   });
 
   // Keep inertia in its gesture, but let a fresh flick interrupt the animation.

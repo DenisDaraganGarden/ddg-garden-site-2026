@@ -6,7 +6,7 @@ import { createPaperMaterial, updatePaperMaterial } from './paper-material.js?v=
 import { createCoverMaterial, updateCoverMaterial, createCutMaterial, loadEmblem, configureLeatherFiltering } from './cover-material.js?v=20261009-editorial';
 import { bookContent, paperStyle } from './content/book-content.js?v=20261009-editorial';
 import { ScenePhoto } from './scene-photo.js?v=20261009-editorial';
-import { blockPagePinch, connectImageZoom } from './image-gestures.js?v=20261010-touch3';
+import { blockPagePinch, connectImageZoom } from './image-gestures.js?v=20261011-touch4';
 
 const canvas = document.querySelector('#book-canvas');
 const loading = document.querySelector('#loading');
@@ -52,7 +52,7 @@ const bindingHeight = opening => leafBase + Math.max(opening + endpapers, bookCo
 let topBase = bindingHeight(0), sewnSpine, stitches, closedBook, emblemMap, stampedMaterial, spineShell, spineJoint, spineMaterial;
 const leafCounts = { '-1': endpapers, '1': bookContent.spreads.length - 1 + endpapers };
 let renderer, scene, camera, controls, book, keyLight, fillLight, ambientShadow, scenePhoto;
-let pageMaterials, coverMaterial, inkMaterials, whiteMaterial, blackPaperMaterial, grainMap;
+let pageMaterials, turnMaterials, coverMaterial, inkMaterials, whiteMaterial, blackPaperMaterial, grainMap;
 let printIndex = 0, blankPrint = false, navigating = false;
 let blockAtlas;
 const textureCache = new Map();
@@ -176,6 +176,7 @@ function fail(error) {
   loading.hidden = true;
   failure.hidden = false;
   emitReaderState();
+  if (embedded) parent.postMessage({type:'book-failed'},location.origin);
   console.error(error);
 }
 function recoverableTextureError(error) {
@@ -384,15 +385,13 @@ function leafPoint(side, u, v, layer, time = 0, turn = null) {
     const grabU = turning?.grab?.u ?? .92;
     // A bending ruled surface: integrate its tangent to preserve paper length.
     // The held corner leads, while the far edge lags. Lift vanishes at both ends.
-    let bentX = 0, bentY = 0;
     const segments = 12, step = u / segments;
-    for (let i = 0; i < segments; i++) {
-      const t = (i + .5) * step;
-      const lag = lift * (.58 * (t - .45) + .32 * (v - grabV) * Math.min(1, grabU + .2));
-      const a = angle + lag;
-      bentX += Math.cos(a) * step * pageWidth;
-      bentY += Math.sin(a) * step * pageWidth;
-    }
+    // Exact sum of the same twelve evenly spaced tangents, preserving the bend.
+    const increment = lift * .58 * step;
+    const amplitude = Math.abs(increment) < 1e-8 ? segments : Math.sin(segments*increment/2)/Math.sin(increment/2);
+    const midAngle = angle + lift * (.58 * (u/2 - .45) + .32 * (v - grabV) * Math.min(1, grabU + .2));
+    const bentX = Math.cos(midAngle) * amplitude * step * pageWidth;
+    const bentY = Math.sin(midAngle) * amplitude * step * pageWidth;
     const drift=THREE.MathUtils.lerp(Math.abs(x)-u*pageWidth,Math.abs(destination[0])-u*pageWidth,turn);
     // The sewn fold rolls over a radius of half the sheet thickness. Both
     // print faces rotate about its neutral mid-plane, so their inner corners
@@ -499,9 +498,11 @@ function makePageBlock(side) {
   const position = [], uv = [], color = [], indices = [];
   const count = leafCounts[side] - (turning?.side === side ? 1 : 0);
   for (let layer = 0; layer < count; layer++) {
-    // These faces are inside the stack. Its visible cuts and the held sheet
-    // retain their full detail; a phone need not rebuild hidden dense grids.
-    const leaf = makeLeaf(side, layer, readerHandset() ? 12 : 32, readerHandset() ? 4 : 12, leafThickness, false, true);
+    // The nearest internal leaf shares the print's grid. A coarse chord at
+    // the curved gutter can otherwise protrude through the photograph.
+    // Deeper leaves have more physical clearance. Both devices use this mesh.
+    const nearest = layer === count - 1;
+    const leaf = makeLeaf(side, layer, nearest ? 96 : 32, nearest ? 40 : 12, leafThickness, false, true);
     const offset = position.length / 3;
     for (const value of leaf.attributes.position.array) position.push(value);
     for (const value of leaf.attributes.uv.array) uv.push(value);
@@ -602,6 +603,7 @@ function buildBook() {
   whiteMaterial = new THREE.MeshStandardMaterial({ color: 0xf9f8f5, roughness: .78, vertexColors: true });
   inkMaterials = { leaf: new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: .58, vertexColors: true, map: blockAtlas }), edge: createCutMaterial(settings, blockAtlas) };
   pageMaterials = [createPaperMaterial(settings, grainMap), createPaperMaterial(settings, grainMap)];
+  turnMaterials = [createPaperMaterial(settings, grainMap), createPaperMaterial(settings, grainMap)];
   blackPaperMaterial=createPaperMaterial(settings,grainMap);blackPaperMaterial.color.set(0x101010);blackPaperMaterial.userData.paperUniforms.uMonochrome.value=1;
   for (const side of [-1, 1]) {
     const block = new THREE.Mesh(makePageBlock(side), inkMaterials.leaf);
@@ -743,6 +745,7 @@ async function pageTexture(page) {
     entry.promise = new THREE.TextureLoader().loadAsync('./' + record.file).then(texture => {
       texture.colorSpace = THREE.SRGBColorSpace;
       texture.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+      renderer.initTexture(texture);
       entry.texture = texture;
       if (textureCache.get(record.file) !== entry) texture.dispose();
       return texture;
@@ -907,6 +910,14 @@ function cameraFrame() {
     bottom:1 - frame.bottom * 2 / innerHeight, top:1 - frame.top * 2 / innerHeight};
 }
 
+function fitCameraDepth() {
+  const distance = camera.position.distanceTo(controls.target);
+  // Spend depth precision on the book, including its fully raised sheet.
+  camera.near = Math.max(.02, distance - 5.5);
+  camera.far = distance + 5.5;
+  camera.updateProjectionMatrix();
+}
+
 function fitCamera(view = 'spread', animate = true) {
   if (turning || gesture || coverMotion) return;
   invalidateReader();
@@ -971,7 +982,7 @@ function fitCamera(view = 'spread', animate = true) {
   if (!animate || reducedMotion.matches) { camera.position.copy(position); controls.target.copy(target); camera.lookAt(target); cameraTween = null; }
   else cameraTween = { start: performance.now(), from: camera.position.clone(), to: position, fromTarget: controls.target.clone(), toTarget: target };
   for (const b of document.querySelectorAll('[data-view]')) b.setAttribute('aria-pressed', String(b.dataset.view === view));
-  controls.update();syncOrbit();
+  controls.update();fitCameraDepth();syncOrbit();
   if(!coverMode&&printIndex===0){stackLeaves[0].visible=false;edgeMeshes[0].visible=false;}
   updateBinding();
   updateNavigation(); renderContactShadow(); emitReaderState();
@@ -992,6 +1003,7 @@ function resize() {
     if (coverMotion) finishCoverOpening((coverMotion.to??coverMotion.target)>.5);
   }
   invalidateReader();
+  if (axesChanged) renderer.setPixelRatio(Math.min(devicePixelRatio, 3, Math.sqrt(3_000_000/(innerWidth*innerHeight))));
   renderer.setSize(innerWidth, innerHeight);
   renderer.setViewport(0, 0, viewportWidth(), innerHeight);
   camera.aspect = viewportWidth() / innerHeight; camera.updateProjectionMatrix();
@@ -1128,12 +1140,13 @@ async function beginTurn(direction = 1, grab = null) {
   }
   const side = direction > 0 ? 1 : -1;
   const frontIndex = side > 0 ? 1 : 0, backIndex = 1 - frontIndex;
-  const material = createPaperMaterial(settings, grainMap), back = createPaperMaterial(settings, grainMap);
+  const [material, back] = turnMaterials;
   material.map = pageMaterials[frontIndex].map;
   back.map = blankPrint ? null : nextTextures[backIndex];
   assignPageSurface(material,bookContent.spreads[printIndex].pages[frontIndex]);
   assignPageSurface(back,bookContent.spreads[next].pages[backIndex]);
   updatePaperMaterial(material, settings); updatePaperMaterial(back, settings);
+  material.needsUpdate=true;back.needsUpdate=true;
   const printedPages = [bookContent.spreads[printIndex].pages[frontIndex], bookContent.spreads[next].pages[backIndex]];
   turnMesh = new THREE.Mesh(makeLeaf(side, leafCounts[side], 96, 40, leafThickness, true, false, printedPages), [material, back, inkMaterials.edge]);
   turnMesh.castShadow = turnMesh.receiveShadow = true; book.add(turnMesh);
@@ -1144,6 +1157,7 @@ async function beginTurn(direction = 1, grab = null) {
   cameraTween = null; hover.strength = hover.target = 0;
   stackLeaves[frontIndex].geometry.dispose(); stackLeaves[frontIndex].geometry = makePageBlock(side);
   rebuildEdges();
+  if (bookContent.spreads[next + direction]) openingTextures(next + direction).catch(console.error);
   if(printIndex===0) {stackLeaves[0].visible=false;edgeMeshes[0].visible=false;}
   navigating = false; updateNavigation(); return true;
 }
@@ -1169,7 +1183,6 @@ function finishTurn(completed = true) {
   topBase=bindingHeight(next);
   for(const mesh of [...stackLeaves,...edgeMeshes])delete mesh.userData.turnRest;
   turnMesh.geometry.dispose();
-  for (const m of turnMesh.material.slice(0, 2)) m.dispose();
   book.remove(turnMesh); turnMesh = null; turning = null;
   // A cancelled grab restores the original high-resolution faces and blocks.
   if (!completed) rebuildPageBlocks();
@@ -1195,11 +1208,32 @@ function pointerOnPaper(event) {
   return point ? book.worldToLocal(point) : null;
 }
 
+function projectedGrab(progress, token) {
+  const p = leafPoint(token.side, token.trackGrab.u, token.trackGrab.v, turnMesh.geometry.userData.layer, 0, progress);
+  const point = book.localToWorld(new THREE.Vector3(...p)).project(camera);
+  return token.side * ((point.x + 1)*viewportWidth()/2*token.axis.x + (1 - point.y)*innerHeight/2*token.axis.y);
+}
+
 function dragTarget(event) {
-  const point = pointerOnPaper(event);
-  if (!point || !gesture) return;
-  const ratio = THREE.MathUtils.clamp(gesture.side * point.x / gesture.radius,-1,1);
-  gesture.target = Math.acos(ratio)/Math.PI;
+  if (!gesture) return;
+  gesture.lastPoint = {clientX:event.clientX,clientY:event.clientY};
+  const delta = gesture.side * ((event.clientX-gesture.x)*gesture.axis.x + (event.clientY-gesture.y)*gesture.axis.y);
+  if (turning) {
+    gesture.handleStart ??= projectedGrab(gesture.initialProgress, gesture);
+    const goal = gesture.handleStart + delta;
+    let lo = 0, hi = 1;
+    for (let i=0;i<12;i++) {
+      const mid=(lo+hi)/2;
+      if (projectedGrab(mid, gesture)>goal) lo=mid; else hi=mid;
+    }
+    gesture.target = (lo+hi)/2;
+  } else {
+    const ratio = THREE.MathUtils.clamp(1 + delta / gesture.screenRadius,-1,1);
+    gesture.target = Math.acos(ratio)/Math.PI;
+  }
+  const now=performance.now();
+  if (gesture.lastMove && now>gesture.lastMove.time && delta!==gesture.lastMove.delta) gesture.velocity=-(delta-gesture.lastMove.delta)/(now-gesture.lastMove.time);
+  if (!gesture.lastMove || delta!==gesture.lastMove.delta) gesture.lastMove={time:now,delta};
   gesture.distance = Math.max(gesture.distance,Math.hypot(event.clientX-gesture.x,event.clientY-gesture.y));
   if (turning && gesture.distance > 5) turning.target=gesture.target;
 }
@@ -1223,8 +1257,8 @@ function connectPageDrag() {
   const startDrag=async token=>{
     token.started=true;
     if (await beginTurn(token.side,token.grab)) {
-      if (token.released) settleTurn(token.cancelled?0:token.target>token.commit?1:0);
-      else turning.target=token.target;
+      if (token.released) settleTurn(token.completed?1:0);
+      else {dragTarget(token.lastPoint);turning.target=token.target;}
     }
   };
   const startCoverDrag=async token=>{
@@ -1248,11 +1282,25 @@ function connectPageDrag() {
     if(coverMotion?.drag) coverMotion.target=gesture.target;
   };
   canvas.addEventListener('pointerdown',event=>{
-    if (!readerInteractive || !parentVisible) return;
-    if(!event.isPrimary) { backgroundGesture=null; return; }
+    if (!diagnostics.ready || !readerInteractive || !parentVisible) return;
+    if(!event.isPrimary) { backgroundGesture=null; cancelReaderDrag(); return; }
     if (event.button!==0 || !event.isPrimary || gesture) return;
     if(editorMode&&orbitMode) return;
-    if (turning || navigating || coverMotion || cameraTween) { event.stopImmediatePropagation(); return; }
+    if (coverMotion && !coverMotion.drag) finishCoverOpening(coverMotion.to===1);
+    if (navigating || coverMotion || (cameraTween && imageFocus)) { event.stopImmediatePropagation(); return; }
+    if (cameraTween) {
+      camera.position.copy(cameraTween.to);controls.target.copy(cameraTween.toTarget);
+      if (cameraTween.toRotation!==undefined) book.rotation.y=cameraTween.toRotation;
+      cameraTween.resolve?.();cameraTween=null;controls.update();fitCameraDepth();
+    }
+    let heldHit=null;
+    if (turning) {
+      pointerRay(event);book.updateMatrixWorld(true);
+      heldHit=raycaster.intersectObject(turnMesh)[0];
+      if (heldHit) turning.settle=null;
+      else if (turning.settle) finishTurn(turning.settle.to===1);
+      else return;
+    }
     readerTilt.set(0, 0); resetReaderTilt();
     // Portrait reading never derives a page drag from an oblique ray. A small
     // tap still uses the physical page hit on release; a horizontal swipe is
@@ -1265,7 +1313,7 @@ function connectPageDrag() {
     pointerRay(event);
     book.updateMatrixWorld(true);
     let kind=imageFocus?'focus':closedBook.visible?'cover':'paper';
-    const hit=kind==='cover'?raycaster.intersectObject(closedBook,true)[0]:raycaster.intersectObjects(topLeaves)[0];
+    const hit=heldHit||(kind==='cover'?raycaster.intersectObject(closedBook,true)[0]:raycaster.intersectObjects(topLeaves)[0]);
     const touchPaper=kind==='paper'&&event.pointerType==='touch'&&readerHandset();
     if (!hit && kind!=='focus' && !touchPaper) {
       if(embedded&&event.pointerType==='touch') backgroundGesture={id:event.pointerId,x:event.clientX,y:event.clientY};
@@ -1279,12 +1327,17 @@ function connectPageDrag() {
     if(event.pointerType==='touch'&&kind==='paper') {hover.side=side;hover.u=Math.abs(local.x)/pageWidth;hover.v=local.z/pageHeight+.5;hover.target=THREE.MathUtils.clamp(event.pressure*2,.25,1);}
     const a=book.localToWorld(new THREE.Vector3(0,topBase,0)).project(camera),b=book.localToWorld(new THREE.Vector3(pageWidth,topBase,0)).project(camera);
     const axis=new THREE.Vector2((b.x-a.x)*viewportWidth(),-(b.y-a.y)*innerHeight),span=axis.length()/2;axis.normalize();
+    const grab=local?{u:THREE.MathUtils.clamp(Math.abs(local.x)/pageWidth,.05,1),v:THREE.MathUtils.clamp(local.z/pageHeight+.5,0,1)}:null;
+    const trackGrab=heldHit?{u:(side<0)!==Boolean(heldHit.face.materialIndex)?1-heldHit.uv.x:heldHit.uv.x,v:1-heldHit.uv.y}:grab;
     gesture={id:event.pointerId,kind,local,side,x:event.clientX,y:event.clientY,
       tapHit:Boolean(hit),commit:touchPaper?.34:.43,
-      coverStart:coverProgress,axis,span,target:coverProgress,
-      radius:Math.max(.16,Math.abs(local?.x??0)),distance:0,released:false,cancelled:false,started:false,
-      grab:local?{u:THREE.MathUtils.clamp(Math.abs(local.x)/pageWidth,.05,1),v:THREE.MathUtils.clamp(local.z/pageHeight+.5,0,1)}:null};
+      coverStart:coverProgress,axis,span,target:kind==='paper'?(turning?.progress??0):coverProgress,
+      initialProgress:turning?.progress??0,screenRadius:Math.max(12,span*(trackGrab?.u??1)),
+      distance:0,released:false,cancelled:false,started:Boolean(heldHit),grab,trackGrab,velocity:0,
+      lastMove:{time:performance.now(),delta:0},pointerType:event.pointerType};
+    if (heldHit) {gesture.handleStart=projectedGrab(turning.progress,gesture);turning.target=turning.progress;}
     canvas.setPointerCapture(event.pointerId);
+    emitReaderState();
   },true);
   canvas.addEventListener('pointermove',event=>{
     if (!gesture || event.pointerId!==gesture.id) return;
@@ -1330,7 +1383,9 @@ function connectPageDrag() {
     if(!cancelled&&gesture.kind==='cover') coverTarget(event);
     if(event.pointerType==='touch') hover.target=0;
     const token=gesture; token.released=true; token.cancelled=cancelled;
-    if (turning) settleTurn(cancelled?0:token.target>token.commit?1:0);
+    const flick = token.pointerType==='touch' && token.distance>28 && token.target>.12 && token.velocity>.45 && performance.now()-(token.lastMove?.time??0)<100;
+    token.completed=!cancelled&&(token.target>token.commit||flick);
+    if (turning) settleTurn(token.completed?1:0);
     if(coverMotion?.drag) settleCover(cancelled?token.coverStart:token.target>.5?1:0);
     gesture=null;
     if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
@@ -1532,6 +1587,7 @@ function draw(now) {
   }
   if(controls.enabled) controls.update();
   else camera.lookAt(controls.target);
+  fitCameraDepth();
   const metrics=scenePhoto.render(scene,camera);
   diagnostics.frameCount++; diagnostics.drawCalls = metrics.calls; diagnostics.triangles = metrics.triangles;
   diagnostics.cachedPageTextures = textureCache.size;
@@ -1541,7 +1597,7 @@ function draw(now) {
 async function init() {
   renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false, powerPreference: 'high-performance' });
   configureLeatherFiltering(renderer.capabilities.getMaxAnisotropy());
-  renderer.setPixelRatio(Math.min(devicePixelRatio, readerHandset() ? 2 : 1.5));
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 3, Math.sqrt(3_000_000/(innerWidth*innerHeight))));
   renderer.setSize(innerWidth, innerHeight);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.NeutralToneMapping;
@@ -1553,7 +1609,7 @@ async function init() {
   controls = new OrbitControls(camera, canvas);
   controls.enabled=false;controls.enableRotate=false;controls.enablePan=false;controls.enableZoom=false;controls.enableDamping=false;
   controls.minPolarAngle = .001; controls.maxPolarAngle = Math.PI - .001;
-  controls.minDistance = .35; controls.maxDistance = 26; controls.rotateSpeed = .42;
+  controls.minDistance = .35; controls.maxDistance = editorMode ? 26 : 100; controls.rotateSpeed = .42;
   controls.target.set(0, .2, 0);
   const table = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), new THREE.ShadowMaterial({ opacity: .21 }));
   table.rotation.x = -Math.PI / 2; table.receiveShadow = true; scene.add(table);
@@ -1585,12 +1641,18 @@ async function init() {
   diagnostics.physicalLeaves = leafCounts[-1] + leafCounts[1] + 2;
   await setEnvironment(defaultEnvironment, 'Studio / softboxes');
   applyPrint(printIndex); resize(); connectUI();
+  await Promise.all([document.fonts.ready,...[printIndex-1,printIndex+1].filter(i=>bookContent.spreads[i]).map(openingTextures)]);
+  // Warm the held sheet too, before any gesture can trigger shader compilation.
+  for (const [i,material] of turnMaterials.entries()) {material.map=pageMaterials[i].map||blockAtlas;assignPageSurface(material,bookContent.spreads[printIndex].pages[i]);material.needsUpdate=true;}
+  const warm=new THREE.Mesh(topLeaves[1].geometry,turnMaterials);warm.castShadow=warm.receiveShadow=true;scene.add(warm);
+  await renderer.compileAsync(scene,camera);scene.remove(warm);
+  fitCameraDepth();scenePhoto.render(scene,camera);
+  await new Promise(requestAnimationFrame);
   diagnostics.ready = true;
   setReaderPresentation(presentationRequest.mode, presentationRequest.open);
   clearCheckpoint();
   if(embedded) parent.postMessage({type:'book-ready'},location.origin);
   emitReaderState(true);
-  renderer.compile(scene, camera);
   loading.style.opacity = '0'; setTimeout(() => { loading.hidden = true; }, 350);
   requestAnimationFrame(draw);
 }

@@ -1,61 +1,56 @@
 'use strict';
 (() => {
-  const root = document.documentElement;
-  const reduce = matchMedia('(prefers-reduced-motion: reduce)');
-  let intro, timer = 0, fade = 0, finished = false, leaving = false;
-  let previousFocus;
-  const suspended = [];
-  root.classList.add('portfolio-starting');
-
-  const close = () => {
-    if (finished) return;
-    finished = true;
-    clearTimeout(timer);
-    clearTimeout(fade);
-    clearTimeout(safety);
-    root.classList.remove('portfolio-starting');
-    if (intro) intro.hidden = true;
-    suspended.forEach(({element, inert}) => {element.inert = inert;});
-    document.removeEventListener('keydown', skip, true);
-    if (intro && (document.activeElement === document.body || document.activeElement === intro)) {
-      (previousFocus instanceof HTMLElement && previousFocus.isConnected ? previousFocus : document.querySelector('.folio'))?.focus({preventScroll:true});
-    }
+  const root=document.documentElement,reduce=matchMedia('(prefers-reduced-motion: reduce)');
+  root.classList.add('portfolio-starting');root.dataset.loadState='loading';
+  let intro,finished=false,previousFocus;
+  const suspended=[],en=()=>root.lang==='en';
+  let bookResolve,bookReject;
+  const bookReady=new Promise((resolve,reject)=>{bookResolve=resolve;bookReject=reject;});
+  bookReady.catch(()=>{});
+  addEventListener('message',event=>{
+    const frame=document.querySelector('#portfolio-book');
+    if(event.origin!==location.origin||event.source!==frame?.contentWindow)return;
+    if(event.data?.type==='book-ready')bookResolve();
+    if(event.data?.type==='book-failed')bookReject(Error('book'));
+  });
+  const close=()=>{
+    if(finished)return;finished=true;
+    root.classList.remove('portfolio-starting');intro.hidden=true;
+    suspended.forEach(({element,inert})=>{element.inert=inert;});
+    if(document.activeElement===intro||document.activeElement===document.body)
+      (previousFocus instanceof HTMLElement&&previousFocus.isConnected?previousFocus:document.querySelector('.folio'))?.focus({preventScroll:true});
   };
-  const leave = () => {
-    if (finished || leaving) return;
-    leaving = true;
-    clearTimeout(timer);
-    if (!intro || reduce.matches) return close();
-    intro.classList.add('is-leaving');
-    fade = setTimeout(close, 500);
-  };
-  const skip = event => {
-    if (!['Escape', 'Enter', ' '].includes(event.key)) return;
-    event.preventDefault();
-    event.stopImmediatePropagation();
-    leave();
-  };
-  // Even a missing image, slow font or interrupted page must release the site.
-  const safety = setTimeout(close, 4500);
-  window.addEventListener('pagehide', close, {once:true});
-  document.addEventListener('DOMContentLoaded', async () => {
-    if (finished) return;
-    intro = document.querySelector('.portfolio-intro');
-    if (!intro) return close();
-    previousFocus = document.activeElement;
-    document.querySelectorAll('.site-header,.folio').forEach(element => {
-      suspended.push({element, inert:element.inert});
-      element.inert = true;
+  document.addEventListener('DOMContentLoaded',async()=>{
+    intro=document.querySelector('.portfolio-intro');if(!intro)return;
+    previousFocus=document.activeElement;
+    document.querySelectorAll('.site-header,.folio').forEach(element=>{
+      suspended.push({element,inert:element.inert});element.inert=true;
     });
-    intro.hidden = false;
-    intro.addEventListener('click', leave, {once:true});
-    document.addEventListener('keydown', skip, true);
-    await Promise.race([
-      Promise.all([intro.querySelector('img').decode().catch(close), document.fonts.ready]),
-      new Promise(resolve => setTimeout(resolve, 700)),
-    ]);
-    if (finished || leaving) return;
-    intro.classList.add('is-ready');
-    timer = setTimeout(leave, reduce.matches ? 650 : 1800);
-  }, {once:true});
+    intro.hidden=false;intro.setAttribute('aria-busy','true');intro.classList.add('is-ready');
+    const status=intro.querySelector('[data-load-status]'),retry=intro.querySelector('[data-load-retry]');
+    status.textContent=en()?'Loading portfolio':'Загрузка портфолио';
+    retry.addEventListener('click',()=>location.reload());
+    let timeout;
+    try {
+      // Warm the site's image resources with bounded concurrency. Decode only
+      // the initial section now; large offscreen galleries remain evictable.
+      const files=[...new Set([...document.images].map(img=>img.currentSrc||img.src))];
+      files.push(new URL('./assets/denis-daragan-signature-20261009.png',location.href).href);
+      let cursor=0;
+      const worker=async()=>{while(cursor<files.length){const response=await fetch(files[cursor++],{cache:'force-cache'});if(!response.ok)throw Error('image');await response.arrayBuffer();}};
+      const first=document.getElementById(location.hash.slice(1))||document.querySelector('.sheet');
+      const initial=[...first.querySelectorAll('img')].map(img=>img.decode());
+      await Promise.race([
+        Promise.all([bookReady,document.fonts.ready,...initial,...Array.from({length:3},worker)]),
+        new Promise((_,reject)=>{timeout=setTimeout(()=>reject(Error('timeout')),45000);})
+      ]);
+      await new Promise(requestAnimationFrame);await new Promise(requestAnimationFrame);
+      root.dataset.loadState='ready';intro.setAttribute('aria-busy','false');
+      if(reduce.matches)close();else {intro.classList.add('is-leaving');setTimeout(close,300);}
+    } catch {
+      root.dataset.loadState='failed';intro.setAttribute('aria-busy','false');
+      status.textContent=en()?'Could not load the portfolio':'Не удалось загрузить портфолио';
+      retry.textContent=en()?'Retry':'Повторить';retry.hidden=false;
+    } finally {clearTimeout(timeout);}
+  },{once:true});
 })();

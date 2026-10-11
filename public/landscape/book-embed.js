@@ -48,9 +48,8 @@
     if(next!==reading) {
       reading=next;
       root.classList.toggle('book-reading',reading);
-      // The fixed reader has no document scroll range. Restore the book's
-      // section after leaving it, using its new height after a rotation.
-      if(!reading&&activeSection) window.scrollTo({top:sheet.offsetTop,behavior:'instant'});
+      if(!reading&&document.fullscreenElement===sheet)document.exitFullscreen().catch(()=>{});
+      // The parent pager restores the section after updating its viewport.
       document.dispatchEvent(new CustomEvent('book-reading-change',{detail:reading}));
     }
     syncEntry();
@@ -66,11 +65,18 @@
   }
   function leaveReader(focus=true) {
     engaged=false;sessionStarted=false;
+    if(document.fullscreenElement===sheet)document.exitFullscreen().catch(()=>{});
     syncPresentation();
     if(focus&&handset.matches&&activeSection) entry.focus({preventScroll:true});
   }
-  entry.addEventListener('click',()=>{engaged=true;syncPresentation();});
+  entry.addEventListener('click',()=>{
+    engaged=true;
+    if(landscape()&&document.fullscreenEnabled&&sheet.requestFullscreen)
+      sheet.requestFullscreen({navigationUI:'hide'}).catch(()=>{});
+    syncPresentation();
+  });
   exit.addEventListener('click',()=>leaveReader());
+  document.addEventListener('fullscreenchange',()=>{if(!document.fullscreenElement&&reading&&engaged)leaveReader(false);});
   document.addEventListener('folio-leave-book',()=>leaveReader(false));
   document.addEventListener('keydown',event=>{
     if(event.key==='Escape'&&engaged&&!hasParentModal()) {event.preventDefault();leaveReader();}
@@ -127,4 +133,6 @@
     }
   });
   syncPresentation(true);
+  // The initial screen waits for a rendered book, including non-book entry URLs.
+  if(!frame.hasAttribute('src'))frame.src=frame.dataset.src;
 })();

@@ -7,7 +7,10 @@
 .portfolio-intro-name span{display:block;margin-top:13px;font:12px/1.5 Liberation,Arial,sans-serif;letter-spacing:.14em}
 .portfolio-intro.is-ready .portfolio-intro-mark{animation:portfolio-orbit 5s linear infinite}
 .portfolio-intro.is-ready .portfolio-intro-name{animation:portfolio-name .85s ease .28s both}
-.portfolio-intro.is-leaving{opacity:0;pointer-events:none}
+.portfolio-intro.is-leaving{opacity:0;pointer-events:none;transition-duration:.3s}
+.portfolio-load-status,.portfolio-load-retry{font:11px/1.5 Liberation,Arial,sans-serif;letter-spacing:.04em;margin:0}
+.portfolio-load-retry{border:0;border-bottom:1px solid currentColor;background:none;padding:10px 4px;color:inherit;cursor:pointer}
+.portfolio-load-retry[hidden]{display:none}
 @keyframes portfolio-orbit{to{transform:rotate(-360deg)}}
 @keyframes portfolio-name{from{opacity:0}to{opacity:1}}
 @media(max-height:480px){.portfolio-intro-content{gap:22px}.portfolio-intro-mark{width:88px}.portfolio-intro-name{font-size:36px}}

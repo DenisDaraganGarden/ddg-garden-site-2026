@@ -26,12 +26,12 @@ html.native-scroll:has(.folio.is-paging){scroll-snap-type:none}
 .book-exit{position:absolute;z-index:4;top:max(8px,env(safe-area-inset-top));right:max(8px,env(safe-area-inset-right));width:44px;height:44px;display:grid;place-items:center;color:#202020;touch-action:manipulation}
 .book-preview .book-exit{top:calc(var(--header) + 8px)}
 /* Entering the book explicitly gives its page drag the whole viewport. */
-html.book-reading{height:100%;overflow:hidden;scroll-snap-type:none;overscroll-behavior:none}
-.book-reading body{position:fixed;inset:0;height:var(--viewport-height,100dvh);overflow:hidden;overscroll-behavior:none}
-.book-reading .folio{height:100%;overflow:hidden;touch-action:none;overscroll-behavior:none}
-.book-reading .sheet:not(.book-sheet){display:none}
-.book-reading .book-sheet{height:100%;scroll-snap-align:none;touch-action:none}
-.book-reading .book-sheet iframe{inset:0;height:100%;touch-action:none}
+html.book-reading{scroll-snap-type:none;overscroll-behavior:none}
+.book-reading .folio{touch-action:none;overscroll-behavior:none}
+.book-reading .book-sheet{scroll-snap-align:none;touch-action:none;z-index:40;overflow:visible}
+.book-reading .book-sheet iframe{position:fixed;inset:0;height:var(--viewport-height,100dvh);z-index:40;touch-action:none}
+.book-reading .book-exit{position:fixed;z-index:42}
+.book-sheet:fullscreen{height:100dvh;background:#fff}
 .book-reading .site-header,.book-reading .page-position{display:none}
 @media(pointer:coarse) and (orientation:landscape) and (max-height:600px){
   :root.native-scroll{--header-base:0px;--header:0px}
