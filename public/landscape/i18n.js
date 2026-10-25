@@ -257,6 +257,7 @@
     'Нажмите воспроизведение. Если файл не открывается, выберите другой.': 'Press play. If the file does not open, choose another one.',
     'Не удалось воспроизвести файл. Выберите другой аудиофайл.': 'Unable to play the file. Choose another audio file.',
   };
+  const korean = window.landscapeKorean || {};
   const fragments = {
     'Открыть проект: ': 'Open project: ',
     'Рассмотреть: ': 'View: ',
@@ -266,7 +267,10 @@
     ' / Денис Дараган': ' / Denis Daragan',
   };
   const pairs = Object.entries({...english, ...fragments}).sort((a, b) => b[0].length - a[0].length);
-  const reverse = new Map(Object.entries(english).map(([ru, en]) => [en, ru]));
+  const reverse = new Map([
+    ...Object.entries(english).map(([ru, en]) => [en, ru]),
+    ...Object.entries(korean).map(([ru, ko]) => [ko, ru]),
+  ]);
   const texts = new WeakMap();
   const attributes = new WeakMap();
   const translatedAttributes = ['aria-label', 'alt', 'title', 'placeholder', 'data-caption'];
@@ -276,11 +280,13 @@
 
   const preferred = () => {
     const query = new URL(location.href).searchParams.get('lang')?.toLowerCase();
-    if (query === 'ru' || query === 'en') return query;
-    try {return localStorage.getItem(storageKey) === 'en' ? 'en' : 'ru';} catch {return 'ru';}
+    if (['ru', 'en', 'ko'].includes(query)) return query;
+    try {const saved = localStorage.getItem(storageKey); return ['ru', 'en', 'ko'].includes(saved) ? saved : 'ru';} catch {return 'ru';}
   };
   const canonical = value => {
     if (reverse.has(value)) return reverse.get(value);
+    const koreanCount = value.match(/^작품 (\d+)점 표시$/);
+    if (koreanCount) return `Показано работ: ${koreanCount[1]}`;
     const count = value.match(/^Works shown: (\d+)$/);
     if (count) return `Показано работ: ${count[1]}`;
     const page = value.match(/^(.*), (\d+) (?:of|из) (\d+)$/);
@@ -294,15 +300,15 @@
   const translate = value => {
     const core = value.trim();
     if (!core || language === 'ru') return value;
-    let result = english[core];
+    let result = language === 'ko' ? korean[core] || english[core] : english[core];
     if (!result) {
       const count = core.match(/^Показано работ: (\d+)$/);
       const page = core.match(/^(.*), (\d+) из (\d+)$/);
-      if (count) result = `Works shown: ${count[1]}`;
+      if (count) result = language === 'ko' ? `작품 ${count[1]}점 표시` : `Works shown: ${count[1]}`;
       else if (page) result = `${translate(page[1])}, ${page[2]} of ${page[3]}`;
       else {
         result = core;
-        for (const [ru, en] of pairs) result = result.split(ru).join(en);
+        for (const [ru, en] of pairs) result = result.split(ru).join(language === 'ko' ? (korean[ru] || en) : en);
       }
     }
     return value.slice(0, value.indexOf(core)) + result + value.slice(value.indexOf(core) + core.length);
@@ -340,7 +346,7 @@
     while (walker.nextNode()) updateText(walker.currentNode);
   };
   const setLanguage = (next, save = true) => {
-    language = next === 'en' ? 'en' : 'ru';
+    language = ['en', 'ko'].includes(next) ? next : 'ru';
     document.documentElement.lang = language;
     document.querySelectorAll('[data-language]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.language === language)));
     refresh(document);
