@@ -3,7 +3,7 @@
   const root=document.documentElement,reduce=matchMedia('(prefers-reduced-motion: reduce)');
   root.classList.add('portfolio-starting');root.dataset.loadState='loading';
   let intro,finished=false,previousFocus;
-  const suspended=[],en=()=>root.lang==='en';
+  const suspended=[],en=()=>root.lang!=='ru';
   let bookResolve,bookReject;
   const bookReady=new Promise((resolve,reject)=>{bookResolve=resolve;bookReject=reject;});
   bookReady.catch(()=>{});
