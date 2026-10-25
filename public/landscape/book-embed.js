@@ -19,7 +19,7 @@
   let engaged=false, reading=false, sessionStarted=false, presentationKey='';
 
   const send=data=>frame.contentWindow?.postMessage(data,location.origin);
-  const language=()=>{send({type:'book-language',language:root.lang});syncEntry();};
+  const language=()=>{send({type:'book-language',language:root.lang==='ru'?'ru':'en'});syncEntry();};
   const hasParentModal=()=>Boolean(document.querySelector('dialog[open]'));
   const visible=()=>activeSection&&(intersecting||reading)&&!document.hidden&&!hasParentModal();
   const syncVisibility=(force=false)=>{
@@ -32,7 +32,7 @@
   const requestState=()=>send({type:'book-state-request',version:1});
   const landscape=()=>innerWidth>innerHeight;
   function syncEntry() {
-    const en=root.lang==='en', portrait=!landscape();
+    const en=root.lang!=='ru', portrait=!landscape();
     entry.hidden=!handset.matches||reading;
     entryTitle.textContent=engaged&&portrait ? (en?'Rotate your phone':'Поверните телефон') : (en?'Open portfolio':'Открыть портфолио');
     entryHint.textContent=portrait ? (engaged ? (en?'The portfolio will open in landscape':'Портфолио откроется в горизонтальном положении') : (en?'Best viewed with your phone in landscape':'Для просмотра поверните телефон горизонтально')) : '';
